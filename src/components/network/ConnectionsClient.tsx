@@ -1,46 +1,130 @@
 "use client";
 
 import { CONNECTION_COPY } from "@/lib/connections/copy";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { PersonCardContent } from "./PersonCardContent";
+import { personCardName } from "@/lib/network/person-card";
 import Link from "next/link";
-import { Ban, Check, ChevronDown, MapPin, MessageSquare, UserMinus, Users } from "lucide-react";
+import {
+    Ban,
+    Check,
+    ChevronDown,
+    MessageSquare,
+    UserMinus,
+    Users,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { SkillIcon } from "@/components/skills";
-import { UserAvatar } from "@/components/ui/UserAvatar";
-import { PERSON_CARD_TAGS, PersonCardGrid, PersonCardLayout } from "@/components/network/PersonCard";
-import { PersonCardSkeleton } from "@/components/network/PersonCardSkeleton";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
-import { useConnectionMutations, useConnections, type NetworkConnectionItem } from "@/hooks/useConnections";
-import { profileHref } from "@/lib/routing/identifiers";
-import { resolveClientSkill, useSkillCatalog } from "@/lib/skills/client";
-import { PersonPresenceDot } from "@/components/network/PersonPresenceDot";
-import { formatDistanceToNow } from "@/lib/utils/date";
-import { messageUserInWindow } from "@/components/messages/message-user";
-import { cn } from "@/lib/utils";
 
-export default function ConnectionsClient({ searchQuery }: { searchQuery: string }) {
-    const [sortBy, setSortBy] = useState<"recent" | "name">("recent");
-    const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useConnections(50, searchQuery || undefined, sortBy);
+import { PersonCardGrid } from "@/components/network/PersonCard";
+import { PersonCardSkeleton } from "@/components/network/PersonCardSkeleton";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+import {
+    useConnectionMutations,
+    useConnections,
+    type NetworkConnectionItem,
+} from "@/hooks/useConnections";
+import { profileHref } from "@/lib/routing/identifiers";
+
+import { messageUserInWindow } from "@/components/messages/message-user";
+import {
+    activeNetworkFilters,
+    networkPersonFilters,
+    normalizeNetworkQuery,
+    type NetworkBrowseQuery,
+} from "@/lib/network/browse-query";
+
+export default function ConnectionsClient({
+    searchQuery,
+    query: inputQuery,
+    onReset,
+    onReady,
+    onLoadingChange,
+}: {
+    searchQuery: string;
+    query?: NetworkBrowseQuery;
+    onReset?: () => void;
+    onReady?: () => void;
+    onLoadingChange?: (loading: boolean) => void;
+}) {
+    const query =
+        inputQuery ?? normalizeNetworkQuery("connections", { q: searchQuery });
+    const filtered = Boolean(query.q || activeNetworkFilters(query));
+    const {
+        data,
+        isLoading,
+        isFetching,
+        isPlaceholderData,
+        isError,
+        refetch,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage,
+        isFetchNextPageError,
+    } = useConnections(
+        50,
+        query.q || undefined,
+        query.sort === "name" ? "name" : "recent",
+        networkPersonFilters(query),
+    );
     const { disconnect, blockProfile } = useConnectionMutations();
-    const [pendingDisconnect, setPendingDisconnect] = useState<{ id: string; name: string } | null>(null);
-    const [pendingBlock, setPendingBlock] = useState<{ userId: string; name: string } | null>(null);
+
+    // Option C (Smart Perceptual Threshold): 0-150ms keeps cards at 100% brightness; >150ms renders skeleton
+    const isQueryTransition = (isFetching || isPlaceholderData) && !isFetchingNextPage;
+    const [showThresholdSkeleton, setShowThresholdSkeleton] = useState(false);
+
+    useEffect(() => {
+        onLoadingChange?.(isQueryTransition);
+    }, [isQueryTransition, onLoadingChange]);
+
+    useEffect(() => {
+        if (!isQueryTransition) {
+            setShowThresholdSkeleton(false);
+            return;
+        }
+        const timer = setTimeout(() => {
+            setShowThresholdSkeleton(true);
+        }, 150);
+        return () => clearTimeout(timer);
+    }, [isQueryTransition]);
+    const [pendingDisconnect, setPendingDisconnect] = useState<{
+        id: string;
+        name: string;
+    } | null>(null);
+    const [pendingBlock, setPendingBlock] = useState<{
+        userId: string;
+        name: string;
+    } | null>(null);
     const connections = useMemo(
-        () => (data?.pages.flatMap((page) => page.items) ?? []).filter((item) => Boolean(item.otherUser)),
+        () =>
+            (data?.pages.flatMap((page) => page.items) ?? []).filter((item) =>
+                Boolean(item.otherUser),
+            ),
         [data],
     );
 
     const handleDisconnect = useCallback(async () => {
         if (!pendingDisconnect) return;
         try {
-            await toast.promise(disconnect.mutateAsync(pendingDisconnect.id), {
-                loading: "Disconnecting...",
-                success: "Connection removed",
-                error: (error) => error instanceof Error ? error.message : "Failed to remove connection",
-            }).unwrap();
+            await toast
+                .promise(disconnect.mutateAsync(pendingDisconnect.id), {
+                    loading: "Disconnecting...",
+                    success: "Connection removed",
+                    error: (error) =>
+                        error instanceof Error
+                            ? error.message
+                            : "Failed to remove connection",
+                })
+                .unwrap();
         } catch {
             // Handled
         } finally {
@@ -51,11 +135,16 @@ export default function ConnectionsClient({ searchQuery }: { searchQuery: string
     const handleBlock = useCallback(async () => {
         if (!pendingBlock) return;
         try {
-            await toast.promise(blockProfile.mutateAsync(pendingBlock.userId), {
-                loading: CONNECTION_COPY.blocking,
-                success: `Blocked ${pendingBlock.name}`,
-                error: (error) => error instanceof Error ? error.message : CONNECTION_COPY.blockFailed,
-            }).unwrap();
+            await toast
+                .promise(blockProfile.mutateAsync(pendingBlock.userId), {
+                    loading: CONNECTION_COPY.blocking,
+                    success: `Blocked ${pendingBlock.name}`,
+                    error: (error) =>
+                        error instanceof Error
+                            ? error.message
+                            : CONNECTION_COPY.blockFailed,
+                })
+                .unwrap();
         } catch {
             // Handled
         } finally {
@@ -63,66 +152,98 @@ export default function ConnectionsClient({ searchQuery }: { searchQuery: string
         }
     }, [blockProfile, pendingBlock]);
 
-    if (isLoading && !data) {
+    const isInitialLoading = isLoading && !data;
+    useEffect(() => {
+        if (!isInitialLoading) onReady?.();
+    }, [isInitialLoading, onReady]);
+
+    const showSkeleton = isInitialLoading || showThresholdSkeleton || (connections.length === 0 && isQueryTransition);
+
+    if (showSkeleton) {
         return (
-            <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-2" aria-label="Loading connections">
-                <span className="sr-only" role="status">Loading connections…</span>
-                {[1, 2, 3, 4].map((item) => <PersonCardSkeleton key={item} />)}
+            <div
+                className="nb-person-card-grid grid grid-cols-1 gap-[14px] sm:grid-cols-2"
+                aria-label="Loading connections"
+            >
+                <span className="sr-only" role="status">
+                    Loading connections…
+                </span>
+                {[1, 2, 3, 4].map((item) => (
+                    <PersonCardSkeleton key={item} />
+                ))}
             </div>
         );
     }
 
-    if (connections.length === 0) {
+    if (isError && !data)
+        return (
+            <div role="alert" className="nb-compact">
+                Connections could not be loaded.{" "}
+                <button
+                    onClick={() => void refetch()}
+                    className="text-primary hover:underline"
+                >
+                    Retry
+                </button>
+            </div>
+        );
+    if (connections.length === 0 && !hasNextPage) {
         return (
             <EmptyState
                 icon={Users}
-                title={searchQuery ? "No connections match your search." : "Your connections live here"}
-                description={searchQuery ? "Try a different name, skill, or location." : "People you connect with will appear here."}
-                action={!searchQuery ? <Link href="/network?tab=suggested" className="text-sm max-md:text-[13px] font-medium text-primary hover:underline">Find people to connect with</Link> : undefined}
+                title={
+                    filtered
+                        ? "No connections match your search or filters."
+                        : "Your connections live here"
+                }
+                description={
+                    filtered
+                        ? "Try a different name, skill, location, or filter."
+                        : "People you connect with will appear here."
+                }
+                action={
+                    filtered && onReset ? (
+                        <button
+                            className="text-primary hover:underline"
+                            onClick={onReset}
+                        >
+                            Reset search and filters
+                        </button>
+                    ) : !filtered ? (
+                        <Link
+                            href="/network?tab=suggested"
+                            className="text-sm max-md:text-[13px] font-medium text-primary hover:underline"
+                        >
+                            Find people to connect with
+                        </Link>
+                    ) : undefined
+                }
             />
         );
     }
 
     return (
         <>
-            <div className="mb-3 flex items-center justify-between">
-                <span className="nb-micro text-muted-foreground">{connections.length} connections</span>
-                <div className="flex items-center gap-1 text-xs">
-                    <span className="text-muted-foreground">Sort:</span>
-                    <button
-                        type="button"
-                        onClick={() => setSortBy("recent")}
-                        className={cn(
-                            "rounded px-2 py-1 transition-colors",
-                            sortBy === "recent" ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"
-                        )}
-                    >
-                        Recent
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setSortBy("name")}
-                        className={cn(
-                            "rounded px-2 py-1 transition-colors",
-                            sortBy === "name" ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"
-                        )}
-                    >
-                        Name
-                    </button>
-                </div>
-            </div>
+            <p className="nb-meta mb-3 text-muted-foreground" role="status">
+                {connections.length} connections shown
+            </p>
             <PersonCardGrid
                 items={connections}
                 getKey={(connection) => connection.id}
                 hasNextPage={Boolean(hasNextPage)}
                 isFetchingNextPage={isFetchingNextPage}
+                isFetchNextPageError={isFetchNextPageError}
                 fetchNextPage={fetchNextPage}
                 loadingLabel="Loading more connections"
                 renderItem={(connection) => (
                     <ConnectionCard
                         connection={connection}
-                        onDisconnect={(id, name) => setPendingDisconnect({ id, name })}
-                        onBlock={(userId, name) => setPendingBlock({ userId, name })}
+                        onDisconnect={(id, name) =>
+                            setPendingDisconnect({ id, name })
+                        }
+                        onBlock={(userId, name) =>
+                            setPendingBlock({ userId, name })
+                        }
                     />
                 )}
             />
@@ -130,7 +251,11 @@ export default function ConnectionsClient({ searchQuery }: { searchQuery: string
             <ConfirmDialog
                 open={Boolean(pendingDisconnect)}
                 onOpenChange={(open) => !open && setPendingDisconnect(null)}
-                title={pendingDisconnect ? `Remove connection with ${pendingDisconnect.name}?` : "Remove connection?"}
+                title={
+                    pendingDisconnect
+                        ? `Remove connection with ${pendingDisconnect.name}?`
+                        : "Remove connection?"
+                }
                 description="They will not be notified, but you will no longer see each other's connection updates."
                 confirmLabel="Disconnect"
                 variant="destructive"
@@ -141,7 +266,11 @@ export default function ConnectionsClient({ searchQuery }: { searchQuery: string
             <ConfirmDialog
                 open={Boolean(pendingBlock)}
                 onOpenChange={(open) => !open && setPendingBlock(null)}
-                title={pendingBlock ? `Block ${pendingBlock.name}?` : "Block profile?"}
+                title={
+                    pendingBlock
+                        ? `Block ${pendingBlock.name}?`
+                        : "Block profile?"
+                }
                 description="They will not be able to view your profile, send you messages, or invite you to projects."
                 confirmLabel="Block"
                 variant="destructive"
@@ -161,106 +290,68 @@ function ConnectionCard({
     onDisconnect: (id: string, name: string) => void;
     onBlock: (userId: string, name: string) => void;
 }) {
-    useSkillCatalog();
     const user = connection.otherUser;
     if (!user) return null;
-    const displayName = user.fullName || user.username || "NetworkBase member";
-    const skills = user.skills ?? [];
-    const visibleSkills = skills.length <= 4 ? skills : skills.slice(0, 3);
-    const hiddenSkills = skills.length <= 4 ? [] : skills.slice(3);
-    const headline = user.headline?.trim();
-
+    const displayName = personCardName(user);
     return (
-        <PersonCardLayout
-            avatar={
-                <Link href={profileHref(user)} tabIndex={-1} aria-hidden="true" className="relative shrink-0 rounded-md focus-visible:outline-none">
-                    <UserAvatar identity={user} size={48} fallbackClassName="text-base font-semibold" />
-                    <PersonPresenceDot userId={user.id} lastActiveAt={user.lastActiveAt} />
-                </Link>
-            }
-            head={
-                <Link href={profileHref(user)} className="block min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    <h3 className="nb-person-name truncate text-foreground" title={displayName}>{displayName}</h3>
-                </Link>
-            }
-            location={user.location ? <p className="nb-meta mt-1 flex min-w-0 items-center gap-1" title={user.location}><MapPin className="size-3.5 shrink-0" aria-hidden="true" /><span className="min-w-0 truncate">{user.location}</span></p> : null}
-            meta={[
-                <p key="connected" className="nb-meta mt-1 truncate">Connected {formatDistanceToNow(new Date(connection.updatedAt), { addSuffix: true })}</p>,
-            ]}
-            headline={headline ? <p className="nb-compact truncate text-muted-foreground" title={headline}>{headline}</p> : null}
-            body={skills.length ? (
-                <div className="flex min-w-0 flex-wrap items-center gap-1.5" role="group" aria-label="Skills">
-                    {visibleSkills.map((skillName) => {
-                        const skill = resolveClientSkill(skillName);
-                        return (
-                            <span key={skill.canonicalKey} className="nb-tag border-border bg-card text-secondary-foreground">
-                                <SkillIcon skill={skill} size={14} />
-                                {skill.name}
-                            </span>
-                        );
-                    })}
-                    {hiddenSkills.length > 0 ? (
-                        <TooltipProvider delayDuration={150}>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <span
-                                        tabIndex={0}
-                                        role="note"
-                                        aria-label={`${hiddenSkills.length} more skills: ${hiddenSkills.join(", ")}`}
-                                        className="nb-tag cursor-default border-border bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors font-medium text-[11px]"
-                                    >
-                                        +{hiddenSkills.length}
-                                    </span>
-                                </TooltipTrigger>
-                                <TooltipContent
-                                    side="top"
-                                    align="start"
-                                    className="max-w-xs p-2.5 rounded-lg border border-border bg-popover text-popover-foreground shadow-md"
-                                >
-                                    <div className="text-[11px] font-semibold text-muted-foreground mb-1.5">
-                                        More skills ({hiddenSkills.length})
-                                    </div>
-                                    <div className="flex flex-wrap gap-1">
-                                        {hiddenSkills.map((skillName) => {
-                                            const skill = resolveClientSkill(skillName);
-                                            return (
-                                                <span
-                                                    key={skill.canonicalKey}
-                                                    className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] text-foreground"
-                                                >
-                                                    <SkillIcon skill={skill} size={12} />
-                                                    {skill.name}
-                                                </span>
-                                            );
-                                        })}
-                                    </div>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    ) : null}
-                </div>
-            ) : null}
-            aside={
+        <PersonCardContent
+            person={user}
+            connected
+            acceptedAt={connection.acceptedAt}
+            requestedAt={connection.createdAt}
+            action={
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <button type="button" className="nb-touch-target inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-sm max-md:text-[13px] font-medium text-foreground hover:bg-muted" aria-label={`Connection actions for ${displayName}`}>
-                            <Check className="size-4 text-[var(--status-success)]" aria-hidden="true" />
+                        <button
+                            type="button"
+                            className="nb-touch-target inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-sm max-md:text-[13px] font-medium text-foreground hover:bg-muted"
+                            aria-label={`Connection actions for ${displayName}`}
+                        >
+                            <Check
+                                className="size-4 text-[var(--status-success)]"
+                                aria-hidden="true"
+                            />
                             <span className="max-sm:sr-only">Connected</span>
-                            <ChevronDown className="size-3.5 text-muted-foreground" aria-hidden="true" />
+                            <ChevronDown
+                                className="size-3.5 text-muted-foreground"
+                                aria-hidden="true"
+                            />
                         </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                         {user.canSendMessage ? (
                             <>
                                 <DropdownMenuItem asChild>
-                                    <Link href={`/messages?userId=${user.id}`} onClick={(event) => messageUserInWindow(user.id, event)}><MessageSquare className="size-4" />Message</Link>
+                                    <Link
+                                        href={`/messages?userId=${user.id}`}
+                                        onClick={(event) =>
+                                            messageUserInWindow(user.id, event)
+                                        }
+                                    >
+                                        <MessageSquare className="size-4" />
+                                        Message
+                                    </Link>
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                             </>
                         ) : null}
-                        <DropdownMenuItem onClick={() => onDisconnect(connection.id, displayName)} variant="destructive"><UserMinus className="size-4" />Disconnect</DropdownMenuItem>
+                        <DropdownMenuItem
+                            onClick={() =>
+                                onDisconnect(connection.id, displayName)
+                            }
+                            variant="destructive"
+                        >
+                            <UserMinus className="size-4" />
+                            Disconnect
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => onBlock(user.id, displayName)} variant="destructive"><Ban className="size-4" />Block profile</DropdownMenuItem>
+                        <DropdownMenuItem
+                            onClick={() => onBlock(user.id, displayName)}
+                            variant="destructive"
+                        >
+                            <Ban className="size-4" />
+                            Block profile
+                        </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             }

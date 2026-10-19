@@ -1,41 +1,12 @@
 'use client'
 
-import { useId, useState, type ReactNode } from 'react'
-import Link from 'next/link'
+import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { Link2, Sparkles } from 'lucide-react'
+import { Link2 } from 'lucide-react'
+import { RailSection } from '@/components/ui/rail-section'
 import { normalizeProfile } from '@/lib/utils/normalize-profile'
 import { normalizeSocialLinks as normalizeSocialLinksShared } from '@/lib/profile/normalization'
 import { SocialPresenceIcon } from '@/components/profile/SocialPresenceIcon'
-
-function RailCard({
-    title,
-    icon,
-    children,
-    className,
-    id,
-}: {
-    title: string
-    icon?: ReactNode
-    children: ReactNode
-    className?: string
-    id?: string
-}) {
-    const headingId = useId()
-    return (
-        <section
-            aria-labelledby={headingId}
-            id={id}
-            className={cn('rounded-lg border border-border bg-card text-card-foreground shadow-none', className)}
-        >
-            <div className="px-5 py-4 max-md:px-4 max-md:py-3.5 border-b border-border flex items-center gap-2">
-                {icon ? <span className="text-muted-foreground [&_svg]:size-[18px]">{icon}</span> : null}
-                <h2 id={headingId} className="nb-card-title text-foreground">{title}</h2>
-            </div>
-            <div className="px-5 py-4 max-md:px-4">{children}</div>
-        </section>
-    )
-}
 
 export function ProfileRightRail({
     profile,
@@ -66,8 +37,8 @@ export function ProfileRightRail({
 
     return (
         <>
-            <RailCard title="Links" icon={<Link2 className="w-4 h-4" />}>
-                {links.length ? (
+            {links.length > 0 ? (
+                <RailSection title="Links" contentClassName="px-5 max-md:px-4">
                     <div className={cn("grid gap-2 max-md:grid-cols-1", links.length > 4 ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2")}>
                         {visibleLinks.map((l) => (
                             <div key={l.id || l.canonicalKey} className="min-w-0">
@@ -100,26 +71,12 @@ export function ProfileRightRail({
                             </button>
                         ) : null}
                     </div>
-                ) : (
-                    <div className="nb-body text-muted-foreground">
-                        {isOwner && onEditSection ? (
-                            <button
-                                type="button"
-                                onClick={() => onEditSection('social')}
-                                className="nb-ui-label text-primary hover:text-primary/80 transition-colors max-md:inline-flex max-md:min-h-11 max-md:items-center"
-                            >
-                                Add your first link
-                            </button>
-                        ) : (
-                            'No links added yet.'
-                        )}
-                    </div>
-                )}
-            </RailCard>
+                </RailSection>
+            ) : null}
 
             {isOwner ? (
                 // Phones get the completion prompt in the profile header instead (spec §17).
-                <RailCard title="Profile Completeness" icon={<Sparkles className="w-4 h-4" />} className="max-md:hidden">
+                <RailSection title="Profile completeness" className="max-md:hidden" contentClassName="px-5 max-md:px-4">
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
                             <span className="nb-compact text-muted-foreground">Completion</span>
@@ -152,7 +109,7 @@ export function ProfileRightRail({
                             </p>
                         ) : null}
                     </div>
-                </RailCard>
+                </RailSection>
             ) : null}
         </>
     )

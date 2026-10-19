@@ -1,0 +1,99 @@
+{
+  "id": "2026-10-16-person-cards",
+  "title": "Approved person cards across Network and Discover",
+  "summary": "Implement the approved fixed-size, permission-aware person-card design with saved collaboration, published portfolio evidence, measured skills and relationship footers, retaining existing mutation handlers and page/message layouts.",
+  "riskLevel": "high",
+  "runtimePlanes": [
+    "request",
+    "database"
+  ],
+  "routeClasses": [
+    "user_shell",
+    "active_surface"
+  ],
+  "dataSourcesChanged": [
+    "One bounded optional metadata batch per returned feed/application page: saved availability, canonical public skills (legacy saved profile labels only when no assignments exist), public contribution portfolio and live permitted mutuals.",
+    "On-demand paged shared-person read revalidates target access.",
+    "Add nullable connections.accepted_at with a transition trigger; preserve unknown historical dates. No existing connection history is rewritten."
+  ],
+  "canonicalLogicDomains": [
+    "connection_feed",
+    "profile_display",
+    "relationship_actions",
+    "status_lifecycle"
+  ],
+  "concurrencyRisk": "Keep sort/cursor keys and existing relationship transactions. Resolve optional metadata for the bounded result page, exclude blocked/deleted/self recommendations, mask locked metadata, recheck target access after shared-person reads, lock duplicate decisions, propagate failed Connect results and retain review failures. Capture acceptance at the database transition for single/bulk writers, prevent later edits from changing it, clear it when the relationship ends. Preserve unknown on read failures. No per-card polling, timer dates or Messages changes.",
+  "observability": {
+    "logs": [
+      "connections.card_details_failed",
+      "connections.shared_people_failed"
+    ],
+    "metrics": [
+      "Existing connections.feed.action duration"
+    ],
+    "alerts": []
+  },
+  "rollback": {
+    "strategy": "Revert only this presentation/projection change set. Keep the additive nullable timestamp column/trigger and recorded migration; do not erase relationship data or reset pre-existing workspace changes.",
+    "validation": [
+      "Existing connection and application actions still work",
+      "No private portfolio or skill edges leak",
+      "Unknown legacy dates still render Connected"
+    ]
+  },
+  "evidence": {
+    "commands": [
+      "npm run build",
+      "npx tsc --noEmit",
+      "npx eslint <changed TypeScript files>",
+      "npx tsx --test tests/unit/person-card.test.ts tests/unit/connections-feed-performance.test.ts tests/unit/person-card-bounds.test.ts tests/unit/discovery-people-rail-contract.test.ts",
+      "DATABASE_URL_FRESH=<disposable> npx tsx --test --test-concurrency=1 tests/db/person-card.test.ts tests/db/connections-paging.test.ts",
+      "npx playwright test -c tests/browser/playwright.config.ts person-card.spec.ts --project=chromium --project=webkit",
+      "npx playwright test -c tests/browser/playwright.config.ts rails.spec.ts --project=chromium --project=webkit",
+      "npm run check:query-key-contract",
+      "npm run check:impact-review",
+      "npm run check:db:migration-sources",
+      "npm run check:db:migration-journal"
+    ],
+    "reports": [
+      "docs/audits/person-cards-2026-10-16.md"
+    ]
+  },
+  "paths": [
+    "src/lib/network/person-card.ts",
+    "src/lib/network/person-card-read.ts",
+    "src/components/network/PersonCardContent.tsx",
+    "src/components/network/PersonCardReview.tsx",
+    "src/components/network/PersonCard.tsx",
+    "src/components/network/PersonCardSkeleton.tsx",
+    "src/components/network/ConnectionsClient.tsx",
+    "src/components/network/InvitationsClient.tsx",
+    "src/components/network/NetworkPeopleTab.tsx",
+    "src/components/discover/DiscoverPeopleRail.tsx",
+    "src/app/actions/connections.ts",
+    "src/app/actions/applications/internal.ts",
+    "src/hooks/useConnections.ts",
+    "src/lib/connections/shared.ts",
+    "src/lib/db/schema/index.ts",
+    "src/app/globals.css",
+    "drizzle/0219_connection_acceptance_time.sql",
+    "drizzle/meta/_journal.json",
+    "standards/sql-governance.manifest.json",
+    "tests/browser/person-card.fixture.tsx",
+    "tests/browser/person-card.spec.ts",
+    "tests/browser/playwright.config.ts",
+    "tests/browser/rails.fixture.tsx",
+    "tests/browser/rails.spec.ts",
+    "tests/unit/person-card.test.ts",
+    "tests/unit/discovery-people-rail-contract.test.ts",
+    "tests/db/person-card.test.ts",
+    "tests/db/connections-paging.test.ts",
+    "docs/design/networkbase-application-design-specification.html",
+    "scripts/check-canonical-logic-contract.ts",
+    "tests/unit/canonical-logic-contract.test.ts",
+    "tests/unit/person-avatar-tone.test.ts",
+    "tests/unit/skills-ecosystem-contract.test.ts",
+    "tests/unit/topnav-contract.test.ts",
+    "tests/unit/discover-round2.test.ts"
+  ]
+}

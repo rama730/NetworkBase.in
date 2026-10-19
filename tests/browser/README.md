@@ -27,3 +27,27 @@ npx playwright test --config tests/browser/playwright.config.ts --project chromi
 Firefox could not launch on this host: it reports a macOS sandbox-extension
 error and times out before a page opens. Its suite remains enabled for runs
 on a host where the browser starts successfully.
+
+## Messaging metadata and URL checks
+
+The messaging suite executes production route metadata generators, the URL/history
+hook, title prefixes, upload requests and media recovery with isolated framework
+and backend substitutes. It requires no credentials or production database:
+
+```sh
+npx playwright test --config tests/browser/playwright.config.ts messaging.spec.ts --project chromium --project webkit
+```
+
+These fixtures complement the real disposable-Postgres tests in
+`tests/db/messaging-metadata.test.ts`; they do not replace authenticated
+Next/Supabase end-to-end acceptance.
+
+
+Profile collaboration: `npx playwright test -c tests/browser/playwright.config.ts profile.spec.ts --project=chromium --project=webkit`.
+These scenarios render the production profile, editor and connections modal with substituted backend calls. They cover saved availability, draft/discard, correct tab navigation, custom roles, paging/search, mobile layout, save failures, concurrent-edit review and visitor privacy. They do not use account credentials or a database.
+
+Contextual rails: `npx playwright test -c tests/browser/playwright.config.ts rails.spec.ts --project=chromium --project=webkit`.
+These checks render the production profile and project Dashboard rail components
+against the application stylesheet and fonts, with isolated action/query data.
+They cover Discover heading parity, desktop/mobile placement, owner/visitor and
+empty states, role actions, Journey controls and activity loading/retry.

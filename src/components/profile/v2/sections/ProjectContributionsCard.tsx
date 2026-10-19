@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Briefcase, EyeOff, FolderGit2, Github, Globe, Pencil, Plus } from 'lucide-react'
+import { EyeOff, FolderGit2, Github, Globe, Pencil, Plus } from 'lucide-react'
 import Link from 'next/link'
 import { Card } from './Card'
 import type { ProfileCollaborationContribution, ProfileCollaborationRoleStage } from '@/lib/profile/collaboration'
@@ -71,7 +71,6 @@ export function ProjectContributionsCard({
     return (
         <Card
             title="Project Contributions"
-            icon={<Briefcase className="h-5 w-5" />}
             onAdd={onAdd}
             addLabel="Add project contribution"
             action={isOwner && onAdd ? (

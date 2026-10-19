@@ -1,0 +1,84 @@
+{
+  "id": "2026-10-15-profile-edit-page",
+  "title": "Dedicated owner profile editor with section tabs and draft navigation protection",
+  "summary": "Replace the edit-profile dialog with /my-profile/edit in the existing main application shell. Reuse the profile form, image upload, validation, versioned updates, contribution paging and partial-save handling. Profile edit icons route to allowlisted sections; tabs retain one draft and update the URL without server round trips. Preserve unsaved work across canceled Back, sidebar and global-search navigation; keep editor actions accessible on narrow screens. Desktop sections use a vertical left navigation column beside the form, with responsive keyboard orientation and wrapped navigation on narrow screens. Remove the redundant visible editor header, reuse the main sidebar width and navigation sizing, add a workspace-style Edit profile heading with a divider below it above the sections, and keep a slim plain action row within the right form column. Suppress the floating chat launcher on the editor route to keep Save accessible. Audit all editor sections against the design tokens: normalize typography/casing, squared filters, semantic status colors, density spacing and controls, and form-container reflow; reuse canonical profile URLs and associate field hints. Correct shared skills-control typography and touch targets at their existing source.",
+  "riskLevel": "high",
+  "runtimePlanes": [
+    "request"
+  ],
+  "routeClasses": [
+    "user_shell",
+    "active_surface"
+  ],
+  "dataSourcesChanged": [
+    "Existing authenticated owner getProfileDetails projection with recordViewEvent disabled",
+    "Existing profile/contribution actions and their optimistic-version checks, unchanged",
+    "Existing in-memory editor draft and profile query invalidation",
+    "Browser navigation/history events and an opt-in cancelable event for existing global search navigation"
+  ],
+  "canonicalLogicDomains": [
+    "profile_display",
+    "identity_avatar"
+  ],
+  "concurrencyRisk": "The server resolves the current authenticated owner and never accepts a target user ID in the route. Sections and profile return destinations are allowlisted. One mount-scoped draft survives tab switches and same-owner refreshes; asynchronous contribution loads use a generation bound and discard late results after unmount. Existing expectedUpdatedAt/contribution versions, conflict recovery and partial-save behavior remain. Saves prevent duplicate actions and navigation during the request. A layout-effect snapshot gives leave handlers the committed draft before the next event. Native traversal cancellation runs before router unmount where supported; engines that already changed entry use popstate restoration with their original framework state. No router/history patch, synthetic sentinel or persisted private draft is introduced. Account mismatch masks editing and saves require the matching actor. Global search requests the same leave check before route navigation or closing its picker.",
+  "observability": {
+    "logs": [
+      "Existing profile and contribution action logs"
+    ],
+    "metrics": [],
+    "alerts": []
+  },
+  "rollback": {
+    "strategy": "Revert the dedicated editor route, client navigation entry points, editor presentation and scoped navigation guard; restore the previous editor component and its callers without discarding unrelated workspace changes. No data or schema rollback is needed.",
+    "validation": [
+      "Authenticated owner-only read and existing server-side write authorization remain intact",
+      "Profile and contribution save/conflict behavior is preserved",
+      "Existing main navigation, profile actions and Messages design retain their behavior",
+      "Unsaved changes are not silently discarded by tested navigation paths"
+    ]
+  },
+  "evidence": {
+    "commands": [
+      "npx tsc --noEmit",
+      "npx eslint <changed profile editor, navigation, route and test files>",
+      "npx tsx --test tests/unit/profile-edit-route.test.ts tests/unit/profile-role-layout-contract.test.ts tests/unit/profile-collaboration.test.ts tests/unit/profile-contribution-visibility-contract.test.ts",
+      "npx playwright test --config tests/browser/playwright.config.ts profile.spec.ts --project=chromium --project=webkit",
+      "NEXT_DIST_DIR=.next-profile-edit-page-check npm run build",
+      "npm run check:profile-contributions",
+      "npm run check:query-key-contract",
+      "npm run check:global-search-contract",
+      "npm run check:canonical-logic-contract",
+      "npm run check:scroll-contract",
+      "npm run check:impact-review"
+    ],
+    "reports": [
+      "docs/audits/profile-edit-page-2026-10-15.md",
+      "docs/audits/profile-edit-design-conformance-2026-10-15.md"
+    ]
+  },
+  "paths": [
+    "src/app/(site)/(main)/my-profile/edit",
+    "src/components/profile/edit",
+    "src/components/profile/v2/ProfileV2Client.tsx",
+    "src/components/layout/AppSidebar.tsx",
+    "src/components/messages/chat-window-store.ts",
+    "src/components/messages/ChatLauncher.tsx",
+    "tests/unit/chat-phase4-cut.test.ts",
+    "src/components/layout/header/GlobalSearch.tsx",
+    "src/components/layout/header/CommandPalette.tsx",
+    "src/lib/profile/edit-route.ts",
+    "src/lib/navigation/confirm-navigation.ts",
+    "scripts/check-profile-contribution-contract.ts",
+    "scripts/check-query-key-contract.ts",
+    "tests/browser/profile.fixture.tsx",
+    "tests/browser/profile.spec.ts",
+    "tests/unit/profile-edit-route.test.ts",
+    "tests/unit/profile-contribution-visibility-contract.test.ts",
+    "tests/unit/profile-role-layout-contract.test.ts",
+    "src/lib/performance/page-contract.ts",
+    "scripts/check-scroll-contract.ts",
+    "src/components/skills/SkillPicker.tsx",
+    "src/components/skills/SkillChip.tsx",
+    "docs/design/networkbase-application-design-specification.html"
+  ]
+}

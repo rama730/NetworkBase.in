@@ -26,17 +26,17 @@ test("People lazily loads inactive tabs and has a route-level loading shell", ()
   const invitations = source("src/components/network/InvitationsClient.tsx");
   const loading = source("src/components/network/NetworkRouteSkeleton.tsx");
 
-  assert.match(hub, /const loadPeopleClient = \(\) => import\("@\/components\/network\/NetworkPeopleTab"\)/);
-  assert.match(hub, /const loadConnectionsClient = \(\) => import\("@\/components\/network\/ConnectionsClient"\)/);
-  assert.match(hub, /const loadInvitationsClient = \(\) => import\("@\/components\/network\/InvitationsClient"\)/);
-  assert.match(hub, /dynamic\(loadPeopleClient/);
+  assert.match(hub, /import NetworkPeopleTab from "@\/components\/network\/NetworkPeopleTab"/);
+  assert.match(hub, /const loadConnectionsClient = \(\) =>\s*import\("@\/components\/network\/ConnectionsClient"\)/);
+  assert.match(hub, /const loadInvitationsClient = \(\) =>\s*import\("@\/components\/network\/InvitationsClient"\)/);
   assert.match(hub, /dynamic\(loadConnectionsClient/);
   assert.match(hub, /dynamic\(loadInvitationsClient/);
-  assert.match(hub, /onMouseEnter=\{\(\) => preloadTab\(tab\.key\)\}/);
-  assert.doesNotMatch(hub, /import NetworkPeopleTab from/);
+  assert.match(hub, /onMouseEnter=\{\(\) =>\s*preloadTab\(tab\.key\)\s*\}/);
   assert.match(hub, /pendingConnections \+ pendingInvites/);
-  assert.match(invitations, /getIncomingApplicationsAction\(\{ limit: 50 \}\)/);
-  assert.match(invitations, /invitation\.isInvitation/);
+  assert.match(invitations, /useInfiniteQuery\(/);
+  assert.match(invitations, /readNetworkInvitationsAction\(/);
+  assert.match(invitations, /getNextPageParam/);
+  assert.doesNotMatch(invitations, /getIncomingApplicationsAction|getSentProjectInvitationsAction/);
   assert.match(invitations, /resolveProjectInvitationAction/);
   assert.match(loading, /aria-label="Loading network"/);
 });

@@ -19,6 +19,7 @@ import ProjectCardSkeleton from '@/components/projects/ProjectCardSkeleton';
 import DiscoverHeader from '@/components/discover/DiscoverHeader';
 import { DiscoverFiltersPanel } from '@/components/discover/DiscoverFiltersPanel';
 import { DiscoverPeopleRail } from '@/components/discover/DiscoverPeopleRail';
+import { DiscoverRail } from '@/components/discover/DiscoverRail';
 import { ProfileChecklist, useProfileChecklistItems } from '@/components/discover/ProfileChecklist';
 import { LegalLinks } from '@/components/legal/LegalLinks';
 import { AppScrollArea } from '@/components/ui/AppScrollArea';
@@ -27,7 +28,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorNotice } from '@/components/ui/ErrorNotice';
 import { FILTER_VIEWS, SORT_OPTIONS } from '@/constants/discover';
 import { ROUTES } from '@/constants/routes';
-import { DISCOVER_RAIL_FILTERS, type DiscoverQuery } from '@/lib/discover/query';
+import { DISCOVER_RAIL_FILTERS, DISCOVER_RAIL_PEOPLE_LIMIT, type DiscoverQuery } from '@/lib/discover/query';
 import type { User, Project } from '@/types/discover';
 import { queryKeys } from '@/lib/query-keys';
 import type { ConnectionFeedPage, DiscoverConnectionItem } from '@/hooks/useConnections';
@@ -116,7 +117,7 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
 
     // ---- The rail: shown only at 1200px+ and only with something in it (people or the checklist).
     const wide = useMediaQuery('(min-width: 1200px)');
-    const suggestions = useSuggestedPeople(3, undefined, DISCOVER_RAIL_FILTERS, initialPeopleSuggestions, false);
+    const suggestions = useSuggestedPeople(DISCOVER_RAIL_PEOPLE_LIMIT, undefined, DISCOVER_RAIL_FILTERS, initialPeopleSuggestions, false, true);
     const hasPeople = Boolean(viewerId) && (suggestions.isLoading || (suggestions.data?.pages[0]?.items.length ?? 0) > 0 || suggestions.isError);
     const checklist = useProfileChecklistItems(viewerId);
     // Before hydration knows the width, CSS decides (the rail column is hidden below 1200px).
@@ -142,6 +143,21 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
         isPlaceholderData,
         refetch,
     } = useDiscoverProjects(viewerId, filters, view, isDefault, initialProjectsPage);
+
+    // Option C (Smart Perceptual Threshold): 0-150ms keeps cards at 100% brightness; >150ms renders skeleton
+    const isQueryTransition = (isFetching || isPlaceholderData) && !isFetchingNextPage;
+    const [showThresholdSkeleton, setShowThresholdSkeleton] = useState(false);
+
+    useEffect(() => {
+        if (!isQueryTransition) {
+            setShowThresholdSkeleton(false);
+            return;
+        }
+        const timer = setTimeout(() => {
+            setShowThresholdSkeleton(true);
+        }, 150);
+        return () => clearTimeout(timer);
+    }, [isQueryTransition]);
 
     // Pages can overlap when projects arrive between requests: each project once.
     const allProjects = useMemo(() => {
@@ -296,7 +312,8 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
     })();
 
     const firstPageError = error && visibleProjects.length === 0;
-    const feed = isLoading && !data ? (
+    const showSkeleton = (isLoading && !data) || showThresholdSkeleton || (visibleProjects.length === 0 && isQueryTransition);
+    const feed = showSkeleton ? (
         <FeedSkeleton />
     ) : firstPageError ? (
         error instanceof DiscoverFeedError && error.code === 'VALIDATION' ? (
@@ -311,8 +328,7 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
     ) : visibleProjects.length === 0 ? (
         emptyState
     ) : (
-        // While a new scope or filter loads, the last results stay, dimmed.
-        <div aria-busy={isPlaceholderData || undefined} className={isPlaceholderData ? 'opacity-60 transition-opacity duration-[130ms]' : undefined}>
+        <div aria-busy={isQueryTransition || undefined}>
             {scrollContainer ? (
                 <Virtuoso
                     customScrollParent={scrollContainer}
@@ -355,6 +371,7 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
                                 query={urlFilters}
                                 activeFilters={activeFilters}
                                 announcement={announcement}
+                                loading={isQueryTransition}
                                 onChange={updateUrlFilters}
                                 onClearFilters={() => clearFilters({ keepSearch: true })}
                                 onOpenFilters={() => {
@@ -372,11 +389,11 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
                         {showRail ? null : <div className="pt-6">{legal}</div>}
                     </div>
                     {showRail ? (
-                        <aside aria-label="People and profile" className="nb-discover-rail sticky top-6 space-y-4 self-start">
+                        <DiscoverRail scrollContainer={scrollContainer}>
                             <ProfileChecklist items={checklist} />
                             {hasPeople ? <DiscoverPeopleRail initialPage={initialPeopleSuggestions} variant="desktop" /> : null}
                             <div className="pt-2">{legal}</div>
-                        </aside>
+                        </DiscoverRail>
                     ) : null}
                 </div>
             </div>

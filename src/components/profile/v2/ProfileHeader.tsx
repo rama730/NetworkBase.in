@@ -1,5 +1,6 @@
 'use client'
 
+import { SettingsSwitch } from '@/components/settings/ui/SettingsSwitch'
 import React from 'react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -17,18 +18,25 @@ import { usePresenceUi } from '@/components/presence/presence-ui-store'
 import { usePersonPresence } from '@/components/presence/usePresence'
 import { resolveProfileActionState } from './profile-action-state'
 
-/** Status controls under the name. Active-now is already shown by the avatar badge. */
-function PresenceChips({ userId, lastActiveAt, isOwner }: { userId: string | null; lastActiveAt?: string | null; isOwner: boolean }) {
+/** Owner status lives with profile actions; visitors see status beside identity. */
+function PresenceChips({ userId, lastActiveAt, isOwner, className }: { userId: string | null; lastActiveAt?: string | null; isOwner: boolean; className?: string }) {
     const presence = usePersonPresence(userId, { fallbackLastActiveAt: lastActiveAt ?? null, live: isOwner || undefined })
     const openPicker = usePresenceUi((state) => state.setPickerOpen)
     const showAvailability = presence.availability !== 'now'
 
-    if (!presence.status && !showAvailability && !isOwner) return null
+    if (!isOwner) {
+        if (!presence.status || (!presence.status.emoji && !presence.statusText)) return null
+        return (
+            <span data-profile-status className="nb-status min-w-0 max-w-full bg-muted text-muted-foreground normal-case! tracking-normal! whitespace-normal! [overflow-wrap:anywhere]">
+                <StatusInline emoji={presence.status.emoji} text={presence.statusText} className="min-w-0" />
+            </span>
+        )
+    }
 
     return (
-        <div className="mt-2.5 flex flex-wrap items-center gap-2 max-md:col-span-2">
+        <div className={cn("flex flex-wrap items-center gap-2", className)}>
             {presence.status ? (
-                <span className="inline-flex h-[26px] items-center rounded-full bg-muted px-2.5 text-[13px] font-medium text-foreground">
+                <span className="inline-flex min-h-[26px] max-w-full items-center rounded-full bg-muted px-2.5 py-1 text-[13px] font-medium text-foreground [overflow-wrap:anywhere]">
                     <StatusInline emoji={presence.status.emoji} text={presence.statusText} />
                 </span>
             ) : null}
@@ -53,7 +61,9 @@ export function ProfileHeader({
     connectionState,
     onEdit,
     onShare,
-    onAvailabilityEdit,
+    onAvailabilityToggle,
+    isSavingAvailability = false,
+    availabilityToggleDisabled = false,
     onConnectionsClick,
     onProjectsClick,
     onConnectPrimary,
@@ -73,8 +83,10 @@ export function ProfileHeader({
     isAuthenticated: boolean
     connectionState: ConnectionState
     onEdit: () => void
-    onShare?: () => void
-    onAvailabilityEdit?: () => void
+    onShare?: (trigger?: HTMLElement) => void
+    onAvailabilityToggle?: (checked: boolean) => void
+    isSavingAvailability?: boolean
+    availabilityToggleDisabled?: boolean
     onConnectionsClick?: () => void
     onProjectsClick?: () => void
     onConnectPrimary: () => void
@@ -96,7 +108,7 @@ export function ProfileHeader({
     const headline = vm.headline || ''
     const location = vm.location || ''
     const skills = vm.skills || []
-    const isOpenToCollaborate = (vm.openTo || []).length > 0 || Boolean(vm.hoursPerWeek)
+    const isOpenToCollaborate = !lockedShell && vm.openToCollaborate === true
     const connectionsCount = stats?.connectionsCount ?? vm.connectionsCount ?? 0
     const projectsCount = stats?.projectsCount ?? vm.projectsCount ?? 0
     // Own-profile completion prompt (spec §17 / §08); phones get it here instead of the rail card.
@@ -188,226 +200,209 @@ export function ProfileHeader({
 
     return (
         <div data-testid="profile-summary-header" className="overflow-hidden rounded-lg border border-border bg-card shadow-none">
-            <div className="p-4 md:p-6">
-                <div className="flex flex-col items-start justify-between gap-5 md:flex-row">
-                    {/* Below md the details column dissolves into a 2-column grid: avatar + name on row one, everything else full width (spec §17). */}
-                    <div className="flex min-w-0 flex-1 items-start gap-5 max-md:grid max-md:w-full max-md:grid-cols-[72px_minmax(0,1fr)] max-md:gap-x-4 max-md:gap-y-0">
-                        <div className="relative shrink-0">
-                            <UserAvatar
-                                identity={vm}
-                                className="size-[72px] border border-border bg-secondary"
-                                roundedClassName="rounded-[3px]"
-                                fallbackClassName="text-2xl font-semibold"
-                                sizes="72px"
-                                priority
-                            />
-                            {/* Phones: the badge sits just outside the photo's corner (inside the 16px column gap). */}
-                            <PersonPresenceBadge userId={profile?.id ?? null} lastActiveAt={vm.lastActiveAt} live={isOwner || undefined} size={22} className="absolute -bottom-1.5 -right-1.5 max-md:-right-3.5 max-md:bottom-0" />
-                        </div>
-                        <div className="min-w-0 flex-1 pb-1 max-md:contents">
-                            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 max-md:self-center">
-                                <h1 className="nb-page-title text-foreground">{name}</h1>
-                                {username ? (
-                                    <span className="nb-meta break-all normal-case tracking-normal">
-                                        {username}
-                                    </span>
-                                ) : null}
-                                {isOpenToCollaborate ? (
-                                    <span className="nb-status" data-status="completed">
-                                        <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
-                                        Open to collaborate
-                                    </span>
-                                ) : null}
-                            </div>
-                            {headline ? <p className="text-[15px] leading-normal font-normal mt-2 text-muted-foreground max-md:col-span-2 max-md:mt-3">{headline}</p> : null}
-                            <PresenceChips userId={profile?.id ?? null} lastActiveAt={vm.lastActiveAt} isOwner={isOwner} />
-
-                            {mutualCount > 0 ? (
-                                <div className="nb-meta mt-2 flex items-center gap-2 text-muted-foreground max-md:col-span-2">
-                                    <Users className="w-3 h-3 inline mr-1" />
-                                    <span>{mutualCount} mutual connections</span>
-                                </div>
-                            ) : null}
-
-                            <div data-profile-details className="nb-meta mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 max-md:col-span-2 max-md:gap-y-0">
-                                {lockLabel ? (
-                                    <span className="nb-status border border-border/60 bg-muted/60 text-muted-foreground">
-                                        <Lock className="w-3.5 h-3.5" />
-                                        {lockLabel}
-                                    </span>
-                                ) : null}
-                                {location ? (
-                                    <span className="inline-flex items-center gap-1.5">
-                                        <MapPin className="size-3.5" />
-                                        {location}
-                                    </span>
-                                ) : null}
-                                <button
-                                    type="button"
-                                    onClick={onConnectionsClick}
-                                    disabled={!onConnectionsClick || lockedShell}
-                                    aria-label={`View ${connectionsCount} ${connectionsCount === 1 ? 'connection' : 'connections'}`}
-                                    className="rounded-sm underline-offset-2 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none max-md:inline-flex max-md:min-h-11 max-md:items-center"
-                                >
-                                    {connectionsCount} connections
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={onProjectsClick}
-                                    disabled={!onProjectsClick || lockedShell}
-                                    aria-label={`View ${projectsCount} ${projectsCount === 1 ? 'project' : 'projects'}`}
-                                    className="rounded-sm underline-offset-2 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none max-md:inline-flex max-md:min-h-11 max-md:items-center"
-                                >
-                                    {projectsCount} projects
-                                </button>
-                                {vm.website ? (
-                                    <a
-                                        href={vm.website}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-1 hover:text-primary max-md:min-h-11"
-                                    >
-                                        <Link2 className="size-3.5" />
-                                        Website
-                                    </a>
-                                ) : null}
-                            </div>
-                            {skills.length > 0 ? (
-                                <div className="mt-3 flex flex-wrap gap-1.5 max-md:col-span-2" aria-label="Profile skills">
-                                    {skills.map((name: string) => {
-                                        const skill = resolveClientSkill(name)
-                                        return (
-                                            <span className="nb-tag" key={skill.canonicalKey}>
-                                                <SkillIcon skill={skill} size={14} />
-                                                {skill.name}
-                                            </span>
-                                        )
-                                    })}
-                                </div>
-                            ) : null}
-                        </div>
+            <div className="grid grid-cols-1 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:gap-x-5 md:p-6">
+                {/* Identity sits beside the avatar; the details below span the whole card. */}
+                <div className="flex min-w-0 flex-1 items-start gap-5 max-md:grid max-md:w-full max-md:grid-cols-[72px_minmax(0,1fr)] max-md:gap-x-4 max-md:gap-y-0">
+                    <div className="relative shrink-0">
+                        <UserAvatar
+                            identity={vm}
+                            className="size-[72px] border border-border bg-secondary"
+                            roundedClassName="rounded-[3px]"
+                            fallbackClassName="text-2xl font-semibold"
+                            sizes="72px"
+                            priority
+                        />
+                        {/* Phones: the badge sits just outside the photo's corner (inside the 16px column gap). */}
+                        <PersonPresenceBadge userId={profile?.id ?? null} lastActiveAt={vm.lastActiveAt} live={isOwner || undefined} size={22} className="absolute -bottom-1.5 -right-1.5 max-md:-right-3.5 max-md:bottom-0" />
                     </div>
-
-                    <div className="flex shrink-0 flex-col items-start gap-2.5 md:items-end max-md:w-full">
-                        {isOwner ? (
-                            <>
-                                <div className="flex flex-wrap gap-2 max-md:w-full max-md:flex-nowrap">
-                                    <Button onClick={onShare} variant="outline" size="sm" aria-label="Share profile" className="max-md:min-h-11 max-md:min-w-11">
-                                        <Share2 className="size-4" />
-                                        <span className="max-md:sr-only">Share</span>
-                                    </Button>
-                                    <Button onClick={onEdit} size="sm" className="max-md:flex-1 max-md:min-h-11">
-                                        <Pencil className="size-4" />
-                                        Edit profile
-                                    </Button>
-                                </div>
-                                <button
-                                    type="button"
-                                    role="switch"
-                                    aria-checked={isOpenToCollaborate}
-                                    onClick={onAvailabilityEdit ?? onEdit}
-                                    className="nb-ui-label inline-flex items-center gap-2 text-foreground max-md:min-h-11"
-                                    title="Manage collaboration preferences"
-                                >
-                                    <span
-                                        className={cn(
-                                            'relative inline-flex h-5 w-9 rounded-full border transition-colors',
-                                            isOpenToCollaborate
-                                                ? 'border-primary bg-primary'
-                                                : 'border-border bg-secondary',
-                                        )}
-                                        aria-hidden="true"
-                                    >
-                                        <span
-                                            className={cn(
-                                                'absolute top-0.5 size-3.5 rounded-full bg-white shadow-sm transition-transform',
-                                                isOpenToCollaborate ? 'translate-x-[17px]' : 'translate-x-0.5',
-                                            )}
-                                        />
-                                    </span>
-                                    Open to collaborators
-                                </button>
-                                {completionScore > 0 && completionScore < 100 ? (
-                                    <button
-                                        type="button"
-                                        onClick={onEdit}
-                                        className="w-full space-y-1.5 border-t border-border pt-3 text-left md:hidden"
-                                        aria-label={`Profile ${completionScore}% complete${completionHint ? `. Next: ${completionHint}` : ''}`}
-                                    >
-                                        <span className="nb-compact flex items-center justify-between gap-3 text-muted-foreground">
-                                            <span className="min-w-0 truncate"><span className="font-mono text-foreground">{completionScore}%</span> complete{completionHint ? ` · ${completionHint}` : ''}</span>
-                                            <span aria-hidden="true">›</span>
-                                        </span>
-                                        <span className="block h-1.5 overflow-hidden rounded-[3px] bg-muted" aria-hidden="true">
-                                            <span className="block h-full bg-primary" style={{ width: `${completionScore}%` }} />
-                                        </span>
-                                    </button>
-                                ) : null}
-                            </>
-                        ) : isLoadingConnection ? (
-                            <div aria-hidden="true" className="nb-skeleton h-10 w-28 rounded-[3px] border border-border/40" />
-                        ) : (
-                            <div className="flex flex-wrap items-center gap-2">
-                                {showMessageAction ? (
-                                    <Button
-                                        variant="outline"
-                                        onClick={onMessage}
-                                        aria-label={`Message ${name}`}
-                                        className="gap-2"
-                                    >
-                                        <MessageSquare className="size-4" />
-                                        Message
-                                    </Button>
-                                ) : null}
-                                {showRelationshipAction ? (
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button
-                                                variant={relationshipControlVariant}
-                                                disabled={!isAuthenticated}
-                                                aria-label={`${relationshipControlLabel} options`}
-                                                className="gap-1.5"
-                                            >
-                                                {connectIcon}
-                                                {relationshipControlLabel}
-                                                <ChevronDown className="size-4 opacity-70" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end" className="w-48">
-                                            {isPrimaryConnectionAction ? (
-                                                <DropdownMenuItem onClick={onConnectPrimary} disabled={isLoadingConnection}>
-                                                    {connectIcon}
-                                                    {connectLabel}
-                                                </DropdownMenuItem>
-                                            ) : null}
-                                            {secondaryConnectLabel && onConnectSecondary ? (
-                                                <DropdownMenuItem onClick={onConnectSecondary} disabled={isLoadingConnection}>
-                                                    {secondaryConnectIcon}
-                                                    {secondaryConnectLabel}
-                                                </DropdownMenuItem>
-                                            ) : null}
-                                            {(isPrimaryConnectionAction || secondaryConnectLabel) && canManageBlock ? <DropdownMenuSeparator /> : null}
-                                            {canManageBlock ? (
-                                                <DropdownMenuItem onClick={onToggleBlock} disabled={isBlocking} variant="destructive">
-                                                    <Ban className="size-4" />
-                                                    {blockActionLabel}
-                                                </DropdownMenuItem>
-                                            ) : null}
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                ) : isInteractionBlocked ? (
-                                    <span className="nb-status inline-flex items-center px-3 py-1.5 rounded-[3px] border border-destructive/30 bg-destructive/10 text-destructive">
-                                        <Ban className="mr-1 w-3.5 h-3.5" />
-                                        {privacyPresentation.blockedBannerText || 'You cannot interact with this account'}
-                                    </span>
-                                ) : null}
-                            </div>
-                        )}
+                    <div className="min-w-0 flex-1 pb-1 max-md:contents">
+                        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 max-md:self-center">
+                            <h1 className="nb-page-title text-foreground">{name}</h1>
+                            {username ? (
+                                <span className="nb-meta break-all normal-case tracking-normal">
+                                    {username}
+                                </span>
+                            ) : null}
+                            {isOpenToCollaborate ? (
+                                <span className="nb-status" data-status="completed">
+                                    <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
+                                    Open to collaborate
+                                </span>
+                            ) : null}
+                            {!isOwner && !lockedShell ? <PresenceChips userId={profile?.id ?? null} lastActiveAt={vm.lastActiveAt} isOwner={false} /> : null}
+                        </div>
+                        {headline ? <p className="text-[15px] leading-normal font-normal mt-2 text-muted-foreground max-md:col-span-2 max-md:mt-3">{headline}</p> : null}
                     </div>
                 </div>
 
+                {mutualCount > 0 ? (
+                    <div className="nb-meta mt-2 flex items-center gap-2 text-muted-foreground md:col-span-2">
+                        <Users className="w-3 h-3 inline mr-1" />
+                        <span>{mutualCount} mutual connections</span>
+                    </div>
+                ) : null}
+
+                <div data-profile-details className="nb-meta mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 md:col-span-2 max-md:gap-y-0">
+                    {lockLabel ? (
+                        <span className="nb-status border border-border/60 bg-muted/60 text-muted-foreground">
+                            <Lock className="w-3.5 h-3.5" />
+                            {lockLabel}
+                        </span>
+                    ) : null}
+                    {location ? (
+                        <span className="inline-flex items-center gap-1.5">
+                            <MapPin className="size-3.5" />
+                            {location}
+                        </span>
+                    ) : null}
+                    <button
+                        type="button"
+                        onClick={onConnectionsClick}
+                        disabled={!onConnectionsClick || lockedShell}
+                        aria-label={`View ${connectionsCount} ${connectionsCount === 1 ? 'connection' : 'connections'}`}
+                        className="rounded-sm underline-offset-2 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none max-md:inline-flex max-md:min-h-11 max-md:items-center"
+                    >
+                        {connectionsCount} connections
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onProjectsClick}
+                        disabled={!onProjectsClick || lockedShell}
+                        aria-label={`View ${projectsCount} ${projectsCount === 1 ? 'project' : 'projects'}`}
+                        className="rounded-sm underline-offset-2 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none max-md:inline-flex max-md:min-h-11 max-md:items-center"
+                    >
+                        {projectsCount} projects
+                    </button>
+                    {vm.website ? (
+                        <a
+                            href={vm.website}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 hover:text-primary max-md:min-h-11"
+                        >
+                            <Link2 className="size-3.5" />
+                            Website
+                        </a>
+                    ) : null}
+                </div>
+                {skills.length > 0 ? (
+                    <div className="mt-3 flex flex-wrap gap-1.5 md:col-span-2" aria-label="Profile skills">
+                        {skills.map((name: string) => {
+                            const skill = resolveClientSkill(name)
+                            return (
+                                <span className="nb-tag" key={skill.canonicalKey}>
+                                    <SkillIcon skill={skill} size={14} />
+                                    {skill.name}
+                                </span>
+                            )
+                        })}
+                    </div>
+                ) : null}
+
+                <div className="mt-5 flex max-w-full flex-col items-start gap-2.5 md:col-start-2 md:row-start-1 md:mt-0 md:max-w-[280px] md:items-end md:gap-1.5">
+                    {isOwner ? (
+                        <>
+                            <div className="flex flex-wrap gap-2 max-md:w-full max-md:flex-nowrap">
+                                <Button onClick={event => onShare?.(event.currentTarget)} variant="outline" size="sm" aria-label="Share profile" className="max-md:min-h-11 max-md:min-w-11">
+                                    <Share2 className="size-4" />
+                                    <span className="max-md:sr-only">Share</span>
+                                </Button>
+                                <Button onClick={onEdit} size="sm" className="max-md:flex-1 max-md:min-h-11">
+                                    <Pencil className="size-4" />
+                                    Edit profile
+                                </Button>
+                            </div>
+                            <label className="nb-ui-label inline-flex items-center gap-2 text-foreground max-md:min-h-11">
+                                <SettingsSwitch
+                                    checked={isOpenToCollaborate}
+                                    onCheckedChange={onAvailabilityToggle}
+                                    disabled={!onAvailabilityToggle || isSavingAvailability || availabilityToggleDisabled}
+                                    aria-label="Open to collaborate"
+                                    aria-busy={isSavingAvailability}
+                                />
+                                <span>Open to collaborate</span>
+                                {isSavingAvailability ? <span role="status" className="nb-compact text-muted-foreground">Saving…</span> : null}
+                            </label>
+                            <PresenceChips userId={profile?.id ?? null} lastActiveAt={vm.lastActiveAt} isOwner className="md:justify-end" />
+                            {completionScore > 0 && completionScore < 100 ? (
+                                <button
+                                    type="button"
+                                    onClick={onEdit}
+                                    className="w-full space-y-1.5 border-t border-border pt-3 text-left md:hidden"
+                                    aria-label={`Profile ${completionScore}% complete${completionHint ? `. Next: ${completionHint}` : ''}`}
+                                >
+                                    <span className="nb-compact flex items-center justify-between gap-3 text-muted-foreground">
+                                        <span className="min-w-0 truncate"><span className="font-mono text-foreground">{completionScore}%</span> complete{completionHint ? ` · ${completionHint}` : ''}</span>
+                                        <span aria-hidden="true">›</span>
+                                    </span>
+                                    <span className="block h-1.5 overflow-hidden rounded-[3px] bg-muted" aria-hidden="true">
+                                        <span className="block h-full bg-primary" style={{ width: `${completionScore}%` }} />
+                                    </span>
+                                </button>
+                            ) : null}
+                        </>
+                    ) : isLoadingConnection ? (
+                        <div aria-hidden="true" className="nb-skeleton h-10 w-28 rounded-[3px] border border-border/40" />
+                    ) : (
+                        <>
+                        <div className="flex flex-wrap items-center gap-2">
+                            {!lockedShell && onShare ? <Button onClick={event => onShare(event.currentTarget)} variant="outline" aria-label="Share profile"><Share2 className="size-4" />Share</Button> : null}
+                            {!isAuthenticated && !privacyRelationship.blockedByTarget ? <Button onClick={onConnectPrimary}>Sign in to connect</Button> : null}
+                            {showRelationshipAction ? (
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            variant={relationshipControlVariant}
+                                            disabled={!isAuthenticated}
+                                            aria-label={`${relationshipControlLabel} options`}
+                                            className="gap-1.5"
+                                        >
+                                            {connectIcon}
+                                            {relationshipControlLabel}
+                                            <ChevronDown className="size-4 opacity-70" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-48">
+                                        {showMessageAction ? (
+                                            <DropdownMenuItem onClick={onMessage} aria-label={`Message ${name}`}>
+                                                <MessageSquare className="size-4" />
+                                                Message
+                                            </DropdownMenuItem>
+                                        ) : null}
+                                        {isPrimaryConnectionAction ? (
+                                            <DropdownMenuItem onClick={onConnectPrimary} disabled={isLoadingConnection}>
+                                                {connectIcon}
+                                                {connectLabel}
+                                            </DropdownMenuItem>
+                                        ) : null}
+                                        {secondaryConnectLabel && onConnectSecondary ? (
+                                            <DropdownMenuItem onClick={onConnectSecondary} disabled={isLoadingConnection}>
+                                                {secondaryConnectIcon}
+                                                {secondaryConnectLabel}
+                                            </DropdownMenuItem>
+                                        ) : null}
+                                        {(showMessageAction || isPrimaryConnectionAction || secondaryConnectLabel) && canManageBlock ? <DropdownMenuSeparator /> : null}
+                                        {canManageBlock ? (
+                                            <DropdownMenuItem onClick={onToggleBlock} disabled={isBlocking} variant="destructive">
+                                                <Ban className="size-4" />
+                                                {blockActionLabel}
+                                            </DropdownMenuItem>
+                                        ) : null}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            ) : isInteractionBlocked ? (
+                                <span className="nb-status inline-flex items-center px-3 py-1.5 rounded-[3px] border border-destructive/30 bg-destructive/10 text-destructive">
+                                    <Ban className="mr-1 w-3.5 h-3.5" />
+                                    {privacyPresentation.blockedBannerText || 'You cannot interact with this account'}
+                                </span>
+                            ) : null}
+                        </div>
+                        </>
+                    )}
+                </div>
+
                 {lockedShell ? (
-                    <div className="nb-compact mt-4 rounded-lg border border-border bg-muted/40 px-4 py-3 text-muted-foreground">
+                    <div className="nb-compact mt-4 rounded-lg border border-border bg-muted/40 px-4 py-3 text-muted-foreground md:col-span-2">
                         {privacyRelationship.blockedByViewer
                             ? `${privacyPresentation.blockedBannerText || 'You blocked this account'}. Their profile remains limited until you unblock them.`
                             : privacyRelationship.blockedByTarget

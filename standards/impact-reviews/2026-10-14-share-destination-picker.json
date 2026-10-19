@@ -1,0 +1,57 @@
+{
+  "id": "2026-10-14-share-destination-picker",
+  "title": "Share dialog destination hierarchy only",
+  "summary": "Keep project to channel browsing and direct messages inside Send in NetworkBase. Restore the preceding Messages layout, routes, sidebar ordering, keyboard navigation and floating window behavior. New destination reads use existing membership and send policies without changing Messages bootstrap.",
+  "riskLevel": "medium",
+  "runtimePlanes": [
+    "request",
+    "database"
+  ],
+  "routeClasses": [
+    "active_surface"
+  ],
+  "dataSourcesChanged": [
+    "Member-only live sharing project pages",
+    "Joined conversation pages scoped by project or destination type",
+    "Live share target capability before sending"
+  ],
+  "canonicalLogicDomains": [
+    "identity_avatar",
+    "relationship_actions"
+  ],
+  "concurrencyRisk": "Local picker state never writes the Messages route, UI store or window store. Account and session query keys, expected server actor checks, reconnect/refocus refresh and live send preflight prevent old targets from being reused. Notes survive scope and same-account reauthentication; different-account drafts are cleared. Keyset timestamps retain PostgreSQL microseconds. Existing compose receipts are checked before any new write.",
+  "observability": {
+    "logs": [
+      "Existing chat.action_failed logs for share_projects, conversation_destinations and share_destination"
+    ],
+    "metrics": [],
+    "alerts": []
+  },
+  "rollback": {
+    "strategy": "Revert sharing destination readers, hooks and browser and restore the preceding flat list inside ShareDialog. No migration or Messages navigation rollback is needed.",
+    "validation": [
+      "Messages retains its preceding layout and state",
+      "Sharing send remains membership checked and idempotent"
+    ]
+  },
+  "evidence": {
+    "commands": [
+      "npm run typecheck",
+      "NEXT_DIST_DIR=.next-share-picker-check npm run build",
+      "node --import tsx --test tests/unit/share-destination-scope.test.ts tests/unit/chat-channel-view.test.ts tests/unit/chat-phase5-sidebar.test.ts tests/unit/chat-reorganize-ui.test.ts tests/unit/chat-round3.test.ts tests/unit/profile-sharing.test.ts",
+      "DATABASE_URL_FRESH=<disposable> node --import tsx --test --test-concurrency=1 tests/db/share-destinations.test.ts tests/db/profile-sharing.test.ts tests/db/messaging-metadata.test.ts",
+      "npx playwright test -c tests/browser/playwright.config.ts sharing.spec.ts profile.spec.ts --project=chromium --project=webkit"
+    ],
+    "reports": [
+      "docs/audits/share-destination-picker-2026-10-14.md"
+    ]
+  },
+  "paths": [
+    "src/app/actions/sharing-destinations.ts",
+    "src/app/actions/sharing.ts",
+    "src/components/sharing",
+    "src/lib/sharing/destination-scope.ts",
+    "src/lib/sharing/destination-read.ts",
+    "src/lib/query-keys.ts"
+  ]
+}

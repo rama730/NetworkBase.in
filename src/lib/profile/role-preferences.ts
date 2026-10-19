@@ -5,9 +5,37 @@ export const ROLE_PREFERENCE_OPTIONS = [
   { value: 'Freelance projects', label: 'Freelance' },
   { value: 'Internships', label: 'Internships' },
   { value: 'Co-founder opportunities', label: 'Co-founder' },
+  { value: 'Advisory roles', label: 'Advisory' },
+  { value: 'Consulting projects', label: 'Consulting' },
+  { value: 'Fractional leadership', label: 'Fractional' },
+  { value: 'Board member roles', label: 'Board member' },
+  { value: 'Volunteer / Pro bono', label: 'Volunteer' },
+  { value: 'Temporary / Seasonal', label: 'Temporary' },
 ] as const
 
 export type RolePreferenceValue = (typeof ROLE_PREFERENCE_OPTIONS)[number]['value']
+
+export const DESIGNATED_CATEGORIES = [
+  'Engineering',
+  'Design',
+  'Product',
+  'Growth',
+  'AI & Machine Learning',
+  'Data & Analytics',
+  'Operations',
+  'Marketing',
+  'Sales & Business Dev',
+  'Community & DevRel',
+  'Security & DevOps',
+  'Content & Writing',
+  'Finance & Legal',
+  'People & HR',
+  'Hardware & IoT',
+  'Web3 & Blockchain',
+  'Quality Assurance',
+] as const
+
+export type DesignatedCategory = (typeof DESIGNATED_CATEGORIES)[number]
 
 export const EXPERIENCE_LEVEL_OPTIONS = [
   { value: 'student', label: 'Student' },
@@ -19,11 +47,11 @@ export const EXPERIENCE_LEVEL_OPTIONS = [
 ] as const
 
 export const WEEKLY_CAPACITY_OPTIONS = [
-  { value: 'lt_5', label: 'Less than 5 hours per week' },
-  { value: 'h_5_10', label: '5–10 hours per week' },
-  { value: 'h_10_20', label: '10–20 hours per week' },
-  { value: 'h_20_40', label: '20–40 hours per week' },
-  { value: 'h_40_plus', label: '40+ hours per week' },
+  { value: 'lt_5', label: 'Less than 5 hours per week', compactLabel: '<5 hrs/week' },
+  { value: 'h_5_10', label: '5–10 hours per week', compactLabel: '5–10 hrs/week' },
+  { value: 'h_10_20', label: '10–20 hours per week', compactLabel: '10–20 hrs/week' },
+  { value: 'h_20_40', label: '20–40 hours per week', compactLabel: '20–40 hrs/week' },
+  { value: 'h_40_plus', label: '40+ hours per week', compactLabel: '40+ hrs/week' },
 ] as const
 
 const roleAliases = new Map<string, RolePreferenceValue>([
@@ -47,6 +75,28 @@ const roleAliases = new Map<string, RolePreferenceValue>([
   ['cofounder', 'Co-founder opportunities'],
   ['co-founder', 'Co-founder opportunities'],
   ['co-founder opportunities', 'Co-founder opportunities'],
+  ['advisor', 'Advisory roles'],
+  ['advisors', 'Advisory roles'],
+  ['advisory', 'Advisory roles'],
+  ['advisory roles', 'Advisory roles'],
+  ['consultant', 'Consulting projects'],
+  ['consultants', 'Consulting projects'],
+  ['consulting', 'Consulting projects'],
+  ['consulting projects', 'Consulting projects'],
+  ['fractional', 'Fractional leadership'],
+  ['fractional leadership', 'Fractional leadership'],
+  ['board', 'Board member roles'],
+  ['board member', 'Board member roles'],
+  ['board member roles', 'Board member roles'],
+  ['volunteer', 'Volunteer / Pro bono'],
+  ['volunteering', 'Volunteer / Pro bono'],
+  ['volunteer work', 'Volunteer / Pro bono'],
+  ['volunteer / pro bono', 'Volunteer / Pro bono'],
+  ['pro bono', 'Volunteer / Pro bono'],
+  ['pro-bono', 'Volunteer / Pro bono'],
+  ['temporary', 'Temporary / Seasonal'],
+  ['seasonal', 'Temporary / Seasonal'],
+  ['temporary / seasonal', 'Temporary / Seasonal'],
 ])
 
 const canonicalRoleOrder = new Map<RolePreferenceValue, number>(

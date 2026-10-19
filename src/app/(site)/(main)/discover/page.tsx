@@ -4,7 +4,7 @@ import { getPublicProjectsFeedPage, forViewer } from "@/lib/projects/public-feed
 import { mapPublicProjectToDiscoverProject } from "@/lib/projects/public-feed";
 import { getConnectionsFeed } from "@/app/actions/connections";
 import type { ConnectionFeedPage, DiscoverConnectionItem } from "@/hooks/useConnections";
-import { DISCOVER_RAIL_FILTERS, isDefaultDiscoverQuery, parseDiscoverQuery } from "@/lib/discover/query";
+import { DISCOVER_RAIL_FILTERS, DISCOVER_RAIL_PEOPLE_LIMIT, isDefaultDiscoverQuery, parseDiscoverQuery } from "@/lib/discover/query";
 import { logger } from "@/lib/logger";
 
 import { buildRouteMetadata } from "@/lib/metadata/route-metadata";
@@ -30,7 +30,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams?: Se
     // filter made the Discovery sidebar empty even when the Network page had
     // eligible people to recommend.
     const peopleSuggestionsPromise = user
-        ? getConnectionsFeed({ tab: 'discover', limit: 3, includeMeta: false, filters: DISCOVER_RAIL_FILTERS }).catch((error) => {
+        ? getConnectionsFeed({ tab: 'discover', limit: DISCOVER_RAIL_PEOPLE_LIMIT, includeMeta: false, includeSharedConnections: true, filters: DISCOVER_RAIL_FILTERS }).catch((error) => {
             // The rail is extra: without it the page still renders (the rail fetches on its own).
             logger.warn('discover.people_rail_ssr_failed', { error: error instanceof Error ? error.message : String(error) });
             return null;
@@ -69,6 +69,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams?: Se
             hasMore: false,
             stats: peopleSuggestionsResult.stats,
             viewerSkills: peopleSuggestionsResult.viewerSkills,
+            sharedConnections: peopleSuggestionsResult.sharedConnections,
         }
         : undefined;
 

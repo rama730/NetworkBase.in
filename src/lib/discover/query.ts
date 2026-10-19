@@ -13,6 +13,8 @@ import type { DiscoverFilters as PeopleFilters } from '@/app/actions/connections
 
 /** Discover's people rail: people you can see and connect with. The server render and the rail use the same filters. */
 export const DISCOVER_RAIL_FILTERS: PeopleFilters = { openProfilesOnly: true };
+export const DISCOVER_RAIL_CARD_COUNT = 3;
+export const DISCOVER_RAIL_PEOPLE_LIMIT = DISCOVER_RAIL_CARD_COUNT + 4;
 
 /** What a Discover URL asks for. One parser for the server page, the URL hook and the feed hook. */
 export type DiscoverQuery = {
