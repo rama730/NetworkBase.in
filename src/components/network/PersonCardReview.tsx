@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 /** Review keeps two decision buttons out of a narrow person-card header/footer. */
 export function PersonCardReview({ name, description, note, onAccept, onDecline }: {
@@ -26,10 +26,11 @@ export function PersonCardReview({ name, description, note, onAccept, onDecline 
     }
     return <Dialog open={open} onOpenChange={next => { if (!busy) { setOpen(next); setError(null); } }}>
         <DialogTrigger asChild><button type="button" className="nb-person-connect" aria-label={`Review request from ${name}`}>Review</button></DialogTrigger>
-        <DialogContent className="nb-person-dialog"><DialogHeader><DialogTitle>Review request</DialogTitle></DialogHeader>
-            <p className="nb-compact break-words"><strong>{name}</strong> · {description}</p>
+        <DialogContent className="nb-person-dialog"><DialogHeader><DialogTitle>Review request</DialogTitle>
+                <DialogDescription className="nb-compact break-words"><strong>{name}</strong> · {description}</DialogDescription></DialogHeader>
             {note?.trim() ? <p className="nb-compact whitespace-pre-wrap break-words">{note}</p> : null}
             {error ? <p role="alert" className="nb-compact rounded-sm border border-border bg-muted p-3">{error}</p> : null}
+            <p role="status" aria-live="polite" className="sr-only">{busy ? (busy === 'accept' ? 'Accepting' : 'Declining') : ''}</p>
             <div className="flex gap-2">
                 <button className="nb-person-connect" disabled={Boolean(busy)} onClick={() => void decide('accept')}>{busy === 'accept' ? 'Accepting…' : 'Accept'}</button>
                 <button className="nb-person-control" disabled={Boolean(busy)} onClick={() => void decide('decline')}>{busy === 'decline' ? 'Declining…' : 'Decline'}</button>

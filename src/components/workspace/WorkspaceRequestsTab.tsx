@@ -3,7 +3,10 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { acceptApplicationAction, getIncomingApplicationsAction, rejectApplicationAction } from "@/app/actions/applications";
+import { acceptApplicationAction, acceptApplicationsAction, getIncomingApplicationsAction, rejectApplicationAction, reopenApplicationAction } from "@/app/actions/applications";
+import { DecisionDialog, type DecisionInput } from "@/components/applications/DecisionDialog";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { personCardName } from "@/lib/network/person-card";
 import { resolveProjectInvitationAction } from "@/app/actions/project/guidance";
 import { queryKeys } from "@/lib/query-keys";
 import { useUIStore } from "@/stores/ui-store";
@@ -25,6 +28,12 @@ type WorkspaceRequest = IncomingProjectApplication & { status: string };
 
 function errorMessage(error: unknown) {
     return error instanceof Error ? error.message : "Failed";
+}
+
+/** The actions answer {success:false} instead of throwing; without this a refused decision looked like a success. */
+function unwrap<T extends { success: boolean; error?: string }>(result: T): T {
+    if (!result.success) throw new Error(result.error || "That didn't work. Try again.");
+    return result;
 }
 
 function WorkspaceRequestsSkeleton() {
@@ -62,6 +71,8 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
     const setWorkspaceOpen = useUIStore((s) => s.setWorkspaceOpen);
     const queryClient = useQueryClient();
     const [isBatchBusy, setIsBatchBusy] = useState(false);
+    const [declining, setDeclining] = useState<WorkspaceRequest | null>(null);
+    const [confirmAcceptAll, setConfirmAcceptAll] = useState(false);
 
     const query = useQuery({
         queryKey: queryKeys.workspace.joinRequests(20),
@@ -112,28 +123,43 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
     };
 
     const acceptApp = useMutation({
-        mutationFn: async (id: string) => acceptApplicationAction(id, "Welcome!"),
+        mutationFn: async (id: string) => unwrap(await acceptApplicationAction(id)),
         onMutate: removeOptimistically,
         onSuccess: () => { toast.success("Accepted"); invalidate(); },
         onError: (error: unknown) => { invalidate(); toast.error(errorMessage(error)); },
     });
 
-    const rejectApp = useMutation({
-        mutationFn: async (id: string) => rejectApplicationAction(id, undefined, "other"),
-        onMutate: removeOptimistically,
-        onSuccess: () => { toast.success("Rejected"); invalidate(); },
-        onError: (error: unknown) => { invalidate(); toast.error(errorMessage(error)); },
-    });
+    /** Declining asks for a reason first; an error comes back to the dialog, a success offers Undo. */
+    const declineApp = async (app: WorkspaceRequest, { reason, note }: DecisionInput) => {
+        try {
+            unwrap(await rejectApplicationAction(app.id, note || undefined, reason));
+        } catch (failure) {
+            return errorMessage(failure);
+        }
+        removeOptimistically(app.id);
+        toast.success("Declined", {
+            action: {
+                label: "Undo",
+                onClick: () => void reopenApplicationAction(app.id).then((undone) => {
+                    if (undone.success) toast.success("Decline undone");
+                    else toast.error(undone.error || "Could not undo");
+                    invalidate();
+                }),
+            },
+        });
+        invalidate();
+        return null;
+    };
 
     const acceptInvite = useMutation({
-        mutationFn: async (id: string) => resolveProjectInvitationAction({ invitationId: id, action: "accept" }),
+        mutationFn: async (id: string) => unwrap(await resolveProjectInvitationAction({ invitationId: id, action: "accept" })),
         onMutate: removeOptimistically,
         onSuccess: () => { toast.success("Invite accepted"); invalidate(); },
         onError: (error: unknown) => { invalidate(); toast.error(errorMessage(error)); },
     });
 
     const rejectInvite = useMutation({
-        mutationFn: async (id: string) => resolveProjectInvitationAction({ invitationId: id, action: "decline" }),
+        mutationFn: async (id: string) => unwrap(await resolveProjectInvitationAction({ invitationId: id, action: "decline" })),
         onMutate: removeOptimistically,
         onSuccess: () => { toast.success("Invite rejected"); invalidate(); },
         onError: (error: unknown) => { invalidate(); toast.error(errorMessage(error)); },
@@ -154,47 +180,43 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
         }
     };
 
-    const handleAcceptAllConnections = async () => {
-        if (isBatchBusy || pendingConnections.length === 0) return;
+    /** Runs every item, then says how many went through (one failure no longer hides the successes). */
+    const acceptEach = async (ids: string[], accept: (id: string) => Promise<unknown>, noun: string) => {
+        if (isBatchBusy || ids.length === 0) return;
         setIsBatchBusy(true);
         try {
-            await Promise.all(pendingConnections.map((req) => acceptRequest.mutateAsync(req.id)));
-            toast.success(`Accepted ${pendingConnections.length} connection request${pendingConnections.length === 1 ? "" : "s"}`);
-            invalidate();
-        } catch (batchErr) {
-            toast.error(errorMessage(batchErr));
-            invalidate();
+            const settled = await Promise.allSettled(ids.map((id) => accept(id)));
+            const accepted = settled.filter((item) => item.status === "fulfilled").length;
+            const failed = settled.find((item): item is PromiseRejectedResult => item.status === "rejected");
+            if (!failed) toast.success(`Accepted ${accepted} ${noun}${accepted === 1 ? "" : "s"}`);
+            else if (accepted) toast.warning(`Accepted ${accepted}, ${ids.length - accepted} could not be accepted`, { description: errorMessage(failed.reason) });
+            else toast.error(errorMessage(failed.reason));
         } finally {
+            invalidate();
             setIsBatchBusy(false);
         }
     };
 
-    const handleAcceptAllInvites = async () => {
-        if (isBatchBusy || pendingInvites.length === 0) return;
-        setIsBatchBusy(true);
-        try {
-            await Promise.all(pendingInvites.map((inv) => acceptInvite.mutateAsync(inv.id)));
-            toast.success(`Accepted ${pendingInvites.length} project invite${pendingInvites.length === 1 ? "" : "s"}`);
-            invalidate();
-        } catch (batchErr) {
-            toast.error(errorMessage(batchErr));
-            invalidate();
-        } finally {
-            setIsBatchBusy(false);
-        }
-    };
+    const handleAcceptAllConnections = () => acceptEach(pendingConnections.map((req) => req.id), (id) => acceptRequest.mutateAsync(id), "connection request");
 
+    const handleAcceptAllInvites = () => acceptEach(pendingInvites.map((inv) => inv.id), (id) => acceptInvite.mutateAsync(id), "project invite");
+
+    /** One confirmation, then one result per application: what was accepted, what was not, and why. */
     const handleAcceptAllIncoming = async () => {
         if (isBatchBusy || pendingIncoming.length === 0) return;
+        setConfirmAcceptAll(false);
         setIsBatchBusy(true);
         try {
-            await Promise.all(pendingIncoming.map((app) => acceptApp.mutateAsync(app.id)));
-            toast.success(`Accepted ${pendingIncoming.length} project application${pendingIncoming.length === 1 ? "" : "s"}`);
-            invalidate();
+            const outcome = await acceptApplicationsAction(pendingIncoming.map((app) => app.id));
+            const accepted = outcome.results.filter((item) => item.success).length;
+            const failed = outcome.results.filter((item) => !item.success);
+            if (!failed.length) toast.success(`Accepted ${accepted} application${accepted === 1 ? "" : "s"}`);
+            else if (accepted) toast.warning(`Accepted ${accepted}, ${failed.length} could not be accepted`, { description: failed[0]?.error });
+            else toast.error(failed[0]?.error || outcome.error || "No application could be accepted");
         } catch (batchErr) {
             toast.error(errorMessage(batchErr));
-            invalidate();
         } finally {
+            invalidate();
             setIsBatchBusy(false);
         }
     };
@@ -312,7 +334,7 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
                             <button
                                 type="button"
                                 disabled={isBatchBusy}
-                                onClick={handleAcceptAllIncoming}
+                                onClick={() => setConfirmAcceptAll(true)}
                                 className="text-[11px] font-semibold text-primary hover:underline disabled:text-muted-foreground disabled:no-underline"
                             >
                                 {isBatchBusy ? "Accepting all..." : `Accept all (${pendingIncoming.length})`}
@@ -322,14 +344,33 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
                     <div className="space-y-2">
                         {pendingIncoming.map((app) => {
                             const isAccepting = acceptApp.isPending && acceptApp.variables === app.id;
-                            const isRejecting = rejectApp.isPending && rejectApp.variables === app.id;
-                            const isProcessing = isAccepting || isRejecting;
+                            const isProcessing = isAccepting;
                             
-                            return <IncomingProjectApplicationRow key={app.id} app={app} busy={isProcessing} onAccept={() => acceptApp.mutate(app.id)} onReject={() => rejectApp.mutate(app.id)} />;
+                            return <IncomingProjectApplicationRow key={app.id} app={app} busy={isProcessing || isBatchBusy} onAccept={() => acceptApp.mutate(app.id)} onReject={() => setDeclining(app)} />;
                         })}
                     </div>
                 </div>
             )}
+            <DecisionDialog
+                open={declining !== null}
+                mode="decline"
+                applicantName={declining ? personCardName(declining.applicant ?? {}) : "this person"}
+                roleTitle={declining?.roleTitle}
+                onClose={() => setDeclining(null)}
+                onConfirm={async (input) => {
+                    const failure = declining ? await declineApp(declining, input) : null;
+                    if (!failure) setDeclining(null);
+                    return failure;
+                }}
+            />
+            <ConfirmDialog
+                open={confirmAcceptAll}
+                onOpenChange={setConfirmAcceptAll}
+                title={`Accept ${pendingIncoming.length} applications?`}
+                description="Each person joins their project right away, and everyone is told. Decline any you are unsure about first."
+                confirmLabel={`Accept all (${pendingIncoming.length})`}
+                onConfirm={() => void handleAcceptAllIncoming()}
+            />
             {hasAnyRequests ? (
                 <Link
                     href="/network?tab=invitations"

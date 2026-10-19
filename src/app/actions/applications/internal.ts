@@ -1408,6 +1408,53 @@ export async function acceptApplicationAction(
 }
 
 // ============================================================================
+// PER-ROLE APPLICATION COUNTS (for the roles editor)
+// ============================================================================
+export type RoleApplicationCounts = Record<string, { pending: number; accepted: number }>;
+
+/** How many applications each role has, for the people who can review them: shown in Settings, and before a role is deleted. */
+export async function getRoleApplicationCountsAction(projectId: string): Promise<{ success: boolean; counts: RoleApplicationCounts }> {
+    try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user || !isUuid(projectId)) return { success: false, counts: {} };
+        const rows = Array.from(await db.execute<{ role_id: string; pending: number; accepted: number }>(sql`
+            SELECT a.role_id, count(*) FILTER (WHERE a.status = 'pending')::int AS pending, count(*) FILTER (WHERE a.status = 'accepted')::int AS accepted
+            FROM role_applications a
+            WHERE a.project_id = ${projectId}::uuid AND a.role_id IS NOT NULL AND a.status IN ('pending', 'accepted')
+              AND ${canReviewProjectSql(user.id, sql`a.project_id`)}
+            GROUP BY a.role_id
+        `));
+        return { success: true, counts: Object.fromEntries(rows.map((row) => [row.role_id, { pending: row.pending, accepted: row.accepted }])) };
+    } catch (error) {
+        console.error('Failed to read role application counts:', error);
+        return { success: false, counts: {} };
+    }
+}
+
+// ============================================================================
+// ACCEPT SEVERAL APPLICATIONS (one confirmation, one result per application)
+// ============================================================================
+export type AcceptApplicationsResult = {
+    success: boolean;
+    error?: string;
+    results: { id: string; success: boolean; error?: string }[];
+};
+
+export async function acceptApplicationsAction(applicationIds: string[]): Promise<AcceptApplicationsResult> {
+    if (!Array.isArray(applicationIds) || applicationIds.length === 0 || applicationIds.length > 20 || applicationIds.some((id) => !isUuid(id))) {
+        return { success: false, error: 'Choose between 1 and 20 applications', results: [] };
+    }
+    const results: AcceptApplicationsResult['results'] = [];
+    // ponytail: one after another, so two accepts for the same role see each other's capacity. ceiling: 20 sequential accepts per call. upgrade: group by role if this ever feels slow.
+    for (const id of [...new Set(applicationIds)]) {
+        const outcome = await acceptApplicationAction(id);
+        results.push({ id, success: outcome.success, ...(outcome.success ? {} : { error: outcome.error }) });
+    }
+    return { success: results.some((result) => result.success), results };
+}
+
+// ============================================================================
 // REJECT APPLICATION ACTION (Creator only)
 // ============================================================================
 export async function rejectApplicationAction(

@@ -160,6 +160,7 @@ export function NetworkFilters({
                 <SelectItem value="projects">
                   Project invitations and applications
                 </SelectItem>
+                <SelectItem value="decided">Decided applications</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -255,7 +256,9 @@ export function NetworkFilterChips({
       label:
         query.kind === "connections"
           ? "Connection requests"
-          : "Project requests",
+          : query.kind === "decided"
+            ? "Decided applications"
+            : "Project requests",
       clear: { kind: "all" },
     });
   if (!chips.length) return null;

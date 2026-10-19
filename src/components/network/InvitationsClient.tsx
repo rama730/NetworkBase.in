@@ -10,11 +10,14 @@ import {
     cancelSentProjectInvitationAction,
     acceptApplicationAction,
     rejectApplicationAction,
+    reopenApplicationAction,
     withdrawApplicationAction,
     type SentProjectInvitationItem,
 } from "@/app/actions/applications";
 import WithdrawApplicationDialog from "@/components/projects/dashboard/WithdrawApplicationDialog";
 import { SentApplicationMenu } from "./SentApplicationMenu";
+import { ApplicationReview, DecidedApplicationMenu, waitingLabel } from "./ApplicationReview";
+import type { DecisionInput } from "@/components/applications/DecisionDialog";
 import { resolveProjectInvitationAction } from "@/app/actions/project/guidance";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -162,15 +165,18 @@ export default function InvitationsClient({
             actor: item.person,
             applicant: item.person,
         }));
+    const decidedApplications = entries.filter(
+        (item) => item.source === "application" && item.direction === "received" && item.applicationStatus,
+    );
     const projectApplications = entries
-        .filter((item) => item.source === "application" && item.direction === "received")
+        .filter((item) => item.source === "application" && item.direction === "received" && !item.applicationStatus)
         .map((item) => ({
             ...item,
             actor: item.person,
             applicant: item.person,
         }));
     const sentApplications = entries.filter(
-        (item) => item.source === "application" && item.direction === "sent" && item.applicationStatus,
+        (item) => item.source === "application" && item.direction === "sent" && item.applicationStatus && item.applicationStatus !== "withdrawn",
     );
     const sentProjectInvitations: SentProjectInvitationItem[] = entries
         .filter(
@@ -404,46 +410,47 @@ export default function InvitationsClient({
         return null;
     }
 
-    async function handleResolveApplication(
+    /** Resolves to an error message for the review dialog, or null once the decision was saved. */
+    async function decideApplication(
         id: string,
-        action: "accept" | "decline",
+        mode: "accept" | "decline",
+        input: DecisionInput,
+        name: string,
     ) {
-        setProcessingApplication({ id, action });
+        setProcessingApplication({ id, action: mode });
         try {
-            const request = (
-                action === "accept"
-                    ? acceptApplicationAction(id)
-                    : rejectApplicationAction(id)
-            ).then((result) => {
-                if (!result.success)
-                    throw new Error(
-                        result.error || `Failed to ${action} application`,
-                    );
-                return result;
-            });
-            await toast
-                .promise(request, {
-                    loading:
-                        action === "accept"
-                            ? "Accepting application..."
-                            : "Declining application...",
-                    success:
-                        action === "accept"
-                            ? "Application accepted"
-                            : "Application declined",
-                    error: (error) =>
-                        error instanceof Error
-                            ? error.message
-                            : `Failed to ${action} application`,
-                })
-                .unwrap();
+            const result =
+                mode === "accept"
+                    ? await acceptApplicationAction(id, input.note || undefined)
+                    : await rejectApplicationAction(id, input.note || undefined, input.reason);
+            if (!result.success)
+                return result.error || `Could not ${mode} the application.`;
+            if (mode === "accept") toast.success(`${name} accepted`);
+            else
+                toast.success(`${name} declined`, {
+                    action: {
+                        label: "Undo",
+                        onClick: () => {
+                            void reopenApplicationAction(id).then((undone) => {
+                                if (undone.success) toast.success("Decline undone");
+                                else toast.error(undone.error || "Could not undo");
+                                void refreshInvitationSurfaces();
+                            });
+                        },
+                    },
+                });
             await refreshInvitationSurfaces();
-            return true;
-        } catch {
-            return false;
+            return null;
         } finally {
             setProcessingApplication(null);
         }
+    }
+
+    async function reopenDecided(id: string) {
+        const result = await reopenApplicationAction(id);
+        if (result.success) toast.success("Application reopened");
+        else toast.error(result.error || "Could not reopen the application");
+        await refreshInvitationSurfaces();
     }
 
     // Option C (Smart Perceptual Threshold): 0-150ms keeps cards at 100% brightness; >150ms renders skeleton
@@ -473,6 +480,7 @@ export default function InvitationsClient({
     const hasOtherSections = Boolean(
         projectInvitations.length ||
         projectApplications.length ||
+        decidedApplications.length ||
         sentApplications.length ||
         sentConnectionRequests.length ||
         sentProjectInvitations.length,
@@ -482,6 +490,7 @@ export default function InvitationsClient({
         connectionInvitations.length > 0 ||
         projectInvitations.length > 0 ||
         projectApplications.length > 0 ||
+        decidedApplications.length > 0 ||
         sentApplications.length > 0 ||
         sentConnectionRequests.length > 0 ||
         sentProjectInvitations.length > 0;
@@ -697,6 +706,8 @@ export default function InvitationsClient({
                     <div className={INVITATION_GRID}>
                         {projectApplications.map((app) => {
                             const actor = app.actor ?? app.applicant;
+                            const name = personCardName(actor ?? {});
+                            const waiting = waitingLabel(app.createdAt);
                             return (
                                 <PersonCardContent
                                     key={app.id}
@@ -712,23 +723,73 @@ export default function InvitationsClient({
                                             </span>
                                         </Link>
                                     }
-                                    footer={requestDate(app.createdAt)}
+                                    footer={
+                                        <>
+                                            {requestDate(app.createdAt)}
+                                            {waiting ? <span className="nb-meta block text-muted-foreground">{waiting}</span> : null}
+                                        </>
+                                    }
                                     action={
-                                        <PersonCardReview
-                                            name={personCardName(actor ?? {})}
-                                            description={`Application for ${app.roleTitle} · ${app.projectTitle}`}
-                                            onAccept={() =>
-                                                handleResolveApplication(
-                                                    app.id,
-                                                    "accept",
-                                                )
+                                        <ApplicationReview
+                                            applicantName={name}
+                                            profileHref={profileHref(actor ?? {})}
+                                            headline={actor?.headline}
+                                            skills={actor?.skills}
+                                            roleTitle={app.roleTitle}
+                                            projectTitle={app.projectTitle}
+                                            message={app.note}
+                                            details={app.details}
+                                            channelId={app.channelId}
+                                            onDecide={(mode, input) =>
+                                                decideApplication(app.id, mode, input, name)
                                             }
-                                            onDecline={() =>
-                                                handleResolveApplication(
-                                                    app.id,
-                                                    "decline",
-                                                )
-                                            }
+                                        />
+                                    }
+                                />
+                            );
+                        })}
+                    </div>
+                </section>
+            ) : null}
+
+            {decidedApplications.length ? (
+                <section aria-labelledby="decided-applications-heading">
+                    <h2 id="decided-applications-heading" className="nb-micro mb-3">
+                        Decided applications · last 30 days
+                    </h2>
+                    <div className={INVITATION_GRID}>
+                        {decidedApplications.map((app) => {
+                            const actor = app.person;
+                            const name = personCardName(actor ?? {});
+                            return (
+                                <PersonCardContent
+                                    key={app.id}
+                                    person={actor ?? {}}
+                                    context={
+                                        <Link
+                                            className="nb-person-portfolio"
+                                            href={`/projects/${app.projectSlug || app.projectId}`}
+                                            title={`${app.roleTitle} · ${app.projectTitle}`}
+                                        >
+                                            <span>{app.roleTitle} · {app.projectTitle}</span>
+                                        </Link>
+                                    }
+                                    footer={
+                                        <>
+                                            {requestDate(app.createdAt)}
+                                            {app.decisionReason ? <span className="nb-meta block text-muted-foreground">{app.decisionReason}</span> : null}
+                                        </>
+                                    }
+                                    action={
+                                        <DecidedApplicationMenu
+                                            status={app.applicationStatus as "accepted" | "rejected" | "withdrawn"}
+                                            applicantName={name}
+                                            profileHref={profileHref(actor ?? {})}
+                                            channelId={app.channelId}
+                                            decidedAt={app.createdAt}
+                                            reasonCode={app.decisionCode}
+                                            roleRemoved={app.roleTitle === "Role removed"}
+                                            onReopen={() => void reopenDecided(app.id)}
                                         />
                                     }
                                 />
@@ -772,7 +833,7 @@ export default function InvitationsClient({
                                     }
                                     action={
                                         <SentApplicationMenu
-                                            status={status}
+                                            status={status as "pending" | "accepted" | "rejected"}
                                             name={application.projectTitle || "the project"}
                                             projectHref={`/projects/${application.projectSlug || application.projectId}`}
                                             channelId={application.channelId}
