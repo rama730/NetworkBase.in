@@ -1,0 +1,90 @@
+{
+  "id": "2026-10-15-message-preview-stability",
+  "title": "Complete project sharing and compact message previews with bounded display authorization",
+  "summary": "Implement the approved permission-aware project preview across in-app cards, external metadata and real PNGs, with eligible team stacks, canonical skills, active vacancies, read-only metrics and no missing-image box. Preserve validated explicit content destinations, canonical general links, original-intent receipt recovery and existing Messages design. Constrain first-party message cards to half the lane and keep unchanged content stable through bounded authorization renewal. Follow-up aligns project avatars/chips to box geometry and reuses the detail-page role formatter with consent-aware active guidance labels.",
+  "riskLevel": "high",
+  "runtimePlanes": [
+    "request",
+    "public_read",
+    "realtime",
+    "database"
+  ],
+  "routeClasses": [
+    "active_surface"
+  ],
+  "dataSourcesChanged": [
+    "Existing verified viewer context projected to actor ID and a SHA-256 session binding",
+    "Existing first-party sharing reader and private no-store preview response",
+    "Existing in-memory TanStack Query cache, author preview-hidden mutation and private user broadcast topics",
+    "Existing project access resolver, visible skill edges, active role seats and read-only view/follower aggregates",
+    "Existing profile privacy and current project owner/member roster filtered before limit and overflow",
+    "Existing verified owner/project-matched storage assets, local bounded image reads and post-render permission rechecks",
+    "Existing idempotent message receipts with an explicit receipt-only no-write lookup",
+    "Existing accepted role applications, lead focus and active guidance attribution with the same visibility policy as the project detail page"
+  ],
+  "canonicalLogicDomains": [
+    "identity_avatar",
+    "relationship_actions",
+    "profile_display",
+    "status_lifecycle"
+  ],
+  "concurrencyRisk": "A server-issued display lease lasts at most 60 seconds and never exceeds verified token expiry. The client validates actor/session/resource binding, charges request time and uses both monotonic and wall deadlines. Failed, expired, offline, suspended or known-revoked authorization masks protected content. AbortSignal prevents canceled/previous-account reads from restoring it. Shared query keys are versioned for the new cache shape and inactive cache retention never grants display access. Existing author/live-channel server authorization remains unchanged. Resource notifications are best effort; visible 30-second reads and expiry bound missed remote events. This is a UI freshness lease, never server authorization. Project/team eligibility is checked before bounded aggregation and after asynchronous reads; image assets and final security-sensitive projections are rechecked after rendering. Counter changes do not invalidate the security signature. Unknown sends retain original idempotency identity across draft changes and use receipt-only reconciliation before deliberate original-intent retry. The final access recheck also discards results if membership changed while reading private guidance attribution.",
+  "observability": {
+    "logs": [
+      "Existing share.preview.unavailable and route-rate-limit logs",
+      "Browser test attachments record requests, stable DOM identity and React Profiler commits"
+    ],
+    "metrics": [],
+    "alerts": []
+  },
+  "rollback": {
+    "strategy": "Revert only the project sharing projection/rendering, receipt recovery and scoped message preview display integration. Preserve unrelated workspace changes and existing Messages design. No migration, dependency or data rollback.",
+    "validation": [
+      "Fresh server authorization still gates every preview read",
+      "Author remove/restore enforcement remains unchanged",
+      "No private snapshot survives account cleanup",
+      "Unrelated message navigation, composer and attachments retain their design"
+    ]
+  },
+  "evidence": {
+    "commands": [
+      "npx tsc --noEmit",
+      "npx tsx --test tests/unit/link-preview-display.test.ts tests/unit/link-preview-route.test.ts tests/unit/profile-sharing.test.ts tests/unit/messaging-url-metadata.test.ts tests/unit/share-destination-scope.test.ts",
+      "npx playwright test --config tests/browser/playwright.config.ts sharing.spec.ts --project=chromium --project=webkit",
+      "npm run check:api-envelope-contract",
+      "npm run check:api-versioning-contract",
+      "npm run check:query-key-contract",
+      "npm run check:canonical-logic-contract",
+      "npm run check:impact-review",
+      "DATABASE_URL_FRESH=<owned-disposable-database> npx tsx --test --test-concurrency=1 tests/db/profile-sharing.test.ts",
+      "NEXT_DIST_DIR=.next-preview-stability-check npm run build"
+    ],
+    "reports": [
+      "docs/audits/message-preview-stability-2026-10-15.md",
+      "docs/audits/project-sharing-implementation-2026-10-15.md"
+    ]
+  },
+  "paths": [
+    "src/components/messages/MessageRow.tsx",
+    "src/components/messages/parts/LinkPreviewCard.tsx",
+    "src/components/messages/parts/MessageLinkPreview.tsx",
+    "src/components/sharing/SharePreviewCard.tsx",
+    "src/app/globals.css",
+    "src/hooks/useLinkPreview.ts",
+    "src/lib/links",
+    "src/lib/query-keys.ts",
+    "src/lib/privacy/client-invalidation.ts",
+    "src/components/messages/ChatShellProvider.tsx",
+    "src/components/providers/query-provider.tsx",
+    "src/app/api/v1/link-preview/route.ts",
+    "src/app/actions/profile.ts",
+    "src/app/actions/project/index.ts",
+    "src/lib/sharing",
+    "src/lib/privacy/resolver.ts",
+    "src/components/sharing/ProjectShareContents.tsx",
+    "src/components/sharing/ShareDialog.tsx",
+    "src/app/actions/sharing.ts",
+    "tests/db/profile-sharing.test.ts",
+    "tests/browser/sharing.spec.ts"
+  ]
+}

@@ -7,7 +7,7 @@ const NAMED_HTML_ENTITIES: Record<string, string> = {
     quot: '"',
 };
 
-function decodeHtmlEntities(value: string) {
+export function decodeHtmlEntities(value: string) {
     return value.replace(/&(#x[\da-f]+|#\d+|[a-z]+);/gi, (entity, token: string) => {
         const normalized = token.toLowerCase();
         if (normalized.startsWith('#x')) {
@@ -30,9 +30,10 @@ function decodeHtmlEntities(value: string) {
 export function normalizeLinkDestinationTitle(
     value: unknown,
     platform?: string | null,
+    decodeEntities = true,
 ): string | null {
     if (typeof value !== 'string') return null;
-    let title = decodeHtmlEntities(value)
+    let title = (decodeEntities ? decodeHtmlEntities(value) : value)
         .replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/g, '')
         .replace(/\s+/g, ' ')
         .trim();

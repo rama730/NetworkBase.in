@@ -30,7 +30,9 @@ import {
   normalizeGithubRepoUrl,
 } from "./repo-validation";
 import {
+  SyncGithubError,
   requireExistingOrEmptyBranch,
+  readGitHubHead,
   readGitHubTree,
   readGitHubBlob,
   repoApi,
@@ -40,6 +42,7 @@ import {
 import {
   contentHashes,
   detectIncomingRenames,
+  detectOutgoingRenames,
   classifySyncFile,
   excludedSyncPath,
   assertSafeSyncContent,
@@ -52,7 +55,10 @@ import {
   type SyncRunView,
 } from "./sync-contract";
 import { runWithConcurrency } from "@/lib/utils/concurrency";
-import { createUploadIntent, finalizeUploadIntent } from "@/lib/upload/upload-intents";
+import {
+  createUploadIntent,
+  finalizeUploadIntent,
+} from "@/lib/upload/upload-intents";
 import {
   buildProjectFileKey,
   parseProjectIdFromProjectFileKey,
@@ -85,15 +91,22 @@ function cacheBlobMeta(hash: string, meta: CachedBlobMeta) {
   gitBlobCache.set(hash, meta);
 }
 
-export async function requireSyncOwner(projectId: string, userId: string) {
+export async function requireSyncOwner(
+  projectId: string,
+  userId: string,
+  options?: { includeSequence?: boolean },
+) {
+  const needsSequence = options?.includeSequence ?? false;
   const [project, counter] = await Promise.all([
     db.query.projects.findFirst({
       where: and(eq(projects.id, projectId), isNull(projects.deletedAt)),
     }),
-    db.query.projectEventCounters.findFirst({
-      where: eq(projectEventCounters.projectId, projectId),
-      columns: { nextSequence: true },
-    }),
+    needsSequence
+      ? db.query.projectEventCounters.findFirst({
+          where: eq(projectEventCounters.projectId, projectId),
+          columns: { nextSequence: true },
+        })
+      : Promise.resolve(null),
   ]);
   if (!project || project.ownerId !== userId)
     throw new Error(
@@ -101,7 +114,8 @@ export async function requireSyncOwner(projectId: string, userId: string) {
     );
   return {
     ...project,
-    currentSequenceNumber: counter?.nextSequence ?? project.currentSequenceNumber,
+    currentSequenceNumber:
+      counter?.nextSequence ?? project.currentSequenceNumber,
   };
 }
 export async function resolveSyncContext(
@@ -109,10 +123,11 @@ export async function resolveSyncContext(
   userId: string,
   oauthToken?: string | null,
   repositoryOverride?: string,
+  options?: { includeSequence?: boolean },
 ) {
   // ponytail: parallel owner validation and sync connection queries. ceiling: 2 concurrent DB queries. upgrade: single joined SQL query if connection volume exceeds 10k RPS.
   const [project, connection] = await Promise.all([
-    requireSyncOwner(projectId, userId),
+    requireSyncOwner(projectId, userId, options),
     db.query.githubSyncConnections.findFirst({
       where: eq(githubSyncConnections.projectId, projectId),
     }),
@@ -149,7 +164,8 @@ export async function readStoredSyncContent(
   if (parseProjectIdFromProjectFileKey(key) !== projectId)
     throw new Error("File content is outside this project");
   const storage =
-    storageOverride || (await createAdminClient()).storage.from("project-files");
+    storageOverride ||
+    (await createAdminClient()).storage.from("project-files");
   if (!storageOverride) {
     const bytes = await readBoundedStorageBytes({
       bucket: "project-files",
@@ -194,7 +210,10 @@ export async function readSyncContributors(
       and(
         eq(projectNodeEvents.projectId, projectId),
         inArray(projectNodeEvents.nodeId, nodeIds),
-        inArray(projectNodeEvents.type, ["file_content_contributed", "create_file"]),
+        inArray(projectNodeEvents.type, [
+          "file_content_contributed",
+          "create_file",
+        ]),
         sql`${projectNodeEvents.metadata}->>'source' = 'edge' OR ${projectNodeEvents.type} = 'create_file'`,
         isNull(profiles.deletedAt),
       ),
@@ -279,7 +298,10 @@ export async function readSyncContributors(
 
 export async function compareSync(
   ctx: SyncContext,
-  input: Pick<SyncManifest, "direction" | "branch" | "mode" | "newRepository">,
+  input: Pick<
+    SyncManifest,
+    "direction" | "branch" | "mode" | "newRepository" | "newBranch"
+  >,
 ): Promise<SyncManifest> {
   const branch = normalizeGithubBranch(input.branch);
   if (!branch) throw new Error("Choose a valid GitHub branch");
@@ -295,10 +317,45 @@ export async function compareSync(
   if (!repository || !normalizeGithubRepoUrl(repository))
     throw new Error("Choose a repository first");
   let repo: SyncRepo | null = null;
+  if (input.newRepository) {
+    const spec = input.newRepository;
+    if (spec.organization) {
+      const membership = await syncGithub<{ state: string }>(
+        ctx.userToken,
+        `/user/memberships/orgs/${encodeURIComponent(spec.owner)}`,
+      );
+      if (membership.state !== "active")
+        throw new Error(
+          "Organization membership or approval is required to create this repository.",
+        );
+    } else {
+      const account = await syncGithub<{ login: string }>(
+        ctx.userToken,
+        "/user",
+      );
+      if (account.login.toLowerCase() !== spec.owner.toLowerCase())
+        throw new Error(
+          "Choose your authenticated GitHub account as the personal repository owner",
+        );
+    }
+    try {
+      await syncGithub<SyncRepo>(ctx.userToken, repoApi(repository));
+      throw new Error(
+        "This owner already has a repository with that name. Connect it explicitly or choose another name.",
+      );
+    } catch (error) {
+      if (!(error instanceof SyncGithubError) || error.status !== 404)
+        throw error;
+    }
+  }
   if (!input.newRepository) {
     repo = await syncGithub<SyncRepo>(ctx.token, repoApi(repository));
     if (repo.archived) throw new Error("This repository is archived");
-    if (ctx.connection && repo.id !== ctx.connection.repositoryId)
+    if (
+      ctx.connection &&
+      ctx.connection.repository === repository &&
+      repo.id !== ctx.connection.repositoryId
+    )
       throw new Error(
         "Repository identity changed. Reconnect and review the destination.",
       );
@@ -308,19 +365,53 @@ export async function compareSync(
     )
       throw new Error("GitHub write access is required");
   }
+  const baseBranch = input.newBranch
+    ? normalizeGithubBranch(input.newBranch.base)
+    : branch;
+  if (
+    input.newBranch &&
+    (!repo ||
+      input.direction !== "push" ||
+      !baseBranch ||
+      baseBranch === branch)
+  )
+    throw new Error(
+      "Choose a different new branch and an existing starting branch for a push",
+    );
+  if (input.newBranch && (await readGitHubHead(ctx.token, repository, branch)))
+    throw new Error(
+      "This branch already exists. Choose an existing branch or a different name.",
+    );
   const headSha = repo
-    ? await requireExistingOrEmptyBranch(ctx.token, repository, branch)
+    ? await requireExistingOrEmptyBranch(ctx.token, repository, baseBranch!)
     : null;
+  if (input.newBranch && !headSha)
+    throw new Error("A new branch needs an existing starting commit");
   const [tree, rows, baselines, knownBlobs] = await Promise.all([
     readGitHubTree(ctx.token, repository, headSha),
     db
-      .select({ node: projectNodes, version: fileVersions })
+      .select({
+        node: projectNodes,
+        version: fileVersions,
+        updater: {
+          name: profiles.fullName,
+          username: profiles.username,
+          avatarUrl: profiles.avatarUrl,
+        },
+      })
       .from(projectNodes)
       .leftJoin(
         fileVersions,
         and(
           eq(fileVersions.nodeId, projectNodes.id),
           eq(fileVersions.version, projectNodes.currentVersion),
+        ),
+      )
+      .leftJoin(
+        profiles,
+        and(
+          eq(profiles.id, fileVersions.uploadedBy),
+          isNull(profiles.deletedAt),
         ),
       )
       .where(
@@ -347,7 +438,7 @@ export async function compareSync(
             and(
               eq(githubSyncFiles.projectId, ctx.project.id),
               eq(githubSyncFiles.repositoryId, repo.id),
-              eq(githubSyncFiles.branch, branch),
+              eq(githubSyncFiles.branch, baseBranch!),
             ),
           )
           .limit(SYNC_LIMITS.comparisonFiles)
@@ -377,8 +468,14 @@ export async function compareSync(
       `Repository exceeds the ${SYNC_LIMITS.comparisonFiles.toLocaleString()}-entry comparison limit`,
     );
   const knownBlobMap = new Map<string, string>();
-  const knownByNodeId = new Map<string, { localHash: string | null; localBlobSha: string }>();
-  const knownByPath = new Map<string, { localHash: string | null; localBlobSha: string }>();
+  const knownByNodeId = new Map<
+    string,
+    { localHash: string | null; localBlobSha: string }
+  >();
+  const knownByPath = new Map<
+    string,
+    { localHash: string | null; localBlobSha: string }
+  >();
   for (const b of knownBlobs) {
     if (b.localBlobSha) {
       if (b.localHash) {
@@ -388,10 +485,16 @@ export async function compareSync(
         }
       }
       if (b.nodeId && !knownByNodeId.has(b.nodeId)) {
-        knownByNodeId.set(b.nodeId, { localHash: b.localHash, localBlobSha: b.localBlobSha });
+        knownByNodeId.set(b.nodeId, {
+          localHash: b.localHash,
+          localBlobSha: b.localBlobSha,
+        });
       }
       if (b.path && !knownByPath.has(b.path)) {
-        knownByPath.set(b.path, { localHash: b.localHash, localBlobSha: b.localBlobSha });
+        knownByPath.set(b.path, {
+          localHash: b.localHash,
+          localBlobSha: b.localBlobSha,
+        });
       }
     }
   }
@@ -422,9 +525,7 @@ export async function compareSync(
   const base = new Map(baselines.map((entry) => [entry.path, entry]));
   const paths = [
     ...new Set([...local.keys(), ...remote.keys(), ...base.keys()]),
-  ]
-    .filter((path) => !excludedSyncPath(path))
-    .sort();
+  ].sort();
   if (paths.length > SYNC_LIMITS.comparisonFiles)
     throw new Error(
       `This sync supports ${SYNC_LIMITS.comparisonFiles.toLocaleString()} files per repository comparison.`,
@@ -464,10 +565,13 @@ export async function compareSync(
       if (row?.node.s3Key && !blocked) {
         // Fast path 1: the baseline for this branch recorded this exact content (identity is the hash, never the node or version).
         const crossBranchBlobSha =
-          reusableBlobSha(knownByNodeId.get(row.node.id), localHash) ?? reusableBlobSha(knownByPath.get(path), localHash);
-        const baselineBlobSha = previous && (previous.nodeId === row.node.id || previous.path === path)
-          ? reusableBlobSha(previous, localHash)
-          : null;
+          reusableBlobSha(knownByNodeId.get(row.node.id), localHash) ??
+          reusableBlobSha(knownByPath.get(path), localHash);
+        const baselineBlobSha =
+          previous &&
+          (previous.nodeId === row.node.id || previous.path === path)
+            ? reusableBlobSha(previous, localHash)
+            : null;
         if (baselineBlobSha) {
           localBlobSha = baselineBlobSha;
           cacheBlobMeta(localHash!, { blobSha: localBlobSha, isSafe: true });
@@ -480,7 +584,8 @@ export async function compareSync(
         ) {
           localBlobSha = row.node.gitHash;
           if (!localHash && previous?.localHash) localHash = previous.localHash;
-          if (localHash) cacheBlobMeta(localHash, { blobSha: localBlobSha, isSafe: true });
+          if (localHash)
+            cacheBlobMeta(localHash, { blobSha: localBlobSha, isSafe: true });
         }
         // Fast paths 3 and 4: another branch's record for this node or path, reused only when its content hash matches.
         else if (crossBranchBlobSha) {
@@ -535,6 +640,20 @@ export async function compareSync(
       );
       return {
         path,
+        updated:
+          input.direction === "push"
+            ? {
+                source: "project",
+                at: row?.version?.uploadedAt?.toISOString() || null,
+                person:
+                  row?.updater && (row.updater.name || row.updater.username)
+                    ? {
+                        name: row.updater.name || row.updater.username!,
+                        avatarUrl: row.updater.avatarUrl,
+                      }
+                    : null,
+              }
+            : undefined,
         nodeId: row?.node.id || previous?.nodeId || null,
         version: row?.node.currentVersion ?? null,
         storageKey: row?.node.s3Key || null,
@@ -558,7 +677,9 @@ export async function compareSync(
       };
     },
   );
-  const latest = await requireSyncOwner(ctx.project.id, ctx.project.ownerId);
+  const latest = await requireSyncOwner(ctx.project.id, ctx.project.ownerId, {
+    includeSequence: true,
+  });
   if (latest.currentSequenceNumber !== ctx.project.currentSequenceNumber)
     throw new Error("Project files changed during comparison. Compare again.");
   // Matching content is authoritative baseline evidence, including a pull request merged outside NetworkBase.
@@ -568,19 +689,19 @@ export async function compareSync(
       file.localBlobSha &&
       file.localBlobSha === file.remoteSha,
   );
-  if (repo && headSha && matching.length)
+  if (repo && headSha && matching.length && !input.newBranch)
     await db.transaction(async (tx) => {
-      await tx.insert(projectEventCounters).values({
-        projectId: ctx.project.id,
-        nextSequence: latest.currentSequenceNumber,
-      }).onConflictDoNothing();
+      await tx
+        .insert(projectEventCounters)
+        .values({
+          projectId: ctx.project.id,
+          nextSequence: latest.currentSequenceNumber,
+        })
+        .onConflictDoNothing();
       const locked = await tx.execute<{ next_sequence: number }>(
         sql`SELECT next_sequence FROM project_event_counters WHERE project_id=${ctx.project.id} FOR UPDATE`,
       );
-      if (
-        Number(locked[0]?.next_sequence) !==
-        latest.currentSequenceNumber
-      )
+      if (Number(locked[0]?.next_sequence) !== latest.currentSequenceNumber)
         throw new Error("Files changed during comparison. Compare again.");
       await tx
         .insert(githubSyncFiles)
@@ -625,8 +746,19 @@ export async function compareSync(
     direction: input.direction,
     mode: headSha ? input.mode : "direct",
     message: "",
-    files: input.direction === "pull" ? detectIncomingRenames(files) : files,
+    files:
+      input.direction === "pull"
+        ? detectIncomingRenames(files)
+        : detectOutgoingRenames(files),
     ...(input.newRepository ? { newRepository: input.newRepository } : {}),
+    ...(input.newBranch ? { newBranch: { base: baseBranch! } } : {}),
+    visibility: input.newRepository
+      ? input.newRepository.private
+        ? "private"
+        : "public"
+      : repo?.private
+        ? "private"
+        : "public",
   };
 }
 
@@ -762,13 +894,18 @@ export async function createSyncReview(
             const [asset] = await db
               .select({ id: storageAssets.id })
               .from(storageAssets)
-              .where(and(
-                eq(storageAssets.bucket, "project-files"),
-                eq(storageAssets.storageKey, item.snapshotKey),
-                eq(storageAssets.state, "verified"),
-              ))
+              .where(
+                and(
+                  eq(storageAssets.bucket, "project-files"),
+                  eq(storageAssets.storageKey, item.snapshotKey),
+                  eq(storageAssets.state, "verified"),
+                ),
+              )
               .limit(1);
-            if (!asset) throw new Error(`Storage registration is pending for ${item.path}`);
+            if (!asset)
+              throw new Error(
+                `Storage registration is pending for ${item.path}`,
+              );
             return { path: item.path, assetId: asset.id };
           }
           const intent = await createUploadIntent({
@@ -781,7 +918,11 @@ export async function createSyncReview(
             expectedMimeType: "application/octet-stream",
             expectedSize: content.byteLength,
             idempotencyKey: `github-sync:${id}:${item.path}`,
-            metadata: { runId: id, path: item.path, source: "reviewed_github_sync" },
+            metadata: {
+              runId: id,
+              path: item.path,
+              source: "reviewed_github_sync",
+            },
           });
           if (intent.status === "pending") {
             const { error } = await storage.upload(intent.storageKey, content, {
@@ -790,9 +931,13 @@ export async function createSyncReview(
               upsert: false,
             });
             if (error) {
-              const { data: existingObject } = await storage.info(intent.storageKey);
+              const { data: existingObject } = await storage.info(
+                intent.storageKey,
+              );
               if (!existingObject) {
-                throw new Error(`Unable to retain reviewed content for ${item.path}. Please retry.`);
+                throw new Error(
+                  `Unable to retain reviewed content for ${item.path}. Please retry.`,
+                );
               }
             }
           }
@@ -805,17 +950,25 @@ export async function createSyncReview(
             expectedScope: "sync_snapshot",
             expectedKind: "snapshot",
           });
-          if (!verified.assetId) throw new Error(`Snapshot verification failed for ${item.path}`);
+          if (!verified.assetId)
+            throw new Error(`Snapshot verification failed for ${item.path}`);
           const [asset] = await db
-            .select({ id: storageAssets.id, contentHash: storageAssets.contentHash })
+            .select({
+              id: storageAssets.id,
+              contentHash: storageAssets.contentHash,
+            })
             .from(storageAssets)
-            .where(and(
-              eq(storageAssets.id, verified.assetId),
-              eq(storageAssets.state, "verified"),
-            ))
+            .where(
+              and(
+                eq(storageAssets.id, verified.assetId),
+                eq(storageAssets.state, "verified"),
+              ),
+            )
             .limit(1);
           if (!asset || asset.contentHash !== item.resultHash) {
-            throw new Error(`Snapshot content changed for ${item.path}. Compare again.`);
+            throw new Error(
+              `Snapshot content changed for ${item.path}. Compare again.`,
+            );
           }
           return { path: item.path, assetId: asset.id };
         }),
@@ -840,25 +993,40 @@ export async function createSyncReview(
         .returning();
       if (!created) return null;
       if (snapshotRefs.length > 0) {
-        await tx.insert(githubSyncSnapshotAssets).values(snapshotRefs.map((ref) => ({
-          runId: id,
-          assetId: ref.assetId,
-          path: ref.path,
-        })));
-        await tx.update(storageAssets)
+        await tx.insert(githubSyncSnapshotAssets).values(
+          snapshotRefs.map((ref) => ({
+            runId: id,
+            assetId: ref.assetId,
+            path: ref.path,
+          })),
+        );
+        await tx
+          .update(storageAssets)
           .set({
             backupState: sql`CASE WHEN ${storageAssets.backupState} = 'verified' THEN 'verified' ELSE 'pending' END`,
             updatedAt: new Date(),
           })
-          .where(inArray(storageAssets.id, snapshotRefs.map((ref) => ref.assetId)));
+          .where(
+            inArray(
+              storageAssets.id,
+              snapshotRefs.map((ref) => ref.assetId),
+            ),
+          );
       }
       return created;
     });
     if (!run) throw new Error("Failed to persist sync review");
     return syncRunView(run);
   } catch (error) {
-    // Verified but unpublished snapshots remain unattached and are reclaimed
-    // by the canonical abandoned-asset worker after credential grace.
+    if (snapshotRefs.length > 0) {
+      // Promptly mark uncommitted snapshot assets for deletion; remaining unattached assets
+      // are safely reclaimed by the canonical abandoned-asset worker.
+      void db
+        .transaction((tx) =>
+          scheduleAssetDeletionIfUnreferenced(tx, snapshotRefs.map((ref) => ref.assetId), { lastErrorCode: "SYNC_REVIEW_FAILED" }),
+        )
+        .catch(() => {});
+    }
     throw error;
   }
 }
@@ -883,9 +1051,15 @@ export async function cleanupReviewedSyncSnapshots() {
   const storage = (await createAdminClient()).storage.from("project-files");
   for (const run of runs) {
     const registeredRefs = await db
-      .select({ assetId: githubSyncSnapshotAssets.assetId, purpose: storageAssets.purpose })
+      .select({
+        assetId: githubSyncSnapshotAssets.assetId,
+        purpose: storageAssets.purpose,
+      })
       .from(githubSyncSnapshotAssets)
-      .innerJoin(storageAssets, eq(storageAssets.id, githubSyncSnapshotAssets.assetId))
+      .innerJoin(
+        storageAssets,
+        eq(storageAssets.id, githubSyncSnapshotAssets.assetId),
+      )
       .where(eq(githubSyncSnapshotAssets.runId, run.id));
     const keys = run.manifest.files.flatMap((file) =>
       file.snapshotKey ? [file.snapshotKey] : [],
@@ -914,13 +1088,16 @@ export async function cleanupReviewedSyncSnapshots() {
     }
     await db.transaction(async (tx) => {
       if (registeredRefs.length > 0) {
-        await tx.delete(githubSyncSnapshotAssets)
+        await tx
+          .delete(githubSyncSnapshotAssets)
           .where(eq(githubSyncSnapshotAssets.runId, run.id));
         const ownedSnapshotIds = registeredRefs
           .filter((ref) => ref.purpose === "sync_snapshot:snapshot")
           .map((ref) => ref.assetId);
         // Snapshot bytes a node or version still points at stay verified (COR-045).
-        await scheduleAssetDeletionIfUnreferenced(tx, ownedSnapshotIds, { lastErrorCode: "SYNC_SNAPSHOT_EXPIRED" });
+        await scheduleAssetDeletionIfUnreferenced(tx, ownedSnapshotIds, {
+          lastErrorCode: "SYNC_SNAPSHOT_EXPIRED",
+        });
       }
       await tx
         .update(githubSyncRuns)
@@ -930,8 +1107,47 @@ export async function cleanupReviewedSyncSnapshots() {
   }
   return runs.length;
 }
+
+export async function cleanupRunSnapshots(runId: string) {
+  const registeredRefs = await db
+    .select({
+      assetId: githubSyncSnapshotAssets.assetId,
+      purpose: storageAssets.purpose,
+    })
+    .from(githubSyncSnapshotAssets)
+    .innerJoin(
+      storageAssets,
+      eq(storageAssets.id, githubSyncSnapshotAssets.assetId),
+    )
+    .where(eq(githubSyncSnapshotAssets.runId, runId));
+
+  if (registeredRefs.length > 0) {
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(githubSyncSnapshotAssets)
+        .where(eq(githubSyncSnapshotAssets.runId, runId));
+      const ownedSnapshotIds = registeredRefs
+        .filter((ref) => ref.purpose === "sync_snapshot:snapshot")
+        .map((ref) => ref.assetId);
+      if (ownedSnapshotIds.length > 0) {
+        await scheduleAssetDeletionIfUnreferenced(tx, ownedSnapshotIds, {
+          lastErrorCode: "SYNC_SNAPSHOT_CANCELLED",
+        });
+      }
+      await tx
+        .update(githubSyncRuns)
+        .set({
+          result: sql`jsonb_set(COALESCE(${githubSyncRuns.result}, '{}'::jsonb), '{snapshotsCleaned}', 'true'::jsonb)`,
+        })
+        .where(eq(githubSyncRuns.id, runId));
+    });
+  }
+}
 export function syncRunView(
-  run: Pick<typeof githubSyncRuns.$inferSelect, 'id' | 'status' | 'stage' | 'error' | 'createdAt' | 'manifest' | 'result'>,
+  run: Pick<
+    typeof githubSyncRuns.$inferSelect,
+    "id" | "status" | "stage" | "error" | "createdAt" | "manifest" | "result"
+  >,
 ): SyncRunView {
   return {
     id: run.id,
@@ -1024,7 +1240,10 @@ export async function validateReviewedLocalFiles(
       !node ||
       node.currentVersion !== file.version ||
       node.s3Key !== file.storageKey ||
-      node.path.replace(/^\//, "") !== (file.renamedFrom || file.path)
+      node.path.replace(/^\//, "") !==
+        (manifest.direction === "pull"
+          ? file.renamedFrom || file.path
+          : file.path)
     )
       throw new Error(`File changed after review: ${file.path}`);
     if (verifyContent) {

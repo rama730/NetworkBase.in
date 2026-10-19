@@ -6,6 +6,7 @@ import {
 import crypto from "crypto";
 import { db } from "@/lib/db";
 import {
+  profiles,
   projects,
   projectEventCounters,
   projectMembers,
@@ -13,7 +14,7 @@ import {
   projectNodes,
   taskNodeLinks,
 } from "@/lib/db/schema";
-import { eq, and, inArray, isNull, sql } from "drizzle-orm";
+import { eq, and, inArray, isNull, isNotNull, or, gt, asc, sql } from "drizzle-orm";
 import { logger } from "@/lib/logger";
 import {
   getProjectTaskCountMap,
@@ -32,6 +33,15 @@ export async function GET(request: Request) {
       return jsonError("Not authenticated", 401, "UNAUTHORIZED");
     }
 
+    const profile = await db.query.profiles.findFirst({ where: eq(profiles.id, user.id), columns: {fullName:true,username:true,avatarUrl:true} });
+    const identity = {id:user.id,email:user.email,name:profile?.fullName || profile?.username || null,avatarUrl:profile?.avatarUrl || null};
+    const url = new URL(request.url);
+    const requestedProjectId = url.searchParams.get("projectId")?.trim();
+    const requestedSlug=url.searchParams.get("slug")?.trim();
+    const cursor=url.searchParams.get("cursor")?.trim();
+    const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if(requestedProjectId&&!uuid.test(requestedProjectId)||cursor&&!uuid.test(cursor)||requestedSlug&&requestedSlug.length>200)return jsonError("Invalid project page query",400,"BAD_REQUEST");
+    const isSummaryMode = url.searchParams.get("mode") === "summary" || request.headers.get("x-nb-workspace-mode") === "summary";
     // 1. Fetch user's projects (via project memberships)
     const userProjects = await db
       .select({
@@ -39,33 +49,34 @@ export async function GET(request: Request) {
         name: projects.title,
         slug: projects.slug,
         description: projects.description,
+        imageUrl: projects.coverImage,
         currentSequenceNumber: sql<number>`coalesce(${projectEventCounters.nextSequence}, ${projects.currentSequenceNumber})`,
         updatedAt: projects.updatedAt,
       })
       .from(projects)
-      .innerJoin(projectMembers, eq(projects.id, projectMembers.projectId))
+      .leftJoin(projectMembers, and(eq(projects.id, projectMembers.projectId),eq(projectMembers.userId,user.id)))
       .leftJoin(projectEventCounters, eq(projectEventCounters.projectId, projects.id))
       .where(
-        and(eq(projectMembers.userId, user.id), isNull(projects.deletedAt)),
-      );
+        and(or(eq(projects.ownerId,user.id),isNotNull(projectMembers.id)),isNull(projects.deletedAt),requestedProjectId?eq(projects.id,requestedProjectId):requestedSlug?eq(projects.slug,requestedSlug):cursor?gt(projects.id,cursor):undefined),
+      ).orderBy(asc(projects.id)).limit(26);
 
-    const projectIds = userProjects.map((project) => project.id);
+    const filteredProjects=userProjects.slice(0,25);
+    const projectPage={hasMore:userProjects.length>25,nextCursor:userProjects.length>25?filteredProjects.at(-1)!.id:null};
+
+    const projectIds = filteredProjects.map((project) => project.id);
+    const fileCounts=projectIds.length?await db.select({projectId:projectNodes.projectId,count:sql<number>`count(*)::int`}).from(projectNodes).where(and(inArray(projectNodes.projectId,projectIds),eq(projectNodes.type,"file"),isNull(projectNodes.deletedAt))).groupBy(projectNodes.projectId):[];
+    const fileCountMap=new Map(fileCounts.map(row=>[row.projectId,Number(row.count)]));
     if (projectIds.length === 0) {
       return jsonSuccess({
-        user: { id: user.id, email: user.email },
+        protocolVersion:2, minimumExtensionVersion:"1.2.0",projectPage,user: identity,
         projects: [],
       });
     }
 
-    const url = new URL(request.url);
-    const isSummaryMode =
-      url.searchParams.get("mode") === "summary" ||
-      request.headers.get("x-nb-workspace-mode") === "summary";
-
-    const watermark = userProjects
+    const watermark = filteredProjects
       .map((p) => `${p.id}:${p.currentSequenceNumber ?? 0}:${p.updatedAt?.getTime?.() ?? 0}`)
       .join(",");
-    const workspaceEtag = `W/"ws-${user.id}-${isSummaryMode ? 'sum' : 'full'}-${crypto.createHash("md5").update(watermark).digest("hex")}"`;
+    const workspaceEtag = `W/"ws-${user.id}-${isSummaryMode ? 'sum' : 'full'}-${crypto.createHash("md5").update(watermark + JSON.stringify(identity)).digest("hex")}"`;
 
     const ifNoneMatch = request.headers.get("if-none-match");
     if (ifNoneMatch && (ifNoneMatch === workspaceEtag || ifNoneMatch.includes(workspaceEtag))) {
@@ -81,9 +92,10 @@ export async function GET(request: Request) {
     // ponytail: summary mode skips per-project task and file queries. ceiling: counts only until the IDE asks for full mode. upgrade: none; full mode already serves details.
     if (isSummaryMode) {
       const projectTaskCountMap = await getProjectTaskCountMap(projectIds);
-      const summaryProjects = userProjects.map((project) => ({
+      const summaryProjects = filteredProjects.map((project) => ({
         ...project,
         syncSequence: project.currentSequenceNumber,
+        fileCount:fileCountMap.get(project.id)||0,
         taskCount: projectTaskCountMap.get(project.id) ?? 0,
         associatedTaskPreview: null,
         tasksTruncated: false,
@@ -92,10 +104,7 @@ export async function GET(request: Request) {
       }));
 
       return jsonSuccess({
-        user: {
-          id: user.id,
-          email: user.email,
-        },
+        protocolVersion:2, minimumExtensionVersion:"1.2.0",projectPage,user: identity,
         projects: summaryProjects,
       }, undefined, {
         headers: {
@@ -203,7 +212,7 @@ export async function GET(request: Request) {
       rootNodesByProject.set(node.projectId, projectMap);
     }
 
-    const projectsWithDetails = userProjects.map((project) => {
+    const projectsWithDetails = filteredProjects.map((project) => {
       const projectTasks = tasksByProject.get(project.id) ?? [];
       const projectFilesMap = rootNodesByProject.get(project.id);
       const projectFiles = projectFilesMap ? Array.from(projectFilesMap.values()) : [];
@@ -212,6 +221,7 @@ export async function GET(request: Request) {
       return {
         ...project,
         syncSequence: project.currentSequenceNumber,
+        fileCount:fileCountMap.get(project.id)||0,
         taskCount,
         associatedTaskPreview: singletonTask
           ? {
@@ -240,10 +250,7 @@ export async function GET(request: Request) {
     });
 
     return jsonSuccess({
-      user: {
-        id: user.id,
-        email: user.email,
-      },
+      protocolVersion:2, minimumExtensionVersion:"1.2.0",projectPage,user: identity,
       projects: projectsWithDetails,
     }, undefined, {
       headers: {

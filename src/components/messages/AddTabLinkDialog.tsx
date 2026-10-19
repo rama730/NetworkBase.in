@@ -1,5 +1,6 @@
 "use client";
 
+import { normalizeSafeExternalUrl } from "@/lib/messaging/safe-links";
 import { useState } from "react";
 import { Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,24 +20,12 @@ export function AddTabLinkDialog({ open, onOpenChange, onAddTab }: Props) {
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
-    let trimmedUrl = url.trim();
-
+    const trimmedUrl = normalizeSafeExternalUrl(url);
     if (!trimmedUrl) {
-      setError("Add the bookmark's link");
+      setError("Enter a public web address, like https://example.com");
       return;
     }
-
-    if (!trimmedUrl.startsWith("http://") && !trimmedUrl.startsWith("https://")) {
-      trimmedUrl = `https://${trimmedUrl}`;
-    }
-
-    let host = "";
-    try {
-      host = new URL(trimmedUrl).hostname.replace(/^www\./, "");
-    } catch {
-      setError("Enter a web address, like https://example.com");
-      return;
-    }
+    const host = new URL(trimmedUrl).hostname.replace(/^www\./, "");
     // No name typed: the site's name is a fine default.
     const trimmedTitle = title.trim() || host;
 

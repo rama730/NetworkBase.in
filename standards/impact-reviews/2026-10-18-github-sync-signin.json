@@ -1,0 +1,64 @@
+{
+  "id": "2026-10-18-github-sync-signin",
+  "title": "Repair GitHub Sync existing-identity sign-in routing",
+  "summary": "Load current authenticated linked identities instead of treating an identity-free JWT snapshot as unlinked, recheck link versus renew before OAuth, and preserve provider failure codes from both callback queries and fragments.",
+  "riskLevel": "high",
+  "runtimePlanes": [
+    "request",
+    "database"
+  ],
+  "routeClasses": [
+    "user_shell",
+    "active_surface"
+  ],
+  "dataSourcesChanged": [
+    "Read current auth.identities scoped to the authenticated user for Sync, repository browsing and import access. No identity or schema mutations."
+  ],
+  "canonicalLogicDomains": [
+    "identity_avatar",
+    "status_lifecycle",
+    "import_boundaries"
+  ],
+  "concurrencyRisk": "Identity lookup failure never starts linking. Recheck current browser identities before OAuth; cancelled/superseded attempts do not navigate. Existing callback account/session mismatch checks remain authoritative.",
+  "observability": {
+    "logs": [
+      "Existing auth.callback.exchange.failure and auth.callback.exchange.success",
+      "Existing github.repository_auth.session_restore_failed and worker/inngest error reporting"
+    ],
+    "metrics": [
+      "Existing auth callback timing and durable sync run stages/results"
+    ],
+    "alerts": []
+  },
+  "rollback": {
+    "strategy": "Revert the linked-user helper, consumers and OAuth error routing together. No schema migration or data rollback; do not detach or transfer identities.",
+    "validation": [
+      "Missing snapshot identities do not imply an absent GitHub link",
+      "Authoritative empty identities and lookup failures remain distinct",
+      "Identity conflicts are never labelled cancellation"
+    ]
+  },
+  "evidence": {
+    "commands": [
+      "node --import tsx --test tests/unit/*github*.test.ts tests/unit/files-tab/*github*.test.ts tests/unit/repo-validation.test.ts tests/unit/auth-oauth.test.ts",
+      "npx tsc --noEmit --pretty false",
+      "npx eslint <changed sign-in modules and tests>"
+    ],
+    "reports": [
+      "docs/audits/github-sync-signin-2026-10-18.md"
+    ]
+  },
+  "paths": [
+    "src/app/actions/github-sync.ts",
+    "src/app/actions/github.ts",
+    "src/app/auth/callback/route.ts",
+    "src/lib/github/linked-user.ts",
+    "src/lib/github/oauth-errors.ts",
+    "src/lib/github/oauth-client.ts",
+    "src/lib/github/import-access-state.ts",
+    "src/lib/github/sync-workspace.ts",
+    "src/components/projects/v2/files-tab/GitHubSyncWorkspace.tsx",
+    "tests/unit/github-sync-oauth-attempt.test.ts",
+    "tests/unit/github-sync-identity-return.test.ts"
+  ]
+}

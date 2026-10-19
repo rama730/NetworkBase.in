@@ -14,6 +14,7 @@ import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { REVEAL_EVENT, type RevealEvent } from "@/components/messages/Timeline";
 import { toast } from "sonner";
 
+import { storedFailedSends } from "@/components/messages/failed-sends";
 import { joinChannel } from "@/app/actions/chat/channels";
 import { listThread, setThreadFollow } from "@/app/actions/chat/messages";
 import { markThreadRead } from "@/app/actions/chat/read";
@@ -31,7 +32,7 @@ import { channelTitle, formatChatTime, isSelfDm, personName } from "@/lib/messag
 import { channelTopic } from "@/lib/messaging/constants";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { conversationHref, showInConversationHref, threadHref } from "@/lib/messaging/routes";
-import { applyReaction } from "@/lib/messaging/timeline";
+import { applyReaction, upsertMessage } from "@/lib/messaging/timeline";
 import type { ChatMessageView, ChatPerson } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
 import { subscribeBroadcast } from "@/lib/realtime/private-broadcast";
@@ -62,8 +63,8 @@ function RepliesSkeleton() {
   );
 }
 
-type Thread = { root: ChatMessageView | null; replies: ChatMessageView[]; following: boolean; lastReadSeq: number | null; hasOlder: boolean };
-type Row = { type: "root"; message: ChatMessageView } | { type: "summary" } | { type: "loading" } | { type: "older" } | { type: "new" } | { type: "reply"; message: ChatMessageView; grouped: boolean };
+type Thread = { root: ChatMessageView | null; replies: ChatMessageView[]; following: boolean; lastReadSeq: number | null; hasOlder: boolean; hasNewer: boolean };
+type Row = { type: "root"; message: ChatMessageView } | { type: "summary" } | { type: "loading" } | { type: "older" } | { type: "newer" } | { type: "new" } | { type: "reply"; message: ChatMessageView; grouped: boolean };
 
 /** Who's in the thread: whoever started it, then the repliers. */
 function participantsOf(thread: Thread | undefined) {
@@ -82,8 +83,8 @@ function names(people: ChatPerson[]) {
  * Root message plus replies (drawer at 1024px+, full screen below). Replies arrive on the channel topic.
  * `headerSlot`: Follow and ⋯ render in the drawer's own header (one header, not two). `focusSeq`: a linked reply (?m=).
  */
-export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = null, autoFocus = false, onClose }: {
-  channelId: string; rootSeq: number; headerSlot?: HTMLElement | null; focusSeq?: number | null; autoFocus?: boolean; onClose?: () => void;
+export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = null, autoFocus = false, onClose, surface = "page", onShowInConversation }: {
+  channelId: string; rootSeq: number; headerSlot?: HTMLElement | null; focusSeq?: number | null; autoFocus?: boolean; onClose?: () => void; surface?: "page" | "window"; onShowInConversation?: () => void;
 }) {
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -103,6 +104,8 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
   const [unseen, setUnseen] = useState(0);
   const [tabSeq, setTabSeq] = useState<number | null>(null);
   const [loadingOlder, setLoadingOlder] = useState(false);
+  const [loadingNewer, setLoadingNewer] = useState(false);
+  const latestMode = useRef(false);
   const [announce, setAnnounce] = useState("");
   // The typing gap opened: at the bottom, keep the last reply fully in view. Next frame,
   // once the taller footer is in the DOM; scrolling past the end stops at the real bottom.
@@ -127,19 +130,34 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
   const thread = useQuery({
     queryKey: key,
     queryFn: async (): Promise<Thread> => {
-      const result = await listThread({ channelId, rootSeq });
+      const result = await listThread({ channelId, rootSeq, around: !latestMode.current && focusSeq !== rootSeq ? focusSeq ?? undefined : undefined });
       if (!result.success) throw new Error(result.error);
       seedCards(queryClient, result.cards);
-      return { root: result.root, replies: result.replies, following: result.following, lastReadSeq: result.lastReadSeq, hasOlder: result.hasOlder };
+      return { root: result.root, replies: result.replies, following: result.following, lastReadSeq: result.lastReadSeq, hasOlder: result.hasOlder, hasNewer: result.hasNewer };
     },
     // The root is usually already in the timeline: show it at once, replies load below it.
     placeholderData: () => {
       const pages = queryClient.getQueryData<InfiniteData<ChatMessageView[]>>(queryKeys.chat.messages(channelId));
       const root = pages?.pages.flat().find((m) => m.seq === rootSeq);
-      return root ? { root, replies: [], following: false, lastReadSeq: null, hasOlder: false } : undefined;
+      return root ? { root, replies: [], following: false, lastReadSeq: null, hasOlder: false, hasNewer: false } : undefined;
     },
   });
-  const loadingReplies = thread.isPlaceholderData;
+  const restoredSends = useRef(false);
+  useEffect(() => {
+    if (!thread.isSuccess || thread.isPlaceholderData || restoredSends.current || !meId) return;
+    restoredSends.current = true;
+    const stored = storedFailedSends(channelId, rootSeq, meId);
+    if (stored.length) queryClient.setQueryData<Thread>(key, (prev) => prev ? { ...prev, replies: [...prev.replies, ...stored.filter((message) => !prev.replies.some((reply) => reply.client_message_id === message.client_message_id))] } : prev);
+  }, [thread.isSuccess, thread.isPlaceholderData, channelId, rootSeq, key, meId, queryClient]);
+  const previousFocus = useRef<number | null | undefined>(undefined);
+  useEffect(() => {
+    if (previousFocus.current === focusSeq) return;
+    previousFocus.current = focusSeq;
+    latestMode.current = false;
+    const cached = queryClient.getQueryData<Thread>(key);
+    if (focusSeq && focusSeq !== rootSeq && cached && !cached.replies.some((m) => m.seq === focusSeq)) void thread.refetch();
+  }, [focusSeq, rootSeq, key, queryClient, thread.refetch]);
+  const loadingReplies = thread.isPlaceholderData || Boolean(focusSeq && focusSeq !== rootSeq && thread.isFetching && !thread.data?.replies.some((m) => m.seq === focusSeq));
   // Where "New replies" goes: the read position when the thread opened (from the real data,
   // never the cached root shown while it loads, which knows nothing about reads).
   const [dividerSeq, setDividerSeq] = useState<number | null>(null);
@@ -167,14 +185,16 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
           setAnnounce((previous) => (previous === text ? `${text} ` : text));
           if (!atBottom.current) setUnseen((n) => n + 1);
         }
-        queryClient.setQueryData<Thread>(key, (prev) => (prev && !prev.replies.some((r) => r.seq === message.seq || (message.client_message_id && r.client_message_id === message.client_message_id))
-          ? {
+        queryClient.setQueryData<Thread>(key, (prev) => {
+          if (!prev) return prev;
+          const existing = prev.replies.some((r) => r.seq === message.seq || (message.client_message_id && r.client_message_id === message.client_message_id));
+          return {
             ...prev,
-            replies: [...prev.replies, message],
-            // The header count and "last reply" stay true as replies arrive.
-            root: prev.root ? { ...prev.root, reply_count: Math.max(prev.root.reply_count + 1, prev.replies.length + 1), last_reply_at: message.created_at } : prev.root,
-          }
-          : prev));
+            replies: prev.hasNewer || existing ? prev.replies : [...prev.replies, message],
+            // Root counters update even when the composer already reconciled the reply.
+            root: prev.root ? upsertMessage([[prev.root]], message)[0]?.[0] ?? prev.root : null,
+          };
+        });
       } else if (seq !== null && event === "message.edit") {
         patch((m) => ({ ...m, body: String(payload.body ?? m.body), edited_at: String(payload.edited_at) }), seq);
       } else if (seq !== null && event === "message.preview_hidden") {
@@ -207,6 +227,25 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
     seedCards(queryClient, result.cards);
     queryClient.setQueryData<Thread>(key, (prev) => (prev ? { ...prev, replies: [...result.replies, ...prev.replies], hasOlder: result.hasOlder } : prev));
+  };
+
+  const loadNewer = async () => {
+    const newest = thread.data?.replies.at(-1)?.seq;
+    if (!newest || loadingNewer) return;
+    setLoadingNewer(true);
+    const result = await listThread({ channelId, rootSeq, after: newest }).finally(() => setLoadingNewer(false));
+    if (!result.success) return void toast.error(chatErrorMessage(result.error));
+    seedCards(queryClient, result.cards);
+    queryClient.setQueryData<Thread>(key, (prev) => prev ? {
+      ...prev, replies: [...prev.replies, ...result.replies.filter((m) => !prev.replies.some((r) => r.seq === m.seq))], hasNewer: result.hasNewer,
+    } : prev);
+  };
+  const loadLatest = async () => {
+    latestMode.current = true;
+    const result = await thread.refetch();
+    if (result.error) { latestMode.current = false; throw result.error; }
+    requestAnimationFrame(() => list.current?.scrollToIndex({ index: "LAST", align: "end" }));
+    setUnseen(0);
   };
 
   const follow = async (on: boolean) => {
@@ -252,11 +291,11 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
 
   // Replying follows the thread; the divider moves past your own reply, and your reply comes into view.
   // No refetch: the reply is already in the list (a long thread isn't downloaded again per reply).
-  const onSent = useCallback(() => {
+  const onSent = () => {
     queryClient.setQueryData<Thread>(key, (prev) => (prev ? { ...prev, following: true } : prev));
     setDividerSeq(Number.MAX_SAFE_INTEGER);
     requestAnimationFrame(() => list.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "smooth" }));
-  }, [key, queryClient]);
+  };
 
   const participants = participantsOf(thread.data);
   const rows = useMemo<Row[]>(() => {
@@ -274,6 +313,7 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
       const grouped = Boolean(prev && prev.author_id === m.author_id && Date.parse(m.created_at) - Date.parse(prev.created_at) < 300_000);
       list.push({ type: "reply", message: m, grouped });
     });
+    if (thread.data.hasNewer) list.push({ type: "newer" });
     return list;
   }, [dividerSeq, loadingReplies, meId, thread.data]);
 
@@ -297,6 +337,7 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
   };
   // A linked reply (?m=) is highlighted for a moment, counted from when the replies are really there.
   const [highlight, setHighlight] = useState<number | null>(focusSeq);
+  useEffect(() => setHighlight(focusSeq), [focusSeq]);
   useEffect(() => {
     if (!highlight || loadingReplies) return;
     const timer = setTimeout(() => setHighlight(null), 2_500);
@@ -325,6 +366,7 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
   // A note to yourself has nowhere else to send a copy.
   const alsoSendTo = details.data && isSelfDm(details.data, meId) ? null : conversationLabel;
   const showInConversation = () => {
+    if (onShowInConversation) return onShowInConversation();
     // On a phone the thread was pushed like a page: go back to the conversation (not a second
     // copy of it in history), then bring the root into view there.
     if (onClose && !window.matchMedia("(min-width: 1024px)").matches) {
@@ -332,7 +374,7 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
       window.dispatchEvent(new CustomEvent<RevealEvent>(REVEAL_EVENT, { detail: { channelId, seq: rootSeq } }));
       return;
     }
-    router.replace(showInConversationHref(channelId, rootSeq), { scroll: false });
+    router.replace(showInConversationHref(channelId, rootSeq, surface === "window" ? "" : window.location.search), { scroll: false });
   };
   const controls = (
     <>
@@ -352,7 +394,7 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
           <MoreHorizontal size={16} />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
-          <DropdownMenuItem onSelect={() => { void copyWithToast(`${window.location.origin}${threadHref(channelId, rootSeq)}`, "Thread link copied"); }}>
+          <DropdownMenuItem onSelect={() => { void copyWithToast(`${window.location.origin}${threadHref(channelId, rootSeq, { m: focusSeq, pane: "thread" }, surface === "window" ? "" : window.location.search)}`, "Thread link copied"); }}>
             <Link2 /> Copy link to thread
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={showInConversation}>
@@ -404,7 +446,7 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
             <Virtuoso
               // Rebuilt once the real replies land, so it starts at the linked or first unread reply
               // (the cached root alone would pin it to the bottom).
-              key={loadingReplies ? "cached" : "loaded"}
+              key={loadingReplies ? "cached" : `loaded:${focusSeq ?? "latest"}`}
               ref={list}
               context={{ typing: typingNow }}
               atBottomStateChange={(bottom) => { atBottom.current = bottom; setShowLatest(!bottom); if (bottom) setUnseen(0); }}
@@ -417,6 +459,7 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
               followOutput={(bottom) => (bottom ? "smooth" : false)}
               computeItemKey={(index, row) => (row.type === "reply" || row.type === "root" ? `${row.type}:${row.message.client_message_id ?? row.message.seq}` : `${row.type}:${index}`)}
               itemContent={(_index, row) => {
+                if (row.type === "newer") return <div className="px-4 py-1"><Button type="button" variant="ghost" size="sm" disabled={loadingNewer} onClick={() => void loadNewer()}>{loadingNewer ? "Loading…" : "Load newer replies"}</Button></div>;
                 if (row.type === "root") return <div className="pt-2"><MessageRow message={row.message} grouped={false} tabStop={rowTab === row.message.seq} /></div>;
                 if (row.type === "loading") return <RepliesSkeleton />;
                 if (row.type === "new") {
@@ -462,7 +505,7 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
             />
           ) : null}
         </div>
-        {showLatest && rows.length ? <LatestBar onClick={() => { list.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "smooth" }); setUnseen(0); }} unseen={unseen} label="Jump to latest reply" /> : null}
+        {(showLatest || thread.data?.hasNewer) && rows.length ? <LatestBar onClick={() => { if (thread.data?.hasNewer) void loadLatest().catch(() => toast.error("Could not load the latest replies. Try again.")); else { list.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "smooth" }); setUnseen(0); } }} unseen={unseen} label="Jump to latest reply" /> : null}
         {canReply ? (
           <Composer
             channelId={channelId}
@@ -471,6 +514,7 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
             people={people}
             allowBroadcast={false}
             canCreateTask={false}
+            beforeSend={thread.data?.hasNewer ? loadLatest : undefined}
             onSent={onSent}
             onTyping={typing.notify}
             typingNames={typing.names}

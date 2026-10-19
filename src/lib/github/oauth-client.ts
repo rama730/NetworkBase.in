@@ -1,13 +1,16 @@
 "use client";
 
+import type { UserIdentity } from "@supabase/supabase-js";
 import { buildOAuthRedirectTo, resolveAuthBaseUrl } from "@/lib/auth/redirects";
 import { continueBrowserOAuthRedirect } from "@/lib/auth/oauth";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { clearGithubOAuthReturn } from "@/lib/github/oauth-errors";
 
 type GithubOAuthOptions = {
   nextPath?: string;
   scopes?: string;
   login?: string | null;
+  isCurrent?: () => boolean;
 };
 
 type GithubIdentityLinkOptions = Pick<GithubOAuthOptions, "nextPath"> & {
@@ -17,23 +20,32 @@ type GithubIdentityLinkOptions = Pick<GithubOAuthOptions, "nextPath"> & {
 const GITHUB_REPOSITORY_SCOPES = "repo workflow user:email read:org";
 
 function createGithubOAuthRequestId() {
-  return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+  return typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
     ? crypto.randomUUID()
     : `github-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 export function identityLinkError(error: unknown, provider = "GitHub") {
-  const record = error && typeof error === "object"
-    ? error as { code?: unknown; message?: unknown }
-    : null;
-  const code = typeof record?.code === "string" ? record.code.trim().toLowerCase() : "";
-  const message = typeof record?.message === "string" ? record.message.trim() : "";
-  if (code === "manual_linking_disabled" || message.toLowerCase().includes("manual linking is disabled")) {
+  const record =
+    error && typeof error === "object"
+      ? (error as { code?: unknown; message?: unknown })
+      : null;
+  const code =
+    typeof record?.code === "string" ? record.code.trim().toLowerCase() : "";
+  const message =
+    typeof record?.message === "string" ? record.message.trim() : "";
+  if (
+    code === "manual_linking_disabled" ||
+    message.toLowerCase().includes("manual linking is disabled")
+  ) {
     return new Error(
       `${provider} linking is unavailable because manual identity linking is disabled for this deployment. An administrator must enable Allow manual linking in Supabase Auth, then try again.`,
     );
   }
-  return error instanceof Error ? error : new Error(`Failed to link ${provider}`);
+  return error instanceof Error
+    ? error
+    : new Error(`Failed to link ${provider}`);
 }
 
 /**
@@ -49,14 +61,17 @@ export async function startGithubRepositoryAuthorization({
   // ponytail: canonical grant covers repository contents and workflow files. ceiling: standard OAuth 2.0 scopes. upgrade: GitHub App fine-grained permissions if user OAuth scopes are restricted by org policy.
   scopes = GITHUB_REPOSITORY_SCOPES,
   login,
+  isCurrent,
 }: GithubOAuthOptions = {}) {
   const destination = new URL(nextPath, window.location.origin);
   destination.searchParams.delete("githubAuth");
+  clearGithubOAuthReturn(destination);
   const requestId = createGithubOAuthRequestId();
   const result = await createSupabaseBrowserClient().auth.signInWithOAuth({
     provider: "github",
     options: {
       scopes,
+      ...(isCurrent ? { skipBrowserRedirect: true } : {}),
       queryParams: {
         prompt: "select_account",
         ...(login?.trim() ? { login: login.trim() } : {}),
@@ -72,7 +87,21 @@ export async function startGithubRepositoryAuthorization({
   if (result.error) throw result.error;
   if (!result.data?.url)
     throw new Error("GitHub authorization could not be started.");
-  continueBrowserOAuthRedirect(result);
+  if (isCurrent) {
+    if (!isCurrent()) return;
+    const target = new URL(result.data.url);
+    const configured = new URL(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || window.location.origin,
+    );
+    if (
+      target.origin !== configured.origin ||
+      !target.pathname.endsWith("/auth/v1/authorize")
+    )
+      throw new Error(
+        "GitHub sign-in returned an unexpected authorization destination. Try again.",
+      );
+    window.location.assign(target.href);
+  } else continueBrowserOAuthRedirect(result);
 }
 
 /**
@@ -86,6 +115,7 @@ export async function startGithubIdentityLink({
 }: GithubIdentityLinkOptions = {}) {
   const destination = new URL(nextPath, window.location.origin);
   destination.searchParams.delete("githubAuth");
+  clearGithubOAuthReturn(destination);
   const result = await createSupabaseBrowserClient().auth.linkIdentity({
     provider: "github",
     options: {
@@ -102,7 +132,37 @@ export async function startGithubIdentityLink({
     },
   });
   if (result.error) throw identityLinkError(result.error);
-  if (!result.data?.url) throw new Error("GitHub account linking could not be started.");
+  if (!result.data?.url)
+    throw new Error("GitHub account linking could not be started.");
   await beforeRedirect?.();
   window.location.assign(result.data.url);
+}
+
+/** Recheck live identities before choosing link versus repository reauthorization. */
+export async function startGithubSyncAuthorization({
+  nextPath,
+  isCurrent = () => true,
+}: Pick<GithubOAuthOptions, "nextPath" | "isCurrent"> = {}) {
+  const result = await createSupabaseBrowserClient().auth.getUserIdentities();
+  if (!isCurrent()) return;
+  if (result.error) throw result.error;
+  if (!result.data || !Array.isArray(result.data.identities))
+    throw new Error("Could not check your linked accounts. Try again.");
+  const github = result.data.identities.find((identity: UserIdentity) => identity.provider === "github");
+  if (github) {
+    const data = github.identity_data;
+    const login = data?.user_name || data?.preferred_username || data?.login;
+    await startGithubRepositoryAuthorization({
+      nextPath,
+      login: typeof login === "string" ? login : undefined,
+      isCurrent,
+    });
+  } else {
+    await startGithubIdentityLink({
+      nextPath,
+      beforeRedirect: async () => {
+        if (!isCurrent()) throw new Error("Sign-in cancelled.");
+      },
+    });
+  }
 }

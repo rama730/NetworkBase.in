@@ -57,7 +57,9 @@ async function ensureIncomingParent(
 ) {
   const segments = path.split("/").slice(0, -1);
   if (segments.length === 0) return null;
-  const prefixes = segments.map((_, index) => `/${segments.slice(0, index + 1).join("/")}`);
+  const prefixes = segments.map(
+    (_, index) => `/${segments.slice(0, index + 1).join("/")}`,
+  );
   const existingByPath = new Map(
     (
       await tx.query.projectNodes.findMany({
@@ -208,16 +210,15 @@ async function remoteAuthors(
     if (commit.sha === file.baseCommit) break;
     if (delta && !delta.has(commit.sha)) continue;
     const author = commit.author;
-    const authorName = commit.commit?.author?.name || author?.login || "Unknown";
+    const authorName =
+      commit.commit?.author?.name || author?.login || "Unknown";
     if (
       result.some((item) =>
-        author
-          ? item.githubId === author.id
-          : item.name === authorName,
+        author ? item.githubId === author.id : item.name === authorName,
       )
     )
       continue;
-    const linked = author ? authorMap.get(author.id) ?? null : null;
+    const linked = author ? (authorMap.get(author.id) ?? null) : null;
     result.push({
       userId: linked?.userId || null,
       name: authorName,
@@ -233,16 +234,24 @@ async function remoteAuthors(
 }
 
 /** Verified asset registered for a reviewed snapshot key; null for legacy unregistered snapshots (COR-004). */
-async function snapshotAssetId(runId: string, snapshotKey: string): Promise<string | null> {
+async function snapshotAssetId(
+  runId: string,
+  snapshotKey: string,
+): Promise<string | null> {
   const [row] = await db
     .select({ assetId: githubSyncSnapshotAssets.assetId })
     .from(githubSyncSnapshotAssets)
-    .innerJoin(storageAssets, eq(storageAssets.id, githubSyncSnapshotAssets.assetId))
-    .where(and(
-      eq(githubSyncSnapshotAssets.runId, runId),
-      eq(storageAssets.storageKey, snapshotKey),
-      eq(storageAssets.state, "verified"),
-    ))
+    .innerJoin(
+      storageAssets,
+      eq(storageAssets.id, githubSyncSnapshotAssets.assetId),
+    )
+    .where(
+      and(
+        eq(githubSyncSnapshotAssets.runId, runId),
+        eq(storageAssets.storageKey, snapshotKey),
+        eq(storageAssets.state, "verified"),
+      ),
+    )
     .limit(1);
   return row?.assetId ?? null;
 }
@@ -424,10 +433,21 @@ export async function runReviewedGitHubSync(
           (await readGitHubHead(
             ctx.token,
             manifest.repository,
-            manifest.branch,
+            manifest.newBranch?.base || manifest.branch,
           )) !== manifest.headSha
         )
           throw new Error("GitHub changed after review. Compare again.");
+        if (
+          manifest.newBranch &&
+          (await readGitHubHead(
+            ctx.token,
+            manifest.repository,
+            manifest.branch,
+          ))
+        )
+          throw new Error(
+            "The new branch already exists. Compare again with a different name.",
+          );
         await update({ stage: "Preparing and publishing commit" });
         result = {
           ...result,
@@ -437,6 +457,7 @@ export async function runReviewedGitHubSync(
             createdAt: run.createdAt,
             token: ctx.token,
             readContent: (key) => readStoredSyncContent(projectId, key),
+            onStage: (stage) => update({ stage }),
             beforePush: async (commitSha, branch) => {
               await requireSyncOwner(projectId, actorId);
               // Content was verified while materializing the commit; only the
@@ -459,7 +480,7 @@ export async function runReviewedGitHubSync(
           Array<{ html_url: string; number: number }>
         >(
           ctx.token,
-          `${repoApi(manifest.repository)}/pulls?head=${encodeURIComponent(head)}&base=${encodeURIComponent(manifest.branch)}&state=all`,
+          `${repoApi(manifest.repository)}/pulls?head=${encodeURIComponent(head)}&base=${encodeURIComponent(manifest.newBranch?.base || manifest.branch)}&state=all`,
         );
         const pr =
           existing[0] ||
@@ -472,7 +493,7 @@ export async function runReviewedGitHubSync(
                 manifest.message.split("\n")[0] || "Update from NetworkBase"
               ).slice(0, 200),
               head: result.branch,
-              base: manifest.branch,
+              base: manifest.newBranch?.base || manifest.branch,
               body: `Reviewed publication from NetworkBase.\n\nOperation: ${runId}\n\n${manifest.files.length} selected file(s).${manifest.message?.trim() ? `\n\n${manifest.message.trim()}` : ""}`,
             },
           ));
@@ -694,7 +715,10 @@ export async function runReviewedGitHubSync(
             },
           );
         } else if (file.snapshotKey) {
-          const incomingAssetId = await snapshotAssetId(runId, file.snapshotKey);
+          const incomingAssetId = await snapshotAssetId(
+            runId,
+            file.snapshotKey,
+          );
           await db.transaction(async (tx) => {
             await assertProjectWriteAccessTx(tx, projectId, actorId);
             const collision = await tx.query.projectNodes.findFirst({
@@ -766,9 +790,40 @@ export async function runReviewedGitHubSync(
         sql`SELECT id FROM github_sync_runs WHERE id=${runId} AND lease_id=${leaseId} AND status='running' FOR UPDATE`,
       );
       if (!locked.length) throw new Error("Synchronization lease was lost");
+      const connectedBranch =
+        manifest.mode === "pr"
+          ? manifest.newBranch?.base || manifest.branch
+          : manifest.branch;
+      if (
+        !ctx.connection ||
+        ctx.connection.repository !== manifest.repository ||
+        ctx.connection.branch !== connectedBranch
+      ) {
+        await tx
+          .insert(githubSyncConnections)
+          .values({
+            projectId,
+            repository: manifest.repository,
+            repositoryId: manifest.repositoryId!,
+            branch: connectedBranch,
+            version: manifest.connectionVersion + 1,
+          })
+          .onConflictDoUpdate({
+            target: githubSyncConnections.projectId,
+            set: {
+              repository: manifest.repository,
+              repositoryId: manifest.repositoryId!,
+              branch: connectedBranch,
+              version: manifest.connectionVersion + 1,
+              updatedAt: new Date(),
+            },
+          });
+      }
       await tx
         .update(projects)
         .set({
+          githubRepoUrl: manifest.repository,
+          githubDefaultBranch: connectedBranch,
           githubLastSyncAt: new Date(),
           ...(manifest.mode === "direct" || manifest.direction === "pull"
             ? { githubLastCommitSha: result.commitSha }
@@ -810,7 +865,9 @@ export async function runReviewedGitHubSync(
 
       // Automated Ecosystem Broadcast to Project Updates
       if (manifest.direction === "push") {
-        const commitShort = result.commitSha ? result.commitSha.slice(0, 7) : "";
+        const commitShort = result.commitSha
+          ? result.commitSha.slice(0, 7)
+          : "";
         const updateContent = result.pullRequestUrl
           ? `Opened Pull Request #${result.pullRequestNumber || ""} on branch \`${manifest.branch}\` with ${manifest.files.length} files.`
           : `Synchronized ${manifest.files.length} ${manifest.files.length === 1 ? "file" : "files"} to \`${manifest.branch}\` on GitHub${commitShort ? ` (commit \`${commitShort}\`)` : ""}.`;

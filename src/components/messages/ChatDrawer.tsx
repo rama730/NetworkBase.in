@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, X } from "lucide-react";
 
@@ -28,18 +28,16 @@ type View = "thread" | "details";
 export function ChatDrawer({ channelId }: { channelId: string }) {
   const panes = usePanes(channelId);
   const router = useRouter();
+  const search = useSearchParams()?.toString() ?? "";
   const { user } = useAuth();
   const details = useChannelDetails(channelId);
   const heading = useRef<HTMLHeadingElement>(null);
-  const [view, setView] = useState<View>(panes.thread ? "thread" : "details");
+  const view: View = panes.pane ?? (panes.thread ? "thread" : "details");
   // The thread's Follow and ⋯ render here, in the drawer's one header.
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   // Switching tabs keeps focus on the tab you pressed; only opening a pane moves it to the heading.
   const fromTab = useRef(false);
 
-  // The pane opened last comes to the front.
-  useEffect(() => { if (panes.thread) setView("thread"); }, [panes.thread]);
-  useEffect(() => { if (panes.details) setView("details"); }, [panes.details]);
   const active: View = view === "thread" && panes.thread ? "thread" : panes.details ? "details" : "thread";
 
   useEffect(() => {
@@ -52,7 +50,7 @@ export function ChatDrawer({ channelId }: { channelId: string }) {
   }, [active]);
   const pickTab = (value: View) => {
     fromTab.current = true;
-    setView(value);
+    panes.selectPane(value);
   };
   // ←/→, Home and End move between the two tabs.
   const tabKeys = (event: React.KeyboardEvent, index: number) => {
@@ -155,7 +153,7 @@ export function ChatDrawer({ channelId }: { channelId: string }) {
             <h2 ref={heading} tabIndex={-1} className="nb-card-title rounded-sm outline-none">{label}</h2>
             {where ? (
               active === "thread" && panes.thread ? (
-                <Link href={showInConversationHref(channelId, panes.thread)} onClick={(event) => { event.preventDefault(); router.replace(showInConversationHref(channelId, panes.thread!), { scroll: false }); }} replace scroll={false} className="max-w-full self-start truncate text-xs leading-4 text-muted-foreground hover:text-foreground hover:underline" title="Show in conversation">
+                <Link href={showInConversationHref(channelId, panes.thread, search)} onClick={(event) => { event.preventDefault(); router.replace(showInConversationHref(channelId, panes.thread!, window.location.search), { scroll: false }); }} replace scroll={false} className="max-w-full self-start truncate text-xs leading-4 text-muted-foreground hover:text-foreground hover:underline" title="Show in conversation">
                   {where}
                 </Link>
               ) : (
