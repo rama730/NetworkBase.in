@@ -59,7 +59,7 @@ export async function fetchGithubTree(
     repoUrl: string, 
     branch: string, 
     githubToken?: string
-): Promise<{ nodes: TreeFileNode[], commitSha: string }> {
+): Promise<{ nodes: TreeFileNode[], commitSha: string, truncated: boolean }> {
     // Parse owner and repo from URL
     // e.g. https://github.com/owner/repo
     const urlParts = repoUrl.replace(/\/$/, '').split('/');
@@ -94,8 +94,11 @@ export async function fetchGithubTree(
     }
 
     const data = (await res.json()) as GithubTreeResponse;
-    if (data.truncated) {
-        console.warn(`[TreeAPI] Warning: The repository tree is truncated because it exceeds GitHub's limits.`);
+    // A truncated tree is an incomplete snapshot: callers may add what it lists but must not treat
+    // a path's absence from it as a deletion (COR-005).
+    const truncated = Boolean(data.truncated);
+    if (truncated) {
+        console.warn(`[TreeAPI] The repository tree is truncated because it exceeds GitHub's limits.`);
     }
 
     const nodes: TreeFileNode[] = [];
@@ -132,5 +135,6 @@ export async function fetchGithubTree(
     return {
         nodes,
         commitSha,
+        truncated,
     };
 }

@@ -149,11 +149,16 @@ async function updateFolderDescendantPaths(
     oldPath: string,
     newPath: string,
     taskId: string | null,
+    options: { releaseTaskScope?: boolean } = {},
 ) {
     if (!oldPath) return;
+    // The offset is cast ::int: as an untyped parameter Postgres reads SUBSTRING(x FROM $n) as a regex
+    // pattern and returns NULL. Paths and task scope move in ONE statement matched on the old scope: clearing task_id first
+    // would make the path rewrite miss every descendant (COR-012).
     await tx.execute(sql`
         UPDATE project_nodes
-        SET path = ${newPath} || SUBSTRING(path FROM ${oldPath.length + 1}),
+        SET path = ${newPath} || SUBSTRING(path FROM ${oldPath.length + 1}::int),
+            ${options.releaseTaskScope ? sql`task_id = NULL,` : sql``}
             updated_at = NOW()
         WHERE project_id = ${projectId}
           AND task_id IS NOT DISTINCT FROM ${taskId}
@@ -914,17 +919,7 @@ export async function moveProjectNodes(
         const updatedById = new Map(updatedRows.map((row) => [row.id, row]));
         for (const { node, oldPath, newPath } of moves) {
             if (node.type !== "folder") continue;
-            if (isPublishing) {
-                await tx.execute(sql`
-                    UPDATE project_nodes
-                    SET task_id = NULL,
-                        updated_at = NOW()
-                    WHERE project_id = ${projectId}
-                      AND path LIKE ${descendantLikePattern(oldPath)} ESCAPE '\\'
-                      AND deleted_at IS NULL
-                `);
-            }
-            await updateFolderDescendantPaths(tx, projectId, oldPath, newPath, node.taskId ?? null);
+            await updateFolderDescendantPaths(tx, projectId, oldPath, newPath, node.taskId ?? null, { releaseTaskScope: isPublishing });
         }
         for (const { node } of moves) movedNodes.push(updatedById.get(node.id)!);
         await recordNodeEventsBatch(

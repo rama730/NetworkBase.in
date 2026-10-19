@@ -12,6 +12,8 @@ type ProjectImportEvent = {
             metadata?: any;
         };
         userId: string;
+        /** The commit the manifest was captured at; hydration downloads exactly this tree. */
+        commitSha?: string;
     };
 };
 

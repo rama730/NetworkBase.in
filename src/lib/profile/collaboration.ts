@@ -1048,7 +1048,7 @@ export async function upsertProfileProjectContributionFromMembership(
     WHERE p.id = ${params.projectId}
       AND p.deleted_at IS NULL
       AND (p.owner_id = ${params.profileId} OR pm.id IS NOT NULL)
-    ON CONFLICT (profile_id, project_id) WHERE deleted_at IS NULL DO UPDATE SET
+    ON CONFLICT (profile_id, project_id) WHERE deleted_at IS NULL AND project_id IS NOT NULL DO UPDATE SET
       source = EXCLUDED.source,
       role_kind = EXCLUDED.role_kind,
       role_title = EXCLUDED.role_title,

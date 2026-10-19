@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 
 import { UUID_RE } from "@/app/actions/files/_constants";
 import { jsonError } from "@/app/api/v1/_envelope";
+import { enforceRouteLimit } from "@/app/api/v1/_shared";
 import {
   assertProjectFileReadAccess,
   canReadProjectTaskFiles,
@@ -28,6 +29,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  // Exports lock and pin every asset in the tree; signed-out viewers share an IP bucket.
+  const limited = await enforceRouteLimit(request, "files:export", 10, 600, "default", user?.id);
+  if (limited) return limited;
   const access = await assertProjectFileReadAccess(projectId, user?.id ?? null).catch(() => null);
   if (!access) return jsonError("Forbidden", 403, "FORBIDDEN");
 

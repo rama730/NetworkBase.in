@@ -14,6 +14,7 @@ import {
   isQuietHoursActive,
   normalizeNotificationPreferences,
 } from "@/lib/notifications/preferences";
+import { selectDueWebPushNotifications } from "@/lib/notifications/push-queue";
 import { toNotificationItem } from "@/lib/notifications/service";
 import { dispatchWebPush } from "@/lib/notifications/web-push";
 
@@ -42,31 +43,7 @@ export const notificationPushDelivery = inngest.createFunction(
   { cron: "*/5 * * * *" },
   async ({ step }) => {
     const result = await step.run("deliver-due-web-push", async () => {
-      const now = new Date();
-      const rows = await db
-        .select({
-          notification: userNotifications,
-          notificationPreferences: profiles.notificationPreferences,
-        })
-        .from(userNotifications)
-        .innerJoin(profiles, eq(profiles.id, userNotifications.userId))
-        .where(and(
-          eq(userNotifications.importance, "important"),
-          isNull(userNotifications.dismissedAt),
-          or(
-            isNull(userNotifications.snoozedUntil),
-            lte(userNotifications.snoozedUntil, now),
-          ),
-          sql`NOT EXISTS (
-            SELECT 1
-            FROM ${notificationDeliveries} delivery
-            WHERE delivery.notification_id = ${userNotifications.id}
-              AND delivery.channel = 'web_push'
-              AND delivery.status IN ('delivered', 'dropped')
-          )`,
-        ))
-        .orderBy(asc(userNotifications.createdAt), asc(userNotifications.id))
-        .limit(DELIVERY_BATCH_SIZE);
+      const rows = await selectDueWebPushNotifications(DELIVERY_BATCH_SIZE);
 
       let delivered = 0;
       let dropped = 0;

@@ -5,6 +5,7 @@ import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { projectNodes, projects } from "@/lib/db/schema";
+import { assertWorkLeaseHeld, withWorkLease, type WorkLease } from "@/lib/leases";
 import { createDirectoryStructureFromPaths, insertVirtualFileNodes } from "@/lib/import/utils";
 import { resolveGithubRepoAccess } from "@/lib/github/auth-resolver";
 import {
@@ -16,7 +17,6 @@ import {
   normalizeGithubRepoUrl,
 } from "@/lib/github/repo-validation";
 import {
-  withTenantSyncLock,
   GITHUB_WORKER_BUDGETS,
 } from "@/lib/github/worker-guard";
 import { fetchGithubTree } from "@/lib/github/tree-api";
@@ -28,7 +28,8 @@ const GIT_CLONE_TIMEOUT_MS = (() => {
   return Number.isFinite(v) && v >= 30_000 ? Math.floor(v) : 120000;
 })();
 
-const LOCK_NAMESPACE = "project-git-sync";
+// Lease length; the holder renews it every third of this while an import runs.
+const IMPORT_LEASE_TTL_MS = 5 * 60_000;
 const RECONCILE_DELETE_BATCH_SIZE = 1000;
 
 export type GithubProjectImportSource = {
@@ -139,24 +140,12 @@ export async function runGithubProjectImport(input: {
       queueAgeMs: input.queueAgeMs ?? null,
     });
 
-    const tenantLockedRun = await withTenantSyncLock(userId, async () => {
-      const lockResult = await db.execute<{ locked: boolean }>(sql`
-        SELECT pg_try_advisory_lock(
-          hashtext(${LOCK_NAMESPACE}),
-          hashtext(CAST(${projectId} AS text))
-        ) AS locked
-      `);
-      const lockRow = Array.from(lockResult)[0];
-      const lockAcquired = !!lockRow?.locked;
-      if (!lockAcquired) {
-        logger.metric("github.import.worker.skipped", {
-          projectId,
-          reason: "lock-in-progress",
-        });
-        return { success: true as const, skipped: "project_in_progress" as const };
-      }
-
-      try {
+    // One import per person at a time, and one per project. Both are durable leases with fences:
+    // they survive pooled connections and idle transactions, and a holder that loses its lease
+    // cannot commit later writes (ARCH-001).
+    const tenantLockedRun = await withWorkLease(`git-import-tenant:${userId}`, IMPORT_LEASE_TTL_MS, async () => {
+      const projectRun = await withWorkLease(`git-import-project:${projectId}`, IMPORT_LEASE_TTL_MS, async (projectLease, leaseLost) => {
+      {
         const [project] = await db
           .select({ importSource: projects.importSource })
           .from(projects)
@@ -222,7 +211,7 @@ export async function runGithubProjectImport(input: {
 
         
         const treeData = await fetchGithubTree(repoUrl, nextBranch, accessToken);
-        const { nodes, commitSha: latestSha } = treeData;
+        const { nodes, commitSha: latestSha, truncated: treeTruncated } = treeData;
 
         let fileCount = 0;
         let totalBytes = 0;
@@ -385,7 +374,8 @@ export async function runGithubProjectImport(input: {
 
         // 3. Handle remote deletions
         const nodeIdsToDelete: string[] = [];
-        for (const local of localNodes) {
+        // Absence from an incomplete (truncated) tree is not evidence of a remote deletion (COR-005).
+        for (const local of treeTruncated ? [] : localNodes) {
           if (!remotePaths.has(local.path)) {
             // Check if local was modified and user chose to keep it
             const relativePath = local.path.replace(/^\//, "");
@@ -399,7 +389,9 @@ export async function runGithubProjectImport(input: {
           }
         }
 
+        leaseLost.throwIfAborted();
         await db.transaction(async (tx) => {
+          await assertWorkLeaseHeld(tx, projectLease);
           for (let index = 0; index < filesToUpdate.length; index += RECONCILE_DELETE_BATCH_SIZE) {
             const batch = filesToUpdate.slice(index, index + RECONCILE_DELETE_BATCH_SIZE);
             await tx.execute(sql`
@@ -426,6 +418,7 @@ export async function runGithubProjectImport(input: {
         });
 
         // 4. Insert brand new files
+        leaseLost.throwIfAborted();
         if (filesToInsert.length > 0) {
           await insertVirtualFileNodes(projectId, filesToInsert, folderMap, userId);
         }
@@ -437,16 +430,19 @@ export async function runGithubProjectImport(input: {
         // Schedule background hydration
         // We trigger an Inngest event for Phase 2 Tarball Stream
         const { inngest } = await import("@/inngest/client");
+        let hydrationDispatchError: string | null = null;
         await inngest.send({
             name: "project/import.hydrate",
             // Events never carry credentials; the worker resolves access itself (COR-006).
-            data: { projectId, userId, importSource: clearSealedGithubTokenFromImportSource(project.importSource) as any }
+            data: { projectId, userId, commitSha: latestSha, importSource: clearSealedGithubTokenFromImportSource(project.importSource) as any }
         }).catch(err => {
             if (err?.message?.includes('401') || err?.message?.includes('Event key not found')) {
                 // Ignore in development if Inngest is not configured
                 console.warn("[Hydration] Skipped Inngest hydration: Inngest event key not configured. Virtual FS is ready.");
             } else {
-                console.error("Failed to enqueue hydration, but virtual fs is ready", err);
+                // Without a queued hydration the files would stay virtual forever behind a "ready" status (COR-008).
+                console.error("Failed to enqueue hydration", err);
+                hydrationDispatchError = "Repository files could not be scheduled for download. Try the import again.";
             }
         });
 
@@ -454,10 +450,13 @@ export async function runGithubProjectImport(input: {
         // Since we are doing bulk insert with onConflictDoNothing, getting touchedNodeIds is complex.
         // We'll skip stale node deletion for virtual imports for now, or just let them stay.
 
-        await db
+        leaseLost.throwIfAborted();
+        await db.transaction(async (tx) => {
+          await assertWorkLeaseHeld(tx, projectLease);
+          await tx
             .update(projects)
             .set({
-              syncStatus: "ready",
+              syncStatus: hydrationDispatchError ? "failed" : "ready",
               githubLastSyncAt: new Date(),
               githubLastCommitSha: latestSha,
               updatedAt: new Date(),
@@ -465,12 +464,15 @@ export async function runGithubProjectImport(input: {
                 ...existingSource,
                 metadata: {
                   ...sourceMetadata,
-                  syncPhase: "ready",
+                  syncPhase: hydrationDispatchError ? "failed" : "ready",
                   syncProgress: null,
+                  lastError: hydrationDispatchError,
+                  treeTruncated,
                 },
               } as any,
             })
             .where(eq(projects.id, projectId));
+        });
 
         logger.metric("github.import.worker.complete", {
             projectId,
@@ -486,14 +488,16 @@ export async function runGithubProjectImport(input: {
             commitSha: latestSha,
         };
 
-      } finally {
-        await db.execute(sql`
-          SELECT pg_advisory_unlock(
-            hashtext(${LOCK_NAMESPACE}),
-            hashtext(CAST(${projectId} AS text))
-          )
-        `);
       }
+      });
+      if (projectRun.skipped) {
+        logger.metric("github.import.worker.skipped", {
+          projectId,
+          reason: "lock-in-progress",
+        });
+        return { success: true as const, skipped: "project_in_progress" as const };
+      }
+      return projectRun.value;
     });
 
     if (tenantLockedRun.skipped) {
@@ -501,10 +505,10 @@ export async function runGithubProjectImport(input: {
         projectId,
         reason: "tenant-concurrency",
       });
-      return { success: true, skipped: "tenant_in_progress" };
+      return { success: true, skipped: "tenant_in_progress" as const };
     }
 
-    return tenantLockedRun.value ?? { success: true, skipped: "tenant_in_progress" as const };
+    return tenantLockedRun.value;
   } catch (error) {
     await markGithubProjectImportFailed({ projectId, importEventId, error });
     throw error;

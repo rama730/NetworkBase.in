@@ -9,8 +9,11 @@ import { parseProjectFileKey } from "@/lib/storage/project-file-key";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { streamPrivateObject } from "@/lib/storage/private-object-response";
 import { UUID_RE } from "@/app/actions/files/_constants";
+import { enforceRouteLimit } from "@/app/api/v1/_shared";
 
 export const dynamic = "force-dynamic";
+
+const noStore = (body: string, status: number) => new Response(body, { status, headers: { "Cache-Control": "private, no-store" } });
 
 type RouteContext = {
   params: Promise<{ id: string; nodeId: string }>;
@@ -25,14 +28,16 @@ type RouteContext = {
 export async function GET(request: NextRequest, context: RouteContext) {
   const { id: projectId, nodeId } = await context.params;
   if (!UUID_RE.test(projectId) || !UUID_RE.test(nodeId)) {
-    return new Response("Not found", { status: 404 });
+    return noStore("Not found", 404);
   }
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  const limited = await enforceRouteLimit(request, "files:preview", 600, 60, "default", user?.id);
+  if (limited) return noStore("Rate limit exceeded", 429);
   const access = await assertProjectFileReadAccess(projectId, user?.id ?? null).catch(() => null);
   if (!access) {
-    return new Response("Forbidden", { status: 403 });
+    return noStore("Forbidden", 403);
   }
 
   const node = await db.query.projectNodes.findFirst({
@@ -55,18 +60,18 @@ export async function GET(request: NextRequest, context: RouteContext) {
     },
   });
   if (!node) {
-    return new Response("File content is unavailable", { status: 404 });
+    return noStore("File content is unavailable", 404);
   }
   try {
     assertTaskFileNodeVisible(access, node);
   } catch {
-    return new Response("Forbidden", { status: 403 });
+    return noStore("Forbidden", 403);
   }
 
   const requestedRevision = request.nextUrl.searchParams.get("revision");
   const revisionNumber = requestedRevision == null ? null : Number(requestedRevision);
   if (requestedRevision != null && (!Number.isSafeInteger(revisionNumber) || revisionNumber! < 1)) {
-    return new Response("Invalid revision", { status: 400 });
+    return noStore("Invalid revision", 400);
   }
   const historical = revisionNumber == null
     ? null
@@ -79,7 +84,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       });
   const target = historical ?? node;
   if (!target?.s3Key || !target.assetId || parseProjectFileKey(target.s3Key)?.projectId !== projectId) {
-    return new Response("File content is unavailable", { status: 404 });
+    return noStore("File content is unavailable", 404);
   }
   const [asset] = await db.select({
     storageKey: storageAssets.storageKey,
@@ -98,7 +103,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     || !asset.mimeType
     || (historical && (!historical.contentHash || historical.contentHash !== asset.contentHash))
   ) {
-    return new Response("File content is unavailable", { status: 404 });
+    return noStore("File content is unavailable", 404);
   }
 
   const revisionIdentity = createHash("sha256")
@@ -120,7 +125,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     .from("project-files")
     .createSignedUrl(target.s3Key, 60);
   if (error || !data?.signedUrl) {
-    return new Response("Failed to prepare file preview", { status: 502 });
+    return noStore("Failed to prepare file preview", 502);
   }
 
   return streamPrivateObject({
