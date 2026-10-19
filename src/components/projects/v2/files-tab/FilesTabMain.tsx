@@ -47,6 +47,8 @@ export interface FilesTabMainProps {
   canOpenGitHub?: boolean;
   githubAccess?: GithubImportAccessState | null;
   isOwner?: boolean;
+  deepLinkError?: string | null;
+  onDismissDeepLinkError?: () => void;
 }
 
 // Stable empty object used by selectors reading `nodesById` when the
@@ -66,6 +68,8 @@ export function FilesTabMain({
   canOpenGitHub,
   githubAccess,
   isOwner,
+  deepLinkError,
+  onDismissDeepLinkError,
 }: FilesTabMainProps): React.JSX.Element {
   const { canEdit, canManageFiles } = useFilesTabRole();
   const location = useCurrentLocation(projectId);
@@ -104,6 +108,23 @@ export function FilesTabMain({
         projectSlug={projectSlug}
         canOpenGitHub={canOpenGitHub}
       >
+        {deepLinkError ? (
+          <div
+            role="alert"
+            className="m-3 flex items-center justify-between rounded-[5px] border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300"
+          >
+            <span>{deepLinkError}</span>
+            {onDismissDeepLinkError ? (
+              <button
+                type="button"
+                onClick={onDismissDeepLinkError}
+                className="ml-2 font-mono text-[11px] hover:underline"
+              >
+                Dismiss
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         {!isCollection && (isBooting || unresolved) && (
           <FilesWorkspaceMenu projectId={projectId} />
         )}
@@ -113,7 +134,7 @@ export function FilesTabMain({
               projectId={projectId}
               projectSlug={projectSlug}
               projectName={projectName}
-              canManage={isOwner ?? !!canOpenGitHub}
+              canManage={Boolean(isOwner)}
               access={githubAccess ?? null}
             />
           ) : workspaceView.view === "tasks" ||
@@ -132,11 +153,20 @@ export function FilesTabMain({
             role="status"
             aria-busy="true"
             aria-live="polite"
+            aria-label="Loading workspace..."
             data-testid="files-tab-main-loading"
-            className="flex flex-1 items-center justify-center gap-2 p-8 text-muted-foreground"
+            className="flex-1 space-y-2 p-4"
           >
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-            <span>Loading workspace...</span>
+            <div className="h-8 w-44 rounded-[5px] bg-muted/60 animate-pulse" />
+            <div className="space-y-1">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex h-10 items-center gap-3 rounded-[5px] border border-border/40 px-3">
+                  <div className="size-4 rounded-[3px] bg-muted animate-pulse" />
+                  <div className="h-4 w-36 rounded-[3px] bg-muted animate-pulse" />
+                  <div className="ml-auto h-3 w-16 rounded-[3px] bg-muted/70 animate-pulse" />
+                </div>
+              ))}
+            </div>
           </div>
         ) : unresolved ? (
           <LocationNotFound />

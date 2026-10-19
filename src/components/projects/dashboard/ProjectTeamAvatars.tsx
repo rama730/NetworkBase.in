@@ -151,9 +151,14 @@ const ProjectTeamAvatars = memo(function ProjectTeamAvatars({
                 {remaining > 0 ? (
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <span tabIndex={0} className="nb-avatar-trigger relative z-10 flex size-[34px] items-center justify-center rounded-[5px] border-2 border-card bg-muted font-mono text-[11px] font-semibold text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                            <button
+                                type="button"
+                                onClick={() => setRosterOpen(true)}
+                                aria-label={`View all ${avatars.length} team members`}
+                                className="nb-avatar-trigger relative z-10 flex size-[34px] items-center justify-center rounded-[5px] border-2 border-card bg-muted font-mono text-[11px] font-semibold text-muted-foreground hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer transition-colors"
+                            >
                                 +{remaining}
-                            </span>
+                            </button>
                         </TooltipTrigger>
                         <TooltipContent side="bottom">{remaining} more team {remaining === 1 ? "member" : "members"}</TooltipContent>
                     </Tooltip>
@@ -162,12 +167,12 @@ const ProjectTeamAvatars = memo(function ProjectTeamAvatars({
             <button
                 type="button"
                 onClick={() => setRosterOpen(true)}
-                className="nb-touch-target nb-ui-label inline-flex items-center rounded-[5px] px-1 text-muted-foreground md:hidden"
+                className="nb-touch-target nb-ui-label inline-flex items-center rounded-[5px] px-1 text-muted-foreground hover:text-foreground cursor-pointer md:hidden"
             >
                 {avatars.length} {avatars.length === 1 ? "member" : "members"}
             </button>
             <Dialog open={rosterOpen} onOpenChange={setRosterOpen}>
-                <DialogContent presentation="right-drawer" className="gap-0 p-0 md:hidden">
+                <DialogContent presentation="right-drawer" className="gap-0 p-0 sm:max-w-[360px]">
                     <DialogTitle className="nb-card-title border-b border-border px-4 py-4">Team</DialogTitle>
                     <ul className="app-scroll app-scroll-y flex-1 divide-y divide-border overflow-y-auto">
                         {avatars.map((avatar) => (

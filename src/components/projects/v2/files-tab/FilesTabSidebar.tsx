@@ -13,8 +13,9 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, PanelLeftClose } from "lucide-react";
+
+const EMPTY_FOLDER_SIZES: Record<string, number> = {};
 import {
   useFilesWorkspaceView,
   fileCollectionViews,
@@ -394,30 +395,6 @@ export function FilesTabSidebar({
     return meta;
   }, [rowsToRender]);
 
-  // ── Folder sizes (cheap aggregation over cached nodes) ────────────
-  const folderSizes = useMemo(() => {
-    const sizes: Record<string, number> = {};
-    const nodes = nodesById as Record<string, ProjectNode>;
-    for (const id in nodes) {
-      const node = nodes[id];
-      if (!node) continue;
-      if (node.type !== "file" || !node.parentId || !node.size) continue;
-      let cursor: string | null = node.parentId;
-      let depth = 0;
-      const visited = new Set<string>();
-      while (cursor) {
-        if (visited.has(cursor)) break;
-        if (depth >= 50) break;
-        visited.add(cursor);
-        sizes[cursor] = (sizes[cursor] || 0) + (node.size || 0);
-        const parentNode: ProjectNode | undefined = nodes[cursor];
-        cursor = parentNode?.parentId ?? null;
-        depth += 1;
-      }
-    }
-    return sizes;
-  }, [nodesById]);
-
   // ── Row-click handler: single write path to currentLocationId ─────
   const handleSelect = useCallback(
     (node: ProjectNode) => {
@@ -516,7 +493,7 @@ export function FilesTabSidebar({
     onRenameConfirm: handleInlineRenameConfirm,
     onRenameCancel: handleInlineRenameCancel,
     onDesktopFileDrop: handleDesktopFileDrop,
-    folderSizes,
+    folderSizes: EMPTY_FOLDER_SIZES,
     treeItemMetaByNodeId,
     handleSelect,
     handleToggleFolder,
@@ -541,45 +518,6 @@ export function FilesTabSidebar({
     setTrashNodesState: () => undefined,
     onContextMenu: handleContextMenu,
   });
-
-  const queryClient = useQueryClient();
-  const cachedTaskQueries = queryClient.getQueriesData<{
-    pages?: Array<{ groups?: Array<{ id: string }> }>;
-    groups?: Array<{ id: string }>;
-  }>({
-    queryKey: ["files-task-collections", projectId],
-  });
-
-  const authoritativeTaskCount = useMemo(() => {
-    for (const [, queryData] of cachedTaskQueries) {
-      if (!queryData) continue;
-      if (Array.isArray(queryData.pages) && queryData.pages[0]?.groups) {
-        const unique = new Set(
-          queryData.pages.flatMap((p) => p.groups ?? []).map((g) => g.id),
-        );
-        if (unique.size > 0) return unique.size;
-      }
-      if (Array.isArray(queryData.groups) && queryData.groups.length > 0) {
-        return queryData.groups.length;
-      }
-    }
-    return undefined;
-  }, [cachedTaskQueries]);
-
-  const collectionCounts = useMemo(() => {
-    const activeNodes = Object.values(nodesById).filter(Boolean);
-    const fileCount = activeNodes.filter((n) => n.type === "file" && !n.deletedAt).length;
-    const favCount = Object.values(favorites).filter(Boolean).length;
-    const recCount = recents.length;
-    const taskLinkSum = Object.values(taskLinkCounts).reduce((acc, c) => acc + (c || 0), 0);
-    const taskCount = authoritativeTaskCount ?? (taskLinkSum > 0 ? taskLinkSum : undefined);
-    return {
-      project: fileCount > 0 ? fileCount : undefined,
-      starred: favCount > 0 ? favCount : undefined,
-      recent: recCount > 0 ? recCount : undefined,
-      tasks: taskCount && taskCount > 0 ? taskCount : undefined,
-    } as Record<string, number | undefined>;
-  }, [nodesById, favorites, recents, taskLinkCounts, authoritativeTaskCount]);
 
   // ── Render ────────────────────────────────────────────────────────
   const collapsedToggleLabel = sidebarCollapsed
@@ -660,7 +598,6 @@ export function FilesTabSidebar({
               )
               .map(({ id, label, Icon }) => {
                 const isActive = workspaceView.view === id;
-                const count = collectionCounts[id];
                 return (
                   <button
                     key={id}
@@ -675,7 +612,7 @@ export function FilesTabSidebar({
                         toggleSidebar(projectId);
                     }}
                     className={cn(
-                      "flex min-h-8 w-full items-center gap-2.5 rounded-[5px] px-2.5 text-left text-xs transition-colors",
+                      "flex min-h-8 [@media(pointer:coarse)]:min-h-11 w-full items-center gap-2.5 rounded-[5px] px-2.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D14E24]",
                       isActive
                         ? "bg-[#F3F0EA] font-semibold text-[#141A1E] dark:bg-white/10 dark:text-foreground"
                         : "text-[#374349] font-medium hover:bg-[#F3F0EA]/70 hover:text-[#141A1E] dark:text-muted-foreground dark:hover:bg-white/5 dark:hover:text-foreground",
@@ -689,11 +626,6 @@ export function FilesTabSidebar({
                       )}
                     />
                     <span className="truncate">{label}</span>
-                    {count !== undefined && (
-                      <span className="ml-auto font-mono text-[11px] text-[#6B7880] dark:text-muted-foreground tabular-nums">
-                        {count}
-                      </span>
-                    )}
                   </button>
                 );
               })}

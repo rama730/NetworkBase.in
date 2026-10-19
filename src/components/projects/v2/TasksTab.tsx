@@ -134,22 +134,33 @@ export default function TasksTab({
     setSearchInput(taskSearchQuery);
   }, [taskSearchQuery]);
 
+  const searchDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const handleSearchChange = useCallback((value: string) => {
     setSearchInput(value);
-    const nextParams = new URLSearchParams(window.location.search);
-    const trimmed = value.trim();
-    if (!trimmed) {
-      nextParams.delete("search");
-    } else {
-      nextParams.set("search", trimmed);
-    }
-    const nextQuery = nextParams.toString();
-    const nextUrl = nextQuery
-      ? `${window.location.pathname}?${nextQuery}`
-      : window.location.pathname;
-    if (`${window.location.pathname}${window.location.search}` !== nextUrl) {
-      window.history.replaceState(window.history.state, "", nextUrl);
-    }
+    if (searchDebounceTimerRef.current) clearTimeout(searchDebounceTimerRef.current);
+    searchDebounceTimerRef.current = setTimeout(() => {
+      const nextParams = new URLSearchParams(window.location.search);
+      const trimmed = value.trim();
+      if (!trimmed) {
+        nextParams.delete("search");
+      } else {
+        nextParams.set("search", trimmed);
+      }
+      const nextQuery = nextParams.toString();
+      const nextUrl = nextQuery
+        ? `${window.location.pathname}?${nextQuery}`
+        : window.location.pathname;
+      if (`${window.location.pathname}${window.location.search}` !== nextUrl) {
+        window.history.replaceState(window.history.state, "", nextUrl);
+      }
+    }, 250);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (searchDebounceTimerRef.current) clearTimeout(searchDebounceTimerRef.current);
+    };
   }, []);
 
   const activeAssignableMemberIds = useMemo(
@@ -223,11 +234,7 @@ export default function TasksTab({
       }
     }
   }, [initialOpenTaskId]);
-  const queryScope: ProjectTaskScope = useMemo(() => {
-    if (scope === "backlog") return "backlog";
-    if (scope === "sprint") return "sprint";
-    return "all";
-  }, [scope]);
+  const queryScope: ProjectTaskScope = scope;
 
   // Hook Integration: Smart Fetching (Infinite Loading)
   const {
@@ -329,11 +336,14 @@ export default function TasksTab({
     [workflowMutation],
   );
 
+  const isWorkflowPendingRef = useRef(workflowMutation.isPending);
+  isWorkflowPendingRef.current = workflowMutation.isPending;
+
   useEffect(() => {
     const supabase = createClient();
     let refreshTimer: ReturnType<typeof setTimeout> | null = null;
     const scheduleWorkflowRefresh = () => {
-      if (workflowMutation.isPending) {
+      if (isWorkflowPendingRef.current) {
         workflowRefreshQueuedRef.current = true;
         return;
       }
@@ -361,7 +371,7 @@ export default function TasksTab({
       if (refreshTimer) clearTimeout(refreshTimer);
       void supabase.removeChannel(channel);
     };
-  }, [projectId, queryClient, workflowMutation.isPending, workflowQueryKey]);
+  }, [projectId, queryClient, workflowQueryKey]);
 
   useEffect(() => {
     if (workflowMutation.isPending || !workflowRefreshQueuedRef.current) return;
@@ -371,23 +381,6 @@ export default function TasksTab({
 
   useRealtimeTasks(projectId, realtimeDeferredTaskId);
 
-  const sprintAwareTasks = useMemo(() => {
-    return fetchedTasks.map((task) => {
-      const normalizedTask = normalizeTaskSurfaceRecord(task);
-      if (normalizedTask.sprint || !normalizedTask.sprintId) return task;
-      const sprint = sprintById.get(normalizedTask.sprintId);
-      if (!sprint) return task;
-      return {
-        ...task,
-        sprint: {
-          id: sprint.id,
-          name: sprint.name,
-          status: sprint.status,
-        },
-        sprintName: sprint.name,
-      };
-    });
-  }, [fetchedTasks, sprintById]);
   const withSprintContext = useCallback(
     (task: TaskSurfaceRecord) => {
       const normalizedTask = normalizeTaskSurfaceRecord(task);
@@ -406,6 +399,10 @@ export default function TasksTab({
     },
     [sprintById],
   );
+
+  const sprintAwareTasks = useMemo(() => {
+    return fetchedTasks.map(withSprintContext);
+  }, [fetchedTasks, withSprintContext]);
 
   const openTask = useCallback(
     (
@@ -731,10 +728,10 @@ export default function TasksTab({
       <div className="w-full shrink-0">
         <div className="flex w-full flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
           <div className="flex items-center gap-2.5">
-            <h2 className="text-sm font-semibold text-foreground">
+            <h2 className="text-[20px] font-semibold tracking-tight text-foreground">
               Task board
             </h2>
-            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-1.5 font-mono text-[11px] font-semibold text-muted-foreground">
+            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-1.5 font-mono text-[12px] font-medium text-muted-foreground">
               {/* Loaded so far; "+" while more pages exist (there is no total count). */}
               {`${filteredTasks.length}${hasNextPage ? "+" : ""}`}
             </span>
@@ -933,11 +930,11 @@ export default function TasksTab({
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="space-y-1.5">
-                  <label htmlFor="name" className="font-mono text-xs font-medium uppercase tracking-[0.09em] text-muted-foreground">
+                  <label htmlFor="add-section-name" className="font-mono text-xs font-medium uppercase tracking-[0.09em] text-muted-foreground">
                     Name
                   </label>
                   <input
-                    id="name"
+                    id="add-section-name"
                     autoFocus
                     value={sectionTitle}
                     onChange={(e) => setSectionTitle(e.target.value)}
@@ -1048,6 +1045,7 @@ export default function TasksTab({
           currentUserAvatarUrl={currentUserAvatarUrl}
           initialCommentId={initialCommentId}
           initialFileId={initialFileId}
+          workflowColumns={workflow.map((w) => ({ id: w.id, name: w.title }))}
         />
       )}
 

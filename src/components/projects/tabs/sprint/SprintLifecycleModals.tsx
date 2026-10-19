@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   Dialog,
@@ -82,8 +81,10 @@ export function SprintLifecycleModals({
     [selectedSprint?.id, sprints],
   );
 
+  const openerRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     if (!openModal) return;
+    openerRef.current = document.activeElement as HTMLElement | null;
     setUnfinishedChoice("keep");
     setNextSprintId("");
   }, [openModal, selectedSprint?.id]);
@@ -113,11 +114,6 @@ export function SprintLifecycleModals({
   };
 
   const submit = async () => {
-    if (openModal === "complete" && requiresTargetSprint && !nextSprintId) {
-      toast.error("Choose a Sprint for the unfinished work.");
-      return;
-    }
-
     const succeeded =
       openModal === "complete"
         ? await onConfirmComplete(
@@ -135,6 +131,12 @@ export function SprintLifecycleModals({
       <DialogContent
         className="max-w-lg"
         showCloseButton={!isMutating}
+        onCloseAutoFocus={(event) => {
+          if (openerRef.current) {
+            event.preventDefault();
+            openerRef.current.focus();
+          }
+        }}
         onEscapeKeyDown={(event) => {
           if (isMutating) event.preventDefault();
         }}

@@ -25,25 +25,40 @@ interface CommentBodyProps {
     className?: string;
 }
 
-function renderTaskRefs(text: string, keyPrefix: string): React.ReactNode {
-    const taskRefRegex = /\b([A-Z]{2,10}-\d+)\b/g;
+function renderLinksAndTaskRefs(text: string, keyPrefix: string): React.ReactNode {
+    const tokenRegex = /(https?:\/\/[^\s<]+[^<.,:;"')\]\s])|\b([A-Z]{2,10}-\d+)\b/g;
     const parts: React.ReactNode[] = [];
     let lastIndex = 0;
     let match: RegExpExecArray | null;
 
-    while ((match = taskRefRegex.exec(text)) !== null) {
+    while ((match = tokenRegex.exec(text)) !== null) {
         if (match.index > lastIndex) {
             parts.push(text.slice(lastIndex, match.index));
         }
-        const taskId = match[1];
-        parts.push(
-            <span
-                key={`${keyPrefix}-tr-${match.index}`}
-                className="font-mono text-[12px] font-semibold text-primary"
-            >
-                {taskId}
-            </span>,
-        );
+        if (match[1]) {
+            const url = match[1];
+            parts.push(
+                <a
+                    key={`${keyPrefix}-url-${match.index}`}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline font-medium break-all"
+                >
+                    {url}
+                </a>,
+            );
+        } else if (match[2]) {
+            const taskId = match[2];
+            parts.push(
+                <span
+                    key={`${keyPrefix}-tr-${match.index}`}
+                    className="font-mono text-[12px] font-semibold text-primary"
+                >
+                    {taskId}
+                </span>,
+            );
+        }
         lastIndex = match.index + match[0].length;
     }
 
@@ -62,7 +77,7 @@ function renderInlineChunks(text: string, keyPrefix: string): React.ReactNode {
 
     while ((match = inlineCodeRegex.exec(text)) !== null) {
         if (match.index > lastIndex) {
-            parts.push(renderTaskRefs(text.slice(lastIndex, match.index), `${keyPrefix}-${lastIndex}`));
+            parts.push(renderLinksAndTaskRefs(text.slice(lastIndex, match.index), `${keyPrefix}-${lastIndex}`));
         }
         parts.push(
             <code
@@ -76,7 +91,7 @@ function renderInlineChunks(text: string, keyPrefix: string): React.ReactNode {
     }
 
     if (lastIndex < text.length) {
-        parts.push(renderTaskRefs(text.slice(lastIndex), `${keyPrefix}-${lastIndex}`));
+        parts.push(renderLinksAndTaskRefs(text.slice(lastIndex), `${keyPrefix}-${lastIndex}`));
     }
 
     return parts;

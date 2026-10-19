@@ -17,6 +17,7 @@ interface LifecycleEditorProps {
     onChange: (stages: string[], currentStageName: string | null) => void;
     currentStageIndex?: number; // Optional visual indicator of current progress
     showCurrentStage?: boolean;
+    disabled?: boolean;
 }
 
 function SortableStage({ id, label, className, children }: { id: string; label: string; className: string; children: (handle: React.ReactNode) => React.ReactNode }) {
@@ -33,7 +34,7 @@ function SortableStage({ id, label, className, children }: { id: string; label: 
     );
 }
 
-export function LifecycleEditor({ stages, onChange: emitChange, currentStageIndex = 0, showCurrentStage = true }: LifecycleEditorProps) {
+export function LifecycleEditor({ stages, onChange: emitChange, currentStageIndex = 0, showCurrentStage = true, disabled = false }: LifecycleEditorProps) {
     const [newStage, setNewStage] = useState("");
     const [errorMsg, setErrorMsg] = useState("");
     // Row identity is a parallel id list, never the stage text: renaming keeps focus and duplicates
@@ -124,51 +125,55 @@ export function LifecycleEditor({ stages, onChange: emitChange, currentStageInde
 
     return (
         <div className="divide-y divide-border">
-            <div className="pb-6">
-                <div className="space-y-1.5">
-                    <div>
-                        <label htmlFor="lifecycle-add-stage-input" className="nb-ui-label text-foreground">
-                            Add stage
-                        </label>
-                        <p className="nb-compact text-muted-foreground mt-0.5">
-                            Define milestones your team will progress through (e.g. Prototype, Security Audit, Public Beta).
-                        </p>
+            {!disabled ? (
+                <div className="pb-6">
+                    <div className="space-y-1.5">
+                        <div>
+                            <label htmlFor="lifecycle-add-stage-input" className="nb-ui-label text-foreground">
+                                Add stage
+                            </label>
+                            <p className="nb-compact text-muted-foreground mt-0.5">
+                                Define milestones your team will progress through (e.g. Prototype, Security Audit, Public Beta).
+                            </p>
+                        </div>
+                        <div className="flex gap-2 pt-0.5">
+                            <input
+                                id="lifecycle-add-stage-input"
+                                value={newStage}
+                                onChange={handleChange}
+                                onKeyDown={handleKeyDown}
+                                maxLength={35}
+                                aria-describedby={errorMsg ? "lifecycle-stage-error" : undefined}
+                                placeholder="Add a stage (e.g. 'Beta Testing', 'Design Review')..."
+                                className="nb-touch-target h-[34px] flex-1 rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            />
+                            <Button
+                                type="button"
+                                onClick={handleAdd}
+                                disabled={!newStage.trim() || !!errorMsg}
+                                className="nb-touch-target h-[34px] gap-1.5 rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
+                            >
+                                <Plus className="h-3.5 w-3.5" />
+                                Add stage
+                            </Button>
+                        </div>
+                        {errorMsg && (
+                            <p id="lifecycle-stage-error" role="alert" className="nb-compact text-destructive animate-in fade-in-50 duration-[180ms]">
+                                {errorMsg}
+                            </p>
+                        )}
                     </div>
-                    <div className="flex gap-2 pt-0.5">
-                        <input
-                            id="lifecycle-add-stage-input"
-                            value={newStage}
-                            onChange={handleChange}
-                            onKeyDown={handleKeyDown}
-                            maxLength={35}
-                            aria-describedby={errorMsg ? "lifecycle-stage-error" : undefined}
-                            placeholder="Add a stage (e.g. 'Beta Testing', 'Design Review')..."
-                            className="nb-touch-target h-[34px] flex-1 rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                        />
-                        <Button
-                            type="button"
-                            onClick={handleAdd}
-                            disabled={!newStage.trim() || !!errorMsg}
-                            className="nb-touch-target h-[34px] gap-1.5 rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
-                        >
-                            <Plus className="h-3.5 w-3.5" />
-                            Add stage
-                        </Button>
-                    </div>
-                    {errorMsg && (
-                        <p id="lifecycle-stage-error" role="alert" className="nb-compact text-destructive animate-in fade-in-50 duration-[180ms]">
-                            {errorMsg}
-                        </p>
-                    )}
                 </div>
-            </div>
+            ) : null}
 
-            <div className="pt-6 space-y-3">
+            <div className={cn("space-y-3", !disabled && "pt-6")}>
                 <div className="flex items-center justify-between">
                     <div>
                         <h5 className="nb-ui-label font-semibold text-foreground">Project journey stages</h5>
                         <p className="nb-compact text-muted-foreground mt-0.5">
-                            Drag stages using the grip handle to reorder the project roadmap timeline.
+                            {disabled
+                                ? "Milestone journey stages configured for this project."
+                                : "Drag stages using the grip handle to reorder the project roadmap timeline."}
                         </p>
                     </div>
                     <span className="inline-flex items-center h-5 px-[7px] rounded-[3px] border border-border bg-muted/40 font-mono text-[11px] leading-none text-muted-foreground">
@@ -192,7 +197,7 @@ export function LifecycleEditor({ stages, onChange: emitChange, currentStageInde
                             )}
                         >
                             {(handle) => (<>
-                            {handle}
+                            {!disabled ? handle : null}
                             <span className="flex size-5 shrink-0 items-center justify-center rounded-[3px] border border-border/80 bg-muted/40 font-mono text-[11px] font-medium tabular-nums text-muted-foreground leading-none">
                                 {index + 1}
                             </span>
@@ -200,7 +205,11 @@ export function LifecycleEditor({ stages, onChange: emitChange, currentStageInde
                                 value={stage}
                                 onChange={(event) => handleStageChange(index, event.target.value)}
                                 maxLength={35}
-                                className="nb-touch-target h-[28px] flex-1 rounded-[5px] border border-transparent bg-transparent px-2 text-[13px] font-medium leading-[1.5] text-foreground transition hover:border-border/60 focus:border-border focus:bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                                readOnly={disabled}
+                                className={cn(
+                                    "nb-touch-target h-[28px] flex-1 rounded-[5px] border border-transparent bg-transparent px-2 text-[13px] font-medium leading-[1.5] text-foreground transition",
+                                    !disabled && "hover:border-border/60 focus:border-border focus:bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                                )}
                                 aria-label={`Stage ${index + 1} name`}
                             />
 
@@ -210,16 +219,18 @@ export function LifecycleEditor({ stages, onChange: emitChange, currentStageInde
                                 </span>
                             )}
 
-                            <button
-                                type="button"
-                                aria-label={`Remove ${stage} stage`}
-                                onClick={() => handleRemove(index)}
-                                disabled={stages.length <= 1}
-                                className="inline-flex size-7 shrink-0 items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
-                                title={stages.length <= 1 ? "At least one stage is required" : "Remove stage"}
-                            >
-                                <X className="h-3.5 w-3.5" />
-                            </button>
+                            {!disabled ? (
+                                <button
+                                    type="button"
+                                    aria-label={`Remove ${stage} stage`}
+                                    onClick={() => handleRemove(index)}
+                                    disabled={stages.length <= 1}
+                                    className="inline-flex size-7 shrink-0 items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+                                    title={stages.length <= 1 ? "At least one stage is required" : "Remove stage"}
+                                >
+                                    <X className="h-3.5 w-3.5" />
+                                </button>
+                            ) : null}
                             </>)}
                         </SortableStage>
                     ))}

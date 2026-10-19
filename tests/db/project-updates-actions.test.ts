@@ -61,3 +61,40 @@ test("replies reject a parent comment from another update", async () => {
     assert.equal(Number(count), 0, "a rejected reply never bumps the count");
   });
 });
+
+// COR-040: two deletes of one comment decrement the count once.
+test("deleting a comment twice at once decrements the count once", async () => {
+  await withProject(async ({ owner, projectId }) => {
+    const updateId = await createUpdate(projectId, owner);
+    const first = await updates.createProjectUpdateCommentAction(projectId, updateId, "one");
+    await updates.createProjectUpdateCommentAction(projectId, updateId, "two");
+    const commentId = (first as { data: { id: string } }).data.id;
+    await Promise.all([
+      updates.deleteProjectUpdateCommentAction(projectId, commentId),
+      updates.deleteProjectUpdateCommentAction(projectId, commentId),
+    ]);
+    const [{ count }] = await sql`SELECT comment_count AS count FROM project_updates WHERE id = ${updateId}`;
+    assert.equal(Number(count), 1);
+  });
+});
+
+// COR-046: an invalid pin keeps the current one, and concurrent pins leave exactly one.
+test("pins: an invalid target never unpins, and concurrent pins leave one", async () => {
+  await withProject(async ({ owner, projectId }) => {
+    const a = await createUpdate(projectId, owner);
+    const b = await createUpdate(projectId, owner);
+    const c = await createUpdate(projectId, owner);
+    assert.equal((await updates.toggleProjectUpdatePinAction(projectId, a, true)).success, true);
+    await sql`UPDATE project_updates SET deleted_at = now() WHERE id = ${c}`;
+    const invalid = await updates.toggleProjectUpdatePinAction(projectId, c, true);
+    assert.equal(invalid.success, false);
+    const [{ pinned: aPinned }] = await sql`SELECT is_pinned AS pinned FROM project_updates WHERE id = ${a}`;
+    assert.equal(aPinned, true, "the existing pin survives an invalid request");
+    await Promise.all([
+      updates.toggleProjectUpdatePinAction(projectId, a, true),
+      updates.toggleProjectUpdatePinAction(projectId, b, true),
+    ]);
+    const [{ pins }] = await sql`SELECT count(*)::int AS pins FROM project_updates WHERE project_id = ${projectId} AND is_pinned AND deleted_at IS NULL`;
+    assert.equal(pins, 1);
+  });
+});

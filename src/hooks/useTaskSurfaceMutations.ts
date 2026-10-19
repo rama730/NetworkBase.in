@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import {
   assignTaskAction,
+  moveTaskToWorkflowColumnAction,
   updateTaskFieldAction,
   updateTaskStatusAction,
   type TaskStatus,
@@ -327,6 +328,51 @@ export function useTaskSurfaceMutations(params: {
     ],
   );
 
+  const moveToColumn = useCallback(
+    async (workflowColumnId: string) => {
+      setMutationError(null);
+      setIsMutating(true);
+      const previousTask = normalizeTaskSurfaceRecord(task);
+      const nextTask = normalizeTaskSurfaceRecord({
+        ...task,
+        workflowColumnId,
+        updatedAt: new Date().toISOString(),
+      });
+      const snapshots = takeSnapshots();
+      applyOptimisticTask(nextTask, "workflowColumnId");
+      try {
+        const result = await moveTaskToWorkflowColumnAction(
+          task.id,
+          workflowColumnId,
+          projectId,
+          undefined,
+          previousTask.updatedAt,
+        );
+        if (!result.success) throw new Error(result.error || "Failed to move task");
+        if (result.updatedAt) {
+          applyOptimisticTask(
+            normalizeTaskSurfaceRecord({
+              ...nextTask,
+              updatedAt: result.updatedAt,
+              reviewStatus: result.reviewStatus ?? nextTask.reviewStatus,
+            }),
+            "workflowColumnId",
+          );
+        }
+        return { success: true as const };
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to move task";
+        rollbackOptimisticTask(snapshots, previousTask, "workflowColumnId");
+        setMutationError(message);
+        return { success: false as const, error: message };
+      } finally {
+        setIsMutating(false);
+      }
+    },
+    [applyOptimisticTask, projectId, rollbackOptimisticTask, takeSnapshots, task],
+  );
+
   return useMemo(
     () => ({
       isMutating,
@@ -335,6 +381,7 @@ export function useTaskSurfaceMutations(params: {
       updateField,
       updateStatus,
       updateAssignee,
+      moveToColumn,
     }),
     [
       isMutating,
@@ -343,6 +390,7 @@ export function useTaskSurfaceMutations(params: {
       updateField,
       updateStatus,
       updateAssignee,
+      moveToColumn,
     ],
   );
 }

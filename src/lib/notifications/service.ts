@@ -328,6 +328,20 @@ export async function upsertAggregatedNotification(
     const now = new Date();
     const aggregateDelta = Math.max(1, input.aggregateCount ?? 1);
     const delayUntilIso = check.delayUntil instanceof Date ? check.delayUntil.toISOString() : null;
+    // Event identity (COR-016): the last few source ids ride in entity_refs, so one atomic upsert both
+    // counts an event and remembers it. A replayed event (same id) changes nothing, not even the read state.
+    const source = input.sourceEventId ?? null;
+    const AGGREGATE_SOURCE_WINDOW = 20;
+    const replayed = source
+        ? sql`COALESCE(${userNotifications.entityRefs}->'aggregateSources', '[]'::jsonb) ? ${source}`
+        : sql`FALSE`;
+    const nextSources = sql`(SELECT COALESCE(jsonb_agg(value), '[]'::jsonb) FROM (
+            SELECT value FROM jsonb_array_elements(
+                COALESCE(${userNotifications.entityRefs}->'aggregateSources', '[]'::jsonb) || to_jsonb(${source}::text)
+            ) WITH ORDINALITY AS t(value, ord) ORDER BY ord DESC LIMIT ${AGGREGATE_SOURCE_WINDOW}
+        ) recent)`;
+    const withSource = (refs: NotificationEntityRefs | null | undefined) =>
+        source ? { ...(refs ?? {}), aggregateSources: [source] } : (refs ?? null);
     const [row] = await tx
         .insert(userNotifications)
         .values({
@@ -338,7 +352,7 @@ export async function upsertAggregatedNotification(
             title: input.title,
             body: input.body ?? null,
             href: input.href ?? null,
-            entityRefs: input.entityRefs ?? null,
+            entityRefs: withSource(input.entityRefs) as NotificationEntityRefs | null,
             preview: input.preview ?? null,
             dedupeKey: input.dedupeKey,
             aggregateCount: aggregateDelta,
@@ -359,15 +373,20 @@ export async function upsertAggregatedNotification(
                 title: input.title,
                 body: input.body ?? null,
                 href: input.href ?? null,
-                entityRefs: input.entityRefs ?? null,
+                entityRefs: source
+                    ? sql`CASE WHEN ${replayed} THEN ${userNotifications.entityRefs}
+                        ELSE COALESCE(${JSON.stringify(input.entityRefs ?? {})}::jsonb, '{}'::jsonb)
+                             || jsonb_build_object('aggregateSources', ${nextSources}) END`
+                    : (input.entityRefs ?? null),
                 preview: input.preview ?? null,
                 aggregateCount: sql`CASE
+                    WHEN ${replayed} THEN ${userNotifications.aggregateCount}
                     WHEN ${userNotifications.readAt} IS NULL THEN ${userNotifications.aggregateCount} + ${aggregateDelta}
                     ELSE ${aggregateDelta}
                 END`,
-                readAt: null,
-                seenAt: null,
-                dismissedAt: null,
+                readAt: sql`CASE WHEN ${replayed} THEN ${userNotifications.readAt} ELSE NULL END`,
+                seenAt: sql`CASE WHEN ${replayed} THEN ${userNotifications.seenAt} ELSE NULL END`,
+                dismissedAt: sql`CASE WHEN ${replayed} THEN ${userNotifications.dismissedAt} ELSE NULL END`,
                 // A new aggregate event must never cancel an explicit future
                 // snooze already chosen for the existing inbox item. Policy
                 // delays may extend that snooze, but cannot shorten it.

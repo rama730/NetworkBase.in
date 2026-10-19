@@ -10,6 +10,7 @@ import {
   Edit3,
   ExternalLink,
   Flag,
+  FolderPlus,
   Lock,
   MessageSquareQuote,
   Search,
@@ -50,7 +51,7 @@ import {
 } from "@/lib/projects/task-workflow";
 import type { TaskPanelTab } from "@/hooks/useTaskPanelResource";
 import { buildProjectPersonReference } from "@/lib/projects/settings-policies";
-import { conversationHref } from "@/lib/messaging/routes";
+import { messageHref } from "@/lib/messaging/routes";
 import { cn } from "@/lib/utils";
 
 interface DetailsTabProps {
@@ -86,6 +87,8 @@ interface DetailsTabProps {
   ) => Promise<{ success: boolean; error?: string }>;
   onReviewApproved: (updatedAt: string) => void;
   onOpenTab: (tab: TaskPanelTab) => void;
+  workflowColumns?: { id: string; name: string }[];
+  onMoveToColumn?: (columnId: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 export default function DetailsTab({
@@ -107,6 +110,8 @@ export default function DetailsTab({
   onUpdateAssignee,
   onReviewApproved,
   onOpenTab,
+  workflowColumns,
+  onMoveToColumn,
 }: DetailsTabProps) {
   const titlePresentation = getTaskTitlePresentation(task);
   const titleInputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -457,7 +462,7 @@ export default function DetailsTab({
             </div>
             {sourceLink.channel_id ? (
               <a
-                href={conversationHref(sourceLink.channel_id, { m: sourceLink.seq })}
+                href={messageHref(sourceLink.channel_id, sourceLink.seq, sourceLink.thread_root_seq)}
                 className="inline-flex items-center gap-1 rounded-[5px] border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
               >
                 Open source
@@ -546,6 +551,7 @@ export default function DetailsTab({
             onClick={() => canEdit && setIsEditingDescription(true)}
             className={cn(
               "group relative min-h-[72px] w-full rounded-[5px] border border-border/80 bg-background px-3.5 py-2.5 text-[13px] leading-relaxed text-foreground transition",
+              "focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary",
               canEdit
                 ? "cursor-pointer hover:border-foreground/30 hover:bg-muted/10"
                 : "",
@@ -568,7 +574,7 @@ export default function DetailsTab({
             type="button"
             disabled={!canEdit}
             onClick={() => setIsEditingDescription(true)}
-            className="flex min-h-[64px] w-full items-center justify-start rounded-[5px] border border-dashed border-border bg-muted/10 px-3.5 py-3 text-[13px] text-muted-foreground/70 transition hover:border-foreground/30 hover:text-muted-foreground disabled:cursor-not-allowed text-left"
+            className="flex min-h-[64px] w-full items-center justify-start rounded-[5px] border border-dashed border-border bg-muted/10 px-3.5 py-3 text-[13px] text-muted-foreground/70 transition hover:border-foreground/30 hover:text-muted-foreground focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary disabled:cursor-not-allowed text-left"
           >
             <span className="flex items-center gap-1.5">
               <Edit3 className="size-3.5 text-muted-foreground/60" />
@@ -655,6 +661,48 @@ export default function DetailsTab({
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+
+          {/* Section Dropdown */}
+          {workflowColumns && workflowColumns.length > 0 ? (
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
+                <FolderPlus className="size-3 text-muted-foreground" />
+                Section
+              </label>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    disabled={!canEdit || isMutating}
+                    className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] text-foreground flex items-center justify-between transition hover:border-foreground/30 focus:border-primary disabled:opacity-50"
+                    aria-label="Select section"
+                  >
+                    <span className="font-medium truncate">
+                      {workflowColumns.find((c) => c.id === task.workflowColumnId)?.name ?? "Select section"}
+                    </span>
+                    <ChevronDown className="size-3.5 text-muted-foreground shrink-0" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48 p-1">
+                  {workflowColumns.map((col) => {
+                    const isSelected = task.workflowColumnId === col.id;
+                    return (
+                      <DropdownMenuItem
+                        key={col.id}
+                        onClick={() => void onMoveToColumn?.(col.id)}
+                        className="flex items-center justify-between px-2.5 py-1.5 text-xs rounded-[4px] cursor-pointer"
+                      >
+                        <span className="font-medium truncate">{col.name}</span>
+                        {isSelected ? (
+                          <Check className="size-3.5 text-primary stroke-[2.5]" />
+                        ) : null}
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          ) : null}
 
           {/* Priority Dropdown */}
           <div className="space-y-1.5">
@@ -868,7 +916,7 @@ export default function DetailsTab({
           {/* Due date with Quick Presets & Overdue Status */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
+              <label htmlFor="task-due-date" className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
                 <Calendar className="size-3 text-muted-foreground" />
                 Due date
               </label>
@@ -879,6 +927,7 @@ export default function DetailsTab({
               ) : null}
             </div>
             <input
+              id="task-due-date"
               type="date"
               value={task.dueDate ? task.dueDate.slice(0, 10) : ""}
               onChange={(event) =>
@@ -927,11 +976,12 @@ export default function DetailsTab({
 
           {/* Story points */}
           <div className="space-y-1.5">
-            <label className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
+            <label htmlFor="task-story-points" className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
               <Zap className="size-3 text-muted-foreground" />
               Story points
             </label>
             <input
+              id="task-story-points"
               type="number"
               min={0}
               max={100}

@@ -204,7 +204,7 @@ export function TextViewer({
       try {
         const [text, versions] = await Promise.all([
           getProjectFileContent(projectId, node.id),
-          mode === "edit" ? listFileVersions(projectId, node.id) : Promise.resolve([]),
+          mode === "edit" ? listFileVersions(projectId, node.id, 1) : Promise.resolve([]),
         ]);
         if (cancelled) return;
         setSavedContent(text);
@@ -329,10 +329,16 @@ export function TextViewer({
   if (status === "loading") {
     return (
       <div
+        role="status"
+        aria-busy="true"
+        aria-label="Loading file content"
         data-testid="files-tab-text-viewer-loading"
-        className="flex h-full min-h-0 w-full items-center justify-center text-xs text-muted-foreground"
+        className="flex h-full min-h-0 w-full flex-col gap-2 p-6"
       >
-        Loading…
+        <div className="h-4 w-48 rounded-[3px] bg-muted/60 animate-pulse" />
+        <div className="h-4 w-3/4 rounded-[3px] bg-muted/40 animate-pulse" />
+        <div className="h-4 w-5/6 rounded-[3px] bg-muted/50 animate-pulse" />
+        <div className="h-4 w-2/3 rounded-[3px] bg-muted/30 animate-pulse" />
       </div>
     );
   }
@@ -421,7 +427,15 @@ export function TextViewer({
     >
       <FilesHeaderSlot slot="status"><div className="flex items-center gap-2">
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-          {isDirty ? (
+          {!lease ? (
+            <span
+              data-testid="files-tab-text-viewer-no-lease"
+              className="rounded-[3px] border border-border bg-muted px-1.5 py-0.5 font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground"
+              title="Editing lease is not held"
+            >
+              Read-only
+            </span>
+          ) : isDirty ? (
             <span
               data-testid="files-tab-text-viewer-dirty"
               className="max-w-16 truncate rounded-[3px] border border-[#F6E7C2] bg-[#FBF4E2] px-1.5 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-[0.09em] text-[#9A6B00] sm:max-w-none dark:border-amber-900/40 dark:bg-amber-900/30 dark:text-amber-300"

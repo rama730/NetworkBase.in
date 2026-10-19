@@ -1309,7 +1309,7 @@
                     </td>
                     <td>
                       Use the reference main/rail composition for dashboard and
-                      reading views. Preserve all eight tabs. Boards, editors,
+                      reading views. Preserve all seven shipped tabs. Boards, editors,
                       files and messaging receive appropriate wide or split-pane
                       compositions. The 24px project-body grid in the macro
                       proposal is a labeled normalization from the literal 20px
@@ -11816,9 +11816,9 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
             Keep the reference project-header hierarchy: breadcrumb → title and
             stage → summary → team/activity → object tabs. Desktop header has
             20px top/24px side padding; controls 28/34px; tabs sit 14px below
-            metadata. White header ends in a hairline. Preserve all eight
+            metadata. White header ends in a hairline. Preserve all seven shipped
             project tabs: Dashboard, Docs, Updates, Sprints, Tasks, Files,
-            Analytics, Settings. Permission-derived visibility remains
+            Settings (Analytics is deferred). Permission-derived visibility remains
             authoritative.
           </p>
           <div class="table-wrap">
@@ -14561,6 +14561,19 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
                   <td>
                     Document visual target separately; changing public route
                     availability is not part of this design file.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Project tabs and team roster</td>
+                  <td>
+                    Specification draft referenced 8 tabs including Analytics and a
+                    dedicated Team roster card on Dashboard.
+                  </td>
+                  <td>
+                    Align to the 7 shipped tabs (Dashboard, Docs, Updates, Sprints,
+                    Tasks, Files, Settings). Team roster is accessible via Settings
+                    collaborators directory and ProjectLayout team modal (item 140);
+                    Analytics is deferred.
                   </td>
                 </tr>
               </tbody>
@@ -22181,7 +22194,7 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
                   <td>
                     Define expanded and compact header states using the supplied
                     hierarchy. Keep creator/guide, links, follow/share, counts
-                    and all eight actual tabs.
+                    and all seven actual shipped tabs.
                   </td>
                   <td><a href="#project-shell">19 · Project shell</a></td>
                 </tr>

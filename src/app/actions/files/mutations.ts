@@ -1264,24 +1264,6 @@ export async function bulkRestoreNodes(nodeIds: string[], projectId: string, exp
     return result;
 }
 
-export async function getTrashNodes(projectId: string, query?: string) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    // Trash is an editing view; members only.
-    if (!user) throw new Error("Unauthorized");
-    await assertProjectWriteAccess(projectId, user.id);
-
-    const q = query?.trim();
-    const whereClause = q
-        ? and(eq(projectNodes.projectId, projectId), ilike(projectNodes.name, `%${escapeLikePattern(q)}%`), isNotNull(projectNodes.deletedAt))
-        : and(eq(projectNodes.projectId, projectId), isNotNull(projectNodes.deletedAt));
-
-    return await db.query.projectNodes.findMany({
-        where: whereClause,
-        orderBy: (nodes, { desc }) => [desc(nodes.deletedAt)],
-        limit: 100,
-    });
-}
 
 /** Paged trash browser; the legacy sidebar getter remains backward compatible. */
 export async function getTrashPage(projectId: string, query = "", cursor?: string) {
@@ -1323,10 +1305,6 @@ export async function getTrashPage(projectId: string, query = "", cursor?: strin
     };
 }
 
-/** Legacy export kept safe: deletion now requires Trash and reviewed scope. */
-export async function deleteNode(nodeId: string, projectId: string, expectedFingerprint: string) {
-    return permanentlyDeleteTrashedNode(projectId, nodeId, expectedFingerprint);
-}
 
 export async function bulkCreateFolderTree(
     projectId: string,

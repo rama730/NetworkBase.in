@@ -23,11 +23,15 @@ import TaskPriorityBadge from "./badges/TaskPriorityBadge";
 import TaskStatusBadge from "./badges/TaskStatusBadge";
 import { formatTaskId } from "@/lib/project-key";
 
+
 interface TaskCardProps {
   task: TaskSurfaceRecord | any;
   onClick?: (task: TaskSurfaceRecord) => void;
   activeAssignableMemberIds?: Set<string>;
   showStatus?: boolean;
+  dragHandleRef?: (element: HTMLElement | null) => void;
+  dragAttributes?: React.HTMLAttributes<HTMLButtonElement>;
+  dragListeners?: Record<string, any>;
 }
 
 export type Task = TaskSurfaceRecord;
@@ -124,6 +128,9 @@ export const TaskCard = memo(function TaskCard({
   onClick,
   activeAssignableMemberIds,
   showStatus = true,
+  dragHandleRef,
+  dragAttributes,
+  dragListeners,
 }: TaskCardProps) {
   const taskRecord = normalizeTaskSurfaceRecord(task);
   const titlePresentation = getTaskTitlePresentation(taskRecord);
@@ -140,22 +147,25 @@ export const TaskCard = memo(function TaskCard({
   const dueDateLabel = formatTaskDueDate(taskRecord.dueDate);
   const hasValidDueDate = Boolean(dueDateLabel);
 
-  return (
+  const cardButton = (
     <button
+      ref={dragHandleRef}
+      {...dragAttributes}
+      {...dragListeners}
       type="button"
       data-testid="task-card"
       onClick={() => onClick?.(taskRecord)}
       className={cn(
         "group relative min-h-[128px] w-full min-w-0 cursor-pointer overflow-hidden rounded-[8px] bg-card transition-colors duration-[180ms]",
         "border border-border shadow-2xs hover:border-border/80",
-        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary",
+        "focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary",
       )}
     >
       <div className="grid min-h-[128px] grid-rows-[auto_auto_auto] gap-3 p-3">
         <div className="flex min-w-0 items-center gap-1.5">
           <h4
             className={cn(
-              "min-w-0 line-clamp-3 text-left text-sm font-semibold leading-5 tracking-tight text-foreground",
+              "min-w-0 line-clamp-3 text-left text-[13px] font-medium leading-[18px] tracking-tight text-foreground",
               titlePresentation.className,
             )}
             title={taskRecord.title}
@@ -279,4 +289,6 @@ export const TaskCard = memo(function TaskCard({
       </div>
     </button>
   );
+
+  return cardButton;
 });

@@ -248,6 +248,17 @@ export async function resolveProjectInvitationInternal(
     executor: InvitationExecutor,
     input: { invitationId: string; actorId: string; action: "accept" | "decline" | "cancel" },
 ) {
+    const [target] = await executor
+        .select({ id: projectInvitations.id, projectId: projectInvitations.projectId })
+        .from(projectInvitations)
+        .where(eq(projectInvitations.id, input.invitationId))
+        .limit(1);
+    if (!target) throw new Error("Invitation not found");
+
+    const project = await lockProject(executor, target.projectId);
+    if (!project) throw new Error("Project is unavailable");
+    if (project.status === "archived" && input.action !== "cancel") throw new Error("Project is unavailable");
+
     const [invitation] = await executor
         .select()
         .from(projectInvitations)
@@ -264,10 +275,6 @@ export async function resolveProjectInvitationInternal(
             .where(eq(projectInvitations.id, invitation.id));
         throw new Error("This invitation has expired");
     }
-
-    const project = await lockProject(executor, invitation.projectId);
-    if (!project) throw new Error("Project is unavailable");
-    if (project.status === "archived" && input.action !== "cancel") throw new Error("Project is unavailable");
 
     const isCandidate = invitation.candidateId === input.actorId;
     const isLead = project.owner_id === input.actorId;

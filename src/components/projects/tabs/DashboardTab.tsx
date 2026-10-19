@@ -45,7 +45,7 @@ export function DashboardTab({
     return (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
             <div className="min-w-0 space-y-6 lg:col-span-8">
-                <ProjectOverviewCard project={project} />
+                <ProjectOverviewCard project={project} isCreator={isCreator} onEdit={onEdit} />
             </div>
 
             <div className="min-w-0 space-y-4 lg:col-span-4">
