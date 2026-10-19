@@ -6,7 +6,6 @@ import { X } from "lucide-react";
 export interface FileInspectorPanelHeaderProps {
   title: string;
   subtitle?: React.ReactNode;
-  icon?: React.ReactNode;
   onClose: () => void;
   closeLabel: string;
   closeTestId?: string;
@@ -15,7 +14,6 @@ export interface FileInspectorPanelHeaderProps {
 export function FileInspectorPanelHeader({
   title,
   subtitle,
-  icon,
   onClose,
   closeLabel,
   closeTestId,
@@ -35,9 +33,8 @@ export function FileInspectorPanelHeader({
   return (
     <div className="flex shrink-0 items-start justify-between gap-2 border-b border-border px-3 py-2.5">
       <div className="min-w-0">
-        <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {icon}
-          <span>{title}</span>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {title}
         </h3>
         {subtitle ? (
           <div className="mt-0.5 min-w-0 text-[11px] text-muted-foreground">

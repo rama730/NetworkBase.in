@@ -1,0 +1,15 @@
+{
+  "id": "2026-10-13-profile-collaboration",
+  "title": "Accurate profile connection totals and independent collaboration availability",
+  "summary": "Use accepted relationships with active peers for profile/network totals. Persist an owner-controlled availability boolean independently of roles and capacity; preserve drafts, explicit false, privacy and concurrency checks. Remove paused candidates' role boost without hiding them from networking.",
+  "riskLevel": "medium",
+  "runtimePlanes": ["request", "public_read", "database", "worker"],
+  "routeClasses": ["user_shell", "active_surface"],
+  "dataSourcesChanged": ["profiles.open_to_collaborate", "connections accepted records and active peer profiles", "people search preview cache revision"],
+  "canonicalLogicDomains": ["profile_display", "relationship_actions", "connection_feed"],
+  "concurrencyRisk": "The existing expectedUpdatedAt compare-and-update protects profile writes. Quick toggles submit only availability, lock repeated clicks, and roll back on failure. Migration backfills only NULL availability values, retaining explicit false on replay.",
+  "observability": {"logs": ["Existing profile save and connection mutation failures", "Connection modal load errors"], "metrics": [], "alerts": []},
+  "rollback": {"strategy": "Revert application changes while retaining the additive availability column and repaired counters. Do not undo reconciliation or replay old counter migrations.", "validation": ["Compare accepted relationship counts with profile totals", "Verify role preference lists remain saved while paused"]},
+  "evidence": {"commands": ["npm run typecheck", "node --import tsx --test tests/unit/profile-collaboration.test.ts tests/unit/profile-role-layout-contract.test.ts", "DATABASE_URL_FRESH=<disposable> node --import tsx --test --test-concurrency=1 tests/db/profile-connection-stats.test.ts tests/db/profile-preferences.test.ts tests/db/connections-paging.test.ts", "npx playwright test -c tests/browser/playwright.config.ts profile.spec.ts", "npm run check:sql-governance", "npm run check:db:migration-journal"], "reports": ["docs/audits/profile-collaboration-2026-10-13.md"]},
+  "paths": ["src/app/actions/connections.ts", "src/app/actions/profile.ts", "src/inngest/functions/social-graph-suggestions.ts", "src/lib/connections", "src/lib/data/profile.ts", "src/lib/profile/normalization.ts", "src/lib/privacy/profile-views.ts", "src/components/profile", "src/hooks/useConnections.ts", "drizzle/0218_profile_collaboration_availability.sql", "drizzle/meta/_journal.json"]
+}

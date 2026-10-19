@@ -45,10 +45,10 @@ test("thread: newest replies first with Load earlier, true count, Following togg
   assert.match(pane, /Join \{channelLabel \?\? "the channel"\} to reply\./);
   assert.match(pane, /Jump to latest reply/);
   // Show in conversation keeps the thread open beside the timeline at 1024px+, closes it below (round 2 #32).
-  assert.match(pane, /router\.replace\(showInConversationHref\(channelId, rootSeq\)/);
+  assert.match(pane, /router\.replace\(showInConversationHref\(channelId, rootSeq,/);
   // On a phone it goes back to the conversation and reveals the root there (round 3 #43).
   assert.match(pane, /REVEAL_EVENT, \{ detail: \{ channelId, seq: rootSeq \} \}/);
-  assert.match(read("src/lib/messaging/routes.ts"), /wide \? \{ m: rootSeq, thread: rootSeq \} : \{ m: rootSeq \}/);
+  assert.match(read("src/lib/messaging/routes.ts"), /thread: wide \? rootSeq : null/);
   const drawer = read("src/components/messages/ChatDrawer.tsx");
   assert.match(drawer, /aria-modal=\{modal \|\| undefined\}/);
   assert.match(drawer, /opener\?\.isConnected\) opener\.focus/);

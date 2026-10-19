@@ -420,6 +420,7 @@ export type ProfileFormState = {
     avatarUrl: string;
     bannerUrl: string;
     openTo: string[];
+    openToCollaborate: boolean;
     experienceLevel: string;
     hoursPerWeek: string;
     skills: string[];
@@ -446,6 +447,7 @@ export function toFormState(profile: Record<string, unknown> | null | undefined)
         avatarUrl: str(s.avatarUrl ?? s.avatar_url),
         bannerUrl: str(s.bannerUrl ?? s.banner_url),
         openTo: arr(s.openTo ?? s.open_to),
+        openToCollaborate: (s.openToCollaborate ?? s.open_to_collaborate) === true,
         experienceLevel: str(s.experienceLevel ?? s.experience_level),
         hoursPerWeek: str(s.hoursPerWeek ?? s.hours_per_week),
         skills: arr(s.skills),
@@ -472,6 +474,7 @@ export type ProfileServerPayload = {
     skills: string[];
     socialLinks: SocialLinkStorage;
     openTo: string[];
+    openToCollaborate: boolean;
     experienceLevel: string | null;
     hoursPerWeek: string | null;
     education: unknown[];
@@ -506,6 +509,7 @@ export function toServerPayload(
         skills: formState.skills,
         socialLinks: formState.socialLinks,
         openTo: formState.openTo,
+        openToCollaborate: formState.openToCollaborate,
         experienceLevel: formState.experienceLevel || null,
         hoursPerWeek: formState.hoursPerWeek || null,
         education: formState.education,
@@ -515,12 +519,21 @@ export function toServerPayload(
     };
 }
 
+/** Send only fields edited in this draft, so unrelated concurrent edits survive review. */
+export function toChangedServerPayload(formState: ProfileFormState, base: ProfileFormState, expectedUpdatedAt: string) {
+    const full = toServerPayload(formState, expectedUpdatedAt);
+    const previous = toServerPayload(base);
+    return Object.fromEntries(Object.entries(full).filter(([key, value]) =>
+        key === 'expectedUpdatedAt' || JSON.stringify(value) !== JSON.stringify(previous[key as keyof ProfileServerPayload]),
+    ));
+}
+
 // ── Optimistic Update (used by ProfileV2Client) ─────────────────────
 
 const OPTIMISTIC_KEYS = [
     "fullName", "username", "headline", "bio", "location", "website",
     "avatarUrl", "bannerUrl", "skills", "socialLinks",
-    "openTo", "experienceLevel", "hoursPerWeek", "education",
+    "openTo", "openToCollaborate", "experienceLevel", "hoursPerWeek", "education",
     "openToCustomRoles", "preferredCategories",
 ] as const;
 
@@ -552,7 +565,7 @@ export function applyPayloadToFormBase(
     const next = { ...base };
     for (const [k, v] of Object.entries(payload)) {
         if (v !== undefined && k in next) {
-            (next as any)[k] = Array.isArray(v) ? arr(v) : (v && typeof v === "object" ? obj(v) : str(v));
+            (next as any)[k] = typeof v === "boolean" ? v : Array.isArray(v) ? arr(v) : (v && typeof v === "object" ? obj(v) : str(v));
         }
     }
     return next;

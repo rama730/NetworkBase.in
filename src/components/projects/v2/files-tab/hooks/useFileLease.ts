@@ -114,7 +114,16 @@ export function useFileLease(projectId: string, nodeId: string, keepAliveWhenHid
   }, [lease, renew]);
 
   React.useEffect(() => {
+    const handlePageHide = () => {
+      const current = leaseRef.current;
+      if (current) {
+        void releaseBrowserFileLease(current, { keepalive: true }).catch(() => null);
+      }
+    };
+
+    window.addEventListener("pagehide", handlePageHide);
     return () => {
+      window.removeEventListener("pagehide", handlePageHide);
       const current = leaseRef.current;
       if (current) {
         void releaseBrowserFileLease(current, { keepalive: true }).catch(() => null);

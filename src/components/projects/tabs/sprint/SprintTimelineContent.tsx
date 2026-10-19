@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { formatTaskDueDate } from "@/lib/projects/task-presentation";
 import Link from "next/link";
-import { FileText, ChevronDown, CheckCircle2, Circle, FolderUp, Flag, Link2, ListTodo } from "lucide-react";
+import { FileText, ChevronDown, CheckCircle2, Circle, FolderUp, Link2, ListTodo } from "lucide-react";
 
 import {
   SPRINT_TASK_STATUS_PRESENTATION,
@@ -99,7 +99,6 @@ export function SprintTimelineContent({
                 >
                   {lifecycleRows.map((row) => (
                     <li key={`${row.kind}:${row.id}`} className="inline-flex items-center gap-1 text-[11px]">
-                      <Flag aria-hidden="true" className="h-3 w-3 shrink-0 text-muted-foreground" />
                       <span>{row.kind === "kickoff" ? "Started" : "Completed"}</span>
                       {row.occurredAt ? (
                         <time dateTime={row.occurredAt} className="font-medium text-foreground">

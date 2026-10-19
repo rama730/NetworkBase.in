@@ -1,10 +1,10 @@
 "use client";
 
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  AlarmClock, Archive, Bookmark, BookmarkCheck, Copy, Flag, Forward, Hash, Link2, LogIn, LogOut, MailOpen, MessageSquareText,
+  AlarmClock, Archive, Bookmark, BookmarkCheck, Copy, Flag, Forward, Hash, Link2, LogIn, LogOut, MailOpen, MessageSquareText, Eye, EyeOff,
   MoreHorizontal, Pencil, Pin, SmilePlus, SquareCheck, Trash2, UserMinus, type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -14,7 +14,7 @@ import { useConversationContext } from "@/components/messages/conversation-conte
 import { MessageBody, firstLink } from "@/components/messages/MessageBody";
 import { MessageCard } from "@/components/messages/cards/MessageCard";
 import { MessageAttachmentsV2, type ChatAttachmentV2 } from "@/components/messages/parts/message-attachments";
-import { LinkPreviewCard } from "@/components/messages/parts/LinkPreviewCard";
+import { MessageLinkPreview } from "@/components/messages/parts/MessageLinkPreview";
 import { ReactionQuickBar } from "@/components/messages/parts/ReactionQuickBar";
 import { ReportMessageDialog } from "@/components/messages/parts/ReportMessageDialog";
 import { useUpdatePages } from "@/components/messages/useConversation";
@@ -30,7 +30,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { PersonHoverCard } from "@/components/presence/PersonHoverCard";
 import { usePersonPresence } from "@/components/presence/usePresence";
 import { UserAvatar } from "@/components/ui/UserAvatar";
-import { useLinkPreview } from "@/hooks/useLinkPreview";
 import { formatChatTime, personName } from "@/lib/messaging/channel-view";
 import { messageHref } from "@/lib/messaging/routes";
 import { chatErrorMessage } from "@/lib/messaging/errors";
@@ -57,16 +56,6 @@ function toViewerAttachment(attachment: ChatAttachmentView): ChatAttachmentV2 {
 }
 
 const EditBox = dynamic(() => import("@/components/messages/MessageEditBox").then((m) => m.EditBox), { ssr: false });
-
-function LinkPreview({ body, onRemove }: { body: string; onRemove?: () => void }) {
-  const url = firstLink(body);
-  const preview = useLinkPreview(url);
-  if (!url) return null;
-  // While it loads, a placeholder holds the card's space so the message doesn't jump.
-  if (preview.isLoading) return <LinkPreviewCard preview={{ url, domain: new URL(url).hostname.replace(/^www\./, ""), title: null, description: null, image: null }} loading />;
-  if (!preview.data) return null;
-  return <LinkPreviewCard preview={preview.data} onRemove={onRemove} />;
-}
 
 type Action = { id: string; label: string; icon: LucideIcon; run: () => void; shortcut?: string; destructive?: boolean; group: 1 | 2 | 3 };
 
@@ -167,6 +156,8 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
   // The hover bar sits above the row; on the top row it would hide under the tab bar, so it drops inside.
   const [barInside, setBarInside] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
+  const moreTriggerRef = useRef<HTMLButtonElement>(null);
+  const previewMutationRef = useRef(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -281,13 +272,27 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     });
   };
   // The author's × on the link card: gone for everyone (the link stays in the text).
-  const removePreview = async () => {
-    update((pages) => patchPages(pages, message.seq, (m) => ({ ...m, link_preview_hidden: true })));
-    const result = await hideLinkPreview({ channelId: ctx.channelId, seq: message.seq });
-    if (result.success) return;
-    update((pages) => patchPages(pages, message.seq, (m) => ({ ...m, link_preview_hidden: false })));
-    toast.error(chatErrorMessage(result.error));
-  };
+  const removePreview = useCallback(async (hidden = true) => {
+    if (previewMutationRef.current) return;
+    previewMutationRef.current = true;
+    const previous = message.link_preview_hidden;
+    update((pages) => patchPages(pages, message.seq, (m) => ({ ...m, link_preview_hidden: hidden })));
+    if (hidden) {
+      const focusTarget = moreTriggerRef.current?.getClientRects().length ? moreTriggerRef.current : rowRef.current;
+      focusTarget?.focus();
+    }
+    try {
+      const result = await hideLinkPreview({ channelId: ctx.channelId, seq: message.seq, hidden });
+      if (!result.success) throw new Error(chatErrorMessage(result.error));
+    } catch (error) {
+      update((pages) => patchPages(pages, message.seq, (m) => m.link_preview_hidden === hidden ? { ...m, link_preview_hidden: previous } : m));
+      toast.error(error instanceof Error ? error.message : 'Could not update the link preview.');
+      void queryClient.invalidateQueries({ queryKey: queryKeys.chat.messages(ctx.channelId) });
+    } finally {
+      previewMutationRef.current = false;
+    }
+  }, [ctx.channelId, message.seq, message.link_preview_hidden, queryClient, update]);
+  const onRemovePreview = useCallback(() => { void removePreview(); }, [removePreview]);
   const togglePin = async () => {
     const nextPinned = !message.pinned;
     const result = await pinMessage({ channelId: ctx.channelId, seq: message.seq, on: nextPinned });
@@ -323,6 +328,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     if (!ctx.inThread) list.push({ id: "unread", label: "Mark unread", icon: MailOpen, run: () => void unread(), shortcut: "U", group: 2 });
     if (ctx.projectId && message.kind === "user" && !message.card && message.body) list.push({ id: "task", label: "Create task", icon: SquareCheck, run: () => void createTask(), group: 2 });
     list.push({ id: "pin", label: message.pinned ? "Unpin" : "Pin to conversation", icon: Pin, run: () => void togglePin(), group: 2 });
+    if (own && message.body && firstLink(message.body)) list.push({ id: "preview", label: message.link_preview_hidden ? "Restore link preview" : "Remove link preview", icon: message.link_preview_hidden ? Eye : EyeOff, run: () => void removePreview(!message.link_preview_hidden), group: 3 });
     if (own && !message.card) list.push({ id: "edit", label: "Edit message", icon: Pencil, run: startEdit, shortcut: "E", group: 3 });
     if (canDelete) list.push({ id: "delete", label: "Delete message", icon: Trash2, run: () => (own && !message.reply_count ? removeWithUndo() : setConfirmDelete(true)), shortcut: keyLabel("backspace"), destructive: true, group: 3 });
     // Task, application and invite cards are the app's own messages: nothing to report.
@@ -472,7 +478,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
                 <div className="mt-1 max-w-[480px]"><MessageAttachmentsV2 attachments={message.attachments.map(toViewerAttachment)} /></div>
               ) : null}
               {message.card ? <MessageCard card={message.card} /> : null}
-              {message.body && !message.link_preview_hidden ? <LinkPreview body={message.body} onRemove={own && actions ? () => void removePreview() : undefined} /> : null}
+              {message.body && !message.link_preview_hidden ? <MessageLinkPreview body={message.body} onRemove={own && actions ? onRemovePreview : undefined} /> : null}
             </>
           )}
           {/* A deleted message keeps no reactions (like Slack). */}
@@ -532,7 +538,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
           })}
           <DropdownMenu open={moreOpen} onOpenChange={handleMoreOpenChange} modal={false}>
             <DropdownMenuTrigger asChild>
-              <button type="button" className={`nb-icon-button size-8 ${moreOpen ? "bg-muted text-foreground" : ""}`} aria-label="More actions">
+              <button ref={moreTriggerRef} type="button" className={`nb-icon-button size-8 ${moreOpen ? "bg-muted text-foreground" : ""}`} aria-label="More actions">
                 <MoreHorizontal size={16} />
               </button>
             </DropdownMenuTrigger>

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type MouseEvent, type RefObject } from "react";
-import { LogOut, Plus, Smile, WifiOff, X } from "lucide-react";
+import { LogOut, Plus, Share2, Smile, WifiOff, X } from "lucide-react";
 
 import { SignOutConfirmDialog } from "@/components/auth/SignOutConfirmDialog";
 import { SidebarNav } from "@/components/layout/AppSidebar";
@@ -26,6 +26,7 @@ export default function MobileMenu(props: {
         fullName?: string | null;
         avatarUrl?: string | null;
     } | null;
+    onShareApplication?: () => void;
     onSignOut?: () => void | Promise<void>;
     connectionHealth?: RealtimeHealthState;
 }) {
@@ -114,6 +115,7 @@ export default function MobileMenu(props: {
                         <SETTINGS_NAV_ITEM.icon size={16} aria-hidden="true" />
                         {SETTINGS_NAV_ITEM.label}
                     </Link>
+                    {props.onShareApplication ? <button type="button" className="nb-nav-link w-full" onClick={props.onShareApplication}><Share2 size={16} aria-hidden="true" />Share NetworkBase</button> : null}
                     <div className="flex min-h-11 items-center justify-between px-2.5">
                         <span className="nb-ui-label text-muted-foreground">Theme</span>
                         <ThemeToggle />

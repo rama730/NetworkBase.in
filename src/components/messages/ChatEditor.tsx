@@ -1,5 +1,6 @@
 "use client";
 
+import { normalizeSafeExternalUrl, sameOriginPath } from "@/lib/messaging/safe-links";
 import { useEffect, useRef, useState } from "react";
 import { Extension, Node as TiptapNode, type Editor } from "@tiptap/core";
 import { useEditor, useEditorState } from "@tiptap/react";
@@ -141,7 +142,7 @@ export function useChatEditor(options: {
       StarterKit.configure({
         heading: false,
         horizontalRule: false,
-        link: { openOnClick: false, autolink: true, defaultProtocol: "https" },
+        link: { openOnClick: false, autolink: true, defaultProtocol: "https", isAllowedUri: (url) => Boolean(sameOriginPath(url, typeof window === "undefined" ? "https://networkbase.in" : window.location.origin) || normalizeSafeExternalUrl(url)) },
       }),
       ChatToken,
       // Pasted text stays the text you copied (no markdown or HTML parsing): "<Button>", "*.txt"
@@ -228,12 +229,12 @@ export function linkAtCaret(editor: Editor) {
  * empty URL removes it. False when the address isn't one we can link (the dialog says so).
  */
 export function applyLink(editor: Editor, url: string, text: string) {
-  const href = url.trim() && !/^[a-z][a-z0-9+.-]*:/i.test(url.trim()) ? `https://${url.trim()}` : url.trim();
-  if (!href) {
+  if (!url.trim()) {
     editor.chain().focus().extendMarkRange("link").unsetLink().run();
     return true;
   }
-  if (!/^https?:\/\/\S|^mailto:\S/i.test(href)) return false;
+  const href = sameOriginPath(url.trim(), typeof window === "undefined" ? "https://networkbase.in" : window.location.origin) ?? normalizeSafeExternalUrl(url);
+  if (!href) return false;
   const { empty, from, to } = editor.state.selection;
   const label = text.trim() || (empty ? href : editor.state.doc.textBetween(from, to, " "));
   // Replaces the selection (an edited link included), so it's never a second copy.

@@ -4,19 +4,15 @@ import { db } from "@/lib/db";
 import {
     profiles,
     projects,
-    connections,
     projectMembers,
     accountDeletions,
     profileAuditEvents,
-    projectFollows,
     projectNodeEvents,
 } from "@/lib/db/schema";
 import { createClient } from '@/lib/supabase/server';
 import { eq, or, and, inArray, isNull, sql, desc, } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
-import { queueCounterRefreshBestEffort } from '@/lib/workspace/counter-buffer';
 import { logger } from '@/lib/logger';
-import { createSignedJobRequestToken } from '@/lib/security/job-request';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
 import { resolveSecurityStepUp } from '@/lib/security/step-up';
 import { enqueueProjectNotificationEvent } from '@/lib/notifications/project-events';

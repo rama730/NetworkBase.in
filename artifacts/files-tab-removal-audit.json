@@ -1,18 +1,18 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-11T19:13:09.659Z",
+  "generatedAt": "2026-10-19T08:37:26.187Z",
   "searchTool": "git-grep",
   "repoRoot": "/Users/chrama/Downloads/nb-s3",
   "notes": "Best-effort audit: `unexpected` counts are logged for Task 13 review but do NOT fail the build while `filesTabV3Enabled` is ramping. Task 13.4 / 13.5 must re-run this audit and confirm zero `unexpected` references before any deletion lands.",
   "summary": {
     "searchTool": "git-grep",
     "totalTargets": 40,
-    "totalReferences": 249,
+    "totalReferences": 257,
     "counts": {
       "allowed-self": 0,
       "allowed-legacy": 0,
       "allowed-spec": 227,
-      "likely-collision": 18,
+      "likely-collision": 26,
       "unexpected": 4
     }
   },
@@ -360,13 +360,13 @@
             },
             {
               "file": "src/components/messages/ConversationView.tsx",
-              "line": 339,
+              "line": 338,
               "text": "  const closeTab = async (item: ChannelTabItem) => {",
               "classification": "likely-collision"
             },
             {
               "file": "src/components/messages/ConversationView.tsx",
-              "line": 685,
+              "line": 684,
               "text": "            onCloseTab={(item) => void closeTab(item)}",
               "classification": "likely-collision"
             },
@@ -417,104 +417,152 @@
             },
             {
               "file": "src/components/profile/v2/ProfileV2Client.tsx",
-              "line": 229,
+              "line": 139,
               "text": "    const [activeTab, setActiveTab] = useState<ProfileTabKey>(urlTab)",
               "classification": "likely-collision"
             },
             {
               "file": "src/components/profile/v2/ProfileV2Client.tsx",
-              "line": 262,
+              "line": 171,
               "text": "        setActiveTab(urlTab)",
               "classification": "likely-collision"
             },
             {
               "file": "src/components/profile/v2/ProfileV2Client.tsx",
-              "line": 374,
+              "line": 279,
               "text": "            setActiveTab(next)",
               "classification": "likely-collision"
             },
             {
               "file": "src/components/projects/EditProjectModal.tsx",
-              "line": 115,
+              "line": 117,
               "text": "    const [activeTab, setActiveTab] = useState(\"essentials\");",
               "classification": "likely-collision"
             },
             {
               "file": "src/components/projects/EditProjectModal.tsx",
-              "line": 242,
-              "text": "                                        onClick={() => setActiveTab(tab.id)}",
+              "line": 230,
+              "text": "            setActiveTab(\"roles\");",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/projects/EditProjectModal.tsx",
+              "line": 232,
+              "text": "            setActiveTab(\"stack\");",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/projects/EditProjectModal.tsx",
+              "line": 234,
+              "text": "            setActiveTab(\"journey\");",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/projects/EditProjectModal.tsx",
+              "line": 236,
+              "text": "            setActiveTab(\"details\");",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/projects/EditProjectModal.tsx",
+              "line": 238,
+              "text": "            setActiveTab(\"essentials\");",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/projects/EditProjectModal.tsx",
+              "line": 278,
+              "text": "                                    onClick={() => setActiveTab(tab.id)}",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/projects/EditProjectModal.tsx",
+              "line": 303,
+              "text": "                                    onClick={() => setActiveTab(tab.id)}",
               "classification": "likely-collision"
             },
             {
               "file": "src/components/projects/dashboard/ProjectDashboardClient.tsx",
-              "line": 237,
+              "line": 258,
               "text": "    const [activeTab, setActiveTab] = useState(() => resolvedActiveTab);",
               "classification": "unexpected"
             },
             {
               "file": "src/components/projects/dashboard/ProjectDashboardClient.tsx",
-              "line": 565,
+              "line": 576,
               "text": "            setActiveTab(tabId);",
               "classification": "unexpected"
             },
             {
               "file": "src/components/projects/dashboard/ProjectDashboardClient.tsx",
-              "line": 652,
+              "line": 667,
               "text": "        setActiveTab((prev) => (prev === nextTab ? prev : nextTab));",
               "classification": "unexpected"
             },
             {
               "file": "src/components/projects/dashboard/ProjectDashboardClient.tsx",
-              "line": 903,
+              "line": 879,
               "text": "        setActiveTab('dashboard');",
               "classification": "unexpected"
             },
             {
               "file": "src/components/projects/v2/tasks/TaskDetailPanel.tsx",
-              "line": 90,
+              "line": 122,
               "text": "  const [activeTab, setActiveTab] = useState<TaskPanelTab>(",
               "classification": "likely-collision"
             },
             {
               "file": "src/components/projects/v2/tasks/TaskDetailPanel.tsx",
-              "line": 155,
+              "line": 191,
               "text": "    setActiveTab(initialTab ?? \"details\");",
               "classification": "likely-collision"
             },
             {
               "file": "src/components/projects/v2/tasks/TaskDetailPanel.tsx",
-              "line": 410,
+              "line": 473,
               "text": "                  onClick={() => setActiveTab(tab.id)}",
               "classification": "likely-collision"
             },
             {
               "file": "src/components/projects/v2/tasks/TaskDetailPanel.tsx",
-              "line": 426,
+              "line": 479,
+              "text": "                        setActiveTab(first.id);",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/projects/v2/tasks/TaskDetailPanel.tsx",
+              "line": 490,
+              "text": "                        setActiveTab(last.id);",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/projects/v2/tasks/TaskDetailPanel.tsx",
+              "line": 511,
               "text": "                    setActiveTab(next.id);",
               "classification": "likely-collision"
             },
             {
               "file": "src/components/projects/v2/tasks/TaskDetailPanel.tsx",
-              "line": 488,
+              "line": 579,
               "text": "                  onOpenTab={setActiveTab}",
               "classification": "likely-collision"
             },
             {
               "file": "src/components/settings/SettingsLayout.tsx",
-              "line": 43,
+              "line": 42,
               "text": "  const [activeTab, setActiveTab] = useState(requestedTab);",
               "classification": "likely-collision"
             },
             {
               "file": "src/components/settings/SettingsLayout.tsx",
-              "line": 70,
+              "line": 79,
               "text": "    if (isInitialMount) setActiveTab(requestedTab);",
               "classification": "likely-collision"
             },
             {
               "file": "src/components/settings/SettingsLayout.tsx",
-              "line": 94,
-              "text": "      setActiveTab(closest);",
+              "line": 102,
+              "text": "      if (closest) setActiveTab(closest);",
               "classification": "likely-collision"
             },
             {
@@ -582,7 +630,7 @@
             "allowed-self": 0,
             "allowed-legacy": 0,
             "allowed-spec": 11,
-            "likely-collision": 16,
+            "likely-collision": 24,
             "unexpected": 4
           }
         },

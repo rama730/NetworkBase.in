@@ -1,6 +1,8 @@
 'use server'
 
-import { randomUUID } from 'crypto'
+import { invalidateDiscoverCacheForUsers } from '@/lib/connections/internal-helpers'
+import { createHash, randomUUID } from 'crypto'
+import { publishUser } from '@/lib/messaging/publish'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { db } from '@/lib/db'
 import { scheduleAssetDeletionIfUnreferenced } from '@/lib/storage/asset-deletion'
@@ -27,7 +29,7 @@ import { resolvePrivacyRelationship } from '@/lib/privacy/resolver'
 import { logger } from '@/lib/logger'
 import { UsernamePersistenceError, getUsernameAvailability, mapUsernamePersistenceError } from '@/lib/usernames/service'
 import { syncProfileSkills } from '@/lib/skills/service'
-import { socialLinkItemsFromStorage, validateSocialLinkCollection } from '@/lib/profile/normalization'
+import { socialLinkItemsFromStorage, toFormState, validateSocialLinkCollection, type ProfileFormState } from '@/lib/profile/normalization'
 import { enqueueSupersededProfileImages } from '@/lib/profile/image-cleanup'
 import { inngest } from '@/inngest/client'
 import {
@@ -53,7 +55,7 @@ export type ProfileUpdateErrorCode =
 
 export type UpdateProfileActionResult =
     | { success: true; updatedAt: string }
-    | { success: false; error: string; errorCode: ProfileUpdateErrorCode; code?: ProfileUpdateErrorCode; currentSocialLinks?: unknown; updatedAt?: string }
+    | { success: false; error: string; errorCode: ProfileUpdateErrorCode; code?: ProfileUpdateErrorCode; currentSocialLinks?: unknown; currentProfile?: ProfileFormState; updatedAt?: string }
 
 const PROFILE_UPDATE_LIMIT = 30
 const PROFILE_UPDATE_WINDOW_SECONDS = 60
@@ -409,34 +411,36 @@ export async function updateProfileAction(data: UpdateProfileInput): Promise<Upd
             ...(socialLinks ? { socialLinks: socialLinks.links } : {}),
         })
 
+        const editColumns = {
+            id: true,
+            username: true,
+            fullName: true,
+            headline: true,
+            bio: true,
+            location: true,
+            website: true,
+            avatarUrl: true,
+            bannerUrl: true,
+            skills: true,
+            interests: true,
+            socialLinks: true,
+            socialLinkMetadata: true,
+            visibility: true,
+            messagePrivacy: true,
+            openTo: true,
+            openToCollaborate: true,
+            openToCustomRoles: true,
+            preferredCategories: true,
+            experienceLevel: true,
+            hoursPerWeek: true,
+            genderIdentity: true,
+            pronouns: true,
+            education: true,
+            updatedAt: true,
+        } as const
         const current = await db.query.profiles.findFirst({
             where: eq(profiles.id, user.id),
-            columns: {
-                id: true,
-                username: true,
-                fullName: true,
-                headline: true,
-                bio: true,
-                location: true,
-                website: true,
-                avatarUrl: true,
-                bannerUrl: true,
-                skills: true,
-                interests: true,
-                socialLinks: true,
-                socialLinkMetadata: true,
-                visibility: true,
-                messagePrivacy: true,
-                openTo: true,
-                openToCustomRoles: true,
-                preferredCategories: true,
-                experienceLevel: true,
-                hoursPerWeek: true,
-                genderIdentity: true,
-                pronouns: true,
-                education: true,
-                updatedAt: true,
-            },
+            columns: editColumns,
         })
         if (!current) {
             return { success: false, error: 'Profile not found', errorCode: 'PROFILE_NOT_FOUND' }
@@ -458,6 +462,7 @@ export async function updateProfileAction(data: UpdateProfileInput): Promise<Upd
                 visibility: current.visibility || undefined,
                 messagePrivacy: current.messagePrivacy || undefined,
                 openTo: current.openTo || [],
+                openToCollaborate: current.openToCollaborate,
                 openToCustomRoles: current.openToCustomRoles || [],
                 preferredCategories: current.preferredCategories || [],
                 experienceLevel: current.experienceLevel || null,
@@ -564,6 +569,7 @@ export async function updateProfileAction(data: UpdateProfileInput): Promise<Upd
         if (patch.visibility !== undefined) updateData.visibility = patch.visibility
         if (patch.messagePrivacy !== undefined) updateData.messagePrivacy = patch.messagePrivacy
         if (patch.openTo !== undefined) updateData.openTo = patch.openTo
+        if (patch.openToCollaborate !== undefined) updateData.openToCollaborate = patch.openToCollaborate
         if (patch.openToCustomRoles !== undefined) updateData.openToCustomRoles = patch.openToCustomRoles
         if (patch.preferredCategories !== undefined) updateData.preferredCategories = patch.preferredCategories
         if (patch.experienceLevel !== undefined) updateData.experienceLevel = patch.experienceLevel
@@ -714,7 +720,7 @@ export async function updateProfileAction(data: UpdateProfileInput): Promise<Upd
             if (expectedUpdatedAt) {
                 const latest = await db.query.profiles.findFirst({
                     where: eq(profiles.id, user.id),
-                    columns: { socialLinks: true, updatedAt: true },
+                    columns: editColumns,
                 });
                 return {
                     success: false,
@@ -722,6 +728,7 @@ export async function updateProfileAction(data: UpdateProfileInput): Promise<Upd
                     errorCode: 'PROFILE_CONFLICT',
                     code: 'PROFILE_CONFLICT',
                     currentSocialLinks: latest?.socialLinks ?? current.socialLinks,
+                    currentProfile: toFormState(latest ?? current),
                     updatedAt: (latest?.updatedAt ?? current.updatedAt).toISOString(),
                 }
             }
@@ -770,6 +777,9 @@ export async function updateProfileAction(data: UpdateProfileInput): Promise<Upd
         if (
             patch.skills !== undefined ||
             patch.openTo !== undefined ||
+            patch.openToCollaborate !== undefined ||
+            patch.openToCustomRoles !== undefined ||
+            patch.preferredCategories !== undefined ||
             patch.experienceLevel !== undefined ||
             patch.hoursPerWeek !== undefined ||
             patch.visibility !== undefined ||
@@ -801,6 +811,11 @@ export async function updateProfileAction(data: UpdateProfileInput): Promise<Upd
             await invalidatePublicProjectsFeedCache().catch(() => undefined)
             revalidateTag(DISCOVER_ANON_CACHE_TAG, { expire: 0 })
         }
+        if (patch.openToCollaborate !== undefined || patch.openTo !== undefined || patch.openToCustomRoles !== undefined || patch.preferredCategories !== undefined) {
+            await invalidateDiscoverCacheForUsers([user.id])
+            revalidatePath('/network')
+        }
+        publishUser(user.id, 'share.preview_changed', { resource_key: createHash('sha256').update(`profile:${user.id}`).digest('hex') })
         revalidatePath('/my-profile')
         if (current.username) revalidatePath(`/u/${current.username}`)
         if (patch.username) revalidatePath(`/u/${patch.username}`)

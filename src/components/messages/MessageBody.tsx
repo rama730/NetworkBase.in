@@ -7,9 +7,11 @@ import remarkGfm from "remark-gfm";
 
 import { CodeSnippetBlock } from "@/components/messages/CodeSnippetBlock";
 import { PresenceGlyph } from "@/components/presence/PresenceGlyph";
-import { normalizeSafeExternalUrl } from "@/lib/messaging/safe-links";
+import { firstExternalMarkdownLink } from "@/lib/messaging/markdown-links";
+import { normalizeSafeExternalUrl, sameOriginPath } from "@/lib/messaging/safe-links";
 import { conversationHref } from "@/lib/messaging/routes";
 import { splitTokens } from "@/lib/messaging/tokens";
+import { parseShareResource } from '@/lib/sharing/presentation';
 
 type Props = {
   body: string;
@@ -46,16 +48,9 @@ function urlTransform(url: string) {
  * to open in place. Other links (relative or not) aren't treated as in-app.
  */
 function inAppPath(href: string) {
-  let path: string | null = null;
-  if (href.startsWith("/") && !href.startsWith("//")) path = href;
-  else if (typeof window !== "undefined") {
-    try {
-      const url = new URL(href);
-      if (url.origin === window.location.origin) path = `${url.pathname}${url.search}${url.hash}`;
-    } catch {
-      return null;
-    }
-  }
+  const path = sameOriginPath(href, typeof window === "undefined" ? "https://networkbase.in" : window.location.origin);
+  const resource = parseShareResource(href);
+  if (resource) return new URL(resource.url).pathname;
   return path && /^\/messages(\/|\?|$)/.test(path) ? path : null;
 }
 
@@ -127,11 +122,7 @@ export const MessageBody = memo(function MessageBody({ body, nameOf, channelName
   );
 });
 
-/** The first safe external link, for the link preview (never a link to this app: no preview of ourselves). */
+/** First safe previewable link; message links are excluded and first-party resources use authorized cards. */
 export function firstLink(body: string) {
-  for (const match of body.matchAll(/https?:\/\/[^\s<>()]+/g)) {
-    const safe = normalizeSafeExternalUrl(match[0]);
-    if (safe && !inAppPath(safe)) return safe;
-  }
-  return null;
+  return firstExternalMarkdownLink(body, typeof window === "undefined" ? "https://networkbase.in" : window.location.origin);
 }

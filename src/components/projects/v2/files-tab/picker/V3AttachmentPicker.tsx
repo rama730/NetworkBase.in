@@ -80,8 +80,9 @@ export function V3AttachmentPicker({
     setQuery("");
     setRecent(false);
   }, [projectId]);
+  const activeFolderId = query ? null : (folder?.id ?? null);
   const files = useInfiniteQuery({
-    queryKey: ["files-picker", projectId, folder?.id ?? null, query],
+    queryKey: ["files-picker", projectId, activeFolderId, query],
     enabled: isOpen && (!recent || !!query),
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam }) =>
@@ -115,6 +116,10 @@ export function V3AttachmentPicker({
       ? (recentFiles.data ?? [])
       : (files.data?.pages.flatMap((page) => page.nodes) ?? [])
   ).filter((node) => !node.deletedAt && !excluded.has(node.id));
+  const selectedNodeIds = useMemo(
+    () => new Set(selectedNodes.map((item) => item.id)),
+    [selectedNodes],
+  );
   // Metadata only: a partial page must never mark a shared directory complete.
   useEffect(() => {
     const nodes = files.data?.pages.flatMap((page) => page.nodes);
@@ -122,14 +127,18 @@ export function V3AttachmentPicker({
   }, [files.data, projectId]);
   function select(node: ProjectNode) {
     if (node.type === "folder") {
-      if (folder) setAncestors((current) => [...current, folder]);
+      if (query) {
+        setAncestors([]);
+      } else if (folder) {
+        setAncestors((current) => [...current, folder]);
+      }
       setFolder(node);
       setSearchInput("");
       setQuery("");
       setRecent(false);
       return;
     }
-    const selected = selectedNodes.some((item) => item.id === node.id);
+    const selected = selectedNodeIds.has(node.id);
     if (
       !selected &&
       selectionMode !== "single" &&
@@ -279,7 +288,7 @@ export function V3AttachmentPicker({
                       type="button"
                       aria-pressed={
                         node.type === "file"
-                          ? selectedNodes.some((item) => item.id === node.id)
+                          ? selectedNodeIds.has(node.id)
                           : undefined
                       }
                       data-testid={`v3-attachment-picker-result-${node.id}`}
@@ -303,7 +312,7 @@ export function V3AttachmentPicker({
                           </span>
                         )}
                       </span>
-                      {selectedNodes.some((item) => item.id === node.id) && (
+                      {selectedNodeIds.has(node.id) && (
                         <span className="text-xs text-[#2563C9]">Selected</span>
                       )}
                     </button>
@@ -336,35 +345,37 @@ export function V3AttachmentPicker({
             </div>
           </div>
         </div>
-        <div
-          className="max-h-28 shrink-0 overflow-y-auto border-t px-4 py-2"
-          data-testid="v3-attachment-picker-tray"
-        >
-          {!selectedNodes.length ? (
-            <p className="text-xs text-muted-foreground">No files selected</p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {selectedNodes.map((node) => (
-                <span
-                  key={node.id}
-                  data-testid={`v3-attachment-picker-chip-${node.id}`}
-                  className="inline-flex min-h-9 max-w-full items-center gap-1 rounded-[5px] bg-[#EEF4FD] pl-2 text-xs text-[#2563C9] dark:bg-[#2563C9]/15 dark:text-[#EEF4FD]"
-                >
-                  <span className="max-w-40 truncate">{node.name}</span>
-                  <button
-                    type="button"
-                    aria-label={`Remove ${node.name}`}
-                    data-testid={`v3-attachment-picker-chip-remove-${node.id}`}
-                    onClick={() => removeFromSelection(node.id)}
-                    className="flex size-9 items-center justify-center rounded focus-visible:ring-2"
+        {selectionMode === "multiple" && (
+          <div
+            className="max-h-28 shrink-0 overflow-y-auto border-t px-4 py-2"
+            data-testid="v3-attachment-picker-tray"
+          >
+            {!selectedNodes.length ? (
+              <p className="text-xs text-muted-foreground">No files selected</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {selectedNodes.map((node) => (
+                  <span
+                    key={node.id}
+                    data-testid={`v3-attachment-picker-chip-${node.id}`}
+                    className="inline-flex min-h-9 max-w-full items-center gap-1 rounded-[5px] bg-[#EEF4FD] pl-2 text-xs text-[#2563C9] dark:bg-[#2563C9]/15 dark:text-[#EEF4FD]"
                   >
-                    <X className="size-3.5" />
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
+                    <span className="max-w-40 truncate">{node.name}</span>
+                    <button
+                      type="button"
+                      aria-label={`Remove ${node.name}`}
+                      data-testid={`v3-attachment-picker-chip-remove-${node.id}`}
+                      onClick={() => removeFromSelection(node.id)}
+                      className="flex size-9 items-center justify-center rounded focus-visible:ring-2"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {footer && (
           <div
             className="shrink-0 border-t px-4 py-3"

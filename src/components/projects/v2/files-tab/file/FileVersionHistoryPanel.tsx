@@ -317,7 +317,6 @@ export function FileVersionHistoryPanel({
     >
       <FileInspectorPanelHeader
         title="Version History"
-        icon={<History className="h-3.5 w-3.5" aria-hidden="true" />}
         onClose={onClose}
         closeLabel="Close version history"
         closeTestId="files-tab-version-history-close"

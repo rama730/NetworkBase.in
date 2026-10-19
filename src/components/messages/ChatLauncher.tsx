@@ -12,7 +12,7 @@ const ChatWindow = dynamic(() => import("@/components/messages/ChatWindow"), { s
 
 /**
  * The floating button (report 7.13): 56px, bottom-right, badge = chatBadge (unread DMs + Inbox).
- * Not mounted below 768px or on /messages and /projects/new.
+ * Not mounted below 768px or on focused message/create-project/profile-editor routes.
  */
 export default function ChatLauncher() {
   const pathname = usePathname() ?? "";

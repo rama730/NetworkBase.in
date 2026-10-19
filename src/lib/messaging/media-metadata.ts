@@ -14,7 +14,7 @@ interface MediaBounds {
     maxHeight: number;
 }
 
-const MAX_MEDIA_DIMENSION = 100_000;
+export const MAX_MEDIA_DIMENSION = 20_000;
 const METADATA_TIMEOUT_MS = 8_000;
 
 function normalizeDimension(value: unknown): number | null {

@@ -1,6 +1,7 @@
 "use client";
 
 import type { QueryClient } from "@tanstack/react-query";
+import { invalidateLinkPreviewAccess } from "@/lib/links/client-preview-cache";
 import { queryKeys } from "@/lib/query-keys";
 
 export async function invalidatePrivacyDependents(
@@ -8,6 +9,8 @@ export async function invalidatePrivacyDependents(
   profileTargetKey?: string | null,
 ) {
   const invalidations: Promise<unknown>[] = [
+    queryClient.invalidateQueries({ queryKey: queryKeys.sharing.root() }),
+    invalidateLinkPreviewAccess(queryClient),
     queryClient.invalidateQueries({ queryKey: queryKeys.settings.privacy() }),
   ];
 

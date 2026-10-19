@@ -11,7 +11,6 @@ function source(path: string) {
   return readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
 }
 
-
 test("account integrations keeps repository synchronization on project surfaces", () => {
   const ui = source("src/components/settings/IntegrationsSettings.tsx");
   assert.match(ui, /Repository access is managed from each project/);
@@ -32,12 +31,14 @@ test("review and queued synchronization survive workspace remounts", () => {
     action,
     /\["completed", "running", "queued"\]\.includes\(run\.status\)/,
   );
+  const model = source("src/lib/github/sync-workspace.ts");
   assert.match(
-    workspace,
-    /run\.status === "review" \|\| run\.status === "failed"/,
+    model,
+    /"review",\s*"queued",\s*"running",\s*"failed",\s*"needs_review"/,
   );
+  assert.match(workspace, /openOperation/);
   assert.match(workspace, /Synchronization queued/);
-  assert.match(workspace, />Resume sync</);
+  assert.match(workspace, />\s*Resume sync\s*</);
 });
 
 test("workflow files request GitHub's dedicated permission and retain a retry path", () => {

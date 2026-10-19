@@ -43,7 +43,7 @@ export default function AccountPage({ embedded = false }: { embedded?: boolean }
 
   return (
     <>
-      <div className="space-y-6">
+      <div className={embedded ? "space-y-8" : "space-y-6"}>
         {!embedded ? (
           <SettingsPageHeader
             title="Account"

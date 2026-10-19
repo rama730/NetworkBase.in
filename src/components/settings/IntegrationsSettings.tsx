@@ -369,7 +369,7 @@ export default function IntegrationsSettings({ embedded = false }: { embedded?: 
     }
   };
 
-  return <div className="space-y-6">
+  return <div className={embedded ? "space-y-8" : "space-y-6"}>
     {!embedded ? <SettingsPageHeader title="Integrations" description="Manage sign-in methods, GitHub access, and active editor sessions." /> : null}
     {error ? <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 nb-compact text-destructive">{error instanceof Error ? error.message : "Unable to load integrations"}</p> : null}
 
@@ -459,7 +459,7 @@ export default function IntegrationsSettings({ embedded = false }: { embedded?: 
           />
 
           {showTokenGen && (
-            <div className="mt-3 rounded-md border border-border bg-muted/50 p-4">
+            <div className={embedded ? "mt-3 border-t border-border pt-4" : "mt-3 rounded-md border border-border bg-muted/50 p-4"}>
               {!generatedToken ? (
                 <div className="space-y-3">
                   <div className="max-w-xs">

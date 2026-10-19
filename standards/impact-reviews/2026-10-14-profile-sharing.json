@@ -1,0 +1,97 @@
+{
+  "id": "2026-10-14-profile-sharing",
+  "title": "Privacy-scoped profile, project and application sharing",
+  "summary": "Share canonical URLs through an accessible review dialog, anonymous metadata/images and recipient-qualified first-party cards. Count published public portfolio identities and canonical public skills. Reuse chat permissions and idempotency, retain failed drafts, and prevent old authorization or avatar snapshots from surviving privacy changes.",
+  "riskLevel": "high",
+  "runtimePlanes": [
+    "request",
+    "public_read",
+    "database",
+    "realtime"
+  ],
+  "routeClasses": [
+    "user_shell",
+    "active_surface"
+  ],
+  "dataSourcesChanged": [
+    "Bounded profile identity/privacy reads",
+    "Canonical public profile skill edges",
+    "Distinct public contribution/project aggregate",
+    "Project access and approved image asset references",
+    "Existing authorized/idempotent chat send and preview-hidden fields"
+  ],
+  "canonicalLogicDomains": [
+    "identity_avatar",
+    "profile_display",
+    "relationship_actions",
+    "status_lifecycle"
+  ],
+  "concurrencyRisk": "Preview queries are account/session scoped, aborted on cancellation and never persist first-party data; offline/refetching hides protected cards. Profile/project projection permissions are checked again after asynchronous summary work. Anonymous image reads recheck visibility after asset loading and PNG rendering, discarding changed/revoked snapshots. Sends verify the expected actor against the server session and recover existing receipts before resolving renamed links. One compose intent survives uncertain receipts, while conversation authority remains in the canonical SQL send function. Project references use stable ids while displaying readable canonical labels.",
+  "observability": {
+    "logs": [
+      "share.preview.unavailable",
+      "share.portfolio.unavailable",
+      "share.skills.unavailable",
+      "share.image.fallback",
+      "share.image.fonts_unavailable",
+      "Existing chat.action_failed and route rate-limit logs"
+    ],
+    "metrics": [],
+    "alerts": []
+  },
+  "rollback": {
+    "strategy": "Revert sharing code and menu/dialog integrations; retain existing schema and messages. No database migration or live fixture writes are required.",
+    "validation": [
+      "Existing profile and chat flows still work",
+      "Anonymous metadata never includes restricted identity",
+      "Old first-party cache scopes are discarded"
+    ]
+  },
+  "evidence": {
+    "commands": [
+      "npm run typecheck",
+      "NEXT_DIST_DIR=.next-sharing-check npm run build",
+      "node --import tsx --test tests/unit/profile-sharing.test.ts tests/unit/messaging-url-metadata.test.ts tests/unit/profile-collaboration.test.ts tests/unit/profile-role-layout-contract.test.ts",
+      "DATABASE_URL_FRESH=<disposable> node --import tsx --test --test-concurrency=1 tests/db/profile-sharing.test.ts tests/db/messaging-metadata.test.ts",
+      "npx playwright test -c tests/browser/playwright.config.ts sharing.spec.ts profile.spec.ts --project=chromium --project=webkit",
+      "npm run check:api-envelope-contract",
+      "npm run check:api-versioning-contract",
+      "npm run check:query-key-contract",
+      "npm run check:canonical-logic-contract",
+      "npm run check:impact-review"
+    ],
+    "reports": [
+      "docs/audits/profile-sharing-2026-10-14.md"
+    ]
+  },
+  "paths": [
+    "src/lib/sharing",
+    "src/components/sharing",
+    "src/app/api/v1/share-preview",
+    "src/app/api/og",
+    "src/app/actions/sharing.ts",
+    "src/app/actions/chat/messages.ts",
+    "src/app/(site)/(main)/u",
+    "src/app/(site)/(main)/projects/[slug]/page.tsx",
+    "src/app/(site)/page.tsx",
+    "src/components/profile/v2/ProfileHeader.tsx",
+    "src/components/profile/v2/ProfileV2Client.tsx",
+    "src/components/projects/dashboard/ProjectDashboardClient.tsx",
+    "src/components/projects/dashboard/ProjectLayout.tsx",
+    "src/components/layout/header/TopNav.tsx",
+    "src/components/layout/header/MobileMenu.tsx",
+    "src/app/api/v1/link-preview/route.ts",
+    "src/lib/links/preview-data.ts",
+    "src/hooks/useLinkPreview.ts",
+    "src/lib/messaging/markdown-links.ts",
+    "src/components/messages/MessageBody.tsx",
+    "src/components/messages/MessageRow.tsx",
+    "src/components/messages/useConversation.ts",
+    "src/components/messages/parts/LinkPreviewCard.tsx",
+    "src/components/messages/ChatShellProvider.tsx",
+    "src/lib/privacy/client-invalidation.ts",
+    "src/lib/query-keys.ts",
+    "src/lib/metadata/route-metadata.ts",
+    "src/app/fonts"
+  ]
+}

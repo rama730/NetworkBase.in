@@ -2,19 +2,15 @@
 
 import { memo, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Ban, Check, ChevronDown, Clock, Loader2, Lock, MapPin, MessageSquare } from "lucide-react";
+import { Ban, Check, ChevronDown, Clock, Loader2, MessageSquare } from "lucide-react";
 
 import type { SuggestedProfile } from "@/app/actions/connections";
-import { SkillIcon } from "@/components/skills";
-import { UserAvatar } from "@/components/ui/UserAvatar";
-import { PersonPresenceDot, PersonPresenceText } from "@/components/network/PersonPresenceDot";
-import { resolveClientSkill, useSkillCatalog } from "@/lib/skills/client";
+import { PersonCardContent } from "./PersonCardContent";
 import { profileHref } from "@/lib/routing/identifiers";
-import { canonicalSkillKey, matchingSkillLabels } from "@/lib/skills/matching";
 import { useConnectionMutations } from "@/hooks/useConnections";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import { boundPersonCardItems } from "@/lib/network/person-card-bounds";
+import { personCardName } from "@/lib/network/person-card";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -22,59 +18,10 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { messageUserInWindow } from "@/components/messages/message-user";
 import { CONNECTION_COPY } from "@/lib/connections/copy";
 
-/**
- * Shared Network person-card anatomy (profile-header style): avatar top-left, name and primary action beside it.
- * Placement rule: the one line under the name is the location, else the real headline; the headline drops
- * full width below the avatar only when a location took that line. Cards size to their content.
- */
-export function PersonCardLayout({
-    avatar,
-    head,
-    location,
-    meta = [],
-    headline,
-    aside,
-    body,
-    className,
-}: {
-    avatar: ReactNode;
-    head: ReactNode;
-    /** Mono location line; when present it owns the slot under the name. */
-    location?: ReactNode;
-    /** Keyed mono lines after the slot ("shared connections", "Connected …", "Role · …"); falsy entries are skipped. */
-    meta?: ReactNode[];
-    /** Real headline only; never filler text. */
-    headline?: ReactNode;
-    /** Primary action beside the name; keeps the card compact. */
-    aside?: ReactNode;
-    body?: ReactNode;
-    className?: string;
-}) {
-    const headlineBelow = location ? headline : null;
-    return (
-        <article className={cn("flex h-full min-w-0 flex-col rounded-lg border border-border bg-card p-5 transition-colors hover:border-input", className)}>
-            <div className="flex min-w-0 items-start gap-[14px]">
-                {avatar}
-                <div className="min-w-0 flex-1 pt-0.5">
-                    {head}
-                    {location ?? (headline ? <div className="mt-1 min-w-0">{headline}</div> : null)}
-                    {meta.filter(Boolean)}
-                </div>
-                {aside ? <div className="flex shrink-0 items-center">{aside}</div> : null}
-            </div>
-            {headlineBelow || body ? (
-                <div className="mt-3 min-w-0 space-y-2">
-                    {headlineBelow}
-                    {body}
-                </div>
-            ) : null}
-        </article>
-    );
-}
+export { PersonCardLayout } from './PersonCardContent';
 
 export function PersonCardGrid<T>({
     items,
@@ -82,6 +29,7 @@ export function PersonCardGrid<T>({
     renderItem,
     hasNextPage,
     isFetchingNextPage,
+    isFetchNextPageError = false,
     fetchNextPage,
     loadingLabel,
 }: {
@@ -90,6 +38,7 @@ export function PersonCardGrid<T>({
     renderItem: (item: T, index: number) => ReactNode;
     hasNextPage: boolean;
     isFetchingNextPage: boolean;
+    isFetchNextPageError?: boolean;
     fetchNextPage: () => unknown;
     loadingLabel: string;
 }) {
@@ -98,25 +47,28 @@ export function PersonCardGrid<T>({
 
     useEffect(() => {
         const sentinel = sentinelRef.current;
-        if (!sentinel || !hasNextPage || isFetchingNextPage) return;
+        if (!sentinel || !hasNextPage || isFetchingNextPage || isFetchNextPageError) return;
         const observer = new IntersectionObserver((entries) => {
             if (entries[0]?.isIntersecting) void fetchNextPage();
         }, { rootMargin: "600px" });
         observer.observe(sentinel);
         return () => observer.disconnect();
-    }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+    }, [hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage]);
 
     return (
         <div className="pb-8">
-            {/* Rows stretch to their tallest card, so a sparse card beside a rich one stays aligned. */}
-            <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-2">
+            {/* The approved 176px cards disclose long details without growing the grid. */}
+            <div className="nb-person-card-grid grid grid-cols-1 gap-[14px] sm:grid-cols-2">
                 {boundedItems.map((item, index) => (
-                    <div key={getKey(item)} className="[contain-intrinsic-size:auto_150px] [content-visibility:auto]">
+                    <div key={getKey(item)} className="[contain-intrinsic-size:auto_var(--network-person-card-min-height,176px)] [content-visibility:auto]">
                         {renderItem(item, index)}
                     </div>
                 ))}
             </div>
             <div ref={sentinelRef} aria-hidden="true" />
+            {isFetchNextPageError ? <div className="nb-compact mt-4" role="alert">
+                More people could not be loaded. <button className="text-primary hover:underline" onClick={() => void fetchNextPage()}>Retry loading more</button>
+            </div> : null}
             {isFetchingNextPage ? (
                 <div className="flex justify-center py-6"><Loader2 className="size-5 animate-spin text-muted-foreground" aria-label={loadingLabel} /></div>
             ) : null}
@@ -129,10 +81,11 @@ export const PERSON_CARD_TAGS = "flex h-6 min-w-0 flex-wrap gap-1.5 overflow-hid
 
 export interface PersonCardProps {
     profile: SuggestedProfile;
-    onConnect: (userId: string) => Promise<void>;
+    onConnect: (userId: string) => Promise<unknown>;
     priority?: boolean;
     viewerSkills?: string[];
     className?: string;
+    variant?: "network" | "rail";
 }
 
 function PersonCard({
@@ -141,29 +94,16 @@ function PersonCard({
     priority = false,
     viewerSkills,
     className,
+    variant,
 }: PersonCardProps) {
-    useSkillCatalog();
     const { cancelRequest, blockProfile } = useConnectionMutations();
-    const [localStatus, setLocalStatus] = useState<"none" | "pending_sent" | null>(null);
+    const [localStatus, setLocalStatus] = useState<SuggestedProfile['connectionStatus'] | null>(null);
     const [connecting, setConnecting] = useState(false);
     const actionSlot = useRef<HTMLDivElement>(null);
     const [cancelling, setCancelling] = useState(false);
     const [blocking, setBlocking] = useState(false);
     const status = localStatus ?? profile.connectionStatus;
-    const isLocked = Boolean(profile.isLockedProfile);
-    const displayName = profile.fullName || profile.username || CONNECTION_COPY.nameFallback;
-    const headline = profile.headline?.trim();
-    const matchingSkills = matchingSkillLabels(profile.skills ?? [], viewerSkills ?? []);
-    const matchingSkillKeys = new Set(matchingSkills.map(canonicalSkillKey));
-    const skills = [...(profile.skills ?? [])].sort(
-        (left, right) =>
-            Number(matchingSkillKeys.has(canonicalSkillKey(right))) -
-            Number(matchingSkillKeys.has(canonicalSkillKey(left)))
-    );
-
-    const visibleSkills = skills.length <= 4 ? skills : skills.slice(0, 3);
-    const hiddenSkills = skills.length <= 4 ? [] : skills.slice(3);
-
+    const displayName = personCardName(profile);
     useEffect(() => {
         setLocalStatus(null);
     }, [profile.connectionStatus]);
@@ -177,10 +117,11 @@ function PersonCard({
     async function connect() {
         if (connecting || status !== "none" || profile.canConnect === false) return;
         setConnecting(true);
-        setLocalStatus("pending_sent");
         keepFocusInSlot();
         try {
-            await onConnect(profile.id);
+            const result = await onConnect(profile.id);
+            const confirmed = result && typeof result === 'object' && 'status' in result ? result.status : null;
+            setLocalStatus(confirmed === 'connected' || confirmed === 'pending_received' || confirmed === 'pending_sent' ? confirmed : 'pending_sent');
         } catch {
             setLocalStatus(null);
             keepFocusInSlot();
@@ -190,7 +131,7 @@ function PersonCard({
     }
 
     async function handleCancel() {
-        if (cancelling) return;
+        if (connecting || cancelling) return;
         setCancelling(true);
         setLocalStatus("none");
         try {
@@ -225,16 +166,16 @@ function PersonCard({
 
     const action = status === "none" ? (
         profile.canConnect === false ? (
-            <span className="nb-meta">{CONNECTION_COPY.notAccepting}</span>
+            <Link href={profileHref(profile)} className="nb-person-control" title={CONNECTION_COPY.notAccepting}>View profile</Link>
         ) : (
             <button
                 type="button"
                 onClick={() => void connect()}
-                aria-disabled={connecting || undefined}
+                disabled={connecting} aria-busy={connecting || undefined}
                 className="nb-person-connect"
                 aria-label={`${CONNECTION_COPY.connect} with ${displayName}`}
             >
-                {CONNECTION_COPY.connect}
+                {connecting ? <Loader2 className="size-3 animate-spin" aria-hidden="true" /> : null}{connecting ? "Sending" : CONNECTION_COPY.connect}
             </button>
         )
     ) : status === "pending_sent" ? (
@@ -242,7 +183,7 @@ function PersonCard({
             <DropdownMenuTrigger asChild>
                 <button
                     type="button"
-                    disabled={cancelling}
+                    disabled={connecting || cancelling}
                     className="inline-flex h-[var(--ui-control-height)] shrink-0 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-45 transition-colors"
                     aria-label={`${CONNECTION_COPY.requested}: options for ${displayName}`}
                 >
@@ -271,7 +212,7 @@ function PersonCard({
                 {profile.canSendMessage !== false ? <DropdownMenuSeparator /> : null}
                 <DropdownMenuItem
                     onClick={() => void handleCancel()}
-                    disabled={cancelling}
+                    disabled={connecting || cancelling}
                     className="flex items-center gap-2 cursor-pointer"
                 >
                     <Clock className="size-4" />
@@ -330,109 +271,7 @@ function PersonCard({
         <span className="nb-meta">{CONNECTION_COPY.blocked}</span>
     ) : null;
 
-    return (
-        <PersonCardLayout
-            className={className}
-            avatar={
-                // The name is the link people tab to; the avatar is the same link for the mouse.
-                <Link href={profileHref(profile)} tabIndex={-1} aria-hidden="true" className="relative inline-flex shrink-0 rounded-md">
-                    <UserAvatar identity={profile} size={48} priority={priority} fallbackClassName="text-base font-semibold" />
-                    <PersonPresenceDot userId={profile.id} lastActiveAt={profile.lastActiveAt} />
-                </Link>
-            }
-            head={
-                <Link href={profileHref(profile)} className="block min-w-0 rounded-sm">
-                    <h3 className="nb-person-name min-w-0 truncate text-foreground" title={displayName}>{displayName}<PersonPresenceText userId={profile.id} lastActiveAt={profile.lastActiveAt} /></h3>
-                </Link>
-            }
-            location={!isLocked && profile.location ? (
-                <p className="nb-meta mt-1 flex min-w-0 items-center gap-1" title={profile.location}>
-                    <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
-                    <span className="min-w-0 truncate">{profile.location}</span>
-                </p>
-            ) : null}
-            meta={isLocked ? [] : [
-                (profile.mutualConnections ?? 0) > 0 ? (
-                    <p key="shared" className="nb-meta mt-1 truncate">{CONNECTION_COPY.shared(profile.mutualConnections ?? 0)}</p>
-                ) : null,
-            ]}
-            headline={isLocked ? (
-                <p className="nb-compact flex items-center gap-1 text-muted-foreground"><Lock className="size-3.5" aria-hidden="true" />Private profile</p>
-            ) : headline ? (
-                <p className="nb-compact line-clamp-2 text-muted-foreground" title={headline}>{headline}</p>
-            ) : null}
-            aside={<div ref={actionSlot} className="contents">{action}</div>}
-            body={!isLocked && skills.length ? (
-                <div className="flex min-w-0 flex-wrap items-center gap-1.5" role="group" aria-label="Skills">
-                    {visibleSkills.map((skillName) => {
-                        const skill = resolveClientSkill(skillName);
-                        const isMatched = matchingSkillKeys.has(skill.canonicalKey);
-                        return (
-                            <span
-                                key={skill.canonicalKey}
-                                className={cn(
-                                    "nb-tag transition-colors",
-                                    isMatched
-                                        ? "border-zinc-900 bg-zinc-900 text-zinc-50 font-medium dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900 shadow-sm"
-                                        : "border-border bg-card text-secondary-foreground"
-                                )}
-                            >
-                                <SkillIcon skill={skill} size={14} />
-                                {skill.name}
-                                {isMatched ? <span className="sr-only"> (matched skill)</span> : null}
-                            </span>
-                        );
-                    })}
-
-                    {hiddenSkills.length > 0 ? (
-                        <TooltipProvider delayDuration={150}>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <span
-                                        tabIndex={0}
-                                        role="note"
-                                        aria-label={`${hiddenSkills.length} more skills: ${hiddenSkills.join(", ")}`}
-                                        className="nb-tag cursor-default border-border bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors font-medium text-[11px]"
-                                    >
-                                        +{hiddenSkills.length}
-                                    </span>
-                                </TooltipTrigger>
-                                <TooltipContent
-                                    side="top"
-                                    align="start"
-                                    className="max-w-xs p-2.5 rounded-lg border border-border bg-popover text-popover-foreground shadow-md"
-                                >
-                                    <div className="text-[11px] font-semibold text-muted-foreground mb-1.5">
-                                        More skills ({hiddenSkills.length})
-                                    </div>
-                                    <div className="flex flex-wrap gap-1">
-                                        {hiddenSkills.map((skillName) => {
-                                            const skill = resolveClientSkill(skillName);
-                                            const isMatched = matchingSkillKeys.has(skill.canonicalKey);
-                                            return (
-                                                <span
-                                                    key={skill.canonicalKey}
-                                                    className={cn(
-                                                        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]",
-                                                        isMatched
-                                                            ? "bg-zinc-900 text-zinc-50 dark:bg-zinc-100 dark:text-zinc-900 font-medium"
-                                                            : "bg-muted text-foreground"
-                                                    )}
-                                                >
-                                                    <SkillIcon skill={skill} size={12} />
-                                                    {skill.name}
-                                                </span>
-                                            );
-                                        })}
-                                    </div>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    ) : null}
-                </div>
-            ) : null}
-        />
-    );
+    return <PersonCardContent person={profile} variant={variant} action={<div ref={actionSlot} className="contents">{action}</div>} viewerSkills={viewerSkills} priority={priority} className={className} connected={status === "connected"} />;
 }
 
 export default memo(PersonCard);

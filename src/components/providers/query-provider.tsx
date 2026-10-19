@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState, useEffect, type ReactNode } from 'react'
+import { maskLinkPreviewAccess } from '@/lib/links/client-preview-cache'
 import { QUERY_DEFAULTS } from '@/lib/query-defaults'
 
 interface QueryProviderProps {
@@ -28,6 +29,7 @@ export function QueryProvider({ children }: QueryProviderProps) {
 
     useEffect(() => {
         const handleSignOut = () => {
+            maskLinkPreviewAccess(queryClient);
             queryClient.clear();
         };
         window.addEventListener('auth:signout', handleSignOut);

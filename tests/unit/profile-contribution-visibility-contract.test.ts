@@ -241,7 +241,7 @@ test("reads apply privacy first, prefer relational skills, bound history, and de
 
 test("the contribution editor loads real pages and preserves the loaded baseline for discard", () => {
   const browserProfile = read("src/lib/profile/browser-profile.ts");
-  const modal = read("src/components/profile/edit/EditProfileModal.tsx");
+  const modal = read("src/components/profile/edit/EditProfileEditor.tsx");
   const editor = read("src/components/profile/edit/EditProfileTabs.tsx");
   assert.match(browserProfile, /loadProfileContributionsPage/);
   assert.match(browserProfile, /options\.offset/);

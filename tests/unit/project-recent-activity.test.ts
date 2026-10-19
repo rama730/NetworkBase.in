@@ -83,8 +83,7 @@ test("old Analytics links, visibility defaults, and migration point to the seven
 test("recent-activity card hides an empty feed while retaining accessible loading and retry states", () => {
   const card = readFileSync(`${root}/src/components/projects/dashboard/RecentActivityCard.tsx`, "utf8");
   const dashboard = readFileSync(`${root}/src/components/projects/tabs/DashboardTab.tsx`, "utf8");
-  assert.match(card, /aria-labelledby="project-recent-activity-title"/);
-  assert.match(card, /rounded-lg border border-border bg-card p-4/);
+  assert.match(card, /<RailSection title="Recent activity" headingId="project-recent-activity-title"/);
   assert.match(card, /h-3\.5 w-3\.5.*text-muted-foreground/);
   assert.match(card, /role="status" aria-label="Loading recent activity"/);
   assert.match(card, /role="alert"/);

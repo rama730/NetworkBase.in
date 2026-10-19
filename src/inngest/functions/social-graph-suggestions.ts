@@ -83,6 +83,7 @@ export const computeSocialGraphSuggestions = inngest.createFunction(
                     p.username,
                     p.full_name,
                     p.skills as candidate_skills,
+                    p.open_to_collaborate,
                     s.mutual_count::int as mutual_count
                 FROM second_degree s
                 JOIN profiles p ON s.suggested_id = p.id
@@ -113,7 +114,7 @@ export const computeSocialGraphSuggestions = inngest.createFunction(
                 const candidateSkills = (s.candidate_skills || []) as string[];
 
                 // Project-Role Alignment matching
-                for (const role of myOpenRoles) {
+                for (const role of s.open_to_collaborate ? myOpenRoles : []) {
                     const roleSkills = role.requiredSkills || [];
                     const matches = matchingSkillLabels(candidateSkills, roleSkills);
                     if (matches.length > 0) {

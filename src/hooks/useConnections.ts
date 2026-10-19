@@ -1,14 +1,18 @@
+import type { NetworkPersonFilters } from '@/lib/network/browse-query';
+import type { PersonCardDetails } from '@/lib/network/person-card';
 import { useEffect, useRef, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import {
     InfiniteData,
     QueryKey,
+    keepPreviousData,
     useInfiniteQuery,
     useMutation,
     useQuery,
     useQueryClient,
 } from '@tanstack/react-query';
 import { MAX_RETAINED_PERSON_QUERY_PAGES } from '@/lib/network/person-card-bounds';
+import type { SharedConnectionsSummary } from '@/lib/connections/shared';
 import {
     acceptAllIncomingConnectionRequests,
     acceptConnectionRequest,
@@ -47,7 +51,8 @@ export type NetworkConnectionItem = {
     status: string;
     createdAt: Date;
     updatedAt: Date;
-    otherUser: {
+    acceptedAt?: Date | string | null;
+    otherUser: PersonCardDetails & {
         id: string;
         username: string | null;
         fullName: string | null;
@@ -68,7 +73,7 @@ export type DiscoverConnectionItem = SuggestedProfile & {
     type: 'discover';
 };
 
-type RequestFeedUser = {
+type RequestFeedUser = PersonCardDetails & {
     id: string;
     username: string | null;
     fullName: string | null;
@@ -111,6 +116,7 @@ type FeedPage<T> = {
     stats: FeedStats;
     viewerProjectIds?: string[];
     viewerSkills?: string[];
+    sharedConnections?: SharedConnectionsSummary;
 };
 
 export type ConnectionFeedPage<T> = FeedPage<T>;
@@ -140,6 +146,7 @@ export type PendingIncomingRequest = {
     requesterMessagePrivacy?: SuggestedProfile['messagePrivacy'];
     requesterCanSendMessage?: boolean;
     requesterLastActiveAt?: string | null;
+    personCard?: PersonCardDetails;
     message?: string | null;
     mutualCount?: number;
 };
@@ -160,6 +167,7 @@ export type PendingSentRequest = {
     addresseeMessagePrivacy?: SuggestedProfile['messagePrivacy'];
     addresseeCanSendMessage?: boolean;
     addresseeLastActiveAt?: string | null;
+    personCard?: PersonCardDetails;
 };
 
 export type PendingRequestsData = {
@@ -316,6 +324,7 @@ export function useConnectionsFeed<TTab extends ConnectionsFeedTab>(
         initialPage?: FeedPage<FeedItemByTab[TTab]>;
         /** false skips connection stats and owned-project ids (a rail needs neither). */
         includeMeta?: boolean;
+        includeSharedConnections?: boolean;
     },
 ) {
     const limit = options?.limit ?? 20;
@@ -327,13 +336,14 @@ export function useConnectionsFeed<TTab extends ConnectionsFeedTab>(
     const requestSortBy = options?.requestSortBy;
     const initialPage = options?.initialPage;
     const includeMeta = options?.includeMeta;
+    const includeSharedConnections = options?.includeSharedConnections;
 
     // 2J: Include filters and requestSortBy in queryKey for cache separation
     const filtersKey = filters ? JSON.stringify(filters) : '';
     const requestSortKey = requestSortBy || '';
 
     return useInfiniteQuery({
-        queryKey: [...CONNECTIONS_QUERY_KEYS.feed(tab, limit, search), sortBy || 'recent', filtersKey, requestSortKey] as const,
+        queryKey: [...CONNECTIONS_QUERY_KEYS.feed(tab, limit, search), sortBy || 'recent', filtersKey, requestSortKey, ...(includeSharedConnections ? ['shared'] : [])] as const,
         queryFn: async ({ pageParam }: { pageParam: string | undefined }) => {
             const result = await getConnectionsFeed({
                 tab,
@@ -345,6 +355,7 @@ export function useConnectionsFeed<TTab extends ConnectionsFeedTab>(
                 historyFilters,
                 requestSortBy,
                 includeMeta,
+                includeSharedConnections,
             } satisfies ConnectionsFeedInput);
 
             return normalizeFeedResult(result as FeedPage<FeedItemByTab[TTab]> | FeedErrorPage);
@@ -354,6 +365,7 @@ export function useConnectionsFeed<TTab extends ConnectionsFeedTab>(
             ? { pages: [initialPage], pageParams: [undefined] }
             : undefined,
         getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
+        placeholderData: keepPreviousData,
         maxPages: MAX_RETAINED_PERSON_QUERY_PAGES,
         staleTime: tab === 'network' ? 30_000 : 60_000,
         gcTime: 5 * 60_000,
@@ -362,8 +374,8 @@ export function useConnectionsFeed<TTab extends ConnectionsFeedTab>(
     });
 }
 
-export function useConnections(limit = 50, search?: string, sortBy?: 'recent' | 'name' | 'oldest') {
-    return useConnectionsFeed('network', { limit, search, sortBy });
+export function useConnections(limit = 50, search?: string, sortBy?: 'recent' | 'name' | 'oldest', filters?: NetworkPersonFilters) {
+    return useConnectionsFeed('network', { limit, search, sortBy, filters });
 }
 
 export function useSuggestedPeople(
@@ -372,8 +384,9 @@ export function useSuggestedPeople(
     filters?: DiscoverFilters,
     initialPage?: FeedPage<DiscoverConnectionItem>,
     includeMeta?: boolean,
+    includeSharedConnections?: boolean,
 ) {
-    return useConnectionsFeed('discover', { limit, search, filters, initialPage, includeMeta });
+    return useConnectionsFeed('discover', { limit, search, filters, initialPage, includeMeta, includeSharedConnections });
 }
 
 function mapIncomingRequest(item: RequestConnectionItem): PendingIncomingRequest {
@@ -393,6 +406,7 @@ function mapIncomingRequest(item: RequestConnectionItem): PendingIncomingRequest
         requesterMessagePrivacy: item.user.messagePrivacy ?? 'connections',
         requesterCanSendMessage: item.user.canSendMessage ?? false,
         requesterLastActiveAt: item.user.lastActiveAt ?? null,
+        personCard: item.user,
         message: (item as RequestConnectionItem & { message?: string | null }).message ?? null,
         mutualCount: (item as RequestConnectionItem & { mutualCount?: number }).mutualCount,
     };
@@ -415,6 +429,7 @@ function mapSentRequest(item: RequestConnectionItem): PendingSentRequest {
         addresseeMessagePrivacy: item.user.messagePrivacy ?? 'connections',
         addresseeCanSendMessage: item.user.canSendMessage ?? false,
         addresseeLastActiveAt: item.user.lastActiveAt ?? null,
+        personCard: item.user,
     };
 }
 
@@ -496,6 +511,7 @@ export function useConnectionMutations() {
         }
         invalidateTimeoutRef.current = setTimeout(() => {
             invalidateConnectionsScoped(queryClient);
+            void queryClient.invalidateQueries({ queryKey: queryKeys.profile.root() });
             void queryClient.invalidateQueries({
                 queryKey: queryKeys.globalSearch.networkRoot(),
                 refetchType: 'active',

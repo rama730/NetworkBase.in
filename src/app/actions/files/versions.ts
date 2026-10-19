@@ -1,5 +1,7 @@
 "use server";
 
+import { requireAuthenticatedUser } from "@/app/api/v1/_shared";
+
 import { getFileAttributionByNodeId } from "@/lib/files/file-attribution";
 import { db } from "@/lib/db";
 import { scheduleAssetDeletionIfUnreferenced } from "@/lib/storage/asset-deletion";
@@ -105,8 +107,7 @@ export async function listFileVersionsPage(
   const beforeVersion = options?.beforeVersion == null
     ? null
     : Math.max(1, Math.trunc(options.beforeVersion));
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { user } = await requireAuthenticatedUser();
   const actorId = user?.id ?? null;
   const access = await assertProjectFileReadAccess(projectId, actorId);
 
@@ -161,8 +162,9 @@ export async function listFileVersions(
 }
 
 /**
- * Mint a short-lived signed URL pointing at a specific historical version of
- * a file. Used by the version-history drawer's "Download" button.
+ * The preview route URL for one historical version of a file. It is an ordinary authorized endpoint
+ * (access is checked when it is requested, not when this URL is built), so it carries no expiry.
+ * Used by the version-history drawer's "Download" button.
  */
 export async function getVersionPreviewUrl(
   projectId: string,
@@ -170,8 +172,7 @@ export async function getVersionPreviewUrl(
   version: number,
   download: boolean = false,
 ): Promise<{ url: string }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { user } = await requireAuthenticatedUser();
   const actorId = user?.id ?? null;
   await assertVersionNodeReadable(projectId, nodeId, actorId);
 
@@ -442,8 +443,7 @@ export async function getFileVersionContentAction(
   nodeId: string,
   versionNumber: number,
 ): Promise<{ success: true; content: string }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { user } = await requireAuthenticatedUser();
   const actorId = user?.id ?? null;
   await assertVersionNodeReadable(projectId, nodeId, actorId);
 

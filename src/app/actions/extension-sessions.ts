@@ -12,6 +12,7 @@ import { issueExtensionAuthCode } from "@/lib/extension/auth-code";
 import { EXTENSION_DEVICE_SESSION_EVENTS } from "@/lib/extension/session-events";
 import { listActiveExtensionSessionsForUser } from "@/lib/extension/active-sessions";
 import { buildExtensionRevocationUri, inferExtensionCallbackUri, normalizeExtensionCallbackUri } from "@/lib/extension/session-callback";
+import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { z } from "zod";
 
 type ExtensionTokenAuthMethod = "web_login" | "manual_token";
@@ -143,6 +144,14 @@ export async function generateExtensionToken(
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
             return { success: false as const, error: "Not authenticated" };
+        }
+
+        const rateLimitResult = await consumeRateLimit(`extension:token:${user.id}`, 10, 3600);
+        if (!rateLimitResult.allowed) {
+            return {
+                success: false as const,
+                error: "Too many extension tokens generated recently. Please wait before creating another.",
+            };
         }
 
         const authMethod = options.authMethod ?? "manual_token";

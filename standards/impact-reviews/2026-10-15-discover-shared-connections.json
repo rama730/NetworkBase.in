@@ -1,0 +1,67 @@
+{
+  "id": "2026-10-15-discover-shared-connections",
+  "title": "Discover shared-connection avatar summary",
+  "summary": "Replace Explore people with a real shared-connection summary, or a More people to meet fallback containing additional eligible suggestions from the same bounded response.",
+  "riskLevel": "medium",
+  "runtimePlanes": [
+    "request",
+    "database"
+  ],
+  "routeClasses": [
+    "user_shell",
+    "active_surface"
+  ],
+  "dataSourcesChanged": [
+    "Optional read of accepted connection edges and visible active peer identities; no writes or schema changes"
+  ],
+  "canonicalLogicDomains": [
+    "connection_feed",
+    "profile_display"
+  ],
+  "concurrencyRisk": "Compute distinct peers from live accepted edges for server-authorized suggestion ids. Hide summaries if their target set no longer matches the current suggestions. Preserve existing connection/privacy invalidation. Include the opt-in flag in server cache/in-flight and client query keys; share SSR data between the Discover parent and rail. No new background polling or per-card requests. Fetch seven suggestions once: three full cards plus four additional profiles. Restrict shared-connection totals to the three cards; never count the additional suggestions as mutuals.",
+  "observability": {
+    "logs": [
+      "connections.shared_summary_failed"
+    ],
+    "metrics": [
+      "Existing connections.feed.action duration"
+    ],
+    "alerts": []
+  },
+  "rollback": {
+    "strategy": "Revert the shared summary presentation and optional read only, preserving all prior workspace edits and connection data.",
+    "validation": [
+      "Suggestion lists and connection actions continue working",
+      "Other feeds skip the additional read",
+      "Empty/error summaries never show placeholder identities"
+    ]
+  },
+  "evidence": {
+    "commands": [
+      "npx tsc --noEmit",
+      "npx eslint <changed source and test files>",
+      "DATABASE_URL_FRESH=<disposable> npx tsx --test --test-name-pattern='Discover shared summary' tests/db/connections-paging.test.ts",
+      "npx playwright test -c tests/browser/playwright.config.ts rails.spec.ts --project=chromium --project=webkit --grep 'Discover shared|profile headings'",
+      "npx tsx --test tests/unit/discovery-people-rail-contract.test.ts tests/unit/connections-feed-performance.test.ts",
+      "npm run check:query-key-contract",
+      "npm run check:impact-review"
+    ],
+    "reports": [
+      "docs/audits/discover-shared-connections-2026-10-15.md"
+    ]
+  },
+  "paths": [
+    "src/lib/connections/shared.ts",
+    "src/app/actions/connections.ts",
+    "src/hooks/useConnections.ts",
+    "src/components/discover/DiscoverPeopleRail.tsx",
+    "src/components/discover/DiscoverClient.tsx",
+    "src/app/(site)/(main)/discover/page.tsx",
+    "tests/db/connections-paging.test.ts",
+    "tests/browser/rails.spec.ts",
+    "tests/browser/rails.fixture.tsx",
+    "tests/unit/discovery-people-rail-contract.test.ts",
+    "docs/design/networkbase-application-design-specification.html",
+    "src/lib/discover/query.ts"
+  ]
+}

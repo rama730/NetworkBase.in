@@ -1,3 +1,4 @@
+import {PROJECT_UPLOAD_MAX_FILE_BYTES} from "@/lib/upload/security";
 import { canReadProjectTab, type ProjectAccess } from "@/lib/data/project-access";
 import { canProjectMemberUploadFiles, projectMemberCan } from "@/lib/projects/settings-policies";
 
@@ -13,6 +14,7 @@ export function buildFileCapabilities(access: ProjectAccess) {
   const can = (capability: Parameters<typeof projectMemberCan>[1]) => canWrite && projectMemberCan(role, capability);
   const canUpload = can("upload_files") && (access.isOwner || canProjectMemberUploadFiles({ role: access.memberRole, fileUploadEnabled: access.member?.fileUploadEnabled ?? null }));
   return {
+    constraints:{maxUploadBytes:PROJECT_UPLOAD_MAX_FILE_BYTES,maxPathCharacters:1024,maxPathSegmentCharacters:255,inlineUploadBytes:512*1024},
     canReadFiles: canReadProjectTab(access, "files"),
     canCreateFiles: canUpload,
     canEditFiles: canUpload,

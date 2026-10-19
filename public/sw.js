@@ -34,7 +34,7 @@ self.addEventListener("push", (event) => {
         const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
         const reading = windows.some((client) => {
           try {
-            return client.focused && client.visibilityState === "visible" && new URL(client.url).pathname.startsWith(path);
+            return client.focused && client.visibilityState === "visible" && new URL(client.url).pathname === path;
           } catch (error) {
             return false;
           }
@@ -71,9 +71,13 @@ function askToNavigate(client, href) {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const href = event.notification.data && event.notification.data.href;
-  const targetUrl = typeof href === "string" && href.length > 0
-    ? new URL(href, self.location.origin).href
-    : self.location.origin + "/";
+  let targetUrl = self.location.origin + "/";
+  if (typeof href === "string" && href && !href.startsWith("//") && (href.startsWith("/") || /^https?:\/\//i.test(href)) && !/[\u0000-\u0020\u007f\\]/.test(href)) {
+    try {
+      const target = new URL(href, self.location.origin);
+      if (/^https?:$/.test(target.protocol) && target.origin === self.location.origin && !target.username && !target.password) targetUrl = target.href;
+    } catch { /* Malformed notification targets fall back to the application. */ }
+  }
 
   event.waitUntil(
     (async () => {

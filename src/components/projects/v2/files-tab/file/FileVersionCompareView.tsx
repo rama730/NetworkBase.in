@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { X, ArrowRight, Loader2 } from "lucide-react";
-import { diffLines } from "diff";
 import { cn } from "@/lib/utils";
 import { getFileVersionContentAction } from "@/app/actions/files/versions";
 
@@ -60,6 +59,7 @@ export function FileVersionCompareView({
         if (!active) return;
 
         // Perform line diff computation
+        const { diffLines } = await import("diff");
         const diffChunks = diffLines(baseContent, targetContent);
 
         // Yield again before processing large chunks

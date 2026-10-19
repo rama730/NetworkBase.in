@@ -1,5 +1,7 @@
 'use server';
 
+import { readPersonCardDetails } from '@/lib/network/person-card-read';
+import type { PersonCardDetails } from '@/lib/network/person-card';
 import { logger } from '@/lib/logger';
 import { ensureApplicationChannel, postApplicationUpdate } from '@/lib/messaging/integrations';
 import { db } from '@/lib/db';
@@ -2025,7 +2027,13 @@ export async function getIncomingApplicationsAction(
 
         return {
             success: true,
-            applications: sliced.map(({ _source, ...rest }) => rest),
+            applications: await (async () => {
+                const details = await readPersonCardDetails(user.id, sliced.map(item => item.actor.id).filter((id): id is string => !!id));
+                return sliced.map(({ _source, ...rest }) => {
+                    const actor = { ...rest.actor, ...details[rest.actor.id ?? ''] };
+                    return { ...rest, actor, applicant: actor };
+                }).filter(item => !item.actor.isUnavailable);
+            })(),
             hasMore,
             nextCursor,
         };
@@ -3050,7 +3058,7 @@ export interface SentProjectInvitationItem {
     projectTitle: string;
     projectSlug?: string | null;
     roleTitle: string;
-    candidate: {
+    candidate: PersonCardDetails & {
         id: string;
         username: string | null;
         fullName: string | null;
@@ -3138,7 +3146,11 @@ export async function getSentProjectInvitationsAction(options?: { limit?: number
 
         return {
             success: true as const,
-            invitations: items.slice(0, limit),
+            invitations: await (async () => {
+                const page = items.slice(0, limit);
+                const details = await readPersonCardDetails(user.id, page.map(item => item.candidate.id));
+                return page.map(item => ({ ...item, candidate: { ...item.candidate, ...details[item.candidate.id] } })).filter(item => !item.candidate.isUnavailable);
+            })(),
         };
     } catch (error) {
         console.error('Failed to fetch sent project invitations:', error);

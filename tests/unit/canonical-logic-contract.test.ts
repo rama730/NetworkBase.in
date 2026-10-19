@@ -20,6 +20,17 @@ function seedCanonicalModules(rootDir: string) {
 }
 
 describe("check-canonical-logic-contract script", () => {
+  it("checks the shared avatar owner when person-card surfaces delegate to it", () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "canonical-person-card-"));
+    seedCanonicalModules(tmp);
+    const sharedPath = path.join(tmp, "src/components/network/PersonCardContent.tsx");
+    write(sharedPath, 'import { UserAvatar } from "@/components/ui/UserAvatar"; export const PersonCardContent=()=> <UserAvatar identity={{}} />;');
+    write(path.join(tmp, "src/components/network/PersonCard.tsx"), 'import { PersonCardContent } from "./PersonCardContent"; export const PersonCard=()=> <PersonCardContent />;');
+    assert.deepEqual(validateCanonicalLogicContract(tmp).errors, []);
+    write(sharedPath, 'export const PersonCardContent=()=> <div />;');
+    assert.ok(validateCanonicalLogicContract(tmp).errors.some(line => line.includes('PersonCardContent.tsx: first-wave avatar surfaces')));
+  });
+
   it("passes when a first-wave surface uses UserAvatar", () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "canonical-logic-pass-"));
     seedCanonicalModules(tmp);

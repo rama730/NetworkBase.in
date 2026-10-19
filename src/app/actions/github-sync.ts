@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import {
   projects,
+  projectNodes,
   profiles,
   projectMembers,
   tasks,
@@ -32,6 +33,7 @@ import {
   resolveSyncContext,
   syncRunView,
   readStoredSyncContent,
+  cleanupRunSnapshots,
 } from "@/lib/github/sync-service";
 import {
   repoApi,
@@ -43,6 +45,7 @@ import {
 } from "@/lib/github/sync-api";
 import { redactSyncManifest } from "@/lib/github/sync-contract";
 import { buildGithubAccountConnectionState } from "@/lib/github/connection-state";
+import { loadGithubLinkedUser } from "@/lib/github/linked-user";
 import { assertProjectFileReadAccess } from "@/lib/files/internal-helpers";
 import { assertProjectTabReadAccess } from "@/lib/data/project-access";
 import { ensureDefaultGithubContributorIdentity } from "@/lib/github/contributor-identity";
@@ -52,6 +55,15 @@ import { GITHUB_SYNC_LIMITS } from "@/lib/github/sync-limits";
 const idSchema = z.string().uuid();
 const compareSchema = z.object({
   direction: z.enum(["push", "pull"]),
+  repository: z
+    .string()
+    .max(2048)
+    .refine(
+      (value) => Boolean(normalizeGithubRepoUrl(value)),
+      "Choose a valid repository URL",
+    )
+    .optional(),
+  newBranch: z.object({ base: z.string().min(1).max(255) }).optional(),
   branch: z.string().min(1).max(255),
   mode: z.enum(["direct", "pr"]).default("pr"),
   newRepository: z
@@ -84,12 +96,13 @@ const syncSelectionSchema = z
 async function session() {
   const client = await createClient();
   const {
-    data: { user },
+    data: { user: snapshotUser },
   } = await client.auth.getUser();
-  if (!user) throw new Error("Sign in to continue");
+  if (!snapshotUser) throw new Error("Sign in to continue");
   const {
     data: { session: value },
   } = await client.auth.getSession();
+  const user = await loadGithubLinkedUser(snapshotUser);
   const token = await resolveGithubUserAccessToken(user, value);
   return { user, token };
 }
@@ -166,6 +179,7 @@ export async function getGitHubSyncState(projectId: string) {
     }
 
     return {
+      viewerId: user.id,
       account: buildGithubAccountConnectionState(user),
       connection: ctx.connection
         ? {
@@ -307,7 +321,10 @@ export async function disconnectGitHubSyncRepository(projectId: string) {
           : null;
       await tx
         .update(projects)
-        .set({ githubRepoUrl: fallbackRepoUrl, githubDefaultBranch: fallbackBranch })
+        .set({
+          githubRepoUrl: fallbackRepoUrl,
+          githubDefaultBranch: fallbackBranch,
+        })
         .where(eq(projects.id, projectId));
       await tx
         .update(githubSyncRuns)
@@ -344,7 +361,15 @@ export async function compareGitHubSync(
       throw new Error("Too many comparisons. Please try again shortly.");
     return redactSyncManifest(
       await compareSync(
-        await resolveSyncContext(projectId, user.id, token),
+        await resolveSyncContext(
+          projectId,
+          user.id,
+          token,
+          parsed.repository
+            ? normalizeGithubRepoUrl(parsed.repository) || undefined
+            : undefined,
+          { includeSequence: true },
+        ),
         parsed,
       ),
     );
@@ -362,13 +387,23 @@ export async function prepareGitHubSync(
     const choices = syncSelectionSchema.parse(selection);
     const safeMessage = z.string().trim().min(1).max(2000).parse(message);
     if (
-      /^(co-authored-by|signed-off-by|edge-sync-operation|networkbase-sync-operation):/im.test(safeMessage)
+      /^(co-authored-by|signed-off-by|edge-sync-operation|networkbase-sync-operation):/im.test(
+        safeMessage,
+      )
     )
       throw new Error(
         "Authorship trailers are added automatically from verified contributor identities",
       );
     const { user, token } = await session();
-    const ctx = await resolveSyncContext(projectId, user.id, token);
+    const ctx = await resolveSyncContext(
+      projectId,
+      user.id,
+      token,
+      parsed.repository
+        ? normalizeGithubRepoUrl(parsed.repository) || undefined
+        : undefined,
+      { includeSequence: true },
+    );
     const limit = await consumeRateLimit(`github:prepare:${user.id}`, 15, 60);
     if (!limit.allowed)
       throw new Error("Too many prepared reviews. Please try again shortly.");
@@ -414,6 +449,8 @@ export async function executeGitHubSync(projectId: string, runId: string) {
       if (
         !run.result.pushed &&
         !run.result.commitSha &&
+        !run.result.repositoryCreated &&
+        !run.result.applied?.length &&
         Date.now() - run.createdAt.getTime() > 55 * 60_000
       )
         throw new Error("This review expired. Compare and review again.");
@@ -493,7 +530,7 @@ export async function cancelGitHubSyncReview(projectId: string, runId: string) {
     idSchema.parse(runId);
     const { user } = await session();
     await requireSyncOwner(projectId, user.id);
-    await db
+    const cancelled = await db
       .update(githubSyncRuns)
       .set({
         status: "cancelled",
@@ -513,7 +550,14 @@ export async function cancelGitHubSyncReview(projectId: string, runId: string) {
             "needs_review",
           ]),
         ),
+      )
+      .returning({ id: githubSyncRuns.id });
+    if (!cancelled.length)
+      throw new Error(
+        "This operation is already running or its state changed. Reopen its progress; cancellation was not applied.",
       );
+    // Asynchronously mark uncommitted snapshot assets for deletion
+    void cleanupRunSnapshots(runId).catch(() => {});
     return { cancelled: true };
   });
 }
@@ -526,7 +570,16 @@ export async function getGitHubSyncDiff(
     idSchema.parse(projectId);
     const { user, token } = await session();
     const ctx = await resolveSyncContext(projectId, user.id, token);
-    const manifest = await compareSync(ctx, compareSchema.parse(input));
+    const parsed = compareSchema.parse(input);
+    const comparisonCtx = parsed.repository
+      ? await resolveSyncContext(
+          projectId,
+          user.id,
+          token,
+          normalizeGithubRepoUrl(parsed.repository) || undefined,
+        )
+      : ctx;
+    const manifest = await compareSync(comparisonCtx, parsed);
     const file = manifest.files.find((f) => f.path === path);
     if (!file || file.blocked)
       throw new Error("File is unavailable for comparison");
@@ -559,6 +612,7 @@ export async function getSingleFileDiff(
   params: {
     repository: string;
     path: string;
+    nodeId?: string | null;
     storageKey?: string | null;
     remoteSha?: string | null;
     baseSha?: string | null;
@@ -567,26 +621,45 @@ export async function getSingleFileDiff(
 ) {
   return result(async () => {
     idSchema.parse(projectId);
-    const { repository, storageKey, remoteSha, baseSha, size } = params;
+    const { remoteSha, baseSha, size } = params;
+    const repository = normalizeGithubRepoUrl(params.repository);
+    if (!repository) throw new Error("Choose a valid repository");
+    let storageKey = params.storageKey;
     if (typeof size === "number" && size > 1024 * 1024) {
       return { binary: true, edge: "", github: "", base: "" };
     }
 
     const { user, token } = await session();
-    const ctx = await resolveSyncContext(projectId, user.id, token);
+    const ctx = await resolveSyncContext(projectId, user.id, token, repository);
+    if ((remoteSha || baseSha) && !ctx.token)
+      throw new Error("Renew GitHub repository access to inspect this file.");
 
-    const shouldFetchBase = Boolean(baseSha && ctx.token && baseSha !== remoteSha);
+    if (!storageKey && params.nodeId) {
+      idSchema.parse(params.nodeId);
+      const node = await db.query.projectNodes.findFirst({
+        where: and(
+          eq(projectNodes.id, params.nodeId),
+          eq(projectNodes.projectId, projectId),
+          isNull(projectNodes.deletedAt),
+        ),
+        columns: { s3Key: true },
+      });
+      storageKey = node?.s3Key;
+    }
+    const shouldFetchBase = Boolean(
+      baseSha && ctx.token && baseSha !== remoteSha,
+    );
     const [edge, github, baseBuffer] = await Promise.all([
-      storageKey ? readStoredSyncContent(projectId, storageKey).catch(() => null) : null,
+      storageKey ? readStoredSyncContent(projectId, storageKey) : null,
       remoteSha && ctx.token
-        ? readGitHubBlob(ctx.token, repository, remoteSha).catch(() => null)
+        ? readGitHubBlob(ctx.token, repository, remoteSha)
         : null,
-      shouldFetchBase
-        ? readGitHubBlob(ctx.token, repository, baseSha!).catch(() => null)
-        : null,
+      shouldFetchBase ? readGitHubBlob(ctx.token, repository, baseSha!) : null,
     ]);
     const base = baseSha === remoteSha ? github : baseBuffer;
-    const isOversized = [edge, github, base].some((buffer) => buffer && buffer.length > 1024 * 1024);
+    const isOversized = [edge, github, base].some(
+      (buffer) => buffer && buffer.length > 1024 * 1024,
+    );
     if (isOversized) {
       return { binary: true, edge: "", github: "", base: "" };
     }
@@ -656,12 +729,17 @@ export async function getHeaderGitHubSyncStatus(projectId: string) {
       typeof commitSha === "string" && commitSha.length >= 7
         ? commitSha.slice(0, 7)
         : typeof commitSha === "string"
-        ? commitSha
-        : null;
+          ? commitSha
+          : null;
 
-    const direction = (latestRun?.manifest?.direction || "push") as "push" | "pull";
+    const direction = (latestRun?.manifest?.direction || "push") as
+      | "push"
+      | "pull";
     const branchName = connection.branch || "main";
-    const repoName = connection.repository.replace(/^https:\/\/github\.com\//, "");
+    const repoName = connection.repository.replace(
+      /^https:\/\/github\.com\//,
+      "",
+    );
 
     const syncComment = shortSha
       ? `The last sync was to GitHub for ${repoName}, to the ${branchName} branch, and this is the code commit: ${shortSha}`
@@ -686,7 +764,9 @@ export async function getHeaderGitHubSyncStatus(projectId: string) {
       latestRunStatus: latestRun?.status ? String(latestRun.status) : null,
       latestCommitSha: shortSha,
       latestDirection: direction,
-      latestSyncAt: latestRun?.createdAt ? latestRun.createdAt.toISOString() : null,
+      latestSyncAt: latestRun?.createdAt
+        ? latestRun.createdAt.toISOString()
+        : null,
       syncComment,
     };
   });
@@ -710,26 +790,40 @@ export async function getCurrentGitHubCommitIdentity() {
       };
     }
 
-    const identitiesResult = await db.execute<{
-      id: string;
-      provider: string;
-      identity_data: Record<string, unknown> | null;
-    }>(
-      sql`SELECT id, provider, identity_data FROM auth.identities WHERE user_id = ${user.id}::uuid AND provider = 'github' ORDER BY last_sign_in_at DESC NULLS LAST, created_at DESC`,
-    ).catch(() => null);
+    const identitiesResult = await db
+      .execute<{
+        id: string;
+        provider: string;
+        identity_data: Record<string, unknown> | null;
+      }>(
+        sql`SELECT id, provider, identity_data FROM auth.identities WHERE user_id = ${user.id}::uuid AND provider = 'github' ORDER BY last_sign_in_at DESC NULLS LAST, created_at DESC`,
+      )
+      .catch(() => null);
 
     const primaryGithub =
-      identitiesResult && Array.isArray(identitiesResult) && identitiesResult.length > 0
+      identitiesResult &&
+      Array.isArray(identitiesResult) &&
+      identitiesResult.length > 0
         ? identitiesResult[0]
         : null;
 
     if (primaryGithub) {
-      const identityData = (primaryGithub.identity_data || {}) as Record<string, unknown>;
-      const githubId = Number(identityData.provider_id || identityData.sub || 0);
-      const login = String(identityData.user_name || identityData.preferred_username || "user");
-      const defaultEmail = githubId && login
-        ? `${githubId}+${login}@users.noreply.github.com`
-        : (typeof identityData.email === "string" ? identityData.email : "");
+      const identityData = (primaryGithub.identity_data || {}) as Record<
+        string,
+        unknown
+      >;
+      const githubId = Number(
+        identityData.provider_id || identityData.sub || 0,
+      );
+      const login = String(
+        identityData.user_name || identityData.preferred_username || "user",
+      );
+      const defaultEmail =
+        githubId && login
+          ? `${githubId}+${login}@users.noreply.github.com`
+          : typeof identityData.email === "string"
+            ? identityData.email
+            : "";
 
       return {
         configured: false,
@@ -777,40 +871,54 @@ export async function getGitHubCommitIdentityOptions() {
 
     // Fall back to verified identities attached to this user in the database
     const [identitiesResult, contributor] = await Promise.all([
-      db.execute<{
-        id: string;
-        provider: string;
-        identity_data: Record<string, unknown> | null;
-      }>(
-        sql`SELECT id, provider, identity_data FROM auth.identities WHERE user_id = ${user.id}::uuid AND provider = 'github' ORDER BY last_sign_in_at DESC NULLS LAST, created_at DESC`,
-      ).catch(() => null),
-      db.query.githubContributorIdentities.findFirst({
-        where: eq(githubContributorIdentities.userId, user.id),
-      }).catch(() => null),
+      db
+        .execute<{
+          id: string;
+          provider: string;
+          identity_data: Record<string, unknown> | null;
+        }>(
+          sql`SELECT id, provider, identity_data FROM auth.identities WHERE user_id = ${user.id}::uuid AND provider = 'github' ORDER BY last_sign_in_at DESC NULLS LAST, created_at DESC`,
+        )
+        .catch(() => null),
+      db.query.githubContributorIdentities
+        .findFirst({
+          where: eq(githubContributorIdentities.userId, user.id),
+        })
+        .catch(() => null),
     ]);
 
     const primaryGithub =
-      identitiesResult && Array.isArray(identitiesResult) && identitiesResult.length > 0
+      identitiesResult &&
+      Array.isArray(identitiesResult) &&
+      identitiesResult.length > 0
         ? identitiesResult[0]
         : null;
 
     if (!primaryGithub && !contributor) {
-      throw new Error("Connect your GitHub account first to configure commit attribution");
+      throw new Error(
+        "Connect your GitHub account first to configure commit attribution",
+      );
     }
 
-    const identityData = (primaryGithub?.identity_data || {}) as Record<string, unknown>;
+    const identityData = (primaryGithub?.identity_data || {}) as Record<
+      string,
+      unknown
+    >;
     const githubId =
       contributor?.githubId ??
       Number(identityData.provider_id || identityData.sub || 0);
     const login =
       contributor?.login ??
-      String(identityData.user_name || identityData.preferred_username || "user");
+      String(
+        identityData.user_name || identityData.preferred_username || "user",
+      );
     const name =
       contributor?.name ??
-      (typeof identityData.full_name === "string" ? identityData.full_name : null);
+      (typeof identityData.full_name === "string"
+        ? identityData.full_name
+        : null);
     const avatarUrl =
-      contributor?.avatarUrl ??
-      String(identityData.avatar_url || "");
+      contributor?.avatarUrl ?? String(identityData.avatar_url || "");
 
     const emails = new Set<string>();
     if (githubId && login) {
@@ -887,5 +995,110 @@ export async function getProjectSyncTasks(projectId: string) {
       title: t.title,
       key: t.taskNumber ? `${projectKey}-${t.taskNumber}` : t.id.slice(0, 8),
     }));
+  });
+}
+
+/** Lazy source-revision metadata for visible incoming rows; avoids a request per file during comparison. */
+export async function getGitHubSyncFileUpdates(
+  projectId: string,
+  repository: string,
+  head: string,
+  paths: string[],
+) {
+  return result(async () => {
+    idSchema.parse(projectId);
+    z.string()
+      .regex(/^[a-f0-9]{40}$/)
+      .parse(head);
+    const selected = z.array(z.string().min(1).max(2048)).max(20).parse(paths);
+    const { user, token } = await session();
+    const normalized = normalizeGithubRepoUrl(repository);
+    if (!normalized) throw new Error("Choose a valid repository");
+    const ctx = await resolveSyncContext(projectId, user.id, token, normalized);
+    const limit = await consumeRateLimit(`github:metadata:${user.id}`, 120, 60);
+    if (!limit.allowed)
+      throw new Error(
+        "File details are temporarily rate limited. Retry shortly.",
+      );
+    const { runWithConcurrency } = await import("@/lib/utils/concurrency");
+    const rows = await runWithConcurrency(
+      [...new Set(selected)],
+      4,
+      async (path) => {
+        const commits = await syncGithub<
+          Array<{
+            author: { login: string; avatar_url: string } | null;
+            commit: { author: { name: string; date: string } | null };
+          }>
+        >(
+          ctx.token,
+          `${repoApi(normalized)}/commits?sha=${head}&path=${encodeURIComponent(path)}&per_page=1`,
+        ).catch(() => []);
+        const latest = commits[0];
+        return {
+          path,
+          updated: {
+            source: "github" as const,
+            at: latest?.commit.author?.date || null,
+            person: latest
+              ? {
+                  name:
+                    latest.commit.author?.name ||
+                    latest.author?.login ||
+                    "GitHub author",
+                  avatarUrl: latest.author?.avatar_url || null,
+                  login: latest.author?.login || null,
+                }
+              : null,
+          },
+        };
+      },
+    );
+    return rows;
+  });
+}
+
+/** Read-only repository context used by setup; it does not save or change a connection. */
+export async function getGitHubSyncRepositoryDetails(
+  projectId: string,
+  repository: string,
+) {
+  return result(async () => {
+    idSchema.parse(projectId);
+    const normalized = normalizeGithubRepoUrl(repository);
+    if (!normalized) throw new Error("Choose a valid repository URL");
+    const { user, token } = await session();
+    const ctx = await resolveSyncContext(projectId, user.id, token, normalized);
+    const repo = await syncGithub<SyncRepo>(ctx.token, repoApi(normalized));
+    if (repo.archived)
+      throw new Error(
+        "This repository is archived. Choose an active repository.",
+      );
+    return {
+      writable: repo.permissions?.push !== false && Boolean(ctx.token),
+      visibility: repo.private ? ("private" as const) : ("public" as const),
+      defaultBranch: repo.default_branch,
+    };
+  });
+}
+
+export async function getGitHubSyncOwners(projectId: string) {
+  return result(async () => {
+    idSchema.parse(projectId);
+    const { user, token } = await session();
+    await requireSyncOwner(projectId, user.id);
+    if (!token)
+      throw new Error("Renew GitHub access to choose a repository owner.");
+    const account = await syncGithub<{ login: string }>(token, "/user");
+    const organizations: string[] = [];
+    for (let page = 1; page <= 5; page++) {
+      const rows = await syncGithub<Array<{ login: string }>>(
+        token,
+        `/user/orgs?per_page=100&page=${page}`,
+      );
+      organizations.push(...rows.map((row) => row.login));
+      if (rows.length < 100) break;
+    }
+    return { personal: account.login, organizations };
   });
 }

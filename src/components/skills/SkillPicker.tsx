@@ -178,7 +178,7 @@ export function SkillPicker({
                         {label}
                     </label>
                     {description ? (
-                        <p id={`${inputId}-description`} className="nb-meta mt-1 text-muted-foreground">
+                        <p id={`${inputId}-description`} className="nb-compact mt-1 text-muted-foreground">
                             {description}
                         </p>
                     ) : null}
@@ -266,7 +266,7 @@ export function SkillPicker({
                     aria-pressed={category === 'all'}
                     onClick={() => handleCategoryClick('all')}
                     className={cn(
-                        'shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+                        'nb-ui-label nb-touch-target shrink-0 whitespace-nowrap rounded-[3px] px-3 py-1.5 transition-colors focus-visible:brightness-95',
                         category === 'all'
                             ? 'bg-foreground text-background shadow-xs'
                             : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -281,7 +281,7 @@ export function SkillPicker({
                         aria-pressed={category === item.key}
                         onClick={() => handleCategoryClick(item.key)}
                         className={cn(
-                            'shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+                            'nb-ui-label nb-touch-target shrink-0 whitespace-nowrap rounded-[3px] px-3 py-1.5 transition-colors focus-visible:brightness-95',
                             category === item.key
                                 ? 'bg-foreground text-background shadow-xs'
                                 : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -296,7 +296,7 @@ export function SkillPicker({
             {!dense && category === 'all' && !query.trim() && popularShelfSkills.length > 0 ? (
                 <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                        <span className="nb-meta text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                        <span className="nb-micro text-muted-foreground">
                             Popular skills
                         </span>
                     </div>
@@ -310,15 +310,15 @@ export function SkillPicker({
                                 key={skill.canonicalKey}
                                 type="button"
                                 onClick={() => selectSkill(skill.name)}
-                                className="group flex shrink-0 items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5 text-left transition hover:border-foreground/30 hover:bg-muted/60"
+                                className="nb-touch-target group flex shrink-0 items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5 text-left transition hover:border-foreground/30 hover:bg-muted/60"
                                 title={`Add ${skill.name}`}
                             >
                                 <SkillIcon skill={skill} size={18} />
                                 <div className="min-w-0">
-                                    <span className="block truncate text-xs font-medium text-foreground">
+                                    <span className="nb-ui-label block truncate text-foreground">
                                         {skill.name}
                                     </span>
-                                    <span className="block truncate text-[10px] capitalize text-muted-foreground">
+                                    <span className="block truncate nb-meta capitalize text-muted-foreground">
                                         {skill.categoryKey.replaceAll('-', ' ')}
                                     </span>
                                 </div>

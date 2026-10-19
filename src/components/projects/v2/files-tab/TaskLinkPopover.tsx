@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { getTaskTitlePresentation } from "@/lib/projects/task-presentation";
 import { useTaskLinks, type LinkedTask } from "@/hooks/useTaskLinks";
 import { TaskLinkChip } from "./TaskLinkChip";
+import { useRouter } from "next/navigation";
 import { taskFilesHref } from "@/lib/files/task-navigation";
 import { confirmFileNavigation } from "@/lib/files/unsaved-navigation";
 
@@ -83,13 +84,18 @@ function TaskLinkPopoverContent({ projectId, nodeId }: { projectId: string; node
 
 function PopoverTaskRow({ task, projectId, nodeId }: { task: LinkedTask; projectId: string; nodeId: string }) {
   const presentation = getTaskTitlePresentation(task);
+  const router = useRouter();
+  const search = typeof window !== "undefined" ? window.location.search : "";
+  const href = taskFilesHref(search, task.taskId, nodeId) || `?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(task.taskId)}&panelTab=files`;
   return (
     <li data-testid={`task-link-popover-row-${task.taskId}`}>
       <a
-        href={`?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(task.taskId)}&panelTab=files`}
+        href={href}
         onClick={event => {
-          if (!event.metaKey && !event.ctrlKey && !confirmFileNavigation(projectId)) { event.preventDefault(); return; }
-          event.currentTarget.href = taskFilesHref(window.location.search, task.taskId, nodeId);
+          if (event.metaKey || event.ctrlKey || event.shiftKey) return;
+          event.preventDefault();
+          if (!confirmFileNavigation(projectId)) return;
+          router.push(href, { scroll: false });
         }}
         className="flex min-h-11 items-center gap-2 px-3 py-2 transition-colors hover:bg-[#F3F0EA] focus-visible:outline-[#D14E24] dark:hover:bg-muted"
       >

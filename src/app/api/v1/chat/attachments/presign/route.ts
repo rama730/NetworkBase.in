@@ -1,3 +1,4 @@
+import { normalizeMediaDimensions } from "@/lib/messaging/media-metadata";
 import { sql } from "drizzle-orm";
 
 import {
@@ -30,10 +31,6 @@ async function isMember(channelId: string, userId: string) {
   return Boolean((rows as unknown as Array<{ ok: boolean }>)[0]?.ok);
 }
 
-function dimension(value: unknown) {
-  return typeof value === "number" && Number.isInteger(value) && value > 0 && value <= 20_000 ? value : null;
-}
-
 export async function POST(request: Request) {
   const csrfError = validateCsrf(request);
   if (csrfError) return csrfError;
@@ -57,6 +54,8 @@ export async function POST(request: Request) {
     if (sizeBytes === 0) return jsonError("Attachments cannot be empty", 400, "BAD_REQUEST");
     const mimeType = normalizeAndValidateMimeType(body.mimeType);
 
+    const dimensions = /^(image|video)\//.test(mimeType) ? normalizeMediaDimensions(body.width, body.height) : null;
+    const originalFilename = typeof body.originalFilename === "string" ? body.originalFilename.trim().slice(0, 255) : filename;
     const extension = (filename.split(".").pop() || "bin").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10) || "bin";
     const storagePath = `${channelId}/${user.id}/${clientUploadId}.${extension}`;
     const intent = await createUploadIntent({
@@ -68,7 +67,7 @@ export async function POST(request: Request) {
       expectedMimeType: mimeType,
       expectedSize: sizeBytes,
       idempotencyKey: `chat:${clientUploadId}`,
-      metadata: { channelId, clientUploadId, filename, width: dimension(body.width), height: dimension(body.height) },
+      metadata: { channelId, clientUploadId, filename, original_filename: originalFilename, width: dimensions?.width ?? null, height: dimensions?.height ?? null },
     });
     const admin = await createAdminClient();
     const { data, error } = await admin.storage.from(BUCKET).createSignedUploadUrl(storagePath, { upsert: true });

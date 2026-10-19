@@ -26,7 +26,7 @@ const SORT_LABELS: Record<string, string> = { newest: 'Newest', oldest: 'Oldest'
 const typeLabel = (id: string) => PROJECT_TYPE_OPTIONS.find((type) => type.id === id)?.label ?? id;
 
 /** Discover's search box: the URL follows the text after a short pause; the text follows the URL (Back, global search). */
-function SearchBox({ value, onSearch }: { value: string; onSearch: (q: string) => void }) {
+function SearchBox({ value, loading = false, onSearch }: { value: string; loading?: boolean; onSearch: (q: string) => void }) {
     const [text, setText] = useState(value);
     const [shown, setShown] = useState(value);
     // The URL changed elsewhere (Back, the top bar's search): show it, unless it's what's typed already
@@ -46,6 +46,7 @@ function SearchBox({ value, onSearch }: { value: string; onSearch: (q: string) =
     return (
         <SearchField
             value={text}
+            loading={loading || text.trim() !== value.trim()}
             onChange={(next) => change(next, next ? 300 : 0)}
             onEnter={(input) => {
                 change(text, 0);
@@ -76,6 +77,7 @@ interface DiscoverHeaderProps {
     activeFilters: number;
     /** Read out when results settle: "12 projects", "No projects match". */
     announcement: string;
+    loading?: boolean;
     onChange: (patch: Partial<DiscoverQuery>, options?: { replace?: boolean }) => void;
     onClearFilters: () => void;
     onOpenFilters: () => void;
@@ -85,7 +87,7 @@ interface DiscoverHeaderProps {
 }
 
 /** Title, scope and search, sort and filters (spec §15), and the selected filters as tags. */
-export default function DiscoverHeader({ query, activeFilters, announcement, onChange, onClearFilters, onOpenFilters, filtersButtonRef, people }: DiscoverHeaderProps) {
+export default function DiscoverHeader({ query, activeFilters, announcement, loading = false, onChange, onClearFilters, onOpenFilters, filtersButtonRef, people }: DiscoverHeaderProps) {
     const [peopleOpen, setPeopleOpen] = useState(false);
     const railShown = useMediaQuery('(min-width: 1200px)');
     const phone = useMediaQuery('(max-width: 767px)');
@@ -130,7 +132,7 @@ export default function DiscoverHeader({ query, activeFilters, announcement, onC
                         {SCOPES.map((item) => <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>)}
                     </SelectContent>
                 </Select>
-                <SearchBox value={query.q} onSearch={(q) => onChange({ q }, { replace: Boolean(query.q) })} />
+                <SearchBox value={query.q} loading={loading} onSearch={(q) => onChange({ q }, { replace: Boolean(query.q) })} />
                 <div className="flex items-center gap-2 max-sm:w-full">
                     {sortable ? (
                         <Select value={query.sort} onValueChange={(value) => onChange({ sort: value as SortOption })}>

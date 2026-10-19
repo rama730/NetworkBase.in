@@ -92,7 +92,7 @@ export function SidebarNav() {
                         {count > 0 && <span className="nb-nav-count" aria-hidden="true">{count > 99 ? "99+" : count}</span>}
                     </Link>;
                 })}
-                <Link href={ROUTES.MY_PROFILE} className="nb-nav-link" aria-label="My profile" title="My profile" aria-current={pathname === ROUTES.MY_PROFILE ? "page" : undefined}><UserRound size={16} aria-hidden="true" /><span className="nb-sidebar-label">My profile</span></Link>
+                <Link href={ROUTES.MY_PROFILE} className="nb-nav-link" aria-label="My profile" title="My profile" aria-current={isMainNavRouteActive(pathname, ROUTES.MY_PROFILE) ? "page" : undefined}><UserRound size={16} aria-hidden="true" /><span className="nb-sidebar-label">My profile</span></Link>
                 {isAuthenticated && <WorkspaceIndicator />}
             </nav>
             {isAuthenticated && <section className="nb-sidebar-workspace space-y-3" aria-labelledby="sidebar-workspace-heading">

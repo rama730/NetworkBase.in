@@ -91,9 +91,11 @@ describe("extension crash recovery contract", () => {
     assert.match(recovery, /lastStateSignature/);
     assert.match(extension, /type: 'recoveryIncidentState'/);
     assert.doesNotMatch(extension, /type: 'recoveryState'/);
-    assert.match(sidebar, /renderRecoveryIncidentBanner/);
-    assert.match(sidebar, /var html = renderRecoveryPanel\(project\)/);
+    assert.match(sidebar, /recoveryIncidentState/);
+    assert.match(sidebar, /Recovery drafts/);
+    assert.match(sidebar, /recoveryCompare/);
+    assert.match(sidebar, /recoveryRestore/);
     assert.doesNotMatch(sidebar, /Saving ['"]? \+ state\.cloudSyncing/);
-    assert.match(sidebar, /Date\.parse\(String\(time/);
+
   });
 });

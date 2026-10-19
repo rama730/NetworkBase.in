@@ -1,89 +1,39 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import path from "node:path";
 
-describe("GitHub Sync Setup Workbench Redesign Contract", () => {
-  const workspacePath = path.resolve(
-    process.cwd(),
+describe("Approved compact GitHub Sync setup", () => {
+  const source = readFileSync(
     "src/components/projects/v2/files-tab/GitHubSyncWorkspace.tsx",
+    "utf8",
   );
-  const source = readFileSync(workspacePath, "utf-8");
-
-  it("omits the redundant header, icon, and marketing tagline", () => {
-    // Redundant header with tagline must be removed
-    assert.doesNotMatch(
-      source,
-      /Review,\s*publish,\s*and\s*bring\s*changes\s*back/,
-      "Marketing tagline must be omitted from view",
-    );
-    assert.doesNotMatch(
-      source,
-      /<h2[^>]*>\s*<Github[^>]*\/>\s*GitHub\s*Sync\s*<\/h2>/,
-      "Redundant GitHub Sync h2 header must be omitted",
-    );
+  const css = readFileSync(
+    "src/components/projects/v2/files-tab/github-sync/SyncWorkspace.module.css",
+    "utf8",
+  );
+  it("uses one heading, a back arrow and compact mode choices", () => {
+    assert.match(source, /title="Repository setup"/);
+    assert.match(source, /Repository setup mode/);
+    assert.match(source, />\s*Create new\s*</);
+    assert.match(source, />\s*Connect existing\s*</);
+    assert.doesNotMatch(source, /Pull unavailable|Back to Overview/);
   });
-
-  it("eliminates hover cards and immediately renders setup workbench", () => {
-    // The setupMode === null hover card container must be completely gone
+  it("keeps fields flat and responsive rather than oversized transfer cards", () => {
+    assert.match(source, /className=\{styles.fields\}/);
+    assert.match(source, /<legend>Transfer direction<\/legend>/);
+    assert.match(css, /@container sync \(max-width:\s*640px\)/);
+    assert.doesNotMatch(source, /bg-\[#|shadow-xl|tracking-wider/);
+  });
+  it("compares without saving a target or starting publication", () => {
+    const compare = source.slice(
+      source.indexOf("async function compare("),
+      source.indexOf("const compareRef"),
+    );
+    assert.match(compare, /sync.compareGitHubSync/);
     assert.doesNotMatch(
-      source,
-      /setupMode\s*===\s*null/,
-      "Must not have setupMode === null condition for hover cards",
+      compare,
+      /connectGitHubSyncRepository|executeGitHubSync/,
     );
-
-    // Initial state defaults to create mode
-    assert.match(
-      source,
-      /const\s*\[newRepo,\s*setNewRepo\]\s*=\s*useState\(true\);/,
-      "newRepo must default to true",
-    );
-    assert.match(
-      source,
-      /const\s*\[setupMode,\s*setSetupMode\]\s*=\s*useState<"create"\s*\|\s*"existing">\("create"\);/,
-      "setupMode must default to 'create'",
-    );
-  });
-
-  it("provides inline segmented switcher for Create repository and Connect existing repository", () => {
-    assert.match(
-      source,
-      /Create repository/,
-      "Must have Create repository segment",
-    );
-    assert.match(
-      source,
-      /Connect existing repository/,
-      "Must have Connect existing repository segment",
-    );
-    assert.match(
-      source,
-      /bg-primary\s+text-primary-foreground/,
-      "Active toggle must use the NetworkBase primary token",
-    );
-  });
-
-  it("removes disabled pull card for new repositories and uses flat drafting layout", () => {
-    // Must NOT have disabled Pull unavailable card
-    assert.doesNotMatch(
-      source,
-      /Pull unavailable/,
-      "Disabled 'Pull unavailable' card must be removed",
-    );
-
-    // Must use flat 2-column grid without nested sub-card bloat
-    assert.match(
-      source,
-      /grid\s*gap-4\s*sm:grid-cols-2\s*border-t\s*border-\[#E8E3D9\]/,
-      "Must use flat 2-column layout with warm divider",
-    );
-  });
-
-  it("leads into reviewed staging rather than publishing immediately", () => {
-    assert.match(
-      source,
-      /Review changes/,
-      "Setup must lead into review before any publication action",
-    );
+    assert.match(source, /No files change during comparison/);
   });
 });

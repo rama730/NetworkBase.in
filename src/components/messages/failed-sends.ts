@@ -21,7 +21,10 @@ const failed = new Map<string, FailedSend>();
 function readStore(): Stored[] {
   try {
     const list = JSON.parse(sessionStorage.getItem(STORE) ?? "[]");
-    return Array.isArray(list) ? list : [];
+    return Array.isArray(list) ? list.filter((entry) => entry && typeof entry.clientId === "string"
+      && entry.payload && typeof entry.payload.channelId === "string" && typeof entry.payload.body === "string"
+      && Array.isArray(entry.payload.assetIds) && entry.message && typeof entry.message.body === "string"
+      && Array.isArray(entry.message.attachments) && Array.isArray(entry.message.reactions)) : [];
   } catch {
     return [];
   }
@@ -51,8 +54,9 @@ export function failedSend(clientId: string | null) {
 }
 
 /** Failed sends kept from before a reload, for one conversation (or one thread). */
-export function storedFailedSends(channelId: string, threadRootSeq: number | null) {
+export function storedFailedSends(channelId: string, threadRootSeq: number | null, authorId: string | null) {
   return readStore().filter((entry) => {
+    if (!authorId || entry.message.author_id !== authorId) return false;
     if (entry.payload.channelId !== channelId || entry.payload.threadRootSeq !== threadRootSeq) return false;
     failed.set(entry.clientId, entry.payload);
     return true;
@@ -143,4 +147,10 @@ export function editFailedSend(queryClient: QueryClient, clientId: string, chann
 export function discardSend(queryClient: QueryClient, clientId: string, channelId: string, threadRootSeq: number | null) {
   forget(clientId);
   patchSent(queryClient, channelId, threadRootSeq, (messages) => messages.filter((m) => m.client_message_id !== clientId));
+}
+
+/** Failed sends belong to the account that authored them. */
+export function clearFailedSends() {
+  failed.clear();
+  try { sessionStorage.removeItem(STORE); } catch { /* Storage can be disabled. */ }
 }

@@ -1,5 +1,7 @@
 "use server";
 
+import { requireAuthenticatedUser } from "@/app/api/v1/_shared";
+
 import { db } from "@/lib/db";
 import { readFileSubtree } from "@/lib/files/permanent-delete";
 import { permanentlyDeleteTrashedNode } from "./trash";
@@ -764,8 +766,7 @@ export async function getUploadCollisionSummary(
 }
 
 export async function renameNode(nodeId: string, newName: string, projectId: string, expectedUpdatedAt?: string) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { user } = await requireAuthenticatedUser();
     if (!user) throw new Error("Unauthorized");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
     if (!allowed) throw new Error("Rate limit exceeded");
@@ -830,11 +831,11 @@ export async function moveProjectNodes(
     projectId: string,
     options?: {
         expectedParentByNode?: Record<string, string | null>;
+        expectedUpdatedAtByNode?: Record<string,string>;
         mode?: "move" | "publish";
     },
 ): Promise<MoveProjectNodesResult> {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { user } = await requireAuthenticatedUser();
     if (!user) throw new Error("Unauthorized");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
     if (!allowed) throw new Error("Rate limit exceeded");
@@ -860,6 +861,7 @@ export async function moveProjectNodes(
                 path: true,
                 taskId: true,
                 metadata: true,
+                updatedAt:true,
             },
         });
 
@@ -868,6 +870,7 @@ export async function moveProjectNodes(
         }
 
         for (const node of nodes) {
+            if(options?.expectedUpdatedAtByNode && options.expectedUpdatedAtByNode[node.id]!==node.updatedAt.toISOString()) throw new Error("File changed elsewhere. Review before moving.");
             if (
                 options?.expectedParentByNode &&
                 Object.prototype.hasOwnProperty.call(options.expectedParentByNode, node.id) &&
@@ -1058,9 +1061,8 @@ export async function restoreNode(nodeId: string, projectId: string) {
     // ponytail: client handles trash restore via query invalidation; skip route revalidation. ceiling: client query invalidation. upgrade: global cache invalidation bus if cross-device state sync required.
 }
 
-export async function bulkTrashNodes(nodeIds: string[], projectId: string) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+export async function bulkTrashNodes(nodeIds: string[], projectId: string, expectedVersions?: Record<string,string>) {
+    const { user } = await requireAuthenticatedUser();
     if (!user) throw new Error("Unauthorized");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
     if (!allowed) throw new Error("Rate limit exceeded");
@@ -1074,13 +1076,14 @@ export async function bulkTrashNodes(nodeIds: string[], projectId: string) {
         await assertProjectWriteAccessTx(tx, projectId, user.id);
         const nodes = await tx.query.projectNodes.findMany({
             where: and(eq(projectNodes.projectId, projectId), inArray(projectNodes.id, uniqueIds)),
-            columns: { id: true, name: true, path: true, type: true, taskId: true, metadata: true, deletedAt: true },
+            columns: { id: true, name: true, path: true, type: true, taskId: true, metadata: true, deletedAt: true, updatedAt:true },
         });
         if (nodes.length !== uniqueIds.length) {
             throw new Error("Some selected files are missing");
         }
 
         for (const node of nodes) {
+            if(expectedVersions && expectedVersions[node.id] !== node.updatedAt.toISOString()) throw new Error("File changed elsewhere. Review before deleting.");
             await assertSubtreeNotLockedByAnotherUser(tx, projectId, node, user.id);
             const isSystemFolder =
                 !!node.metadata && (node.metadata as { isSystem?: unknown }).isSystem === true;
@@ -1305,6 +1308,10 @@ export async function getTrashPage(projectId: string, query = "", cursor?: strin
     };
 }
 
+/** Legacy export kept safe: deletion now requires Trash and reviewed scope. */
+export async function deleteNode(nodeId: string, projectId: string, expectedFingerprint: string) {
+    return permanentlyDeleteTrashedNode(projectId, nodeId, expectedFingerprint);
+}
 
 export async function bulkCreateFolderTree(
     projectId: string,

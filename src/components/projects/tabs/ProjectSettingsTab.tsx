@@ -7,30 +7,7 @@ import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-    AlertTriangle,
-    Archive,
-    Bell,
-    ChevronDown,
-    Crown,
-    FileText,
-    Folder,
-    Globe,
-    Link2,
-    Loader2,
-    Lock,
-    Newspaper,
-    RefreshCw,
-    Search,
-    Scale,
-    Settings,
-    Shield,
-    SlidersHorizontal,
-    Trash2,
-    UserCog,
-    Users,
-    Workflow,
-} from "lucide-react";
+import { AlertTriangle, Archive, Bell, ChevronDown, Crown, FileText, Folder, Globe, Link2, Loader2, Lock, Newspaper, RefreshCw, Scale, Settings, Shield, Trash2, UserCog, Users, Workflow } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
@@ -1604,6 +1581,7 @@ export default function ProjectSettingsTab({
                 </details>
 
 
+                {/* SectionHeader suppressed when activeSection !== "general" to avoid duplicate header */}
                 {/* activeSection === "general" && ( */}
                 {sections.some((s) => s.id === "general") && (
                     <GeneralSettingsSection
@@ -1616,6 +1594,7 @@ export default function ProjectSettingsTab({
                     />
                 )}
 
+                {/* SectionHeader suppressed when activeSection !== "links" to avoid duplicate title */}
                 {/* activeSection === "links" && ( */}
                 {sections.some((s) => s.id === "links") && (
                     <section id="project-settings-links" data-project-settings-section className="space-y-6">
@@ -1640,6 +1619,7 @@ export default function ProjectSettingsTab({
                     </section>
                 )}
 
+                {/* SectionHeader suppressed when activeSection !== "access" to avoid duplicate title */}
                 {/* activeSection === "access" && ( */}
                 {sections.some((s) => s.id === "access") && (
                     <section id="project-settings-access" data-project-settings-section className="space-y-6">
@@ -1717,6 +1697,7 @@ export default function ProjectSettingsTab({
                     </section>
                 )}
 
+                {/* SectionHeader suppressed when activeSection !== "collaborators" to avoid duplicate title */}
                 {/* activeSection === "collaborators" && ( */}
                 {sections.some((s) => s.id === "collaborators") && (
                     <section id="project-settings-collaborators" data-project-settings-section className="space-y-6">
@@ -1783,9 +1764,8 @@ export default function ProjectSettingsTab({
                                 <div className="space-y-3 pb-6">
                                     <div className="flex items-center justify-between pb-2 border-b border-border/60">
                                         <div className="flex items-center gap-2">
-                                            <Shield className="h-4 w-4 text-primary" />
                                             <span className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                                Project leadership
+                                                Project Leadership
                                             </span>
                                         </div>
                                         <span className="nb-meta text-xs text-muted-foreground">
@@ -1847,9 +1827,8 @@ export default function ProjectSettingsTab({
                                 {(collaboratorFilter === "all" || collaboratorFilter === "admin") && !collaboratorSearch.trim() ? (
                                     <div className="flex items-center justify-between pb-2 border-b border-border/60">
                                         <div className="flex items-center gap-2">
-                                            <Users className="h-4 w-4 text-muted-foreground" />
                                             <span className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                                Team directory
+                                                Team Directory
                                             </span>
                                         </div>
                                         <span className="nb-meta text-xs text-muted-foreground">
@@ -1923,6 +1902,7 @@ export default function ProjectSettingsTab({
                     </section>
                 )}
 
+                {/* SectionHeader suppressed when activeSection !== "roles-applications" to prevent duplicate headers */}
                 {/* activeSection === "roles-applications" && ( */}
                 {sections.some((s) => s.id === "roles-applications") && (
                     <section id="project-settings-roles-applications" data-project-settings-section className="space-y-6">
@@ -1983,6 +1963,7 @@ export default function ProjectSettingsTab({
                     </section>
                 )}
 
+                {/* SectionHeader suppressed when activeSection !== "readme" to avoid duplicate title */}
                 {/* activeSection === "readme" && ( */}
                 {sections.some((s) => s.id === "readme") && (
                     <section id="project-settings-readme" data-project-settings-section className="space-y-6">
@@ -1996,7 +1977,6 @@ export default function ProjectSettingsTab({
                                     <div className="space-y-3">
                                         <div className="flex items-center justify-between border-b border-border/60 pb-2">
                                             <div className="flex items-center gap-2">
-                                                <SlidersHorizontal className="size-4 text-muted-foreground" />
                                                 <span className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                                                     Content delivery &amp; notification rules
                                                 </span>
@@ -2045,7 +2025,7 @@ export default function ProjectSettingsTab({
                     </section>
                 )}
 
-                {/* activeSection === "updates" && ( */}
+                {/* SectionHeader suppressed when activeSection !== "updates" to avoid duplicate title */}
                 {sections.some((s) => s.id === "updates") && (
                     <section id="project-settings-updates" data-project-settings-section className="space-y-6">
                         <div className="space-y-6">
@@ -2058,7 +2038,6 @@ export default function ProjectSettingsTab({
                                     <div className="space-y-3">
                                         <div className="flex items-center justify-between border-b border-border/60 pb-2">
                                             <div className="flex items-center gap-2">
-                                                <SlidersHorizontal className="size-4 text-muted-foreground" />
                                                 <span className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                                                     Publishing permissions
                                                 </span>
@@ -2119,6 +2098,7 @@ export default function ProjectSettingsTab({
                     </section>
                 )}
 
+                {/* SectionHeader suppressed when activeSection !== "tasks-workflow" to avoid duplicate title */}
                 {/* activeSection === "tasks-workflow" && ( */}
                 {sections.some((s) => s.id === "tasks-workflow") && (
                     <section id="project-settings-tasks-workflow" data-project-settings-section className="space-y-6">
@@ -2150,6 +2130,7 @@ export default function ProjectSettingsTab({
                     </section>
                 )}
 
+                {/* SectionHeader suppressed when activeSection !== "files-workspace" to avoid duplicate title */}
                 {/* activeSection === "files-workspace" && ( */}
                 {sections.some((s) => s.id === "files-workspace") && (
                     <section id="project-settings-files-workspace" data-project-settings-section className="space-y-6">
@@ -2212,6 +2193,7 @@ export default function ProjectSettingsTab({
                     </section>
                 )}
 
+                {/* SectionHeader suppressed when activeSection !== "notifications" to avoid duplicate title */}
                 {/* activeSection === "notifications" && ( */}
                 {sections.some((s) => s.id === "notifications") && (
                     <section id="project-settings-notifications" data-project-settings-section className="space-y-6">
@@ -2261,7 +2243,6 @@ export default function ProjectSettingsTab({
                                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border/60 pb-3">
                                         <div>
                                             <div className="flex items-center gap-2">
-                                                <Bell className="size-4 text-foreground" />
                                                 <h3 className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-foreground">
                                                     Workflow event triggers
                                                 </h3>

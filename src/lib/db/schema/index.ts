@@ -197,6 +197,7 @@ export const profiles = pgTable(
       .default([]),
     education: jsonb("education").$type<ProfileEducationEntry[]>().default([]),
     openTo: jsonb("open_to").$type<string[]>().default([]),
+    openToCollaborate: boolean("open_to_collaborate").default(false).notNull(),
     // Legacy records and the ordered V2 item list share this JSONB column.
     // Existing rows remain readable; owners are upgraded on their next save.
     socialLinks: jsonb("social_links")
@@ -571,6 +572,7 @@ export const connections = pgTable(
       .notNull()
       .references(() => profiles.id, { onDelete: "cascade" }),
     status: statusConnectionEnum("status").default("pending").notNull(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
     blockedBy: uuid("blocked_by").references(() => profiles.id, {
       onDelete: "cascade",
     }),
@@ -3365,6 +3367,7 @@ export const projectNodeEvents = pgTable(
       t.createdAt,
     ),
     nodeIdx: index("project_node_events_node_idx").on(t.nodeId, t.createdAt),
+    operationIdx: index("project_node_events_operation_idx").on(t.projectId,t.actorId,sql`(${t.metadata}->>'operationId')`),
     actorIdx: index("project_node_events_actor_id_idx").on(t.actorId),
     seqIdx: uniqueIndex("project_node_events_seq_idx").on(
       t.projectId,
@@ -3388,7 +3391,12 @@ export const githubSyncConnections = pgTable("github_sync_connections", {
   installationId: bigint("installation_id", { mode: "number" }),
   incomingSha: text("incoming_sha"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (t) => ({
+  repoBranchIdx: index("github_sync_connections_repo_branch_idx").on(
+    t.repositoryId,
+    t.branch,
+  ),
+}));
 export const githubSyncRuns = pgTable("github_sync_runs", {
   id: uuid("id").primaryKey().defaultRandom(),
   projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
@@ -4714,7 +4722,11 @@ export const extensionDeviceSessions = pgTable("extension_device_sessions", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
-});
+}, (t) => ({
+  userLastSeenIdx: index("extension_device_sessions_user_last_seen_idx")
+    .on(t.userId, t.lastSeenAt.desc(), t.id.desc())
+    .where(sql`${t.revokedAt} IS NULL`),
+}));
 
 // ============================================================================
 // EXTENSION DEVICE SESSION EVENTS

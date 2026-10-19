@@ -64,6 +64,9 @@ test("all person avatars use identity tones without replacing uploaded photos", 
     "src/components/notifications/NotificationBundleRow.tsx",
   ]) {
     const source = readFileSync(path.join(root, component), "utf8");
-    assert.match(source, /<UserAvatar\b/, `${component} should use the shared person avatar`);
+    if (/import \{ PersonCardContent \} from "\.\/PersonCardContent"/.test(source)) {
+      assert.match(source, /<PersonCardContent\b/, `${component} should render the shared person card`);
+      assert.match(readFileSync(path.join(root, "src/components/network/PersonCardContent.tsx"), "utf8"), /<UserAvatar\b/);
+    } else assert.match(source, /<UserAvatar\b/, `${component} should use the shared person avatar`);
   }
 });

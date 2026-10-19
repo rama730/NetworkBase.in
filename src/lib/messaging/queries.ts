@@ -10,8 +10,8 @@ import type { ChatMessageView } from "@/lib/messaging/types";
  * The caller supplies the filter and order; access (member, or project member
  * previewing a public channel) is checked here.
  */
-export function selectMessages(viewerId: string, channelId: string, filter: SQL, order: SQL, limit: number) {
-  return chatRows<ChatMessageView>(sql`
+export async function selectMessages(viewerId: string, channelId: string, filter: SQL, order: SQL, limit: number) {
+  const rows = await chatRows<ChatMessageView>(sql`
     SELECT m.channel_id, m.channel_seq::int AS seq, m.author_id, m.kind, m.body, m.thread_root_seq::int AS thread_root_seq,
            m.reply_count, m.last_reply_seq::int AS last_reply_seq, m.last_reply_at, m.edited_at, m.deleted_at, m.link_preview_hidden,
            m.created_at, m.client_message_id,
@@ -50,6 +50,9 @@ export function selectMessages(viewerId: string, channelId: string, filter: SQL,
     ORDER BY ${order}
     LIMIT ${limit}
   `);
+  // Driver timestamps may be Dates or SQL text; actions and Broadcast use canonical ISO strings.
+  const timestamp = (value: string | Date | null) => value === null ? null : new Date(value instanceof Date ? value.getTime() : value).toISOString();
+  return rows.map((row) => ({ ...row, created_at: timestamp(row.created_at)!, edited_at: timestamp(row.edited_at), deleted_at: timestamp(row.deleted_at), last_reply_at: timestamp(row.last_reply_at) }));
 }
 
 /** A page of top-level messages: the newest, before a seq, or around a seq (deep links). */

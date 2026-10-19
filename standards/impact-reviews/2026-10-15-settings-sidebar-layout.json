@@ -1,0 +1,56 @@
+{
+  "id": "2026-10-15-settings-sidebar-layout",
+  "title": "Settings navigation follows the Edit profile page layout",
+  "summary": "Replace the floating settings navigation card with the shared full-height sidebar pattern and mono title/divider. Keep all settings sections mounted in the existing scroll document, preserve actions and deep links, and centralize cancellable section alignment for URL and local navigation.",
+  "riskLevel": "medium",
+  "runtimePlanes": [
+    "request"
+  ],
+  "routeClasses": [
+    "user_shell",
+    "active_surface"
+  ],
+  "dataSourcesChanged": [
+    "None; existing settings panels, queries and mutation commands are unchanged"
+  ],
+  "canonicalLogicDomains": [],
+  "concurrencyRisk": "Local navigation continues to suppress a competing URL-triggered scroll. The initial URL-alignment frame is canceled by later navigation or user scroll/input and cleaned up on unmount. Bounded settings sections retain real layout geometry rather than content-visibility placeholder heights, avoiding Safari target drift without timed retries. Existing settings component state remains mounted. No security, privacy or account action authorization changes.",
+  "observability": {
+    "logs": [],
+    "metrics": [],
+    "alerts": []
+  },
+  "rollback": {
+    "strategy": "Revert only the settings shell presentation and navigation alignment changes, restoring the prior floating navigation without changing persisted settings or unrelated workspace edits.",
+    "validation": [
+      "All seven navigation sections and nested data-rights/deletion targets remain reachable",
+      "Existing settings commands and account confirmations remain intact",
+      "Section links preserve mounted fields and obey reduced-motion preferences"
+    ]
+  },
+  "evidence": {
+    "commands": [
+      "npx playwright test --config tests/browser/playwright.config.ts settings.spec.ts --project=chromium --project=webkit",
+      "npx tsx --test tests/unit/settings-scroll-document-contract.test.ts",
+      "npx tsc --noEmit",
+      "npx eslint <changed settings and test files>",
+      "npm run check:impact-review"
+    ],
+    "reports": [
+      "docs/audits/settings-sidebar-layout-2026-10-15.md"
+    ]
+  },
+  "paths": [
+    "src/components/settings/SettingsLayout.tsx",
+    "src/components/settings/SettingsDocument.tsx",
+    "src/components/settings/ui/SettingsPageHeader.tsx",
+    "src/constants/settings.ts",
+    "src/app/(site)/(main)/settings/loading.tsx",
+    "src/app/globals.css",
+    "tests/browser/settings.spec.ts",
+    "tests/browser/settings.fixture.tsx",
+    "tests/browser/playwright.config.ts",
+    "tests/unit/settings-scroll-document-contract.test.ts",
+    "docs/design/networkbase-application-design-specification.html"
+  ]
+}

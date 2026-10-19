@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { toChangedServerPayload, toFormState } from "../src/lib/profile/normalization";
 
 async function source(relativePath: string) {
   return readFile(path.join(process.cwd(), relativePath), "utf8");
@@ -39,7 +40,7 @@ async function main() {
     source("src/lib/profile/collaboration.ts"),
     source("src/app/api/v1/profiles/[id]/contributions/route.ts"),
     source("src/components/profile/edit/EditProfileTabs.tsx"),
-    source("src/components/profile/edit/EditProfileModal.tsx"),
+    source("src/components/profile/edit/EditProfileEditor.tsx"),
     source("src/components/profile/v2/sections/ProjectContributionsCard.tsx"),
     source("src/app/api/v1/profiles/[id]/collaboration-stages/[stageId]/route.ts"),
     source("src/app/actions/project/updates.ts"),
@@ -92,7 +93,9 @@ async function main() {
   requireContract("editor has per-item save and error state", editor.includes("Needs attention") && editor.includes("Saving…") && editor.includes('role="alert"'));
   requireContract("platform identity is descriptive text", editor.includes("<dl"));
   requireContract("modal uses dedicated contribution command", modal.includes("saveProfileContributionsAction"));
-  requireContract("modal strips legacy contribution payload", modal.includes("withoutLegacyContributionPayload"));
+  requireContract("modal keeps contributions out of profile payloads", modal.includes("toChangedServerPayload") && !("experience" in toChangedServerPayload(
+    toFormState({ experience: [{ title: "Legacy contribution" }] }), toFormState({}), "2026-10-13T12:00:00.000Z",
+  )));
   requireContract("modal attributes server failures to contribution items", modal.includes("setContributionErrors") && modal.includes("result.mutationIndex"));
   requireContract("owner has private preview", card.includes("Only you can see this contribution"));
   requireContract("public empty state is distinct", card.includes("No public project contributions"));

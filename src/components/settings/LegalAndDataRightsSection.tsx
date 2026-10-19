@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2, Download, ExternalLink, Loader2, Scale } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -32,11 +32,13 @@ const governingDocuments = [
 export function LegalAndDataRightsSection() {
   const [state, setState] = useState<AcceptanceState | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [accepting, setAccepting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
 
-  useEffect(() => {
-    let active = true;
+  const loadStatus = useCallback(() => {
+    setLoading(true);
+    setFetchError(false);
     fetch("/api/v1/legal/acceptance", { cache: "no-store" })
       .then(async (response) => {
         const payload = await response.json();
@@ -46,18 +48,20 @@ export function LegalAndDataRightsSection() {
         return payload.data as AcceptanceState;
       })
       .then((next) => {
-        if (active) setState(next);
+        setState(next);
       })
       .catch(() => {
-        if (active) setState(null);
+        setState(null);
+        setFetchError(true);
       })
       .finally(() => {
-        if (active) setLoading(false);
+        setLoading(false);
       });
-    return () => {
-      active = false;
-    };
   }, []);
+
+  useEffect(() => {
+    loadStatus();
+  }, [loadStatus]);
 
   async function acceptCurrentTerms() {
     if (!confirmed) return;
@@ -94,23 +98,34 @@ export function LegalAndDataRightsSection() {
         <div>
           <h4 className="nb-ui-label text-foreground">Terms of Service &amp; EULA</h4>
           <p className="nb-compact mt-0.5 text-muted-foreground">
-            {state?.current
-              ? `Bound by Terms of Service (${LEGAL_VERSIONS.terms}) and EULA (${LEGAL_VERSIONS.eula})${
-                  state.latest?.acceptedAt
-                    ? ` · Recorded ${new Date(state.latest.acceptedAt).toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                      })}`
-                    : ""
-                }.`
-              : `This account has not yet accepted the current terms (${LEGAL_VERSIONS.terms} / ${LEGAL_VERSIONS.eula}).`}
+            {fetchError
+              ? "Unable to verify current agreement status. Please retry."
+              : state?.current
+                ? `Bound by Terms of Service (${LEGAL_VERSIONS.terms}) and EULA (${LEGAL_VERSIONS.eula})${
+                    state.latest?.acceptedAt
+                      ? ` · Recorded ${new Date(state.latest.acceptedAt).toLocaleDateString("en-US", {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                        })}`
+                      : ""
+                  }.`
+                : `This account has not yet accepted the current terms (${LEGAL_VERSIONS.terms} / ${LEGAL_VERSIONS.eula}).`}
           </p>
         </div>
         <div className="shrink-0">
           {loading ? (
             <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
               <Loader2 className="size-3.5 animate-spin" /> Checking…
+            </span>
+          ) : fetchError ? (
+            <span className="inline-flex items-center gap-2">
+              <span className="rounded-full border border-destructive/25 bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
+                Check failed
+              </span>
+              <Button type="button" variant="outline" size="sm" className="h-6 px-2 text-xs" onClick={() => void loadStatus()}>
+                Retry
+              </Button>
             </span>
           ) : state?.current ? (
             <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
@@ -125,7 +140,7 @@ export function LegalAndDataRightsSection() {
         </div>
       </div>
 
-      {!loading && !state?.current && (
+      {!loading && !fetchError && !state?.current && (
         <div className="mt-4 space-y-4 rounded-md border border-border bg-muted/40 p-4">
           <label className="flex cursor-pointer items-start gap-3 nb-compact text-foreground">
             <Checkbox

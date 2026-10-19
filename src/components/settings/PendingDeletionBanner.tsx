@@ -39,18 +39,18 @@ export default function PendingDeletionBanner({ hardDeleteAt, onCancelled }: Pro
     };
 
     return (
-        <div className="rounded-lg border border-red-200 dark:border-red-800/60 bg-red-50 dark:bg-red-900/20 p-4">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4">
             <div className="flex items-start gap-3">
-                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/40 shrink-0 mt-0.5">
-                    <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-destructive/15 shrink-0 mt-0.5">
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
                 </div>
                 <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-red-900 dark:text-red-200">
+                    <p className="text-sm font-semibold text-foreground">
                         Account Scheduled for Deletion
                     </p>
-                    <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                    <p className="text-sm text-muted-foreground mt-1">
                         Your account will be permanently deleted on{" "}
-                        <span className="font-semibold">{formatCalendarDate(deleteDate)}</span>
+                        <span className="font-semibold text-foreground">{formatCalendarDate(deleteDate)}</span>
                         {daysRemaining > 0 && (
                             <> ({daysRemaining} day{daysRemaining !== 1 ? "s" : ""} remaining)</>
                         )}

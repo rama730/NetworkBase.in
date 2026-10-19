@@ -27,7 +27,7 @@ export type ProjectDocResolvedImage = {
 
 const CONTROL_CHARS_REGEX = /[\u0000-\u001F\u007F]/g;
 const SAFE_IMAGE_PROTOCOLS = new Set(["http:", "https:"]);
-const TRUSTED_PUBLIC_README_IMAGE_HOSTS = new Set([
+export const TRUSTED_PUBLIC_README_IMAGE_HOSTS = new Set([
     "raw.githubusercontent.com",
     "github.com",
     "user-images.githubusercontent.com",
@@ -41,6 +41,16 @@ const TRUSTED_PUBLIC_README_IMAGE_HOSTS = new Set([
     "star-history.com",
     "em-content.zobj.net",
 ]);
+
+export function isTrustedPublicReadmeImageHost(urlOrHost: string): boolean {
+    try {
+        const normalized = urlOrHost.startsWith("//") ? `https:${urlOrHost}` : urlOrHost;
+        const parsed = new URL(normalized);
+        return TRUSTED_PUBLIC_README_IMAGE_HOSTS.has(parsed.hostname.toLowerCase());
+    } catch {
+        return false;
+    }
+}
 
 function normalizeBranch(value: unknown) {
     return typeof value === "string" && value.trim() ? value.trim() : "main";
@@ -97,7 +107,7 @@ export function parseReadmeHtmlDimension(value: unknown): number | null {
     return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
 }
 
-function parseReadmeHtmlWidthPercent(value: unknown): number | null {
+export function parseReadmeHtmlWidthPercent(value: unknown): number | null {
     if (typeof value !== "string") return null;
     const match = value.trim().match(/^(\d{1,3})%$/);
     if (!match) return null;
@@ -159,9 +169,9 @@ function isProjectStorageImage(value: string) {
 }
 
 function isTrustedReadmeImageUrl(url: URL, project: ProjectDocMediaProject, source: ProjectDocGithubSource | null) {
-    if (!source) return false;
     if (!TRUSTED_PUBLIC_README_IMAGE_HOSTS.has(url.hostname.toLowerCase())) return false;
     if (url.hostname.toLowerCase() === "raw.githubusercontent.com") {
+        if (!source) return false;
         const [, owner, repo] = url.pathname.split("/");
         return owner?.toLowerCase() === source.owner.toLowerCase()
             && repo?.toLowerCase() === source.repo.toLowerCase();
@@ -169,7 +179,7 @@ function isTrustedReadmeImageUrl(url: URL, project: ProjectDocMediaProject, sour
     return true;
 }
 
-function classifyReadmeImage(input: {
+export function classifyReadmeImage(input: {
     src: string;
     alt?: string | null;
     title?: string | null;
@@ -180,14 +190,15 @@ function classifyReadmeImage(input: {
     const label = `${input.alt ?? ""} ${input.title ?? ""}`.toLowerCase();
     const width = input.width ?? 0;
     const height = input.height ?? 0;
+
+    if (/\b(star-history|chart|graph|diagram|screenshot|preview|demo)\b/.test(value) || /\b(star-history|chart|graph|diagram|screenshot|preview|demo)\b/.test(label)) {
+        return "diagram";
+    }
     if (/\b(shields\.io|badge\.fury\.io|badgen\.net|img\.shields\.io)\b/.test(value) || /\b(badge|stars?|license|commit|build|version)\b/.test(label)) {
         return "badge";
     }
     if ((width > 0 && width <= 48) || (height > 0 && height <= 48)) return "icon";
     if (width > 0 && width <= 220) return "logo";
-    if (/\b(star-history|chart|graph|diagram|screenshot|preview|demo)\b/.test(value) || /\b(chart|graph|diagram|screenshot|preview|demo)\b/.test(label)) {
-        return "diagram";
-    }
     return "content";
 }
 

@@ -14,7 +14,9 @@ import * as React from "react";
 import { AlertTriangle, Folder, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { FOLDER_LIST_GRID_TEMPLATE } from "./layout";
 
 // ─── Loading ─────────────────────────────────────────────────────────
 
@@ -23,9 +25,8 @@ export interface FolderListLoadingProps {
 }
 
 /**
- * Loading state: a centered spinner row rendered below the column
- * headers. `aria-busy="true"` so assistive tech announces the pending
- * state without repeatedly focusing individual skeleton rows.
+ * Loading state: geometric skeleton rows aligned with FOLDER_LIST_GRID_TEMPLATE.
+ * Eliminates cumulative layout shift (CLS) and provides 60fps instant visual feedback.
  */
 export function FolderListLoading({
   className,
@@ -36,16 +37,34 @@ export function FolderListLoading({
       aria-busy="true"
       aria-live="polite"
       data-testid="files-tab-folder-list-loading"
-      className={cn(
-        "flex items-center justify-center gap-2 px-4 py-8 text-sm text-muted-foreground",
-        className,
-      )}
+      className={cn("flex flex-col divide-y divide-[#DBD5C8]/40 dark:divide-border/40", className)}
     >
-      <Loader2
-        className="h-4 w-4 animate-spin text-muted-foreground"
-        aria-hidden="true"
-      />
-      <span>Loading folder…</span>
+      <div className="flex items-center gap-2 px-4 py-2 text-xs text-muted-foreground">
+        <Loader2
+          className="h-3.5 w-3.5 animate-spin text-muted-foreground"
+          aria-hidden="true"
+        />
+        <span>Loading folder…</span>
+      </div>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div
+          key={i}
+          style={{ gridTemplateColumns: FOLDER_LIST_GRID_TEMPLATE }}
+          className="grid h-12 items-center gap-x-3 px-4"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Skeleton className="size-4 rounded-[3px] shrink-0" />
+            <Skeleton
+              className="h-3.5 rounded-[3px]"
+              style={{ width: `${60 + ((i * 37) % 80)}px` }}
+            />
+          </div>
+          <Skeleton className="h-3 rounded-[3px] w-24" />
+          <Skeleton className="h-3 rounded-[3px] w-12 ml-auto" />
+          <Skeleton className="h-3 rounded-[3px] w-20" />
+          <Skeleton className="size-4 rounded-[3px] ml-auto" />
+        </div>
+      ))}
     </div>
   );
 }

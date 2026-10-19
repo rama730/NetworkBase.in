@@ -24,7 +24,7 @@ const TARGET_FILES = new Set<string>([
   "src/hooks/useMessagesData.ts",
   "src/hooks/useConnections.ts",
   "src/components/profile/ProfileForm.tsx",
-  "src/components/profile/edit/EditProfileModal.tsx",
+  "src/components/profile/edit/EditProfileEditor.tsx",
   "src/app/(site)/(onboarding)/onboarding/page.tsx",
 ]);
 

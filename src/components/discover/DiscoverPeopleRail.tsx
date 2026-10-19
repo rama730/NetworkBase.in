@@ -2,16 +2,17 @@
 
 import { useCallback, useMemo } from "react";
 import Link from "next/link";
-import { Users } from "lucide-react";
 import { toast } from "sonner";
 
 import PersonCard from "@/components/network/PersonCard";
 import { PersonCardSkeleton } from "@/components/network/PersonCardSkeleton";
 import { CONNECTION_COPY } from "@/lib/connections/copy";
-import { Button } from "@/components/ui/button";
+import { UserAvatar } from "@/components/ui/UserAvatar";
+import { profileHref } from "@/lib/routing/identifiers";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DISCOVER_RAIL_FILTERS } from "@/lib/discover/query";
+import { RailSection, RailSectionHeading } from "@/components/ui/rail-section";
+import { DISCOVER_RAIL_CARD_COUNT, DISCOVER_RAIL_FILTERS, DISCOVER_RAIL_PEOPLE_LIMIT } from "@/lib/discover/query";
 import {
     getConnectionRequestSuccessMessage,
     type ConnectionFeedPage,
@@ -42,19 +43,21 @@ function SuggestedPersonCard({
     const connect = useCallback(async (userId: string) => {
         if (profile.canConnect === false || sendRequest.isPending) return;
         try {
-            await toast.promise(sendRequest.mutateAsync({ userId }), {
+            return await toast.promise(sendRequest.mutateAsync({ userId }), {
                 loading: CONNECTION_COPY.sending,
                 success: (result) => getConnectionRequestSuccessMessage(result.status),
                 error: (error) => error instanceof Error ? error.message : CONNECTION_COPY.sendFailed,
             }).unwrap();
         } catch {
-            // onError in mutation handles rollback; the toast displays the error.
+            // Propagate failure so the card cannot turn a failed request into Requested.
+            throw new Error(CONNECTION_COPY.sendFailed);
         }
     }, [profile.canConnect, sendRequest]);
 
     return (
         <PersonCard
             profile={profile}
+            variant="rail"
             onConnect={connect}
             viewerSkills={viewerSkills}
         />
@@ -74,7 +77,7 @@ function RailSkeleton({ variant }: { variant: "desktop" | "compact" }) {
             ) : null}
             <div className="space-y-3" aria-hidden="true">
                 {[0, 1, 2].map((item) => (
-                    <PersonCardSkeleton key={item} />
+                    <PersonCardSkeleton key={item} variant="rail" />
                 ))}
             </div>
         </section>
@@ -82,9 +85,16 @@ function RailSkeleton({ variant }: { variant: "desktop" | "compact" }) {
 }
 
 export function DiscoverPeopleRail({ initialPage, variant }: DiscoverPeopleRailProps) {
-    const { data, isLoading, isError, refetch } = useSuggestedPeople(3, undefined, DISCOVER_RAIL_FILTERS, initialPage, false);
-    const people = useMemo(() => data?.pages[0]?.items ?? [], [data]);
+    const { data, isLoading, isError, refetch } = useSuggestedPeople(DISCOVER_RAIL_PEOPLE_LIMIT, undefined, DISCOVER_RAIL_FILTERS, initialPage, false, true);
+    const suggestions = useMemo(() => data?.pages[0]?.items ?? [], [data]);
+    const people = suggestions.slice(0, DISCOVER_RAIL_CARD_COUNT);
     const viewerSkills = data?.pages[0]?.viewerSkills ?? [];
+    const shared = data?.pages[0]?.sharedConnections;
+    const sharedMatchesPeople = shared?.targetIds.length === people.length
+        && shared.targetIds.every(id => people.some(person => person.id === id));
+    const showShared = sharedMatchesPeople && shared && shared.total > 0 && shared.people.length > 0;
+    const previewPeople = showShared ? shared.people : suggestions.slice(DISCOVER_RAIL_CARD_COUNT, DISCOVER_RAIL_PEOPLE_LIMIT)
+        .filter(person => person.connectionStatus === 'none' && person.canConnect !== false && !person.isLockedProfile);
 
     if (isLoading && people.length === 0) return <RailSkeleton variant={variant} />;
 
@@ -98,17 +108,28 @@ export function DiscoverPeopleRail({ initialPage, variant }: DiscoverPeopleRailP
         <section aria-labelledby={variant === "desktop" ? "people-you-should-meet" : undefined}>
             {/* In the drawer the dialog's title already says it. */}
             {variant === "desktop" ? (
-                <div className="mb-3 flex items-center gap-3">
-                    <h2 id="people-you-should-meet" className="nb-micro whitespace-nowrap">People you should meet</h2>
-                    <div className="h-px flex-1 bg-border" aria-hidden="true" />
-                </div>
+                <RailSectionHeading id="people-you-should-meet" title="People you should meet" />
             ) : null}
             <div className="space-y-3">
                 {people.map((profile) => <SuggestedPersonCard key={profile.id} profile={profile} viewerSkills={viewerSkills} />)}
             </div>
-            <Button asChild variant="ghost" size="sm" className="mt-2 -ml-2.5 text-primary">
-                <Link href="/network?tab=suggested"><Users className="size-4" aria-hidden="true" /> Explore people</Link>
-            </Button>
+            {previewPeople.length > 0 ? (
+                <RailSection title={showShared ? "Shared connections" : "More people to meet"} className="mt-6" contentClassName="flex items-center gap-3 bg-muted/40 p-3">
+                    <p className="sr-only">{showShared ? `${shared.total} ${shared.total === 1 ? 'connection' : 'connections'} shared with the people suggested above.` : 'Additional suggestions for your network.'}</p>
+                    <div className="flex shrink-0 items-center gap-1">
+                        {previewPeople.map(person => (
+                            <Link key={person.id} href={profileHref(person)}
+                                aria-label={`View ${person.fullName || person.username || 'connection'}’s profile`}
+                                className="nb-touch-target flex size-7 items-center justify-center rounded-[3px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                                <UserAvatar identity={person} size={26} roundedClassName="rounded-[3px]" className="border border-border" fallbackClassName="text-[10px]" />
+                            </Link>
+                        ))}
+                    </div>
+                    {showShared && shared.total > shared.people.length ? (
+                        <span className="nb-meta min-w-0">and {shared.total - shared.people.length} {shared.total - shared.people.length === 1 ? 'other' : 'others'}</span>
+                    ) : !showShared ? <Link href="/network?tab=suggested" className="nb-ui-label nb-touch-target inline-flex min-w-0 items-center text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">View more</Link> : null}
+                </RailSection>
+            ) : null}
         </section>
     );
 }

@@ -1,0 +1,531 @@
+{
+  "overview": {
+    "title": "Connected · overview",
+    "scene": "overview"
+  },
+  "longtarget": {
+    "title": "Long repository and branch names",
+    "scene": "setup",
+    "setup": "existing",
+    "repo": "distributed-research-team/accessibility-and-field-research-workspace",
+    "branch": "feature/international-collaboration-and-accessible-research"
+  },
+  "longpaths": {
+    "title": "Long and mixed-direction file paths",
+    "scene": "review",
+    "extraLongPaths": true,
+    "inspect": "readme",
+    "selected": [
+      "readme",
+      "rename"
+    ]
+  },
+  "loading": {
+    "title": "Initial workspace loading",
+    "scene": "loading"
+  },
+  "loaderror": {
+    "title": "Workspace could not load",
+    "scene": "loaderror"
+  },
+  "disconnected": {
+    "title": "GitHub not connected",
+    "scene": "connect"
+  },
+  "authorizing": {
+    "title": "Authorization in progress",
+    "scene": "connect",
+    "auth": "waiting"
+  },
+  "authcancelled": {
+    "title": "Authorization cancelled",
+    "scene": "connect",
+    "auth": "cancelled"
+  },
+  "restore": {
+    "title": "Repository access expired",
+    "scene": "connect",
+    "auth": "expired"
+  },
+  "accountmismatch": {
+    "title": "Different GitHub account returned",
+    "scene": "connect",
+    "auth": "mismatch"
+  },
+  "unavailableaccount": {
+    "title": "Account renamed or unavailable",
+    "scene": "connect",
+    "auth": "unavailable"
+  },
+  "readonly": {
+    "title": "Member without sync ownership",
+    "scene": "readonly"
+  },
+  "create": {
+    "title": "Create a new repository",
+    "scene": "setup",
+    "setup": "create"
+  },
+  "existing": {
+    "title": "Connect existing · push",
+    "scene": "setup",
+    "setup": "existing"
+  },
+  "existingpull": {
+    "title": "Connect existing · pull",
+    "scene": "setup",
+    "setup": "existing",
+    "direction": "pull"
+  },
+  "invalidrepo": {
+    "title": "Invalid repository URL",
+    "scene": "setup",
+    "setup": "existing",
+    "setupError": "url"
+  },
+  "repoempty": {
+    "title": "No accessible repositories",
+    "scene": "setup",
+    "setup": "existing",
+    "setupError": "empty"
+  },
+  "repoloading": {
+    "title": "Repository list loading",
+    "scene": "setup",
+    "setup": "existing",
+    "setupError": "loading"
+  },
+  "repofailed": {
+    "title": "Repository list failed",
+    "scene": "setup",
+    "setup": "existing",
+    "setupError": "failed"
+  },
+  "repoforbidden": {
+    "title": "Repository unavailable / access denied",
+    "scene": "setup",
+    "setup": "existing",
+    "setupError": "access"
+  },
+  "orgsso": {
+    "title": "Organization permission required",
+    "scene": "setup",
+    "setup": "existing",
+    "setupError": "org"
+  },
+  "namecollision": {
+    "title": "New repository name already used",
+    "scene": "setup",
+    "setup": "create",
+    "setupError": "name"
+  },
+  "branchmissing": {
+    "title": "Branch unavailable",
+    "scene": "setup",
+    "setup": "existing",
+    "setupError": "branch"
+  },
+  "comparepush": {
+    "title": "Comparing outgoing changes",
+    "scene": "compare"
+  },
+  "comparepull": {
+    "title": "Comparing incoming changes",
+    "scene": "compare",
+    "direction": "pull"
+  },
+  "outgoing": {
+    "title": "Outgoing · choose files",
+    "scene": "review"
+  },
+  "incoming": {
+    "title": "Incoming · choose files",
+    "scene": "review",
+    "direction": "pull"
+  },
+  "clean": {
+    "title": "No changes in this direction",
+    "scene": "review",
+    "empty": true
+  },
+  "noresults": {
+    "title": "No files match the filter",
+    "scene": "review",
+    "query": "does-not-exist"
+  },
+  "hiddenselection": {
+    "title": "Selected files hidden by filter",
+    "scene": "review",
+    "query": "README",
+    "selected": [
+      "readme",
+      "added",
+      "rename"
+    ]
+  },
+  "conflict": {
+    "title": "Text conflict · resolve explicitly",
+    "scene": "review",
+    "inspect": "conflict",
+    "selected": [
+      "conflict"
+    ]
+  },
+  "binary": {
+    "title": "Binary content cannot be text-diffed",
+    "scene": "review",
+    "inspect": "binary"
+  },
+  "renamed": {
+    "title": "Exact incoming rename",
+    "scene": "review",
+    "direction": "pull",
+    "inspect": "rename",
+    "selected": [
+      "rename"
+    ]
+  },
+  "deletion": {
+    "title": "Selected deletion",
+    "scene": "review",
+    "direction": "pull",
+    "selected": [
+      "deleted"
+    ],
+    "inspect": "deleted"
+  },
+  "secret": {
+    "title": "Credential file excluded",
+    "scene": "review",
+    "inspect": "blocked"
+  },
+  "allblocked": {
+    "title": "All changes are ineligible",
+    "scene": "review",
+    "onlyBlocked": true
+  },
+  "difflading": {
+    "title": "File diff loading",
+    "scene": "review",
+    "inspect": "readme",
+    "diffState": "loading"
+  },
+  "difffailed": {
+    "title": "File diff failed",
+    "scene": "review",
+    "inspect": "readme",
+    "diffState": "failed"
+  },
+  "capfiles": {
+    "title": "Selection exceeds file limit",
+    "scene": "review",
+    "selected": [
+      "readme",
+      "added",
+      "rename"
+    ],
+    "limit": "files"
+  },
+  "capbytes": {
+    "title": "Selection exceeds size limit",
+    "scene": "review",
+    "selected": [
+      "readme",
+      "added",
+      "rename"
+    ],
+    "limit": "bytes"
+  },
+  "confirmation": {
+    "title": "Final review · pull request",
+    "scene": "confirmation",
+    "selected": [
+      "readme",
+      "added",
+      "rename"
+    ]
+  },
+  "publicconfirm": {
+    "title": "First publication · public repository",
+    "scene": "confirmation",
+    "setup": "create",
+    "private": false,
+    "selected": [
+      "readme",
+      "added"
+    ]
+  },
+  "queued": {
+    "title": "Queued · not completed",
+    "scene": "run",
+    "phase": 0
+  },
+  "cancelrace": {
+    "title": "Cancellation raced with execution",
+    "scene": "run",
+    "phase": 1,
+    "runWarning": "cancelrace"
+  },
+  "longqueue": {
+    "title": "Queued longer than expected",
+    "scene": "run",
+    "phase": 0,
+    "runWarning": "queue"
+  },
+  "pushprepare": {
+    "title": "Push · preparing commit",
+    "scene": "run",
+    "phase": 1
+  },
+  "pushtransfer": {
+    "title": "Push · publishing to GitHub",
+    "scene": "run",
+    "phase": 2
+  },
+  "pushverify": {
+    "title": "Push · verifying result",
+    "scene": "run",
+    "phase": 3
+  },
+  "pullapply": {
+    "title": "Pull · applying revisions",
+    "scene": "run",
+    "phase": 2,
+    "direction": "pull"
+  },
+  "reconnecting": {
+    "title": "Status temporarily unavailable",
+    "scene": "run",
+    "phase": 2,
+    "runWarning": "offline"
+  },
+  "interrupted": {
+    "title": "Worker interrupted before publication",
+    "scene": "recovery",
+    "recovery": "interrupted"
+  },
+  "stale": {
+    "title": "Remote changed after review",
+    "scene": "recovery",
+    "recovery": "stale"
+  },
+  "localchanged": {
+    "title": "Workspace changed after review",
+    "scene": "recovery",
+    "recovery": "local"
+  },
+  "expired": {
+    "title": "Prepared review expired",
+    "scene": "recovery",
+    "recovery": "expired"
+  },
+  "partialpull": {
+    "title": "Pull partially applied",
+    "scene": "recovery",
+    "direction": "pull",
+    "recovery": "partialpull"
+  },
+  "repocreated": {
+    "title": "Repository created · publication failed",
+    "scene": "recovery",
+    "recovery": "repocreated"
+  },
+  "publishedpartial": {
+    "title": "Published · follow-up needs attention",
+    "scene": "recovery",
+    "recovery": "publishedpartial"
+  },
+  "protected": {
+    "title": "Branch protection blocks direct push",
+    "scene": "recovery",
+    "recovery": "protected",
+    "mode": "direct"
+  },
+  "workflow": {
+    "selected": [
+      "readme",
+      "workflow"
+    ],
+    "title": "Workflow publishing permission missing",
+    "scene": "recovery",
+    "recovery": "workflow"
+  },
+  "ratelimit": {
+    "title": "GitHub rate limit",
+    "scene": "recovery",
+    "recovery": "rate"
+  },
+  "offline": {
+    "title": "Offline before submitting",
+    "scene": "recovery",
+    "recovery": "offline"
+  },
+  "successpush": {
+    "title": "Push verified and completed",
+    "scene": "success",
+    "mode": "direct"
+  },
+  "successpr": {
+    "title": "Pull request created · awaiting merge",
+    "scene": "success"
+  },
+  "successpull": {
+    "title": "Pull completed",
+    "scene": "success",
+    "direction": "pull"
+  },
+  "history": {
+    "title": "Run history",
+    "scene": "overview",
+    "showHistory": true
+  },
+  "attribution": {
+    "title": "Commit identity and team access",
+    "scene": "attribution"
+  },
+  "changetarget": {
+    "title": "Change repository or branch",
+    "scene": "management",
+    "management": "target"
+  },
+  "disconnect": {
+    "title": "Disconnect synchronization",
+    "scene": "management",
+    "management": "disconnect"
+  },
+  "missingmetadata": {
+    "title": "Update attribution not recorded",
+    "scene": "review",
+    "direction": "push",
+    "missingMetadata": true
+  },
+  "missingavatar": {
+    "title": "Contributor without a profile picture",
+    "scene": "review",
+    "direction": "push",
+    "missingAvatar": true
+  },
+  "singlepull": {
+    "title": "Pull progress · one selected file",
+    "scene": "run",
+    "direction": "pull",
+    "phase": 2,
+    "selected": [
+      "readme"
+    ]
+  },
+  "lastpage": {
+    "title": "Unchanged files · final page",
+    "scene": "review",
+    "unchangedPage": 226,
+    "unchangedOpen": true
+  },
+  "branchresult": {
+    "title": "Pull request · non-main target",
+    "scene": "success",
+    "branch": "develop"
+  },
+  "newbranch": {
+    "title": "Existing repository · new target branch",
+    "scene": "setup",
+    "setup": "existing",
+    "branch": "feature/research-panel",
+    "newBranch": {
+      "name": "feature/research-panel",
+      "base": "main"
+    },
+    "mode": "direct"
+  },
+  "initialbranch": {
+    "title": "New repository · custom initial branch",
+    "scene": "setup",
+    "setup": "create",
+    "branch": "trunk",
+    "initialBranchNamed": true
+  },
+  "newbranchpr": {
+    "title": "New branch · pull request review",
+    "scene": "confirmation",
+    "setup": "existing",
+    "branch": "feature/research-panel",
+    "newBranch": {
+      "name": "feature/research-panel",
+      "base": "main"
+    },
+    "mode": "pr",
+    "selected": [
+      "readme",
+      "added"
+    ]
+  },
+  "branchpermission": {
+    "title": "Branch creation unavailable",
+    "scene": "setup",
+    "setup": "existing",
+    "branchForbidden": true
+  },
+  "branchcreatefailed": {
+    "title": "New branch could not be created",
+    "scene": "recovery",
+    "recovery": "branchcreate",
+    "setup": "existing",
+    "branch": "feature/research-panel",
+    "newBranch": {
+      "name": "feature/research-panel",
+      "base": "main"
+    },
+    "mode": "direct"
+  },
+  "authblocked": {
+    "title": "GitHub sign-in window blocked",
+    "scene": "connect",
+    "auth": "blocked"
+  },
+  "authdenied": {
+    "title": "GitHub access not granted",
+    "scene": "connect",
+    "auth": "denied"
+  },
+  "authtimeout": {
+    "title": "GitHub sign-in timed out",
+    "scene": "connect",
+    "auth": "timeout"
+  },
+  "authinvalid": {
+    "title": "GitHub return could not be verified",
+    "scene": "connect",
+    "auth": "invalid"
+  },
+  "authfailed": {
+    "title": "GitHub connection failed",
+    "scene": "connect",
+    "auth": "failed"
+  },
+  "authorgpending": {
+    "title": "Organization access awaiting approval",
+    "scene": "connect",
+    "auth": "orgpending",
+    "setup": "existing",
+    "authReturn": {
+      "scene": "setup",
+      "setup": "existing",
+      "mode": "pr"
+    }
+  },
+  "authreview": {
+    "title": "Restore GitHub access during file review",
+    "scene": "connect",
+    "auth": "expired",
+    "setup": "existing",
+    "selected": [
+      "readme",
+      "added",
+      "rename"
+    ],
+    "authReturn": {
+      "scene": "review",
+      "setup": "existing",
+      "mode": "pr"
+    }
+  }
+}
