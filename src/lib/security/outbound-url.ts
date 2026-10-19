@@ -1,5 +1,7 @@
 import { lookup as dnsLookup } from "node:dns/promises";
 import net from "node:net";
+
+export { readBoundedBody } from "@/lib/security/bounded-body";
 // @ts-expect-error Next bundles ipaddr.js without public type declarations.
 import ipaddr from "next/dist/compiled/ipaddr.js/ipaddr.js";
 
@@ -148,12 +150,19 @@ export async function assertPublicNetworkUrl(
   return url;
 }
 
+/**
+ * One total deadline covers DNS validation, every redirect hop and, until `release()` is called, the
+ * body read: the same signal that bounds the headers aborts a slow body (API-004). Always call
+ * `release()` once the body is consumed; it is also invoked on failure.
+ */
 export async function fetchPublicUrlWithRedirectValidation(
   input: {
     url: string | URL;
     init?: RequestInit;
     timeoutMs?: number;
     maxRedirects?: number;
+    /** Exact hostnames every hop (the first request and each redirect) must stay within. */
+    allowedHosts?: readonly string[];
     fetchImpl?: typeof fetch;
     resolveAddresses?: ResolveAddresses;
   },
@@ -161,54 +170,74 @@ export async function fetchPublicUrlWithRedirectValidation(
   const fetchImpl = input.fetchImpl ?? fetch;
   const timeoutMs = Math.max(250, input.timeoutMs ?? 5_000);
   const maxRedirects = Math.max(0, Math.min(input.maxRedirects ?? 3, 5));
-  let currentUrl = await assertPublicNetworkUrl(input.url, {
-    resolveAddresses: input.resolveAddresses,
-  });
 
-  for (let redirectCount = 0; redirectCount <= maxRedirects; redirectCount += 1) {
-    const controller = new AbortController();
-    const callerSignal = input.init?.signal;
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
-    let removeAbortListener: (() => void) | null = null;
-    let requestSignal: AbortSignal = controller.signal;
-
-    if (callerSignal) {
-      if (typeof AbortSignal.any === "function") {
-        requestSignal = AbortSignal.any([callerSignal, controller.signal]);
-      } else if (callerSignal.aborted) {
-        controller.abort();
-      } else {
-        const handleCallerAbort = () => controller.abort();
-        callerSignal.addEventListener("abort", handleCallerAbort, { once: true });
-        removeAbortListener = () => callerSignal.removeEventListener("abort", handleCallerAbort);
-      }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const callerSignal = input.init?.signal;
+  let removeAbortListener: (() => void) | null = null;
+  let requestSignal: AbortSignal = controller.signal;
+  if (callerSignal) {
+    if (typeof AbortSignal.any === "function") {
+      requestSignal = AbortSignal.any([callerSignal, controller.signal]);
+    } else if (callerSignal.aborted) {
+      controller.abort();
+    } else {
+      const handleCallerAbort = () => controller.abort();
+      callerSignal.addEventListener("abort", handleCallerAbort, { once: true });
+      removeAbortListener = () => callerSignal.removeEventListener("abort", handleCallerAbort);
     }
+  }
+  const release = () => {
+    clearTimeout(timeout);
+    removeAbortListener?.();
+  };
 
-    let response: Response;
-    try {
-      response = await fetchImpl(currentUrl, {
+  try {
+    const assertHop = async (target: string | URL) => {
+      const checked = await assertPublicNetworkUrl(target, { resolveAddresses: input.resolveAddresses });
+      if (input.allowedHosts && !input.allowedHosts.includes(checked.hostname.toLowerCase())) {
+        throw new UnsafeOutboundUrlError("Host is not allowed for this provider");
+      }
+      return checked;
+    };
+    let currentUrl = await assertHop(input.url);
+
+    for (let redirectCount = 0; redirectCount <= maxRedirects; redirectCount += 1) {
+      const response = await fetchImpl(currentUrl, {
         ...input.init,
         redirect: "manual",
         signal: requestSignal,
       });
-    } finally {
-      clearTimeout(timeout);
-      removeAbortListener?.();
+
+      const location = response.headers.get("location");
+      const isRedirect = response.status >= 300 && response.status < 400 && Boolean(location);
+      if (!isRedirect) {
+        return { response, resolvedUrl: currentUrl, release };
+      }
+      await response.body?.cancel().catch(() => undefined);
+      if (redirectCount >= maxRedirects) {
+        throw new UnsafeOutboundUrlError("Too many redirects");
+      }
+
+      currentUrl = await assertHop(new URL(location!, currentUrl));
     }
 
-    const location = response.headers.get("location");
-    const isRedirect = response.status >= 300 && response.status < 400 && Boolean(location);
-    if (!isRedirect) {
-      return { response, resolvedUrl: currentUrl };
-    }
-    if (redirectCount >= maxRedirects) {
-      throw new UnsafeOutboundUrlError("Too many redirects");
-    }
-
-    currentUrl = await assertPublicNetworkUrl(new URL(location!, currentUrl), {
-      resolveAddresses: input.resolveAddresses,
-    });
+    throw new UnsafeOutboundUrlError("Too many redirects");
+  } catch (error) {
+    release();
+    throw error;
   }
+}
 
-  throw new UnsafeOutboundUrlError("Too many redirects");
+export const GITHUB_API_HOSTS = ["api.github.com"] as const;
+
+/** Fixed-host provider call: public-address checks, redirect revalidation, a total deadline, and a host allowlist per hop. */
+export async function fetchProviderUrl(
+  url: string | URL,
+  allowedHosts: readonly string[],
+  init?: RequestInit,
+  timeoutMs = 15_000,
+) {
+  const { response } = await fetchPublicUrlWithRedirectValidation({ url, init, allowedHosts, timeoutMs, maxRedirects: 3 });
+  return response;
 }

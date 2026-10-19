@@ -76,9 +76,9 @@ export async function enforceRouteLimit(
 
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
-import { extensionDeviceSessions } from "@/lib/db/schema";
+import { extensionDeviceSessions, profiles } from "@/lib/db/schema";
 import crypto from "crypto";
-import { eq } from "drizzle-orm";
+import { and, eq, gt, isNull } from "drizzle-orm";
 
 function normalizeSessionHeader(value: string | null, maxLength = 120) {
   if (!value) return null;
@@ -88,6 +88,8 @@ function normalizeSessionHeader(value: string | null, maxLength = 120) {
     .trim();
   return normalized ? normalized.slice(0, maxLength) : null;
 }
+
+const EXTENSION_LAST_SEEN_INTERVAL_MS = 60_000;
 
 export async function requireAuthenticatedUser() {
   const supabase = await createClient();
@@ -101,27 +103,27 @@ export async function requireAuthenticatedUser() {
       if (token.startsWith("nb_dev_")) {
         const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
         const now = new Date();
-        const session = await db.query.extensionDeviceSessions.findFirst({
-          where: (s, { eq, and, isNull, gt }) => and(
-            eq(s.tokenHash, tokenHash),
-            isNull(s.revokedAt),
-            gt(s.expiresAt, now)
-          )
-        });
+        // One bounded read: the session and the profile email together; revocation and expiry are checked on every call.
+        const [found] = await db
+          .select({ session: extensionDeviceSessions, email: profiles.email })
+          .from(extensionDeviceSessions)
+          .leftJoin(profiles, eq(profiles.id, extensionDeviceSessions.userId))
+          .where(and(
+            eq(extensionDeviceSessions.tokenHash, tokenHash),
+            isNull(extensionDeviceSessions.revokedAt),
+            gt(extensionDeviceSessions.expiresAt, now),
+          ))
+          .limit(1);
+        const session = found?.session;
 
         if (session) {
-          const profile = await db.query.profiles.findFirst({
-            where: (p, { eq }) => eq(p.id, session.userId),
-            columns: { email: true }
-          });
-
           const extensionVersion = normalizeSessionHeader(headerStore.get("x-extension-version"), 40);
           const editorHost = normalizeSessionHeader(headerStore.get("x-editor-host"), 80);
           const editorName = normalizeSessionHeader(headerStore.get("x-editor-name"), 120);
           const editorPlatform = normalizeSessionHeader(headerStore.get("x-editor-platform"), 80);
           const editorVersion = normalizeSessionHeader(headerStore.get("x-editor-version"), 80);
           const userAgent = normalizeSessionHeader(headerStore.get("user-agent"), 240);
-          const updates: Partial<typeof extensionDeviceSessions.$inferInsert> = { lastSeenAt: now };
+          const updates: Partial<typeof extensionDeviceSessions.$inferInsert> = {};
           if (extensionVersion && session.clientVersion !== extensionVersion) {
             updates.clientVersion = extensionVersion;
           }
@@ -141,16 +143,23 @@ export async function requireAuthenticatedUser() {
             updates.userAgent = userAgent;
           }
 
-          // Update lastSeenAt asynchronously
-          void db
-            .update(extensionDeviceSessions)
-            .set(updates)
-            .where(eq(extensionDeviceSessions.id, session.id))
-            .catch(() => null);
+          // lastSeenAt is a presence hint, not an authorization input: refresh it at most once per
+          // interval, but always persist changed client metadata. Failures are observed, never fatal.
+          const seenIsStale = now.getTime() - session.lastSeenAt.getTime() > EXTENSION_LAST_SEEN_INTERVAL_MS;
+          if (seenIsStale || Object.keys(updates).length > 0) {
+            void db
+              .update(extensionDeviceSessions)
+              .set({ ...updates, lastSeenAt: now })
+              .where(eq(extensionDeviceSessions.id, session.id))
+              .catch((error: unknown) => logger.warn("api.v1.shared.extension_last_seen_failed", {
+                module: "api",
+                error: error instanceof Error ? error.message : String(error),
+              }));
+          }
 
           const mockUser: User = {
             id: session.userId,
-            email: profile?.email || "",
+            email: found?.email || "",
             aud: "authenticated",
             role: "authenticated",
             app_metadata: {},

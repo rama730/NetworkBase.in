@@ -379,6 +379,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
         const channel = subscribeProjectStage({
             supabase,
             projectId: project.id,
+            subscriberId: 'dashboard',
             onUpdate: (payload: any) => {
                 if (isStageUpdatingRef.current) return;
 

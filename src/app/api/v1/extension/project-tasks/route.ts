@@ -1,8 +1,8 @@
 import {
   requireAuthenticatedUser,
-  jsonSuccess,
   jsonError,
 } from "@/app/api/v1/_shared";
+import { jsonSuccessConditional } from "@/app/api/v1/_conditional";
 import { db } from "@/lib/db";
 import { tasks } from "@/lib/db/schema";
 import { canReadProjectTab, getProjectAccessById } from "@/lib/data/project-access";
@@ -102,25 +102,10 @@ export async function GET(request: Request) {
     const page = hasMore ? taskRows.slice(0, limit) : taskRows;
     const taskIds = page.map((task) => task.id);
 
-    // ETag caching for extension polling (when no pagination cursor is used)
-    const etag = !cursor
-      ? `W/"${projectId}-${summary.taskCount}-${page[0]?.updatedAt ? new Date(page[0].updatedAt).getTime() : 0}"`
-      : null;
-
-    if (etag && request.headers.get("if-none-match") === etag) {
-      return new Response(null, {
-        status: 304,
-        headers: {
-          ETag: etag,
-          "Cache-Control": "private, no-cache",
-        },
-      });
-    }
-
     const fileCountMap = await getTaskFileCountMap(projectId, taskIds);
     const lastTask = page.at(-1);
 
-    return jsonSuccess({
+    return jsonSuccessConditional(request, {
       projectId,
       tasks: page.map((task) => ({
         id: task.id,
@@ -135,7 +120,7 @@ export async function GET(request: Request) {
       totalCount: summary.taskCount,
       hasMore,
       nextCursor: hasMore && lastTask ? encodeCursor(lastTask) : null,
-    }, undefined, etag ? { headers: { ETag: etag, "Cache-Control": "private, no-cache" } } : undefined);
+    });
   } catch (error) {
     logger.error(
       "[api/v1/extension/project-tasks] Failed to get project tasks",

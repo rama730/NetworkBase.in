@@ -15,7 +15,7 @@ import { recordCurrentLegalAcceptance } from "@/lib/legal/acceptance";
 import { logger } from "@/lib/logger";
 import { isDisposableEmail } from "@/lib/validations/disposable-email";
 import { verifyTurnstileToken, isTurnstileServerConfigured } from "@/lib/security/turnstile";
-import { checkIdempotencyKey, saveIdempotencyResult } from "@/lib/security/idempotency";
+import { withIdempotentRoute } from "@/lib/security/idempotency";
 
 const signUpSchema = z.object({
   email: z.string().trim().email(),
@@ -103,23 +103,7 @@ export async function POST(request: Request) {
     return jsonError("Too many signup attempts. Please wait and try again.", 429, "RATE_LIMITED");
   }
 
-  const idempotency = await checkIdempotencyKey(request, "auth-signup", ipAddress);
-  if (idempotency.isDuplicate) {
-    if (idempotency.isPending) {
-      return jsonError("A signup request is already processing. Please wait.", 409, "CONFLICT");
-    }
-    if (idempotency.cachedResponse) {
-      try {
-        return Response.json(JSON.parse(idempotency.cachedResponse), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch {
-        // Fall through if cached JSON parsing fails
-      }
-    }
-  }
-
+  return withIdempotentRoute(request, { namespace: "auth-signup", scopeId: ipAddress }, async () => {
   let rawBody: unknown;
   try {
     rawBody = await request.json();
@@ -330,16 +314,6 @@ export async function POST(request: Request) {
         : null,
     };
 
-    if (!idempotency.isDuplicate && idempotency.lockToken) {
-      await saveIdempotencyResult(
-        request,
-        "auth-signup",
-        JSON.stringify({ success: true, data: responseData }),
-        idempotency.lockToken,
-        ipAddress,
-      );
-    }
-
     return jsonSuccess(responseData);
   } catch (error) {
     logApiRoute(request, {
@@ -352,4 +326,5 @@ export async function POST(request: Request) {
     });
     return jsonError("Unable to create account", 500, "INTERNAL_ERROR");
   }
+  });
 }

@@ -88,7 +88,7 @@ function getPendingMarker(lockToken: string) {
  * Returns { isDuplicate: true, cachedResponse } if the key was already processed.
  * Returns { isDuplicate: false } if this is a new request.
  */
-export async function checkIdempotencyKey(
+async function checkIdempotencyKey(
   request: Request,
   namespace: string,
   scopeId?: string | null,
@@ -135,7 +135,7 @@ export async function checkIdempotencyKey(
  * Save the result of an idempotent operation so duplicate requests
  * return the same response.
  */
-export async function saveIdempotencyResult(
+async function saveIdempotencyResult(
   request: Request,
   namespace: string,
   result: string,
@@ -270,4 +270,73 @@ export async function runIdempotent<T>(
   // stamp the result (e.g., TTL lapsed and another caller took over).
   await publishIdempotencyResult(redis, redisKey, pendingMarker, serialized, resultTtl).catch(() => false);
   return { result, replayed: false, degraded: false };
+}
+
+const RELEASE_LOCK_LUA = `
+local current = redis.call('GET', KEYS[1])
+if current == ARGV[1] then
+  return redis.call('DEL', KEYS[1])
+end
+return 0
+`;
+
+/** Deletes our pending marker (compare-token), so a retry with the same key can run. */
+export async function releaseIdempotencyLock(
+  request: Request,
+  namespace: string,
+  lockToken: string | undefined,
+  scopeId?: string | null,
+): Promise<void> {
+  const key = request.headers.get('idempotency-key');
+  if (!key || !lockToken) return;
+  const redis = getRedisClient();
+  if (!redis) return;
+  try {
+    await (redis as unknown as RedisEvaller).eval(
+      RELEASE_LOCK_LUA,
+      [getIdempotencyRedisKey(namespace, key, scopeId)],
+      [getPendingMarker(lockToken)],
+    );
+  } catch {
+    // The marker expires on its own after IDEMPOTENCY_PENDING_TTL_SECONDS.
+  }
+}
+
+/**
+ * Route-level idempotency with the `Idempotency-Key` header (best-effort, Redis-backed: when Redis is
+ * unavailable the handler simply runs). The handler's own response is what gets cached and replayed,
+ * so a replay is byte-identical to the first answer (API-010).
+ *   - 2xx: the exact response body is stored and replayed with status 200. Responses carrying secrets
+ *     (`replayBody: false`) are never stored: the marker stays until it expires and duplicates get 409.
+ *   - 4xx: the request was rejected before doing its work (validation, authorization, proof), so the
+ *     pending marker is released and the client may retry with the same key (API-011).
+ *   - 5xx or a thrown error: the outcome is unknown, so the marker stays until it expires.
+ * Run validation and authorization inside the handler, before the side effect.
+ */
+export async function withIdempotentRoute(
+  request: Request,
+  options: { namespace: string; scopeId?: string | null; replayBody?: boolean },
+  handler: () => Promise<Response>,
+): Promise<Response> {
+  const check = await checkIdempotencyKey(request, options.namespace, options.scopeId);
+  if (check.isDuplicate) {
+    if (check.cachedResponse) {
+      return new Response(check.cachedResponse, {
+        status: 200,
+        headers: { 'content-type': 'application/json', 'idempotency-replayed': 'true' },
+      });
+    }
+    return Response.json(
+      { success: false, message: 'Request is already being processed', errorCode: 'CONFLICT' },
+      { status: 409 },
+    );
+  }
+
+  const response = await handler();
+  if (response.status >= 200 && response.status < 300) {
+    if (options.replayBody !== false) await saveIdempotencyResult(request, options.namespace, await response.clone().text(), check.lockToken, options.scopeId);
+  } else if (response.status >= 400 && response.status < 500) {
+    await releaseIdempotencyLock(request, options.namespace, check.lockToken, options.scopeId);
+  }
+  return response;
 }

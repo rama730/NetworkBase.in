@@ -234,6 +234,8 @@ const PROFILE_DETAIL_COLUMNS = {
     interests: true,
     education: true,
     openTo: true,
+    openToCustomRoles: true,
+    preferredCategories: true,
     experienceLevel: true,
     hoursPerWeek: true,
     socialLinks: true,

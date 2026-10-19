@@ -1,4 +1,5 @@
 import type { Session, SupabaseClient, User } from '@supabase/supabase-js'
+import { readBoundedBody } from '@/lib/security/bounded-body'
 import { isEmailVerified } from '@/lib/auth/email-verification'
 import { resolveSupabasePublicEnv } from '@/lib/supabase/env'
 
@@ -39,6 +40,7 @@ type CachedJwksEntry = {
     value: JwksResponse
 }
 
+const JWKS_MAX_BYTES = 256 * 1024
 const jwksCache = new Map<string, CachedJwksEntry>()
 
 function readTimeoutMsFromEnv(name: string, fallback: number) {
@@ -214,9 +216,9 @@ async function fetchSupabaseJwks(): Promise<JwksResponse> {
 
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), AUTH_SNAPSHOT_NETWORK_TIMEOUT_MS)
-    let response: Response
+    let value: JwksResponse
     try {
-        response = await fetch(`${cacheKey}/auth/v1/.well-known/jwks.json`, {
+        const response = await fetch(`${cacheKey}/auth/v1/.well-known/jwks.json`, {
             method: 'GET',
             headers: {
                 'Accept': 'application/json',
@@ -224,6 +226,11 @@ async function fetchSupabaseJwks(): Promise<JwksResponse> {
             cache: 'force-cache',
             signal: controller.signal,
         })
+        if (!response.ok) {
+            throw new Error(`Unable to fetch Supabase JWKS (${response.status})`)
+        }
+        // One deadline covers the headers and the body; the body is size-bounded.
+        value = JSON.parse(new TextDecoder().decode((await readBoundedBody(response, JWKS_MAX_BYTES)).bytes)) as JwksResponse
     } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
             throw new Error('Auth snapshot JWKS lookup timed out')
@@ -232,12 +239,6 @@ async function fetchSupabaseJwks(): Promise<JwksResponse> {
     } finally {
         clearTimeout(timeoutId)
     }
-
-    if (!response.ok) {
-        throw new Error(`Unable to fetch Supabase JWKS (${response.status})`)
-    }
-
-    const value = await response.json() as JwksResponse
     if (!Array.isArray(value.keys) || value.keys.length === 0) {
         throw new Error('Supabase JWKS response is empty')
     }

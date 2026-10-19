@@ -9,7 +9,7 @@ import { consumeRateLimit } from '@/lib/security/rate-limit';
 import { resolveGithubRepoAccess } from '@/lib/github/auth-resolver';
 import { runInFlightDeduped } from '@/lib/utils/inflight-dedupe';
 import { logger } from '@/lib/logger';
-import { safeFetch } from '@/lib/security/ssrf-guard';
+import { fetchProviderUrl, GITHUB_API_HOSTS } from '@/lib/security/outbound-url';
 import { detectPackageTechnologies, mergeDetectedTechnologies } from '@/lib/skills/repository-detection';
 import { resolveGithubUserAccessToken } from '@/lib/github/user-access-token';
 
@@ -123,7 +123,7 @@ async function fetchGithubJson<T>(
   while (true) {
     const timeout = createTimeoutSignal(timeoutMs);
     try {
-      const response = await safeFetch(url, {
+      const response = await fetchProviderUrl(url, GITHUB_API_HOSTS, {
         ...init,
         signal: timeout.signal,
         headers: {
@@ -709,10 +709,9 @@ export async function analyzeGithubRepoAction(
 
       const timeout = createTimeoutSignal();
       const [pkgResult, readmeResult] = await Promise.allSettled([
-        safeFetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/contents/package.json`, { headers: rawHeaders, signal: timeout.signal }),
-        safeFetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/readme`, { headers: rawHeaders, signal: timeout.signal }),
+        fetchProviderUrl(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/contents/package.json`, GITHUB_API_HOSTS, { headers: rawHeaders, signal: timeout.signal }),
+        fetchProviderUrl(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/readme`, GITHUB_API_HOSTS, { headers: rawHeaders, signal: timeout.signal }),
       ]);
-      timeout.cleanup();
 
       let description = '';
       const technologies: string[] = [];
@@ -743,6 +742,7 @@ export async function analyzeGithubRepoAction(
         }
       }
 
+      timeout.cleanup(); // the deadline covered the bodies read above
       return {
         success: true as const,
         result: {

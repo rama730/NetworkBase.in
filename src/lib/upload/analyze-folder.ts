@@ -12,6 +12,28 @@ import {
  * Pure client-side - no server calls needed.
  */
 
+/** Directories whose package.json / README describe a dependency or build output, not the project. */
+const NON_PROJECT_DIRECTORIES = new Set(['node_modules', '.git', '.svn', '.hg', 'vendor', 'dist', 'build', '.next', '.system', '__macosx']);
+
+function candidateDepth(file: File): number | null {
+    const segments = (file.webkitRelativePath || file.name).split('/');
+    if (segments.slice(0, -1).some((segment) => NON_PROJECT_DIRECTORIES.has(segment.toLowerCase()))) return null;
+    return segments.length;
+}
+
+/**
+ * Picks the document that describes the selected folder (API-021): the shallowest one, so the
+ * folder's own root package.json/README wins over a nested workspace or example. Equal depth
+ * resolves by path so the result never depends on file-listing order.
+ */
+function preferShallower(current: File | null, candidate: File): File {
+    if (!current) return candidate;
+    const a = candidateDepth(current) ?? Infinity;
+    const b = candidateDepth(candidate) ?? Infinity;
+    if (a !== b) return b < a ? candidate : current;
+    return (candidate.webkitRelativePath || candidate.name) < (current.webkitRelativePath || current.name) ? candidate : current;
+}
+
 export interface FolderAnalysis {
     title: string;
     description: string;
@@ -45,10 +67,9 @@ export async function analyzeUploadedFolder(files: FileList, signal?: AbortSigna
         const name = file.name.toLowerCase();
         if (repositoryPaths.length < 10_000) repositoryPaths.push(file.webkitRelativePath || file.name);
 
-        if (name === 'package.json') {
-            packageJsonFile = file;
-        } else if (name === 'readme.md') {
-            readmeFile = file;
+        if ((name === 'package.json' || name === 'readme.md') && candidateDepth(file) !== null) {
+            if (name === 'package.json') packageJsonFile = preferShallower(packageJsonFile, file);
+            else readmeFile = preferShallower(readmeFile, file);
         }
 
     }

@@ -1,9 +1,10 @@
-import { requireAuthenticatedUser, jsonSuccess, jsonError } from "@/app/api/v1/_shared";
+import { requireAuthenticatedUser, jsonSuccess, jsonError, getRequestId } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
 import { taskPushes, tasks, projectNodes } from "@/lib/db/schema";
 import { eq, and, inArray, isNull } from "drizzle-orm";
 import { getProjectAccessById } from "@/lib/data/project-access";
-import { checkIdempotencyKey, saveIdempotencyResult } from "@/lib/security/idempotency";
+import { withIdempotentRoute } from "@/lib/security/idempotency";
+import { routeErrorResponse } from "@/app/api/v1/_error";
 import { recordNodeEventsBatch } from "@/lib/files/internal-helpers";
 import { validateCsrf } from "@/lib/security/csrf";
 import { logger } from "@/lib/logger";
@@ -45,18 +46,7 @@ export async function POST(request: Request) {
       return jsonError("Forbidden", 403, "FORBIDDEN");
     }
 
-    const idempotencyScope = `${user.id}:${projectId}:${taskId}`;
-    const idempotencyCheck = await checkIdempotencyKey(request, "extension.task-push.post", idempotencyScope);
-    if (idempotencyCheck.isDuplicate) {
-      if (idempotencyCheck.cachedResponse) {
-        return new Response(idempotencyCheck.cachedResponse, {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        });
-      }
-      return jsonError("Request is already being processed", 409, "CONFLICT");
-    }
-
+    return withIdempotentRoute(request, { namespace: "extension.task-push.post", scopeId: `${user.id}:${projectId}:${taskId}` }, async () => {
     const pushedFiles = files.map((file: any) => ({
       nodeId: typeof file?.nodeId === "string" ? file.nodeId : "",
       id: typeof file?.id === "string" ? file.id : "",
@@ -119,24 +109,9 @@ export async function POST(request: Request) {
         filesCount: pushRow.filesCount,
       },
     };
-    const successBody = JSON.stringify({ success: true, data: successData });
-    await saveIdempotencyResult(
-      request,
-      "extension.task-push.post",
-      successBody,
-      idempotencyCheck.lockToken,
-      idempotencyScope
-    );
-
     return jsonSuccess(successData);
-  } catch (error) {
-    logger.error("[api/v1/extension/task-push] Failed to record task push", {
-      error: error instanceof Error ? error.message : String(error)
     });
-    return jsonError(
-      error instanceof Error ? error.message : "Failed to record task push",
-      500,
-      "INTERNAL_ERROR"
-    );
+  } catch (error) {
+    return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/extension/task-push", fallback: "Failed to record task push" });
   }
 }

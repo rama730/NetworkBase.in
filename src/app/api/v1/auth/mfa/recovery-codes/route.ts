@@ -10,7 +10,7 @@ import {
   logApiRoute,
   requireAuthenticatedUser,
 } from "@/app/api/v1/_shared";
-import { checkIdempotencyKey, saveIdempotencyResult } from "@/lib/security/idempotency";
+import { withIdempotentRoute } from "@/lib/security/idempotency";
 import { logger } from "@/lib/logger";
 import { recordSecurityEvent } from "@/lib/security/audit";
 import {
@@ -76,26 +76,8 @@ export async function POST(request: Request) {
     return jsonError("Not authenticated", 401, "UNAUTHORIZED");
   }
 
-  // Idempotency — prevent duplicate recovery code generation
-  const idempotencyCheck = await checkIdempotencyKey(request, 'auth.mfa.recoveryCodes', user.id);
-  if (idempotencyCheck.isDuplicate) {
-    if (idempotencyCheck.cachedResponse) {
-      logApiRoute(request, {
-        requestId,
-        action: "auth.mfaRecoveryCodes.post",
-        startedAt,
-        success: true,
-        status: 200,
-        userId: user.id,
-      });
-      return new Response(idempotencyCheck.cachedResponse, {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
-    }
-    return jsonError('Request is already being processed', 409, 'CONFLICT');
-  }
-
+  // Recovery codes are secrets: the response is never stored for replay, duplicates get 409 while the marker lives.
+  return withIdempotentRoute(request, { namespace: 'auth.mfa.recoveryCodes', scopeId: user.id, replayBody: false }, async () => {
   let body: RecoveryCodeBody = {};
   try {
     body = parseBody(await request.json());
@@ -249,18 +231,6 @@ export async function POST(request: Request) {
       remainingCount: generated.codes.length,
       generatedAt: generated.generatedAt,
     };
-    const successBody = JSON.stringify({ ok: true, data: responseData });
-    try {
-      await saveIdempotencyResult(request, 'auth.mfa.recoveryCodes', successBody, idempotencyCheck.lockToken, user.id);
-    } catch (saveError) {
-      logger.error("[api/v1/auth/mfa/recovery-codes] failed to save idempotency result", {
-        module: "api",
-        requestId,
-        userId: user.id,
-        error: saveError instanceof Error ? saveError.message : String(saveError),
-        stack: saveError instanceof Error ? saveError.stack : undefined,
-      });
-    }
     return jsonSuccess(responseData);
   } catch (error) {
     logger.error("[api/v1/auth/mfa/recovery-codes] failed", { module: 'api', error: error instanceof Error ? error.message : String(error) });
@@ -275,4 +245,5 @@ export async function POST(request: Request) {
     });
     return jsonError("Failed to manage recovery codes", 500, "INTERNAL_ERROR");
   }
+  });
 }

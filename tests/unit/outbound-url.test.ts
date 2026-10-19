@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
 import {
   UnsafeOutboundUrlError,
   assertPublicNetworkUrl,
   fetchPublicUrlWithRedirectValidation,
+  readBoundedBody,
   isBlockedIpAddress,
 } from "@/lib/security/outbound-url";
 
@@ -86,5 +88,114 @@ describe("outbound URL safeguards", () => {
         error instanceof DOMException &&
         error.name === "AbortError",
     );
+  });
+
+  // API-004: one deadline covers the headers, every redirect hop and the body.
+  it("aborts a body that stalls after headers once the total deadline passes", async () => {
+    const started = Date.now();
+    const { response, release } = await fetchPublicUrlWithRedirectValidation({
+      url: "https://example.com/slow",
+      timeoutMs: 300,
+      resolveAddresses: async () => ["93.184.216.34"],
+      fetchImpl: async (_url, init) => {
+        const stream = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode("partial"));
+            init?.signal?.addEventListener("abort", () => controller.error(new DOMException("aborted", "AbortError")), { once: true });
+          },
+        });
+        return new Response(stream, { status: 200 });
+      },
+    });
+    try {
+      await assert.rejects(async () => {
+        const reader = response.body!.getReader();
+        for (;;) if ((await reader.read()).done) break;
+      }, (error: unknown) => error instanceof DOMException && error.name === "AbortError");
+      assert.ok(Date.now() - started < 2_000);
+    } finally {
+      release();
+    }
+  });
+
+  it("does not spend a fresh deadline on each redirect hop", async () => {
+    const started = Date.now();
+    let hops = 0;
+    await assert.rejects(
+      fetchPublicUrlWithRedirectValidation({
+        url: "https://example.com/a",
+        timeoutMs: 300,
+        maxRedirects: 5,
+        resolveAddresses: async () => ["93.184.216.34"],
+        fetchImpl: async (_url, init) => {
+          hops += 1;
+          await new Promise((resolve) => setTimeout(resolve, 150));
+          if (init?.signal?.aborted) throw new DOMException("aborted", "AbortError");
+          return new Response(null, { status: 302, headers: { location: `https://example.com/b${hops}` } });
+        },
+      }),
+      (error: unknown) => error instanceof DOMException && error.name === "AbortError",
+    );
+    assert.ok(hops <= 3, `stopped after ${hops} hops`);
+    assert.ok(Date.now() - started < 1_000);
+  });
+
+  it("readBoundedBody stops at the limit and cancels the stream", async () => {
+    let cancelled = false;
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) { controller.enqueue(new Uint8Array(1024).fill(65)); },
+      cancel() { cancelled = true; },
+    });
+    const { bytes, truncated } = await readBoundedBody(new Response(stream), 3_000);
+    assert.equal(bytes.length, 3_000);
+    assert.equal(truncated, true);
+    assert.equal(cancelled, true);
+    const small = await readBoundedBody(new Response("hello"), 3_000);
+    assert.deepEqual([new TextDecoder().decode(small.bytes), small.truncated], ["hello", false]);
+  });
+
+  // API-013: fixed-host providers share the one validated transport.
+  it("keeps every hop of a provider call inside its host allowlist", async () => {
+    const calls: string[] = [];
+    await assert.rejects(
+      fetchPublicUrlWithRedirectValidation({
+        url: "https://api.github.com/repos/a/b",
+        allowedHosts: ["api.github.com"],
+        resolveAddresses: async () => ["140.82.112.5"],
+        fetchImpl: async (url) => {
+          calls.push(String(url));
+          return new Response(null, { status: 302, headers: { location: "https://evil.example.com/steal" } });
+        },
+      }),
+      UnsafeOutboundUrlError,
+    );
+    assert.deepEqual(calls, ["https://api.github.com/repos/a/b"]);
+
+    await assert.rejects(
+      fetchPublicUrlWithRedirectValidation({
+        url: "https://example.com/x",
+        allowedHosts: ["api.github.com"],
+        resolveAddresses: async () => ["93.184.216.34"],
+        fetchImpl: async () => { throw new Error("must not fetch"); },
+      }),
+      UnsafeOutboundUrlError,
+    );
+
+    const ok = await fetchPublicUrlWithRedirectValidation({
+      url: "https://api.github.com/repos/a/b",
+      allowedHosts: ["api.github.com"],
+      resolveAddresses: async () => ["140.82.112.5"],
+      fetchImpl: async (url) => String(url).endsWith("/b")
+        ? new Response(null, { status: 301, headers: { location: "https://api.github.com/repositories/1" } })
+        : new Response("{}", { status: 200 }),
+    });
+    assert.equal(ok.response.status, 200);
+    ok.release();
+  });
+
+  it("github actions no longer use the retired safeFetch guard", () => {
+    const source = readFileSync("src/app/actions/github.ts", "utf8");
+    assert.doesNotMatch(source, /safeFetch|ssrf-guard/);
+    assert.equal(existsSync("src/lib/security/ssrf-guard.ts"), false);
   });
 });

@@ -1,8 +1,8 @@
 import {
   requireAuthenticatedUser,
-  jsonSuccess,
   jsonError,
 } from "@/app/api/v1/_shared";
+import { jsonSuccessConditional } from "@/app/api/v1/_conditional";
 import { db } from "@/lib/db";
 import { tasks } from "@/lib/db/schema";
 import { canReadProjectTab, getProjectAccessById } from "@/lib/data/project-access";
@@ -78,19 +78,8 @@ export async function GET(request: Request) {
       ? new Date(summary.lastTaskUpdatedAt).toISOString()
       : "none";
     const summaryVersion = `${taskCount}:${lastUpdated}`;
-    const etag = `"${Buffer.from(summaryVersion).toString("base64url")}"`;
-    if (request.headers.get("if-none-match") === etag) {
-      return new Response(null, {
-        status: 304,
-        headers: { ETag: etag, "Cache-Control": "private, no-cache" },
-      });
-    }
 
-    return jsonSuccess(
-      { projectId, taskCount, associatedTaskPreview, summaryVersion },
-      undefined,
-      { headers: { ETag: etag, "Cache-Control": "private, no-cache" } },
-    );
+    return jsonSuccessConditional(request, { projectId, taskCount, associatedTaskPreview, summaryVersion });
   } catch (error) {
     logger.error(
       "[api/v1/extension/project-summary] Failed to get project summary",

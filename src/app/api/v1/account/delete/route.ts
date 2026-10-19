@@ -1,7 +1,7 @@
 import { getRequestId, jsonError, jsonSuccess, logApiRoute, requireAuthenticatedUser } from '@/app/api/v1/_shared';
 import { logger } from '@/lib/logger';
 import { validateCsrf } from '@/lib/security/csrf';
-import { checkIdempotencyKey, saveIdempotencyResult } from '@/lib/security/idempotency';
+import { withIdempotentRoute } from '@/lib/security/idempotency';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
 import { z } from 'zod';
 import { scheduleAccountDeletionForUser } from '@/lib/account/deletion';
@@ -55,47 +55,7 @@ export async function DELETE(request: Request) {
     }
     const user = auth.user;
 
-    // Idempotency — prevent duplicate deletion schedules
-    const idempotencyCheck = await checkIdempotencyKey(request, 'account.delete', user.id);
-    if (idempotencyCheck.isDuplicate) {
-        if (idempotencyCheck.cachedResponse) {
-            logger.info('Account deletion duplicate request returned cached response', {
-                module: 'api',
-                route: 'account.delete',
-                requestId,
-                idempotencyKey,
-                status: 200,
-            });
-            logApiRoute(request, {
-                requestId,
-                action: 'account.delete',
-                startedAt,
-                success: true,
-                status: 200,
-            });
-            return new Response(idempotencyCheck.cachedResponse, {
-                status: 200,
-                headers: { 'content-type': 'application/json' },
-            });
-        }
-        logger.info('Account deletion duplicate request is already in flight', {
-            module: 'api',
-            route: 'account.delete',
-            requestId,
-            idempotencyKey,
-            status: 409,
-        });
-        logApiRoute(request, {
-            requestId,
-            action: 'account.delete',
-            startedAt,
-            success: false,
-            status: 409,
-            errorCode: 'CONFLICT',
-        });
-        return jsonError('Request is already being processed', 409, 'CONFLICT');
-    }
-
+    return withIdempotentRoute(request, { namespace: 'account.delete', scopeId: user.id }, async () => {
     // Rate limiting: 3 attempts per hour
     try {
         const rateLimitResult = await consumeRateLimit(
@@ -210,20 +170,6 @@ export async function DELETE(request: Request) {
             success: true,
             status: 200,
         });
-        const successBody = JSON.stringify({
-            ok: true,
-            data: { deletionId: result.deletionId, hardDeleteAt: result.hardDeleteAt.toISOString() },
-        });
-        try {
-            await saveIdempotencyResult(request, 'account.delete', successBody, idempotencyCheck.lockToken, user.id);
-        } catch (idempotencyError) {
-            logger.warn('Failed to save account deletion idempotency result', {
-                module: 'api',
-                deletionId: result.deletionId,
-                hardDeleteAt: result.hardDeleteAt,
-                error: idempotencyError instanceof Error ? idempotencyError.message : String(idempotencyError),
-            });
-        }
         return jsonSuccess({
             deletionId: result.deletionId,
             hardDeleteAt: result.hardDeleteAt.toISOString(),
@@ -240,4 +186,5 @@ export async function DELETE(request: Request) {
         });
         return jsonError('Failed to schedule account deletion', 500, 'INTERNAL_ERROR');
     }
+    });
 }

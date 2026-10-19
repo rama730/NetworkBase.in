@@ -19,6 +19,11 @@ type MutationResult = { success: boolean; error?: string };
 
 interface SubtasksTabProps {
   subtasks: TaskPanelSubtask[];
+  /** Authoritative totals; the list may hold only the first page. */
+  totalCount?: number;
+  completedTotal?: number;
+  hasMore?: boolean;
+  onLoadMore?: () => Promise<unknown>;
   isLoading: boolean;
   error: string | null;
   canEdit: boolean;
@@ -31,6 +36,10 @@ interface SubtasksTabProps {
 
 export default function SubtasksTab({
   subtasks,
+  totalCount,
+  completedTotal,
+  hasMore = false,
+  onLoadMore,
   isLoading,
   error,
   canEdit,
@@ -310,9 +319,9 @@ export default function SubtasksTab({
               Subtasks
             </h3>
             <span className="inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/40 px-1.5 font-mono text-[11px] font-medium text-foreground">
-              {completedCount}/{subtasks.length}
+              {hasMore ? (completedTotal ?? completedCount) : completedCount}/{hasMore ? (totalCount ?? subtasks.length) : subtasks.length}
             </span>
-            {completedCount === subtasks.length && subtasks.length > 0 ? (
+            {!hasMore && completedCount === subtasks.length && subtasks.length > 0 ? (
               <span className="inline-flex h-4 items-center rounded-[3px] border border-emerald-500/20 bg-emerald-500/10 px-1.5 font-mono text-[10px] max-md:text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
                 Complete
               </span>
@@ -481,6 +490,17 @@ export default function SubtasksTab({
               )}
             </ul>
           )}
+          {hasMore && onLoadMore ? (
+            <div className="flex justify-center pt-3">
+              <button
+                type="button"
+                className="nb-compact rounded-md border border-border bg-background px-3 py-1.5 text-foreground hover:bg-muted"
+                onClick={() => void onLoadMore()}
+              >
+                Load more subtasks ({Math.max((totalCount ?? subtasks.length) - subtasks.length, 0)} remaining)
+              </button>
+            </div>
+          ) : null}
         </div>
       )}
 
