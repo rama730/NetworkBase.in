@@ -92,6 +92,8 @@ type Props = {
   typingNames?: string[];
   onEditLast?: () => void;
   onSent?: () => void;
+  /** Historical thread windows load the latest replies before posting. */
+  beforeSend?: () => Promise<void>;
   /** Thread replies: offer "Also send to #channel" with this label. */
   alsoSendTo?: string | null;
   /** New message: no conversation exists yet, so the caller sends the text (no files or scheduling until it does). */
@@ -180,7 +182,7 @@ function customDefault() {
 }
 
 /** Slack-style composer (WYSIWYG, markdown out): @mentions, /task, uploads, per-conversation drafts. */
-export function Composer({ channelId, placeholder, people, threadRootSeq = null, allowBroadcast, canCreateTask, onOpenCanvas, onTyping, typingNames = [], onEditLast, onSent, alsoSendTo = null, send, autoFocus = false }: Props) {
+export function Composer({ channelId, placeholder, people, threadRootSeq = null, allowBroadcast, canCreateTask, onOpenCanvas, onTyping, typingNames = [], onEditLast, onSent, beforeSend, alsoSendTo = null, send, autoFocus = false }: Props) {
   const { user, profile } = useAuth();
   const shell = useChatShell();
   const update = useUpdatePages(channelId);
@@ -678,6 +680,14 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
       }
       onSent?.();
       return;
+    }
+    if (beforeSend) {
+      if (sending) return;
+      setSending(true);
+      editor?.setEditable(false);
+      try { await beforeSend(); }
+      catch { toast.error("Could not load the latest replies. Your draft is still here."); return; }
+      finally { setSending(false); editor?.setEditable(true); }
     }
     const clientId = crypto.randomUUID();
     // Files show at once from their on-device previews (at their real shape); the server's copy replaces them when it lands.

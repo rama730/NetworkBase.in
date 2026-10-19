@@ -75,7 +75,8 @@ export async function uploadChatFile(channelId: string, original: File, onProgre
     body: JSON.stringify({
       channelId,
       clientUploadId,
-      filename: original.name,
+      filename: file.name,
+      originalFilename: original.name,
       sizeBytes: file.size,
       mimeType: file.type || "application/octet-stream",
       width: dimensions?.width ?? null,

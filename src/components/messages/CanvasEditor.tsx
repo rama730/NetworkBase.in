@@ -18,7 +18,8 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub,
   DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { canvasAssetUrl } from "@/lib/messaging/canvas-store";
+import { normalizeSafeExternalUrl, sameOriginPath } from "@/lib/messaging/safe-links";
+import { canvasAssetId, canvasAssetUrl } from "@/lib/messaging/canvas-store";
 import { copyWithToast } from "@/lib/clipboard";
 
 type ImageSize = "s" | "m" | "full";
@@ -42,7 +43,13 @@ const CanvasImage = TiptapNode.create({
     return [{ tag: "img[src]" }];
   },
   renderHTML({ node, HTMLAttributes }) {
+    const source = String(node.attrs.src ?? "");
+    const origin = typeof window === "undefined" ? "https://networkbase.in" : window.location.origin;
+    const local = node.attrs.uploading && source.startsWith("blob:");
+    const src = local ? source : canvasAssetId(source, origin) ? source : normalizeSafeExternalUrl(source);
+    if (!src) return ["span", {}, String(node.attrs.alt ?? "Image unavailable")];
     return ["img", mergeAttributes(HTMLAttributes, {
+      src,
       class: "nb-canvas-img",
       "data-size": node.attrs.title,
       "data-uploading": node.attrs.uploading ? "true" : undefined,
@@ -68,7 +75,7 @@ export function useCanvasEditor(options: { content: string; editable?: boolean; 
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
-        link: { openOnClick: false, autolink: true, HTMLAttributes: { rel: "noopener noreferrer nofollow", target: "_blank" } },
+        link: { openOnClick: false, autolink: true, isAllowedUri: (url) => Boolean(sameOriginPath(url, typeof window === "undefined" ? "https://networkbase.in" : window.location.origin) || normalizeSafeExternalUrl(url)), HTMLAttributes: { rel: "noopener noreferrer nofollow", target: "_blank" } },
         dropcursor: { class: "nb-canvas-dropcursor", width: 2 },
       }),
       TaskList,

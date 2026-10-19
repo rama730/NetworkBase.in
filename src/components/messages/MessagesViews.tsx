@@ -1,5 +1,7 @@
 "use client";
 
+import { useDocumentTitlePrefix } from "@/hooks/useDocumentTitlePrefix";
+
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -233,6 +235,7 @@ export function ProjectLanding({ projectId }: { projectId: string }) {
   const setProject = useChatUi((state) => state.setProject);
   const { data } = useChatShell();
   const router = useRouter();
+  useDocumentTitlePrefix(data?.projects?.find((p) => p.id === projectId)?.title ?? null);
   // A project you left (old link, Back): go to All instead of keeping a stale pick.
   const known = !data?.projects || data.projects.some((p) => p.id === projectId);
   useEffect(() => {
@@ -268,6 +271,7 @@ export function BrowseChannels({ projectId }: { projectId: string }) {
     },
   });
   const title = data?.projects?.find((p) => p.id === projectId)?.title;
+  useDocumentTitlePrefix(channels.isError ? null : title ?? null);
   // "#gen" finds #general: channel names have no "#".
   const needle = filter.trim().toLowerCase().replace(/^#/, "");
   const visible = (channels.data ?? [])

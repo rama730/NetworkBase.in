@@ -9,7 +9,7 @@ import { getCanvas } from "@/app/actions/chat/canvas";
 import { getChannel, listChannelTabs, listMembers } from "@/app/actions/chat/channels";
 import { getPersonContext } from "@/app/actions/chat/members";
 import { listSavedSeqs, saveMessage } from "@/app/actions/chat/later";
-import { listMessages } from "@/app/actions/chat/messages";
+import { listMessages, resolveMessageTarget } from "@/app/actions/chat/messages";
 import { markRead } from "@/app/actions/chat/read";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { useAuth } from "@/hooks/useAuth";
@@ -24,7 +24,6 @@ import { formatChatTime, personName } from "@/lib/messaging/channel-view";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { pruneTypers, shouldSendTyping, withoutTyper, type Typers } from "@/lib/messaging/typing";
 import { applyReaction, patchPages, upsertMessage, type MessagePages } from "@/lib/messaging/timeline";
-import { getCachedTimeline, setCachedTimeline } from "@/lib/messaging/storage-cache";
 import { storedFailedSends } from "@/components/messages/failed-sends";
 import type { ChatCardView, ChatMessageView, ChatPerson } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
@@ -41,6 +40,7 @@ export function seedCards(queryClient: ReturnType<typeof useQueryClient>, cards:
 
 export function useChannelDetails(channelId: string) {
   const { data } = useChatShell();
+  const { user } = useAuth();
   const cached = useMemo(() => {
     const found = data?.channels.find((c) => c.id === channelId);
     if (!found) return undefined;
@@ -53,6 +53,7 @@ export function useChannelDetails(channelId: string) {
 
   return useQuery({
     queryKey: queryKeys.chat.channel(channelId),
+    enabled: Boolean(user),
     queryFn: async () => {
       const result = await getChannel({ channelId });
       if (!result.success) throw new Error(result.error);
@@ -180,6 +181,7 @@ export function useChannelMessages(channelId: string, options: { around?: number
             if (seq !== null) update((pages) => patchPages(pages, seq, (m) => ({ ...m, body: String(payload.body ?? m.body), edited_at: String(payload.edited_at ?? new Date().toISOString()) })));
             break;
           case "message.delete":
+            void queryClient.invalidateQueries({ queryKey: ["chat-v3", "target", channelId] });
             if (seq !== null) update((pages) => patchPages(pages, seq, (m) => ({ ...m, body: "", attachments: [], deleted_at: new Date().toISOString() })));
             break;
           case "reaction.add":
@@ -195,7 +197,7 @@ export function useChannelMessages(channelId: string, options: { around?: number
             break;
           }
           case "message.preview_hidden":
-            if (seq !== null) update((pages) => patchPages(pages, seq, (m) => ({ ...m, link_preview_hidden: true })));
+            if (seq !== null) update((pages) => patchPages(pages, seq, (m) => ({ ...m, link_preview_hidden: payload.hidden !== false })));
             break;
           case "pin.changed":
             if (seq !== null) update((pages) => patchPages(pages, seq, (m) => ({ ...m, pinned: Boolean(payload.pinned) })));
@@ -256,32 +258,16 @@ export function useChannelMessages(channelId: string, options: { around?: number
     if (readTimer.current) clearTimeout(readTimer.current);
   }, []);
 
-  // The stored copy (instant switching) follows the same rule as the query cache above.
-  const [cachedMessages] = useState(() => {
-    const stored = around ? null : getCachedTimeline(channelId);
-    return stored && (stored.at(-1)?.seq ?? 0) >= shellTopSeq ? stored : null;
-  });
-  const messages = useMemo(() => {
-    if (query.data) return [...query.data.pages].reverse().flat();
-    return cachedMessages ?? [];
-  }, [cachedMessages, query.data]);
+  const messages = useMemo(() => query.data ? [...query.data.pages].reverse().flat() : [], [query.data]);
 
   // Sends that failed before a reload come back with their Retry (failed-sends.ts).
   const restored = useRef(false);
   useEffect(() => {
     if (!query.isSuccess || restored.current) return;
     restored.current = true;
-    const stored = storedFailedSends(channelId, null);
+    const stored = storedFailedSends(channelId, null, meId);
     if (stored.length) update((pages) => stored.reduce((acc, message) => upsertMessage(acc, message), pages));
-  }, [channelId, query.isSuccess, update]);
-
-  // Debounced: serializing the timeline on every message or reaction blocks the main thread.
-  // Only confirmed messages: an optimistic row's preview and retry data don't survive a reload.
-  useEffect(() => {
-    if (!query.isSuccess || !messages.length) return;
-    const timer = setTimeout(() => setCachedTimeline(channelId, messages.filter((m) => m.seq > 0)), 1_000);
-    return () => clearTimeout(timer);
-  }, [channelId, messages, query.isSuccess]);
+  }, [channelId, meId, query.isSuccess, update]);
 
   return { query, messages, status, markSeen, reloadLatest };
 }
@@ -414,5 +400,21 @@ export function usePersonContext(userId: string | null | undefined, enabled = tr
       return result.success ? result.context : null;
     },
     staleTime: 5 * 60_000,
+  });
+}
+
+/** Only message identity is exposed; reads use the timeline's authorization. */
+export function useMessageTarget(channelId: string, seq: number | null) {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: queryKeys.chat.target(channelId, seq, user?.id ?? null),
+    enabled: Boolean(seq && user),
+    queryFn: async () => {
+      const result = await resolveMessageTarget({ channelId, seq: seq! });
+      if (!result.success) throw new Error(result.error);
+      return result;
+    },
+    staleTime: 0,
+    retry: false,
   });
 }

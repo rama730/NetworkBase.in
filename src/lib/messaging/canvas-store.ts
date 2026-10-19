@@ -1,3 +1,5 @@
+import { markdownDestinations } from "@/lib/messaging/markdown-links";
+import { sameOriginPath } from "@/lib/messaging/safe-links";
 /**
  * Channel canvas helpers and the template gallery. Canvases are stored in
  * chat_canvases (0182); the body is markdown and the title is its own field.
@@ -6,11 +8,18 @@
 export const CANVAS_MAX_TITLE = 200;
 export const CANVAS_MAX_BODY = 100_000;
 
-const ASSET_URL = /\/api\/v1\/chat\/attachments\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/gi;
+/** Only actual image destinations on this application's origin retain assets. */
+export function canvasAssetId(value: string, origin = "https://networkbase.in"): string | null {
+  const path = sameOriginPath(value, origin);
+  return path?.match(/^\/api\/v1\/chat\/attachments\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:[?#]|$)/i)?.[1]?.toLowerCase() ?? null;
+}
 
-/** Chat attachment ids referenced by a canvas body (images), capped at 50. */
-export function canvasAssetIds(body: string) {
-  return [...new Set(Array.from(body.matchAll(ASSET_URL), (match) => match[1]!.toLowerCase()))].slice(0, 50);
+/** Chat attachment ids referenced by canvas images, deduped and capped at 50. */
+export function canvasAssetIds(body: string, origin = "https://networkbase.in") {
+  return [...new Set(markdownDestinations(body, "image").flatMap((url) => {
+    const id = canvasAssetId(url, origin);
+    return id ? [id] : [];
+  }))].slice(0, 50);
 }
 
 export function canvasAssetUrl(assetId: string) {

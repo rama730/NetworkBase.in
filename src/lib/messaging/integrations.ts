@@ -1,8 +1,6 @@
 import { sql, type SQL } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { publishSentMessage } from "@/lib/messaging/publish";
-import type { ChatMessageView } from "@/lib/messaging/types";
 
 // Hooks other domains call (projects, applications, invitations). Each takes
 // an executor so it runs inside the caller's transaction.
@@ -50,34 +48,8 @@ export async function postInviteCard(input: {
   `);
   const body = (input.note ?? "").slice(0, 4000);
   const card = { kind: "invite" as const, ref_id: input.invitationId };
-  const result = await value<{ channel_seq: number; created_at: string; deduped: boolean; notify?: string[] }>(db, sql`
-    SELECT app_private.chat_send_message(
-      ${channelId}::uuid, ${input.inviterId}::uuid, ${body}, ${`invite:${input.invitationId}`},
-      NULL, '{}'::uuid[], NULL, '[]'::jsonb, ${JSON.stringify(card)}::text::jsonb
-    ) AS value
-  `);
-  if (!result.deduped) {
-    const message: ChatMessageView = {
-      channel_id: channelId,
-      seq: Number(result.channel_seq),
-      author_id: input.inviterId,
-      author: null,
-      kind: "user",
-      body,
-      thread_root_seq: null,
-      reply_count: 0,
-      last_reply_seq: null,
-      last_reply_at: null,
-      edited_at: null,
-      deleted_at: null,
-      created_at: result.created_at,
-      client_message_id: `invite:${input.invitationId}`,
-      attachments: [],
-      reactions: [],
-      card,
-      pinned: false,
-    };
-    publishSentMessage({ message, notify: result.notify ?? [], mentioned: [], channelLabel: null });
-  }
+  const { sendAs } = await import("@/lib/messaging/send");
+  const result = await sendAs({ id: input.inviterId }, { channelId, body, clientId: `invite:${input.invitationId}` }, card);
+  if (!result.success) throw new Error(result.error);
   return channelId;
 }
