@@ -352,7 +352,7 @@ export async function compareSync(
           )
           .limit(SYNC_LIMITS.comparisonFiles)
       : Promise.resolve([]),
-    // ponytail: batch known content hashes query across project to eliminate S3 downloads. ceiling: comparisonFiles (2,500) rows. upgrade: cursor-based pagination if project files exceed 2,500.
+    // ponytail: batch known content hashes query across project to eliminate S3 downloads. ceiling: comparisonFiles rows, enforced by the limit below (PERF-009). upgrade: resolve only the hashes of the selected nodes if projects outgrow it.
     db
       .select({
         nodeId: githubSyncFiles.nodeId,
@@ -366,7 +366,8 @@ export async function compareSync(
           eq(githubSyncFiles.projectId, ctx.project.id),
           isNotNull(githubSyncFiles.localBlobSha),
         ),
-      ),
+      )
+      .limit(SYNC_LIMITS.comparisonFiles),
   ]);
   if (
     rows.length > SYNC_LIMITS.comparisonFiles ||
