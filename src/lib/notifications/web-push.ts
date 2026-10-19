@@ -1,4 +1,5 @@
 import webpush, { type PushSubscription as WebPushSubscription } from "web-push";
+import { isAllowedPushEndpoint } from "@/lib/notifications/push-endpoint";
 import { and, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
@@ -140,6 +141,15 @@ export async function sendPushToUser(userId: string, payloadData: WebPushPayload
         return { attempted: 0, delivered: 0, pruned: 0 };
     }
 
+    // Rows saved before the provider allowlist (or edited out of band) are never contacted and are removed.
+    const refused = rows.filter((row) => !isAllowedPushEndpoint(row.endpoint));
+    if (refused.length > 0) {
+        logger.warn("notifications.web_push_endpoint_refused", { module: "notifications", userId, count: refused.length });
+        await db.delete(pushSubscriptions).where(and(eq(pushSubscriptions.userId, userId), inArray(pushSubscriptions.id, refused.map((row) => row.id)))).catch(() => undefined);
+    }
+    const allowedRows = rows.filter((row) => isAllowedPushEndpoint(row.endpoint));
+    if (allowedRows.length === 0) return { attempted: 0, delivered: 0, pruned: refused.length };
+
     const payload = JSON.stringify(payloadData);
     const sendOptions = { TTL: 60 * 60 * 24, ...(options.topic ? { topic: options.topic } : {}) };
     const deadEndpointIds: string[] = [];
@@ -148,7 +158,7 @@ export async function sendPushToUser(userId: string, payloadData: WebPushPayload
     const deliveryRecords: DeliveryRecord[] = [];
     let delivered = 0;
 
-    await Promise.all(rows.map(async (row) => {
+    await Promise.all(allowedRows.map(async (row) => {
         const subscription: WebPushSubscription = {
             endpoint: row.endpoint,
             keys: { p256dh: row.p256dh, auth: row.auth },
@@ -250,5 +260,5 @@ export async function sendPushToUser(userId: string, payloadData: WebPushPayload
         }
     }
 
-    return { attempted: rows.length, delivered, pruned };
+    return { attempted: allowedRows.length, delivered, pruned: pruned + refused.length };
 }

@@ -177,55 +177,46 @@ export async function readGitHubTree(
     return (result?.tree ?? []).filter((entry) => entry && entry.type !== "tree");
   }
 
-  // ponytail: 1-level hierarchical subtree fallback. ceiling: 100k files single-tree limit. upgrade: multi-level recursive tree traversal if subtrees exceed 100k.
-  try {
-    const rootResult = await syncGithub<{
-      truncated: boolean;
-      tree: SyncTreeEntry[];
-    }>(token, `${repoApi(repository)}/git/trees/${head}`);
-
-    const allBlobs: SyncTreeEntry[] = [];
-    const subTreesToFetch: Array<{ sha: string; prefix: string }> = [];
-
-    for (const entry of rootResult?.tree ?? []) {
-      if (!entry) continue;
-      if (entry.type === "tree") {
-        subTreesToFetch.push({ sha: entry.sha, prefix: entry.path });
-      } else {
-        allBlobs.push(entry);
-      }
-    }
-
-    const BATCH_SIZE = 5;
-    for (let i = 0; i < subTreesToFetch.length; i += BATCH_SIZE) {
-      const chunk = subTreesToFetch.slice(i, i + BATCH_SIZE);
-      const subResults = await Promise.all(
-        chunk.map(async ({ sha, prefix }) => {
-          try {
-            const sub = await syncGithub<{
-              truncated: boolean;
-              tree: SyncTreeEntry[];
-            }>(token, `${repoApi(repository)}/git/trees/${sha}?recursive=1`);
-            return (sub?.tree ?? [])
-              .filter((e) => e && e.type !== "tree")
-              .map((e) => ({ ...e, path: `${prefix}/${e.path}` }));
-          } catch {
-            return [];
-          }
-        }),
-      );
-      for (const subBlobs of subResults) {
-        allBlobs.push(...subBlobs);
-      }
-    }
-
-    return allBlobs.length > 0
-      ? allBlobs
-      : (result?.tree ?? []).filter((entry) => entry && entry.type !== "tree");
-  } catch {
-    // If hierarchical recovery fails, return whatever entries were retrieved in the original tree
-    return (result?.tree ?? []).filter((entry) => entry && entry.type !== "tree");
+  // A truncated recursive tree is rebuilt one directory level at a time. Every piece must arrive
+  // complete: a manifest with missing entries would read as remote deletions (COR-005), so any gap
+  // fails the operation instead of returning a partial list.
+  // ponytail: one level of subtrees. ceiling: a single directory over GitHub's tree limit fails closed. upgrade: recurse into truncated subtrees.
+  const rootResult = await syncGithub<{
+    truncated: boolean;
+    tree: SyncTreeEntry[];
+  }>(token, `${repoApi(repository)}/git/trees/${head}`);
+  if (rootResult?.truncated) {
+    throw new SyncGithubError(422, "The repository tree is too large to compare completely.");
   }
+
+  const allBlobs: SyncTreeEntry[] = [];
+  const subTreesToFetch: Array<{ sha: string; prefix: string }> = [];
+  for (const entry of rootResult?.tree ?? []) {
+    if (!entry) continue;
+    if (entry.type === "tree") subTreesToFetch.push({ sha: entry.sha, prefix: entry.path });
+    else allBlobs.push(entry);
+  }
+
+  const BATCH_SIZE = 5;
+  for (let i = 0; i < subTreesToFetch.length; i += BATCH_SIZE) {
+    const chunk = subTreesToFetch.slice(i, i + BATCH_SIZE);
+    const subResults = await Promise.all(
+      chunk.map(async ({ sha, prefix }) => {
+        const sub = await syncGithub<{
+          truncated: boolean;
+          tree: SyncTreeEntry[];
+        }>(token, `${repoApi(repository)}/git/trees/${sha}?recursive=1`);
+        if (sub?.truncated) {
+          throw new SyncGithubError(422, `The directory "${prefix}" is too large to compare completely.`);
+        }
+        return (sub?.tree ?? [])
+          .filter((e) => e && e.type !== "tree")
+          .map((e) => ({ ...e, path: `${prefix}/${e.path}` }));
+      }),
+    );
+    for (const subBlobs of subResults) allBlobs.push(...subBlobs);
+  }
+  return allBlobs;
 }
 // A missing branch in a populated repository is not an empty repository.
 export async function requireExistingOrEmptyBranch(

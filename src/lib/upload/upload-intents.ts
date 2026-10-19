@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 
+import { reportedContentLength } from "@/lib/http/content-length";
 import { and, asc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
@@ -222,8 +223,8 @@ async function verifyStoredObjectBytes(params: {
       throw new StorageVerificationError("Storage provider returned an unreadable body", "PROVIDER_UNAVAILABLE");
     }
 
-    const reportedLength = Number(response.headers.get("content-length"));
-    if (Number.isFinite(reportedLength) && reportedLength !== params.expectedSize) {
+    const reportedLength = reportedContentLength(response.headers);
+    if (reportedLength !== null && reportedLength !== params.expectedSize) {
       throw new StorageVerificationError("Uploaded object size does not match the declared size", "CONTENT_MISMATCH");
     }
 

@@ -213,7 +213,9 @@
     "drizzle/0209_skill_catalog_1_3_7.sql",
     "drizzle/0210_index_cleanup.sql",
     "drizzle/0211_discover_index_hygiene.sql",
-    "drizzle/0212_onboarding_attempt_token.sql"
+    "drizzle/0212_onboarding_attempt_token.sql",
+    "drizzle/0213_work_leases.sql",
+    "drizzle/0214_counter_flush_batches.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",
