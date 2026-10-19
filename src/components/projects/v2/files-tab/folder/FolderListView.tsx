@@ -47,7 +47,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { getProjectNodes } from "@/app/actions/files/nodes";
-import { getProjectFileSignedUrl } from "@/app/actions/files/content";
+import { getFilePreviewUrl } from "@/app/actions/files/content";
 import { useFilesWorkspaceView } from "../FilesWorkspaceViews";
 import { FilesWorkspaceMenu, FilesHeaderSlot } from "../FilesWorkspaceHeader";
 import type { TaskFileRole } from "@/lib/projects/task-file-intelligence";
@@ -800,7 +800,7 @@ export function FolderListView({
 
 
   const downloadNode = React.useCallback(async (node: FolderListRowNode) => {
-    try { const result = await getProjectFileSignedUrl(projectId, node.id, 300, true); const anchor = document.createElement("a"); anchor.href = result.url; anchor.download = node.name; anchor.rel = "noopener noreferrer"; anchor.click(); }
+    try { const result = await getFilePreviewUrl(projectId, node.id, true); const anchor = document.createElement("a"); anchor.href = result.url; anchor.download = node.name; anchor.rel = "noopener noreferrer"; anchor.click(); }
     catch (error) { toast.error(error instanceof Error ? error.message : "Download failed"); }
   }, [projectId]);
 

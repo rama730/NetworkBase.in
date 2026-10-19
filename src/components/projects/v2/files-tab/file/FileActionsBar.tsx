@@ -298,11 +298,11 @@ export function FileActionsBar({
     if (!projectId || !nodeId || downloading) return;
     setDownloading(true);
     try {
-      const { getProjectFileSignedUrl, getProjectFileContent } = await import("@/app/actions/files/content");
+      const { getFilePreviewUrl, getProjectFileContent } = await import("@/app/actions/files/content");
       const node = useFilesWorkspaceStore.getState().byProjectId[projectId]?.nodesById[nodeId];
       let url: string;
       let local = false;
-      if (node?.s3Key) url = (await getProjectFileSignedUrl(projectId, nodeId, 300, true)).url;
+      if (node?.s3Key) url = (await getFilePreviewUrl(projectId, nodeId, true)).url;
       else {
         const content = await getProjectFileContent(projectId, nodeId);
         url = URL.createObjectURL(new Blob([content], { type: mimeType || "text/plain" }));

@@ -33,7 +33,7 @@ import {
 import { cn } from "@/lib/utils";
 import { logger } from "@/lib/logger";
 import { useFileVersions } from "@/hooks/useFileVersions";
-import { getVersionSignedUrl } from "@/app/actions/files/versions";
+import { getVersionPreviewUrl } from "@/app/actions/files/versions";
 import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
 import type { FileVersion } from "@/lib/db/schema";
 import { VersionPill } from "../VersionPill";
@@ -60,7 +60,7 @@ async function getCachedVersionSignedUrl(
   if (cached && cached.expiresAt > now) {
     return cached.url;
   }
-  const { url } = await getVersionSignedUrl(projectId, nodeId, version, 300);
+  const { url } = await getVersionPreviewUrl(projectId, nodeId, version);
   signedUrlCache.set(cacheKey, { url, expiresAt: now + 240_000 });
   return url;
 }

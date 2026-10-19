@@ -23,12 +23,15 @@ export async function getProjectFileContent(projectId: string, nodeId: string) {
     });
 }
 
-export async function getProjectFileSignedUrl(projectId: string, nodeId: string, ttlSeconds: number = 300, download: boolean = false) {
+/**
+ * The preview route URL for a file. It is an ordinary authorized endpoint (access is checked when it
+ * is requested), so it carries no expiry; this action only confirms the caller may see the file now.
+ */
+export async function getFilePreviewUrl(projectId: string, nodeId: string, download: boolean = false) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     const actorId = user?.id ?? null;
-    const clampedTtl = Math.max(30, Math.min(3600, ttlSeconds));
-    return await runInFlightDeduped(`files:signed-url:${projectId}:${nodeId}:${clampedTtl}:${download}:${actorId ?? "anon"}`, async () => {
+    return await runInFlightDeduped(`files:preview-url:${projectId}:${nodeId}:${download}:${actorId ?? "anon"}`, async () => {
         // Verify read access (works for public projects too)
         const access = await assertProjectFileReadAccess(projectId, actorId);
 
@@ -51,11 +54,12 @@ export async function getProjectFileSignedUrl(projectId: string, nodeId: string,
             throw new Error("File key does not belong to this project");
         }
 
-        const now = Date.now();
         const query = download ? "?download=1" : "";
-        return {
-            url: `/api/v1/projects/${projectId}/files/${nodeId}/preview${query}`,
-            expiresAt: now + Math.min(clampedTtl, 240) * 1000,
-        };
+        return { url: `/api/v1/projects/${projectId}/files/${nodeId}/preview${query}` };
     });
+}
+
+/** @deprecated Use getFilePreviewUrl; kept only until FileView migrates. The expiry argument is ignored. */
+export async function getProjectFileSignedUrl(projectId: string, nodeId: string, _ttlSeconds: number = 300, download: boolean = false) {
+    return getFilePreviewUrl(projectId, nodeId, download);
 }
