@@ -282,7 +282,6 @@ async function syncOnboardingClaims(params: {
             onboarded: true,
             full_name: params.fullName,
             avatar_url: params.avatarUrl || null,
-            email_verified: params.emailVerified === true,
         },
         app_metadata: {
             ...(params.appMetadata || {}),

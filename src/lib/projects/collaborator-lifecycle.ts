@@ -33,6 +33,7 @@ import {
     markProfileCollaborationSummaryStale,
     upsertProfileProjectContributionFromMembership,
 } from "@/lib/profile/collaboration";
+import { getProjectAccessById, type ProjectAccess } from "@/lib/data/project-access";
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 export type ProjectCollaboratorExecutor = typeof db | DbTransaction;
@@ -162,12 +163,24 @@ export function isProjectMemberEligibleFor(role: unknown, eligibility: ProjectMe
     return isEligibleProjectMember(role, eligibility);
 }
 
+/** The capability check on an access record that is already loaded, so one read can serve several checks. */
+export function capabilityFromAccess(access: ProjectAccess, capability: ProjectMemberCapability) {
+    if (!access.project) throw new NotFoundError("Project not found");
+    const role = access.isOwner ? "owner" : access.memberRole;
+    if (!role || !projectMemberCan(role, capability)) {
+        throw new ForbiddenError("You do not have permission to perform this project action");
+    }
+    return { project: access.project, role };
+}
+
 export async function requireProjectCapability(
     projectId: string,
     userId: string,
     capability: ProjectMemberCapability,
     executor: ProjectCollaboratorExecutor = db,
 ) {
+    if (executor === db) return capabilityFromAccess(await getProjectAccessById(projectId, userId), capability);
+
     const [project] = await executor
         .select({ id: projects.id, ownerId: projects.ownerId })
         .from(projects)

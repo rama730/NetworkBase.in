@@ -4,14 +4,27 @@ import { after, before, test } from "node:test";
 import { addMember, closeAppDb, createProject, createUser, loadAppModule, moduleStubs, sql } from "./_helpers";
 
 let viewerId = "";
+let realProjectAccess: Record<string, unknown> = {};
 moduleStubs.set("@/lib/supabase/server", {
   createClient: async () => ({ auth: { getUser: async () => ({ data: { user: { id: viewerId } }, error: null }) } }),
   createAdminClient: async () => { throw new Error("not used"); },
 });
+// Counts project access reads, to show the sections of one settings load share a single read.
+let accessReads = 0;
+moduleStubs.set("@/lib/data/project-access", new Proxy({} as Record<string, unknown>, {
+  get(_target, name: string) {
+    const real = realProjectAccess[name];
+    if (name === "getProjectAccessById" && typeof real === "function") {
+      return (...args: unknown[]) => { accessReads += 1; return (real as (...a: unknown[]) => unknown)(...args); };
+    }
+    return real;
+  },
+}));
 moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: () => undefined, unstable_cache: (fn: unknown) => fn, updateTag: () => undefined });
 
 let actions: typeof import("../../src/app/actions/project/index");
 before(async () => {
+  realProjectAccess = (await loadAppModule(() => import("../../src/lib/data/project-access"))) as unknown as Record<string, unknown>;
   actions = await loadAppModule(() => import("../../src/app/actions/project/index"));
 });
 after(async () => { await sql.end(); await closeAppDb(); });
@@ -52,6 +65,27 @@ test("settings readers count roles and upload permissions in SQL for the whole t
     const bootstrap = await actions.readProjectSettingsBootstrapAction(projectId, { limit: 40 });
     assert.equal(bootstrap.collaboratorSettings.success, true);
     assert.equal(bootstrap.fileWorkspace.success, true);
+  } finally {
+    await sql`DELETE FROM projects WHERE owner_id = ANY(${ids}::uuid[])`;
+  }
+});
+
+// PERF-011: the sections of one settings load share one sign-in check and one project access read.
+test("the settings bootstrap reads project access once for all of its sections", async () => {
+  const ids: string[] = [];
+  try {
+    const owner = await sql.begin((tx) => createUser(tx));
+    ids.push(owner);
+    viewerId = owner;
+    const projectId = await sql.begin((tx) => createProject(tx, owner));
+    await sql.begin((tx) => addMember(tx, projectId, owner, "owner"));
+    accessReads = 0;
+    const bootstrap = await actions.readProjectSettingsBootstrapAction(projectId, { limit: 10 }, true);
+    assert.equal(bootstrap.collaboratorSettings.success, true);
+    assert.equal(bootstrap.fileWorkspace.success, true);
+    assert.equal(bootstrap.notifications.success, true);
+    assert.equal(bootstrap.dangerPreflight.success, true);
+    assert.equal(accessReads, 1, "one project access read for every section");
   } finally {
     await sql`DELETE FROM projects WHERE owner_id = ANY(${ids}::uuid[])`;
   }

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { projectActionsSource } from "./_project-actions-source";
 import {
     resolveProjectSocialLinks,
     type ProjectRepositoryContext,
@@ -143,10 +144,7 @@ test("/go route contract: route handler joins githubSyncConnections and resolves
 });
 
 test("DTO contract: projectDetailProjectSchema includes githubSyncConnection to prevent safeParse stripping", () => {
-    const actionsContent = readFileSync(
-        path.join(process.cwd(), "src/app/actions/project/index.ts"),
-        "utf8",
-    );
+    const actionsContent = projectActionsSource();
     assert.match(
         actionsContent,
         /githubSyncConnection:\s*z[\s\S]*?\.object\(\{[\s\S]*?repository:\s*z\.string\(\)[\s\S]*?branch:\s*z\.string\(\)[\s\S]*?\}\)[\s\S]*?\.nullable\(\)[\s\S]*?\.optional\(\)/,

@@ -2,11 +2,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
+import { projectActionsSource } from "./_project-actions-source";
 
-const PROJECT_ACTIONS_SRC = readFileSync(
-  path.resolve(__dirname, "../../src/app/actions/project/index.ts"),
-  "utf8",
-);
+const PROJECT_ACTIONS_SRC = projectActionsSource();
 
 const PROJECT_IMPORT_FUNCTION_SRC = readFileSync(
   path.resolve(__dirname, "../../src/inngest/functions/project-import.ts"),

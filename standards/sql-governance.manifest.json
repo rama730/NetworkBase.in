@@ -217,7 +217,14 @@
     "drizzle/0213_work_leases.sql",
     "drizzle/0214_counter_flush_batches.sql",
     "drizzle/0215_projects_import_source_private.sql",
-    "drizzle/0216_task_position_backfill.sql"
+    "drizzle/0216_task_position_backfill.sql",
+    "drizzle/0217_project_update_single_pin.sql",
+    "drizzle/0218_profile_collaboration_availability.sql",
+    "drizzle/0219_connection_acceptance_time.sql",
+    "drizzle/0220_extension_operation_receipts_index.sql",
+    "drizzle/0221_project_members_user_role_idx.sql",
+    "drizzle/0222_email_verified_claim.sql",
+    "drizzle/0223_revoke_connection_acceptance_trigger_exec.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
+import { projectActionsSource } from "./_project-actions-source";
 
 function readSource(relativePath: string) {
   return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
@@ -25,7 +26,7 @@ const sprintLifecycleModalsSource = readSource(
 const sprintEditorSource = readSource(
   "src/components/projects/v2/sprints/CreateSprintModal.tsx",
 );
-const sprintActionsSource = readSource("src/app/actions/project/index.ts");
+const sprintActionsSource = projectActionsSource();
 
 describe("sprint tab target architecture contract", () => {
   it("keeps canonical Sprint and task references in URLs", () => {

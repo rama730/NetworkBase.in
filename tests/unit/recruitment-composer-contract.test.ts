@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { projectActionsSource } from "./_project-actions-source";
 
 function source(relativePath: string) {
     return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
@@ -44,7 +45,7 @@ test("all recruitment entry points use the Invite Collaborator surface", () => {
 
 test("application entry points exclude existing project members", () => {
     const profilePage = source("src/app/(site)/(main)/u/[username]/page.tsx");
-    const projectAction = source("src/app/actions/project/index.ts");
+    const projectAction = projectActionsSource();
     const dashboard = source("src/components/projects/dashboard/ProjectDashboardClient.tsx");
 
     // The viewer to exclude comes from the session, never from the caller (COR-044).

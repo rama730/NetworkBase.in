@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { projectActionsSource } from "./_project-actions-source";
 
 const read = (path: string) => readFileSync(path, "utf8");
 
 test("task creation persists selected files as reference links", () => {
-  const source = read("src/app/actions/project/index.ts");
+  const source = projectActionsSource();
 
   assert.match(source, /annotation: "#initial_reference"/);
   assert.match(source, /tags: replaceTaskFileRoleTag\(\[\], "reference"\)/);

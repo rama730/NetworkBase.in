@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { projectActionsSource } from "./_project-actions-source";
 
 const read = (path: string) => readFileSync(path, "utf8");
 const fnBody = (source: string, name: string) => {
@@ -51,7 +52,7 @@ test("COR-022: project statuses use the canonical readability rule (drafts hidde
 });
 
 test("COR-043: task, sprint and member loaders gate on their tab, sprint task rows on Tasks", () => {
-  const project = read("src/app/actions/project/index.ts");
+  const project = projectActionsSource();
   const tasks = fnBody(project, "async function fetchProjectTasksForActor(");
   assert.match(tasks, /canReadProjectTab\(access, "tasks"\)/);
   assert.match(fnBody(project, "export async function fetchProjectSprintsAction("), /assertProjectTabReadAccess\(projectId, actorId, "sprints"\)/);
@@ -65,14 +66,14 @@ test("COR-043: task, sprint and member loaders gate on their tab, sprint task ro
 });
 
 test("COR-042: exported project readers derive the actor from the session", () => {
-  const project = read("src/app/actions/project/index.ts");
+  const project = projectActionsSource();
   assert.match(fnBody(project, "export async function readProjectDetailShell("), /getViewerAuthContext\(\)/);
   assert.match(fnBody(project, "export async function readProjectSprintDetail("), /getViewerAuthContext\(\)/);
   assert.doesNotMatch(project, /export async function getProjectDetailShellAction/);
 });
 
 test("COR-044: profile role picker is session-scoped and lists only publicly readable non-draft projects", () => {
-  const picker = fnBody(read("src/app/actions/project/index.ts"), "export async function getProfileProjectsWithOpenRolesAction(");
+  const picker = fnBody(projectActionsSource(), "export async function getProfileProjectsWithOpenRolesAction(");
   assert.match(picker, /\(\s*targetProfileId: string,\s*input:/);
   assert.match(picker, /getViewerAuthContext\(\)/);
   assert.match(picker, /relationship\?\.canViewProfile/);
@@ -129,7 +130,7 @@ test("COR-029: request feeds and role alignment project people through profile p
 test("COR-059: subtree rewrites match literal path prefixes within the task scope", () => {
   const merge = read("src/lib/projects/merge-sandbox.ts");
   assert.doesNotMatch(merge, /path LIKE/);
-  const project = read("src/app/actions/project/index.ts");
+  const project = projectActionsSource();
   assert.doesNotMatch(project, /path LIKE \$\{`\$\{node\.path\}\/%`\}/);
   assert.match(project, /AND task_id = \$\{taskId\}\s+AND starts_with\(path, \$\{`\$\{node\.path\}\/`\}\)/);
 });

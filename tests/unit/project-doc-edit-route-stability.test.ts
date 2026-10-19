@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { projectActionsSource } from "./_project-actions-source";
 
 const repoRoot = process.cwd();
 
@@ -66,10 +67,7 @@ test("project docs isolate published document identity across URLs and cache", (
 });
 
 test("project detail reads retry transient Supabase pooler DNS failures", () => {
-    const projectActions = fs.readFileSync(
-        path.join(repoRoot, "src/app/actions/project/index.ts"),
-        "utf8",
-    );
+    const projectActions = projectActionsSource();
 
     assert.match(
         projectActions,
