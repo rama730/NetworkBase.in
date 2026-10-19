@@ -15,6 +15,9 @@ function actionBody(name: string, nextName: string) {
   return source.slice(start, end === -1 ? undefined : end);
 }
 
+// COR-027: both the status control and a drag run the one shared transition.
+const transition = source.slice(source.indexOf("async function transitionTaskTx"), source.indexOf("async function afterTaskTransition"));
+
 test("done transitions request review without publishing task files", () => {
   const updateStatus = actionBody(
     "updateTaskStatusAction",
@@ -25,10 +28,12 @@ test("done transitions request review without publishing task files", () => {
     "assignTaskAction",
   );
 
-  assert.match(updateStatus, /newReviewStatus = "pending"/);
-  assert.match(moveColumn, /newReviewStatus = "pending"/);
-  assert.doesNotMatch(updateStatus, /promoteTaskFiles/);
-  assert.doesNotMatch(moveColumn, /promoteTaskFiles/);
+  assert.match(transition, /reviewStatus = "pending"/);
+  assert.match(updateStatus, /transitionTaskTx\(tx, locked/);
+  assert.match(moveColumn, /transitionTaskTx\(tx, locked/);
+  assert.match(updateStatus, /afterTaskTransition\(/);
+  assert.match(moveColumn, /afterTaskTransition\(/);
+  assert.doesNotMatch(source, /promoteTaskFiles/);
 });
 
 test("approval clears review state and stamps deliverable versions without changing file ownership", () => {
@@ -47,6 +52,7 @@ test("moves between custom sections in the same status remain auditable", () => 
     "moveTaskToWorkflowColumnAction",
     "assignTaskAction",
   );
-  assert.match(moveColumn, /locked\.currentWorkflowColumnId !== column\.id/);
-  assert.match(moveColumn, /eventType: "workflow_column_changed"/);
+  assert.match(moveColumn, /columnId: workflowColumnId/);
+  assert.match(transition, /locked\.currentWorkflowColumnId !== column\.id/);
+  assert.match(transition, /"workflow_column_changed"/);
 });

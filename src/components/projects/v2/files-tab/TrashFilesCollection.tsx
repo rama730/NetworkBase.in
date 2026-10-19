@@ -19,8 +19,10 @@ import {
   bulkRestoreNodes,
 } from "@/app/actions/files/mutations";
 import {
+  getBulkPermanentDeleteImpact,
   getPermanentDeleteImpact,
   permanentlyDeleteTrashedNode,
+  permanentlyDeleteTrashedNodes,
 } from "@/app/actions/files/trash";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
@@ -69,10 +71,12 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
     | ({ id: string } & Awaited<ReturnType<typeof getPermanentDeleteImpact>>)
     | null
   >(null);
-  const [emptyTrashDialogOpen, setEmptyTrashDialogOpen] = useState(false);
-  const [emptyingTrash, setEmptyingTrash] = useState(false);
-  const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = useState(false);
-  const [batchDeleting, setBatchDeleting] = useState(false);
+  // Empty Trash and batch delete share one review: the aggregated impact is shown before anything is deleted.
+  const [bulk, setBulk] = useState<{
+    scope: "all" | "selected";
+    impact: Awaited<ReturnType<typeof getBulkPermanentDeleteImpact>> | null;
+  } | null>(null);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   // Sorting & Filtering state
   const [sortColumn, setSortColumn] = useState<"name" | "updated" | "size">("updated");
@@ -309,76 +313,43 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
     }
   }
 
-  async function handleBatchPermanentDelete() {
-    if (selectedIds.size === 0 || batchDeleting) return;
-    setBatchDeleting(true);
-    const ids = Array.from(selectedIds);
-    let deletedCount = 0;
+  async function openBulkReview(scope: "all" | "selected") {
+    if (!canManageFiles || bulkDeleting) return;
+    setBulk({ scope, impact: null });
     try {
-      for (const id of ids) {
-        try {
-          const impact = await getPermanentDeleteImpact(projectId, id);
-          const res = await permanentlyDeleteTrashedNode(
-            projectId,
-            id,
-            impact.fingerprint,
-          );
-          if (res && res.status !== "pending") {
-            for (const deletedId of res.deletedIds) {
-              useFilesWorkspaceStore.getState().removeNodeFromCaches(projectId, deletedId);
-            }
-          }
-          deletedCount++;
-        } catch {
-          // Continue attempting remaining nodes
-        }
-      }
-      toast.success(
-        `Permanently deleted ${deletedCount} ${deletedCount === 1 ? "item" : "items"}`,
-      );
-      setBatchDeleteDialogOpen(false);
-      setSelectedIds(new Set());
-      reconcile();
+      const impact = await getBulkPermanentDeleteImpact(projectId, scope === "all" ? "all" : Array.from(selectedIds));
+      setBulk((current) => (current?.scope === scope ? { scope, impact } : current));
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Batch deletion failed",
-      );
-    } finally {
-      setBatchDeleting(false);
+      toast.error(error instanceof Error ? error.message : "Could not review deletion");
+      setBulk(null);
     }
   }
 
-  async function handleEmptyTrash() {
-    if (!canManageFiles || emptyingTrash || nodes.length === 0) return;
-    setEmptyingTrash(true);
-    let deletedCount = 0;
+  async function confirmBulkDelete() {
+    if (!bulk?.impact || bulkDeleting) return;
+    setBulkDeleting(true);
     try {
-      for (const node of nodes) {
-        try {
-          const impact = await getPermanentDeleteImpact(projectId, node.id);
-          const response = await permanentlyDeleteTrashedNode(
-            projectId,
-            node.id,
-            impact.fingerprint,
-          );
-          if (response && response.status !== "pending") {
-            for (const id of response.deletedIds) {
-              useFilesWorkspaceStore.getState().removeNodeFromCaches(projectId, id);
-            }
-          }
-          deletedCount++;
-        } catch {
-          // Continue attempting remaining nodes
-        }
+      const reviewed = Object.keys(bulk.impact.fingerprints).length;
+      const result = await permanentlyDeleteTrashedNodes(projectId, bulk.impact.fingerprints);
+      for (const id of result.deletedIds) {
+        useFilesWorkspaceStore.getState().removeNodeFromCaches(projectId, id);
       }
-      toast.success(`Permanently deleted ${deletedCount} ${deletedCount === 1 ? "item" : "items"}`);
-      setEmptyTrashDialogOpen(false);
+      const deletedRoots = reviewed - result.pendingIds.length - result.failed.length;
+      const plural = (n: number) => `${n} ${n === 1 ? "item" : "items"}`;
+      if (deletedRoots > 0) toast.success(`Permanently deleted ${plural(deletedRoots)}.`);
+      if (result.pendingIds.length > 0) {
+        toast.warning(`${plural(result.pendingIds.length)} pending storage cleanup; they stay in Trash and retry automatically.`);
+      }
+      if (result.failed.length > 0) {
+        toast.error(`${plural(result.failed.length)} could not be deleted: ${result.failed[0]!.error}`);
+      }
+      setBulk(null);
       setSelectedIds(new Set());
       reconcile();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to empty trash");
+      toast.error(error instanceof Error ? error.message : "Deletion failed");
     } finally {
-      setEmptyingTrash(false);
+      setBulkDeleting(false);
     }
   }
 
@@ -402,7 +373,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
           <div className="flex items-center gap-1.5 mr-1">
             <button
               type="button"
-              onClick={() => setEmptyTrashDialogOpen(true)}
+              onClick={() => void openBulkReview("all")}
               className="nb-touch-target flex h-8 items-center gap-1.5 rounded-[5px] border border-[#F2CAC5] bg-white px-2.5 text-xs font-semibold text-[#96201A] shadow-xs hover:bg-[#FCEDEB] hover:border-[#E8A59E] active:bg-[#F7D8D4] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#96201A] dark:border-red-900/50 dark:bg-card dark:text-red-400 dark:hover:bg-red-950/20"
               aria-label="Empty trash"
             >
@@ -412,16 +383,6 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
           </div>
         </FilesHeaderSlot>
       )}
-
-      {/* Subtle Drafting Retention Policy Strip */}
-      <div className="flex items-center justify-between border-b border-[#DBD5C8] bg-[#F3F0EA] px-4 py-1 text-[11px] font-mono text-[#4C5A61] dark:border-border dark:bg-card/50 dark:text-muted-foreground">
-        <div className="flex items-center gap-1.5 truncate">
-          <Clock className="size-3 shrink-0 text-[#6B7880] dark:text-muted-foreground" aria-hidden="true" />
-          <span className="truncate">
-            Items in Trash are retained for 30 days before permanent automatic cleanup.
-          </span>
-        </div>
-      </div>
 
       {/* Toolbar: Category Filters & Inline Search */}
       <div
@@ -753,7 +714,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
             {canManageFiles && (
               <button
                 type="button"
-                onClick={() => setBatchDeleteDialogOpen(true)}
+                onClick={() => void openBulkReview("selected")}
                 disabled={batchOperating}
                 className="nb-touch-target inline-flex h-8 items-center gap-1.5 rounded-[5px] border border-[#F2CAC5] bg-white px-3 text-xs font-semibold text-[#96201A] shadow-xs hover:bg-[#FCEDEB] active:bg-[#F7D8D4] disabled:opacity-50 cursor-pointer dark:border-red-900/50 dark:bg-card dark:text-red-400"
               >
@@ -940,42 +901,31 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
         )}
       </ConfirmDialog>
 
-      {/* Batch Permanent Delete Confirm Dialog */}
+      {/* Bulk permanent delete: Empty Trash or the selection, reviewed first */}
       <ConfirmDialog
-        open={batchDeleteDialogOpen}
+        open={!!bulk}
         onOpenChange={(open) => {
-          if (!open && !batchDeleting) setBatchDeleteDialogOpen(false);
+          if (!open && !bulkDeleting) setBulk(null);
         }}
-        title={`Permanently delete ${selectedIds.size} selected item(s)?`}
-        description="This action cannot be undone. All selected files, folders, and their versions will be permanently purged from the project."
-        confirmLabel={batchDeleting ? "Deleting…" : "Delete permanently"}
+        title={bulk?.scope === "all" ? "Permanently empty trash?" : "Permanently delete the selected items?"}
+        description="This cannot be undone. Shared storage objects used by other files are retained. GitHub is not modified."
+        confirmLabel={bulkDeleting ? "Deleting…" : bulk?.scope === "all" ? "Empty trash" : "Delete permanently"}
         variant="destructive"
-        loading={batchDeleting}
+        loading={bulkDeleting || !bulk?.impact}
+        pendingLabel={bulk?.impact ? undefined : "Reviewing…"}
         autoCloseOnConfirm={false}
-        onConfirm={handleBatchPermanentDelete}
+        onConfirm={confirmBulkDelete}
       >
-        <p className="text-sm">
-          {selectedIds.size} item(s) currently selected in Trash will be permanently destroyed.
-        </p>
-      </ConfirmDialog>
-
-      {/* Empty Trash Confirm Dialog */}
-      <ConfirmDialog
-        open={emptyTrashDialogOpen}
-        onOpenChange={(open) => {
-          if (!open && !emptyingTrash) setEmptyTrashDialogOpen(false);
-        }}
-        title="Permanently empty trash?"
-        description="This will permanently delete all items currently in the trash. Shared storage objects used by other files are retained. This action cannot be undone."
-        confirmLabel={emptyingTrash ? "Emptying trash…" : "Empty trash"}
-        variant="destructive"
-        loading={emptyingTrash}
-        autoCloseOnConfirm={false}
-        onConfirm={handleEmptyTrash}
-      >
-        <p className="text-sm">
-          {nodes.length} item(s) will be permanently purged from the project.
-        </p>
+        {bulk?.impact ? (
+          <p className="text-sm">
+            {bulk.impact.roots} item(s) holding {bulk.impact.items} file(s) and folder(s),{" "}
+            {bulk.impact.versions} stored version(s) and {bulk.impact.taskLinks} task link(s) will be removed.{" "}
+            {bulk.impact.documentLinks} linked document(s) will be disconnected.
+            {bulk.impact.truncated ? " Trash holds more; empty it again afterwards for the rest." : ""}
+          </p>
+        ) : (
+          <p className="text-sm text-muted-foreground">Reviewing what will be deleted…</p>
+        )}
       </ConfirmDialog>
     </div>
   );

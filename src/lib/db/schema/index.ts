@@ -942,6 +942,7 @@ export const projectMembers = pgTable(
       t.userId,
     ),
     userIdx: index("project_members_user_idx").on(t.userId),
+    userRoleIdx: index("project_members_user_role_idx").on(t.userId, t.role),
     projectJoinedAtIdx: index("project_members_project_joined_at_idx").on(
       t.projectId,
       t.joinedAt.desc(),

@@ -35,6 +35,7 @@ export async function generateMetadata() {
             title: 'My Profile | NetworkBase',
             description: 'Your personal profile and presence on NetworkBase.',
             path: '/my-profile',
+            robots: { index: false, follow: false },
         })
     }
 
@@ -54,6 +55,7 @@ export async function generateMetadata() {
         }),
         path: '/my-profile',
         image: profile?.avatarUrl || undefined,
+        robots: { index: false, follow: false },
     })
 }
 

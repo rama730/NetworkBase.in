@@ -46,6 +46,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { moveTaskToWorkflowColumnAction } from "@/app/actions/task";
 import { toast } from "sonner";
 import { patchProjectTaskCaches } from "@/lib/projects/task-cache";
+import { taskSurfaceVersionMs } from "@/lib/projects/task-presentation";
 import {
   buildTaskPreviewColumns,
   getTaskWorkflowColumnId,
@@ -413,9 +414,12 @@ const KanbanColumn = React.memo(
                 <p className="text-xs font-medium text-foreground">
                   {col.emptyTitle || "No tasks here"}
                 </p>
-                <p className="mt-1 text-[11px] text-muted-foreground max-w-[200px]">
-                  {col.emptyDescription || "Drag tasks into this section"}
-                </p>
+                {/* Only people who can move cards are told to drag them. */}
+                {canEditTasks ? (
+                  <p className="mt-1 text-[11px] text-muted-foreground max-w-[200px]">
+                    {col.emptyDescription || "Drag tasks into this section"}
+                  </p>
+                ) : null}
               </div>
             )}
           </SortableContext>
@@ -463,8 +467,24 @@ export default function KanbanBoard({
   fetchNextPage,
 }: KanbanBoardProps) {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const taskMovePendingRef = React.useRef(false);
 
-  useEffect(() => setTasks(initialTasks), [initialTasks]);
+  // Server lists win, except over a local copy that is newer (a settled move the refetch predates)
+  // or the card whose move is still in flight.
+  useEffect(() => {
+    setTasks((current) => {
+      const localById = new Map(current.map((task) => [task.id, task]));
+      return initialTasks.map((task) => {
+        const local = localById.get(task.id);
+        if (!local) return task;
+        const localVersion = taskSurfaceVersionMs(local);
+        const serverVersion = taskSurfaceVersionMs(task);
+        return localVersion > serverVersion || (taskMovePendingRef.current && localVersion === serverVersion && local.position !== task.position)
+          ? local
+          : task;
+      });
+    });
+  }, [initialTasks]);
 
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [activeTaskWidth, setActiveTaskWidth] = useState<number | null>(null);
@@ -472,7 +492,6 @@ export default function KanbanBoard({
   const [previewMove, setPreviewMove] = useState<TaskDragPreview | null>(null);
   const queryClient = useQueryClient();
   const dragTasksRef = React.useRef<Task[] | null>(null);
-  const taskMovePendingRef = React.useRef(false);
   const [isTaskMovePending, setIsTaskMovePending] = useState(false);
 
   const DEFAULT_VISIBLE = 20;
@@ -645,13 +664,11 @@ export default function KanbanBoard({
       return;
     }
 
-    const destinationTasks = snapshot
-      .filter(
-        (task) =>
-          task.id !== draggedTask.id &&
-          getWorkflowColumnId(task) === target.columnId,
-      )
-      .sort((left, right) => (right.position ?? 0) - (left.position ?? 0));
+    // Display order (position, then newest), exactly as the board renders it.
+    const displayColumns = buildTaskPreviewColumns(snapshot, workflow, null);
+    const destinationTasks = (displayColumns[target.columnId] ?? []).filter(
+      (task: Task) => task.id !== draggedTask.id,
+    );
     const beforeIndex = target.beforeTaskId
       ? destinationTasks.findIndex((task) => task.id === target.beforeTaskId)
       : destinationTasks.length;
@@ -660,9 +677,7 @@ export default function KanbanBoard({
     const previousTask = destinationTasks[insertionIndex - 1];
     const nextTask = destinationTasks[insertionIndex];
     const sourceColumnId = getWorkflowColumnId(draggedTask);
-    const sourceTasks = snapshot.filter(
-      (task) => getWorkflowColumnId(task) === sourceColumnId,
-    );
+    const sourceTasks: Task[] = sourceColumnId ? displayColumns[sourceColumnId] ?? [] : [];
     const sourceIndex = sourceTasks.findIndex(
       (task) => task.id === draggedTask.id,
     );
@@ -687,6 +702,14 @@ export default function KanbanBoard({
           : previousTask
             ? (previousTask.position ?? 0) - POSITION_GAP
             : (draggedTask.position ?? 0);
+    // ponytail: equal neighbours (precision exhausted) cannot take a midpoint. ceiling: ~50 repeated
+    // drops between the same two cards. upgrade: a server-side column rebalance.
+    if ((previousTask && newPosition === previousTask.position) || (nextTask && newPosition === nextTask.position)) {
+      clearDragSnapshot();
+      onTaskDragStateChange?.(null);
+      toast.error("This spot is too crowded to place a card. Drop it one card higher or lower.");
+      return;
+    }
     const updatedTask = {
       ...draggedTask,
       workflowColumnId: targetColumn.id,

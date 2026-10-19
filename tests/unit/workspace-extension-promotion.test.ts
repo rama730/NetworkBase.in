@@ -7,11 +7,8 @@ import {
   buildIdeLaunchUri,
   buildIdeMarketplaceUri,
   resolveIdeFromSession,
-  getAlwaysOpenDirect,
-  setAlwaysOpenDirect,
   SUPPORTED_IDES,
   EXTENSION_URI_AUTHORITY,
-  IDE_ALWAYS_OPEN_STORAGE_KEY,
 } from "@/lib/extension/ide-protocol";
 
 describe("WorkSpace Extension Desktop Deep-Linking & Promotion Contract", () => {
@@ -128,42 +125,17 @@ describe("WorkSpace Extension Desktop Deep-Linking & Promotion Contract", () => 
         assert.ok(ide.icon.startsWith("/ide-icons/"));
       }
     });
-
-    it("provides getAlwaysOpenDirect and setAlwaysOpenDirect helpers", () => {
-      assert.equal(typeof getAlwaysOpenDirect, "function");
-      assert.equal(typeof setAlwaysOpenDirect, "function");
-      assert.equal(IDE_ALWAYS_OPEN_STORAGE_KEY, "nb:ide-always-open-direct");
-    });
   });
 
-  describe("Custom Open Confirmation Modal & 'Always allow' Flow Contract", () => {
-    it("OpenInIdeButton contains custom Open modal with 'Always allow' tick mark and 'Open' button", () => {
-      const buttonPath = path.resolve(
-        process.cwd(),
-        "src/components/projects/v2/files-tab/OpenInIdeButton.tsx",
+  describe("Open in IDE hands off to the browser's own prompt", () => {
+    it("has no imitation 'Open …?' modal, no preset 'Always allow', and no premature 'Opening…' toast", () => {
+      const content = fs.readFileSync(
+        path.resolve(process.cwd(), "src/components/projects/v2/files-tab/OpenInIdeButton.tsx"),
+        "utf-8",
       );
-      const content = fs.readFileSync(buttonPath, "utf-8");
-
-      assert.ok(
-        content.includes("confirmModalOpen"),
-        "OpenInIdeButton must have confirmModalOpen state",
-      );
-      assert.ok(
-        content.includes("Always allow"),
-        "OpenInIdeButton must include 'Always allow' tick mark label",
-      );
-      assert.ok(
-        content.includes("handleConfirmOpen"),
-        "OpenInIdeButton must include handleConfirmOpen handler",
-      );
-      assert.ok(
-        content.includes("setAlwaysOpenDirect(true)"),
-        "OpenInIdeButton must persist preference when ticked",
-      );
-      assert.ok(
-        content.includes("getAlwaysOpenDirect()"),
-        "OpenInIdeButton must check getAlwaysOpenDirect() to skip modal when allowed",
-      );
+      assert.doesNotMatch(content, /confirmModalOpen|Always allow|AlwaysOpenDirect/);
+      assert.doesNotMatch(content, /toast\.info\(`Opening/);
+      assert.match(content, /If nothing opened, install the NetworkBase WorkSpace extension/);
     });
   });
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { projectTaskHref } from "@/lib/projects/task-presentation";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -54,6 +55,8 @@ interface TaskDetailPanelProps {
   onClose: () => void;
   onTaskUpdated?: (task: TaskSurfaceRecord) => void;
   canEdit: boolean;
+  /** Visitors read details and subtasks; comments, files and source links are for members. */
+  isMember?: boolean;
   canManageFiles?: boolean;
   isOwner?: boolean;
   sprints?: any[];
@@ -73,6 +76,7 @@ export default function TaskDetailPanel({
   onClose,
   onTaskUpdated,
   canEdit,
+  isMember = true,
   canManageFiles = false,
   isOwner = false,
   sprints = [],
@@ -104,16 +108,20 @@ export default function TaskDetailPanel({
 
   const readReceiptTaskIdRef = useRef<string | null>(null);
 
+  const restrictedTab = !isMember && (activeTab === "comments" || activeTab === "files");
   const resource = useTaskPanelResource({
     task: normalizedTask,
     projectId,
-    activeTab,
+    // A restricted tab never loads: its read would only come back Forbidden.
+    activeTab: restrictedTab ? "details" : activeTab,
     currentUserId,
     canEdit,
     sprints,
     members,
     onTaskUpdated,
   });
+
+  const canEditTask = canEdit && !resource.isDeleted;
 
   const currentUser = useMemo(() => {
     const found = members.find(
@@ -290,7 +298,7 @@ export default function TaskDetailPanel({
                           : "Task";
                       if (typeof navigator !== "undefined" && navigator.clipboard) {
                         void navigator.clipboard.writeText(
-                          `${window.location.origin}${window.location.pathname}?tab=tasks&taskId=${resource.task.id}`,
+                          `${window.location.origin}${projectTaskHref(projectSlug || projectId, resource.task.id)}`,
                         );
                       }
                       setCopiedTaskId(true);
@@ -362,7 +370,7 @@ export default function TaskDetailPanel({
                   <DropdownMenuContent align="end" className="z-[210] w-52">
                     <DropdownMenuItem
                       onSelect={() => {
-                        void navigator.clipboard?.writeText(`${window.location.origin}${window.location.pathname}?tab=tasks&taskId=${resource.task.id}`);
+                        void navigator.clipboard?.writeText(`${window.location.origin}${projectTaskHref(projectSlug || projectId, resource.task.id)}`);
                       }}
                     >
                       <Copy className="size-4" />
@@ -455,6 +463,11 @@ export default function TaskDetailPanel({
           </div>
 
           <div className="relative flex-1 overflow-y-auto bg-card">
+            {resource.isDeleted ? (
+              <p role="status" className="border-b border-border bg-muted/50 px-6 py-2 text-xs text-muted-foreground">
+                This task was deleted. It is shown read-only.
+              </p>
+            ) : null}
             {resource.loadedTabs.details ? (
               <div
                 id="task-panel-details"
@@ -464,7 +477,8 @@ export default function TaskDetailPanel({
               >
                 <DetailsTab
                   task={resource.task}
-                  canEdit={canEdit}
+                  canEdit={canEditTask}
+                  canReadSourceMessages={isMember}
                   canManageSprint={isOwner}
                   isMutating={resource.taskMutations.isMutating}
                   mutationError={resource.taskMutations.mutationError}
@@ -505,7 +519,7 @@ export default function TaskDetailPanel({
                   onLoadMore={resource.loadMoreSubtasks}
                   isLoading={resource.loading.subtasks}
                   error={resource.errors.subtasks}
-                  canEdit={canEdit}
+                  canEdit={canEditTask}
                   onAddSubtask={resource.addSubtask}
                   onToggleSubtask={resource.toggleSubtask}
                   onDeleteSubtask={resource.removeSubtask}
@@ -515,7 +529,18 @@ export default function TaskDetailPanel({
               </div>
             ) : null}
 
-            {resource.loadedTabs.comments ? (
+            {restrictedTab ? (
+              <div
+                id={`task-panel-${activeTab}`}
+                role="tabpanel"
+                aria-labelledby={`task-tab-${activeTab}`}
+                className="p-6 text-sm text-muted-foreground"
+              >
+                {activeTab === "comments" ? "Comments" : "Files"} on tasks are visible to project members.
+              </div>
+            ) : null}
+
+            {resource.loadedTabs.comments && !restrictedTab ? (
               <div
                 id="task-panel-comments"
                 role="tabpanel"
@@ -530,7 +555,7 @@ export default function TaskDetailPanel({
                   isLoading={resource.loading.comments}
                   isLoadingMore={resource.commentLoadingMore}
                   error={resource.errors.comments}
-                  canEdit={canEdit}
+                  canEdit={canEditTask}
                   currentUserId={currentUserId}
                   currentUser={currentUser}
                   members={members}
@@ -549,7 +574,7 @@ export default function TaskDetailPanel({
               </div>
             ) : null}
 
-            {resource.loadedTabs.files ? (
+            {resource.loadedTabs.files && !restrictedTab ? (
               <div
                 id="task-panel-files"
                 role="tabpanel"
@@ -560,7 +585,7 @@ export default function TaskDetailPanel({
                   projectId={projectId}
                   projectSlug={projectSlug}
                   taskId={resource.task.id}
-                  canEdit={canEdit}
+                  canEdit={canEditTask}
                   canManageFiles={canManageFiles}
                   attachments={resource.attachments}
                   isLoading={resource.loading.attachments}
@@ -611,7 +636,7 @@ export default function TaskDetailPanel({
         open={showDeleteConfirm}
         onOpenChange={setShowDeleteConfirm}
         title="Delete Task"
-        description="Are you sure you want to delete this task? This action cannot be undone."
+        description="The task is removed from the board. Its working files move to a “Recovered task files” folder in Project Files."
         confirmLabel="Delete"
         variant="destructive"
         overlayClassName="z-[300] bg-black/60"

@@ -84,6 +84,8 @@ export interface FileVersionHistoryPanelProps {
   canEdit: boolean;
   /** Deleting history needs manage_files (owner/admin), not just edit rights. */
   canDeleteVersions?: boolean;
+  /** Why Restore/Delete are off right now (e.g. your own editor holds the file). */
+  actionsLockedReason?: string | null;
   /** Current version number from the node — used to highlight the active row. */
   currentVersion: number;
   /** Whether the node is soft-deleted (deletedAt is not null). Req 10.7, 14.1–14.3. */
@@ -104,6 +106,7 @@ export function FileVersionHistoryPanel({
   nodeName,
   canEdit,
   canDeleteVersions = false,
+  actionsLockedReason = null,
   currentVersion,
   isDeleted = false,
   uploaderNames,
@@ -325,6 +328,12 @@ export function FileVersionHistoryPanel({
           </div>
         }
       />
+
+      {actionsLockedReason && !isDeleted ? (
+        <p role="status" className="border-b border-border bg-muted/40 px-3 py-2 text-[12px] text-muted-foreground">
+          {actionsLockedReason}
+        </p>
+      ) : null}
 
       {/* Soft-deleted banner (Req 10.7, 14.2) */}
       {isDeleted && (

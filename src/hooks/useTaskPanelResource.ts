@@ -188,6 +188,7 @@ export function useTaskPanelResource(params: {
     countsFromTask(normalizeTaskSurfaceRecord(initialTask)),
   );
   const [subtasks, setSubtasks] = useState<TaskPanelSubtask[]>([]);
+  const [isDeleted, setIsDeleted] = useState(false);
   // More rows exist beyond the loaded page. While true, totals come from aggregate reads, never from the list length (API-019).
   const [subtasksHasMore, setSubtasksHasMore] = useState(false);
   const subtasksRef = useRef<TaskPanelSubtask[]>([]);
@@ -340,20 +341,20 @@ export function useTaskPanelResource(params: {
 
   const replaceSubtasks = useCallback(
     (updater: (current: TaskPanelSubtask[]) => TaskPanelSubtask[]) => {
-      setSubtasks((current) => {
-        const next = updater(current);
-        if (subtasksHasMoreRef.current) {
-          // The list is only a page: the aggregate decides the totals.
-          void refreshSubtaskTotals();
-        } else {
-          setCounts((counts) => ({
-            ...counts,
-            subtasks: next.length,
-            completedSubtasks: next.filter((subtask) => subtask.completed).length,
-          }));
-        }
-        return next;
-      });
+      // Side effects run outside the state updater (React may call an updater twice).
+      const next = updater(subtasksRef.current);
+      subtasksRef.current = next;
+      setSubtasks(next);
+      if (subtasksHasMoreRef.current) {
+        // The list is only a page: the aggregate decides the totals.
+        void refreshSubtaskTotals();
+      } else {
+        setCounts((counts) => ({
+          ...counts,
+          subtasks: next.length,
+          completedSubtasks: next.filter((subtask) => subtask.completed).length,
+        }));
+      }
     },
     [refreshSubtaskTotals],
   );
@@ -516,7 +517,15 @@ export function useTaskPanelResource(params: {
     const requestedTaskId = task.id;
     const result = await getProjectTaskDetailAction(projectId, task.id);
     if (taskIdRef.current !== requestedTaskId) return;
-    if (!result.success || !result.task) return;
+    // COR-026: a task deleted elsewhere turns the drawer read-only instead of failing each edit.
+    if (!result.success || !result.task) {
+      if (/not found|deleted/i.test(String((result as { error?: unknown }).error ?? ""))) setIsDeleted(true);
+      return;
+    }
+    if ((result.task as { deletedAt?: string | null }).deletedAt) {
+      setIsDeleted(true);
+      return;
+    }
     setTask((current) => {
       const nextTask = mergeTaskSurfaceRecords(
         current,
@@ -1139,8 +1148,10 @@ export function useTaskPanelResource(params: {
       loadAttachments: refreshAttachments,
       refreshTask: loadTask,
       fileMutations,
+      isDeleted: isDeleted || /task was deleted/i.test(taskMutations.mutationError ?? ""),
     }),
     [
+      isDeleted,
       task,
       counts,
       discussion.comments,

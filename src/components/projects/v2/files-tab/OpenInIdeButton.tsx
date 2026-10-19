@@ -13,7 +13,6 @@ import {
   Sparkles,
   ShoppingBag,
 } from "lucide-react";
-import { toast } from "sonner";
 
 import {
   SUPPORTED_IDES,
@@ -25,8 +24,6 @@ import {
   resolveIdeFromSession,
   getPreferredIde,
   setPreferredIde,
-  getAlwaysOpenDirect,
-  setAlwaysOpenDirect,
 } from "@/lib/extension/ide-protocol";
 import { useExtensionSessionsData } from "@/hooks/useSettingsQueries";
 import { useLaptopInstalledIdes } from "@/hooks/useLaptopInstalledIdes";
@@ -71,11 +68,6 @@ export function OpenInIdeButton({
   const [fallbackIde, setFallbackIde] = useState<IdeDefinition>(SUPPORTED_IDES.cursor);
   const [connectMenuOpen, setConnectMenuOpen] = useState(false);
 
-  // Custom "Open" confirmation modal state
-  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
-  const [targetIde, setTargetIde] = useState<IdeDefinition>(SUPPORTED_IDES.cursor);
-  const [targetAction, setTargetAction] = useState<"workspace" | "marketplace">("workspace");
-  const [alwaysAllow, setAlwaysAllow] = useState(true);
 
   // Filter active authenticated sessions
   const activeSessions = useMemo(() => {
@@ -129,26 +121,11 @@ export function OpenInIdeButton({
         taskId: taskId || undefined,
       });
 
-      const activeFileName = location?.type === "file" ? location.node.name : null;
-      toast.info(`Opening in ${def.name}...`, {
-        description: taskId
-          ? "Focusing task in desktop workspace"
-          : activeFileName
-            ? `Focusing ${activeFileName}`
-            : "Mounting project workspace",
-        duration: 3000,
-      });
-
       dispatchIdeProtocol(uri, () => {
         setFallbackOpen(true);
       });
     } else {
       const marketplaceUri = buildIdeMarketplaceUri(ideId);
-
-      toast.info(`Opening ${def.name} Marketplace...`, {
-        description: "Click Install in your editor to connect NetworkBase WorkSpace",
-        duration: 4000,
-      });
 
       dispatchIdeProtocol(marketplaceUri, () => {
         setFallbackOpen(true);
@@ -156,29 +133,8 @@ export function OpenInIdeButton({
     }
   };
 
-  // Initiates launch, checking if user checked "Always allow"
-  const initiateLaunch = (ideId: SupportedIde, action: "workspace" | "marketplace") => {
-    const def = SUPPORTED_IDES[ideId] || SUPPORTED_IDES.cursor;
-    setTargetIde(def);
-    setTargetAction(action);
-
-    // If user previously ticked "Always allow", open directly without asking!
-    if (getAlwaysOpenDirect()) {
-      executeDispatch(ideId, action);
-      return;
-    }
-
-    // Otherwise, show our modal with the tick mark preference
-    setConfirmModalOpen(true);
-  };
-
-  const handleConfirmOpen = () => {
-    if (alwaysAllow) {
-      setAlwaysOpenDirect(true);
-    }
-    setConfirmModalOpen(false);
-    executeDispatch(targetIde.id, targetAction);
-  };
+  // The browser shows its own "open this app?" prompt; there is nothing to imitate or pre-announce.
+  const initiateLaunch = (ideId: SupportedIde, action: "workspace" | "marketplace") => executeDispatch(ideId, action);
 
   const platformLabel = platform === "darwin" ? "Mac" : platform === "win32" ? "PC" : "Laptop";
 
@@ -448,64 +404,6 @@ export function OpenInIdeButton({
         )}
       </div>
 
-      {/* NetworkBase Custom Direct-Open Confirmation Modal */}
-      <Dialog open={confirmModalOpen} onOpenChange={setConfirmModalOpen}>
-        <DialogContent className="sm:max-w-md bg-card border-border">
-          <DialogHeader>
-            <div className="flex items-center gap-2.5 mb-1">
-              <div className="flex size-9 items-center justify-center rounded-[8px] bg-muted text-foreground">
-                <Image
-                  src={targetIde.icon}
-                  alt=""
-                  width={20}
-                  height={20}
-                  unoptimized
-                  className="size-5 object-contain"
-                />
-              </div>
-              <DialogTitle className="text-base font-semibold">
-                Open {targetIde.name}?
-              </DialogTitle>
-            </div>
-            <DialogDescription className="text-xs text-muted-foreground">
-              {typeof window !== "undefined" ? window.location.origin : "NetworkBase"} wants to open this application.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="py-2">
-            <label className="flex items-center gap-2.5 cursor-pointer select-none text-xs text-foreground py-2 hover:text-foreground transition-colors">
-              <input
-                type="checkbox"
-                checked={alwaysAllow}
-                onChange={(e) => setAlwaysAllow(e.target.checked)}
-                className="size-4 rounded-[4px] border-border text-[#D14E24] focus:ring-[#D14E24] bg-muted cursor-pointer"
-              />
-              <span className="font-medium">
-                Always allow {typeof window !== "undefined" ? window.location.origin : "NetworkBase"} to open links of this type in the associated app
-              </span>
-            </label>
-          </div>
-
-          <DialogFooter className="flex-row justify-end gap-2 pt-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setConfirmModalOpen(false)}
-              className="text-xs"
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleConfirmOpen}
-              className="bg-primary px-5 text-xs text-primary-foreground transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)]"
-            >
-              Open
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* Fallback Setup Modal */}
       <Dialog open={fallbackOpen} onOpenChange={setFallbackOpen}>
         <DialogContent className="sm:max-w-md bg-card border-border">
@@ -526,7 +424,7 @@ export function OpenInIdeButton({
               </DialogTitle>
             </div>
             <DialogDescription className="text-xs text-muted-foreground">
-              Install the NetworkBase WorkSpace extension directly inside {fallbackIde.name}.
+              If nothing opened, install the NetworkBase WorkSpace extension in {fallbackIde.name}, then try again.
             </DialogDescription>
           </DialogHeader>
 

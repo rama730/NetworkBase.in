@@ -44,6 +44,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { extOf } from "@/components/projects/v2/utils/fileKind";
 import { toast } from "sonner";
 
 import * as React from "react";
@@ -190,7 +191,7 @@ export function FileView({
     setDirtyFile(projectId, node.id, editorDirty);
     return () => setDirtyFile(projectId, node.id, false);
   }, [editorDirty, node.id, projectId, setDirtyFile]);
-  const fileLease = useFileLease(projectId, node.id);
+  const fileLease = useFileLease(projectId, node.id, editorDirty);
 
   const leaveEditMode = React.useCallback(
     (nextMode: FileViewMode) => {
@@ -730,8 +731,9 @@ export function FileView({
                 projectId={projectId}
                 nodeId={node.id}
                 nodeName={node.name}
-                canEdit={canEdit && !editorDirty}
-                canDeleteVersions={(roleContext?.canManageFiles ?? false) && !editorDirty}
+                canEdit={canEdit && mode !== "edit"}
+                canDeleteVersions={(roleContext?.canManageFiles ?? false) && mode !== "edit"}
+                actionsLockedReason={mode === "edit" ? "Leave edit mode to restore or delete versions." : null}
                 currentVersion={node.currentVersion ?? 1}
                 isDeleted={node.deletedAt != null}
                 uploaderNames={uploaderNames}
@@ -1022,8 +1024,3 @@ function BinaryFallback({
 
 export default FileView;
 
-function extOf(filename: string): string {
-  const idx = filename.lastIndexOf(".");
-  if (idx === -1) return "";
-  return filename.slice(idx + 1).toLowerCase();
-}

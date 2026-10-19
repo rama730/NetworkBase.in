@@ -57,6 +57,7 @@ import {
   updateProjectSchema,
   type UpdateProjectInput,
 } from "@/lib/validations/project";
+import { markProfileCollaborationSummaryStale } from "@/lib/profile/collaboration";
 import { z } from "zod";
 import { createHash, randomUUID } from "crypto";
 import { generateSlug } from "@/lib/utils/slug";
@@ -159,6 +160,7 @@ import {
   buildSprintPermissionSet,
   type SprintDetailPayload,
   type SprintListItem,
+  isSprintReadyToClose,
   type SprintTaskTimelineEntity,
 } from "@/lib/projects/sprint-detail";
 import {
@@ -629,6 +631,23 @@ export async function invalidateProjectPublicCaches(projectId: string) {
   revalidateTag(DISCOVER_ANON_CACHE_TAG, { expire: 0 });
   revalidateTag(PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG, { expire: 0 });
   revalidateTag(PUBLIC_PROJECT_DETAIL_METADATA_CACHE_TAG, { expire: 0 });
+
+  try {
+    const [members, project] = await Promise.all([
+      db.select({ userId: projectMembers.userId }).from(projectMembers).where(eq(projectMembers.projectId, projectId)),
+      db.select({ ownerId: projects.ownerId }).from(projects).where(eq(projects.id, projectId)).limit(1).then((r) => r[0]),
+    ]);
+    const userIds = Array.from(new Set([
+      ...(project?.ownerId ? [project.ownerId] : []),
+      ...members.map((m) => m.userId),
+    ]));
+    if (userIds.length > 0) {
+      await markProfileCollaborationSummaryStale(userIds);
+    }
+  } catch {
+    // Non-fatal if summary stale mark fails
+  }
+
   return feed;
 }
 
@@ -6484,6 +6503,7 @@ async function fetchProjectTasksForActor(
             searchPattern
               ? or(
                   ilike(t.title, searchPattern),
+                  ilike(t.description, searchPattern),
                   taskNumberSearch !== null
                     ? eq(t.taskNumber, taskNumberSearch)
                     : undefined,
@@ -8448,6 +8468,8 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
           description: validated.description?.trim() || null,
           status: validated.status,
           workflowColumnId: defaultColumn.id,
+          // Top of its column (the board sorts position DESC) with room for drops between cards.
+          position: sql`(SELECT COALESCE(MAX(position), 0) + 1024 FROM tasks WHERE workflow_column_id = ${defaultColumn.id} AND deleted_at IS NULL)`,
           priority: validated.priority,
           sprintId: validated.sprintId || null,
           timelineOriginSprintId: validated.sprintId || null,
@@ -9139,8 +9161,9 @@ export async function completeSprintAction(
         columns: { endDate: true },
       });
       if (!activeSprint) throw new Error("Only an Active sprint can be completed");
-      if (!activeSprint.endDate || activeSprint.endDate.getTime() > now.getTime()) {
-        throw new Error("This sprint can be closed on or after its scheduled end date");
+      // The same inclusive end-of-day (UTC) rule the sprint page uses to offer close-out.
+      if (!isSprintReadyToClose({ status: "active", endDate: activeSprint.endDate?.toISOString() ?? null }, now)) {
+        throw new Error("This sprint can be closed after its scheduled end date");
       }
       // Claim the transition first. The status predicate serializes
       // duplicate completion requests before memberships are moved or
@@ -9153,7 +9176,6 @@ export async function completeSprintAction(
             eq(projectSprints.id, sprintId),
             eq(projectSprints.projectId, projectId),
             eq(projectSprints.status, "active"),
-            lte(projectSprints.endDate, now),
           ),
         )
         .returning({ id: projectSprints.id });

@@ -20,15 +20,16 @@ test("task panel listens to its task row and exposes connection state", () => {
   assert.match(resource, /entry\.generation !== generation/);
 });
 
-test("task panel opens locally without serializing its internal identifier", () => {
+test("an open task panel is a working link: its drawer params are in the URL", () => {
   const taskTab = read("src/components/projects/v2/TasksTab.tsx");
   const hook = read("src/hooks/useTaskPanelResource.ts");
   const links = read("src/app/actions/files/links.ts");
   const fileMutations = read("src/hooks/useTaskFileMutations.ts");
 
-  assert.match(taskTab, /router\.replace\(nextUrl, \{ scroll: false \}\);/);
-  assert.doesNotMatch(taskTab, /nextParams\.set\("drawerId"/);
-  assert.match(taskTab, /\["drawerType", "drawerId", "panelTab"\]/);
+  assert.match(taskTab, /nextParams\.set\("drawerId", normalized\.id\)/);
+  assert.match(taskTab, /router\.push\(nextUrl, \{ scroll: false \}\);/);
+  // Closing still removes them.
+  assert.match(taskTab, /"drawerType",\s*"drawerId",\s*"panelTab",/);
   assert.match(hook, /countsFromTask/);
   assert.match(hook, /queryClient\.fetchQuery/);
   assert.doesNotMatch(hook, /countTaskAttachments/);

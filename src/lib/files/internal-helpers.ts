@@ -342,6 +342,61 @@ export async function assertUniqueSiblingName(
     }
 }
 
+/**
+ * PERF-003: set-based guards for bulk move and restore. One read each instead of one per node
+ * while the project lock is held.
+ */
+export async function assertNodesNotLockedByAnotherUser(projectId: string, nodeIds: string[], userId: string, tx: any) {
+    if (!nodeIds.length) return;
+    const [lock] = Array.from(await tx.execute(sql`
+        SELECT 1 FROM project_node_locks
+        WHERE project_id = ${projectId}::uuid
+          AND node_id IN (${sql.join(nodeIds.map((id) => sql`${id}::uuid`), sql`, `)})
+          AND locked_by <> ${userId}::uuid
+          AND expires_at > now()
+        LIMIT 1
+    `));
+    if (lock) throw new ConflictError("File has an active editing lease");
+}
+
+/** Every (parent, name) pair must be free among live siblings outside the batch itself. */
+export async function assertUniqueSiblingNames(
+    projectId: string,
+    entries: { id: string; parentId: string | null; name: string }[],
+    tx: any,
+) {
+    if (!entries.length) return;
+    const pairs = sql.join(entries.map((entry) => sql`(${entry.parentId}::uuid, lower(${entry.name}))`), sql`, `);
+    const [duplicate] = Array.from(await tx.execute(sql`
+        SELECT 1 FROM project_nodes n
+        JOIN (VALUES ${pairs}) AS wanted(parent_id, name)
+          ON n.parent_id IS NOT DISTINCT FROM wanted.parent_id AND lower(n.name) = wanted.name
+        WHERE n.project_id = ${projectId}::uuid
+          AND n.deleted_at IS NULL
+          AND n.id NOT IN (${sql.join(entries.map((entry) => sql`${entry.id}::uuid`), sql`, `)})
+        LIMIT 1
+    `));
+    if (duplicate) throw new ConflictError("A file/folder with this name already exists in this location");
+}
+
+/** One ancestry walk of the destination, checked against every selected folder. */
+export async function assertNotMovingAnyIntoDescendant(projectId: string, folderIds: string[], targetParentId: string | null, tx: any) {
+    if (!targetParentId || !folderIds.length) return;
+    if (folderIds.includes(targetParentId)) throw new Error("Cannot move a folder into itself or its descendant");
+    const [hit] = Array.from(await tx.execute(sql`
+        WITH RECURSIVE ancestors AS (
+            SELECT id, parent_id, 1 AS depth FROM project_nodes
+            WHERE id = ${targetParentId}::uuid AND project_id = ${projectId}::uuid AND deleted_at IS NULL
+            UNION ALL
+            SELECT p.id, p.parent_id, a.depth + 1 FROM project_nodes p
+            JOIN ancestors a ON p.id = a.parent_id
+            WHERE p.project_id = ${projectId}::uuid AND p.deleted_at IS NULL AND a.depth < 256
+        )
+        SELECT 1 FROM ancestors WHERE id IN (${sql.join(folderIds.map((id) => sql`${id}::uuid`), sql`, `)}) LIMIT 1
+    `));
+    if (hit) throw new Error("Cannot move a folder into itself or its descendant");
+}
+
 export async function assertNotMovingIntoDescendant(
     projectId: string,
     nodeId: string,

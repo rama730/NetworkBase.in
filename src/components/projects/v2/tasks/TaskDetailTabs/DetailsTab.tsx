@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { formatTaskDueDate, isTaskOverdue } from "@/lib/projects/task-presentation";
 import {
   Calendar,
   Check,
@@ -17,7 +18,7 @@ import {
   X as XIcon,
   Zap,
 } from "lucide-react";
-import { addDays, format, formatDistanceToNow, isBefore, startOfDay } from "@/lib/utils/date";
+import { addDays, format, formatDistanceToNow } from "@/lib/utils/date";
 import ReactMarkdown from "react-markdown";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -55,6 +56,8 @@ import { cn } from "@/lib/utils";
 interface DetailsTabProps {
   task: TaskSurfaceRecord;
   canEdit: boolean;
+  /** Source chat messages are members-only; visitors never query them. */
+  canReadSourceMessages?: boolean;
   canManageSprint?: boolean;
   isMutating: boolean;
   mutationError: string | null;
@@ -88,6 +91,7 @@ interface DetailsTabProps {
 export default function DetailsTab({
   task,
   canEdit,
+  canReadSourceMessages = true,
   canManageSprint = false,
   isMutating,
   mutationError,
@@ -179,14 +183,7 @@ export default function DetailsTab({
     }
   }, [task.updatedAt]);
 
-  const isOverdue = useMemo(() => {
-    if (!task.dueDate || task.status === "done") return false;
-    try {
-      return isBefore(new Date(task.dueDate), startOfDay(new Date()));
-    } catch {
-      return false;
-    }
-  }, [task.dueDate, task.status]);
+  const isOverdue = isTaskOverdue(task);
 
   const setDueDatePreset = (daysFromToday: number | null) => {
     if (daysFromToday === null) {
@@ -200,14 +197,32 @@ export default function DetailsTab({
   const saveDescription = async () => {
     const trimmed = descriptionDraft.trim();
     if (trimmed !== (task.description || "").trim()) {
-      await onUpdateField("description", trimmed);
+      const result = await onUpdateField("description", trimmed);
+      // Leave edit mode only once it saved; a failure keeps the draft open to retry.
+      if (!result.success) return;
     }
     setIsEditingDescription(false);
+  };
+
+  // Story points commit on blur or Enter, never per keystroke.
+  const [pointsDraft, setPointsDraft] = useState(task.storyPoints == null ? "" : String(task.storyPoints));
+  useEffect(() => {
+    setPointsDraft(task.storyPoints == null ? "" : String(task.storyPoints));
+  }, [task.storyPoints]);
+  const commitPoints = () => {
+    const trimmed = pointsDraft.trim();
+    const next = trimmed ? Number.parseInt(trimmed, 10) : null;
+    if (next !== null && (!Number.isInteger(next) || next < 0 || next > 100)) {
+      setPointsDraft(task.storyPoints == null ? "" : String(task.storyPoints));
+      return;
+    }
+    if (next !== (task.storyPoints ?? null)) void onUpdateField("storyPoints", next);
   };
 
   const showDoneWarnings = task.status === "done" && fileWarnings.length > 0;
   const sourceLinksQuery = useQuery({
     queryKey: queryKeys.chat.taskSource(task.id),
+    enabled: canReadSourceMessages,
     staleTime: 60_000,
     queryFn: async () => {
       const result = await listTaskSourceMessages({ taskId: task.id });
@@ -244,7 +259,11 @@ export default function DetailsTab({
   };
 
   return (
-    <div className="min-w-0 space-y-6 p-6 max-md:p-4">
+    // Read-only viewers see values at full contrast, not as faded disabled controls.
+    <div
+      data-readonly={canEdit ? undefined : ""}
+      className="min-w-0 space-y-6 p-6 max-md:p-4 data-[readonly]:[&_:disabled]:opacity-100 data-[readonly]:[&_:disabled]:cursor-default"
+    >
       {mutationError ? (
         <div className="rounded-[5px] border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs text-destructive">
           {mutationError}
@@ -338,7 +357,13 @@ export default function DetailsTab({
                 return;
               }
               if (normalized !== task.title) {
-                void onUpdateField("title", normalized);
+                // A failed save keeps the draft (the rollback would otherwise overwrite it).
+                void onUpdateField("title", normalized).then((result) => {
+                  if (!result.success) {
+                    setTitleDraft(normalized);
+                    titleInputRef.current?.focus();
+                  }
+                });
               }
             }}
             onKeyDown={(event) => {
@@ -862,7 +887,7 @@ export default function DetailsTab({
               disabled={!canEdit || isMutating}
               className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] text-foreground outline-none transition focus:border-primary disabled:opacity-50"
             />
-            <div className="flex flex-wrap items-center gap-1 pt-0.5">
+            <div className={cn("flex flex-wrap items-center gap-1 pt-0.5", !canEdit && "hidden")}>
               <button
                 type="button"
                 disabled={!canEdit || isMutating}
@@ -910,19 +935,20 @@ export default function DetailsTab({
               type="number"
               min={0}
               max={100}
-              value={task.storyPoints ?? ""}
-              onChange={(event) => {
-                const val = event.target.value.trim();
-                void onUpdateField(
-                  "storyPoints",
-                  val ? Number.parseInt(val, 10) : null,
-                );
+              value={pointsDraft}
+              onChange={(event) => setPointsDraft(event.target.value)}
+              onBlur={commitPoints}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  commitPoints();
+                }
               }}
               placeholder="Unestimated"
               disabled={!canEdit || isMutating}
               className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-background px-3 font-mono text-[13px] text-foreground outline-none transition focus:border-primary disabled:opacity-50"
             />
-            <div className="flex flex-wrap items-center gap-1 pt-0.5">
+            <div className={cn("flex flex-wrap items-center gap-1 pt-0.5", !canEdit && "hidden")}>
               <span className="shrink-0 font-mono text-[10px] max-md:text-[11px] uppercase tracking-[0.06em] text-muted-foreground mr-0.5 whitespace-nowrap">
                 Presets:
               </span>

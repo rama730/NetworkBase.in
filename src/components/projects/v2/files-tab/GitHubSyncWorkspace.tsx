@@ -296,33 +296,41 @@ export function GitHubSyncWorkspace({
     state?.runs.some(
       (run) => run.status === "queued" || run.status === "running",
     ) ?? false;
+  const seededConnectionRef = useRef<string | null>(null);
   const load = useCallback(async () => {
     if (!canManage) return;
     const result = await sync.getGitHubSyncState(projectId);
     if (!result.success) throw new Error(result.error);
     setState(result.data);
-    // ponytail: batch derived form state synchronously with state to eliminate secondary cascading renders. ceiling: single-tab component state. upgrade: useActionState if form actions are migrated to React 19 native action forms.
-    setOwner(result.data.account.username || "");
-    setName(
-      (projectName || "networkbase-project")
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9._-]+/g, "-")
-        .replace(/^-+|-+$/g, "") || "networkbase-project",
-    );
     setReview(
       result.data.runs.find(
         (run) => run.status === "review" || run.status === "failed",
       ) || null,
     );
-    if (result.data.connection) {
-      setNewRepo(false);
-      setSetupMode("existing");
-      setRepository(result.data.connection.repository);
-      setBranch(result.data.connection.branch);
-    } else {
-      setNewRepo(true);
-      setSetupMode("create");
+    // The form is seeded once per connection. The 30 s poll must not overwrite choices the
+    // user is still making (owner, name, repository, branch).
+    const connectionKey = result.data.connection
+      ? `${result.data.connection.repository}#${result.data.connection.branch}`
+      : "none";
+    if (seededConnectionRef.current !== connectionKey) {
+      seededConnectionRef.current = connectionKey;
+      setOwner(result.data.account.username || "");
+      setName(
+        (projectName || "networkbase-project")
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9._-]+/g, "-")
+          .replace(/^-+|-+$/g, "") || "networkbase-project",
+      );
+      if (result.data.connection) {
+        setNewRepo(false);
+        setSetupMode("existing");
+        setRepository(result.data.connection.repository);
+        setBranch(result.data.connection.branch);
+      } else {
+        setNewRepo(true);
+        setSetupMode("create");
+      }
     }
     for (const run of result.data.runs) {
       if (

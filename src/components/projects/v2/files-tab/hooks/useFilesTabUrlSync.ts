@@ -54,6 +54,7 @@ export interface UrlSyncLocationView {
 export interface UrlSyncHistoryView {
   state: unknown;
   replaceState(state: unknown, unused: string, url?: string | null): void;
+  pushState(state: unknown, unused: string, url?: string | null): void;
 }
 
 export interface SyncUrlWindow {
@@ -70,14 +71,16 @@ export interface SyncUrlToLocationArgs {
   fileId?: string | null;
   /** Keep an incoming `fileId` intact until its node has hydrated. */
   suspended?: boolean;
+  /** A user's folder or file navigation is a history entry; canonicalising replaces. */
+  push?: boolean;
 }
 
 /**
- * Apply the single allowed URL mutation for the Files tab: `replaceState`
- * with a URL that reflects `encodedPath`. No-ops when the URL already
- * matches.
+ * Mirror the Files location into the URL: `pushState` for user navigation,
+ * `replaceState` to canonicalise. No-ops when the URL already matches (so a
+ * Back/Forward that already moved the URL writes nothing).
  *
- * Returns `true` when a `replaceState` call was made, `false` otherwise.
+ * Returns `true` when a history call was made, `false` otherwise.
  */
 export function syncUrlToLocation(args: SyncUrlToLocationArgs): boolean {
   if (args.suspended) return false;
@@ -89,7 +92,8 @@ export function syncUrlToLocation(args: SyncUrlToLocationArgs): boolean {
     fileId: args.fileId,
   });
   if (plan.action === "noop") return false;
-  args.win.history.replaceState(args.win.history.state ?? null, "", plan.url);
+  if (args.push) args.win.history.pushState(args.win.history.state ?? null, "", plan.url);
+  else args.win.history.replaceState(args.win.history.state ?? null, "", plan.url);
   return true;
 }
 
@@ -201,7 +205,9 @@ export function useFilesTabUrlSync(
   const nodesByIdRef = useRef<Record<string, ProjectNode>>(nodesById);
   nodesByIdRef.current = nodesById;
 
-  // Effect 1: mirror currentLocation → URL on every change.
+  // Effect 1: mirror currentLocation → URL on every change. The first write after mount
+  // canonicalises the arrival URL (replace); later ones are user navigation (push).
+  const hasSyncedRef = useRef(false);
   useEffect(() => {
     const win = options.window ?? getBrowserWindow();
     if (!win) return;
@@ -215,7 +221,9 @@ export function useFilesTabUrlSync(
       encodedPath: encoded,
       fileId: taskFileId,
       suspended: options.suspendWrites,
+      push: hasSyncedRef.current,
     });
+    if (!options.suspendWrites) hasSyncedRef.current = true;
     // nodesById is intentionally read through a ref so unrelated cache churn
     // does not re-fire replaceState.
   }, [location, options.suspendWrites, options.window, projectId]);

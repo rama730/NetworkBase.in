@@ -71,6 +71,16 @@ export async function permanentlyDeleteTrashedNode(
   expectedFingerprint: string,
 ) {
   const user = await actor(projectId, nodeId);
+  return purgeTrashedRoot(projectId, nodeId, expectedFingerprint, user.id);
+}
+
+async function purgeTrashedRoot(
+  projectId: string,
+  nodeId: string,
+  expectedFingerprint: string,
+  userId: string,
+) {
+  const user = { id: userId };
   await db.transaction(async (tx) => {
     await assertProjectManageFilesAccessTx(tx, projectId, user.id);
     const root = await tx.query.projectNodes.findFirst({
@@ -119,4 +129,77 @@ export async function permanentlyDeleteTrashedNode(
   } catch {
     return { status: "pending" as const, deletedIds: [] as string[] };
   }
+}
+
+const BULK_PURGE_ROOT_LIMIT = 500;
+
+async function bulkActor(projectId: string) {
+  if (!UUID_RE.test(projectId)) throw new Error("Invalid project");
+  const client = await createClient();
+  const { data: { user } } = await client.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+  // One charge per batch: Empty Trash is one user action, not one per item.
+  const { allowed } = await consumeRateLimit(`files:purge:${user.id}`, 30, 60);
+  if (!allowed) throw new Error("Too many requests. Try again shortly.");
+  return user;
+}
+
+/** Top-level trashed items only (a trashed folder's contents go with it), newest first. */
+async function trashedRootIds(projectId: string) {
+  const rows = await db.execute<{ id: string }>(sql`
+    SELECT n.id FROM project_nodes n
+    LEFT JOIN project_nodes p ON p.id = n.parent_id
+    WHERE n.project_id = ${projectId} AND n.deleted_at IS NOT NULL AND (p.id IS NULL OR p.deleted_at IS NULL)
+    ORDER BY n.deleted_at DESC, n.id
+    LIMIT ${BULK_PURGE_ROOT_LIMIT}
+  `);
+  return Array.from(rows).map((row) => row.id);
+}
+
+/**
+ * The review step for Empty Trash and batch delete: the aggregated impact of every root,
+ * with each root's fingerprint so the confirm deletes exactly what was reviewed.
+ */
+export async function getBulkPermanentDeleteImpact(projectId: string, nodeIds: string[] | "all") {
+  const user = await bulkActor(projectId);
+  if (nodeIds !== "all" && (nodeIds.length > BULK_PURGE_ROOT_LIMIT || nodeIds.some((id) => !UUID_RE.test(id))))
+    throw new Error(`Select up to ${BULK_PURGE_ROOT_LIMIT} items.`);
+  const roots = nodeIds === "all" ? await trashedRootIds(projectId) : Array.from(new Set(nodeIds));
+  return db.transaction(async (tx) => {
+    await assertProjectManageFilesAccessTx(tx, projectId, user.id);
+    const total = { roots: 0, items: 0, versions: 0, taskLinks: 0, documentLinks: 0 };
+    const fingerprints: Record<string, string> = {};
+    for (const id of roots) {
+      const plan = await inspectPermanentDelete(tx, projectId, id);
+      if (!plan) continue;
+      fingerprints[id] = fingerprint(plan);
+      total.roots += 1;
+      total.items += plan.nodes.length;
+      total.versions += plan.versions;
+      total.taskLinks += plan.taskLinks;
+      total.documentLinks += plan.documentLinks;
+    }
+    return { ...total, fingerprints, truncated: nodeIds === "all" && roots.length >= BULK_PURGE_ROOT_LIMIT };
+  });
+}
+
+/** Deletes each reviewed root; reports deleted, pending (storage cleanup retries) and failed separately. */
+export async function permanentlyDeleteTrashedNodes(projectId: string, fingerprints: Record<string, string>) {
+  const user = await bulkActor(projectId);
+  const entries = Object.entries(fingerprints);
+  if (entries.length > BULK_PURGE_ROOT_LIMIT || entries.some(([id, fp]) => !UUID_RE.test(id) || typeof fp !== "string"))
+    throw new Error("Invalid deletion review.");
+  const deletedIds: string[] = [];
+  const pendingIds: string[] = [];
+  const failed: { id: string; error: string }[] = [];
+  for (const [id, fp] of entries) {
+    try {
+      const result = await purgeTrashedRoot(projectId, id, fp, user.id);
+      if (result.status === "pending") pendingIds.push(id);
+      else deletedIds.push(...result.deletedIds);
+    } catch (error) {
+      failed.push({ id, error: error instanceof Error ? error.message : "Deletion failed" });
+    }
+  }
+  return { deletedIds, pendingIds, failed };
 }

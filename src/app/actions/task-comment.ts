@@ -180,7 +180,8 @@ async function assertCommentAccess(params: {
         eq(projectMembers.userId, params.userId),
       ),
     )
-    .where(eq(taskComments.id, params.commentId))
+    // COR-026: comments on a deleted task are frozen with it.
+    .where(and(eq(taskComments.id, params.commentId), isNull(tasks.deletedAt)))
     .limit(1);
 
   const row = rows[0];

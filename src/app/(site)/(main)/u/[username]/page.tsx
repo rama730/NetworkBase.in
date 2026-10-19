@@ -45,10 +45,12 @@ export async function generateMetadata({ params }: { params: Promise<{ username:
             title: 'Profile Not Found | NetworkBase',
             description: 'The requested profile could not be found.',
             path: `/u/${encodeURIComponent(route.currentUsername)}`,
+            robots: { index: false, follow: false, noarchive: true },
         });
     }
 
     const profile = route.data.profile;
+    const isPrivate = profile.visibility === 'private';
     return buildRouteMetadata({
         title: buildPublicProfileTitle({
             username: profile.username,
@@ -63,6 +65,7 @@ export async function generateMetadata({ params }: { params: Promise<{ username:
         }),
         path: `/u/${encodeURIComponent(profile.username ?? route.currentUsername)}`,
         image: profile.avatarUrl || DEFAULT_ROUTE_OG_IMAGE,
+        ...(isPrivate ? { robots: { index: false, follow: false, noarchive: true } } : {}),
     });
 }
 

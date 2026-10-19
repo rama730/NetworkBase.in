@@ -343,7 +343,6 @@ export function useTaskDiscussionResource(params: {
       return { success: false as const, error: "Unauthorized" };
     }
 
-    const previous = page;
     const target = page.comments.find((comment) => comment.id === commentId)
       ?? page.comments.flatMap((comment) => comment.replies).find((reply) => reply.id === commentId)
       ?? null;
@@ -364,7 +363,15 @@ export function useTaskDiscussionResource(params: {
 
     const result = await toggleTaskCommentLikeAction(commentId, projectId);
     if (!result.success) {
-      setPage(previous);
+      // Undo only this like: a whole-page snapshot would also erase rows realtime added meanwhile.
+      setPage((current) =>
+        patchTaskDiscussionLike(current, {
+          commentId,
+          userId: currentUserId,
+          shouldAdd: target.likedByViewer,
+          currentUserId,
+        }),
+      );
       const message = result.error || "Failed to update like";
       setError(message);
       return { success: false as const, error: message };
@@ -378,7 +385,6 @@ export function useTaskDiscussionResource(params: {
     if (!canEdit) {
       return { success: false as const, error: "Forbidden" };
     }
-    const previous = page;
     const target = page.comments.find((comment) => comment.id === commentId)
       ?? page.comments.flatMap((comment) => comment.replies).find((reply) => reply.id === commentId)
       ?? null;
@@ -409,7 +415,13 @@ export function useTaskDiscussionResource(params: {
 
     const result = await deleteTaskCommentAction(commentId, projectId);
     if (!result.success) {
-      setPage(previous);
+      // Put back just this entry, keeping anything realtime delivered while the delete was in flight.
+      const { replies: _replies, ...targetEntry } = target as typeof target & { replies?: unknown };
+      setPage((current) =>
+        shouldTombstone
+          ? patchTaskDiscussionEntry(current, targetEntry)
+          : appendTaskDiscussionEntry(current, targetEntry),
+      );
       const message = result.error || "Failed to delete comment";
       setError(message);
       return { success: false as const, error: message };

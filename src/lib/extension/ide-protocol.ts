@@ -197,31 +197,6 @@ export const SUPPORTED_IDES: Record<SupportedIde, IdeDefinition> = {
 
 export const EXTENSION_URI_AUTHORITY = "nb-workspace.nb-vscode-sync";
 export const IDE_PREFERENCE_STORAGE_KEY = "nb:preferred-ide";
-export const IDE_ALWAYS_OPEN_STORAGE_KEY = "nb:ide-always-open-direct";
-
-/**
- * Checks if the user checked "Always allow opening directly" to skip confirmation.
- */
-export function getAlwaysOpenDirect(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return window.localStorage.getItem(IDE_ALWAYS_OPEN_STORAGE_KEY) === "true";
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Persists the "Always allow opening directly" preference.
- */
-export function setAlwaysOpenDirect(val: boolean): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(IDE_ALWAYS_OPEN_STORAGE_KEY, val ? "true" : "false");
-  } catch {
-    // Ignore localStorage errors
-  }
-}
 
 export interface BuildIdeLaunchUriParams {
   ide?: SupportedIde | string;

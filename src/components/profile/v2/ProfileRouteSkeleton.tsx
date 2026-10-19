@@ -12,7 +12,7 @@ export function ProfileRouteSkeleton() {
             <div aria-hidden="true" className="mx-auto max-w-[1060px] px-4 py-6 sm:px-6">
                 <div className="space-y-5">
                     {/* Full-width header matching ProfileHeader geometry */}
-                    <header className="rounded-lg border border-border bg-card p-6 shadow-none">
+                    <header className="rounded-[8px] border border-border bg-card p-4 shadow-none md:p-6">
                         <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
                             <div className="flex gap-4">
                                 <Skeleton className="size-[72px] shrink-0 rounded-[4px]" />
@@ -37,51 +37,55 @@ export function ProfileRouteSkeleton() {
                         </div>
                     </header>
 
-                    {/* Main content grid: Left Column (tabs + main) + Right Rail (320px) */}
+                    {/* Main content grid: Left Column (tabs + main) + Right Rail (320px) matching ProfileShell */}
                     <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6 lg:items-start">
-                        <div className="space-y-6 lg:min-w-0">
+                        <div className="contents lg:min-w-0 lg:block lg:space-y-6">
                             {/* Tabs shell */}
-                            <div className="flex items-center gap-2 border-b border-border pb-px">
-                                <Skeleton className="h-9 w-24 rounded-t-md" />
-                                <Skeleton className="h-9 w-24 rounded-t-md" />
+                            <div className="order-1 min-w-0 flex min-h-11 w-full items-end gap-5 border-b border-border">
+                                <Skeleton className="h-5 w-20 mb-3 rounded-[3px]" />
+                                <Skeleton className="h-5 w-20 mb-3 rounded-[3px]" />
                             </div>
 
                             {/* About card */}
-                            <section className="rounded-lg border border-border bg-card p-5 space-y-3">
+                            <section className="order-2 rounded-lg border border-border bg-card p-5 space-y-3">
                                 <Skeleton className="h-5 w-24 rounded-[3px]" />
                                 <Skeleton className="h-4 w-full rounded-[3px]" />
                                 <Skeleton className="h-4 w-5/6 rounded-[3px]" />
                                 <Skeleton className="h-4 w-4/6 rounded-[3px]" />
                             </section>
 
-                            {/* Projects / Highlights section */}
-                            <section className="rounded-lg border border-border bg-card p-5 space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <Skeleton className="h-5 w-32 rounded-[3px]" />
-                                    <Skeleton className="h-4 w-16 rounded-[3px]" />
-                                </div>
-                                <div className="space-y-3">
-                                    <Skeleton className="h-28 w-full rounded-lg border border-border" />
-                                    <Skeleton className="h-28 w-full rounded-lg border border-border" />
-                                </div>
+                            {/* Project contributions */}
+                            <section className="order-4 rounded-lg border border-border bg-card p-5 space-y-3">
+                                <Skeleton className="h-5 w-40 rounded-[3px]" />
+                                <Skeleton className="h-20 w-full rounded-lg border border-border" />
                             </section>
                         </div>
 
                         {/* Right rail */}
-                        <aside className="space-y-6 lg:min-w-0">
-                            <div className="rounded-lg border border-border bg-card p-5 space-y-4">
-                                <Skeleton className="h-4 w-28 rounded-[3px]" />
-                                <div className="flex flex-wrap gap-1.5">
-                                    {[1, 2, 3, 4, 5].map((i) => (
-                                        <Skeleton key={i} className="h-6 w-16 rounded-[4px]" />
-                                    ))}
+                        <aside role="complementary" className="contents lg:min-w-0 lg:block" aria-label="Profile details">
+                            <div className="contents lg:sticky lg:block lg:space-y-6" style={{ top: "24px" }}>
+                                {/* Highlights: OpenToRolesCard */}
+                                <div className="order-3 space-y-6">
+                                    <div className="rounded-lg border border-border bg-card p-5 space-y-3">
+                                        <Skeleton className="h-5 w-32 rounded-[3px]" />
+                                        <Skeleton className="h-4 w-3/4 rounded-[3px]" />
+                                        <div className="flex gap-2 pt-1">
+                                            <Skeleton className="h-6 w-20 rounded-[4px]" />
+                                            <Skeleton className="h-6 w-24 rounded-[4px]" />
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div className="rounded-lg border border-border bg-card p-5 space-y-3">
-                                <Skeleton className="h-4 w-24 rounded-[3px]" />
-                                <Skeleton className="h-10 w-full rounded-md" />
-                                <Skeleton className="h-10 w-full rounded-md" />
+                                {/* Rail: Links card */}
+                                <div className="order-5 space-y-6">
+                                    <div className="rounded-lg border border-border bg-card p-5 space-y-3">
+                                        <Skeleton className="h-4 w-28 rounded-[3px]" />
+                                        <div className="space-y-2">
+                                            <Skeleton className="h-11 w-full rounded-[3px]" />
+                                            <Skeleton className="h-11 w-full rounded-[3px]" />
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </aside>
                     </div>

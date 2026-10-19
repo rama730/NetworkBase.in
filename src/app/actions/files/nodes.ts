@@ -411,62 +411,27 @@ export async function getBreadcrumbs(projectId: string, folderId: string | null)
         });
         if (folder) assertTaskFileNodeVisible(access, folder);
 
-        // Materialized Path O(1) query
-        if (folder && folder.path && folder.path !== '/') {
-            const parts = folder.path.split('/').filter(Boolean);
-            const pathsToFetch: string[] = [];
-            let cur = "";
-            for (const p of parts) {
-                cur += "/" + p;
-                pathsToFetch.push(cur);
-            }
-
-            if (pathsToFetch.length > 0) {
-                const rows = await db.query.projectNodes.findMany({
-                    where: and(
-                        eq(projectNodes.projectId, projectId),
-                        // Intentionally inclusive of deleted_at so breadcrumbs resolve
-                        // correctly for visible nodes inside deleted folders
-                        inArray(projectNodes.path, pathsToFetch)
-                    ),
-                    columns: { id: true, name: true, parentId: true, path: true }
-                });
-
-                // Sort by path length to ensure root-to-leaf order
-                rows.sort((a, b) => (a.path?.length || 0) - (b.path?.length || 0));
-
-                return await labelTaskWorkingFilesBreadcrumbs(projectId, rows.map((r) => ({
-                    id: r.id,
-                    name: r.name,
-                    parentId: r.parentId,
-                    path: r.path,
-                })));
-            }
-        }
-
-        // Fallback for unmigrated legacy rows
+        // Ancestors by parent_id, never by path: a trashed "/A" and a live "/A" share a path.
         const rows = await db.execute<{ id: string; name: string; parent_id: string | null; path: string | null }>(sql`
             WITH RECURSIVE ancestors AS (
-                SELECT id, name, parent_id, path
+                SELECT id, name, parent_id, path, 0 AS depth
                 FROM project_nodes
                 WHERE id = ${folderId} AND project_id = ${projectId}
                 UNION ALL
-                SELECT pn.id, pn.name, pn.parent_id, pn.path
+                SELECT pn.id, pn.name, pn.parent_id, pn.path, a.depth + 1
                 FROM project_nodes pn
                 INNER JOIN ancestors a ON pn.id = a.parent_id
-                WHERE pn.project_id = ${projectId}
+                WHERE pn.project_id = ${projectId} AND a.depth < 64
             )
-            SELECT id, name, parent_id, path FROM ancestors
+            SELECT id, name, parent_id, path FROM ancestors ORDER BY depth DESC
         `);
 
-        const arr = Array.from(rows).map((r) => ({
+        return await labelTaskWorkingFilesBreadcrumbs(projectId, Array.from(rows).map((r) => ({
             id: r.id,
             name: r.name,
             parentId: r.parent_id,
             path: r.path,
-        }));
-
-        return await labelTaskWorkingFilesBreadcrumbs(projectId, arr.reverse());
+        })));
     });
 }
 

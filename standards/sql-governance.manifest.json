@@ -216,7 +216,8 @@
     "drizzle/0212_onboarding_attempt_token.sql",
     "drizzle/0213_work_leases.sql",
     "drizzle/0214_counter_flush_batches.sql",
-    "drizzle/0215_projects_import_source_private.sql"
+    "drizzle/0215_projects_import_source_private.sql",
+    "drizzle/0216_task_position_backfill.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",

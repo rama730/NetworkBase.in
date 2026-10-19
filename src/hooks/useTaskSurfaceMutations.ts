@@ -187,6 +187,8 @@ export function useTaskSurfaceMutations(params: {
         if (!result.success) {
           throw new Error(result.error || "Failed to update task");
         }
+        // The server's version replaces the optimistic clock, so the next drag's version check matches.
+        if (result.updatedAt) applyOptimisticTask({ ...nextTask, updatedAt: result.updatedAt }, field);
         return { success: true as const };
       } catch (error) {
         const message =
@@ -221,9 +223,15 @@ export function useTaskSurfaceMutations(params: {
       setIsMutating(true);
 
       const previousTask = normalizeTaskSurfaceRecord(task);
+      // The card moves with its status: to that status's default section.
+      const workflow = queryClient.getQueryData<Array<{ id: string; status: string; isDefault: boolean }>>(
+        queryKeys.project.detail.workflow(projectId),
+      );
+      const defaultColumnId = workflow?.find((column) => column.isDefault && column.status === status)?.id;
       const nextTask = normalizeTaskSurfaceRecord({
         ...task,
         status,
+        ...(defaultColumnId ? { workflowColumnId: defaultColumnId } : {}),
         updatedAt: new Date().toISOString(),
       });
       const snapshots = takeSnapshots();
@@ -238,6 +246,12 @@ export function useTaskSurfaceMutations(params: {
         setStatusWarnings(
           Array.isArray(result.warnings) ? result.warnings : [],
         );
+        if (result.updatedAt) {
+          applyOptimisticTask(
+            normalizeTaskSurfaceRecord({ ...nextTask, updatedAt: result.updatedAt, reviewStatus: result.reviewStatus ?? nextTask.reviewStatus }),
+            "status",
+          );
+        }
         return { success: true as const };
       } catch (error) {
         const message =
@@ -254,6 +268,7 @@ export function useTaskSurfaceMutations(params: {
     [
       applyOptimisticTask,
       projectId,
+      queryClient,
       rollbackOptimisticTask,
       takeSnapshots,
       task,
@@ -290,6 +305,7 @@ export function useTaskSurfaceMutations(params: {
         if (!result.success) {
           throw new Error(result.error || "Failed to assign task");
         }
+        if (result.updatedAt) applyOptimisticTask({ ...nextTask, updatedAt: result.updatedAt }, "assigneeId");
         return { success: true as const };
       } catch (error) {
         const message =

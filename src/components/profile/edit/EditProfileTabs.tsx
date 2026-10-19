@@ -23,11 +23,13 @@ import {
     Globe,
     UserCheck,
     Wrench,
+    ArrowUp,
+    ArrowDown,
 } from "lucide-react";
 import { createProfileImageUploadUrlAction, finalizeProfileImageUploadAction } from "@/app/actions/profile";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { sanitizeUsernameInput } from "@/lib/validations/username";
 import { useUsernameAvailability } from "@/hooks/useUsernameAvailability";
@@ -59,10 +61,10 @@ import { SortableLinkList } from "@/components/links/SortableLinkList";
 
 const SkillPicker = dynamic(() => import("@/components/skills/SkillPicker").then((mod) => mod.SkillPicker), {
     ssr: false,
-    loading: () => <div className="h-24 rounded-lg bg-zinc-100 dark:bg-zinc-900" />,
+    loading: () => <div className="h-24 rounded-lg bg-muted" />,
 });
 
-export type EditProfileSection = "general" | "experience" | "education" | "skills" | "social" | "opportunity";
+export type EditProfileSection = "general" | "experience" | "skills" | "social" | "opportunity";
 
 interface EditProfileTabsProps {
     profile: any;
@@ -76,6 +78,7 @@ interface EditProfileTabsProps {
     contributionHasMore?: boolean;
     contributionTotal?: number;
     onLoadMoreContributions?: () => void;
+    onImageFinalized?: (avatarUrl: string, updatedAt?: string) => void;
 }
 
 const EDIT_SECTIONS: Array<{
@@ -102,6 +105,7 @@ export function EditProfileTabs({
     contributionHasMore = false,
     contributionTotal = 0,
     onLoadMoreContributions,
+    onImageFinalized,
 }: EditProfileTabsProps) {
     const [avatarUploading, setAvatarUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -145,13 +149,15 @@ export function EditProfileTabs({
 
             const finalized = await finalizeProfileImageUploadAction({
                 uploadIntentId: uploadSession.uploadIntentId,
+                commitToProfile: false,
             });
             if (!finalized.success) {
                 throw new Error(finalized.error || "Failed to finalize image upload");
             }
 
             updateForm("avatarUrl", finalized.publicUrl);
-            toast.success("Avatar updated");
+            onImageFinalized?.(finalized.publicUrl, finalized.updatedAt);
+            toast.success("Avatar ready to save");
         } catch (error: any) {
             updateForm("avatarUrl", previousAvatarUrl);
             const message = error?.message || "Unknown error";
@@ -179,32 +185,27 @@ export function EditProfileTabs({
             className="w-full h-full flex flex-col md:flex-row"
             orientation="vertical"
         >
-            <aside aria-label="Profile edit sections" className="w-full md:w-[220px] shrink-0 border-r border-border bg-card p-3 flex flex-col gap-1 overflow-y-auto">
+            <aside aria-label="Profile edit sections" className="w-full md:w-[200px] shrink-0 border-r border-border bg-card p-3 flex flex-col gap-1 overflow-y-auto">
                 <div className="px-2.5 py-1.5 font-mono text-[10px] max-md:text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
                     Profile Sections
                 </div>
-                {EDIT_SECTIONS.map((tab) => {
-                    const Icon = tab.icon;
-                    const active = section === tab.id;
-                    return (
-                        <button
-                            key={tab.id}
-                            type="button"
-                            role="tab"
-                            aria-selected={active}
-                            onClick={() => onSectionChange(tab.id)}
-                            className={cn(
-                                "group flex min-h-[38px] w-full items-center gap-2.5 rounded-md px-3 py-2 text-left transition-colors duration-[130ms] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-                                active
-                                    ? "bg-muted font-medium text-foreground shadow-none"
-                                    : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
-                            )}
-                        >
-                            <Icon className={cn("size-4 shrink-0 transition-colors", active ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
-                            <span className="nb-ui-label block truncate">{tab.label}</span>
-                        </button>
-                    );
-                })}
+                <TabsList className="flex flex-col h-auto w-full bg-transparent p-0 border-none gap-1 items-stretch">
+                    {EDIT_SECTIONS.map((tab) => {
+                        const Icon = tab.icon;
+                        return (
+                            <TabsTrigger
+                                key={tab.id}
+                                value={tab.id}
+                                className={cn(
+                                    "group flex min-h-[38px] w-full items-center justify-start gap-2.5 rounded-md px-3 py-2 text-left border-b-0 border-transparent transition-colors duration-[130ms] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring data-[state=active]:bg-muted data-[state=active]:font-medium data-[state=active]:text-foreground data-[state=active]:shadow-none text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                                )}
+                            >
+                                <Icon className="size-4 shrink-0 transition-colors text-muted-foreground group-data-[state=active]:text-primary group-hover:text-foreground" />
+                                <span className="nb-ui-label block truncate">{tab.label}</span>
+                            </TabsTrigger>
+                        );
+                    })}
+                </TabsList>
             </aside>
 
             <div className="flex-1 app-scroll app-scroll-y p-6 md:p-8 bg-card">
@@ -385,7 +386,7 @@ export function EditProfileTabs({
                                 <div className="space-y-0.5">
                                     <p className="nb-ui-label text-foreground font-medium">Changing your identity</p>
                                     <p className="nb-compact text-muted-foreground">
-                                        Your public handle updates immediately. Cached mentions may take a little time to refresh.
+                                        Your public handle updates immediately. Note: You can only change your username once every 30 days. Cached mentions may take a little time to refresh.
                                     </p>
                                 </div>
                             </div>
@@ -582,13 +583,13 @@ function RolePreferencesEditor({ profile, onChange }: { profile: any; onChange: 
     return (
         <section aria-labelledby="role-preferences-heading" className="space-y-6">
             <div>
-                <p className="nb-compact text-zinc-500 dark:text-zinc-400">
+                <p className="nb-compact text-muted-foreground">
                     Define the custom roles, commitment levels, and categories visitors should see on your builder profile.
                 </p>
             </div>
 
             <div className="space-y-3">
-                <label className="nb-ui-label text-zinc-700 dark:text-zinc-300">Standard Availability Type</label>
+                <label className="nb-ui-label text-foreground">Standard Availability Type</label>
                 <div className="flex flex-wrap gap-2" role="group" aria-label="Role types">
                     {ROLE_PREFERENCE_OPTIONS.map((option) => {
                         const selected = selectedRoles.has(option.value)
@@ -601,8 +602,8 @@ function RolePreferencesEditor({ profile, onChange }: { profile: any; onChange: 
                                 className={cn(
                                     "nb-ui-label rounded-full border px-3 py-1.5 transition-colors",
                                     selected
-                                        ? "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300"
-                                        : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800",
+                                        ? "border-primary/30 bg-primary/10 text-primary font-medium"
+                                        : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
                                 )}
                             >
                                 {option.label}
@@ -613,7 +614,7 @@ function RolePreferencesEditor({ profile, onChange }: { profile: any; onChange: 
             </div>
 
             <div className="space-y-3">
-                <label className="nb-ui-label text-zinc-700 dark:text-zinc-300">Role Categories</label>
+                <label className="nb-ui-label text-foreground">Role Categories</label>
                 <div className="flex flex-wrap gap-2" role="group" aria-label="Role categories">
                     {ROLE_CATEGORIES.map((category) => {
                         const selected = categories.includes(category);
@@ -626,8 +627,8 @@ function RolePreferencesEditor({ profile, onChange }: { profile: any; onChange: 
                                 className={cn(
                                     "nb-ui-label rounded-full border px-3 py-1.5 transition-colors",
                                     selected
-                                        ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
-                                        : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800",
+                                        ? "border-primary/30 bg-primary/10 text-primary font-medium"
+                                        : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
                                 )}
                             >
                                 {category}
@@ -638,7 +639,7 @@ function RolePreferencesEditor({ profile, onChange }: { profile: any; onChange: 
             </div>
 
             <div className="space-y-3">
-                <label className="nb-ui-label text-zinc-700 dark:text-zinc-300">Custom Role Desired Titles</label>
+                <label className="nb-ui-label text-foreground">Custom Role Desired Titles</label>
                 <div className="flex gap-2">
                     <Input
                         value={customRoleInput}
@@ -659,13 +660,13 @@ function RolePreferencesEditor({ profile, onChange }: { profile: any; onChange: 
                         {customRoles.map((role: string) => (
                             <span
                                 key={role}
-                                className="nb-tag inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                                className="nb-tag inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1 font-medium text-foreground"
                             >
                                 {role}
                                 <button
                                     type="button"
                                     onClick={() => handleRemoveCustomRole(role)}
-                                    className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                                    className="text-muted-foreground hover:text-foreground"
                                 >
                                     <X className="h-3 w-3" />
                                 </button>
@@ -676,23 +677,23 @@ function RolePreferencesEditor({ profile, onChange }: { profile: any; onChange: 
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-                <label className="nb-ui-label space-y-2 text-zinc-600 dark:text-zinc-400">
+                <label className="nb-ui-label space-y-2 text-muted-foreground">
                     <span>Experience level</span>
                     <select
                         value={profile.experienceLevel ?? ''}
                         onChange={(event) => onChange({ ...profile, experienceLevel: event.target.value || null })}
-                        className="nb-body h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-zinc-900 outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                        className="nb-body h-10 w-full rounded-md border border-border bg-background px-3 text-foreground outline-none"
                     >
                         <option value="">Not specified</option>
                         {EXPERIENCE_LEVEL_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </select>
                 </label>
-                <label className="nb-ui-label space-y-2 text-zinc-600 dark:text-zinc-400">
+                <label className="nb-ui-label space-y-2 text-muted-foreground">
                     <span>Weekly capacity</span>
                     <select
                         value={profile.hoursPerWeek ?? ''}
                         onChange={(event) => onChange({ ...profile, hoursPerWeek: event.target.value || null })}
-                        className="nb-body h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-zinc-900 outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                        className="nb-body h-10 w-full rounded-md border border-border bg-background px-3 text-foreground outline-none"
                     >
                         <option value="">Not specified</option>
                         {WEEKLY_CAPACITY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -711,7 +712,7 @@ function RolePreferencesEditor({ profile, onChange }: { profile: any; onChange: 
                         experienceLevel: null,
                         hoursPerWeek: null,
                     })}
-                    className="nb-ui-label text-zinc-500 hover:text-rose-600 dark:text-zinc-400 dark:hover:text-rose-400"
+                    className="nb-ui-label text-muted-foreground hover:text-destructive"
                 >
                     Clear role preferences
                 </button>
@@ -800,8 +801,8 @@ function ProjectContributionsList({
             <p className="sr-only" role="status" aria-live="polite">{announcement}</p>
             <div className="flex items-center justify-between gap-4">
                 <div>
-                    <h3 className="nb-card-title text-zinc-900 dark:text-zinc-100">Your contributions</h3>
-                    <p className="nb-compact mt-1 text-zinc-500">
+                    <h3 className="nb-card-title text-foreground">Your contributions</h3>
+                    <p className="nb-compact mt-1 text-muted-foreground">
                         Open one project at a time. Platform project names and roles come from the project team.
                         {total > 0 ? ` Showing ${Math.min(persistedItems.length, total)} of ${total} saved.` : ""}
                         {unsavedDrafts.length > 0 ? ` ${unsavedDrafts.length} unsaved external ${unsavedDrafts.length === 1 ? "project" : "projects"}.` : ""}
@@ -832,47 +833,47 @@ function ProjectContributionsList({
                     const isDirty = contributionEntryChanged(item, originalById.get(item.draftId));
                     const itemError = errors[item.draftId];
                     return (
-                        <div key={item.draftId} data-contribution-draft-id={item.draftId} className="overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950/40">
+                        <div key={item.draftId} data-contribution-draft-id={item.draftId} className="overflow-hidden rounded-lg border border-border bg-card">
                             <button
                                 type="button"
                                 aria-expanded={isExpanded}
                                 aria-controls={panelId}
                                 onClick={() => setExpandedKey((current) => current === item.draftId ? null : item.draftId)}
-                                className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 dark:hover:bg-zinc-900/60"
+                                className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                             >
                                 <span className="min-w-0">
-                                    <span className="block truncate font-semibold text-zinc-900 dark:text-white">{item.projectTitle || "Untitled external project"}</span>
-                                    <span className="nb-meta mt-1 block truncate text-zinc-500">{item.roleTitle || "Role not specified"}</span>
+                                    <span className="block truncate font-semibold text-foreground">{item.projectTitle || "Untitled external project"}</span>
+                                    <span className="nb-meta mt-1 block truncate text-muted-foreground">{item.roleTitle || "Role not specified"}</span>
                                 </span>
                                 <span className="flex shrink-0 items-center gap-2">
-                                    {itemError ? <span className="nb-micro text-red-600 dark:text-red-400">Needs attention</span> : null}
-                                    {!itemError && saving && isDirty ? <span className="nb-micro text-indigo-600 dark:text-indigo-400">Saving…</span> : null}
+                                    {itemError ? <span className="nb-micro text-destructive">Needs attention</span> : null}
+                                    {!itemError && saving && isDirty ? <span className="nb-micro text-primary">Saving…</span> : null}
                                     {!itemError && !saving && isDirty ? <span className="nb-micro text-amber-600 dark:text-amber-400">Unsaved</span> : null}
-                                    {item.kind === "external" ? <span className="nb-micro text-zinc-500">External</span> : null}
-                                    {!isPublic ? <span className="nb-micro text-zinc-500">Private</span> : null}
-                                    <ChevronDown className={`h-4 w-4 text-zinc-500 transition-transform ${isExpanded ? "rotate-180" : ""}`} aria-hidden="true" />
+                                    {item.kind === "external" ? <span className="nb-micro text-muted-foreground">External</span> : null}
+                                    {!isPublic ? <span className="nb-micro text-muted-foreground">Private</span> : null}
+                                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`} aria-hidden="true" />
                                 </span>
                             </button>
 
                             {isExpanded ? (
-                                <div id={panelId} className="space-y-5 border-t border-zinc-200 p-5 dark:border-zinc-800">
+                                <div id={panelId} className="space-y-5 border-t border-border p-5">
                                     {itemError ? (
-                                        <p role="alert" aria-live="assertive" className="nb-compact rounded-md border border-red-200 bg-red-50 px-4 py-3 text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
+                                        <p role="alert" aria-live="assertive" className="nb-compact rounded-md border border-destructive/20 bg-destructive/10 px-4 py-3 text-destructive">
                                             {itemError}
                                         </p>
                                     ) : null}
                                     {item.kind === "external" ? (
                                         <div className="flex justify-end">
-                                            <Button type="button" variant="ghost" size="sm" onClick={() => handleDeleteExternal(item.draftId)} className="nb-touch-target h-8 px-2 text-zinc-500 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/30">
+                                            <Button type="button" variant="ghost" size="sm" onClick={() => handleDeleteExternal(item.draftId)} className="nb-touch-target h-8 px-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
                                                 <Trash2 className="mr-1.5 h-4 w-4" /> Remove
                                             </Button>
                                         </div>
                                     ) : null}
 
-                                    <div className="flex items-center justify-between rounded-lg border border-zinc-100 bg-zinc-50 p-4 dark:border-zinc-800/30 dark:bg-zinc-900/50">
+                                    <div className="flex items-center justify-between rounded-lg border border-border bg-muted/40 p-4">
                                         <div className="space-y-0.5">
-                                            <span className="nb-ui-label font-semibold text-zinc-900 dark:text-white">Show publicly on profile</span>
-                                            <p className="nb-compact text-zinc-500">Off keeps this contribution visible only to you.</p>
+                                            <span className="nb-ui-label font-semibold text-foreground">Show publicly on profile</span>
+                                            <p className="nb-compact text-muted-foreground">Off keeps this contribution visible only to you.</p>
                                         </div>
                                         <button
                                             type="button"
@@ -880,25 +881,25 @@ function ProjectContributionsList({
                                             aria-checked={isPublic}
                                             aria-label={`${isPublic ? "Hide" : "Show"} ${item.projectTitle || "project contribution"} on profile`}
                                             onClick={() => updateItem(item.draftId, { visibility: isPublic ? "private" : "public" })}
-                                            className={`${isPublic ? "bg-indigo-600" : "bg-zinc-200 dark:bg-zinc-800"} relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent outline-none transition-colors focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2`}
+                                            className={`${isPublic ? "bg-primary" : "bg-muted"} relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2`}
                                         >
                                             <span aria-hidden="true" className={`${isPublic ? "translate-x-5" : "translate-x-0"} pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition`} />
                                         </button>
                                     </div>
 
                                     {item.kind === "platform" ? (
-                                        <dl className="grid grid-cols-1 gap-4 rounded-lg bg-zinc-50 p-4 md:grid-cols-2 dark:bg-zinc-900/50">
-                                            <div><dt className="nb-meta text-zinc-500">Project</dt><dd className="nb-compact mt-1 font-medium text-zinc-900 dark:text-zinc-100">{item.projectTitle}</dd></div>
-                                            <div><dt className="nb-meta text-zinc-500">Your role</dt><dd className="nb-compact mt-1 font-medium text-zinc-900 dark:text-zinc-100">{item.roleTitle}</dd></div>
+                                        <dl className="grid grid-cols-1 gap-4 rounded-lg bg-muted/40 p-4 md:grid-cols-2">
+                                            <div><dt className="nb-meta text-muted-foreground">Project</dt><dd className="nb-compact mt-1 font-medium text-foreground">{item.projectTitle}</dd></div>
+                                            <div><dt className="nb-meta text-muted-foreground">Your role</dt><dd className="nb-compact mt-1 font-medium text-foreground">{item.roleTitle}</dd></div>
                                         </dl>
                                     ) : (
                                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                             <div>
-                                                <label htmlFor={`${panelId}-project`} className="nb-ui-label flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400"><Briefcase className="h-3.5 w-3.5" /> Project name</label>
+                                                <label htmlFor={`${panelId}-project`} className="nb-ui-label flex items-center gap-1.5 text-muted-foreground"><Briefcase className="h-3.5 w-3.5" /> Project name</label>
                                                 <Input ref={(node) => { projectInputRefs.current[item.draftId] = node; }} id={`${panelId}-project`} maxLength={120} aria-required="true" value={item.projectTitle} onChange={(event) => updateItem(item.draftId, { projectTitle: event.target.value })} className="mt-1.5 h-10" />
                                             </div>
                                             <div>
-                                                <label htmlFor={`${panelId}-role`} className="nb-ui-label flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400"><Code className="h-3.5 w-3.5" /> Your role</label>
+                                                <label htmlFor={`${panelId}-role`} className="nb-ui-label flex items-center gap-1.5 text-muted-foreground"><Code className="h-3.5 w-3.5" /> Your role</label>
                                                 <Input id={`${panelId}-role`} maxLength={120} value={item.roleTitle} onChange={(event) => updateItem(item.draftId, { roleTitle: event.target.value })} className="mt-1.5 h-10" />
                                             </div>
                                         </div>
@@ -906,11 +907,11 @@ function ProjectContributionsList({
 
                                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                         <div>
-                                            <label htmlFor={`${panelId}-start`} className="nb-ui-label flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400"><Calendar className="h-3.5 w-3.5" /> Joined</label>
+                                            <label htmlFor={`${panelId}-start`} className="nb-ui-label flex items-center gap-1.5 text-muted-foreground"><Calendar className="h-3.5 w-3.5" /> Joined</label>
                                             <Input id={`${panelId}-start`} type="month" value={item.startedAt} onChange={(event) => updateItem(item.draftId, { startedAt: event.target.value })} className="mt-1.5 h-10" />
                                         </div>
                                         <div>
-                                            <label htmlFor={`${panelId}-end`} className="nb-ui-label flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400"><Calendar className="h-3.5 w-3.5" /> Ended (optional)</label>
+                                            <label htmlFor={`${panelId}-end`} className="nb-ui-label flex items-center gap-1.5 text-muted-foreground"><Calendar className="h-3.5 w-3.5" /> Ended (optional)</label>
                                             <Input id={`${panelId}-end`} type="month" value={item.endedAt} onChange={(event) => updateItem(item.draftId, { endedAt: event.target.value })} className="mt-1.5 h-10" />
                                         </div>
                                     </div>
@@ -918,12 +919,12 @@ function ProjectContributionsList({
                                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                         {item.kind === "external" ? (
                                             <div>
-                                                <label htmlFor={`${panelId}-url`} className="nb-ui-label flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400"><LinkIcon className="h-3.5 w-3.5" /> Project URL</label>
+                                                <label htmlFor={`${panelId}-url`} className="nb-ui-label flex items-center gap-1.5 text-muted-foreground"><LinkIcon className="h-3.5 w-3.5" /> Project URL</label>
                                                 <Input id={`${panelId}-url`} type="url" value={item.projectUrl} onChange={(event) => updateItem(item.draftId, { projectUrl: event.target.value })} className="mt-1.5 h-10" placeholder="https://" />
                                             </div>
                                         ) : <div />}
                                         <div>
-                                            <label htmlFor={`${panelId}-repo`} className="nb-ui-label flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400"><Github className="h-3.5 w-3.5" /> Repository URL</label>
+                                            <label htmlFor={`${panelId}-repo`} className="nb-ui-label flex items-center gap-1.5 text-muted-foreground"><Github className="h-3.5 w-3.5" /> Repository URL</label>
                                             <Input id={`${panelId}-repo`} type="url" value={item.repositoryUrl} onChange={(event) => updateItem(item.draftId, { repositoryUrl: event.target.value })} className="mt-1.5 h-10" placeholder="https://github.com/..." />
                                         </div>
                                     </div>
@@ -931,8 +932,8 @@ function ProjectContributionsList({
                                     <SkillPicker value={item.skills} onChange={(skills) => updateItem(item.draftId, { skills })} maxSkills={20} label="Skills & tools" description="Choose the skills demonstrated in this contribution." placeholder="Search skills" />
 
                                     <div>
-                                        <label htmlFor={`${panelId}-summary`} className="nb-ui-label text-zinc-600 dark:text-zinc-400">Contribution summary</label>
-                                        <textarea id={`${panelId}-summary`} maxLength={2000} className="nb-body mt-1.5 min-h-[96px] w-full resize-none rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 outline-none focus:bg-white dark:border-zinc-800 dark:bg-zinc-900 dark:focus:bg-zinc-950" value={item.summary} onChange={(event) => updateItem(item.draftId, { summary: event.target.value })} placeholder="What did you build, improve, or lead?" />
+                                        <label htmlFor={`${panelId}-summary`} className="nb-ui-label text-muted-foreground">Contribution summary</label>
+                                        <textarea id={`${panelId}-summary`} maxLength={2000} className="nb-body mt-1.5 min-h-[96px] w-full resize-none rounded-md border border-border bg-background px-4 py-3 outline-none focus:bg-card text-foreground" value={item.summary} onChange={(event) => updateItem(item.draftId, { summary: event.target.value })} placeholder="What did you build, improve, or lead?" />
                                     </div>
                                 </div>
                             ) : null}
@@ -942,7 +943,7 @@ function ProjectContributionsList({
             </div>
 
             {hasMore && onLoadMore ? (
-                <div className="flex justify-center border-t border-zinc-200 pt-4 dark:border-zinc-800">
+                <div className="flex justify-center border-t border-border pt-4">
                     <Button type="button" variant="outline" size="sm" onClick={onLoadMore} disabled={loadingMore || saving}>
                         {loadingMore ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : null}
                         {loadingMore ? "Loading contributions…" : "Load more contributions"}
@@ -964,29 +965,52 @@ type SocialLinkEditorEntry = {
     name: string;
 };
 
-function SortableSocialLinkCard({ entry, unavailable, onEdit, onRemove }: {
+function SortableSocialLinkCard({
+    entry,
+    unavailable,
+    onEdit,
+    onRemove,
+    onMoveUp,
+    onMoveDown,
+    canMoveUp,
+    canMoveDown,
+}: {
     entry: SocialLinkEditorEntry;
     unavailable: boolean;
     onEdit: (key: string, item: SocialLinkItem) => void;
     onRemove: (key: string) => void;
+    onMoveUp?: () => void;
+    onMoveDown?: () => void;
+    canMoveUp?: boolean;
+    canMoveDown?: boolean;
 }) {
     const { id, item, presence, name } = entry;
 
     return (
         <>
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                 {presence?.iconKey ? <SocialPresenceIcon iconKey={presence.iconKey} className="h-4 w-4" /> : <LinkIcon className="h-4 w-4" aria-hidden="true" />}
             </span>
             <div className="min-w-0 flex-1">
-                <p className="nb-ui-label truncate text-zinc-900 dark:text-zinc-100">{name}</p>
+                <p className="nb-ui-label truncate text-foreground">{name}</p>
                 {unavailable ? <p className="nb-micro mt-1 text-amber-600 dark:text-amber-400">Needs update — this link was unavailable when opened.</p> : null}
             </div>
             <div className="flex shrink-0 items-center gap-1">
-                <Button type="button" variant="ghost" size="icon" onClick={() => onEdit(id, item)} aria-label={`Edit ${name}`}>
-                    <Pencil className="h-4 w-4" aria-hidden="true" />
+                {canMoveUp && onMoveUp ? (
+                    <Button type="button" variant="ghost" size="icon" onClick={onMoveUp} aria-label={`Move ${name} up`} className="size-8 text-muted-foreground hover:text-foreground">
+                        <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
+                    </Button>
+                ) : null}
+                {canMoveDown && onMoveDown ? (
+                    <Button type="button" variant="ghost" size="icon" onClick={onMoveDown} aria-label={`Move ${name} down`} className="size-8 text-muted-foreground hover:text-foreground">
+                        <ArrowDown className="h-3.5 w-3.5" aria-hidden="true" />
+                    </Button>
+                ) : null}
+                <Button type="button" variant="ghost" size="icon" onClick={() => onEdit(id, item)} aria-label={`Edit ${name}`} className="size-8">
+                    <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                 </Button>
-                <Button type="button" variant="ghost" size="icon" onClick={() => onRemove(id)} aria-label={`Remove ${name}`} className="text-zinc-500 hover:text-red-600 dark:hover:text-red-400">
-                    <Trash2 className="h-4 w-4" aria-hidden="true" />
+                <Button type="button" variant="ghost" size="icon" onClick={() => onRemove(id)} aria-label={`Remove ${name}`} className="size-8 text-muted-foreground hover:text-destructive">
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                 </Button>
             </div>
         </>
@@ -1052,6 +1076,16 @@ function SocialLinksEditor({ links, metadata, onChange }: { links: SocialLinkSto
         if (editingKey === key) resetDraft();
     };
 
+    const moveItem = (index: number, direction: 'up' | 'down') => {
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        if (targetIndex < 0 || targetIndex >= items.length) return;
+        const reordered = [...items];
+        const temp = reordered[index]!;
+        reordered[index] = reordered[targetIndex]!;
+        reordered[targetIndex] = temp;
+        onChange(reordered.map((item, idx) => ({ ...item, order: idx })));
+    };
+
     const edit = (key: string, item: SocialLinkItem) => {
         setEditingKey(key);
         setNewUrl(item.url);
@@ -1063,10 +1097,10 @@ function SocialLinksEditor({ links, metadata, onChange }: { links: SocialLinkSto
         <div className="space-y-5">
             <div className="flex flex-wrap items-end justify-between gap-2">
                 <div>
-                    <p className="nb-card-title text-zinc-900 dark:text-zinc-100">Your public links</p>
-                    <p className="nb-compact mt-1 text-zinc-500 dark:text-zinc-400">Show people where they can verify your work and follow you.</p>
+                    <p className="nb-card-title text-foreground">Your public links</p>
+                    <p className="nb-compact mt-1 text-muted-foreground">Show people where they can verify your work and follow you.</p>
                 </div>
-                <span className="nb-meta rounded-full bg-zinc-100 px-2.5 py-1 font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">{entries.length} {entries.length === 1 ? "link" : "links"}</span>
+                <span className="nb-meta rounded-full bg-muted px-2.5 py-1 font-medium text-muted-foreground">{entries.length} {entries.length === 1 ? "link" : "links"}</span>
             </div>
 
             {entries.length ? (
@@ -1074,30 +1108,41 @@ function SocialLinksEditor({ links, metadata, onChange }: { links: SocialLinkSto
                     items={entries}
                     layout="grid"
                     className="grid gap-2 sm:grid-cols-2"
-                    itemClassName="flex min-w-0 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950"
+                    itemClassName="flex min-w-0 items-center gap-1.5 rounded-lg border border-border bg-card p-3"
                     handleClassName="-mr-1"
                     getItemLabel={(entry) => entry.name}
                     onReorder={(next) => onChange(next.map((entry, order) => ({ ...entry.item, order })))}
                 >
-                    {(entry) => <SortableSocialLinkCard entry={entry} unavailable={metadata[entry.id]?.health === 'unavailable'} onEdit={edit} onRemove={remove} />}
+                    {(entry, index) => (
+                        <SortableSocialLinkCard
+                            entry={entry}
+                            unavailable={metadata[entry.id]?.health === 'unavailable'}
+                            onEdit={edit}
+                            onRemove={remove}
+                            onMoveUp={() => moveItem(index, 'up')}
+                            onMoveDown={() => moveItem(index, 'down')}
+                            canMoveUp={index > 0}
+                            canMoveDown={index < entries.length - 1}
+                        />
+                    )}
                 </SortableLinkList>
             ) : (
-                <div className="nb-body rounded-md border border-dashed border-zinc-300 bg-zinc-50 px-4 py-5 text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900/50 dark:text-zinc-400">
+                <div className="nb-body rounded-md border border-dashed border-border bg-muted/40 px-4 py-5 text-muted-foreground">
                     Add a public profile, portfolio, or website to get started.
                 </div>
             )}
 
-            <div className="rounded-lg border border-zinc-200 bg-zinc-50/70 p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
                 <div className="flex items-start justify-between gap-4">
                     <div>
-                        <p className="nb-card-title text-zinc-900 dark:text-zinc-100">{editingKey ? "Edit link" : "Add a link"}</p>
-                        <p className="nb-compact mt-1 text-zinc-500 dark:text-zinc-400">Paste any public address. Familiar services are named automatically; other sites use their domain name.</p>
+                        <p className="nb-card-title text-foreground">{editingKey ? "Edit link" : "Add a link"}</p>
+                        <p className="nb-compact mt-1 text-muted-foreground">Paste any public address. Familiar services are named automatically; other sites use their domain name.</p>
                     </div>
                     {editingKey ? <Button type="button" variant="ghost" size="sm" onClick={resetDraft}>Cancel edit</Button> : null}
                 </div>
 
                 <div className="mt-4">
-                    <label htmlFor="profile-social-url" className="nb-ui-label text-zinc-700 dark:text-zinc-300">Public link</label>
+                    <label htmlFor="profile-social-url" className="nb-ui-label text-foreground">Public link</label>
                     <Input
                         id="profile-social-url"
                         name="socialUrl"
@@ -1107,32 +1152,32 @@ function SocialLinksEditor({ links, metadata, onChange }: { links: SocialLinkSto
                         placeholder="Paste a profile, portfolio, or website link"
                         value={newUrl}
                         onChange={(e) => { setNewUrl(e.target.value); setLinkError(null); }}
-                        className="mt-1.5 bg-white dark:bg-zinc-950"
+                        className="mt-1.5 bg-background"
                     />
                 </div>
 
                 {previewIsGenericWebsite ? (
                     <div className="mt-3">
-                        <label htmlFor="profile-social-label" className="nb-ui-label text-zinc-700 dark:text-zinc-300">Display name <span className="font-normal text-zinc-500">(optional)</span></label>
-                        <Input id="profile-social-label" value={customLabel} maxLength={80} onChange={(e) => setCustomLabel(e.target.value)} placeholder={preview?.accountLabel || "My portfolio"} className="mt-1.5 bg-white dark:bg-zinc-950" />
+                        <label htmlFor="profile-social-label" className="nb-ui-label text-foreground">Display name <span className="font-normal text-muted-foreground">(optional)</span></label>
+                        <Input id="profile-social-label" value={customLabel} maxLength={80} onChange={(e) => setCustomLabel(e.target.value)} placeholder={preview?.accountLabel || "My portfolio"} className="mt-1.5 bg-background" />
                     </div>
                 ) : null}
 
                 {preview ? (
-                    <div aria-live="polite" className="nb-compact mt-3 flex items-center gap-2 rounded-md border border-zinc-200 bg-white px-3 py-2.5 dark:border-zinc-800 dark:bg-zinc-950">
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300">
+                    <div aria-live="polite" className="nb-compact mt-3 flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2.5">
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
                             {preview.iconKey ? <SocialPresenceIcon iconKey={preview.iconKey} className="h-3.5 w-3.5" /> : <LinkIcon className="h-3.5 w-3.5" aria-hidden="true" />}
                         </span>
-                        <span className="min-w-0 flex-1 truncate text-zinc-700 dark:text-zinc-200"><strong>{previewName}</strong>{!previewIsGenericWebsite ? <span className="text-zinc-500 dark:text-zinc-400"> · {preview.accountLabel}</span> : null}</span>
-                        <span className="nb-meta shrink-0 text-zinc-500 dark:text-zinc-400">Detected from URL</span>
+                        <span className="min-w-0 flex-1 truncate text-foreground"><strong>{previewName}</strong>{!previewIsGenericWebsite ? <span className="text-muted-foreground"> · {preview.accountLabel}</span> : null}</span>
+                        <span className="nb-meta shrink-0 text-muted-foreground">Detected from URL</span>
                     </div>
                 ) : trimmedNewUrl ? (
                     <p role="status" className="nb-compact mt-3 text-amber-600 dark:text-amber-400">{candidate?.success === false ? candidate.error : 'Enter a valid public http(s) URL.'}</p>
                 ) : null}
-                {linkError ? <p role="alert" className="nb-compact mt-3 text-red-600 dark:text-red-400">{linkError}</p> : null}
+                {linkError ? <p role="alert" className="nb-compact mt-3 text-destructive">{linkError}</p> : null}
 
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                    <p className="nb-compact max-w-md text-zinc-500 dark:text-zinc-400">Only public http(s) links can be saved. Links are checked again when someone opens them.</p>
+                    <p className="nb-compact max-w-md text-muted-foreground">Only public http(s) links can be saved. Links are checked again when someone opens them.</p>
                     <Button type="button" onClick={handleSave} disabled={!preview}>{editingKey ? "Save link" : "Add link"}</Button>
                 </div>
             </div>

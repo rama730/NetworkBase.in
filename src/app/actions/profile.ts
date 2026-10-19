@@ -19,6 +19,7 @@ import {
 import {
     markProfileCollaborationSummaryStale,
 } from '@/lib/profile/collaboration'
+import { getProfileMutualCount } from '@/lib/data/profile'
 import { positiveIntegerOr } from '@/lib/utils/number'
 import { normalizeAndValidateFileSize, normalizeAndValidateMimeType } from '@/lib/upload/security'
 import { createUploadIntent, finalizeUploadIntent } from '@/lib/upload/upload-intents'
@@ -199,8 +200,9 @@ export async function createProfileImageUploadUrlAction(input: {
 
 export async function finalizeProfileImageUploadAction(input: {
     uploadIntentId: string
+    commitToProfile?: boolean
 }): Promise<
-    | { success: true; publicUrl: string; storagePath: string; uploadIntentId: string }
+    | { success: true; publicUrl: string; storagePath: string; uploadIntentId: string; updatedAt?: string }
     | { success: false; error: string; errorCode: ProfileImageUploadErrorCode }
 > {
     const supabase = await createClient()
@@ -240,6 +242,7 @@ export async function finalizeProfileImageUploadAction(input: {
             kind: isBanner ? 'banner' : 'avatar',
         })
         const assetId = published.assetId
+        let updatedTimestamp: string | undefined
         await db.transaction(async (tx) => {
             const [current] = await tx
                 .select({
@@ -331,14 +334,18 @@ export async function finalizeProfileImageUploadAction(input: {
                 ))
                 .returning({ id: storageAssets.id })
             if (!publishableAsset) throw new Error('Profile asset is no longer publishable')
-            await tx.update(profiles)
-                .set(isBanner
-                    ? { bannerUrl: published.publicUrl, bannerAssetId: assetId, updatedAt: new Date() }
-                    : { avatarUrl: published.publicUrl, avatarAssetId: assetId, updatedAt: new Date() })
-                .where(eq(profiles.id, user.id))
-            const previousAssetId = isBanner ? current.bannerAssetId : current.avatarAssetId
-            if (previousAssetId && previousAssetId !== assetId) {
-                await scheduleAssetDeletionIfUnreferenced(tx, [previousAssetId])
+            if (input.commitToProfile !== false) {
+                const now = new Date()
+                await tx.update(profiles)
+                    .set(isBanner
+                        ? { bannerUrl: published.publicUrl, bannerAssetId: assetId, updatedAt: now }
+                        : { avatarUrl: published.publicUrl, avatarAssetId: assetId, updatedAt: now })
+                    .where(eq(profiles.id, user.id))
+                updatedTimestamp = now.toISOString()
+                const previousAssetId = isBanner ? current.bannerAssetId : current.avatarAssetId
+                if (previousAssetId && previousAssetId !== assetId) {
+                    await scheduleAssetDeletionIfUnreferenced(tx, [previousAssetId])
+                }
             }
         })
         return {
@@ -346,6 +353,7 @@ export async function finalizeProfileImageUploadAction(input: {
             publicUrl: published.publicUrl,
             storagePath: published.storageKey,
             uploadIntentId: intent.id,
+            ...(updatedTimestamp ? { updatedAt: updatedTimestamp } : {}),
         }
     } catch (error) {
         logger.error('profile.image.finalize_failed', {
@@ -764,7 +772,11 @@ export async function updateProfileAction(data: UpdateProfileInput): Promise<Upd
             patch.openTo !== undefined ||
             patch.experienceLevel !== undefined ||
             patch.hoursPerWeek !== undefined ||
-            patch.visibility !== undefined
+            patch.visibility !== undefined ||
+            patch.fullName !== undefined ||
+            patch.avatarUrl !== undefined ||
+            patch.username !== undefined ||
+            patch.headline !== undefined
         ) {
             await markProfileCollaborationSummaryStale(user.id).catch((staleError) => {
                 logger.warn('profile.collaboration_summary_stale_failed', {
@@ -852,7 +864,9 @@ export async function getProfileViewerOverlayAction(profileId: string) {
                 connectionState: privacyRelationship.connectionState,
             },
             lockedShell: !privacyRelationship.canViewProfile,
-            mutualCount: 0,
+            mutualCount: (privacyRelationship.canViewProfile && !privacyRelationship.blockedByViewer && !privacyRelationship.blockedByTarget)
+                ? await getProfileMutualCount(user.id, profileId)
+                : 0,
         };
     } catch (error) {
         return {
