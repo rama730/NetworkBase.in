@@ -535,7 +535,7 @@ async function main() {
       const first = await activity.listThreads({ limit: 1 });
       if (!all.success || !first.success || all.threads.length < 2 || first.threads.length !== 1) return false;
       const head = first.threads[0]!;
-      const next = await activity.listThreads({ limit: 1, before: head.last_reply_at });
+      const next = await activity.listThreads({ limit: 1, cursor: head.cursor });
       return typeof head.last_reply_seq === "number" && next.success && next.threads.length === 1
         && `${next.threads[0]!.channel_id}:${next.threads[0]!.root_seq}` !== `${head.channel_id}:${head.root_seq}`;
     });
