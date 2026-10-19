@@ -15,7 +15,7 @@ export type NetworkBrowseQuery = {
   hasMutuals: boolean;
   openToCollaborate: boolean;
   direction: "all" | "received" | "sent";
-  kind: "all" | "connections" | "projects";
+  kind: "all" | "connections" | "projects" | "decided";
 };
 export const NETWORK_TABS: NetworkTab[] = [
   "suggested",
@@ -64,7 +64,7 @@ export function normalizeNetworkQuery(
         : "all",
     kind:
       tab === "invitations" &&
-      (input.kind === "connections" || input.kind === "projects")
+      (input.kind === "connections" || input.kind === "projects" || input.kind === "decided")
         ? input.kind
         : "all",
   };

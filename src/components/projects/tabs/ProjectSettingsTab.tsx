@@ -1,5 +1,6 @@
 "use client";
 
+import { useRoleApplicationCounts } from "@/hooks/useRoleApplicationCounts";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -399,6 +400,7 @@ export default function ProjectSettingsTab({
     const [savingMemberFileUploadDefault, setSavingMemberFileUploadDefault] = useState(false);
     const [projectTitle, setProjectTitle] = useState(initialIdentity.title);
     const [deletedRoleIds, setDeletedRoleIds] = useState<string[]>([]);
+    const roleApplicationCounts = useRoleApplicationCounts(projectId);
     const {
         register: registerRoles,
         control: rolesControl,
@@ -1956,6 +1958,7 @@ export default function ProjectSettingsTab({
                                     disabled={savingSettings || !isProjectOwner}
                                     onAddRole={handleAddSettingsRole}
                                     onRemoveRole={handleRemoveSettingsRole}
+                                    applicationCounts={roleApplicationCounts}
                                     members={collaboratorMembers}
                                 />
                             </SettingsCard>

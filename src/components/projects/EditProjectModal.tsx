@@ -1,5 +1,6 @@
 "use client";
 
+import { useRoleApplicationCounts } from "@/hooks/useRoleApplicationCounts";
 import React, { useState, useRef, useTransition } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -150,6 +151,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
     });
 
     const [deletedRoleIds, setDeletedRoleIds] = useState<string[]>([]);
+    const roleApplicationCounts = useRoleApplicationCounts(project.id, isOpen);
 
     const technologies = watch("skills");
     
@@ -498,6 +500,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                             className="animate-in fade-in slide-in-from-bottom-2 duration-[260ms]"
                                             onAddRole={() => appendRole({ role: "New Role", count: 1, description: "", skills: [] })}
                                             onRemoveRole={handleDeleteRole}
+                                            applicationCounts={roleApplicationCounts}
                                         />
                                     )}
                                 </div>

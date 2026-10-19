@@ -7,6 +7,7 @@ import type { ProjectRoleFormValue } from "@/lib/projects/project-roles-form";
 import type { ProjectSettingsMember } from "@/lib/projects/settings-policies";
 import { SkillPicker } from "@/components/skills/SkillPicker";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,8 @@ type ProjectRolesEditorProps = {
     onAddRole: () => void;
     onRemoveRole: (index: number, roleId?: string) => void;
     members?: ProjectSettingsMember[];
+    /** Pending and accepted applications per role id; a role with some asks before it is deleted. */
+    applicationCounts?: Record<string, { pending: number; accepted: number }>;
 };
 
 type OccupiedEntry = {
@@ -56,6 +59,7 @@ export function ProjectRolesEditor({
     onAddRole,
     onRemoveRole,
     members,
+    applicationCounts,
 }: ProjectRolesEditorProps) {
     const roleErrors = errors?.roles as
         | Array<{
@@ -181,7 +185,15 @@ export function ProjectRolesEditor({
         });
     };
 
+    // A role people have applied to asks first: its pending applications stay in the queue, but can only be declined.
+    const [removal, setRemoval] = useState<{ index: number; roleId: string; name: string } | null>(null);
+    const removalCounts = removal ? applicationCounts?.[removal.roleId] : undefined;
     const handleRemoveRoleAndSelect = (index: number, roleId?: string) => {
+        const counts = roleId ? applicationCounts?.[roleId] : undefined;
+        if (roleId && counts && (counts.pending > 0 || counts.accepted > 0)) {
+            setRemoval({ index, roleId, name: fields[index]?.role || "this role" });
+            return;
+        }
         onRemoveRole(index, roleId);
         setSelectedTarget(null);
     };
@@ -372,6 +384,7 @@ export function ProjectRolesEditor({
                                             </span>
                                             <span className="text-[10px] max-md:text-[11px] text-muted-foreground leading-tight">
                                                 {entry.openCount === 1 ? "1 open spot" : `${entry.openCount} open spots`}
+                                                {applicationCounts?.[entry.roleId]?.pending ? ` · ${applicationCounts[entry.roleId]!.pending} pending` : ""}
                                             </span>
                                         </div>
                                         <span className="inline-flex items-center h-5 px-[7px] rounded-[3px] border border-dashed border-border bg-muted/20 text-muted-foreground font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none shrink-0">
@@ -738,6 +751,25 @@ export function ProjectRolesEditor({
                     </div>
                 )
             ) : null}
+            <ConfirmDialog
+                open={removal !== null}
+                onOpenChange={(open) => { if (!open) setRemoval(null); }}
+                title={`Remove ${removal?.name ?? "this role"}?`}
+                description={[
+                    removalCounts?.pending ? `${removalCounts.pending} pending ${removalCounts.pending === 1 ? "application stays" : "applications stay"} in your queue, and can then only be declined.` : null,
+                    removalCounts?.accepted ? `${removalCounts.accepted} accepted ${removalCounts.accepted === 1 ? "member keeps" : "members keep"} their place on the project.` : null,
+                    "The role is removed when you save.",
+                ].filter(Boolean).join(" ")}
+                confirmLabel="Remove role"
+                variant="destructive"
+                onConfirm={() => {
+                    if (removal) {
+                        onRemoveRole(removal.index, removal.roleId);
+                        setSelectedTarget(null);
+                    }
+                    setRemoval(null);
+                }}
+            />
         </div>
     );
 }

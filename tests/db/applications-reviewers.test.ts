@@ -177,3 +177,56 @@ test("the applicant sees their own applications under Sent, with status, reason 
     assert.equal((await sent()).length, 0, "old decisions drop off");
   });
 });
+
+test("reviewers get a Decided list with reasons and the details the applicant filled in", async () => {
+  await withApplication(async ({ owner, admin, applicant, applicationId }) => {
+    await sql`UPDATE role_applications SET details = ${sql.json({ portfolioUrl: "https://github.com/me" })} WHERE id = ${applicationId}`;
+    const pendingRow = async (viewer: string) => {
+      viewerId = viewer;
+      const result = await invitations.readNetworkInvitationsAction({ direction: "received", kind: "projects" });
+      return result.success ? result.items.find((item) => item.id === applicationId) : undefined;
+    };
+    assert.deepEqual((await pendingRow(admin))?.details, { portfolioUrl: "https://github.com/me" }, "the review dialog gets the details");
+    assert.ok((await pendingRow(admin))?.channelId, "and the thread to open");
+
+    const decided = async (viewer: string) => {
+      viewerId = viewer;
+      const result = await invitations.readNetworkInvitationsAction({ kind: "decided" });
+      assert.equal(result.success, true, JSON.stringify(result));
+      return result.success ? result.items : [];
+    };
+    assert.equal((await decided(admin)).length, 0, "nothing decided yet");
+    viewerId = owner;
+    assert.equal((await apps.rejectApplicationAction(applicationId, undefined, "skills_mismatch")).success, true);
+    const [row] = await decided(admin);
+    assert.equal(row?.applicationStatus, "rejected");
+    assert.equal(row?.decisionCode, "skills_mismatch");
+    assert.match(row?.decisionReason ?? "", /stack match/i);
+    assert.equal((await pendingRow(admin)), undefined, "it left the open queue");
+    assert.equal((await decided(applicant)).length, 0, "the applicant is not a reviewer of it");
+  });
+});
+
+test("per-role counts are for reviewers only, and accepting several reports each one", async () => {
+  await withApplication(async ({ owner, member, applicant, projectId, roleId, applicationId }) => {
+    viewerId = owner;
+    const counts = await apps.getRoleApplicationCountsAction(projectId);
+    assert.deepEqual(counts.counts[roleId], { pending: 1, accepted: 0 });
+    viewerId = member;
+    assert.deepEqual((await apps.getRoleApplicationCountsAction(projectId)).counts, {}, "a plain member sees nothing");
+
+    // One seat, two applicants: the first accept fills it, the second can no longer be accepted.
+    await sql`UPDATE project_open_roles SET count = 1 WHERE id = ${roleId}`;
+    const second = await sql.begin((tx) => createUser(tx));
+    viewerId = second;
+    const other = await apps.applyToRoleAction(projectId, roleId, "me too");
+    assert.equal(other.success, true, JSON.stringify(other));
+    viewerId = owner;
+    const outcome = await apps.acceptApplicationsAction([applicationId, other.applicationId!]);
+    assert.equal(outcome.results.length, 2);
+    assert.equal(outcome.results.filter((r) => r.success).length, 1, JSON.stringify(outcome));
+    assert.ok(outcome.results.find((r) => !r.success)?.error, "the one that failed says why");
+    assert.equal((await apps.acceptApplicationsAction([])).success, false);
+    void applicant;
+  });
+});
