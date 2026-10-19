@@ -155,6 +155,10 @@ function main() {
 
   const baselineByRoute = readBaselineRoutes();
   const samples = readPerfSamples();
+  const malformed = samples.filter((sample) => !Number.isFinite(sample.valueMs) || sample.valueMs < 0);
+  if (malformed.length > 0) {
+    throw new Error(`[route-baseline] ${malformed.length} perf sample(s) have a non-finite or negative duration.`);
+  }
   const routeSamples = samples.filter(
     (sample) =>
       (sample.metric === "route.browser.load" || sample.metric === "route.server.ttfb") &&
@@ -214,6 +218,19 @@ function main() {
     throw new Error(
       "[route-baseline] No comparable route samples were found against baseline routes.",
     );
+  }
+
+  // Missing measurements are not regressions: report them apart, and fail only when asked to
+  // (ROUTE_BASELINE_MIN_COVERAGE, a 0..1 share of baseline routes that must have been measured).
+  const measuredRoutes = new Set([...grouped.keys()].map((key) => key.split(":")[1]));
+  const uncovered = [...baselineByRoute.keys()].filter((routeId) => !measuredRoutes.has(routeId));
+  const coverage = baselineByRoute.size === 0 ? 1 : 1 - uncovered.length / baselineByRoute.size;
+  if (uncovered.length > 0) {
+    console.warn(`[route-baseline] ${uncovered.length} baseline route(s) not measured this run: ${uncovered.slice(0, 20).join(", ")}`);
+  }
+  const minCoverage = readNonNegativeNumber("ROUTE_BASELINE_MIN_COVERAGE", 0);
+  if (coverage < minCoverage) {
+    throw new Error(`[route-baseline] Coverage ${(coverage * 100).toFixed(0)}% is below ROUTE_BASELINE_MIN_COVERAGE ${(minCoverage * 100).toFixed(0)}%.`);
   }
 
   if (failures.length > 0) {

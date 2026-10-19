@@ -12,7 +12,48 @@ export const DATA_LIFECYCLE_RETENTION = {
   onboardingTelemetryDays: 90,
   extensionSessionEventDays: 180,
   batchSize: 500,
+  /**
+   * One run clears up to maxRounds x batchSize rows per category (20,000 at 40 rounds), so accrual
+   * below that is drained daily and a larger backlog is cleared over a few runs and reported as `backlog`.
+   */
+  maxRounds: 40,
 } as const;
+
+export type RetentionCounts = {
+  profile_read_audits: number;
+  profile_activity_audits: number;
+  onboarding_events: number;
+  extension_session_events: number;
+  legal_acceptances: number;
+  account_deletion_records_anonymized: number;
+};
+
+const NO_COUNTS: RetentionCounts = {
+  profile_read_audits: 0,
+  profile_activity_audits: 0,
+  onboarding_events: 0,
+  extension_session_events: 0,
+  legal_acceptances: 0,
+  account_deletion_records_anonymized: 0,
+};
+
+/** Runs batches until a round leaves every category under a full batch, or the round cap is reached (PERF-006). */
+export async function drainRetention(
+  runBatch: (round: number) => Promise<RetentionCounts>,
+  limits: { maxRounds: number; batchSize: number } = DATA_LIFECYCLE_RETENTION,
+) {
+  const totals = { ...NO_COUNTS };
+  let rounds = 0;
+  let backlog = false;
+  while (rounds < limits.maxRounds) {
+    rounds += 1;
+    const counts = await runBatch(rounds);
+    for (const key of Object.keys(totals) as Array<keyof RetentionCounts>) totals[key] += counts[key];
+    backlog = Object.values(counts).some((count) => count >= limits.batchSize);
+    if (!backlog) break;
+  }
+  return { ...totals, rounds, backlog };
+}
 
 export const DATA_LIFECYCLE_RETENTION_JOB_ID = "data-lifecycle-retention";
 
@@ -24,15 +65,8 @@ export const dataLifecycleRetention = inngest.createFunction(
   },
   { cron: "43 3 * * *" },
   async ({ step }) => {
-    const counts = await step.run("delete-expired-lifecycle-records", async () => {
-      const [result] = Array.from(await db.execute<{
-        profile_read_audits: number;
-        profile_activity_audits: number;
-        onboarding_events: number;
-        extension_session_events: number;
-        legal_acceptances: number;
-        account_deletion_records_anonymized: number;
-      }>(sql`
+    const counts = await drainRetention((round) => step.run(`delete-expired-lifecycle-records-${round}`, async () => {
+      const [result] = Array.from(await db.execute<RetentionCounts>(sql`
         WITH expired_profile_reads AS (
           SELECT id FROM profile_audit_events
           WHERE event_type IN (
@@ -128,15 +162,8 @@ export const dataLifecycleRetention = inngest.createFunction(
           (SELECT count(*)::int FROM anonymized_account_deletion_records) AS account_deletion_records_anonymized
       `));
 
-      return result ?? {
-        profile_read_audits: 0,
-        profile_activity_audits: 0,
-        onboarding_events: 0,
-        extension_session_events: 0,
-        legal_acceptances: 0,
-        account_deletion_records_anonymized: 0,
-      };
-    });
+      return result ?? NO_COUNTS;
+    }));
 
     await step.run("write-retention-heartbeat", async () => {
       const now = new Date();
