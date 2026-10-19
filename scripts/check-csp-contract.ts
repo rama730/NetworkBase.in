@@ -51,8 +51,11 @@ function main() {
   assertIncludes(siteLayoutSource, /headers\(\)/, "src/app/(site)/layout.tsx must read the CSP nonce from request headers", errors);
   assertIncludes(layoutSource, /SecurityRuntimeProvider/, "src/app/root-document.tsx must wrap the app in SecurityRuntimeProvider", errors);
   assertIncludes(layoutSource, /nonce=\{nonce\}/, "src/app/root-document.tsx must nonce the inline theme script", errors);
-  assertIncludes(providerSource, /CSRF_HEADER_NAME/, "SecurityRuntimeProvider must attach the CSRF header", errors);
-  assertIncludes(providerSource, /window\.fetch = async/, "SecurityRuntimeProvider must patch same-origin browser fetch calls", errors);
+  // The provider patches fetch through the shared CSRF client, which owns the header.
+  const csrfClientSource = fs.readFileSync(path.join(root, "src/lib/security/csrf-client.ts"), "utf8");
+  assertIncludes(csrfClientSource, /CSRF_HEADER_NAME/, "the CSRF client must attach the CSRF header", errors);
+  assertIncludes(providerSource, /createCsrfFetch\(/, "SecurityRuntimeProvider must attach the CSRF header through createCsrfFetch", errors);
+  assertIncludes(providerSource, /window\.fetch = createCsrfFetch/, "SecurityRuntimeProvider must patch same-origin browser fetch calls", errors);
   assertIncludes(turnstileSource, /nonce=\{nonce \?\? undefined\}/, "TurnstileWidget must pass the CSP nonce to next/script", errors);
   assertIncludes(middlewareSource, /https:\/\/accounts\.google\.com/, "middleware CSP must permit Google Identity Services", errors);
   assertIncludes(
