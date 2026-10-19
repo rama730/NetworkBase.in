@@ -20,7 +20,12 @@ export async function hydrateCards(viewerId: string, refs: ChatCardRef[]): Promi
   const [applications, tasks, invites] = await Promise.all([
     applicationIds.length === 0 ? [] : chatRows<Record<string, unknown>>(sql`
       SELECT a.id, a.status::text AS status, a.message, a.created_at, a.decision_at, a.project_id,
-             p.title AS project_title, p.slug AS project_slug, r.role AS role_title,
+             p.title AS project_title, p.slug AS project_slug, coalesce(r.title, r.role) AS role_title,
+             a.role_id, a.role_id IS NULL AS role_removed, a.details,
+             a.decision_reason_code, a.decision_reason_text,
+             CASE WHEN dp.id IS NULL THEN NULL ELSE ${person("dp")} END AS decided_by,
+             ap.headline AS applicant_headline,
+             CASE WHEN jsonb_typeof(ap.skills) = 'array' THEN (SELECT coalesce(jsonb_agg(s), '[]'::jsonb) FROM (SELECT jsonb_array_elements_text(ap.skills) AS s LIMIT 4) top) ELSE '[]'::jsonb END AS applicant_skills,
              ${person("ap")} AS applicant,
              a.applicant_id = ${viewerId}::uuid AS is_applicant,
              (p.owner_id = ${viewerId}::uuid OR EXISTS (
@@ -30,6 +35,7 @@ export async function hydrateCards(viewerId: string, refs: ChatCardRef[]): Promi
       FROM role_applications a
       JOIN projects p ON p.id = a.project_id
       JOIN profiles ap ON ap.id = a.applicant_id
+      LEFT JOIN profiles dp ON dp.id = a.decision_by
       LEFT JOIN project_open_roles r ON r.id = a.role_id
       WHERE a.id = ANY(${uuidArray(applicationIds)})
     `),

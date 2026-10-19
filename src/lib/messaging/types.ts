@@ -27,6 +27,8 @@ export type ChatChannelSummary = {
   topic: string | null;
   project_id: string | null;
   application_id: string | null;
+  /** Application threads only: where the application stands, for the row and the header. */
+  application?: ChatApplicationMeta | null;
   is_default: boolean;
   last_seq: number;
   last_top_seq: number;
@@ -121,9 +123,30 @@ export type ApplicationCardView = {
   project_title: string;
   project_slug: string | null;
   role_title: string | null;
+  role_id: string | null;
+  /** The role was deleted after the application: Accept can't work, only Decline. */
+  role_removed: boolean;
+  details: { portfolioUrl?: string; availability?: string };
+  decision_reason_code: string | null;
+  decision_reason_text: string | null;
+  decided_by: ChatPerson | null;
   applicant: ChatPerson;
+  applicant_headline: string | null;
+  applicant_skills: string[];
   is_applicant: boolean;
   is_reviewer: boolean;
+};
+
+/** What a conversation list or header needs to know about an application thread, without loading its card. */
+export type ChatApplicationMeta = {
+  status: "pending" | "accepted" | "rejected" | "withdrawn" | "proposed";
+  role_title: string | null;
+  role_removed: boolean;
+  project_title: string;
+  project_slug: string | null;
+  decision_at: string | null;
+  is_applicant: boolean;
+  applicant: ChatPerson;
 };
 
 export type TaskCardView = {

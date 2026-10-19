@@ -51,9 +51,9 @@ export function isDirectLike(channel: ChatChannelSummary) {
   return !channel.application_id && (channel.kind === "dm" || (channel.kind === "private" && channel.name === null));
 }
 
-/** Same rule as app_private.chat_add_members: any member of a live, non-DM conversation. */
-export function canAddPeople(channel: { kind: string; is_member: boolean; channel_archived_at: string | null }) {
-  return channel.is_member && channel.kind !== "dm" && !channel.channel_archived_at;
+/** Same rule as app_private.chat_add_members: any member of a live, non-DM conversation; an application thread has a fixed cast. */
+export function canAddPeople(channel: { kind: string; is_member: boolean; channel_archived_at: string | null; application_id?: string | null }) {
+  return channel.is_member && channel.kind !== "dm" && !channel.channel_archived_at && !channel.application_id;
 }
 
 export function isSelfDm(channel: ChatChannelSummary, meId: string | null) {
@@ -62,6 +62,11 @@ export function isSelfDm(channel: ChatChannelSummary, meId: string | null) {
 
 export function channelTitle(channel: ChatChannelSummary, meId: string | null) {
   if (channel.kind === "dm") return isSelfDm(channel, meId) ? "You" : personName(channel.dm_user);
+  // An application thread is named for the other side: the applicant to reviewers, the role to the applicant.
+  if (channel.application) {
+    const role = channel.application.role_removed ? "Removed role" : channel.application.role_title ?? "Application";
+    return channel.application.is_applicant ? `${role} · ${channel.application.project_title}` : `${personName(channel.application.applicant)} · ${role}`;
+  }
   if (channel.name) return channel.name;
   if (channel.title) return channel.title;
   const names = (channel.members_preview ?? []).map((person) => personName(person).split(" ")[0]);

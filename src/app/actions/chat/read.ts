@@ -5,6 +5,7 @@ import { isMessageSeq } from "@/lib/messaging/routes";
 import { sql } from "drizzle-orm";
 
 import { canReviewProjectSql } from "@/lib/applications/reviewers";
+import { withApplicationMeta } from "@/lib/messaging/application-meta";
 import { publishUser, publishUserEvents } from "@/lib/messaging/publish";
 import { chatFailure, chatRows, chatValue, invalidInput, isUuid, jsonParam, requireChatUser, unauthorized } from "@/lib/messaging/server";
 import { countsOrNothing, inboxCounts } from "@/lib/messaging/inbox-counts";
@@ -36,7 +37,8 @@ export async function bootstrap(input: { since?: string | null } = {}) {
       `),
       inboxCounts(user.id),
     ]);
-    return { success: true as const, data: { ...data, ...inbox, saved_due: savedDue }, pending: since ? null : counts ?? { invites: 0, applications: 0 } };
+    const channels = await withApplicationMeta(data.channels, user.id);
+    return { success: true as const, data: { ...data, channels, ...inbox, saved_due: savedDue }, pending: since ? null : counts ?? { invites: 0, applications: 0 } };
   } catch (error) {
     return chatFailure(error, "bootstrap");
   }

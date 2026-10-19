@@ -177,6 +177,10 @@ export function useChannelMessages(channelId: string, options: { around?: number
           case "message.new":
             update((pages) => upsertMessage(pages, payload as unknown as ChatMessageView));
             break;
+          // A system line (a status change) is written by the database, so there is no payload to insert: reload the pages.
+          case "message.system":
+            void queryClient.invalidateQueries({ queryKey: key });
+            break;
           case "message.edit":
             if (seq !== null) update((pages) => patchPages(pages, seq, (m) => ({ ...m, body: String(payload.body ?? m.body), edited_at: String(payload.edited_at ?? new Date().toISOString()) })));
             break;

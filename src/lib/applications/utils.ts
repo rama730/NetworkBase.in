@@ -5,6 +5,24 @@ const COOLDOWN_MS = 24 * 60 * 60 * 1000;
 /** How long after submitting the applicant can still edit the application. */
 export const APPLICATION_EDIT_WINDOW_MS = 10 * 60 * 1000;
 
+/** How long after a decline a reviewer can reopen it. */
+export const APPLICATION_REOPEN_WINDOW_MS = 10 * 60 * 1000;
+
+/**
+ * Whether a reviewer can reopen this application now, and for how many more minutes. Only a decline can be
+ * reopened, only inside the window, and not when it was closed because the role filled or the role is gone.
+ */
+export function reopenState(
+    application: { status: string; decision_at: string | Date | null; decision_reason_code: string | null; role_removed: boolean },
+    nowMs: number = Date.now(),
+): { canReopen: boolean; minutesLeft: number } {
+    if (application.status !== 'rejected' || !application.decision_at || application.role_removed || application.decision_reason_code === 'role_filled') {
+        return { canReopen: false, minutesLeft: 0 };
+    }
+    const left = new Date(application.decision_at).getTime() + APPLICATION_REOPEN_WINDOW_MS - nowMs;
+    return left > 0 ? { canReopen: true, minutesLeft: Math.max(1, Math.ceil(left / 60_000)) } : { canReopen: false, minutesLeft: 0 };
+}
+
 export function calculateCooldown(updatedAt: Date, nowMs: number = Date.now()): { canApply: boolean; waitTime?: string } {
     const elapsed = nowMs - new Date(updatedAt).getTime();
 

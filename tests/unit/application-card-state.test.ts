@@ -50,3 +50,18 @@ test("a closed project takes no applications whatever the history", () => {
     assert.match(describeApplyCard(status, { load: "ready", projectClosed: true }).blockedReason ?? "", /no longer taking applications/);
   }
 });
+
+import { reopenState } from "../../src/lib/applications/utils";
+
+test("reopen: only a recent decline, never a filled or removed role, never withdrawn", () => {
+  const now = Date.parse("2026-10-20T12:00:00Z");
+  const declined = (minutesAgo: number, extra: object = {}) => ({
+    status: "rejected", decision_at: new Date(now - minutesAgo * 60_000).toISOString(), decision_reason_code: "other", role_removed: false, ...extra,
+  });
+  assert.deepEqual(reopenState(declined(2), now), { canReopen: true, minutesLeft: 8 });
+  assert.equal(reopenState(declined(11), now).canReopen, false, "the window closed");
+  assert.equal(reopenState(declined(2, { decision_reason_code: "role_filled" }), now).canReopen, false);
+  assert.equal(reopenState(declined(2, { role_removed: true }), now).canReopen, false);
+  assert.equal(reopenState(declined(2, { status: "withdrawn" }), now).canReopen, false);
+  assert.equal(reopenState(declined(2, { decision_at: null }), now).canReopen, false);
+});

@@ -16,7 +16,7 @@ import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
-import { channelTitle, isVisible, needsAttention, rowCount } from "@/lib/messaging/channel-view";
+import { channelTitle, isVisible, needsAttention, personName, rowCount } from "@/lib/messaging/channel-view";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { conversationHref } from "@/lib/messaging/routes";
 import type { ChatPerson } from "@/lib/messaging/types";
@@ -81,12 +81,14 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
         unread: needsAttention(c),
         joined: true,
         recent: c.last_message_at ?? "",
+        // An application thread is also found by its project, its role and the applicant.
+        extra: c.application ? [c.application.project_title, c.application.role_title, personName(c.application.applicant)].filter(Boolean).join(" ").toLowerCase() : "",
       }))
-      .filter((r) => !needle || r.title.toLowerCase().includes(needle))
+      .filter((r) => !needle || r.title.toLowerCase().includes(needle) || r.extra.includes(needle))
       // Unread first, then most recent: with no query this is "recent conversations".
       .sort((a, b) => Number(b.unread) - Number(a.unread) || b.recent.localeCompare(a.recent))
       .slice(0, needle ? 12 : 8)
-      .map(({ recent: _recent, ...r }) => r);
+      .map(({ recent: _recent, extra: _extra, ...r }) => r);
     const joinedIds = new Set((data?.channels ?? []).map((c) => c.id));
     const unjoined: Result[] = needle
       ? (unjoinedChannels.data ?? [])
