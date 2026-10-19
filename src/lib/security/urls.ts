@@ -62,6 +62,13 @@ function isPrivateIpv6(host: string): boolean {
   // IPv4-mapped IPv6: ::ffff:a.b.c.d — check the embedded v4
   const mapped = h.match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/);
   if (mapped && mapped[1]) return isPrivateIpv4(mapped[1]);
+  // URL serializes dotted mapped addresses as hex words (e.g. ::ffff:7f00:1).
+  const hexMapped = h.match(/^::ffff:([\da-f]{1,4}):([\da-f]{1,4})$/);
+  if (hexMapped) {
+    const high = Number.parseInt(hexMapped[1]!, 16);
+    const low = Number.parseInt(hexMapped[2]!, 16);
+    return isPrivateIpv4(`${high >> 8}.${high & 255}.${low >> 8}.${low & 255}`);
+  }
   return false;
 }
 

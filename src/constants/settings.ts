@@ -7,5 +7,5 @@ export const SETTINGS_SECTION_META: Record<SettingsTab, { title: string; descrip
     notifications: { title: "Notifications", description: "In-app and device delivery preferences" },
     appearance: { title: "Appearance", description: "Theme, accent color, and density" },
     integrations: { title: "Integrations", description: "Account sign-in methods and connected services" },
-    "privacy-policies": { title: "Privacy and Policies", description: "Legal terms, policies, and account data rights" },
+    "privacy-policies": { title: "Privacy and policies", description: "Legal terms, policies, and account data rights" },
 };

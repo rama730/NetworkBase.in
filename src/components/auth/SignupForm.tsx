@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import TurnstileWidget, { hasTurnstileSiteKey } from '@/components/auth/TurnstileWidget'
 import { GoogleOneTap } from '@/components/auth/GoogleOneTap'
 import { AuthAmbientCanvas } from '@/components/auth/AuthAmbientCanvas'
-import { Github, Loader2, Eye, EyeOff, AlertCircle, Check, X, Sparkles, Mail, ArrowLeft, ShieldCheck } from 'lucide-react'
+import { Github, Loader2, Eye, EyeOff, AlertCircle, Check, X, Mail, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { buildAuthPageHref, resolveAuthRedirectPath } from '@/lib/auth/redirects'
 import { getPasswordPolicyResult, PASSWORD_MIN_LENGTH } from '@/lib/security/password-policy'
 import { LegalLinks } from '@/components/legal/LegalLinks'
@@ -459,7 +459,6 @@ export function SignupForm({ redirect, invite, ref, project }: { redirect: strin
                     {/* Optional Invitation / Referral Context Banner */}
                     {inviteParam && !isVerifyingOtp && (
                         <div className="mb-5 p-3 rounded-lg bg-primary/10 border border-primary/20 text-xs text-foreground flex items-center gap-2.5 animate-in fade-in-50 duration-[180ms]">
-                            <Sparkles className="w-4 h-4 text-primary shrink-0" />
                             <span>
                                 You have been invited to join <strong>NetworkBase</strong>. Complete registration to accept.
                             </span>
@@ -704,7 +703,6 @@ export function SignupForm({ redirect, invite, ref, project }: { redirect: strin
                                             {suggestedHandle.length >= 2 && (
                                                 <div className="flex items-center justify-between text-[11px] text-muted-foreground/80 pt-0.5 animate-in fade-in-50 duration-[180ms]">
                                                     <div className="flex items-center gap-1.5 truncate">
-                                                        <Sparkles className="w-3 h-3 text-primary/70 shrink-0" />
                                                         <span className="truncate">
                                                             Your handle will be <strong className="font-mono text-foreground font-medium">@{suggestedHandle}</strong>
                                                         </span>

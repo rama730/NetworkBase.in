@@ -9,6 +9,7 @@ import { isCompletedOnboardingStatus } from '@/lib/onboarding/state'
 import { ensureDefaultGithubContributorIdentity } from '@/lib/github/contributor-identity'
 import { recordSecurityEvent } from '@/lib/security/audit'
 import { getLegalAcceptanceState } from '@/lib/legal/acceptance'
+import { githubOAuthFailureCode } from '@/lib/github/oauth-errors'
 
 export async function GET(request: Request) {
     const startedAt = Date.now()
@@ -43,6 +44,8 @@ export async function GET(request: Request) {
     loginErrorUrl.searchParams.set('error', 'auth-code-error')
     loginErrorUrl.searchParams.set('redirect', nextPath)
 
+    const syncReturn = provider === 'github' && nextPath.startsWith('/projects/') && new URL(nextPath, baseUrl).searchParams.get('filesView') === 'github'
+
     const oauthError = searchParams.get('error')
     const oauthErrorCode = searchParams.get('error_code') || oauthError
     const oauthErrorDescription = searchParams.get('error_description')
@@ -66,7 +69,9 @@ export async function GET(request: Request) {
         if (nextPath.startsWith('/settings') || nextPath.startsWith('/projects') || nextPath.startsWith('/discover')) {
             const inAppUrl = new URL(nextPath, baseUrl)
             inAppUrl.searchParams.delete('githubIdentity')
-            if (oauthErrorCode === 'identity_already_exists') {
+            if (syncReturn) {
+                inAppUrl.searchParams.set('githubAuth', githubOAuthFailureCode(oauthErrorCode))
+            } else if (oauthErrorCode === 'identity_already_exists') {
                 inAppUrl.searchParams.set('githubIdentity', 'already_linked')
             } else if (oauthErrorCode) {
                 inAppUrl.searchParams.set('githubIdentity', 'error')
@@ -102,7 +107,9 @@ export async function GET(request: Request) {
             durationMs: Date.now() - startedAt,
             phase: hardeningPhase,
         })
-        const response = NextResponse.redirect(loginErrorUrl)
+        const syncErrorUrl = new URL(nextPath, baseUrl)
+        syncErrorUrl.searchParams.set('githubAuth', 'invalid')
+        const response = NextResponse.redirect(syncReturn ? syncErrorUrl : loginErrorUrl)
         response.headers.set('x-request-id', requestId)
         return response
     }

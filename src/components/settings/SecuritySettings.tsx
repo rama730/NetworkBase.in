@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader";
 import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
+import { SettingsSectionsSkeleton } from "@/components/settings/ui/SettingsSectionsSkeleton";
 import { useSecurityData } from "@/hooks/useSettingsQueries";
 import { useAuth } from "@/hooks/useAuth";
 import { hasPasswordCredential } from "@/lib/auth/account-identity";
@@ -15,7 +16,7 @@ const SessionsList = dynamic(() => import("@/components/settings/SessionsList").
 const LoginHistory = dynamic(() => import("@/components/auth/LoginHistory"));
 
 function SecuritySectionsSkeleton() {
-    return <div aria-hidden="true" className="nb-skeleton h-96 rounded-lg border border-border" />;
+    return <SettingsSectionsSkeleton count={3} />;
 }
 
 export default function SecurityPage({ embedded = false }: { embedded?: boolean }) {
@@ -37,7 +38,7 @@ export default function SecurityPage({ embedded = false }: { embedded?: boolean 
 
     if (isLoading) {
         return (
-            <div className="space-y-6" data-hardening-security="v1">
+            <div className={embedded ? "space-y-8" : "space-y-6"} data-hardening-security="v1">
                 {!embedded ? (
                     <SettingsPageHeader
                         title="Security"
@@ -50,7 +51,7 @@ export default function SecurityPage({ embedded = false }: { embedded?: boolean 
     }
 
     return (
-        <div className="space-y-6" data-hardening-security="v1">
+        <div className={embedded ? "space-y-8" : "space-y-6"} data-hardening-security="v1">
             {!embedded ? (
                 <SettingsPageHeader
                     title="Security"

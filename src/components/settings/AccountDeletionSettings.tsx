@@ -6,7 +6,7 @@ import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import AccountDeletionWizard from "@/components/settings/AccountDeletionWizard";
 import { Button } from "@/components/ui/button";
-import { DangerZoneCard } from "@/components/settings/ui/DangerZoneCard";
+import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
 import { SettingsRow } from "@/components/settings/ui/SettingsRow";
 import { useAccountDeletionStatus } from "@/hooks/useSettingsQueries";
 
@@ -22,7 +22,7 @@ export default function AccountDeletionSettings() {
   };
 
   return <>
-    <DangerZoneCard title="Delete account" description="This permanent account action is placed last so it cannot be mistaken for a routine setting.">
+    <SettingsSectionCard title="Delete account" description="This permanent account action is placed last so it cannot be mistaken for a routine setting.">
       <SettingsRow
         title={deletionStatus.pending ? "Deletion scheduled" : "Permanently delete this account"}
         description={deletionStatus.pending ? "Your account is scheduled for deletion." : "Delete your account and all associated data after the recovery period."}
@@ -31,7 +31,7 @@ export default function AccountDeletionSettings() {
           {deletionStatus.pending ? "Pending" : "Delete account"}
         </Button>}
       />
-    </DangerZoneCard>
+    </SettingsSectionCard>
 
     {showDeleteWizard ? <AccountDeletionWizard onClose={() => setShowDeleteWizard(false)} onDeleted={handleDeleted} /> : null}
   </>;

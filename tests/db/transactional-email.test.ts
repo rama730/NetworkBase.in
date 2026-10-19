@@ -31,7 +31,10 @@ moduleStubs.set("@/lib/supabase/server", {
 moduleStubs.set("next/headers", { headers: async () => new Headers({ "user-agent": "email-test" }), cookies: async () => ({ get: () => undefined }) });
 moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: () => undefined, unstable_cache: (fn: unknown) => fn });
 moduleStubs.set("@/lib/security/rate-limit", { consumeRateLimit: async () => ({ allowed: true }) });
-moduleStubs.set("@/app/api/v1/_shared", { enforceRouteLimit: async () => null });
+moduleStubs.set("@/app/api/v1/_shared", {
+  enforceRouteLimit: async () => null,
+  requireAuthenticatedUser: async () => ({ supabase: null, user: viewer, extensionSessionId: null, response: null }),
+});
 moduleStubs.set("@/inngest/client", { inngest: { send: async () => { wakeCalls++; if (wakeFails) throw new Error("Inngest unavailable"); return { ids: [] }; } } });
 
 let db: typeof import("@/lib/db").db;

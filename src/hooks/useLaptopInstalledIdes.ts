@@ -34,13 +34,26 @@ export function useLaptopInstalledIdes() {
     return [];
   });
 
+  const [hasChecked, setHasChecked] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return (
+        window.localStorage.getItem(INSTALLED_IDES_STORAGE_KEY) !== null ||
+        window.sessionStorage.getItem("nb:laptop-ides-checked") === "1"
+      );
+    } catch {
+      return false;
+    }
+  });
+
   const [platform, setPlatform] = useState<string>(() => getClientPlatform());
   const [isLoading, setIsLoading] = useState(false);
   const [, startTransition] = useTransition();
 
   useEffect(() => {
-    if (installedIdes.length > 0) return;
+    if (hasChecked) return;
     let cancelled = false;
+    setIsLoading(true);
     const clientPlatform = getClientPlatform();
     readInstalledLaptopIdes(clientPlatform)
       .then((res) => {
@@ -66,6 +79,12 @@ export function useLaptopInstalledIdes() {
       .finally(() => {
         if (!cancelled) {
           setIsLoading(false);
+          setHasChecked(true);
+          try {
+            window.sessionStorage.setItem("nb:laptop-ides-checked", "1");
+          } catch {
+            // Ignore
+          }
         }
       });
 

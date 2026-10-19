@@ -18,14 +18,14 @@ test.describe("Chat smoke", () => {
     await composer(page).press("Enter");
     const row = page.locator("[data-testid^='chat-message-']", { hasText: text }).last();
     await expect(row).toBeVisible({ timeout: 10_000 });
-    await expect(composer(page)).toHaveValue("");
+    await expect(composer(page)).toHaveText("");
 
     await row.hover();
     await row.getByRole("button", { name: "Reply in thread" }).click();
-    await expect(page).toHaveURL(new RegExp(`/messages/${channelId}/thread/\\d+`));
+    await expect(page).toHaveURL(new RegExp(`/messages/${channelId}\\?thread=\\d+`));
     const drawer = page.locator('[data-chat-pane="drawer"]');
-    await drawer.locator("textarea").fill(`reply ${text}`);
-    await drawer.locator("textarea").press("Enter");
+    await drawer.locator('[contenteditable="true"][role="textbox"]').fill(`reply ${text}`);
+    await drawer.locator('[contenteditable="true"][role="textbox"]').press("Enter");
     await expect(drawer.getByText(`reply ${text}`)).toBeVisible({ timeout: 10_000 });
     await page.keyboard.press("Escape");
     await expect(row.getByRole("button", { name: /1 reply/ })).toBeVisible({ timeout: 10_000 });

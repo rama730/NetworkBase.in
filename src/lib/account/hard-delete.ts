@@ -88,6 +88,10 @@ export async function executeHardDelete(
       await anonymizeChatAuthor(userId, tx);
       await tx.execute(deleteDirectMessagesSql(userId));
       await tx.delete(projects).where(eq(projects.ownerId, userId));
+      await tx.execute(sql`
+        UPDATE projects SET followers_count = GREATEST(0, followers_count - 1)
+        WHERE id IN (SELECT project_id FROM project_follows WHERE user_id = ${userId}::uuid)
+      `);
       // Decrement connected peers' connections_count before cascading profile deletion
       await tx.execute(sql`
         WITH deleted_peers AS (

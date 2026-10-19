@@ -16,7 +16,7 @@ interface StrengthResult {
 
 function calculateStrength(password: string, result: PasswordPolicyResult): StrengthResult {
     if (!password) {
-        return { score: 0, label: "", color: "text-zinc-400", bgColor: "bg-zinc-200" };
+        return { score: 0, label: "", color: "text-muted-foreground", bgColor: "bg-muted" };
     }
 
     const satisfiedChecks = Object.values(result.checks).filter(Boolean).length;
@@ -30,7 +30,7 @@ function calculateStrength(password: string, result: PasswordPolicyResult): Stre
     );
 
     const strengthLevels: Record<number, Omit<StrengthResult, "score">> = {
-        0: { label: "", color: "text-zinc-400", bgColor: "bg-zinc-200" },
+        0: { label: "", color: "text-muted-foreground", bgColor: "bg-muted" },
         1: { label: "Weak", color: "text-red-600", bgColor: "bg-red-500" },
         2: { label: "Fair", color: "text-orange-600", bgColor: "bg-orange-500" },
         3: { label: "Good", color: "text-yellow-600", bgColor: "bg-yellow-500" },
@@ -68,7 +68,7 @@ export function PasswordStrengthMeter({
                         key={level}
                         className={`h-1.5 flex-1 rounded-full transition-colors duration-[180ms] ${level <= strength.score
                             ? strength.bgColor
-                            : "bg-zinc-200 dark:bg-zinc-700"
+                            : "bg-muted"
                             }`}
                     />
                 ))}
@@ -79,7 +79,7 @@ export function PasswordStrengthMeter({
                     {strength.label}
                 </span>
                 {guidance ? (
-                    <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                    <span className="text-xs text-muted-foreground">
                         {guidance}
                     </span>
                 ) : null}

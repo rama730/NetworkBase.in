@@ -1,3 +1,4 @@
+import { normalizeMediaDimensions, type MediaDimensions } from "@/lib/messaging/media-metadata";
 import { createHash, randomUUID } from "node:crypto";
 
 import { reportedContentLength } from "@/lib/http/content-length";
@@ -273,6 +274,7 @@ async function verifyStoredObjectBytes(params: {
       }
     }
 
+    let dimensions: MediaDimensions | null = null;
     if (params.decodeImage) {
       try {
         const { default: sharp } = await import("sharp");
@@ -282,7 +284,9 @@ async function verifyStoredObjectBytes(params: {
           limitInputPixels: 16_000_000,
         }).metadata();
         const width = metadata.width ?? 0;
-        const height = metadata.height ?? 0;
+        const height = metadata.pageHeight ?? metadata.height ?? 0;
+        const rotated = (metadata.orientation ?? 0) >= 5;
+        dimensions = normalizeMediaDimensions(rotated ? height : width, rotated ? width : height);
         const pages = metadata.pages ?? 1;
         if (width < 1 || height < 1 || width * height * pages > 16_000_000) {
           throw new Error("Image exceeds the 16 megapixel decode limit");
@@ -295,7 +299,7 @@ async function verifyStoredObjectBytes(params: {
       }
     }
 
-    return { contentHash: hash.digest("hex"), verifiedSize: totalBytes };
+    return { contentHash: hash.digest("hex"), verifiedSize: totalBytes, dimensions };
   } finally {
     if (idleTimer) clearTimeout(idleTimer);
     clearTimeout(absoluteTimer);
@@ -775,6 +779,7 @@ export async function finalizeUploadIntent(params: {
     }
 
     let verifiedSize = 0;
+    let verifiedDimensions: MediaDimensions | null = null;
     let contentHash = createHash("sha256").digest("hex");
     if (objectSize > 0) {
       const { data: signedData, error: signedError } = await bucket.createSignedUrl(intent.storageKey, 60);
@@ -787,11 +792,12 @@ export async function finalizeUploadIntent(params: {
       // ponytail: the whole object is streamed once to hash it (constant memory, S3-01).
       // ceiling: one storage egress per upload. upgrade: a ranged read of the magic
       // bytes plus provider checksums if storage egress shows up on the bill.
-      ({ verifiedSize, contentHash } = await verifyStoredObjectBytes({
+      ({ verifiedSize, contentHash, dimensions: verifiedDimensions } = await verifyStoredObjectBytes({
         signedUrl: signedData.signedUrl,
         expectedSize: intent.expectedSize,
         expectedMimeType: intent.expectedMimeType,
-        decodeImage: intent.scope === "profile_image"
+        decodeImage: (intent.scope === "chat_attachment" && intent.expectedMimeType.startsWith("image/"))
+          || intent.scope === "profile_image"
           || intent.scope === "project_cover"
           || intent.scope === "project_update_media",
       }));
@@ -842,6 +848,7 @@ export async function finalizeUploadIntent(params: {
             state: "verified",
             verifiedMimeType: intent.expectedMimeType,
             verifiedSize,
+            ...(verifiedDimensions && intent.scope === "chat_attachment" ? { metadata: { ...intent.metadata, ...verifiedDimensions } } : {}),
             contentHash,
             verifiedAt: finalizedAt,
             verificationLeaseToken: null,

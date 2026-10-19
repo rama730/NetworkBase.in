@@ -152,7 +152,25 @@ export function SessionsList({
                   >
                     <LogOut className="h-4 w-4 text-destructive" strokeWidth={1.75} />
                   </Button>
-                ) : null}
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Sign out remote device"
+                    disabled={busy}
+                    onClick={() => {
+                      if (availableStepUpMethods.length > 0) {
+                        setPendingAction({ type: "others" });
+                        setStepUpOpen(true);
+                        return;
+                      }
+                      setPendingAction({ type: "others" });
+                      void handleLogOutOthers();
+                    }}
+                  >
+                    <LogOut className="h-4 w-4 text-muted-foreground hover:text-destructive" strokeWidth={1.75} />
+                  </Button>
+                )}
             />;
           })}
 

@@ -5,6 +5,15 @@ const asNullable = (value?: string | null) => value ?? null;
 type ProjectTaskScope = "all" | "backlog" | "sprint";
 
 export const queryKeys = {
+  sharing: {
+    root: () => ['sharing'] as const,
+    destinationsRoot: () => ["sharing", "destinations"] as const,
+    destinations: (actorId: string | null, sessionId: string | null, scope: string, query: string) => ["sharing", "destinations", actorId, sessionId, scope, query] as const,
+    destination: (actorId:string|null,sessionId:string|null,channelId:string) => ["sharing","destinations",actorId,sessionId,"selected",channelId] as const,
+    preview: (url: string | null, viewerId: string | null, sessionId: string | null = null) => ['sharing', 'preview', viewerId, sessionId, url] as const,
+    linksRoot: () => ['link-preview', 'v4'] as const,
+    link: (url: string | null, viewerId: string | null, sessionId: string | null) => ['link-preview', 'v4', viewerId, sessionId, url] as const,
+  },
   discover: {
     root: () => ["discover"] as const,
     projectsSimpleRoot: () => ["discover", "projects-simple"] as const,
@@ -24,6 +33,7 @@ export const queryKeys = {
   connections: {
     root: () => ["connections"] as const,
     pending: () => ["connections", "pending"] as const,
+    invitationBrowse: (userId: string, query: { q: string; sort: string; direction: string; kind: string }) => ["connections", "pending", "browse", userId, query.q, query.sort, query.direction, query.kind] as const,
   },
   /** Slack-style chat. */
   chat: {
@@ -56,6 +66,7 @@ export const queryKeys = {
   profile: {
     root: () => ["profile"] as const,
     byTarget: (targetKey: string) => ["profile", targetKey] as const,
+    connectionCount: (profileId: string) => ["profile", profileId, "connection-count"] as const,
     collaborationSummary: (userId: string) =>
       ["profile", "collaboration-summary", userId] as const,
     projects: (userId: string) => ["profile", "projects", userId] as const,

@@ -1,5 +1,6 @@
 "use server";
 
+import { normalizeSafeExternalUrl } from "@/lib/messaging/safe-links";
 import { sql } from "drizzle-orm";
 
 import { CHAT_CHANNEL_NAME_PATTERN, CHAT_MAX_DESCRIPTION } from "@/lib/messaging/constants";
@@ -222,7 +223,13 @@ export async function getChannel(input: { channelId: string }) {
                FROM chat_channel_members o JOIN profiles pr ON pr.id = o.user_id
                WHERE o.channel_id = c.id ORDER BY (o.user_id = ${user.id}::uuid) LIMIT 1
              ) END AS dm_user,
-             NULL::jsonb AS members_preview
+             CASE WHEN c.kind = 'private' AND c.name IS NULL THEN (
+               SELECT jsonb_agg(jsonb_build_object('id', gp.id, 'username', gp.username, 'full_name', gp.full_name, 'avatar_url', gp.avatar_url) ORDER BY preview.joined_at, gp.id)
+               FROM (SELECT other.user_id, other.joined_at FROM chat_channel_members other
+                     WHERE other.channel_id = c.id AND other.user_id <> ${user.id}::uuid
+                     ORDER BY other.joined_at LIMIT 3) preview
+               JOIN profiles gp ON gp.id = preview.user_id
+             ) ELSE NULL::jsonb END AS members_preview
       FROM chat_channels c
       LEFT JOIN projects p ON p.id = c.project_id
       LEFT JOIN chat_channel_members m ON m.channel_id = c.id AND m.user_id = ${user.id}::uuid
@@ -297,7 +304,7 @@ export async function addChannelTab(input: { channelId: string; kind: ChannelTab
   const user = await requireChatUser();
   if (!user) return unauthorized;
   const title = typeof input?.title === "string" ? input.title.trim().slice(0, 60) : "";
-  const url = input?.kind === "link" && typeof input.url === "string" ? input.url.trim() : null;
+  const url = input?.kind === "link" && typeof input.url === "string" ? normalizeSafeExternalUrl(input.url) : null;
   if (!isUuid(input?.channelId) || !["tasks", "link", "files"].includes(input.kind) || !title) return invalidInput;
   if (input.kind === "link" && (!url || !/^https?:\/\//i.test(url) || url.length > 2000)) return invalidInput;
   try {

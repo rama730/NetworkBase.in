@@ -54,7 +54,7 @@ test("#154 service worker: no push for the open conversation; clicks route in-ap
   const sw = read("public/sw.js");
   assert.match(sw, /client\.focused && client\.visibilityState === "visible"/);
   assert.match(sw, /askToNavigate\(client/);
-  assert.match(read("src/components/messages/ChatShellProvider.tsx"), /"nb:navigate"[\s\S]*?router\.push\(message\.href\)[\s\S]*?ports\[0\]\?\.postMessage/);
+  assert.match(read("src/components/messages/ChatShellProvider.tsx"), /"nb:navigate"[\s\S]*?router\.push\(path\)[\s\S]*?ports\[0\]\?\.postMessage/);
 });
 
 test("#155 #156 settings say what quiet hours and desktop notifications really do", () => {

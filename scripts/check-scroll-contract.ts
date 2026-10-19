@@ -83,6 +83,9 @@ function collectExtraContractFiles(pageFile: string, repoRoot: string): string[]
   if (rel === "src/app/(site)/(main)/discover/page.tsx" || rel === "src/app/(site)/(main)/discover/page.tsx") {
     extras.push(path.join(repoRoot, "src/components/discover/DiscoverClient.tsx"));
   }
+  if (rel === "src/app/(site)/(main)/my-profile/edit/page.tsx") {
+    extras.push(path.join(repoRoot, "src/components/profile/edit/EditProfileTabs.tsx"));
+  }
   if (rel.startsWith("src/app/(site)/(main)/settings/")) {
     extras.push(path.join(repoRoot, "src/components/settings/SettingsLayout.tsx"));
   }

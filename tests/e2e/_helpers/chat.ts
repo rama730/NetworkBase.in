@@ -18,5 +18,5 @@ export async function openFirstConversation(page: Page) {
 }
 
 export function composer(page: Page) {
-  return page.locator('[data-chat-pane="conversation"] textarea').last();
+  return page.locator('[data-chat-pane="conversation"] [contenteditable="true"][role="textbox"]').last();
 }

@@ -194,7 +194,7 @@ async function deleteSession(request: Request, id: string) {
   }
 
   try {
-    const result = await auth.supabase.auth.signOut({ scope: "global" });
+    const result = await auth.supabase.auth.signOut({ scope: "local" });
     if (result.error) {
       logApiRoute(request, {
         requestId,

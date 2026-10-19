@@ -264,6 +264,15 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     bootstrapReadModel: "auth_snapshot",
     maxInitialPayloadKb: 240,
   }),
+  "/my-profile/edit": buildUserShellContract("/my-profile/edit", "src/app/(site)/(main)/my-profile/edit/page.tsx", {
+    renderingMode: "dynamic",
+    cacheStrategy: "none",
+    cacheTtlSeconds: 0,
+    invalidationOwner: "server-action",
+    hydrationBoundary: "heavy",
+    bootstrapReadModel: "auth_snapshot",
+    maxInitialPayloadKb: 320,
+  }),
   "/messages": buildActiveSurfaceContract("/messages", "src/app/(site)/(main)/messages/(lists)/page.tsx", {
     renderingMode: "dynamic",
     invalidationOwner: "realtime",

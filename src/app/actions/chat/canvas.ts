@@ -1,5 +1,6 @@
 "use server";
 
+import { resolveAuthBaseUrl } from "@/lib/auth/redirects";
 import { sql } from "drizzle-orm";
 
 import { CANVAS_MAX_BODY, CANVAS_MAX_TITLE, canvasAssetIds } from "@/lib/messaging/canvas-store";
@@ -56,7 +57,7 @@ export async function saveCanvas(input: { channelId: string; title: string; body
     const version = await chatValue<number>(sql`
       SELECT app_private.chat_save_canvas(
         ${input.channelId}::uuid, ${user.id}::uuid, ${input.title}, ${input.body},
-        ${uuidArray(canvasAssetIds(input.body))}, ${input.baseVersion}::int
+        ${uuidArray(canvasAssetIds(input.body, resolveAuthBaseUrl({ requireConfiguredBaseInProduction: false })))}, ${input.baseVersion}::int
       ) AS value
     `);
     publishChannel(input.channelId, "canvas.changed", { channel_id: input.channelId, version, updated_by: user.id });

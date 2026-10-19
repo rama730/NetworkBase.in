@@ -22,7 +22,7 @@ test("shared skeleton shimmer contract", async (t) => {
   });
 
   await t.test("all seven project tab fallbacks have a layout-matched loading surface", () => {
-    for (const file of ["SkeletonDashboard", "SkeletonDoc", "SkeletonFiles", "SkeletonSprints", "SkeletonTasks", "SkeletonSettings"]) {
+    for (const file of ["SkeletonDashboard", "SkeletonDoc", "SkeletonFiles", "SkeletonSprints", "SkeletonTasks", "SkeletonSettings", "SkeletonGitHubSync"]) {
       assert.ok(fs.existsSync(path.join(root, "src/components/projects/skeletons", `${file}.tsx`)), `${file} should exist`);
     }
     assert.match(registry, /SkeletonDashboard/);
@@ -55,5 +55,28 @@ test("shared skeleton shimmer contract", async (t) => {
     assert.match(tasksTab, /return <SkeletonTasks \/>;/);
     assert.match(sprintsTab, /import \{ SkeletonSprints \}/);
     assert.match(sprintsTab, /return <SkeletonSprints \/>;/);
+  });
+
+  await t.test("GitHub Sync subsystem uses unified layout-matched shimmer skeleton across all stages", () => {
+    const gitHubSyncFile = read("src/components/projects/skeletons/SkeletonGitHubSync.tsx");
+    const workspace = read("src/components/projects/v2/files-tab/GitHubSyncWorkspace.tsx");
+    const filesTabMain = read("src/components/projects/v2/files-tab/FilesTabMain.tsx");
+
+    assert.match(gitHubSyncFile, /import \{ Skeleton \} from "@\/components\/ui\/skeleton"/);
+    assert.match(gitHubSyncFile, /role="status"/);
+    assert.match(gitHubSyncFile, /aria-label="Loading GitHub Sync"/);
+
+    assert.match(filesTabMain, /import \{ SkeletonGitHubSync \}/);
+    assert.match(filesTabMain, /loading:\s*\(\)\s*=>\s*<SkeletonGitHubSync/);
+    assert.doesNotMatch(filesTabMain, /animate-pulse/);
+
+    assert.match(workspace, /import \{ SkeletonGitHubSync \}/);
+    assert.match(workspace, /import \{ Skeleton \} from "@\/components\/ui\/skeleton"/);
+    assert.match(workspace, /<SkeletonGitHubSync/);
+    assert.match(workspace, /aria-label="Comparing files"/);
+    assert.match(workspace, /aria-label="Loading branches"/);
+    assert.match(workspace, /aria-label="Loading accessible repositories"/);
+    assert.match(workspace, /aria-label="Loading file comparison"/);
+    assert.match(workspace, /aria-label="Loading diff"/);
   });
 });

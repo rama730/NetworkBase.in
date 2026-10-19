@@ -1,5 +1,7 @@
 "use server";
 
+import { isMessageSeq } from "@/lib/messaging/routes";
+
 import { sql } from "drizzle-orm";
 
 import { publishUser, publishUserEvents } from "@/lib/messaging/publish";
@@ -43,7 +45,7 @@ export async function bootstrap(input: { since?: string | null } = {}) {
 export async function markRead(input: { channelId: string; seq: number }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
-  if (!isUuid(input?.channelId) || !Number.isInteger(input.seq) || input.seq < 1) return invalidInput;
+  if (!isUuid(input?.channelId) || !isMessageSeq(input.seq) || input.seq < 1) return invalidInput;
   try {
     const moved = await chatValue<boolean>(sql`
       SELECT app_private.chat_mark_read(${input.channelId}::uuid, ${user.id}::uuid, ${input.seq}::bigint) AS value
@@ -60,7 +62,7 @@ export async function markRead(input: { channelId: string; seq: number }) {
 export async function markReadMany(input: { items: { channelId: string; seq: number }[] }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
-  const items = (input?.items ?? []).filter((item) => isUuid(item?.channelId) && Number.isInteger(item.seq) && item.seq > 0).slice(0, 500);
+  const items = (input?.items ?? []).filter((item) => isUuid(item?.channelId) && isMessageSeq(item.seq)).slice(0, 500);
   if (!items.length) return { success: true as const, moved: 0 };
   try {
     const moved = await chatRows<{ channel_id: string; seq: number }>(sql`
@@ -79,7 +81,7 @@ export async function markReadMany(input: { items: { channelId: string; seq: num
 export async function markThreadRead(input: { channelId: string; rootSeq: number; seq: number }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
-  if (!isUuid(input?.channelId) || !Number.isInteger(input.rootSeq) || !Number.isInteger(input.seq)) return invalidInput;
+  if (!isUuid(input?.channelId) || !isMessageSeq(input.rootSeq) || !isMessageSeq(input.seq)) return invalidInput;
   try {
     const moved = await chatValue<boolean>(sql`
       SELECT app_private.chat_mark_thread_read(${input.channelId}::uuid, ${user.id}::uuid, ${input.rootSeq}::bigint, ${input.seq}::bigint) AS value

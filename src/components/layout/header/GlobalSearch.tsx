@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmAppNavigation } from "@/lib/navigation/confirm-navigation";
+
 import { Search, X } from "lucide-react";
 import { useMemo } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
@@ -67,7 +69,7 @@ export default function GlobalSearch({ onOpenCommandPalette, condensed = false }
             searchParams: new URLSearchParams(searchParams?.toString()),
             context,
         });
-        router.push(href);
+        if (confirmAppNavigation()) router.push(href);
     };
 
     return (

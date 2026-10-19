@@ -246,3 +246,14 @@ export async function resolvePrivacyRelationships(
   return results;
 }
 
+
+/** Bounded identity projections use the single-profile policy; block evidence fails closed. */
+export function readableProfileIdentitySql(viewerId: string | null) {
+  if (!viewerId) return and(isNull(profiles.deletedAt), eq(profiles.visibility, 'public'))!;
+  const pair = sql`((c.requester_id = ${viewerId}::uuid AND c.addressee_id = ${profiles.id})
+    OR (c.addressee_id = ${viewerId}::uuid AND c.requester_id = ${profiles.id}))`;
+  return and(isNull(profiles.deletedAt),
+    sql`NOT EXISTS (SELECT 1 FROM connections c WHERE ${pair} AND c.status = 'blocked')`,
+    or(eq(profiles.id, viewerId), eq(profiles.visibility, 'public'),
+      sql`EXISTS (SELECT 1 FROM connections c WHERE ${pair} AND c.status = 'accepted')`))!;
+}
