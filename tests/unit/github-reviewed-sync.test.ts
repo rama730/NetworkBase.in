@@ -254,3 +254,150 @@ test("native publication treats pathspec-like filenames literally", async () => 
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("new branch publication preserves the reviewed base and refuses any existing destination ref", async () => {
+  const root = await mkdtemp(join(tmpdir(), "networkbase-sync-branch-"));
+  const remote = join(root, "remote.git");
+  try {
+    await git("init", "--bare", remote);
+    const initial = await publishGitSnapshot({
+      manifest: manifest(remote),
+      runId: "base",
+      createdAt: new Date("2026-10-17T00:00:00Z"),
+      token: null,
+      readContent: async () => Buffer.from("hello\n"),
+      beforePush: async () => {},
+    });
+    const content = Buffer.from("reviewed branch change\n");
+    const hashes = contentHashes(content);
+    const snapshot = {
+      ...manifest(remote, [
+        file({ resultHash: hashes.hash, resultBlobSha: hashes.blobSha }),
+      ]),
+      headSha: initial.commitSha,
+      branch: "feature/reviewed",
+      newBranch: { base: "main" },
+    };
+    const result = await publishGitSnapshot({
+      manifest: snapshot,
+      runId: "newbranch",
+      createdAt: new Date("2026-10-17T00:01:00Z"),
+      token: null,
+      readContent: async () => content,
+      beforePush: async () => {},
+    });
+    assert.equal(result.branch, "feature/reviewed");
+    assert.equal(
+      await git("--git-dir", remote, "rev-parse", "main"),
+      initial.commitSha,
+    );
+    assert.equal(
+      await git("--git-dir", remote, "show", "feature/reviewed:README.md"),
+      "reviewed branch change",
+    );
+    await assert.rejects(
+      publishGitSnapshot({
+        manifest: snapshot,
+        runId: "collision",
+        createdAt: new Date("2026-10-17T00:02:00Z"),
+        token: null,
+        readContent: async () => content,
+        beforePush: async () => {},
+      }),
+    );
+    assert.equal(
+      await git("--git-dir", remote, "rev-parse", "feature/reviewed"),
+      result.commitSha,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+test("explicit PR source branches stay distinct from their target base", async () => {
+  const root = await mkdtemp(join(tmpdir(), "networkbase-sync-pr-"));
+  const remote = join(root, "remote.git");
+  try {
+    await git("init", "--bare", remote);
+    const initial = await publishGitSnapshot({
+      manifest: manifest(remote),
+      runId: "base",
+      createdAt: new Date("2026-10-17T00:00:00Z"),
+      token: null,
+      readContent: async () => Buffer.from("hello\n"),
+      beforePush: async () => {},
+    });
+    const bytes = Buffer.from("pull request change\n"),
+      hashes = contentHashes(bytes);
+    const result = await publishGitSnapshot({
+      manifest: {
+        ...manifest(remote, [
+          file({ resultHash: hashes.hash, resultBlobSha: hashes.blobSha }),
+        ]),
+        headSha: initial.commitSha,
+        mode: "pr",
+        branch: "feature/pr-source",
+        newBranch: { base: "main" },
+      },
+      runId: "pr-source",
+      createdAt: new Date("2026-10-17T00:01:00Z"),
+      token: null,
+      readContent: async () => bytes,
+      beforePush: async () => {},
+    });
+    assert.equal(result.branch, "feature/pr-source");
+    assert.equal(
+      await git("--git-dir", remote, "rev-parse", "main"),
+      initial.commitSha,
+    );
+    assert.equal(
+      await git("--git-dir", remote, "show", "feature/pr-source:README.md"),
+      "pull request change",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+test("outgoing exact renames remove only the old path and preserve unselected files", async () => {
+  const root = await mkdtemp(join(tmpdir(), "networkbase-sync-rename-"));
+  const remote = join(root, "remote.git");
+  try {
+    await git("init", "--bare", remote);
+    const bytes = Buffer.from("hello\n");
+    const initial = await publishGitSnapshot({
+      manifest: manifest(remote, [file(), file({ path: "untouched.txt" })]),
+      runId: "base",
+      createdAt: new Date("2026-10-17T00:00:00Z"),
+      token: null,
+      readContent: async () => bytes,
+      beforePush: async () => {},
+    });
+    await publishGitSnapshot({
+      manifest: {
+        ...manifest(remote, [
+          file({
+            path: "docs/guide.md",
+            renamedFrom: "README.md",
+            change: "rename",
+          }),
+        ]),
+        headSha: initial.commitSha,
+      },
+      runId: "rename",
+      createdAt: new Date("2026-10-17T00:01:00Z"),
+      token: null,
+      readContent: async () => bytes,
+      beforePush: async () => {},
+    });
+    assert.equal(
+      await git("--git-dir", remote, "show", "main:docs/guide.md"),
+      "hello",
+    );
+    assert.equal(
+      await git("--git-dir", remote, "show", "main:untouched.txt"),
+      "hello",
+    );
+    await assert.rejects(git("--git-dir", remote, "show", "main:README.md"));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

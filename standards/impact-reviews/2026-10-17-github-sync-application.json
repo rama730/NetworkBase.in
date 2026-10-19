@@ -1,0 +1,79 @@
+{
+  "id": "2026-10-17-github-sync-application",
+  "title": "Implement the approved GitHub Sync end-to-end workflow",
+  "summary": "Apply the compact approved setup/review/confirmation/progress/recovery design to real project files, defer new branch creation to reviewed publication, preserve real file updater metadata and safe authorization resume, and use durable operation results for completion and retry.",
+  "riskLevel": "high",
+  "runtimePlanes": [
+    "request",
+    "worker",
+    "database"
+  ],
+  "routeClasses": [
+    "user_shell",
+    "active_surface"
+  ],
+  "dataSourcesChanged": [
+    "Extend the existing JSON sync manifest with optional new-branch/base, repository visibility and current-revision updater metadata; no database schema migration.",
+    "Read incoming GitHub source-commit metadata in bounded visible-page batches and authenticated owner/organization choices through owner-scoped server actions.",
+    "Retain existing reviewed snapshots, project owner checks, lease/active-operation constraints and canonical identity/OAuth callbacks; add missing cancellation result checks and new-ref publication protection."
+  ],
+  "canonicalLogicDomains": [
+    "identity_avatar",
+    "status_lifecycle",
+    "import_boundaries"
+  ],
+  "concurrencyRisk": "Only final confirmation publishes. A new-ref empty lease rejects branch creation races; the base/head, file revisions and connection version remain validated. Queued cancellation claims success only after a matched update. Retained operation results prevent duplicate repository creation, applied-file writes and publication follow-up. OAuth resume is viewer/project scoped, expires and rechecks selected revisions; cancelled/superseded local redirects do not navigate.",
+  "observability": {
+    "logs": [
+      "Existing auth.callback.exchange.failure and auth.callback.exchange.success",
+      "Existing github.repository_auth.session_restore_failed and worker/inngest error reporting"
+    ],
+    "metrics": [
+      "Existing auth callback timing and durable sync run stages/results"
+    ],
+    "alerts": []
+  },
+  "rollback": {
+    "strategy": "Deploy/revert the web application and reviewed-sync worker together. Finish confirmed new-branch operations and cancel unsubmitted reviews using the extended behavior before rollback. Retain created repository/branch and partial-import records; no automatic external rollback or schema rollback. Preserve unrelated Messages and working-tree edits.",
+    "validation": [
+      "Old manifests without optional fields continue to execute",
+      "Queued/running operations are never rendered as successful",
+      "No already-published commit or recorded applied file is duplicated by recovery"
+    ]
+  },
+  "evidence": {
+    "commands": [
+      "npm run build",
+      "npx tsc --noEmit --pretty false",
+      "npx eslint <changed GitHub/application modules and new tests>",
+      "node --import tsx --test tests/unit/*github*.test.ts tests/unit/files-tab/*github*.test.ts tests/unit/repo-validation.test.ts tests/unit/auth-oauth.test.ts",
+      "git diff --check -- <GitHub Sync paths>"
+    ],
+    "reports": [
+      "docs/audits/github-sync-application-2026-10-17.md"
+    ]
+  },
+  "paths": [
+    "src/app/actions/github-sync.ts",
+    "src/app/auth/callback/route.ts",
+    "src/lib/github/sync-workspace.ts",
+    "src/lib/github/sync-contract.ts",
+    "src/lib/github/sync-service.ts",
+    "src/lib/github/sync-runner.ts",
+    "src/lib/github/sync-git.ts",
+    "src/lib/github/repo-validation.ts",
+    "src/lib/github/oauth-client.ts",
+    "src/components/projects/v2/files-tab/GitHubSyncWorkspace.tsx",
+    "src/components/projects/v2/files-tab/FilesTabMain.tsx",
+    "src/components/projects/v2/files-tab/github-sync",
+    "tests/unit/github-sync-workspace.test.ts",
+    "tests/unit/files-tab/github-sync-render.test.ts",
+    "tests/fixtures/github-sync-approved-scenarios.json",
+    "tests/unit/github-reviewed-sync.test.ts",
+    "tests/unit/github-sync-capacity-contract.test.ts",
+    "tests/unit/github-sync-status-contract.test.ts",
+    "tests/unit/github-sync-destination-simplification.test.ts",
+    "tests/unit/files-tab/github-sync-setup-redesign.test.ts",
+    "tests/unit/github-sync-oauth-attempt.test.ts"
+  ]
+}

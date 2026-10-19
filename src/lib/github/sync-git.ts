@@ -23,11 +23,15 @@ export async function publishGitSnapshot(input: {
   token: string | null;
   readContent: (key: string) => Promise<Buffer>;
   beforePush: (sha: string, branch: string) => Promise<void>;
+  onStage?: (stage: string) => Promise<void>;
 }) {
   const { manifest } = input;
   const root = await mkdtemp(join(tmpdir(), "networkbase-reviewed-sync-"));
-  const branch =
-    manifest.mode === "pr" ? `networkbase/sync-${input.runId}` : manifest.branch;
+  const branch = manifest.newBranch
+    ? manifest.branch
+    : manifest.mode === "pr"
+      ? `networkbase/sync-${input.runId}`
+      : manifest.branch;
   try {
     return await withGitCredentialEnv(input.token, async (credentialEnv) => {
       const identity = commitIdentity(manifest.files);
@@ -60,6 +64,7 @@ export async function publishGitSnapshot(input: {
             { env, timeout: 120_000, maxBuffer: 4 * 1024 * 1024 },
           )
         ).stdout.trim();
+      await input.onStage?.("Preparing reviewed files");
       await git("init", "--initial-branch", branch);
       await git("remote", "add", "origin", manifest.repository);
       if (manifest.headSha) {
@@ -88,6 +93,21 @@ export async function publishGitSnapshot(input: {
           } catch (error) {
             if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
           }
+        }
+        if (file.renamedFrom) {
+          validateSyncPath(file.renamedFrom);
+          let previous = root;
+          for (const segment of file.renamedFrom.split("/")) {
+            previous = join(previous, segment);
+            try {
+              if ((await lstat(previous)).isSymbolicLink())
+                throw new Error("Symlink rename source is not supported");
+            } catch (error) {
+              if ((error as NodeJS.ErrnoException).code !== "ENOENT")
+                throw error;
+            }
+          }
+          await rm(join(root, file.renamedFrom), { force: true });
         }
         const target = join(root, file.path);
         if (file.snapshotKey) {
@@ -118,7 +138,14 @@ export async function publishGitSnapshot(input: {
       await input.beforePush(sha, branch);
       // Fast-forward-only; branch protections and concurrent remote changes fail closed.
       // ponytail: git push exits 0 only upon verified remote ref update; pruning redundant ls-remote saves 250-450ms network latency. ceiling: fast-forward pushes only. upgrade: explicit remote ref leasing if concurrent non-fast-forward push queues are introduced.
-      await git("push", "origin", `HEAD:refs/heads/${branch}`);
+      await git(
+        "push",
+        ...(manifest.newBranch
+          ? [`--force-with-lease=refs/heads/${branch}:`]
+          : []),
+        "origin",
+        `HEAD:refs/heads/${branch}`,
+      );
       return { commitSha: sha, branch, pushed: true };
     });
   } finally {

@@ -34,9 +34,19 @@ export interface SyncContributor {
   email?: string | null;
   source: "edge" | "github";
 }
+export interface SyncFileUpdate {
+  at: string | null;
+  person: {
+    name: string;
+    avatarUrl: string | null;
+    login?: string | null;
+  } | null;
+  source: "project" | "github";
+}
 export interface SyncFile {
   path: string;
   renamedFrom?: string;
+  updated?: SyncFileUpdate;
   nodeId: string | null;
   version: number | null;
   storageKey: string | null;
@@ -68,6 +78,9 @@ export interface SyncManifest {
   mode: "direct" | "pr";
   message: string;
   files: SyncFile[];
+  /** Draft branch: comparison uses base; publication creates branch only at confirmation. */
+  newBranch?: { base: string };
+  visibility?: "public" | "private";
   newRepository?: {
     owner: string;
     name: string;
@@ -228,6 +241,31 @@ export function detectIncomingRenames(files: SyncFile[]): SyncFile[] {
       change: "rename",
     });
     previous.change = "unchanged";
+  }
+  return result;
+}
+
+/** Exact outgoing moves are a rename plus a write, never an inferred edited move. */
+export function detectOutgoingRenames(files: SyncFile[]): SyncFile[] {
+  const result = files.map((file) => ({ ...file }));
+  for (const added of result.filter(
+    (file) => file.change === "add" && !file.blocked && file.localBlobSha,
+  )) {
+    const previous = result.filter(
+      (file) =>
+        file.change === "delete" &&
+        !file.blocked &&
+        file.remoteSha === added.localBlobSha &&
+        file.baseSha === file.remoteSha,
+    );
+    const destinations = result.filter(
+      (file) =>
+        file.change === "add" && file.localBlobSha === added.localBlobSha,
+    );
+    if (previous.length !== 1 || destinations.length !== 1) continue;
+    added.change = "rename";
+    added.renamedFrom = previous[0]!.path;
+    previous[0]!.change = "unchanged";
   }
   return result;
 }

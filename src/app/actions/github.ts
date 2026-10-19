@@ -13,6 +13,7 @@ import { fetchProviderUrl, GITHUB_API_HOSTS } from '@/lib/security/outbound-url'
 import { createTimeoutSignal, fetchGithubJson } from '@/lib/github/provider-request';
 import { detectPackageTechnologies, mergeDetectedTechnologies } from '@/lib/skills/repository-detection';
 import { resolveGithubUserAccessToken } from '@/lib/github/user-access-token';
+import { loadGithubLinkedUser } from '@/lib/github/linked-user';
 import { readBoundedBody } from '@/lib/security/bounded-body';
 
 type PreviewEntry = {
@@ -100,15 +101,16 @@ async function withCachedValue<T>(cacheKey: string, ttlMs: number, task: () => P
 async function getAuthorizedGithubSession() {
   const supabase = await createClient();
   const [
-    { data: { user } },
+    { data: { user: snapshotUser } },
     { data: { session } },
   ] = await Promise.all([
     supabase.auth.getUser(),
     supabase.auth.getSession(),
   ]);
-  if (!user) {
+  if (!snapshotUser) {
     return { ok: false as const, error: 'Unauthorized. Please sign in first.' };
   }
+  const user = await loadGithubLinkedUser(snapshotUser);
   const rateLimit = await consumeRateLimit(
     `github:preview:${user.id}`,
     RATE_LIMIT_MAX_REQUESTS,
