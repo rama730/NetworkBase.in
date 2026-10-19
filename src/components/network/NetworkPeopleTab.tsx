@@ -1,5 +1,6 @@
 "use client";
 
+import { CONNECTION_COPY } from "@/lib/connections/copy";
 import { useCallback, useMemo } from "react";
 import { Users } from "lucide-react";
 import { toast } from "sonner";
@@ -29,9 +30,9 @@ export default function NetworkPeopleTab({ initialUser, searchQuery }: PeopleCli
             return;
         }
         await toast.promise(sendRequest.mutateAsync({ userId }), {
-            loading: "Sending request...",
+            loading: CONNECTION_COPY.sending,
             success: (result) => getConnectionRequestSuccessMessage(result.status),
-            error: (error) => error instanceof Error ? error.message : "Failed to send request",
+            error: (error) => error instanceof Error ? error.message : CONNECTION_COPY.sendFailed,
         }).unwrap();
     }, [initialUser?.id, sendRequest]);
 

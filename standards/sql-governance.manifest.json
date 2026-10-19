@@ -210,7 +210,9 @@
     "drizzle/0206_foreign_key_indexes.sql",
     "drizzle/0207_catalog_parity.sql",
     "drizzle/0208_native_auth_uid.sql",
-    "drizzle/0209_skill_catalog_1_3_7.sql"
+    "drizzle/0209_skill_catalog_1_3_7.sql",
+    "drizzle/0210_index_cleanup.sql",
+    "drizzle/0211_discover_index_hygiene.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",

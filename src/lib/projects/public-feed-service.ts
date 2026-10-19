@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, lte, ne, or, sql } from 'drizzle-orm'
 
 import { db } from '@/lib/db'
 import { isMissingRelationError } from '@/lib/db/errors'
@@ -49,14 +49,6 @@ type PublicProjectRow = {
     }
 }
 
-type PublicProjectRoleRow = {
-    id: string
-    projectId: string
-    role: string
-    title: string | null
-    count: number
-    filled: number
-}
 
 export type PublicProjectsFeedPage = {
     projects: PublicProjectsFeedItem[]
@@ -69,7 +61,7 @@ export type PublicProjectsFeedPage = {
  * The shared feed is one cached payload for every viewer, so it is shaped for the most restricted one
  * (signed out): a non-public owner is masked here, on the server, and members-only links never leave it.
  */
-function mapProjectRow(row: PublicProjectRow, openRoles: PublicProjectRoleRow[], members: any[]): PublicProjectsFeedItem {
+function mapProjectRow(row: PublicProjectRow, counts: { openSeats: number; teamSize: number }, members: any[]): PublicProjectsFeedItem {
     const ownerIsPublic = (row.profiles.visibility || 'public') === 'public'
     return {
         id: row.id,
@@ -92,16 +84,9 @@ function mapProjectRow(row: PublicProjectRow, openRoles: PublicProjectRoleRow[],
         created_at: row.createdAt.toISOString(),
         updated_at: row.updatedAt.toISOString(),
         // The card counts open seats; role text and skills live on the project page.
-        open_roles: openRoles.map((role) => ({
-            id: role.id,
-            project_id: role.projectId,
-            role: role.role,
-            title: role.title,
-            description: null,
-            count: role.count,
-            filled: role.filled,
-            skills: [],
-        })),
+        open_roles: [],
+        open_seats: counts.openSeats,
+        team_size: counts.teamSize,
         collaborators: members.map((m) => ({
             user_id: m.userId,
             membership_role: m.role,
@@ -179,19 +164,18 @@ export async function queryAndCachePublicProjectsFeed(limit: number, cursor: Pub
     const hasMore = rows.length > limit
     const pageRows = rows.slice(0, limit) as PublicProjectRow[]
     const projectIds = pageRows.map((row) => row.id)
-    const roleRows = projectIds.length === 0
+    // A card shows open seats and the team size, not every role or member: one summed row per project for
+    // seats, and at most 8 visible members (the stack shows 4) with the team size counted in SQL.
+    const seatRows = projectIds.length === 0
         ? []
         : await db
             .select({
-                id: projectOpenRoles.id,
                 projectId: projectOpenRoles.projectId,
-                role: projectOpenRoles.role,
-                title: projectOpenRoles.title,
-                count: projectOpenRoles.count,
-                filled: projectOpenRoles.filled,
+                open: sql<number>`coalesce(sum(greatest(${projectOpenRoles.count} - ${projectOpenRoles.filled}, 0)), 0)`.mapWith(Number),
             })
             .from(projectOpenRoles)
             .where(inArray(projectOpenRoles.projectId, projectIds))
+            .groupBy(projectOpenRoles.projectId)
             .catch((error) => {
                 if (isMissingRelationError(error, 'project_open_roles')) {
                     logger.warn('public-feed.project_open_roles_missing', {
@@ -202,43 +186,38 @@ export async function queryAndCachePublicProjectsFeed(limit: number, cursor: Pub
                 }
                 throw error
             })
-    const rolesByProjectId = new Map<string, PublicProjectRoleRow[]>()
-    for (const role of roleRows as PublicProjectRoleRow[]) {
-        const existing = rolesByProjectId.get(role.projectId)
-        if (existing) {
-            existing.push(role)
-        } else {
-            rolesByProjectId.set(role.projectId, [role])
-        }
-    }
+    const seatsByProjectId = new Map(seatRows.map((row) => [row.projectId, row.open]))
 
-    const memberRows = projectIds.length === 0
-        ? []
-        : await db
+    const rankedSub = db
             .select({
                 projectId: projectMembers.projectId,
                 userId: projectMembers.userId,
                 role: projectMembers.role,
-                profiles: {
-                    id: profiles.id,
-                    username: profiles.username,
-                    full_name: profiles.fullName,
-                    avatar_url: profiles.avatarUrl,
-                },
+                username: profiles.username,
+                fullName: profiles.fullName,
+                avatarUrl: profiles.avatarUrl,
+                memberRank: sql<number>`row_number() over (partition by ${projectMembers.projectId} order by ${projectMembers.joinedAt}, ${projectMembers.userId})`.mapWith(Number).as('member_rank'),
+                teamSize: sql<number>`count(*) over (partition by ${projectMembers.projectId})`.mapWith(Number).as('team_size'),
             })
             .from(projectMembers)
             .innerJoin(profiles, eq(projectMembers.userId, profiles.id))
             // Only members anyone may see: public profiles that still exist.
-            .where(and(inArray(projectMembers.projectId, projectIds), eq(profiles.visibility, 'public'), isNull(profiles.deletedAt)))
-            .catch(() => [])
+            .where(and(inArray(projectMembers.projectId, projectIds), sql`coalesce(${profiles.visibility}, 'public') = 'public'`, isNull(profiles.deletedAt)))
+            .as('ranked_members')
+    const rankedMembers = projectIds.length === 0
+        ? []
+        : await db.select().from(rankedSub).where(lte(rankedSub.memberRank, 8)).catch(() => [])
 
+    const teamSizeByProjectId = new Map<string, number>()
     const membersByProjectId = new Map<string, any[]>()
-    for (const member of memberRows) {
+    for (const member of rankedMembers) {
+        teamSizeByProjectId.set(member.projectId, member.teamSize)
         const existing = membersByProjectId.get(member.projectId)
+        const shown = { projectId: member.projectId, userId: member.userId, role: member.role, profiles: { id: member.userId, username: member.username, full_name: member.fullName, avatar_url: member.avatarUrl } }
         if (existing) {
-            existing.push(member)
+            existing.push(shown)
         } else {
-            membersByProjectId.set(member.projectId, [member])
+            membersByProjectId.set(member.projectId, [shown])
         }
     }
 
@@ -250,7 +229,10 @@ export async function queryAndCachePublicProjectsFeed(limit: number, cursor: Pub
         })
         : null
     const payload = {
-        projects: pageRows.map((row) => mapProjectRow(row, rolesByProjectId.get(row.id) ?? [], membersByProjectId.get(row.id) ?? [])),
+        projects: pageRows.map((row) => mapProjectRow(row, {
+            openSeats: seatsByProjectId.get(row.id) ?? 0,
+            teamSize: teamSizeByProjectId.get(row.id) ?? 0,
+        }, membersByProjectId.get(row.id) ?? [])),
         nextCursor,
     }
 
@@ -310,20 +292,27 @@ export async function invalidatePublicProjectsFeedCache(projectId?: string | nul
 }
 
 /**
- * The shared feed minus anyone the viewer blocked or is blocked by (owner or collaborator). Runs after
- * the cache, so the cached payload stays one for everyone.
+ * The shared feed as one viewer may see it. The cached payload keeps real ids (blocks need them); this is
+ * the last step before anything leaves the server: drop projects and collaborators across a block (either
+ * direction), then blank a masked creator's id so their "Private creator" projects can't be linked.
  */
-export async function withoutBlockedUsers(feed: PublicProjectsFeedItem[], viewerId: string | null): Promise<PublicProjectsFeedItem[]> {
-    if (!viewerId || feed.length === 0) return feed
-    const rows = await db
-        .select({ requesterId: connections.requesterId, addresseeId: connections.addresseeId })
-        .from(connections)
-        .where(and(eq(connections.status, 'blocked'), or(eq(connections.requesterId, viewerId), eq(connections.addresseeId, viewerId))))
-    if (rows.length === 0) return feed
-    const blocked = new Set(rows.map((row) => (row.requesterId === viewerId ? row.addresseeId : row.requesterId)))
-    return feed
-        .filter((project) => !blocked.has(project.owner_id))
-        .map((project) => ({ ...project, collaborators: project.collaborators.filter((member) => !blocked.has(member.user_id)) }))
+export async function forViewer(feed: PublicProjectsFeedItem[], viewerId: string | null): Promise<PublicProjectsFeedItem[]> {
+    let visible = feed
+    if (viewerId && feed.length > 0) {
+        const rows = await db
+            .select({ requesterId: connections.requesterId, addresseeId: connections.addresseeId })
+            .from(connections)
+            .where(and(eq(connections.status, 'blocked'), or(eq(connections.requesterId, viewerId), eq(connections.addresseeId, viewerId))))
+        if (rows.length > 0) {
+            const blocked = new Set(rows.map((row) => (row.requesterId === viewerId ? row.addresseeId : row.requesterId)))
+            visible = feed
+                .filter((project) => !blocked.has(project.owner_id))
+                .map((project) => ({ ...project, collaborators: project.collaborators.filter((member) => !blocked.has(member.user_id)) }))
+        }
+    }
+    return visible.map((project) => (project.profiles.visibility || 'public') === 'public'
+        ? project
+        : { ...project, owner_id: '', profiles: { ...project.profiles, id: '' } })
 }
 
 export async function getPublicProjectsFeedPage(limit: number, cursor: PublicProjectsCursor | null): Promise<PublicProjectsFeedPage> {

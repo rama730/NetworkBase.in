@@ -2,8 +2,7 @@
 
 import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query';
 import { Project, DiscoverFilters } from '@/types/discover';
-import { fetchDiscoverProjectsAction } from '@/app/actions/discover';
-import type { FilterView } from '@/constants/discover';
+import { SORT_OPTIONS, type FilterView } from '@/constants/discover';
 import { queryKeys } from '@/lib/query-keys';
 import { mapPublicProjectToDiscoverProject, type PublicProjectsFeedItem } from '@/lib/projects/public-feed';
 
@@ -11,12 +10,14 @@ const PAGE_SIZE = 24;
 
 /** A feed failure people can act on: the message is ours (never a server body), `code` says if a retry helps. */
 export class DiscoverFeedError extends Error {
-    constructor(readonly code: 'TRANSIENT' | 'RATE_LIMITED' | 'VALIDATION') {
+    constructor(readonly code: 'TRANSIENT' | 'RATE_LIMITED' | 'VALIDATION' | 'STALE_FEED') {
         super(code === 'RATE_LIMITED'
             ? 'Too many requests. Wait a moment, then try again.'
             : code === 'VALIDATION'
                 ? "That link's filters aren't valid. Clear filters to start over."
-                : "Projects didn't load. Check your connection and try again.");
+                : code === 'STALE_FEED'
+                    ? 'This list changed since you opened it.'
+                    : "Projects didn't load. Check your connection and try again.");
         this.name = 'DiscoverFeedError';
     }
 }
@@ -58,6 +59,41 @@ async function fetchPublicProjectsPage(cursor: string | undefined) {
  * `isDefault` (the unfiltered newest feed, lib/discover/query) reads the shared, cached API and can
  * start from the server-rendered page; everything else goes through the server action.
  */
+/**
+ * Filtered, searched and ranked pages: a GET to the Discover route, so the browser can cancel a superseded
+ * search (the query's abort signal) and a follow isn't queued behind it.
+ */
+async function fetchDiscoverPage(filters: DiscoverFilters, view: FilterView, cursor: string | undefined, signal: AbortSignal | undefined) {
+    const params = new URLSearchParams({
+        view,
+        status: filters.status || 'all',
+        type: filters.type || 'all',
+        sort: filters.sort || SORT_OPTIONS.NEWEST,
+        limit: String(PAGE_SIZE),
+    });
+    if (filters.tech?.length) params.set('tech', filters.tech.join(','));
+    if (filters.search) params.set('q', filters.search);
+    if (cursor) params.set('cursor', cursor);
+
+    const response = await fetch(`/api/v1/discover/projects?${params.toString()}`, {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+        signal,
+    });
+    const body = await response.json().catch(() => null) as {
+        success?: boolean;
+        data?: { projects: Project[]; nextCursor: string | null; hasMore: boolean };
+        details?: { code?: string };
+    } | null;
+    if (response.ok && body?.success && body.data) {
+        return { projects: body.data.projects, nextCursor: body.data.nextCursor ?? undefined, hasMore: body.data.hasMore };
+    }
+    const code = body?.details?.code;
+    if (response.status === 429) throw new DiscoverFeedError('RATE_LIMITED');
+    if (response.status === 400) throw new DiscoverFeedError(code === 'STALE_FEED' ? 'STALE_FEED' : 'VALIDATION');
+    throw new DiscoverFeedError('TRANSIENT');
+}
+
 export function useDiscoverProjects(
     viewerId: string | null,
     filters: DiscoverFilters,
@@ -67,20 +103,14 @@ export function useDiscoverProjects(
         projects?: Project[];
         nextCursor?: string;
         hasMore?: boolean;
+        renderedAt?: number;
     } | null,
 ) {
     return useInfiniteQuery({
         queryKey: queryKeys.discover.projectsSimple(viewerId, view, filters),
-        queryFn: async ({ pageParam = undefined as string | undefined }) => {
+        queryFn: async ({ pageParam = undefined as string | undefined, signal }) => {
             if (isDefault) return fetchPublicProjectsPage(pageParam);
-
-            const result = await fetchDiscoverProjectsAction(filters, pageParam, PAGE_SIZE, view);
-            if (!result.success) throw new DiscoverFeedError(result.code);
-            return {
-                projects: result.projects || [],
-                nextCursor: result.nextCursor,
-                hasMore: result.hasMore,
-            };
+            return fetchDiscoverPage(filters, view, pageParam, signal);
         },
         initialPageParam: undefined as string | undefined,
         getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,
@@ -99,5 +129,7 @@ export function useDiscoverProjects(
             }],
             pageParams: [undefined],
         } : undefined,
+        // Its age is when the server read it, not when this hook ran (a garbage-collected query re-seeds from it).
+        initialDataUpdatedAt: initialProjectsPage?.renderedAt,
     });
 }

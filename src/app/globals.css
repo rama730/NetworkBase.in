@@ -741,14 +741,17 @@ html[data-reduce-motion="true"] .nb-skeleton {
 .nb-brand-mark--accent .nb-brand-dot { background:var(--primary-foreground); }
 .nb-brand-mark[data-brand-ground="image"] { box-shadow:0 0 0 1px color-mix(in srgb,#FAF8F4 18%,transparent); }
 .nb-wordmark-square { width:var(--nb-brand-dot-size,7px); height:var(--nb-brand-dot-size,7px); border-radius:max(1.5px,calc(var(--nb-brand-dot-size,7px) * .28)); background:var(--primary); flex:none; }
-.nb-micro { font:500 11px/1.2 var(--font-jetbrains-mono),monospace; letter-spacing:.09em; text-transform:uppercase; color:var(--muted-foreground); }
-.nb-meta { font:400 12px/1.35 var(--font-jetbrains-mono),monospace; font-variant-numeric:tabular-nums; color:var(--muted-foreground); }
-.nb-page-title { font-size:30px; line-height:1.28; font-weight:600; letter-spacing:-.015em; text-wrap:balance; }
-.nb-section-title { font-size:20px; line-height:1.28; font-weight:600; letter-spacing:-.01em; }
-.nb-card-title { font-size:17px; line-height:1.28; font-weight:600; letter-spacing:-.01em; }
-.nb-body { font-size:15px; line-height:1.5; }
-.nb-compact { font-size:13px; line-height:1.5; }
-.nb-ui-label { font-size:13px; line-height:1.2; font-weight:500; }
+/* Shared type classes sit in the components layer, so a utility written beside them (text-primary, font-sans…) wins, as its author meant. */
+@layer components {
+  .nb-micro { font:500 11px/1.2 var(--font-jetbrains-mono),monospace; letter-spacing:.09em; text-transform:uppercase; color:var(--muted-foreground); }
+  .nb-meta { font:400 12px/1.35 var(--font-jetbrains-mono),monospace; font-variant-numeric:tabular-nums; color:var(--muted-foreground); }
+  .nb-page-title { font-size:30px; line-height:1.28; font-weight:600; letter-spacing:-.015em; text-wrap:balance; }
+  .nb-section-title { font-size:20px; line-height:1.28; font-weight:600; letter-spacing:-.01em; }
+  .nb-card-title { font-size:17px; line-height:1.28; font-weight:600; letter-spacing:-.01em; }
+  .nb-body { font-size:15px; line-height:1.5; }
+  .nb-compact { font-size:13px; line-height:1.5; }
+  .nb-ui-label { font-size:13px; line-height:1.2; font-weight:500; }
+}
 .nb-section-icon { width:18px; height:18px; flex:none; }
 .nb-empty-state { max-width:48rem; margin-inline:auto; padding:24px; border:1px dashed var(--border); border-radius:8px; background-color:var(--card); background-image:linear-gradient(to right,var(--nb-grid-line) 1px,transparent 1px),linear-gradient(to bottom,var(--nb-grid-line) 1px,transparent 1px); background-size:24px 24px; text-align:center; }
 .nb-empty-state > svg, .nb-empty-state-icon { width:24px; height:24px; margin-inline:auto; color:var(--muted-foreground); }
@@ -771,8 +774,11 @@ html[data-reduce-motion="true"] .nb-skeleton {
 .nb-nav-link:hover { background:var(--muted); color:var(--foreground); }
 .nb-nav-link[aria-current="page"] { background:var(--sidebar-accent); color:var(--foreground); }
 .nb-nav-link[aria-current="page"] > svg { color:var(--primary); }
-.nb-nav-count, .nb-chat-count { margin-left:auto; padding:1px 5px; background:var(--secondary); border-radius:3px; font:11px var(--font-jetbrains-mono),monospace; font-variant-numeric:tabular-nums; }
-.nb-tab-count { display:inline-flex; min-width:20px; align-items:center; justify-content:center; padding:1px 5px; border-radius:3px; background:var(--secondary); color:var(--secondary-foreground); font:500 11px/1.35 var(--font-jetbrains-mono),monospace; font-variant-numeric:tabular-nums; }
+/* Counts: components layer, so utilities can adjust them. */
+@layer components {
+  .nb-nav-count, .nb-chat-count { margin-left:auto; padding:1px 5px; background:var(--secondary); border-radius:3px; font:11px var(--font-jetbrains-mono),monospace; font-variant-numeric:tabular-nums; }
+  .nb-tab-count { display:inline-flex; min-width:20px; align-items:center; justify-content:center; padding:1px 5px; border-radius:3px; background:var(--secondary); color:var(--secondary-foreground); font:500 11px/1.35 var(--font-jetbrains-mono),monospace; font-variant-numeric:tabular-nums; }
+}
 .nb-main-frame { min-width:0; transition:margin-left 180ms cubic-bezier(.2,.8,.3,1); }
 .nb-sidebar[data-collapsed="true"] { width:var(--nb-sidebar-collapsed-width); }
 .nb-sidebar[data-collapsed="true"] + .nb-main-frame { margin-left:var(--nb-sidebar-collapsed-width); }
@@ -831,18 +837,25 @@ html[data-reduce-motion="true"] .nb-skeleton {
   width: 100% !important;
   height: 100% !important;
 }
-.nb-project-card:hover { border-color:var(--input); }
 .nb-project-card:focus-within { border-color:var(--border); }
+/* After :focus-within, so hover still shows once Follow has focus. */
+.nb-project-card:hover { border-color:var(--input); }
 /* The guard below removes every ring, so keyboard focus shows as clay instead: the card's border for its
    stretched title link, a clay tint on icon buttons and on links and buttons inside person cards. */
-.nb-project-card:has(a:focus-visible) { border-color:var(--primary); }
+/* Only the stretched title link lights the card; the icon links inside show their own focus. */
+.nb-project-card:has(.nb-project-card-title a:focus-visible) { border-color:var(--primary); }
 .nb-icon-button:focus-visible,
 .nb-discover-person-card :is(a, button):not([data-slot="button"]):focus-visible { background-color:color-mix(in srgb, var(--primary) 14%, transparent); color:var(--foreground); }
 .nb-project-card-title { font-size:17px; line-height:1.28; font-weight:600; letter-spacing:-.015em; overflow-wrap:anywhere; }
 .nb-project-card-footer { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; margin-top:auto; padding-top:12px; border-top:1px solid var(--border); }
-.nb-tag { display:inline-flex; align-items:center; gap:5px; min-height:22px; padding:3px 8px; border:1px solid var(--border); border-radius:999px; background:var(--card); font-size:12px; line-height:1.3; color:var(--secondary-foreground); }
-.nb-icon-button { display:inline-flex; align-items:center; justify-content:center; min-width:28px; min-height:28px; border-radius:5px; color:var(--muted-foreground); }
-.nb-icon-button:hover { background:var(--muted); color:var(--foreground); }
+/* Tag and icon button: components layer, so aria-pressed:/text- utilities apply. */
+@layer components {
+  .nb-tag { display:inline-flex; align-items:center; gap:5px; min-height:22px; padding:3px 8px; border:1px solid var(--border); border-radius:999px; background:var(--card); font-size:12px; line-height:1.3; color:var(--secondary-foreground); }
+  .nb-icon-button { display:inline-flex; align-items:center; justify-content:center; min-width:28px; min-height:28px; border-radius:5px; color:var(--muted-foreground); }
+  .nb-icon-button:hover { background:var(--muted); color:var(--foreground); }
+  /* A toggle that's on (Follow): clay, and a fill that differs from hover. */
+  .nb-icon-button[aria-pressed="true"] { color:var(--primary); background:color-mix(in srgb, var(--primary) 12%, transparent); }
+}
 .nb-tool-surface { min-width:0; background:var(--card); border:1px solid var(--border); border-radius:8px; }
 /* Lucide icons only. Third-party logos and rendered user SVGs retain their own strokes. */
 svg.lucide { stroke-width:1.75; }
@@ -902,19 +915,18 @@ svg.lucide { stroke-width:1.75; }
 .nb-presence[data-availability="week"] > .nb-presence-cutout, .nb-presence[data-availability="offline"] > .nb-presence-cutout { inset:27%; }
 /* Corner placement on an avatar (people cards, search, discover). */
 .nb-person-presence-dot { position:absolute; z-index:1; right:-3px; bottom:-3px; }
-.nb-person-connect { display:inline-flex; min-height:var(--ui-control-height); align-items:center; justify-content:center; gap:8px; border:1px solid var(--primary); border-radius:var(--radius-md); background:var(--primary); padding:8px 12px; color:var(--primary-foreground); font-size:14px; font-weight:500; line-height:1.25; transition:background-color 150ms ease-in-out,border-color 150ms ease-in-out,color 150ms ease-in-out; }
+.nb-person-connect { display:inline-flex; min-height:var(--ui-control-height); align-items:center; justify-content:center; gap:8px; border:1px solid var(--primary); border-radius:var(--radius-md); background:var(--primary); padding:0 var(--ui-control-px, 12px); color:var(--primary-foreground); font-size:13px; font-weight:500; line-height:1.25; transition:background-color 150ms ease-in-out,border-color 150ms ease-in-out,color 150ms ease-in-out; }
 .nb-person-connect:hover { border-color:var(--primary-hover); background:var(--primary-hover); }
 .nb-person-connect:active { border-color:var(--primary-active); background:var(--primary-active); }
-.nb-person-connect:focus,
-.nb-person-connect:focus-visible { outline: none !important; }
-.nb-person-connect:disabled { cursor:not-allowed; border-color:var(--muted); background:var(--muted); color:var(--muted-foreground); opacity:.6; }
+/* One disabled look across buttons (spec: 45%); aria-disabled keeps focus where it is. */
+.nb-person-connect:disabled, .nb-person-connect[aria-disabled="true"] { cursor:not-allowed; opacity:.45; }
+/* The guard strips rings: keyboard focus is a darker clay fill instead. */
+.nb-person-connect:focus-visible { border-color:var(--primary-active); background:var(--primary-active); }
 .nb-discover-people-state { border:1px solid var(--border); border-radius:8px; background:var(--card); padding:16px; }
 @media (min-width:1200px) {
   .nb-discover-columns { grid-template-columns:minmax(0,1fr) 320px; }
   .nb-discover-columns--single { grid-template-columns:minmax(0,1fr); }
   .nb-discover-rail { display:block; }
-  /* Nothing to show in the rail (no checklist, no people): the feed takes the width (spec §15). */
-  .nb-discover-columns:has(> .nb-discover-rail:empty) { grid-template-columns:minmax(0,1fr); }
 }
 .nb-site-nav { max-width:1248px; margin:auto; padding:0 24px; min-height:60px; display:flex; align-items:center; justify-content:space-between; gap:16px; }
 .nb-site-hero { max-width:1248px; margin:auto; padding:84px 24px 72px; display:grid; grid-template-columns:minmax(0,1fr) 420px; gap:56px; align-items:center; }
@@ -1016,6 +1028,19 @@ svg.lucide { stroke-width:1.75; }
 }
 
 .nb-message-composer { padding-bottom:max(8px,env(safe-area-inset-bottom)); }
+
+/* App-wide keyboard focus (WCAG 2.4.7). The guard above removes every ring (no outer keylines, by
+   design), so focus is a tone instead: a clay tint on links and plain controls (zero specificity, so a
+   component's own background still wins), and on shared Buttons a light ink overlay plus a clay border,
+   which shows on any fill (outline, ghost or solid) and never looks like hover. */
+:where(a, button, summary, [role="tab"], [role="option"], [role="menuitem"], [role="radio"], [role="switch"]):focus-visible {
+  background-color: color-mix(in srgb, var(--primary) 14%, transparent);
+}
+[data-slot="button"]:focus-visible {
+  background-image: linear-gradient(color-mix(in srgb, var(--foreground) 10%, transparent), color-mix(in srgb, var(--foreground) 10%, transparent));
+  border-color: var(--primary);
+}
+[data-slot="checkbox"]:focus-visible { border-color: var(--primary); background-color: color-mix(in srgb, var(--primary) 14%, transparent); }
 
 /* Messages keyboard focus (report §7.13, WCAG 2.4.7). The app's guard above removes every ring,
    so focus here is a tone of its own: a clay tint (spec: focus is clay), never the hover grey,

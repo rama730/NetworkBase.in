@@ -8,6 +8,7 @@ import { recordDiscoverMetric } from '@/lib/discover/observability';
 import { DISCOVER_RANKING_SCHEMA_VERSION, DISCOVER_RANKING_WEIGHTS } from '@/lib/discover/ranking-config';
 import { buildDiscoverSnapshotKey } from '@/lib/discover/snapshot-cache';
 import { logger } from '@/lib/logger';
+import { cacheData, getCachedData } from '@/lib/redis';
 import { buildProjectOwnerPresentation } from '@/lib/privacy/presentation';
 import { resolvePrivacyRelationships } from '@/lib/privacy/resolver';
 import { getProjectMemberRoleLabel } from '@/lib/projects/settings-policies';
@@ -36,8 +37,16 @@ interface DiscoverQueryOptions {
 type ParsedCursor =
     | { kind: 'score'; fingerprint: string; score: number; createdAt: string; id: string; now: number }
     | { kind: 'time'; fingerprint: string; createdAt: string; id: string }
-    | { kind: 'snapshot'; fingerprint: string; now: number; id: string }
+    | { kind: 'snapshot'; fingerprint: string; now: number; id: string; index: number | null }
     | null;
+
+/** A ranked list moved on under its cursor (snapshot expired and the project left it): start it again. */
+export class StaleDiscoverFeedError extends Error {
+    constructor() {
+        super('This list changed since you opened it');
+        this.name = 'StaleDiscoverFeedError';
+    }
+}
 
 export class InvalidDiscoverCursorError extends Error {
     constructor() {
@@ -63,9 +72,8 @@ type RawProjectRow = {
     visibility: string | null;
     status: string | null;
     lifecycleStages: string[] | null;
-    importSource: {
-        metadata?: Record<string, unknown>;
-    } | null;
+    /** import_source.metadata.leadFocus, the only part a card reads. */
+    leadFocus: string | null;
     externalLinks: import('@/lib/profile/normalization').SocialLinkStorage | null;
     githubRepoUrl: string | null;
     createdAt: Date;
@@ -130,6 +138,9 @@ const dedupeTerms = (values: Array<string | null | undefined>, max = MAX_PERSONA
 const isTimestamp = (value: string | undefined): value is string => Boolean(value) && Number.isFinite(Date.parse(value!));
 const isUuidLike = (value: string | undefined): value is string => Boolean(value) && /^[0-9a-f-]{36}$/i.test(value!);
 
+// A cursor's "now" comes from a first page loaded within the last day; anything else is forged.
+const isRecent = (now: number) => Number.isFinite(now) && Math.abs(now - Date.now()) < 24 * 60 * 60 * 1000;
+
 const parseDiscoverCursor = (cursor?: string): ParsedCursor => {
     if (!cursor) return null;
     const [prefix, rest = ''] = [cursor.slice(0, 2), cursor.slice(2)];
@@ -139,14 +150,15 @@ const parseDiscoverCursor = (cursor?: string): ParsedCursor => {
         const [fingerprint, scoreRaw, createdAt, id, nowRaw, extra] = parts;
         const score = Number(scoreRaw);
         const now = Number(nowRaw);
-        if (fingerprint && Number.isFinite(score) && isTimestamp(createdAt) && isUuidLike(id) && Number.isFinite(now) && extra === undefined) {
+        if (fingerprint && Number.isFinite(score) && isTimestamp(createdAt) && isUuidLike(id) && isRecent(now) && extra === undefined) {
             return { kind: 'score', fingerprint, score, createdAt, id, now };
         }
     } else if (prefix === 'h:') {
-        const [fingerprint, nowRaw, id, extra] = parts;
+        const [fingerprint, nowRaw, id, indexRaw, extra] = parts;
         const now = Number(nowRaw);
-        if (fingerprint && Number.isFinite(now) && isUuidLike(id) && extra === undefined) {
-            return { kind: 'snapshot', fingerprint, now, id };
+        const index = indexRaw === undefined ? null : Number(indexRaw);
+        if (fingerprint && isRecent(now) && isUuidLike(id) && (index === null || (Number.isInteger(index) && index >= 0)) && extra === undefined) {
+            return { kind: 'snapshot', fingerprint, now, id, index };
         }
     } else if (prefix === 't:') {
         const [fingerprint, createdAt, id, extra] = parts;
@@ -158,7 +170,8 @@ const parseDiscoverCursor = (cursor?: string): ParsedCursor => {
 };
 
 const buildTimeCursor = (fingerprint: string, cursorAt: string, id: string) => `t:${fingerprint}|${cursorAt}|${id}`;
-const buildSnapshotCursor = (fingerprint: string, now: number, id: string) => `h:${fingerprint}|${now}|${id}`;
+// The position rides along: if the project at the cursor left the list, the next page starts there anyway.
+const buildSnapshotCursor = (fingerprint: string, now: number, id: string, index: number) => `h:${fingerprint}|${now}|${id}|${index}`;
 const buildScoreCursor = (fingerprint: string, score: number, cursorAt: string, id: string, now: number) =>
     `s:${fingerprint}|${Number.isFinite(score) ? String(score) : '0'}|${cursorAt}|${id}|${now}`;
 
@@ -521,7 +534,7 @@ const buildReasonLabels = (input: {
 
 const fetchSnapshotCandidates = async (
     conditions: SQL<unknown>[],
-    now: number,
+    order: SQL<number>,
 ): Promise<CandidateProject[]> => db
     .select({
         id: projects.id,
@@ -541,7 +554,7 @@ const fetchSnapshotCandidates = async (
     })
     .from(projects)
     .where(and(...conditions))
-    .orderBy(sql`${trendingScoreSql(now)} DESC`, desc(projects.id))
+    .orderBy(sql`${order} DESC`, desc(projects.id))
     .limit(DISCOVER_RANKING_WEIGHTS.candidateLimit);
 
 const getFeedSnapshot = async (
@@ -552,7 +565,12 @@ const getFeedSnapshot = async (
     now: number,
 ) => {
     const candidateConditions = buildBaseConditions(filters, view, viewerId);
-    const candidates = await fetchSnapshotCandidates(candidateConditions, now);
+    // For you picks its 280 by fit (skills, tags, follows) blended with momentum, so a well-matched quiet
+    // project can make the list; Trending picks by momentum alone.
+    const order = view === FILTER_VIEWS.RECOMMENDATIONS && personalizationTerms.length > 0
+        ? sql<number>`(${buildRecommendationRelevanceExpr(personalizationTerms)} + ${trendingScoreSql(now)} * ${DISCOVER_RANKING_WEIGHTS.recommendation.trendBlend})`
+        : trendingScoreSql(now);
+    const candidates = await fetchSnapshotCandidates(candidateConditions, order);
 
     const scored = candidates.map((candidate) => {
         const trendScore = calculateTrendScore(candidate, now);
@@ -606,7 +624,8 @@ const projectSelectFields = {
     ownerId: projects.ownerId,
     title: projects.title,
     slug: projects.slug,
-    description: projects.description,
+    // A card shows two lines: no whole READMEs in a feed (the shared feed does the same).
+    description: sql<string | null>`left(${projects.description}, 280)`,
     shortDescription: projects.shortDescription,
     coverImage: projects.coverImage,
     category: projects.category,
@@ -617,7 +636,7 @@ const projectSelectFields = {
     visibility: projects.visibility,
     status: projects.status,
     lifecycleStages: projects.lifecycleStages,
-    importSource: projects.importSource,
+    leadFocus: sql<string | null>`${projects.importSource}->'metadata'->>'leadFocus'`,
     externalLinks: projects.externalLinks,
     githubRepoUrl: projects.githubRepoUrl,
     createdAt: projects.createdAt,
@@ -647,7 +666,7 @@ const hydrateProjects = async (
     const projectIds = rawProjects.map((project) => project.id);
     const ownerIds = Array.from(new Set(rawProjects.map((project) => project.ownerId)));
 
-    const [owners, roles, members, connectedMembers, ownerRelationshipMap] = await Promise.all([
+    const [owners, roles, members, connectedMembers, viewerMemberships] = await Promise.all([
         db.select({
                 id: profiles.id,
                 username: profiles.username,
@@ -656,19 +675,15 @@ const hydrateProjects = async (
             })
             .from(profiles)
             .where(inArray(profiles.id, ownerIds)),
+        // A card shows open seats, not the roles themselves: one summed row per project.
         db
             .select({
-                id: projectOpenRoles.id,
                 projectId: projectOpenRoles.projectId,
-                role: projectOpenRoles.role,
-                title: projectOpenRoles.title,
-                description: projectOpenRoles.description,
-                skills: projectOpenRoles.skills,
-                count: projectOpenRoles.count,
-                filled: projectOpenRoles.filled,
+                open: sql<number>`coalesce(sum(greatest(${projectOpenRoles.count} - ${projectOpenRoles.filled}, 0)), 0)`.mapWith(Number),
             })
             .from(projectOpenRoles)
             .where(inArray(projectOpenRoles.projectId, projectIds))
+            .groupBy(projectOpenRoles.projectId)
             .catch((error) => {
                 const message = error instanceof Error ? error.message : String(error);
                 if (message.toLowerCase().includes('project_open_roles') && message.toLowerCase().includes('does not exist')) {
@@ -676,36 +691,38 @@ const hydrateProjects = async (
                 }
                 throw error;
             }),
+        // ponytail: a card shows 4 avatars + "+N": read at most 8 members per project (the visible ones fill
+        // the stack) and the team size from SQL, not every member of every project.
         surface === 'preview'
             ? Promise.resolve([])
-            : db.select({
-                member: {
+            : (() => {
+                const ranked = db.select({
                     id: projectMembers.id,
                     projectId: projectMembers.projectId,
                     userId: projectMembers.userId,
                     role: projectMembers.role,
                     joinedAt: projectMembers.joinedAt,
-                },
-                user: {
-                    id: profiles.id,
                     username: profiles.username,
                     fullName: profiles.fullName,
                     avatarUrl: profiles.avatarUrl,
-                },
-            })
-            .from(projectMembers)
-            .innerJoin(profiles, and(eq(projectMembers.userId, profiles.id), isNull(profiles.deletedAt)))
-            .where(inArray(projectMembers.projectId, projectIds))
-            .catch((error) => {
-                const message = error instanceof Error ? error.message : String(error);
-                if (
-                    message.toLowerCase().includes('project_members') &&
-                    message.toLowerCase().includes('does not exist')
-                ) {
-                    return [];
-                }
-                throw error;
-            }),
+                    memberRank: sql<number>`row_number() over (partition by ${projectMembers.projectId} order by ${projectMembers.joinedAt}, ${projectMembers.userId})`.mapWith(Number).as('member_rank'),
+                    teamSize: sql<number>`count(*) over (partition by ${projectMembers.projectId})`.mapWith(Number).as('team_size'),
+                })
+                    .from(projectMembers)
+                    .innerJoin(profiles, and(eq(projectMembers.userId, profiles.id), isNull(profiles.deletedAt)))
+                    // The team size counts only members a stranger may see (as the shared feed does), so a private
+                    // member's existence isn't revealed by the number; a viewer always counts themselves.
+                    .where(and(
+                        inArray(projectMembers.projectId, projectIds),
+                        sql`(coalesce(${profiles.visibility}, 'public') = 'public' OR ${projectMembers.userId} = ${viewerId})`,
+                    ))
+                    .as('ranked_members');
+                return db.select().from(ranked).where(lte(ranked.memberRank, 8)).catch((error) => {
+                    const message = error instanceof Error ? error.message : String(error);
+                    if (message.toLowerCase().includes('project_members') && message.toLowerCase().includes('does not exist')) return [];
+                    throw error;
+                });
+            })(),
         surface === 'preview' && viewerId
             ? (() => {
                 const rankedConnectedMembers = db.select({
@@ -764,21 +781,24 @@ const hydrateProjects = async (
                 return db.select().from(rankedConnectedMembers).where(lte(rankedConnectedMembers.connectionRank, 3));
             })()
             : Promise.resolve([]),
-        resolvePrivacyRelationships(viewerId, ownerIds),
+        // Members-only links show to the viewer's own projects (any size of team, not just the 8 read above).
+        viewerId
+            ? db.select({ projectId: projectMembers.projectId }).from(projectMembers)
+                .where(and(eq(projectMembers.userId, viewerId), inArray(projectMembers.projectId, projectIds)))
+            : Promise.resolve([] as Array<{ projectId: string }>),
     ]);
 
     const ownerMap = new Map(owners.map((owner) => [owner.id, owner]));
     // Collaborators show only to people allowed to see them (public, or connected for
-    // connections-only), never across a block.
-    const memberIds = Array.from(new Set(members.map((member) => member.member.userId).filter((id) => !ownerRelationshipMap.has(id))));
-    const memberRelationshipMap = new Map([...ownerRelationshipMap, ...(await resolvePrivacyRelationships(viewerId, memberIds))]);
+    // connections-only), never across a block. One privacy lookup for owners and members together.
+    const memberRelationshipMap = await resolvePrivacyRelationships(viewerId, [...ownerIds, ...members.map((member) => member.userId)]);
+    const ownerRelationshipMap = memberRelationshipMap;
     const canShowMember = (userId: string) => {
         const relationship = memberRelationshipMap.get(userId);
         return Boolean(relationship && relationship.canViewProfile && !relationship.blockedByViewer && !relationship.blockedByTarget);
     };
     const leadFocusByProject = new Map(rawProjects.map((project) => {
-        const rawLeadFocus = project.importSource?.metadata?.leadFocus;
-        return [project.id, typeof rawLeadFocus === 'string' ? rawLeadFocus.trim() : ''] as const;
+        return [project.id, project.leadFocus?.trim() ?? ''] as const;
     }));
     const connectedMemberMap = new Map<string, {
         friends: Array<{ userId: string; name: string; role: string }>;
@@ -807,15 +827,9 @@ const hydrateProjects = async (
     });
 
 
-    type OpenRoleRow = Pick<
-        typeof projectOpenRoles.$inferSelect,
-        'id' | 'projectId' | 'role' | 'title' | 'description' | 'skills' | 'count' | 'filled'
-    >;
-    const rolesMap = new Map<string, OpenRoleRow[]>();
-    (roles as OpenRoleRow[]).forEach((role) => {
-        if (!rolesMap.has(role.projectId)) rolesMap.set(role.projectId, []);
-        rolesMap.get(role.projectId)!.push(role);
-    });
+    const viewerProjects = new Set(viewerMemberships.map((row) => row.projectId));
+    const openSeats = new Map((roles as Array<{ projectId: string; open: number }>).map((row) => [row.projectId, row.open]));
+    const teamSizes = new Map(members.map((member) => [member.projectId, member.teamSize]));
 
     const membersMap = new Map<
         string,
@@ -824,10 +838,13 @@ const hydrateProjects = async (
             user: { id: string; username: string | null; fullName: string | null; avatarUrl: string | null };
         }>
     >();
-    members.forEach((member) => {
-        if (!canShowMember(member.member.userId)) return;
-        if (!membersMap.has(member.member.projectId)) membersMap.set(member.member.projectId, []);
-        membersMap.get(member.member.projectId)!.push(member);
+    members.forEach((row) => {
+        if (!canShowMember(row.userId)) return;
+        if (!membersMap.has(row.projectId)) membersMap.set(row.projectId, []);
+        membersMap.get(row.projectId)!.push({
+            member: { id: row.id, projectId: row.projectId, userId: row.userId, role: row.role, joinedAt: row.joinedAt },
+            user: { id: row.userId, username: row.username, fullName: row.fullName, avatarUrl: row.avatarUrl },
+        });
     });
 
     return rawProjects.map((project) => {
@@ -867,7 +884,6 @@ const hydrateProjects = async (
                 projectId: project.id,
             });
         }
-        const projectRoles = rolesMap.get(project.id) || [];
         const projectMembersRows = membersMap.get(project.id) || [];
 
         const followersCount = project.followersCount || 0;
@@ -895,17 +911,18 @@ const hydrateProjects = async (
             visibility: project.visibility || 'public',
             externalLinks: filterProjectLinksForAudience(
                 project.externalLinks,
-                project.ownerId === viewerId || members.some((member) => member.member.projectId === project.id && member.member.userId === viewerId),
+                project.ownerId === viewerId || viewerProjects.has(project.id),
             ),
             githubRepoUrl: project.githubRepoUrl,
             viewCount: project.viewCount || 0,
             followersCount,
 
-            ownerId: project.ownerId,
+            // A masked creator's id would let anyone link their "Private creator" projects together.
+            ownerId: ownerPresentation?.isMasked ? '' : project.ownerId,
             rankingReasons: rankingReasonMap?.get(project.id) || [],
             connectedFriends: visibleConnectedFriends,
             additionalConnectedFriendsCount: Math.max(0, connectedFriendsCount - visibleConnectedFriends.length),
-            owner: ownerPresentation,
+            owner: ownerPresentation?.isMasked ? { ...ownerPresentation, id: '' } : ownerPresentation,
             collaborators: projectMembersRows.map((member) => ({
                 userId: member.member.userId,
                 membershipRole: member.member.role,
@@ -916,16 +933,10 @@ const hydrateProjects = async (
                     avatarUrl: member.user.avatarUrl,
                 },
             })) as Project['collaborators'],
-            openRoles: projectRoles.map((role) => ({
-                id: role.id,
-                role: role.role,
-                count: role.count,
-                filled: role.filled,
-                projectId: role.projectId,
-                title: role.title || undefined,
-                description: role.description || undefined,
-                skills: role.skills || [],
-            })),
+            // Seats and team size as numbers: the card needs counts, not every role and member.
+            openRoles: [],
+            openRolesCount: openSeats.get(project.id) ?? 0,
+            collaboratorsCount: teamSizes.get(project.id) ?? projectMembersRows.length,
             followers: [],
             createdAt: project.createdAt.toISOString(),
             updatedAt: project.updatedAt.toISOString(),
@@ -960,23 +971,29 @@ export const getDiscoverProjects = async (
         throw new InvalidDiscoverCursorError();
     }
 
-    const personalizationTerms =
-        view === FILTER_VIEWS.RECOMMENDATIONS
-            ? await getViewerPersonalizationTerms(viewerId)
-            : [];
-
     if (view === FILTER_VIEWS.TRENDING || view === FILTER_VIEWS.RECOMMENDATIONS) {
         if (parsedCursor && parsedCursor.kind !== 'snapshot') {
             throw new InvalidDiscoverCursorError();
         }
-        // Every page ranks at the first page's moment; the cursor finds its place by id alone.
+        // The ranked list is built once (at the first page's moment) and kept 10 minutes, so later pages
+        // slice the same order: no re-ranking per page, and a follow made mid-scroll doesn't reshuffle it.
+        // ponytail: without Redis each page rebuilds the list at the same pinned "now"; the position fallback covers drift.
         const now = parsedCursor?.kind === 'snapshot' ? parsedCursor.now : Date.now();
-        const snapshot = await getFeedSnapshot(view, viewerId, filters, personalizationTerms, now);
+        const snapshotKey = `discover:snapshot:v${DISCOVER_RANKING_SCHEMA_VERSION}:${filtersFingerprint}:${now}`;
+        let snapshot = parsedCursor ? await getCachedData<SnapshotPayload>(snapshotKey).catch(() => null) : null;
+        if (!snapshot) {
+            const personalizationTerms = view === FILTER_VIEWS.RECOMMENDATIONS ? await getViewerPersonalizationTerms(viewerId) : [];
+            snapshot = await getFeedSnapshot(view, viewerId, filters, personalizationTerms, now);
+            await cacheData(snapshotKey, snapshot, 600).catch(() => undefined);
+        }
         let startIndex = 0;
         if (parsedCursor?.kind === 'snapshot') {
             const cursorIndex = snapshot.items.findIndex((item) => item.id === parsedCursor.id);
-
-            if (cursorIndex === -1) {
+            if (cursorIndex >= 0) {
+                startIndex = cursorIndex + 1;
+            } else if (parsedCursor.index !== null && parsedCursor.index < snapshot.items.length) {
+                startIndex = parsedCursor.index + 1;
+            } else {
                 logger.warn('discover.snapshot.cursor_not_found', {
                     view,
                     cursorId: parsedCursor.id,
@@ -984,9 +1001,8 @@ export const getDiscoverProjects = async (
                     schemaVersion: DISCOVER_RANKING_SCHEMA_VERSION,
                     filtersFingerprint,
                 });
-                throw new InvalidDiscoverCursorError();
+                throw new StaleDiscoverFeedError();
             }
-            startIndex = cursorIndex + 1;
         }
 
         const currentConditions = buildBaseConditions(filters, view, viewerId);
@@ -1005,7 +1021,7 @@ export const getDiscoverProjects = async (
         const lastSnapshotItem = snapshot.items[consumedIndex - 1];
         const nextCursor =
             consumedIndex < snapshot.items.length && lastSnapshotItem
-                ? buildSnapshotCursor(filtersFingerprint, now, lastSnapshotItem.id)
+                ? buildSnapshotCursor(filtersFingerprint, now, lastSnapshotItem.id, consumedIndex - 1)
                 : undefined;
 
         recordDiscoverMetric({
@@ -1042,8 +1058,6 @@ export const getDiscoverProjects = async (
 
     if (activeSearchTerms.length > 0 && normalizedSort === SORT_OPTIONS.NEWEST) {
         scoreExpr = buildSearchRelevanceExpr(activeSearchTerms);
-    } else if (normalizedSort === SORT_OPTIONS.TRENDING) {
-        scoreExpr = trendingScoreSql(now);
     } else if (normalizedSort === SORT_OPTIONS.MOST_VIEWED) {
         scoreExpr = sql<number>`${projects.viewCount}`;
         scoreType = 'integer';
@@ -1085,13 +1099,11 @@ export const getDiscoverProjects = async (
         ? {
             ...projectSelectFields,
             description: sql<string | null>`null`,
-            coverImage: sql<string | null>`null`,
             category: sql<string | null>`null`,
             tags: sql<string[] | null>`null`,
             visibility: sql<string | null>`null`,
-            status: sql<string | null>`null`,
             lifecycleStages: sql<string[] | null>`null`,
-            importSource: sql<RawProjectRow['importSource']>`null`,
+            leadFocus: sql<string | null>`null`,
             feedScore: scoreExpr ?? sql<number>`0`,
         }
         : { ...projectSelectFields, feedScore: scoreExpr ?? sql<number>`0` };

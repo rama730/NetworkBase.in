@@ -52,6 +52,7 @@ function DialogContent({
   showCloseButton = true,
   overlayClassName,
   presentation = "center",
+  onEscapeKeyDown,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
@@ -65,6 +66,12 @@ function DialogContent({
         data-slot="dialog-content"
         data-presentation={presentation}
         aria-describedby={undefined}
+        // Escape in an open combobox (a skill or people search) closes its list, not the whole dialog.
+        onEscapeKeyDown={(event) => {
+          const active = document.activeElement
+          if (active?.getAttribute("role") === "combobox" && active.getAttribute("aria-expanded") === "true") event.preventDefault()
+          onEscapeKeyDown?.(event)
+        }}
         className={cn(
           "bg-card fixed z-[51] border shadow-lg outline-none",
           presentation === "bottom-sheet"

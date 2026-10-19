@@ -343,18 +343,6 @@ export const profiles = pgTable(
       t.connectionsCount,
     ),
     projectsCountIdx: index("profiles_projects_count_idx").on(t.projectsCount),
-    workspaceInboxCountIdx: index("profiles_workspace_inbox_count_idx").on(
-      t.workspaceInboxCount,
-    ),
-    workspaceDueTodayCountIdx: index(
-      "profiles_workspace_due_today_count_idx",
-    ).on(t.workspaceDueTodayCount),
-    workspaceOverdueCountIdx: index("profiles_workspace_overdue_count_idx").on(
-      t.workspaceOverdueCount,
-    ),
-    workspaceInProgressCountIdx: index(
-      "profiles_workspace_in_progress_count_idx",
-    ).on(t.workspaceInProgressCount),
     // Index for "Active today/this week" filtering in discover
     lastActiveAtIdx: index("profiles_last_active_at_idx").on(t.lastActiveAt),
     avatarAssetIdx: index("profiles_avatar_asset_idx").on(t.avatarAssetId),
@@ -873,13 +861,6 @@ export const projects = pgTable(
     ),
 
     // Pure Optimization: Composite Indices for Sorted Feeds (Avoids Sorting after Filtering)
-    // 1. "Newest Projects": Filter by Public Visibility + Status -> Sort by CreatedAt
-    feedNewestIdx: index("projects_feed_newest_idx").on(
-      t.visibility,
-      t.status,
-      t.createdAt,
-    ),
-
     // 2. "Most Viewed Projects": Filter by Public Visibility + Status -> Sort by ViewCount
     feedMostViewedIdx: index("projects_feed_most_viewed_idx").on(
       t.visibility,
@@ -899,20 +880,6 @@ export const projects = pgTable(
     discoverMostFollowedIdx: index("projects_discover_most_followed_idx")
       .on(t.followersCount.desc(), t.createdAt.desc(), t.id.desc())
       .where(sql`${t.deletedAt} IS NULL AND ${t.visibility} IN ('public', 'unlisted') AND ${t.status} <> 'draft'`),
-    publicFeedNewestActiveIdx: index("projects_public_feed_newest_active_idx")
-      .on(t.visibility, t.status, t.createdAt.desc(), t.id.desc())
-      .where(sql`${t.deletedAt} IS NULL`),
-    publicFeedMostViewedActiveIdx: index(
-      "projects_public_feed_most_viewed_active_idx",
-    )
-      .on(
-        t.visibility,
-        t.status,
-        t.viewCount.desc(),
-        t.createdAt.desc(),
-        t.id.desc(),
-      )
-      .where(sql`${t.deletedAt} IS NULL`),
     publicFeedMostFollowedActiveIdx: index(
       "projects_public_feed_most_followed_active_idx",
     )
@@ -1748,6 +1715,9 @@ export const projectUpdates = pgTable(
     ).on(t.projectId, t.isPinned, t.createdAt.desc(), t.id.desc()),
     projectCreatedActiveIdx: index("project_updates_project_created_active_idx")
       .on(t.projectId, t.createdAt.desc(), t.id.desc())
+      .where(sql`${t.deletedAt} IS NULL`),
+    memberFeedIdx: index("project_updates_member_feed_idx")
+      .on(t.projectId, t.isPinned.desc(), t.createdAt.desc(), t.id.desc())
       .where(sql`${t.deletedAt} IS NULL`),
     publicFeedIdx: index("project_updates_public_feed_idx")
       .on(
@@ -2883,11 +2853,6 @@ export const fileVersions = pgTable(
     uniqueNodeVersion: uniqueIndex("file_versions_node_version_unique").on(
       t.nodeId,
       t.version,
-    ),
-    // Latest-first scan: ORDER BY version DESC LIMIT 1 becomes an index scan.
-    nodeVersionDescIdx: index("file_versions_node_version_desc_idx").on(
-      t.nodeId,
-      t.version.desc(),
     ),
     contentHashIdx: index("file_versions_content_hash_idx").on(t.contentHash),
     assetIdx: index("file_versions_asset_idx").on(t.assetId),

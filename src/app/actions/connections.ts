@@ -5,11 +5,11 @@ import { z } from 'zod';
 import { connectionSuggestionDismissals, connectionSuggestions, connections, profiles, projects, roleApplications } from '@/lib/db/schema';
 import { countPendingInvitationsForCandidate } from '@/lib/projects/project-invitations';
 import { getAuthUser } from '@/lib/supabase/auth-user';
+import { IdempotencyConflictError, runIdempotent } from '@/lib/security/idempotency';
 import { eq, and, or, desc, asc, sql, inArray, isNull } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
-import { IdempotencyConflictError, runIdempotent } from '@/lib/security/idempotency';
 import {
     CONNECTION_REQUEST_HISTORY_STATUSES,
     type ConnectionRequestHistoryStatus,
@@ -544,7 +544,7 @@ function getErrorCode(error: unknown) {
 const connectionsFeedInputSchema = z.object({
     tab: z.enum(['network', 'discover', 'requests_incoming', 'requests_sent']),
     limit: z.number().max(100).optional(),
-    cursor: z.string().optional(),
+    cursor: z.string().max(1000).optional(),
     search: z.string().max(100).optional(),
     sortBy: z.enum(['recent', 'name', 'oldest']).optional(),
     filters: z.object({
@@ -634,7 +634,8 @@ async function getConnectionsFeedImpl(
     const statsPromise: Promise<ConnectionsFeedStats> = includeMeta
         ? getConnectionStatsForUser(user.id)
         : Promise.resolve({ totalConnections: 0, pendingIncoming: 0, pendingSent: 0 });
-    const metadataPromise = Promise.all([
+    // Only the discover tab reads these: other tabs neither wait for them nor leave them unhandled (PERF-008).
+    const metadataPromise = tab !== 'discover' ? null : Promise.all([
         includeMeta
             ? db.select({ id: projects.id }).from(projects).where(eq(projects.ownerId, user.id)).limit(50)
             : Promise.resolve([]),
@@ -1024,6 +1025,8 @@ async function getConnectionsFeedImpl(
         const [scoreValue, id] = input.cursor.slice(2).split('|');
         const score = Number(scoreValue);
         if (Number.isFinite(score) && id) suggestionCursor = { score, id };
+        // A cursor that doesn't parse is a bad request, not page 1 again (that would repeat people).
+        else return { success: false as const, code: 'VALIDATION' as const, error: 'Invalid connection search request' };
     }
 
     const discoverConditions = [
@@ -1050,8 +1053,9 @@ async function getConnectionsFeedImpl(
     if (input.filters?.seniorPlus) discoverConditions.push(sql`${profiles.experienceLevel} IN ('senior', 'lead', 'founder')`);
     if (input.filters?.hasMutuals) discoverConditions.push(sql`${connectionSuggestions.mutualConnectionsCount} > 0`);
     if (input.filters?.openProfilesOnly) {
-        discoverConditions.push(eq(profiles.visibility, 'public'));
-        discoverConditions.push(sql`${profiles.connectionPrivacy} <> 'nobody'`);
+        // Null settings mean the defaults (public, everyone), as the privacy resolver reads them.
+        discoverConditions.push(sql`coalesce(${profiles.visibility}, 'public') = 'public'`);
+        discoverConditions.push(sql`coalesce(${profiles.connectionPrivacy}, 'everyone') <> 'nobody'`);
     }
     if (input.filters?.hasSharedProjects) {
         discoverConditions.push(sql`EXISTS (SELECT 1 FROM ${projects} WHERE ${projects.ownerId} = ${profiles.id})`);
@@ -1157,8 +1161,8 @@ async function getConnectionsFeedImpl(
         }
         if (input.filters?.seniorPlus) fallbackConditions.push(sql`${profiles.experienceLevel} IN ('senior', 'lead', 'founder')`);
         if (input.filters?.openProfilesOnly) {
-            fallbackConditions.push(eq(profiles.visibility, 'public'));
-            fallbackConditions.push(sql`${profiles.connectionPrivacy} <> 'nobody'`);
+            fallbackConditions.push(sql`coalesce(${profiles.visibility}, 'public') = 'public'`);
+            fallbackConditions.push(sql`coalesce(${profiles.connectionPrivacy}, 'everyone') <> 'nobody'`);
         }
         if (input.filters?.hasSharedProjects) {
             fallbackConditions.push(sql`EXISTS (SELECT 1 FROM ${projects} WHERE ${projects.ownerId} = ${profiles.id})`);
@@ -1242,10 +1246,14 @@ async function getConnectionsFeedImpl(
         });
     }
     const privacyStartedAt = performance.now();
-    const visibleItems = await applySuggestedProfilePrivacy(user.id, items);
+    const privateAware = await applySuggestedProfilePrivacy(user.id, items);
+    // The Discover rail suggests people you can actually connect with (not "mutuals only" strangers).
+    const visibleItems = input.filters?.openProfilesOnly
+        ? privateAware.filter((item) => item.connectionStatus !== 'none' || item.canConnect !== false)
+        : privateAware;
     const privacyMs = Math.round(performance.now() - privacyStartedAt);
     const metadataStartedAt = performance.now();
-    const [viewerProjects, viewerProfiles] = await metadataPromise;
+    const [viewerProjects, viewerProfiles] = await metadataPromise!;
     const metadataMs = Math.round(performance.now() - metadataStartedAt);
     after(async () => {
         try {
@@ -1295,10 +1303,23 @@ export async function getConnectionsFeed(input: ConnectionsFeedInput) {
     if (!user) {
         return getConnectionsFeedImpl(input, null);
     }
+    // Validate before any cache read: an invalid request never gets someone else's cached answer.
+    if (!connectionsFeedInputSchema.safeParse(input).success) return getConnectionsFeedImpl(input, user);
     const safeSearch = input.search ? input.search.trim().replace(/\s+/g, ' ').slice(0, 100) : '';
     const includeMeta = input.includeMeta !== false;
-    const cacheKey = !includeMeta && safeSearch
-        ? `search:preview:people:${user.id}:${input.tab}:${safeSearch.toLowerCase()}`
+    // Everything that changes the answer is in the key (page size, page, sort and filters too), and only
+    // the first page of a search preview is cached.
+    const requestShape = JSON.stringify({
+        tab: input.tab,
+        limit: input.limit ?? 20,
+        search: safeSearch.toLowerCase(),
+        sortBy: input.sortBy ?? 'recent',
+        filters: input.filters ?? null,
+        historyFilters: input.historyFilters ?? null,
+        requestSortBy: input.requestSortBy ?? null,
+    });
+    const cacheKey = !includeMeta && safeSearch && !input.cursor
+        ? `search:preview:people:v2:${user.id}:${requestShape}`
         : null;
 
     if (cacheKey) {
@@ -1359,51 +1380,47 @@ async function clearConnectionRequestHold(userA: string, userB: string) {
     }
 }
 
-export async function sendConnectionRequest(
-    addresseeId: string,
-    idempotencyKey?: string,
-    _message?: string,
-): Promise<{
+type SendConnectionRequestResult = {
     success: boolean;
     error?: string;
     connectionId?: string;
     status?: 'created' | 'pending_sent' | 'pending_received' | 'connected';
-}> {
-    let idempotencyCacheKey: string | null = null;
+};
 
-    const releaseIdempotencyLock = async () => {
-        if (!idempotencyCacheKey || !redis) return;
-        try {
-            await redis.del(idempotencyCacheKey);
-        } catch {
-            // Keep the request flow resilient; TTL still bounds stale locks if Redis delete fails.
-        } finally {
-            idempotencyCacheKey = null;
-        }
-    };
+/**
+ * Sends a connection request once per idempotency key: a retry with the same key replays the first
+ * result, and a retry while the first is still running says so (never a success it hasn't earned).
+ */
+export async function sendConnectionRequest(
+    addresseeId: string,
+    idempotencyKey?: string,
+    _message?: string,
+): Promise<SendConnectionRequestResult> {
+    const user = await getAuthUser();
+    if (!user) return { success: false, error: 'Not authenticated' };
+    try {
+        const outcome = await runIdempotent(
+            { namespace: 'connection-request', scopeId: user.id, key: idempotencyKey, resultTtlSeconds: CONNECTION_REQUEST_IDEMPOTENCY_TTL_SECONDS },
+            () => sendConnectionRequestNow(user, addresseeId, _message),
+        );
+        return outcome.result;
+    } catch (error) {
+        if (error instanceof IdempotencyConflictError) return { success: false, error: 'Your request is still being sent. Try again in a moment.' };
+        console.error('Error sending connection request:', error);
+        return { success: false, error: 'Failed to send request' };
+    }
+}
 
-    const returnFailure = async (error: string): Promise<{ success: boolean; error: string }> => {
-        await releaseIdempotencyLock();
-        return { success: false, error };
-    };
+async function sendConnectionRequestNow(
+    user: NonNullable<Awaited<ReturnType<typeof getAuthUser>>>,
+    addresseeId: string,
+    _message?: string,
+): Promise<SendConnectionRequestResult> {
+    const returnFailure = async (error: string): Promise<SendConnectionRequestResult> => ({ success: false, error });
 
     try {
         // Clamp message length to prevent oversized payloads.
         const requestMessage = _message?.trim().slice(0, 500) || null;
-        const user = await getAuthUser();
-        if (!user) return { success: false, error: 'Not authenticated' };
-
-        if (idempotencyKey && redis) {
-            idempotencyCacheKey = `idempotent:conn:${user.id}:${idempotencyKey}`;
-            const isFirst = await redis.set(idempotencyCacheKey, '1', {
-                nx: true,
-                ex: CONNECTION_REQUEST_IDEMPOTENCY_TTL_SECONDS,
-            });
-            if (!isFirst) {
-                console.log(`[connections] Idempotency lock hit for ${idempotencyCacheKey}`);
-                return { success: true };
-            }
-        }
 
         // Can't connect to yourself
         if (user.id === addresseeId) {
@@ -1617,7 +1634,6 @@ export async function sendConnectionRequest(
 
         return { success: true, connectionId: txResult.connectionId, status: txResult.status ?? 'created' };
     } catch (error) {
-        await releaseIdempotencyLock();
         console.error('Error sending connection request:', error);
         return { success: false, error: 'Failed to send request' };
     }

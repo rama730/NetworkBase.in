@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
+import { SearchField } from "@/components/ui/SearchField";
 import { Search, X } from "lucide-react";
 import { useDebounce } from "use-debounce";
 
@@ -138,27 +139,13 @@ export default function NetworkClient({
                     </div>
 
                     <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto">
-                    <div className="relative min-w-0 flex-1 sm:w-60">
-                        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                        <input
-                            type="search"
-                            value={searchValue}
-                            onChange={(event) => setSearchValue(event.target.value)}
-                            placeholder="Search your network"
-                            aria-label="Search your network"
-                            className="h-[var(--ui-control-height-lg)] w-full rounded-md border border-input bg-card pl-9 pr-9 text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30"
-                        />
-                        {searchValue ? (
-                            <button
-                                type="button"
-                                onClick={() => setSearchValue("")}
-                                className="nb-icon-button absolute right-1.5 top-1/2 -translate-y-1/2"
-                                aria-label="Clear network search"
-                            >
-                                <X className="size-4" aria-hidden="true" />
-                            </button>
-                        ) : null}
-                    </div>
+                    <SearchField
+                        value={searchValue}
+                        onChange={setSearchValue}
+                        label="Search your network"
+                        size="lg"
+                        className="flex-1 sm:w-60 sm:flex-none"
+                    />
                     </div>
                 </div>
 
