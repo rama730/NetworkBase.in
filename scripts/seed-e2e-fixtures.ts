@@ -147,6 +147,12 @@ async function seedFixtures() {
     const targetUserId = await ensureTargetUserProfileId(TARGET_EMAIL);
 
     await sql.begin(async (tx: any) => {
+        // A profile is a child of an Auth identity, so the disposable Auth user comes first (MAINT-005).
+        await tx`
+            insert into auth.users (id, email)
+            values (${PEER_USER_ID}, 'codex.e2e.peer@example.com')
+            on conflict (id) do nothing
+        `;
         await tx`
             insert into profiles (id, email, username, full_name, created_at, updated_at)
             values (
@@ -357,7 +363,7 @@ async function seedFixtures() {
 
     const [conversationCount] = await sql<{ count: number }[]>`
         select count(*)::int as count
-        from conversation_participants
+        from chat_channel_members
         where user_id = (select id from profiles where email = ${TARGET_EMAIL} limit 1)
           and archived_at is null
     `;
