@@ -1,11 +1,11 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, notInArray, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { pushSubscriptions } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
-import { isAllowedPushEndpoint } from "@/lib/notifications/push-endpoint";
+import { isAllowedPushEndpoint, MAX_PUSH_ENDPOINTS_PER_USER } from "@/lib/notifications/push-endpoint";
 import { createClient } from "@/lib/supabase/server";
 
 type SaveSubscriptionInput = {
@@ -65,6 +65,18 @@ export async function savePushSubscriptionAction(input: SaveSubscriptionInput) {
             });
             return { success: false as const, error: "Subscription could not be saved for this account" };
         }
+
+        // Keep only the most recently seen devices so one account cannot grow the per-send fan-out.
+        await db.delete(pushSubscriptions).where(and(
+            eq(pushSubscriptions.userId, user.id),
+            notInArray(
+                pushSubscriptions.id,
+                db.select({ id: pushSubscriptions.id }).from(pushSubscriptions)
+                    .where(eq(pushSubscriptions.userId, user.id))
+                    .orderBy(sql`${pushSubscriptions.lastSeenAt} DESC NULLS LAST`)
+                    .limit(MAX_PUSH_ENDPOINTS_PER_USER),
+            ),
+        ));
 
         return { success: true as const };
     } catch (error: any) {
