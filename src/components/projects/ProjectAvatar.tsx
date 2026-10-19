@@ -42,6 +42,8 @@ const projectDateFormatter = new Intl.DateTimeFormat("en-US", {
 });
 dateFormatterCache.set("en-US", projectDateFormatter);
 
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
 export function formatProjectOfflinePresenceLabel(
     value: string | Date | null | undefined,
     locale?: string
@@ -49,9 +51,14 @@ export function formatProjectOfflinePresenceLabel(
     if (!value) return "No recent activity";
     const d = value instanceof Date ? value : new Date(value);
     if (Number.isNaN(d.getTime())) return "No recent activity";
-    const targetLocale = locale || (typeof navigator !== "undefined" && navigator.language ? navigator.language : "en-US");
-    const formatter = getCachedDateFormatter(targetLocale);
-    const formattedDate = formatter.format(d);
+    // Deterministic format on SSR / English baseline to eliminate ICU divergence across Node and browser
+    let formattedDate: string;
+    if (!locale || locale === "en-US" || locale.startsWith("en")) {
+        formattedDate = `${d.getDate()} ${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
+    } else {
+        const formatter = getCachedDateFormatter(locale);
+        formattedDate = formatter.format(d);
+    }
     return `Last updated: ${formattedDate}`;
 }
 
@@ -130,10 +137,17 @@ export function ProjectPresenceDot({
     recentAction?: string | null;
 }) {
     const [liveActiveAt, setLiveActiveAt] = useState<string | Date | null | undefined>(lastActiveAt);
+    const [clientLocale, setClientLocale] = useState<string | undefined>(undefined);
 
     useEffect(() => {
         setLiveActiveAt(lastActiveAt);
     }, [lastActiveAt]);
+
+    useEffect(() => {
+        if (typeof navigator !== "undefined" && navigator.language) {
+            setClientLocale(navigator.language);
+        }
+    }, []);
 
     // Zero-cost real-time presence synchronization across open tabs & local actions
     useEffect(() => {
@@ -154,7 +168,7 @@ export function ProjectPresenceDot({
 
     // Status (set by owners) and activity come from the shared Node badge;
     // the local event above keeps activity instant after your own changes.
-    const activityLabel = formatProjectActivePresenceLabel(liveActiveAt) ?? formatProjectOfflinePresenceLabel(liveActiveAt);
+    const activityLabel = formatProjectActivePresenceLabel(liveActiveAt) ?? formatProjectOfflinePresenceLabel(liveActiveAt, clientLocale);
     return (
         <ProjectPresenceBadge
             projectId={projectId && isLooseUuid(projectId) ? projectId : null}

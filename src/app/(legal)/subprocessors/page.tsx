@@ -11,6 +11,7 @@ const providers = [
   ["Supabase", "Authentication, PostgreSQL database, object storage, realtime", "Account, profile, project, file, message, session, and integration data"],
   ["Inngest", "Background jobs and scheduled lifecycle work", "Job identifiers, scoped payloads, status, and operational metadata"],
   ["Upstash", "Rate limiting and cache infrastructure", "Pseudonymous identifiers, request counters, and cached application results"],
+  ["Resend", "Transactional and lifecycle email delivery", "Recipient email address, name, and notification message payload"],
   ["Google", "OAuth sign-in and Gemini AI assistance", "Identity data; prompts and generated responses when AI is requested"],
   ["GitHub", "Repository connection, import, sync, commits, and pull requests", "GitHub identity, repository content, contributor metadata, tokens, and operation data"],
   ["OpenStreetMap Nominatim", "Optional reverse geocoding", "Coordinates supplied for location detection"],

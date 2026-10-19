@@ -964,7 +964,7 @@ export function LoginForm({ redirect, error, mode: modeParam }: { redirect: stri
                                 </>
                             )}
                         </p>
-                        <LegalLinks className="text-[11px] text-muted-foreground/80" />
+                        <LegalLinks className="text-[11px] text-muted-foreground/80" showCopyright />
                     </div>
 
                 </div>

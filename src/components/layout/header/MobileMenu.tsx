@@ -10,6 +10,7 @@ import { SidebarNav } from "@/components/layout/AppSidebar";
 import { ProfileAvatar } from "@/components/layout/header/ProfileAvatar";
 import ThemeToggle from "@/components/layout/header/ThemeToggle";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { LegalLinks } from "@/components/legal/LegalLinks";
 import { ROUTES } from "@/constants/routes";
 import { usePresenceUi } from "@/components/presence/presence-ui-store";
 import { SETTINGS_NAV_ITEM, isMainNavRouteActive } from "./nav-items";
@@ -129,6 +130,9 @@ export default function MobileMenu(props: {
                         Sign out
                     </button>
                 </nav>
+                <div className="border-t border-border pt-2 px-1">
+                    <LegalLinks align="start" showCopyright className="text-[11px]" />
+                </div>
                 </DialogContent>
             </Dialog>
 

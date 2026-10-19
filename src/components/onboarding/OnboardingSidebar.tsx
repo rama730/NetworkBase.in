@@ -1,6 +1,7 @@
 "use client"
 
 import Logo from '@/components/layout/header/Logo'
+import { LegalLinks } from '@/components/legal/LegalLinks'
 import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -118,14 +119,18 @@ export function OnboardingSidebar({
         </ol>
       </nav>
 
-      {/* Bottom: Help link */}
-      <div className="mt-auto border-t border-border pt-6">
-        <a
-          href="mailto:support@networkbase.in?subject=Onboarding%20help"
-          className="onb-focusable rounded text-[13px] text-muted-foreground transition-colors hover:text-foreground"
-        >
-          Need help?
-        </a>
+      {/* Bottom: Help & Legal info */}
+      <div className="mt-auto border-t border-border pt-5 space-y-2.5">
+        <div className="flex items-center justify-between text-[13px] text-muted-foreground">
+          <a
+            href="mailto:support@networkbase.in?subject=Onboarding%20help"
+            className="onb-focusable rounded transition-colors hover:text-foreground"
+          >
+            Need help?
+          </a>
+          <span className="text-[11px] font-mono text-muted-foreground/60">v0.1.0</span>
+        </div>
+        <LegalLinks align="start" showCopyright className="text-[11px]" />
       </div>
     </div>
   )

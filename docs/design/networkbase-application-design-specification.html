@@ -1996,8 +1996,8 @@
             <b>Source anchors</b
             ><code>src/components/layout/header/Logo.tsx</code
             ><code>public/manifest.webmanifest</code
-            ><code>public/icon-192.png</code><code>public/icon-512.png</code
-            ><code>public/icon-maskable-512.png</code><code>public/og</code
+            ><code>public/icon-paper-192.png</code><code>public/icon-paper-512.png</code
+            ><code>public/icon-paper-maskable-512.png</code><code>public/og</code
             ><code
               >/Users/chrama/Downloads/NetworkBase Design
               System/guidelines/brand-wordmark.card.html</code
@@ -2097,27 +2097,33 @@
           <h3>Static icon and metadata contract</h3>
           <ul>
             <li>
-              Use the supplied optical icon ladder rather than scaling one
-              source: 16/32px use a 37.5% mark, 48px uses 35%, and 64px+ use a
-              centred 32% mark. Tile and mark corners are likewise optically
-              corrected. Do not crop, stretch, or combine the icon with the
-              wordmark.
+              Use the supplied Paper SVG as the canonical icon source at every
+              size, preserving its colours, centred 32% mark, proportions, and
+              corner geometry. Maskable icons fill the transparent corners with
+              Paper so the operating system can apply its own mask. Do not crop,
+              stretch, or combine the icon with the wordmark.
+            </li>
+            <li>
+              Browser tabs use <code>icon-paper-tab.svg</code> and matching PNG/ICO
+              fallbacks. Inset the Paper background 8% on each side to prevent
+              Safari from adding a black contrast outline; keep the centred
+              orange mark at its original size and preserve both colours.
+              Touch, installed-app, and notification icons retain the original tile.
             </li>
             <li>
               Install and maintain vector <code>favicon.svg</code>, legacy
-              <code>favicon.ico</code>, <code>icon-ink-180.png</code> for Apple
-              touch, <code>icon-mono.svg</code> for Safari pinned tabs, distinct
+              <code>favicon.ico</code>, <code>icon-paper-180.png</code> for Apple
+              touch, <code>icon-paper-mono.svg</code> for Safari pinned tabs, distinct
               192/512 “any” icons, and distinct full-bleed 192/512 maskable
               icons. The web manifest, metadata, service-worker fallback, social
               preview, sign-in, legal, marketing, and application shell must all
               reference the same approved identity set.
             </li>
             <li>
-              Use Ink icon files for standard external/platform placements,
-              Paper on dark ground where needed, Clay inversion only for limited
-              accent placements, and monochrome only when the target requires
-              one colour. App tiles and favicons are fixed assets, not dynamic
-              theme controls.
+              Use Paper icon files for standard external/platform placements,
+              installed apps, notifications, and settings. Use the Paper mark
+              silhouette in monochrome when the target requires one colour.
+              App tiles and favicons are fixed assets, not dynamic theme controls.
             </li>
           </ul>
           <h3>Intro and loading system</h3>

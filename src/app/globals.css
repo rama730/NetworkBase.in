@@ -129,6 +129,8 @@
   --header-height: var(--ui-topnav-height);
   --radius: 8px;
   --nb-brand: #D14E24;
+  --selection-background: #F7DFD5;
+  --selection-foreground: #141A1E;
   /*
    * Primary-action states intentionally derive from the active accent.  A
    * number of surfaces (most visibly Files) use the same controls as the
@@ -308,6 +310,27 @@
   :root {
     --app-scrollbar-size: 12px;
   }
+}
+
+::selection {
+  background-color: var(--selection-background);
+  color: var(--selection-foreground);
+}
+
+/* CodeMirror draws selection backgrounds itself, including secondary ranges. */
+.cm-editor .cm-selectionBackground {
+  background-color: var(--selection-background) !important;
+}
+
+html .cm-editor .cm-content::selection,
+html .cm-editor .cm-content ::selection {
+  background-color: var(--selection-background);
+  color: var(--selection-foreground);
+}
+
+.cm-editor .nb-selected-text,
+.cm-editor .nb-selected-text * {
+  color: var(--selection-foreground) !important;
 }
 
 @layer base {

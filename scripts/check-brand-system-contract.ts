@@ -6,14 +6,19 @@ const requiredAssets = [
   "favicon.ico",
   "favicon.svg",
   "apple-touch-icon.png",
-  "icon-ink-32.png",
-  "icon-ink-64.png",
-  "icon-ink-180.png",
-  "icon-ink-192.png",
-  "icon-ink-512.png",
-  "icon-maskable-192.png",
-  "icon-maskable-512.png",
-  "icon-mono.svg",
+  "icon-paper.svg",
+  "icon-paper.ico",
+  "icon-paper-32.png",
+  "icon-paper-tab.svg",
+  "icon-paper-tab.ico",
+  "icon-paper-tab-32.png",
+  "icon-paper-64.png",
+  "icon-paper-180.png",
+  "icon-paper-192.png",
+  "icon-paper-512.png",
+  "icon-paper-maskable-192.png",
+  "icon-paper-maskable-512.png",
+  "icon-paper-mono.svg",
 ] as const;
 
 const missing = requiredAssets.filter((asset) => !existsSync(path.join(root, "public", asset)));
@@ -34,21 +39,23 @@ if (manifest.background_color !== "#141A1E" || manifest.theme_color !== "#141A1E
   throw new Error("Manifest must use the approved Ink install surface colours.");
 }
 const icons = manifest.icons ?? [];
-for (const expected of ["/icon-ink-192.png", "/icon-ink-512.png", "/icon-maskable-192.png", "/icon-maskable-512.png"]) {
+for (const expected of ["/icon-paper-192.png", "/icon-paper-512.png", "/icon-paper-maskable-192.png", "/icon-paper-maskable-512.png"]) {
   if (!icons.some((icon) => icon.src === expected)) throw new Error(`Manifest is missing ${expected}.`);
 }
-if (!icons.some((icon) => icon.src === "/icon-maskable-512.png" && icon.purpose === "maskable")) {
+if (!icons.some((icon) => icon.src === "/icon-paper-maskable-512.png" && icon.purpose === "maskable")) {
   throw new Error("Maskable 512px icon must retain purpose=maskable.");
 }
 
 const pngSizes: Record<string, number> = {
-  "icon-ink-32.png": 32,
-  "icon-ink-64.png": 64,
-  "icon-ink-180.png": 180,
-  "icon-ink-192.png": 192,
-  "icon-ink-512.png": 512,
-  "icon-maskable-192.png": 192,
-  "icon-maskable-512.png": 512,
+  "apple-touch-icon.png": 180,
+  "icon-paper-32.png": 32,
+  "icon-paper-tab-32.png": 32,
+  "icon-paper-64.png": 64,
+  "icon-paper-180.png": 180,
+  "icon-paper-192.png": 192,
+  "icon-paper-512.png": 512,
+  "icon-paper-maskable-192.png": 192,
+  "icon-paper-maskable-512.png": 512,
 };
 
 function readPngSize(filePath: string): { width: number; height: number } {

@@ -168,6 +168,7 @@ export default function NotificationsPage({ embedded = false }: { embedded?: boo
 
     <SettingsSectionCard title="Delivery" description="Choose where important updates can reach you.">
       <div className="divide-y divide-border">
+        <PreferenceSwitch id="delivery-email" title="Email task assignments" description="Email me when someone assigns me a task. Task preferences, mutes, pauses and quiet hours also apply." checked={preferences.delivery.email ?? true} disabled={isSaving} onToggle={() => save({ ...preferences, delivery: { ...preferences.delivery, email: !(preferences.delivery.email ?? true) } })} />
         <PreferenceSwitch id="delivery-browser" title="Desktop notifications" description={deliveryDescriptions.browser} checked={preferences.delivery.browser && permissionState === "granted"} disabled={isSaving || permissionState === "unsupported" || permissionState === "denied"} onToggle={() => void toggleBrowser()} />
         <PreferenceSwitch id="delivery-push" title="Push notifications" description={deliveryDescriptions.push} checked={preferences.delivery.push && pushStatus === "subscribed"} disabled={isSaving || pushBusy || pushStatus === "unsupported" || pushStatus === "denied"} onToggle={() => void togglePush()} />
       </div>

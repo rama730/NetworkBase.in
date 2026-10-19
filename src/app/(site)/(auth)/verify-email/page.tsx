@@ -127,7 +127,10 @@ function VerifyEmailPageInner() {
                         </div>
                     </CardFooter>
                 </Card>
-                <LegalLinks className="mt-6" />
+                <p className="mt-4 text-center text-xs text-muted-foreground">
+                    Official verification emails are delivered strictly from <code className="font-mono text-foreground">welcome@networkbase.in</code>
+                </p>
+                <LegalLinks className="mt-4" showCopyright />
             </div>
         </div>
     )
