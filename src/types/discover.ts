@@ -105,6 +105,10 @@ export interface Project {
   owner?: ProjectProfile | null;
   collaborators?: ProjectCollaborator[];
   openRoles?: OpenRole[];
+  /** Open seats across the project's roles (feeds send this instead of the roles). */
+  openRolesCount?: number;
+  /** Team size, including members not shown to this viewer (feeds send at most a few members). */
+  collaboratorsCount?: number;
   followers?: ProjectFollower[];
 
   // Timestamps

@@ -170,7 +170,7 @@ async function fetchProjectPreviews(query: string): Promise<GlobalSearchPreview[
         username: project.owner?.username ?? null,
         status: project.status ?? null,
         skills: project.skills || [],
-        openRolesCount: (project.openRoles || []).reduce((count, role) => count + Math.max(0, role.count - role.filled), 0),
+        openRolesCount: project.openRolesCount ?? (project.openRoles || []).reduce((count, role) => count + Math.max(0, role.count - role.filled), 0),
         followersCount: Math.max(0, project.followersCount ?? 0),
         viewCount: Math.max(0, project.viewCount ?? 0),
         connectedFriends: project.connectedFriends ?? [],

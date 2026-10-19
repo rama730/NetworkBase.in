@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Users, Bell, BellRing, BarChart2, ExternalLink, Globe } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { ROUTES } from "@/constants/routes";
+import { ErrorNotice } from "@/components/ui/ErrorNotice";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { Project } from "@/types/discover";
-import type { ProjectCardViewModel } from "@/lib/view-models/project-card";
+import { toProjectCardViewModel, type ProjectCardViewModel } from "@/lib/view-models/project-card";
 import { useToggleProjectFollow } from "@/hooks/mutations/useProjectMutations";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { SkillIcon } from "@/components/skills/SkillIcon";
@@ -19,14 +21,14 @@ const MAX_PROJECT_CARD_SKILL_ICONS = 6;
 
 interface ProjectCardProps {
     project: Project;
-    viewModel: ProjectCardViewModel;
-    fromTab?: string;
+    /** Built from `project` when not given, so the card memoizes on the project itself. */
+    viewModel?: ProjectCardViewModel;
     isFollowing?: boolean;
     followersCount?: number;
     onOpenProject?: (projectId: string) => void;
 }
 
-export default memo(function ProjectCard({ project, viewModel, fromTab = "projects", isFollowing = false, followersCount: initialFollowers = 0, onOpenProject }: ProjectCardProps) {
+export default memo(function ProjectCard({ project, viewModel, isFollowing = false, followersCount: initialFollowers = 0, onOpenProject }: ProjectCardProps) {
     useSkillCatalog();
     const { user } = useAuth();
     const { mutateAsync } = useToggleProjectFollow();
@@ -37,12 +39,16 @@ export default memo(function ProjectCard({ project, viewModel, fromTab = "projec
     const followLock = useRef(false);
     useEffect(() => { setFollowing(isFollowing); }, [isFollowing]);
     useEffect(() => { setFollowers(initialFollowers); }, [initialFollowers]);
-    const { techStack, collaborators, totalOpenRoles } = viewModel;
+    const { techStack, collaborators, totalOpenRoles, teamSize } = useMemo(() => viewModel ?? toProjectCardViewModel(project), [viewModel, project]);
     const hiddenTechStackCount = Math.max(0, techStack.length - MAX_PROJECT_CARD_SKILL_ICONS);
     const links = resolveProjectSocialLinks(project.externalLinks, project.githubRepoUrl);
     const primaryProjectLink = links.find(link => !link.managed) ?? links[0] ?? null;
-    const visibleLinks = primaryProjectLink ? [primaryProjectLink, ...links.filter(link => link !== primaryProjectLink)].slice(0, 4) : [];
-    const href = `/projects/${project.slug || project.id}?fromTab=${encodeURIComponent(fromTab)}`;
+    const orderedLinks = primaryProjectLink ? [primaryProjectLink, ...links.filter(link => link !== primaryProjectLink)] : [];
+    const visibleLinks = orderedLinks.slice(0, 4);
+    // More than 4 links go in a "+N" menu (spec), never silently dropped.
+    const moreLinks = orderedLinks.slice(4);
+    const href = `/projects/${project.slug || project.id}`;
+    const linkHref = (link: (typeof links)[number]) => `/go/project/${encodeURIComponent(project.id)}/${encodeURIComponent(link.id || link.canonicalKey)}`;
 
     async function toggleFollow() {
         if (followLock.current) return;
@@ -79,7 +85,8 @@ export default memo(function ProjectCard({ project, viewModel, fromTab = "projec
                         <Link href={href} onClick={() => onOpenProject?.(project.id)} className="after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none">{project.title}</Link>
                     </h3>
                     {(project.shortDescription || project.description) && (
-                        <p className={`mt-0.5 text-sm leading-normal text-muted-foreground line-clamp-2`}>
+                        // 5px under the title (spec), in both header layouts.
+                        <p className={`mt-[5px] text-sm leading-normal text-muted-foreground line-clamp-2`}>
                             {project.shortDescription || project.description}
                         </p>
                     )}
@@ -93,7 +100,7 @@ export default memo(function ProjectCard({ project, viewModel, fromTab = "projec
                     </h3>
                 </div>
                 {project.shortDescription || project.description ? (
-                    <p className={`text-sm leading-normal text-muted-foreground line-clamp-2`}>
+                    <p className={`-mt-[7px] text-sm leading-normal text-muted-foreground line-clamp-2`}>
                         {project.shortDescription || project.description}
                     </p>
                 ) : null}
@@ -107,30 +114,45 @@ export default memo(function ProjectCard({ project, viewModel, fromTab = "projec
         </div>}
         <div className="nb-project-card-footer">
             <div className="flex min-w-0 items-center gap-3">
-                <div className="flex -space-x-1.5" role="group" aria-label={`${collaborators.length} ${collaborators.length === 1 ? "collaborator" : "collaborators"}`}>
+                <div className="flex -space-x-1.5" role="group" aria-label={`${teamSize} ${teamSize === 1 ? "collaborator" : "collaborators"}`}>
                     {collaborators.slice(0, 4).map((person, index) => <UserAvatar key={person.username || index} identity={person} size={26} className="border-2 border-card" fallbackClassName="text-[11px]" />)}
-                    {collaborators.length > 4 && <span className="flex size-[26px] items-center justify-center rounded-md border-2 border-card bg-secondary font-mono text-[11px]">+{collaborators.length - 4}</span>}
-                    {collaborators.length === 0 && <Users size={16} className="text-muted-foreground" aria-hidden="true" />}
+                    {teamSize > 4 && <span className="flex size-[26px] items-center justify-center rounded-md border-2 border-card bg-secondary font-mono text-[11px]">+{teamSize - 4}</span>}
                 </div>
+                {collaborators.length === 0 && <span className="nb-meta inline-flex items-center gap-1"><Users size={14} aria-hidden="true" />No team yet</span>}
                 {totalOpenRoles > 0 && <span className="nb-meta text-primary">{totalOpenRoles} open {totalOpenRoles === 1 ? "role" : "roles"}</span>}
             </div>
             <div className="relative z-10 flex flex-wrap items-center gap-1">
-                {visibleLinks.map(link => <a key={link.id || link.canonicalKey} href={`/go/project/${encodeURIComponent(project.id)}/${encodeURIComponent(link.id || link.canonicalKey)}`} target="_blank" rel="noopener noreferrer" className="nb-icon-button" aria-label={`Open ${link.customLabel || link.platformLabel}: ${link.accountLabel} (opens in new tab)`}>
+                {visibleLinks.map(link => <a key={link.id || link.canonicalKey} href={linkHref(link)} target="_blank" rel="noopener noreferrer" className="nb-icon-button" aria-label={`Open ${link.customLabel || link.platformLabel}: ${link.accountLabel} (opens in new tab)`}>
                     {link.iconKey ? <SocialPresenceIcon iconKey={link.iconKey} className="size-4" /> : link.platform === "website" ? <Globe size={16} /> : <ExternalLink size={16} />}
                 </a>)}
+                {moreLinks.length ? (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger className="nb-icon-button px-1.5 font-mono text-xs" aria-label={`${moreLinks.length} more links`}>+{moreLinks.length}</DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56">
+                            {moreLinks.map(link => (
+                                <DropdownMenuItem key={link.id || link.canonicalKey} asChild>
+                                    <a href={linkHref(link)} target="_blank" rel="noopener noreferrer">
+                                        {link.iconKey ? <SocialPresenceIcon iconKey={link.iconKey} className="size-4" /> : <ExternalLink />}
+                                        <span className="truncate">{link.customLabel || link.platformLabel}: {link.accountLabel}</span>
+                                    </a>
+                                </DropdownMenuItem>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                ) : null}
                 <span className="nb-meta flex items-center gap-1 px-1" title="Views" data-testid={`project-card-views-${project.id}`}><BarChart2 size={14} aria-hidden="true" />{project.viewCount || 0}<span className="sr-only"> views</span></span>
                 {/* A project follow is a bell (its updates), not a person icon; pressed reads in clay, not only by icon. */}
-                <button type="button" disabled={busy} aria-busy={busy} aria-pressed={following} aria-label={`Follow ${project.title}, ${followers} ${followers === 1 ? "follower" : "followers"}`} title={following ? "Following" : "Follow"} className="nb-icon-button gap-1 px-1.5 font-mono text-xs aria-pressed:bg-accent aria-pressed:text-primary disabled:opacity-45" onClick={toggleFollow} data-testid={`project-card-follow-${project.id}`}>
+                <button type="button" aria-disabled={busy || undefined} aria-busy={busy} aria-pressed={following} aria-label={`Follow ${project.title}, ${followers} ${followers === 1 ? "follower" : "followers"}`} title={following ? "Following" : "Follow"} className="nb-icon-button gap-1 px-1.5 font-mono text-xs" onClick={toggleFollow} data-testid={`project-card-follow-${project.id}`}>
                     {following ? <BellRing size={16} aria-hidden="true" /> : <Bell size={16} aria-hidden="true" />}{followers}
                 </button>
             </div>
         </div>
         {error === "signed-out" ? (
             <p role="alert" className="relative z-10 nb-compact text-muted-foreground">
-                <Link href={`${ROUTES.LOGIN}?redirect=${encodeURIComponent(href)}`} className="font-medium text-primary hover:underline">Sign in</Link> to follow this project.
+                <Link href={`${ROUTES.LOGIN}?redirect=${encodeURIComponent(href)}`} className="font-medium text-primary hover:underline">Sign in</Link> to follow projects.
             </p>
         ) : error === "failed" ? (
-            <p role="alert" className="relative z-10 nb-compact text-[var(--status-danger)]">Couldn&apos;t update. Try again.</p>
+            <ErrorNotice message="Couldn't update your follow." onRetry={() => void toggleFollow()} className="relative z-10" />
         ) : null}
     </article>;
 });

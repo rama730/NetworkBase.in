@@ -1,0 +1,131 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import test from "node:test";
+
+const read = (path: string) => readFileSync(path, "utf8");
+
+test("round 2: shared type and control classes sit in the components layer (utilities beside them win)", () => {
+  const css = read("src/app/globals.css");
+  const layered = [...css.matchAll(/@layer components \{([\s\S]*?)\n\}/g)].map((match) => match[1]).join("\n");
+  for (const rule of [".nb-meta {", ".nb-icon-button {", ".nb-card-title {", ".nb-tag {", ".nb-tab-count {", ".nb-compact {"]) {
+    assert.ok(layered.includes(rule), `${rule} is inside @layer components`);
+    // and not also defined outside a layer (which would beat utilities again)
+    assert.equal(css.split(`\n${rule}`).length, 1, `${rule} has no unlayered copy`);
+  }
+  assert.match(css, /\.nb-icon-button\[aria-pressed="true"\]/);
+});
+
+test("round 2: the projects route never fails open and varies on the session", () => {
+  const route = read("src/app/api/v1/projects/route.ts");
+  assert.match(route, /return unavailable\('AUTH_UNAVAILABLE', error\)/);
+  assert.doesNotMatch(route, /getViewerAuthContext\(\)\.catch\(\(\) => null\)/);
+  assert.match(route, /Vary: 'Cookie, Authorization'/);
+  // Every respond() is awaited inside the try, so a block-lookup failure reaches the fallback.
+  assert.doesNotMatch(route, /\breturn respond\(/);
+  assert.match(route, /forViewer\(page\.projects, viewerId\)/);
+});
+
+test("round 2: ranked feeds keep going, and the action says what went wrong", () => {
+  const data = read("src/lib/data/discover.ts");
+  const action = read("src/app/actions/discover.ts");
+  assert.match(data, /buildSnapshotCursor\(filtersFingerprint, now, lastSnapshotItem\.id, consumedIndex - 1\)/);
+  assert.match(data, /throw new StaleDiscoverFeedError\(\)/);
+  assert.match(data, /cacheData\(snapshotKey, snapshot, 600\)/);
+  assert.match(action, /code: 'STALE_FEED' as const/);
+  assert.match(action, /input\.filters\.sort !== SORT_OPTIONS\.TRENDING \|\| input\.view === FILTER_VIEWS\.TRENDING/);
+  assert.match(action, /!readLimit\.allowed && !readLimit\.degraded/);
+  assert.match(action, /!user && !normalizedCursor && !normalizedSearch/);
+});
+
+test("round 2: caches drop a project or creator that goes private at once", () => {
+  const project = read("src/app/actions/project/index.ts");
+  const profile = read("src/app/actions/profile.ts");
+  assert.doesNotMatch(project, /revalidateTag\(DISCOVER_ANON_CACHE_TAG, "max"\)/);
+  assert.match(project, /revalidateTag\(DISCOVER_ANON_CACHE_TAG, \{ expire: 0 \}\)/);
+  assert.match(profile, /invalidatePublicProjectsFeedCache\(\)/);
+  assert.match(read("src/app/api/og/project/[slug]/route.tsx"), /s-maxage=3600/);
+});
+
+test("round 2: Escape in an open combobox closes its list, not the dialog", () => {
+  assert.match(read("src/components/ui/dialog.tsx"), /getAttribute\("aria-expanded"\) === "true"\) event\.preventDefault\(\)/);
+});
+
+test("round 2: one set of words for connection states, with correct plurals", async () => {
+  const { CONNECTION_COPY } = await import("../../src/lib/connections/copy");
+  assert.equal(CONNECTION_COPY.shared(1), "1 shared connection");
+  assert.equal(CONNECTION_COPY.shared(3), "3 shared connections");
+  for (const file of ["src/components/discover/DiscoverPeopleRail.tsx", "src/components/network/PersonCard.tsx"]) {
+    assert.match(read(file), /CONNECTION_COPY\.(review|notAccepting)/, file);
+  }
+});
+
+test("round 2: Connect sends once per click and a failure puts the row back at once", () => {
+  const hook = read("src/hooks/useConnections.ts");
+  const action = read("src/app/actions/connections.ts");
+  assert.match(hook, /requestKeyFor\(variables\)/);
+  assert.match(hook, /for \(const \[key, data\] of context\?\.previous \?\? \[\]\) queryClient\.setQueryData\(key, data\)/);
+  assert.match(action, /namespace: 'connection-request'/);
+  assert.match(action, /IdempotencyConflictError\) return \{ success: false/);
+  assert.doesNotMatch(action, /Idempotency lock hit/);
+  // People search preview: full key, validated first, first page only (COR-031); metadata only on discover (PERF-008).
+  assert.match(action, /search:preview:people:v2:\$\{user\.id\}:\$\{requestShape\}/);
+  assert.match(action, /const metadataPromise = tab !== 'discover' \? null/);
+});
+
+test("round 2: follow state stays true everywhere", () => {
+  assert.match(read("src/app/actions/project/index.ts"), /relationship\?\.blockedByViewer \|\| relationship\?\.blockedByTarget/);
+  assert.match(read("src/components/projects/dashboard/ProjectDashboardClient.tsx"), /queryKeys\.discover\.userFollowedProjects\(currentUserId\)/);
+  assert.match(read("src/components/profile/v2/sections/ProjectsGridCard.tsx"), /isFollowing=\{followed\.has\(cardProject\.id\)\}/);
+  assert.match(read("src/hooks/mutations/useProjectMutations.ts"), /query\.queryKey\[3\] === 'following'/);
+});
+
+test("round 2: keyboard focus shows everywhere (a tone, never a ring)", () => {
+  const css = read("src/app/globals.css");
+  assert.match(css, /:where\(a, button, summary, \[role="tab"\], \[role="option"\], \[role="menuitem"\], \[role="radio"\], \[role="switch"\]\):focus-visible \{\s*background-color: color-mix/);
+  assert.match(css, /\[data-slot="button"\]:focus-visible \{\s*background-image:/);
+  assert.match(css, /\.nb-person-connect:focus-visible \{ border-color:var\(--primary-active\)/);
+  const picker = read("src/components/skills/SkillPicker.tsx");
+  assert.doesNotMatch(picker, /role="tab"/);
+  assert.equal(picker.match(/role="option"\s*\n\s*tabIndex=\{-1\}/g)?.length, 2);
+});
+
+test("round 2: one search field for Discover and Network; the top bar defers to it on Discover", () => {
+  assert.match(read("src/components/discover/DiscoverHeader.tsx"), /<SearchField[\s\S]*?pageSearch/);
+  assert.match(read("src/components/network/NetworkClient.tsx"), /<SearchField/);
+  assert.match(read("src/components/layout/header/GlobalSearch.tsx"), /\[data-page-search\] input/);
+});
+
+test("round 2: legal links and the card avatar read cleanly", () => {
+  const legal = read("src/components/legal/LegalLinks.tsx");
+  assert.match(legal, /!showCopyright && className/);
+  assert.match(legal, /suppressHydrationWarning/);
+  assert.doesNotMatch(legal, /muted-foreground\/80/);
+  assert.match(read("src/components/projects/ProjectAvatar.tsx"), /alt=\{size === "card" \? ""/);
+});
+
+test("round 2: cards get counts, not every role or member; filtered reads go through a cancellable GET", () => {
+  const pub = read("src/lib/projects/public-feed-service.ts");
+  assert.match(pub, /sum\(greatest\(\$\{projectOpenRoles\.count\} - \$\{projectOpenRoles\.filled\}, 0\)\)/);
+  assert.match(pub, /lte\(rankedSub\.memberRank, 8\)/);
+  assert.doesNotMatch(pub, /const roleRows = projectIds/);
+  const data = read("src/lib/data/discover.ts");
+  assert.match(data, /lte\(ranked\.memberRank, 8\)/);
+  assert.match(data, /coalesce\(\$\{profiles\.visibility\}, 'public'\) = 'public' OR \$\{projectMembers\.userId\} = \$\{viewerId\}/);
+  const route = read("src/app/api/v1/discover/projects/route.ts");
+  assert.match(route, /jsonSuccess\(\{ projects: result\.projects/);
+  assert.match(route, /status = result\.code === "RATE_LIMITED" \? 429/);
+  assert.doesNotMatch(route, /export const /);
+  const hook = read("src/hooks/discover/useDiscoverProjects.ts");
+  assert.match(hook, /\/api\/v1\/discover\/projects\?/);
+  assert.match(hook, /queryFn: async \(\{ pageParam = undefined as string \| undefined, signal \}\)/);
+});
+
+test("round 2: following clears only its own project page, and the index migration fails loudly on an invalid index", () => {
+  const project = read("src/app/actions/project/index.ts");
+  const follow = project.slice(project.indexOf("const revalidateProjectFollowers"), project.indexOf("const revalidateProjectPaths"));
+  assert.doesNotMatch(follow, /PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG/);
+  const migration = read("drizzle/0211_discover_index_hygiene.sql");
+  assert.match(migration, /RAISE EXCEPTION 'A projects_discover_\* index is invalid/);
+  assert.match(migration, /DROP INDEX CONCURRENTLY IF EXISTS public\.projects_feed_newest_idx;/);
+  assert.match(read("scripts/setup-database.ts"), /"0211_discover_index_hygiene"/);
+});

@@ -25,6 +25,10 @@ export type PublicProjectsFeedItem = {
     github_repo_url?: string | null
     created_at: string
     updated_at: string
+    /** Open seats across the project's roles (the card's count; role text stays on the project page). */
+    open_seats?: number
+    /** Everyone on the team; `collaborators` lists at most 8 of them. */
+    team_size?: number
     open_roles: Array<{
         id: string
         project_id: string
@@ -142,6 +146,8 @@ export function mapPublicProjectToDiscoverProject(project: PublicProjectsFeedIte
                 },
             })) as any[]
             : [],
+        openRolesCount: project.open_seats ?? undefined,
+        collaboratorsCount: project.team_size ?? undefined,
         openRoles: Array.isArray(project.open_roles)
             ? project.open_roles.map((role) => ({
                 id: role.id,

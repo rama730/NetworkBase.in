@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useSyncExternalStore } from 'react';
+import { useId, useMemo, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { X } from 'lucide-react';
 
@@ -9,7 +9,7 @@ import { ROUTES } from '@/constants/routes';
 import { cn } from '@/lib/utils';
 
 const KEY = 'onboarding:profile-strength:v1';
-// A dismiss here (both copies: under the header and in the rail) or in another tab.
+// A dismiss here or in another tab.
 const subscribe = (onChange: () => void) => {
     window.addEventListener('storage', onChange);
     return () => window.removeEventListener('storage', onChange);
@@ -22,17 +22,22 @@ const read = () => {
     }
 };
 
-/** What onboarding left to do, for the account that finished it on this browser. A neutral card; dismissible. */
-export function ProfileChecklist({ userId, className }: { userId: string; className?: string }) {
+/** What onboarding left to do, for the account that finished it on this browser (empty when nothing). */
+export function useProfileChecklistItems(userId: string | null): string[] {
     const raw = useSyncExternalStore(subscribe, read, () => null);
-    const items = useMemo(() => {
+    return useMemo(() => {
         try {
-            const parsed = raw ? JSON.parse(raw) as { userId?: string; items?: string[] } : null;
-            return parsed?.userId === userId && Array.isArray(parsed.items) ? parsed.items.slice(0, 5) : [];
+            const parsed = raw && userId ? JSON.parse(raw) as { userId?: string; items?: string[] } : null;
+            return parsed?.userId === userId && Array.isArray(parsed?.items) ? parsed.items.slice(0, 5) : [];
         } catch {
             return [];
         }
     }, [raw, userId]);
+}
+
+/** The checklist as a neutral, dismissible card. */
+export function ProfileChecklist({ items, className }: { items: string[]; className?: string }) {
+    const titleId = useId();
     if (!items.length) return null;
 
     const dismiss = () => {
@@ -45,9 +50,9 @@ export function ProfileChecklist({ userId, className }: { userId: string; classN
     };
 
     return (
-        <section aria-labelledby="profile-checklist-title" className={cn('rounded-lg border border-border bg-card p-4', className)}>
+        <section aria-labelledby={titleId} className={cn('rounded-lg border border-border bg-card p-4', className)}>
             <div className="flex items-start justify-between gap-3">
-                <h2 id="profile-checklist-title" className="nb-ui-label pt-1">Finish your profile</h2>
+                <h2 id={titleId} className="nb-ui-label pt-1">Finish your profile</h2>
                 <button type="button" onClick={dismiss} className="nb-icon-button nb-touch-target -mr-1 -mt-1" aria-label="Dismiss profile checklist">
                     <X className="size-4" aria-hidden="true" />
                 </button>

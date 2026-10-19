@@ -7,7 +7,7 @@ import { Ban, Check, ChevronDown, Clock, Loader2, Lock, MapPin, MessageSquare } 
 import type { SuggestedProfile } from "@/app/actions/connections";
 import { SkillIcon } from "@/components/skills";
 import { UserAvatar } from "@/components/ui/UserAvatar";
-import { PersonPresenceDot } from "@/components/network/PersonPresenceDot";
+import { PersonPresenceDot, PersonPresenceText } from "@/components/network/PersonPresenceDot";
 import { resolveClientSkill, useSkillCatalog } from "@/lib/skills/client";
 import { profileHref } from "@/lib/routing/identifiers";
 import { canonicalSkillKey, matchingSkillLabels } from "@/lib/skills/matching";
@@ -23,6 +23,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { messageUserInWindow } from "@/components/messages/message-user";
+import { CONNECTION_COPY } from "@/lib/connections/copy";
 
 /**
  * Shared Network person-card anatomy (profile-header style): avatar top-left, name and primary action beside it.
@@ -54,8 +55,8 @@ export function PersonCardLayout({
 }) {
     const headlineBelow = location ? headline : null;
     return (
-        <article className={cn("flex h-full min-w-0 flex-col rounded-lg border border-border bg-card p-4 transition-colors hover:border-input", className)}>
-            <div className="flex min-w-0 items-start gap-3">
+        <article className={cn("flex h-full min-w-0 flex-col rounded-lg border border-border bg-card p-5 transition-colors hover:border-input", className)}>
+            <div className="flex min-w-0 items-start gap-[14px]">
                 {avatar}
                 <div className="min-w-0 flex-1 pt-0.5">
                     {head}
@@ -142,11 +143,12 @@ function PersonCard({
     const { cancelRequest, blockProfile } = useConnectionMutations();
     const [localStatus, setLocalStatus] = useState<"none" | "pending_sent" | null>(null);
     const [connecting, setConnecting] = useState(false);
+    const actionSlot = useRef<HTMLDivElement>(null);
     const [cancelling, setCancelling] = useState(false);
     const [blocking, setBlocking] = useState(false);
     const status = localStatus ?? profile.connectionStatus;
     const isLocked = Boolean(profile.isLockedProfile);
-    const displayName = profile.fullName || profile.username || "User";
+    const displayName = profile.fullName || profile.username || CONNECTION_COPY.nameFallback;
     const headline = profile.headline?.trim();
     const matchingSkills = matchingSkillLabels(profile.skills ?? [], viewerSkills ?? []);
     const matchingSkillKeys = new Set(matchingSkills.map(canonicalSkillKey));
@@ -158,14 +160,22 @@ function PersonCard({
         setLocalStatus(null);
     }, [profile.connectionStatus]);
 
+    // The action slot's control changes (Connect → Requested): keep keyboard focus in the slot.
+    const keepFocusInSlot = () => requestAnimationFrame(() => {
+        if (document.activeElement && document.activeElement !== document.body) return;
+        actionSlot.current?.querySelector<HTMLElement>("button, a")?.focus();
+    });
+
     async function connect() {
         if (connecting || status !== "none" || profile.canConnect === false) return;
         setConnecting(true);
         setLocalStatus("pending_sent");
+        keepFocusInSlot();
         try {
             await onConnect(profile.id);
         } catch {
             setLocalStatus(null);
+            keepFocusInSlot();
         } finally {
             setConnecting(false);
         }
@@ -194,9 +204,9 @@ function PersonCard({
         setBlocking(true);
         try {
             await toast.promise(blockProfile.mutateAsync(profile.id), {
-                loading: "Blocking account...",
-                success: `Blocked ${displayName}`,
-                error: (err) => err instanceof Error ? err.message : "Failed to block account",
+                loading: CONNECTION_COPY.blocking,
+                success: CONNECTION_COPY.blocked_toast(displayName),
+                error: (err) => err instanceof Error ? err.message : CONNECTION_COPY.blockFailed,
             }).unwrap();
         } catch {
             // The toast already says what went wrong.
@@ -206,31 +216,34 @@ function PersonCard({
     }
 
     const action = status === "none" ? (
-        <button
-            type="button"
-            onClick={() => void connect()}
-            disabled={connecting || profile.canConnect === false}
-            className="nb-person-connect"
-            aria-label={`Connect with ${displayName}`}
-        >
-            {connecting ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
-            Connect
-        </button>
+        profile.canConnect === false ? (
+            <span className="nb-meta">{CONNECTION_COPY.notAccepting}</span>
+        ) : (
+            <button
+                type="button"
+                onClick={() => void connect()}
+                aria-disabled={connecting || undefined}
+                className="nb-person-connect"
+                aria-label={`${CONNECTION_COPY.connect} with ${displayName}`}
+            >
+                {CONNECTION_COPY.connect}
+            </button>
+        )
     ) : status === "pending_sent" ? (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <button
                     type="button"
                     disabled={cancelling}
-                    className="inline-flex h-[var(--ui-control-height)] shrink-0 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-sm max-md:text-[13px] font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 transition-colors"
-                    aria-label={`Options for connection request to ${displayName}`}
+                    className="inline-flex h-[var(--ui-control-height)] shrink-0 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-45 transition-colors"
+                    aria-label={`${CONNECTION_COPY.requested}: options for ${displayName}`}
                 >
                     {cancelling ? (
                         <Loader2 className="size-4 animate-spin text-muted-foreground" aria-hidden="true" />
                     ) : (
                         <Clock className="size-4 text-muted-foreground" aria-hidden="true" />
                     )}
-                    <span className="max-sm:sr-only">Requested</span>
+                    <span className="max-sm:sr-only">{CONNECTION_COPY.requested}</span>
                     <ChevronDown className="size-3.5 opacity-70" aria-hidden="true" />
                 </button>
             </DropdownMenuTrigger>
@@ -269,26 +282,29 @@ function PersonCard({
             </DropdownMenuContent>
         </DropdownMenu>
     ) : status === "pending_received" ? (
-        <Link href="/network?tab=invitations" className="inline-flex h-[var(--ui-control-height)] shrink-0 items-center gap-2 rounded-md border border-border px-3 text-sm max-md:text-[13px] font-medium text-primary hover:bg-muted">
-            <Clock className="size-4" aria-hidden="true" /> Review
+        <Link href="/network?tab=invitations" className="inline-flex h-[var(--ui-control-height)] shrink-0 items-center gap-2 rounded-md border border-border px-3 text-sm font-medium text-primary hover:bg-muted">
+            <Clock className="size-4" aria-hidden="true" /> {CONNECTION_COPY.review}
         </Link>
     ) : status === "connected" ? (
-        <span className="inline-flex h-[var(--ui-control-height)] shrink-0 items-center gap-2 px-2 text-sm max-md:text-[13px] font-medium text-[var(--status-success)]">
-            <Check className="size-4" aria-hidden="true" /> <span className="max-sm:sr-only">Connected</span>
+        <span className="inline-flex h-[var(--ui-control-height)] shrink-0 items-center gap-2 px-2 text-sm font-medium text-[var(--status-success)]">
+            <Check className="size-4" aria-hidden="true" /> <span className="max-sm:sr-only">{CONNECTION_COPY.connected}</span>
         </span>
+    ) : status === "blocked" ? (
+        <span className="nb-meta">{CONNECTION_COPY.blocked}</span>
     ) : null;
 
     return (
         <PersonCardLayout
             avatar={
-                <Link href={profileHref(profile)} className="relative inline-flex shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                // The name is the link people tab to; the avatar is the same link for the mouse.
+                <Link href={profileHref(profile)} tabIndex={-1} aria-hidden="true" className="relative inline-flex shrink-0 rounded-md">
                     <UserAvatar identity={profile} size={48} priority={priority} fallbackClassName="text-base font-semibold" />
                     <PersonPresenceDot userId={profile.id} lastActiveAt={profile.lastActiveAt} />
                 </Link>
             }
             head={
-                <Link href={profileHref(profile)} className="block min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    <h3 className="nb-person-name min-w-0 truncate text-foreground" title={displayName}>{displayName}</h3>
+                <Link href={profileHref(profile)} className="block min-w-0 rounded-sm">
+                    <h3 className="nb-person-name min-w-0 truncate text-foreground" title={displayName}>{displayName}<PersonPresenceText userId={profile.id} lastActiveAt={profile.lastActiveAt} /></h3>
                 </Link>
             }
             location={!isLocked && profile.location ? (
@@ -299,17 +315,17 @@ function PersonCard({
             ) : null}
             meta={isLocked ? [] : [
                 (profile.mutualConnections ?? 0) > 0 ? (
-                    <p key="shared" className="nb-meta mt-1 truncate">{profile.mutualConnections} shared connections</p>
+                    <p key="shared" className="nb-meta mt-1 truncate">{CONNECTION_COPY.shared(profile.mutualConnections ?? 0)}</p>
                 ) : null,
             ]}
             headline={isLocked ? (
                 <p className="nb-compact flex items-center gap-1 text-muted-foreground"><Lock className="size-3.5" aria-hidden="true" />Private profile</p>
             ) : headline ? (
-                <p className="nb-body truncate text-muted-foreground" title={headline}>{headline}</p>
+                <p className="nb-compact line-clamp-2 text-muted-foreground" title={headline}>{headline}</p>
             ) : null}
-            aside={action}
+            aside={<div ref={actionSlot} className="contents">{action}</div>}
             body={!isLocked && skills.length ? (
-                <div className={PERSON_CARD_TAGS} aria-label="Skills">
+                <div className={PERSON_CARD_TAGS} role="group" aria-label="Skills">
                     {skills.map((skillName) => {
                         const skill = resolveClientSkill(skillName);
                         return <span key={skill.canonicalKey} className="nb-tag"><SkillIcon skill={skill} size={14} />{skill.name}</span>;

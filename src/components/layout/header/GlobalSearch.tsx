@@ -87,7 +87,12 @@ export default function GlobalSearch({ onOpenCommandPalette, condensed = false }
         >
             <button
                 type="button"
-                onClick={() => onOpenCommandPalette(query, context)}
+                onClick={() => {
+                    // A page with its own search box (Discover): one search, so the top bar goes to it.
+                    const pageSearch = document.querySelector<HTMLInputElement>('[data-page-search] input');
+                    if (pageSearch) pageSearch.focus();
+                    else onOpenCommandPalette(query, context);
+                }}
                 aria-label={triggerLabel}
                 className={`flex min-w-0 items-center rounded-[5px] transition-colors duration-[130ms] focus:outline-none ${
                     condensed ? 'justify-center' : 'flex-1 gap-2'

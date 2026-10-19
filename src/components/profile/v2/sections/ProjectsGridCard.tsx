@@ -1,10 +1,13 @@
 "use client";
 
+import { useMemo } from "react";
 import { FolderKanban } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import ProjectCard from "@/components/projects/ProjectCard";
 import ProjectCardSkeleton from "@/components/projects/ProjectCardSkeleton";
 import { toProjectCardViewModel } from "@/lib/view-models/project-card";
+import { useUserFollowedProjects } from "@/hooks/projects/useUserInteractions";
+import { useAuth } from "@/hooks/useAuth";
 import type { ProfileCollaborationProject } from "@/lib/profile/collaboration";
 import type { Project } from "@/types/discover";
 
@@ -58,6 +61,9 @@ function toDiscoveryProject(project: ProfileCollaborationProject): Project {
 }
 
 export function ProjectsGridCard({ projects, title = "Projects", description, isLoading = false, onProjectIntent }: ProjectsGridCardProps) {
+    const { user } = useAuth();
+    // The bell shows whether you follow each project (one lookup for the whole grid).
+    const followed = useUserFollowedProjects(user?.id, useMemo(() => [projects.map((project) => project.id)], [projects]));
     return <section className="space-y-4">
         <div><h2 className="nb-section-title">{title}</h2>{description && <p className="nb-compact text-muted-foreground">{description}</p>}</div>
         {isLoading ? (
@@ -89,7 +95,7 @@ export function ProjectsGridCard({ projects, title = "Projects", description, is
                             <ProjectCard
                                 project={cardProject}
                                 viewModel={toProjectCardViewModel(cardProject)}
-                                fromTab="portfolio"
+                                isFollowing={followed.has(cardProject.id)}
                                 followersCount={cardProject.followersCount ?? 0}
                                 onOpenProject={() => onProjectIntent?.(href)}
                             />

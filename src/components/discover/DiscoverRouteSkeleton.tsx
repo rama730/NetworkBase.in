@@ -17,15 +17,19 @@ export function DiscoverRouteSkeleton() {
                 <Skeleton className="h-9 w-40 rounded-md" />
                 <Skeleton className="h-5 w-80 max-w-full rounded-md" />
               </div>
-              <div className="flex flex-wrap gap-2">
+              {/* Scope, search, then Sort and Filters (a full-width row of their own on phones). */}
+              <div className="flex flex-wrap items-center gap-2">
                 <Skeleton className="h-[var(--ui-control-height)] w-[136px] rounded-md" />
                 <Skeleton className="h-[var(--ui-control-height)] flex-1 rounded-md sm:w-64 sm:flex-none" />
-                <Skeleton className="h-[var(--ui-control-height)] w-[132px] rounded-md" />
-                <Skeleton className="h-[var(--ui-control-height)] w-24 rounded-md" />
+                <div className="flex items-center gap-2 max-sm:w-full">
+                  <Skeleton className="h-[var(--ui-control-height)] w-[132px] rounded-md max-sm:flex-1" />
+                  <Skeleton className="h-[var(--ui-control-height)] w-24 rounded-md max-sm:flex-1" />
+                </div>
               </div>
             </div>
             <div className="flex flex-col gap-4">
-              {[1, 2, 3].map((item) => <ProjectCardSkeleton key={item} />)}
+              {/* The same count as the feed's own skeleton, so nothing jumps when it takes over. */}
+              {[1, 2, 3, 4].map((item) => <ProjectCardSkeleton key={item} />)}
             </div>
           </section>
           <aside className="nb-discover-rail">
