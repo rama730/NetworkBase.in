@@ -1534,6 +1534,20 @@
       "when": 1792342023016,
       "tag": "0221_project_members_user_role_idx",
       "breakpoints": true
+    },
+    {
+      "idx": 219,
+      "version": "7",
+      "when": 1792342024016,
+      "tag": "0222_email_verified_claim",
+      "breakpoints": true
+    },
+    {
+      "idx": 220,
+      "version": "7",
+      "when": 1792342025016,
+      "tag": "0223_revoke_connection_acceptance_trigger_exec",
+      "breakpoints": true
     }
   ]
 }
