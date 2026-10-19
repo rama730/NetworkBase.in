@@ -3,56 +3,50 @@
 import { desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { projectMembers, projects, taskSubtasks, tasks } from "@/lib/db/schema";
+import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { taskSubtaskTitleSchema } from "@/lib/validations/task";
 
-async function assertTaskWriteAccess(taskId: string, projectId: string, userId: string) {
-    const rows = await db.execute<{
-        id: string;
-        project_id: string;
-        owner_id: string;
-        role: string | null;
-    }>(sql`
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+// COR-023: authority and the live task are read in the write transaction. FOR SHARE on the project
+// and membership rows waits out a concurrent owner transfer or removal instead of racing it.
+async function lockSubtaskWriteScope(
+    tx: Tx,
+    target: { taskId: string } | { subtaskId: string },
+    projectId: string,
+    userId: string,
+): Promise<string> {
+    const match = "taskId" in target
+        ? sql`t.id = ${target.taskId}`
+        : sql`t.id = (SELECT s.task_id FROM ${taskSubtasks} s WHERE s.id = ${target.subtaskId})`;
+    const rows = await tx.execute<{ id: string; project_id: string; owner_id: string; role: string | null }>(sql`
         SELECT t.id, t.project_id, p.owner_id, m.role
         FROM ${tasks} t
         JOIN ${projects} p ON p.id = t.project_id AND p.deleted_at IS NULL
         LEFT JOIN ${projectMembers} m ON m.project_id = p.id AND m.user_id = ${userId}
-        WHERE t.id = ${taskId} AND t.deleted_at IS NULL
+        WHERE ${match} AND t.deleted_at IS NULL
         LIMIT 1
+        FOR SHARE OF t, p
     `);
     const row = Array.from(rows)[0];
     if (!row || row.project_id !== projectId) {
-        throw new Error("Task not found");
+        throw new Error("taskId" in target ? "Task not found" : "Subtask not found");
     }
     const role = row.owner_id === userId ? "owner" : row.role;
     if (!role || (role !== "owner" && role !== "admin" && role !== "member")) {
         throw new Error("You do not have permission to perform this project action");
     }
+    return row.id;
 }
 
-async function assertSubtaskWriteAccess(subtaskId: string, projectId: string, userId: string) {
-    const rows = await db.execute<{
-        id: string;
-        project_id: string;
-        owner_id: string;
-        role: string | null;
-    }>(sql`
-        SELECT s.id, t.project_id, p.owner_id, m.role
-        FROM ${taskSubtasks} s
-        JOIN ${tasks} t ON t.id = s.task_id AND t.deleted_at IS NULL
-        JOIN ${projects} p ON p.id = t.project_id AND p.deleted_at IS NULL
-        LEFT JOIN ${projectMembers} m ON m.project_id = p.id AND m.user_id = ${userId}
-        WHERE s.id = ${subtaskId}
-        LIMIT 1
-    `);
-    const row = Array.from(rows)[0];
-    if (!row || row.project_id !== projectId) {
-        throw new Error("Subtask not found");
-    }
-    const role = row.owner_id === userId ? "owner" : row.role;
-    if (!role || (role !== "owner" && role !== "admin" && role !== "member")) {
-        throw new Error("You do not have permission to perform this project action");
-    }
+async function requireSubtaskWriter() {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) throw new Error("Unauthorized");
+    const { allowed } = await consumeRateLimit(`task:${user.id}`, 60, 60);
+    if (!allowed) throw new Error("Rate limit exceeded");
+    return user;
 }
 
 /**
@@ -64,21 +58,14 @@ export async function createSubtaskAction(
     projectId: string
 ) {
     try {
-        const supabase = await createClient();
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
-        if (authError || !user) {
-            return { success: false, error: "Unauthorized" };
-        }
-
         const parsedTitle = taskSubtaskTitleSchema.safeParse(title);
         if (!parsedTitle.success) {
             return { success: false, error: parsedTitle.error.issues[0]?.message || "Invalid subtask title" };
         }
-        const trimmedTitle = parsedTitle.data;
-
-        await assertTaskWriteAccess(taskId, projectId, user.id);
+        const user = await requireSubtaskWriter();
 
         const created = await db.transaction(async (tx) => {
+            await lockSubtaskWriteScope(tx, { taskId }, projectId, user.id);
             // ponytail: serialize only appends for this task. ceiling: one append at a time per task. upgrade: fractional positions if subtask drag-and-drop is added.
             await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`task-subtask:${taskId}`}, 0))`);
             const currentMax = await tx.query.taskSubtasks.findFirst({
@@ -88,7 +75,7 @@ export async function createSubtaskAction(
             });
             const [next] = await tx.insert(taskSubtasks).values({
                 taskId,
-                title: trimmedTitle,
+                title: parsedTitle.data,
                 completed: false,
                 position: (currentMax?.position ?? -1) + 1,
             }).returning();
@@ -111,19 +98,16 @@ export async function toggleSubtaskAction(
     projectId: string
 ) {
     try {
-        const supabase = await createClient();
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
-        if (authError || !user) {
-            return { success: false, error: "Unauthorized" };
-        }
-
-        await assertSubtaskWriteAccess(subtaskId, projectId, user.id);
-
-        const [updated] = await db.update(taskSubtasks).set({
-            completed,
-            updatedAt: new Date(),
-        }).where(eq(taskSubtasks.id, subtaskId)).returning();
-        if (!updated) throw new Error("Subtask not found");
+        const user = await requireSubtaskWriter();
+        const updated = await db.transaction(async (tx) => {
+            await lockSubtaskWriteScope(tx, { subtaskId }, projectId, user.id);
+            const [row] = await tx.update(taskSubtasks).set({
+                completed,
+                updatedAt: new Date(),
+            }).where(eq(taskSubtasks.id, subtaskId)).returning();
+            if (!row) throw new Error("Subtask not found");
+            return row;
+        });
 
         return { success: true, data: updated };
     } catch (error: any) {
@@ -139,22 +123,20 @@ export async function updateSubtaskAction(
     projectId: string,
 ) {
     try {
-        const supabase = await createClient();
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
-        if (authError || !user) return { success: false, error: "Unauthorized" };
-
         const parsedTitle = taskSubtaskTitleSchema.safeParse(title);
         if (!parsedTitle.success) {
             return { success: false, error: parsedTitle.error.issues[0]?.message || "Invalid subtask title" };
         }
-        const trimmedTitle = parsedTitle.data;
-
-        await assertSubtaskWriteAccess(subtaskId, projectId, user.id);
-        const [updated] = await db.update(taskSubtasks).set({
-            title: trimmedTitle,
-            updatedAt: new Date(),
-        }).where(eq(taskSubtasks.id, subtaskId)).returning();
-        if (!updated) throw new Error("Subtask not found");
+        const user = await requireSubtaskWriter();
+        const updated = await db.transaction(async (tx) => {
+            await lockSubtaskWriteScope(tx, { subtaskId }, projectId, user.id);
+            const [row] = await tx.update(taskSubtasks).set({
+                title: parsedTitle.data,
+                updatedAt: new Date(),
+            }).where(eq(taskSubtasks.id, subtaskId)).returning();
+            if (!row) throw new Error("Subtask not found");
+            return row;
+        });
 
         return { success: true, data: updated };
     } catch (error: any) {
@@ -171,15 +153,11 @@ export async function deleteSubtaskAction(
     projectId: string
 ) {
     try {
-        const supabase = await createClient();
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
-        if (authError || !user) {
-            return { success: false, error: "Unauthorized" };
-        }
-
-        await assertSubtaskWriteAccess(subtaskId, projectId, user.id);
-
-        await db.delete(taskSubtasks).where(eq(taskSubtasks.id, subtaskId));
+        const user = await requireSubtaskWriter();
+        await db.transaction(async (tx) => {
+            await lockSubtaskWriteScope(tx, { subtaskId }, projectId, user.id);
+            await tx.delete(taskSubtasks).where(eq(taskSubtasks.id, subtaskId));
+        });
 
         return { success: true };
     } catch (error: any) {

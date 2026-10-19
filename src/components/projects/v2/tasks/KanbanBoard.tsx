@@ -70,6 +70,7 @@ const SortableTaskCard = React.memo(function SortableTaskCard({
   onClick,
   activeAssignableMemberIds,
   isLeader,
+  canEditTasks,
   currentUserId,
   isDragLocked,
 }: {
@@ -77,11 +78,14 @@ const SortableTaskCard = React.memo(function SortableTaskCard({
   onClick: (task: Task) => void;
   activeAssignableMemberIds?: Set<string>;
   isLeader?: boolean;
+  canEditTasks?: boolean;
   currentUserId?: string;
   isDragLocked?: boolean;
 }) {
+  // Mirrors the server rule in moveTaskToWorkflowColumnAction.
   const canDrag =
     !isDragLocked &&
+    !!canEditTasks &&
     (isLeader || !task.assigneeId || task.assigneeId === currentUserId);
 
   const {
@@ -158,6 +162,7 @@ const KanbanColumn = React.memo(
     columnIndex,
     columnCount,
     isLeader,
+    canEditTasks,
     currentUserId,
     isTaskDragLocked,
   }: any) {
@@ -380,6 +385,7 @@ const KanbanColumn = React.memo(
                     onClick={onTaskClick}
                     activeAssignableMemberIds={activeAssignableMemberIds}
                     isLeader={isLeader}
+                    canEditTasks={canEditTasks}
                     currentUserId={currentUserId}
                     isDragLocked={isTaskDragLocked}
                   />
@@ -417,21 +423,6 @@ const KanbanColumn = React.memo(
       </div>
     );
   },
-  (prev, next) => {
-    // Ponytail optimization: Only re-render column if its specific tasks changed reference or order.
-    if (prev.col.id !== next.col.id) return false;
-    if (prev.visibleLimit !== next.visibleLimit) return false;
-    if (prev.col.title !== next.col.title) return false;
-    if (prev.col.accentClassName !== next.col.accentClassName) return false;
-
-    if (prev.colTasks.length !== next.colTasks.length) return false;
-    for (let i = 0; i < prev.colTasks.length; i++) {
-      // If task object reference changed (e.g. title updated), re-render column so SortableTaskCard can re-render.
-      if (prev.colTasks[i] !== next.colTasks[i]) return false;
-    }
-
-    return true;
-  },
 );
 
 interface KanbanBoardProps {
@@ -442,6 +433,7 @@ interface KanbanBoardProps {
   isFetchingNextPage: boolean;
   activeAssignableMemberIds?: Set<string>;
   isLeader?: boolean;
+  canEditTasks?: boolean;
   currentUserId?: string;
   onTaskDragStateChange?: (taskId: string | null) => void;
   onRenameColumn: (id: string, newTitle: string) => void;
@@ -460,6 +452,7 @@ export default function KanbanBoard({
   isFetchingNextPage,
   activeAssignableMemberIds,
   isLeader,
+  canEditTasks,
   currentUserId,
   onTaskDragStateChange,
   onRenameColumn,
@@ -934,6 +927,7 @@ export default function KanbanBoard({
                   columnIndex={columnIndex}
                   columnCount={workflow.length}
                   isLeader={isLeader}
+                  canEditTasks={canEditTasks}
                   currentUserId={currentUserId}
                   isTaskDragLocked={hasNextPage || isTaskMovePending}
                 />

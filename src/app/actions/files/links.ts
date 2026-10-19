@@ -18,6 +18,33 @@ import {
     type TaskFileRole,
 } from "@/lib/projects/task-file-intelligence";
 import { getFileAttributionByNodeId } from "@/lib/files/file-attribution";
+import { consumeRateLimit } from "@/lib/security/rate-limit";
+
+const MAX_ANNOTATION_LENGTH = 2000;
+
+async function requireLinkWriter(annotation: string | null | undefined) {
+    if (typeof annotation === "string" && annotation.length > MAX_ANNOTATION_LENGTH)
+        throw new Error(`Notes are limited to ${MAX_ANNOTATION_LENGTH} characters.`);
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Unauthorized");
+    const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
+    if (!allowed) throw new Error("Rate limit exceeded");
+    return user;
+}
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+// COR-023: authority, the live task and the live file are re-read in the write transaction.
+async function assertLinkTargetsTx(tx: Tx, projectId: string, userId: string, taskId: string, nodeId: string) {
+    await assertProjectWriteAccessTx(tx, projectId, userId);
+    const [task] = await tx.select({ id: tasks.id }).from(tasks)
+        .where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt))).limit(1);
+    if (!task) throw new Error("Task not found");
+    const [node] = await tx.select({ id: projectNodes.id }).from(projectNodes)
+        .where(and(eq(projectNodes.id, nodeId), eq(projectNodes.projectId, projectId), isNull(projectNodes.deletedAt))).limit(1);
+    if (!node) throw new Error("File not found");
+}
 
 // Approval tags are server-owned. User edits may change classification and
 // labels, but cannot manufacture approval or erase a concurrent approval.
@@ -122,74 +149,60 @@ export async function linkNodeToTask(
 ) {
     if (options?.role && !["reference", "working", "deliverable"].includes(options.role))
         throw new Error("Invalid file role");
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
-
+    const user = await requireLinkWriter(options?.annotation);
     const projectId = await getTaskProjectId(taskId);
-    await assertProjectWriteAccess(projectId, user.id);
 
-    // Ensure node belongs to same project and is not deleted
-    const node = await db.query.projectNodes.findFirst({
-        where: and(eq(projectNodes.id, nodeId), eq(projectNodes.projectId, projectId), isNull(projectNodes.deletedAt)),
-        columns: { id: true }
-    });
-    if (!node) throw new Error("File not found");
-
-    const link = await db.query.taskNodeLinks.findFirst({
-        where: and(eq(taskNodeLinks.taskId, taskId), eq(taskNodeLinks.nodeId, nodeId)),
-        columns: { nodeId: true, order: true, tags: true, annotation: true },
-    });
-
-    let inserted;
-    if (!link) {
-        const [usage] = await db
-            .select({ count: sql<number>`count(*)::int`, maxOrder: sql<number>`coalesce(max(${taskNodeLinks.order}), 0)::int` })
-            .from(taskNodeLinks)
-            .where(eq(taskNodeLinks.taskId, taskId));
-        // ponytail: a cap instead of a cursor bounds every attachment read. ceiling: MAX_TASK_ATTACHMENTS links per task; add keyset paging if it is raised.
-        if ((usage?.count ?? 0) >= MAX_TASK_ATTACHMENTS) throw new Error(`A task can have at most ${MAX_TASK_ATTACHMENTS} linked files.`);
-        const order = (usage?.maxOrder ?? 0) + 1;
-        inserted = await db.insert(taskNodeLinks).values({
-            taskId,
-            nodeId,
-            createdBy: user.id,
-            order,
-            annotation: options?.annotation ?? null,
-            // A task link is context supplied to a task unless the caller says otherwise.
-            tags: replaceTaskFileRoleTag([], options?.role ?? "reference"),
-        }).onConflictDoNothing({
-            target: [taskNodeLinks.taskId, taskNodeLinks.nodeId],
-        }).returning();
-    } else if (options?.annotation !== undefined || options?.role) {
-        inserted = await db.update(taskNodeLinks)
-            .set({
-                ...(options.annotation !== undefined && { annotation: options.annotation }),
-                ...(options.role && { tags: withStoredApprovalTags(replaceTaskFileRoleTag(link.tags, options.role)) }),
-            })
-            .where(and(eq(taskNodeLinks.taskId, taskId), eq(taskNodeLinks.nodeId, nodeId)))
-            .returning();
-    } else {
-        inserted = [link];
-    }
-
-    if (inserted[0]) {
-        if (options?.notificationKind) {
-            await notifyTaskParticipantsForFileEvent({
-                actorUserId: user.id,
-                projectId,
+    const { row, changed } = await db.transaction(async (tx) => {
+        await assertLinkTargetsTx(tx, projectId, user.id, taskId, nodeId);
+        const [link] = await tx.select().from(taskNodeLinks)
+            .where(and(eq(taskNodeLinks.taskId, taskId), eq(taskNodeLinks.nodeId, nodeId))).limit(1);
+        if (!link) {
+            const [usage] = await tx
+                .select({ count: sql<number>`count(*)::int`, maxOrder: sql<number>`coalesce(max(${taskNodeLinks.order}), 0)::int` })
+                .from(taskNodeLinks)
+                .where(eq(taskNodeLinks.taskId, taskId));
+            // ponytail: a cap instead of a cursor bounds every attachment read. ceiling: MAX_TASK_ATTACHMENTS links per task; add keyset paging if it is raised.
+            if ((usage?.count ?? 0) >= MAX_TASK_ATTACHMENTS) throw new Error(`A task can have at most ${MAX_TASK_ATTACHMENTS} linked files.`);
+            const [inserted] = await tx.insert(taskNodeLinks).values({
+                taskId,
                 nodeId,
-                kind: options.notificationKind,
-            });
+                createdBy: user.id,
+                order: (usage?.maxOrder ?? 0) + 1,
+                annotation: options?.annotation ?? null,
+                // A task link is context supplied to a task unless the caller says otherwise.
+                tags: replaceTaskFileRoleTag([], options?.role ?? "reference"),
+            }).onConflictDoNothing({
+                target: [taskNodeLinks.taskId, taskNodeLinks.nodeId],
+            }).returning();
+            if (inserted) return { row: inserted, changed: true };
+        } else if (options?.annotation !== undefined || options?.role) {
+            const [updated] = await tx.update(taskNodeLinks)
+                .set({
+                    ...(options.annotation !== undefined && { annotation: options.annotation }),
+                    ...(options.role && { tags: withStoredApprovalTags(replaceTaskFileRoleTag(link.tags, options.role)) }),
+                })
+                .where(and(eq(taskNodeLinks.taskId, taskId), eq(taskNodeLinks.nodeId, nodeId)))
+                .returning();
+            if (updated) return { row: updated, changed: true };
+        } else {
+            return { row: link, changed: false };
         }
-        return inserted[0];
-    }
-
-    const existing = await db.query.taskNodeLinks.findFirst({
-        where: and(eq(taskNodeLinks.taskId, taskId), eq(taskNodeLinks.nodeId, nodeId)),
+        const [existing] = await tx.select().from(taskNodeLinks)
+            .where(and(eq(taskNodeLinks.taskId, taskId), eq(taskNodeLinks.nodeId, nodeId))).limit(1);
+        if (!existing) throw new Error("Failed to link file to task");
+        return { row: existing, changed: false };
     });
-    if (!existing) throw new Error("Failed to link file to task");
-    return existing;
+
+    // Delivery runs after commit, outside the project lock.
+    if (changed && options?.notificationKind) {
+        await notifyTaskParticipantsForFileEvent({
+            actorUserId: user.id,
+            projectId,
+            nodeId,
+            kind: options.notificationKind,
+        });
+    }
+    return row;
 }
 
 export async function unlinkNodeFromTask(taskId: string, nodeId: string) {
@@ -267,43 +280,28 @@ export async function getTaskAttachments(projectId: string, taskId: string) {
 export async function updateTaskNodeLink(taskId: string, nodeId: string, updates: { order?: number, annotation?: string | null, tags?: string[] }) {
     if (updates.tags !== undefined && (!Array.isArray(updates.tags) || updates.tags.length > 100 || updates.tags.some(tag => typeof tag !== "string" || tag.length > 200)))
         throw new Error("Invalid file labels");
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
-
+    if (updates.order !== undefined && !Number.isSafeInteger(updates.order)) throw new Error("Invalid file order");
+    const user = await requireLinkWriter(updates.annotation);
     const projectId = await getTaskProjectId(taskId);
-    await assertProjectWriteAccess(projectId, user.id);
-
-    // Ensure node belongs to same project and is not deleted
-    const node = await db.query.projectNodes.findFirst({
-        where: and(eq(projectNodes.id, nodeId), eq(projectNodes.projectId, projectId), isNull(projectNodes.deletedAt)),
-        columns: { id: true }
-    });
-    if (!node) throw new Error("File not found");
-
     if (Object.keys(updates).length === 0) return;
 
-    const previous = typeof updates.annotation === "string"
-        ? await db.query.taskNodeLinks.findFirst({
-            where: and(eq(taskNodeLinks.taskId, taskId), eq(taskNodeLinks.nodeId, nodeId)),
-            columns: { annotation: true, tags: true },
-        })
-        : null;
+    const needsReview = await db.transaction(async (tx) => {
+        await assertLinkTargetsTx(tx, projectId, user.id, taskId, nodeId);
+        const [previous] = await tx.select({ annotation: taskNodeLinks.annotation }).from(taskNodeLinks)
+            .where(and(eq(taskNodeLinks.taskId, taskId), eq(taskNodeLinks.nodeId, nodeId))).limit(1);
+        if (!previous) return false;
+        await tx.update(taskNodeLinks)
+            .set({
+                ...(updates.order !== undefined && { order: updates.order }),
+                ...(updates.annotation !== undefined && { annotation: updates.annotation }),
+                ...(updates.tags !== undefined && { tags: withStoredApprovalTags(updates.tags) }),
+            })
+            .where(and(eq(taskNodeLinks.taskId, taskId), eq(taskNodeLinks.nodeId, nodeId)));
+        const nextAnnotation = typeof updates.annotation === "string" ? updates.annotation.toLowerCase() : "";
+        return nextAnnotation.includes("review") && !(previous.annotation?.toLowerCase() ?? "").includes("review");
+    });
 
-    const updated = await db.update(taskNodeLinks)
-        .set({
-            ...(updates.order !== undefined && { order: updates.order }),
-            ...(updates.annotation !== undefined && { annotation: updates.annotation }),
-            ...(updates.tags !== undefined && { tags: withStoredApprovalTags(updates.tags) }),
-        })
-        .where(and(eq(taskNodeLinks.taskId, taskId), eq(taskNodeLinks.nodeId, nodeId)))
-        .returning({ annotation: taskNodeLinks.annotation, tags: taskNodeLinks.tags });
-
-    if (updated.length === 0) return;
-
-    const nextAnnotation = typeof updates.annotation === "string" ? updates.annotation.toLowerCase() : "";
-    const previousAnnotation = previous?.annotation?.toLowerCase() ?? "";
-    if (nextAnnotation.includes("review") && !previousAnnotation.includes("review")) {
+    if (needsReview) {
         await notifyTaskParticipantsForFileEvent({
             actorUserId: user.id,
             projectId,

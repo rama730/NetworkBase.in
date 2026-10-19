@@ -82,6 +82,8 @@ export interface FileVersionHistoryPanelProps {
   nodeName: string;
   /** Whether the current user can perform mutations (Role_Owner or Role_Member). */
   canEdit: boolean;
+  /** Deleting history needs manage_files (owner/admin), not just edit rights. */
+  canDeleteVersions?: boolean;
   /** Current version number from the node — used to highlight the active row. */
   currentVersion: number;
   /** Whether the node is soft-deleted (deletedAt is not null). Req 10.7, 14.1–14.3. */
@@ -101,6 +103,7 @@ export function FileVersionHistoryPanel({
   nodeId,
   nodeName,
   canEdit,
+  canDeleteVersions = false,
   currentVersion,
   isDeleted = false,
   uploaderNames,
@@ -218,7 +221,7 @@ export function FileVersionHistoryPanel({
   const handleDelete = React.useCallback(
     async (version: FileVersion) => {
       if (isDeleted) return;
-      if (!canEdit) return;
+      if (!canDeleteVersions) return;
 
       const actionKey = `delete:${version.id}`;
       setPendingAction(actionKey);
@@ -244,7 +247,7 @@ export function FileVersionHistoryPanel({
         onVersionChanged?.(null);
       }
     },
-    [canEdit, isDeleted, projectId, nodeId, deleteVersion, listVersions, onVersionChangeStart, onVersionChanged]
+    [canDeleteVersions, isDeleted, projectId, nodeId, deleteVersion, listVersions, onVersionChangeStart, onVersionChanged]
   );
 
   // ── Uploader label helper ───────────────────────────────────────────
@@ -420,7 +423,7 @@ export function FileVersionHistoryPanel({
                         <span className="h-1.5 w-1.5 rounded-[2px] bg-[#2F6B4F]" aria-hidden="true" />
                         Active
                       </span>
-                    ) : canEdit && !isDeleted ? (
+                    ) : canDeleteVersions && !isDeleted ? (
                       <button
                         type="button"
                         disabled={pendingAction === `delete:${version.id}`}

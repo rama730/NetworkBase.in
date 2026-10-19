@@ -94,6 +94,7 @@ function DiscussionEntry({
   entry,
   replyTo,
   roleLabel,
+  memberNames,
   currentUserId,
   canEdit,
   pendingDelete,
@@ -112,6 +113,7 @@ function DiscussionEntry({
   entry: TaskDiscussionComment | TaskDiscussionComment["replies"][number];
   replyTo?: string | null;
   roleLabel?: string | null;
+  memberNames?: ReadonlyMap<string, string>;
   currentUserId?: string;
   canEdit: boolean;
   pendingDelete: boolean;
@@ -290,6 +292,7 @@ function DiscussionEntry({
           <CommentBody
             content={entry.content}
             viewerUserId={currentUserId}
+            memberNames={memberNames}
             className="mt-1 text-[13px] leading-5 text-foreground/90"
           />
         )}
@@ -494,6 +497,17 @@ export default function CommentsTab({
         if (m?.username) map.set(m.username, role);
         if (m?.user?.username) map.set(m.user.username, role);
       }
+    }
+    return map;
+  }, [members]);
+
+  // Mention chips show the member's current name, never the name stored in the token.
+  const memberNames = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const m of Array.isArray(members) ? members : []) {
+      const id = m?.userId || m?.user_id || m?.user?.id || m?.id;
+      const name = m?.fullName || m?.full_name || m?.user?.fullName || m?.user?.full_name || m?.username || m?.user?.username;
+      if (typeof id === "string" && typeof name === "string" && name) map.set(id, name);
     }
     return map;
   }, [members]);
@@ -932,6 +946,7 @@ export default function CommentsTab({
                       entry={entry}
                       replyTo={isReply ? displayName(comment) : null}
                       roleLabel={roleLabel}
+                      memberNames={memberNames}
                       currentUserId={currentUserId}
                       canEdit={canEdit}
                       pendingDelete={pendingDeleteIds[entry.id] === true}

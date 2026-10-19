@@ -2,14 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { SearchField } from "@/components/ui/SearchField";
-import { Search, X } from "lucide-react";
 import { useDebounce } from "use-debounce";
 
 import { ComponentErrorBoundary } from "@/components/ui/ComponentErrorBoundary";
 import { PersonCardSkeleton } from "@/components/network/PersonCardSkeleton";
-import { useSuggestedPeople } from "@/hooks/useConnections";
+import NetworkPeopleTab from "@/components/network/NetworkPeopleTab";
 import { useNetworkNotifications } from "@/hooks/useNetworkNotifications";
 import { normalizeSearchQuery } from "@/lib/search/query";
 import { cn } from "@/lib/utils";
@@ -25,7 +25,7 @@ function normalizeTabKey(param: string): TabKey {
 }
 
 const TabLoading = () => (
-    <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-2" role="status" aria-label="Loading tab content">
+    <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-2" role="status" aria-label="Loading tab content" aria-hidden="true">
         <span className="sr-only">Loading tab content…</span>
         {[1, 2, 3, 4].map((item) => (
             <PersonCardSkeleton key={item} />
@@ -33,17 +33,14 @@ const TabLoading = () => (
     </div>
 );
 
-const loadPeopleClient = () => import("@/components/network/NetworkPeopleTab");
 const loadConnectionsClient = () => import("@/components/network/ConnectionsClient");
 const loadInvitationsClient = () => import("@/components/network/InvitationsClient");
-const NetworkPeopleTab = dynamic(loadPeopleClient, { ssr: false, loading: TabLoading });
 const ConnectionsClient = dynamic(loadConnectionsClient, { ssr: false, loading: TabLoading });
 const InvitationsClient = dynamic(loadInvitationsClient, { ssr: false, loading: TabLoading });
 
 const preloadTab = (tab: TabKey) => {
-    if (tab === "suggested") void loadPeopleClient();
-    else if (tab === "invitations") void loadInvitationsClient();
-    else void loadConnectionsClient();
+    if (tab === "invitations") void loadInvitationsClient();
+    else if (tab === "connections") void loadConnectionsClient();
 };
 
 interface NetworkClientProps {
@@ -65,7 +62,7 @@ export default function NetworkClient({
 }: NetworkClientProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { pendingConnections, pendingInvites } = useNetworkNotifications();
+    const { pendingConnections, pendingInvites, totalConnections } = useNetworkNotifications();
     const isAuthed = Boolean(initialUser?.id);
     const tabParam = (searchParams?.get("tab") || "").toLowerCase();
     const routeQuery = normalizeSearchQuery(searchParams?.get("q"));
@@ -79,16 +76,11 @@ export default function NetworkClient({
         [isAuthed],
     );
 
-    const suggestedQuery = useSuggestedPeople(20, routeQuery || undefined);
-    const suggestedCount = useMemo(
-        () => suggestedQuery.data?.pages.flatMap((page) => page.items).length ?? 0,
-        [suggestedQuery.data?.pages],
-    );
-    const connectionCount = suggestedQuery.data?.pages[0]?.stats?.totalConnections ?? 0;
-
     useEffect(() => {
-        setSearchValue(routeQuery);
-    }, [routeQuery]);
+        if (routeQuery !== searchValue) {
+            setSearchValue(routeQuery);
+        }
+    }, [routeQuery, searchValue]);
 
     useEffect(() => {
         const nextQuery = normalizeSearchQuery(debouncedSearchValue);
@@ -100,15 +92,17 @@ export default function NetworkClient({
     }, [debouncedSearchValue, routeQuery, router, searchParams]);
 
     function tabCount(tab: TabKey) {
-        if (tab === "suggested") return suggestedCount;
         if (tab === "invitations") return pendingConnections + pendingInvites;
-        return connectionCount;
+        if (tab === "connections") return totalConnections;
+        return null;
     }
 
     function navigateTab(next: TabKey) {
         if (next === activeTab) return;
         const params = new URLSearchParams(searchParams?.toString() || "");
         params.set("tab", next);
+        params.delete("q");
+        setSearchValue("");
         router.push(`${ROUTES.NETWORK}?${params.toString()}`, { scroll: false });
     }
 
@@ -140,6 +134,7 @@ export default function NetworkClient({
 
                     <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto">
                     <SearchField
+                        pageSearch
                         value={searchValue}
                         onChange={setSearchValue}
                         label="Search your network"
@@ -152,6 +147,7 @@ export default function NetworkClient({
                 <div className="mt-6 flex items-stretch gap-2 overflow-x-auto border-b border-border" role="tablist" aria-label="Network sections">
                     {visibleTabs.map((tab, index) => {
                         const selected = activeTab === tab.key;
+                        const count = tabCount(tab.key);
                         return (
                             <button
                                 key={tab.key}
@@ -159,7 +155,6 @@ export default function NetworkClient({
                                 type="button"
                                 role="tab"
                                 aria-selected={selected}
-                                aria-current={selected ? "page" : undefined}
                                 aria-controls={`people-panel-${tab.key}`}
                                 tabIndex={selected ? 0 : -1}
                                 onClick={() => navigateTab(tab.key)}
@@ -172,31 +167,46 @@ export default function NetworkClient({
                                 )}
                             >
                                 {tab.label}
-                                <span className="nb-meta">{tabCount(tab.key)}</span>
+                                {count !== null ? <span className="nb-meta">{count}</span> : null}
                                 {selected ? <span className="absolute inset-x-0 -bottom-px h-0.5 bg-primary" aria-hidden="true" /> : null}
                             </button>
                         );
                     })}
                 </div>
 
-                <div id={`people-panel-${activeTab}`} role="tabpanel" aria-labelledby={`people-tab-${activeTab}`} className="pt-5">
-                    {activeTab === "suggested" ? (
-                        <ComponentErrorBoundary fallbackMessage="Failed to load suggested people.">
-                            <NetworkPeopleTab initialUser={initialUser} searchQuery={routeQuery} />
-                        </ComponentErrorBoundary>
-                    ) : null}
+                <div id={`people-panel-${activeTab}`} role="tabpanel" aria-labelledby={`people-tab-${activeTab}`} className="pt-[18px]">
+                    {!isAuthed && activeTab !== "suggested" ? (
+                        <div className="max-w-[620px] rounded-lg border border-border bg-card p-8 text-center">
+                            <h2 className="nb-card-title text-foreground">Sign in to view your {activeTab}</h2>
+                            <p className="mt-1 text-sm text-muted-foreground">You need to be signed in to see and manage your network {activeTab}.</p>
+                            <Link
+                                href={`/login?redirect=${encodeURIComponent(`${ROUTES.NETWORK}?tab=${activeTab}`)}`}
+                                className="nb-touch-target mt-4 inline-flex h-[var(--ui-control-height)] items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                            >
+                                Sign in
+                            </Link>
+                        </div>
+                    ) : (
+                        <>
+                            {activeTab === "suggested" ? (
+                                <ComponentErrorBoundary fallbackMessage="Failed to load suggested people.">
+                                    <NetworkPeopleTab initialUser={initialUser} searchQuery={routeQuery} />
+                                </ComponentErrorBoundary>
+                            ) : null}
 
-                    {activeTab === "invitations" ? (
-                        <ComponentErrorBoundary fallbackMessage="Failed to load invitations.">
-                            <InvitationsClient initialUser={initialUser} searchQuery={routeQuery} />
-                        </ComponentErrorBoundary>
-                    ) : null}
+                            {activeTab === "invitations" ? (
+                                <ComponentErrorBoundary fallbackMessage="Failed to load invitations.">
+                                    <InvitationsClient initialUser={initialUser} searchQuery={routeQuery} />
+                                </ComponentErrorBoundary>
+                            ) : null}
 
-                    {activeTab === "connections" ? (
-                        <ComponentErrorBoundary fallbackMessage="Failed to load connections.">
-                            <ConnectionsClient searchQuery={routeQuery} />
-                        </ComponentErrorBoundary>
-                    ) : null}
+                            {activeTab === "connections" ? (
+                                <ComponentErrorBoundary fallbackMessage="Failed to load connections.">
+                                    <ConnectionsClient searchQuery={routeQuery} />
+                                </ComponentErrorBoundary>
+                            ) : null}
+                        </>
+                    )}
                 </div>
             </div>
         </div>

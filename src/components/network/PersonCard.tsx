@@ -22,6 +22,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { messageUserInWindow } from "@/components/messages/message-user";
 import { CONNECTION_COPY } from "@/lib/connections/copy";
 
@@ -131,6 +132,7 @@ export interface PersonCardProps {
     onConnect: (userId: string) => Promise<void>;
     priority?: boolean;
     viewerSkills?: string[];
+    className?: string;
 }
 
 function PersonCard({
@@ -138,6 +140,7 @@ function PersonCard({
     onConnect,
     priority = false,
     viewerSkills,
+    className,
 }: PersonCardProps) {
     useSkillCatalog();
     const { cancelRequest, blockProfile } = useConnectionMutations();
@@ -152,9 +155,14 @@ function PersonCard({
     const headline = profile.headline?.trim();
     const matchingSkills = matchingSkillLabels(profile.skills ?? [], viewerSkills ?? []);
     const matchingSkillKeys = new Set(matchingSkills.map(canonicalSkillKey));
-    const skills = [...(profile.skills ?? [])]
-        .sort((left, right) => Number(matchingSkillKeys.has(canonicalSkillKey(right))) - Number(matchingSkillKeys.has(canonicalSkillKey(left))))
-        .slice(0, 2);
+    const skills = [...(profile.skills ?? [])].sort(
+        (left, right) =>
+            Number(matchingSkillKeys.has(canonicalSkillKey(right))) -
+            Number(matchingSkillKeys.has(canonicalSkillKey(left)))
+    );
+
+    const visibleSkills = skills.length <= 4 ? skills : skills.slice(0, 3);
+    const hiddenSkills = skills.length <= 4 ? [] : skills.slice(3);
 
     useEffect(() => {
         setLocalStatus(null);
@@ -286,15 +294,45 @@ function PersonCard({
             <Clock className="size-4" aria-hidden="true" /> {CONNECTION_COPY.review}
         </Link>
     ) : status === "connected" ? (
-        <span className="inline-flex h-[var(--ui-control-height)] shrink-0 items-center gap-2 px-2 text-sm font-medium text-[var(--status-success)]">
-            <Check className="size-4" aria-hidden="true" /> <span className="max-sm:sr-only">{CONNECTION_COPY.connected}</span>
-        </span>
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <button
+                    type="button"
+                    className="inline-flex h-[var(--ui-control-height)] shrink-0 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+                    aria-label={`Connected: options for ${displayName}`}
+                >
+                    <Check className="size-4 text-[var(--status-success)]" aria-hidden="true" />
+                    <span className="max-sm:sr-only">{CONNECTION_COPY.connected}</span>
+                    <ChevronDown className="size-3.5 opacity-70" aria-hidden="true" />
+                </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+                {profile.canSendMessage !== false ? (
+                    <DropdownMenuItem asChild>
+                        <Link
+                            href={`/messages?userId=${profile.id}`}
+                            onClick={(event) => messageUserInWindow(profile.id, event)}
+                            className="flex items-center gap-2 cursor-pointer w-full"
+                        >
+                            <MessageSquare className="size-4" />
+                            Message
+                        </Link>
+                    </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuItem asChild>
+                    <Link href={profileHref(profile)} className="flex items-center gap-2 cursor-pointer w-full">
+                        View profile
+                    </Link>
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
     ) : status === "blocked" ? (
         <span className="nb-meta">{CONNECTION_COPY.blocked}</span>
     ) : null;
 
     return (
         <PersonCardLayout
+            className={className}
             avatar={
                 // The name is the link people tab to; the avatar is the same link for the mouse.
                 <Link href={profileHref(profile)} tabIndex={-1} aria-hidden="true" className="relative inline-flex shrink-0 rounded-md">
@@ -325,11 +363,72 @@ function PersonCard({
             ) : null}
             aside={<div ref={actionSlot} className="contents">{action}</div>}
             body={!isLocked && skills.length ? (
-                <div className={PERSON_CARD_TAGS} role="group" aria-label="Skills">
-                    {skills.map((skillName) => {
+                <div className="flex min-w-0 flex-wrap items-center gap-1.5" role="group" aria-label="Skills">
+                    {visibleSkills.map((skillName) => {
                         const skill = resolveClientSkill(skillName);
-                        return <span key={skill.canonicalKey} className="nb-tag"><SkillIcon skill={skill} size={14} />{skill.name}</span>;
+                        const isMatched = matchingSkillKeys.has(skill.canonicalKey);
+                        return (
+                            <span
+                                key={skill.canonicalKey}
+                                className={cn(
+                                    "nb-tag transition-colors",
+                                    isMatched
+                                        ? "border-zinc-900 bg-zinc-900 text-zinc-50 font-medium dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900 shadow-sm"
+                                        : "border-border bg-card text-secondary-foreground"
+                                )}
+                            >
+                                <SkillIcon skill={skill} size={14} />
+                                {skill.name}
+                                {isMatched ? <span className="sr-only"> (matched skill)</span> : null}
+                            </span>
+                        );
                     })}
+
+                    {hiddenSkills.length > 0 ? (
+                        <TooltipProvider delayDuration={150}>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <span
+                                        tabIndex={0}
+                                        role="note"
+                                        aria-label={`${hiddenSkills.length} more skills: ${hiddenSkills.join(", ")}`}
+                                        className="nb-tag cursor-default border-border bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors font-medium text-[11px]"
+                                    >
+                                        +{hiddenSkills.length}
+                                    </span>
+                                </TooltipTrigger>
+                                <TooltipContent
+                                    side="top"
+                                    align="start"
+                                    className="max-w-xs p-2.5 rounded-lg border border-border bg-popover text-popover-foreground shadow-md"
+                                >
+                                    <div className="text-[11px] font-semibold text-muted-foreground mb-1.5">
+                                        More skills ({hiddenSkills.length})
+                                    </div>
+                                    <div className="flex flex-wrap gap-1">
+                                        {hiddenSkills.map((skillName) => {
+                                            const skill = resolveClientSkill(skillName);
+                                            const isMatched = matchingSkillKeys.has(skill.canonicalKey);
+                                            return (
+                                                <span
+                                                    key={skill.canonicalKey}
+                                                    className={cn(
+                                                        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]",
+                                                        isMatched
+                                                            ? "bg-zinc-900 text-zinc-50 dark:bg-zinc-100 dark:text-zinc-900 font-medium"
+                                                            : "bg-muted text-foreground"
+                                                    )}
+                                                >
+                                                    <SkillIcon skill={skill} size={12} />
+                                                    {skill.name}
+                                                </span>
+                                            );
+                                        })}
+                                    </div>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    ) : null}
                 </div>
             ) : null}
         />

@@ -5,8 +5,9 @@ import { sql } from "./_helpers";
 
 after(() => sql.end());
 
+// projects is column-granted (every column but import_source), so it is not a table-level grant.
 const BROWSER_READABLE = [
-  "profiles", "projects", "project_members", "project_follows", "connections", "tasks", "task_subtasks",
+  "profiles", "project_members", "project_follows", "connections", "tasks", "task_subtasks",
   "task_comments", "task_comment_likes", "task_node_links", "project_workflow_columns", "project_updates",
   "project_update_comments", "project_node_locks", "user_notifications",
 ].sort();
@@ -44,4 +45,14 @@ test("public functions are not executable by browser roles", async () => {
     WHERE n.nspname = 'public' AND p.prokind = 'f'
       AND (has_function_privilege('anon', p.oid, 'EXECUTE') OR has_function_privilege('authenticated', p.oid, 'EXECUTE'))`;
   assert.deepEqual(rows.map((r) => r.proname), []);
+});
+
+test("browser roles read projects but never projects.import_source", async () => {
+  for (const role of ["anon", "authenticated"]) {
+    const [row] = await sql`SELECT
+      has_column_privilege(${role}, 'public.projects', 'id', 'SELECT') AS id_read,
+      has_column_privilege(${role}, 'public.projects', 'visibility', 'SELECT') AS visibility_read,
+      has_column_privilege(${role}, 'public.projects', 'import_source', 'SELECT') AS import_source_read`;
+    assert.deepEqual({ ...row }, { id_read: true, visibility_read: true, import_source_read: false }, role);
+  }
 });

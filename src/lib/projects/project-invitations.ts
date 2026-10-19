@@ -266,7 +266,8 @@ export async function resolveProjectInvitationInternal(
     }
 
     const project = await lockProject(executor, invitation.projectId);
-    if (!project || project.status === "archived") throw new Error("Project is unavailable");
+    if (!project) throw new Error("Project is unavailable");
+    if (project.status === "archived" && input.action !== "cancel") throw new Error("Project is unavailable");
 
     const isCandidate = invitation.candidateId === input.actorId;
     const isLead = project.owner_id === input.actorId;
@@ -283,6 +284,17 @@ export async function resolveProjectInvitationInternal(
             .set({ status: "declined", resolvedAt: now, resolvedBy: input.actorId, updatedAt: now })
             .where(eq(projectInvitations.id, invitation.id));
         return { invitation, lifecycle: null, appointment: null };
+    }
+
+    const privacyWithOwner = await resolvePrivacyRelationship(invitation.candidateId, project.owner_id);
+    if (!privacyWithOwner?.canViewProfile || privacyWithOwner.blockedByViewer || privacyWithOwner.blockedByTarget) {
+        throw new Error("Cannot accept invitation due to privacy restrictions");
+    }
+    if (invitation.inviterId && invitation.inviterId !== project.owner_id) {
+        const privacyWithInviter = await resolvePrivacyRelationship(invitation.candidateId, invitation.inviterId);
+        if (privacyWithInviter?.blockedByViewer || privacyWithInviter?.blockedByTarget) {
+            throw new Error("Cannot accept invitation due to privacy restrictions");
+        }
     }
 
     if (invitation.candidateId === project.owner_id) throw new Error("The current project Owner cannot hold this appointment");
@@ -364,10 +376,12 @@ export async function countPendingInvitationsForCandidate(userId: string): Promi
     const [row] = await db
         .select({ value: sql<number>`count(*)::int` })
         .from(projectInvitations)
+        .innerJoin(projects, eq(projects.id, projectInvitations.projectId))
         .where(and(
             eq(projectInvitations.candidateId, userId),
             eq(projectInvitations.status, "pending"),
             sql`${projectInvitations.expiresAt} > now()`,
+            sql`${projects.deletedAt} IS NULL`,
         ));
     return Number(row?.value ?? 0);
 }

@@ -26,7 +26,7 @@ export default function PeoplePage() {
     return (
         <div
             data-scroll-root="route"
-            className="h-full min-h-0 overflow-hidden app-scroll app-scroll-y app-scroll-gutter bg-zinc-50 dark:bg-background"
+            className="h-full min-h-0 app-scroll app-scroll-y app-scroll-gutter bg-background"
         >
             <Suspense fallback={<NetworkRouteSkeleton />}>
                 <ResolvedPeople />

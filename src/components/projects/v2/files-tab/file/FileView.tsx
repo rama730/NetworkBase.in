@@ -731,6 +731,7 @@ export function FileView({
                 nodeId={node.id}
                 nodeName={node.name}
                 canEdit={canEdit && !editorDirty}
+                canDeleteVersions={(roleContext?.canManageFiles ?? false) && !editorDirty}
                 currentVersion={node.currentVersion ?? 1}
                 isDeleted={node.deletedAt != null}
                 uploaderNames={uploaderNames}

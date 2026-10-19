@@ -304,7 +304,7 @@ describe("Server-side mutation authorization (Req 19.6)", () => {
       // Step 1: the unauthenticated-caller guard must be present.
       assert.match(
         body,
-        /if\s*\(!user\)\s*throw\s+new\s+Error\(\s*["']Unauthorized["']\s*\)|await\s+requireUser\(\)/,
+        /if\s*\(!user\)\s*throw\s+new\s+Error\(\s*["']Unauthorized["']\s*\)|await\s+requireUser\(\)|await\s+requireLinkWriter\(/,
         `${fn} must reject anonymous callers with an "Unauthorized" error (Req 19.6)`,
       );
 
@@ -313,7 +313,7 @@ describe("Server-side mutation authorization (Req 19.6)", () => {
       // mutations use the broader write policy. Both reject Role_Viewer.
       assert.match(
         body,
-        /\bassertProject(?:Write|Upload|ManageFiles)Access(?:Tx)?\s*\(/,
+        /\bassertProject(?:Write|Upload|ManageFiles)Access(?:Tx)?\s*\(|\bassertLinkTargetsTx\s*\(/,
         `${fn} must assert write/upload access before any DB mutation (Req 19.6)`,
       );
     });
@@ -416,7 +416,8 @@ describe("Server-side mutation authorization (Req 19.6)", () => {
       body,
       /if\s*\(!user\)\s*throw\s+new\s+Error\(\s*["']Unauthorized["']\s*\)/,
     );
-    assert.match(body, /await\s+assertProjectWriteAccess\(/);
+    // Folder trees create upload rows, so they need upload access, not just membership.
+    assert.match(body, /await\s+assertProjectUploadAccess\(/);
   });
 });
 

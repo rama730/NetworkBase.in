@@ -770,7 +770,7 @@ export function useConnectionMutations() {
         onMutate: async () => {
             await cancelConnectionsScoped(queryClient);
 
-            const previousPending = queryClient.getQueryData(['connections', 'pending-requests']);
+            const previousPending = queryClient.getQueriesData({ queryKey: ['connections', 'pending-requests'] });
             const previousStats = queryClient.getQueryData(['connections', 'stats']);
 
             let acceptedCount = 0;
@@ -794,7 +794,11 @@ export function useConnectionMutations() {
             return { previousPending, previousStats };
         },
         onError: (_err, _vars, context) => {
-            if (context?.previousPending) queryClient.setQueryData(['connections', 'pending-requests'], context.previousPending);
+            if (context?.previousPending) {
+                for (const [key, data] of context.previousPending) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             if (context?.previousStats) queryClient.setQueryData(['connections', 'stats'], context.previousStats);
             invalidateAll();
         },
@@ -809,7 +813,7 @@ export function useConnectionMutations() {
         onMutate: async () => {
             await cancelConnectionsScoped(queryClient);
 
-            const previousPending = queryClient.getQueryData(['connections', 'pending-requests']);
+            const previousPending = queryClient.getQueriesData({ queryKey: ['connections', 'pending-requests'] });
             const previousStats = queryClient.getQueryData(['connections', 'stats']);
             const sentUserIds = new Set<string>();
             const sentConnectionIds = new Set<string>();
@@ -855,7 +859,11 @@ export function useConnectionMutations() {
             toast.success(result.count && result.count > 0 ? `Cancelled ${result.count} sent request${result.count === 1 ? '' : 's'}` : 'No sent requests to cancel');
         },
         onError: (_err, _vars, context) => {
-            if (context?.previousPending) queryClient.setQueryData(['connections', 'pending-requests'], context.previousPending);
+            if (context?.previousPending) {
+                for (const [key, data] of context.previousPending) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             if (context?.previousStats) queryClient.setQueryData(['connections', 'stats'], context.previousStats);
             toast.error("Failed to cancel sent requests");
         },
@@ -871,7 +879,7 @@ export function useConnectionMutations() {
         onMutate: async () => {
             await cancelConnectionsScoped(queryClient);
 
-            const previousPending = queryClient.getQueryData(['connections', 'pending-requests']);
+            const previousPending = queryClient.getQueriesData({ queryKey: ['connections', 'pending-requests'] });
             const previousStats = queryClient.getQueryData(['connections', 'stats']);
 
             let rejectedCount = 0;
@@ -894,7 +902,11 @@ export function useConnectionMutations() {
             return { previousPending, previousStats };
         },
         onError: (_err, _vars, context) => {
-            if (context?.previousPending) queryClient.setQueryData(['connections', 'pending-requests'], context.previousPending);
+            if (context?.previousPending) {
+                for (const [key, data] of context.previousPending) {
+                    queryClient.setQueryData(key, data);
+                }
+            }
             if (context?.previousStats) queryClient.setQueryData(['connections', 'stats'], context.previousStats);
             invalidateAll();
         },
@@ -952,6 +964,14 @@ export function useConnectionMutations() {
                 ...prev,
                 incoming: prev.incoming.filter((item) => item.requesterId !== targetUserId),
                 sent: prev.sent.filter((item) => item.addresseeId !== targetUserId),
+            }));
+            updateFeedQueries<DiscoverConnectionItem>(queryClient, ['connections', 'feed', 'discover'], (page) => ({
+                ...page,
+                items: page.items.filter((item) => item.id !== targetUserId),
+            }));
+            updateFeedQueries<NetworkConnectionItem>(queryClient, ['connections', 'feed', 'network'], (page) => ({
+                ...page,
+                items: page.items.filter((item) => item.otherUser?.id !== targetUserId),
             }));
         },
         onError: (_err, vars) => invalidateAll(connectionMutationTargetId(vars)),
