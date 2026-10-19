@@ -35,3 +35,13 @@ test("soft task deletion recovers task-owned files instead of stranding or delet
   assert.match(body, /task_id = NULL/);
   assert.match(body, /tx\.delete\(taskNodeLinks\)/);
 });
+
+test("task attachments are bounded on write and read (PERF-007)", () => {
+  const constants = read("src/app/actions/files/_constants.ts");
+  assert.match(constants, /export const MAX_TASK_ATTACHMENTS = 200/);
+  assert.match(links, /usage\?\.count \?\? 0\) >= MAX_TASK_ATTACHMENTS/);
+  const reader = links.slice(links.indexOf("export async function getTaskAttachments"), links.indexOf("export async function updateTaskNodeLink"));
+  assert.match(reader, /\.limit\(MAX_TASK_ATTACHMENTS\)/);
+  const linker = links.slice(links.indexOf("export async function linkNodeToTask"), links.indexOf("export async function unlinkNodeFromTask"));
+  assert.doesNotMatch(linker, /findMany/);
+});

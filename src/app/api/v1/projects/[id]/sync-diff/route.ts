@@ -16,11 +16,15 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const sinceSchema = z.coerce.number().int().min(0);
+const limitSchema = z.coerce.number().int().min(1).max(500);
+const DEFAULT_PAGE_SIZE = 200;
 
 /**
  * GET /api/v1/projects/[id]/sync-diff
  * Returns events that have occurred in a project since a specific sequence version.
- * Query: ?since=123
+ * Query: ?since=123&limit=200
+ * Returns one bounded page in sequence order. While `hasMore` is true, call again with
+ * `since=lastDeliveredSequence`; `currentSequence` is the project's head, reported separately.
  */
 export async function GET(
     request: NextRequest,
@@ -61,6 +65,11 @@ export async function GET(
         return jsonError("Invalid since parameter", 400, "BAD_REQUEST");
     }
     const since = parsedSince.data;
+    const parsedLimit = limitSchema.safeParse(request.nextUrl.searchParams.get("limit") ?? DEFAULT_PAGE_SIZE);
+    if (!parsedLimit.success) {
+        return jsonError("Invalid limit parameter", 400, "BAD_REQUEST");
+    }
+    const limit = parsedLimit.data;
 
     const [projectSequence] = await db
         .select({
@@ -102,7 +111,11 @@ export async function GET(
                 gt(projectNodeEvents.sequenceNumber, since)
             )
         )
-        .orderBy(projectNodeEvents.sequenceNumber);
+        .orderBy(projectNodeEvents.sequenceNumber)
+        .limit(limit + 1);
+
+    const hasMore = rows.length > limit;
+    if (hasMore) rows.length = limit;
 
     const nodeIds = Array.from(new Set(rows.map((row) => row.nodeId).filter((value): value is string => Boolean(value))));
     const linkedTaskRows = nodeIds.length
@@ -143,6 +156,8 @@ export async function GET(
 
     return jsonSuccess({
         currentSequence: projectSequence?.currentSequence ?? since,
+        lastDeliveredSequence: rows.at(-1)?.sequenceNumber ?? since,
+        hasMore,
         events,
     });
 }

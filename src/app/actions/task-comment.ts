@@ -7,6 +7,7 @@ import {
   inArray,
   isNull,
   lt,
+  lte,
   or,
   sql,
 } from "drizzle-orm";
@@ -43,7 +44,6 @@ import {
 
 const DISCUSSION_PAGE_SIZE = 20;
 const DISCUSSION_REPLY_PREVIEW_SIZE = 20;
-const DISCUSSION_REPLY_QUERY_CONCURRENCY = 6;
 
 type DiscussionRow = {
   id: string;
@@ -256,52 +256,56 @@ async function readDiscussionRows(params: {
   const orderedTopLevelRows = limitedTopLevelRows as DiscussionRow[];
   const parentIds = orderedTopLevelRows.map((row) => row.id);
 
-  const replyCountRows = parentIds.length > 0
+  // One ranked query for every parent: the newest DISCUSSION_REPLY_PREVIEW_SIZE replies per thread
+  // plus each thread's total, instead of a count query and a reply query per parent.
+  const ranked = db
+    .select({
+      id: taskComments.id,
+      taskId: taskComments.taskId,
+      userId: taskComments.userId,
+      parentCommentId: taskComments.parentCommentId,
+      content: taskComments.content,
+      createdAt: taskComments.createdAt,
+      updatedAt: taskComments.updatedAt,
+      deletedAt: taskComments.deletedAt,
+      deletedBy: taskComments.deletedBy,
+      rank: sql<number>`row_number() over (partition by ${taskComments.parentCommentId} order by ${taskComments.createdAt} desc, ${taskComments.id} desc)`.as("rank"),
+      replyTotal: sql<number>`(count(*) over (partition by ${taskComments.parentCommentId}))::int`.as("reply_total"),
+    })
+    .from(taskComments)
+    .where(and(
+      eq(taskComments.taskId, params.taskId),
+      inArray(taskComments.parentCommentId, parentIds),
+    ))
+    .as("ranked");
+  const rankedReplies = parentIds.length > 0
     ? await db
         .select({
-          parentCommentId: taskComments.parentCommentId,
-          count: sql<number>`count(*)::int`,
-        })
-        .from(taskComments)
-        .where(and(
-          eq(taskComments.taskId, params.taskId),
-          inArray(taskComments.parentCommentId, parentIds),
-        ))
-        .groupBy(taskComments.parentCommentId)
-    : [];
-  const replyCounts = new Map(
-    replyCountRows.flatMap((row) => row.parentCommentId ? [[row.parentCommentId, Number(row.count)]] as const : []),
-  );
-
-  const replyRows: DiscussionRow[] = [];
-  for (let index = 0; index < parentIds.length; index += DISCUSSION_REPLY_QUERY_CONCURRENCY) {
-    const batch = parentIds.slice(index, index + DISCUSSION_REPLY_QUERY_CONCURRENCY);
-    const rowsByParent = await Promise.all(batch.map(async (parentId) => {
-      const rows = await db
-        .select({
-          id: taskComments.id,
-          taskId: taskComments.taskId,
-          userId: taskComments.userId,
-          parentCommentId: taskComments.parentCommentId,
-          content: taskComments.content,
-          createdAt: taskComments.createdAt,
-          updatedAt: taskComments.updatedAt,
-          deletedAt: taskComments.deletedAt,
-          deletedBy: taskComments.deletedBy,
+          id: ranked.id,
+          taskId: ranked.taskId,
+          userId: ranked.userId,
+          parentCommentId: ranked.parentCommentId,
+          content: ranked.content,
+          createdAt: ranked.createdAt,
+          updatedAt: ranked.updatedAt,
+          deletedAt: ranked.deletedAt,
+          deletedBy: ranked.deletedBy,
+          replyTotal: ranked.replyTotal,
           authorId: profiles.id,
           authorFullName: profiles.fullName,
           authorUsername: profiles.username,
           authorAvatarUrl: profiles.avatarUrl,
         })
-        .from(taskComments)
-        .leftJoin(profiles, eq(taskComments.userId, profiles.id))
-        .where(and(eq(taskComments.taskId, params.taskId), eq(taskComments.parentCommentId, parentId)))
-        .orderBy(desc(taskComments.createdAt), desc(taskComments.id))
-        .limit(DISCUSSION_REPLY_PREVIEW_SIZE);
-      return rows.reverse() as DiscussionRow[];
-    }));
-    replyRows.push(...rowsByParent.flat());
+        .from(ranked)
+        .leftJoin(profiles, eq(ranked.userId, profiles.id))
+        .where(lte(ranked.rank, DISCUSSION_REPLY_PREVIEW_SIZE))
+        .orderBy(ranked.parentCommentId, ranked.createdAt, ranked.id)
+    : [];
+  const replyCounts = new Map<string, number>();
+  for (const row of rankedReplies) {
+    if (row.parentCommentId) replyCounts.set(row.parentCommentId, Number(row.replyTotal));
   }
+  const replyRows = rankedReplies as DiscussionRow[];
 
   const allCommentIds = [...parentIds, ...replyRows.map((row) => row.id)];
   const likeCounts = new Map<string, number>();
@@ -330,31 +334,19 @@ async function readDiscussionLikeMaps(commentIds: string[], viewerId: string) {
     return { likeCounts, likedIds };
   }
 
-  const likeCountRows = await db
+  const likeRows = await db
     .select({
       commentId: taskCommentLikes.commentId,
       likeCount: sql<number>`count(*)::int`,
+      likedByViewer: sql<boolean>`bool_or(${taskCommentLikes.userId} = ${viewerId})`,
     })
     .from(taskCommentLikes)
     .where(inArray(taskCommentLikes.commentId, commentIds))
     .groupBy(taskCommentLikes.commentId);
 
-  for (const row of likeCountRows) {
+  for (const row of likeRows) {
     likeCounts.set(row.commentId, Number(row.likeCount ?? 0));
-  }
-
-  const viewerLikeRows = await db
-    .select({ commentId: taskCommentLikes.commentId })
-    .from(taskCommentLikes)
-    .where(
-      and(
-        inArray(taskCommentLikes.commentId, commentIds),
-        eq(taskCommentLikes.userId, viewerId),
-      ),
-    );
-
-  for (const row of viewerLikeRows) {
-    likedIds.add(row.commentId);
+    if (row.likedByViewer) likedIds.add(row.commentId);
   }
 
   return { likeCounts, likedIds };

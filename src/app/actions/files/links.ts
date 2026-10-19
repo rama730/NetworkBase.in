@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db";
 import { profiles, projectNodes, projects, tasks, taskNodeLinks } from "@/lib/db/schema";
-import { escapeLikePattern } from "@/app/actions/files/_constants";
+import { escapeLikePattern, MAX_TASK_ATTACHMENTS } from "@/app/actions/files/_constants";
 import { eq, and, isNull, inArray, sql, desc, ilike } from "drizzle-orm";
 import { createClient } from "@/lib/supabase/server";
 import { notifyTaskParticipantsForFileEvent } from "@/lib/notifications/task-file";
@@ -136,16 +136,20 @@ export async function linkNodeToTask(
     });
     if (!node) throw new Error("File not found");
 
-    const existingLinks = await db.query.taskNodeLinks.findMany({
-        where: eq(taskNodeLinks.taskId, taskId),
+    const link = await db.query.taskNodeLinks.findFirst({
+        where: and(eq(taskNodeLinks.taskId, taskId), eq(taskNodeLinks.nodeId, nodeId)),
         columns: { nodeId: true, order: true, tags: true, annotation: true },
-        limit: 100,
     });
-    const link = existingLinks.find(l => l.nodeId === nodeId);
 
     let inserted;
     if (!link) {
-        const order = Math.max(0, ...existingLinks.map(l => l.order ?? 0)) + 1;
+        const [usage] = await db
+            .select({ count: sql<number>`count(*)::int`, maxOrder: sql<number>`coalesce(max(${taskNodeLinks.order}), 0)::int` })
+            .from(taskNodeLinks)
+            .where(eq(taskNodeLinks.taskId, taskId));
+        // ponytail: a cap instead of a cursor bounds every attachment read. ceiling: MAX_TASK_ATTACHMENTS links per task; add keyset paging if it is raised.
+        if ((usage?.count ?? 0) >= MAX_TASK_ATTACHMENTS) throw new Error(`A task can have at most ${MAX_TASK_ATTACHMENTS} linked files.`);
+        const order = (usage?.maxOrder ?? 0) + 1;
         inserted = await db.insert(taskNodeLinks).values({
             taskId,
             nodeId,
@@ -243,7 +247,8 @@ export async function getTaskAttachments(projectId: string, taskId: string) {
         .innerJoin(tasks, eq(taskNodeLinks.taskId, tasks.id))
         .innerJoin(projectNodes, eq(taskNodeLinks.nodeId, projectNodes.id))
         .where(and(eq(taskNodeLinks.taskId, taskId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt), eq(projectNodes.projectId, projectId), isNull(projectNodes.deletedAt)))
-        .orderBy(taskNodeLinks.order, desc(taskNodeLinks.linkedAt));
+        .orderBy(taskNodeLinks.order, desc(taskNodeLinks.linkedAt))
+        .limit(MAX_TASK_ATTACHMENTS);
 
     const attributionByNodeId = await getFileAttributionByNodeId(
         rows.map((row) => row.node),

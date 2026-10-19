@@ -3265,6 +3265,8 @@ type ProjectFileWorkspaceSettingsResult =
           enabledMemberCount: number;
           disabledMemberCount: number;
         };
+        /** True when more members exist than `members` holds; the summary always covers everyone. */
+        hasMore: boolean;
       };
     }
   | { success: false; message: string; errorCode: ProjectSettingsErrorCode };
@@ -4322,6 +4324,37 @@ async function readAcceptedRoleTitles(projectId: string, memberIds: string[]) {
   return roleByUser;
 }
 
+/**
+ * Effective role per member row, in SQL, with the same fallback as normalizeCollaboratorRole:
+ * a stored role of owner/admin/member/viewer stands, anything else is owner for the owner and member otherwise.
+ */
+function effectiveCollaboratorRoleSql(ownerId: string) {
+  return sql`CASE WHEN ${projectMembers.role} IN ('owner', 'admin', 'member', 'viewer') THEN ${projectMembers.role} WHEN ${projectMembers.userId} = ${ownerId}::uuid THEN 'owner' ELSE 'member' END`;
+}
+
+/** Role totals for a project from one aggregate, not by loading every member. */
+async function readProjectRoleCounts(projectId: string, ownerId: string) {
+  // The role is computed in a subquery so GROUP BY sees a plain column, not a re-parameterized expression.
+  const rows = await db.execute<{ role: ProjectCollaboratorRole; count: number; has_owner: boolean }>(sql`
+    SELECT effective_role AS role, count(*)::int AS count, bool_or(user_id = ${ownerId}::uuid OR effective_role = 'owner') AS has_owner
+    FROM (
+      SELECT user_id, ${effectiveCollaboratorRoleSql(ownerId)} AS effective_role
+      FROM project_members
+      WHERE project_id = ${projectId}::uuid
+    ) AS member_roles
+    GROUP BY effective_role
+  `);
+  const roleCounts: Record<ProjectCollaboratorRole, number> = { owner: 0, admin: 0, member: 0, viewer: 0 };
+  let ownerCounted = false;
+  for (const row of rows) {
+    roleCounts[row.role] = Number(row.count);
+    ownerCounted ||= row.has_owner;
+  }
+  // The owner is a collaborator even when no membership row exists for them.
+  if (!ownerCounted) roleCounts.owner = 1;
+  return roleCounts;
+}
+
 export async function getProjectCollaboratorSettingsAction(
   projectId: string,
   optionsOrLimit: ProjectCollaboratorSettingsOptions | number = 40,
@@ -4470,35 +4503,15 @@ export async function getProjectCollaboratorSettingsAction(
         : null;
 
     const memberIds = slice.map((row) => row.userId);
-    const [roleTitleByUser, responsibilityByUser, roleCountRows] =
+    const [roleTitleByUser, responsibilityByUser, roleCounts] =
       await Promise.all([
         readAcceptedRoleTitles(projectId, memberIds),
         readProjectCollaboratorResponsibilityCounts(
           projectId,
           memberIds,
         ),
-        db
-          .select({ userId: projectMembers.userId, role: projectMembers.role })
-          .from(projectMembers)
-          .where(eq(projectMembers.projectId, projectId)),
+        readProjectRoleCounts(projectId, owned.project.ownerId),
       ]);
-    const roleCounts: Record<ProjectCollaboratorRole, number> = {
-      owner: 0,
-      admin: 0,
-      member: 0,
-      viewer: 0,
-    };
-    let ownerCounted = false;
-    for (const row of roleCountRows) {
-      const role = normalizeCollaboratorRole(
-        row.role,
-        row.userId === owned.project.ownerId ? "owner" : "member",
-      );
-      if (row.userId === owned.project.ownerId || role === "owner")
-        ownerCounted = true;
-      roleCounts[role] = (roleCounts[role] ?? 0) + 1;
-    }
-    if (!ownerCounted) roleCounts.owner = 1;
 
     const rawLeadFocus = (projectRow?.importSource as any)?.metadata?.leadFocus;
     const leadFocus =
@@ -4576,6 +4589,8 @@ function formatFileUploadPermission(
 }
 
 
+const FILE_WORKSPACE_MEMBER_LIMIT = 100;
+
 export async function getProjectFileWorkspaceSettingsAction(
   projectId: string,
 ): Promise<ProjectFileWorkspaceSettingsResult> {
@@ -4596,24 +4611,40 @@ export async function getProjectFileWorkspaceSettingsAction(
       "manage_files",
     );
 
-    const rows = await db
-      .select({
-        userId: projectMembers.userId,
-        role: projectMembers.role,
-        fileUploadEnabled: projectMembers.fileUploadEnabled,
-        joinedAt: projectMembers.joinedAt,
-        username: profiles.username,
-        fullName: profiles.fullName,
-        avatarUrl: profiles.avatarUrl,
-      })
-      .from(projectMembers)
-      .leftJoin(profiles, eq(profiles.id, projectMembers.userId))
-      .where(eq(projectMembers.projectId, projectId))
-      .orderBy(
-        sql`CASE WHEN ${projectMembers.userId} = ${capability.project.ownerId} THEN 0 WHEN ${projectMembers.role} = 'admin' THEN 1 WHEN ${projectMembers.role} = 'member' THEN 2 ELSE 3 END`,
-        sql`${profiles.fullName} ASC NULLS LAST`,
-        sql`${profiles.username} ASC NULLS LAST`,
-      );
+    const effectiveRole = effectiveCollaboratorRoleSql(capability.project.ownerId);
+    const [rowsPlusOne, [counts]] = await Promise.all([
+      db
+        .select({
+          userId: projectMembers.userId,
+          role: projectMembers.role,
+          fileUploadEnabled: projectMembers.fileUploadEnabled,
+          joinedAt: projectMembers.joinedAt,
+          username: profiles.username,
+          fullName: profiles.fullName,
+          avatarUrl: profiles.avatarUrl,
+        })
+        .from(projectMembers)
+        .leftJoin(profiles, eq(profiles.id, projectMembers.userId))
+        .where(eq(projectMembers.projectId, projectId))
+        .orderBy(
+          sql`CASE WHEN ${projectMembers.userId} = ${capability.project.ownerId} THEN 0 WHEN ${projectMembers.role} = 'admin' THEN 1 WHEN ${projectMembers.role} = 'member' THEN 2 ELSE 3 END`,
+          sql`${profiles.fullName} ASC NULLS LAST`,
+          sql`${profiles.username} ASC NULLS LAST`,
+          projectMembers.userId,
+        )
+        // ponytail: the list is capped (owner and co-leaders sort first); the summary below counts everyone.
+        .limit(FILE_WORKSPACE_MEMBER_LIMIT + 1),
+      db
+        .select({
+          alwaysAllowed: sql<number>`count(*) filter (where ${effectiveRole} in ('owner', 'admin'))::int`,
+          enabled: sql<number>`count(*) filter (where ${effectiveRole} = 'member' and ${projectMembers.fileUploadEnabled} is not false)::int`,
+          disabled: sql<number>`count(*) filter (where ${effectiveRole} = 'member' and ${projectMembers.fileUploadEnabled} = false)::int`,
+        })
+        .from(projectMembers)
+        .where(eq(projectMembers.projectId, projectId)),
+    ]);
+    const hasMore = rowsPlusOne.length > FILE_WORKSPACE_MEMBER_LIMIT;
+    const rows = rowsPlusOne.slice(0, FILE_WORKSPACE_MEMBER_LIMIT);
 
     const memberIds = rows.map((row) => row.userId);
     const roleTitleByUser = await readAcceptedRoleTitles(projectId, memberIds);
@@ -4646,20 +4677,11 @@ export async function getProjectFileWorkspaceSettingsAction(
       data: {
         members,
         summary: {
-          alwaysAllowedCount: members.filter(
-            (member) =>
-              member.membershipRole === "owner" ||
-              member.membershipRole === "admin",
-          ).length,
-          enabledMemberCount: members.filter(
-            (member) =>
-              member.membershipRole === "member" && member.fileUploadEnabled,
-          ).length,
-          disabledMemberCount: members.filter(
-            (member) =>
-              member.membershipRole === "member" && !member.fileUploadEnabled,
-          ).length,
+          alwaysAllowedCount: Number(counts?.alwaysAllowed ?? 0),
+          enabledMemberCount: Number(counts?.enabled ?? 0),
+          disabledMemberCount: Number(counts?.disabled ?? 0),
         },
+        hasMore,
       },
     };
   } catch (error) {
@@ -6263,48 +6285,8 @@ export async function toggleProjectFollowAction(
     await revalidateProjectFollowers(projectId);
     return { success: true, followersCount };
   } catch (error) {
-    if (!isMissingCounterColumn(error, "followers_count")) {
-      console.error("Error toggling follow:", error);
-      return { success: false, error: "Failed to update follow status" };
-    }
-    // Only the exact pre-counter schema needs the compatibility path.
-    try {
-      if (shouldFollow) {
-        const [existing] = await db
-          .select({ id: projectFollows.id })
-          .from(projectFollows)
-          .where(
-            and(
-              eq(projectFollows.userId, user.id),
-              eq(projectFollows.projectId, projectId),
-            ),
-          )
-          .limit(1);
-        if (!existing) {
-          await db
-            .insert(projectFollows)
-            .values({ userId: user.id, projectId });
-        }
-      } else {
-        await db
-          .delete(projectFollows)
-          .where(
-            and(
-              eq(projectFollows.userId, user.id),
-              eq(projectFollows.projectId, projectId),
-            ),
-          );
-      }
-      const [countRow] = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(projectFollows)
-        .where(eq(projectFollows.projectId, projectId));
-      await revalidateProjectFollowers(projectId);
-      return { success: true, followersCount: Number(countRow?.count || 0) };
-    } catch (fallbackError) {
-      console.error("Error toggling follow (fallback):", fallbackError);
-      return { success: false, error: "Failed to update follow status" };
-    }
+    console.error("Error toggling follow:", error);
+    return { success: false, error: "Failed to update follow status" };
   }
 }
 

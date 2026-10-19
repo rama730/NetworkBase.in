@@ -119,6 +119,8 @@ export interface PrivacyPreviewState {
 export interface PrivacyData {
   settings: PrivacySettingsState;
   blockedAccounts: PrivacyBlockedAccount[];
+  /** Opaque cursor for GET /api/v1/privacy/blocks; null when every blocked account is loaded. */
+  blockedAccountsNextCursor: string | null;
   overview: PrivacyOverview;
   privacyActivity: PrivacyActivityEntry[];
   previews: PrivacyPreviewState;

@@ -922,7 +922,6 @@ svg.lucide { stroke-width:1.75; }
 .nb-person-connect:disabled, .nb-person-connect[aria-disabled="true"] { cursor:not-allowed; opacity:.45; }
 /* The guard strips rings: keyboard focus is a darker clay fill instead. */
 .nb-person-connect:focus-visible { border-color:var(--primary-active); background:var(--primary-active); }
-.nb-discover-people-state { border:1px solid var(--border); border-radius:8px; background:var(--card); padding:16px; }
 @media (min-width:1200px) {
   .nb-discover-columns { grid-template-columns:minmax(0,1fr) 320px; }
   .nb-discover-columns--single { grid-template-columns:minmax(0,1fr); }

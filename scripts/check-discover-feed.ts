@@ -75,7 +75,7 @@ async function main() {
   const ids = {
     open: randomUUID(), privateOwned: randomUUID(), deletedOwned: randomUUID(), blockedOwned: randomUUID(),
     draft: randomUUID(), cLang: randomUUID(), javascript: randomUUID(),
-    blockerOwned: randomUUID(), privateProject: randomUUID(),
+    blockerOwned: randomUUID(), privateProject: randomUUID(), unlistedProject: randomUUID(),
   };
   // Twelve projects inside one millisecond: a millisecond cursor would skip or repeat some of them.
   const sameMillisecond = Array.from({ length: 12 }, () => randomUUID());
@@ -109,6 +109,8 @@ async function main() {
     await project(ids.javascript, owner, "JavaScript project", { views: 10 });
     await project(ids.blockerOwned, blocker, "Blocker owner", { views: 15 });
     await project(ids.privateProject, owner, "Private project", { views: 60, visibility: "private" });
+    // Legacy "unlisted" rows are publicly readable (project-visibility.ts), so Discover lists them like public ones.
+    await project(ids.unlistedProject, owner, "Unlisted project", { views: 3, visibility: "unlisted" });
     await sql`UPDATE projects SET cover_image = 'https://cdn.example.test/open.png' WHERE id = ${ids.open}`;
     for (const [index, id] of sameMillisecond.entries()) {
       // .123000 to .123011: one millisecond, twelve microseconds. Equal view counts tie the score sorts too.
@@ -246,6 +248,17 @@ async function main() {
       const filtered = (await everything(base, "all", viewer)).map((project) => project.id);
       return !shared.some((project) => project.id === ids.blockerOwned) && !filtered.includes(ids.blockerOwned)
         && fullPublic.projects.some((project) => project.id === ids.blockerOwned);
+    });
+    await check("an unlisted project is readable, so both feeds list it like a public one", async () => {
+      const shared = byId.has(ids.unlistedProject);
+      const filtered = (await everything(base, "all", viewer)).some((project) => project.id === ids.unlistedProject);
+      return shared && filtered;
+    });
+    await check("searching pages through every match: no repeats, no gaps (search with a cursor)", async () => {
+      const search = { ...base, search: run };
+      const all = (await everything(search, "all", viewer)).map((project) => project.id).filter((id) => seeded.has(id));
+      const seen = await paged(search, "all", viewer);
+      return all.length >= 15 && new Set(seen).size === seen.length && seen.filter((id) => seeded.has(id)).length === all.length;
     });
     await check("a private project is in neither feed", async () =>
       !byId.has(ids.privateProject) && !(await everything(base, "all", viewer)).some((project) => project.id === ids.privateProject));

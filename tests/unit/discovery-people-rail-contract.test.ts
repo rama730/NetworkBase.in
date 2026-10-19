@@ -33,7 +33,7 @@ test("Discovery people rail is a compact, shared-avatar recommendation surface",
   // Compact rail lives only in the mobile People drawer (DiscoverHeader `people` slot).
   // Below 1200px the People button exists only when there are people to show (never an empty drawer),
   // and the rail column only when it has content (people or the checklist).
-  assert.match(hub, /const people = hasPeople && wide === false\s*\? <DiscoverPeopleRail initialPage=\{initialPeopleSuggestions\} variant="compact" \/>/);
+  assert.match(hub, /const people = hasPeople && wide === false\s*\? <><DiscoverPeopleRail initialPage=\{initialPeopleSuggestions\} variant="compact" \/><div className="pt-4">\{legal\}<\/div><\/>/);
   assert.match(hub, /const showRail = wide !== false && \(hasPeople \|\| checklist\.length > 0\)/);
   assert.match(hub, /people=\{people\}/);
   assert.equal(hub.match(/variant="compact"/g)?.length, 1);

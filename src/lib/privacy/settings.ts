@@ -1,4 +1,4 @@
-import { and, count, desc, eq, or } from "drizzle-orm";
+import { and, count, desc, eq, lt, or } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { connections, profiles } from "@/lib/db/schema";
 import { recordPrivacyEvent } from "@/lib/privacy/audit";
@@ -119,9 +119,37 @@ export async function getPrivacySettingsPayload(userId: string): Promise<Privacy
   };
 }
 
-export async function listBlockedAccounts(userId: string): Promise<PrivacyBlockedAccount[]> {
+export const BLOCKED_ACCOUNTS_PAGE_SIZE = 50;
+
+type BlockedAccountsPage = { accounts: PrivacyBlockedAccount[]; nextCursor: string | null };
+
+function encodeBlockedCursor(sortAt: Date, edgeId: string) {
+  return Buffer.from(JSON.stringify([sortAt.toISOString(), edgeId])).toString("base64url");
+}
+
+function decodeBlockedCursor(cursor: string | null | undefined): { sortAt: Date; edgeId: string } | null {
+  if (!cursor) return null;
+  try {
+    const [iso, edgeId] = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")) as [string, string];
+    const sortAt = new Date(iso);
+    return Number.isNaN(sortAt.getTime()) || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(edgeId)) ? null : { sortAt, edgeId };
+  } catch {
+    return null;
+  }
+}
+
+/** One keyset page, newest block first, ordered by (blocked_at, edge id); blocked rows always carry blocked_at. */
+export async function listBlockedAccounts(
+  userId: string,
+  options: { limit?: number; cursor?: string | null } = {},
+): Promise<BlockedAccountsPage> {
+  const limit = Math.min(Math.max(options.limit ?? BLOCKED_ACCOUNTS_PAGE_SIZE, 1), 100);
+  const cursor = decodeBlockedCursor(options.cursor);
+  const sortAt = connections.blockedAt;
   const rows = await db
     .select({
+      edgeId: connections.id,
+      sortAt: connections.blockedAt,
       id: profiles.id,
       username: profiles.username,
       fullName: profiles.fullName,
@@ -151,16 +179,28 @@ export async function listBlockedAccounts(userId: string): Promise<PrivacyBlocke
           eq(connections.requesterId, userId),
           eq(connections.addresseeId, userId),
         ),
+        cursor
+          ? or(
+              lt(sortAt, cursor.sortAt),
+              and(eq(sortAt, cursor.sortAt), lt(connections.id, cursor.edgeId)),
+            )
+          : undefined,
       ),
     )
-    .orderBy(desc(connections.blockedAt), desc(connections.updatedAt));
+    .orderBy(desc(sortAt), desc(connections.id))
+    .limit(limit + 1);
 
-  return rows.map((row) => ({
-    id: row.id,
-    username: row.username,
-    fullName: row.fullName,
-    avatarUrl: row.avatarUrl,
-    headline: row.headline,
-    blockedAt: row.blockedAt ? row.blockedAt.toISOString() : null,
-  }));
+  const page = rows.slice(0, limit);
+  const last = page.at(-1);
+  return {
+    accounts: page.map((row) => ({
+      id: row.id,
+      username: row.username,
+      fullName: row.fullName,
+      avatarUrl: row.avatarUrl,
+      headline: row.headline,
+      blockedAt: row.blockedAt ? row.blockedAt.toISOString() : null,
+    })),
+    nextCursor: rows.length > limit && last?.sortAt ? encodeBlockedCursor(last.sortAt, last.edgeId) : null,
+  };
 }

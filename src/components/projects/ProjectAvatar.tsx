@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Camera } from "lucide-react";
 import Link from "next/link";
 import { isToday, isAfter, subDays } from "@/lib/utils/date";
@@ -134,7 +134,6 @@ export function ProjectPresenceDot({
     projectId?: string;
     standalone?: boolean;
     className?: string;
-    recentAction?: string | null;
 }) {
     const [liveActiveAt, setLiveActiveAt] = useState<string | Date | null | undefined>(lastActiveAt);
     const [clientLocale, setClientLocale] = useState<string | undefined>(undefined);
@@ -201,12 +200,10 @@ export function ProjectAvatar({
     priority,
 }: ProjectAvatarProps) {
     const avatarUrl = getProjectAvatarUrl(project);
-    const [imageLoaded, setImageLoaded] = useState(false);
     const [hasError, setHasError] = useState(false);
 
     useEffect(() => {
         setHasError(false);
-        setImageLoaded(false);
     }, [avatarUrl]);
 
     if (!avatarUrl || hasError) {
@@ -223,7 +220,7 @@ export function ProjectAvatar({
                 data-testid="project-avatar"
                 data-size={size}
                 className={cn(
-                    "group/avatar relative shrink-0 overflow-hidden border border-border/80 bg-muted/40 ring-1 ring-inset ring-black/5 dark:ring-white/10 shadow-2xs transition-all duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)]",
+                    "group/avatar relative shrink-0 overflow-hidden border border-border/80 bg-muted/40 ring-1 ring-inset ring-black/5 dark:ring-white/10 transition-all duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)]",
                     dimensionClasses,
                     !isDetail && "group-hover:border-foreground/25 group-hover:shadow-xs",
                     className
@@ -239,8 +236,7 @@ export function ProjectAvatar({
                     loading={isDetail ? "eager" : "lazy"}
                     decoding="async"
                     style={{ objectFit: "cover" }}
-                    className="object-cover transition-opacity duration-150"
-                    onLoad={() => setImageLoaded(true)}
+                    className="object-cover"
                     onError={() => setHasError(true)}
                     unoptimized
                 />
