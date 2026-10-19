@@ -4,6 +4,7 @@ import { isMessageSeq } from "@/lib/messaging/routes";
 
 import { sql } from "drizzle-orm";
 
+import { canReviewProjectSql } from "@/lib/applications/reviewers";
 import { publishUser, publishUserEvents } from "@/lib/messaging/publish";
 import { chatFailure, chatRows, chatValue, invalidInput, isUuid, jsonParam, requireChatUser, unauthorized } from "@/lib/messaging/server";
 import { countsOrNothing, inboxCounts } from "@/lib/messaging/inbox-counts";
@@ -27,7 +28,7 @@ export async function bootstrap(input: { since?: string | null } = {}) {
           (SELECT count(*)::int FROM project_invitations
             WHERE candidate_id = ${user.id}::uuid AND status = 'pending' AND expires_at > now()) AS invites,
           (SELECT count(*)::int FROM role_applications
-            WHERE creator_id = ${user.id}::uuid AND status = 'pending') AS applications
+            WHERE status = 'pending' AND ${canReviewProjectSql(user.id, sql`role_applications.project_id`)}) AS applications
       `),
       // The Saved row's badge: reminders whose time has come (cleared or Done removes them).
       chatValue<number>(sql`
