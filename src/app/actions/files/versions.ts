@@ -164,18 +164,16 @@ export async function listFileVersions(
  * Mint a short-lived signed URL pointing at a specific historical version of
  * a file. Used by the version-history drawer's "Download" button.
  */
-export async function getVersionSignedUrl(
+export async function getVersionPreviewUrl(
   projectId: string,
   nodeId: string,
   version: number,
-  ttlSeconds: number = 300,
   download: boolean = false,
 ): Promise<{ url: string; expiresAt: number }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const actorId = user?.id ?? null;
   await assertVersionNodeReadable(projectId, nodeId, actorId);
-  const clampedTtl = Math.max(30, Math.min(3600, ttlSeconds));
 
   const version_row = await db.query.fileVersions.findFirst({
     where: and(eq(fileVersions.nodeId, nodeId), eq(fileVersions.version, version)),
@@ -191,10 +189,7 @@ export async function getVersionSignedUrl(
 
   const params = new URLSearchParams({ revision: String(version) });
   if (download) params.set("download", "1");
-  return {
-    url: `/api/v1/projects/${projectId}/files/${nodeId}/preview?${params.toString()}`,
-    expiresAt: Date.now() + Math.min(clampedTtl, 240) * 1000,
-  };
+  return { url: `/api/v1/projects/${projectId}/files/${nodeId}/preview?${params.toString()}` };
 }
 
 /**
