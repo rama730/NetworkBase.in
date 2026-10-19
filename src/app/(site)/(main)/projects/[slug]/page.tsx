@@ -11,6 +11,13 @@ import { isProjectTabVisibleToViewer } from '@/lib/projects/settings-policies';
 
 const readProjectSprintDetailCached = cache((slugOrId: string, limit?: number, sprintId?: string, taskReference?: string) => readProjectSprintDetail({ slugOrId, limit, sprintId, taskReference }));
 
+type RouteSearchParams = Record<string, string | string[] | undefined>;
+
+/** First value of a repeated query param (`?tab=a&tab=b` reads as "a"). */
+function firstParam(value: string | string[] | undefined) {
+    return Array.isArray(value) ? value[0] : value;
+}
+
 // Metadata and the rendered route share one auth-qualified shell read.
 const readProjectRouteShell = cache(async (slugOrId: string) => {
     const viewerIdentity = await getViewerIdentityContext();
@@ -23,7 +30,7 @@ export async function generateMetadata({
     searchParams,
 }: {
     params: Promise<{ slug: string }>;
-    searchParams: Promise<{ tab?: string }>;
+    searchParams: Promise<RouteSearchParams>;
 }): Promise<Metadata> {
     const [{ slug }, _searchParams] = await Promise.all([params, searchParams]);
     const { result } = await readProjectRouteShell(slug);
@@ -37,7 +44,7 @@ export async function generateMetadata({
     const { project } = result.data;
     const metadataInput = buildProjectDetailMetadataInput(project.slug || slug, project);
 
-    const tab = _searchParams?.tab || "dashboard";
+    const tab = firstParam(_searchParams?.tab) || "dashboard";
     const tabTitleMap: Record<string, string> = {
         updates: "Project Feed",
         sprints: "Sprints",
@@ -62,15 +69,15 @@ async function ResolvedProjectDashboard({
     searchParams
 }: {
     params: Promise<{ slug: string }>;
-    searchParams: Promise<{ tab?: string; updateId?: string; commentId?: string; sprintId?: string; sprint?: string; task?: string; taskId?: string }>;
+    searchParams: Promise<RouteSearchParams>;
 }) {
     const [{ slug }, _searchParams] = await Promise.all([params, searchParams]);
-    const selectedTab = _searchParams?.tab || "dashboard";
-    const sprintId = _searchParams?.sprint ?? _searchParams?.sprintId;
+    const selectedTab = firstParam(_searchParams?.tab) || "dashboard";
+    const sprintId = firstParam(_searchParams?.sprint) ?? firstParam(_searchParams?.sprintId);
     const viewerIdentity = await getViewerIdentityContext();
     const { user } = viewerIdentity;
     const sprintPromise = selectedTab === "sprints"
-        ? readProjectSprintDetailCached(slug, 24, sprintId, _searchParams?.task ?? _searchParams?.taskId)
+        ? readProjectSprintDetailCached(slug, 24, sprintId, firstParam(_searchParams?.task) ?? firstParam(_searchParams?.taskId))
         : null;
     sprintPromise?.catch(() => null);
     const { result } = await readProjectRouteShell(slug);
@@ -87,11 +94,13 @@ async function ResolvedProjectDashboard({
 
     // Ponytail: If accessed via numeric/UUID id, canonically redirect to clean human-readable slug
     if (project.slug && slug !== project.slug) {
-        const rawParams = await searchParams;
-        const queryParams = rawParams && Object.keys(rawParams).length > 0
-            ? `?${new URLSearchParams(rawParams as Record<string, string>).toString()}`
-            : '';
-        redirect(`/projects/${encodeURIComponent(project.slug)}${queryParams}`);
+        // Repeated params survive as repeated params (`a=1&a=2`), never as a joined "1,2".
+        const query = new URLSearchParams();
+        for (const [key, value] of Object.entries(_searchParams ?? {})) {
+            for (const item of Array.isArray(value) ? value : value === undefined ? [] : [value]) query.append(key, item);
+        }
+        const queryString = query.toString();
+        redirect(`/projects/${encodeURIComponent(project.slug)}${queryString ? `?${queryString}` : ''}`);
     }
     const canViewSprints = isProjectTabVisibleToViewer({
         tabId: "sprints",
@@ -110,6 +119,7 @@ async function ResolvedProjectDashboard({
             viewerAvatarUrl={clientViewer.avatarUrl}
             isOwner={capabilities.isOwner}
             isMember={capabilities.isMember}
+            memberRole={capabilities.memberRole}
             initialSprintData={initialSprintData}
             data-hardening-data="v1"
             data-hardening-files="v1"
@@ -123,13 +133,7 @@ export default function ProjectDetailPage({
     searchParams,
 }: {
     params: Promise<{ slug: string }>;
-    searchParams: Promise<{
-        tab?: string;
-        filter?: string;
-        drawerType?: string;
-        drawerId?: string;
-        panelTab?: string;
-    }>;
+    searchParams: Promise<RouteSearchParams>;
 }) {
     return (
         <div

@@ -980,6 +980,8 @@ export async function restoreNode(nodeId: string, projectId: string) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Unauthorized");
+    const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
+    if (!allowed) throw new Error("Rate limit exceeded");
     await assertProjectWriteAccess(projectId, user.id);
 
     await db.transaction(async (tx) => {
@@ -1038,6 +1040,8 @@ export async function bulkTrashNodes(nodeIds: string[], projectId: string) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Unauthorized");
+    const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
+    if (!allowed) throw new Error("Rate limit exceeded");
     await assertProjectWriteAccess(projectId, user.id);
 
     const uniqueIds = Array.from(new Set(nodeIds.filter(Boolean)));
@@ -1128,6 +1132,8 @@ export async function bulkRestoreNodes(nodeIds: string[], projectId: string, exp
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Unauthorized");
+    const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
+    if (!allowed) throw new Error("Rate limit exceeded");
     await assertProjectWriteAccess(projectId, user.id);
 
     const uniqueIds = Array.from(new Set(nodeIds.filter(Boolean)));
@@ -1302,7 +1308,7 @@ export async function bulkCreateFolderTree(
     if (!user) throw new Error("Unauthorized");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
     if (!allowed) throw new Error("Rate limit exceeded");
-    await assertProjectWriteAccess(projectId, user.id);
+    await assertProjectUploadAccess(projectId, user.id);
 
     if (files.length === 0) return [];
     if (files.length > 5000) throw new Error("Maximum 5000 files allowed per bulk upload block.");
@@ -1334,7 +1340,7 @@ export async function bulkCreateFolderTree(
     const sortedFolders = Array.from(folderPaths).sort((a, b) => a.split('/').length - b.split('/').length);
 
     const result = await db.transaction(async (tx) => {
-        await assertProjectWriteAccessTx(tx, projectId, user.id);
+        await assertProjectUploadAccessTx(tx, projectId, user.id);
         await assertValidParentFolder(projectId, targetParentId, tx);
 
         // Map: virtual path -> physical node ID
@@ -1465,63 +1471,31 @@ export async function getOrCreateTaskSystemFolderAction(projectId: string, taskI
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Unauthorized");
+    if (!UUID_RE.test(projectId) || !UUID_RE.test(taskId)) throw new Error("Task not found");
     await assertProjectUploadAccess(projectId, user.id);
 
     return await db.transaction(async (tx) => {
-        const existing = await tx.query.projectNodes.findFirst({
-            where: and(
+        const [task] = await tx.select({ id: tasks.id }).from(tasks)
+            .where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt))).limit(1);
+        if (!task) throw new Error("Task not found");
+        // The live sibling-name indexes are expression indexes (COALESCE/lower), so no ON CONFLICT
+        // target matches them: serialize per project and select-then-insert, as ensureSystemRootFolder does.
+        await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`files-task-system-folder:${projectId}`}))`);
+        const ensureFolder = async (parentId: string | null, name: string, path: string) => {
+            const [existing] = await tx.select({ id: projectNodes.id }).from(projectNodes).where(and(
                 eq(projectNodes.projectId, projectId),
-                eq(projectNodes.path, `/.system/tasks/${taskId}`),
-                isNull(projectNodes.deletedAt)
-            ),
-            columns: { id: true }
-        });
-        if (existing) return existing.id;
-
-        const result = (await tx.execute(sql`
-            WITH ins_sys AS (
-                INSERT INTO project_nodes (id, project_id, parent_id, type, name, path, created_by, metadata)
-                VALUES (gen_random_uuid(), ${projectId}::uuid, NULL, 'folder', '.system', '/.system', ${user.id}::uuid, '{"isSystem": true}'::jsonb)
-                ON CONFLICT (project_id, parent_id, name) WHERE deleted_at IS NULL
-                DO UPDATE SET updated_at = NOW()
-                RETURNING id
-            ),
-            sys_id AS (
-                SELECT id FROM ins_sys
-                UNION ALL
-                SELECT id FROM project_nodes WHERE project_id = ${projectId}::uuid AND name = '.system' AND parent_id IS NULL AND deleted_at IS NULL
-                LIMIT 1
-            ),
-            ins_tasks AS (
-                INSERT INTO project_nodes (id, project_id, parent_id, type, name, path, created_by, metadata)
-                SELECT gen_random_uuid(), ${projectId}::uuid, sys_id.id, 'folder', 'tasks', '/.system/tasks', ${user.id}::uuid, '{"isSystem": true}'::jsonb
-                FROM sys_id
-                ON CONFLICT (project_id, parent_id, name) WHERE deleted_at IS NULL
-                DO UPDATE SET updated_at = NOW()
-                RETURNING id
-            ),
-            tasks_id AS (
-                SELECT id FROM ins_tasks
-                UNION ALL
-                SELECT pn.id FROM project_nodes pn, sys_id WHERE pn.project_id = ${projectId}::uuid AND pn.name = 'tasks' AND pn.parent_id = sys_id.id AND pn.deleted_at IS NULL
-                LIMIT 1
-            ),
-            ins_task_folder AS (
-                INSERT INTO project_nodes (id, project_id, parent_id, type, name, path, created_by, metadata)
-                SELECT gen_random_uuid(), ${projectId}::uuid, tasks_id.id, 'folder', ${taskId}, ${`/.system/tasks/${taskId}`}, ${user.id}::uuid, '{"isSystem": true}'::jsonb
-                FROM tasks_id
-                ON CONFLICT (project_id, parent_id, name) WHERE deleted_at IS NULL
-                DO UPDATE SET updated_at = NOW()
-                RETURNING id
-            )
-            SELECT id::text FROM ins_task_folder
-            UNION ALL
-            SELECT pn.id::text FROM project_nodes pn, tasks_id WHERE pn.project_id = ${projectId}::uuid AND pn.name = ${taskId} AND pn.parent_id = tasks_id.id AND pn.deleted_at IS NULL
-            LIMIT 1
-        `)) as unknown as Array<{ id: string }>;
-
-        const createdId = result[0]?.id;
-        if (!createdId) throw new Error("Failed to create task folder");
-        return createdId;
+                parentId ? eq(projectNodes.parentId, parentId) : isNull(projectNodes.parentId),
+                sql`lower(${projectNodes.name}) = lower(${name})`,
+                isNull(projectNodes.deletedAt),
+            )).limit(1);
+            if (existing) return existing.id;
+            const [created] = await tx.insert(projectNodes).values({
+                projectId, parentId, type: "folder", name, path, createdBy: user.id, metadata: { isSystem: true },
+            }).returning({ id: projectNodes.id });
+            return created!.id;
+        };
+        const systemId = await ensureFolder(null, ".system", "/.system");
+        const tasksId = await ensureFolder(systemId, "tasks", "/.system/tasks");
+        return ensureFolder(tasksId, taskId, `/.system/tasks/${taskId}`);
     });
 }

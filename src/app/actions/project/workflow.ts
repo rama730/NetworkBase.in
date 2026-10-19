@@ -54,21 +54,35 @@ function defaultColumns(projectId: string) {
     }));
 }
 
-async function requireWorkflowLeader(projectId: string) {
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+async function requireWorkflowUser() {
     const supabase = await createClient();
     const { data: { user }, error } = await supabase.auth.getUser();
     if (error || !user) throw new Error("Unauthorized");
     const { allowed } = await consumeRateLimit(`project:${user.id}`, 60, 60);
     if (!allowed) throw new Error("Rate limit exceeded");
-    const access = await getProjectAccessById(projectId, user.id);
-    if (!access.project) throw new Error("Not found");
-    if (!access.isOwner && access.memberRole !== "admin") throw new Error("Only leaders can modify workflow");
     return user;
 }
 
-async function ensureWorkflowColumns(projectId: string) {
-    await db.insert(projectWorkflowColumns).values(defaultColumns(projectId)).onConflictDoNothing();
-    return db.query.projectWorkflowColumns.findMany({
+// COR-023/024: leadership is checked under the project row lock, which also serializes every
+// workflow write for the project, so count-then-insert cannot overshoot the six-section limit.
+async function lockWorkflowForLeader(tx: Tx, projectId: string, userId: string) {
+    const rows = await tx.execute<{ owner_id: string; role: string | null }>(sql`
+        SELECT p.owner_id, m.role
+        FROM projects p
+        LEFT JOIN project_members m ON m.project_id = p.id AND m.user_id = ${userId}
+        WHERE p.id = ${projectId} AND p.deleted_at IS NULL
+        FOR UPDATE OF p
+    `);
+    const row = Array.from(rows)[0];
+    if (!row) throw new Error("Not found");
+    if (row.owner_id !== userId && row.role !== "admin") throw new Error("Only leaders can modify workflow");
+}
+
+async function ensureWorkflowColumns(projectId: string, tx: Tx | typeof db = db) {
+    await tx.insert(projectWorkflowColumns).values(defaultColumns(projectId)).onConflictDoNothing();
+    return tx.query.projectWorkflowColumns.findMany({
         where: eq(projectWorkflowColumns.projectId, projectId),
         orderBy: [asc(projectWorkflowColumns.position), asc(projectWorkflowColumns.id)],
     });
@@ -93,17 +107,20 @@ export async function updateProjectWorkflowColumnsAction(projectId: string, work
         const parsedProjectId = z.string().uuid().safeParse(projectId);
         const parsedWorkflow = workflowSchema.safeParse(workflow);
         if (!parsedProjectId.success || !parsedWorkflow.success) return { success: false as const, error: "Invalid task board configuration" };
-        await requireWorkflowLeader(parsedProjectId.data);
-        const existing = await ensureWorkflowColumns(parsedProjectId.data);
-        if (existing.length !== parsedWorkflow.data.length || !parsedWorkflow.data.every((column) => existing.some((row) => row.id === column.id))) {
-            return { success: false as const, error: "Workflow changed elsewhere. Reload and try again." };
-        }
+        const user = await requireWorkflowUser();
         const rows = sql.join(parsedWorkflow.data.map((column, index) => sql`(${column.id}::uuid, ${100 + index}::int, ${column.title}::text, ${column.accentClassName}::text, ${column.emptyTitle}::text, ${column.emptyDescription}::text, ${column.position}::int)`), sql`, `);
         const values = sql`(VALUES ${rows}) AS v(id, temporary_position, title, accent_class_name, empty_title, empty_description, position)`;
-        await db.transaction(async (tx) => {
+        const changedElsewhere = await db.transaction(async (tx) => {
+            await lockWorkflowForLeader(tx, parsedProjectId.data, user.id);
+            const existing = await ensureWorkflowColumns(parsedProjectId.data, tx);
+            if (existing.length !== parsedWorkflow.data.length || !parsedWorkflow.data.every((column) => existing.some((row) => row.id === column.id))) {
+                return true;
+            }
             await tx.execute(sql`UPDATE project_workflow_columns c SET position = v.temporary_position FROM ${values} WHERE c.id = v.id AND c.project_id = ${parsedProjectId.data}::uuid`);
             await tx.execute(sql`UPDATE project_workflow_columns c SET title = v.title, accent_class_name = v.accent_class_name, empty_title = v.empty_title, empty_description = v.empty_description, position = v.position, updated_at = now() FROM ${values} WHERE c.id = v.id AND c.project_id = ${parsedProjectId.data}::uuid`);
+            return false;
         });
+        if (changedElsewhere) return { success: false as const, error: "Workflow changed elsewhere. Reload and try again." };
         revalidatePath(`/projects/${projectId}`);
         return { success: true as const };
     } catch (error) {
@@ -115,21 +132,26 @@ export async function createProjectWorkflowColumnAction(input: unknown) {
     try {
         const parsed = createColumnSchema.safeParse(input);
         if (!parsed.success) return { success: false as const, error: "Invalid workflow column" };
-        await requireWorkflowLeader(parsed.data.projectId);
-        const columns = await ensureWorkflowColumns(parsed.data.projectId);
-        if (columns.length >= 6) return { success: false as const, error: "A task board supports up to six sections" };
+        const user = await requireWorkflowUser();
         const status = parsed.data.status as WorkflowStatus;
         const presentation = TASK_STATUS_PRESENTATION[status];
-        const [column] = await db.insert(projectWorkflowColumns).values({
-            projectId: parsed.data.projectId,
-            status,
-            title: parsed.data.title,
-            accentClassName: parsed.data.accentClassName || presentation.accentClassName,
-            emptyTitle: "No tasks here",
-            emptyDescription: "Drag tasks into this section",
-            position: (columns.at(-1)?.position ?? -1) + 1,
-            isDefault: false,
-        }).returning();
+        const column = await db.transaction(async (tx) => {
+            await lockWorkflowForLeader(tx, parsed.data.projectId, user.id);
+            const columns = await ensureWorkflowColumns(parsed.data.projectId, tx);
+            if (columns.length >= 6) return null;
+            const [created] = await tx.insert(projectWorkflowColumns).values({
+                projectId: parsed.data.projectId,
+                status,
+                title: parsed.data.title,
+                accentClassName: parsed.data.accentClassName || presentation.accentClassName,
+                emptyTitle: "No tasks here",
+                emptyDescription: "Drag tasks into this section",
+                position: (columns.at(-1)?.position ?? -1) + 1,
+                isDefault: false,
+            }).returning();
+            return created;
+        });
+        if (!column) return { success: false as const, error: "A task board supports up to six sections" };
         return { success: true as const, column };
     } catch (error) {
         return { success: false as const, error: error instanceof Error ? error.message : "Failed to add section" };
@@ -139,13 +161,18 @@ export async function createProjectWorkflowColumnAction(input: unknown) {
 export async function deleteProjectWorkflowColumnAction(projectId: string, columnId: string) {
     try {
         if (!z.string().uuid().safeParse(projectId).success || !z.string().uuid().safeParse(columnId).success) return { success: false as const, error: "Invalid workflow column" };
-        await requireWorkflowLeader(projectId);
-        const column = await db.query.projectWorkflowColumns.findFirst({ where: and(eq(projectWorkflowColumns.id, columnId), eq(projectWorkflowColumns.projectId, projectId)) });
-        if (!column) return { success: false as const, error: "Section not found" };
-        if (column.isDefault) return { success: false as const, error: "Default sections cannot be removed" };
-        const [taskCount] = await db.select({ count: sql<number>`count(*)::int` }).from(tasks).where(eq(tasks.workflowColumnId, columnId));
-        if ((taskCount?.count ?? 0) > 0) return { success: false as const, error: "Move tasks out of this section before deleting it" };
-        await db.delete(projectWorkflowColumns).where(eq(projectWorkflowColumns.id, columnId));
+        const user = await requireWorkflowUser();
+        const refusal = await db.transaction(async (tx) => {
+            await lockWorkflowForLeader(tx, projectId, user.id);
+            const column = await tx.query.projectWorkflowColumns.findFirst({ where: and(eq(projectWorkflowColumns.id, columnId), eq(projectWorkflowColumns.projectId, projectId)) });
+            if (!column) return "Section not found";
+            if (column.isDefault) return "Default sections cannot be removed";
+            const [taskCount] = await tx.select({ count: sql<number>`count(*)::int` }).from(tasks).where(eq(tasks.workflowColumnId, columnId));
+            if ((taskCount?.count ?? 0) > 0) return "Move tasks out of this section before deleting it";
+            await tx.delete(projectWorkflowColumns).where(eq(projectWorkflowColumns.id, columnId));
+            return null;
+        });
+        if (refusal) return { success: false as const, error: refusal };
         return { success: true as const };
     } catch (error) {
         return { success: false as const, error: error instanceof Error ? error.message : "Failed to delete section" };

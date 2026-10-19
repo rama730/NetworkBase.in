@@ -535,7 +535,6 @@ export async function readProjectDocAction(projectId: string, requestedSlug: str
                     id: node.id,
                     name: node.name,
                     path: node.path,
-                    s3Key: node.s3Key ?? "",
                 };
                 try {
                     // The doc permission above authorizes this exact linked file; the

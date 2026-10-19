@@ -32,6 +32,8 @@ import { enqueueProjectNotificationEvent } from "@/lib/notifications/project-eve
 import {
   assertProjectFileReadAccess,
   assertTaskFileNodeVisible,
+  assertProjectManageFilesAccess,
+  assertProjectManageFilesAccessTx,
   assertProjectUploadAccess,
   assertProjectWriteAccess,
   assertProjectWriteAccessTx,
@@ -488,12 +490,13 @@ export async function deleteFileVersionAction(
   const { allowed } = await consumeRateLimit(`delete-version:${user.id}`, 30, 60);
   if (!allowed) throw new Error("Rate limit exceeded");
 
-  await assertProjectWriteAccess(projectId, user.id);
-  
+  // Deleting a version destroys history: the same capability as permanent delete.
+  await assertProjectManageFilesAccess(projectId, user.id);
+
   const mutation = await withTransientFileLease(
     { projectId, nodeId, userId: user.id },
     (lease) => db.transaction(async (tx) => {
-      await assertProjectWriteAccessTx(tx, projectId, user.id);
+      await assertProjectManageFilesAccessTx(tx, projectId, user.id);
       await tx.execute(sql`SELECT id FROM project_nodes WHERE id = ${nodeId} FOR UPDATE`);
       await assertOwnedFileLease(tx, { projectId, nodeId, userId: user.id, credentials: lease });
       const node = await tx.query.projectNodes.findFirst({

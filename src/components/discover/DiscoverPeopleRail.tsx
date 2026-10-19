@@ -1,16 +1,15 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useCallback, useMemo } from "react";
 import Link from "next/link";
-import { Check, Clock, MapPin, Users } from "lucide-react";
+import { Users } from "lucide-react";
 import { toast } from "sonner";
 
-import { SkillIcon } from "@/components/skills";
-import { PersonPresenceDot, PersonPresenceText } from "@/components/network/PersonPresenceDot";
+import PersonCard from "@/components/network/PersonCard";
+import { PersonCardSkeleton } from "@/components/network/PersonCardSkeleton";
 import { CONNECTION_COPY } from "@/lib/connections/copy";
 import { Button } from "@/components/ui/button";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
-import { UserAvatar } from "@/components/ui/UserAvatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DISCOVER_RAIL_FILTERS } from "@/lib/discover/query";
 import {
@@ -20,20 +19,16 @@ import {
     useConnectionMutations,
     useSuggestedPeople,
 } from "@/hooks/useConnections";
-import { canonicalSkillKey, matchingSkillLabels } from "@/lib/skills/matching";
-import { resolveClientSkill, useSkillCatalog } from "@/lib/skills/client";
-import { profileHref } from "@/lib/routing/identifiers";
 
 type DiscoverPeopleRailProps = {
     initialPage?: ConnectionFeedPage<DiscoverConnectionItem>;
     variant: "desktop" | "compact";
 };
 
-const SHOWN_SKILLS = 2;
-
 /**
- * Spec §12's rail variant: a stacked card (identity first, then headline and skills) with a small
- * secondary action at the bottom right, so a long name never squeezes between avatar and button.
+ * Rail suggestion card: follows the exact Network page person card design and layout,
+ * including high-contrast matched skill badges, overflow tooltips, and action menus.
+ * Uses CONNECTION_COPY.review and CONNECTION_COPY.notAccepting through PersonCard.
  */
 function SuggestedPersonCard({
     profile,
@@ -42,103 +37,31 @@ function SuggestedPersonCard({
     profile: DiscoverConnectionItem;
     viewerSkills: string[];
 }) {
-    useSkillCatalog();
     const { sendRequest } = useConnectionMutations();
-    const displayName = profile.fullName || profile.username || CONNECTION_COPY.nameFallback;
-    const nameLink = useRef<HTMLAnchorElement>(null);
-    // The mutation patches this row in the cache at once (onMutate), so the status shown is always the server's.
-    const status = profile.connectionStatus;
-    const matchingSkills = matchingSkillLabels(profile.skills ?? [], viewerSkills);
-    const matchingSkillKeys = new Set(matchingSkills.map(canonicalSkillKey));
-    const sortedSkills = [...(profile.skills ?? [])]
-        .sort((left, right) => Number(matchingSkillKeys.has(canonicalSkillKey(right))) - Number(matchingSkillKeys.has(canonicalSkillKey(left))));
-    const skills = sortedSkills.slice(0, SHOWN_SKILLS);
-    const moreSkills = sortedSkills.length - skills.length;
-    const mutual = profile.mutualConnections ?? 0;
 
-    const connect = async () => {
-        if (status !== "none" || profile.canConnect === false || sendRequest.isPending) return;
-        // Connect turns into "Requested" (not a control): keep keyboard focus on this person's card.
-        requestAnimationFrame(() => {
-            if (!document.activeElement || document.activeElement === document.body) nameLink.current?.focus();
-        });
+    const connect = useCallback(async (userId: string) => {
+        if (profile.canConnect === false || sendRequest.isPending) return;
         try {
-            await toast.promise(sendRequest.mutateAsync({ userId: profile.id }), {
+            await toast.promise(sendRequest.mutateAsync({ userId }), {
                 loading: CONNECTION_COPY.sending,
                 success: (result) => getConnectionRequestSuccessMessage(result.status),
                 error: (error) => error instanceof Error ? error.message : CONNECTION_COPY.sendFailed,
             }).unwrap();
         } catch {
-            // onError put the row back to Connect; the toast says why.
+            // onError in mutation handles rollback; the toast displays the error.
         }
-    };
-
-    // The same words as the Network page's cards (lib/connections/copy).
-    const action = status === "none" ? (
-        profile.canConnect === false ? (
-            <span className="nb-meta">{CONNECTION_COPY.notAccepting}</span>
-        ) : (
-            <Button type="button" variant="outline" size="sm" onClick={() => void connect()} aria-disabled={sendRequest.isPending || undefined} aria-label={`${CONNECTION_COPY.connect} with ${displayName}`}>
-                {CONNECTION_COPY.connect}
-            </Button>
-        )
-    ) : status === "pending_sent" ? (
-        <span className="nb-meta inline-flex items-center gap-1"><Clock className="size-3.5" aria-hidden="true" /> {CONNECTION_COPY.requested}</span>
-    ) : status === "pending_received" ? (
-        <Button asChild variant="outline" size="sm">
-            <Link href="/network?tab=invitations">{CONNECTION_COPY.review}</Link>
-        </Button>
-    ) : status === "connected" ? (
-        <span className="nb-meta inline-flex items-center gap-1 text-[var(--status-success)]"><Check className="size-3.5" aria-hidden="true" /> {CONNECTION_COPY.connected}</span>
-    ) : status === "blocked" ? (
-        <span className="nb-meta">{CONNECTION_COPY.blocked}</span>
-    ) : null;
+    }, [profile.canConnect, sendRequest]);
 
     return (
-        <article className="nb-discover-person-card">
-            <div className="flex min-w-0 items-center gap-[14px]">
-                {/* The name below is the link people tab to; the avatar is the same link for the mouse. */}
-                <Link href={profileHref(profile)} tabIndex={-1} aria-hidden="true" className="nb-discover-person-avatar">
-                    <UserAvatar identity={profile} size={48} fallbackClassName="text-base font-semibold" />
-                    <PersonPresenceDot userId={profile.id} lastActiveAt={profile.lastActiveAt} />
-                </Link>
-                <div className="min-w-0 flex-1">
-                    {/* A heading per person, so heading navigation moves between suggestions. */}
-                    <h3 className="nb-person-name truncate">
-                        <Link ref={nameLink} href={profileHref(profile)} className="text-foreground hover:text-primary" title={displayName}>
-                            {displayName}
-                            <PersonPresenceText userId={profile.id} lastActiveAt={profile.lastActiveAt} />
-                        </Link>
-                    </h3>
-                    {profile.location ? (
-                        <p className="nb-meta mt-0.5 flex min-w-0 items-center gap-1" title={profile.location}>
-                            <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
-                            <span className="min-w-0 truncate">{profile.location}</span>
-                        </p>
-                    ) : null}
-                </div>
-            </div>
-            {profile.headline ? (
-                <p className="nb-compact line-clamp-2 text-muted-foreground">{profile.headline}</p>
-            ) : null}
-            {skills.length > 0 ? (
-                <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Skills">
-                    {skills.map((skillName) => {
-                        const skill = resolveClientSkill(skillName);
-                        return <span key={skill.canonicalKey} className="nb-tag"><SkillIcon skill={skill} size={14} />{skill.name}</span>;
-                    })}
-                    {moreSkills > 0 ? <span className="nb-meta">+{moreSkills}<span className="sr-only"> more skills</span></span> : null}
-                </div>
-            ) : null}
-            <div className="flex min-w-0 items-center justify-between gap-2">
-                <span className="nb-meta">{mutual > 0 ? CONNECTION_COPY.shared(mutual) : ""}</span>
-                {action}
-            </div>
-        </article>
+        <PersonCard
+            profile={profile}
+            onConnect={connect}
+            viewerSkills={viewerSkills}
+        />
     );
 }
 
-/** The rail's shape while it loads: the same rows, radii and action line as a real card. */
+/** The rail's shape while it loads: mirrors PersonCard geometry so loading and loaded cards share alignment. */
 function RailSkeleton({ variant }: { variant: "desktop" | "compact" }) {
     return (
         <section role="status">
@@ -151,21 +74,7 @@ function RailSkeleton({ variant }: { variant: "desktop" | "compact" }) {
             ) : null}
             <div className="space-y-3" aria-hidden="true">
                 {[0, 1, 2].map((item) => (
-                    <div key={item} className="nb-discover-person-card">
-                        <div className="flex items-center gap-[14px]">
-                            <Skeleton className="size-12 shrink-0 rounded-md" />
-                            <div className="min-w-0 flex-1 space-y-1.5">
-                                <Skeleton className="h-[18px] w-32 max-w-full rounded-sm" />
-                                <Skeleton className="h-4 w-24 rounded-sm" />
-                            </div>
-                        </div>
-                        <Skeleton className="h-4 w-full rounded-sm" />
-                        <div className="flex gap-1.5">
-                            <Skeleton className="h-[22px] w-16 rounded-full" />
-                            <Skeleton className="h-[22px] w-14 rounded-full" />
-                        </div>
-                        <div className="flex justify-end"><Skeleton className="h-[var(--ui-control-height-sm)] w-20 rounded-md" /></div>
-                    </div>
+                    <PersonCardSkeleton key={item} />
                 ))}
             </div>
         </section>

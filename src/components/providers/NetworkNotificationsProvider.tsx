@@ -37,7 +37,7 @@ function workspaceInvalidationDomains(kind: string): WorkspaceInvalidationDomain
 
 function workspaceNotificationKind(event: UserNotificationEvent) {
   if (event.kind !== "notification") return null;
-  const payload = event.payload.new as Record<string, unknown> | undefined;
+  const payload = (event.payload.new ?? event.payload.old) as Record<string, unknown> | undefined;
   const kind = typeof payload?.kind === "string" ? payload.kind : null;
   return kind && WORKSPACE_NOTIFICATION_KINDS.has(kind) ? kind : null;
 }
@@ -46,6 +46,7 @@ interface NetworkNotificationsContextValue {
   totalPending: number;
   pendingConnections: number;
   pendingInvites: number;
+  totalConnections: number;
   refresh: () => Promise<void>;
 }
 
@@ -53,6 +54,7 @@ const NetworkNotificationsContext = createContext<NetworkNotificationsContextVal
   totalPending: 0,
   pendingConnections: 0,
   pendingInvites: 0,
+  totalConnections: 0,
   refresh: async () => {},
 });
 
@@ -81,6 +83,7 @@ export function NetworkNotificationsProvider({ children, enabled = true }: { chi
   }, [query]);
   const pendingConnections = query.data?.pendingConnections ?? 0;
   const pendingInvites = query.data?.pendingInvites ?? 0;
+  const totalConnections = query.data?.totalConnections ?? 0;
 
   // One app-level listener owns workspace attention invalidation. This avoids
   // opening the drawer creating a second subscription or duplicate refetches.
@@ -97,14 +100,15 @@ export function NetworkNotificationsProvider({ children, enabled = true }: { chi
         refreshTimerRef.current = null;
         const domains = pendingInvalidationDomainsRef.current;
         pendingInvalidationDomainsRef.current = new Set();
-        void queryClient.invalidateQueries({ queryKey: queryKeys.workspace.root(), refetchType: "active" });
+        void query.refetch();
         if (domains.has("connections")) {
           void queryClient.invalidateQueries({ queryKey: queryKeys.connections.pending(), refetchType: "active" });
           void queryClient.invalidateQueries({ queryKey: ["connections", "pending-requests"], refetchType: "active" });
+          void queryClient.invalidateQueries({ queryKey: ["connections", "feed"], refetchType: "active" });
         }
         if (domains.has("requests")) {
-          void queryClient.invalidateQueries({ queryKey: queryKeys.workspace.joinRequests(), refetchType: "active" });
-          void queryClient.invalidateQueries({ queryKey: ["network", "project-applications"], refetchType: "active" });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.workspace.joinRequestsRoot(), refetchType: "active" });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.workspace.sentProjectInvitationsRoot(), refetchType: "active" });
         }
       }, 150);
     });
@@ -121,9 +125,10 @@ export function NetworkNotificationsProvider({ children, enabled = true }: { chi
       totalPending: pendingConnections + pendingInvites,
       pendingConnections,
       pendingInvites,
+      totalConnections,
       refresh,
     }),
-    [pendingConnections, pendingInvites, refresh],
+    [pendingConnections, pendingInvites, totalConnections, refresh],
   );
 
   return <NetworkNotificationsContext.Provider value={value}>{children}</NetworkNotificationsContext.Provider>;

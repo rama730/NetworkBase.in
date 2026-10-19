@@ -22,10 +22,18 @@ export function LifecycleSettingsEditor({
     onSave: (stages: string[], currentStageIdentity: string) => Promise<void>;
 }) {
     const [stages, setStages] = useState(initialStages);
-    const currentStageIdentity = initialStages[currentStageIndex] || "";
+    // Follows the current stage through renames and reorders, so the save re-maps it by its new name.
+    const [currentStageIdentity, setCurrentStageIdentity] = useState(initialStages[currentStageIndex] || "");
+    // Bumped on every reset so the editor drops the row ids it built for the discarded edits.
+    const [editorKey, setEditorKey] = useState(0);
+    // Keyed on the values: a parent re-render with an equal (new) array must not wipe edits.
+    const initialStagesKey = initialStages.join("\n");
     useEffect(() => {
-        setStages(initialStages);
-    }, [initialStages]);
+        const next = initialStagesKey ? initialStagesKey.split("\n") : [];
+        setStages(next);
+        setCurrentStageIdentity(next[currentStageIndex] || "");
+        setEditorKey((key) => key + 1);
+    }, [initialStagesKey, currentStageIndex]);
 
     const isDirty = useMemo(() => {
         if (stages.length !== initialStages.length) return true;
@@ -34,7 +42,9 @@ export function LifecycleSettingsEditor({
 
     const handleCancel = useCallback(() => {
         setStages(initialStages);
-    }, [initialStages]);
+        setCurrentStageIdentity(initialStages[currentStageIndex] || "");
+        setEditorKey((key) => key + 1);
+    }, [initialStages, currentStageIndex]);
 
     const handleSave = useCallback(async () => {
         const cleaned = stages.map((stage) => stage.trim().replace(/\s+/g, " ")).filter(Boolean);
@@ -105,8 +115,12 @@ export function LifecycleSettingsEditor({
                 </div>
 
                 <BaseLifecycleEditor
+                    key={editorKey}
                     stages={stages}
-                    onChange={setStages}
+                    onChange={(next, current) => {
+                        setStages(next);
+                        setCurrentStageIdentity(current ?? "");
+                    }}
                     currentStageIndex={currentStageIndex}
                 />
             </div>

@@ -1,7 +1,10 @@
+"use client";
+
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { subscribeActiveResource } from "@/lib/realtime/subscriptions";
+import { getProjectHydrationProgressAction } from "@/app/actions/project";
 
 export interface HydrationProgressBannerProps {
   projectId: string;
@@ -13,7 +16,7 @@ const FALLBACK_POLL_MS = 15_000;
 
 export function HydrationProgressBanner({ projectId }: HydrationProgressBannerProps) {
   const [hydration, setHydration] = useState<HydrationProgress | null>(null);
-  
+
   useEffect(() => {
     let active = true;
     let timeout: ReturnType<typeof setTimeout> | null = null;
@@ -28,42 +31,25 @@ export function HydrationProgressBanner({ projectId }: HydrationProgressBannerPr
     const queuePoll = (delay: number) => {
       clearPoll();
       if (!active) return;
-      timeout = setTimeout(() => {
-        fallbackPolling = true;
-        void fetchProgress();
-      }, delay);
+      timeout = setTimeout(() => void fetchProgress(), delay);
     };
 
+    // Polls only while an import is running; a project that was never imported costs one read.
     const fetchProgress = async () => {
       if (!active) return;
-      const { data, error } = await supabase
-        .from("projects")
-        .select("import_source")
-        .eq("id", projectId)
-        .single();
-
-      if (error) {
+      const meta = await getProjectHydrationProgressAction(projectId).catch(() => undefined);
+      if (!active) return;
+      if (meta === undefined) {
         fallbackPolling = true;
         queuePoll(FALLBACK_POLL_MS);
         return;
       }
-      
-      const meta = data?.import_source?.metadata?.hydration;
-      if (meta && active) {
-        setHydration(meta);
-      }
-      if (meta?.status === "in_progress") {
-        queuePoll(fallbackPolling ? FALLBACK_POLL_MS : REALTIME_MISSED_PROGRESS_MS);
-      }
-      else if (meta?.status) clearPoll();
-      else {
-        fallbackPolling = true;
-        queuePoll(FALLBACK_POLL_MS);
-      }
+      setHydration(meta);
+      if (meta?.status === "in_progress") queuePoll(fallbackPolling ? FALLBACK_POLL_MS : REALTIME_MISSED_PROGRESS_MS);
+      else clearPoll();
     };
 
-    // Initial fetch
-    fetchProgress();
+    void fetchProgress();
 
     const channel = subscribeActiveResource({
       supabase,
@@ -75,24 +61,16 @@ export function HydrationProgressBanner({ projectId }: HydrationProgressBannerPr
           event: "UPDATE",
           table: "projects",
           filter: `id=eq.${projectId}`,
-          handler: (payload) => {
-            const nextProject = payload.new as { import_source?: { metadata?: { hydration?: HydrationProgress } } } | undefined;
-            const importSource = nextProject?.import_source;
-            const meta = importSource?.metadata?.hydration;
-            if (meta && active) {
-              fallbackPolling = false;
-              setHydration(meta);
-            }
-            if (meta?.status === "in_progress") queuePoll(REALTIME_MISSED_PROGRESS_MS);
-            else clearPoll();
+          // The row event carries no import_source (column revoked); it only signals a re-read.
+          handler: () => {
+            fallbackPolling = false;
+            void fetchProgress();
           },
         },
       ],
       onStatus: (status) => {
-        if (status === "SUBSCRIBED") return;
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
           fallbackPolling = true;
-          queuePoll(FALLBACK_POLL_MS);
         }
       },
     });
@@ -122,7 +100,14 @@ export function HydrationProgressBanner({ projectId }: HydrationProgressBannerPr
             {hydration.completed.toLocaleString()} / {hydration.total.toLocaleString()}
           </span>
         </div>
-        <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+        <div
+          role="progressbar"
+          aria-label="Files secured"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={percent}
+          className="h-2 w-full bg-secondary rounded-full overflow-hidden"
+        >
           <div className="h-full bg-primary transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[260ms] ease-out" style={{ width: `${percent}%` }} />
         </div>
         <p className="text-xs text-muted-foreground mt-1">

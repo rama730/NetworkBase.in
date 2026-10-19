@@ -82,7 +82,7 @@ export class TabErrorBoundary extends Component<TabErrorBoundaryProps, TabErrorB
             stackHash,
             retryCount: this.state.retryCount,
         };
-        logger.error("Error in project tab", safePayload);
+        logger.error("Error in project tab", { ...safePayload, digest: (error as Error & { digest?: string }).digest });
         logger.metric("project.tab.error", {
             ...safePayload,
         });
@@ -94,17 +94,22 @@ export class TabErrorBoundary extends Component<TabErrorBoundaryProps, TabErrorB
             : undefined;
 
         if (this.state.hasError) {
+            // Raw messages can carry internals; show the reference the log line carries instead.
+            const error = this.state.error as (Error & { digest?: string }) | undefined;
+            const reference = error?.digest ?? hashToken(normalizeErrorMessage(error?.message || ""));
             return (
                 <div className={containerClassName}>
-                    <div className="rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 p-8 text-center">
-                        <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-                        <h3 className="text-lg font-semibold text-red-900 dark:text-red-200 mb-2">
+                    <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-8 text-center">
+                        <AlertTriangle className="w-12 h-12 text-destructive mx-auto mb-4" aria-hidden="true" />
+                        <h2 className="text-lg font-semibold text-foreground mb-2">
                             Something went wrong in {this.props.tabName}
-                        </h3>
-                        <p className="text-sm text-red-700 dark:text-red-300 mb-4">
-                            {this.state.error?.message || "An unexpected error occurred"}
+                        </h2>
+                        <p className="text-sm text-muted-foreground mb-4">
+                            This tab could not load. Try again; if it keeps failing, share reference{" "}
+                            <span className="font-mono">{reference}</span>.
                         </p>
                         <button
+                            type="button"
                             onClick={() =>
                                 this.setState((prev) => ({
                                     hasError: false,
@@ -112,10 +117,10 @@ export class TabErrorBoundary extends Component<TabErrorBoundaryProps, TabErrorB
                                     retryCount: prev.retryCount + 1,
                                 }))
                             }
-                            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors text-sm font-medium"
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-medium"
                         >
-                            <RefreshCw className="w-4 h-4" />
-                            Try Again
+                            <RefreshCw className="w-4 h-4" aria-hidden="true" />
+                            Try again
                         </button>
                     </div>
                 </div>

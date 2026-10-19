@@ -2038,19 +2038,25 @@ export async function createProjectUpdateCommentAction(projectId: string, update
         if (!content) return { success: false as const, error: "Comment cannot be empty." };
         const createdAt = new Date();
 
-        let targetUserId: string | null = null;
-        if (parentId) {
-            const [parentComment] = await db
-                .select({ userId: projectUpdateComments.userId })
-                .from(projectUpdateComments)
-                .where(eq(projectUpdateComments.id, parentId))
-                .limit(1);
-            if (parentComment) {
+        if (parentId && !isLooseUuid(parentId)) return { success: false as const, error: "Reply target unavailable." };
+        const posted = await db.transaction(async (tx) => {
+            // COR-039: the parent must be a live comment on this update in this project, read in the write transaction.
+            let targetUserId: string | null = null;
+            if (parentId) {
+                const [parentComment] = await tx
+                    .select({ userId: projectUpdateComments.userId })
+                    .from(projectUpdateComments)
+                    .where(and(
+                        eq(projectUpdateComments.id, parentId),
+                        eq(projectUpdateComments.updateId, updateId),
+                        eq(projectUpdateComments.projectId, projectId),
+                        isNull(projectUpdateComments.deletedAt),
+                    ))
+                    .for("share")
+                    .limit(1);
+                if (!parentComment) return null;
                 targetUserId = parentComment.userId;
             }
-        }
-
-        const [inserted] = await db.transaction(async (tx) => {
             const insertedRows = await tx
                 .insert(projectUpdateComments)
                 .values({
@@ -2068,8 +2074,10 @@ export async function createProjectUpdateCommentAction(projectId: string, update
                 .update(projectUpdates)
                 .set({ commentCount: sql`${projectUpdates.commentCount} + 1`, updatedAt: createdAt })
                 .where(eq(projectUpdates.id, updateId));
-            return insertedRows;
+            return { inserted: insertedRows[0], targetUserId };
         });
+        if (!posted) return { success: false as const, error: "Reply target unavailable." };
+        const { inserted, targetUserId } = posted;
         if (!inserted?.id) return { success: false as const, error: "Failed to post comment." };
 
         const actorName = viewer.profile?.fullName ?? viewer.profile?.username ?? null;

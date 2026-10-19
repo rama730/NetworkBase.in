@@ -868,6 +868,7 @@ export default function TasksTab({
           isFetchingNextPage={isFetchingNextPage}
           activeAssignableMemberIds={activeAssignableMemberIds}
           isLeader={canManageWorkflow}
+          canEditTasks={canEditTasks}
           currentUserId={currentUserId}
           onTaskDragStateChange={setRealtimeDeferredTaskId}
         />

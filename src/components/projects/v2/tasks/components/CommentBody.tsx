@@ -20,6 +20,8 @@ import { cn } from "@/lib/utils";
 interface CommentBodyProps {
     content: string;
     viewerUserId?: string | null;
+    /** Live member names by user id; the token's stored name is only a fallback. */
+    memberNames?: ReadonlyMap<string, string>;
     className?: string;
 }
 
@@ -109,7 +111,7 @@ function renderFormattedText(text: string, keyPrefix: string): React.ReactNode {
     return parts;
 }
 
-export function CommentBody({ content, viewerUserId, className }: CommentBodyProps) {
+export function CommentBody({ content, viewerUserId, memberNames, className }: CommentBodyProps) {
     const { segments } = React.useMemo(() => parseMentions(content), [content]);
 
     return (
@@ -135,7 +137,7 @@ export function CommentBody({ content, viewerUserId, className }: CommentBodyPro
                                 : "bg-primary/10 text-primary",
                         )}
                     >
-                        @{segment.displayName}
+                        @{memberNames?.get(segment.userId) ?? segment.displayName}
                     </span>
                 );
             })}

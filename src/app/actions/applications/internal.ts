@@ -698,6 +698,8 @@ async function listInvitationsInternal(params: {
         .leftJoin(other, eq(other.id, theirs))
         .where(and(
             eq(mine, params.userId),
+            isNull(projects.deletedAt),
+            isNull(other.deletedAt),
             params.pendingOnly ? eq(projectInvitations.status, 'pending') : undefined,
             params.cursorDate && params.cursorId
                 ? or(
@@ -1936,7 +1938,9 @@ export async function getIncomingApplicationsAction(
 
         const invites = await listInvitationsInternal({ userId: user.id, as: 'candidate', pendingOnly: true, cursorDate, cursorId, limit: safeLimit + 1 });
 
-        const mappedApps = roleApps.map((app) => {
+        const mappedApps = roleApps
+            .filter((app) => Boolean(app.applicant?.id) && Boolean(app.project?.id))
+            .map((app) => {
             const actor = {
                 id: app.applicant?.id,
                 username: app.applicant?.username,
@@ -1961,7 +1965,9 @@ export async function getIncomingApplicationsAction(
             };
         });
 
-        const mappedInvites = invites.map((invite) => {
+        const mappedInvites = invites
+            .filter((invite) => Boolean(invite.other?.id))
+            .map((invite) => {
             const actor = {
                 id: invite.other?.id,
                 username: invite.other?.username,
@@ -1990,6 +1996,7 @@ export async function getIncomingApplicationsAction(
         ].sort((a, b) => {
             const timeDiff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
             if (timeDiff !== 0) return timeDiff;
+            if (a._source !== b._source) return a._source.localeCompare(b._source);
             return b.id.localeCompare(a.id);
         });
 
@@ -3082,7 +3089,9 @@ export async function getSentProjectInvitationsAction(options?: { limit?: number
                 and(
                     eq(projectInvitations.inviterId, user.id),
                     eq(projectInvitations.status, 'pending'),
-                    sql`${projectInvitations.expiresAt} > now()`
+                    sql`${projectInvitations.expiresAt} > now()`,
+                    isNull(projects.deletedAt),
+                    isNull(profiles.deletedAt),
                 )
             )
             .orderBy(desc(projectInvitations.createdAt))
@@ -3134,18 +3143,23 @@ export async function cancelSentProjectInvitationAction(input: {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { success: false as const, error: 'Unauthorized' };
 
+    const { allowed } = await consumeRateLimit(`project-invitation-cancel:${user.id}`, 60, 60);
+    if (!allowed) return { success: false as const, error: 'Too many requests. Please try again later.' };
+
     try {
         let didCancel = false;
+        let cancelError: string | undefined;
         if (input.invitationId) {
             const res = await resolveProjectInvitationAction({
                 invitationId: input.invitationId,
                 action: 'cancel',
             });
             didCancel = res.success;
+            if (!res.success) cancelError = res.error;
         }
 
         if (!didCancel) {
-            return { success: false as const, error: 'Failed to cancel project invitation' };
+            return { success: false as const, error: cancelError || 'Failed to cancel project invitation' };
         }
 
         return { success: true as const };
