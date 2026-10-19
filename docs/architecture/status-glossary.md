@@ -3,10 +3,16 @@
 ## Application (`role_applications.status`)
 - `pending`
 - `accepted`
-- `rejected`
+- `rejected` (shown to people as "Declined")
+- `withdrawn`
 
+`proposed` still exists in the database enum (enum values cannot be dropped) but nothing writes it: project
+invitations (`project_invitations`) are the way to offer someone a role.
 `cancelled` is **not** a first-class value in `role_applications.status`.
 `none` is also **not** persisted in `role_applications.status`; it is an application-logic sentinel.
+
+One application per person per project: a withdrawn, declined (after the 24 h cooldown) or ended-membership
+application is revived to `pending` in place, never inserted again. See [applications.md](./applications.md).
 
 ## Application Lifecycle (derived UI/API state)
 - `none`
@@ -32,7 +38,7 @@ Application lifecycle values are centralized in:
 - `disconnected`
 
 Connection history status values are centralized in:
-- `src/lib/applications/status.ts`
+- `src/lib/connections/request-history.ts`
 
 ## Naming guidance
 - Keep action exports suffixed with `Action` for consistency.

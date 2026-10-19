@@ -25,7 +25,9 @@ test.describe("Application flow smoke", () => {
         await row.click();
         await expect(page.locator('[data-chat-pane="conversation"]')).toBeVisible();
         await expect(page.getByText("Application", { exact: true }).first()).toBeVisible({ timeout: 15000 });
-        await expect(page.getByRole("button", { name: /Withdraw|Accept|Decline|Reopen/ }).first().or(page.getByText(/pending|accepted|rejected|withdrawn/i).first())).toBeVisible();
+        // The status bar under the header names the status and carries the controls.
+        await expect(page.getByRole("group", { name: /Application status/ })).toBeVisible();
+        await expect(page.getByRole("button", { name: /Withdraw|Accept|Decline|Reopen/ }).first().or(page.getByText(/pending|accepted|declined|withdrawn/i).first())).toBeVisible();
 
         await monitor.assertNoViolations();
         monitor.detach();
