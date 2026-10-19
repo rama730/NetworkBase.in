@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { usePublishOnlinePresence } from '@/hooks/usePublishOnlinePresence';
+import { PRESENCE_VISIBILITY_EVENT } from '@/lib/presence/events';
 
 interface PresenceProviderProps {
     children?: React.ReactNode;
@@ -61,6 +62,13 @@ export function PresenceProvider({ children = null, presenceEnabled = true }: Pr
             document.removeEventListener('visibilitychange', onVisibilityChange);
         };
     }, [presenceActive]);
+
+    // Changing "Show when I'm active" takes effect at once, without waiting for a heartbeat.
+    useEffect(() => {
+        const onVisibility = (event: Event) => setHidden((event as CustomEvent<{ hidden?: boolean }>).detail?.hidden === true);
+        window.addEventListener(PRESENCE_VISIBILITY_EVENT, onVisibility);
+        return () => window.removeEventListener(PRESENCE_VISIBILITY_EVENT, onVisibility);
+    }, []);
 
     useEffect(() => {
         if (!presenceActive || !engaged) return;

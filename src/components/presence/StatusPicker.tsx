@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { toast } from "sonner";
 
 import { clearMyStatus, setMyStatus, setShowActivity, setStatusVisibility } from "@/app/actions/presence";
+import { PRESENCE_VISIBILITY_EVENT } from "@/lib/presence/events";
 import { EmojiChoice } from "@/components/presence/EmojiChoice";
 import { usePresenceUi } from "@/components/presence/presence-ui-store";
 import { useMyPresenceSettings, useRefreshPresence } from "@/components/presence/useMyPresence";
@@ -101,6 +102,8 @@ export function StatusPicker() {
       if (settings.data && showActivity !== settings.data.showActivity) {
         const result = await setShowActivity({ show: showActivity });
         if (!result.success) throw new Error(result.error);
+        // The publisher leaves its presence room now, not at the next heartbeat.
+        window.dispatchEvent(new CustomEvent(PRESENCE_VISIBILITY_EVENT, { detail: { hidden: !showActivity } }));
       }
       if (hasStatus) {
         const end = clearAfterToDate(clearAfter, new Date(), until ? new Date(until) : null);
