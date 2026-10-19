@@ -11,6 +11,9 @@ const PUSH_PROVIDER_HOST_SUFFIXES = [
   "notify.windows.com", // Windows Notification Service
 ] as const;
 
+/** Active devices kept per user; the least recently seen are dropped on save (PERF-005). */
+export const MAX_PUSH_ENDPOINTS_PER_USER = 10;
+
 export function isAllowedPushEndpoint(endpoint: unknown): endpoint is string {
   if (typeof endpoint !== "string" || endpoint.length > 2048) return false;
   let url: URL;

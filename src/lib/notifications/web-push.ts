@@ -1,5 +1,5 @@
 import webpush, { type PushSubscription as WebPushSubscription } from "web-push";
-import { isAllowedPushEndpoint } from "@/lib/notifications/push-endpoint";
+import { isAllowedPushEndpoint, MAX_PUSH_ENDPOINTS_PER_USER } from "@/lib/notifications/push-endpoint";
 import { and, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
@@ -127,7 +127,9 @@ export async function sendPushToUser(userId: string, payloadData: WebPushPayload
             auth: pushSubscriptions.auth,
         })
         .from(pushSubscriptions)
-        .where(eq(pushSubscriptions.userId, userId));
+        .where(eq(pushSubscriptions.userId, userId))
+        .orderBy(sql`${pushSubscriptions.lastSeenAt} DESC NULLS LAST`)
+        .limit(MAX_PUSH_ENDPOINTS_PER_USER);
 
     if (rows.length === 0) {
         await logDeliveryRecords([{
