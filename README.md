@@ -16,7 +16,7 @@ The most important architecture docs live here:
 - [System map](docs/architecture/system-map.md)
 - [Engineering standards charter](docs/architecture/engineering-standards-charter.md)
 - [Engineering standards enforcement matrix](docs/architecture/engineering-standards-enforcement-matrix.md)
-- [Stability rollout runbook](docs/stability-rollout-runbook.md)
+- [Stability rollout runbook (archived, 2026-09)](docs/stability-rollout-runbook.md)
 - [Page data contract](docs/performance/page-data-contract.md)
 - [Security checklist](docs/security-checklist.md)
 
@@ -50,7 +50,7 @@ Cursor, typing, and online presence state remains ephemeral and is not written t
 The web deployment must not register heavy Git/import workers. Function registration is controlled by:
 
 - [registry.ts](src/inngest/registry.ts)
-- [route.ts](src/app/api/v1/inngest/route.ts)
+- [route.ts](src/app/api/inngest/route.ts)
 
 Set `INNGEST_EXECUTION_ROLE=web` for the web app and `INNGEST_EXECUTION_ROLE=worker` for the worker deployment.
 
@@ -64,18 +64,15 @@ npm run check:engineering-standards
 npm run check:page-contract
 npm run check:force-dynamic-allowlist
 npm run check:runtime-boundaries
-npm run check:stability-release -- --target=staging
 ```
 
-Dedicated runtime commands:
+Local development:
 
 ```bash
 npm run dev
-npm run dev:collab
-npm run run:load-suite -- --base-url=http://127.0.0.1:3000 --auth-cookie="sb-access-token=...; sb-refresh-token=..."
 ```
 
-`npm run dev` starts only the Next.js app. Use `npm run dev:collab` when actively developing collaborative Docs; it adds the local Yjs server. Typing indicators and cursor presence connect through Supabase Realtime.
+`npm run dev` starts the Next.js app. Typing indicators and cursor presence connect through Supabase Realtime; there is no separate collaboration server.
 
 ## Environment
 
@@ -92,16 +89,4 @@ The new scale-critical settings are:
 
 ## Operational Proof
 
-Repo code is only one part of scale readiness. The final rollout and capacity artifacts live in:
-
-- [ops/stability/README.md](ops/stability/README.md)
-- [capacity-audit.example.json](ops/stability/capacity-audit.example.json)
-- [production-rollout.example.json](ops/stability/production-rollout.example.json)
-
-Readiness is not claimed until:
-
-- the workspace counter migration is applied
-- the capacity audit is approved
-- the production rollout plan is approved
-- the load suite is green
-- [reports/stability/headroom/latest.json](reports/stability/headroom/latest.json) reports `READY`
+The capacity-audit, production-rollout and load-suite tooling described in the archived [stability rollout runbook](docs/stability-rollout-runbook.md) no longer exists in this repo. Current release evidence comes from `npm run check:engineering-standards`, `npm run test:db` and the E2E gates in `.github/workflows/`.

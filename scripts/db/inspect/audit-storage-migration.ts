@@ -29,8 +29,6 @@ async function main() {
       quarantinedHistoricalVersions: number;
       coversWithoutAsset: number;
       updateMediaWithoutAsset: number;
-      committedUploadsWithoutAsset: number;
-      messageAttachmentsWithoutAsset: number;
       quarantinedChatReferences: number;
       managedAvatarsWithoutPublicAsset: number;
       quarantinedSyncSnapshots: number;
@@ -79,21 +77,9 @@ async function main() {
                 AND asset.storage_key = media.item->>'storageKey'
             )
         ) AS "updateMediaWithoutAsset",
-        (SELECT count(*)::int FROM public.attachment_uploads
-          WHERE status = 'committed' AND storage_path IS NOT NULL AND asset_id IS NULL
-        ) AS "committedUploadsWithoutAsset",
-        (SELECT count(*)::int FROM public.message_attachments
-          WHERE storage_path IS NOT NULL AND asset_id IS NULL
-        ) AS "messageAttachmentsWithoutAsset",
         (SELECT count(*)::int
-          FROM (
-            SELECT upload.asset_id FROM public.attachment_uploads upload
-              WHERE upload.status = 'committed' AND upload.asset_id IS NOT NULL
-            UNION ALL
-            SELECT attachment.asset_id FROM public.message_attachments attachment
-              WHERE attachment.asset_id IS NOT NULL
-          ) reference
-          JOIN public.storage_assets asset ON asset.id = reference.asset_id
+          FROM public.chat_attachments attachment
+          JOIN public.storage_assets asset ON asset.id = attachment.asset_id
           WHERE asset.state = 'missing'
         ) AS "quarantinedChatReferences",
         (SELECT count(*)::int FROM public.profiles profile

@@ -1,3 +1,5 @@
+> **Archived (2026-09).** The commands and files named below (`check:stability-*`, `run:load-suite`, `check:capacity-audit`, `check:production-rollout`, `check:hardening-rollout`, `check:1m-readiness`, `ops/stability/`) were removed. This page is kept as dated evidence of the rollout plan, not as a current runbook.
+
 # Stability Rollout Runbook
 
 This runbook turns the remaining 7 operational hardening items into an executable flow.

@@ -18,7 +18,6 @@ export const dynamic = "force-dynamic";
 
 const mergeBodySchema = z.object({
     sessionId: z.string().uuid(),
-    targetBranch: z.string().optional().default("main"),
 });
 
 /**
@@ -63,7 +62,7 @@ export async function POST(
             return jsonError("Invalid request body", 400, "BAD_REQUEST");
         }
 
-        const { sessionId, targetBranch } = parsed.data;
+        const { sessionId } = parsed.data;
 
         // Check project access and role
         const access = await getProjectAccessById(projectId, user.id);
@@ -83,7 +82,7 @@ export async function POST(
             return jsonError("Forbidden: You do not have permission to merge tasks", 403, "FORBIDDEN");
         }
 
-        const result = await mergeSandboxTask(user.id, projectId, taskId, sessionId, targetBranch);
+        const result = await mergeSandboxTask(user.id, projectId, taskId, sessionId);
 
         return jsonSuccess({
             merged: true,
