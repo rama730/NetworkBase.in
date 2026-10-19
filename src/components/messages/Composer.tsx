@@ -640,7 +640,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     if (!threadRootSeq && canCreateTask && /^\/task\s+\S/.test(text)) {
       if (sending) return;
       setSending(true);
-      const result = await createTaskFromMessage({ channelId, title: text.replace(/^\/task\s+/, "").slice(0, 200) });
+      const result = await createTaskFromMessage({ channelId, title: text.replace(/^\/task\s+/, "").slice(0, 200), operationId: crypto.randomUUID() });
       setSending(false);
       if (!result.success) return void toast.error(chatErrorMessage(result.error));
       update((pages) => upsertMessage(pages, result.message));

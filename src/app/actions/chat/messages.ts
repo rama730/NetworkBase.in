@@ -15,6 +15,8 @@ import { messageHref } from "@/lib/messaging/routes";
 import type { ChatCardRef } from "@/lib/messaging/types";
 import { rateLimit } from "@/lib/redis";
 import { countsOrNothing } from "@/lib/messaging/inbox-counts";
+import { IdempotencyConflictError, runIdempotent } from "@/lib/security/idempotency";
+import { createHash } from "node:crypto";
 
 export async function sendMessage(input: SendInput & { alsoToChannel?: boolean }) {
   const user = await requireChatUser();
@@ -30,8 +32,11 @@ export async function sendMessage(input: SendInput & { alsoToChannel?: boolean }
     // Its mentions are flattened (the reply already notified them), and a failed copy
     // never fails the reply that was sent: the client only says "Also sent" when it was.
     if (!sent.success || !alsoToChannel || !input.threadRootSeq || !(input.body.trim() || input.assetIds?.length)) return sent;
+    // The copy's identity derives from the reply's, so a retry of the whole send finds the copy it
+    // already made instead of posting another (COR-054).
+    const copyClientId = input.clientId ? `also:${createHash("sha256").update(input.clientId).digest("hex")}` : null;
     const copy = await flattenMentions(input.body)
-      .then((body) => sendAs(user, { channelId: input.channelId, body, assetIds: input.assetIds }, null))
+      .then((body) => sendAs(user, { channelId: input.channelId, body, assetIds: input.assetIds, clientId: copyClientId }, null))
       .catch(() => null);
     return { ...sent, alsoSent: Boolean(copy?.success) };
   } catch (error) {
@@ -52,11 +57,17 @@ async function flattenMentions(body: string) {
     .replace(/<!(channel|here)>/g, "@$1");
 }
 
-/** `/task Title`: create a task in the channel's project, then post its card. */
-export async function createTaskFromMessage(input: { channelId: string; title: string; threadRootSeq?: number | null }) {
+/**
+ * `/task Title`: create a task in the channel's project, then post its card. `operationId` (a uuid the
+ * client keeps for one attempt) is the shared identity of both steps: the created task is remembered
+ * under it and the card's clientId derives from it, so a retry resumes where the first try stopped
+ * instead of creating a second task (COR-055).
+ */
+export async function createTaskFromMessage(input: { channelId: string; title: string; threadRootSeq?: number | null; operationId?: string }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
   if (!isUuid(input?.channelId) || typeof input.title !== "string" || !input.title.trim()) return invalidInput;
+  if (input.operationId !== undefined && !isUuid(input.operationId)) return invalidInput;
   if (!takeSendToken(user.id)) return { success: false as const, error: "chat_rate_limited" };
   try {
     const projectId = await chatValue<string | null>(sql`
@@ -64,15 +75,27 @@ export async function createTaskFromMessage(input: { channelId: string; title: s
       WHERE id = ${input.channelId}::uuid AND app_private.chat_is_member(id, ${user.id}::uuid)
     `);
     if (!projectId) return { success: false as const, error: "chat_task_needs_project" };
-    const created = await createTaskAction({ projectId, title: input.title.trim().slice(0, 200), status: "todo", priority: "medium" });
-    if (!created.success || !("task" in created) || !created.task) {
-      return { success: false as const, error: "chat_task_create_failed" };
-    }
-    return await sendAs(user, { channelId: input.channelId, body: "", threadRootSeq: input.threadRootSeq }, { kind: "task", ref_id: created.task.id });
+    const { result: created } = await runIdempotent(
+      { namespace: "chat.task-from-message", scopeId: `${user.id}:${input.channelId}`, key: input.operationId },
+      async () => {
+        const task = await createTaskAction({ projectId, title: input.title.trim().slice(0, 200), status: "todo", priority: "medium" });
+        if (!task.success || !("task" in task) || !task.task) throw new TaskCreateFailed();
+        return { taskId: task.task.id };
+      },
+    );
+    return await sendAs(
+      user,
+      { channelId: input.channelId, body: "", threadRootSeq: input.threadRootSeq, clientId: input.operationId ? `task:${input.operationId}` : null },
+      { kind: "task", ref_id: created.taskId },
+    );
   } catch (error) {
+    if (error instanceof TaskCreateFailed) return { success: false as const, error: "chat_task_create_failed" };
+    if (error instanceof IdempotencyConflictError) return { success: false as const, error: "chat_task_in_progress" };
     return chatFailure(error, "create_task");
   }
 }
+
+class TaskCreateFailed extends Error {}
 
 export async function editMessage(input: { channelId: string; seq: number; body: string }) {
   const user = await requireChatUser();

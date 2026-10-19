@@ -577,22 +577,22 @@ export function InboxView() {
     enabled: filter !== "threads",
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam }) => {
-      const result = await listInbox({ filter: feedFilter, before: pageParam });
+      const result = await listInbox({ filter: feedFilter, cursor: pageParam });
       if (!result.success) throw new Error(result.error);
       return result.items;
     },
-    getNextPageParam: (page) => (page.length === CHAT_LIST_PAGE ? page.at(-1)?.created_at : undefined),
+    getNextPageParam: (page) => (page.length === CHAT_LIST_PAGE ? page.at(-1)?.cursor : undefined),
   });
   const threadPages = useInfiniteQuery({
     queryKey: queryKeys.chat.threads(),
     enabled: filter === "threads",
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam }) => {
-      const result = await listThreads({ before: pageParam });
+      const result = await listThreads({ cursor: pageParam });
       if (!result.success) throw new Error(result.error);
       return result.threads;
     },
-    getNextPageParam: (page) => (page.length === CHAT_LIST_PAGE ? page.at(-1)?.last_reply_at ?? undefined : undefined),
+    getNextPageParam: (page) => (page.length === CHAT_LIST_PAGE ? page.at(-1)?.cursor : undefined),
   });
   const threads = threadPages.data?.pages.flat();
   const items = (feed.data?.pages.flat() ?? []).filter((item) => filter !== "unread" || (!item.read && item.kind !== "reaction"));
