@@ -1,5 +1,4 @@
 export type {
-    ApplicationRequestHistoryItem,
     ApplicationActionOptions,
     ApplicationActionResult,
     ApplicationCursorPaginationInput,
@@ -15,11 +14,8 @@ export {
     cancelSentProjectInvitationAction,
     declineProposedRoleAction,
     editPendingApplicationAction,
-    getApplicationRequestHistory,
     getApplicationStatusAction,
     getIncomingApplicationsAction,
-    getInboxApplicationsAction,
-    getMyApplicationsAction,
     getProjectInviteOptionsAction,
     getSentProjectInvitationsAction,
     rejectApplicationAction,

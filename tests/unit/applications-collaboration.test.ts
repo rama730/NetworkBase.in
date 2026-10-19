@@ -53,15 +53,12 @@ test('declineProposedRoleAction reverts application back to pending', () => {
 
   test("invitation lists read the canonical project_invitations table", () => {
     assert.match(internal, /async function listInvitationsInternal/);
-    assert.match(internal, /listInvitationsInternal\(\{ userId: user\.id, as: 'inviter'/);
-    assert.match(internal, /listInvitationsInternal\(\{ userId: user\.id, as: 'candidate', pendingOnly: true/);
-    assert.match(internal, /FROM \$\{projectInvitations\} invite/);
+    assert.match(internal, /listInvitationsInternal\(\{ userId: user\.id, pendingOnly: true/);
+    assert.match(internal, /\.from\(projectInvitations\)/);
     assert.doesNotMatch(internal, /messageWorkflowItems|conversationParticipants|dmPairs/);
   });
 
-  test("application unread counts and links come from the application's chat thread", () => {
-    assert.match(internal, /WHERE c\.application_id = application\.id/);
-    assert.match(internal, /threadByApplicationId\.get\(app\.id\)\?\.channelId/);
+  test("every new application opens its own chat thread in the same transaction", () => {
     assert.match(internal, /ensureApplicationChannel\(tx, newApp!\.id\)/);
   });
 

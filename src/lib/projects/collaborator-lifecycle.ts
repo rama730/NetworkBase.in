@@ -17,7 +17,7 @@ import {
     projectNodes,
     projectInvitations,
 } from "@/lib/db/schema";
-import { syncProjectChat } from "@/lib/messaging/integrations";
+import { postApplicationUpdate, syncProjectChat } from "@/lib/messaging/integrations";
 import { recordTaskAssignment, taskAssignmentNotification } from "@/lib/projects/task-assignment";
 import type { EnqueueProjectNotificationEventInput } from "@/lib/notifications/project-events";
 import {
@@ -57,6 +57,8 @@ export type ProjectCollaboratorLifecycleResult = {
     target: ProjectCollaboratorSnapshot | null;
     previousRole: ProjectMemberRole | null;
     nextRole: ProjectMemberRole | null;
+    /** Pending applications closed because this member filled their role (the caller notifies them after commit). */
+    closedApplications?: Array<{ id: string; applicantId: string; roleId: string }>;
 };
 
 function displayNameForSnapshot(snapshot: ProjectCollaboratorSnapshot | null) {
@@ -213,6 +215,7 @@ export async function addProjectMemberInternal(
     const previousRole = await readMembershipRole(executor, params.projectId, params.userId, project.ownerId, true);
     const nextRole = params.userId === project.ownerId ? "owner" : normalizeProjectMemberRole(params.role ?? "member", "member");
     let changed = false;
+    let closedApplications: Array<{ id: string; applicantId: string; roleId: string }> = [];
 
     if (!previousRole) {
         await executor.insert(projectMembers).values({
@@ -283,7 +286,7 @@ export async function addProjectMemberInternal(
                     status: 'rejected',
                     decisionAt: new Date(),
                     decisionBy: params.actorId,
-                    decisionReasonCode: 'role_capacity_filled',
+                    decisionReasonCode: 'role_filled',
                     decisionReasonText: 'The project role was filled before this application was accepted.',
                     updatedAt: new Date(),
                 })
@@ -292,7 +295,7 @@ export async function addProjectMemberInternal(
                     eq(roleApplications.roleId, params.roleId),
                     eq(roleApplications.status, 'pending')
                 ))
-                .returning({ id: roleApplications.id });
+                .returning({ id: roleApplications.id, applicantId: roleApplications.applicantId });
 
             if (rejectedApplications.length > 0) {
                 await executor.insert(applicationEvents).values(
@@ -302,7 +305,7 @@ export async function addProjectMemberInternal(
                         kind: 'rejected' as const,
                         fromStatus: 'pending',
                         toStatus: 'rejected',
-                        reasonCode: 'role_capacity_filled',
+                        reasonCode: 'role_filled',
                         reasonText: 'The project role was filled before this application was accepted.',
                         metadata: {
                             source: params.source,
@@ -310,6 +313,11 @@ export async function addProjectMemberInternal(
                         },
                     })),
                 );
+                // Each closed applicant is told in their own thread (the card chip already flips live).
+                for (const application of rejectedApplications) {
+                    await postApplicationUpdate(executor, application.id, params.actorId, 'closed this application: the role was filled.');
+                }
+                closedApplications = rejectedApplications.map((application) => ({ ...application, roleId: params.roleId as string }));
             }
 
             // Pending invitations for the filled role expire; their chat cards follow live.
@@ -372,7 +380,7 @@ export async function addProjectMemberInternal(
         await markProfileCollaborationSummaryStale(project.ownerId, executor);
     }
 
-    return { eventId: event?.id ?? null, changed, project, target, previousRole, nextRole };
+    return { eventId: event?.id ?? null, changed, project, target, previousRole, nextRole, closedApplications };
 }
 
 export async function changeProjectMemberRoleInternal(

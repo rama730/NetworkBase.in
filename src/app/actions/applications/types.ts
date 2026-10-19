@@ -8,6 +8,10 @@ export type ApplicationActionErrorCode =
     | 'PROJECT_NOT_FOUND'
     | 'ROLE_NOT_FOUND'
     | 'ROLE_FULL'
+    | 'ROLE_REMOVED'
+    | 'PROJECT_CLOSED'
+    | 'CAP_REACHED'
+    | 'ALREADY_PENDING'
     | 'ALREADY_MEMBER'
     | 'ALREADY_PROCESSED'
     | 'INVALID_STATE'
@@ -21,9 +25,10 @@ export type ApplicationActionErrorCode =
 export type ApplicationActionOptions = {
     idempotencyKey?: string | null;
     applicationTraceId?: string | null;
-    applyingProjectId?: string | null;
-    applyingProjectRole?: string | null;
 };
+
+/** What a submit did: a new application, a revived one, an in-place edit, or nothing (already pending). */
+export type ApplicationSubmitOutcome = 'submitted' | 'resubmitted' | 'updated' | 'already_pending';
 
 export type ApplicationActionResult = {
     success: boolean;
@@ -34,6 +39,7 @@ export type ApplicationActionResult = {
     channelId?: string | null;
     applicationTraceId?: string;
     idempotent?: boolean;
+    outcome?: ApplicationSubmitOutcome;
 };
 
 export type ApplicationStatusResult = {
@@ -53,29 +59,6 @@ export type ApplicationStatusResult = {
     proposedRoleId?: string;
     proposedRoleTitle?: string;
 };
-
-export interface ApplicationRequestHistoryItem {
-    id: string;
-    kind: 'application';
-    direction: 'incoming' | 'outgoing';
-    status: ApplicationLifecycleStatus;
-    decisionReason?: string | null;
-    eventAt: string;
-    createdAt: string;
-    channelId?: string | null;
-    project: {
-        id: string;
-        title: string;
-        slug: string | null;
-    };
-    roleTitle: string;
-    user: {
-        id: string;
-        username: string | null;
-        fullName: string | null;
-        avatarUrl: string | null;
-    } | null;
-}
 
 export type ApplicationCursorPaginationInput = {
     limit?: number;

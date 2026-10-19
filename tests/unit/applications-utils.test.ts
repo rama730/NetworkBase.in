@@ -20,42 +20,26 @@ test('calculateCooldown returns wait time when still in cooldown window', () => 
     assert.equal(result.waitTime, '21h 30m');
 });
 
-test('normalizeApplicationMessageText normalizes link + availability and de-duplicates', () => {
-    const raw = `
-        I can contribute now.
-        github.com/example/repo
-        Availability: 15 hrs/week
-        github.com/example/repo
-    `;
-
-    const normalized = normalizeApplicationMessageText(raw);
-    assert.match(normalized, /I can contribute now\./);
-    assert.match(normalized, /GitHub: https:\/\/github\.com\/example\/repo/);
-    assert.match(normalized, /Availability: 15 hrs\/week/);
-    const occurrences = normalized.split('GitHub: https://github.com/example/repo').length - 1;
-    assert.equal(occurrences, 1);
+test('normalizeApplicationMessageText keeps the applicant\'s text as written', () => {
+    const raw = '  I can contribute now.\r\n\r\n\r\n\r\ngithub.com/example/repo  \ngithub.com/example/repo\nAvailability: 15 hrs/week  ';
+    assert.equal(
+        normalizeApplicationMessageText(raw),
+        'I can contribute now.\n\ngithub.com/example/repo\ngithub.com/example/repo\nAvailability: 15 hrs/week',
+    );
 });
 
-test('normalizeApplicationMessageText preserves descriptive lines with inline links', () => {
-    const raw = `
-        My profile is github.com/example and I can contribute fast.
-        linkedin.com/in/example
-    `;
-
-    const normalized = normalizeApplicationMessageText(raw);
-    assert.match(normalized, /My profile is github\.com\/example and I can contribute fast\./);
-    assert.match(normalized, /LinkedIn: https:\/\/linkedin\.com\/in\/example/);
+test('normalizeApplicationMessageText never truncates (length is validated, not trimmed)', () => {
+    assert.equal(normalizeApplicationMessageText('x'.repeat(5000)).length, 5000);
 });
 
-test('normalizeApplicationMessageText normalizes labeled bare links safely', () => {
-    const raw = `
-        GitHub: github.com/example/repo
-        Portfolio: https://example.dev/work
-    `;
-
-    const normalized = normalizeApplicationMessageText(raw);
-    assert.match(normalized, /GitHub: https:\/\/github\.com\/example\/repo/);
-    assert.match(normalized, /Portfolio: https:\/\/example\.dev\/work/);
+test('the input schema bounds ids and message length', async () => {
+    const { applyToRoleInputSchema, APPLICATION_MESSAGE_MAX } = await import('@/lib/validations/application');
+    const ids = { projectId: '11111111-1111-4111-8111-111111111111', roleId: '22222222-2222-4222-8222-222222222222' };
+    assert.equal(applyToRoleInputSchema.safeParse({ ...ids, message: 'hi' }).success, true);
+    assert.equal(applyToRoleInputSchema.safeParse({ ...ids, message: '   ' }).success, false);
+    assert.equal(applyToRoleInputSchema.safeParse({ ...ids, message: 'x'.repeat(APPLICATION_MESSAGE_MAX + 1) }).success, false);
+    assert.equal(applyToRoleInputSchema.safeParse({ ...ids, roleId: 'nope', message: 'hi' }).success, false);
+    assert.equal(applyToRoleInputSchema.safeParse({ ...ids, message: { toString: 'x' } }).success, false);
 });
 
 test('resolveLifecycleStatus handles known terminal reasons', () => {

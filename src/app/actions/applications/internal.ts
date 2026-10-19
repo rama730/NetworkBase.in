@@ -11,20 +11,17 @@ import {
     projects,
     projectMembers,
     connections,
-    chatChannels,
-    chatChannelMembers,
     profiles,
     projectInvitations,
     applicationEvents,
 } from '@/lib/db/schema';
-import { eq, and, sql, or, inArray, desc, lt, exists, isNull, ne, notExists, asc } from 'drizzle-orm';
+import { eq, and, sql, or, inArray, desc, lt, isNull, ne, notExists, asc } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { resolveProjectInvitationAction } from '@/app/actions/project/guidance';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
 import { runInFlightDeduped } from '@/lib/utils/inflight-dedupe';
-import { toIsoString as toISODate } from '@/lib/utils/date';
 import {
     APPLICATION_DECISION_REASON_TEMPLATES,
     normalizeApplicationDecisionReason,
@@ -42,7 +39,6 @@ import type {
     ApplicationActionOptions,
     ApplicationActionResult,
     ApplicationCursorPaginationInput,
-    ApplicationRequestHistoryItem,
     ApplicationStatusResult,
     ApplicationActionErrorCode,
 } from './types';
@@ -50,6 +46,13 @@ import { refreshWorkspaceCountersForUsers } from '@/lib/workspace/profile-counte
 import { addProjectMemberInternal } from '@/lib/projects/collaborator-lifecycle';
 import { computeProjectReadAccess } from '@/lib/data/project-access';
 import { isUuid } from '@/lib/validations/uuid';
+import { resolvePrivacyRelationship } from '@/lib/privacy/resolver';
+import {
+    APPLICATION_NOTE_MAX,
+    applicationNoteSchema,
+    applyToRoleInputSchema,
+    editApplicationInputSchema,
+} from '@/lib/validations/application';
 import { conversationHref } from '@/lib/messaging/routes';
 
 // ============================================================================
@@ -185,54 +188,6 @@ function toApplicationSuccess(
 }
 
 
-function buildApplicationMessageContent(projectTitle: string, roleTitle: string, normalizedMessage: string) {
-    return `${projectTitle} / ${roleTitle}\n\n${normalizedMessage}`.trim();
-}
-
-function buildApplicationClientMessageId(applicationId: string) {
-    return `application:${applicationId}`;
-}
-
-function buildApplicationDecisionClientMessageId(applicationId: string, status: ApplicationDecisionStatus) {
-    return `application:decision:${applicationId}:${status}`;
-}
-
-function buildApplicationReopenClientMessageId(applicationId: string) {
-    return `application:decision:${applicationId}:reopened`;
-}
-
-function appendTimelineEvent(
-    metadata: Record<string, unknown> | null | undefined,
-    event: Record<string, unknown>
-) {
-    const prev = metadata && typeof metadata === 'object' ? metadata : {};
-    const timeline = Array.isArray((prev as any).timeline)
-        ? ([...(prev as any).timeline] as Record<string, unknown>[])
-        : [];
-    timeline.push(event);
-    return { ...prev, timeline };
-}
-
-function resolveDecisionMessage(
-    status: ApplicationDecisionStatus,
-    customMessage?: string,
-    reason?: string
-) {
-    const trimmedCustom = (customMessage || '').trim();
-    if (trimmedCustom) return trimmedCustom;
-    if (status === 'accepted') {
-        return 'Welcome to the project.';
-    }
-    if (status === 'withdrawn') {
-        return 'Application withdrawn by applicant';
-    }
-    if (status === 'proposed') {
-        return 'Role change proposed by project lead';
-    }
-    const reasonKey = normalizeDecisionReasonCode(reason);
-    return APPLICATION_DECISION_REASON_TEMPLATES[reasonKey];
-}
-
 function applicationActorSnapshot(user: { user_metadata?: Record<string, unknown> | null }) {
     return {
         actorName: (user.user_metadata?.full_name as string | undefined) ?? (user.user_metadata?.username as string | undefined) ?? null,
@@ -294,7 +249,7 @@ async function enqueueApplicationReceivedBestEffort(params: {
 
 async function enqueueApplicationDecisionBestEffort(params: {
     applicationId: string;
-    status: "accepted" | "rejected" | "reopened";
+    status: "accepted" | "rejected" | "reopened" | "role_filled";
     channelId?: string | null;
     projectId: string;
     projectSlug?: string | null;
@@ -314,7 +269,9 @@ async function enqueueApplicationDecisionBestEffort(params: {
             actorAvatarUrl: params.actorAvatarUrl ?? null,
             eventKey: "applications.decision",
             applicantId: params.applicantId,
-            title: `${params.actorName || "Someone"} ${params.status === "accepted" ? "accepted" : params.status === "rejected" ? "updated" : "reopened"} your application`,
+            title: params.status === "role_filled"
+                ? "The role you applied for was filled"
+                : `${params.actorName || "Someone"} ${params.status === "accepted" ? "accepted" : params.status === "rejected" ? "updated" : "reopened"} your application`,
             body: params.projectTitle ? `Project: ${params.projectTitle}` : null,
             href: params.channelId
                 ? conversationHref(params.channelId)
@@ -607,31 +564,85 @@ async function transitionApplicationDecisionInternal(
     return transitioned.length > 0;
 }
 
+// ============================================================================
+// SHARED GUARDS AND TRANSITIONS
+// ============================================================================
+
+/** Serialises one applicant's pending-cap check, so two submits cannot both pass it. */
+async function lockPendingCap(tx: any, applicantId: string) {
+    await tx.execute(sql`
+        SELECT pg_advisory_xact_lock(hashtextextended('application-pending-cap:' || ${applicantId}, 0))
+    `);
+}
+
+async function hasPendingCapacity(tx: any, applicantId: string) {
+    const [pending] = await tx
+        .select({ count: sql<number>`COUNT(*)::int` })
+        .from(roleApplications)
+        .where(and(
+            eq(roleApplications.applicantId, applicantId),
+            eq(roleApplications.status, 'pending'),
+        ));
+    return (pending?.count ?? 0) < APPLICATION_PENDING_CAP_PER_USER;
+}
+
+const CAP_REACHED_MESSAGE = `You have ${APPLICATION_PENDING_CAP_PER_USER} pending applications. Withdraw one to apply.`;
+
+function isUniqueViolation(error: unknown) {
+    const candidate = error as { code?: string; cause?: { code?: string } } | null;
+    return candidate?.code === '23505' || candidate?.cause?.code === '23505';
+}
+
+type ApplicationGuardFailure = { code: ApplicationActionErrorCode; message: string };
+
+/**
+ * Whether a project may take or accept an application between these two people right now:
+ * live, not archived or completed, and no block between them. One rule for apply, reapply,
+ * accept and reopen (invitations already check the same).
+ */
+async function guardProjectForApplication(
+    project: { status: string | null; deletedAt: Date | null },
+    applicantId: string,
+    otherPartyId: string,
+): Promise<ApplicationGuardFailure | null> {
+    if (project.deletedAt) return { code: 'PROJECT_NOT_FOUND', message: 'Project not found' };
+    if (project.status === 'archived' || project.status === 'completed') {
+        return { code: 'PROJECT_CLOSED', message: 'This project is no longer taking applications' };
+    }
+    const relationship = await resolvePrivacyRelationship(applicantId, otherPartyId);
+    if (relationship && (relationship.blockedByViewer || relationship.blockedByTarget)) {
+        return { code: 'FORBIDDEN', message: 'This application is not available' };
+    }
+    return null;
+}
+
+type PendingTransition = 'reopened' | 'cap' | 'gone';
+
+/**
+ * Moves an application back to pending: a reviewer reopening a rejection, or the applicant
+ * reviving their own rejected, withdrawn or ended-membership application. The row is the
+ * applicant's one application for the project, so it is reused, not re-inserted.
+ */
 async function transitionApplicationToPendingInternal(
     tx: any,
     applicationId: string,
     actorId: string,
     reasonCode: string,
-) {
+    options: {
+        from?: Array<'rejected' | 'withdrawn' | 'accepted'>;
+        revive?: { roleId: string; message: string; creatorId: string };
+    } = {},
+): Promise<PendingTransition> {
+    const from = options.from ?? ['rejected'];
     const [candidate] = await tx
-        .select({ applicantId: roleApplications.applicantId })
+        .select({ applicantId: roleApplications.applicantId, status: roleApplications.status })
         .from(roleApplications)
-        .where(and(eq(roleApplications.id, applicationId), eq(roleApplications.status, 'rejected')))
+        .where(and(eq(roleApplications.id, applicationId), inArray(roleApplications.status, from)))
         .limit(1);
     // COR-033: already reopened (or decided otherwise) by a concurrent request: a conflict, not a crash.
-    if (!candidate) return false;
-    // PURE OPTIMIZATION (Item 94): Upgrade 32-bit hashtext to 64-bit hashtextextended advisory lock.
-    await tx.execute(sql`
-        SELECT pg_advisory_xact_lock(hashtextextended('application-pending-cap:' || ${candidate.applicantId}, 0))
-    `);
-    const [pending] = await tx
-        .select({ count: sql<number>`COUNT(*)::int` })
-        .from(roleApplications)
-        .where(and(
-            eq(roleApplications.applicantId, candidate.applicantId),
-            eq(roleApplications.status, 'pending'),
-        ));
-    if ((pending?.count ?? 0) >= APPLICATION_PENDING_CAP_PER_USER) return false;
+    if (!candidate) return 'gone';
+    await lockPendingCap(tx, candidate.applicantId);
+    if (!(await hasPendingCapacity(tx, candidate.applicantId))) return 'cap';
 
     const now = new Date();
     const transitioned = await tx
@@ -644,37 +655,72 @@ async function transitionApplicationToPendingInternal(
             decisionReasonCode: null,
             decisionReasonText: null,
             acceptedRoleTitle: null,
+            // A revived application is a new submission: new role and text, current owner, and its
+            // own submitted time (which also restarts the edit window).
+            ...(options.revive
+                ? { roleId: options.revive.roleId, message: options.revive.message, creatorId: options.revive.creatorId, createdAt: now }
+                : {}),
         })
-        .where(and(eq(roleApplications.id, applicationId), eq(roleApplications.status, 'rejected')))
+        .where(and(eq(roleApplications.id, applicationId), inArray(roleApplications.status, from)))
         .returning({ id: roleApplications.id });
+    if (transitioned.length === 0) return 'gone';
 
-    if (transitioned.length > 0) {
-        await tx.insert(applicationEvents).values({
-            applicationId,
-            actorId,
-            kind: 'reopened',
-            fromStatus: 'rejected',
-            toStatus: 'pending',
-            reasonCode,
-        });
-    }
-    return transitioned.length > 0;
+    await tx.insert(applicationEvents).values({
+        applicationId,
+        actorId,
+        kind: 'reopened',
+        fromStatus: candidate.status,
+        toStatus: 'pending',
+        reasonCode,
+    });
+    return 'reopened';
 }
 
-type InvitationRole = 'inviter' | 'candidate';
+/**
+ * Edits a pending application in place (message, and optionally the role) inside the edit window.
+ * Fenced in the UPDATE on applicant, pending state and window, so a decision that lands first wins.
+ * Returns the thread id, or null when the row no longer qualifies.
+ */
+async function editPendingApplicationInTx(
+    tx: any,
+    params: { applicationId: string; applicantId: string; message: string; roleId?: string | null; traceId: string },
+): Promise<string | null> {
+    const edited = await tx
+        .update(roleApplications)
+        .set({
+            message: params.message,
+            ...(params.roleId ? { roleId: params.roleId } : {}),
+            updatedAt: new Date(),
+        })
+        .where(and(
+            eq(roleApplications.id, params.applicationId),
+            eq(roleApplications.applicantId, params.applicantId),
+            eq(roleApplications.status, 'pending'),
+            sql`${roleApplications.createdAt} > now() - make_interval(secs => ${APPLICATION_EDIT_WINDOW_MS / 1000})`,
+        ))
+        .returning({ id: roleApplications.id });
+    if (edited.length !== 1) return null;
+    await tx.insert(applicationEvents).values({
+        applicationId: params.applicationId,
+        actorId: params.applicantId,
+        kind: 'edited',
+        fromStatus: 'pending',
+        toStatus: 'pending',
+        metadata: { applicationTraceId: params.traceId, ...(params.roleId ? { roleId: params.roleId } : {}) },
+    });
+    // The application card in its thread shows the edited text and role live.
+    return postApplicationUpdate(tx, params.applicationId, params.applicantId, params.roleId ? 'edited the application and changed the role' : 'edited the application');
+}
 
-/** Invitations from the canonical table, newest first, with the other party and project. */
+/** The user's pending invitations from the canonical table, newest first, with the inviter and project. */
 async function listInvitationsInternal(params: {
     userId: string;
-    as: InvitationRole;
     pendingOnly?: boolean;
     cursorDate?: Date;
     cursorId?: string;
     limit: number;
 }) {
     const other = alias(profiles, 'invitation_other_party');
-    const mine = params.as === 'inviter' ? projectInvitations.inviterId : projectInvitations.candidateId;
-    const theirs = params.as === 'inviter' ? projectInvitations.candidateId : projectInvitations.inviterId;
     return db
         .select({
             id: projectInvitations.id,
@@ -699,9 +745,9 @@ async function listInvitationsInternal(params: {
         })
         .from(projectInvitations)
         .leftJoin(projects, eq(projects.id, projectInvitations.projectId))
-        .leftJoin(other, eq(other.id, theirs))
+        .leftJoin(other, eq(other.id, projectInvitations.inviterId))
         .where(and(
-            eq(mine, params.userId),
+            eq(projectInvitations.candidateId, params.userId),
             isNull(projects.deletedAt),
             isNull(other.deletedAt),
             params.pendingOnly ? eq(projectInvitations.status, 'pending') : undefined,
@@ -815,7 +861,7 @@ export async function getApplicationStatusAction(projectId: string): Promise<App
                 };
             }
 
-            const roleTitle = application.role?.title || application.role?.role || 'Unknown Role';
+            const roleTitle = application.role?.title || application.role?.role || 'Removed role';
             const decisionMap = await getDecisionMetadataMap([application.id]);
             const decisionReasonRaw = decisionMap.get(application.id)?.reasonCode || null;
             const decisionReason = decisionReasonRaw
@@ -887,6 +933,7 @@ export async function applyToRoleAction(
     options?: ApplicationActionOptions
 ): Promise<ApplicationActionResult> {
     const traceId = resolveApplicationTraceId('apply', 'anon', projectId, options);
+    let applicantId: string | null = null;
     try {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
@@ -894,11 +941,13 @@ export async function applyToRoleAction(
         if (!user) {
             return toApplicationFailure(traceId, 'UNAUTHORIZED', 'You must be logged in to apply');
         }
+        applicantId = user.id;
 
-        const trimmedMessage = normalizeApplicationMessageText(message);
-        if (!trimmedMessage) {
-            return toApplicationFailure(traceId, 'INVALID_INPUT', 'Please add a short application message');
+        const parsed = applyToRoleInputSchema.safeParse({ projectId, roleId, message });
+        if (!parsed.success) {
+            return toApplicationFailure(traceId, 'INVALID_INPUT', parsed.error.issues[0]?.message ?? 'Invalid application');
         }
+        const trimmedMessage = normalizeApplicationMessageText(parsed.data.message);
         const dedupeKey = `applications:apply:${user.id}:${projectId}:${roleId}:${options?.idempotencyKey?.trim() || trimmedMessage.slice(0, 120)}`;
         return await runInFlightDeduped(dedupeKey, async () => {
             const applyRate = await consumeRateLimit(`applications:apply:${user.id}`, 30, APPLICATION_APPLY_COOLDOWN_GLOBAL_SECONDS);
@@ -917,7 +966,7 @@ export async function applyToRoleAction(
             const [project, role, existingMember, existingApp] = await Promise.all([
                 db.query.projects.findFirst({
                     where: eq(projects.id, projectId),
-                    columns: { id: true, ownerId: true, slug: true, title: true, visibility: true, status: true }
+                    columns: { id: true, ownerId: true, slug: true, title: true, visibility: true, status: true, deletedAt: true }
                 }),
                 db.query.projectOpenRoles.findFirst({
                     where: and(
@@ -938,7 +987,7 @@ export async function applyToRoleAction(
                         eq(roleApplications.projectId, projectId),
                         eq(roleApplications.applicantId, user.id)
                     ),
-                    columns: { id: true, status: true, updatedAt: true, decisionBy: true }
+                    columns: { id: true, status: true, roleId: true, message: true, createdAt: true, updatedAt: true, decisionBy: true }
                 })
             ]);
 
@@ -948,36 +997,78 @@ export async function applyToRoleAction(
             if (project.ownerId === user.id) {
                 return toApplicationFailure(traceId, 'FORBIDDEN', 'You cannot apply to your own project');
             }
+            if (existingMember) {
+                return toApplicationFailure(traceId, 'ALREADY_MEMBER', 'You are already on this project');
+            }
+            const blocked = await guardProjectForApplication(project, user.id, project.ownerId);
+            if (blocked) {
+                return toApplicationFailure(traceId, blocked.code, blocked.message);
+            }
             if (!role) {
                 return toApplicationFailure(traceId, 'ROLE_NOT_FOUND', 'Role not found');
             }
-            if (role.filled >= role.count) {
+            const sameRolePending = existingApp?.status === 'pending' && existingApp.roleId === roleId;
+            if (!sameRolePending && role.filled >= role.count) {
                 return toApplicationFailure(traceId, 'ROLE_FULL', 'This role has no available spots');
-            }
-            if (existingMember) {
-                return toApplicationFailure(traceId, 'ALREADY_MEMBER', 'You are already a team member');
             }
             const canReadProject = computeProjectReadAccess(
                 project.visibility,
                 project.status,
-                project.ownerId === user.id,
-                Boolean(existingMember),
+                false,
+                false,
             );
             if (!canReadProject && (!existingApp || existingApp.status === 'rejected')) {
                 return toApplicationFailure(traceId, 'FORBIDDEN', 'This project is private.');
             }
 
-            const roleTitleText = role?.title || role?.role || 'Unknown Role';
+            const roleTitleText = role.title || role.role || 'Unknown Role';
+            const notifyReviewers = async (applicationId: string, channelId: string | null) => {
+                revalidatePath(`/projects/${project.slug || projectId}`);
+                logger.metric('applications.apply_submitted', {
+                    module: 'applications',
+                    applicationId,
+                    projectId,
+                    roleId,
+                    actorId: user.id,
+                    source: 'project',
+                    applicationTraceId: traceId,
+                });
+                await enqueueApplicationReceivedBestEffort({
+                    applicationId,
+                    channelId,
+                    projectId,
+                    projectSlug: project.slug ?? null,
+                    projectTitle: project.title ?? null,
+                    roleId,
+                    roleTitle: roleTitleText,
+                    actorUserId: user.id,
+                    ...applicationActorSnapshot(user),
+                    traceId,
+                });
+            };
 
             if (existingApp) {
                 if (existingApp.status === 'pending') {
-                    return toApplicationSuccess(traceId, {
+                    if (existingApp.roleId === roleId && (existingApp.message || '').trim() === trimmedMessage) {
+                        return toApplicationSuccess(traceId, { applicationId: existingApp.id, idempotent: true, outcome: 'already_pending' });
+                    }
+                    // A changed submit while pending is an edit, inside the edit window; later it is refused
+                    // with the draft kept by the caller, never silently dropped.
+                    const editedChannelId = await db.transaction((tx) => editPendingApplicationInTx(tx, {
                         applicationId: existingApp.id,
-                        idempotent: true,
-                    });
+                        applicantId: user.id,
+                        message: trimmedMessage,
+                        roleId: existingApp.roleId === roleId ? null : roleId,
+                        traceId,
+                    }));
+                    if (editedChannelId === null) {
+                        return toApplicationFailure(traceId, 'ALREADY_PENDING', 'You already have a pending application for this project. Nothing was changed.');
+                    }
+                    revalidatePath(`/projects/${project.slug || projectId}`);
+                    return toApplicationSuccess(traceId, { applicationId: existingApp.id, channelId: editedChannelId, outcome: 'updated' });
                 }
-                if (existingApp.status === 'accepted') {
-                    return toApplicationFailure(traceId, 'INVALID_STATE', 'Your application was already accepted');
+                if (existingApp.status === 'proposed') {
+                    return toApplicationFailure(traceId, 'INVALID_STATE', 'Respond to your invitation for this project first');
                 }
                 if (existingApp.status === 'rejected') {
                     const canSkipCooldown = existingApp.decisionBy === user.id;
@@ -987,76 +1078,39 @@ export async function applyToRoleAction(
                     if (!canApply) {
                         return toApplicationFailure(traceId, 'COOLDOWN_ACTIVE', `You can reapply in ${waitTime}`);
                     }
-
-                    const { channelId } = await db.transaction(async (tx) => {
-                        const reopened = await transitionApplicationToPendingInternal(
-                            tx,
-                            existingApp.id,
-                            user.id,
-                            'reapplied_by_applicant',
-                        );
-                        if (!reopened) {
-                            throw new Error('Application is not eligible for reapply');
-                        }
-
-                        await tx
-                            .update(roleApplications)
-                            .set({
-                                roleId,
-                                message: trimmedMessage,
-                                applyingProjectId: options?.applyingProjectId || null,
-                                applyingProjectRole: options?.applyingProjectRole || null,
-                                updatedAt: new Date(),
-                            })
-                            .where(eq(roleApplications.id, existingApp.id));
-
-                        // The application card in its private thread shows the new message and status live.
-                        return { channelId: await postApplicationUpdate(tx, existingApp.id, user.id, 'reapplied') };
-                    });
-
-                    revalidatePath(`/projects/${project.slug || projectId}`);
-                    logger.metric('applications.apply_submitted', {
-                        module: 'applications',
-                        applicationId: existingApp.id,
-                        projectId,
-                        roleId,
-                        actorId: user.id,
-                        source: 'project',
-                        applicationTraceId: traceId,
-                    });
-                    await enqueueApplicationReceivedBestEffort({
-                        applicationId: existingApp.id,
-                        channelId,
-                        projectId,
-                        projectSlug: project.slug ?? null,
-                        projectTitle: project.title ?? null,
-                        roleId,
-                        roleTitle: roleTitleText,
-                        actorUserId: user.id,
-                        ...applicationActorSnapshot(user),
-                        traceId,
-                    });
-                    return toApplicationSuccess(traceId, {
-                        applicationId: existingApp.id,
-                        channelId,
-                        idempotent: true,
-                    });
                 }
+
+                // rejected (after the cooldown), withdrawn, or accepted with the membership since ended:
+                // revive the applicant's one application for this project.
+                const reviveFrom = existingApp.status as 'rejected' | 'withdrawn' | 'accepted';
+                const revived = await db.transaction(async (tx) => {
+                    const transition = await transitionApplicationToPendingInternal(
+                        tx,
+                        existingApp.id,
+                        user.id,
+                        'reapplied_by_applicant',
+                        {
+                            from: [reviveFrom],
+                            revive: { roleId, message: trimmedMessage, creatorId: project.ownerId },
+                        },
+                    );
+                    if (transition !== 'reopened') return transition;
+                    // The application card in its private thread shows the new message and status live.
+                    return { channelId: await postApplicationUpdate(tx, existingApp.id, user.id, 'reapplied') };
+                });
+                if (revived === 'cap') {
+                    return toApplicationFailure(traceId, 'CAP_REACHED', CAP_REACHED_MESSAGE);
+                }
+                if (revived === 'gone') {
+                    return toApplicationFailure(traceId, 'INVALID_STATE', 'Your application changed in another tab. Refresh and try again.');
+                }
+                await notifyReviewers(existingApp.id, revived.channelId);
+                return toApplicationSuccess(traceId, { applicationId: existingApp.id, channelId: revived.channelId, outcome: 'resubmitted' });
             }
 
             const createdApplication = await db.transaction(async (tx) => {
-                // PURE OPTIMIZATION (Item 94): Upgrade 32-bit hashtext to 64-bit hashtextextended advisory lock.
-                await tx.execute(sql`
-                    SELECT pg_advisory_xact_lock(hashtextextended('application-pending-cap:' || ${user.id}, 0))
-                `);
-                const [pending] = await tx
-                    .select({ count: sql<number>`COUNT(*)::int` })
-                    .from(roleApplications)
-                    .where(and(
-                        eq(roleApplications.applicantId, user.id),
-                        eq(roleApplications.status, 'pending'),
-                    ));
-                if ((pending?.count ?? 0) >= APPLICATION_PENDING_CAP_PER_USER) return null;
+                await lockPendingCap(tx, user.id);
+                if (!(await hasPendingCapacity(tx, user.id))) return null;
 
                 const [newApp] = await tx.insert(roleApplications)
                     .values({
@@ -1065,8 +1119,6 @@ export async function applyToRoleAction(
                         applicantId: user.id,
                         creatorId: project.ownerId,
                         message: trimmedMessage,
-                        applyingProjectId: options?.applyingProjectId || null,
-                        applyingProjectRole: options?.applyingProjectRole || null,
                         status: 'pending'
                     })
                     .returning({ id: roleApplications.id });
@@ -1084,42 +1136,28 @@ export async function applyToRoleAction(
                 return { applicationId: newApp!.id, channelId };
             });
             if (!createdApplication) {
-                return toApplicationFailure(traceId, 'INVALID_STATE', 'You already have too many pending applications. Please wait for decisions.');
+                return toApplicationFailure(traceId, 'CAP_REACHED', CAP_REACHED_MESSAGE);
             }
-            const { applicationId: newApplicationId, channelId } = createdApplication;
-
-            revalidatePath(`/projects/${project.slug || projectId}`);
-            logger.metric('applications.apply_submitted', {
-                module: 'applications',
-                applicationId: newApplicationId,
-                projectId,
-                roleId,
-                actorId: user.id,
-                source: 'project',
-                applicationTraceId: traceId,
-            });
-            await enqueueApplicationReceivedBestEffort({
-                applicationId: newApplicationId,
-                channelId,
-                projectId,
-                projectSlug: project.slug ?? null,
-                projectTitle: project.title ?? null,
-                roleId,
-                roleTitle: roleTitleText,
-                actorUserId: user.id,
-                ...applicationActorSnapshot(user),
-                traceId,
-            });
-
+            await notifyReviewers(createdApplication.applicationId, createdApplication.channelId);
             return toApplicationSuccess(traceId, {
-                applicationId: newApplicationId,
-                channelId,
+                applicationId: createdApplication.applicationId,
+                channelId: createdApplication.channelId,
+                outcome: 'submitted',
             });
         });
     } catch (error) {
         console.error('Failed to apply to role:', error);
-        if (error instanceof Error && error.message === 'Application is not eligible for reapply') {
-            return toApplicationFailure(traceId, 'INVALID_STATE', 'This application cannot be reopened right now');
+        if (isUniqueViolation(error) && applicantId) {
+            // A second tab or device won the insert. Their application is this user's one application
+            // for the project, so report it instead of a generic failure.
+            const winner = await db.query.roleApplications.findFirst({
+                where: and(eq(roleApplications.projectId, projectId), eq(roleApplications.applicantId, applicantId)),
+                columns: { id: true, status: true },
+            });
+            if (winner?.status === 'pending') {
+                return toApplicationSuccess(traceId, { applicationId: winner.id, idempotent: true, outcome: 'already_pending' });
+            }
+            return toApplicationFailure(traceId, 'INVALID_STATE', 'Your application changed in another tab. Refresh and try again.');
         }
         return toApplicationFailure(traceId, 'INTERNAL_ERROR', 'Failed to submit application');
     }
@@ -1151,7 +1189,7 @@ export async function acceptApplicationAction(
             const application = await db.query.roleApplications.findFirst({
                 where: eq(roleApplications.id, applicationId),
                 with: {
-                    project: { columns: { id: true, title: true, slug: true, ownerId: true } },
+                    project: { columns: { id: true, title: true, slug: true, ownerId: true, status: true, deletedAt: true } },
                     role: { columns: { id: true, role: true, title: true, filled: true, count: true, projectId: true } }
                 }
             });
@@ -1179,12 +1217,20 @@ export async function acceptApplicationAction(
             if (application.status === 'rejected') {
                 return toApplicationFailure(traceId, 'INVALID_STATE', 'This application has already been rejected');
             }
-
-            if (!application.role || application.role.projectId !== application.projectId) {
-                return toApplicationFailure(traceId, 'INVALID_STATE', 'Invalid application role mapping');
+            if (application.status === 'withdrawn') {
+                return toApplicationFailure(traceId, 'INVALID_STATE', 'The applicant withdrew this application');
+            }
+            if (application.project) {
+                const blocked = await guardProjectForApplication(application.project, application.applicantId, user.id);
+                if (blocked) return toApplicationFailure(traceId, blocked.code, blocked.message);
             }
 
-            if (application.role && application.role.filled >= application.role.count) {
+            if (!application.role || application.role.projectId !== application.projectId) {
+                // The role was deleted after the person applied: there is nothing to accept them into.
+                return toApplicationFailure(traceId, 'ROLE_REMOVED', 'This role was removed. Decline this application instead.');
+            }
+
+            if (application.role.filled >= application.role.count) {
                 return toApplicationFailure(traceId, 'ROLE_FULL', 'This role is now full');
             }
 
@@ -1254,6 +1300,30 @@ export async function acceptApplicationAction(
                     sourceEventId: memberLifecycle.eventId ?? `${applicationId}:member-joined`,
                     traceId,
                 });
+            }
+            const closed = memberLifecycle.closedApplications ?? [];
+            if (closed.length > 0) {
+                // Everyone else waiting on that role was closed in the same transaction: tell each of them.
+                const closedChannels = await db.execute<{ id: string; application_id: string }>(sql`
+                    SELECT id, application_id FROM chat_channels
+                    WHERE application_id IN (${sql.join(closed.map((item) => sql`${item.id}::uuid`), sql`, `)})
+                `);
+                const channelByApplication = new Map(Array.from(closedChannels).map((row) => [row.application_id, row.id]));
+                for (const item of closed) {
+                    await enqueueApplicationDecisionBestEffort({
+                        applicationId: item.id,
+                        status: 'role_filled',
+                        channelId: channelByApplication.get(item.id) ?? null,
+                        projectId: application.projectId,
+                        projectSlug: application.project?.slug ?? null,
+                        projectTitle: application.project?.title ?? null,
+                        roleId: item.roleId,
+                        applicantId: item.applicantId,
+                        actorUserId: user.id,
+                        ...applicationActorSnapshot(user),
+                        traceId,
+                    });
+                }
             }
             await enqueueApplicationDecisionBestEffort({
                 applicationId,
@@ -1403,6 +1473,7 @@ export async function rejectApplicationAction(
 export async function editPendingApplicationAction(
     applicationId: string,
     message: string,
+    roleId?: string | null,
     options?: ApplicationActionOptions
 ): Promise<ApplicationActionResult> {
     const traceId = resolveApplicationTraceId('edit', 'anon', applicationId, options);
@@ -1413,15 +1484,17 @@ export async function editPendingApplicationAction(
             return toApplicationFailure(traceId, 'UNAUTHORIZED', 'Unauthorized');
         }
 
+        const parsed = editApplicationInputSchema.safeParse({ applicationId, message, roleId: roleId || undefined });
+        if (!parsed.success) {
+            return toApplicationFailure(traceId, 'INVALID_INPUT', parsed.error.issues[0]?.message ?? 'Invalid application');
+        }
+
         const editRate = await consumeRateLimit(`applications:edit:${user.id}`, 20, 60);
         if (!editRate.allowed) {
             return toApplicationFailure(traceId, 'RATE_LIMITED', 'Too many edits. Please wait a moment.');
         }
 
-        const normalizedMessage = normalizeApplicationMessageText(message);
-        if (!normalizedMessage) {
-            return toApplicationFailure(traceId, 'INVALID_INPUT', 'Application message cannot be empty');
-        }
+        const normalizedMessage = normalizeApplicationMessageText(parsed.data.message);
 
         const application = await db.query.roleApplications.findFirst({
             where: eq(roleApplications.id, applicationId),
@@ -1447,41 +1520,35 @@ export async function editPendingApplicationAction(
 
         const ageMs = Date.now() - new Date(application.createdAt).getTime();
         if (ageMs > APPLICATION_EDIT_WINDOW_MS) {
-            return toApplicationFailure(traceId, 'EDIT_WINDOW_EXPIRED', 'Edit window expired');
+            return toApplicationFailure(traceId, 'EDIT_WINDOW_EXPIRED', 'The edit window has closed. Withdraw and apply again to change this application.');
         }
 
-        if ((application.message || '').trim() === normalizedMessage) {
+        let nextRoleId: string | null = null;
+        if (parsed.data.roleId && parsed.data.roleId !== application.roleId) {
+            const nextRole = await db.query.projectOpenRoles.findFirst({
+                where: and(eq(projectOpenRoles.id, parsed.data.roleId), eq(projectOpenRoles.projectId, application.projectId)),
+                columns: { id: true, count: true, filled: true },
+            });
+            if (!nextRole) return toApplicationFailure(traceId, 'ROLE_NOT_FOUND', 'Role not found');
+            if (nextRole.filled >= nextRole.count) return toApplicationFailure(traceId, 'ROLE_FULL', 'This role has no available spots');
+            nextRoleId = nextRole.id;
+        }
+
+        if (!nextRoleId && (application.message || '').trim() === normalizedMessage) {
             return toApplicationSuccess(traceId, {
                 applicationId: application.id,
                 idempotent: true,
+                outcome: 'already_pending',
             });
         }
 
-        const channelId = await db.transaction(async (tx) => {
-            // COR-033: the edit is fenced on applicant, pending state and window in the UPDATE itself,
-            // so a decision that lands after the checks above wins.
-            const edited = await tx
-                .update(roleApplications)
-                .set({ message: normalizedMessage, updatedAt: new Date() })
-                .where(and(
-                    eq(roleApplications.id, application.id),
-                    eq(roleApplications.applicantId, user.id),
-                    eq(roleApplications.status, 'pending'),
-                    sql`${roleApplications.createdAt} > now() - make_interval(secs => ${APPLICATION_EDIT_WINDOW_MS / 1000})`,
-                ))
-                .returning({ id: roleApplications.id });
-            if (edited.length !== 1) return null;
-            await tx.insert(applicationEvents).values({
-                applicationId: application.id,
-                actorId: user.id,
-                kind: 'edited',
-                fromStatus: 'pending',
-                toStatus: 'pending',
-                metadata: { applicationTraceId: traceId },
-            });
-            // The application card shows the edited message live.
-            return postApplicationUpdate(tx, application.id, user.id, 'edited the application');
-        });
+        const channelId = await db.transaction((tx) => editPendingApplicationInTx(tx, {
+            applicationId: application.id,
+            applicantId: user.id,
+            message: normalizedMessage,
+            roleId: nextRoleId,
+            traceId,
+        }));
         if (channelId === null) {
             return toApplicationFailure(traceId, 'INVALID_STATE', 'This application was decided or its edit window closed. Refresh to see it.');
         }
@@ -1492,7 +1559,7 @@ export async function editPendingApplicationAction(
             module: 'applications',
             applicationId: application.id,
             projectId: application.projectId,
-            roleId: application.roleId || undefined,
+            roleId: nextRoleId || application.roleId || undefined,
             actorId: user.id,
             source: 'messages',
             applicationTraceId: traceId,
@@ -1501,6 +1568,7 @@ export async function editPendingApplicationAction(
         return toApplicationSuccess(traceId, {
             applicationId: application.id,
             channelId,
+            outcome: 'updated',
         });
     } catch (error) {
         console.error('Failed to edit pending application:', error);
@@ -1522,6 +1590,12 @@ export async function withdrawApplicationAction(
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
             return toApplicationFailure(traceId, 'UNAUTHORIZED', 'Unauthorized');
+        }
+
+        if (!isUuid(applicationId)) return toApplicationFailure(traceId, 'INVALID_INPUT', 'Invalid application');
+        const note = applicationNoteSchema.safeParse(message);
+        if (!note.success) {
+            return toApplicationFailure(traceId, 'INVALID_INPUT', note.error.issues[0]?.message ?? `Notes are limited to ${APPLICATION_NOTE_MAX} characters`);
         }
 
         const withdrawRate = await consumeRateLimit(`applications:withdraw:${user.id}`, 20, 60);
@@ -1547,8 +1621,12 @@ export async function withdrawApplicationAction(
         if (!application) return toApplicationFailure(traceId, 'NOT_FOUND', 'Application not found');
         if (application.applicantId !== user.id) return toApplicationFailure(traceId, 'FORBIDDEN', 'Only the applicant can withdraw this application');
         if (application.status === 'accepted') return toApplicationFailure(traceId, 'INVALID_STATE', 'Accepted applications cannot be withdrawn');
-        if (application.status === 'withdrawn' || application.status === 'rejected') {
+        if (application.status === 'withdrawn') {
             return toApplicationSuccess(traceId, { applicationId, idempotent: true });
+        }
+        // Only a pending application can be withdrawn; a decided one is not "withdrawn" by clicking.
+        if (application.status !== 'pending') {
+            return toApplicationFailure(traceId, 'INVALID_STATE', 'Only a pending application can be withdrawn');
         }
 
         let channelId: string | null = null;
@@ -1626,7 +1704,7 @@ export async function reopenApplicationAction(
         const application = await db.query.roleApplications.findFirst({
             where: eq(roleApplications.id, applicationId),
             with: {
-                project: { columns: { title: true, slug: true, ownerId: true } },
+                project: { columns: { title: true, slug: true, ownerId: true, status: true, deletedAt: true } },
                 role: { columns: { title: true, role: true } },
             },
             columns: {
@@ -1678,18 +1756,28 @@ export async function reopenApplicationAction(
             return toApplicationFailure(traceId, 'REOPEN_WINDOW_EXPIRED', 'Reopen window expired');
         }
 
-        let channelId: string | null = null;
-        await db.transaction(async (tx) => {
-            const reopened = await transitionApplicationToPendingInternal(
+        if (application.project) {
+            const blocked = await guardProjectForApplication(application.project, application.applicantId, user.id);
+            if (blocked) return toApplicationFailure(traceId, blocked.code, blocked.message);
+        }
+
+        const reopened = await db.transaction(async (tx) => {
+            const transition = await transitionApplicationToPendingInternal(
                 tx,
                 applicationId,
                 user.id,
                 'reopened_by_reviewer',
             );
-            if (!reopened) throw new Error('Application already processed');
-
-            channelId = await applicationThread(tx, applicationId, user.id, (message || '').trim() || 'Application reopened for review.');
+            if (transition !== 'reopened') return transition;
+            return { channelId: await applicationThread(tx, applicationId, user.id, (message || '').trim() || 'Application reopened for review.') };
         });
+        if (reopened === 'cap') {
+            return toApplicationFailure(traceId, 'CAP_REACHED', 'This person already has 20 pending applications, so this one cannot be reopened yet.');
+        }
+        if (reopened === 'gone') {
+            return toApplicationFailure(traceId, 'ALREADY_PROCESSED', 'This application cannot be reopened right now');
+        }
+        const channelId = reopened.channelId;
 
         const slugOrId = application.project?.slug || application.projectId;
         revalidatePath(`/projects/${slugOrId}`);
@@ -1719,166 +1807,7 @@ export async function reopenApplicationAction(
         return toApplicationSuccess(traceId, { applicationId });
     } catch (error) {
         console.error('Failed to reopen application:', error);
-        if (error instanceof Error && error.message === 'Application already processed') {
-            return toApplicationFailure(traceId, 'ALREADY_PROCESSED', 'This application cannot be reopened right now');
-        }
         return toApplicationFailure(traceId, 'INTERNAL_ERROR', 'Failed to reopen application');
-    }
-}
-
-// ============================================================================
-// GET USER'S APPLICATIONS (for Connections > Requests tab)
-// ============================================================================
-export async function getMyApplicationsAction(
-    pagination: ApplicationCursorPaginationInput = {}
-) {
-    try {
-        const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-            return {
-                success: false,
-                errorCode: 'UNAUTHORIZED' as const,
-                error: 'Unauthorized',
-                applications: [],
-                hasMore: false,
-                nextCursor: null,
-            };
-        }
-
-        const compCursor = parseCompoundCursor(pagination.cursor);
-        const oldCursorResult = normalizeCursorPaginationInput(pagination);
-        const safeLimit = oldCursorResult.safeLimit;
-        const cursorDate = compCursor ? compCursor.createdAt : oldCursorResult.cursor?.createdAt;
-        const cursorId = compCursor ? compCursor.id : oldCursorResult.cursor?.id;
-
-        const appWhere = cursorDate && cursorId
-            ? and(
-                eq(roleApplications.applicantId, user.id),
-                or(
-                    lt(roleApplications.createdAt, cursorDate),
-                    and(eq(roleApplications.createdAt, cursorDate), lt(roleApplications.id, cursorId))
-                )
-            )
-            : eq(roleApplications.applicantId, user.id);
-
-        const roleApps = await db.query.roleApplications.findMany({
-            where: appWhere,
-            with: {
-                project: {
-                    columns: { id: true, title: true, slug: true, coverImage: true }
-                },
-                role: {
-                    columns: { role: true, title: true }
-                }
-            },
-            columns: {
-                id: true,
-                projectId: true,
-                roleId: true,
-                message: true,
-                status: true,
-                createdAt: true,
-                updatedAt: true,
-                decisionBy: true,
-            },
-            orderBy: (apps, { desc }) => [desc(apps.createdAt), desc(apps.id)],
-            limit: safeLimit + 1,
-        });
-
-        const invites = await listInvitationsInternal({ userId: user.id, as: 'inviter', cursorDate, cursorId, limit: safeLimit + 1 });
-
-        const decisionMap = await getDecisionMetadataMap(roleApps.map((app) => app.id));
-
-        const mappedApps = roleApps.map((app) => {
-            const decisionMeta = decisionMap.get(app.id);
-            const decisionReasonRaw = decisionMeta?.reasonCode || null;
-            const decisionReason = decisionReasonRaw
-                ? normalizeApplicationDecisionReason(decisionReasonRaw, 'other')
-                : null;
-            const lifecycleStatus = resolveLifecycleStatus(app.status, decisionReason);
-            const canSkipCooldown = app.decisionBy === user.id;
-            const cooldownMeta =
-                app.status === 'rejected'
-                    ? (canSkipCooldown ? { canApply: true } : calculateCooldown(app.updatedAt))
-                    : {};
-            return {
-                id: app.id,
-                projectId: app.projectId,
-                projectTitle: app.project?.title || 'Unknown Project',
-                projectSlug: app.project?.slug,
-                projectCover: app.project?.coverImage,
-                roleTitle: app.role?.title || app.role?.role || 'Unknown Role',
-                message: app.message,
-                status: app.status,
-                lifecycleStatus,
-                decisionReason,
-                createdAt: app.createdAt,
-                updatedAt: app.updatedAt,
-                decisionAt: decisionMeta?.decisionAt || toISODate(app.updatedAt),
-                canEdit:
-                    app.status === 'pending' &&
-                    Date.now() - new Date(app.createdAt).getTime() <= APPLICATION_EDIT_WINDOW_MS,
-                ...cooldownMeta
-            };
-        });
-
-        const mappedInvites = invites.map((invite) => {
-            const { status, decisionReason } = invitationLifecycle(invite.status);
-            return {
-                id: invite.id,
-                isInvitation: true,
-                projectId: invite.projectId,
-                projectTitle: invite.projectTitle || 'Unknown Project',
-                projectSlug: invite.projectSlug,
-                projectCover: invite.projectCover || null,
-                roleTitle: invite.roleTitle || invite.guidanceLabel || 'Collaborator',
-                message: invite.note,
-                status,
-                lifecycleStatus: resolveLifecycleStatus(status, decisionReason),
-                decisionReason,
-                createdAt: invite.createdAt,
-                updatedAt: invite.updatedAt,
-                decisionAt: toISODate(invite.updatedAt),
-                canEdit: false,
-            };
-        });
-
-        const combined = [
-            ...mappedApps.map(item => ({ ...item, _source: 'app' as const })),
-            ...mappedInvites.map(item => ({ ...item, _source: 'invite' as const }))
-        ].sort((a, b) => {
-            const timeDiff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-            if (timeDiff !== 0) return timeDiff;
-            return b.id.localeCompare(a.id);
-        });
-
-        const hasMore = combined.length > safeLimit;
-        const sliced = combined.slice(0, safeLimit);
-
-        let nextCursor = null;
-        if (hasMore && sliced.length > 0) {
-            const lastItem = sliced[sliced.length - 1]!;
-            nextCursor = encodeCompoundCursor(lastItem._source, lastItem.createdAt, lastItem.id);
-        }
-
-        return {
-            success: true,
-            applications: sliced.map(({ _source, ...rest }) => rest),
-            hasMore,
-            nextCursor,
-        };
-    } catch (error) {
-        console.error('Failed to get applications:', error);
-        return {
-            success: false,
-            errorCode: 'INTERNAL_ERROR' as const,
-            error: 'Failed to load applications',
-            applications: [],
-            hasMore: false,
-            nextCursor: null,
-        };
     }
 }
 
@@ -1952,7 +1881,7 @@ export async function getIncomingApplicationsAction(
             limit: safeLimit + 1,
         });
 
-        const invites = await listInvitationsInternal({ userId: user.id, as: 'candidate', pendingOnly: true, cursorDate, cursorId, limit: safeLimit + 1 });
+        const invites = await listInvitationsInternal({ userId: user.id, pendingOnly: true, cursorDate, cursorId, limit: safeLimit + 1 });
 
         const mappedApps = roleApps
             .filter((app) => Boolean(app.applicant?.id) && Boolean(app.project?.id))
@@ -2047,574 +1976,6 @@ export async function getIncomingApplicationsAction(
             hasMore: false,
             nextCursor: null,
         };
-    }
-}
-
-// ============================================================================
-// GET INBOX APPLICATIONS (Unified Incoming + Outgoing)
-// ============================================================================
-export async function getInboxApplicationsAction(
-    limit: number = APPLICATION_LIST_DEFAULT_LIMIT,
-    cursor?: string | null,
-    options: {
-        status?: 'all' | 'pending' | 'accepted' | 'rejected';
-        sort?: 'newest' | 'status' | 'unread';
-    } = {},
-) {
-    try {
-        const startedAtMs = Date.now();
-        const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-            return { success: false, applications: [], hasMore: false };
-        }
-        const { safeLimit } = normalizeApplicationListPagination(limit, 0);
-        const statusFilter = options.status ?? 'all';
-        const sort = options.sort ?? 'newest';
-        let decodedCursor: {
-            eventAt: Date;
-            source: 'application' | 'invite';
-            id: string;
-            sortValue: number;
-        } | null = null;
-        if (cursor) {
-            try {
-                const parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')) as {
-                    eventAt?: unknown;
-                    source?: unknown;
-                    id?: unknown;
-                    sortValue?: unknown;
-                };
-                const eventAt = typeof parsed.eventAt === 'string' ? new Date(parsed.eventAt) : null;
-                if (
-                    !eventAt
-                    || Number.isNaN(eventAt.getTime())
-                    || (parsed.source !== 'application' && parsed.source !== 'invite')
-                    || typeof parsed.id !== 'string'
-                    || !isUuid(parsed.id)
-                    || typeof parsed.sortValue !== 'number'
-                    || !Number.isFinite(parsed.sortValue)
-                ) {
-                    return { success: false, error: 'Invalid applications cursor', applications: [], hasMore: false };
-                }
-                decodedCursor = {
-                    eventAt,
-                    source: parsed.source,
-                    id: parsed.id,
-                    sortValue: parsed.sortValue,
-                };
-            } catch {
-                return { success: false, error: 'Invalid applications cursor', applications: [], hasMore: false };
-            }
-        }
-
-        const candidateRows = await db.execute<{
-            id: string;
-            source: 'application' | 'invite';
-            event_at: Date;
-            sort_value: number;
-        }>(sql`
-            WITH inbox_items AS (
-                SELECT
-                    application.id,
-                    'application'::text AS source,
-                    CASE
-                        WHEN application.status = 'pending' THEN application.created_at
-                        ELSE COALESCE(application.decision_at, application.updated_at, application.created_at)
-                    END AS event_at
-                    ,
-                    CASE application.status
-                        WHEN 'pending' THEN 0
-                        WHEN 'proposed' THEN 0
-                        WHEN 'accepted' THEN 1
-                        WHEN 'rejected' THEN 2
-                        ELSE 3
-                    END AS status_rank,
-                    application.status::text AS normalized_status,
-                    COALESCE((
-                        SELECT CASE WHEN c.last_top_seq > m.last_read_seq THEN c.last_seq - m.last_read_seq ELSE 0 END
-                        FROM ${chatChannels} c
-                        JOIN ${chatChannelMembers} m ON m.channel_id = c.id AND m.user_id = ${user.id}
-                        WHERE c.application_id = application.id
-                    ), 0)::int AS unread_count
-                FROM ${roleApplications} application
-                WHERE (
-                    application.creator_id = ${user.id}
-                    AND application.status = 'pending'
-                )
-                OR application.applicant_id = ${user.id}
-
-                UNION ALL
-
-                SELECT
-                    invite.id,
-                    'invite'::text AS source,
-                    CASE
-                        WHEN invite.status = 'pending' THEN invite.created_at
-                        ELSE COALESCE(invite.resolved_at, invite.updated_at, invite.created_at)
-                    END AS event_at
-                    ,
-                    CASE invite.status
-                        WHEN 'pending' THEN 0
-                        WHEN 'accepted' THEN 1
-                        WHEN 'declined' THEN 2
-                        WHEN 'expired' THEN 2
-                        ELSE 3
-                    END AS status_rank,
-                    CASE
-                        WHEN invite.status = 'declined' OR invite.status = 'expired' THEN 'rejected'
-                        WHEN invite.status = 'cancelled' THEN 'withdrawn'
-                        ELSE invite.status
-                    END AS normalized_status,
-                    0 AS unread_count
-                FROM ${projectInvitations} invite
-                WHERE invite.candidate_id = ${user.id}
-                   OR invite.inviter_id = ${user.id}
-            )
-            SELECT
-                id,
-                source,
-                event_at,
-                CASE
-                    WHEN ${sort} = 'status' THEN status_rank
-                    WHEN ${sort} = 'unread' THEN unread_count
-                    ELSE 0
-                END::int AS sort_value
-            FROM inbox_items
-            WHERE (${statusFilter} = 'all' OR normalized_status = ${statusFilter})
-            ${decodedCursor
-                ? sort === 'status'
-                    ? sql`AND (
-                        status_rank > ${decodedCursor.sortValue}
-                        OR (
-                            status_rank = ${decodedCursor.sortValue}
-                            AND (event_at, source, id) < (
-                                ${decodedCursor.eventAt},
-                                ${decodedCursor.source},
-                                ${decodedCursor.id}::uuid
-                            )
-                        )
-                    )`
-                    : sort === 'unread'
-                        ? sql`AND (
-                            unread_count < ${decodedCursor.sortValue}
-                            OR (
-                                unread_count = ${decodedCursor.sortValue}
-                                AND (event_at, source, id) < (
-                                    ${decodedCursor.eventAt},
-                                    ${decodedCursor.source},
-                                    ${decodedCursor.id}::uuid
-                                )
-                            )
-                        )`
-                        : sql`AND (event_at, source, id) < (
-                            ${decodedCursor.eventAt},
-                            ${decodedCursor.source},
-                            ${decodedCursor.id}::uuid
-                        )`
-                : sql``}
-            ORDER BY
-                ${sort === 'status' ? sql`status_rank ASC,` : sql``}
-                ${sort === 'unread' ? sql`unread_count DESC,` : sql``}
-                event_at DESC,
-                source DESC,
-                id DESC
-            LIMIT ${safeLimit + 1}
-        `);
-        const candidates = Array.from(candidateRows);
-        const pageCandidates = candidates.slice(0, safeLimit);
-        const hasMore = candidates.length > safeLimit;
-        if (pageCandidates.length === 0) {
-            return { success: true, applications: [], hasMore: false, nextCursor: null };
-        }
-        const applicationIds = pageCandidates
-            .filter((candidate) => candidate.source === 'application')
-            .map((candidate) => candidate.id);
-        const inviteIds = pageCandidates
-            .filter((candidate) => candidate.source === 'invite')
-            .map((candidate) => candidate.id);
-
-        const roleApps = applicationIds.length > 0
-            ? await db.query.roleApplications.findMany({
-            where: inArray(roleApplications.id, applicationIds),
-            with: {
-                project: {
-                    columns: { id: true, title: true, slug: true, ownerId: true }
-                },
-                role: {
-                    columns: { role: true, title: true }
-                },
-                applicant: {
-                    columns: { id: true, username: true, fullName: true, avatarUrl: true }
-                }
-            },
-            columns: {
-                id: true,
-                projectId: true,
-                creatorId: true,
-                applicantId: true,
-                message: true,
-                status: true,
-                createdAt: true,
-                updatedAt: true,
-            },
-        })
-            : [];
-
-        // 2. Project invitations where the user is the inviter (outgoing) or candidate (incoming).
-        const inviter = alias(profiles, 'inbox_inviter');
-        const candidate = alias(profiles, 'inbox_candidate');
-        const invites = inviteIds.length > 0
-            ? await db
-                .select({
-                    id: projectInvitations.id,
-                    projectId: projectInvitations.projectId,
-                    inviterId: projectInvitations.inviterId,
-                    candidateId: projectInvitations.candidateId,
-                    status: projectInvitations.status,
-                    roleTitle: projectInvitations.roleTitle,
-                    guidanceLabel: projectInvitations.guidanceLabel,
-                    note: projectInvitations.note,
-                    projectTitle: projectInvitations.projectTitle,
-                    projectSlug: projects.slug,
-                    createdAt: projectInvitations.createdAt,
-                    updatedAt: projectInvitations.updatedAt,
-                    inviter: { id: inviter.id, username: inviter.username, fullName: inviter.fullName, avatarUrl: inviter.avatarUrl },
-                    candidate: { id: candidate.id, username: candidate.username, fullName: candidate.fullName, avatarUrl: candidate.avatarUrl },
-                })
-                .from(projectInvitations)
-                .leftJoin(projects, eq(projects.id, projectInvitations.projectId))
-                .leftJoin(inviter, eq(inviter.id, projectInvitations.inviterId))
-                .leftJoin(candidate, eq(candidate.id, projectInvitations.candidateId))
-                .where(inArray(projectInvitations.id, inviteIds))
-            : [];
-
-        const decisionMap = await getDecisionMetadataMap(roleApps.map((app) => app.id));
-        // Each application has a private chat thread; its unread count comes from the viewer's cursor.
-        const threads = roleApps.length > 0
-            ? await db
-                .select({
-                    applicationId: chatChannels.applicationId,
-                    channelId: chatChannels.id,
-                    unreadCount: sql<number>`CASE WHEN ${chatChannels.lastTopSeq} > ${chatChannelMembers.lastReadSeq} THEN (${chatChannels.lastSeq} - ${chatChannelMembers.lastReadSeq})::int ELSE 0 END`,
-                })
-                .from(chatChannels)
-                .innerJoin(chatChannelMembers, and(eq(chatChannelMembers.channelId, chatChannels.id), eq(chatChannelMembers.userId, user.id)))
-                .where(inArray(chatChannels.applicationId, roleApps.map((app) => app.id)))
-            : [];
-        const threadByApplicationId = new Map(threads.map((thread) => [thread.applicationId, thread]));
-
-        // Fetch creator profiles for outgoing applications
-        const creatorIds = roleApps
-            .filter(app => app.applicantId === user.id) // Outgoing
-            .map(app => app.project?.ownerId || app.creatorId)
-            .filter(Boolean) as string[];
-
-        const uniqueCreatorIds = [...new Set(creatorIds)];
-
-        let creatorsMap = new Map<string, { fullName: string | null; username: string | null; avatarUrl: string | null }>();
-
-        if (uniqueCreatorIds.length > 0) {
-            const creators = await db.query.profiles.findMany({
-                where: inArray(profiles.id, uniqueCreatorIds),
-                columns: { id: true, fullName: true, username: true, avatarUrl: true }
-            });
-            creatorsMap = new Map(creators.map(c => [c.id, c]));
-        }
-
-        // Map applications
-        const mappedApps = roleApps.map((app) => {
-            const isIncoming = app.creatorId === user.id;
-            const decisionMeta = decisionMap.get(app.id);
-            const decisionReasonRaw = decisionMeta?.reasonCode || null;
-            const decisionReason = decisionReasonRaw
-                ? normalizeApplicationDecisionReason(decisionReasonRaw, 'other')
-                : null;
-            const lifecycleStatus = resolveLifecycleStatus(app.status, decisionReason);
-
-            let displayUser: {
-                id?: string;
-                username?: string | null;
-                fullName?: string | null;
-                avatarUrl?: string | null;
-                type: 'applicant' | 'creator';
-            };
-
-            if (isIncoming) {
-                displayUser = {
-                    id: app.applicant?.id,
-                    username: app.applicant?.username,
-                    fullName: app.applicant?.fullName,
-                    avatarUrl: app.applicant?.avatarUrl,
-                    type: 'applicant',
-                };
-            } else {
-                const creatorId = app.project?.ownerId || app.creatorId;
-                const creator = creatorsMap.get(creatorId);
-                displayUser = {
-                    id: creatorId,
-                    username: creator?.username,
-                    fullName: creator?.fullName,
-                    avatarUrl: creator?.avatarUrl,
-                    type: 'creator',
-                };
-            }
-
-            return {
-                id: app.id,
-                isInvitation: false,
-                type: isIncoming ? 'incoming' : 'outgoing',
-                projectId: app.projectId,
-                projectTitle: app.project?.title || 'Unknown Project',
-                projectSlug: app.project?.slug,
-                roleTitle: app.role?.title || app.role?.role || 'Unknown Role',
-                displayUser,
-                status: app.status,
-                lifecycleStatus,
-                decisionReason,
-                decisionAt: decisionMeta?.decisionAt || toISODate(app.updatedAt),
-                createdAt: app.createdAt,
-                channelId: threadByApplicationId.get(app.id)?.channelId ?? null,
-                coverLetter: app.message,
-                unreadCount: Number(threadByApplicationId.get(app.id)?.unreadCount ?? 0),
-            };
-        });
-
-        // Map invitations
-        const mappedInvites = invites.map((invite) => {
-            const isIncoming = invite.candidateId === user.id;
-            const { status, decisionReason } = invitationLifecycle(invite.status);
-            const other = isIncoming ? invite.inviter : invite.candidate;
-            const displayUser: {
-                id?: string;
-                username?: string | null;
-                fullName?: string | null;
-                avatarUrl?: string | null;
-                type: 'applicant' | 'creator';
-            } = {
-                id: other?.id,
-                username: other?.username,
-                fullName: other?.fullName,
-                avatarUrl: other?.avatarUrl,
-                type: isIncoming ? 'creator' : 'applicant',
-            };
-            return {
-                id: invite.id,
-                isInvitation: true,
-                type: isIncoming ? 'incoming' : 'outgoing',
-                projectId: invite.projectId,
-                projectTitle: invite.projectTitle || 'Unknown Project',
-                projectSlug: invite.projectSlug,
-                roleTitle: invite.roleTitle || invite.guidanceLabel || 'Collaborator',
-                displayUser,
-                status,
-                lifecycleStatus: resolveLifecycleStatus(status, decisionReason),
-                decisionReason,
-                decisionAt: toISODate(invite.updatedAt),
-                createdAt: invite.createdAt,
-                channelId: null,
-                coverLetter: invite.note,
-                unreadCount: 0,
-            };
-        });
-
-        const combinedByKey = new Map<
-            string,
-            (typeof mappedApps)[number] | (typeof mappedInvites)[number]
-        >();
-        for (const application of mappedApps) {
-            combinedByKey.set(`application:${application.id}`, application);
-        }
-        for (const invite of mappedInvites) {
-            combinedByKey.set(`invite:${invite.id}`, invite);
-        }
-        const sliced = pageCandidates
-            .map((candidate) => combinedByKey.get(`${candidate.source}:${candidate.id}`))
-            .filter((application): application is NonNullable<typeof application> => Boolean(application));
-        const lastCandidate = pageCandidates.at(-1);
-        const nextCursor = hasMore && lastCandidate
-            ? Buffer.from(JSON.stringify({
-                eventAt: lastCandidate.event_at.toISOString(),
-                source: lastCandidate.source,
-                id: lastCandidate.id,
-                sortValue: lastCandidate.sort_value,
-            }), 'utf8').toString('base64url')
-            : null;
-
-        const payload = {
-            success: true,
-            applications: sliced,
-            hasMore,
-            nextCursor,
-        };
-        const elapsedMs = Date.now() - startedAtMs;
-        if (elapsedMs > 300) {
-            console.info('[applications] getInboxApplicationsAction slow-path', {
-                limit,
-                cursor: Boolean(cursor),
-                count: payload.applications.length,
-                elapsedMs,
-            });
-        }
-        return payload;
-    } catch (error) {
-        console.error('Failed to get inbox applications:', error);
-        return { success: false, applications: [], hasMore: false };
-    }
-}
-
-export async function getApplicationRequestHistory(limit: number = 80, cursor?: string): Promise<{
-    success: boolean;
-    items: ApplicationRequestHistoryItem[];
-    hasMore: boolean;
-    nextCursor: string | null;
-    error?: string;
-}> {
-    try {
-        const supabase = await createClient();
-        const {
-            data: { user },
-        } = await supabase.auth.getUser();
-
-        if (!user) return { success: false, items: [], hasMore: false, nextCursor: null, error: 'Not authenticated' };
-
-        const parsedLimit = typeof limit === 'number' ? limit : Number(limit);
-        const effectiveLimit = Number.isFinite(parsedLimit)
-            ? Math.max(1, Math.min(Math.trunc(parsedLimit), 200))
-            : 80;
-        const cursorSeparator = cursor?.lastIndexOf('|') ?? -1;
-        const cursorDate = cursorSeparator > 0 ? new Date(cursor!.slice(0, cursorSeparator)) : null;
-        const cursorId = cursorSeparator > 0 ? cursor!.slice(cursorSeparator + 1) : null;
-        const validCursor = cursorDate && !Number.isNaN(cursorDate.getTime()) && cursorId && isUuid(cursorId)
-            ? { eventAt: cursorDate, id: cursorId }
-            : null;
-        const applicationEventAt = sql<Date>`CASE
-            WHEN ${roleApplications.status} = 'pending' THEN ${roleApplications.createdAt}
-            ELSE COALESCE(${roleApplications.decisionAt}, ${roleApplications.updatedAt})
-        END`;
-
-        const applicationPage = await db.query.roleApplications.findMany({
-            where: and(
-                or(eq(roleApplications.applicantId, user.id), eq(roleApplications.creatorId, user.id)),
-                validCursor
-                    ? sql`(${applicationEventAt}, ${roleApplications.id}) < (${validCursor.eventAt}, ${validCursor.id}::uuid)`
-                    : undefined,
-            ),
-            with: {
-                project: {
-                    columns: { id: true, title: true, slug: true, ownerId: true },
-                },
-                role: {
-                    columns: { role: true, title: true },
-                },
-                applicant: {
-                    columns: { id: true, username: true, fullName: true, avatarUrl: true },
-                },
-            },
-            columns: {
-                id: true,
-                applicantId: true,
-                creatorId: true,
-                status: true,
-                createdAt: true,
-                updatedAt: true,
-                projectId: true,
-            },
-            orderBy: (apps, { desc }) => [desc(applicationEventAt), desc(apps.id)],
-            limit: effectiveLimit + 1,
-        });
-        const hasMore = applicationPage.length > effectiveLimit;
-        const applications = applicationPage.slice(0, effectiveLimit);
-
-        if (applications.length === 0) return { success: true, items: [], hasMore: false, nextCursor: null };
-
-        const decisionMap = await getDecisionMetadataMap(applications.map((app) => app.id));
-
-        const creatorIds = [
-            ...new Set(
-                applications
-                    .filter((app) => app.applicantId === user.id)
-                    .map((app) => app.project?.ownerId || app.creatorId)
-                    .filter((id): id is string => !!id),
-            ),
-        ];
-
-        const creatorRows =
-            creatorIds.length > 0
-                ? await db.query.profiles.findMany({
-                    where: inArray(profiles.id, creatorIds),
-                    columns: { id: true, username: true, fullName: true, avatarUrl: true },
-                })
-                : [];
-
-        const creatorsById = new Map(
-            creatorRows.map((row) => [
-                row.id,
-                {
-                    id: row.id,
-                    username: row.username,
-                    fullName: row.fullName,
-                    avatarUrl: row.avatarUrl,
-                },
-            ]),
-        );
-
-        const items = applications
-            .map<ApplicationRequestHistoryItem>((app) => {
-                const isIncoming = app.creatorId === user.id && app.applicantId !== user.id;
-                const decisionMeta = decisionMap.get(app.id);
-                const decisionReasonRaw = decisionMeta?.reasonCode || null;
-                const decisionReason = decisionReasonRaw
-                    ? normalizeApplicationDecisionReason(decisionReasonRaw, 'other')
-                    : null;
-                const lifecycleStatus = resolveLifecycleStatus(app.status, decisionReason);
-                const decisionTimestamp = decisionMeta?.decisionAt
-                    ? new Date(decisionMeta.decisionAt)
-                    : app.updatedAt;
-                const roleTitle = app.role?.title || app.role?.role || 'Unknown Role';
-
-                const counterpart = isIncoming
-                    ? {
-                        id: app.applicant?.id || app.applicantId,
-                        username: app.applicant?.username || null,
-                        fullName: app.applicant?.fullName || null,
-                        avatarUrl: app.applicant?.avatarUrl || null,
-                    }
-                    : creatorsById.get(app.project?.ownerId || app.creatorId) || null;
-
-                return {
-                    id: app.id,
-                    kind: 'application',
-                    direction: isIncoming ? 'incoming' : 'outgoing',
-                    status: lifecycleStatus,
-                    decisionReason,
-                    eventAt: (lifecycleStatus === 'pending' ? app.createdAt : decisionTimestamp).toISOString(),
-                    createdAt: app.createdAt.toISOString(),
-                    project: {
-                        id: app.projectId,
-                        title: app.project?.title || 'Unknown Project',
-                        slug: app.project?.slug || null,
-                    },
-                    roleTitle,
-                    user: counterpart,
-                };
-            })
-            .sort((a, b) => {
-                const byEvent = new Date(b.eventAt).getTime() - new Date(a.eventAt).getTime();
-                return byEvent !== 0 ? byEvent : b.id.localeCompare(a.id);
-            });
-
-        const last = items.at(-1);
-        return {
-            success: true,
-            items,
-            hasMore,
-            nextCursor: hasMore && last ? `${last.eventAt}|${last.id}` : null,
-        };
-    } catch (error) {
-        console.error('Failed to load application request history:', error);
-        return { success: false, items: [], hasMore: false, nextCursor: null, error: 'Failed to load history' };
     }
 }
 

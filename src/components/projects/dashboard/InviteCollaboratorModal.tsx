@@ -473,13 +473,17 @@ export default function InviteCollaboratorModal({
                 ].filter(Boolean).join("\n\n");
                 if (details.length > 2000) return showError("Application text is too long. Please shorten it.", applicationMessageRef);
                 const idempotencyKey = `apply:${await fingerprint(`${selectedProject.id}:${roleId}:${details}`)}`;
-                const result = await applyToRoleAction(selectedProject.id, roleId, details, { idempotencyKey, applyingProjectId: null, applyingProjectRole: null });
+                const result = await applyToRoleAction(selectedProject.id, roleId, details, { idempotencyKey });
                 if (!result.success) {
                     logger.metric("recruitment.composer.submit", { module: "recruitment-composer", projectId: selectedProject.id, kind: mode, outcome: "failure", errorCode: result.errorCode || "APPLICATION_FAILED", durationMs: Math.round(performance.now() - startedAt) });
                     return showError(result.error || "Failed to submit application", applicationMessageRef);
                 }
                 if (user?.id) await del(applicationDraftKey);
-                toast.success(result.idempotent ? "Your existing application is already pending" : "Application submitted successfully");
+                toast.success(
+                    result.outcome === "already_pending" ? "You already have this application pending"
+                        : result.outcome === "updated" ? "Application updated"
+                            : "Application submitted successfully",
+                );
             } else {
                 const payload = `${selectedProject.id}:${selectedCandidate!.id}:${inviteKind}:${roleId}:${guidanceLabel.trim()}:${reviewAt}:${note.trim()}`;
                 const result = await createProjectInvitationAction({
