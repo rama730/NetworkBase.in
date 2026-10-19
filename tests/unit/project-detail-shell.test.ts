@@ -33,6 +33,8 @@ test("lifecycle rows are keyed by id, never by stage text", () => {
 
 test("signed-out follow and apply go to sign-in with a return path", () => {
   const client = read(PDC);
-  assert.match(client, /\?redirect=\$\{encodeURIComponent\(here\)\}/);
+  assert.match(client, /\?redirect=\$\{encodeURIComponent\(/);
+  // A role's Apply button brings the visitor back to that role's form.
+  assert.match(client, /searchParams\.set\('applyRole', applyRoleId\)/);
   assert.doesNotMatch(client, /Please log in to apply/);
 });

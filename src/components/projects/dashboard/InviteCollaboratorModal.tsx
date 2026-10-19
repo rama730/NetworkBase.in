@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AlertCircle, Briefcase, Check, Loader2, Search, Users } from "lucide-react";
 import { usePlainContentHeadings } from "@/components/projects/PlainContentHeadings";
 import { del, get, set } from "idb-keyval";
 import { toast } from "sonner";
 import { Virtuoso } from "react-virtuoso";
 
-import { applyToRoleAction, getProjectInviteOptionsAction } from "@/app/actions/applications";
+import { applyToRoleAction, editPendingApplicationAction, getProjectInviteOptionsAction } from "@/app/actions/applications";
+import type { ApplicationActionErrorCode } from "@/app/actions/applications";
 import {
     createProjectInvitationAction,
     getProjectGuidancePreflightAction,
@@ -18,6 +20,8 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/use-auth";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { conversationHref } from "@/lib/messaging/routes";
 import { logger } from "@/lib/logger";
 
 export type ParticipationRole = {
@@ -51,10 +55,25 @@ type InvitationKind = "ordinary_role" | "guidance_appointment";
 type GuidancePreflight = { activeGuide: { label: string; name: string } | null; capacity: "available" | "warning" | "blocked" };
 type CachedOptions = { roles: ParticipationRole[]; people: Candidate[] };
 
+/** What a successful apply or edit hands back, so the page can show Pending before it re-reads. */
+export type ApplySuccessHandler = (result?: { applicationId?: string; channelId?: string | null; roleId?: string }) => void;
+
+/** A pending application opened for editing. */
+export type EditableApplication = {
+    applicationId: string;
+    roleId?: string;
+    message: string;
+    details?: { portfolioUrl?: string; availability?: string };
+};
+
 export interface InviteCollaboratorModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSuccess?: () => void;
+    onSuccess?: ApplySuccessHandler;
+    /** Apply mode: change this pending application instead of submitting a new one. */
+    editApplication?: EditableApplication;
+    /** Apply mode: a role turned out to be full or gone, so the page should re-read its roles. */
+    onRolesStale?: () => void;
     mode?: "invite" | "apply";
     projectId?: string;
     projectTitle?: string;
@@ -68,6 +87,19 @@ export interface InviteCollaboratorModalProps {
 const APPLICATION_DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const NOTE_LIMIT = 500;
 const APPLICATION_LIMIT = 1200;
+const PORTFOLIO_LIMIT = 300;
+const AVAILABILITY_LIMIT = 120;
+
+/** What the applicant is told for each way a submit can fail; the server's own text is the fallback. */
+function applyErrorCopy(code: ApplicationActionErrorCode | undefined, fallback?: string) {
+    switch (code) {
+        case "RATE_LIMITED": return "You are sending applications quickly. Wait a moment, then try again.";
+        case "ROLE_FULL": return "That role was just filled. Choose another role.";
+        case "ROLE_NOT_FOUND": return "That role was removed. Choose another role.";
+        case "ALREADY_PENDING": return "You already have a pending application for this project. Nothing was changed.";
+        default: return fallback || "Could not submit the application.";
+    }
+}
 
 function roleLabel(role: ParticipationRole) {
     return role.title || role.role || "Role";
@@ -124,9 +156,20 @@ export default function InviteCollaboratorModal({
     preselectedRoleId,
     candidate: initialCandidate,
     canAppointGuidance = false,
+    editApplication,
+    onRolesStale,
 }: InviteCollaboratorModalProps) {
     const plainContentHeadings = usePlainContentHeadings();
     const { user } = useAuth();
+    const router = useRouter();
+    const phone = useMediaQuery("(max-width: 639px)");
+    // The edit target is read when the dialog opens; a new object on every parent render must not reset the form.
+    const editRef = useRef(editApplication);
+    editRef.current = editApplication;
+    const isEditing = mode === "apply" && Boolean(editApplication);
+    const completedRef = useRef(false);
+    const portfolioRef = useRef<HTMLInputElement>(null);
+    const projectListRef = useRef<HTMLDivElement>(null);
     const [loadingOptions, setLoadingOptions] = useState(false);
     const [searching, setSearching] = useState(false);
     const [submitting, setSubmitting] = useState(false);
@@ -147,6 +190,8 @@ export default function InviteCollaboratorModal({
     const [guidancePreflight, setGuidancePreflight] = useState<GuidancePreflight | null>(null);
     const [guidanceLoading, setGuidanceLoading] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
+    const [portfolioError, setPortfolioError] = useState<string | null>(null);
+    const [staleRoleIds, setStaleRoleIds] = useState<string[]>([]);
     const [applicationDraftLoaded, setApplicationDraftLoaded] = useState(false);
     const [optionsVersion, setOptionsVersion] = useState(0);
     const [isChoosingProject, setIsChoosingProject] = useState(false);
@@ -171,7 +216,7 @@ export default function InviteCollaboratorModal({
     }, [canAppointGuidance, projectId, projectTitle, projects, roles]);
     const selectedProject = projectOptions.find((project) => project.id === selectedProjectId) || null;
     const activeRoles = mode === "apply" && selectedProject?.openRoles ? selectedProject.openRoles : projectRoles;
-    const selectableRoles = useMemo(() => activeRoles.filter((role) => remainingRoles(role) > 0), [activeRoles]);
+    const selectableRoles = useMemo(() => activeRoles.filter((role) => remainingRoles(role) > 0 && !staleRoleIds.includes(role.id)), [activeRoles, staleRoleIds]);
     const selectableRoleKey = useMemo(() => selectableRoles.map((role) => role.id).join("|"), [selectableRoles]);
     const selectedRole = activeRoles.find((role) => role.id === roleId) || null;
     const candidateIsFixed = Boolean(initialCandidate);
@@ -183,9 +228,9 @@ export default function InviteCollaboratorModal({
     const guidanceUnavailable = Boolean(guidancePreflight?.activeGuide || guidancePreflight?.capacity === "blocked");
     const showProjectPicker = !projectIsFixed && (!selectedProject || isChoosingProject);
 
+    // One inline alert, never a toast as well: the message stays beside the field it is about.
     const showError = (message: string, focus?: React.RefObject<HTMLElement | null>) => {
         setFormError(message);
-        toast.error(message);
         window.requestAnimationFrame(() => focus?.current?.focus());
     };
 
@@ -213,18 +258,22 @@ export default function InviteCollaboratorModal({
             setSelectedProjectId(projectId || projects?.[0]?.id || "");
             setSelectedCandidate(initialCandidate || null);
             setSearchQuery("");
-            setRoleId(preselectedRoleId || "");
+            const editing = editRef.current;
+            completedRef.current = false;
+            setRoleId(editing?.roleId || preselectedRoleId || "");
             setInviteKind("ordinary_role");
             setGuidanceLabel("Guide");
             setReviewAt("");
             setNote("");
-            setApplicationMessage("");
-            setPortfolioUrl("");
-            setAvailability("");
+            setApplicationMessage(editing?.message ?? "");
+            setPortfolioUrl(editing?.details?.portfolioUrl ?? "");
+            setAvailability(editing?.details?.availability ?? "");
             setAlignment(null);
             setGuidancePreflight(null);
             setFormError(null);
-            setApplicationDraftLoaded(mode !== "apply");
+            setPortfolioError(null);
+            setStaleRoleIds([]);
+            setApplicationDraftLoaded(mode !== "apply" || Boolean(editing));
             setIsChoosingProject(false);
             logger.metric("recruitment.composer.opened", { module: "recruitment-composer", kind: mode, route: projectIsFixed ? "project" : "profile" });
         } else {
@@ -234,7 +283,7 @@ export default function InviteCollaboratorModal({
             searchSequence.current += 1;
             guidanceSequence.current += 1;
         }
-    }, [initialCandidate, isOpen, mode, preselectedRoleId, projectId, projectIsFixed, projects]);
+    }, [initialCandidate, isOpen, mode, preselectedRoleId, projectId, projectIsFixed, projects, editApplication?.applicationId]);
 
     useEffect(() => {
         if (isChoosingProject) window.requestAnimationFrame(() => projectPickerRef.current?.focus());
@@ -347,7 +396,7 @@ export default function InviteCollaboratorModal({
     }, [preselectedRoleId, selectableRoleKey, selectedProjectId]);
 
     useEffect(() => {
-        if (!isOpen || mode !== "apply" || !selectedProjectId || !user?.id) return;
+        if (!isOpen || mode !== "apply" || isEditing || !selectedProjectId || !user?.id) return;
         let cancelled = false;
         setApplicationDraftLoaded(false);
         void get(applicationDraftKey).then(async (raw) => {
@@ -369,10 +418,10 @@ export default function InviteCollaboratorModal({
             if (!cancelled) setApplicationDraftLoaded(true);
         });
         return () => { cancelled = true; };
-    }, [applicationDraftKey, isOpen, mode, selectableRoleKey, selectedProjectId, user?.id]);
+    }, [applicationDraftKey, isEditing, isOpen, mode, selectableRoleKey, selectedProjectId, user?.id]);
 
     useEffect(() => {
-        if (!isOpen || mode !== "apply" || !selectedProjectId || !user?.id || !applicationDraftLoaded) return;
+        if (!isOpen || mode !== "apply" || isEditing || !selectedProjectId || !user?.id || !applicationDraftLoaded) return;
         const timer = window.setTimeout(() => {
             const hasDraft = applicationMessage.trim() || portfolioUrl.trim() || availability.trim();
             void (hasDraft
@@ -381,7 +430,7 @@ export default function InviteCollaboratorModal({
             );
         }, 750);
         return () => window.clearTimeout(timer);
-    }, [applicationDraftKey, applicationDraftLoaded, applicationMessage, availability, isOpen, mode, portfolioUrl, roleId, selectedProjectId, user?.id]);
+    }, [applicationDraftKey, applicationDraftLoaded, applicationMessage, availability, isEditing, isOpen, mode, portfolioUrl, roleId, selectedProjectId, user?.id]);
 
     useEffect(() => {
         if (!selectedCandidate || !selectedProject || mode !== "invite" || inviteKind === "guidance_appointment") return;
@@ -462,28 +511,43 @@ export default function InviteCollaboratorModal({
         const startedAt = performance.now();
         setSubmitting(true);
         setFormError(null);
+        setPortfolioError(null);
+        let applied: { applicationId?: string; channelId?: string | null; roleId?: string } | undefined;
         try {
             if (mode === "apply") {
                 const safePortfolioUrl = normalizePortfolioUrl(portfolioUrl);
-                if (safePortfolioUrl === null) return showError("Enter a valid portfolio or GitHub URL");
-                const details = [
-                    applicationMessage.trim(),
-                    safePortfolioUrl ? `Portfolio / GitHub: ${safePortfolioUrl}` : "",
-                    availability.trim() ? `Availability: ${availability.trim()}` : "",
-                ].filter(Boolean).join("\n\n");
-                if (details.length > 2000) return showError("Application text is too long. Please shorten it.", applicationMessageRef);
-                const idempotencyKey = `apply:${await fingerprint(`${selectedProject.id}:${roleId}:${details}`)}`;
-                const result = await applyToRoleAction(selectedProject.id, roleId, details, { idempotencyKey });
+                if (safePortfolioUrl === null) {
+                    setPortfolioError("Enter a valid link, like https://github.com/you");
+                    return showError("Check the portfolio link.", portfolioRef);
+                }
+                const message = applicationMessage.trim();
+                const details = { portfolioUrl: safePortfolioUrl || undefined, availability: availability.trim() || undefined };
+                const idempotencyKey = `apply:${await fingerprint(`${selectedProject.id}:${roleId}:${message}:${details.portfolioUrl ?? ""}:${details.availability ?? ""}`)}`;
+                const editing = editRef.current;
+                const result = editing
+                    ? await editPendingApplicationAction(editing.applicationId, message, roleId !== editing.roleId ? roleId : null, { idempotencyKey, details })
+                    : await applyToRoleAction(selectedProject.id, roleId, message, { idempotencyKey, details });
                 if (!result.success) {
                     logger.metric("recruitment.composer.submit", { module: "recruitment-composer", projectId: selectedProject.id, kind: mode, outcome: "failure", errorCode: result.errorCode || "APPLICATION_FAILED", durationMs: Math.round(performance.now() - startedAt) });
-                    return showError(result.error || "Failed to submit application", applicationMessageRef);
+                    const roleGone = result.errorCode === "ROLE_FULL" || result.errorCode === "ROLE_NOT_FOUND";
+                    if (roleGone) {
+                        setStaleRoleIds((ids) => [...ids, roleId]);
+                        setRoleId("");
+                        onRolesStale?.();
+                    }
+                    return showError(applyErrorCopy(result.errorCode, result.error), roleGone ? roleSelectRef : applicationMessageRef);
                 }
-                if (user?.id) await del(applicationDraftKey);
-                toast.success(
-                    result.outcome === "already_pending" ? "You already have this application pending"
-                        : result.outcome === "updated" ? "Application updated"
-                            : "Application submitted successfully",
-                );
+                completedRef.current = true;
+                applied = { applicationId: result.applicationId, channelId: result.channelId, roleId };
+                if (user?.id && !editing) await del(applicationDraftKey);
+                const title = editing || result.outcome === "updated" ? "Application updated"
+                    : result.outcome === "already_pending" ? "You already have this application pending"
+                        : "Application submitted";
+                const channelId = result.channelId;
+                toast.success(title, {
+                    description: result.outcome === "submitted" || result.outcome === "resubmitted" ? "The project's reviewers have been told." : undefined,
+                    action: channelId ? { label: "View conversation", onClick: () => router.push(conversationHref(channelId)) } : undefined,
+                });
             } else {
                 const payload = `${selectedProject.id}:${selectedCandidate!.id}:${inviteKind}:${roleId}:${guidanceLabel.trim()}:${reviewAt}:${note.trim()}`;
                 const result = await createProjectInvitationAction({
@@ -504,7 +568,7 @@ export default function InviteCollaboratorModal({
                 toast.success(result.capacityWarning ? "Invitation sent. This person is nearing their Guide capacity." : "Invitation sent successfully");
             }
             logger.metric("recruitment.composer.submit", { module: "recruitment-composer", projectId: selectedProject.id, kind: mode, outcome: "success", durationMs: Math.round(performance.now() - startedAt) });
-            onSuccess?.();
+            onSuccess?.(applied);
             closeComposer("completed");
         } catch (error) {
             const message = error instanceof Error ? error.message : "Failed to complete this action";
@@ -515,22 +579,51 @@ export default function InviteCollaboratorModal({
         }
     };
 
+    // Why Submit is off, said next to it, instead of leaving a grey button unexplained.
+    const submitBlocker = mode !== "apply" ? null
+        : !selectedProject ? "Choose a project to apply to."
+            : !roleId ? (selectableRoles.length ? "Choose a role." : "No roles are open right now.")
+                : !applicationMessage.trim() ? "Tell the reviewers why you are a fit." : null;
+
     const step = (label: string) => <p className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">{label}</p>;
     const selectedProjectContext = selectedProject ? <div className="flex items-center justify-between rounded-[5px] border border-border bg-muted/30 px-3.5 py-2.5 text-[13px] text-foreground"><span><span className="text-muted-foreground">Project:</span> <strong>{selectedProject.title}</strong></span>{!projectIsFixed ? <Button type="button" variant="ghost" size="sm" aria-expanded={isChoosingProject} aria-controls="recruitment-project-list" onClick={() => setIsChoosingProject((open) => !open)} className="nb-touch-target h-[28px] rounded-[5px] px-2 text-xs font-medium">{isChoosingProject ? "Cancel" : "Change"}</Button> : null}</div> : null;
     // An anchored list keeps the application form and modal dimensions intact.
-    const projectPicker = showProjectPicker ? <div ref={projectPickerRef} tabIndex={-1} className="absolute inset-x-0 top-full z-10 mt-2 animate-in fade-in slide-in-from-top-1 duration-[130ms] rounded-[8px] border border-border bg-card p-2 shadow-md outline-none">{step("Select project")}<div id="recruitment-project-list" role="listbox" aria-label="Available projects" className="mt-2 max-h-56 overflow-y-auto rounded-[5px] border border-border">{projectOptions.length ? projectOptions.map((project) => <button key={project.id} type="button" role="option" aria-selected={project.id === selectedProjectId} onClick={() => { setSelectedProjectId(project.id); setIsChoosingProject(false); setFormError(null); }} className={`flex w-full items-center justify-between gap-3 rounded-[5px] px-3 py-2 text-left text-sm transition-colors ${project.id === selectedProjectId ? "bg-primary/10 font-medium text-primary" : "hover:bg-muted text-foreground"}`}><span className="truncate">{project.title}</span>{project.id === selectedProjectId ? <Check aria-hidden="true" className="size-4 shrink-0" /> : null}</button>) : <p className="px-3 py-2 text-sm text-muted-foreground">No eligible projects available.</p>}</div></div> : null;
+    const projectPicker = showProjectPicker ? <div ref={projectPickerRef} tabIndex={-1} className="absolute inset-x-0 top-full z-10 mt-2 animate-in fade-in slide-in-from-top-1 duration-[130ms] rounded-[8px] border border-border bg-card p-2 shadow-md outline-none">{step("Select project")}<div
+                ref={projectListRef}
+                id="recruitment-project-list"
+                role="listbox"
+                aria-label="Available projects"
+                onKeyDown={(event) => {
+                    const options = Array.from(projectListRef.current?.querySelectorAll<HTMLElement>('[role="option"]') ?? []);
+                    const at = options.indexOf(document.activeElement as HTMLElement);
+                    const next = event.key === "ArrowDown" ? at + 1 : event.key === "ArrowUp" ? at - 1 : event.key === "Home" ? 0 : event.key === "End" ? options.length - 1 : null;
+                    if (next === null || !options.length) return;
+                    event.preventDefault();
+                    options[(next + options.length) % options.length]?.focus();
+                }}
+                className="mt-2 max-h-56 overflow-y-auto rounded-[5px] border border-border"
+            >{projectOptions.length ? projectOptions.map((project) => <button key={project.id} type="button" role="option" aria-selected={project.id === selectedProjectId} onClick={() => { setSelectedProjectId(project.id); setIsChoosingProject(false); setFormError(null); }} className={`flex w-full items-center justify-between gap-3 rounded-[5px] px-3 py-2 text-left text-sm transition-colors ${project.id === selectedProjectId ? "bg-primary/10 font-medium text-primary" : "hover:bg-muted text-foreground"}`}><span className="truncate">{project.title}</span>{project.id === selectedProjectId ? <Check aria-hidden="true" className="size-4 shrink-0" /> : null}</button>) : <p className="px-3 py-2 text-sm text-muted-foreground">No eligible projects available.</p>}</div></div> : null;
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && !submitting && closeComposer("dismissed")}>
-            <DialogContent className="sm:max-w-[550px] gap-0 overflow-hidden rounded-[12px] border border-border bg-card p-0 text-foreground shadow-lg">
+            <DialogContent
+                presentation={phone ? "bottom-sheet" : "center"}
+                // After a submit the button the dialog opened from is disabled, so focus goes to the status line that replaced it.
+                onCloseAutoFocus={(event) => {
+                    if (!completedRef.current) return;
+                    event.preventDefault();
+                    document.getElementById("open-roles-status")?.focus();
+                }}
+                className={phone ? "gap-0 overflow-hidden border border-border bg-card p-0 text-foreground" : "sm:max-w-[550px] gap-0 overflow-hidden rounded-[12px] border border-border bg-card p-0 text-foreground shadow-lg"}
+            >
                 <DialogHeader className="border-b border-border px-6 py-4 text-left">
                     <DialogTitle className={plainContentHeadings ? "nb-card-title text-foreground" : "nb-card-title flex items-center gap-2 text-foreground"}>
                         {!plainContentHeadings && (mode === "apply" ? <Briefcase aria-hidden="true" className="size-5 text-primary" /> : <Users aria-hidden="true" className="size-5 text-primary" />)}
-                        {mode === "apply" ? "Apply to Join" : "Invite Collaborator"}
+                        {mode === "apply" ? (isEditing ? "Edit application" : "Apply to Join") : "Invite Collaborator"}
                     </DialogTitle>
                 </DialogHeader>
 
-                <div className="max-h-[68vh] space-y-4 overflow-y-auto px-6 py-5">
+                <div className={phone ? "min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4" : "max-h-[68dvh] space-y-4 overflow-y-auto px-6 py-5"}>
                     {formError ? <div role="alert" className="flex gap-2 rounded-[5px] border border-amber-500/25 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300"><AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />{formError}</div> : null}
 
                     <div className="relative">
@@ -607,7 +700,8 @@ export default function InviteCollaboratorModal({
                         {mode === "invite" ? <div className="space-y-2">{step("Invitation note")}<label className="sr-only" htmlFor="recruitment-note">Invitation note</label><textarea id="recruitment-note" value={note} onChange={(event) => setNote(event.target.value.slice(0, NOTE_LIMIT))} rows={4} maxLength={NOTE_LIMIT} placeholder="Add a friendly note..." className="w-full resize-none rounded-[5px] border border-border bg-card p-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" /><p className="text-right text-xs text-muted-foreground">{note.length}/{NOTE_LIMIT}</p></div> : <div className="space-y-4">
                             <div className="space-y-1.5">
                                 <label htmlFor="recruitment-application-message" className="nb-ui-label block text-[13px] font-medium text-foreground">
-                                    Why are you a fit?
+                                    Why are you a fit? <span aria-hidden="true" className="text-destructive">*</span>
+                                    <span className="sr-only"> (required)</span>
                                 </label>
                                 <textarea
                                     ref={applicationMessageRef}
@@ -616,12 +710,15 @@ export default function InviteCollaboratorModal({
                                     onChange={(event) => setApplicationMessage(event.target.value.slice(0, APPLICATION_LIMIT))}
                                     rows={5}
                                     maxLength={APPLICATION_LIMIT}
+                                    required
+                                    aria-required="true"
+                                    aria-describedby="recruitment-application-hint recruitment-application-count"
                                     placeholder="Describe your relevant skills, execution style, and first-week contribution."
                                     className="w-full resize-none rounded-[5px] border border-border bg-card p-3 text-[13px] leading-relaxed text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
                                 />
                                 <div className="flex justify-between text-xs text-muted-foreground">
-                                    <span>{applicationMessage.trim().split(/\s+/).filter(Boolean).length < 12 ? "Add a concise intro, relevant skills, and expected contribution." : "Good application detail."}</span>
-                                    <span>{applicationMessage.length}/{APPLICATION_LIMIT}</span>
+                                    <span id="recruitment-application-hint">{applicationMessage.trim().split(/\s+/).filter(Boolean).length < 12 ? "Add a concise intro, relevant skills, and expected contribution." : "Good application detail."}</span>
+                                    <span id="recruitment-application-count" aria-live="polite">{applicationMessage.length}/{APPLICATION_LIMIT}{applicationMessage.length >= APPLICATION_LIMIT ? " · limit reached" : ""}</span>
                                 </div>
                             </div>
 
@@ -631,12 +728,17 @@ export default function InviteCollaboratorModal({
                                         Portfolio / GitHub <span className="font-normal text-xs text-muted-foreground">(optional)</span>
                                     </label>
                                     <input
+                                        ref={portfolioRef}
                                         id="recruitment-portfolio"
                                         value={portfolioUrl}
-                                        onChange={(event) => setPortfolioUrl(event.target.value)}
+                                        onChange={(event) => { setPortfolioUrl(event.target.value.slice(0, PORTFOLIO_LIMIT)); setPortfolioError(null); }}
+                                        maxLength={PORTFOLIO_LIMIT}
+                                        aria-invalid={portfolioError ? true : undefined}
+                                        aria-describedby={portfolioError ? "recruitment-portfolio-error" : undefined}
                                         placeholder="https://…"
-                                        className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+                                        className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary aria-[invalid=true]:border-destructive"
                                     />
+                                    {portfolioError ? <p id="recruitment-portfolio-error" className="text-xs text-destructive">{portfolioError}</p> : null}
                                 </div>
                                 <div className="space-y-1.5">
                                     <label htmlFor="recruitment-availability" className="nb-ui-label block text-[13px] font-medium text-foreground">
@@ -645,22 +747,24 @@ export default function InviteCollaboratorModal({
                                     <input
                                         id="recruitment-availability"
                                         value={availability}
-                                        onChange={(event) => setAvailability(event.target.value)}
+                                        onChange={(event) => setAvailability(event.target.value.slice(0, AVAILABILITY_LIMIT))}
+                                        maxLength={AVAILABILITY_LIMIT}
                                         placeholder="e.g. 15 hrs/week"
                                         className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
                                     />
                                 </div>
                             </div>
                             <p className="text-xs text-muted-foreground">
-                                Your application is sent to the project owner/admin team and mirrored in the existing conversation when available.
+                                Submitting opens a private conversation with the project\u2019s reviewers (its owner and admins). They are notified, and their answer shows up there and in your notifications.
                             </p>
                         </div>}
                     </> : null}
                 </div>
 
-                <DialogFooter className="flex items-center justify-end gap-2.5 border-t border-border bg-muted/10 px-6 py-3.5">
+                <DialogFooter className="flex items-center justify-end gap-2.5 border-t border-border bg-muted/10 px-4 py-3.5 sm:px-6">
+                    {submitBlocker ? <p id="recruitment-submit-hint" className="mr-auto min-w-0 text-xs text-muted-foreground">{submitBlocker}</p> : null}
                     <Button type="button" variant="outline" onClick={() => closeComposer("cancelled")} disabled={submitting} className="nb-touch-target h-[34px] rounded-[5px] border-border text-foreground hover:bg-muted">Cancel</Button>
-                    <Button type="button" onClick={submit} disabled={submitting || !selectedProject || (mode === "apply" ? !roleId || !applicationMessage.trim() : !selectedCandidate || hasPendingApplication || hasPendingInvitation || (inviteKind === "ordinary_role" && !roleId) || (inviteKind === "guidance_appointment" && (!guidanceLabel.trim() || guidanceLoading || guidanceUnavailable)))} className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]">{submitting ? <Loader2 aria-label="Submitting" className="size-4 animate-spin" /> : null}{submitting ? "Sending..." : mode === "apply" ? "Submit Application" : "Send Invitation"}</Button>
+                    <Button type="button" onClick={submit} aria-describedby={submitBlocker ? "recruitment-submit-hint" : undefined} disabled={submitting || !selectedProject || (mode === "apply" ? !roleId || !applicationMessage.trim() : !selectedCandidate || hasPendingApplication || hasPendingInvitation || (inviteKind === "ordinary_role" && !roleId) || (inviteKind === "guidance_appointment" && (!guidanceLabel.trim() || guidanceLoading || guidanceUnavailable)))} className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]">{submitting ? <Loader2 aria-label="Submitting" className="size-4 animate-spin" /> : null}{submitting ? "Sending..." : mode === "apply" ? (isEditing ? "Save changes" : "Submit Application") : "Send Invitation"}</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

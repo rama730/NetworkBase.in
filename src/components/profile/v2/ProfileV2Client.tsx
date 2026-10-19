@@ -686,6 +686,7 @@ export function ProfileV2Client({
                 <ApplyRoleModal
                     isOpen={isApplyModalOpen}
                     onClose={() => setIsApplyModalOpen(false)}
+                    onSuccess={() => router.refresh()}
                     candidateProjects={openRolesProjects}
                 />
             )}

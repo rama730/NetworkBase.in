@@ -23,6 +23,10 @@ export type NetworkInvitation = {
   projectTitle: string | null;
   projectSlug: string | null;
   roleTitle: string | null;
+  /** Sent applications only: where the application stands, why it was decided, and its private thread. */
+  applicationStatus: "pending" | "accepted" | "rejected" | null;
+  decisionReason: string | null;
+  channelId: string | null;
   person: PersonCardIdentity & { id: string };
 };
 const inputSchema = z
@@ -99,6 +103,9 @@ export async function readNetworkInvitationsAction(
       project_title: string | null;
       project_slug: string | null;
       role_title: string | null;
+      application_status: NetworkInvitation["applicationStatus"];
+      decision_reason: string | null;
+      channel_id: string | null;
       actor_id: string;
       username: string | null;
       full_name: string | null;
@@ -110,17 +117,25 @@ export async function readNetworkInvitationsAction(
             WITH entries AS (
                 SELECT c.id,'connection'::text AS source,CASE WHEN c.requester_id=${user.id}::uuid THEN 'sent' ELSE 'received' END AS direction,
                     c.created_at,c.message AS note,NULL::uuid AS project_id,NULL::text AS project_title,NULL::text AS project_slug,NULL::text AS role_title,
+                    NULL::text AS application_status,NULL::text AS decision_reason,NULL::uuid AS channel_id,
                     CASE WHEN c.requester_id=${user.id}::uuid THEN c.addressee_id ELSE c.requester_id END AS actor_id
                 FROM connections c WHERE c.status='pending' AND (c.requester_id=${user.id}::uuid OR c.addressee_id=${user.id}::uuid)
                 UNION ALL
                 SELECT i.id,'invitation',CASE WHEN i.inviter_id=${user.id}::uuid THEN 'sent' ELSE 'received' END,i.created_at,i.note,i.project_id,p.title,p.slug,
-                    coalesce(i.role_title,i.guidance_label,'Collaborator'),CASE WHEN i.inviter_id=${user.id}::uuid THEN i.candidate_id ELSE i.inviter_id END
+                    coalesce(i.role_title,i.guidance_label,'Collaborator'),NULL,NULL,NULL,CASE WHEN i.inviter_id=${user.id}::uuid THEN i.candidate_id ELSE i.inviter_id END
                 FROM project_invitations i JOIN projects p ON p.id=i.project_id
                 WHERE i.status='pending' AND i.expires_at>now() AND p.deleted_at IS NULL AND (i.inviter_id=${user.id}::uuid OR i.candidate_id=${user.id}::uuid)
                 UNION ALL
-                SELECT a.id,'application','received',a.created_at,a.message,a.project_id,p.title,p.slug,coalesce(r.title,r.role,'Collaborator'),a.applicant_id
+                SELECT a.id,'application','received',a.created_at,a.message,a.project_id,p.title,p.slug,coalesce(r.title,r.role,'Role removed'),NULL,NULL,NULL,a.applicant_id
                 FROM role_applications a JOIN projects p ON p.id=a.project_id LEFT JOIN project_open_roles r ON r.id=a.role_id
                 WHERE a.status='pending' AND ${canReviewProjectSql(user.id, sql`a.project_id`)}
+                UNION ALL
+                SELECT a.id,'application','sent',a.created_at,a.message,a.project_id,p.title,p.slug,coalesce(r.title,r.role,'Role removed'),
+                    a.status::text,a.decision_reason_text,ch.id,p.owner_id
+                FROM role_applications a JOIN projects p ON p.id=a.project_id LEFT JOIN project_open_roles r ON r.id=a.role_id
+                    LEFT JOIN chat_channels ch ON ch.application_id=a.id
+                WHERE a.applicant_id=${user.id}::uuid AND p.deleted_at IS NULL
+                    AND (a.status='pending' OR (a.status IN ('accepted','rejected') AND a.updated_at>now()-interval '30 days'))
             ), matching AS (
                 SELECT entries.*,profiles.username,profiles.full_name,profiles.avatar_url,profiles.headline,profiles.location
                 FROM entries JOIN profiles ON profiles.id=entries.actor_id
@@ -155,6 +170,9 @@ export async function readNetworkInvitationsAction(
         projectTitle: row.project_title,
         projectSlug: row.project_slug,
         roleTitle: row.role_title,
+        applicationStatus: row.application_status,
+        decisionReason: row.decision_reason,
+        channelId: row.channel_id,
         person: {
           id: row.actor_id,
           username: row.username,

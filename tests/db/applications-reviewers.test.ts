@@ -153,3 +153,27 @@ test("the table refuses states the lifecycle never produces", async () => {
     assert.deepEqual(row!.details, {}, "details starts empty");
   });
 });
+
+test("the applicant sees their own applications under Sent, with status, reason and thread", async () => {
+  await withApplication(async ({ owner, applicant, applicationId, channelId }) => {
+    const sent = async () => {
+      viewerId = applicant;
+      const result = await invitations.readNetworkInvitationsAction({ direction: "sent", kind: "projects" });
+      assert.equal(result.success, true, JSON.stringify(result));
+      return result.success ? result.items.filter((item) => item.source === "application") : [];
+    };
+    const [pending] = await sent();
+    assert.equal(pending?.id, applicationId);
+    assert.equal(pending?.applicationStatus, "pending");
+    assert.equal(pending?.channelId, channelId);
+    assert.equal(pending?.person.id, owner, "the other party is the project owner");
+    viewerId = owner;
+    assert.equal((await apps.rejectApplicationAction(applicationId, undefined, "availability")).success, true);
+    const [declined] = await sent();
+    assert.equal(declined?.applicationStatus, "rejected");
+    assert.match(declined?.decisionReason ?? "", /availability/i);
+    assert.equal((await queue(owner)), 0, "a decided application leaves the reviewer's queue");
+    await sql`UPDATE role_applications SET updated_at = now() - interval '31 days' WHERE id = ${applicationId}`;
+    assert.equal((await sent()).length, 0, "old decisions drop off");
+  });
+});

@@ -1,7 +1,7 @@
 "use client";
 
 import ProjectOverviewCard from "@/components/projects/dashboard/ProjectOverviewCard";
-import OpenRolesCard from "@/components/projects/dashboard/OpenRolesCard";
+import OpenRolesCard, { type ApplicationCardControls } from "@/components/projects/dashboard/OpenRolesCard";
 import JourneyTimeline from "@/components/projects/dashboard/JourneyTimeline";
 import { RecentActivityCard } from "@/components/projects/dashboard/RecentActivityCard";
 import { useBottomStickyRail } from "@/hooks/useBottomStickyRail";
@@ -23,6 +23,7 @@ interface DashboardTabProps {
     onAcceptInvitation?: () => void;
     onDeclineInvitation?: () => void;
     invitationLoading?: boolean;
+    application?: ApplicationCardControls;
 }
 
 export function DashboardTab({
@@ -40,6 +41,7 @@ export function DashboardTab({
     onAcceptInvitation,
     onDeclineInvitation,
     invitationLoading,
+    application,
 }: DashboardTabProps) {
     const stickyRail = useBottomStickyRail({ topInset: "calc(var(--project-tabs-height, 0px) + 24px)" });
     const stages = lifecycleStages.map((stage: any) => stage?.name ?? stage).filter(Boolean);
@@ -73,6 +75,7 @@ export function DashboardTab({
                     onAcceptInvitation={onAcceptInvitation}
                     onDeclineInvitation={onDeclineInvitation}
                     invitationLoading={invitationLoading}
+                    application={application}
                 />
             </aside>
         </div>

@@ -2,6 +2,9 @@ import type { ApplicationLifecycleStatus } from '@/lib/applications/status';
 
 const COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
+/** How long after submitting the applicant can still edit the application. */
+export const APPLICATION_EDIT_WINDOW_MS = 10 * 60 * 1000;
+
 export function calculateCooldown(updatedAt: Date, nowMs: number = Date.now()): { canApply: boolean; waitTime?: string } {
     const elapsed = nowMs - new Date(updatedAt).getTime();
 

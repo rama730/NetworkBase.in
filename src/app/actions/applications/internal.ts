@@ -28,6 +28,7 @@ import {
     type ApplicationDecisionReasonCode,
 } from '@/lib/applications/reasons';
 import {
+    APPLICATION_EDIT_WINDOW_MS,
     calculateCooldown,
     normalizeApplicationMessageText,
     resolveLifecycleStatus,
@@ -53,6 +54,7 @@ import {
     applicationNoteSchema,
     applyToRoleInputSchema,
     editApplicationInputSchema,
+    type ApplicationDetails,
 } from '@/lib/validations/application';
 import { conversationHref } from '@/lib/messaging/routes';
 
@@ -64,7 +66,6 @@ type ApplicationDecisionStatus = 'accepted' | 'rejected' | 'withdrawn' | 'propos
 // ============================================================================
 // COOLDOWN HELPER (24 hours)
 // ============================================================================
-const APPLICATION_EDIT_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
 const APPLICATION_REOPEN_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
 const APPLICATION_PENDING_CAP_PER_USER = 20;
 const APPLICATION_APPLY_COOLDOWN_PER_PROJECT_SECONDS = 60;
@@ -605,6 +606,19 @@ async function hasPendingCapacity(tx: any, applicantId: string) {
 
 const CAP_REACHED_MESSAGE = `You have ${APPLICATION_PENDING_CAP_PER_USER} pending applications. Withdraw one to apply.`;
 
+/** The stored details object: only the fields the applicant filled in. */
+function cleanDetails(details: ApplicationDetails | null | undefined): ApplicationDetails {
+    return {
+        ...(details?.portfolioUrl ? { portfolioUrl: details.portfolioUrl } : {}),
+        ...(details?.availability ? { availability: details.availability } : {}),
+    };
+}
+
+function sameDetails(a: unknown, b: ApplicationDetails) {
+    const stored = (a ?? {}) as ApplicationDetails;
+    return (stored.portfolioUrl ?? '') === (b.portfolioUrl ?? '') && (stored.availability ?? '') === (b.availability ?? '');
+}
+
 function isUniqueViolation(error: unknown) {
     const candidate = error as { code?: string; cause?: { code?: string } } | null;
     return candidate?.code === '23505' || candidate?.cause?.code === '23505';
@@ -647,7 +661,7 @@ async function transitionApplicationToPendingInternal(
     reasonCode: string,
     options: {
         from?: Array<'rejected' | 'withdrawn' | 'accepted'>;
-        revive?: { roleId: string; message: string; creatorId: string };
+        revive?: { roleId: string; message: string; creatorId: string; details: ApplicationDetails };
     } = {},
 ): Promise<PendingTransition> {
     const from = options.from ?? ['rejected'];
@@ -675,7 +689,7 @@ async function transitionApplicationToPendingInternal(
             // A revived application is a new submission: new role and text, current owner, and its
             // own submitted time (which also restarts the edit window).
             ...(options.revive
-                ? { roleId: options.revive.roleId, message: options.revive.message, creatorId: options.revive.creatorId, createdAt: now }
+                ? { roleId: options.revive.roleId, message: options.revive.message, details: options.revive.details, creatorId: options.revive.creatorId, createdAt: now }
                 : {}),
         })
         .where(and(eq(roleApplications.id, applicationId), inArray(roleApplications.status, from)))
@@ -700,12 +714,13 @@ async function transitionApplicationToPendingInternal(
  */
 async function editPendingApplicationInTx(
     tx: any,
-    params: { applicationId: string; applicantId: string; message: string; roleId?: string | null; traceId: string },
+    params: { applicationId: string; applicantId: string; message: string; details: ApplicationDetails; roleId?: string | null; traceId: string },
 ): Promise<string | null> {
     const edited = await tx
         .update(roleApplications)
         .set({
             message: params.message,
+            details: params.details,
             ...(params.roleId ? { roleId: params.roleId } : {}),
             updatedAt: new Date(),
         })
@@ -855,7 +870,7 @@ export async function getApplicationStatusAction(projectId: string): Promise<App
                     columns: { role: true, title: true }
                 }
             },
-            columns: { id: true, status: true, roleId: true, proposedRoleId: true, updatedAt: true, decisionBy: true }
+            columns: { id: true, status: true, roleId: true, proposedRoleId: true, updatedAt: true, createdAt: true, decisionBy: true, message: true, details: true, decisionReasonText: true }
         });
 
         if (application) {
@@ -885,9 +900,19 @@ export async function getApplicationStatusAction(projectId: string): Promise<App
                 ? normalizeApplicationDecisionReason(decisionReasonRaw, 'other')
                 : null;
             const lifecycleStatus = resolveLifecycleStatus(application.status, decisionReason);
+            const [threadRow] = await db.execute<{ id: string }>(sql`SELECT id FROM chat_channels WHERE application_id = ${application.id} LIMIT 1`);
+            const editableUntilMs = new Date(application.createdAt).getTime() + APPLICATION_EDIT_WINDOW_MS;
+            const own = {
+                applicationId: application.id,
+                message: application.message,
+                details: cleanDetails(application.details as ApplicationDetails),
+                decisionReasonText: application.decisionReasonText,
+                channelId: threadRow?.id ?? null,
+                ...(application.status === 'pending' && editableUntilMs > Date.now() ? { editableUntil: new Date(editableUntilMs) } : {}),
+            };
 
             if (application.status === 'rejected') {
-                if (application.decisionBy === user.id) {
+                if (application.decisionBy === user.id || decisionReason === 'role_filled') {
                     return {
                         status: 'rejected',
                         roleId: application.roleId || undefined,
@@ -896,6 +921,7 @@ export async function getApplicationStatusAction(projectId: string): Promise<App
                         lifecycleStatus,
                         canReapply: true,
                         updatedAt: application.updatedAt,
+                        ...own,
                     };
                 }
                 const { canApply, waitTime } = calculateCooldown(application.updatedAt);
@@ -907,7 +933,8 @@ export async function getApplicationStatusAction(projectId: string): Promise<App
                     lifecycleStatus,
                     canReapply: canApply,
                     waitTime,
-                    updatedAt: application.updatedAt
+                    updatedAt: application.updatedAt,
+                    ...own,
                 };
             }
 
@@ -929,14 +956,15 @@ export async function getApplicationStatusAction(projectId: string): Promise<App
                 lifecycleStatus,
                 updatedAt: application.updatedAt,
                 membershipEnded: application.status === 'accepted' && !activeMembership,
-                applicationId: application.id,
+                ...own,
             };
         }
 
         return { status: 'none' };
     } catch (error) {
         console.error('Failed to get application status:', error);
-        return { status: 'none' };
+        // Not "none": the card must not offer Apply to someone who may already have applied.
+        return { status: 'none', loadFailed: true };
     }
 }
 
@@ -960,11 +988,12 @@ export async function applyToRoleAction(
         }
         applicantId = user.id;
 
-        const parsed = applyToRoleInputSchema.safeParse({ projectId, roleId, message });
+        const parsed = applyToRoleInputSchema.safeParse({ projectId, roleId, message, details: options?.details ?? {} });
         if (!parsed.success) {
             return toApplicationFailure(traceId, 'INVALID_INPUT', parsed.error.issues[0]?.message ?? 'Invalid application');
         }
         const trimmedMessage = normalizeApplicationMessageText(parsed.data.message);
+        const details = cleanDetails(parsed.data.details);
         const dedupeKey = `applications:apply:${user.id}:${projectId}:${roleId}:${options?.idempotencyKey?.trim() || trimmedMessage.slice(0, 120)}`;
         return await runInFlightDeduped(dedupeKey, async () => {
             const applyRate = await consumeRateLimit(`applications:apply:${user.id}`, 30, APPLICATION_APPLY_COOLDOWN_GLOBAL_SECONDS);
@@ -1004,7 +1033,7 @@ export async function applyToRoleAction(
                         eq(roleApplications.projectId, projectId),
                         eq(roleApplications.applicantId, user.id)
                     ),
-                    columns: { id: true, status: true, roleId: true, message: true, createdAt: true, updatedAt: true, decisionBy: true }
+                    columns: { id: true, status: true, roleId: true, message: true, details: true, createdAt: true, updatedAt: true, decisionBy: true, decisionReasonCode: true }
                 })
             ]);
 
@@ -1066,7 +1095,7 @@ export async function applyToRoleAction(
 
             if (existingApp) {
                 if (existingApp.status === 'pending') {
-                    if (existingApp.roleId === roleId && (existingApp.message || '').trim() === trimmedMessage) {
+                    if (existingApp.roleId === roleId && (existingApp.message || '').trim() === trimmedMessage && sameDetails(existingApp.details, details)) {
                         return toApplicationSuccess(traceId, { applicationId: existingApp.id, idempotent: true, outcome: 'already_pending' });
                     }
                     // A changed submit while pending is an edit, inside the edit window; later it is refused
@@ -1075,6 +1104,7 @@ export async function applyToRoleAction(
                         applicationId: existingApp.id,
                         applicantId: user.id,
                         message: trimmedMessage,
+                        details,
                         roleId: existingApp.roleId === roleId ? null : roleId,
                         traceId,
                     }));
@@ -1088,7 +1118,8 @@ export async function applyToRoleAction(
                     return toApplicationFailure(traceId, 'INVALID_STATE', 'Respond to your invitation for this project first');
                 }
                 if (existingApp.status === 'rejected') {
-                    const canSkipCooldown = existingApp.decisionBy === user.id;
+                    // The cooldown is for declines. Withdrawing yourself or losing the role to someone else is not one.
+                    const canSkipCooldown = existingApp.decisionBy === user.id || existingApp.decisionReasonCode === 'role_filled';
                     const { canApply, waitTime } = canSkipCooldown
                         ? { canApply: true, waitTime: undefined as string | undefined }
                         : calculateCooldown(existingApp.updatedAt);
@@ -1108,7 +1139,7 @@ export async function applyToRoleAction(
                         'reapplied_by_applicant',
                         {
                             from: [reviveFrom],
-                            revive: { roleId, message: trimmedMessage, creatorId: project.ownerId },
+                            revive: { roleId, message: trimmedMessage, details, creatorId: project.ownerId },
                         },
                     );
                     if (transition !== 'reopened') return transition;
@@ -1136,6 +1167,7 @@ export async function applyToRoleAction(
                         applicantId: user.id,
                         creatorId: project.ownerId,
                         message: trimmedMessage,
+                        details,
                         status: 'pending'
                     })
                     .returning({ id: roleApplications.id });
@@ -1501,7 +1533,7 @@ export async function editPendingApplicationAction(
             return toApplicationFailure(traceId, 'UNAUTHORIZED', 'Unauthorized');
         }
 
-        const parsed = editApplicationInputSchema.safeParse({ applicationId, message, roleId: roleId || undefined });
+        const parsed = editApplicationInputSchema.safeParse({ applicationId, message, roleId: roleId || undefined, details: options?.details ?? {} });
         if (!parsed.success) {
             return toApplicationFailure(traceId, 'INVALID_INPUT', parsed.error.issues[0]?.message ?? 'Invalid application');
         }
@@ -1512,6 +1544,7 @@ export async function editPendingApplicationAction(
         }
 
         const normalizedMessage = normalizeApplicationMessageText(parsed.data.message);
+        const details = cleanDetails(parsed.data.details);
 
         const application = await db.query.roleApplications.findFirst({
             where: eq(roleApplications.id, applicationId),
@@ -1527,6 +1560,7 @@ export async function editPendingApplicationAction(
                 roleId: true,
                 status: true,
                 message: true,
+                details: true,
                 createdAt: true,
             },
         });
@@ -1551,7 +1585,7 @@ export async function editPendingApplicationAction(
             nextRoleId = nextRole.id;
         }
 
-        if (!nextRoleId && (application.message || '').trim() === normalizedMessage) {
+        if (!nextRoleId && (application.message || '').trim() === normalizedMessage && sameDetails(application.details, details)) {
             return toApplicationSuccess(traceId, {
                 applicationId: application.id,
                 idempotent: true,
@@ -1563,6 +1597,7 @@ export async function editPendingApplicationAction(
             applicationId: application.id,
             applicantId: user.id,
             message: normalizedMessage,
+            details,
             roleId: nextRoleId,
             traceId,
         }));

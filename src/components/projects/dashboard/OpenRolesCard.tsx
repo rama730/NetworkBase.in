@@ -1,7 +1,8 @@
 "use client";
 
 import { memo, useMemo, useState } from "react";
-import { CheckCircle, Clock, Loader2, XCircle } from "lucide-react";
+import Link from "next/link";
+import { CheckCircle, Clock, Loader2, RotateCcw, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RailSection } from "@/components/ui/rail-section";
 import { SkillList } from "@/components/skills/SkillList";
@@ -11,6 +12,17 @@ import {
     weeklyCapacityLabel,
 } from "@/lib/profile/role-preferences";
 import { type ApplicationStatusResult } from "@/app/actions/applications";
+import { describeApplyCard, type ApplicationStatusLoad } from "@/lib/applications/card-state";
+import { conversationHref } from "@/lib/messaging/routes";
+
+/** What the dashboard hands the card beyond the status itself. */
+export type ApplicationCardControls = {
+    load: ApplicationStatusLoad;
+    projectClosed: boolean;
+    onRetry: () => void;
+    onEdit: () => void;
+    onWithdraw: () => void;
+};
 
 interface OpenRolesCardProps {
     roles: any[];
@@ -18,6 +30,7 @@ interface OpenRolesCardProps {
     isCollaborator: boolean;
     applicationStatus: ApplicationStatusResult;
     onApply: (role?: any) => void;
+    application?: ApplicationCardControls;
     onManageRoles: () => void;
     onAcceptInvitation?: () => void;
     onDeclineInvitation?: () => void;
@@ -30,6 +43,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
     isCollaborator,
     applicationStatus,
     onApply,
+    application,
     onManageRoles,
     onAcceptInvitation,
     onDeclineInvitation,
@@ -65,34 +79,13 @@ export const OpenRolesCard = memo(function OpenRolesCard({
         );
     }
 
-    const isPending = applicationStatus.status === "pending";
-    const isRejected = applicationStatus.status === "rejected";
+    const card = describeApplyCard(applicationStatus, {
+        load: application?.load ?? "ready",
+        projectClosed: application?.projectClosed ?? false,
+    });
     const invitationTitle = applicationStatus.proposedRoleTitle || applicationStatus.roleTitle || "Guide";
-    const isRoleFilled = applicationStatus.lifecycleStatus === "role_filled" || applicationStatus.decisionReason === "role_filled";
-    const canReapply = applicationStatus.canReapply ?? true;
-    const isBlocked = isPending || isProposed || (isRejected && !canReapply);
-    const waitTime = applicationStatus.waitTime;
-
-    const blockedReason = isPending
-        ? "You already have an application pending review."
-        : isProposed
-            ? `You have a pending ${invitationTitle} invitation. Review or decline it to apply for other roles.`
-            : isRejected && !canReapply
-                ? isRoleFilled
-                    ? "This role has been filled."
-                    : waitTime
-                        ? `You can reapply in ${waitTime}.`
-                        : "You cannot reapply yet."
-                : null;
-
-    const cannotReapplyLabel = isRejected && !canReapply
-        ? isRoleFilled
-            ? "Role filled"
-            : waitTime
-                ? `Cannot reapply • ${waitTime}`
-                : "Cannot reapply"
-        : null;
-    const isApplyDisabled = isBlocked;
+    const blockedReason = card.blockedReason;
+    const isApplyDisabled = Boolean(blockedReason);
     const showMoreCount = openRoles.length - 10;
 
     return (
@@ -109,15 +102,34 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                         <CheckCircle className="h-3.5 w-3.5" />
                         <span>Team member</span>
                     </div>
-                ) : isPending ? (
-                    <div className="flex items-center gap-2 px-1 py-1 text-xs font-medium text-[var(--status-warning,#9A6B00)]">
-                        <Clock className="h-3.5 w-3.5" />
-                        <span>Application pending review</span>
-                    </div>
-                ) : isRejected && !canReapply ? (
-                    <div className="flex items-center gap-2 px-1 py-1 text-xs font-medium text-[var(--status-danger,#B3261E)]">
-                        <XCircle className="h-3.5 w-3.5" />
-                        <span>{cannotReapplyLabel || "Cannot reapply"}</span>
+                ) : card.banner ? (
+                    <div role="status" id="open-roles-status" tabIndex={-1} className="space-y-1.5 px-1 py-1 outline-none">
+                        <div
+                            className={cn(
+                                "flex items-center gap-2 text-xs font-medium",
+                                card.banner.tone === "success" && "text-[var(--status-success,#2F6B4F)]",
+                                card.banner.tone === "warning" && "text-[var(--status-warning,#9A6B00)]",
+                                card.banner.tone === "danger" && "text-[var(--status-danger,#B3261E)]",
+                                card.banner.tone === "muted" && "text-muted-foreground",
+                            )}
+                        >
+                            {card.banner.tone === "danger" ? <XCircle aria-hidden="true" className="h-3.5 w-3.5" /> : card.banner.tone === "warning" ? <Clock aria-hidden="true" className="h-3.5 w-3.5" /> : <CheckCircle aria-hidden="true" className="h-3.5 w-3.5" />}
+                            <span>{card.banner.text}</span>
+                        </div>
+                        {card.banner.detail ? <p className="text-[12px] leading-relaxed text-muted-foreground">{card.banner.detail}</p> : null}
+                        {card.canEdit || card.canWithdraw || applicationStatus.channelId ? (
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-0.5 text-[12px] font-medium">
+                                {card.canEdit ? <button type="button" onClick={application?.onEdit} className="nb-touch-target text-primary hover:underline">Edit</button> : null}
+                                {card.canWithdraw ? <button type="button" onClick={application?.onWithdraw} className="nb-touch-target text-muted-foreground hover:text-foreground hover:underline">Withdraw</button> : null}
+                                {applicationStatus.channelId ? <Link href={conversationHref(applicationStatus.channelId)} className="nb-touch-target text-primary hover:underline">View conversation</Link> : null}
+                            </div>
+                        ) : null}
+                        {card.canRetry ? (
+                            <button type="button" onClick={application?.onRetry} className="nb-touch-target inline-flex items-center gap-1 text-[12px] font-medium text-primary hover:underline">
+                                <RotateCcw aria-hidden="true" className="h-3 w-3" />
+                                Try again
+                            </button>
+                        ) : null}
                     </div>
                 ) : null}
 
@@ -172,7 +184,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                                 const remaining = (role?.count || 0) - (role?.filled || 0);
                                 const isInteractive = !isCreator && !isCollaborator;
                                 const isThisProposedRole = isProposed && (role.id === applicationStatus.proposedRoleId || role.id === applicationStatus.roleId);
-                                const isThisAppliedRole = isPending && role.id === applicationStatus.roleId;
+                                const isThisAppliedRole = Boolean(card.appliedRowLabel) && role.id === applicationStatus.roleId;
 
                                 if (isThisProposedRole) {
                                     return (
@@ -264,7 +276,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                                                 <span className="text-[13.5px] font-semibold text-foreground transition-colors group-hover:text-primary max-md:text-[17px]">
                                                     {role.title ?? role.role}
                                                 </span>
-                                                {isThisAppliedRole ? (
+                                                {isThisAppliedRole && card.appliedRowLabel === "Pending" ? (
                                                     <span className="nb-status shrink-0" data-status="draft">
                                                         Applied
                                                     </span>
@@ -317,7 +329,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                                                             : "border-transparent bg-primary text-primary-foreground hover:brightness-110",
                                                     )}
                                                 >
-                                                    {isThisAppliedRole ? "Pending" : isRejected && !canReapply ? (isRoleFilled ? "Filled" : "Rejected") : "Apply"}
+                                                    {isThisAppliedRole ? card.appliedRowLabel : card.applyLabel}
                                                 </span>
                                             </div>
                                         ) : null}
@@ -339,6 +351,8 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                                         onClick={() => onApply(role)}
                                         disabled={isApplyDisabled}
                                         aria-disabled={isApplyDisabled}
+                                        // The row's text holds the whole description; the name is just the role and its spots.
+                                        aria-label={`${card.applyLabel} for ${role.title ?? role.role}, ${remaining} ${remaining === 1 ? "spot" : "spots"} left`}
                                         aria-describedby={isApplyDisabled ? "open-roles-apply-disabled-reason" : undefined}
                                         title={isApplyDisabled ? (blockedReason || "Application is currently unavailable") : `Apply for ${role.title ?? role.role}`}
                                         className={className}
