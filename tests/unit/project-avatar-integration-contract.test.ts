@@ -111,13 +111,13 @@ test("Presence dot enhancements: fine-grained recency, in-tab BroadcastChannel s
 
     // Idea 4: Color-vision accessibility (WCAG 2.2 Compliant)
     assert.match(presenceBadgeSource, /role=\{label \? "img" : undefined\}/);
-    // The Node badge separates from any photo with a 2 px cut-out in the surface color.
-    assert.match(globalStyles, /\.nb-presence \{[^}]*box-shadow:0 0 0 2px var\(--presence-cut\)/);
-    // Offline mirrors the weekly badge's cutout geometry, using grey instead of amber.
-    assert.match(globalStyles, /\.nb-presence\[data-availability="offline"\] \{ background:var\(--presence-off\); \}/);
-    assert.match(globalStyles, /\.nb-presence\[data-availability="week"\] > \.nb-presence-cutout, \.nb-presence\[data-availability="offline"\] > \.nb-presence-cutout \{ inset:27%; \}/);
-    assert.match(presenceBadgeSource, /availability === "week" \|\| availability === "offline"/);
-    assert.match(presenceBadgeSource, /<span aria-hidden="true" className="nb-presence-cutout"/);
+    // The ring badge separates from any photo with a 2 px cut-out in the surface color.
+    assert.match(globalStyles, /\.nb-presence-badge, \.nb-presence-chip \{[^}]*box-shadow:0 0 0 2px var\(--presence-cut\)/);
+    // One hue per state; offline is the grey one.
+    assert.match(globalStyles, /\.nb-presence\[data-availability="offline"\] \{ --presence-arc:var\(--presence-off\); \}/);
+    assert.match(globalStyles, /\.nb-presence\[data-availability="today"\] \{ --presence-arc:var\(--presence-today\); \}/);
+    assert.match(presenceBadgeSource, /data-availability=\{availability\}/);
+    assert.match(presenceBadgeSource, /className="nb-presence-badge"/);
 });
 
 test("Projects without a profile picture render standalone presence dot beside the project title and keep Line 3 cleanly separated", () => {

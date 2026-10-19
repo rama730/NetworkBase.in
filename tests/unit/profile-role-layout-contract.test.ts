@@ -49,7 +49,7 @@ test('profile summary follows the supplied NetworkBase card and tab pattern', ()
   const tabs = read('src/components/profile/v2/ProfileTabs.tsx')
 
   assert.match(header, /<PersonPresenceBadge userId=\{profile\?\.id \?\? null\} lastActiveAt=\{vm\.lastActiveAt\}/)
-  assert.match(header, /size=\{22\} className=\"absolute -bottom-1\.5 -right-1\.5 max-md:-right-3\.5 max-md:bottom-0\"/)
+  assert.match(header, /size=\{24\} className=\"absolute -bottom-1\.5 -right-1\.5 max-md:-right-3\.5 max-md:bottom-0\"/)
   assert.match(header, /const showAvailability = presence\.availability !== 'now'/)
   assert.match(header, /\{showAvailability \? \(/)
   assert.match(header, /'Update your status'/)

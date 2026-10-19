@@ -5,11 +5,11 @@ import { usePersonPresence, useProjectPresence } from "@/components/presence/use
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { cn } from "@/lib/utils";
 
-/** Badge size for an avatar size: 24 → 10, 40 → 14, 64 → 16, larger → 26. */
+/** Badge size for an avatar size: 24 → 11, 40 → 14, 64 → 20, larger → 26. */
 export function badgeSizeFor(avatarSize: number) {
-  if (avatarSize <= 24) return 10;
+  if (avatarSize <= 24) return 11;
   if (avatarSize <= 40) return 14;
-  if (avatarSize <= 64) return 16;
+  if (avatarSize <= 64) return 20;
   return 26;
 }
 
@@ -38,6 +38,8 @@ export function PersonPresenceBadge({
       label={presence.label}
       className={className}
       style={style}
+      statusEmoji={presence.status?.emoji}
+      animate={presence.loaded}
     />
   );
 }
@@ -91,6 +93,7 @@ export function ProjectPresenceBadge({
       className={className}
       style={style}
       testId={testId}
+      statusEmoji={presence.status?.emoji}
     />
   );
 }

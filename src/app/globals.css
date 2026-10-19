@@ -930,24 +930,39 @@ svg.lucide { stroke-width:1.75; }
 @container network-main (min-width:720px) {
   .nb-network-page .nb-person-card-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
-/* Presence "Node" badge (components/presence): availability only. Statuses are emoji + text. */
+/* Presence ring badge (components/presence): four rings, one hue per availability. Statuses are emoji + text; the emoji is also docked beside the rings on larger badges. */
 :root {
-  --presence-active: #2E9E5B; --presence-week: #D9971E; --presence-off: #8A969C;
+  --presence-now: #2E9E5B; --presence-today: #3B7BEA; --presence-week: #D9971E; --presence-off: #8A969C;
+  --presence-chip: #FFFFFF; --presence-track: #E6E1D6;
   --presence-cut: var(--card);
 }
 .dark {
-  --presence-active: #5BD08A; --presence-week: #F0B85A; --presence-off: #6B7880;
+  --presence-now: #5BD08A; --presence-today: #6FA0F5; --presence-week: #F0B85A; --presence-off: #9AA6AC;
+  --presence-chip: var(--card); --presence-track: #2B353B;
 }
-.nb-presence { display:inline-block; flex:none; border-radius:32%; box-shadow:0 0 0 2px var(--presence-cut); }
+.nb-presence { display:inline-flex; flex:none; align-items:flex-end; gap:2px; --presence-arc:var(--presence-off); }
 /* Unlayered rules beat Tailwind's .absolute, so only claim `relative` when not placed absolutely. */
 .nb-presence:not(.absolute):not(.nb-person-presence-dot) { position:relative; }
-.nb-presence[data-availability="now"] { background:var(--presence-active); }
-.nb-presence[data-availability="today"] { background:var(--presence-off); }
-.nb-presence[data-availability="week"] { background:var(--presence-week); }
-.nb-presence[data-availability="offline"] { background:var(--presence-off); }
-.nb-presence-cutout { position:absolute; border-radius:32%; background:var(--presence-cut); pointer-events:none; }
-.nb-presence[data-availability="today"] > .nb-presence-cutout { inset:33%; }
-.nb-presence[data-availability="week"] > .nb-presence-cutout, .nb-presence[data-availability="offline"] > .nb-presence-cutout { inset:27%; }
+.nb-presence[data-availability="now"] { --presence-arc:var(--presence-now); }
+.nb-presence[data-availability="today"] { --presence-arc:var(--presence-today); }
+.nb-presence[data-availability="week"] { --presence-arc:var(--presence-week); }
+.nb-presence[data-availability="offline"] { --presence-arc:var(--presence-off); }
+.nb-presence-badge, .nb-presence-chip { position:relative; display:block; flex:none; border-radius:32%; background:var(--presence-chip); box-shadow:0 0 0 2px var(--presence-cut); }
+.nb-presence-chip { display:flex; align-items:center; justify-content:center; line-height:1; }
+.nb-presence-svg { display:block; border-radius:32%; }
+.nb-presence-track { stroke:var(--presence-track); }
+.nb-presence-arc { stroke:var(--presence-arc); transition:stroke 1s ease; }
+.nb-presence-ring { transform-box:fill-box; transform-origin:50% 50%; transition:transform 1.1s cubic-bezier(.45,.05,.2,1); }
+.nb-presence-svg > .nb-presence-ring:nth-child(2) { transition-delay:.088s; }
+.nb-presence-svg > .nb-presence-ring:nth-child(3) { transition-delay:.176s; }
+.nb-presence-svg > .nb-presence-ring:nth-child(4) { transition-delay:.264s; }
+/* One halo when someone becomes Active now, after the rings have turned; it starts invisible. */
+.nb-presence-halo { position:absolute; inset:0; border-radius:32%; border:2px solid var(--presence-now); pointer-events:none; opacity:0; animation:nb-presence-halo .9s ease-out .99s 1 both; }
+@keyframes nb-presence-halo { 0% { opacity:0; transform:scale(1); } 1% { opacity:.8; transform:scale(1); } 100% { opacity:0; transform:scale(2); } }
+@media (prefers-reduced-motion:reduce) {
+  .nb-presence-ring { transition:none; }
+  .nb-presence-halo { display:none; }
+}
 /* Corner placement on an avatar (people cards, search, discover). */
 .nb-person-presence-dot { position:absolute; z-index:1; right:-3px; bottom:-3px; }
 .nb-person-connect { display:inline-flex; min-height:var(--ui-control-height); align-items:center; justify-content:center; gap:8px; border:1px solid var(--primary); border-radius:var(--radius-md); background:var(--primary); padding:0 var(--ui-control-px, 12px); color:var(--primary-foreground); font-size:13px; font-weight:500; line-height:1.25; transition:background-color 150ms ease-in-out,border-color 150ms ease-in-out,color 150ms ease-in-out; }

@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   activeStatus,
+  advanceBadgeSpin,
   availabilityLabel,
   availabilityOf,
   clearAfterToDate,
@@ -10,7 +11,10 @@ import {
   isStatusEmoji,
   projectAvailabilityOf,
   resolveLive,
+  showStatusChip,
+  spinDelta,
   statusLabel,
+  STATUS_CHIP_MIN_SIZE,
   validStatusExpiry,
 } from "@/lib/presence/model";
 
@@ -103,4 +107,40 @@ test("privacy: blocked sees nothing, hiding is mutual, status follows its audien
   assert.equal(presencePrivacy({ ...base, visibility: "team", teammate: true }).status, true);
   assert.equal(presencePrivacy({ ...base, visibility: "everyone" }).status, true);
   assert.deepEqual(presencePrivacy({ ...base, self: true, blocked: true, targetShowsActivity: false }), { activity: true, status: true }, "you always see yourself");
+});
+
+test("spinDelta: a rise in activity turns the rings clockwise, a drop counter-clockwise, no change none", () => {
+  assert.equal(spinDelta("week", "now"), 360);
+  assert.equal(spinDelta("offline", "today"), 360);
+  assert.equal(spinDelta("now", "today"), -360);
+  assert.equal(spinDelta("week", "offline"), -360);
+  assert.equal(spinDelta("now", "now"), 0);
+  assert.equal(spinDelta("offline", "now"), 360);
+});
+
+test("showStatusChip: the status emoji needs an emoji and a badge of at least 14px", () => {
+  assert.equal(STATUS_CHIP_MIN_SIZE, 14);
+  assert.equal(showStatusChip(null, 24), false);
+  assert.equal(showStatusChip(undefined, 24), false);
+  assert.equal(showStatusChip("  ", 24), false);
+  assert.equal(showStatusChip("📅", 11), false);
+  assert.equal(showStatusChip("📅", 13), false);
+  assert.equal(showStatusChip("📅", 14), true);
+  assert.equal(showStatusChip("👥", 24), true);
+});
+
+test("advanceBadgeSpin: spins only on a change after the badge was armed, halo only when it becomes now", () => {
+  const start = { availability: "week" as const, armed: true, angle: 0, halo: 0 };
+  assert.equal(advanceBadgeSpin(start, "week", true), start);
+  const up = advanceBadgeSpin(start, "now", true);
+  assert.deepEqual(up, { availability: "now", armed: true, angle: 360, halo: 1 });
+  const down = advanceBadgeSpin(up, "today", true);
+  assert.deepEqual(down, { availability: "today", armed: true, angle: 0, halo: 1 });
+  const again = advanceBadgeSpin(down, "now", true);
+  assert.deepEqual(again, { availability: "now", armed: true, angle: 360, halo: 2 });
+  // Data arriving (animate flips to true) together with a new state is the baseline, not a change.
+  const loading = { availability: "today" as const, armed: false, angle: 0, halo: 0 };
+  assert.equal(advanceBadgeSpin(loading, "today", false), loading);
+  assert.deepEqual(advanceBadgeSpin(loading, "now", true), { availability: "now", armed: true, angle: 0, halo: 0 });
+  assert.deepEqual(advanceBadgeSpin(loading, "now", false), { availability: "now", armed: false, angle: 0, halo: 0 });
 });

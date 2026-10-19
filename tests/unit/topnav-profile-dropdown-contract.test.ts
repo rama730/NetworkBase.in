@@ -17,7 +17,7 @@ test("top-nav profile picture opens accessible dropdown with My profile and Sign
   assert.match(topNav, /ref=\{profileMenuTriggerRef\}/);
   assert.match(topNav, /aria-label="User menu"/);
   assert.match(topNav, /<ProfileAvatar profile=\{profile\} size=\{32\} priority \/>/);
-  assert.match(topNav, /<PersonPresenceBadge userId=\{user\?\.id\} live size=\{12\}/);
+  assert.match(topNav, /<PersonPresenceBadge userId=\{user\?\.id\} live size=\{16\}/);
 
   // Dropdown content matches design specification popover geometry
   assert.match(topNav, /<DropdownMenuContent[^>]*side="bottom"[^>]*align="end"[^>]*sideOffset=\{12\}[^>]*alignOffset=\{0\}[^>]*collisionPadding=\{12\}/);
