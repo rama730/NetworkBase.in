@@ -111,7 +111,7 @@ describe("SQL audit query remediations", () => {
   });
 
   it("retries transient push delivery and only closes terminal attempts", () => {
-    const source = read("src/inngest/functions/notification-push-delivery.ts");
+    const source = read("src/lib/notifications/push-queue.ts");
     assert.match(source, /delivery\.status IN \('delivered', 'dropped'\)/);
   });
 });

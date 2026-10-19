@@ -18,7 +18,7 @@ type PasswordVerifier = {
         status?: number | null;
       } | null;
     }>;
-    signOut(): Promise<unknown>;
+    signOut(options?: { scope?: "global" | "local" | "others" }): Promise<unknown>;
   };
 };
 
@@ -93,7 +93,7 @@ async function verifyPasswordCredentialWithVerifier(
   }
 
   try {
-    await verifier.auth.signOut();
+    await verifier.auth.signOut({ scope: "local" });
   } catch {}
 
   return { ok: true };

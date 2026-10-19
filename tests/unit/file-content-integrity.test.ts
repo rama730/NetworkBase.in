@@ -18,9 +18,9 @@ test("file reads never fabricate or persist empty recovery content", () => {
   assert.match(viewer, /Cannot save: file has no storage key/);
 });
 
-test("signed URL actions remain read-only", () => {
+test("preview URL actions remain read-only", () => {
   const content = source("src/app/actions/files/content.ts");
-  const signedUrlStart = content.indexOf("export async function getProjectFileSignedUrl");
+  const signedUrlStart = content.indexOf("export async function getFilePreviewUrl");
   const nextExport = content.indexOf("export async function", signedUrlStart + 1);
   const signedUrlOwners = content.slice(signedUrlStart, nextExport < 0 ? undefined : nextExport);
 

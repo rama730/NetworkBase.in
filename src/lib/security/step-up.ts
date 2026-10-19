@@ -111,7 +111,7 @@ export function issueSecurityStepUpCookie(
     httpOnly: true,
     sameSite: "strict",
     secure: process.env.NODE_ENV === "production",
-    path: "/api/v1",
+    path: "/",
     maxAge: SECURITY_STEP_UP_MAX_AGE_SECONDS,
   });
 
