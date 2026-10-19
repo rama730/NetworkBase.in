@@ -26,7 +26,7 @@ import { cn } from '@/lib/utils';
 type SortableLinkListProps<T extends { id: string }> = {
     items: readonly T[];
     onReorder: (items: T[]) => void;
-    children: (item: T) => ReactNode;
+    children: (item: T, index: number) => ReactNode;
     getItemLabel: (item: T) => string;
     className?: string;
     itemClassName?: string;
@@ -37,12 +37,13 @@ type SortableLinkListProps<T extends { id: string }> = {
 
 function SortableLinkListItem<T extends { id: string }>({
     item,
+    index,
     children,
     getItemLabel,
     itemClassName,
     handleClassName,
     disabled,
-}: Pick<SortableLinkListProps<T>, 'children' | 'getItemLabel' | 'itemClassName' | 'handleClassName' | 'disabled'> & { item: T }) {
+}: Pick<SortableLinkListProps<T>, 'children' | 'getItemLabel' | 'itemClassName' | 'handleClassName' | 'disabled'> & { item: T; index: number }) {
     const {
         attributes,
         listeners,
@@ -72,7 +73,7 @@ function SortableLinkListItem<T extends { id: string }>({
             >
                 <GripVertical className="h-4 w-4" aria-hidden="true" />
             </Button>
-            {children(item)}
+            {children(item, index)}
         </div>
     );
 }
@@ -118,10 +119,11 @@ export function SortableLinkList<T extends { id: string }>({
                 strategy={layout === 'grid' ? rectSortingStrategy : verticalListSortingStrategy}
             >
                 <div className={className}>
-                    {items.map((item) => (
+                    {items.map((item, index) => (
                         <SortableLinkListItem
                             key={item.id}
                             item={item}
+                            index={index}
                             getItemLabel={getItemLabel}
                             itemClassName={itemClassName}
                             handleClassName={handleClassName}

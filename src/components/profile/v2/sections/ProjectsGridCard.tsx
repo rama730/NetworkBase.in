@@ -15,6 +15,7 @@ interface ProjectsGridCardProps {
     projects: ProfileCollaborationProject[];
     title?: string;
     description?: string;
+    isOwner?: boolean;
     isLoading?: boolean;
     onProjectIntent?: (href: string) => void;
 }
@@ -60,7 +61,7 @@ function toDiscoveryProject(project: ProfileCollaborationProject): Project {
     } as any;
 }
 
-export function ProjectsGridCard({ projects, title = "Projects", description, isLoading = false, onProjectIntent }: ProjectsGridCardProps) {
+export function ProjectsGridCard({ projects, title = "Projects", description, isOwner = false, isLoading = false, onProjectIntent }: ProjectsGridCardProps) {
     const { user } = useAuth();
     // The bell shows whether you follow each project (one lookup for the whole grid).
     const followed = useUserFollowedProjects(user?.id, useMemo(() => [projects.map((project) => project.id)], [projects]));
@@ -69,7 +70,6 @@ export function ProjectsGridCard({ projects, title = "Projects", description, is
         {isLoading ? (
             <div
                 className="nb-portfolio-grid flex flex-col gap-4 w-full"
-                style={{ display: "flex", flexDirection: "column", gap: "16px", width: "100%" }}
                 aria-busy="true"
                 role="status"
             >
@@ -77,10 +77,7 @@ export function ProjectsGridCard({ projects, title = "Projects", description, is
                 {[1,2,3,4].map(key => <ProjectCardSkeleton key={key} />)}
             </div>
         ) : projects.length ? (
-            <div
-                className="nb-portfolio-grid flex flex-col gap-4 w-full"
-                style={{ display: "flex", flexDirection: "column", gap: "16px", width: "100%" }}
-            >
+            <div className="nb-portfolio-grid flex flex-col gap-4 w-full">
                 {projects.map(project => {
                     const cardProject = toDiscoveryProject(project);
                     const href = project.href || project.url;
@@ -88,7 +85,6 @@ export function ProjectsGridCard({ projects, title = "Projects", description, is
                         <div
                             key={project.id}
                             className="w-full min-w-0"
-                            style={{ width: "100%", minWidth: 0 }}
                             onMouseEnter={() => onProjectIntent?.(href)}
                             onFocusCapture={() => onProjectIntent?.(href)}
                         >
@@ -104,7 +100,11 @@ export function ProjectsGridCard({ projects, title = "Projects", description, is
                 })}
             </div>
         ) : (
-            <EmptyState icon={FolderKanban} title="No projects yet" description="Projects you create or contribute to will appear here." />
+            <EmptyState
+                icon={FolderKanban}
+                title="No projects yet"
+                description={isOwner ? "Projects you create or contribute to will appear here." : "No public projects have been published yet."}
+            />
         )}
     </section>;
 }

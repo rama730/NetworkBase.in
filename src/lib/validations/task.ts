@@ -40,7 +40,7 @@ export const createTaskSchema = z.object({
 export const updateTaskFieldSchema = z.object({
   taskId: z.string().uuid(),
   projectId: z.string().uuid(),
-  field: z.enum(["title", "description", "priority", "sprintId", "dueDate"]),
+  field: z.enum(["title", "description", "priority", "sprintId", "dueDate", "storyPoints"]),
   value: z.unknown(),
 });
 

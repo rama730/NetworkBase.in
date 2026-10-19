@@ -2,6 +2,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { extOf } from "@/components/projects/v2/utils/fileKind";
 import { toast } from "sonner";
 
 import * as React from "react";
@@ -490,9 +491,4 @@ export function FileActionsBar({
   );
 }
 
-function extOf(filename: string): string {
-  const idx = filename.lastIndexOf(".");
-  if (idx === -1) return "";
-  return filename.slice(idx + 1).toLowerCase();
-}
 export default FileActionsBar;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { formatTaskDueDate } from "@/lib/projects/task-presentation";
 import Link from "next/link";
 import { FileText, ChevronDown, CheckCircle2, Circle, FolderUp, Flag, Link2, ListTodo } from "lucide-react";
 
@@ -14,7 +15,7 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 import { cn } from "@/lib/utils";
 import { TASK_WORKING_FILES_TITLE } from "@/lib/files/task-working-files";
 import { calculateTaskTimeHealth, getTaskTitlePresentation } from "@/lib/projects/task-presentation";
-import { format, isSameYear } from "@/lib/utils/date";
+import { format } from "@/lib/utils/date";
 
 type Props = {
   projectSlug: string;
@@ -241,7 +242,7 @@ export function SprintTimelineContent({
                             ? "text-destructive font-semibold"
                             : ""
                         )}>
-                          Due {format(new Date(task.dueDate), isSameYear(new Date(task.dueDate), new Date()) ? "MMM d" : "MMM d, yyyy")}
+                          Due {formatTaskDueDate(task.dueDate)}
                         </span>
                       </>
                     )}

@@ -1,5 +1,6 @@
 "use server";
 
+import { getFileAttributionByNodeId } from "@/lib/files/file-attribution";
 import { db } from "@/lib/db";
 import { scheduleAssetDeletionIfUnreferenced } from "@/lib/storage/asset-deletion";
 import {
@@ -503,22 +504,14 @@ export async function deleteFileVersionAction(
         where: and(eq(projectNodes.id, nodeId), eq(projectNodes.projectId, projectId)),
       });
       if (!node || node.deletedAt) throw new Error("File not found");
-      const versions = await tx.query.fileVersions.findMany({
-        where: eq(fileVersions.nodeId, nodeId),
-        columns: {
-          id: true,
-          version: true,
-          s3Key: true,
-          size: true,
-          mimeType: true,
-          assetId: true,
-        },
-        orderBy: desc(fileVersions.version),
-        limit: 100,
-      });
-      if (versions.length <= 1) throw new Error("Cannot delete the only remaining version of this file.");
-      const target = versions.find((version) => version.version === versionNumber);
+      // COR-013: the target is read directly (any age), and the last-version rule is a count.
+      const [target] = await tx.select({ id: fileVersions.id, assetId: fileVersions.assetId })
+        .from(fileVersions)
+        .where(and(eq(fileVersions.nodeId, nodeId), eq(fileVersions.version, versionNumber)))
+        .limit(1);
       if (!target) throw new Error("Version not found");
+      const [versionCount] = await tx.select({ count: sql<number>`count(*)::int` }).from(fileVersions).where(eq(fileVersions.nodeId, nodeId));
+      if ((versionCount?.count ?? 0) <= 1) throw new Error("Cannot delete the only remaining version of this file.");
       if (!target.assetId) {
         throw new Error("Storage registration is pending for this file version");
       }
@@ -527,7 +520,13 @@ export async function deleteFileVersionAction(
       let nextActiveVersion: number | null = null;
       let updatedNode: typeof projectNodes.$inferSelect | undefined;
       if (node.currentVersion === versionNumber) {
-        const remaining = versions.filter((version) => version.id !== target.id)[0];
+        const [remaining] = await tx.select({
+          version: fileVersions.version,
+          s3Key: fileVersions.s3Key,
+          size: fileVersions.size,
+          mimeType: fileVersions.mimeType,
+          assetId: fileVersions.assetId,
+        }).from(fileVersions).where(eq(fileVersions.nodeId, nodeId)).orderBy(desc(fileVersions.version)).limit(1);
         if (!remaining) throw new Error("No replacement version is available");
         nextActiveVersion = remaining.version;
         [updatedNode] = await tx
@@ -552,6 +551,12 @@ export async function deleteFileVersionAction(
     deletedVersion: versionNumber,
     newActiveVersion: mutation.nextActiveVersion,
   });
+
+  // The node keeps "Updated by" for its (possibly new) current version, as every other read does.
+  if (mutation.updatedNode) {
+    const attribution = await getFileAttributionByNodeId([mutation.updatedNode]);
+    Object.assign(mutation.updatedNode, attribution.get(mutation.updatedNode.id) ?? {});
+  }
 
   // ponytail: client handles version deletion via query invalidation; skip route revalidation. ceiling: client query invalidation. upgrade: global cache invalidation bus if cross-device state sync required.
   return { success: true, nextActiveVersion: mutation.nextActiveVersion, node: mutation.updatedNode };

@@ -3,9 +3,9 @@
 import { cn } from '@/lib/utils';
 import type { ProfileTabKey } from './types';
 
-const TABS: Array<{ key: ProfileTabKey; label: string; hint: string }> = [
-    { key: 'overview', label: 'Overview', hint: 'Bio, skills, experience' },
-    { key: 'portfolio', label: 'Portfolio', hint: 'Projects & roles' },
+const TABS: Array<{ key: ProfileTabKey; label: string }> = [
+    { key: 'overview', label: 'Overview' },
+    { key: 'portfolio', label: 'Portfolio' },
 ];
 
 export function ProfileTabs({
@@ -29,7 +29,7 @@ export function ProfileTabs({
             <div
                 role="tablist"
                 aria-label="Profile sections"
-                className="flex min-h-11 w-full items-end gap-5 border-b border-border bg-background"
+                className="flex min-h-11 w-full items-end gap-5 overflow-x-auto border-b border-border bg-background scrollbar-none"
             >
                     {TABS.map((t) => {
                         const active = t.key === value;

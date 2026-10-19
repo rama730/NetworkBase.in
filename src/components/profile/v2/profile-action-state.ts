@@ -31,10 +31,10 @@ export function resolveProfileActionState({
         || connectionState === 'pending_incoming'
     )
     const hasConnectionMenuAction = isPrimaryConnectionAction || hasSecondaryConnectionAction
+    const canUnblock = Boolean(blockedByViewer && canManageBlock)
     const showRelationshipAction = Boolean(
         isAuthenticated
-        && !isInteractionBlocked
-        && (hasConnectionMenuAction || showMessageAction || canManageBlock),
+        && ((!isInteractionBlocked && (hasConnectionMenuAction || showMessageAction || canManageBlock)) || canUnblock),
     )
     const relationshipControlLabel = hasConnectionMenuAction
         ? connectionState === 'accepted'
@@ -44,7 +44,9 @@ export function resolveProfileActionState({
                 : connectionState === 'pending_incoming'
                     ? 'Accept'
                     : 'Connect'
-        : 'Actions'
+        : blockedByViewer
+            ? 'Blocked'
+            : 'Actions'
     const relationshipControlVariant: ProfileRelationshipControlVariant =
         connectionState === 'accepted' || connectionState === 'pending_outgoing' || !hasConnectionMenuAction
             ? 'outline'

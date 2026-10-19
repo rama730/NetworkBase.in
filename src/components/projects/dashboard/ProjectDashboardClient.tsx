@@ -1048,7 +1048,9 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
 
     const filesSyncStatus = extendedProject?.syncStatus;
     const filesSyncBadge = useFilesWorkspaceStore((s) => s.byProjectId[project.id]?.git?.syncBadge ?? null);
-    const initialTaskDrawerId = searchParams?.get('drawerType') === 'task' ? searchParams.get('drawerId') : null;
+    // `drawerType=task&drawerId=` is the task link; `taskId` is the legacy form some old links carry.
+    const initialTaskDrawerId = (searchParams?.get('drawerType') === 'task' ? searchParams.get('drawerId') : null)
+        ?? (activeTab === 'tasks' ? searchParams?.get('taskId') ?? null : null);
     const initialTaskPanelTabParam = searchParams?.get('panelTab');
     const initialTaskPanelTab = initialTaskPanelTabParam === 'details' || initialTaskPanelTabParam === 'subtasks' || initialTaskPanelTabParam === 'comments' || initialTaskPanelTabParam === 'files' ? (initialTaskPanelTabParam as TaskPanelTab) : null;
     const initialOpenFileId = searchParams?.get('fileId') || null;
@@ -1113,7 +1115,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
             {activeTab === 'tasks' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Tasks">
-                        <TasksTab projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} currentUserId={currentUserId || undefined} currentUserName={currentUserName} currentUserAvatarUrl={currentUserAvatarUrl} isOwner={isOwner} canEditTasks={canEditTasks} canManageFiles={canManageFiles} canManageWorkflow={canManageProjectSettings} initialTasks={tasks} members={allMembers} sprints={sprints} initialOpenTaskId={initialTaskDrawerId ?? workspaceInitialTaskId} initialPanelTab={initialTaskPanelTab} initialCommentId={searchParams?.get('commentId')} initialFileId={searchParams?.get('fileId')} onInitialTaskOpened={workspaceInitialTaskId ? consumeWorkspaceTaskHandoff : undefined} />
+                        <TasksTab projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} currentUserId={currentUserId || undefined} currentUserName={currentUserName} currentUserAvatarUrl={currentUserAvatarUrl} isOwner={isOwner} canEditTasks={canEditTasks} isProjectMember={isOwnerOrMember} canManageFiles={canManageFiles} canManageWorkflow={canManageProjectSettings} initialTasks={tasks} members={allMembers} sprints={sprints} initialOpenTaskId={initialTaskDrawerId ?? workspaceInitialTaskId} initialPanelTab={initialTaskPanelTab} initialCommentId={searchParams?.get('commentId')} initialFileId={searchParams?.get('fileId')} onInitialTaskOpened={workspaceInitialTaskId ? consumeWorkspaceTaskHandoff : undefined} />
                     </TabErrorBoundary>
                 </div>
             )}

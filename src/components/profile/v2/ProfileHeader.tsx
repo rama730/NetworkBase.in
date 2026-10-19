@@ -17,19 +17,6 @@ import { usePresenceUi } from '@/components/presence/presence-ui-store'
 import { usePersonPresence } from '@/components/presence/usePresence'
 import { resolveProfileActionState } from './profile-action-state'
 
-function Chip({ children, className }: { children: React.ReactNode; className?: string }) {
-    return (
-        <span
-            className={cn(
-                'nb-status inline-flex items-center px-3 py-1.5 rounded-[3px] border border-border bg-card text-muted-foreground',
-                className
-            )}
-        >
-            {children}
-        </span>
-    )
-}
-
 /** Status controls under the name. Active-now is already shown by the avatar badge. */
 function PresenceChips({ userId, lastActiveAt, isOwner }: { userId: string | null; lastActiveAt?: string | null; isOwner: boolean }) {
     const presence = usePersonPresence(userId, { fallbackLastActiveAt: lastActiveAt ?? null, live: isOwner || undefined })
@@ -49,7 +36,7 @@ function PresenceChips({ userId, lastActiveAt, isOwner }: { userId: string | nul
                 <span className="inline-flex h-[26px] items-center rounded-full bg-muted px-2.5 text-[13px] text-muted-foreground">{presence.availabilityText}</span>
             ) : null}
             {isOwner ? (
-                <button type="button" onClick={() => openPicker(true)} className="inline-flex h-[26px] items-center gap-1.5 rounded-full border border-dashed border-border px-2.5 text-[13px] text-muted-foreground hover:bg-muted hover:text-foreground">
+                <button type="button" onClick={() => openPicker(true)} className="inline-flex h-[26px] max-md:min-h-11 items-center gap-1.5 rounded-full border border-dashed border-border px-2.5 text-[13px] text-muted-foreground hover:bg-muted hover:text-foreground">
                     <Smile className="size-3.5" aria-hidden="true" />
                     {presence.status ? 'Change status' : 'Update your status'}
                 </button>
@@ -258,7 +245,7 @@ export function ProfileHeader({
                                 <button
                                     type="button"
                                     onClick={onConnectionsClick}
-                                    disabled={!onConnectionsClick}
+                                    disabled={!onConnectionsClick || lockedShell}
                                     aria-label={`View ${connectionsCount} ${connectionsCount === 1 ? 'connection' : 'connections'}`}
                                     className="rounded-sm underline-offset-2 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none max-md:inline-flex max-md:min-h-11 max-md:items-center"
                                 >
@@ -267,7 +254,7 @@ export function ProfileHeader({
                                 <button
                                     type="button"
                                     onClick={onProjectsClick}
-                                    disabled={!onProjectsClick}
+                                    disabled={!onProjectsClick || lockedShell}
                                     aria-label={`View ${projectsCount} ${projectsCount === 1 ? 'project' : 'projects'}`}
                                     className="rounded-sm underline-offset-2 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none max-md:inline-flex max-md:min-h-11 max-md:items-center"
                                 >
@@ -305,11 +292,11 @@ export function ProfileHeader({
                         {isOwner ? (
                             <>
                                 <div className="flex flex-wrap gap-2 max-md:w-full max-md:flex-nowrap">
-                                    <Button onClick={onShare} variant="outline" size="sm" aria-label="Share profile">
+                                    <Button onClick={onShare} variant="outline" size="sm" aria-label="Share profile" className="max-md:min-h-11 max-md:min-w-11">
                                         <Share2 className="size-4" />
                                         <span className="max-md:sr-only">Share</span>
                                     </Button>
-                                    <Button onClick={onEdit} size="sm" className="max-md:flex-1">
+                                    <Button onClick={onEdit} size="sm" className="max-md:flex-1 max-md:min-h-11">
                                         <Pencil className="size-4" />
                                         Edit profile
                                     </Button>
@@ -326,7 +313,7 @@ export function ProfileHeader({
                                         className={cn(
                                             'relative inline-flex h-5 w-9 rounded-full border transition-colors',
                                             isOpenToCollaborate
-                                                ? 'border-[#8F2E12] bg-primary'
+                                                ? 'border-primary bg-primary'
                                                 : 'border-border bg-secondary',
                                         )}
                                         aria-hidden="true"
@@ -360,58 +347,61 @@ export function ProfileHeader({
                         ) : isLoadingConnection ? (
                             <div aria-hidden="true" className="nb-skeleton h-10 w-28 rounded-[3px] border border-border/40" />
                         ) : (
-                            <>
+                            <div className="flex flex-wrap items-center gap-2">
+                                {showMessageAction ? (
+                                    <Button
+                                        variant="outline"
+                                        onClick={onMessage}
+                                        aria-label={`Message ${name}`}
+                                        className="gap-2"
+                                    >
+                                        <MessageSquare className="size-4" />
+                                        Message
+                                    </Button>
+                                ) : null}
                                 {showRelationshipAction ? (
-                                    <>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button
-                                                    variant={relationshipControlVariant}
-                                                    disabled={!isAuthenticated}
-                                                    aria-label={`${relationshipControlLabel} options`}
-                                                >
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button
+                                                variant={relationshipControlVariant}
+                                                disabled={!isAuthenticated}
+                                                aria-label={`${relationshipControlLabel} options`}
+                                                className="gap-1.5"
+                                            >
+                                                {connectIcon}
+                                                {relationshipControlLabel}
+                                                <ChevronDown className="size-4 opacity-70" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-48">
+                                            {isPrimaryConnectionAction ? (
+                                                <DropdownMenuItem onClick={onConnectPrimary} disabled={isLoadingConnection}>
                                                     {connectIcon}
-                                                    {relationshipControlLabel}
-                                                    <ChevronDown className="size-4 opacity-70" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" className="w-48">
-                                                {showMessageAction ? (
-                                                    <DropdownMenuItem onClick={onMessage}>
-                                                        <MessageSquare className="size-4" />
-                                                        Message
-                                                    </DropdownMenuItem>
-                                                ) : null}
-                                                {showMessageAction && hasConnectionMenuAction ? <DropdownMenuSeparator /> : null}
-                                                {isPrimaryConnectionAction ? (
-                                                    <DropdownMenuItem onClick={onConnectPrimary} disabled={isLoadingConnection}>
-                                                        {connectIcon}
-                                                        {connectLabel}
-                                                    </DropdownMenuItem>
-                                                ) : null}
-                                                {secondaryConnectLabel && onConnectSecondary ? (
-                                                    <DropdownMenuItem onClick={onConnectSecondary} disabled={isLoadingConnection}>
-                                                        {secondaryConnectIcon}
-                                                        {secondaryConnectLabel}
-                                                    </DropdownMenuItem>
-                                                ) : null}
-                                                {(showMessageAction || hasConnectionMenuAction) && canManageBlock ? <DropdownMenuSeparator /> : null}
-                                                {canManageBlock ? (
-                                                    <DropdownMenuItem onClick={onToggleBlock} disabled={isBlocking} variant="destructive">
-                                                        <Ban className="size-4" />
-                                                        {blockActionLabel}
-                                                    </DropdownMenuItem>
-                                                ) : null}
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </>
+                                                    {connectLabel}
+                                                </DropdownMenuItem>
+                                            ) : null}
+                                            {secondaryConnectLabel && onConnectSecondary ? (
+                                                <DropdownMenuItem onClick={onConnectSecondary} disabled={isLoadingConnection}>
+                                                    {secondaryConnectIcon}
+                                                    {secondaryConnectLabel}
+                                                </DropdownMenuItem>
+                                            ) : null}
+                                            {(isPrimaryConnectionAction || secondaryConnectLabel) && canManageBlock ? <DropdownMenuSeparator /> : null}
+                                            {canManageBlock ? (
+                                                <DropdownMenuItem onClick={onToggleBlock} disabled={isBlocking} variant="destructive">
+                                                    <Ban className="size-4" />
+                                                    {blockActionLabel}
+                                                </DropdownMenuItem>
+                                            ) : null}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                 ) : isInteractionBlocked ? (
-                                    <Chip className="border-destructive/30 bg-destructive/10 text-destructive">
+                                    <span className="nb-status inline-flex items-center px-3 py-1.5 rounded-[3px] border border-destructive/30 bg-destructive/10 text-destructive">
                                         <Ban className="mr-1 w-3.5 h-3.5" />
                                         {privacyPresentation.blockedBannerText || 'You cannot interact with this account'}
-                                    </Chip>
+                                    </span>
                                 ) : null}
-                            </>
+                            </div>
                         )}
                     </div>
                 </div>

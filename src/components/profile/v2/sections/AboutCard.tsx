@@ -15,6 +15,10 @@ export function AboutCard({ profile, isOwner, onEdit }: AboutCardProps) {
     const hasBio = bio.length > 0
     const [expanded, setExpanded] = useState(false)
 
+    if (!isOwner && !hasBio) {
+        return null
+    }
+
     return (
         <Card
             title="About"

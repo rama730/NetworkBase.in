@@ -240,12 +240,9 @@ describe("Files Tab Trash Redesign Specification Conformance Contract", () => {
     );
   });
 
-  it("provides 30-day retention notice strip, search clear button, and result summary", () => {
-    assert.match(
-      trashSource,
-      /Items in Trash are retained for 30 days before permanent automatic cleanup\./,
-      "Must show retention policy notice banner",
-    );
+  it("makes no auto-purge promise, and provides a search clear button and result summary", () => {
+    // There is no automatic Trash cleanup, so the page must not claim one.
+    assert.doesNotMatch(trashSource, /retained for 30 days/);
     assert.match(
       trashSource,
       /aria-label="Clear filter"/,
@@ -292,8 +289,8 @@ describe("Files Tab Trash Redesign Specification Conformance Contract", () => {
     );
     assert.match(
       trashSource,
-      /handleBatchPermanentDelete/,
-      "Batch bar must offer batch permanent deletion",
+      /openBulkReview\("selected"\)/,
+      "Batch bar must offer batch permanent deletion (reviewed first)",
     );
     assert.match(
       trashSource,

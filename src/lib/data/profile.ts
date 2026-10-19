@@ -12,8 +12,8 @@ import { logger } from '@/lib/logger'
 import { normalizeUsername, validateUsername } from '@/lib/validations/username'
 import { isUuid } from '@/lib/validations/uuid'
 import { normalizeNotificationPreferences } from '@/lib/notifications/preferences'
-export { normalizeProfile } from '@/lib/utils/normalize-profile'
 import { normalizeProfile } from '@/lib/utils/normalize-profile'
+import { consumeRateLimit } from '@/lib/security/rate-limit'
 import {
     getProfileCollaborationSummary,
     type ProfileCollaborationSummary,
@@ -41,6 +41,8 @@ function toBootstrapProfile(
         | 'interests'
         | 'education'
         | 'openTo'
+        | 'openToCustomRoles'
+        | 'preferredCategories'
         | 'socialLinks'
         | 'socialLinkMetadata'
         | 'visibility'
@@ -111,6 +113,8 @@ export const getUserProfile = cache(async (userId: string) => {
                 interests: profiles.interests,
                 education: profiles.education,
                 openTo: profiles.openTo,
+                openToCustomRoles: profiles.openToCustomRoles,
+                preferredCategories: profiles.preferredCategories,
                 socialLinks: profiles.socialLinks,
                 socialLinkMetadata: profiles.socialLinkMetadata,
                 visibility: profiles.visibility,
@@ -198,13 +202,17 @@ function toProfileViewerUser(user: User | null): ProfileViewerUser | null {
     return user?.id ? { id: user.id } : null;
 }
 
-async function getProfileMutualCount(viewerId: string, profileId: string) {
+export async function getProfileMutualCount(viewerId: string, profileId: string) {
     if (!viewerId || !profileId || viewerId === profileId) return 0;
     const redis = getRedisClient();
     if (redis) {
         try {
             const viewerKey = `user:${viewerId}:connections`;
             const profileKey = `user:${profileId}:connections`;
+            if (typeof (redis as any).sintercard === 'function') {
+                const count = await (redis as any).sintercard(2, [viewerKey, profileKey]);
+                if (typeof count === 'number') return count;
+            }
             // Redis SINTER natively returns empty array if either key is missing; 1 roundtrip
             const mutualIds = (await redis.sinter(viewerKey, profileKey)) as string[];
             return Array.isArray(mutualIds) ? mutualIds.length : 0;
@@ -342,7 +350,7 @@ export async function getProfileDetails(username?: string, options: ProfileDetai
                 ? Promise.resolve(EMPTY_COLLABORATION_SUMMARY)
                 : getProfileCollaborationSummary(profileData.id, {
                     includePrivate: !!isOwner,
-                    preferCached: !isOwner,
+                    preferCached: true,
                 }),
             shouldResolveViewerState && viewerUser
                 ? getProfileMutualCount(viewerUser.id, profileData.id)
@@ -371,16 +379,19 @@ export async function getProfileDetails(username?: string, options: ProfileDetai
         : null
 
     if (shouldRecordViewEvent && viewerUser?.id && viewerUser.id !== profileData.id) {
-        void recordPrivacyReadEvent({
-            subjectUserId: profileData.id,
-            viewerUserId: viewerUser.id,
-            eventType: 'profile_viewed',
-            route: 'profile.details',
-            metadata: {
-                visibilityReason: privacyRelationship.visibilityReason,
-                canViewProfile: privacyRelationship.canViewProfile,
-            },
-        })
+        const { allowed } = await consumeRateLimit(`audit:profile-view:${viewerUser.id}:${profileData.id}`, 1, 86400)
+        if (allowed && privacyRelationship.canViewProfile) {
+            void recordPrivacyReadEvent({
+                subjectUserId: profileData.id,
+                viewerUserId: viewerUser.id,
+                eventType: 'profile_viewed',
+                route: 'profile.details',
+                metadata: {
+                    visibilityReason: privacyRelationship.visibilityReason,
+                    canViewProfile: privacyRelationship.canViewProfile,
+                },
+            })
+        }
     }
 
     return {
@@ -389,9 +400,9 @@ export async function getProfileDetails(username?: string, options: ProfileDetai
         profile: visibleProfile,
         collaborationSummary: canViewProfile ? collaborationSummary : EMPTY_COLLABORATION_SUMMARY,
         stats: {
-            connectionsCount: profileData.connectionsCount || 0,
-            projectsCount: collaborationSummary.stats.projectsCount || profileData.projectsCount || 0,
-            followersCount: profileData.followersCount || 0,
+            connectionsCount: lockedShell ? 0 : (profileData.connectionsCount || 0),
+            projectsCount: lockedShell ? 0 : (collaborationSummary.stats.projectsCount || profileData.projectsCount || 0),
+            followersCount: lockedShell ? 0 : (profileData.followersCount || 0),
             mutualCount,
         },
         connectionStatus,

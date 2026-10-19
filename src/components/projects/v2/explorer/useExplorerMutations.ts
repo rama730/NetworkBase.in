@@ -627,7 +627,7 @@ function resolveFileMimeType(file: File): string {
         const trashedIds: string[] = response.trashedIds || [];
 
         for (const nodeId of trashedIds) {
-          useFilesWorkspaceStore.getState().removeNodeFromCaches(projectId, nodeId);
+          useFilesWorkspaceStore.getState().removeNodeFromCaches(projectId, nodeId, { keepFavorite: true });
           onNodeDeleted?.(nodeId);
         }
 

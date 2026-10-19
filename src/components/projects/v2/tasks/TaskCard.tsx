@@ -1,6 +1,7 @@
 "use client";
 
 import { memo } from "react";
+import { formatTaskDueDate } from "@/lib/projects/task-presentation";
 import {
   Calendar,
   CheckSquare,
@@ -10,7 +11,6 @@ import {
   User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format, parseISO } from "@/lib/utils/date";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { SPRINT_STATUS_PRESENTATION } from "@/lib/projects/sprint-detail";
 import {
@@ -137,8 +137,8 @@ export const TaskCard = memo(function TaskCard({
     taskRecord,
     taskRecord.sprint ?? null,
   );
-  const dueDate = taskRecord.dueDate ? parseISO(taskRecord.dueDate) : null;
-  const hasValidDueDate = Boolean(dueDate && !Number.isNaN(dueDate.getTime()));
+  const dueDateLabel = formatTaskDueDate(taskRecord.dueDate);
+  const hasValidDueDate = Boolean(dueDateLabel);
 
   return (
     <button
@@ -266,7 +266,7 @@ export const TaskCard = memo(function TaskCard({
                 )}
               >
                 <Calendar className="size-3" />
-                {format(dueDate!, "MMM d")}
+                {dueDateLabel}
               </div>
             )}
             <span className="whitespace-nowrap font-mono text-[11px] font-medium text-muted-foreground transition-colors group-hover:text-foreground">

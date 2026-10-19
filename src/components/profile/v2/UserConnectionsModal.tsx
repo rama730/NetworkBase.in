@@ -7,6 +7,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { profileHref } from '@/lib/routing/identifiers';
 import { logger } from '@/lib/logger';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
     Dialog,
     DialogContent,
@@ -137,7 +138,7 @@ export function UserConnectionsModal({ isOpen, onClose, userId, userName }: User
         <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
             <DialogContent className="max-w-md p-0 overflow-hidden gap-0 border border-border bg-card">
                 <DialogHeader className="border-b border-border px-4 py-4">
-                    <DialogTitle>{`${ownerDisplayName}'s Connections`}</DialogTitle>
+                    <DialogTitle>{`${ownerDisplayName}'s Connections (${connections.length})`}</DialogTitle>
                     <DialogDescription className="sr-only">
                         Browse accepted connections and open a public profile for each person.
                     </DialogDescription>
@@ -159,8 +160,16 @@ export function UserConnectionsModal({ isOpen, onClose, userId, userName }: User
 
                 <div className="max-h-[60vh] overflow-y-auto p-2">
                     {loading ? (
-                        <div className="flex justify-center py-8">
-                            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                        <div className="space-y-2 p-2">
+                            {[1, 2, 3, 4].map((i) => (
+                                <div key={i} className="flex items-center gap-3 p-2">
+                                    <Skeleton className="size-[34px] rounded-[3px] shrink-0" />
+                                    <div className="flex-1 space-y-1.5 min-w-0">
+                                        <Skeleton className="h-4 w-32 rounded-[3px]" />
+                                        <Skeleton className="h-3 w-48 rounded-[3px]" />
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     ) : connections.length === 0 ? (
                         <div className="p-2">
@@ -184,34 +193,45 @@ export function UserConnectionsModal({ isOpen, onClose, userId, userName }: User
                                 const displayName = user.fullName || user.username || 'User';
 
                                 return (
-                                    <Link
+                                    <div
                                         key={conn.id}
-                                        href={profileHref(user)}
-                                        onClick={onClose}
-                                        className="flex items-center gap-3 p-2 hover:bg-muted rounded-[3px] transition-colors group"
+                                        className="flex items-center justify-between gap-3 p-2 hover:bg-muted rounded-[3px] transition-colors group"
                                     >
-                                        {user.avatarUrl ? (
-                                            <Image
-                                                src={user.avatarUrl}
-                                                alt={displayName}
-                                                width={34}
-                                                height={34}
-                                                className="rounded-[3px] object-cover w-[34px] h-[34px] border border-border"
-                                            />
-                                        ) : (
-                                            <div className="w-[34px] h-[34px] rounded-[3px] bg-secondary border border-border flex items-center justify-center text-foreground text-xs font-semibold">
-                                                {displayName[0]?.toUpperCase()}
-                                            </div>
-                                        )}
-                                        <div className="flex-1 min-w-0">
-                                            <div className="font-medium text-foreground truncate">
-                                                {displayName}
-                                            </div>
-                                            {user.headline && (
-                                                <div className="nb-compact truncate text-muted-foreground">{user.headline}</div>
+                                        <Link
+                                            href={profileHref(user)}
+                                            onClick={onClose}
+                                            className="flex items-center gap-3 min-w-0 flex-1"
+                                        >
+                                            {user.avatarUrl ? (
+                                                <Image
+                                                    src={user.avatarUrl}
+                                                    alt={displayName}
+                                                    width={34}
+                                                    height={34}
+                                                    className="rounded-[3px] object-cover w-[34px] h-[34px] border border-border shrink-0"
+                                                />
+                                            ) : (
+                                                <div className="w-[34px] h-[34px] rounded-[3px] bg-secondary border border-border flex items-center justify-center text-foreground text-xs font-semibold shrink-0">
+                                                    {displayName[0]?.toUpperCase()}
+                                                </div>
                                             )}
-                                        </div>
-                                    </Link>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="font-medium text-foreground truncate">
+                                                    {displayName}
+                                                </div>
+                                                {user.headline && (
+                                                    <div className="nb-compact truncate text-muted-foreground">{user.headline}</div>
+                                                )}
+                                            </div>
+                                        </Link>
+                                        <Link
+                                            href={profileHref(user)}
+                                            onClick={onClose}
+                                            className="nb-ui-label shrink-0 rounded-[3px] border border-border bg-card px-2.5 py-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                                        >
+                                            View
+                                        </Link>
+                                    </div>
                                 );
                             })}
                             {hasMore && (

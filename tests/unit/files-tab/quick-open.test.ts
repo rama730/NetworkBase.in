@@ -248,7 +248,7 @@ describe("QuickOpen — 20-Recents cap (Req 9.2, source-level)", () => {
     assert.match(DIALOG_SOURCE, /getNodeMetadataBatch\(projectId, recentIds\)/);
   });
   it("excludes deleted files and defaults to files; workspace search can include folders", () => {
-    assert.match(DIALOG_SOURCE, /nodes\.filter\(node => \(includeFolders \|\| node\.type === "file"\) && !node\.deletedAt\)/);
+    assert.match(DIALOG_SOURCE, /nodes\.filter\(node => \(includeFolders \|\| node\.type === "file"\) && !node\.deletedAt\s*&& !\(node\.type === "folder" && isInternalTaskWorkingFilesNode\(node\)\)\)/);
     assert.doesNotMatch(DIALOG_SOURCE, /rankFuzzyResults\(fileNodes/);
   });
 
