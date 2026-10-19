@@ -6,6 +6,7 @@ import { Save } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
 import { TOTAL_PHASES, WIZARD_PHASES } from '@/constants/project-wizard';
+import { toast } from 'sonner';
 
 // Hook
 import { useCreateProjectWizard } from './useCreateProjectWizard';
@@ -37,14 +38,13 @@ const Phase5Review = dynamic(() => import('./phases/Phase5Review'), { loading: P
 interface Props {
     onClose: () => void;
     onSuccess?: (projectId: string) => void;
-    draftId?: string;
     initialSource?: 'scratch' | 'github' | 'upload' | null;
     onSourceChange?: (source: 'scratch' | 'github' | 'upload' | null) => void;
     githubOAuthResume?: CreateProjectGithubOAuthResume | null;
     onGithubOAuthResumeRestored?: (resumeId: string) => void;
 }
 
-export default function CreateProjectWizard({ onClose, onSuccess, draftId, initialSource = null, onSourceChange, githubOAuthResume = null, onGithubOAuthResumeRestored }: Props) {
+export default function CreateProjectWizard({ onClose, onSuccess, initialSource = null, onSourceChange, githubOAuthResume = null, onGithubOAuthResumeRestored }: Props) {
     const {
         phase, methods, wizardContext, isSubmitting, isSavingDraft, phase2ValidationAttempted, phase3ValidationAttempted, phase4ValidationAttempted,
         phase4LinkComposerPending, setPhase4LinkComposerPending, isPhaseTransitioning, isReviewReady, setIsReviewReady,
@@ -56,7 +56,6 @@ export default function CreateProjectWizard({ onClose, onSuccess, draftId, initi
     } = useCreateProjectWizard({
         onClose,
         onSuccess,
-        draftId,
         initialValues: githubOAuthResume?.values,
         initialPhase: 1,
     });
@@ -66,7 +65,32 @@ export default function CreateProjectWizard({ onClose, onSuccess, draftId, initi
     const headingRef = useRef<HTMLHeadingElement>(null);
     const restoredGithubOAuthResumeRef = useRef<string | null>(null);
     const [isResumingGithubOAuth] = useState(Boolean(githubOAuthResume));
+    const [draftBannerDismissed, setDraftBannerDismissed] = useState(false);
+
+    useEffect(() => {
+        if (methods.formState.isDirty) {
+            setDraftBannerDismissed(true);
+        }
+    }, [methods.formState.isDirty]);
+
     const handleReviewReady = useCallback(() => setIsReviewReady(true), [setIsReviewReady]);
+
+    const handleInvalid = useCallback((errors: Record<string, any>) => {
+        const getFirstError = (errObj: Record<string, any>): string | null => {
+            for (const key of Object.keys(errObj)) {
+                const err = errObj[key];
+                if (!err) continue;
+                if (typeof err.message === 'string' && err.message) return err.message;
+                if (typeof err === 'object') {
+                    const nested = getFirstError(err);
+                    if (nested) return nested;
+                }
+            }
+            return null;
+        };
+        const firstMsg = getFirstError(errors) || 'Please complete all required fields before creating.';
+        toast.error('Please complete required fields before creating', { description: firstMsg });
+    }, []);
     // Subscribe, don't watch(): Phase 1 replaces the whole import_source object, which react-hook-form
     // does not re-render this component for. A stale type kept Continue greyed out after GitHub -> Scratch.
     const [sourceType, sourceRepoUrl, rawSourceMetadata] = useWatch({
@@ -132,12 +156,18 @@ export default function CreateProjectWizard({ onClose, onSuccess, draftId, initi
     useEffect(() => {
         const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         scrollBodyRef.current?.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+        // Shift keyboard focus on phase change so screen readers announce the new step
+        const timer = setTimeout(() => {
+            const phaseHeading = scrollBodyRef.current?.querySelector<HTMLElement>('h2, h3, [data-phase-heading]');
+            if (phaseHeading) {
+                phaseHeading.setAttribute('tabindex', '-1');
+                phaseHeading.focus({ preventScroll: true });
+            } else {
+                headingRef.current?.focus({ preventScroll: true });
+            }
+        }, 50);
+        return () => clearTimeout(timer);
     }, [phase]);
-
-    // Full-page route: move focus to the page heading so screen readers start at the top of the flow.
-    useEffect(() => {
-        headingRef.current?.focus({ preventScroll: true });
-    }, []);
 
     // Refresh or tab close with unsaved work gets the browser's own prompt. The GitHub sign-in
     // hand-off is exempt: it snapshots the form first and restores it on return.
@@ -170,7 +200,7 @@ export default function CreateProjectWizard({ onClose, onSuccess, draftId, initi
                         />
 
                         {/* Draft recovery: a choice to make before starting, so it sits above the form, not above the footer. */}
-                        {draftInfo?.exists && (
+                        {draftInfo?.exists && !draftBannerDismissed && (
                             <div className="flex-shrink-0 border-b border-border bg-secondary/45">
                                 <div className={`${WIZARD_COLUMN} flex items-center justify-between gap-4 px-4 py-4 md:px-6 max-sm:flex-col max-sm:items-stretch max-sm:gap-3`}>
                                     <div className="flex items-center gap-3 min-w-0">
@@ -186,7 +216,14 @@ export default function CreateProjectWizard({ onClose, onSuccess, draftId, initi
                                             </p>
                                         </div>
                                     </div>
-                                    <div className="flex flex-shrink-0 items-center gap-2 max-sm:grid max-sm:grid-cols-2">
+                                    <div className="flex flex-shrink-0 items-center gap-2 max-sm:grid max-sm:grid-cols-3">
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            onClick={() => setDraftBannerDismissed(true)}
+                                        >
+                                            Start fresh
+                                        </Button>
                                         <Button
                                             type="button"
                                             variant="ghost"
@@ -198,7 +235,7 @@ export default function CreateProjectWizard({ onClose, onSuccess, draftId, initi
                                             type="button"
                                             onClick={restoreDraft}
                                         >
-                                            Continue with the draft
+                                            Continue draft
                                         </Button>
                                     </div>
                                 </div>
@@ -234,7 +271,7 @@ export default function CreateProjectWizard({ onClose, onSuccess, draftId, initi
                             )}
                             <form
                                 id="create-project-form"
-                                onSubmit={handleSubmit(onSubmit as any)}
+                                onSubmit={handleSubmit(onSubmit as any, handleInvalid)}
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter' && e.target instanceof HTMLInputElement && e.target.type !== 'submit') {
                                         e.preventDefault();

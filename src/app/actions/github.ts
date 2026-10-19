@@ -12,6 +12,7 @@ import { logger } from '@/lib/logger';
 import { fetchProviderUrl, GITHUB_API_HOSTS } from '@/lib/security/outbound-url';
 import { detectPackageTechnologies, mergeDetectedTechnologies } from '@/lib/skills/repository-detection';
 import { resolveGithubUserAccessToken } from '@/lib/github/user-access-token';
+import { readBoundedBody } from '@/lib/security/bounded-body';
 
 type PreviewEntry = {
   name: string;
@@ -719,7 +720,8 @@ export async function analyzeGithubRepoAction(
 
       if (pkgResult.status === 'fulfilled' && pkgResult.value.ok) {
         try {
-          const pkg = JSON.parse(await pkgResult.value.text());
+          const { bytes } = await readBoundedBody(pkgResult.value, 1024 * 1024);
+          const pkg = JSON.parse(new TextDecoder().decode(bytes));
           const detected = detectPackageTechnologies(pkg);
           technologies.push(...detected.technologies);
           detectedFramework = detected.detectedFramework;
@@ -732,7 +734,8 @@ export async function analyzeGithubRepoAction(
 
       if (!description && readmeResult.status === 'fulfilled' && readmeResult.value.ok) {
         try {
-          const content = await readmeResult.value.text();
+          const { bytes } = await readBoundedBody(readmeResult.value, 1024 * 1024);
+          const content = new TextDecoder().decode(bytes);
           const lines = content
             .split('\n')
             .filter((l: string) => l.trim() && !l.startsWith('#') && !l.startsWith('!'));

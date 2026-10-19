@@ -47,8 +47,8 @@ export default function WizardHeader({ currentPhase, onClose, onStepSelect, step
                       type="button"
                       onClick={() => onStepSelect(wizardPhase.id)}
                       disabled={stepsDisabled}
-                      aria-label={`Go back to ${wizardPhase.label}`}
-                      title={`Go back to ${wizardPhase.label}`}
+                      aria-label={`Step ${wizardPhase.id}: ${wizardPhase.label} (completed). Return to step.`}
+                      title={`Step ${wizardPhase.id}: ${wizardPhase.label} (completed)`}
                       className="group flex items-center gap-2 rounded-sm text-sm text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-60"
                     >
                       <span className={`${STEP_BADGE} border-[var(--status-success)] text-[var(--status-success)] group-hover:border-primary group-hover:text-primary`}>

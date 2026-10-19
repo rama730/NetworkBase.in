@@ -4,13 +4,13 @@ import { validateProjectSocialLinks } from '@/lib/projects/social-links';
 
 // Open Role Schema
 export const openRoleSchema = z.object({
-    role: z.string().min(1, 'Role is required'),
+    role: z.string().trim().min(1, 'Role is required').max(100, 'Role title must be 100 characters or fewer'),
     count: z.number().min(1, 'Add at least one position').max(10, 'A role can have up to 10 positions').default(1),
-    description: z.string().optional(),
-    skills: z.array(z.string()).default([]),
+    description: z.string().trim().max(2000, 'Role description must be 2000 characters or fewer').optional(),
+    skills: z.array(z.string().max(80)).max(30).default([]),
     experienceLevel: z.enum(['any', 'junior', 'mid', 'senior']).default('any'),
     compensationType: z.enum(['unpaid', 'equity', 'paid', 'rev_share']).default('unpaid'),
-    compensationDetails: z.string().optional(),
+    compensationDetails: z.string().max(500).optional(),
 });
 
 export type OpenRoleInput = z.infer<typeof openRoleSchema>;
@@ -115,7 +115,7 @@ export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;
 
 export const createProjectSchema = z.object({
     title: z.string().trim().min(3, 'Title must be at least 3 characters').max(100, 'Title must be less than 100 characters'),
-    description: z.string().trim().min(20, 'Description must be at least 20 characters').max(5000).optional(),
+    description: z.string().trim().min(20, 'Description must be at least 20 characters').max(5000, 'Description must be 5000 characters or fewer'),
     short_description: z.string().trim().max(200).optional(),
     project_type: z.string().min(1, 'Project type is required'),
     custom_project_type: z.string().optional(),
@@ -130,13 +130,8 @@ export const createProjectSchema = z.object({
     current_stage_index: z.number().default(0),
     problem_statement: z.string().optional(),
     solution_statement: z.string().optional(),
-    target_audience: z.string().optional(),
-    expected_start_date: z.string().optional(),
-    expected_end_date: z.string().optional(),
-    goals: z.array(z.string()).default([]),
     creator_role: creatorRoleSchema.nullable().optional(),
-    roles: z.array(openRoleSchema).optional(),
-    team_settings: z.any().nullable().optional(),
+    roles: z.array(openRoleSchema).max(50, 'Cannot exceed 50 open roles').optional(),
     external_links: externalLinksSchema.optional(),
     public_tab_visibility: projectPublicTabsSchema.optional(),
     member_updates_enabled: z.boolean().default(true),
@@ -158,6 +153,8 @@ export const createProjectSchema = z.object({
         s3Key: z.string().optional(),
         metadata: z.record(z.string(), z.any()).optional(),
     }).optional(),
+    slug: z.string().optional(),
+    project_id: z.string().optional(),
 }).superRefine((val, ctx) => {
     const roleTitles = new Set<string>();
     for (let index = 0; index < (val.roles || []).length; index += 1) {
@@ -171,6 +168,29 @@ export const createProjectSchema = z.object({
             });
         }
         roleTitles.add(title);
+    }
+
+    if (val.project_type === 'other') {
+        const custom = (val.custom_project_type || '').trim();
+        if (!custom) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['custom_project_type'],
+                message: 'Custom project type is required when "Other" is selected.',
+            });
+        }
+    }
+
+    if (val.lifecycle_stages && val.lifecycle_stages.length > 0) {
+        try {
+            validateAndSanitizeLifecycleStages(val.lifecycle_stages);
+        } catch (err) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['lifecycle_stages'],
+                message: err instanceof Error ? err.message : 'Invalid lifecycle stages',
+            });
+        }
     }
 
     const src = val.import_source;

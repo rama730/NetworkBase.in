@@ -27,6 +27,7 @@ import { Phase1SourceMethodGroup, type ProjectSourceType } from '@/components/pr
 import { buildUploadManifest, type UploadManifest } from '@/components/projects/create-wizard/phase1/upload-manifest';
 import { clearGithubOAuthResume, getCreateProjectReturnPath, saveGithubOAuthResume } from '@/components/projects/create-wizard/github-oauth-resume';
 import { isGithubAccessRefreshError } from '@/components/projects/create-wizard/phase1/github-access';
+import { normalizeGithubRepoUrl } from '@/lib/github/repo-validation';
 
 const UploadManifestPreview = dynamic(() => import('@/components/projects/create-wizard/phase1/UploadManifestPreview').then((mod) => mod.UploadManifestPreview));
 const GithubImportDetails = dynamic(() => import('@/components/projects/create-wizard/phase1/GithubImportDetails').then((mod) => mod.GithubImportDetails));
@@ -176,18 +177,7 @@ export default function Phase1SourceSelection({
     }, [githubEntryMode, hasGithubRepoAccess]);
 
     const normalizeGitHubRepoUrl = useCallback((raw: string) => {
-        const value = (raw || '').trim();
-        if (!value) return '';
-        if (value.startsWith('http://') || value.startsWith('https://')) {
-            return value.replace(/^http:\/\//, 'https://').replace(/\/+$/, '');
-        }
-        if (value.startsWith('github.com/')) {
-            return `https://${value}`.replace(/\/+$/, '');
-        }
-        if (/^[^/\s]+\/[^/\s]+$/.test(value)) {
-            return `https://github.com/${value}`.replace(/\/+$/, '');
-        }
-        return value;
+        return normalizeGithubRepoUrl(raw) ?? (raw || '').trim();
     }, []);
 
     const importSourceMetadata = (watch('import_source.metadata') || {}) as ImportSourceMetadata;
@@ -370,16 +360,43 @@ export default function Phase1SourceSelection({
 
     const handleSelectSource = (type: SourceType) => {
         const currentImportSource = getValues('import_source');
-        const currentMetadata = (currentImportSource?.metadata || {}) as ImportSourceMetadata;
-        setValue(
-            'import_source',
-            {
-                ...(currentImportSource || {}),
-                type,
-                metadata: currentMetadata,
-            },
-            { shouldValidate: true, shouldDirty: true }
-        );
+        if (type === 'scratch') {
+            setValue(
+                'import_source',
+                {
+                    type: 'scratch',
+                    repoUrl: undefined,
+                    branch: undefined,
+                    s3Key: undefined,
+                    metadata: {},
+                },
+                { shouldValidate: true, shouldDirty: true }
+            );
+        } else if (type === 'github') {
+            setValue(
+                'import_source',
+                {
+                    type: 'github',
+                    repoUrl: currentImportSource?.type === 'github' ? currentImportSource.repoUrl : '',
+                    branch: currentImportSource?.type === 'github' ? currentImportSource.branch : undefined,
+                    s3Key: undefined,
+                    metadata: currentImportSource?.type === 'github' ? (currentImportSource.metadata || {}) : {},
+                },
+                { shouldValidate: true, shouldDirty: true }
+            );
+        } else if (type === 'upload') {
+            setValue(
+                'import_source',
+                {
+                    type: 'upload',
+                    repoUrl: undefined,
+                    branch: undefined,
+                    s3Key: currentImportSource?.type === 'upload' ? currentImportSource.s3Key : undefined,
+                    metadata: currentImportSource?.type === 'upload' ? (currentImportSource.metadata || {}) : {},
+                },
+                { shouldValidate: true, shouldDirty: true }
+            );
+        }
         setActiveSourceView(type);
         if (type === 'github') {
             setShowManualGithubEntry(true);
@@ -849,6 +866,15 @@ export default function Phase1SourceSelection({
                                     <button
                                         type="button"
                                         onClick={() => toggleFolder(entry.path, disabled)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'ArrowRight' && !isExpanded) {
+                                                e.preventDefault();
+                                                toggleFolder(entry.path, disabled);
+                                            } else if (e.key === 'ArrowLeft' && isExpanded) {
+                                                e.preventDefault();
+                                                toggleFolder(entry.path, disabled);
+                                            }
+                                        }}
                                         className="flex w-full min-w-0 items-center gap-2 text-left"
                                         disabled={disabled}
                                         aria-expanded={isExpanded}
@@ -1228,7 +1254,7 @@ export default function Phase1SourceSelection({
                                         <label htmlFor="create-project-github-url" className="nb-meta mt-4 block text-foreground">Repository</label>
                                         <div className="mt-2 relative">
                                             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                                <Github className="h-4 w-4 text-zinc-400" />
+                                                <Github className="h-4 w-4 text-muted-foreground" />
                                             </div>
                                             <Input
                                                 id="create-project-github-url"

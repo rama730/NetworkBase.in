@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { CreateProjectRouteClient } from '@/components/projects/create-wizard/CreateProjectRouteClient'
 import { buildRouteMetadata } from '@/lib/metadata/route-metadata'
 import { getViewerAuthContext } from '@/lib/server/viewer-context'
+import { buildAuthPageHref } from '@/lib/auth/redirects'
 
 const VALID_CREATE_PROJECT_SOURCES = new Set(['scratch', 'github', 'upload'] as const)
 
@@ -17,19 +18,22 @@ export default async function NewProjectPage({
 }: {
     searchParams?: Promise<Record<string, string | string[] | undefined>>
 }) {
-    const { user } = await getViewerAuthContext()
-
-    if (!user) {
-        redirect('/login')
-    }
-
     const resolvedSearchParams = (await searchParams) ?? {}
     const rawSource = typeof resolvedSearchParams.source === 'string'
         ? resolvedSearchParams.source
-        : null
+        : typeof resolvedSearchParams.createProjectSource === 'string'
+            ? resolvedSearchParams.createProjectSource
+            : null
     const initialSource = rawSource && VALID_CREATE_PROJECT_SOURCES.has(rawSource as 'scratch' | 'github' | 'upload')
         ? (rawSource as 'scratch' | 'github' | 'upload')
         : null
+
+    const { user } = await getViewerAuthContext()
+
+    if (!user) {
+        const nextTarget = initialSource ? `/projects/new?source=${initialSource}` : '/projects/new'
+        redirect(buildAuthPageHref('/login', nextTarget))
+    }
 
     // A normal page in the app shell: fills the main content area; the wizard body is the only scroller.
     return (

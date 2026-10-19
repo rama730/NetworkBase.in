@@ -3,7 +3,7 @@
 import { get, set, del } from 'idb-keyval';
 import { CreateProjectInput } from '@/lib/validations/project';
 
-const DRAFT_KEY = 'project_wizard_draft';
+const DEFAULT_DRAFT_KEY = 'project_wizard_draft';
 const EXPIRY_DAYS = 3;  // Draft expires after 3 days
 
 export interface WizardDraft extends Partial<CreateProjectInput> {
@@ -18,14 +18,20 @@ export interface DraftInfo {
     isExpired: boolean;
 }
 
+function getDraftKey(userId?: string | null): string {
+    return userId ? `project_wizard_draft:${userId}` : DEFAULT_DRAFT_KEY;
+}
+
 /**
- * IndexedDB-backed draft storage with expiration.
+ * IndexedDB-backed draft storage with expiration, scoped by user ID to prevent
+ * cross-account draft leakage on shared browsers.
  */
 export const draftStore = {
     /**
-     * Save draft to IndexedDB
+     * Save draft to IndexedDB (scoped by user ID)
      */
-    async save(data: Partial<CreateProjectInput>, phase: number): Promise<void> {
+    async save(data: Partial<CreateProjectInput>, phase: number, userId?: string | null): Promise<void> {
+        const key = getDraftKey(userId);
         const draft: WizardDraft = {
             ...data,
             _timestamp: Date.now(),
@@ -33,10 +39,10 @@ export const draftStore = {
         };
 
         try {
-            await set(DRAFT_KEY, draft);
+            await set(key, draft);
         } catch {
             try {
-                localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+                localStorage.setItem(key, JSON.stringify(draft));
             } catch { /* Silent */ }
         }
     },
@@ -44,8 +50,8 @@ export const draftStore = {
     /**
      * Load draft (returns null if expired or not found)
      */
-    async load(): Promise<WizardDraft | null> {
-        const draft = await this._getRaw();
+    async load(userId?: string | null): Promise<WizardDraft | null> {
+        const draft = await this._getRaw(userId);
         if (!draft) return null;
 
         // Check expiration (3 days)
@@ -54,7 +60,7 @@ export const draftStore = {
 
         if (ageMs > expiryMs) {
             // Auto-clear expired draft
-            await this.clear();
+            await this.clear(userId);
             return null;
         }
 
@@ -64,8 +70,8 @@ export const draftStore = {
     /**
      * Get draft info without loading full data (for UI display)
      */
-    async getInfo(): Promise<DraftInfo> {
-        const draft = await this._getRaw();
+    async getInfo(userId?: string | null): Promise<DraftInfo> {
+        const draft = await this._getRaw(userId);
 
         if (!draft) {
             return { exists: false, phase: 1, savedAt: null, isExpired: false };
@@ -76,7 +82,7 @@ export const draftStore = {
         const isExpired = ageMs > expiryMs;
 
         if (isExpired) {
-            await this.clear();
+            await this.clear(userId);
             return { exists: false, phase: 1, savedAt: null, isExpired: true };
         }
 
@@ -91,24 +97,45 @@ export const draftStore = {
     /**
      * Clear draft
      */
-    async clear(): Promise<void> {
-        try { await del(DRAFT_KEY); } catch { /* Silent */ }
-        try { localStorage.removeItem(DRAFT_KEY); } catch { /* Silent */ }
+    async clear(userId?: string | null): Promise<void> {
+        const key = getDraftKey(userId);
+        try { await del(key); } catch { /* Silent */ }
+        try { localStorage.removeItem(key); } catch { /* Silent */ }
+
+        // Also clean legacy un-scoped key if user ID was provided
+        if (userId) {
+            try { await del(DEFAULT_DRAFT_KEY); } catch { /* Silent */ }
+            try { localStorage.removeItem(DEFAULT_DRAFT_KEY); } catch { /* Silent */ }
+        }
     },
 
     /**
      * Internal: Get raw draft without expiry check
      */
-    async _getRaw(): Promise<WizardDraft | null> {
+    async _getRaw(userId?: string | null): Promise<WizardDraft | null> {
+        const key = getDraftKey(userId);
         try {
-            const draft = await get<WizardDraft>(DRAFT_KEY);
+            const draft = await get<WizardDraft>(key);
             if (draft) return draft;
         } catch { /* IndexedDB failed */ }
 
         try {
-            const stored = localStorage.getItem(DRAFT_KEY);
+            const stored = localStorage.getItem(key);
             if (stored) return JSON.parse(stored) as WizardDraft;
         } catch { /* Parse failed */ }
+
+        // Fallback check for legacy un-scoped draft if user-scoped draft not found
+        if (userId && key !== DEFAULT_DRAFT_KEY) {
+            try {
+                const legacy = await get<WizardDraft>(DEFAULT_DRAFT_KEY);
+                if (legacy) return legacy;
+            } catch { /* IndexedDB failed */ }
+
+            try {
+                const legacyStored = localStorage.getItem(DEFAULT_DRAFT_KEY);
+                if (legacyStored) return JSON.parse(legacyStored) as WizardDraft;
+            } catch { /* Parse failed */ }
+        }
 
         return null;
     },

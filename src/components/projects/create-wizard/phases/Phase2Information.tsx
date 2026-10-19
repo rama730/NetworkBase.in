@@ -1,5 +1,5 @@
 import { type ReactNode, useState } from 'react';
-import { Controller, useFormContext } from 'react-hook-form';
+import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import { Plus, X } from 'lucide-react';
 import { SkillPicker } from '@/components/skills/SkillPicker';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,21 @@ function FieldError({ id, message }: { id: string; message?: string }) {
     if (!message) return null;
 
     return <p id={id} role="alert" className="mt-1.5 text-[13px] leading-[1.5] text-destructive">{message}</p>;
+}
+
+function TitleCount() {
+    const title = useWatch<CreateProjectInput>({ name: 'title' }) || '';
+    return <span className="nb-meta mb-2 shrink-0 text-muted-foreground">{title.length}/100</span>;
+}
+
+function TaglineCount() {
+    const tagline = useWatch<CreateProjectInput>({ name: 'short_description' }) || '';
+    return <span className="nb-meta mb-2 shrink-0 text-muted-foreground">{tagline.length}/200</span>;
+}
+
+function DescriptionCount() {
+    const description = useWatch<CreateProjectInput>({ name: 'description' }) || '';
+    return <span className="nb-meta mb-2 shrink-0 text-muted-foreground">{description.length}/5000</span>;
 }
 
 function FieldLabel({ htmlFor, children, required = false }: { htmlFor: string; children: ReactNode; required?: boolean }) {
@@ -50,17 +65,14 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
     const tags = watch('tags') || [];
     const technologies = watch('technologies_used') || [];
     const projectType = watch('project_type');
-    const title = watch('title') || '';
-    const tagline = watch('short_description') || '';
-    const description = watch('description') || '';
     const selectedProjectType = PROJECT_TYPE_OPTIONS.find((type) => type.id === projectType);
 
     const validationErrors = [
-        errors.project_type?.message,
-        errors.custom_project_type?.message,
-        errors.title?.message,
-        errors.description?.message,
-    ].filter((message): message is string => Boolean(message));
+        errors.project_type?.message ? { id: 'create-project-category', message: errors.project_type.message } : null,
+        errors.custom_project_type?.message ? { id: 'create-project-custom-category', message: errors.custom_project_type.message } : null,
+        errors.title?.message ? { id: 'create-project-title', message: errors.title.message } : null,
+        errors.description?.message ? { id: 'create-project-description', message: errors.description.message } : null,
+    ].filter((item): item is { id: string; message: string } => Boolean(item));
 
     const addTag = (rawTag: string) => {
         const tag = rawTag.trim().replace(/\s+/g, ' ');
@@ -98,7 +110,22 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                 <div role="alert" aria-live="assertive" className="border-l-2 border-destructive bg-[var(--status-danger-soft)] px-4 py-3 text-[13px] leading-[1.5] text-foreground">
                     <p className="font-semibold">Check the required project details</p>
                     <ul className="mt-1 list-disc space-y-0.5 pl-4 text-muted-foreground">
-                        {validationErrors.map((message) => <li key={message}>{message}</li>)}
+                        {validationErrors.map((err) => (
+                            <li key={err.id}>
+                                <a
+                                    href={`#${err.id}`}
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        const el = document.getElementById(err.id);
+                                        el?.focus();
+                                        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    }}
+                                    className="underline underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                >
+                                    {err.message}
+                                </a>
+                            </li>
+                        ))}
                     </ul>
                 </div>
             ) : null}
@@ -168,7 +195,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                     <div>
                         <div className="flex items-end justify-between gap-3">
                             <FieldLabel htmlFor="create-project-title" required>Project title</FieldLabel>
-                            <span className="nb-meta mb-2 shrink-0 text-muted-foreground" aria-live="polite">{title.length}/100</span>
+                            <TitleCount />
                         </div>
                         <Input
                             id="create-project-title"
@@ -187,7 +214,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                     <div>
                         <div className="flex items-end justify-between gap-3">
                             <FieldLabel htmlFor="create-project-tagline">Tagline</FieldLabel>
-                            <span className="nb-meta mb-2 shrink-0 text-muted-foreground" aria-live="polite">{tagline.length}/200</span>
+                            <TaglineCount />
                         </div>
                         <Input
                             id="create-project-tagline"
@@ -214,7 +241,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                     <div>
                         <div className="flex items-end justify-between gap-3">
                             <FieldLabel htmlFor="create-project-description" required>Description</FieldLabel>
-                            <span className="nb-meta mb-2 shrink-0 text-muted-foreground" aria-live="polite">{description.length}/5000</span>
+                            <DescriptionCount />
                         </div>
                         <textarea
                             id="create-project-description"
