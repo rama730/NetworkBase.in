@@ -57,10 +57,9 @@ export const profileUpdateSchema = z.object({
         .string()
         .trim()
         .max(PROFILE_LIMITS.websiteMax)
-        .refine(
-            (val) => !val || isSafeHttpUrl(/^https?:\/\//i.test(val) ? val : `https://${val}`),
-            'Invalid website URL',
-        )
+        // VALID-004: a non-empty value must survive the same normalization the write applies, so an
+        // unsupported value is rejected here instead of being turned into an empty (clearing) one.
+        .refine((val) => !val || normalizeOptionalProfileUrl(val) !== '', 'Invalid website URL')
         .optional(),
     // SEC-C5: avatar/banner URLs are rendered in <img src> across the app and
     // MUST be safe http(s) URLs. We accept the empty string (clears the field)
