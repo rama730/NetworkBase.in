@@ -40,7 +40,7 @@ import {
 } from "@/components/projects/settings/ProjectDangerModals";
 import { Button } from "@/components/ui/button";
 import { transferProjectOwnership } from "@/app/actions/account";
-import { archiveProjectAction, deleteProject, getProjectAccessImpactAction, getProjectAccessTransitionPreflightAction, getProjectCollaboratorSettingsAction, getProjectDangerZonePreflightAction, getProjectFileWorkspaceSettingsAction, getProjectMemberRemovalPreflightAction, readProjectMemberNotificationSettingsAction, readProjectNotificationSettingsAction, readProjectSettingsBootstrapAction, removeProjectMemberAction, resetProjectMemberNotificationSettingsAction, resetProjectNotificationSettingsAction, updateProject, updateProjectLifecycleAction, updateProjectFileUploadDefaultsAction, updateProjectMemberFileUploadAction, updateProjectMemberNotificationSettingsAction, updateProjectMemberRoleAction, updateProjectNotificationSettingsAction, updateProjectPublicTabVisibilityAction, updateProjectVisibilityAction } from "@/app/actions/project";
+import { archiveProjectAction, deleteProject, getProjectAccessTransitionPreflightAction, getProjectCollaboratorSettingsAction, getProjectDangerZonePreflightAction, getProjectFileWorkspaceSettingsAction, getProjectMemberRemovalPreflightAction, readProjectMemberNotificationSettingsAction, readProjectNotificationSettingsAction, readProjectSettingsBootstrapAction, removeProjectMemberAction, resetProjectMemberNotificationSettingsAction, resetProjectNotificationSettingsAction, updateProject, updateProjectLifecycleAction, updateProjectFileUploadDefaultsAction, updateProjectMemberFileUploadAction, updateProjectMemberNotificationSettingsAction, updateProjectMemberRoleAction, updateProjectNotificationSettingsAction, updateProjectPublicTabVisibilityAction, updateProjectVisibilityAction } from "@/app/actions/project";
 import { readProjectDocSettingsAction, updateProjectDocSettingsAction } from "@/app/actions/project/doc";
 import { cn } from "@/lib/utils";
 import {
@@ -56,8 +56,6 @@ import {
     type ProjectNotificationPreset,
 } from "@/lib/notifications/project-policy";
 import {
-    buildProjectAccessImpact,
-    buildProjectAccessPolicy,
     buildProjectFilePolicy,
     buildProjectMemberMutationPolicy,
     buildProjectMemberRemovalPreflight,
@@ -92,7 +90,7 @@ import {
     type ProjectRolesFormValues,
 } from "@/lib/projects/project-roles-form";
 import { SettingsCard } from '@/components/projects/settings/SettingsFormFields';
-import type { AccessImpact, AccessTransitionPreflightData, RemovalPreflightData } from '@/components/projects/settings/SettingsPolicyDetails';
+import type { AccessTransitionPreflightData, RemovalPreflightData } from '@/components/projects/settings/SettingsPolicyDetails';
 import { ProjectNotificationCategoryCard } from '@/components/projects/settings/ProjectNotificationSettings';
 import { CollaboratorSearchField } from '@/components/projects/settings/CollaboratorSearchField';
 import type { MemberNotificationSettingsData } from '@/components/projects/settings/MemberNotificationSettingsEditor';
@@ -345,15 +343,12 @@ export default function ProjectSettingsTab({
             window.clearTimeout(localNavigationReleaseTimerRef.current);
         }
     }, []);
-    const [advancedOpen, setAdvancedOpen] = useState<Partial<Record<ProjectSettingsSectionId, boolean>>>({});
     const [savingSettings, setSavingSettings] = useState(false);
     const [savingLifecycle, setSavingLifecycle] = useState(false);
     const [confirmLoading, setConfirmLoading] = useState(false);
     const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
     const [dangerPreflight, setDangerPreflight] = useState<DangerPreflight | null>(null);
     const [dangerPreflightLoading, setDangerPreflightLoading] = useState(false);
-    const [accessImpact, setAccessImpact] = useState<AccessImpact | null>(null);
-    const [accessImpactLoading, setAccessImpactLoading] = useState(false);
     const [transferOwnerId, setTransferOwnerId] = useState("");
     const [archiveModalOpen, setArchiveModalOpen] = useState(false);
     const [transferModalOpen, setTransferModalOpen] = useState(false);
@@ -376,7 +371,6 @@ export default function ProjectSettingsTab({
     const [readmeSettings, setReadmeSettings] = useState<ProjectDocSettings>(() => DEFAULT_PROJECT_DOC_SETTINGS);
     const [readmeSettingsDraft, setReadmeSettingsDraft] = useState<ProjectDocSettings>(() => DEFAULT_PROJECT_DOC_SETTINGS);
     const [readmeSettingsLoading, setReadmeSettingsLoading] = useState(false);
-    const [readmeSettingsSaving, setReadmeSettingsSaving] = useState(false);
     const [savingReadmeKey, setSavingReadmeKey] = useState<keyof ProjectDocSettings | null>(null);
     const [savingMemberUpdates, setSavingMemberUpdates] = useState(false);
     const [memberNotificationData, setMemberNotificationData] = useState<MemberNotificationSettingsData | null>(null);
@@ -389,6 +383,7 @@ export default function ProjectSettingsTab({
     const removalModeRef = useRef<RemovalMode>("preserve_history");
     const removalReassignToUserIdRef = useRef("");
     const collaboratorDataRef = useRef<CollaboratorSettingsData | null>(null);
+    const collaboratorRequestSeqRef = useRef(0);
 
     const initialSettings = useMemo(() => resetSettingsFromProject(project), [project]);
     const initialIdentity = useMemo(() => resetIdentityFromProject(project), [project]);
@@ -443,19 +438,26 @@ export default function ProjectSettingsTab({
         keyName: "fieldKey",
     });
 
-    useEffect(() => {
-        setVisibility(initialSettings.visibility);
-        setPublicTabVisibility(initialSettings.publicTabVisibility);
-        setSavedVisibility(initialSettings.visibility);
-        setSavedPublicTabVisibility(initialSettings.publicTabVisibility);
-        setMemberUpdatesEnabled(initialSettings.memberUpdatesEnabled);
-        setMemberFileUploadDefault(initialSettings.memberFileUploadDefault);
-    }, [initialSettings]);
+    const initialVisibility = initialSettings.visibility;
+    const initialPublicTabVisibilityKey = JSON.stringify(initialSettings.publicTabVisibility);
+    const initialMemberUpdates = initialSettings.memberUpdatesEnabled;
+    const initialFileUploadDefault = initialSettings.memberFileUploadDefault;
 
     useEffect(() => {
+        setVisibility(initialVisibility);
+        setPublicTabVisibility(initialSettings.publicTabVisibility);
+        setSavedVisibility(initialVisibility);
+        setSavedPublicTabVisibility(initialSettings.publicTabVisibility);
+        setMemberUpdatesEnabled(initialMemberUpdates);
+        setMemberFileUploadDefault(initialFileUploadDefault);
+    }, [initialVisibility, initialPublicTabVisibilityKey, initialMemberUpdates, initialFileUploadDefault]);
+
+    const initialRolesKey = JSON.stringify(initialRoles);
+    useEffect(() => {
+        if (rolesFormDirty || deletedRoleIds.length > 0) return;
         resetRolesForm(initialRoles);
         setDeletedRoleIds([]);
-    }, [initialRoles, resetRolesForm]);
+    }, [initialRolesKey, resetRolesForm]);
 
     useEffect(() => {
         collaboratorDataRef.current = collaboratorData;
@@ -469,9 +471,10 @@ export default function ProjectSettingsTab({
         removalReassignToUserIdRef.current = removalReassignToUserId;
     }, [removalReassignToUserId]);
 
+    const initialTitle = initialIdentity.title;
     useEffect(() => {
-        setProjectTitle(initialIdentity.title);
-    }, [initialIdentity]);
+        setProjectTitle(initialTitle);
+    }, [initialTitle]);
 
     useEffect(() => {
         const querySection = searchParams.get("settings") || searchParams.get("section");
@@ -546,15 +549,6 @@ export default function ProjectSettingsTab({
     }, [activeSection, sections]);
 
     const ownerId = projectOwnerId(project);
-    const accessPolicy = buildProjectAccessPolicy({ visibility });
-    const accessImpactPolicy = buildProjectAccessImpact({
-            visibility,
-            membersCount: accessImpact?.membersCount ?? members.length,
-            followersCount: accessImpact?.followersCount ?? project?.followersCount ?? project?.followers_count ?? 0,
-            openRolesCount: accessImpact?.openRolesCount ?? project?.openRoles?.length ?? project?.open_roles?.length ?? 0,
-            pendingApplicationsCount: accessImpact?.pendingApplicationsCount ?? 0,
-            activeTasksCount: accessImpact?.activeTasksCount ?? 0,
-        });
     const collaboratorMembers = collaboratorData?.members ?? members;
     const rolePolicy = buildProjectRolePolicy({ isOwner: isProjectOwner, actorRole: actorProjectRole, ownerId, members: collaboratorMembers });
     const filteredCollaborators = rolePolicy.members.filter((member) => projectMemberRole(member, ownerId) !== "owner");
@@ -581,11 +575,11 @@ export default function ProjectSettingsTab({
 
     const visibilityDirty = visibility !== savedVisibility;
     const publicTabVisibilityDirty = !areProjectPublicTabVisibilitiesEqual(publicTabVisibility, savedPublicTabVisibility);
-    const accessDirty = visibilityDirty || publicTabVisibilityDirty;
     const rolesDirty = rolesFormDirty || deletedRoleIds.length > 0;
     const notificationDirty = JSON.stringify(projectNotificationDraft) !== JSON.stringify(projectNotificationData?.policy ?? buildDefaultProjectNotificationPolicy());
     const dangerPreflightLoadedRef = useRef(false);
     const loadDangerPreflight = useCallback(async (force = false, pending?: ReturnType<typeof getProjectDangerZonePreflightAction>) => {
+        if (!isProjectOwner) return;
         if (dangerPreflightLoadedRef.current && !force) return;
         setDangerPreflightLoading(true);
         try {
@@ -604,31 +598,10 @@ export default function ProjectSettingsTab({
         } finally {
             setDangerPreflightLoading(false);
         }
-    }, [projectId]);
-
-    const accessImpactLoadedRef = useRef(false);
-    const loadAccessImpact = useCallback(async (force = false, pending?: ReturnType<typeof getProjectAccessImpactAction>) => {
-        if (accessImpactLoadedRef.current && !force) return;
-        setAccessImpactLoading(true);
-        try {
-            const result = await (pending ?? getProjectAccessImpactAction(projectId));
-            if (!result.success) {
-                setAccessImpact(null);
-                toast.error(result.message);
-                return;
-            }
-            accessImpactLoadedRef.current = true;
-            setAccessImpact(result.data);
-        } catch (error) {
-            console.error("Failed to load access impact", error);
-            setAccessImpact(null);
-            toast.error("Failed to load access impact.");
-        } finally {
-            setAccessImpactLoading(false);
-        }
-    }, [projectId]);
+    }, [isProjectOwner, projectId]);
 
     const loadCollaborators = useCallback(async (mode: "initial" | "refresh" | "more" = "initial", pending?: ReturnType<typeof getProjectCollaboratorSettingsAction>) => {
+        const seq = ++collaboratorRequestSeqRef.current;
         const cursor = mode === "more" ? collaboratorDataRef.current?.nextCursor ?? undefined : undefined;
         if (mode === "refresh") {
             setCollaboratorRefreshing(true);
@@ -650,6 +623,7 @@ export default function ProjectSettingsTab({
                 query: collaboratorSearch,
                 roleFilter: collaboratorFilter,
             }));
+            if (seq !== collaboratorRequestSeqRef.current) return;
             if (!result.success) {
                 setCollaboratorData(null);
                 toast.error(result.message);
@@ -668,13 +642,16 @@ export default function ProjectSettingsTab({
                 };
             });
         } catch (error) {
+            if (seq !== collaboratorRequestSeqRef.current) return;
             console.error("Failed to load collaborators", error);
             setCollaboratorData(null);
             toast.error("Failed to load collaborators.");
         } finally {
-            setCollaboratorLoading(false);
-            setCollaboratorRefreshing(false);
-            setCollaboratorLoadingMore(false);
+            if (seq === collaboratorRequestSeqRef.current) {
+                setCollaboratorLoading(false);
+                setCollaboratorRefreshing(false);
+                setCollaboratorLoadingMore(false);
+            }
         }
     }, [collaboratorFilter, collaboratorSearch, projectId]);
 
@@ -758,9 +735,8 @@ export default function ProjectSettingsTab({
         void loadFileWorkspaceSettings(false, bootstrap.then((data) => data.fileWorkspace));
         void loadProjectNotificationSettings(false, bootstrap.then((data) => data.notifications));
         void loadReadmeSettings(false, bootstrap.then((data) => data.docSettings));
-        void loadAccessImpact(false, bootstrap.then((data) => data.accessImpact));
         void loadDangerPreflight(false, bootstrap.then((data) => data.dangerPreflight));
-    }, [collaboratorFilter, collaboratorSearch, loadAccessImpact, loadCollaborators, loadDangerPreflight, loadFileWorkspaceSettings, loadProjectNotificationSettings, loadReadmeSettings, projectId]);
+    }, [collaboratorFilter, collaboratorSearch, loadCollaborators, loadDangerPreflight, loadFileWorkspaceSettings, loadProjectNotificationSettings, loadReadmeSettings, projectId]);
 
     const initialCollaboratorFilterRef = useRef(false);
     useEffect(() => {
@@ -792,66 +768,27 @@ export default function ProjectSettingsTab({
         return { success: true, message: messages.join(" ") || "Access settings updated.", refresh: true };
     }, [projectId, publicTabVisibility, publicTabVisibilityDirty, visibility, visibilityDirty]);
 
-    const handleSaveAccess = async () => {
-        if (!accessDirty) return;
-
-        setSavingSettings(true);
-        try {
-            if (!visibilityDirty) {
-                const result = await updateProjectPublicTabVisibilityAction(projectId, publicTabVisibility);
-                if (!result.success) {
-                    toast.error(result.message);
-                    return;
-                }
-                toast.success(result.message);
-                const nextSaved = result.data ? normalizeProjectPublicTabVisibility(result.data) : publicTabVisibility;
-                setPublicTabVisibility(nextSaved);
-                setSavedPublicTabVisibility(nextSaved);
-                onProjectUpdated();
-                router.refresh();
-                return;
-            }
-            const preflightResult = await getProjectAccessTransitionPreflightAction(projectId, visibility);
-            if (!preflightResult.success) {
-                toast.error(preflightResult.message);
-                return;
-            }
-            const preflight: AccessTransitionPreflightData = preflightResult.data;
-            const isPrivateTransition = preflight.nextVisibility === "private";
-            setConfirmAction({
-                title: isPrivateTransition ? "Make project private" : "Make project public",
-                description: preflight.policy.confirmationSummary.join(" "),
-                confirmLabel: isPrivateTransition ? "Make private" : "Make public",
-                variant: isPrivateTransition ? "destructive" : "default",
-                content: <AccessTransitionDetails preflight={preflight} />,
-                action: () => saveAccessSettings(preflight.confirmationToken),
-            });
-            return;
-        } catch (error) {
-            console.error("Failed to prepare access transition", error);
-            toast.error("Failed to prepare access transition.");
-        } finally {
-            setSavingSettings(false);
-        }
-    };
-
     const handleAddSettingsRole = useCallback(() => {
+        if (!isProjectOwner) return;
         appendRole({ role: "New Role", count: 1, description: "", skills: [] });
-    }, [appendRole]);
+    }, [appendRole, isProjectOwner]);
 
     const handleRemoveSettingsRole = useCallback((index: number, roleId?: string) => {
+        if (!isProjectOwner) return;
         if (roleId) {
             setDeletedRoleIds((current) => current.includes(roleId) ? current : [...current, roleId]);
         }
         removeRole(index);
-    }, [removeRole]);
+    }, [isProjectOwner, removeRole]);
 
     const handleCancelRoles = useCallback(() => {
+        if (!isProjectOwner) return;
         resetRolesForm(initialRoles);
         setDeletedRoleIds([]);
-    }, [initialRoles, resetRolesForm]);
+    }, [initialRoles, isProjectOwner, resetRolesForm]);
 
     const handleSaveRoles = useCallback(() => {
+        if (!isProjectOwner) return;
         void handleRolesSubmit(
             async (values) => {
                 setSavingSettings(true);
@@ -872,7 +809,6 @@ export default function ProjectSettingsTab({
                     setDeletedRoleIds([]);
                     toast.success("Project roles updated.");
                     onProjectUpdated();
-                    router.refresh();
                 } catch (error) {
                     console.error("Failed to save project roles", error);
                     toast.error(error instanceof Error ? error.message : "Failed to update project roles.");
@@ -884,9 +820,10 @@ export default function ProjectSettingsTab({
                 toast.error("Fix role fields before saving.");
             },
         )();
-    }, [deletedRoleIds, handleRolesSubmit, onProjectUpdated, projectId, resetRolesForm, router]);
+    }, [deletedRoleIds, handleRolesSubmit, isProjectOwner, onProjectUpdated, projectId, resetRolesForm, router]);
 
     const handleTogglePublicTab = useCallback(async (tabId: ProjectPublicTabId, enabled: boolean) => {
+        if (savingPublicTabId) return;
         const previous = publicTabVisibility;
         const next: ProjectPublicTabVisibility = {
             ...previous,
@@ -908,7 +845,6 @@ export default function ProjectSettingsTab({
             }
             toast.success(`${PROJECT_PUBLIC_TAB_LABELS[tabId]} visibility updated.`);
             onProjectUpdated();
-            router.refresh();
         } catch (error) {
             setPublicTabVisibility(previous);
             setSavedPublicTabVisibility(previous);
@@ -1077,27 +1013,6 @@ export default function ProjectSettingsTab({
         }
     };
 
-    const handleSaveReadmeSettings = async () => {
-        setReadmeSettingsSaving(true);
-        try {
-            const result = await updateProjectDocSettingsAction(projectId, readmeSettingsDraft);
-            if (!result.success) {
-                toast.error(result.error);
-                return;
-            }
-            const normalized = normalizeProjectDocSettings(result.settings);
-            setReadmeSettings(normalized);
-            setReadmeSettingsDraft(normalized);
-            toast.success("Document settings updated.");
-            onProjectUpdated();
-        } catch (error) {
-            console.error("Failed to save document settings", error);
-            toast.error("Failed to save document settings.");
-        } finally {
-            setReadmeSettingsSaving(false);
-        }
-    };
-
     const handleToggleReadmeSetting = async (key: keyof ProjectDocSettings, enabled: boolean) => {
         const previous = readmeSettingsDraft;
         const next: ProjectDocSettings = {
@@ -1219,28 +1134,8 @@ export default function ProjectSettingsTab({
         }
     }, [memberNotificationData, projectId]);
 
-    const handleSaveUpdatesSettings = async () => {
-        setSavingSettings(true);
-        try {
-            const result = await updateProject(projectId, {
-                memberUpdatesEnabled,
-            });
-            if (!result?.success) {
-                toast.error("Failed to update updates settings.");
-                return;
-            }
-            toast.success("Updates settings updated.");
-            onProjectUpdated();
-            router.refresh();
-        } catch (error) {
-            console.error("Failed to save updates settings", error);
-            toast.error(error instanceof Error ? error.message : "Failed to save updates settings.");
-        } finally {
-            setSavingSettings(false);
-        }
-    };
-
     const handleToggleMemberUpdates = async (enabled: boolean) => {
+        if (!isProjectOwner) return;
         const previous = memberUpdatesEnabled;
         setMemberUpdatesEnabled(enabled);
         setSavingMemberUpdates(true);
@@ -1256,7 +1151,6 @@ export default function ProjectSettingsTab({
             }
             toast.success("Member publishing permissions updated.");
             onProjectUpdated();
-            router.refresh();
         } catch (error) {
             setMemberUpdatesEnabled(previous);
             console.error("Failed to save updates settings", error);
@@ -1268,6 +1162,7 @@ export default function ProjectSettingsTab({
 
     // Starting upload permission for members who join later (set at creation in step 4).
     const handleToggleMemberFileUploadDefault = async (enabled: boolean) => {
+        if (!isProjectOwner) return;
         const previous = memberFileUploadDefault;
         setMemberFileUploadDefault(enabled);
         setSavingMemberFileUploadDefault(true);
@@ -1287,20 +1182,6 @@ export default function ProjectSettingsTab({
             setSavingMemberFileUploadDefault(false);
         }
     };
-
-    const handleCancelAccess = () => {
-        setVisibility(savedVisibility);
-        setPublicTabVisibility(savedPublicTabVisibility);
-    };
-
-    const handleCancelReadmeSettings = () => {
-        setReadmeSettingsDraft(readmeSettings);
-    };
-
-    const handleCancelUpdatesSettings = () => {
-        setMemberUpdatesEnabled(initialSettings.memberUpdatesEnabled);
-    };
-
     const handleCancelNotifications = useCallback(() => {
         setProjectNotificationDraft(projectNotificationData?.policy ?? buildDefaultProjectNotificationPolicy());
     }, [projectNotificationData?.policy]);
@@ -1316,10 +1197,8 @@ export default function ProjectSettingsTab({
             }
             toast.success(result.message);
             if (result.refresh) {
-                void loadAccessImpact();
                 void loadCollaborators("refresh");
                 onProjectUpdated();
-                router.refresh();
             }
             setConfirmAction(null);
             setRemovalPreflightDialog(null);
@@ -1334,7 +1213,7 @@ export default function ProjectSettingsTab({
         } finally {
             setConfirmLoading(false);
         }
-    }, [confirmAction, loadAccessImpact, loadCollaborators, onProjectUpdated, router]);
+    }, [confirmAction, loadCollaborators, onProjectUpdated, router]);
 
     const handleExecuteArchive = useCallback(async () => {
         setConfirmLoading(true);
@@ -1344,7 +1223,7 @@ export default function ProjectSettingsTab({
                 toast.error(result.message);
                 return;
             }
-            await loadDangerPreflight();
+            await loadDangerPreflight(true);
             onProjectUpdated?.();
             setArchiveModalOpen(false);
             toast.success(result.message);
@@ -1365,7 +1244,7 @@ export default function ProjectSettingsTab({
                 return;
             }
             await loadCollaborators("refresh");
-            await loadDangerPreflight();
+            await loadDangerPreflight(true);
             onProjectUpdated?.();
             setTransferModalOpen(false);
             setSelectedTransferCandidate(null);
@@ -1468,64 +1347,6 @@ export default function ProjectSettingsTab({
                 description: `${policyPreview.summary} Choose how active task assignments should be handled before removing access.`,
                 confirmLabel: "Remove member",
                 variant: "destructive",
-                content: (
-                    <div className="space-y-4 text-sm">
-                        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-red-900 dark:border-red-900/60 dark:bg-red-950/20 dark:text-red-100">
-                            <p className="font-semibold">Access removal impact</p>
-                            <ul className="mt-2 space-y-1 text-xs leading-5">
-                                {policyPreview.affectedAreas.map((area) => (
-                                    <li key={area}>{area}</li>
-                                ))}
-                            </ul>
-                        </div>
-
-                        <RemovalImpactDetails preflight={preflight} />
-
-                        <fieldset className="space-y-2">
-                            <legend className="nb-micro text-muted-foreground">Removal mode</legend>
-                            {([
-                                ["preserve_history", "Preserve history", "Keep active assignments in place and label them Removed from project · Needs reassignment."],
-                                ["unassign_active_tasks", "Unassign active tasks", "Clear this member from active task assignee fields while preserving creator/comment/file history."],
-                                ["reassign_active_tasks", "Reassign active tasks", "Move active assigned tasks to another eligible active collaborator."],
-                            ] as const).map(([mode, label, detail]) => (
-                                <label key={mode} className="flex cursor-pointer gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:border-foreground/20">
-                                    <input
-                                        type="radio"
-                                        name="project-member-removal-mode"
-                                        value={mode}
-                                        checked={removalMode === mode}
-                                        onChange={() => setRemovalMode(mode)}
-                                        className="mt-1"
-                                    />
-                                    <span>
-                                        <span className="nb-ui-label block font-semibold text-foreground">{label}</span>
-                                        <span className="nb-compact mt-0.5 block text-xs leading-5 text-muted-foreground">{detail}</span>
-                                    </span>
-                                </label>
-                            ))}
-                        </fieldset>
-
-                        {removalMode === "reassign_active_tasks" ? (
-                            <label className="block">
-                                <span className="nb-micro text-muted-foreground">Replacement assignee</span>
-                                <select
-                                    value={removalReassignToUserId}
-                                    onChange={(event) => setRemovalReassignToUserId(event.target.value)}
-                                    className="nb-touch-target mt-2 h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                                >
-                                    {(preflight.reassignmentCandidates ?? []).map((candidate) => (
-                                        <option key={candidate.id} value={candidate.id}>
-                                            {getProjectMemberDisplayName(candidate)} · {getProjectMemberRoleLabel(candidate.membershipRole)}
-                                        </option>
-                                    ))}
-                                </select>
-                                {(preflight.reassignmentCandidates ?? []).length === 0 ? (
-                                    <span className="mt-2 block nb-compact text-xs text-destructive">No eligible replacement assignee is available.</span>
-                                ) : null}
-                            </label>
-                        ) : null}
-                    </div>
-                ),
                 action: async () => {
                     const nextMode = removalModeRef.current;
                     const reassignToUserId = removalReassignToUserIdRef.current || null;
@@ -1578,13 +1399,6 @@ export default function ProjectSettingsTab({
         }
         setDeleteModalOpen(true);
     }, [dangerPreflight]);
-
-    const toggleAdvanced = (sectionId: ProjectSettingsSectionId) => {
-        setAdvancedOpen((current) => ({
-            ...current,
-            [sectionId]: !current[sectionId],
-        }));
-    };
 
     if (!canManageSettings) {
         return (
@@ -1789,8 +1603,6 @@ export default function ProjectSettingsTab({
                     </div>
                 </details>
 
-                {/* Legacy section header suppression line for contract tests */}
-                {activeSection !== "general" && activeSection !== "links" && activeSection !== "access" && activeSection !== "collaborators" && activeSection !== "roles-applications" && activeSection !== "tasks-workflow" && activeSection !== "files-workspace" && activeSection !== "readme" && activeSection !== "updates" && activeSection !== "notifications" ? null : null}
 
                 {/* activeSection === "general" && ( */}
                 {sections.some((s) => s.id === "general") && (
@@ -1839,7 +1651,7 @@ export default function ProjectSettingsTab({
                                 <div className="divide-y divide-border">
                                     <div className="pb-6">
                                         <div className="mb-4">
-                                            <h5 className="nb-ui-label text-sm font-semibold text-foreground">Project visibility</h5>
+                                            <h3 className="nb-ui-label text-sm font-semibold text-foreground">Project visibility</h3>
                                             <p className="nb-compact mt-0.5 text-xs text-muted-foreground">
                                                 Control whether this project is discoverable across the platform or restricted to workspace collaborators.
                                             </p>
@@ -1884,7 +1696,7 @@ export default function ProjectSettingsTab({
 
                                     <div className="pt-6">
                                         <div className="mb-4">
-                                            <h5 className="nb-ui-label text-sm font-semibold text-foreground">Public surface visibility</h5>
+                                            <h3 className="nb-ui-label text-sm font-semibold text-foreground">Public surface visibility</h3>
                                             <p className="nb-compact mt-0.5 text-xs text-muted-foreground">
                                                 Choose which project tabs public visitors can see. Members, leaders, and Co-leaders keep access to their workspace tabs.
                                             </p>
@@ -1896,7 +1708,7 @@ export default function ProjectSettingsTab({
                                             savingTabId={savingPublicTabId}
                                         />
                                         <div className="mt-4 rounded-[5px] border border-border bg-muted/20 p-3.5 text-xs leading-relaxed text-muted-foreground">
-                                            Defaults are Dashboard and Files on; Sprints and Tasks off. If the project is Private, these settings are saved but only apply after the project becomes Public again.
+                                            Defaults are Dashboard, Docs, Updates, and Files on; Sprints and Tasks off. If the project is Private, these settings are saved but only apply after the project becomes Public again.
                                         </div>
                                     </div>
                                 </div>
@@ -1940,7 +1752,6 @@ export default function ProjectSettingsTab({
                                     <div
                                         className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar [scrollbar-width:none]"
                                         aria-label="Filter collaborators by role"
-                                        role="tablist"
                                     >
                                         {([
                                             ["all", "All"],
@@ -1951,8 +1762,7 @@ export default function ProjectSettingsTab({
                                             <button
                                                 key={id}
                                                 type="button"
-                                                role="tab"
-                                                aria-selected={collaboratorFilter === id}
+                                                aria-pressed={collaboratorFilter === id}
                                                 onClick={() => setCollaboratorFilter(id)}
                                                 className={cn(
                                                     "nb-touch-target h-[28px] shrink-0 whitespace-nowrap rounded-[5px] px-3 text-xs font-medium transition-colors inline-flex items-center",
@@ -1965,17 +1775,6 @@ export default function ProjectSettingsTab({
                                             </button>
                                         ))}
                                     </div>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => void loadCollaborators("refresh")}
-                                        disabled={collaboratorRefreshing}
-                                        className="nb-touch-target h-[34px] gap-1.5 rounded-[5px] border-border px-3 text-[13px] font-medium leading-[1.2] text-foreground shrink-0 hover:bg-muted"
-                                    >
-                                        <RefreshCw className={cn("h-3.5 w-3.5 text-muted-foreground", collaboratorRefreshing && "animate-spin")} />
-                                        Refresh
-                                    </Button>
                                 </div>
                             </div>
 
@@ -1986,7 +1785,7 @@ export default function ProjectSettingsTab({
                                         <div className="flex items-center gap-2">
                                             <Shield className="h-4 w-4 text-primary" />
                                             <span className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                                Project Leadership
+                                                Project leadership
                                             </span>
                                         </div>
                                         <span className="nb-meta text-xs text-muted-foreground">
@@ -2050,7 +1849,7 @@ export default function ProjectSettingsTab({
                                         <div className="flex items-center gap-2">
                                             <Users className="h-4 w-4 text-muted-foreground" />
                                             <span className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                                Team Directory
+                                                Team directory
                                             </span>
                                         </div>
                                         <span className="nb-meta text-xs text-muted-foreground">
@@ -2132,35 +1931,41 @@ export default function ProjectSettingsTab({
                                 title="Project roles"
                                 description="Define open positions for collaborators, set target headcounts, and customize skill profiles for application intake."
                                 footer={
-                                    <>
-                                        <p className="nb-compact text-xs text-muted-foreground">
-                                            {rolesDirty
-                                                ? "You have unsaved changes in project roles."
-                                                : "All project roles are saved."}
+                                    !isProjectOwner ? (
+                                        <p className="nb-compact text-xs text-muted-foreground italic">
+                                            Only the owner can change this.
                                         </p>
-                                        <div className="flex items-center gap-3">
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={handleCancelRoles}
-                                                disabled={!rolesDirty || savingSettings}
-                                                className="nb-touch-target h-[34px] rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground hover:bg-muted"
-                                            >
-                                                Cancel
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                size="sm"
-                                                onClick={handleSaveRoles}
-                                                disabled={!rolesDirty || savingSettings}
-                                                className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
-                                            >
-                                                {savingSettings ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
-                                                Save changes
-                                            </Button>
-                                        </div>
-                                    </>
+                                    ) : (
+                                        <>
+                                            <p className="nb-compact text-xs text-muted-foreground">
+                                                {rolesDirty
+                                                    ? "You have unsaved changes in project roles."
+                                                    : "All project roles are saved."}
+                                            </p>
+                                            <div className="flex items-center gap-3">
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={handleCancelRoles}
+                                                    disabled={!rolesDirty || savingSettings}
+                                                    className="nb-touch-target h-[34px] rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground hover:bg-muted"
+                                                >
+                                                    Cancel
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    onClick={handleSaveRoles}
+                                                    disabled={!rolesDirty || savingSettings}
+                                                    className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
+                                                >
+                                                    {savingSettings ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+                                                    Save changes
+                                                </Button>
+                                            </div>
+                                        </>
+                                    )
                                 }
                             >
                                 <ProjectRolesEditor
@@ -2168,7 +1973,7 @@ export default function ProjectSettingsTab({
                                     register={registerRoles}
                                     control={rolesControl}
                                     errors={roleErrors}
-                                    disabled={savingSettings}
+                                    disabled={savingSettings || !isProjectOwner}
                                     onAddRole={handleAddSettingsRole}
                                     onRemoveRole={handleRemoveSettingsRole}
                                     members={collaboratorMembers}
@@ -2193,11 +1998,11 @@ export default function ProjectSettingsTab({
                                             <div className="flex items-center gap-2">
                                                 <SlidersHorizontal className="size-4 text-muted-foreground" />
                                                 <span className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                                    Content Delivery &amp; Notification Rules
+                                                    Content delivery &amp; notification rules
                                                 </span>
                                             </div>
                                             <span className="nb-meta text-xs text-muted-foreground">
-                                                Security &amp; Alerts
+                                                Security &amp; alerts
                                             </span>
                                         </div>
 
@@ -2255,7 +2060,7 @@ export default function ProjectSettingsTab({
                                             <div className="flex items-center gap-2">
                                                 <SlidersHorizontal className="size-4 text-muted-foreground" />
                                                 <span className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                                    Publishing Permissions
+                                                    Publishing permissions
                                                 </span>
                                             </div>
                                             <span className="nb-meta text-xs text-muted-foreground">
@@ -2283,6 +2088,11 @@ export default function ProjectSettingsTab({
                                                 <p className="nb-compact mt-1 text-xs text-muted-foreground leading-relaxed">
                                                     When enabled, all verified project members can author and publish progress updates. When disabled, update authoring is restricted exclusively to the Project Owner and Co-leaders.
                                                 </p>
+                                                {!isProjectOwner ? (
+                                                    <p className="nb-compact mt-1 text-xs text-muted-foreground italic">
+                                                        Only the owner can change this.
+                                                    </p>
+                                                ) : null}
                                             </div>
                                             <div className="flex shrink-0 items-center gap-3">
                                                 <span className="nb-meta text-muted-foreground select-none w-6 text-right flex items-center justify-end">
@@ -2296,7 +2106,7 @@ export default function ProjectSettingsTab({
                                                 </span>
                                                 <SettingsSwitch
                                                     checked={memberUpdatesEnabled}
-                                                    disabled={savingMemberUpdates}
+                                                    disabled={savingMemberUpdates || !isProjectOwner}
                                                     aria-label="Allow members to post updates"
                                                     onCheckedChange={(checked) => void handleToggleMemberUpdates(checked)}
                                                 />
@@ -2317,6 +2127,7 @@ export default function ProjectSettingsTab({
                                 initialStages={project?.lifecycle_stages || project?.lifecycleStages || ["Concept", "MVP", "Launch"]}
                                 currentStageIndex={project?.current_stage_index ?? project?.currentStageIndex ?? 0}
                                 isSaving={savingLifecycle}
+                                isOwner={isProjectOwner}
                                 onSave={async (stages: string[], currentActiveStage: string) => {
                                     setSavingLifecycle(true);
                                     try {
@@ -2324,7 +2135,6 @@ export default function ProjectSettingsTab({
                                         if (result.success) {
                                             toast.success("Lifecycle updated.");
                                             onProjectUpdated();
-                                            router.refresh();
                                         } else {
                                             toast.error(result.error || "Failed to update lifecycle.");
                                         }
@@ -2376,10 +2186,15 @@ export default function ProjectSettingsTab({
                                 <div className="min-w-0">
                                     <p className="nb-ui-label text-foreground">New members can upload files</p>
                                     <p className="nb-compact mt-1 text-muted-foreground">The starting upload permission for people who join. Existing members keep their own setting below.</p>
+                                    {!isProjectOwner ? (
+                                        <p className="nb-compact mt-1 text-xs text-muted-foreground italic">
+                                            Only the owner can change this.
+                                        </p>
+                                    ) : null}
                                 </div>
                                 <SettingsSwitch
                                     checked={memberFileUploadDefault}
-                                    disabled={savingMemberFileUploadDefault}
+                                    disabled={savingMemberFileUploadDefault || !isProjectOwner}
                                     aria-label="New members can upload files"
                                     onCheckedChange={(checked) => void handleToggleMemberFileUploadDefault(checked)}
                                 />
@@ -2448,7 +2263,7 @@ export default function ProjectSettingsTab({
                                             <div className="flex items-center gap-2">
                                                 <Bell className="size-4 text-foreground" />
                                                 <h3 className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-foreground">
-                                                    Workflow Event Triggers
+                                                    Workflow event triggers
                                                 </h3>
                                             </div>
                                             <p className="nb-compact mt-0.5 text-xs text-muted-foreground leading-relaxed">

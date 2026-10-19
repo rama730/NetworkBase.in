@@ -40,7 +40,7 @@ export default function ProjectDetailLoading() {
             {/* Sticky Tab Bar matching ProjectLayout tabs */}
             <div aria-hidden="true" className="w-full shrink-0 border-b border-border bg-card">
                 <div className="mx-auto flex max-w-[1240px] items-stretch gap-2 overflow-x-auto px-4 sm:px-6">
-                    {["Dashboard", "Tasks", "Files", "Readme", "Updates", "Sprints", "Settings"].map((tab) => (
+                    {["Dashboard", "Docs", "Updates", "Sprints", "Tasks", "Files", "Settings"].map((tab) => (
                         <Skeleton key={tab} className="h-10 w-24 rounded-t-md" />
                     ))}
                 </div>

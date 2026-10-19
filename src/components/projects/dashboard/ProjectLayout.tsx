@@ -47,7 +47,7 @@ interface ProjectLayoutProps {
     isFollowing?: boolean;
     onFollow?: () => void;
     followLoading?: boolean;
-    onShare?: () => void;
+    onShare?: (trigger?: HTMLElement) => void;
     onInvite?: () => void;
     canInvite?: boolean;
     onTabHover?: (tabId: string) => void;
@@ -105,11 +105,11 @@ export default function ProjectLayout({
     stageCount = 0,
     openRolesCount = 0,
 }: ProjectLayoutProps) {
-    const [isScrolled, setIsScrolled] = useState(false);
     const [summaryExpanded, setSummaryExpanded] = useState(false);
     const [projectTabsHeight, setProjectTabsHeight] = useState(0);
     const [projectIdentityHeight, setProjectIdentityHeight] = useState(320);
     const tabsRef = useRef<HTMLDivElement>(null);
+    const actionsTrigger = useRef<HTMLButtonElement>(null);
     const tabListRef = useRef<HTMLDivElement>(null);
     const projectIdentityRef = useRef<HTMLDivElement>(null);
 
@@ -119,33 +119,6 @@ export default function ProjectLayout({
     const isTasksTab = activeTab === "tasks";
     // Tool tabs compact the project context below md so the work surface gets the height (spec §08/§19).
     const isToolTab = isFilesTab || isTasksTab || activeTab === "sprints";
-
-    // Normal project tabs, including Files, use the route scroll root so the
-    // identity header moves naturally and the project tabs remain sticky.
-    useEffect(() => {
-        const routeRoot = document.querySelector<HTMLElement>('[data-scroll-root="route"]');
-        const scrollTarget: HTMLElement | Window = routeRoot ?? window;
-        let rafId = 0;
-
-        const scheduleScrollState = () => {
-            if (rafId) return;
-
-            rafId = requestAnimationFrame(() => {
-                const scrollY = routeRoot ? routeRoot.scrollTop : window.scrollY;
-                const shouldBeScrolled = scrollY > 10;
-                setIsScrolled((prev) => (prev === shouldBeScrolled ? prev : shouldBeScrolled));
-                rafId = 0;
-            });
-        };
-
-        scrollTarget.addEventListener("scroll", scheduleScrollState as EventListener, { passive: true });
-        scheduleScrollState();
-
-        return () => {
-            scrollTarget.removeEventListener("scroll", scheduleScrollState as EventListener);
-            if (rafId) cancelAnimationFrame(rafId);
-        };
-    }, []);
 
     useEffect(() => {
         const identity = projectIdentityRef.current;
@@ -240,10 +213,7 @@ export default function ProjectLayout({
         event.preventDefault();
         const nextTab = visibleTabs[nextIndex];
         if (!nextTab) return;
-        onTabChange(nextTab.id);
-        requestAnimationFrame(() => {
-            tabsRef.current?.querySelector<HTMLButtonElement>(`[data-testid="project-tab-${nextTab.id}"]`)?.focus();
-        });
+        tabsRef.current?.querySelector<HTMLButtonElement>(`[data-testid="project-tab-${nextTab.id}"]`)?.focus();
     };
     const projectUpdatedLabel = formatProjectUpdatedLabel(project.updatedAt);
     const layoutStyle = useMemo(() => ({
@@ -300,14 +270,6 @@ export default function ProjectLayout({
                                 </div>
                             );
 
-                            const stageChip = stageLabel ? (
-                                // Wrapper carries md:hidden: .nb-status is unlayered CSS and its display would beat the utility.
-                                <span className="md:hidden">
-                                    <span className="nb-status" data-status="active">
-                                        {stageLabel}{stageCount > 1 ? ` · ${stageIndex + 1} of ${stageCount}` : ""}
-                                    </span>
-                                </span>
-                            ) : null;
                             // ponytail: length heuristic decides whether the 3-line clamp needs a toggle; measure overflow if it misfires.
                             const summaryToggle = project.shortDescription && project.shortDescription.length > 120 ? (
                                 <button
@@ -334,7 +296,6 @@ export default function ProjectLayout({
                                             <h1 className="nb-page-title min-w-0 break-words text-foreground">
                                                 {project?.title}
                                             </h1>
-                                            {stageChip}
                                             {project?.id ? <ProjectStatusControl projectId={project.id} canManage={Boolean(canManageSettings ?? isOwner)} /> : null}
                                             {project.shortDescription && (
                                                 <p className={cn("nb-body mt-1 max-w-[64ch] text-muted-foreground", !summaryExpanded && "max-md:line-clamp-3")}>
@@ -370,8 +331,7 @@ export default function ProjectLayout({
                                             </Link>
                                         )}
                                     </div>
-                                    {stageChip}
-                                            {project?.id ? <ProjectStatusControl projectId={project.id} canManage={Boolean(canManageSettings ?? isOwner)} /> : null}
+                                    {project?.id ? <ProjectStatusControl projectId={project.id} canManage={Boolean(canManageSettings ?? isOwner)} /> : null}
                                     {project.shortDescription && <p className={cn("nb-body max-w-[64ch] text-muted-foreground", !summaryExpanded && "max-md:line-clamp-3")}>{project.shortDescription}</p>}
                                     {summaryToggle}
                                     {projectIdentityMetadata}
@@ -391,7 +351,7 @@ export default function ProjectLayout({
                                 <button
                                     type="button"
                                     onClick={onInvite}
-                                    className="nb-touch-target nb-ui-label inline-flex h-[var(--ui-control-height)] items-center gap-1.5 rounded-md border border-border bg-card px-3 text-foreground transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    className="nb-touch-target nb-ui-label inline-flex h-[var(--ui-control-height)] items-center gap-1.5 rounded-md border border-border bg-card px-3 text-foreground transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:bg-muted"
                                     aria-label="Invite a project member"
                                     title="Invite a project member"
                                 >
@@ -429,8 +389,8 @@ export default function ProjectLayout({
                             {/* Share */}
                             <button
                                 type="button"
-                                onClick={onShare}
-                                className="nb-icon-button h-[var(--ui-control-height)] w-[var(--ui-control-height)] rounded-[5px] border border-border bg-card text-muted-foreground transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                onClick={event => onShare?.(event.currentTarget)}
+                                className="nb-icon-button h-[var(--ui-control-height)] w-[var(--ui-control-height)] rounded-[5px] border border-border bg-card text-muted-foreground transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:bg-muted hover:text-foreground"
                                 title="Share project"
                                 aria-label="Share project"
                             >
@@ -454,7 +414,7 @@ export default function ProjectLayout({
                             {stageLabel ? <span className="nb-status shrink-0" data-status="active">{stageLabel}</span> : null}
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <button type="button" aria-label="Project actions" className="nb-icon-button nb-touch-target shrink-0">
+                                    <button ref={actionsTrigger} type="button" aria-label="Project actions" className="nb-icon-button nb-touch-target shrink-0">
                                         <MoreHorizontal className="size-4" aria-hidden="true" />
                                     </button>
                                 </DropdownMenuTrigger>
@@ -469,7 +429,7 @@ export default function ProjectLayout({
                                             Invite a member
                                         </DropdownMenuItem>
                                     ) : null}
-                                    <DropdownMenuItem onSelect={() => onShare?.()}>
+                                    <DropdownMenuItem onSelect={() => onShare?.(actionsTrigger.current ?? undefined)}>
                                         <Share2 className="size-4" aria-hidden="true" />
                                         Share project
                                     </DropdownMenuItem>
@@ -487,8 +447,7 @@ export default function ProjectLayout({
             {/* Bottom Row: Navigation Tabs (sticky) */}
             <div ref={tabsRef} className={cn(
                 "z-30 shrink-0 border-b border-border bg-card transition-shadow duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)]",
-                "sticky",
-                isScrolled && "shadow-none"
+                "sticky"
             )}
                 data-project-sticky-tabs="true"
                 style={{ top: 0 }}
@@ -548,7 +507,6 @@ export default function ProjectLayout({
                 id="project-active-tab-panel"
                 role="tabpanel"
                 aria-labelledby={`project-tab-${activeTab}`}
-                aria-label="Project detail content"
                 className={cn(
                     isFilesTab
                             ? "flex h-[calc(100dvh-var(--ui-topnav-height)-var(--project-tabs-height))] min-h-[28rem] w-full flex-col overflow-hidden max-md:h-[calc(100dvh-var(--ui-topnav-height)-var(--project-tabs-height)-3rem)] max-md:min-h-0"

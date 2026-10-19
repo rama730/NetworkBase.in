@@ -57,7 +57,54 @@ export function useRealtimeTasks(projectId: string, deferredTaskId: string | nul
               return;
             }
 
-            // ponytail: Dumb invalidation. If 30 changes happen, this absorbs it into 1 fetch. Zero stutter. ceiling: coalesced single fetch on settled drag. upgrade: granular task delta patch if payload contains all fields.
+            if (payload.eventType === "UPDATE" && payload.new) {
+              const updated = payload.new as any;
+              queryClient.setQueriesData(
+                { queryKey: queryKeys.project.detail.tasksRoot(projectId) },
+                (oldData: any) => {
+                  if (!oldData || !oldData.pages) return oldData;
+                  return {
+                    ...oldData,
+                    pages: oldData.pages.map((page: any) => ({
+                      ...page,
+                      tasks: page.tasks?.map((t: any) =>
+                        t.id === updated.id
+                          ? {
+                              ...t,
+                              ...updated,
+                              taskNumber: typeof updated.task_number === "number" ? updated.task_number : t.taskNumber,
+                              columnId: updated.column_id ?? t.columnId,
+                              assigneeId: updated.assignee_id ?? t.assigneeId,
+                              dueDate: updated.due_date ?? t.dueDate,
+                              storyPoints: updated.story_points ?? t.storyPoints,
+                            }
+                          : t
+                      ),
+                    })),
+                  };
+                }
+              );
+              return;
+            }
+
+            if (payload.eventType === "DELETE" && payload.old) {
+              const deletedId = (payload.old as any).id;
+              queryClient.setQueriesData(
+                { queryKey: queryKeys.project.detail.tasksRoot(projectId) },
+                (oldData: any) => {
+                  if (!oldData || !oldData.pages) return oldData;
+                  return {
+                    ...oldData,
+                    pages: oldData.pages.map((page: any) => ({
+                      ...page,
+                      tasks: page.tasks?.filter((t: any) => t.id !== deletedId),
+                    })),
+                  };
+                }
+              );
+              return;
+            }
+
             scheduleReconcile();
           },
         },

@@ -322,12 +322,6 @@ export function buildProjectSprintDetailHref(projectSlug: string, sprintId: stri
   return `/projects/${encodedSlug}?${query}`;
 }
 
-export function computeSprintStatus(sprint: SprintListItem): SprintStatus {
-  // Schedule reconciliation owns activation. The UI only presents the
-  // persisted transition and never derives a conflicting local state.
-  return sprint.status;
-}
-
 export function isSprintReadyToClose(sprint: Pick<SprintListItem, "status" | "endDate">, now = new Date()) {
   if (sprint.status !== "active" || !sprint.endDate) return false;
   const endDate = new Date(sprint.endDate);

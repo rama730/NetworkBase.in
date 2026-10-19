@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 
 interface ProjectOverviewCardProps {
     project: any;
+    isCreator?: boolean;
+    onEdit?: () => void;
 }
 
 const StatementBox = memo(function StatementBox({
@@ -59,6 +61,8 @@ function normalizeProjectSkills(project: any) {
 
 const ProjectOverviewCard = memo(function ProjectOverviewCard({
     project,
+    isCreator,
+    onEdit,
 }: ProjectOverviewCardProps) {
     const [statement, setStatement] = useState<StatementSelection>(null);
     const [descriptionExpanded, setDescriptionExpanded] = useState(false);
@@ -83,6 +87,26 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
         }
     }, [solutionStatement]);
 
+    const isEmpty = !project?.description && !problemStatement && !solutionStatement && (!project?.tags || project.tags.length === 0) && projectSkills.length === 0 && !categoryLabel && openRoleTitles.length === 0;
+
+    if (isEmpty) {
+        return (
+            <div className="flex flex-col items-center justify-center rounded-[8px] border border-border bg-card p-8 text-center">
+                <p className="nb-card-title text-foreground">No project details yet</p>
+                <p className="nb-compact mt-1 text-muted-foreground">This project has not added an overview, description, or statement yet.</p>
+                {isCreator && onEdit ? (
+                    <button
+                        type="button"
+                        onClick={onEdit}
+                        className="nb-touch-target mt-4 inline-flex h-[34px] items-center justify-center rounded-[5px] border border-border bg-card px-4 text-[13px] font-medium text-foreground hover:bg-muted"
+                    >
+                        Edit project details
+                    </button>
+                ) : null}
+            </div>
+        );
+    }
+
     return (
         <div className="flex h-fit flex-col overflow-hidden rounded-[8px] border border-border bg-card shadow-none">
             <div className="p-4 md:p-6">
@@ -106,9 +130,9 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
                     ) : null}
                     {project?.description ? (
                         <section>
-                            <h3 className="nb-section-title mb-3 text-foreground">
+                            <h2 className="nb-section-title mb-3 text-foreground">
                                 Vision & Description
-                            </h3>
+                            </h2>
                             <p className={cn("whitespace-pre-wrap text-[15px] leading-relaxed text-foreground/85", !descriptionExpanded && "max-md:line-clamp-6")}>
                                 {project.description}
                             </p>
@@ -161,7 +185,7 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
                     <div className="flex flex-wrap items-start gap-12 border-t border-border pt-5 max-md:flex-col max-md:gap-4">
                         {project?.tags?.length > 0 ? (
                             <div className="space-y-3">
-                                <h3 className="nb-micro">Tags</h3>
+                                <h2 className="nb-micro">Tags</h2>
                                 <div className="flex flex-wrap gap-1.5 max-md:[&>span:nth-child(n+7)]:hidden">
                                     {project.tags.map((tag: string) => (
                                         <span
@@ -180,7 +204,7 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
 
                         {projectSkills.length > 0 ? (
                             <div className="space-y-3">
-                                <h3 className="nb-micro">{"Skills & Tech"}</h3>
+                                <h2 className="nb-micro">{"Skills & Tech"}</h2>
                                 <SkillList skills={projectSkills} maxVisible={12} size="sm" className="max-md:hidden" />
                                 <SkillList skills={projectSkills} maxVisible={6} size="sm" className="md:hidden" />
                             </div>

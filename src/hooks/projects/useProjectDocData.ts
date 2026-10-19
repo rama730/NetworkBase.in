@@ -24,12 +24,14 @@ export function useProjectDoc(projectId: string, docSlug: string | null) {
         queryFn: async () => {
             const { readProjectDocAction } = await import("@/app/actions/project/doc");
             const result = await readProjectDocAction(projectId, docSlug);
-            if (!result.success) throw new Error(result.error);
+            if (!result.success) throw Object.assign(new Error(result.error), { code: result.code ?? null });
             queryClient.setQueryData(PROJECT_DOC_LIST_QUERY_KEY(projectId), result.data.docs);
             return result.data;
         },
         staleTime: 1000 * 60 * 5,
         refetchOnWindowFocus: false,
+        // An invalid or forbidden doc does not become valid on retry.
+        retry: (failureCount, error) => !(error as { code?: string | null }).code && failureCount < 2,
     });
 }
 

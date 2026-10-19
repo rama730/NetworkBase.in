@@ -17,6 +17,7 @@ type Transfer = {
   status: "running" | "done" | "error";
   error?: string;
   retry?: () => void;
+  abort?: () => void;
 };
 const TransfersContext = createContext<{
   active: number;
@@ -61,10 +62,13 @@ export function FileTransfersProvider({
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [active]);
+  const handleOpen = React.useCallback(() => setOpen(true), []);
+  const contextValue = React.useMemo(
+    () => ({ active, start, update, open: handleOpen }),
+    [active, start, update, handleOpen],
+  );
   return (
-    <TransfersContext.Provider
-      value={{ active, start, update, open: () => setOpen(true) }}
-    >
+    <TransfersContext.Provider value={contextValue}>
       {children}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[85dvh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
@@ -74,6 +78,13 @@ export function FileTransfersProvider({
             running. Failed items can be retried without re-uploading successful
             items.
           </DialogDescription>
+          <div aria-live="polite" className="sr-only">
+            {active > 0
+              ? `${active} transfer${active === 1 ? "" : "s"} in progress.`
+              : jobs.length > 0 && jobs.every((j) => j.status === "done")
+                ? "All transfers complete."
+                : ""}
+          </div>
           {!jobs.length && (
             <p className="py-6 text-sm text-muted-foreground">
               No transfers in this session.
@@ -89,7 +100,7 @@ export function FileTransfersProvider({
                   max={Math.max(1, job.total)}
                   aria-label={`Upload progress: ${job.label}`}
                 />
-                <p role="status">
+                <p className="text-muted-foreground">
                   {job.status === "running"
                     ? "Uploading"
                     : job.status === "error"
@@ -102,6 +113,20 @@ export function FileTransfersProvider({
                   <p className="break-words text-red-600 dark:text-red-400">
                     {job.error}
                   </p>
+                )}
+                {job.status === "running" && job.abort && (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="min-h-11 rounded border border-destructive/30 px-3 text-destructive hover:bg-destructive/10"
+                      onClick={() => {
+                        job.abort?.();
+                        update(job.id, { status: "error", error: "Transfer cancelled" });
+                      }}
+                    >
+                      Cancel transfer
+                    </button>
+                  </div>
                 )}
                 {job.status !== "running" && (
                   <div className="flex gap-2">

@@ -168,6 +168,8 @@ export type NotificationFanoutInput = {
     preview?: NotificationPreview | null;
     dedupeKey: string;
     aggregateCount?: number;
+    /** Identity of the source event; an aggregate counts each (dedupeKey, sourceEventId) once, however often it is replayed (COR-016). */
+    sourceEventId?: string | null;
 };
 
 export type NotificationFanoutWrite = {

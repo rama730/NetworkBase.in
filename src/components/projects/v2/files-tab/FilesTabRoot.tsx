@@ -1,54 +1,4 @@
 // Files tab root: owns boot, URL/deep-link sync, realtime, quick open, and role context.
-//
-// Responsibilities (per design.md § FilesTabRoot and tasks.md § 8.1):
-//
-//   1. Ensure the project's workspace entry exists in the files workspace
-//      store on mount. `useCurrentLocation` short-circuits to `null` until
-//      this runs, so the sidebar/main/breadcrumb would all render empty
-//      otherwise.
-//   2. Drive the three-stage startup machine via
-//      `useFilesTabStartupStage(projectId)`. The stage is exposed on a
-//      `data-startup-stage` attribute for integration tests.
-//   3. Boot the explorer EXACTLY ONCE at this root by calling
-//      `useExplorerBoot(...)` and publishing `loadFolderContent` through
-//      `FilesTabBootContext.Provider`. Child subtrees that need per-folder
-//      reads (`useFolderContents`) read from the context rather than
-//      re-booting; double-booting would double-fire the batch hydration
-//      and the paginated root fetch.
-//   4. Gate `useDeepLinkResolver(projectId, ...)` on `stage === "main"`
-//      per design.md § useDeepLinkResolver. Critically, the resolver reads
-//      from a **mount-time snapshot** of `window.location.search` rather
-//      than live URL, so the URL sync's root-state stripping (see
-//      `useFilesTabUrlSync` Effect 1) cannot race the resolver and erase
-//      the `?path=` before it runs. See the `initialSearch` state below
-//      for the snapshot logic — it also honours `initialOpenPath` by
-//      synthesising a `?path=` fallback when the URL has none.
-//   5. Wire `useFilesTabUrlSync(projectId, ...)` so `currentLocationId`
-//      mirrors into `?path=` via `history.replaceState` and `popstate`
-//      flows through `navigateTo`.
-//   6. Register a global `⌘P` / `Ctrl+P` keydown handler that **toggles**
-//      the Quick Open dialog per Req 9.1 (open when closed, close-and-
-//      discard-input when open). Escape is handled inside
-//      `QuickOpenDialog` itself, NOT here.
-//   7. Wrap the subtree in `FilesTabRoleProvider` so `FileActionsBar`,
-//      `FolderListRow`, and the sidebar context-menu items can read the
-//      derived role without prop-drilling. Role derivation is the simple
-//      mapping called out in the task description:
-//        * no `currentUserId` → `Role_Viewer`
-//        * `isOwnerOrMember` truthy → `Role_Owner`
-//        * else → `Role_Viewer`
-//      Owner/Member distinction is deferred — both receive `canEdit=true`
-//      per the design (§ Roles), so collapsing them to `Role_Owner` is
-//      safe for role-gated UI in this task.
-//   8. Render `FilesTabSidebar` + `FilesTabMain` + `QuickOpenDialog`.
-//
-// Error surfacing:
-//   * Deep-link resolution failures log to `console.log` (inside
-//     `useDeepLinkResolver`) and bubble to `onError` here. We forward to a
-//     non-blocking toast; the inline main-area error indicator specified
-//     by the design is added when `FilesTabMain` gains an error prop in a
-//     follow-up task, and is not in scope for 8.1.
-//
 // Requirements: Req 1.1, Req 1.7, Req 6.1, Req 9.1, Req 10.1, Req 16.4.
 
 "use client";
@@ -227,9 +177,9 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
       cancelled = true;
     };
   }, [currentUserId, isActive, isOwner, isOwnerOrMember]);
-  const canOpenGitHub =
-    (isOwner && githubAccess?.linked === true) ||
-    Boolean(currentUserId && (isOwner || isOwnerOrMember));
+  const canOpenGitHub = Boolean(
+    githubAccess?.linked && (isOwner || isOwnerOrMember),
+  );
   const pendingNavigation = useFilesWorkspaceStore(
     (state) => state.byProjectId[projectId]?.pendingNavigation ?? null,
   );
@@ -403,21 +353,20 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
     });
   }, [initialSearch]);
 
+  const [deepLinkError, setDeepLinkError] = useState<string | null>(null);
+
   // ── 6. Deep-link resolver (gated on stage === "main") ─────────────
   useDeepLinkResolver(projectId, {
     stage: initialOpenFileId ? "diagnostics" : stage,
     window: deepLinkWindow,
     onError: (failure) => {
-      // The hook already logs the failure to `console.log`. Surface a
-      // non-blocking toast here so the user sees feedback. The inline
-      // main-area error indicator specified by design.md is a follow-up
-      // task (`FilesTabMain` does not yet accept an error prop).
       const reason =
         failure.kind === "overlength"
           ? "The deep link is too long."
           : failure.kind === "empty"
             ? "The deep link is empty."
             : "Deep link target not found.";
+      setDeepLinkError(reason);
       toast.error(reason);
     },
   });
@@ -596,27 +545,28 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
       if (document.visibilityState === "visible") reconcileVisibleFolder();
     };
     const onFilesChanged = (event: Event) => {
-      if (
-        (event as CustomEvent<{ projectId?: string }>).detail?.projectId !==
-        projectId
-      )
-        return;
-      for (const collection of [
-        "files-task-collections",
-        "files-trash",
-        "files-saved-collection",
-        "files-directory",
-        "files-picker",
-        "files-picker-recent",
-        "files-quick-open",
-        "files-quick-open-recent",
-      ])
+      const detail = (event as CustomEvent<{ projectId?: string; taskId?: string; collection?: string }>).detail;
+      if (detail?.projectId !== projectId) return;
+      if (detail?.collection) {
         void queryClient.invalidateQueries({
-          queryKey: [collection, projectId],
+          queryKey: [detail.collection, projectId],
         });
+      } else {
+        void queryClient.invalidateQueries({
+          queryKey: ["files-directory", projectId],
+        });
+        if (detail?.taskId) {
+          void queryClient.invalidateQueries({
+            queryKey: ["files-task-collections", projectId, detail.taskId],
+          });
+        } else {
+          void queryClient.invalidateQueries({
+            queryKey: ["files-task-collections", projectId],
+          });
+        }
+      }
       reconcileVisibleFolder();
     };
-    window.addEventListener("focus", reconcileVisibleFolder);
     window.addEventListener("project:task-files-changed", onFilesChanged);
     window.addEventListener("online", reconcileVisibleFolder);
     document.addEventListener("visibilitychange", onVisibilityChange);
@@ -640,7 +590,6 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
       disposed = true;
       if (reconcileTimer) window.clearTimeout(reconcileTimer);
       window.clearInterval(expirySweep);
-      window.removeEventListener("focus", reconcileVisibleFolder);
       window.removeEventListener("project:task-files-changed", onFilesChanged);
       window.removeEventListener("online", reconcileVisibleFolder);
       document.removeEventListener("visibilitychange", onVisibilityChange);
@@ -876,6 +825,8 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
                 canOpenGitHub={canOpenGitHub}
                 githubAccess={githubAccess}
                 isOwner={isOwner}
+                deepLinkError={deepLinkError}
+                onDismissDeepLinkError={() => setDeepLinkError(null)}
               />
               <QuickOpenDialog
                 projectId={projectId}

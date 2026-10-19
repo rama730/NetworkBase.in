@@ -92,6 +92,7 @@ export function MentionAutocomplete({
 
     return (
         <div
+            id="mention-autocomplete-listbox"
             role="listbox"
             aria-label="Mention teammates"
             data-testid="mention-autocomplete"
@@ -135,6 +136,7 @@ export function MentionAutocomplete({
                         return (
                             <li key={candidate.id}>
                                 <button
+                                    id={`mention-option-${candidate.id}`}
                                     type="button"
                                     role="option"
                                     aria-selected={active}

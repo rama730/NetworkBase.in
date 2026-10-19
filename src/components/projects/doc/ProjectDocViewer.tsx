@@ -10,7 +10,7 @@ import { normalizeProjectDocSlug, type ProjectDocPublishedPayload } from "@/lib/
 import type { ProjectDocSmartBlockPreview } from "@/lib/projects/doc-blocks";
 import { decodeReadmeHashTarget } from "@/lib/projects/doc-navigation";
 import { buildProjectDocViewModel } from "@/lib/projects/doc-view-model";
-import { ProjectDocRail, ProjectDocMobileBar } from "@/components/projects/doc/ProjectDocRail";
+import { ProjectDocRail, ProjectDocMobileBar, useDocRail } from "@/components/projects/doc/ProjectDocRail";
 import type { Project } from "@/types/discover";
 
 const ProjectDocRenderer = dynamic(
@@ -115,6 +115,7 @@ export function ProjectDocViewer({
     docSlug?: string;
 }) {
     const normalizedDocSlug = useMemo(() => normalizeProjectDocSlug(docSlug), [docSlug]);
+    const rail = useDocRail(project.id, normalizedDocSlug);
     
     const version = payload.version;
     const readmeContent = version?.content ?? "";
@@ -265,6 +266,7 @@ export function ProjectDocViewer({
                 projectId={project.id}
                 activeSlug={normalizedDocSlug}
                 canEdit={payload.canEdit}
+                rail={rail}
             />
             <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_260px]">
                 <div className="min-w-0">
@@ -286,8 +288,10 @@ export function ProjectDocViewer({
                     projectId={project.id}
                     activeSlug={normalizedDocSlug}
                     canEdit={payload.canEdit}
+                    rail={rail}
                 />
             </div>
+            {payload.canEdit ? rail.dialogs : null}
         </div>
     );
 }

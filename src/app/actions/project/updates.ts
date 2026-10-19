@@ -1596,7 +1596,7 @@ export async function createProjectUpdateAction(projectId: string, input: {
             });
         }
 
-        revalidatePath(projectHref(access.project));
+        revalidatePath(projectBaseHref(access.project)); // paths never carry a query string
         const durationMs = Math.round(performance.now() - startedAt);
         logger.metric("project_updates.create", {
             module: "projects",
@@ -1691,7 +1691,6 @@ export async function editProjectUpdateAction(projectId: string, updateId: strin
             likedUpdateIds([updateId], viewer.userId),
             contextSummariesForRows(rows, access),
         ]);
-        revalidatePath(projectHref(access.project, updateId));
         return { success: true as const, data: rows[0] ? normalizeUpdate(rows[0], { access, likedIds, contextByUpdateId }) : null };
     } catch (error) {
         console.error("Failed to edit project update:", error);
@@ -1771,7 +1770,7 @@ export async function deleteProjectUpdateAction(projectId: string, updateId: str
             likedUpdateIds([updateId], viewer.userId),
             contextSummariesForRows(rows, access),
         ]);
-        revalidatePath(projectHref(access.project));
+        revalidatePath(projectBaseHref(access.project));
         return { success: true as const, data: rows[0] ? normalizeUpdate(rows[0], { access, likedIds, contextByUpdateId }) : null };
     } catch (error) {
         console.error("Failed to delete project update:", error);
@@ -1785,24 +1784,35 @@ export async function toggleProjectUpdatePinAction(projectId: string, updateId: 
         if (!viewer.userId) return { success: false as const, error: "Please log in to pin updates." };
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
         if (!access.canManage || !access.project) return { success: false as const, error: "Only project leaders can pin updates." };
-        await db.transaction(async (tx) => {
+        const found = await db.transaction(async (tx) => {
+            // COR-046: the project row lock serializes pin swaps, and the target is validated before
+            // anything is unpinned, so a bad request never clears the current pin.
+            await tx.execute(sql`SELECT id FROM projects WHERE id = ${projectId} FOR UPDATE`);
+            const [target] = await tx
+                .select({ id: projectUpdates.id })
+                .from(projectUpdates)
+                .where(and(eq(projectUpdates.id, updateId), eq(projectUpdates.projectId, projectId), isNull(projectUpdates.deletedAt)))
+                .limit(1);
+            if (!target) return false;
+            const now = new Date();
             if (pinned) {
                 await tx
                     .update(projectUpdates)
-                    .set({ isPinned: false, updatedAt: new Date() })
+                    .set({ isPinned: false, updatedAt: now })
                     .where(and(eq(projectUpdates.projectId, projectId), eq(projectUpdates.isPinned, true)));
             }
             await tx
                 .update(projectUpdates)
-                .set({ isPinned: pinned, updatedAt: new Date() })
-                .where(and(eq(projectUpdates.id, updateId), eq(projectUpdates.projectId, projectId), isNull(projectUpdates.deletedAt)));
+                .set({ isPinned: pinned, updatedAt: now })
+                .where(eq(projectUpdates.id, updateId));
+            return true;
         });
+        if (!found) return { success: false as const, error: "That update is no longer available." };
         const rows = await readUpdateRowsByIds([updateId], access);
         const [likedIds, contextByUpdateId] = await Promise.all([
             likedUpdateIds([updateId], viewer.userId),
             contextSummariesForRows(rows, access),
         ]);
-        revalidatePath(projectHref(access.project, updateId));
         return { success: true as const, data: rows[0] ? normalizeUpdate(rows[0], { access, likedIds, contextByUpdateId }) : null };
     } catch (error) {
         console.error("Failed to pin project update:", error);
@@ -1864,7 +1874,6 @@ export async function toggleProjectUpdateLikeAction(projectId: string, updateId:
                 .limit(1);
             return { liked: true, likeCount: Math.max(0, countRow?.likeCount ?? 0) };
         });
-        revalidatePath(projectHref(access.project, updateId));
         return { success: true as const, liked: result.liked, likeCount: result.likeCount };
     } catch (error) {
         console.error("Failed to toggle project update like:", error);
@@ -2213,7 +2222,6 @@ export async function createProjectUpdateCommentAction(projectId: string, update
                 durationMs,
             });
         }
-        revalidatePath(projectHref(project, updateId));
         return { success: true as const, data: row ? normalizeComment(row, access) : null };
     } catch (error) {
         console.error("Failed to create project update comment:", error);
@@ -2243,16 +2251,18 @@ export async function deleteProjectUpdateCommentAction(projectId: string, commen
         }
         const now = new Date();
         await db.transaction(async (tx) => {
-            await tx
+            // COR-040: only the request that actually tombstones the comment decrements the count.
+            const deleted = await tx
                 .update(projectUpdateComments)
                 .set({ content: "", deletedAt: now, deletedBy: viewer.userId, updatedAt: now })
-                .where(eq(projectUpdateComments.id, commentId));
+                .where(and(eq(projectUpdateComments.id, commentId), isNull(projectUpdateComments.deletedAt)))
+                .returning({ id: projectUpdateComments.id });
+            if (deleted.length === 0) return;
             await tx
                 .update(projectUpdates)
                 .set({ commentCount: sql`GREATEST(${projectUpdates.commentCount} - 1, 0)`, updatedAt: now })
                 .where(eq(projectUpdates.id, comment.updateId));
         });
-        revalidatePath(projectHref(access.project, comment.updateId));
         return { success: true as const, updateId: comment.updateId };
     } catch (error) {
         console.error("Failed to delete project update comment:", error);
