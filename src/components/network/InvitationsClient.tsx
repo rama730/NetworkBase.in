@@ -10,8 +10,11 @@ import {
     cancelSentProjectInvitationAction,
     acceptApplicationAction,
     rejectApplicationAction,
+    withdrawApplicationAction,
     type SentProjectInvitationItem,
 } from "@/app/actions/applications";
+import WithdrawApplicationDialog from "@/components/projects/dashboard/WithdrawApplicationDialog";
+import { SentApplicationMenu } from "./SentApplicationMenu";
 import { resolveProjectInvitationAction } from "@/app/actions/project/guidance";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -21,7 +24,7 @@ import { PersonCardReview, PersonCardCancelMenu } from "./PersonCardReview";
 import { personCardName, personRequestDate } from "@/lib/network/person-card";
 import { useConnectionMutations } from "@/hooks/useConnections";
 import { useNetworkNotifications } from "@/hooks/useNetworkNotifications";
-import { readNetworkInvitationsAction } from "@/app/actions/network-invitations";
+import { readNetworkInvitationsAction, type NetworkInvitation } from "@/app/actions/network-invitations";
 import {
     normalizeNetworkQuery,
     activeNetworkFilters,
@@ -67,6 +70,8 @@ export default function InvitationsClient({
     >(null);
     const [isWithdrawAllConfirmOpen, setIsWithdrawAllConfirmOpen] =
         useState(false);
+    const [withdrawingApplication, setWithdrawingApplication] =
+        useState<NetworkInvitation | null>(null);
     const queryClient = useQueryClient();
     const { refresh: refreshPendingCounts } = useNetworkNotifications();
     const browse =
@@ -158,12 +163,15 @@ export default function InvitationsClient({
             applicant: item.person,
         }));
     const projectApplications = entries
-        .filter((item) => item.source === "application")
+        .filter((item) => item.source === "application" && item.direction === "received")
         .map((item) => ({
             ...item,
             actor: item.person,
             applicant: item.person,
         }));
+    const sentApplications = entries.filter(
+        (item) => item.source === "application" && item.direction === "sent" && item.applicationStatus,
+    );
     const sentProjectInvitations: SentProjectInvitationItem[] = entries
         .filter(
             (item) => item.source === "invitation" && item.direction === "sent",
@@ -383,6 +391,19 @@ export default function InvitationsClient({
         }
     }
 
+    /** Resolves to an error message for the dialog, or null once the application is withdrawn. */
+    async function withdrawSentApplication(note: string) {
+        const target = withdrawingApplication;
+        if (!target) return "This application is no longer available.";
+        const result = await withdrawApplicationAction(target.id, note || undefined);
+        if (!result.success) return result.error || "Could not withdraw the application.";
+        setWithdrawingApplication(null);
+        toast.success("Application withdrawn");
+        await refreshInvitationSurfaces();
+        void queryClient.invalidateQueries({ queryKey: queryKeys.connections.invitationBrowse(initialUser?.id ?? "", browse) });
+        return null;
+    }
+
     async function handleResolveApplication(
         id: string,
         action: "accept" | "decline",
@@ -452,6 +473,7 @@ export default function InvitationsClient({
     const hasOtherSections = Boolean(
         projectInvitations.length ||
         projectApplications.length ||
+        sentApplications.length ||
         sentConnectionRequests.length ||
         sentProjectInvitations.length,
     );
@@ -460,6 +482,7 @@ export default function InvitationsClient({
         connectionInvitations.length > 0 ||
         projectInvitations.length > 0 ||
         projectApplications.length > 0 ||
+        sentApplications.length > 0 ||
         sentConnectionRequests.length > 0 ||
         sentProjectInvitations.length > 0;
 
@@ -545,7 +568,7 @@ export default function InvitationsClient({
             ) : null}
             <p className="nb-meta text-muted-foreground" role="status">
                 {invitationsQuery.data?.pages[0]?.total ?? 0}{" "}
-                {filtered ? "matching" : "pending"} invitations
+                {filtered ? "matching" : "open"} invitations and applications
             </p>
             {connectionInvitations.length ? (
                 <section aria-labelledby="connection-invitations-heading">
@@ -715,6 +738,54 @@ export default function InvitationsClient({
                 </section>
             ) : null}
 
+            {sentApplications.length ? (
+                <section aria-labelledby="sent-applications-heading">
+                    <h2 id="sent-applications-heading" className="nb-micro mb-3">
+                        Your applications
+                    </h2>
+                    <div className={INVITATION_GRID}>
+                        {sentApplications.map((application) => {
+                            const status = application.applicationStatus!;
+                            const owner = application.person;
+                            return (
+                                <PersonCardContent
+                                    key={application.id}
+                                    person={owner}
+                                    context={
+                                        <Link
+                                            className="nb-person-portfolio"
+                                            href={`/projects/${application.projectSlug || application.projectId}`}
+                                            title={`${application.roleTitle} · ${application.projectTitle}`}
+                                        >
+                                            <span>
+                                                {application.roleTitle} · {application.projectTitle}
+                                            </span>
+                                        </Link>
+                                    }
+                                    footer={
+                                        <>
+                                            {requestDate(application.createdAt)}
+                                            {status === "rejected" && application.decisionReason ? (
+                                                <span className="nb-meta block text-muted-foreground">{application.decisionReason}</span>
+                                            ) : null}
+                                        </>
+                                    }
+                                    action={
+                                        <SentApplicationMenu
+                                            status={status}
+                                            name={application.projectTitle || "the project"}
+                                            projectHref={`/projects/${application.projectSlug || application.projectId}`}
+                                            channelId={application.channelId}
+                                            onWithdraw={() => setWithdrawingApplication(application)}
+                                        />
+                                    }
+                                />
+                            );
+                        })}
+                    </div>
+                </section>
+            ) : null}
+
             {sentProjectInvitations.length ? (
                 <section aria-labelledby="sent-project-invitations-heading">
                     <h2
@@ -861,6 +932,12 @@ export default function InvitationsClient({
                     </button>
                 </div>
             ) : null}
+            <WithdrawApplicationDialog
+                open={Boolean(withdrawingApplication)}
+                roleTitle={withdrawingApplication?.roleTitle}
+                onClose={() => setWithdrawingApplication(null)}
+                onConfirm={withdrawSentApplication}
+            />
             <ConfirmDialog
                 open={isWithdrawAllConfirmOpen}
                 onOpenChange={setIsWithdrawAllConfirmOpen}

@@ -13,7 +13,8 @@ import { TabErrorBoundary } from '@/components/projects/TabErrorBoundary';
 import type { Project } from '@/types/discover';
 import { toggleProjectFollowAction, updateProjectStageAction, incrementProjectViewAction } from '@/app/actions/project';
 import { ROUTES } from '@/constants/routes';
-import { getApplicationStatusAction, acceptProposedRoleAction, declineProposedRoleAction, type ApplicationStatusResult } from '@/app/actions/applications';
+import { getApplicationStatusAction, withdrawApplicationAction, acceptProposedRoleAction, declineProposedRoleAction, type ApplicationStatusResult } from '@/app/actions/applications';
+import type { ApplicationStatusLoad } from '@/lib/applications/card-state';
 import { resolveProjectInvitationAction } from '@/app/actions/project/guidance';
 import { useProjectMembers } from '@/hooks/projects/useProjectMembers';
 import { queryKeys } from '@/lib/query-keys';
@@ -37,6 +38,7 @@ import { useFilesWorkspaceStore } from '@/stores/filesWorkspaceStore';
 
 const EditProjectModal = dynamic(() => import('@/components/projects/EditProjectModal'), { ssr: false, loading: () => null });
 
+const WithdrawApplicationDialog = dynamic(() => import('@/components/projects/dashboard/WithdrawApplicationDialog'), { ssr: false, loading: () => null });
 const InviteCollaboratorModal = dynamic(() => import('@/components/projects/dashboard/InviteCollaboratorModal'), { ssr: false, loading: () => null });
 
 const ApplyRoleModal = dynamic(() => import('@/components/projects/ApplyRoleModal'), { ssr: false, loading: () => null });
@@ -55,9 +57,12 @@ function projectDetailTabQueryParam(tabId: string) {
 }
 
 /** Sign-in that returns the visitor to this exact page (tab and deep-link params included). */
-function signInHref() {
-    const here = typeof window === 'undefined' ? '/' : `${window.location.pathname}${window.location.search}`;
-    return `${ROUTES.LOGIN}?redirect=${encodeURIComponent(here)}`;
+function signInHref(applyRoleId?: string) {
+    if (typeof window === 'undefined') return `${ROUTES.LOGIN}?redirect=${encodeURIComponent('/')}`;
+    const target = new URL(window.location.href);
+    // Signing in from a role's Apply button brings the visitor back to that role's form.
+    if (applyRoleId) target.searchParams.set('applyRole', applyRoleId);
+    return `${ROUTES.LOGIN}?redirect=${encodeURIComponent(`${target.pathname}${target.search}`)}`;
 }
 
 function deleteParam(params: URLSearchParams, key: string) {
@@ -334,7 +339,17 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
 
     // Application status for non-owner/non-member users
     const [applicationStatus, setApplicationStatus] = useState<ApplicationStatusResult>({ status: 'none' });
+    const [applicationLoad, setApplicationLoad] = useState<ApplicationStatusLoad>('loading');
     const [invitationLoading, setInvitationLoading] = useState(false);
+    const [isEditApplicationOpen, setIsEditApplicationOpen] = useState(false);
+    const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
+
+    /** Reads where the viewer's application stands; a failed read is an error state, never "no application". */
+    const refreshApplicationStatus = useCallback(async () => {
+        const next = await getApplicationStatusAction(project.id).catch(() => ({ status: 'none', loadFailed: true }) as ApplicationStatusResult);
+        setApplicationStatus(next);
+        setApplicationLoad(next.loadFailed ? 'error' : 'ready');
+    }, [project.id]);
 
     const handleInvitation = useCallback(async (action: 'accept' | 'decline') => {
         if (invitationLoading) return;
@@ -357,8 +372,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
             if (res.success) {
                 toast.success(action === 'accept' ? 'Invitation accepted successfully!' : 'Invitation declined.');
                 refreshProjectData();
-                const nextStatus = await getApplicationStatusAction(project.id);
-                setApplicationStatus(nextStatus);
+                await refreshApplicationStatus();
             } else {
                 toast.error(res.error || (action === 'accept' ? 'Failed to accept invitation' : 'Failed to decline invitation'));
             }
@@ -368,7 +382,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
         } finally {
             setInvitationLoading(false);
         }
-    }, [applicationStatus, invitationLoading, project.id, refreshProjectData]);
+    }, [applicationStatus, invitationLoading, refreshApplicationStatus, refreshProjectData]);
 
     // Optimistic State for Project Journey
     const [optimisticStageIndex, setOptimisticStageIndex] = useState(project.currentStageIndex || 0);
@@ -480,9 +494,16 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
     // Fetch application status for non-owners (lightweight O(1) query)
     useEffect(() => {
         if (!currentUserId || isOwner || isMember) return;
-
-        getApplicationStatusAction(project.id).then(setApplicationStatus);
-    }, [project.id, currentUserId, isOwner, isMember]);
+        void refreshApplicationStatus();
+        // A decision made while this page is open shows up when the tab is looked at again.
+        const onVisible = () => { if (document.visibilityState === 'visible') void refreshApplicationStatus(); };
+        document.addEventListener('visibilitychange', onVisible);
+        window.addEventListener('focus', onVisible);
+        return () => {
+            document.removeEventListener('visibilitychange', onVisible);
+            window.removeEventListener('focus', onVisible);
+        };
+    }, [currentUserId, isOwner, isMember, refreshApplicationStatus]);
 
     // Hook Integration: Scalable Member Loading
     const shouldLoadMembers = activeTab === 'dashboard' || activeTab === 'tasks' || activeTab === 'updates' || activeTab === 'sprints' || activeTab === 'settings';
@@ -835,25 +856,46 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
         };
     }, [project?.id]);
 
+    const projectClosed = ['archived', 'completed'].includes(String((project as { status?: string | null }).status ?? ''));
+    const applicationControls = useMemo(() => ({
+        load: applicationLoad,
+        projectClosed,
+        onRetry: () => { setApplicationLoad('loading'); void refreshApplicationStatus(); },
+        onEdit: () => { setIsApplyModalOpen(true); setIsEditApplicationOpen(true); },
+        onWithdraw: () => setIsWithdrawOpen(true),
+    }), [applicationLoad, projectClosed, refreshApplicationStatus]);
+
+    const withdrawApplication = useCallback(async (note: string) => {
+        if (!applicationStatus.applicationId) return 'This application is no longer available.';
+        const result = await withdrawApplicationAction(applicationStatus.applicationId, note || undefined);
+        if (!result.success) return result.error || 'Could not withdraw the application.';
+        setIsWithdrawOpen(false);
+        toast.success('Application withdrawn');
+        await refreshApplicationStatus();
+        refreshProjectData();
+        return null;
+    }, [applicationStatus.applicationId, refreshApplicationStatus, refreshProjectData]);
+
     const handleApplyToRole = useCallback(
         (role: any) => {
             if (!currentUserId) {
-                router.push(signInHref());
+                router.push(signInHref(role?.id));
                 return;
             }
             if (isOwner || isMember) {
                 toast.error('Project members cannot apply for an additional role');
                 return;
             }
-
-            // Check if user has an existing application that blocks re-application
+            if (applicationLoad !== 'ready') {
+                toast.error(applicationLoad === 'error' ? 'Could not check your application. Try again.' : 'Checking your application…');
+                return;
+            }
             if (applicationStatus.status === 'pending') {
                 toast.error('You already have a pending application');
                 return;
             }
-
             if (applicationStatus.status === 'rejected' && !applicationStatus.canReapply) {
-                toast.error(`You can reapply in ${applicationStatus.waitTime}`);
+                toast.error(`You can apply again in ${applicationStatus.waitTime}`);
                 return;
             }
 
@@ -861,7 +903,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
             setPreselectedRoleId(role?.id || undefined);
             setIsApplyModalOpen(true);
         },
-        [currentUserId, applicationStatus, isMember, isOwner],
+        [currentUserId, applicationLoad, applicationStatus, isMember, isOwner, router],
     );
 
     useEffect(() => {
@@ -872,13 +914,23 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
 
         if (roleApplyRequestRef.current === applyRoleIdFromUrl) return;
 
+        // Wait until we know whether this viewer may apply, so the form never opens for someone who already has.
+        const needsStatus = Boolean(currentUserId) && !isOwner && !isMember;
+        if (needsStatus && applicationLoad === 'loading') return;
+
         const role = rolesWithFilled.find((item: any) => item?.id === applyRoleIdFromUrl);
         if (!role) return;
 
         roleApplyRequestRef.current = applyRoleIdFromUrl;
         setActiveTab('dashboard');
         handleApplyToRole(role);
-    }, [applyRoleIdFromUrl, handleApplyToRole, rolesWithFilled]);
+        // Keep the link out of the address bar once it has done its job (a signed-out visitor is leaving).
+        if (currentUserId) {
+            const clean = new URL(window.location.href);
+            clean.searchParams.delete('applyRole');
+            window.history.replaceState(window.history.state, '', `${clean.pathname}${clean.search}${clean.hash}`);
+        }
+    }, [applyRoleIdFromUrl, applicationLoad, currentUserId, handleApplyToRole, isMember, isOwner, rolesWithFilled]);
 
     const commitStageIndex = useCallback(
         async (targetIndex: number, expectedUpdatedAt: string | null, allowRetry = true): Promise<boolean> => {
@@ -1028,7 +1080,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
             {activeTab === 'dashboard' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Dashboard">
-                        <DashboardTab project={projectWithLiveStats} isCreator={isOwner} isCollaborator={isMember} rolesWithFilled={rolesWithFilled} onEdit={handleEdit} onAdvanceStage={handleAdvanceStage} onRedoStage={handleRegressStage} onApplyToRole={handleApplyToRole} lifecycleStages={lifecycleStages} currentStageIndex={optimisticStageIndex} applicationStatus={applicationStatus} onAcceptInvitation={() => void handleInvitation('accept')} onDeclineInvitation={() => void handleInvitation('decline')} invitationLoading={invitationLoading} />
+                        <DashboardTab project={projectWithLiveStats} isCreator={isOwner} isCollaborator={isMember} rolesWithFilled={rolesWithFilled} onEdit={handleEdit} onAdvanceStage={handleAdvanceStage} onRedoStage={handleRegressStage} onApplyToRole={handleApplyToRole} lifecycleStages={lifecycleStages} currentStageIndex={optimisticStageIndex} applicationStatus={applicationStatus} onAcceptInvitation={() => void handleInvitation('accept')} onDeclineInvitation={() => void handleInvitation('decline')} invitationLoading={invitationLoading} application={applicationControls} />
                     </TabErrorBoundary>
                 </div>
             )}
@@ -1107,8 +1159,16 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                     isOpen={isApplyModalOpen}
                     onClose={() => {
                         setIsApplyModalOpen(false);
+                        setIsEditApplicationOpen(false);
                         setPreselectedRoleId(undefined);
                     }}
+                    onRolesStale={() => refreshProjectData()}
+                    editApplication={isEditApplicationOpen && applicationStatus.applicationId ? {
+                        applicationId: applicationStatus.applicationId,
+                        roleId: applicationStatus.roleId,
+                        message: applicationStatus.message ?? '',
+                        details: applicationStatus.details,
+                    } : undefined}
                     project={{
                         id: project.id,
                         title: project.title,
@@ -1116,12 +1176,21 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                     }}
                     roles={rolesWithFilled}
                     preselectedRoleId={preselectedRoleId}
-                    onSuccess={() => {
+                    onSuccess={(result) => {
                         refreshProjectData();
-                        void getApplicationStatusAction(project.id).then(setApplicationStatus);
+                        // Show Pending at once; the read below fills in the rest.
+                        if (result?.applicationId) setApplicationStatus((current) => ({ ...current, status: 'pending', applicationId: result.applicationId, channelId: result.channelId ?? current.channelId }));
+                        void refreshApplicationStatus();
                     }}
                 />
             )}
+
+            <WithdrawApplicationDialog
+                open={isWithdrawOpen}
+                roleTitle={applicationStatus.roleTitle}
+                onClose={() => setIsWithdrawOpen(false)}
+                onConfirm={withdrawApplication}
+            />
 
             {isInviteModalOpen && (
                 <InviteCollaboratorModal

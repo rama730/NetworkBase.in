@@ -25,6 +25,8 @@ export type ApplicationActionErrorCode =
 export type ApplicationActionOptions = {
     idempotencyKey?: string | null;
     applicationTraceId?: string | null;
+    /** Apply and edit only: the form's portfolio link and availability. */
+    details?: { portfolioUrl?: string; availability?: string } | null;
 };
 
 /** What a submit did: a new application, a revived one, an in-place edit, or nothing (already pending). */
@@ -58,6 +60,17 @@ export type ApplicationStatusResult = {
     applicationId?: string;
     proposedRoleId?: string;
     proposedRoleTitle?: string;
+    /** The status could not be read: the card shows a retry, never an enabled Apply. */
+    loadFailed?: boolean;
+    /** The applicant's own submission, for the edit form. */
+    message?: string | null;
+    details?: { portfolioUrl?: string; availability?: string };
+    /** The reviewer's reason in words, for the applicant. */
+    decisionReasonText?: string | null;
+    /** The application's private thread. */
+    channelId?: string | null;
+    /** When the applicant can still edit; absent once the window has closed. */
+    editableUntil?: Date;
 };
 
 export type ApplicationCursorPaginationInput = {

@@ -183,3 +183,53 @@ test("when a role fills, other pending applicants are closed as role_filled, tol
     void applicant;
   });
 });
+
+test("details are stored beside the message, edits replace them, and the status carries what the card needs", async () => {
+  await withProject(async ({ applicant, projectId, roleId }) => {
+    const bad = await apps.applyToRoleAction(projectId, roleId, "hi", { details: { portfolioUrl: "javascript:alert(1)" } });
+    assert.equal(bad.errorCode, "INVALID_INPUT");
+    const first = await apps.applyToRoleAction(projectId, roleId, "cover letter", { details: { portfolioUrl: "https://github.com/me", availability: "10 hrs/week" } });
+    assert.equal(first.success, true, JSON.stringify(first));
+    const [stored] = await sql`SELECT message, details FROM role_applications WHERE id = ${first.applicationId!}`;
+    assert.equal(stored!.message, "cover letter", "the message is the cover letter alone");
+    assert.deepEqual(stored!.details, { portfolioUrl: "https://github.com/me", availability: "10 hrs/week" });
+
+    const status = await apps.getApplicationStatusAction(projectId);
+    assert.equal(status.status, "pending");
+    assert.equal(status.message, "cover letter");
+    assert.equal(status.applicationId, first.applicationId);
+    assert.ok(status.channelId, "the thread id is returned");
+    assert.ok(status.editableUntil && status.editableUntil.getTime() > Date.now(), "the edit window is open");
+
+    const edited = await apps.editPendingApplicationAction(first.applicationId!, "cover letter, better", null, { details: { availability: "20 hrs/week" } });
+    assert.equal(edited.success, true, JSON.stringify(edited));
+    const [after] = await sql`SELECT message, details FROM role_applications WHERE id = ${first.applicationId!}`;
+    assert.equal(after!.message, "cover letter, better");
+    assert.deepEqual(after!.details, { availability: "20 hrs/week" }, "an edit replaces the details");
+
+    await sql`UPDATE role_applications SET created_at = now() - interval '1 hour' WHERE id = ${first.applicationId!}`;
+    assert.equal((await apps.getApplicationStatusAction(projectId)).editableUntil, undefined, "the window closes");
+    void applicant;
+  });
+});
+
+test("a profile's apply picker leaves out projects the viewer cannot apply to right now", async () => {
+  // The picker reads the viewer from the request; here the viewer is whoever the test says it is.
+  moduleStubs.set("@/lib/server/viewer-context", { getViewerAuthContext: async () => ({ userId: viewerId }) });
+  const lifecycle = await loadAppModule(() => import("../../src/lib/projects/server/lifecycle"));
+  await withProject(async ({ owner, projectId, roleId }) => {
+    await sql`UPDATE projects SET open_roles_count = 1 WHERE id = ${projectId}`;
+    const offered = async () => (await lifecycle.getProfileProjectsWithOpenRolesAction(owner)).items.some((item: { id: string }) => item.id === projectId);
+    assert.equal(await offered(), true, "offered before applying");
+    const first = await apps.applyToRoleAction(projectId, roleId, "hello");
+    assert.equal(await offered(), false, "not offered while pending");
+    assert.equal((await apps.withdrawApplicationAction(first.applicationId!)).success, true);
+    assert.equal(await offered(), true, "offered again after withdrawing");
+    await sql`UPDATE role_applications SET status = 'rejected', decision_at = now(), decision_by = ${owner}, decision_reason_code = 'other', updated_at = now() WHERE id = ${first.applicationId!}`;
+    assert.equal(await offered(), false, "not offered inside the cooldown");
+    await sql`UPDATE role_applications SET updated_at = now() - interval '25 hours' WHERE id = ${first.applicationId!}`;
+    assert.equal(await offered(), true, "offered after the cooldown");
+    await sql`UPDATE projects SET status = 'archived' WHERE id = ${projectId}`;
+    assert.equal(await offered(), false, "not offered once archived");
+  });
+});

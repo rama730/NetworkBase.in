@@ -1,4 +1,5 @@
 export type {
+    ApplicationActionErrorCode,
     ApplicationActionOptions,
     ApplicationActionResult,
     ApplicationCursorPaginationInput,

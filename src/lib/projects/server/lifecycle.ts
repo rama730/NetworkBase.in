@@ -2582,7 +2582,26 @@ export async function getProfileProjectsWithOpenRolesAction(
       // Same rule as computeProjectReadAccess for a non-member viewer.
       inArray(projects.visibility, ["public", "unlisted"]),
       sql`${projects.status} IS NOT NULL AND ${projects.status} <> 'draft'`,
+      // A closed project takes no applications.
+      sql`${projects.status} NOT IN ('archived', 'completed')`,
       excludeMemberUserId ? sql`${projects.ownerId} <> ${excludeMemberUserId}::uuid` : undefined,
+      // Not offered where the viewer can't apply right now: already pending, or declined within the 24 h cooldown
+      // (withdrawn, ended-membership and filled-role applications can apply again).
+      excludeMemberUserId ? sql`NOT EXISTS (
+        SELECT 1
+        FROM role_applications AS blocking_application
+        WHERE blocking_application.project_id = ${projects.id}
+          AND blocking_application.applicant_id = ${excludeMemberUserId}::uuid
+          AND (
+            blocking_application.status = 'pending'
+            OR (
+              blocking_application.status = 'rejected'
+              AND blocking_application.decision_by IS DISTINCT FROM blocking_application.applicant_id
+              AND coalesce(blocking_application.decision_reason_code, '') <> 'role_filled'
+              AND blocking_application.updated_at > now() - interval '24 hours'
+            )
+          )
+      )` : undefined,
       excludeMemberUserId ? sql`NOT EXISTS (
         SELECT 1
         FROM project_members AS excluded_member
