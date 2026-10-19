@@ -154,7 +154,6 @@ export function FileVersionHistoryDrawer({
           projectId,
           node.id,
           version.version,
-          300,
         );
         const anchor = document.createElement("a");
         anchor.href = url;

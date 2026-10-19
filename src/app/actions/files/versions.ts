@@ -169,7 +169,7 @@ export async function getVersionPreviewUrl(
   nodeId: string,
   version: number,
   download: boolean = false,
-): Promise<{ url: string; expiresAt: number }> {
+): Promise<{ url: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const actorId = user?.id ?? null;
