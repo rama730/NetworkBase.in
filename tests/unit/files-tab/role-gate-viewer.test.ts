@@ -370,7 +370,7 @@ describe("Server-side mutation authorization (Req 19.6)", () => {
     // fails closed for the `viewer` role.
     assert.match(
       helperBody,
-      /if\s*\(!access\.canWrite\)\s*throw\s+new\s+Error\(\s*["']Forbidden["']\s*\)/,
+      /if\s*\(!access\.canWrite\)\s*throw\s+new\s+(?:Forbidden)?Error\(\s*["']Forbidden["']\s*\)/,
       "must fail closed with Forbidden when the caller lacks write access",
     );
     assert.match(
@@ -401,7 +401,7 @@ describe("Server-side mutation authorization (Req 19.6)", () => {
     );
     assert.match(
       helperBody,
-      /throw\s+new\s+Error\(\s*["']Forbidden["']\s*\)/,
+      /throw\s+new\s+(?:Forbidden)?Error\(\s*["']Forbidden["']\s*\)/,
       "must throw Forbidden when capability check fails (Req 19.6)",
     );
   });

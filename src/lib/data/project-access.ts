@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { ForbiddenError } from "@/lib/errors/domain";
 import { db } from "@/lib/db";
 import { projects, projectMembers } from "@/lib/db/schema";
 import {
@@ -65,7 +66,7 @@ export function canReadProjectTab(access: ProjectAccess, tab: ProjectPublicTabId
     });
 }
 
-export class ProjectTabForbiddenError extends Error {
+export class ProjectTabForbiddenError extends ForbiddenError {
     constructor(readonly tab: ProjectPublicTabId) {
         super(`This project's ${tab} are not available to this viewer.`);
         this.name = "ProjectTabForbiddenError";

@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
+import { routeErrorResponse } from "@/app/api/v1/_error";
+import { getRequestId, jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import {
   buildExtensionRevisionStorageKey,
   checksumSchema,
@@ -131,7 +132,7 @@ export async function POST(request: Request) {
       uploadSessionId,
       files: results,
     });
-  } catch (error: any) {
-    return jsonError(error?.message || "Failed to create bulk upload intents", 500, "INTERNAL_ERROR");
+  } catch (error) {
+    return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/extension/bulk-intent", fallback: "Failed to create bulk upload intents" });
   }
 }

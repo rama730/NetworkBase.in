@@ -36,14 +36,10 @@ test('Turnstile Server Validation Suite', async (t) => {
         process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY = '0x4AAAAAAABBBBBBCCCCCC';
         const originalFetch = global.fetch;
         global.fetch = (async () => {
-            return {
-                ok: true,
-                status: 200,
-                json: async () => ({
+            return new Response(JSON.stringify({
                     success: true,
                     action: 'signup',
-                }),
-            } as unknown as Response;
+                }), { status: 200 });
         }) as typeof global.fetch;
 
         try {
@@ -63,14 +59,10 @@ test('Turnstile Server Validation Suite', async (t) => {
         process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY = '0x4AAAAAAABBBBBBCCCCCC';
         const originalFetch = global.fetch;
         global.fetch = (async () => {
-            return {
-                ok: true,
-                status: 200,
-                json: async () => ({
+            return new Response(JSON.stringify({
                     success: true,
                     action: 'login',
-                }),
-            } as unknown as Response;
+                }), { status: 200 });
         }) as typeof global.fetch;
 
         try {

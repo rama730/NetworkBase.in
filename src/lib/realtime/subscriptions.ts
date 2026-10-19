@@ -46,10 +46,17 @@ export function subscribeActiveResource(params: {
     resourceType: ActiveResourceType
     resourceId: string
     bindings: ActiveResourceBinding[]
+    /**
+     * Names the owner of this listener (API-018). A channel name is unique per owner: re-subscribing
+     * with the same owner replaces that owner's earlier channel (StrictMode remounts), but two
+     * co-mounted components that watch the same resource each pass their own id and never evict
+     * each other. Omitted, the owner is the shared default for that resource.
+     */
+    subscriberId?: string
     onStatus?: (status: REALTIME_SUBSCRIBE_STATES) => void
 }): RealtimeChannel {
-    const { supabase, resourceType, resourceId, bindings, onStatus } = params
-    const channelName = `active-resource:${resourceType}:${resourceId}`
+    const { supabase, resourceType, resourceId, bindings, subscriberId, onStatus } = params
+    const channelName = `active-resource:${resourceType}:${resourceId}${subscriberId ? `:${subscriberId}` : ''}`
 
     const existingChannel = supabase.getChannels().find(
         (ch) => ch.topic === `realtime:${channelName}` || ch.topic === channelName
@@ -146,12 +153,14 @@ export function subscribeProjectStage(params: {
     projectId: string
     onUpdate: (payload: DbRealtimePayload) => void
     channelScope?: 'project_hydration' | 'project_workflow'
+    subscriberId?: string
 }): RealtimeChannel {
-    const { supabase, projectId, onUpdate, channelScope = 'project_hydration' } = params;
+    const { supabase, projectId, onUpdate, channelScope = 'project_hydration', subscriberId } = params;
     return subscribeActiveResource({
         supabase,
         resourceType: channelScope,
         resourceId: projectId,
+        subscriberId,
         bindings: [
             {
                 event: 'UPDATE',

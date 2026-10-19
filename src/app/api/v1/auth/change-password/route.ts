@@ -14,7 +14,7 @@ import { isEmailVerified } from "@/lib/auth/email-verification";
 import { getVerifiedTotpFactors, listSecurityMfaFactors } from "@/lib/security/mfa";
 import { verifyPasswordCredential } from "@/lib/security/password-auth";
 import { resolveSecurityStepUp } from "@/lib/security/step-up";
-import { checkIdempotencyKey, saveIdempotencyResult } from "@/lib/security/idempotency";
+import { withIdempotentRoute } from "@/lib/security/idempotency";
 import { getPasswordPolicyResult } from "@/lib/security/password-policy";
 import { isLeakedPassword } from "@/lib/security/leaked-password";
 import { logger } from "@/lib/logger";
@@ -77,18 +77,8 @@ export async function POST(request: Request) {
     return jsonError("Not authenticated", 401, "UNAUTHORIZED");
   }
 
-  // Idempotency — prevent duplicate password changes
-  const idempotencyCheck = await checkIdempotencyKey(request, 'auth.changePassword', auth.user.id);
-  if (idempotencyCheck.isDuplicate) {
-    if (idempotencyCheck.cachedResponse) {
-      return new Response(idempotencyCheck.cachedResponse, {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
-    }
-    return jsonError('Request is already being processed', 409, 'CONFLICT');
-  }
-
+  const authUser = auth.user;
+  return withIdempotentRoute(request, { namespace: 'auth.changePassword', scopeId: authUser.id }, async () => {
   let rawBody: unknown;
   try {
     rawBody = await request.json();
@@ -96,7 +86,7 @@ export async function POST(request: Request) {
     logApiRoute(request, {
       requestId,
       action: "auth.changePassword.post",
-      userId: auth.user.id,
+      userId: authUser.id,
       startedAt,
       success: false,
       status: 400,
@@ -110,7 +100,7 @@ export async function POST(request: Request) {
     logApiRoute(request, {
       requestId,
       action: "auth.changePassword.post",
-      userId: auth.user.id,
+      userId: authUser.id,
       startedAt,
       success: false,
       status: 400,
@@ -125,7 +115,7 @@ export async function POST(request: Request) {
     logApiRoute(request, {
       requestId,
       action: "auth.changePassword.post",
-      userId: auth.user.id,
+      userId: authUser.id,
       startedAt,
       success: false,
       status: 400,
@@ -138,7 +128,7 @@ export async function POST(request: Request) {
     logApiRoute(request, {
       requestId,
       action: "auth.changePassword.post",
-      userId: auth.user.id,
+      userId: authUser.id,
       startedAt,
       success: false,
       status: 400,
@@ -150,7 +140,7 @@ export async function POST(request: Request) {
     logApiRoute(request, {
       requestId,
       action: "auth.changePassword.post",
-      userId: auth.user.id,
+      userId: authUser.id,
       startedAt,
       success: false,
       status: 400,
@@ -164,7 +154,7 @@ export async function POST(request: Request) {
       logApiRoute(request, {
         requestId,
         action: "auth.changePassword.post",
-        userId: auth.user.id,
+        userId: authUser.id,
         startedAt,
         success: false,
         status: 400,
@@ -184,11 +174,11 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!auth.user.email || !isEmailVerified(auth.user)) {
+  if (!authUser.email || !isEmailVerified(authUser)) {
     logApiRoute(request, {
       requestId,
       action: "auth.changePassword.post",
-      userId: auth.user.id,
+      userId: authUser.id,
       startedAt,
       success: false,
       status: 400,
@@ -197,13 +187,13 @@ export async function POST(request: Request) {
     return jsonError("Account is missing a verified email address", 400, "BAD_REQUEST");
   }
 
-  const passwordLastChangedAt = await getLatestPasswordChangeAt(auth.user.id);
-  const accountHasPassword = resolvePasswordCredentialState(auth.user, passwordLastChangedAt);
+  const passwordLastChangedAt = await getLatestPasswordChangeAt(authUser.id);
+  const accountHasPassword = resolvePasswordCredentialState(authUser, passwordLastChangedAt);
   if (accountHasPassword && !currentPassword) {
     logApiRoute(request, {
       requestId,
       action: "auth.changePassword.post",
-      userId: auth.user.id,
+      userId: authUser.id,
       startedAt,
       success: false,
       status: 400,
@@ -217,12 +207,12 @@ export async function POST(request: Request) {
     const hasVerifiedTotp = getVerifiedTotpFactors(mfaFactors).length > 0;
 
     if (hasVerifiedTotp || !accountHasPassword) {
-      const stepUp = await resolveSecurityStepUp(auth.user.id, ["totp", "recovery_code"]);
+      const stepUp = await resolveSecurityStepUp(authUser.id, ["totp", "recovery_code"]);
       if (!stepUp.ok) {
         logApiRoute(request, {
           requestId,
           action: "auth.changePassword.post",
-          userId: auth.user.id,
+          userId: authUser.id,
           startedAt,
           success: false,
           status: 403,
@@ -239,14 +229,14 @@ export async function POST(request: Request) {
     }
 
     if (accountHasPassword) {
-      const verifyResult = await verifyPasswordCredential(auth.user.email, currentPassword);
+      const verifyResult = await verifyPasswordCredential(authUser.email, currentPassword);
       if (!verifyResult.ok) {
         const invalidCredentials = verifyResult.reason === "invalid_credentials";
         const emailNotConfirmed = verifyResult.reason === "email_not_confirmed";
         logApiRoute(request, {
           requestId,
           action: "auth.changePassword.post",
-          userId: auth.user.id,
+          userId: authUser.id,
           startedAt,
           success: false,
           status: invalidCredentials ? 400 : emailNotConfirmed ? 403 : 500,
@@ -275,7 +265,7 @@ export async function POST(request: Request) {
       logApiRoute(request, {
         requestId,
         action: "auth.changePassword.post",
-        userId: auth.user.id,
+        userId: authUser.id,
         startedAt,
         success: false,
         status: 400,
@@ -286,7 +276,7 @@ export async function POST(request: Request) {
 
     try {
       await recordSecurityEvent({
-        userId: auth.user.id,
+        userId: authUser.id,
         eventType: accountHasPassword ? "password_changed" : "password_set",
         request,
         previousValue: { hasPassword: accountHasPassword },
@@ -298,7 +288,7 @@ export async function POST(request: Request) {
     } catch (auditError) {
       logger.error("auth.change_password.audit_failed", {
         requestId,
-        userId: auth.user.id,
+        userId: authUser.id,
         eventType: accountHasPassword ? "password_changed" : "password_set",
         error: auditError,
       });
@@ -307,19 +297,18 @@ export async function POST(request: Request) {
     logApiRoute(request, {
       requestId,
       action: "auth.changePassword.post",
-      userId: auth.user.id,
+      userId: authUser.id,
       startedAt,
       success: true,
       status: 200,
     });
-    await saveIdempotencyResult(request, 'auth.changePassword', JSON.stringify({ ok: true, message: "Password updated successfully" }), idempotencyCheck.lockToken, auth.user.id);
     return jsonSuccess(undefined, "Password updated successfully");
   } catch (error) {
     logger.error("[api/v1/auth/change-password] failed", { module: 'api', error: error instanceof Error ? error.message : String(error) });
     logApiRoute(request, {
       requestId,
       action: "auth.changePassword.post",
-      userId: auth.user.id,
+      userId: authUser.id,
       startedAt,
       success: false,
       status: 500,
@@ -327,4 +316,5 @@ export async function POST(request: Request) {
     });
     return jsonError("Failed to change password", 500, "INTERNAL_ERROR");
   }
+  });
 }

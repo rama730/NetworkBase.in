@@ -223,6 +223,13 @@ export default function FilesTab({
         setIsProcessingDrop(true);
         try {
           const extracted = await extractFoldersFromDataTransfer(dataTransfer);
+          if (extracted.unreadable.length > 0) {
+            // A partial selection is only uploaded when the person agrees to leave those out.
+            const shown = extracted.unreadable.slice(0, 5).join("\n");
+            const more = extracted.unreadable.length > 5 ? `\n…and ${extracted.unreadable.length - 5} more` : "";
+            const proceed = window.confirm(`${extracted.unreadable.length} item(s) could not be read and will be skipped:\n${shown}${more}\n\nUpload the rest?`);
+            if (!proceed) return;
+          }
           if (
             extracted.folders.length === 0 &&
             extracted.looseFiles.length === 0

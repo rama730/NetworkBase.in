@@ -1,4 +1,5 @@
 import { logger } from '@/lib/logger';
+import { readBoundedBody } from '@/lib/security/bounded-body';
 
 export type TurnstileVerificationResult = {
     success: boolean;
@@ -10,6 +11,7 @@ export type TurnstileVerificationResult = {
 
 const SITEVERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 const TIMEOUT_MS = 1500;
+const MAX_RESPONSE_BYTES = 64 * 1024;
 
 export function getTurnstileSecretKey(): string {
     return (
@@ -60,8 +62,6 @@ export async function verifyTurnstileToken(params: {
             signal: controller.signal,
         });
 
-        clearTimeout(timeoutId);
-
         if (!response.ok) {
             logger.warn('[turnstile] Verification endpoint returned non-200 status', {
                 status: response.status,
@@ -70,7 +70,8 @@ export async function verifyTurnstileToken(params: {
             return { success: true, degraded: true };
         }
 
-        const data = (await response.json()) as {
+        // The deadline stays armed until the body is read: a slow body aborts like a slow header.
+        const data = JSON.parse(new TextDecoder().decode((await readBoundedBody(response, MAX_RESPONSE_BYTES)).bytes)) as {
             success: boolean;
             'error-codes'?: string[];
             action?: string;
@@ -98,7 +99,6 @@ export async function verifyTurnstileToken(params: {
 
         return { success: true };
     } catch (err) {
-        clearTimeout(timeoutId);
         const isTimeout = err instanceof Error && err.name === 'AbortError';
 
         logger.warn('[turnstile] Verification request failed or timed out', {
@@ -108,5 +108,7 @@ export async function verifyTurnstileToken(params: {
 
         // Fail-open degraded mode on network timeout so edge latency does not block signups
         return { success: true, degraded: true };
+    } finally {
+        clearTimeout(timeoutId);
     }
 }
