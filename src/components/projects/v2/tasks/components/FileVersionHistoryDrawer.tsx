@@ -38,7 +38,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { FileVersion, ProjectNode } from "@/lib/db/schema";
 import {
-  getVersionSignedUrl,
+  getVersionPreviewUrl,
   listFileVersionsPage,
   restoreFileVersion,
 } from "@/app/actions/files/versions";
@@ -150,11 +150,10 @@ export function FileVersionHistoryDrawer({
       const actionKey = `dl:${version.id}`;
       setPendingAction(actionKey);
       try {
-        const { url } = await getVersionSignedUrl(
+        const { url } = await getVersionPreviewUrl(
           projectId,
           node.id,
           version.version,
-          300,
         );
         const anchor = document.createElement("a");
         anchor.href = url;
