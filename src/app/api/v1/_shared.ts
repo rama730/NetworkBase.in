@@ -95,11 +95,14 @@ export async function requireAuthenticatedUser() {
   const supabase = await createClient();
 
   // 1. Check for Bearer token authentication
+  let bearerAttempted=false;
   try {
     const headerStore = await headers();
     const authHeader = headerStore.get("authorization")?.trim();
-    if (authHeader && authHeader.toLowerCase().startsWith("bearer ")) {
-      const token = authHeader.substring(7).trim();
+    // Any Bearer scheme, even an empty one, means the caller chose token authentication (SEC-001).
+    if (authHeader && /^bearer(\s|$)/i.test(authHeader)) {
+      bearerAttempted=true;
+      const token = authHeader.substring(6).trim();
       if (token.startsWith("nb_dev_")) {
         const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
         const now = new Date();
@@ -173,11 +176,13 @@ export async function requireAuthenticatedUser() {
           return { supabase, user: mockUser, extensionSessionId: session.id, response: null };
         }
       }
+      return {supabase,user:null,extensionSessionId:null,response:jsonError("Invalid or expired editor session",401,"UNAUTHORIZED")};
     }
   } catch (error) {
     logger.error("api.v1.shared.bearer_auth_failed", {
       error: error instanceof Error ? error.message : String(error)
     });
+    if(bearerAttempted)return {supabase,user:null,extensionSessionId:null,response:jsonError("Editor session verification failed",401,"UNAUTHORIZED")};
   }
 
   // 2. Fall back to standard session cookie check
