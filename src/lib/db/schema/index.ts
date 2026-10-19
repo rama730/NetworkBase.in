@@ -1509,16 +1509,7 @@ export const roleApplications = pgTable(
       .references(() => profiles.id, { onDelete: "cascade" }), // Denormalized for O(1) creator queries
     message: text("message"), // Application message from user
     status: statusRoleApplicationEnum("status").default("pending").notNull(),
-    proposedRoleId: uuid("proposed_role_id").references(
-      () => projectOpenRoles.id,
-      { onDelete: "set null" },
-    ),
     acceptedRoleTitle: text("accepted_role_title"),
-    applyingProjectId: uuid("applying_project_id").references(
-      () => projects.id,
-      { onDelete: "set null" },
-    ),
-    applyingProjectRole: text("applying_project_role"),
     decisionAt: timestamp("decision_at", { withTimezone: true }),
     decisionBy: uuid("decision_by").references(() => profiles.id, {
       onDelete: "set null",
@@ -1576,12 +1567,6 @@ export const roleApplications = pgTable(
       .where(sql`${t.status} = 'pending'`),
     roleIdIdx: index("role_applications_role_id_idx").on(t.roleId),
     decisionByIdx: index("role_applications_decision_by_idx").on(t.decisionBy),
-    proposedRoleIdx: index("role_applications_proposed_role_idx").on(
-      t.proposedRoleId,
-    ),
-    applyingProjectIdx: index("role_applications_applying_project_idx")
-      .on(t.applyingProjectId)
-      .where(sql`${t.applyingProjectId} IS NOT NULL`),
   }),
 );
 
@@ -1603,9 +1588,6 @@ export const applicationEvents = pgTable(
         "reopened",
         "accepted",
         "rejected",
-        "proposed",
-        "proposal_accepted",
-        "proposal_declined",
       ],
     }).notNull(),
     fromStatus: text("from_status"),

@@ -12,14 +12,3 @@ export const APPLICATION_LIFECYCLE_STATUSES = [
     'role_filled',
 ] as const;
 export type ApplicationLifecycleStatus = (typeof APPLICATION_LIFECYCLE_STATUSES)[number];
-
-export const CONNECTION_REQUEST_HISTORY_STATUSES = [
-    'pending',
-    'accepted',
-    'rejected',
-    'cancelled',
-    'disconnected',
-] as const;
-export type ConnectionRequestHistoryStatus = (typeof CONNECTION_REQUEST_HISTORY_STATUSES)[number];
-
-const CONNECTION_HISTORY_SET = new Set<string>(CONNECTION_REQUEST_HISTORY_STATUSES);

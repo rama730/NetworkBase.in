@@ -1583,6 +1583,13 @@
       "when": 1792342030016,
       "tag": "0228_application_thread_messaging",
       "breakpoints": true
+    },
+    {
+      "idx": 226,
+      "version": "7",
+      "when": 1792342031016,
+      "tag": "0229_drop_application_proposal_columns",
+      "breakpoints": true
     }
   ]
 }
