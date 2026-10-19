@@ -1,6 +1,3 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
@@ -21,12 +18,6 @@ import {
 } from "@/lib/github/worker-guard";
 import { fetchGithubTree } from "@/lib/github/tree-api";
 import { logger } from "@/lib/logger";
-
-const execFileAsync = promisify(execFile);
-const GIT_CLONE_TIMEOUT_MS = (() => {
-  const v = Number(process.env.GITHUB_IMPORT_CLONE_TIMEOUT_MS || 120000);
-  return Number.isFinite(v) && v >= 30_000 ? Math.floor(v) : 120000;
-})();
 
 // Lease length; the holder renews it every third of this while an import runs.
 const IMPORT_LEASE_TTL_MS = 5 * 60_000;
