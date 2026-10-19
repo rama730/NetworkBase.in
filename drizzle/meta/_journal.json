@@ -1422,6 +1422,34 @@
       "when": 1791374400000,
       "tag": "0205_transactional_email_outbox",
       "breakpoints": true
+    },
+    {
+      "idx": 203,
+      "version": "7",
+      "when": 1791460800000,
+      "tag": "0206_foreign_key_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 204,
+      "version": "7",
+      "when": 1791547200000,
+      "tag": "0207_catalog_parity",
+      "breakpoints": true
+    },
+    {
+      "idx": 205,
+      "version": "7",
+      "when": 1791633600000,
+      "tag": "0208_native_auth_uid",
+      "breakpoints": true
+    },
+    {
+      "idx": 206,
+      "version": "7",
+      "when": 1791746959750,
+      "tag": "0209_skill_catalog_1_3_7",
+      "breakpoints": true
     }
   ]
 }

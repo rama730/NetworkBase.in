@@ -17,7 +17,7 @@ describe("storage quota admission", () => {
   });
 
   it("reconciliation preserves reservations until physical deletion", () => {
-    const source = readFileSync(new URL("../../scripts/reconcile-storage-quotas.ts", import.meta.url), "utf8");
+    const source = readFileSync(new URL("../../scripts/db/repair/reconcile-storage-quotas.ts", import.meta.url), "utf8");
     assert.match(source, /IN \('pending', 'delete_pending', 'deleting'\).*verifiedSize\} IS NULL/);
     assert.match(source, /SELECT scope_id AS id FROM public\.storage_quota_scopes/);
     assert.match(source, /UNION/);

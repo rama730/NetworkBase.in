@@ -11,7 +11,6 @@ import type {
 export const SKILL_CATALOG_VERSION = '1.3.7' as const
 export const SKILL_ICON_SOURCE_VERSION = '16.24.1' as const
 export const SKILL_DEVICON_SOURCE_VERSION = '2.17.0' as const
-export const SKILL_CATALOG_MIGRATION_TAG = '0117_market_skill_catalog_1_3_6' as const
 
 export const SKILL_CATEGORIES: readonly SkillCategoryDefinition[] = [
     { key: 'programming', name: 'Programming', description: 'Programming, scripting, and markup languages.', iconKey: 'code-2', displayOrder: 10 },

@@ -44,7 +44,7 @@ test("QRY-024..030 maintenance workers are bounded, durable, and starvation-safe
   const stale = source("src/inngest/functions/project-import-reconcile.ts");
   const cleanup = source("src/inngest/functions/account-cleanup.ts");
   const hardDelete = source("src/inngest/functions/account-hard-delete.ts");
-  const hashes = source("scripts/backfill-file-hashes.ts");
+  const hashes = source("scripts/db/repair/backfill-file-hashes.ts");
 
   assert.match(reconciliation, /jobHeartbeats\.lastPayload/);
   assert.match(reconciliation, /projectNodes\.projectId\}, \$\{projectNodes\.id\}\) >/);
@@ -62,7 +62,7 @@ test("QRY-024..030 maintenance workers are bounded, durable, and starvation-safe
 });
 
 test("QRY-031 legacy normalization is explicit, set-based, and cycle-guarded", () => {
-  const backfill = source("scripts/backfill.ts");
+  const backfill = source("scripts/db/repair/backfill.ts");
 
   assert.match(backfill, /process\.argv\.includes\("--apply"\)/);
   assert.match(backfill, /jsonb_array_elements_text/);

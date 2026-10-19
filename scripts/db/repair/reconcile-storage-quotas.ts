@@ -7,18 +7,18 @@
  */
 import { and, eq, isNull, sql } from "drizzle-orm";
 
-import { storageAssets, storageQuotaScopes } from "../src/lib/db/schema";
+import { storageAssets, storageQuotaScopes } from "../../../src/lib/db/schema";
 import {
   PROJECT_STORAGE_LIMIT_BYTES,
   USER_STORAGE_LIMIT_BYTES,
-} from "../src/lib/storage/storage-quota";
+} from "../../../src/lib/storage/storage-quota";
 
 const APPLY = process.argv.includes("--apply");
 const PAGE_SIZE = 100;
 
 type ScopeType = "user" | "project";
 
-let db: (typeof import("../src/lib/db"))["db"];
+let db: (typeof import("../../../src/lib/db"))["db"];
 
 async function nextScopeIds(scopeType: ScopeType, cursor: string | null) {
   const rows = scopeType === "user"
@@ -140,7 +140,7 @@ async function reconcileType(scopeType: ScopeType) {
 }
 
 async function main() {
-  ({ db } = await import("../src/lib/db"));
+  ({ db } = await import("../../../src/lib/db"));
   console.log(`[storage-quota] mode=${APPLY ? "apply" : "dry-run"}`);
   const users = await reconcileType("user");
   const projects = await reconcileType("project");

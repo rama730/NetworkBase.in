@@ -1,14 +1,14 @@
 import { sql } from "drizzle-orm";
 
-import { db } from "../src/lib/db";
+import { db } from "../../../src/lib/db";
 
 const APPLY = process.argv.includes("--apply");
 
 async function main() {
   if (!APPLY) {
     console.log("Legacy normalization backfill is read-only by default.");
-    console.log("Run `pnpm tsx scripts/backfill.ts --apply` after a database backup.");
-    console.log("Canonical skills use `pnpm tsx scripts/backfill-market-skills.ts --apply`.");
+    console.log("Run `npx tsx scripts/db/repair/backfill.ts --apply` after a database backup.");
+    console.log("Canonical skills use `npm run skills:backfill -- --apply`.");
     return;
   }
 

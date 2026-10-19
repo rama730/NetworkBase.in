@@ -5,6 +5,8 @@ import path from "node:path";
 import { config } from "dotenv";
 import postgres from "postgres";
 
+import { databaseSsl } from "./lib/disposable-db";
+
 import { parseSqlGovernanceManifest } from "../src/lib/standards/sql-governance";
 
 config({ path: ".env.local" });
@@ -32,30 +34,13 @@ function migrationChecksum(tag: string) {
 }
 
 async function main() {
-  const sql = postgres(resolvedDatabaseUrl, { ssl: "require", prepare: false, max: 1 });
+  const sql = postgres(resolvedDatabaseUrl, { ssl: databaseSsl(resolvedDatabaseUrl), prepare: false, max: 1 });
   try {
-    const journalColumns = await sql<{ columnName: string }[]>`
-      SELECT column_name AS "columnName"
-      FROM information_schema.columns
-      WHERE table_schema = 'public'
-        AND table_name = 'app_migration_journal'
+    const rows = await sql<{ tag: string; checksum: string | null; status: string; appliedAt: Date; journalIndex: number | null }[]>`
+      SELECT tag, checksum, status, applied_at AS "appliedAt", journal_index AS "journalIndex"
+      FROM public.app_migration_journal
+      ORDER BY journal_index NULLS FIRST, applied_at, tag
     `;
-    const columnSet = new Set(journalColumns.map((column) => column.columnName));
-    const hasChecksum = columnSet.has("checksum");
-    const hasStatus = columnSet.has("status");
-    const hasJournalIndex = columnSet.has("journal_index");
-
-    const rows = hasChecksum && hasStatus && hasJournalIndex
-      ? await sql<{ tag: string; checksum: string | null; status: string; appliedAt: Date; journalIndex: number | null }[]>`
-          SELECT tag, checksum, status, applied_at AS "appliedAt", journal_index AS "journalIndex"
-          FROM public.app_migration_journal
-          ORDER BY journal_index NULLS FIRST, applied_at, tag
-        `
-      : await sql<{ tag: string; checksum: string | null; status: string; appliedAt: Date; journalIndex: number | null }[]>`
-          SELECT tag, NULL::text AS checksum, 'completed'::text AS status, applied_at AS "appliedAt", NULL::integer AS "journalIndex"
-          FROM public.app_migration_journal
-          ORDER BY applied_at, tag
-        `;
 
     const liveTags = new Set(rows.map((row) => row.tag));
     const missing = expectedTags.filter((tag) => !liveTags.has(tag));
@@ -87,6 +72,8 @@ async function main() {
       FROM pg_constraint c
       WHERE c.contype = 'f'
         AND c.connamespace = 'public'::regnamespace
+        -- A FK to a partitioned table gets one internal clone per partition (conparentid set).
+        AND c.conparentid = 0
       GROUP BY c.conrelid, c.conkey
       HAVING count(*) > 1
       ORDER BY 1, 2
@@ -99,20 +86,39 @@ async function main() {
       FROM pg_constraint c
       WHERE c.contype = 'f'
         AND c.connamespace = 'public'::regnamespace
+        AND c.conparentid = 0
         AND NOT EXISTS (
           SELECT 1
           FROM pg_index i
           WHERE i.indrelid = c.conrelid
             AND i.indisvalid
-            AND (i.indkey::smallint[])[0:cardinality(c.conkey) - 1] = c.conkey
+            -- FK lookups cannot use a partial index unless its predicate is "<fk column> IS NOT NULL".
+            AND (
+              i.indpred IS NULL
+              OR EXISTS (
+                SELECT 1 FROM unnest(c.conkey) AS fk(attnum)
+                JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = fk.attnum
+                WHERE pg_get_expr(i.indpred, i.indrelid) = '(' || quote_ident(a.attname) || ' IS NOT NULL)'
+              )
+            )
+            AND (
+              -- Leading columns are the FK columns, in any order.
+              (i.indkey::smallint[])[0:cardinality(c.conkey) - 1] @> c.conkey
+              -- A unique index on a subset already pins one row.
+              OR (i.indisunique AND c.conkey @> (i.indkey::smallint[])[0:i.indnkeyatts - 1])
+              -- Tenant FK (project_id, x): an index leading on x finds the rows; project_id only filters them.
+              OR (
+                cardinality(c.conkey) = 2
+                AND (i.indkey::smallint[])[0] = ANY (c.conkey)
+                AND 'project_id' = ANY (ARRAY(SELECT a.attname FROM pg_attribute a WHERE a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)))
+                AND (SELECT a.attname FROM pg_attribute a WHERE a.attrelid = c.conrelid AND a.attnum = (i.indkey::smallint[])[0]) <> 'project_id'
+              )
+            )
         )
       ORDER BY 1, 2
     `;
 
     const errors: string[] = [];
-    if (!hasChecksum || !hasStatus || !hasJournalIndex) {
-      errors.push("app_migration_journal is missing checksum/status/journal_index columns; run the migration setup in an approved deployment.");
-    }
     if (missing.length > 0) errors.push(`missing applied migrations: ${missing.join(", ")}`);
     if (unexpected.length > 0) errors.push(`unexpected live migration tags: ${unexpected.join(", ")}`);
     if (incomplete.length > 0) {
