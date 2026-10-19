@@ -199,3 +199,31 @@ describe("outbound URL safeguards", () => {
     assert.equal(existsSync("src/lib/security/ssrf-guard.ts"), false);
   });
 });
+
+describe("pinned egress transport (SEC-006)", () => {
+  it("connects to the validated address, not to whatever the hostname resolves to", async () => {
+    const { createServer } = await import("node:http");
+    const { fetchPinnedToAddresses } = await import("@/lib/security/outbound-url");
+    const server = createServer((req, res) => {
+      res.setHeader("set-cookie", ["a=1", "b=2"]);
+      res.end(`host=${req.headers.host} enc=${req.headers["accept-encoding"]}`);
+    });
+    await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+    try {
+      const port = (server.address() as { port: number }).port;
+      // "pinned.invalid" never resolves: success proves the supplied address was used.
+      const response = await fetchPinnedToAddresses(new URL(`http://pinned.invalid:${port}/x`), { headers: { accept: "text/plain" } }, ["127.0.0.1"]);
+      assert.equal(response.status, 200);
+      assert.equal(await response.text(), `host=pinned.invalid:${port} enc=identity`);
+      assert.deepEqual(response.headers.getSetCookie(), ["a=1", "b=2"]);
+    } finally {
+      server.close();
+    }
+  });
+
+  it("the default fetch path no longer uses the global fetch", () => {
+    const source = readFileSync("src/lib/security/outbound-url.ts", "utf8");
+    assert.doesNotMatch(source, /input\.fetchImpl \?\? fetch/);
+    assert.match(source, /fetchPinnedToAddresses\(currentUrl, init, hop\.addresses\)/);
+  });
+});
