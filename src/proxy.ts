@@ -90,6 +90,7 @@ const STATIC_LEGAL_PATHS = new Set([
   "/privacy",
   "/security-reporting",
   "/subprocessors",
+  "/support",
   "/terms",
 ]);
 
