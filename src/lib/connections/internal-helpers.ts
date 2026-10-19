@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 export async function revalidateConnectionsPaths() {
     revalidatePath('/network');
     revalidatePath('/my-profile');
+    revalidatePath('/u/[username]', 'page');
     revalidatePath('/messages');
 }
 
@@ -46,6 +47,8 @@ export async function invalidateDiscoverCacheForUsers(userIds: Iterable<string |
     );
     if (uniqueUserIds.length === 0) return;
     await Promise.allSettled(uniqueUserIds.map((userId) => invalidateDiscoverCacheForUser(userId))).catch(console.error);
+    // One revision invalidates previews across viewers; old entries expire normally.
+    await redis?.incr('search:preview:people:revision').catch(() => undefined);
 }
 
 export async function applyConnectionPairsToRedis(

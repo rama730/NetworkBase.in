@@ -1,0 +1,89 @@
+{
+  "id": "2026-10-16-network-browse-toolbar",
+  "title": "Discover-consistent Network toolbar with complete filtered browsing",
+  "summary": "Align Network spacing, tab baseline and compact search/Filters controls with Discover, reuse one responsive filter-panel shell across both pages, keep invitation/connection sorting inside Network Filters, and preserve per-section URL state with complete server-side filtered browsing.",
+  "riskLevel": "high",
+  "runtimePlanes": [
+    "request",
+    "database"
+  ],
+  "routeClasses": [
+    "user_shell",
+    "active_surface"
+  ],
+  "dataSourcesChanged": [
+    "Extend the existing connection-feed reader with public skills, literal location, saved collaboration and live shared-connection predicates before LIMIT.",
+    "Read pending connection requests, project invitations and incoming applications through one scoped, keyset-paginated Network reader with complete-result search and direction/type filtering.",
+    "Reuse canonical skill visibility and mutual-count projections for filtering and person-card detail. No schema change, persisted data rewrite, additional polling or mutation-service change."
+  ],
+  "canonicalLogicDomains": [
+    "connection_feed",
+    "profile_display",
+    "relationship_actions"
+  ],
+  "concurrencyRisk": "Each tab has a separate URL state and query key. Invitation reads use the existing pending invalidation prefix without entering the pending-request optimistic cache shape. Existing handlers retain decisions and error feedback; filtered views hide global Cancel all. Cursor tuples include source and id and preserve database microseconds. Privacy is checked before filters and metadata projection; blocked, deleted, expired and unauthorized items are excluded. Failed next-page reads retain existing cards and require explicit retry.",
+  "observability": {
+    "logs": [
+      "network.invitations_read_failed",
+      "Existing connections.card_details_failed"
+    ],
+    "metrics": [
+      "Existing connections.feed.action timing"
+    ],
+    "alerts": []
+  },
+  "rollback": {
+    "strategy": "Revert only this toolbar/browse change set, preserving pre-existing person-card, rail, settings and Messages work. No database rollback is needed.",
+    "validation": [
+      "Existing relationship and project review actions still work",
+      "Canonical private skills cannot match public filters",
+      "Unfiltered Network lists still paginate and all tabs retain their existing access rules"
+    ]
+  },
+  "evidence": {
+    "commands": [
+      "npm run build",
+      "npx tsc --noEmit",
+      "npx eslint <changed source and new test files>",
+      "npx tsx --test tests/unit/network-browse-query.test.ts tests/unit/connections-feed-performance.test.ts tests/unit/person-card.test.ts tests/unit/person-card-bounds.test.ts tests/unit/discovery-people-rail-contract.test.ts",
+      "DATABASE_URL_FRESH=<disposable> npx tsx --test --test-concurrency=1 tests/db/network-browse.test.ts tests/db/connections-paging.test.ts tests/db/person-card.test.ts",
+      "npx playwright test -c tests/browser/playwright.config.ts rails.spec.ts person-card.spec.ts --project=chromium --project=webkit",
+      "npm run check:query-key-contract",
+      "npm run check:canonical-logic-contract",
+      "npm run check:impact-review",
+      "npm run check:data-shape-contract"
+    ],
+    "reports": [
+      "docs/audits/network-browse-toolbar-2026-10-16.md",
+      "docs/audits/network-filter-panel-2026-10-16.md",
+      "docs/audits/network-loading-2026-10-16.md"
+    ]
+  },
+  "paths": [
+    "src/lib/network/browse-query.ts",
+    "src/lib/network/person-filter-sql.ts",
+    "src/lib/network/person-card-read.ts",
+    "src/app/actions/network-invitations.ts",
+    "src/app/actions/connections.ts",
+    "src/lib/query-keys.ts",
+    "src/hooks/useConnections.ts",
+    "src/app/globals.css",
+    "src/components/network/NetworkClient.tsx",
+    "src/components/network/NetworkRouteSkeleton.tsx",
+    "src/components/network/NetworkFilters.tsx",
+    "src/components/network/NetworkPeopleTab.tsx",
+    "src/components/network/ConnectionsClient.tsx",
+    "src/components/network/InvitationsClient.tsx",
+    "src/components/network/PersonCard.tsx",
+    "tests/unit/network-browse-query.test.ts",
+    "tests/unit/connections-feed-performance.test.ts",
+    "tests/db/network-browse.test.ts",
+    "tests/browser/rails.spec.ts",
+    "tests/browser/person-card.spec.ts",
+    "docs/design/networkbase-application-design-specification.html",
+    "src/components/ui/filter-panel.tsx",
+    "src/components/discover/DiscoverFiltersPanel.tsx",
+    "tests/browser/rails.fixture.tsx",
+    "src/components/ui/ComponentErrorBoundary.tsx"
+  ]
+}

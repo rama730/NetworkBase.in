@@ -1,12 +1,20 @@
 "use server";
 
+import { personFilterSql } from '@/lib/network/person-filter-sql';
+import type { NetworkPersonFilters } from '@/lib/network/browse-query';
+import { readPersonCardDetails } from '@/lib/network/person-card-read';
+import type { PersonCardDetails } from '@/lib/network/person-card';
 import { db } from '@/lib/db';
+import { getConnectionStatsForUser } from '@/lib/connections/stats';
+import { readSharedConnections } from '@/lib/connections/shared';
+import { DISCOVER_RAIL_CARD_COUNT } from '@/lib/discover/query';
+import { isLooseUuid } from '@/lib/validations/uuid';
 import { z } from 'zod';
 import { connectionSuggestionDismissals, connectionSuggestions, connections, profiles, projects, roleApplications } from '@/lib/db/schema';
 import { countPendingInvitationsForCandidate } from '@/lib/projects/project-invitations';
 import { getAuthUser } from '@/lib/supabase/auth-user';
 import { IdempotencyConflictError, runIdempotent } from '@/lib/security/idempotency';
-import { eq, and, or, desc, asc, sql, inArray, isNull } from 'drizzle-orm';
+import { eq, and, or, desc, asc, sql, inArray, isNull, type SQL } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
@@ -17,6 +25,7 @@ import {
 import { runInFlightDeduped } from '@/lib/utils/inflight-dedupe';
 import { APPLICATION_BANNER_HIDE_AFTER_MS } from '@/lib/applications/banner-lifecycle';
 import { redis, getCachedData, cacheData } from '@/lib/redis';
+import { visibleLastActiveAt } from '@/lib/presence/sql';
 import {
     applyConnectionPairsToRedis,
     invalidateDiscoverCacheForUsers,
@@ -25,7 +34,6 @@ import {
 import { queueCounterRefreshBestEffort } from '@/lib/workspace/counter-buffer';
 import { recordPrivacyReadEvents } from '@/lib/privacy/audit';
 import { buildViewerScopedProfileView } from '@/lib/privacy/profile-views';
-import { visibleLastActiveAt } from '@/lib/presence/sql';
 import {
     resolvePrivacyRelationship,
     resolvePrivacyRelationships,
@@ -52,34 +60,15 @@ export async function readNetworkPendingCountsAction() {
         const user = await getAuthUser();
         if (!user) return { success: false as const, error: 'Not authenticated', pendingConnections: 0, pendingInvites: 0, totalConnections: 0 };
 
-        const [connectionCount, inviteCount, acceptedCount] = await Promise.all([
-            db
-                .select({ count: sql<number>`COUNT(*)::int` })
-                .from(connections)
-                .innerJoin(profiles, eq(profiles.id, connections.requesterId))
-                .where(and(
-                    eq(connections.addresseeId, user.id),
-                    eq(connections.status, 'pending'),
-                    isNull(profiles.deletedAt),
-                )),
-            countPendingInvitationsForCandidate(user.id).then((count) => [{ count }]),
-            db
-                .select({ count: sql<number>`COUNT(*)::int` })
-                .from(connections)
-                .where(and(
-                    eq(connections.status, 'accepted'),
-                    or(
-                        eq(connections.requesterId, user.id),
-                        eq(connections.addresseeId, user.id)
-                    )
-                )),
+        const [stats, pendingInvites] = await Promise.all([
+            getConnectionStatsForUser(user.id),
+            countPendingInvitationsForCandidate(user.id),
         ]);
-
         return {
             success: true as const,
-            pendingConnections: Number(connectionCount[0]?.count ?? 0),
-            pendingInvites: Number(inviteCount[0]?.count ?? 0),
-            totalConnections: Number(acceptedCount[0]?.count ?? 0),
+            pendingConnections: stats.pendingIncoming,
+            pendingInvites,
+            totalConnections: stats.totalConnections,
         };
     } catch (error) {
         logger.error('connections.pending_counts_failed', {
@@ -90,7 +79,7 @@ export async function readNetworkPendingCountsAction() {
     }
 }
 
-export interface SuggestedProfile {
+export interface SuggestedProfile extends PersonCardDetails {
     id: string;
     username: string | null;
     fullName: string | null;
@@ -102,7 +91,7 @@ export interface SuggestedProfile {
     canConnect?: boolean;
     profileVisibility?: 'public' | 'connections' | 'private';
     isLockedProfile?: boolean;
-    mutualConnections?: number;
+    mutualConnections?: number | null;
     recommendationReason?: string;
     projects?: Array<{ id: string; title: string; status: string | null }>;
     experienceLevel?: 'student' | 'junior' | 'mid' | 'senior' | 'lead' | 'founder' | null;
@@ -117,7 +106,7 @@ export interface SuggestedProfile {
 
 export type ConnectionsFeedTab = 'network' | 'requests_incoming' | 'requests_sent' | 'discover';
 
-export interface DiscoverFilters {
+export interface DiscoverFilters extends NetworkPersonFilters {
     seniorPlus?: boolean;
     hasMutuals?: boolean;
     hasSharedProjects?: boolean;
@@ -138,6 +127,7 @@ export interface ConnectionsFeedInput {
     cursor?: string;
     search?: string;
     includeMeta?: boolean;
+    includeSharedConnections?: boolean;
     sortBy?: 'recent' | 'name' | 'oldest';
     filters?: DiscoverFilters;
     historyFilters?: HistoryFilters;
@@ -205,6 +195,9 @@ async function applySuggestedProfilePrivacy(
             headline: scoped?.headline ?? null,
             location: scoped?.location ?? null,
             projects: [],
+            portfolio: null,
+            openToCollaborate: null,
+            mutualConnections: null,
             skills: scoped?.skills ?? [],
             interests: scoped?.interests ?? [],
             openTo: scoped?.openTo ?? [],
@@ -315,8 +308,8 @@ type MutualConnectionsCursor = {
 
 type ParsedConnectionsCursor = DateConnectionsCursor | NameConnectionsCursor | MutualConnectionsCursor;
 
-function encodeConnectionsCursor(updatedAt: Date, id: string, sortMode: 'recent' | 'oldest', rank?: number) {
-    const base = `${CONNECTIONS_DATE_CURSOR_PREFIX}${sortMode}${CONNECTIONS_CURSOR_DELIMITER}${updatedAt.toISOString()}${CONNECTIONS_CURSOR_DELIMITER}${id}`;
+function encodeConnectionsCursor(updatedAt: Date | string, id: string, sortMode: 'recent' | 'oldest', rank?: number) {
+    const base = `${CONNECTIONS_DATE_CURSOR_PREFIX}${sortMode}${CONNECTIONS_CURSOR_DELIMITER}${typeof updatedAt === 'string' ? updatedAt : updatedAt.toISOString()}${CONNECTIONS_CURSOR_DELIMITER}${id}`;
     return rank === undefined ? base : `${base}${CONNECTIONS_CURSOR_DELIMITER}${rank}`;
 }
 
@@ -413,7 +406,7 @@ function parseConnectionsCursor(cursor?: string): ParsedConnectionsCursor | null
     return {
         kind: 'date',
         sortMode,
-        updatedAt: parsedDate.toISOString(),
+        updatedAt: /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{1,6}Z$/.test(dateRaw) ? dateRaw : parsedDate.toISOString(),
         id,
         ...(rank !== undefined && Number.isFinite(rank) ? { rank } : {}),
     };
@@ -506,7 +499,7 @@ function buildDiscoverProfileSearchCondition(searchTokens: string[]) {
 }
 
 function buildConnectionDateCursorCondition(params: {
-    column: typeof connections.updatedAt | typeof connections.createdAt | typeof profiles.updatedAt;
+    column: typeof connections.updatedAt | typeof connections.createdAt | typeof profiles.updatedAt | SQL;
     idColumn?: typeof connections.id | typeof profiles.id;
     isoValue: string;
     id?: string | null;
@@ -523,36 +516,15 @@ function buildConnectionDateCursorCondition(params: {
     )`;
 }
 
+// An availability pause removes the role boost immediately, before worker refresh.
+const suggestionScore = sql<number>`GREATEST(0, ${connectionSuggestions.score} - CASE
+    WHEN NOT ${profiles.openToCollaborate} AND ${connectionSuggestions.reason} LIKE 'Matches your open role:%' THEN 50 ELSE 0 END)`;
+
 function buildSuggestionScoreCursorCondition(cursor: { score: number; id: string }) {
     return sql`(
-        ${connectionSuggestions.score} < ${cursor.score}
-        OR (${connectionSuggestions.score} = ${cursor.score} AND ${connectionSuggestions.suggestedUserId} < ${cursor.id})
+        ${suggestionScore} < ${cursor.score}
+        OR (${suggestionScore} = ${cursor.score} AND ${connectionSuggestions.suggestedUserId} < ${cursor.id})
     )`;
-}
-
-async function getConnectionStatsForUser(targetId: string): Promise<ConnectionsFeedStats> {
-    const [stats] = await db.select({
-        totalConnections: sql<number>`count(*) FILTER (
-            WHERE ${connections.status} = 'accepted'
-            AND (${connections.requesterId} = ${targetId} OR ${connections.addresseeId} = ${targetId})
-        )`,
-        pendingIncoming: sql<number>`count(*) FILTER (
-            WHERE ${connections.status} = 'pending'
-            AND ${connections.addresseeId} = ${targetId}
-        )`,
-        pendingSent: sql<number>`count(*) FILTER (
-            WHERE ${connections.status} = 'pending'
-            AND ${connections.requesterId} = ${targetId}
-        )`,
-    })
-        .from(connections)
-        .where(or(eq(connections.requesterId, targetId), eq(connections.addresseeId, targetId)));
-
-    return {
-        totalConnections: Number(stats?.totalConnections || 0),
-        pendingIncoming: Number(stats?.pendingIncoming || 0),
-        pendingSent: Number(stats?.pendingSent || 0),
-    };
 }
 
 function getSafeSearch(search?: string) {
@@ -579,6 +551,9 @@ const connectionsFeedInputSchema = z.object({
         hasMutuals: z.boolean().optional(),
         hasSharedProjects: z.boolean().optional(),
         openProfilesOnly: z.boolean().optional(),
+        skills: z.array(z.string().trim().min(1).max(80)).max(5).optional(),
+        location: z.string().trim().max(100).optional(),
+        openToCollaborate: z.boolean().optional(),
     }).strict().optional(),
     historyFilters: z.object({
         status: z.enum(CONNECTION_REQUEST_HISTORY_STATUSES).optional(),
@@ -588,6 +563,7 @@ const connectionsFeedInputSchema = z.object({
     }).strict().optional(),
     requestSortBy: z.enum(['recent', 'mutual', 'oldest']).optional(),
     includeMeta: z.boolean().optional(),
+    includeSharedConnections: z.boolean().optional(),
 });
 
 async function getConnectionsFeedImpl(
@@ -675,11 +651,13 @@ async function getConnectionsFeedImpl(
 
     if (tab === 'network') {
         const sortBy = input.sortBy ?? 'recent';
+        const connectedDate = sql<Date>`coalesce(${connections.acceptedAt}, ${connections.createdAt})`;
         const parsedCursor = rawParsedCursor?.sortMode === sortBy ? rawParsedCursor : null;
         const conditions = [
             eq(connections.status, 'accepted'),
             or(eq(connections.requesterId, user.id), eq(connections.addresseeId, user.id)),
             isNull(profiles.deletedAt),
+            ...personFilterSql(user.id, input.filters),
         ];
 
         if (searchPattern && safeSearch) conditions.push(searchTokens.length === 1
@@ -691,14 +669,14 @@ async function getConnectionsFeedImpl(
                 conditions.push(buildNameSortedConnectionsCursorCondition(parsedCursor));
             } else if (sortBy === 'oldest' && parsedCursor.kind === 'date') {
                 conditions.push(buildConnectionDateCursorCondition({
-                    column: connections.updatedAt,
+                    column: connectedDate,
                     isoValue: parsedCursor.updatedAt,
                     id: parsedCursor.id,
                     direction: 'after',
                 }));
             } else if (sortBy !== 'name' && parsedCursor.kind === 'date') {
                 conditions.push(buildConnectionDateCursorCondition({
-                    column: connections.updatedAt,
+                    column: connectedDate,
                     isoValue: parsedCursor.updatedAt,
                     id: parsedCursor.id,
                     direction: 'before',
@@ -713,8 +691,8 @@ async function getConnectionsFeedImpl(
                 desc(connections.id),
             ]
             : sortBy === 'oldest'
-                ? [asc(connections.updatedAt), asc(connections.id)]
-                : [desc(connections.updatedAt), desc(connections.id)];
+                ? [asc(connectedDate), asc(connections.id)]
+                : [desc(connectedDate), desc(connections.id)];
 
         const rows = await db
             .select({
@@ -724,6 +702,8 @@ async function getConnectionsFeedImpl(
                 status: connections.status,
                 createdAt: connections.createdAt,
                 updatedAt: connections.updatedAt,
+                acceptedAt: connections.acceptedAt,
+                sortDate: sql<string>`to_char(${connectedDate} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
                 profileId: profiles.id,
                 username: profiles.username,
                 fullName: profiles.fullName,
@@ -759,6 +739,7 @@ async function getConnectionsFeedImpl(
             status: row.status,
             createdAt: row.createdAt,
             updatedAt: row.updatedAt,
+            acceptedAt: row.acceptedAt,
             otherUser: {
                 id: row.profileId,
                 username: row.username,
@@ -779,6 +760,7 @@ async function getConnectionsFeedImpl(
             user.id,
             items.map((item) => item.otherUser.id).filter(Boolean),
         );
+        const cardDetails = await readPersonCardDetails(user.id, items.map(item => item.otherUser.id));
         const visibleItems = items.map((item) => {
             const relationship = networkRelationships.get(item.otherUser.id) ?? null;
             const scoped = buildViewerScopedProfileView({
@@ -809,7 +791,8 @@ async function getConnectionsFeedImpl(
                     avatarUrl: scoped?.avatarUrl ?? null,
                     headline: scoped?.headline ?? null,
                     location: scoped?.location ?? null,
-                    skills: scoped?.skills ?? [],
+                    skills: cardDetails[item.otherUser.id]?.skills ?? [],
+                    ...cardDetails[item.otherUser.id],
                     interests: scoped?.interests ?? [],
                     bio: scoped?.bio ?? null,
                     openTo: scoped?.openTo ?? [],
@@ -822,7 +805,7 @@ async function getConnectionsFeedImpl(
                             : null,
                 },
             };
-        });
+        }).filter(item => !item.otherUser.isUnavailable);
         after(async () => {
             try {
                 await recordPrivacyReadEvents({
@@ -842,10 +825,10 @@ async function getConnectionsFeedImpl(
 
         // The cursor holds the raw sort keys; the displayed names may have been redacted by privacy.
         const lastRawRow = rows[limit - 1];
-        const nextCursor = hasMore && visibleItems.length > 0 && lastRawRow
+        const nextCursor = hasMore && lastRawRow
             ? sortBy === 'name'
                 ? encodeConnectionsNameCursor(lastRawRow.fullName, lastRawRow.username, lastRawRow.id)
-                : encodeConnectionsCursor(visibleItems[visibleItems.length - 1]!.updatedAt, visibleItems[visibleItems.length - 1]!.id, sortBy)
+                : encodeConnectionsCursor(lastRawRow.sortDate, lastRawRow.id, sortBy)
             : null;
 
         recordPreview(visibleItems.length > 0 ? 'success' : 'empty', visibleItems.length);
@@ -943,7 +926,7 @@ async function getConnectionsFeedImpl(
             updatedAt: Date;
             message?: string | null;
             mutualCount?: number;
-                user: {
+                user: PersonCardDetails & {
                     id: string;
                     username: string | null;
                     fullName: string | null;
@@ -1015,6 +998,10 @@ async function getConnectionsFeedImpl(
             };
         }
 
+        async function enrichRequestPage(page: typeof dedupedItems) {
+            const details = await readPersonCardDetails(user!.id, page.map(item => item.user.id));
+            return page.map(item => ({ ...item, user: { ...item.user, ...details[item.user.id] } })).filter(item => !item.user.isUnavailable);
+        }
         if (isMutualRequestsSort) {
             const sortedItems = [...dedupedItems].sort(compareIncomingRequestsByMutual);
             const pagedItems = mutualCursor
@@ -1033,7 +1020,7 @@ async function getConnectionsFeedImpl(
                     items[items.length - 1]!.id,
                 )
                 : null;
-            return { success: true as const, items, hasMore, nextCursor, stats: await statsPromise };
+            return { success: true as const, items: await enrichRequestPage(items), hasMore, nextCursor, stats: await statsPromise };
         }
 
         const items = dedupedItems.slice(0, limit);
@@ -1045,7 +1032,7 @@ async function getConnectionsFeedImpl(
             )
             : null;
 
-        return { success: true as const, items, hasMore: rawHasMore, nextCursor, stats: await statsPromise };
+        return { success: true as const, items: await enrichRequestPage(items), hasMore: rawHasMore, nextCursor, stats: await statsPromise };
     }
 
     let suggestionCursor: { score: number; id: string } | null = null;
@@ -1079,7 +1066,7 @@ async function getConnectionsFeedImpl(
         discoverConditions.push(buildDiscoverProfileSearchCondition(searchTokens));
     }
     if (input.filters?.seniorPlus) discoverConditions.push(sql`${profiles.experienceLevel} IN ('senior', 'lead', 'founder')`);
-    if (input.filters?.hasMutuals) discoverConditions.push(sql`${connectionSuggestions.mutualConnectionsCount} > 0`);
+    discoverConditions.push(...personFilterSql(user.id, input.filters));
     if (input.filters?.openProfilesOnly) {
         // Null settings mean the defaults (public, everyone), as the privacy resolver reads them.
         discoverConditions.push(sql`coalesce(${profiles.visibility}, 'public') = 'public'`);
@@ -1094,8 +1081,9 @@ async function getConnectionsFeedImpl(
         .select({
             suggestedUserId: connectionSuggestions.suggestedUserId,
             mutualConnectionsCount: connectionSuggestions.mutualConnectionsCount,
-            score: connectionSuggestions.score,
-            reason: connectionSuggestions.reason,
+            score: suggestionScore,
+            reason: sql<string>`CASE WHEN NOT ${profiles.openToCollaborate} AND ${connectionSuggestions.reason} LIKE 'Matches your open role:%'
+                THEN ${connectionSuggestions.mutualConnectionsCount}::text || ' mutual connections' ELSE ${connectionSuggestions.reason} END`,
             username: profiles.username,
             fullName: profiles.fullName,
             avatarUrl: profiles.avatarUrl,
@@ -1113,11 +1101,11 @@ async function getConnectionsFeedImpl(
         .from(connectionSuggestions)
         .innerJoin(profiles, eq(profiles.id, connectionSuggestions.suggestedUserId))
         .where(and(...discoverConditions))
-        .orderBy(desc(connectionSuggestions.score), desc(connectionSuggestions.suggestedUserId))
+        .orderBy(desc(suggestionScore), desc(connectionSuggestions.suggestedUserId))
         .limit(limit + 1);
     const discoverQueryMs = Math.round(performance.now() - discoverQueryStartedAt);
 
-    let items = rows.slice(0, limit).map((row) => {
+    let items: Array<SuggestedProfile & { type: 'discover' }> = rows.slice(0, limit).map((row) => {
         const profileVisibility = (row.visibility || 'public') as SuggestedProfile['profileVisibility'];
         return {
             id: row.suggestedUserId,
@@ -1187,6 +1175,7 @@ async function getConnectionsFeedImpl(
                   AND existing.status IN ('accepted', 'blocked')
             )`);
         }
+        fallbackConditions.push(...personFilterSql(user.id, input.filters));
         if (input.filters?.seniorPlus) fallbackConditions.push(sql`${profiles.experienceLevel} IN ('senior', 'lead', 'founder')`);
         if (input.filters?.openProfilesOnly) {
             fallbackConditions.push(sql`coalesce(${profiles.visibility}, 'public') = 'public'`);
@@ -1209,6 +1198,14 @@ async function getConnectionsFeedImpl(
                 OR (${searchRank} = ${rawParsedCursor.rank}
                     AND (${profiles.updatedAt}, ${profiles.id}) < (${rawParsedCursor.updatedAt}::timestamptz, ${rawParsedCursor.id}::uuid))
             )`);
+        } else if (!searchPattern && rawParsedCursor?.kind === 'date') {
+            fallbackConditions.push(buildConnectionDateCursorCondition({
+                column: profiles.updatedAt,
+                idColumn: profiles.id,
+                isoValue: rawParsedCursor.updatedAt,
+                id: rawParsedCursor.id,
+                direction: 'before',
+            }));
         }
 
         const fallbackRows = await db
@@ -1262,7 +1259,7 @@ async function getConnectionsFeedImpl(
                 canConnect: true,
                 profileVisibility,
                 isLockedProfile: profileVisibility !== 'public',
-                mutualConnections: 0,
+                mutualConnections: undefined,
                 recommendationReason: "Suggested for your network",
                 experienceLevel: row.experienceLevel as SuggestedProfile['experienceLevel'],
                 openTo: (row.openTo as string[]) ?? [],
@@ -1275,7 +1272,11 @@ async function getConnectionsFeedImpl(
         });
     }
     const privacyStartedAt = performance.now();
-    const privateAware = await applySuggestedProfilePrivacy(user.id, items);
+    const cardDetails = await readPersonCardDetails(user.id, items.map(item => item.id));
+    const privateAware = (await applySuggestedProfilePrivacy(user.id, items)).map(item => item.isLockedProfile
+            ? { ...item, skills: [], portfolio: null, openToCollaborate: null, mutualConnections: null, isUnavailable: cardDetails[item.id]?.isUnavailable }
+            : { ...item, ...cardDetails[item.id] })
+        .filter(item => item.id !== user.id && item.connectionStatus !== 'blocked' && !item.isUnavailable);
     // The Discover rail suggests people you can actually connect with (not "mutuals only" strangers).
     const visibleItems = input.filters?.openProfilesOnly
         ? privateAware.filter((item) => item.connectionStatus !== 'none' || item.canConnect !== false)
@@ -1323,6 +1324,12 @@ async function getConnectionsFeedImpl(
         stats,
         viewerProjectIds: viewerProjects.map((project) => project.id),
         viewerSkills: (viewerProfiles[0]?.skills as string[]) ?? [],
+        sharedConnections: input.includeSharedConnections
+            ? await readSharedConnections(user.id, visibleItems.slice(0, DISCOVER_RAIL_CARD_COUNT).map(item => item.id)).catch(error => {
+                logger.warn('connections.shared_summary_failed', { error: error instanceof Error ? error.message : String(error) });
+                return undefined;
+            })
+            : undefined,
     };
 }
 
@@ -1346,9 +1353,13 @@ export async function getConnectionsFeed(input: ConnectionsFeedInput) {
         filters: input.filters ?? null,
         historyFilters: input.historyFilters ?? null,
         requestSortBy: input.requestSortBy ?? null,
+        includeSharedConnections: input.includeSharedConnections === true,
     });
+    const previewRevision = !includeMeta && safeSearch && !input.cursor
+        ? await redis?.get<number>('search:preview:people:revision').catch(() => 0) ?? 0
+        : 0;
     const cacheKey = !includeMeta && safeSearch && !input.cursor
-        ? `search:preview:people:v2:${user.id}:${requestShape}`
+        ? `search:preview:people:v4:${previewRevision}:${user.id}:${requestShape}`
         : null;
 
     if (cacheKey) {
@@ -1367,6 +1378,7 @@ export async function getConnectionsFeed(input: ConnectionsFeedInput) {
         search: safeSearch,
         includeMeta,
         sortBy: input.sortBy ?? 'recent',
+        includeSharedConnections: input.includeSharedConnections === true,
         filters: input.filters ?? null,
         historyFilters: input.historyFilters ?? null,
         requestSortBy: input.requestSortBy ?? null,
@@ -2102,6 +2114,7 @@ export async function acceptConnectionRequest(
                     }
                 }
 
+                await revalidateConnectionsPaths();
                 after(async () => {
                     try {
                         await queueCounterRefreshBestEffort([acceptedRequesterId, acceptedAddresseeId]);
@@ -2111,7 +2124,6 @@ export async function acceptConnectionRequest(
                                 { name: 'workspace/connections.sync_suggestions', data: { userId: acceptedAddresseeId } },
                             ]).catch(console.error);
                         }
-                        await revalidateConnectionsPaths();
                     } catch (err) {
                         console.error('[acceptConnectionRequest] Background tasks failed:', err);
                     }
@@ -2355,13 +2367,13 @@ export async function getAcceptedConnections(
     const user = await getAuthUser();
     const userIdToFetch = targetUserId || user?.id;
 
-    if (!userIdToFetch) return { connections: [], hasMore: false, nextCursor: null };
+    if (!userIdToFetch) return { success: false as const, error: 'Not authenticated', connections: [], hasMore: false, nextCursor: null, totalConnections: null };
 
     // C1: Rate limit to prevent enumeration
     if (user?.id) {
         const rate = await consumeRateLimit(`connections-accepted:${user.id}`, 60, 60);
         if (!rate.allowed) {
-            return { connections: [], hasMore: false, nextCursor: null };
+            return { success: false as const, error: 'Too many requests. Please try again shortly.', connections: [], hasMore: false, nextCursor: null, totalConnections: null };
         }
     }
 
@@ -2374,10 +2386,12 @@ export async function getAcceptedConnections(
         });
 
         if (!feed.success) {
-            return { connections: [], hasMore: false, nextCursor: null };
+            return { success: false as const, error: feed.error, connections: [], hasMore: false, nextCursor: null, totalConnections: null };
         }
 
         return {
+            success: true as const,
+            totalConnections: feed.stats.totalConnections,
             connections: (feed.items as NetworkFeedItem[]).map((item) => ({
                 id: item.id,
                 requesterId: item.requesterId,
@@ -2395,7 +2409,7 @@ export async function getAcceptedConnections(
     // Another person's network: same rule as viewing their profile, blocks included (COR-029).
     const targetRelationship = await resolvePrivacyRelationship(user?.id ?? null, targetUserId);
     if (!targetRelationship?.canViewProfile) {
-        return { connections: [], hasMore: false, nextCursor: null };
+        return { success: false as const, error: 'This connection list is not available.', connections: [], hasMore: false, nextCursor: null, totalConnections: null };
     }
 
     const normalizedSearch = normalizeSearchQuery(search || '').toLowerCase();
@@ -2498,7 +2512,8 @@ export async function getAcceptedConnections(
         };
     });
 
-    return { connections: enrichedConnections, hasMore, nextCursor };
+    const stats = await getConnectionStatsForUser(userIdToFetch);
+    return { success: true as const, connections: enrichedConnections, hasMore, nextCursor, totalConnections: stats.totalConnections };
 }
 // ============================================================================
 // CHECK CONNECTION STATUS
@@ -2676,5 +2691,39 @@ export async function withdrawAllSentConnectionRequests(): Promise<{ success: bo
     } catch (error) {
         console.error('connections.withdraw_all_sent_failed', { error });
         return { success: false, error: 'Failed to withdraw requests' };
+    }
+}
+
+export async function getProfileConnectionCountAction(profileId: string) {
+    if (!isLooseUuid(profileId)) {
+        return { success: false as const, error: 'Invalid profile' };
+    }
+    const viewer = await getAuthUser();
+    const relationship = await resolvePrivacyRelationship(viewer?.id ?? null, profileId);
+    if (!relationship?.canViewProfile) return { success: false as const, error: 'Profile unavailable' };
+    const rate = await consumeRateLimit(`profile:connection-count:${viewer?.id ?? profileId}`, 60, 60);
+    if (!rate.allowed) return { success: false as const, error: 'Too many requests' };
+    const stats = await getConnectionStatsForUser(profileId);
+    return { success: true as const, connectionsCount: stats.totalConnections };
+}
+
+/** On-demand identities: a count in a feed never authorizes reading the people behind it. */
+export async function readPersonSharedConnectionsAction(input: { targetId: string; offset?: number }) {
+    const parsed = z.object({ targetId: z.string().uuid(), offset: z.number().int().min(0).max(10000).optional() }).safeParse(input);
+    const user = await getAuthUser();
+    if (!user || !parsed.success || parsed.data.targetId === user.id) return { success: false as const, error: 'Shared connections are unavailable.' };
+    try {
+        const rate = await consumeRateLimit(`person-shared:${user.id}`, 60, 60);
+        if (!rate.allowed) return { success: false as const, error: 'Please wait before trying again.' };
+        const relationship = await resolvePrivacyRelationship(user.id, parsed.data.targetId);
+        if (!relationship?.canViewProfile) return { success: false as const, error: 'This profile is no longer available.' };
+        const summary = await readSharedConnections(user.id, [parsed.data.targetId], { limit: 20, offset: parsed.data.offset });
+        if (parsed.data.offset && !summary.people.length) return { success: false as const, error: 'Shared connections changed. Retry to reload the list.' };
+        const stillPermitted = await resolvePrivacyRelationship(user.id, parsed.data.targetId);
+        if (!stillPermitted?.canViewProfile) return { success: false as const, error: 'This profile is no longer available.' };
+        return { success: true as const, summary };
+    } catch (error) {
+        logger.warn('connections.shared_people_failed', { error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: 'Could not load shared connections. Try again.' };
     }
 }
