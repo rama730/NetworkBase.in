@@ -20,6 +20,9 @@ export function getCreateProjectReturnPath(location: Pick<Location, 'pathname' |
     const searchParams = new URLSearchParams(location.search);
     searchParams.delete('createProject');
     searchParams.delete('createProjectSource');
+    searchParams.delete('githubIdentity');
+    searchParams.delete('error');
+    searchParams.delete('error_description');
     const search = searchParams.toString();
     return `${location.pathname}${search ? `?${search}` : ''}${location.hash}`;
 }

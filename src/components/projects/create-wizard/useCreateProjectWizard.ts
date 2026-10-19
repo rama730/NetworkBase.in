@@ -5,7 +5,6 @@ import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createProjectSchema, type CreateProjectInput, type OpenRoleInput } from '@/lib/validations/project';
 import { DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY } from '@/lib/projects/settings-policies';
-import { generateSlug, generateProjectId } from '@/lib/utils/project-ids';
 import { toast } from 'sonner';
 import { TOTAL_PHASES, WizardPhaseId } from '@/constants/project-wizard';
 import { createProjectAction } from '@/app/actions/project';
@@ -16,6 +15,7 @@ import { getLifecycleStagesForProjectType } from '@/lib/projects/lifecycle-templ
 import { buildProjectDocStarterDraft } from '@/lib/projects/doc-create-intent';
 import { buildProjectImportEventId, buildUploadManifestHash } from '@/lib/import/idempotency';
 import { buildProjectFileKey } from '@/lib/storage/project-file-key';
+import { useAuth } from '@/hooks/use-auth';
 
 export interface WizardContextType {
     openRoles: OpenRoleInput[];
@@ -28,7 +28,6 @@ export interface WizardContextType {
 interface UseCreateProjectWizardProps {
     onClose: () => void;
     onSuccess?: (projectId: string) => void;
-    draftId?: string;
     initialValues?: CreateProjectInput;
     initialPhase?: WizardPhaseId;
 }
@@ -37,8 +36,14 @@ interface UseCreateProjectWizardProps {
  * useCreateProjectWizard - The master hook for project creation.
  * Pure Optimization: Unified constants, reactive draft management, and scalable logic.
  */
-export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialValues, initialPhase = 1 }: UseCreateProjectWizardProps) {
+export function useCreateProjectWizard({ onClose, onSuccess, initialValues, initialPhase = 1 }: UseCreateProjectWizardProps) {
+    const { user } = useAuth();
+    const userId = user?.id || null;
     const [phase, setPhase] = useState<WizardPhaseId>(initialPhase);
+    const phaseRef = useRef<WizardPhaseId>(phase);
+    useEffect(() => {
+        phaseRef.current = phase;
+    }, [phase]);
     const [uploadFiles, setUploadFiles] = useState<FileList | null>(null);
     // Step 4 project picture: held in memory, uploaded right after the project exists.
     const [projectImage, setProjectImage] = useState<File | null>(null);
@@ -83,7 +88,6 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
             technologies_used: [],
             lifecycle_stages: [],
             current_stage_index: 0,
-            goals: [],
             creator_role: {
                 role_type: 'lead',
                 title: '',
@@ -344,7 +348,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
     useEffect(() => {
         const checkDraft = async () => {
             const { draftStore } = await import('@/lib/storage/draft-store');
-            const info = await draftStore.getInfo();
+            const info = await draftStore.getInfo(userId);
             if (info.exists) {
                 setDraftInfo({
                     exists: true,
@@ -354,40 +358,53 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
             }
         };
         checkDraft();
-    }, []);
+    }, [userId]);
 
     const restoreDraft = useCallback(async () => {
         const { draftStore } = await import('@/lib/storage/draft-store');
-        const draft = await draftStore.load();
+        const draft = await draftStore.load(userId);
         if (draft) {
             reset(draft);
             if (draft._timestamp) setLastSaved(new Date(draft._timestamp));
-            if (draft._phase) setPhase(draft._phase as WizardPhaseId);
+            let targetPhase = (draft._phase || 1) as WizardPhaseId;
+            // Validate step by step up to targetPhase to ensure user doesn't land on a later phase with invalid earlier data
+            if (targetPhase > 1) {
+                const source = draft.import_source?.type;
+                if (!source || (source === 'github' && !draft.import_source?.repoUrl)) {
+                    targetPhase = 1;
+                }
+            }
+            if (targetPhase > 2) {
+                const titleValid = typeof draft.title === 'string' && draft.title.trim().length >= 3;
+                const descValid = typeof draft.description === 'string' && draft.description.trim().length >= 20;
+                const typeValid = typeof draft.project_type === 'string' && draft.project_type.trim().length > 0;
+                const customTypeValid = draft.project_type !== 'other' || (typeof draft.custom_project_type === 'string' && draft.custom_project_type.trim().length > 0);
+                if (!titleValid || !descValid || !typeValid || !customTypeValid) {
+                    targetPhase = 2;
+                }
+            }
+            if (targetPhase > 3) {
+                if (Array.isArray(draft.roles)) {
+                    const hasInvalidRole = draft.roles.some((r: any) => !r.role || !r.role.trim());
+                    if (hasInvalidRole) targetPhase = 3;
+                }
+            }
+            setPhase(targetPhase);
             setDraftInfo(null);
             toast.success("Draft restored");
         }
-    }, [reset]);
+    }, [reset, userId]);
 
     const deleteDraft = useCallback(async () => {
         const { draftStore } = await import('@/lib/storage/draft-store');
 
-        // 1. Server-side deep wipe (if draftId exists)
-        if (draftId) {
-            try {
-                const { deleteProjectDraftAction } = await import('@/app/actions/project');
-                await deleteProjectDraftAction(draftId);
-            } catch (err) {
-                console.error("Server draft wipe failed", err);
-            }
-        }
-
-        // 2. Client-side total wipe
-        await draftStore.clear();
+        // Client-side total wipe
+        await draftStore.clear(userId);
         setDraftInfo(null);
         reset();
         setPhase(1);
         toast.success("Draft erased completely");
-    }, [draftId, reset]);
+    }, [reset, userId]);
 
     const saveDraft = useCallback(async (silent = false) => {
         if (!silent) {
@@ -396,7 +413,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
         }
         try {
             const { draftStore } = await import('@/lib/storage/draft-store');
-            await draftStore.save(getValues(), phase);
+            await draftStore.save(getValues(), phaseRef.current, userId);
             setLastSaved(new Date());
             if (!silent) {
                 setSaveStatus('saved');
@@ -409,13 +426,13 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
         } finally {
             if (!silent) setIsSavingDraft(false);
         }
-    }, [getValues, phase]);
+    }, [getValues, userId]);
 
-    // Auto-Save Optimization (Debounced subscription)
+    // Auto-Save Optimization (Debounced subscription covering both user and programmatic edits)
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     useEffect(() => {
-        const subscription = watch((_, { type }) => {
-            if (!isDirty || type === undefined) return;
+        const subscription = watch(() => {
+            if (!isDirty) return;
 
             if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
             saveTimeoutRef.current = setTimeout(() => saveDraft(true), 5000);
@@ -552,7 +569,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
                     toast.error('Finish adding the project link or clear the URL before continuing.');
                     isValid = false;
                 } else {
-                    isValid = await trigger(['visibility', 'external_links'], { shouldFocus: true });
+                    isValid = (await trigger(['visibility', 'external_links'], { shouldFocus: true })) && (await trigger(['lifecycle_stages']));
                 }
                 if (isValid) setPhase4ValidationAttempted(false);
             } else if (phase === 5) {
@@ -684,8 +701,6 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
             const result = await createProjectAction({
                 ...data,
                 roles: resolvedRoles,
-                slug: generateSlug(data.title.trim()),
-                project_id: generateProjectId(data.title.trim()),
             });
 
             if (!result.success || !result.project) throw new Error(result.error || 'Creation failed');
@@ -705,7 +720,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
                     import('@/app/actions/upload-import'),
                 ]);
 
-                const { getUploadPresignedUrl } = uploadActions;
+                const { getUploadPresignedUrl, getBatchUploadUrls } = uploadActions;
                 const { registerUploadedFolderAction, updateUploadSessionAction } = importActions;
                 const uploadProjectId = createdProjectId;
                 if (!uploadProjectId) {
@@ -749,7 +764,69 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
                     importEventId,
                 });
 
+                // Batch-cache presigned URLs up to 50 at a time to minimize server roundtrips
+                const presignCache = new Map<string, {
+                    url: string;
+                    uploadToken: string;
+                    storageKey: string;
+                    uploadIntentId: string;
+                }>();
+                let pendingBatchPromise: Promise<void> | null = null;
+                let nextBatchIndex = 0;
+
+                const fetchNextBatch = async () => {
+                    if (nextBatchIndex >= meta.length) return;
+                    const batchItems = meta.slice(nextBatchIndex, nextBatchIndex + 50).map((m) => ({
+                        key: m.key,
+                        contentType: m.mimeType,
+                        sizeBytes: m.size,
+                    }));
+                    nextBatchIndex += 50;
+
+                    try {
+                        const res = await getBatchUploadUrls(batchItems, { sessionId });
+                        if (!('error' in res)) {
+                            for (const item of batchItems) {
+                                const url = res.urls[item.key];
+                                const uploadToken = res.uploadTokens[item.key];
+                                const storageKey = res.storageKeys[item.key];
+                                const uploadIntentId = res.uploadIntentIds[item.key];
+                                if (url && storageKey && uploadIntentId) {
+                                    presignCache.set(item.key, {
+                                        url,
+                                        uploadToken: uploadToken || '',
+                                        storageKey,
+                                        uploadIntentId,
+                                    });
+                                }
+                            }
+                        }
+                    } catch {
+                        // Fall back transparently to single presign on batch failure
+                    }
+                };
+
                 const getPresignedUrl = async (key: string, contentType: string, sizeBytes: number) => {
+                    if (presignCache.has(key)) {
+                        return presignCache.get(key)!;
+                    }
+
+                    while (!presignCache.has(key) && nextBatchIndex < meta.length) {
+                        if (!pendingBatchPromise) {
+                            pendingBatchPromise = fetchNextBatch().finally(() => {
+                                pendingBatchPromise = null;
+                            });
+                        }
+                        await pendingBatchPromise;
+                        if (presignCache.has(key)) {
+                            return presignCache.get(key)!;
+                        }
+                    }
+
+                    if (presignCache.has(key)) {
+                        return presignCache.get(key)!;
+                    }
+
                     const single = await getUploadPresignedUrl(key, contentType, sizeBytes, { sessionId });
                     if ('error' in single) throw new Error(single.error);
                     return {
@@ -841,7 +918,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
             if (createdProjectId) await applyLaunchSettingsAfterCreate(createdProjectId);
 
             const { draftStore } = await import('@/lib/storage/draft-store');
-            await draftStore.clear();
+            await draftStore.clear(userId);
             skipDraftOnUnmountRef.current = true;
             // Success navigates to the new project; closing as well would navigate away from it.
             if (createdProjectId && onSuccess) onSuccess(createdProjectId);

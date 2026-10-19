@@ -52,6 +52,7 @@ import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { DISCOVER_ANON_CACHE_TAG } from "@/constants/discover";
 import { getViewerAuthContext, getViewerIdentityContext } from "@/lib/server/viewer-context";
 import {
+  createProjectSchema,
   CreateProjectInput,
   validateAndSanitizeLifecycleStages,
   updateProjectSchema,
@@ -60,7 +61,7 @@ import {
 import { markProfileCollaborationSummaryStale } from "@/lib/profile/collaboration";
 import { z } from "zod";
 import { createHash, randomUUID } from "crypto";
-import { generateSlug } from "@/lib/utils/slug";
+import { generateSlug, generateSlugBase, isReservedProjectSlug } from "@/lib/utils/slug";
 import { generateProjectKey } from "@/lib/project-key";
 import { resolveProjectDocPermission } from "@/lib/projects/doc";
 import {
@@ -938,7 +939,9 @@ function withLeadFocusMetadata(
   creatorRole: CreateProjectInput["creator_role"],
 ): ImportSourcePayload | null {
   const leadFocus = (creatorRole?.title || "").trim();
-  if (!importSource && !leadFocus) {
+  const roleType = creatorRole?.role_type || "lead";
+  const timeCommitment = typeof creatorRole?.time_commitment === "number" ? creatorRole.time_commitment : null;
+  if (!importSource && !leadFocus && !timeCommitment) {
     return null;
   }
 
@@ -949,6 +952,13 @@ function withLeadFocusMetadata(
     metadata.leadFocus = leadFocus;
   } else {
     delete metadata.leadFocus;
+  }
+
+  if (roleType) {
+    metadata.creatorRoleType = roleType;
+  }
+  if (timeCommitment !== null) {
+    metadata.creatorTimeCommitment = timeCommitment;
   }
 
   return {
@@ -2110,8 +2120,10 @@ async function readProjectDetailShellForActor(input: {
 
 // --- Create Action ---
 export async function createProjectAction(
-  input: CreateProjectInput & { slug?: string; project_id?: string },
+  rawInput: CreateProjectInput & { slug?: string; project_id?: string },
 ): Promise<CreateProjectResult> {
+  let acquiredLock = false;
+  let lockKey = "";
   try {
     const supabase = await createClient();
     const {
@@ -2124,6 +2136,54 @@ export async function createProjectAction(
         error: "You must be logged in to create a project",
       };
     }
+
+    // Rate limiting: 10 project creations per user per hour against automated spam
+    const { allowed: rateLimitAllowed } = await consumeRateLimit(
+      `create:project:user:${user.id}`,
+      10,
+      60 * 60,
+    );
+    if (!rateLimitAllowed) {
+      return {
+        success: false,
+        error: "You have created too many projects recently. Please wait a while before creating another.",
+      };
+    }
+
+    // Distributed in-flight lock per user prevents duplicate concurrent project creation
+    lockKey = `lock:create:project:user:${user.id}`;
+    if (redis) {
+      try {
+        const lockRes = await redis.set(lockKey, "1", { nx: true, ex: 15 });
+        if (!lockRes) {
+          return {
+            success: false,
+            error: "A project creation is already in progress. Please wait a moment.",
+          };
+        }
+        acquiredLock = true;
+      } catch {
+        // Redis failure must not fail project creation
+      }
+    }
+
+    // Runtime input validation via Zod schema
+    const parseResult = createProjectSchema
+      .extend({
+        slug: z.string().optional(),
+        project_id: z.string().optional(),
+      })
+      .safeParse(rawInput);
+
+    if (!parseResult.success) {
+      if (acquiredLock && redis) await redis.del(lockKey).catch(() => undefined);
+      return {
+        success: false,
+        error: parseResult.error.issues[0]?.message || "Invalid project details provided.",
+      };
+    }
+
+    const input = parseResult.data;
 
     const {
       data: { session },
@@ -2237,7 +2297,14 @@ export async function createProjectAction(
     const openRoles = (input.roles || []).filter((role) => role.role.trim().length > 0);
     const lookingForCollaborators = openRoles.length > 0;
 
-    let finalSlug = input.slug || generateSlug(input.title);
+    let requestedSlug = (input.slug || "").trim().toLowerCase();
+    if (requestedSlug && (isReservedProjectSlug(requestedSlug) || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(requestedSlug))) {
+      requestedSlug = "";
+    }
+    let finalSlug = requestedSlug || generateSlug(input.title);
+    if (isReservedProjectSlug(finalSlug)) {
+      finalSlug = `${generateSlugBase(input.title) || "project"}-${Math.random().toString(36).substring(2, 7)}`;
+    }
     // Initial Key Generation
     let finalKey = generateProjectKey(input.title);
 
@@ -2429,28 +2496,41 @@ export async function createProjectAction(
           return newProject;
         });
 
-        revalidatePath("/discover");
+        await invalidateProjectPublicCaches(result.id);
+        revalidatePath("/projects");
 
         // Add to Import Queue if applicable
         if (
           normalizedImportSourceWithLeadFocus?.type === "github" &&
           normalizedImportSourceWithLeadFocus.repoUrl
         ) {
-          const queueImportSource = clearSealedGithubTokenFromImportSource(
-            normalizedImportSourceWithLeadFocus,
-          ) as ImportSourcePayload;
-          const queueEventId = buildGithubImportEventId(
-            result.id,
-            queueImportSource.repoUrl!,
-            queueImportSource.branch || null,
-          );
-          await enqueueGithubImportOrRunInline({
-            projectId: result.id,
-            userId: user.id,
-            importSource: queueImportSource,
-            eventId: queueEventId,
-            source: "create",
-          });
+          try {
+            const queueImportSource = clearSealedGithubTokenFromImportSource(
+              normalizedImportSourceWithLeadFocus,
+            ) as ImportSourcePayload;
+            const queueEventId = buildGithubImportEventId(
+              result.id,
+              queueImportSource.repoUrl!,
+              queueImportSource.branch || null,
+            );
+            await enqueueGithubImportOrRunInline({
+              projectId: result.id,
+              userId: user.id,
+              importSource: queueImportSource,
+              eventId: queueEventId,
+              source: "create",
+            });
+          } catch (importErr) {
+            console.error("Failed to enqueue GitHub import after project creation:", importErr);
+            // Project row was already committed. Update syncStatus to failed so Files tab offers retry
+            await db
+              .update(projects)
+              .set({
+                syncStatus: "failed",
+              })
+              .where(eq(projects.id, result.id))
+              .catch(() => undefined);
+          }
         }
 
         return {
@@ -2471,20 +2551,15 @@ export async function createProjectAction(
             String(dbError.detail || "") +
             String(dbError.constraint_name || "");
           if (errorMsg.includes("slug")) {
-            if (input.slug) {
-              throw new Error(
-                "This project URL is already taken. Please choose another.",
-              );
-            }
             attempts++;
             const suffix = Math.random().toString(36).substring(2, 6);
-            finalSlug = `${generateSlug(input.title)}-${suffix}`;
+            finalSlug = `${generateSlugBase(input.title) || "project"}-${suffix}`;
             continue;
           }
           // Project Key Collision (e.g. "NB" already exists)
           if (errorMsg.includes("key")) {
             attempts++;
-            const suffix = Math.floor(Math.random() * 9) + 1;
+            const suffix = Math.random().toString(36).substring(2, 5).toUpperCase();
             finalKey = `${generateProjectKey(input.title)}${suffix}`;
             continue;
           }
@@ -2503,6 +2578,10 @@ export async function createProjectAction(
       error:
         error instanceof Error ? error.message : "An unexpected error occurred",
     };
+  } finally {
+    if (acquiredLock && redis) {
+      await redis.del(lockKey).catch(() => undefined);
+    }
   }
 }
 
@@ -3331,12 +3410,6 @@ type ProjectMemberNotificationSettingsResult =
     }
   | { success: false; message: string; errorCode: ProjectSettingsErrorCode };
 
-const projectSettingsPatchSchema = z.object({
-  visibility: z.enum(["public", "private"]).optional(),
-  lookingForCollaborators: z.boolean().optional(),
-  memberUpdatesEnabled: z.boolean().optional(),
-  maxCollaborators: z.string().trim().max(32).nullable().optional(),
-});
 
 function actorNotificationSnapshot(user: {
   user_metadata?: Record<string, unknown> | null;
