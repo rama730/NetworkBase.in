@@ -1555,6 +1555,13 @@
       "when": 1792342026016,
       "tag": "0224_presence_activity_authority",
       "breakpoints": true
+    },
+    {
+      "idx": 222,
+      "version": "7",
+      "when": 1792342027016,
+      "tag": "0225_deleted_projects_own_no_chat",
+      "breakpoints": true
     }
   ]
 }
