@@ -263,12 +263,15 @@ export async function emitNotificationWrites(
     // A notification is part of the visible product state, so persist it in
     // the source request. The worker remains a retry mechanism for a failed
     // subset; it is no longer a prerequisite for local or production delivery.
-    const deliveries = await Promise.all(chunks.map((chunk, index) =>
-        deliverNotificationFanout({
+    // Chunks run one after another: each already writes with NOTIFICATION_WRITE_CONCURRENCY, so
+    // running them together would multiply that across every chunk (PERF-004).
+    const deliveries: Awaited<ReturnType<typeof deliverNotificationFanout>>[] = [];
+    for (const [index, chunk] of chunks.entries()) {
+        deliveries.push(await deliverNotificationFanout({
             writes: chunk,
             source: chunks.length === 1 ? "source-action:inline" : `source-action:inline:${index + 1}/${chunks.length}`,
-        }, executor ?? db),
-    ));
+        }, executor ?? db));
+    }
     const failedWrites = deliveries.flatMap((result) => result.failedWrites);
     if (failedWrites.length === 0) {
         return {
