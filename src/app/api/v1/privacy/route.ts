@@ -107,7 +107,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const [settings, blockedAccounts, privacyActivity] = await Promise.all([
+    const [settings, blockedPage, privacyActivity] = await Promise.all([
       getPrivacySettingsPayload(auth.user.id),
       listBlockedAccounts(auth.user.id),
       listPrivacyActivity(auth.user.id, 10),
@@ -131,7 +131,8 @@ export async function GET(request: Request) {
     return jsonSuccess(
       {
         settings,
-        blockedAccounts,
+        blockedAccounts: blockedPage.accounts,
+        blockedAccountsNextCursor: blockedPage.nextCursor,
         overview,
         privacyActivity: privacyActivity.map(formatPrivacyActivityEntry),
         previews: {

@@ -40,6 +40,8 @@ export type FileWorkspaceSettingsData = {
         enabledMemberCount: number;
         disabledMemberCount: number;
     };
+    /** The server lists the first members only; the summary above still covers everyone. */
+    hasMore?: boolean;
 };
 
 export function formatJoinedAt(value?: string | null) {
@@ -131,6 +133,11 @@ export function FileWorkspaceMembers({
 
     return (
         <div className="space-y-6">
+            {data?.hasMore ? (
+                <p className="nb-meta text-xs text-muted-foreground" role="status">
+                    Showing the first {members.length} members. Totals include everyone on the project.
+                </p>
+            ) : null}
             {/* Section 1: Project Leadership (Enforced Invariant) */}
             <div className="space-y-3">
                 <div className="flex items-center justify-between border-b border-border/60 pb-2">

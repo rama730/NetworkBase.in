@@ -28,12 +28,13 @@ interface ProjectCardProps {
     onOpenProject?: (projectId: string) => void;
 }
 
-export default memo(function ProjectCard({ project, viewModel, isFollowing = false, followersCount: initialFollowers = 0, onOpenProject }: ProjectCardProps) {
+export default memo(function ProjectCard({ project, viewModel, isFollowing = false, followersCount: initialFollowers, onOpenProject }: ProjectCardProps) {
     useSkillCatalog();
     const { user } = useAuth();
     const { mutateAsync } = useToggleProjectFollow();
     const [following, setFollowing] = useState(isFollowing);
-    const [followers, setFollowers] = useState(initialFollowers);
+    // An unknown count reads as a dash, never as a confident zero (state matrix).
+    const [followers, setFollowers] = useState<number | undefined>(initialFollowers);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<"signed-out" | "failed" | null>(null);
     const followLock = useRef(false);
@@ -56,7 +57,7 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
         setBusy(true);
         setError(null);
         const previous = following;
-        const previousCount = followers;
+        const previousCount = followers ?? 0;
         try {
             // The signed-in user is already known: no round trip before the button responds.
             if (!user) { setError("signed-out"); return; }
@@ -82,7 +83,7 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
                 <ProjectAvatar project={project} size="card" />
                 <div className="min-w-0 flex-1">
                     <h3 className="nb-project-card-title min-w-0">
-                        <Link href={href} onClick={() => onOpenProject?.(project.id)} className="after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none">{project.title}</Link>
+                        <Link href={href} onClick={(event) => { if (!event.metaKey && !event.ctrlKey && !event.shiftKey) onOpenProject?.(project.id); }} className="after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none">{project.title}</Link>
                     </h3>
                     {(project.shortDescription || project.description) && (
                         // 5px under the title (spec), in both header layouts.
@@ -96,7 +97,7 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
             <>
                 <div className="flex flex-wrap items-start gap-2">
                     <h3 className="nb-project-card-title min-w-0">
-                        <Link href={href} onClick={() => onOpenProject?.(project.id)} className="after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none">{project.title}</Link>
+                        <Link href={href} onClick={(event) => { if (!event.metaKey && !event.ctrlKey && !event.shiftKey) onOpenProject?.(project.id); }} className="after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none">{project.title}</Link>
                     </h3>
                 </div>
                 {project.shortDescription || project.description ? (
@@ -140,10 +141,10 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
                         </DropdownMenuContent>
                     </DropdownMenu>
                 ) : null}
-                <span className="nb-meta flex items-center gap-1 px-1" title="Views" data-testid={`project-card-views-${project.id}`}><BarChart2 size={14} aria-hidden="true" />{project.viewCount || 0}<span className="sr-only"> views</span></span>
+                <span className="nb-meta flex items-center gap-1 px-1" title="Views" data-testid={`project-card-views-${project.id}`}><BarChart2 size={14} aria-hidden="true" />{typeof project.viewCount === "number" ? project.viewCount : "—"}<span className="sr-only"> views</span></span>
                 {/* A project follow is a bell (its updates), not a person icon; pressed reads in clay, not only by icon. */}
-                <button type="button" aria-disabled={busy || undefined} aria-busy={busy} aria-pressed={following} aria-label={`Follow ${project.title}, ${followers} ${followers === 1 ? "follower" : "followers"}`} title={following ? "Following" : "Follow"} className="nb-icon-button gap-1 px-1.5 font-mono text-xs" onClick={toggleFollow} data-testid={`project-card-follow-${project.id}`}>
-                    {following ? <BellRing size={16} aria-hidden="true" /> : <Bell size={16} aria-hidden="true" />}{followers}
+                <button type="button" aria-disabled={busy || undefined} aria-busy={busy} aria-pressed={following} aria-label={`Follow ${project.title}, ${followers ?? "unknown"} ${followers === 1 ? "follower" : "followers"}`} title={following ? "Following" : "Follow"} className="nb-icon-button gap-1 px-1.5 font-mono text-xs" onClick={toggleFollow} data-testid={`project-card-follow-${project.id}`}>
+                    {following ? <BellRing size={16} aria-hidden="true" /> : <Bell size={16} aria-hidden="true" />}{followers ?? "—"}
                 </button>
             </div>
         </div>

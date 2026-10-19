@@ -40,3 +40,9 @@ test("People lazily loads inactive tabs and has a route-level loading shell", ()
   assert.match(invitations, /resolveProjectInvitationAction/);
   assert.match(loading, /aria-label="Loading network"/);
 });
+
+test("discover-only metadata is neither queried nor awaited by other tabs (PERF-008)", () => {
+  const connections = source("src/app/actions/connections.ts");
+  assert.match(connections, /const metadataPromise = tab !== 'discover' \? null : Promise\.all\(/);
+  assert.equal(connections.match(/await metadataPromise/g)?.length, 1);
+});
