@@ -62,14 +62,8 @@ export function getRedisClient(): Redis | null {
     return globalThis.__redisClient ?? null
 }
 
-export const redis: Redis | null = new Proxy({} as Redis, {
-    get(_target, prop, receiver) {
-        const client = getRedisClient()
-        if (!client) return undefined
-        const value = Reflect.get(client, prop, receiver)
-        return typeof value === 'function' ? value.bind(client) : value
-    },
-}) as Redis
+/** The shared client, or null when Redis is not configured (MAINT-001): a real null, so `if (!redis)` means what it says. */
+export const redis: Redis | null = getRedisClient()
 
 function isFiniteNumberOrNull(value: unknown) {
     return value === null || (typeof value === 'number' && Number.isFinite(value))

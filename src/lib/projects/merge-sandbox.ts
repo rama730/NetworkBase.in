@@ -12,7 +12,6 @@ export async function mergeSandboxTask(
   projectId: string,
   taskId: string,
   sessionId: string,
-  targetBranch: string = 'main'
 ) {
   return await db.transaction(async (tx) => {
     // 0. Increment project sequence clock atomically
@@ -123,76 +122,6 @@ export async function mergeSandboxTask(
       WHERE fv.id = (SELECT id FROM file_versions WHERE node_id = staged.id ORDER BY version DESC LIMIT 1)
         AND staged.project_id = ${projectId}::uuid AND staged.task_id = ${taskId}::uuid AND staged.canonical_node_id IS NOT NULL
         AND (staged.s3_key IS DISTINCT FROM canonical.s3_key OR staged.git_blob_hash IS DISTINCT FROM canonical.git_blob_hash)
-    `);
-
-    // Step 5: Log Git Deltas
-    await tx.execute(sql`
-      INSERT INTO project_git_deltas (id, project_id, task_id, target_branch, sequence_number, delta_order, action, node_id, path, old_path, git_blob_hash, file_version_id, s3_key, status, created_at)
-      SELECT gen_random_uuid(),
-             project_id, task_id, target_branch, sequence_number,
-             ROW_NUMBER() OVER (ORDER BY category ASC, path ASC) as delta_order,
-             action, node_id, path, old_path, git_blob_hash, file_version_id, s3_key, 'pending', NOW()
-      FROM (
-          SELECT DISTINCT ON (node_id, action) *
-          FROM (
-              -- Category 1: Deletes (Direct)
-              SELECT staged.project_id, staged.task_id, ${targetBranch} as target_branch, ${seqNum}::bigint as sequence_number, 1 as category,
-                     'delete' as action, staged.canonical_node_id as node_id, canonical.path as path, NULL as old_path, NULL as git_blob_hash, NULL::uuid as file_version_id, NULL as s3_key
-              FROM project_nodes staged
-              JOIN project_nodes canonical ON canonical.id = staged.canonical_node_id AND canonical.project_id = staged.project_id AND canonical.task_id IS NULL
-              WHERE staged.project_id = ${projectId}::uuid AND staged.task_id = ${taskId}::uuid AND staged.sync_status = 'deleted_tombstone'
-              
-              UNION ALL
-              
-              -- Category 1: Deletes (Folder Descendants)
-              SELECT pn.project_id, ${taskId}::uuid as task_id, ${targetBranch} as target_branch, ${seqNum}::bigint as sequence_number, 1 as category,
-                     'delete' as action, pn.id as node_id, pn.path, NULL as old_path, NULL as git_blob_hash, NULL::uuid as file_version_id, NULL as s3_key
-              FROM project_nodes pn
-              JOIN project_nodes staged_tombstones ON staged_tombstones.project_id = pn.project_id
-                AND staged_tombstones.task_id = ${taskId}::uuid 
-                AND staged_tombstones.sync_status = 'deleted_tombstone' 
-                AND staged_tombstones.type = 'folder'
-              JOIN project_nodes canonical_folders ON canonical_folders.id = staged_tombstones.canonical_node_id AND canonical_folders.project_id = staged_tombstones.project_id AND canonical_folders.task_id IS NULL
-              WHERE pn.project_id = ${projectId}::uuid 
-                AND pn.task_id IS NULL 
-                AND pn.deleted_at IS NULL
-                AND starts_with(pn.path, canonical_folders.path || '/')
-              
-              UNION ALL
-              
-              -- Category 2: Renames
-              SELECT staged.project_id, staged.task_id, ${targetBranch} as target_branch, ${seqNum}::bigint as sequence_number, 2 as category,
-                     'rename' as action, staged.canonical_node_id as node_id, staged.path, canonical.path as old_path, staged.git_blob_hash, NULL::uuid as file_version_id, staged.s3_key
-              FROM project_nodes staged
-              JOIN project_nodes canonical ON canonical.id = staged.canonical_node_id AND canonical.project_id = staged.project_id AND canonical.task_id IS NULL
-              WHERE staged.project_id = ${projectId}::uuid AND staged.task_id = ${taskId}::uuid AND staged.canonical_node_id IS NOT NULL AND staged.sync_status <> 'deleted_tombstone'
-                AND staged.path <> canonical.path
-              
-              UNION ALL
-              
-              -- Category 3: Modifies
-              SELECT staged.project_id, staged.task_id, ${targetBranch} as target_branch, ${seqNum}::bigint as sequence_number, 3 as category,
-                     'modify' as action, staged.canonical_node_id as node_id, staged.path, NULL as old_path, staged.git_blob_hash,
-                     (SELECT id FROM file_versions WHERE node_id = staged.id ORDER BY version DESC LIMIT 1) as file_version_id,
-                     staged.s3_key
-              FROM project_nodes staged
-              JOIN project_nodes canonical ON canonical.id = staged.canonical_node_id AND canonical.project_id = staged.project_id AND canonical.task_id IS NULL
-              WHERE staged.project_id = ${projectId}::uuid AND staged.task_id = ${taskId}::uuid AND staged.canonical_node_id IS NOT NULL AND staged.type = 'file'
-                AND staged.sync_status <> 'deleted_tombstone'
-                AND (staged.s3_key IS DISTINCT FROM canonical.s3_key OR staged.git_blob_hash IS DISTINCT FROM canonical.git_blob_hash)
-              
-              UNION ALL
-              
-              -- Category 4: Adds
-              SELECT project_id, task_id, ${targetBranch} as target_branch, ${seqNum}::bigint as sequence_number, 4 as category,
-                     'add' as action, id as node_id, path, NULL as old_path, git_blob_hash,
-                     (SELECT id FROM file_versions WHERE node_id = project_nodes.id ORDER BY version DESC LIMIT 1) as file_version_id,
-                     s3_key
-              FROM project_nodes
-              WHERE project_id = ${projectId}::uuid AND task_id = ${taskId}::uuid AND canonical_node_id IS NULL AND sync_status <> 'deleted_tombstone'
-          ) raw_deltas
-          ORDER BY node_id, action, category ASC
-      ) deltas
     `);
 
     // Folder renames are captured before Step 7 overwrites canonical paths (COR-058).
