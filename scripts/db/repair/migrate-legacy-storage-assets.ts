@@ -145,9 +145,20 @@ function assertReferenceIntegrity(reference: LegacyReference, verified: Verified
   }
 }
 
+const wants = (kind: ReferenceKind) => !requestedKinds || requestedKinds.has(kind);
+
+// The messaging cutover (0181) dropped these tables; a database that still has them can be repaired, one that does not is skipped.
+async function tableExists(sql: postgres.Sql, name: string) {
+  const [row] = await sql<{ found: string | null }[]>`SELECT to_regclass(${`public.${name}`})::text AS found`;
+  return Boolean(row?.found);
+}
+
+/** Discovery reads only the requested kinds (--kind=...) and only tables that exist. */
 async function loadReferences(sql: postgres.Sql): Promise<LegacyReference[]> {
   const references: LegacyReference[] = [];
-  const covers = await sql<{
+  const hasChatUploads = await tableExists(sql, "attachment_uploads");
+  const hasMessageAttachments = (await tableExists(sql, "message_attachments")) && (await tableExists(sql, "messages"));
+  const covers = !(wants("project_cover")) ? [] : await sql<{
     subjectId: string; ownerUserId: string; bucket: string; storageKey: string;
   }[]>`
     SELECT id AS "subjectId", owner_id AS "ownerUserId", cover_image_bucket AS bucket, cover_image_key AS "storageKey"
@@ -163,7 +174,7 @@ async function loadReferences(sql: postgres.Sql): Promise<LegacyReference[]> {
     expectedHash: null, maxBytes: 2 * 1024 * 1024, allowEmpty: false,
   });
 
-  const updates = await sql<{
+  const updates = !(wants("update_media")) ? [] : await sql<{
     subjectId: string; ownerUserId: string | null; projectId: string; ordinal: number;
     bucket: string; storageKey: string; expectedSize: number | null; expectedMimeType: string | null;
   }[]>`
@@ -187,7 +198,7 @@ async function loadReferences(sql: postgres.Sql): Promise<LegacyReference[]> {
     expectedHash: null, maxBytes: 8 * 1024 * 1024, allowEmpty: false,
   });
 
-  const draftMedia = await sql<{
+  const draftMedia = !(wants("update_draft_media")) ? [] : await sql<{
     subjectId: string; ownerUserId: string; projectId: string; ordinal: number;
     bucket: string; storageKey: string; expectedSize: number | null; expectedMimeType: string | null;
   }[]>`
@@ -212,7 +223,7 @@ async function loadReferences(sql: postgres.Sql): Promise<LegacyReference[]> {
     expectedHash: null, maxBytes: 8 * 1024 * 1024, allowEmpty: false,
   });
 
-  const uploads = await sql<{
+  const uploads = !(wants("chat_upload") && hasChatUploads) ? [] : await sql<{
     subjectId: string; ownerUserId: string; storageKey: string;
     expectedSize: number | null; expectedMimeType: string | null;
   }[]>`
@@ -227,7 +238,7 @@ async function loadReferences(sql: postgres.Sql): Promise<LegacyReference[]> {
     maxBytes: 50 * 1024 * 1024, allowEmpty: false,
   });
 
-  const attachments = await sql<{
+  const attachments = !(wants("message_attachment") && hasMessageAttachments) ? [] : await sql<{
     subjectId: string; ownerUserId: string | null; storageKey: string;
     expectedSize: number | null; expectedMimeType: string | null;
   }[]>`
@@ -244,7 +255,7 @@ async function loadReferences(sql: postgres.Sql): Promise<LegacyReference[]> {
     maxBytes: 50 * 1024 * 1024, allowEmpty: false,
   });
 
-  const profiles = await sql<{
+  const profiles = !((wants("profile_avatar") || wants("profile_banner"))) ? [] : await sql<{
     subjectId: string; avatarUrl: string | null; bannerUrl: string | null;
     avatarAssetId: string | null; bannerAssetId: string | null;
   }[]>`
@@ -271,7 +282,7 @@ async function loadReferences(sql: postgres.Sql): Promise<LegacyReference[]> {
     });
   }
 
-  const snapshots = await sql<{
+  const snapshots = !(wants("sync_snapshot")) ? [] : await sql<{
     subjectId: string; ownerUserId: string; projectId: string; ordinal: number;
     storageKey: string; expectedSize: number | null; expectedMimeType: string; expectedHash: string | null;
   }[]>`
@@ -294,7 +305,7 @@ async function loadReferences(sql: postgres.Sql): Promise<LegacyReference[]> {
     maxBytes: 10 * 1024 * 1024, allowEmpty: true,
   });
 
-  const recoveryDrafts = await sql<{
+  const recoveryDrafts = !(wants("recovery_draft")) ? [] : await sql<{
     subjectId: string; ownerUserId: string; projectId: string; storageKey: string;
     expectedSize: number; expectedMimeType: string; expectedHash: string;
   }[]>`
@@ -308,7 +319,7 @@ async function loadReferences(sql: postgres.Sql): Promise<LegacyReference[]> {
     purpose: "recovery_draft:draft", maxBytes: 10 * 1024 * 1024, allowEmpty: true,
   });
 
-  const manifests = await sql<{
+  const manifests = !(wants("import_manifest")) ? [] : await sql<{
     subjectId: string; ownerUserId: string; projectId: string; storageKey: string;
     expectedHash: string | null;
   }[]>`
