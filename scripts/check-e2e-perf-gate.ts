@@ -33,6 +33,52 @@ const THRESHOLDS: Record<string, number> = {
   'task.detail.tab.open': 350,
 };
 
+/**
+ * Metrics a run must have measured, keyed by E2E_SCOPE (OPS-005). A metric that is required but
+ * absent is a coverage failure, reported apart from a threshold regression. Other thresholds apply
+ * when their metric was measured. A full run requires the same core set: extend it as specs add metrics.
+ */
+const REQUIRED_METRICS: Record<string, string[]> = {
+  critical: ['route.interactive.core', 'route.server.ttfb', 'route.hydration.ms', 'project.detail.shell.interactive', 'task.detail.panel.open'],
+  full: ['route.interactive.core', 'route.server.ttfb', 'route.hydration.ms', 'project.detail.shell.interactive', 'task.detail.panel.open'],
+};
+/** p95 of fewer samples than this is close to the maximum; it is reported, not failed. */
+const MIN_SAMPLES_FOR_P95 = 5;
+
+export function evaluatePerf(samples: PerfSample[], scope: string | undefined) {
+  const invalid = samples.filter((sample) => !Number.isFinite(sample.valueMs) || sample.valueMs < 0);
+  const grouped = new Map<string, number[]>();
+  for (const sample of samples) {
+    if (!Number.isFinite(sample.valueMs) || sample.valueMs < 0) continue;
+    const list = grouped.get(sample.metric) || [];
+    list.push(sample.valueMs);
+    grouped.set(sample.metric, list);
+  }
+
+  const coverageFailures: string[] = [];
+  if (invalid.length > 0) coverageFailures.push(`${invalid.length} sample(s) have a non-finite or negative duration`);
+  const required = REQUIRED_METRICS[scope || 'critical'];
+  if (!required) coverageFailures.push(`E2E_SCOPE '${scope}' has no coverage manifest`);
+  for (const metric of required ?? []) {
+    if (!(grouped.get(metric)?.length)) coverageFailures.push(`${metric}: required but never measured`);
+  }
+
+  const thresholdFailures: string[] = [];
+  const notes: string[] = [];
+  for (const [metric, max] of Object.entries(THRESHOLDS)) {
+    const values = grouped.get(metric) || [];
+    if (values.length === 0) continue;
+    const p95 = percentile(values, 95);
+    if (!Number.isFinite(max) || max < 0) {
+      coverageFailures.push(`${metric}: threshold ${max} is not a finite non-negative budget`);
+      continue;
+    }
+    if (p95 > max) thresholdFailures.push(`${metric}: p95 ${p95.toFixed(1)}ms > ${max}ms`);
+    notes.push(`[e2e-perf] ${metric} p95=${p95.toFixed(1)}ms (threshold ${max}ms, ${values.length} samples${values.length < MIN_SAMPLES_FOR_P95 ? ', few' : ''})`);
+  }
+  return { coverageFailures, thresholdFailures, notes };
+}
+
 function percentile(values: number[], p: number): number {
   if (values.length === 0) return 0;
   const sorted = [...values].sort((a, b) => a - b);
@@ -99,31 +145,13 @@ function main() {
     );
   }
 
-  const grouped = new Map<string, number[]>();
-  for (const sample of samples) {
-    const list = grouped.get(sample.metric) || [];
-    list.push(sample.valueMs);
-    grouped.set(sample.metric, list);
-  }
-
-  const failures: Array<{ metric: string; p95: number; max: number }> = [];
-
-  for (const [metric, max] of Object.entries(THRESHOLDS)) {
-    const values = grouped.get(metric) || [];
-    if (values.length === 0) continue;
-    const p95 = percentile(values, 95);
-    if (p95 > max) {
-      failures.push({ metric, p95, max });
-    }
-    console.log(`[e2e-perf] ${metric} p95=${p95.toFixed(1)}ms (threshold ${max}ms)`);
-  }
-
-  if (failures.length > 0) {
-    const summary = failures
-      .map((f) => `${f.metric}: p95 ${f.p95.toFixed(1)}ms > ${f.max}ms`)
-      .join('\n');
-    throw new Error(`E2E performance thresholds exceeded:\n${summary}`);
-  }
+  const { coverageFailures, thresholdFailures, notes } = evaluatePerf(samples, process.env.E2E_SCOPE);
+  notes.forEach((line) => console.log(line));
+  const problems = [
+    ...(coverageFailures.length ? [`E2E perf coverage incomplete:\n${coverageFailures.join('\n')}`] : []),
+    ...(thresholdFailures.length ? [`E2E performance thresholds exceeded:\n${thresholdFailures.join('\n')}`] : []),
+  ];
+  if (problems.length > 0) throw new Error(problems.join('\n\n'));
 }
 
-main();
+if (require.main === module) main();

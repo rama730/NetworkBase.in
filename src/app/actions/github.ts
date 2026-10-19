@@ -10,6 +10,7 @@ import { resolveGithubRepoAccess } from '@/lib/github/auth-resolver';
 import { runInFlightDeduped } from '@/lib/utils/inflight-dedupe';
 import { logger } from '@/lib/logger';
 import { fetchProviderUrl, GITHUB_API_HOSTS } from '@/lib/security/outbound-url';
+import { createTimeoutSignal, fetchGithubJson } from '@/lib/github/provider-request';
 import { detectPackageTechnologies, mergeDetectedTechnologies } from '@/lib/skills/repository-detection';
 import { resolveGithubUserAccessToken } from '@/lib/github/user-access-token';
 import { readBoundedBody } from '@/lib/security/bounded-body';
@@ -42,11 +43,6 @@ type GithubRepoPickerItem = {
 
 const RATE_LIMIT_WINDOW_SECONDS = 60;
 const RATE_LIMIT_MAX_REQUESTS = 60;
-const REQUEST_TIMEOUT_MS = (() => {
-  const v = Number(process.env.GITHUB_API_TIMEOUT_MS || 12000);
-  return Number.isFinite(v) && v >= 1000 ? Math.floor(v) : 12000;
-})();
-const RETRYABLE_STATUS = new Set([403, 429, 500, 502, 503, 504]);
 
 function readCacheTtlEnv(envName: string, fallbackMs: number): number {
   const raw = process.env[envName];
@@ -99,88 +95,6 @@ async function withCachedValue<T>(cacheKey: string, ttlMs: number, task: () => P
   const value = await runInFlightDeduped(`github:actions:${cacheKey}`, task);
   setCachedValue(cacheKey, value, ttlMs);
   return value;
-}
-
-function createTimeoutSignal(timeoutMs: number = REQUEST_TIMEOUT_MS) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(new Error('GitHub request timed out')), timeoutMs);
-  return {
-    signal: controller.signal,
-    cleanup: () => clearTimeout(timer),
-  };
-}
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-async function fetchGithubJson<T>(
-  url: string,
-  init: RequestInit,
-  options: { retries?: number; timeoutMs?: number } = {},
-): Promise<{ data: T; status: number; headers: Headers }> {
-  const retries = options.retries ?? 2;
-  const timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
-  let attempt = 0;
-
-  while (true) {
-    const timeout = createTimeoutSignal(timeoutMs);
-    try {
-      const response = await fetchProviderUrl(url, GITHUB_API_HOSTS, {
-        ...init,
-        signal: timeout.signal,
-        headers: {
-          Accept: 'application/vnd.github+json',
-          'X-GitHub-Api-Version': '2022-11-28',
-          ...(init.headers || {}),
-        },
-      });
-
-      const bodyText = await response.text();
-      let body: unknown = null;
-      if (bodyText.trim().length > 0) {
-        try {
-          body = JSON.parse(bodyText);
-        } catch {
-          body = bodyText;
-        }
-      }
-
-      if (response.ok) {
-        return { data: body as T, status: response.status, headers: response.headers };
-      }
-
-      const message =
-        typeof body === 'object' && body && 'message' in body
-          ? String((body as Record<string, unknown>).message || '')
-          : typeof body === 'string'
-            ? body
-            : '';
-      const retryable = RETRYABLE_STATUS.has(response.status) || /rate limit/i.test(message);
-      if (attempt < retries && retryable) {
-        const retryAfter = Number(response.headers.get('retry-after') || '0');
-        const jitter = Math.floor(Math.random() * 150);
-        const delayMs =
-          retryAfter > 0
-            ? retryAfter * 1000 + jitter
-            : Math.min(2000, 250 * (attempt + 1) * (attempt + 1) + jitter);
-        attempt += 1;
-        await sleep(delayMs);
-        continue;
-      }
-
-      throw new Error(`GitHub request failed (${response.status})${message ? `: ${message}` : ''}`);
-    } catch (error) {
-      if (attempt < retries) {
-        const jitter = Math.floor(Math.random() * 150);
-        const delayMs = Math.min(2000, 250 * (attempt + 1) * (attempt + 1) + jitter);
-        attempt += 1;
-        await sleep(delayMs);
-        continue;
-      }
-      throw error;
-    } finally {
-      timeout.cleanup();
-    }
-  }
 }
 
 async function getAuthorizedGithubSession() {
