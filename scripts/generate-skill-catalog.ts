@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { icons as logosCollection } from '@iconify-json/logos'
 import { icons as skillIconsCollection } from '@iconify-json/skill-icons'
@@ -8,7 +8,7 @@ import { createElement, type ComponentType } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import * as simpleIcons from 'simple-icons'
 import * as LucideIcons from 'lucide-react'
-import { DEFAULT_ONBOARDING_SKILLS, MARKET_SKILLS, SKILL_CATALOG_MIGRATION_TAG, SKILL_CATALOG_VERSION, SKILL_CATEGORIES, SKILL_DEVICON_OVERRIDES, SKILL_DEVICON_SOURCE_VERSION, SKILL_ICON_OVERRIDES, SKILL_ICON_SOURCE_VERSION } from '../src/lib/skills/catalog'
+import { DEFAULT_ONBOARDING_SKILLS, MARKET_SKILLS, SKILL_CATALOG_VERSION, SKILL_CATEGORIES, SKILL_DEVICON_OVERRIDES, SKILL_DEVICON_SOURCE_VERSION, SKILL_ICON_OVERRIDES, SKILL_ICON_SOURCE_VERSION } from '../src/lib/skills/catalog'
 import { SKILL_DEVELOPER_ICON_OVERRIDES, SKILL_ICONIFY_OVERRIDES, SKILL_ICON_SOURCE_REGISTRY } from '../src/lib/skills/icon-sources'
 import { SKILL_SEMANTIC_ICON_ONLY, SKILL_ICON_THEME_VARIANTS } from '../src/lib/skills/icon-theme-policy'
 import { normalizeSkillLookup, skillSlug } from '../src/lib/skills/normalization'
@@ -50,7 +50,6 @@ const assetDir = path.join(root, 'public', 'skill-icons', 'v1')
 const manifestPath = path.join(root, 'src', 'lib', 'skills', 'generated-icon-manifest.ts')
 const themeAssetVariantsPath = path.join(root, 'src', 'lib', 'skills', 'generated-icon-theme-variants.ts')
 const clientCatalogPath = path.join(root, 'public', 'skill-catalog.json')
-const seedMigrationPath = path.join(root, 'drizzle', `${SKILL_CATALOG_MIGRATION_TAG}.sql`)
 const deviconRoot = path.join(root, 'node_modules', 'devicon')
 const curatedIconRoot = path.join(root, 'scripts', 'skill-icons', 'curated')
 
@@ -428,6 +427,46 @@ function simpleIconEntries(): SimpleIcon[] {
     }).map((value) => value as SimpleIcon)
 }
 
+/**
+ * Each catalog release is a new journalled migration (MIG-006) holding only the
+ * statements that differ from the previous release, compared with the release
+ * version masked so unchanged rows are not re-stamped. A release that already
+ * has a migration is left untouched: applied migrations are checksummed, so the
+ * generator never rewrites history. Bump SKILL_CATALOG_VERSION for a new release.
+ */
+async function releaseCatalogMigration(sql: string[]): Promise<string | null> {
+    const suffix = `_skill_catalog_${SKILL_CATALOG_VERSION.replaceAll('.', '_')}`
+    const migrationDir = path.join(root, 'drizzle')
+    const files = (await readdir(migrationDir)).filter((file) => /^\d{4}_.+\.sql$/.test(file))
+    if (files.some((file) => file.endsWith(`${suffix}.sql`))) return null
+    const masked = (line: string, version: string | undefined) => (version ? line.replaceAll(`'${version}'`, "'<release>'") : line)
+    // ponytail: union of every earlier release; a row reverted to an older release's exact value is
+    // skipped. Key statements by row identity if catalog rows ever get reverted.
+    const released = new Set<string>()
+    for (const file of files.filter((name) => /_skill_catalog_\d+_\d+_\d+\.sql$/.test(name))) {
+        const previous = await readFile(path.join(migrationDir, file), 'utf8')
+        const previousVersion = previous.match(/^-- Catalog release (\S+);/m)?.[1]
+        for (const line of previous.split('\n')) released.add(masked(line, previousVersion))
+    }
+    const delta = sql.filter((line) => line.startsWith('--') || (line !== '' && !released.has(masked(line, SKILL_CATALOG_VERSION))))
+    if (delta.every((line) => line.startsWith('--'))) return null
+
+    const tag = `${String(Math.max(...files.map((file) => Number(file.slice(0, 4)))) + 1).padStart(4, '0')}${suffix}`
+    await writeFile(path.join(migrationDir, `${tag}.sql`), `${delta.join('\n')}\n`, 'utf8')
+
+    const journalPath = path.join(migrationDir, 'meta', '_journal.json')
+    const journal = JSON.parse(await readFile(journalPath, 'utf8')) as { entries: { idx: number; version: string; when: number; tag: string; breakpoints: boolean }[] }
+    const last = journal.entries[journal.entries.length - 1]!
+    journal.entries.push({ idx: last.idx + 1, version: '7', when: Math.max(Date.now(), last.when + 1), tag, breakpoints: true })
+    await writeFile(journalPath, `${JSON.stringify(journal, null, 2)}\n`, 'utf8')
+
+    const manifestPath = path.join(root, 'standards', 'sql-governance.manifest.json')
+    const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as { existingMigrationFiles: string[] }
+    manifest.existingMigrationFiles.push(`drizzle/${tag}.sql`)
+    await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
+    return tag
+}
+
 async function main() {
 const icons = simpleIconEntries()
 const bySlug = new Map(icons.map((icon) => [icon.slug, icon]))
@@ -747,7 +786,7 @@ const skillIconCount = Object.values(manifest).filter((icon) => icon.source === 
 const logosCount = Object.values(manifest).filter((icon) => icon.source === 'logos').length
 const developerIconCount = Object.values(manifest).filter((icon) => icon.source === 'developer-icons').length
 const curatedIconCount = Object.values(manifest).filter((icon) => icon.source === 'custom').length
-await writeFile(seedMigrationPath, `${sql.join('\n')}\n`, 'utf8')
+const seedMigrationTag = await releaseCatalogMigration(sql)
 
 const lucideKeys = new Set<string>(['badge'])
 for (const skill of MARKET_SKILLS) if (!manifest[skill.canonicalKey] && skill.iconKey) lucideKeys.add(skill.iconKey)
@@ -772,6 +811,7 @@ console.log(JSON.stringify({
     curated: curatedIconCount,
     localAssets: writtenAssets.size,
     manifestHash,
+    seedMigration: seedMigrationTag ?? `unchanged: release ${SKILL_CATALOG_VERSION} already has a migration`,
 }, null, 2))
 }
 

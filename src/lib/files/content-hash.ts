@@ -15,7 +15,7 @@
  *
  * This module has no Node-only dependencies and is safe to import from any
  * client component. It is explicitly NOT used server-side — the backfill
- * script in `scripts/backfill-file-hashes.ts` uses `node:crypto` instead.
+ * script in `scripts/db/repair/backfill-file-hashes.ts` uses `node:crypto` instead.
  */
 
 const CHUNK_SIZE = 32 * 1024 * 1024; // 32 MiB — balances WebCrypto call overhead vs. memory.
@@ -32,7 +32,7 @@ const CHUNK_SIZE = 32 * 1024 * 1024; // 32 MiB — balances WebCrypto call overh
  *
  * Since the server writes a pure SHA-256 of the same bytes via `node:crypto`,
  * we MUST keep the chunking behaviour equivalent on both sides for large
- * files. See `scripts/backfill-file-hashes.ts` for the server counterpart —
+ * files. See `scripts/db/repair/backfill-file-hashes.ts` for the server counterpart —
  * it uses the pure `createHash('sha256')` streaming API which is the true
  * SHA-256 of the concatenated bytes. For files up to CHUNK_SIZE (4 MiB) the
  * two agree bit-for-bit; above that the two diverge.

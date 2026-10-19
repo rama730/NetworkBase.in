@@ -17,9 +17,9 @@ import {
   projectNodes,
   storageAssets,
   storageRepairFailures,
-} from "../src/lib/db/schema";
-import { parseProjectFileKey } from "../src/lib/storage/project-file-key";
-import { createAdminClient } from "../src/lib/supabase/server";
+} from "../../../src/lib/db/schema";
+import { parseProjectFileKey } from "../../../src/lib/storage/project-file-key";
+import { createAdminClient } from "../../../src/lib/supabase/server";
 
 const APPLY = process.argv.includes("--apply");
 const BATCH_SIZE = 50;
@@ -41,7 +41,7 @@ type Candidate = {
   currentVersion: number;
 };
 
-let db: (typeof import("../src/lib/db"))["db"];
+let db: (typeof import("../../../src/lib/db"))["db"];
 
 async function fetchCandidates(afterId: string | null): Promise<Candidate[]> {
   return db.select({
@@ -256,7 +256,7 @@ async function repairCandidate(
 }
 
 async function main() {
-  ({ db } = await import("../src/lib/db"));
+  ({ db } = await import("../../../src/lib/db"));
   console.log(`[repair-missing-file-versions] mode=${APPLY ? "apply" : "dry-run"} limit=${RUN_LIMIT}`);
   const admin = APPLY ? await createAdminClient() : null;
   let cursor: string | null = null;

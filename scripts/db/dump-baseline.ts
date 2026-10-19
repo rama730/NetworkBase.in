@@ -1,7 +1,8 @@
 /**
  * Writes scripts/db/baseline/schema.sql: the application schema (public,
  * app_private) plus the app-owned policies, buckets and publication entries on
- * Supabase-managed objects, read from DATABASE_URL. Schema only: no rows.
+ * Supabase-managed objects, read from DATABASE_URL. Rows only for reference
+ * data the migrations seeded (the market skill catalog), never user data.
  *
  * History cannot be replayed from 0000 (pre-journal legacy schema), so fresh
  * disposable databases start from this baseline and then apply every newer
@@ -15,6 +16,8 @@ import path from "node:path";
 
 import dotenv from "dotenv";
 import postgres from "postgres";
+
+import { databaseSsl } from "../lib/disposable-db";
 
 dotenv.config({ path: ".env.local", quiet: true });
 
@@ -32,7 +35,7 @@ const lastTag = [...journal.entries].sort((a, b) => a.idx - b.idx).at(-1)!.tag;
 const literal = (value: string) => `'${value.replace(/'/g, "''")}'`;
 
 async function managedObjects() {
-  const sql = postgres(url!, { max: 1, prepare: false, ssl: "require" });
+  const sql = postgres(url!, { max: 1, prepare: false, ssl: databaseSsl(url) });
   try {
     return await sql.begin("read only", async (transaction) => {
       const tx = transaction as unknown as typeof sql;
@@ -47,7 +50,18 @@ async function managedObjects() {
       const published = await tx<{ schemaname: string; tablename: string }[]>`
         SELECT schemaname, tablename FROM pg_publication_tables
         WHERE pubname = 'supabase_realtime' AND schemaname IN ('public', 'app_private') ORDER BY 1, 2`;
-      return { policies, buckets, published };
+      // Reference data seeded by catalog migrations; user-proposed skills and aliases stay out.
+      const reference = await tx<{ line: string }[]>`
+        SELECT format('INSERT INTO public.%I SELECT * FROM jsonb_populate_recordset(NULL::public.%I, %L) ON CONFLICT DO NOTHING;', t, t, rows) AS line
+        FROM (
+          SELECT 1 AS ord, 'skill_categories' AS t, (SELECT jsonb_agg(c ORDER BY c.key) FROM public.skill_categories c) AS rows
+          UNION ALL SELECT 2, 'skill_icon_assets', (SELECT jsonb_agg(i ORDER BY i.icon_key) FROM public.skill_icon_assets i)
+          UNION ALL SELECT 3, 'skills', (SELECT jsonb_agg(s ORDER BY s.canonical_key) FROM public.skills s WHERE s.source_metadata->>'source' = 'nb-market-catalog')
+          UNION ALL SELECT 4, 'skill_aliases', (SELECT jsonb_agg(a ORDER BY a.normalized_alias, a.locale) FROM public.skill_aliases a WHERE a.source = 'catalog')
+        ) reference
+        WHERE rows IS NOT NULL
+        ORDER BY ord`;
+      return { policies, buckets, published, reference: reference.map((row) => row.line) };
     });
   } finally {
     await sql.end();
@@ -66,7 +80,7 @@ async function main() {
     .filter((line) => line !== "CREATE SCHEMA public;" && !line.startsWith("SET transaction_timeout") && !line.startsWith("\\restrict") && !line.startsWith("\\unrestrict"))
     .join("\n");
 
-  const { policies, buckets, published } = await managedObjects();
+  const { policies, buckets, published, reference } = await managedObjects();
   const managed = [
     "-- App-owned objects on Supabase-managed schemas (storage, realtime).",
     "SELECT pg_catalog.set_config('search_path', 'public, extensions', false);",
@@ -78,6 +92,8 @@ async function main() {
       ";",
     ].join("")),
     ...published.map((t) => `ALTER PUBLICATION supabase_realtime ADD TABLE ${t.schemaname}.${t.tablename};`),
+    "-- Reference data (market skill catalog).",
+    ...reference,
   ];
 
   mkdirSync(path.dirname(OUT), { recursive: true });
@@ -88,7 +104,7 @@ async function main() {
     ...managed,
     "",
   ].join("\n"));
-  console.log(`[db:baseline] wrote ${OUT} through ${lastTag} (${policies.length} managed policies, ${buckets.length} buckets, ${published.length} published tables)`);
+  console.log(`[db:baseline] wrote ${OUT} through ${lastTag} (${policies.length} managed policies, ${buckets.length} buckets, ${published.length} published tables, ${reference.length} reference tables)`);
 }
 
 main().catch((error) => {

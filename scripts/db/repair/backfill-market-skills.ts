@@ -1,18 +1,18 @@
 import { asc, gt, inArray } from 'drizzle-orm'
-import { db } from '../src/lib/db'
+import { db } from '../../../src/lib/db'
 import {
     profileProjectContributions,
     profileProjectContributionStages,
     profiles,
     projectOpenRoles,
     projects,
-} from '../src/lib/db/schema'
+} from '../../../src/lib/db/schema'
 import {
     syncContributionSkills,
     syncProfileSkills,
     syncProjectSkills,
     syncRoleSkills,
-} from '../src/lib/skills/service'
+} from '../../../src/lib/skills/service'
 
 const APPLY = process.argv.includes('--apply')
 const BATCH_SIZE = 100
