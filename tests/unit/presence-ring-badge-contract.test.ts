@@ -67,5 +67,10 @@ test("badge sizes per place follow the approved table", () => {
   assert.match(person, /return 26;/);
   assert.match(read("src/components/network/PersonPresenceDot.tsx"), /size=\{compact \? 16 : 20\}/);
   assert.match(read("src/components/layout/header/TopNav.tsx"), /<PersonPresenceBadge userId=\{user\?\.id\} live size=\{16\}/);
-  assert.match(read("src/components/profile/v2/ProfileHeader.tsx"), /live=\{isOwner \|\| undefined\} size=\{24\}/);
+  assert.match(read("src/components/profile/v2/ProfileHeader.tsx"), /live=\{isOwner \|\| undefined\} size=\{30\}/);
+  // Project avatars: 18 on the card (44px avatar), 30 on the detail page (80px), 14 standalone beside a title; the corner offset scales with the badge.
+  const project = read("src/components/projects/ProjectAvatar.tsx");
+  assert.match(project, /size=\{size\}/);
+  assert.match(project, /standalone \? 14 : compact \? 18 : 30/);
+  assert.match(project, /Math\.round\(size \* 0\.2\)/);
 });

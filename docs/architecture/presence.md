@@ -18,4 +18,4 @@ Two layers on one badge, drawn as four concentric rings on an avatar's bottom-ri
 
 - `usePersonPresence` / `useProjectPresence` (`components/presence/usePresence.ts`) batch ids in one server call per tick, cache 60 s, refresh every 90 s while mounted.
 - `PresenceBadge` (rings, spin, status chip), `PersonPresenceBadge`, `PresenceAvatar`, `ProjectPresenceBadge`, `StatusInline` (emoji + text), `EmojiChoice` (common picks or any typed/pasted emoji), `PersonHoverCard`, `StatusPicker` (one global dialog: avatar menu, mobile menu, profile, `/status`), `ProjectStatusControl` (project header).
-- Colors are `--presence-*` tokens in `globals.css` (light and dark). Badge sizes are set per place: TopNav 16, profile header 24, people card and hover card 20, search and discover 16, members list and DM header 14, messages list 11, details pane 26.
+- Colors are `--presence-*` tokens in `globals.css` (light and dark). Badge sizes are set per place: TopNav 16, profile header 30, project detail avatar 30, project card avatar 18, project title dot 14, people card and hover card 20, search and discover 16, members list and DM header 14, messages list 11, details pane 26.

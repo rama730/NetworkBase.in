@@ -15,7 +15,9 @@ The corner "Node" badge (one rounded square, `PresenceBadge.tsx`) becomes a four
   | Place | Avatar | Badge now | Badge new |
   |---|---|---|---|
   | TopNav | 32 | 12 | 16 |
-  | Profile header | 72 | 22 | 24 |
+  | Profile header | 72 | 22 | 30 (raised from 24 after review) |
+  | Project detail avatar | 80 | 18 | 30 (corner offset 0.2 x badge) |
+  | Project card avatar | 44 | 14 | 18 (corner offset 0.2 x badge) |
   | People card, search, discover (`PersonPresenceDot`) | 48 / 40 | 16 / 14 | 20 / 16 |
   | Hover card | 48 | 16 | 20 |
   | Messages list (DM row) | 20 | 10 | 11 |

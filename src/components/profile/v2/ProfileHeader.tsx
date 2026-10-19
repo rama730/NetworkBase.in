@@ -213,7 +213,7 @@ export function ProfileHeader({
                             priority
                         />
                         {/* Phones: the badge sits just outside the photo's corner (inside the 16px column gap). */}
-                        <PersonPresenceBadge userId={profile?.id ?? null} lastActiveAt={vm.lastActiveAt} live={isOwner || undefined} size={24} className="absolute -bottom-1.5 -right-1.5 max-md:-right-3.5 max-md:bottom-0" />
+                        <PersonPresenceBadge userId={profile?.id ?? null} lastActiveAt={vm.lastActiveAt} live={isOwner || undefined} size={30} className="absolute -bottom-1.5 -right-1.5 max-md:-right-3.5 max-md:bottom-0" />
                     </div>
                     <div className="min-w-0 flex-1 pb-1 max-md:contents">
                         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 max-md:self-center">
