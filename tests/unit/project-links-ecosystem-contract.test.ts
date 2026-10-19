@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { componentSource } from "./_helpers/component-source";
+import { projectActionsSource } from "./_project-actions-source";
 
 function source(path: string) {
     return readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
@@ -48,7 +49,7 @@ test('the responsive project header exposes a labeled mobile links menu', () => 
 });
 
 test('project-link saves use semantic concurrency checks and a viewport-contained editor', () => {
-    const action = source('src/app/actions/project/index.ts');
+    const action = projectActionsSource();
     const surface = source('src/components/projects/dashboard/ProjectSocialLinksCard.tsx');
     assert.match(action, /areProjectSocialLinksEqual\(current, expected\.links\)/);
     assert.doesNotMatch(action, /JSON\.stringify\(current\)\s*!==\s*JSON\.stringify\(expected\.links\)/);

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { projectActionsSource } from "./_project-actions-source";
 
 const read = (path: string) => readFileSync(path, "utf8");
 
@@ -37,7 +38,7 @@ test("COR-045: detached assets are retired only through the live-reference guard
 });
 
 test("COR-048: project, draft and sprint deletes recheck their preconditions under a row lock", () => {
-  const source = read("src/app/actions/project/index.ts");
+  const source = projectActionsSource();
   const body = (name: string) => source.slice(source.indexOf(name), source.indexOf("\nexport ", source.indexOf(name) + name.length));
   const project = body("export async function deleteProject(");
   assert.match(project, /\.for\("update"\)[\s\S]*countUnregisteredProjectStorage\(projectId, tx\)[\s\S]*tx\s*\.delete\(projects\)/);

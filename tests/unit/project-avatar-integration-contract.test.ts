@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { getProjectAvatarUrl } from "@/components/projects/ProjectAvatar";
 import { componentSource } from "./_helpers/component-source";
+import { projectActionsSource } from "./_project-actions-source";
 
 const ROOT = process.cwd();
 
@@ -230,14 +231,14 @@ test("Project avatar fit architecture: enforces objectFit cover across detail pa
 });
 
 test("Discovery page avatar cache synchronization & multi-tab real-time updates contract", () => {
-    const projectActionsSource = readFileSync(resolve(ROOT, "src/app/actions/project/index.ts"), "utf-8");
+    const projectActionsText = projectActionsSource();
     const avatarSource = readFileSync(resolve(ROOT, "src/components/projects/ProjectAvatar.tsx"), "utf-8");
     const settingsSource = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
     const hubClientSource = readFileSync(resolve(ROOT, "src/components/discover/DiscoverClient.tsx"), "utf-8");
 
     // 1. Server route revalidation includes /discover, /hub, and /my-profile
-    assert.match(projectActionsSource, /const revalidateProjectPaths = async[\s\S]*?revalidatePath\("\/discover"\)/);
-    assert.match(projectActionsSource, /export async function invalidateProjectPublicCaches[\s\S]*?revalidatePath\("\/discover"\)/);
+    assert.match(projectActionsText, /const revalidateProjectPaths = async[\s\S]*?revalidatePath\("\/discover"\)/);
+    assert.match(projectActionsText, /export async function invalidateProjectPublicCaches[\s\S]*?revalidatePath\("\/discover"\)/);
 
     // 2. ProjectAvatar exports broadcastProjectUpdated for 0ms cross-window/tab sync
     assert.match(avatarSource, /export function broadcastProjectUpdated\(projectId: string, update\?:/);

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { projectActionsSource } from "./_project-actions-source";
 
 const read = (path: string) => readFileSync(path, "utf8");
 
@@ -38,7 +39,7 @@ test("round 2: ranked feeds keep going, and the action says what went wrong", ()
 });
 
 test("round 2: caches drop a project or creator that goes private at once", () => {
-  const project = read("src/app/actions/project/index.ts");
+  const project = projectActionsSource();
   const profile = read("src/app/actions/profile.ts");
   assert.doesNotMatch(project, /revalidateTag\(DISCOVER_ANON_CACHE_TAG, "max"\)/);
   assert.match(project, /revalidateTag\(DISCOVER_ANON_CACHE_TAG, \{ expire: 0 \}\)/);
@@ -73,7 +74,7 @@ test("round 2: Connect sends once per click and a failure puts the row back at o
 });
 
 test("round 2: follow state stays true everywhere", () => {
-  assert.match(read("src/app/actions/project/index.ts"), /relationship\?\.blockedByViewer \|\| relationship\?\.blockedByTarget/);
+  assert.match(projectActionsSource(), /relationship\?\.blockedByViewer \|\| relationship\?\.blockedByTarget/);
   assert.match(read("src/components/projects/dashboard/ProjectDashboardClient.tsx"), /queryKeys\.discover\.userFollowedProjects\(currentUserId\)/);
   assert.match(read("src/components/profile/v2/sections/ProjectsGridCard.tsx"), /isFollowing=\{followed\.has\(cardProject\.id\)\}/);
   assert.match(read("src/hooks/mutations/useProjectMutations.ts"), /query\.queryKey\[3\] === 'following'/);
@@ -125,7 +126,7 @@ test("round 2: cards get counts, not every role or member; filtered reads go thr
 });
 
 test("round 2: following clears only its own project page, and the index migration fails loudly on an invalid index", () => {
-  const project = read("src/app/actions/project/index.ts");
+  const project = projectActionsSource();
   const follow = project.slice(project.indexOf("const revalidateProjectFollowers"), project.indexOf("const revalidateProjectPaths"));
   assert.doesNotMatch(follow, /PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG/);
   const migration = read("drizzle/0211_discover_index_hygiene.sql");

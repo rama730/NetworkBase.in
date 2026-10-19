@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
+import { projectActionsSource } from "./_project-actions-source";
 
 const read = (path: string) => readFileSync(path, "utf8");
 
@@ -44,7 +45,7 @@ describe("SQL audit query remediations", () => {
 
   it("keeps selector reads search-keyset paginated and bounded", () => {
     const profile = read("src/lib/profile/collaboration.ts");
-    const projects = read("src/app/actions/project/index.ts");
+    const projects = projectActionsSource();
     assert.match(profile, /input: \{ search\?: string; cursor\?: string; limit\?: number; projectId\?: string \}/);
     assert.match(profile, /ORDER BY p\.updated_at DESC, p\.id DESC/);
     assert.match(projects, /input: \{ search\?: string; cursor\?: string; limit\?: number \}/);
@@ -70,7 +71,7 @@ describe("SQL audit query remediations", () => {
 
   it("bounds workspace pages and consolidates project task aggregates", () => {
     const workspace = read("src/app/actions/workspace.ts");
-    const projects = read("src/app/actions/project/index.ts");
+    const projects = projectActionsSource();
     assert.match(workspace, /function normalizeWorkspaceLimit/);
     assert.match(workspace, /Number\.isFinite\(parsed\)/);
     assert.match(workspace, /const visibleProjectCheck = exists\(/);
@@ -102,7 +103,7 @@ describe("SQL audit query remediations", () => {
   });
 
   it("uses OCC for lifecycle writes and one project snapshot for update access", () => {
-    const projects = read("src/app/actions/project/index.ts");
+    const projects = projectActionsSource();
     const updates = read("src/app/actions/project/updates.ts");
     assert.match(projects, /eq\(projects\.updatedAt, project\.updatedAt\)/);
     assert.match(projects, /Project lifecycle changed\. Refresh and retry\./);

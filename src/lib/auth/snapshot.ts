@@ -400,8 +400,6 @@ export function buildAuthSnapshotFromClaims(payload: JwtPayload): AuthSnapshot |
         emailVerified: isEmailVerified({
             email_confirmed_at: payload.email_confirmed_at,
             confirmed_at: payload.confirmed_at,
-            email_verified: payload.email_verified,
-            user_metadata: userMetadata,
             app_metadata: appMetadata,
         }),
         issuedAt: parseNumericClaim(payload.iat),
