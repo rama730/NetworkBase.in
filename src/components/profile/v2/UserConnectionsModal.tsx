@@ -39,6 +39,8 @@ interface ConnectionRow {
 export function UserConnectionsModal({ isOpen, onClose, userId, userName }: UserConnectionsModalProps) {
     const [connections, setConnections] = useState<ConnectionRow[]>([]);
     const [loading, setLoading] = useState(true);
+    const [totalConnections, setTotalConnections] = useState<number | null>(null);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [loadingMore, setLoadingMore] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -58,6 +60,7 @@ export function UserConnectionsModal({ isOpen, onClose, userId, userName }: User
         const append = Boolean(opts?.append);
         const search = (opts?.search ?? debouncedSearch).trim();
         const requestToken = ++requestTokenRef.current;
+        setLoadError(null);
 
         if (append) setLoadingMore(true);
         else setLoading(true);
@@ -72,6 +75,8 @@ export function UserConnectionsModal({ isOpen, onClose, userId, userName }: User
 
             if (requestToken !== requestTokenRef.current) return;
 
+            if (!response.success) throw new Error(response.error || 'Could not load connections');
+            setTotalConnections(response.totalConnections);
             const nextRows = (response.connections || []) as ConnectionRow[];
             setHasMore(Boolean(response.hasMore));
             cursorRef.current = response.nextCursor || null;
@@ -92,6 +97,8 @@ export function UserConnectionsModal({ isOpen, onClose, userId, userName }: User
 
             setConnections(nextRows);
         } catch (error) {
+            if (requestToken !== requestTokenRef.current) return;
+            setLoadError(error instanceof Error ? error.message : 'Could not load connections');
             logger.error('[profile.connections-modal] failed to load connections', {
                 module: 'profile',
                 userId,
@@ -126,6 +133,8 @@ export function UserConnectionsModal({ isOpen, onClose, userId, userName }: User
             setHasMore(false);
             setLoading(true);
             setLoadingMore(false);
+            setTotalConnections(null);
+            setLoadError(null);
         }
     }, [isOpen]);
 
@@ -138,7 +147,7 @@ export function UserConnectionsModal({ isOpen, onClose, userId, userName }: User
         <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
             <DialogContent className="max-w-md p-0 overflow-hidden gap-0 border border-border bg-card">
                 <DialogHeader className="border-b border-border px-4 py-4">
-                    <DialogTitle>{`${ownerDisplayName}'s Connections (${connections.length})`}</DialogTitle>
+                    <DialogTitle>{`${ownerDisplayName}'s Connections${totalConnections === null ? '' : ` (${totalConnections})`}`}</DialogTitle>
                     <DialogDescription className="sr-only">
                         Browse accepted connections and open a public profile for each person.
                     </DialogDescription>
@@ -171,6 +180,12 @@ export function UserConnectionsModal({ isOpen, onClose, userId, userName }: User
                                 </div>
                             ))}
                         </div>
+                    ) : loadError ? (
+                        <div className="p-4 space-y-3">
+                            <p role="alert" className="nb-body text-destructive">{loadError}</p>
+                            <button type="button" onClick={() => void loadConnections({ search: debouncedSearch })}
+                                className="nb-ui-label text-primary hover:underline">Try again</button>
+                        </div>
                     ) : connections.length === 0 ? (
                         <div className="p-2">
                             <div className="nb-empty-state nb-grid-ground py-8 text-center" role="status">
@@ -187,6 +202,9 @@ export function UserConnectionsModal({ isOpen, onClose, userId, userName }: User
                         </div>
                     ) : (
                         <div className="space-y-1">
+                            <p role="status" className="nb-compact px-2 pb-2 text-muted-foreground">
+                                {debouncedSearch ? `${connections.length} matching connections shown` : `${connections.length} of ${totalConnections} connections shown`}
+                            </p>
                             {connections.map((conn) => {
                                 const user = conn.otherUser;
                                 if (!user) return null;

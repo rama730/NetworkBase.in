@@ -8,14 +8,9 @@ import { toast } from "sonner";
 import { saveProfileContributionsAction } from "@/app/actions/profile-contributions";
 import { updateProfileAction } from "@/app/actions/profile";
 import { Button } from "@/components/ui/button";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
+import { useRouter, useSearchParams } from "next/navigation";
+import { parseProfileEditSection, profileEditHref, profileEditReturnHref } from "@/lib/profile/edit-route";
+import { useProfileEditNavigationGuard } from "./useProfileEditNavigationGuard";
 import { useAuth } from "@/hooks/use-auth";
 import {
     buildContributionMutations,
@@ -29,19 +24,16 @@ import {
     loadProfileContributionsPage,
     loadProfileContributionWindow,
 } from "@/lib/profile/browser-profile";
-import { applyPayloadToFormBase, mergeSocialLinkCollections, toFormState, toServerPayload } from "@/lib/profile/normalization";
+import { applyPayloadToFormBase, mergeSocialLinkCollections, toFormState, toChangedServerPayload } from "@/lib/profile/normalization";
 import { queryKeys } from "@/lib/query-keys";
-import { calculateProfileCompletion } from "@/lib/validations/profile";
 import { EditProfileTabs, type EditProfileSection } from "./EditProfileTabs";
 
-interface EditProfileModalProps {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
+interface EditProfileEditorProps {
     profile: any;
     contributions?: ProfileCollaborationContribution[];
     onOptimisticUpdate?: (updates: any) => void;
     initialSection?: EditProfileSection;
-    onSaved?: () => Promise<void> | void;
+    onSaved?: (updatedAt: string, contributionsChanged: boolean) => Promise<void> | void;
 }
 
 type SaveState = "idle" | "saving" | "success" | "error";
@@ -60,13 +52,9 @@ function withContributionEntries(profile: any, contributions: readonly ProfileCo
     return normalized;
 }
 
-function withoutLegacyContributionPayload(formState: any, expectedUpdatedAt: string) {
-    const { experience: _experience, ...payload } = toServerPayload(formState, expectedUpdatedAt) as any;
-    return payload as Record<string, unknown>;
-}
-
 function formFieldsChanged(current: Record<string, unknown> | null, base: Record<string, unknown> | null) {
     if (!current || !base) return false;
+    if (current.openToCollaborate !== base.openToCollaborate) return true;
     const trackedKeys = [
         "fullName",
         "username",
@@ -100,20 +88,23 @@ function formFieldsChanged(current: Record<string, unknown> | null, base: Record
     return false;
 }
 
-export function EditProfileModal({
-    open,
-    onOpenChange,
+export function EditProfileEditor({
     profile,
     contributions = [],
     onOptimisticUpdate,
     initialSection = "general",
     onSaved,
-}: EditProfileModalProps) {
+}: EditProfileEditorProps) {
     const queryClient = useQueryClient();
-    const { refreshProfile } = useAuth();
+    const { refreshProfile, user } = useAuth();
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const sectionFromUrl = parseProfileEditSection(searchParams.get("section") ?? initialSection);
+    const returnHref = profileEditReturnHref(searchParams.get("returnTab"));
     const [formState, setFormState] = useState<any>(null);
     const [saveState, setSaveState] = useState<SaveState>("idle");
     const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
+    const [conflictProfile, setConflictProfile] = useState<{ profile: any; updatedAt: string } | null>(null);
     const [contributionErrors, setContributionErrors] = useState<Record<string, string>>({});
     const [contributionHasMore, setContributionHasMore] = useState(false);
     const [contributionTotal, setContributionTotal] = useState(contributions.length);
@@ -121,7 +112,7 @@ export function EditProfileModal({
     const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
     const [activeSection, setActiveSection] = useState<EditProfileSection>(initialSection);
     const inFlightRef = useRef(false);
-    const wasOpenRef = useRef(false);
+    const [initialData] = useState(() => ({ profile, contributions, section: sectionFromUrl }));
     const draftTouchedRef = useRef(false);
     const openGenerationRef = useRef(0);
     const lastKnownUpdatedAtRef = useRef(toIsoTimestamp(profile?.updatedAt));
@@ -138,28 +129,9 @@ export function EditProfileModal({
         return formFieldsChanged(formState, base) || contributionChanges.length > 0;
     }, [formState]);
 
-    const completion = useMemo(() => calculateProfileCompletion({
-        avatarUrl: formState?.avatarUrl || "",
-        fullName: formState?.fullName || "",
-        username: formState?.username || "",
-        headline: formState?.headline || "",
-        bio: formState?.bio || "",
-        location: formState?.location || "",
-        website: formState?.website || "",
-        skills: formState?.skills || [],
-        socialLinks: formState?.socialLinks || {},
-    }), [formState]);
-
     useEffect(() => {
-        if (!profile?.id) {
-            if (!open) {
-                setFormState(null);
-            }
-            return;
-        }
-        const isOpening = open && !wasOpenRef.current;
-        wasOpenRef.current = open;
-        if (!isOpening) return;
+        const { profile, contributions, section } = initialData;
+        if (!profile?.id) return;
 
         openGenerationRef.current += 1;
         const generation = openGenerationRef.current;
@@ -170,13 +142,14 @@ export function EditProfileModal({
         lastKnownUpdatedAtRef.current = toIsoTimestamp(profile.updatedAt);
         setFormState(initial);
         setSaveState("idle");
+        setConflictProfile(null);
         setSaveErrorMessage(null);
         setContributionErrors({});
         setContributionHasMore(false);
         setContributionTotal(contributions.length);
         setContributionsLoadingMore(true);
         setShowDiscardConfirm(false);
-        setActiveSection(initialSection);
+        setActiveSection(section);
 
         void loadProfileContributionsPage(profile.id, { limit: 50, offset: 0, stageLimit: 8 })
             .then((page) => {
@@ -203,12 +176,13 @@ export function EditProfileModal({
                 if (openGenerationRef.current !== generation) return;
                 const message = error instanceof Error ? error.message : "Could not load all project contributions";
                 setSaveErrorMessage(message);
-                toast.error(message);
+                toast.error(message, { position: 'top-right' });
             })
             .finally(() => {
                 if (openGenerationRef.current === generation) setContributionsLoadingMore(false);
             });
-    }, [contributions, initialSection, open, profile]);
+        return () => { openGenerationRef.current += 1; };
+    }, [initialData]);
 
     const applyOptimisticPatch = (payload: Record<string, unknown>) => {
         if (!onOptimisticUpdate) return;
@@ -224,6 +198,9 @@ export function EditProfileModal({
             skills: payload.skills,
             socialLinks: payload.socialLinks,
             openTo: payload.openTo,
+            openToCollaborate: payload.openToCollaborate,
+            openToCustomRoles: payload.openToCustomRoles,
+            preferredCategories: payload.preferredCategories,
             experienceLevel: payload.experienceLevel,
             hoursPerWeek: payload.hoursPerWeek,
         });
@@ -243,10 +220,24 @@ export function EditProfileModal({
             void queryClient.invalidateQueries({ queryKey: queryKeys.profile.projects(profile.id) });
         }
         void queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.networkRoot(), refetchType: "active" });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.connections.root() });
     };
 
+    const allowLeave = useProfileEditNavigationGuard(hasChanges, saveState === "saving");
+    const onClose = () => {
+        allowLeave();
+        router.replace(returnHref);
+        router.refresh();
+    };
+
+    useEffect(() => { setActiveSection(sectionFromUrl); }, [sectionFromUrl]);
+
     const persistChanges = async (closeOnSuccess: boolean) => {
-        if (!formState || inFlightRef.current) return;
+        if (!formState || !hasChanges || inFlightRef.current) return;
+        if (!user || user.id !== profile.id) {
+            setSaveErrorMessage("Sign in to the account that owns this profile before saving.");
+            return;
+        }
         const base = baseProfileRef.current as any;
         const currentEntries = (formState.experience ?? []) as ContributionEditorEntry[];
         const originalEntries = (base.contributionBase ?? []) as ContributionEditorEntry[];
@@ -263,7 +254,7 @@ export function EditProfileModal({
             setActiveSection("experience");
             setSaveState("error");
             setSaveErrorMessage("Fix the highlighted project contribution before saving.");
-            toast.error("Fix the highlighted project contribution before saving.");
+            toast.error("Fix the highlighted project contribution before saving.", { position: 'top-right' });
             return;
         }
 
@@ -272,7 +263,7 @@ export function EditProfileModal({
         setSaveErrorMessage(null);
         setContributionErrors({});
 
-        const profilePayload = withoutLegacyContributionPayload(formState, lastKnownUpdatedAtRef.current);
+        const profilePayload = toChangedServerPayload(formState, base, lastKnownUpdatedAtRef.current);
         const mutations = buildContributionMutations(
             originalEntries,
             currentEntries,
@@ -299,8 +290,11 @@ export function EditProfileModal({
                         lastKnownUpdatedAtRef.current = typeof (response as any).updatedAt === 'string' ? (response as any).updatedAt : lastKnownUpdatedAtRef.current;
                         throw new Error('Your latest saved links were merged with this draft. Review them and save again.');
                     }
+                    if (code === "PROFILE_CONFLICT" && response.currentProfile && response.updatedAt) {
+                        setConflictProfile({ profile: response.currentProfile, updatedAt: response.updatedAt });
+                    }
                     const message = code === "PROFILE_CONFLICT"
-                        ? "Your profile changed in another session. Keep this editor open, refresh the profile, and review before saving again."
+                        ? "Your profile changed in another session. Review the latest changes before saving again."
                         : ((response as any).error || "Could not update profile");
                     throw new Error(message);
                 }
@@ -335,10 +329,10 @@ export function EditProfileModal({
                 ((formState.experience ?? []) as ContributionEditorEntry[]).length,
                 1,
             );
-            const freshWindow = profile?.id
+            const freshWindow = mutations.length > 0 && profile?.id
                 ? await loadProfileContributionWindow(profile.id, loadedCount)
-                : { contributions, total: contributions.length, hasMore: false };
-            const freshEntries = freshWindow.contributions.map(contributionToEditorEntry);
+                : { contributions: [], total: contributionTotal, hasMore: contributionHasMore };
+            const freshEntries = mutations.length > 0 ? freshWindow.contributions.map(contributionToEditorEntry) : currentEntries;
             const nextBase = {
                 ...baseProfileRef.current,
                 experience: freshEntries,
@@ -353,9 +347,9 @@ export function EditProfileModal({
             setSaveState("success");
             invalidateProfileReads(profilePayload);
             void refreshProfile().catch(() => undefined);
-            await onSaved?.();
-            toast.success("Profile updated successfully");
-            if (closeOnSuccess) onOpenChange(false);
+            await onSaved?.(lastKnownUpdatedAtRef.current, mutations.length > 0);
+            toast.success("Profile updated successfully", { position: 'top-right' });
+            if (closeOnSuccess) onClose();
         } catch (error) {
             if (profileSaved) {
                 invalidateProfileReads(profilePayload);
@@ -367,7 +361,7 @@ export function EditProfileModal({
                 : errorMessage;
             setSaveState("error");
             setSaveErrorMessage(message);
-            toast.error(message);
+            toast.error(message, { position: 'top-right' });
         } finally {
             inFlightRef.current = false;
         }
@@ -410,7 +404,7 @@ export function EditProfileModal({
         } catch (error) {
             const message = error instanceof Error ? error.message : "Could not load more project contributions";
             setSaveErrorMessage(message);
-            toast.error(message);
+            toast.error(message, { position: 'top-right' });
         } finally {
             if (openGenerationRef.current === generation) setContributionsLoadingMore(false);
         }
@@ -423,28 +417,19 @@ export function EditProfileModal({
         }
     };
 
-    const handleOpenChange = (openValue: boolean) => {
-        if (!openValue) {
-            if (hasChanges) {
-                setShowDiscardConfirm(true);
-                return;
-            }
-            setShowDiscardConfirm(false);
-            onOpenChange(false);
-        }
-    };
-
     const handleSectionChange = (section: EditProfileSection) => {
         setActiveSection(section);
+        window.history.replaceState(window.history.state, "", profileEditHref(section, searchParams.get("returnTab") ?? "overview"));
     };
 
     const handleCancel = (e?: React.MouseEvent) => {
+        if (inFlightRef.current) return;
         e?.preventDefault?.();
         e?.stopPropagation?.();
         if (hasChanges) {
             setShowDiscardConfirm(true);
         } else {
-            onOpenChange(false);
+            onClose();
         }
     };
 
@@ -466,7 +451,22 @@ export function EditProfileModal({
         setContributionErrors({});
         draftTouchedRef.current = false;
         setShowDiscardConfirm(false);
-        onOpenChange(false);
+        onClose();
+    };
+
+    const reviewLatestChanges = () => {
+        if (!conflictProfile || !formState) return;
+        const draft = toChangedServerPayload(formState, baseProfileRef.current, conflictProfile.updatedAt);
+        const latest = toFormState(conflictProfile.profile);
+        const nextBase = { ...baseProfileRef.current, ...latest, experience: baseProfileRef.current.experience };
+        baseProfileRef.current = nextBase;
+        originalUsernameRef.current = latest.username;
+        lastKnownUpdatedAtRef.current = conflictProfile.updatedAt;
+        setFormState({ ...nextBase, ...draft, experience: formState.experience });
+        setConflictProfile(null);
+        setSaveState("idle");
+        setSaveErrorMessage(null);
+        toast.info("Latest saved changes loaded. Your draft edits are kept; review and save again.", { position: 'top-right' });
     };
 
     const handleSave = (e?: React.MouseEvent) => {
@@ -475,30 +475,12 @@ export function EditProfileModal({
         void persistChanges(true);
     };
 
-    return (
-        <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogContent
-                onPointerDownOutside={(e) => {
-                    if (hasChanges) e.preventDefault();
-                }}
-                onEscapeKeyDown={(e) => {
-                    if (hasChanges) {
-                        e.preventDefault();
-                        setShowDiscardConfirm(true);
-                    }
-                }}
-                className="flex h-[720px] max-h-[90vh] flex-col gap-0 overflow-hidden rounded-lg border-border bg-card p-0 sm:max-w-[960px]"
-            >
-                <DialogHeader className="z-10 border-b border-border bg-card px-6 py-4">
-                    <DialogTitle className="flex items-center justify-between">
-                        <span className="nb-section-title text-foreground">Edit Profile</span>
-                        <span className="nb-meta font-normal text-muted-foreground">{completion.score}% complete</span>
-                    </DialogTitle>
-                    <DialogDescription className="sr-only">Edit your profile details, project contributions, skills, and preferences.</DialogDescription>
-                </DialogHeader>
+    if (user && user.id !== profile.id) return <section role="alert" className="space-y-4 p-6"><p>This editor belongs to a different account. Return to your profile to continue.</p><Button onClick={() => { allowLeave(); router.replace("/my-profile"); }}>Go to my profile</Button></section>;
 
+    return (
+        <section data-profile-editor className="flex h-full min-h-0 flex-col bg-background text-foreground" aria-labelledby="profile-editor-title">
                 <form className="flex min-h-0 flex-1 flex-col" onSubmit={(event) => { event.preventDefault(); void persistChanges(true); }} aria-label="Edit profile form">
-                    <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden md:flex-row">
+                    <fieldset disabled={saveState === "saving"} className="flex min-h-0 w-full flex-1 flex-col overflow-hidden md:flex-row">
                         <EditProfileTabs
                             profile={formState || profile}
                             originalUsername={originalUsernameRef.current}
@@ -520,87 +502,88 @@ export function EditProfileModal({
                                     setSaveErrorMessage(null);
                                 }
                             }}
+                            actions={
+                                <footer aria-label="Profile actions" className="w-full shrink-0 border-t border-border bg-card px-4 py-2 md:px-[calc(var(--ui-panel-padding)+4px)]">
+                                    {showDiscardConfirm ? (
+                                        <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
+                                            <p className="nb-ui-label flex items-center gap-1.5 text-foreground">
+                                                <AlertTriangle className="size-4 text-[var(--status-warning)] shrink-0" />
+                                                Discard unsaved changes?
+                                            </p>
+                                            <div className="flex items-center gap-2">
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    onClick={() => setShowDiscardConfirm(false)}
+                                                >
+                                                    Keep editing
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="destructive"
+                                                    onClick={handleDiscard}
+                                                >
+                                                    Discard
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
+                                            {(saveErrorMessage || saveState === "saving" || hasChanges) ? <div className="min-w-0">
+                                                {saveErrorMessage ? (
+                                                    <p role="alert" className="nb-meta text-destructive">
+                                                        {saveErrorMessage}
+                                                    </p>
+                                                ) : saveState === "saving" ? (
+                                                    <p aria-live="polite" className="nb-meta text-muted-foreground flex items-center gap-1.5">
+                                                        <Loader2 className="size-3.5 animate-spin text-primary" />
+                                                        Saving changes…
+                                                    </p>
+                                                ) : hasChanges ? (
+                                                    <p aria-live="polite" className="nb-meta text-muted-foreground flex items-center gap-1.5">
+                                                        <span className="size-1.5 rounded-[2px] bg-[var(--status-warning)]" />
+                                                        Unsaved changes
+                                                    </p>
+                                                ) : null}
+                                            </div> : null}
+
+                                            <div className="flex flex-wrap items-center justify-end gap-2">
+                                                {conflictProfile ? <Button type="button" variant="outline" onClick={reviewLatestChanges} disabled={saveState === "saving"}>Review latest changes</Button> : null}
+                                                {hasChanges ? (
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        onClick={handleResetChanges}
+                                                        disabled={saveState === "saving"}
+                                                        title="Revert all fields to original values"
+                                                    >
+                                                        Reset
+                                                    </Button>
+                                                ) : null}
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    onClick={handleCancel}
+                                                    disabled={saveState === "saving"}
+                                                >
+                                                    Cancel
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    onClick={handleSave}
+                                                    disabled={saveState === "saving" || !hasChanges || !user || user.id !== profile.id}
+                                                >
+                                                    {saveState === "saving" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                                                    Save changes
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </footer>
+                            }
                         />
-                    </div>
-
-                    <DialogFooter className="z-10 border-t border-border bg-card px-6 py-4">
-                        {showDiscardConfirm ? (
-                            <div className="flex w-full items-center justify-between gap-3">
-                                <p className="nb-ui-label flex items-center gap-1.5 text-foreground">
-                                    <AlertTriangle className="size-4 text-amber-500 shrink-0" />
-                                    Discard unsaved changes?
-                                </p>
-                                <div className="flex items-center gap-2">
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        onClick={() => setShowDiscardConfirm(false)}
-                                    >
-                                        Keep Editing
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant="destructive"
-                                        onClick={handleDiscard}
-                                    >
-                                        Discard
-                                    </Button>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="flex w-full flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                <div className="flex items-center gap-2">
-                                    {saveErrorMessage ? (
-                                        <p role="alert" className="nb-meta text-destructive">
-                                            {saveErrorMessage}
-                                        </p>
-                                    ) : saveState === "saving" ? (
-                                        <p aria-live="polite" className="nb-meta text-muted-foreground flex items-center gap-1.5">
-                                            <Loader2 className="size-3.5 animate-spin text-primary" />
-                                            Saving profile and contribution changes…
-                                        </p>
-                                    ) : hasChanges ? (
-                                        <p aria-live="polite" className="nb-meta text-muted-foreground flex items-center gap-1.5">
-                                            <span className="size-1.5 rounded-full bg-amber-500" />
-                                            Unsaved changes
-                                        </p>
-                                    ) : null}
-                                </div>
-
-                                <div className="flex items-center justify-end gap-2">
-                                    {hasChanges ? (
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            onClick={handleResetChanges}
-                                            disabled={saveState === "saving"}
-                                            title="Revert all fields to original values"
-                                        >
-                                            Reset
-                                        </Button>
-                                    ) : null}
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={handleCancel}
-                                        disabled={saveState === "saving"}
-                                    >
-                                        Cancel
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        onClick={handleSave}
-                                        disabled={saveState === "saving" || !hasChanges}
-                                    >
-                                        {saveState === "saving" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                        Save Changes
-                                    </Button>
-                                </div>
-                            </div>
-                        )}
-                    </DialogFooter>
+                    </fieldset>
                 </form>
-            </DialogContent>
-        </Dialog>
+        </section>
     );
 }

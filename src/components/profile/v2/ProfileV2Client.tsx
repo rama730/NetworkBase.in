@@ -1,10 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { profileEditHref, type ProfileEditSection as EditProfileSection } from '@/lib/profile/edit-route'
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import type { ProfilePageData, ProfilePrivacyRelationship, ProfileTabKey } from './types'
+import type { ProfilePageData, ProfilePrivacyRelationship, ProfileStats, ProfileTabKey } from './types'
 import type { ProfileCollaborationSummary, ProfileInviteProjectOption } from '@/lib/profile/collaboration'
 import { ProfileShell } from './ProfileShell'
 import { ProfileTabs } from './ProfileTabs'
@@ -23,7 +24,9 @@ import { AboutCard } from './sections/AboutCard'
 import { ComponentErrorBoundary } from '@/components/ui/ComponentErrorBoundary'
 import { Skeleton } from '@/components/ui/skeleton'
 import { messageUserInWindow } from '@/components/messages/message-user'
-import { profileHref } from '@/lib/routing/identifiers'
+import { profileSharePath } from '@/lib/sharing/presentation'
+import { buildAuthPageHref } from '@/lib/auth/redirects'
+const ResourceShareDialog = dynamic(() => import('@/components/sharing/ShareDialog').then(mod => mod.ShareDialog), { ssr: false })
 
 import { ProfileHeader } from './ProfileHeader'
 import { ProfileRightRail } from './ProfileRightRail'
@@ -31,18 +34,15 @@ import { OpenToRolesCard } from './sections/OpenToRolesCard'
 import { ProjectContributionsCard } from './sections/ProjectContributionsCard'
 import { ProjectsGridCard } from './sections/ProjectsGridCard'
 
-type EditProfileModalComponent = typeof import('@/components/profile/edit/EditProfileModal')['EditProfileModal'];
 type UserConnectionsModalComponent = typeof import('@/components/profile/v2/UserConnectionsModal')['UserConnectionsModal'];
 type ProfileInviteModalComponent = typeof import('./ProfileInviteModal')['default'];
 type ApplyRoleModalComponent = typeof import('@/components/projects/ApplyRoleModal')['default'];
 
 interface ProfileClientProps extends Omit<ProfilePageData, 'stats'> {
-    stats?: any;
+    stats?: ProfileStats;
     collaborationSummary?: ProfileCollaborationSummary;
     initialOpenRolesProjects?: any[];
 }
-
-type EditSection = "general" | "experience" | "skills" | "social";
 
 function parseProfileTab(value: string | null): ProfileTabKey {
     return value === 'portfolio' ? 'portfolio' : 'overview';
@@ -116,14 +116,6 @@ async function fetchInviteOptions(profileId: string) {
     return readApiData<{ projects: ProfileInviteProjectOption[] }>(response)
 }
 
-async function fetchCollaborationSummary(profileId: string) {
-    const response = await fetch(`/api/v1/profiles/${encodeURIComponent(profileId)}/collaboration-summary`, {
-        headers: { accept: 'application/json' },
-        credentials: 'include',
-    })
-    return readApiData<{ summary: ProfileCollaborationSummary }>(response)
-}
-
 export function ProfileV2Client({
     profile,
     stats: initialStats,
@@ -146,12 +138,11 @@ export function ProfileV2Client({
 
     const [activeTab, setActiveTab] = useState<ProfileTabKey>(urlTab)
     const [liveProfile, setLiveProfile] = useState(profile)
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-    const [EditProfileModal, setEditProfileModal] = useState<EditProfileModalComponent | null>(null)
+    const [isSavingAvailability, setIsSavingAvailability] = useState(false)
+    const availabilityInFlight = useRef(false)
     const [UserConnectionsModal, setUserConnectionsModal] = useState<UserConnectionsModalComponent | null>(null)
     const [ProfileInviteModal, setProfileInviteModal] = useState<ProfileInviteModalComponent | null>(null)
     const [ApplyRoleModal, setApplyRoleModal] = useState<ApplyRoleModalComponent | null>(null)
-    const [editSection, setEditSection] = useState<EditSection>('general')
     const [showConnectionsModal, setShowConnectionsModal] = useState(false)
     const [inviteOpen, setInviteOpen] = useState(false)
     const [isApplyModalOpen, setIsApplyModalOpen] = useState(false)
@@ -160,7 +151,7 @@ export function ProfileV2Client({
     const [privacyRelationship, setPrivacyRelationship] = useState(initialPrivacyRelationship)
     const [lockedShell, setLockedShell] = useState(initialLockedShell)
     const [isBlocking, setIsBlocking] = useState(false)
-    const [viewerMutualCount, setViewerMutualCount] = useState((initialStats as any)?.mutualCount ?? 0)
+    const [viewerMutualCount, setViewerMutualCount] = useState(initialStats?.mutualCount ?? 0)
     const [collaborationSummary, setCollaborationSummary] = useState<ProfileCollaborationSummary>(
         initialCollaborationSummary || EMPTY_COLLABORATION_SUMMARY,
     )
@@ -172,7 +163,7 @@ export function ProfileV2Client({
         setLiveProfile(profile)
         setPrivacyRelationship(initialPrivacyRelationship)
         setLockedShell(initialLockedShell)
-        setViewerMutualCount((initialStats as any)?.mutualCount ?? 0)
+        setViewerMutualCount(initialStats?.mutualCount ?? 0)
         setCollaborationSummary(initialCollaborationSummary || EMPTY_COLLABORATION_SUMMARY)
     }, [connectionStatus, initialCollaborationSummary, initialLockedShell, initialPrivacyRelationship, initialStats, profile])
 
@@ -181,12 +172,30 @@ export function ProfileV2Client({
     }, [urlTab])
 
     const [isLoading, setIsLoading] = useState(false);
+    const [shareOpen, setShareOpen] = useState(false);
+    const shareTrigger = useRef<HTMLElement | null>(null);
+    useEffect(() => { setShareOpen(false); }, [profile.id]);
 
     const safeProfile = liveProfile as any
+    const connectionCountQuery = useQuery({
+        queryKey: queryKeys.profile.connectionCount(profile.id),
+        queryFn: async () => {
+            const { getProfileConnectionCountAction } = await import('@/app/actions/connections')
+            const result = await getProfileConnectionCountAction(profile.id)
+            if (!result.success) throw new Error(result.error)
+            return result.connectionsCount
+        },
+        enabled: Boolean(profile.id && !lockedShell),
+        initialData: Number(initialStats?.connectionsCount ?? profile.connectionsCount ?? 0),
+        staleTime: 10_000,
+    })
+    useEffect(() => {
+        queryClient.setQueryData(queryKeys.profile.connectionCount(profile.id), Number(initialStats?.connectionsCount ?? profile.connectionsCount ?? 0))
+    }, [initialStats?.connectionsCount, profile.connectionsCount, profile.id, queryClient])
     const portfolioQuery = useQuery({
         queryKey: profile?.id ? queryKeys.profile.projects(profile.id) : queryKeys.profile.projects('unknown'),
         queryFn: () => fetchProfileProjects(profile.id),
-        enabled: Boolean(profile?.id && !lockedShell && (activeTab === 'portfolio' || isEditModalOpen)),
+        enabled: Boolean(profile?.id && !lockedShell && activeTab === 'portfolio'),
         initialData: {
             projects: overviewProjects,
             total: Number(initialSummary.stats?.visibleProjectsCount ?? overviewProjects.length),
@@ -209,10 +218,11 @@ export function ProfileV2Client({
     const safeStats = useMemo(
         () => ({
             ...(initialStats || {}),
+            connectionsCount: lockedShell ? 0 : connectionCountQuery.data,
             projectsCount: Number(initialStats?.projectsCount ?? initialSummary.stats?.projectsCount ?? overviewProjects.length ?? 0),
             mutualCount: viewerMutualCount,
         }),
-        [initialStats, initialSummary.stats?.projectsCount, overviewProjects.length, viewerMutualCount],
+        [connectionCountQuery.data, lockedShell, initialStats, initialSummary.stats?.projectsCount, overviewProjects.length, viewerMutualCount],
     );
 
     const prefetchPortfolioProjects = useCallback(() => {
@@ -238,25 +248,6 @@ export function ProfileV2Client({
         router.prefetch(href)
     }, [router])
 
-    const refreshCollaborationSummary = useCallback(async () => {
-        if (!profile?.id) return
-        const result = await queryClient.fetchQuery({
-            queryKey: queryKeys.profile.collaborationSummary(profile.id),
-            queryFn: () => fetchCollaborationSummary(profile.id),
-            staleTime: 5_000,
-        })
-        setCollaborationSummary(result.summary)
-        await queryClient.invalidateQueries({ queryKey: queryKeys.profile.byTarget(profile.username || profile.id) })
-    }, [profile?.id, profile?.username, queryClient])
-
-
-
-    const loadEditProfileModal = useCallback(async () => {
-        if (EditProfileModal) return
-        const mod = await import('@/components/profile/edit/EditProfileModal')
-        setEditProfileModal(() => mod.EditProfileModal)
-    }, [EditProfileModal])
-
     const loadUserConnectionsModal = useCallback(async () => {
         if (UserConnectionsModal) return
         const mod = await import('@/components/profile/v2/UserConnectionsModal')
@@ -275,14 +266,10 @@ export function ProfileV2Client({
         setApplyRoleModal(() => mod.default)
     }, [ApplyRoleModal])
 
-    const openEditModal = useCallback((section: EditSection = 'general') => {
-        setEditSection(section)
-        if (section === 'experience') {
-            prefetchPortfolioProjects()
-        }
-        setIsEditModalOpen(true)
-        void loadEditProfileModal()
-    }, [loadEditProfileModal, prefetchPortfolioProjects])
+    const openEditPage = useCallback((section: EditProfileSection = 'general') => {
+        if (!isOwner || availabilityInFlight.current) return
+        router.push(profileEditHref(section, activeTab))
+    }, [activeTab, isOwner, router])
 
     const handleTabChange = useCallback(
         (next: ProfileTabKey) => {
@@ -306,6 +293,37 @@ export function ProfileV2Client({
         setLiveProfile((current) => applyProfileOptimisticUpdate(current || {}, updates) as typeof current)
     }, [])
 
+    const toggleAvailability = async (checked: boolean) => {
+        if (!isOwner || availabilityInFlight.current) return
+        availabilityInFlight.current = true
+        setIsSavingAvailability(true)
+        const previous = safeProfile.openToCollaborate === true
+        applyOptimisticProfileUpdate({ openToCollaborate: checked })
+        try {
+            const { updateProfileAction } = await import('@/app/actions/profile')
+            const response = await updateProfileAction({
+                openToCollaborate: checked,
+                ...(safeProfile.updatedAt ? { expectedUpdatedAt: new Date(safeProfile.updatedAt).toISOString() } : {}),
+            })
+            if (!response.success) throw new Error(response.errorCode === 'PROFILE_CONFLICT'
+                ? 'Your profile changed in another session. Refresh and try again.' : response.error)
+            setLiveProfile(current => ({ ...current, openToCollaborate: checked, updatedAt: new Date(response.updatedAt) }))
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: queryKeys.profile.root() }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.connections.root() }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.networkRoot() }),
+            ])
+            toast.success(checked ? 'Open to collaboration' : 'Collaboration turned off')
+        } catch (error) {
+            applyOptimisticProfileUpdate({ openToCollaborate: previous })
+            toast.error(error instanceof Error ? error.message : 'Could not update availability')
+            router.refresh()
+        } finally {
+            availabilityInFlight.current = false
+            setIsSavingAvailability(false)
+        }
+    }
+
     const resolveConnectionId = async () => {
         const { checkConnectionStatus } = await import('@/app/actions/connections');
         const result = await checkConnectionStatus(profile.id);
@@ -324,10 +342,13 @@ export function ProfileV2Client({
         setLockedShell(result.lockedShell);
         setViewerMutualCount(result.mutualCount);
         setStatus(connectionStateFromRelationship(result.privacyRelationship));
-    }, [isOwner, profile?.id, viewerUser]);
+        await queryClient.invalidateQueries({ queryKey: queryKeys.profile.root() });
+        router.refresh();
+    }, [isOwner, profile?.id, queryClient, router, viewerUser]);
 
     const handleConnectPrimary = async () => {
-        if (!viewerUser || !profile) return;
+        if (!profile) return;
+        if (!viewerUser) { router.push(buildAuthPageHref('/login', profileSharePath(profile.username) || '/discover')); return; }
         const prevStatus = status;
         setIsLoading(true);
         try {
@@ -427,7 +448,7 @@ export function ProfileV2Client({
                             <AboutCard
                                 profile={safeProfile}
                                 isOwner={isOwner}
-                                onEdit={isOwner ? () => openEditModal('general') : undefined}
+                                onEdit={isOwner ? () => openEditPage('general') : undefined}
                             />
                         </ComponentErrorBoundary>
                     </div>
@@ -473,7 +494,7 @@ export function ProfileV2Client({
                 <ProjectContributionsCard
                     contributions={collaborationContributions}
                     isOwner={isOwner}
-                    onAdd={isOwner ? () => openEditModal('experience') : undefined}
+                    onAdd={isOwner ? () => openEditPage('experience') : undefined}
                     projects={projectOptionsForEditing}
                     onProjectIntent={prefetchProjectHref}
                 />
@@ -572,31 +593,14 @@ export function ProfileV2Client({
         void loadApplyRoleModal()
     }, [loadApplyRoleModal])
 
-    const handleShareProfile = useCallback(async () => {
-        const canonicalPath = profileHref(safeProfile)
-        const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}${canonicalPath}` : canonicalPath
-        const shareData: ShareData = {
-            title: safeProfile.fullName || safeProfile.username || 'NetworkBase profile',
-            text: safeProfile.headline || undefined,
-            url: shareUrl,
-        }
-        try {
-            if (typeof navigator.share === 'function') {
-                await navigator.share(shareData)
-                return
-            }
-            await navigator.clipboard.writeText(shareUrl)
-            toast.success('Profile link copied')
-        } catch (error) {
-            if (error instanceof Error && error.name === 'AbortError') return
-            toast.error('Could not share this profile')
-        }
-    }, [safeProfile])
+    const handleShareProfile = useCallback((trigger?: HTMLElement) => { shareTrigger.current = trigger ?? null; setShareOpen(true); }, [])
 
 
 
     return (
         <>
+            {shareOpen ? <ResourceShareDialog kind="profile" path={profileSharePath(safeProfile.username)} returnFocusElement={shareTrigger.current} onClose={() => setShareOpen(false)}
+                ownerUsernameSetup={isOwner ? { profileId: safeProfile.id, updatedAt: safeProfile.updatedAt, onSaved: username => { applyOptimisticProfileUpdate({ username }); router.refresh(); } } : undefined} /> : null}
             <ProfileShell
                 header={
                     <ProfileHeader
@@ -609,9 +613,10 @@ export function ProfileV2Client({
                         lockedShell={lockedShell}
                         isLoadingConnection={isLoading}
                         isBlocking={isBlocking}
-                        onEdit={() => openEditModal('general')}
+                        onEdit={() => openEditPage('general')}
                         onShare={handleShareProfile}
-                        onAvailabilityEdit={() => openEditModal('skills')}
+                        onAvailabilityToggle={(checked) => startTransition(() => { void toggleAvailability(checked) })}
+                        isSavingAvailability={isSavingAvailability}
                         onConnectionsClick={handleOpenConnections}
                         onProjectsClick={handleOpenProjects}
                         onConnectPrimary={handleConnectPrimary}
@@ -637,10 +642,13 @@ export function ProfileV2Client({
                     <ComponentErrorBoundary fallbackMessage="Failed to load role preferences.">
                         <OpenToRolesCard
                             openTo={safeProfile.openTo}
+                            openToCollaborate={safeProfile.openToCollaborate}
+                            customRoles={safeProfile.openToCustomRoles}
+                            categories={safeProfile.preferredCategories}
                             experienceLevel={safeProfile.experienceLevel}
                             hoursPerWeek={safeProfile.hoursPerWeek}
                             isOwner={isOwner}
-                            onEdit={isOwner ? () => openEditModal('skills') : undefined}
+                            onEdit={isOwner ? () => openEditPage('opportunity') : undefined}
                             onInvite={viewerUser && !isOwner ? handleOpenInvite : undefined}
                             onInviteIntent={prefetchInviteOptions}
                             onApply={viewerUser && !isOwner ? handleOpenApplyModal : undefined}
@@ -659,22 +667,10 @@ export function ProfileV2Client({
                             && !privacyRelationship.blockedByTarget
                         )}
                         socialLinks={safeProfile.socialLinks || []}
-                        onEditSection={openEditModal}
+                        onEditSection={openEditPage}
                     />
                 )}
             />
-
-            {isOwner && EditProfileModal && (
-                <EditProfileModal
-                    open={isEditModalOpen}
-                    onOpenChange={setIsEditModalOpen}
-                    profile={safeProfile}
-                    contributions={collaborationContributions}
-                    onOptimisticUpdate={applyOptimisticProfileUpdate}
-                    initialSection={editSection}
-                    onSaved={refreshCollaborationSummary}
-                />
-            )}
 
             {ProfileInviteModal && (
                 <ProfileInviteModal

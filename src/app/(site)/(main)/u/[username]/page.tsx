@@ -1,12 +1,14 @@
 import { notFound, permanentRedirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { getProfileDetails } from '@/lib/data/profile';
 import { ProfileV2Client } from '@/components/profile/v2/ProfileV2Client';
 import { Metadata } from 'next';
 import { cache, Suspense } from 'react';
 import { resolvePublicUsernameRoute } from '@/lib/usernames/service';
-import { buildRouteMetadata, DEFAULT_ROUTE_OG_IMAGE } from '@/lib/metadata/route-metadata';
+import { shareMetadata } from '@/lib/sharing/metadata';
+import { readSharePreview } from '@/lib/sharing/read';
+import { genericSharePreview, isShareCrawler, shareOrigin } from '@/lib/sharing/presentation';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
-import { buildProfileMetadataDescription, buildPublicProfileTitle } from '@/lib/profile/display';
 import { getProfileProjectsWithOpenRolesAction } from '@/app/actions/project';
 import { ProfileRouteSkeleton } from '@/components/profile/v2/ProfileRouteSkeleton';
 
@@ -20,7 +22,7 @@ function decodeUsernameParam(username: string): string | null {
     }
 }
 
-// Metadata and body share the same auth-qualified profile read.
+// The body is viewer-qualified. Metadata always uses an independent anonymous projection.
 const readPublicProfileRoute = cache(async (username: string) => {
     const decodedUsername = decodeUsernameParam(username);
     if (!decodedUsername) return { status: 'not_found' as const, currentUsername: username };
@@ -39,34 +41,9 @@ const readPublicProfileRoute = cache(async (username: string) => {
 
 export async function generateMetadata({ params }: { params: Promise<{ username: string }> }): Promise<Metadata> {
     const { username } = await params;
-    const route = await readPublicProfileRoute(username);
-    if (route.status === 'not_found' || route.data.privacyStatus === 'not_found' || !route.data.profile || route.data.lockedShell) {
-        return buildRouteMetadata({
-            title: 'Profile Not Found | NetworkBase',
-            description: 'The requested profile could not be found.',
-            path: `/u/${encodeURIComponent(route.currentUsername)}`,
-            robots: { index: false, follow: false, noarchive: true },
-        });
-    }
-
-    const profile = route.data.profile;
-    const isPrivate = profile.visibility === 'private';
-    return buildRouteMetadata({
-        title: buildPublicProfileTitle({
-            username: profile.username,
-            fullName: profile.fullName,
-        }),
-        description: buildProfileMetadataDescription({
-            username: profile.username,
-            fullName: profile.fullName,
-            headline: profile.headline,
-            location: profile.location,
-            bio: profile.bio,
-        }),
-        path: `/u/${encodeURIComponent(profile.username ?? route.currentUsername)}`,
-        image: profile.avatarUrl || DEFAULT_ROUTE_OG_IMAGE,
-        ...(isPrivate ? { robots: { index: false, follow: false, noarchive: true } } : {}),
-    });
+    const url = new URL(`/u/${encodeURIComponent(username)}`, shareOrigin()).href;
+    const preview = await readSharePreview(url);
+    return shareMetadata(preview ?? genericSharePreview({ kind: 'profile', identifier: username, url }, 'unavailable'));
 }
 
 async function ResolvedPublicProfile({
@@ -75,6 +52,12 @@ async function ResolvedPublicProfile({
     params: Promise<{ username: string }>;
 }) {
     const { username } = await params;
+
+    if (isShareCrawler((await headers()).get('user-agent'))) {
+        const preview = await readSharePreview(new URL(`/u/${encodeURIComponent(username)}`, shareOrigin()).href);
+        if (preview?.state === 'ready' && new URL(preview.url).pathname !== `/u/${username}`) permanentRedirect(new URL(preview.url).pathname);
+        return <article className="p-6"><h1>{preview?.title ?? 'Profile on NetworkBase'}</h1><p>{preview?.description ?? 'Open this profile on NetworkBase.'}</p>{preview?.portfolio ? <p>{preview.portfolio}</p> : null}{preview?.skills.length ? <p>{preview.skills.join(', ')}</p> : null}<a href={preview?.url ?? '/discover'}>Open NetworkBase</a></article>;
+    }
 
     const route = await readPublicProfileRoute(username);
     if (route.status === 'not_found') {
