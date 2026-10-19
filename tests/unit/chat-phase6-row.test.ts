@@ -26,7 +26,7 @@ test("header and tabs: archive icon, no delete key, ?tab= in the URL, canvas con
   const view = read("src/components/messages/ConversationView.tsx");
   // Menu items take the shared sizing and the destructive variant (round 3 #153).
   assert.match(view, /<DropdownMenuItem variant="destructive" onSelect=\{\(\) => setConfirm\("archive"\)\}>\s*<Archive \/> Archive channel/);
-  assert.match(view, /params\.set\("tab", id\)/);
+  assert.match(view, /conversationHref\(channelId, id === "messages" \? \{ tab: null \} : \{ tab: id, m: null \}/);
   assert.match(view, /title=\{confirm === "replace" \? "Replace the canvas\?"/);
   assert.match(view, /key=\{`\$\{channelId\}:\$\{timeline\.epoch\}`\}/);
   const tabs = read("src/components/messages/ChannelTabBar.tsx");

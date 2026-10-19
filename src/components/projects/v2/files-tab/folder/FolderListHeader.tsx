@@ -26,6 +26,7 @@ export interface FolderListHeaderProps {
   byLabel?: string;
   hasCheckbox?: boolean;
   allSelected?: boolean;
+  indeterminate?: boolean;
   onToggleSelectAll?: () => void;
 }
 
@@ -42,8 +43,17 @@ export function FolderListHeader({
   byLabel = "Updated by",
   hasCheckbox = false,
   allSelected = false,
+  indeterminate = false,
   onToggleSelectAll,
 }: FolderListHeaderProps): React.JSX.Element {
+  const checkboxRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (checkboxRef.current) {
+      checkboxRef.current.indeterminate = Boolean(indeterminate && !allSelected);
+    }
+  }, [indeterminate, allSelected]);
+
   const getSortArrow = (column: "name" | "updated" | "size") => {
     if (sort !== column) return null;
     if (column === "name") {
@@ -67,6 +77,7 @@ export function FolderListHeader({
         <div className="flex items-center gap-2">
           {hasCheckbox && (
             <input
+              ref={checkboxRef}
               type="checkbox"
               aria-label="Select all items"
               checked={allSelected}

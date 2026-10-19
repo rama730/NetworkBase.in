@@ -1,9 +1,9 @@
 "use client";
 
 import { memo, useMemo, useState } from "react";
-import { Briefcase, CheckCircle, Clock, Loader2, XCircle } from "lucide-react";
+import { CheckCircle, Clock, Loader2, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import DashboardCard from "./DashboardCard";
+import { RailSection } from "@/components/ui/rail-section";
 import { SkillList } from "@/components/skills/SkillList";
 import {
     experienceLevelLabel,
@@ -50,7 +50,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
 
     if (openRoles.length === 0 && !isGuidanceInvitation) {
         return (
-            <DashboardCard title="Open roles" icon={Briefcase} compact id="open-roles" className="scroll-mt-28">
+            <RailSection title="Open roles" id="open-roles" className="scroll-mt-28" contentClassName="p-3">
                 <div className="space-y-3 py-1">
                     <p className="text-xs text-muted-foreground">No open roles defined yet.</p>
                     <button
@@ -61,7 +61,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                         Add role
                     </button>
                 </div>
-            </DashboardCard>
+            </RailSection>
         );
     }
 
@@ -96,7 +96,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
     const showMoreCount = openRoles.length - 10;
 
     return (
-        <DashboardCard title="Open roles" icon={Briefcase} compact id="open-roles" className="scroll-mt-28">
+        <RailSection title="Open roles" id="open-roles" className="scroll-mt-28" contentClassName="p-3">
             <div className="space-y-3">
                 {blockedReason ? (
                     <p id="open-roles-apply-disabled-reason" className="px-1 text-[11px] text-muted-foreground">
@@ -389,7 +389,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                     </button>
                 ) : null}
             </div>
-        </DashboardCard>
+        </RailSection>
     );
 });
 

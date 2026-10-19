@@ -68,10 +68,15 @@ describe('skill icon theme policy', () => {
         assert.match(anthropic, /background-color:currentColor/)
     })
 
-    it('uses a semantic theme-readable glyph for WebSockets', () => {
-        const websockets = render('WebSockets')
+    it('omits generic glyphs and initials so the surrounding chip shows only the name', () => {
+        for (const name of ['WebSockets', 'Data Science', 'Unlisted specialist skill']) {
+            assert.equal(render(name), '', name)
+            assert.equal(render(name, 'current'), '', name)
+        }
+    })
 
-        assert.match(websockets, /aria-label="WebSockets"/)
-        assert.match(websockets, /\/skill-icons\/v1\/lucide-[a-z0-9-]+\.svg/)
+    it('omits missing icon keys without rendering an empty placeholder', () => {
+        const skill = { ...resolveClientSkill('React'), iconKey: '' }
+        assert.equal(renderToStaticMarkup(createElement(SkillIcon, { skill })), '')
     })
 })

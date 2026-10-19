@@ -136,7 +136,7 @@ describe("AssetPreview PDF delivery", () => {
       path.join(process.cwd(), "src/components/projects/v2/preview/AssetPreview.tsx"),
       "utf8",
     );
-    assert.match(source, /\/api\/v1\/projects\/\$\{encodeURIComponent\(node\.projectId\)\}\/files\/\$\{encodeURIComponent\(node\.id\)\}\/preview/);
+    assert.match(source, /\/api\/v1\/projects\/\$\{encodeURIComponent\(node\.projectId \|\| projectId \|\| ""\)\}\/files\/\$\{encodeURIComponent\(node\.id\)\}\/preview/);
     assert.match(source, /<iframe[\s\S]*src=\{previewUrl\}/);
     assert.doesNotMatch(source, /URL\.createObjectURL/);
   });

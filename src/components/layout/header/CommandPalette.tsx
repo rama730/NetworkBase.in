@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmAppNavigation } from "@/lib/navigation/confirm-navigation";
+
 import { CONNECTION_COPY } from "@/lib/connections/copy";
 import { History, RotateCcw, Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -228,6 +230,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
     };
 
     const openSettingsResult = (result: SettingsSearchItem) => {
+        if (!confirmAppNavigation()) return;
         cancelActivePreviews();
         recordRecentSearch(query);
         router.push(result.href);
@@ -235,6 +238,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
     };
 
     const openPreviewResult = (result: GlobalSearchPreview) => {
+        if (result.kind !== "link" && !confirmAppNavigation()) return;
         cancelActivePreviews();
         if (result.kind === "skill") recordRecentSearch(result.title);
         else recordRecentPreview(result);
@@ -266,7 +270,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
             context: searchContext,
             query,
         });
-        if (!href) return;
+        if (!href || !confirmAppNavigation()) return;
         cancelActivePreviews();
         recordRecentSearch(query);
         router.push(href);

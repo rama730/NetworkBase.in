@@ -1,5 +1,7 @@
 "use server";
 
+import { isMessageSeq } from "@/lib/messaging/routes";
+
 import { sql } from "drizzle-orm";
 
 import { CHAT_LIST_PAGE, CHAT_MAX_BODY } from "@/lib/messaging/constants";
@@ -22,7 +24,7 @@ function futureDate(value: unknown): string | null | "invalid" {
 export async function saveMessage(input: { channelId: string; seq: number; on: boolean; remindAt?: string | null; clearReminder?: boolean }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
-  if (!isUuid(input?.channelId) || !Number.isInteger(input.seq)) return invalidInput;
+  if (!isUuid(input?.channelId) || !isMessageSeq(input.seq)) return invalidInput;
   const remindAt = futureDate(input.remindAt);
   if (remindAt === "invalid") return { success: false as const, error: "chat_schedule_in_past" };
   try {
@@ -122,7 +124,7 @@ export async function scheduleMessage(input: { channelId: string; body: string; 
   const user = await requireChatUser();
   if (!user) return unauthorized;
   if (!isUuid(input?.channelId) || typeof input.body !== "string" || !input.body.trim() || input.body.length > CHAT_MAX_BODY) return invalidInput;
-  if (input.threadRootSeq != null && !Number.isInteger(input.threadRootSeq)) return invalidInput;
+  if (input.threadRootSeq != null && !isMessageSeq(input.threadRootSeq)) return invalidInput;
   const sendAt = futureDate(input.sendAt);
   if (sendAt === "invalid" || sendAt === null) return { success: false as const, error: "chat_schedule_in_past" };
   try {

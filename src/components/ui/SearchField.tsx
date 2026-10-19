@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, X } from "lucide-react";
+import { Loader2, Search, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -16,6 +16,7 @@ export function SearchField({
     placeholder = label,
     size = "default",
     pageSearch = false,
+    loading = false,
     className,
 }: {
     value: string;
@@ -26,11 +27,17 @@ export function SearchField({
     size?: "default" | "lg";
     /** The page's own search (Discover): the top bar's search box focuses it instead of opening a second search. */
     pageSearch?: boolean;
+    /** Shows an animated spinning loader in place of the search icon while an in-flight search is transitioning. */
+    loading?: boolean;
     className?: string;
 }) {
     return (
         <div role="search" data-page-search={pageSearch || undefined} className={cn("relative min-w-0", className)}>
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            {loading ? (
+                <Loader2 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-primary" aria-hidden="true" />
+            ) : (
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            )}
             <input
                 type="search"
                 value={value}

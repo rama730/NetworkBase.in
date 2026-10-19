@@ -1,16 +1,7 @@
 'use client';
 
 import { useMemo, useState } from "react";
-import {
-    Check,
-    ChevronDown,
-    Loader2,
-    Lock,
-    Search,
-    Shield,
-    Upload,
-    Users,
-} from "lucide-react";
+import { Check, ChevronDown, Loader2, Lock, Search, Shield } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -142,7 +133,6 @@ export function FileWorkspaceMembers({
             <div className="space-y-3">
                 <div className="flex items-center justify-between border-b border-border/60 pb-2">
                     <div className="flex items-center gap-2">
-                        <Shield className="size-4 text-primary" />
                         <span className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                             Project Leadership
                         </span>
@@ -231,7 +221,6 @@ export function FileWorkspaceMembers({
             <div className="space-y-3">
                 <div className="flex items-center justify-between border-b border-border/60 pb-2">
                     <div className="flex items-center gap-2">
-                        <Users className="size-4 text-muted-foreground" />
                         <span className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                             Team Member Intake
                         </span>

@@ -18,6 +18,9 @@ const CANONICAL_AVATAR_SURFACES = [
   "src/components/profile/ProfileHeader.tsx",
   "src/components/profile/v2/ProfileHeader.tsx",
   "src/components/network/PersonCard.tsx",
+  "src/components/network/PersonCardContent.tsx",
+  "src/components/network/ConnectionsClient.tsx",
+  "src/components/network/InvitationsClient.tsx",
   "src/components/projects/ProjectCard.tsx",
   "src/components/settings/PrivacySettings.tsx",
 ] as const;
@@ -59,8 +62,12 @@ export function validateCanonicalLogicContract(rootDir: string = process.cwd()):
     checkedFiles += 1;
     const source = fs.readFileSync(absolute, "utf8");
 
-    if (!USER_AVATAR_IMPORT_RE.test(source)) {
-      errors.push(`${rel}: first-wave avatar surfaces must import UserAvatar.`);
+    const sharedPersonCard = rel.startsWith("src/components/network/")
+      && /import\s+\{\s*PersonCardContent\s*\}\s+from\s+["']\.\/PersonCardContent["']/.test(source)
+      && /<PersonCardContent\b/.test(source)
+      && fs.existsSync(path.join(rootDir, "src/components/network/PersonCardContent.tsx"));
+    if (!USER_AVATAR_IMPORT_RE.test(source) && !sharedPersonCard) {
+      errors.push(`${rel}: first-wave avatar surfaces must import UserAvatar or delegate to PersonCardContent.`);
     }
 
     for (const pattern of BANNED_AVATAR_PATTERNS) {

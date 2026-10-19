@@ -412,6 +412,7 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
     className,
     onMediaLoad,
     onRequestTarget,
+    onAllowExternalImages,
     previewsLoading,
     previewByKey,
     viewModel,
@@ -427,6 +428,7 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
     className?: string;
     onMediaLoad?: () => void;
     onRequestTarget?: (targetId: string) => void;
+    onAllowExternalImages?: () => void;
     previewsLoading?: boolean;
     previewByKey?: Map<string, ProjectDocSmartBlockPreview>;
     viewModel?: ProjectDocViewModel;
@@ -506,13 +508,14 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
         id: string | undefined,
         className: string,
         node: MarkdownAstNode | undefined,
-        props: React.HTMLAttributes<HTMLHeadingElement>,
+        props: React.HTMLAttributes<HTMLHeadingElement> & { align?: string },
     ) => {
         const headingText = buildProjectDocPlainText(textFromReactNode(children), { maxLength: 120, stripCodeBlocks: false }) ?? textFromReactNode(children);
         const occurrenceIndex = headingRenderCounts.get(headingText) ?? 0;
         headingRenderCounts.set(headingText, occurrenceIndex + 1);
         const targetId = id || headingTargetQueues.get(headingText)?.[occurrenceIndex] || slugifyReadmeHeading(headingText, fallbackHeadingIds);
         const sourceProps = sourceTargetProps("heading", node);
+        const align = props.align;
         return (
             <Tag
                 id={targetId}
@@ -521,7 +524,13 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
                 data-readme-target="true"
                 data-readme-target-kind="heading"
                 data-readme-target-id={targetId}
-                className={cn(className, "outline-none")}
+                className={cn(
+                    className,
+                    align === "center" && "text-center",
+                    align === "right" && "text-right",
+                    align === "left" && "text-left",
+                    "outline-none"
+                )}
                 {...props}
             >
                 {children}
@@ -534,17 +543,39 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
         h2: ({ children, id, node, ...props }: React.HTMLAttributes<HTMLHeadingElement> & { node?: MarkdownAstNode }) => renderHeading("h2", children, id, cn("mb-4 mt-8 scroll-mt-24 border-b border-border pb-2.5 font-semibold text-foreground", fidelity === "github" ? "text-[1.5em] leading-snug" : "text-[20px] sm:text-[24px] leading-[1.25] tracking-[-0.015em]"), node, props),
         h3: ({ children, id, node, ...props }: React.HTMLAttributes<HTMLHeadingElement> & { node?: MarkdownAstNode }) => renderHeading("h3", children, id, "mb-3 mt-6 scroll-mt-24 text-[17px] sm:text-[20px] font-semibold leading-[1.28] text-foreground", node, props),
         h4: ({ children, id, node, ...props }: React.HTMLAttributes<HTMLHeadingElement> & { node?: MarkdownAstNode }) => renderHeading("h4", children, id, "mb-2 mt-5 scroll-mt-24 text-[15px] sm:text-[17px] font-semibold leading-[1.28] text-foreground", node, props),
-        p: ({ node, ...props }: React.HTMLAttributes<HTMLParagraphElement> & { node?: MarkdownAstNode }) => {
+        p: ({ node, align, className: pClass, ...props }: React.HTMLAttributes<HTMLParagraphElement> & { node?: MarkdownAstNode; align?: string }) => {
             const sourceProps = sourceTargetProps("paragraph", node);
             return (
                 <p
-                    className="mb-4 text-[15px] leading-[1.65] text-foreground/90"
+                    className={cn(
+                        "mb-4 text-[15px] leading-[1.65] text-foreground/90",
+                        align === "center" && "text-center",
+                        align === "right" && "text-right",
+                        align === "left" && "text-left",
+                        pClass
+                    )}
                     {...sourceProps}
-
                     {...props}
                 />
             );
         },
+        div: ({ align, className: divClass, ...props }: React.HTMLAttributes<HTMLDivElement> & { align?: string }) => (
+            <div
+                className={cn(
+                    align === "center" && "text-center",
+                    align === "right" && "text-right",
+                    align === "left" && "text-left",
+                    divClass
+                )}
+                {...props}
+            />
+        ),
+        details: ({ className: detailsClass, ...props }: React.DetailsHTMLAttributes<HTMLDetailsElement>) => (
+            <details className={cn("my-4 rounded-[6px] border border-border bg-card p-3 text-sm", detailsClass)} {...props} />
+        ),
+        summary: ({ className: summaryClass, ...props }: React.HTMLAttributes<HTMLElement>) => (
+            <summary className={cn("cursor-pointer font-medium text-foreground select-none hover:text-primary transition-colors", summaryClass)} {...props} />
+        ),
         ul: ({ node, ...props }: React.HTMLAttributes<HTMLUListElement> & { node?: MarkdownAstNode }) => {
             const sourceProps = sourceTargetProps("list", node);
             return <ul className="mb-4 list-disc space-y-1.5 pl-5 text-[15px] leading-[1.65] text-foreground/90" {...sourceProps} {...props} />;
@@ -668,16 +699,41 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
             });
             const sourceProps = sourceTargetProps("image", node);
             if (!image.src) {
+                const canUnlock = image.blockedReason === "external" && typeof onAllowExternalImages === "function";
                 return (
                     <span
-                        className={readmeHiddenMediaClass(image.kind)}
+                        role={canUnlock ? "button" : undefined}
+                        tabIndex={canUnlock ? 0 : undefined}
+                        onClick={canUnlock ? (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onAllowExternalImages?.();
+                        } : undefined}
+                        onKeyDown={canUnlock ? (e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onAllowExternalImages?.();
+                            }
+                        } : undefined}
+                        className={cn(
+                            readmeHiddenMediaClass(image.kind),
+                            canUnlock && "cursor-pointer hover:bg-muted/70 hover:text-foreground transition-colors select-none"
+                        )}
                         data-readme-media-kind={image.kind}
                         data-readme-media-blocked={image.blockedReason ?? "invalid"}
-                        title={image.blockedReason === "external" ? "External image hidden by document settings." : "Document image could not be resolved."}
+                        title={image.blockedReason === "external" ? (canUnlock ? "External image hidden for privacy. Click to load all external images." : "External image hidden by document settings.") : "Document image could not be resolved."}
                         {...sourceProps}
-
                     >
-                        {image.blockedReason === "external" ? "Image hidden" : "Image unavailable"}
+                        {image.blockedReason === "external" ? (
+                            canUnlock ? (
+                                <>
+                                    <span className="font-medium text-foreground">Image blocked</span>
+                                    <span aria-hidden="true" className="mx-1">•</span>
+                                    <span className="underline underline-offset-2">Load</span>
+                                </>
+                            ) : "Image hidden"
+                        ) : "Image unavailable"}
                     </span>
                 );
             }

@@ -121,7 +121,7 @@ test("Domain E: JourneyTimeline isolates card stacking context to prevent sticky
     "utf-8"
   );
 
-  assert.match(journeyContent, /<section className="isolate/);
+  assert.match(journeyContent, /<RailSection\s+title="Journey"\s+className="isolate"/);
   assert.doesNotMatch(journeyContent, /className="[^"]*\bz-10\b[^"]*"[^>]*data-stage-index/);
 });
 

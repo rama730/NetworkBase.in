@@ -268,6 +268,21 @@ function resolveFileMimeType(file: File): string {
   return FALLBACK_EXT_MIME[ext] || "application/octet-stream";
 }
 
+function isNonRetryableUploadError(message?: string): boolean {
+  if (!message) return false;
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("exceeds") ||
+    lower.includes("maximum size") ||
+    lower.includes("too large") ||
+    lower.includes("mime") ||
+    lower.includes("prohibited") ||
+    lower.includes("unsupported") ||
+    lower.includes("validation") ||
+    lower.includes("blocked")
+  );
+}
+
   // Picker and flat drag/drop uploads share collision, finalization, and retry behavior.
   const uploadFiles = useCallback(async (files: File[], parentId: string | null): Promise<ProjectNode[]> => {
     if (!canEdit || !files.length) return [];
@@ -278,6 +293,8 @@ function resolveFileMimeType(file: File): string {
     }
     const validatedFiles = validation.files;
     const failed: File[] = [];
+    const nonRetryableFailed: File[] = [];
+    const nonRetryableErrors: string[] = [];
     const createdNodes: ProjectNode[] = [];
     const mutationKey = `upload:${projectId}:${parentId ?? "root"}:${validatedFiles.map(file => file.name).sort().join(",")}`;
     let progress: string | number | undefined;
@@ -303,20 +320,37 @@ function resolveFileMimeType(file: File): string {
         }
         const skipped = validatedFiles.length - eligible.length;
         if (!eligible.length) return skipped;
+        const abortController = new AbortController();
         transferId = transferRef.current?.start(validatedFiles.length === 1 ? validatedFiles[0]!.name : `${validatedFiles.length} files`, eligible.length);
+        if (transferId) transferRef.current?.update(transferId, { abort: () => abortController.abort() });
         progress = toast.loading(`Uploading 0 of ${eligible.length} files…`);
         let completed = 0;
         // The server accepts at most 50 intents per request so transfer and verification work stay bounded.
-        for (let offset = 0; offset < eligible.length; offset += 16) {
-          const plans = eligible.slice(offset, offset + 16).map(file => ({
+        for (let offset = 0; offset < eligible.length; offset += 50) {
+          if (abortController.signal.aborted) break;
+          const plans = eligible.slice(offset, offset + 50).map(file => ({
             file, key: buildProjectFileKey(projectId, crypto.randomUUID()),
             contentType: resolveFileMimeType(file), sizeBytes: file.size,
           }));
           const batch = await getBatchUploadUrls(plans.map(({ key, contentType, sizeBytes }) => ({ key, contentType, sizeBytes })));
           if ("error" in batch) {
-            failed.push(...plans.map(plan => plan.file));
+            const errorMsg = batch.error || "Failed to prepare upload URLs";
+            const isNonRetryable = isNonRetryableUploadError(errorMsg);
+            if (isNonRetryable) {
+              nonRetryableErrors.push(errorMsg);
+              nonRetryableFailed.push(...plans.map(plan => plan.file));
+            } else {
+              failed.push(...plans.map(plan => plan.file));
+            }
             completed += plans.length;
-            if (transferId) transferRef.current?.update(transferId, { completed, failed: failed.length });
+            if (transferId) {
+              transferRef.current?.update(transferId, {
+                completed,
+                failed: failed.length + nonRetryableFailed.length,
+                error: errorMsg,
+                retry: failed.length > 0 ? () => void uploadFiles(failed, parentId) : undefined,
+              });
+            }
             continue;
           }
           // Publish the verified files in the same bounded 50-item batch.
@@ -329,6 +363,7 @@ function resolveFileMimeType(file: File): string {
 
           await runWithConcurrency(plans, Math.max(1, FILES_RUNTIME_BUDGETS.saveAllConcurrency), async ({ file, key, contentType }) => {
             try {
+              if (abortController.signal.aborted) return;
               const url = batch.urls?.[key];
               const uploadToken = batch.uploadTokens?.[key];
               const storageKey = batch.storageKeys?.[key];
@@ -341,7 +376,17 @@ function resolveFileMimeType(file: File): string {
                 uploadUrl: url,
                 contentType,
                 operationId,
-              }, file, { cacheProfile: "immutable" });
+              }, file, {
+                cacheProfile: "immutable",
+                signal: abortController.signal,
+                onProgress: (loaded, total) => {
+                  if (eligible.length === 1 && transferId) {
+                    transferRef.current?.update(transferId, {
+                      completed: Math.min(1, Math.floor((loaded / Math.max(1, total)) * 100) / 100),
+                    });
+                  }
+                },
+              });
               successfullyUploadedToS3.push({ file, requestKey: key, storageKey, contentType });
             } catch {
               failed.push(file);
@@ -397,8 +442,22 @@ function resolveFileMimeType(file: File): string {
         window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId } }));
       }
       if (progress !== undefined) toast.dismiss(progress);
-      if (transferId) transferRef.current?.update(transferId, { status: failed.length ? "error" : "done", retry: failed.length ? () => void uploadFiles(failed, parentId) : undefined, error: failed.length ? failed.map(file => file.name).join(", ") : undefined });
-      if (failed.length) {
+      const totalFailed = failed.length + nonRetryableFailed.length;
+      if (transferId) {
+        transferRef.current?.update(transferId, {
+          status: totalFailed ? "error" : "done",
+          retry: failed.length ? () => void uploadFiles(failed, parentId) : undefined,
+          error: nonRetryableErrors[0] || (totalFailed ? [...failed, ...nonRetryableFailed].map(file => file.name).join(", ") : undefined),
+        });
+      }
+      if (nonRetryableFailed.length > 0 && failed.length === 0) {
+        // Permanent validation error (such as file size exceeded) -> show exact message, strictly NO retry button
+        const reason = nonRetryableErrors[0] || "File exceeds maximum upload size limit";
+        toast.error(reason, {
+          description: nonRetryableFailed.map(file => file.name).join(", ").slice(0, 300),
+          duration: 6000,
+        });
+      } else if (failed.length) {
         toast.error(`${createdNodes.length} uploaded; ${failed.length} need retry`, {
           description: failed.map(file => file.name).join(", ").slice(0, 300),
           duration: Infinity,
@@ -407,15 +466,29 @@ function resolveFileMimeType(file: File): string {
       } else {
         showToast(`${createdNodes.length} file(s) uploaded${outcome ? `; ${outcome} existing or duplicate files skipped` : ""}`, createdNodes.length ? "success" : "info");
       }
-      recordOperation({ label: `Uploaded ${createdNodes.length} file(s), ${failed.length} need retry`, status: failed.length ? "error" : "success" });
       if (files.length === 1 && createdNodes.length === 1) onOpenFile(createdNodes[0]!);
     } catch (error) {
       if (progress !== undefined) toast.dismiss(progress);
-      if (transferId) transferRef.current?.update(transferId, { status: "error", error: getErrorMessage(error, "Upload interrupted"), retry: () => void uploadFiles(files, parentId) });
-      // Retry checks collisions again, so a lost response cannot duplicate a committed file.
-      toast.error(`Upload interrupted: ${getErrorMessage(error, "Please retry")}`, {
-        duration: Infinity, action: { label: "Retry", onClick: () => void uploadFiles(files, parentId) },
-      });
+      const errorMsg = getErrorMessage(error, "Upload interrupted");
+      const isNonRetryable = isNonRetryableUploadError(errorMsg);
+      if (transferId) {
+        transferRef.current?.update(transferId, {
+          status: "error",
+          error: errorMsg,
+          retry: isNonRetryable ? undefined : () => void uploadFiles(files, parentId),
+        });
+      }
+      if (isNonRetryable) {
+        toast.error(errorMsg, {
+          description: files.map(file => file.name).join(", ").slice(0, 300),
+          duration: 6000,
+        });
+      } else {
+        // Retry checks collisions again, so a lost response cannot duplicate a committed file.
+        toast.error(`Upload interrupted: ${errorMsg}`, {
+          duration: Infinity, action: { label: "Retry", onClick: () => void uploadFiles(files, parentId) },
+        });
+      }
     } finally {
       if (progress !== undefined) toast.dismiss(progress);
     }
@@ -607,7 +680,6 @@ function resolveFileMimeType(file: File): string {
       setMoveDialog({ open: false, nodes: [], targetFolderId: null });
     } catch (e: unknown) {
       showToast(`Move failed: ${getErrorMessage(e, "Unknown error")}`, "error");
-      recordOperation({ label: "Move failed", status: "error" });
       throw e;
     }
   }, [canManageFiles, refreshAfterMutation, moveDialog, projectId, recordOperation, runUniqueMutation, showToast, toggleExpanded, upsertNodes]);
@@ -657,7 +729,6 @@ function resolveFileMimeType(file: File): string {
       setDeleteDialog({ open: false, nodes: [] });
     } catch (e: unknown) {
       showToast(`Delete failed: ${getErrorMessage(e, "Unknown error")}`, "error");
-      recordOperation({ label: "Move to trash failed", status: "error" });
     }
   }, [canEdit, deleteDialog.nodes, refreshAfterMutation, onNodeDeleted, projectId, recordOperation, runUniqueMutation, showToast]);
 
@@ -718,7 +789,7 @@ function resolveFileMimeType(file: File): string {
       let transferId: string | undefined;
       const mappedFiles: { path: string; parentId: string | null; requestKey: string; name: string }[] = [];
       try {
-        await runUniqueMutation(mutationKey, async () => {
+        const result = await runUniqueMutation(mutationKey, async () => {
           const payloadNodes = validatedFiles
             .map((f) => ({
               path: f.webkitRelativePath || f.name,
@@ -751,7 +822,10 @@ function resolveFileMimeType(file: File): string {
             return;
           }
 
+          const createdNodes: ProjectNode[] = [];
+          const abortController = new AbortController();
           transferId = transferRef.current?.start(`Folder upload · ${uploadPayloadNodes.length} files`, uploadPayloadNodes.length);
+          if (transferId) transferRef.current?.update(transferId, { abort: () => abortController.abort() });
           const CHUNK_SIZE = 2000;
           for (let i = 0; i < uploadPayloadNodes.length; i += CHUNK_SIZE) {
             const chunk = uploadPayloadNodes.slice(i, i + CHUNK_SIZE);
@@ -783,18 +857,12 @@ function resolveFileMimeType(file: File): string {
 
           if (uploadNodes.length === 0) throw new Error("Could not match the selected files to their upload destinations");
           if (transferId) transferRef.current?.update(transferId, { total: uploadNodes.length });
-          const uploaded: Array<{
-            file: File;
-            parentId: string | null;
-            requestKey: string;
-            storageKey: string;
-            uploadIntentId: string;
-          }> = [];
           const failed: File[] = [];
           let completed = 0;
 
           showToast(`Uploading ${uploadNodes.length} file(s)...`, "info");
           for (let offset = 0; offset < uploadNodes.length; offset += 16) {
+            if (abortController.signal.aborted) break;
             const chunk = uploadNodes.slice(offset, offset + 16);
             const batch = await getBatchUploadUrls(chunk.map((entry) => ({
               key: entry.requestKey,
@@ -803,8 +871,17 @@ function resolveFileMimeType(file: File): string {
             })));
             if ("error" in batch) throw new Error(batch.error || "Failed to prepare upload URLs");
 
+            const chunkUploaded: Array<{
+              file: File;
+              parentId: string | null;
+              requestKey: string;
+              storageKey: string;
+              uploadIntentId: string;
+            }> = [];
+
             await runWithConcurrency(chunk, 4, async (entry) => {
               try {
+                if (abortController.signal.aborted) return;
                 const url = batch.urls[entry.requestKey];
                 const uploadToken = batch.uploadTokens[entry.requestKey];
                 const storageKey = batch.storageKeys[entry.requestKey];
@@ -818,8 +895,11 @@ function resolveFileMimeType(file: File): string {
                   uploadUrl: url,
                   contentType,
                   operationId: uploadIntentId,
-                }, entry.file, { cacheProfile: "immutable" });
-                uploaded.push({
+                }, entry.file, {
+                  cacheProfile: "immutable",
+                  signal: abortController.signal,
+                });
+                chunkUploaded.push({
                   file: entry.file,
                   parentId: entry.parentId,
                   requestKey: entry.requestKey,
@@ -833,30 +913,30 @@ function resolveFileMimeType(file: File): string {
                 if (transferId) transferRef.current?.update(transferId, { completed, failed: failed.length });
               }
             });
-          }
 
-          const uploadedByParent = new Map<string, typeof uploaded>();
-          for (const entry of uploaded) {
-            const key = entry.parentId ?? "root";
-            const group = uploadedByParent.get(key) ?? [];
-            group.push(entry);
-            uploadedByParent.set(key, group);
-          }
-          let publishedCount = 0;
-          for (const entries of uploadedByParent.values()) {
-            for (let offset = 0; offset < entries.length; offset += 50) {
-              const chunk = entries.slice(offset, offset + 50);
-              const published = await finalizeBatchUpload(projectId, chunk[0]!.parentId, chunk.map((entry) => ({
-                name: entry.file.name,
-                s3Key: entry.storageKey,
-                size: entry.file.size,
-                mimeType: resolveFileMimeType(entry.file),
-                uploadIntentId: entry.uploadIntentId,
-              })));
-              publishedCount += published.length;
+            // Finalize each 16-file chunk immediately to release storage quota and persist nodes
+            if (chunkUploaded.length > 0) {
+              const uploadedByParent = new Map<string, typeof chunkUploaded>();
+              for (const entry of chunkUploaded) {
+                const key = entry.parentId ?? "root";
+                const group = uploadedByParent.get(key) ?? [];
+                group.push(entry);
+                uploadedByParent.set(key, group);
+              }
+              for (const entries of uploadedByParent.values()) {
+                const published = await finalizeBatchUpload(projectId, entries[0]!.parentId, entries.map((entry) => ({
+                  name: entry.file.name,
+                  s3Key: entry.storageKey,
+                  size: entry.file.size,
+                  mimeType: resolveFileMimeType(entry.file),
+                  uploadIntentId: entry.uploadIntentId,
+                })));
+                createdNodes.push(...(published as ProjectNode[]));
+              }
             }
           }
 
+          const publishedCount = createdNodes.length;
           if (failed.length > 0) {
             if (transferId) transferRef.current?.update(transferId, {
               status: "error",
@@ -866,23 +946,30 @@ function resolveFileMimeType(file: File): string {
               retry: () => void uploadFilesDirectly(failed, parentId),
             });
             showToast(`Published ${publishedCount}; ${failed.length} need retry.`, "warning");
-            recordOperation({ label: `Partial upload: ${failed.length} failed`, status: "error" });
           } else {
             if (transferId) transferRef.current?.update(transferId, { status: "done", completed, failed: 0 });
             showToast(`Successfully uploaded ${publishedCount} file(s).`, "success");
-            recordOperation({ label: `Uploaded ${publishedCount} file(s)`, status: "success" });
           }
 
           await loadFolderContent(parentId, "refresh");
           if (parentId) toggleExpanded(projectId, parentId, true);
           window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId } }));
+          return createdNodes;
         });
+        return result || [];
       } catch (e: unknown) {
-        if (transferId) transferRef.current?.update(transferId, { status: "error", error: getErrorMessage(e, "Upload failed"), retry: () => void uploadFilesDirectly(validatedFiles, parentId) });
-        showToast(`Upload failed: ${getErrorMessage(e, "Unknown error")}`, "error");
-        recordOperation({ label: "Upload failed", status: "error" });
+        const errorMsg = getErrorMessage(e, "Upload failed");
+        const isNonRetryable = isNonRetryableUploadError(errorMsg);
+        if (transferId) {
+          transferRef.current?.update(transferId, {
+            status: "error",
+            error: errorMsg,
+            retry: isNonRetryable ? undefined : () => void uploadFilesDirectly(validatedFiles, parentId),
+          });
+        }
+        showToast(errorMsg, "error");
+        return [];
       }
-      return [];
     },
     [
       canEdit,

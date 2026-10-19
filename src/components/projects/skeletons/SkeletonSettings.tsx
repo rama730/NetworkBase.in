@@ -34,8 +34,7 @@ function SettingsRailSkeleton() {
 function SettingsCardSkeleton({ tall = false }: { tall?: boolean }) {
     return (
         <section aria-hidden="true" className="rounded-lg border border-border bg-card p-5 shadow-none">
-            <div className="flex items-start gap-4">
-                <SkeletonBlock className="h-11 w-11 shrink-0 rounded-lg" />
+            <div>
                 <div className="min-w-0 flex-1">
                     <SkeletonBlock className="h-5 w-44" />
                     <SkeletonBlock className="mt-3 h-4 w-full max-w-2xl" />

@@ -6,15 +6,7 @@ import Image from "next/image";
 import type { ProjectNode } from "@/lib/db/schema";
 import { fileKind } from "../utils/fileKind";
 import { Button } from "@/components/ui/button";
-
-function formatBytes(bytes?: number | null) {
-  const b = bytes ?? 0;
-  if (b < 1024) return `${b} B`;
-  const kb = b / 1024;
-  if (kb < 1024) return `${kb.toFixed(1)} KB`;
-  const mb = kb / 1024;
-  return `${mb.toFixed(1)} MB`;
-}
+import { formatBytes } from "../files-tab/folder/format";
 
 function ErrorFallback({ message, url }: { message: string; url: string }) {
   return (
@@ -52,9 +44,11 @@ function PdfPreview({ name, previewUrl }: { name: string; previewUrl: string }) 
 export default function AssetPreview({
   node,
   signedUrl,
+  projectId,
 }: {
   node: ProjectNode;
   signedUrl: string | null;
+  projectId?: string;
 }) {
   const kind = fileKind(node);
   const [scale, setScale] = useState(1);
@@ -89,6 +83,9 @@ export default function AssetPreview({
     return () => container.removeEventListener("wheel", handleWheel);
   }, [kind]);
 
+  const touchStartDist = useRef<number | null>(null);
+  const touchStartScale = useRef<number>(1);
+
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     setIsDragging(true);
@@ -105,8 +102,51 @@ export default function AssetPreview({
 
   const onMouseUp = useCallback(() => setIsDragging(false), []);
 
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      if (!touch) return;
+      setIsDragging(true);
+      dragStart.current = { x: touch.clientX - position.x, y: touch.clientY - position.y };
+      touchStartDist.current = null;
+    } else if (e.touches.length === 2) {
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      if (!t1 || !t2) return;
+      setIsDragging(false);
+      touchStartDist.current = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      touchStartScale.current = scale;
+    }
+  }, [position, scale]);
+
+  const onTouchMove = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 1 && isDragging) {
+      const touch = e.touches[0];
+      if (!touch) return;
+      setPosition({
+        x: touch.clientX - dragStart.current.x,
+        y: touch.clientY - dragStart.current.y,
+      });
+    } else if (e.touches.length === 2 && touchStartDist.current !== null) {
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      if (!t1 || !t2) return;
+      const currentDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      if (touchStartDist.current > 0) {
+        const factor = currentDist / touchStartDist.current;
+        const nextScale = Math.min(Math.max(touchStartScale.current * factor, 0.5), 5);
+        setScale(nextScale);
+      }
+    }
+  }, [isDragging]);
+
+  const onTouchEnd = useCallback(() => {
+    setIsDragging(false);
+    touchStartDist.current = null;
+  }, []);
+
   if (kind === "pdf") {
-    const previewUrl = `/api/v1/projects/${encodeURIComponent(node.projectId)}/files/${encodeURIComponent(node.id)}/preview?v=${encodeURIComponent(String(node.currentVersion))}`;
+    const previewUrl = `/api/v1/projects/${encodeURIComponent(node.projectId || projectId || "")}/files/${encodeURIComponent(node.id)}/preview?v=${encodeURIComponent(String(node.currentVersion))}`;
     return <PdfPreview name={node.name} previewUrl={previewUrl} />;
   }
 
@@ -122,19 +162,19 @@ export default function AssetPreview({
     return (
       <div className="h-full w-full relative flex flex-col bg-white dark:bg-zinc-950 overflow-hidden">
         {/* Floating Zoom & Action Controls */}
-        <div className="absolute top-3 right-3 z-10 flex items-center gap-1 bg-card dark:bg-zinc-950/85 backdrop-blur-none px-2 py-1 rounded-lg border border-zinc-200/20 shadow-md text-white">
-          <Button size="sm" variant="ghost" onClick={handleZoomOut} aria-label="Zoom out" disabled={scale <= 0.5} className="h-10 w-10 p-0 text-white hover:text-white hover:bg-white/10 disabled:opacity-40">
+        <div className="absolute top-3 right-3 z-10 flex items-center gap-1 bg-card/95 dark:bg-zinc-900/90 backdrop-blur-sm px-2 py-1 rounded-lg border border-border shadow-md text-foreground">
+          <Button size="sm" variant="ghost" onClick={handleZoomOut} aria-label="Zoom out" disabled={scale <= 0.5} className="h-8 w-8 p-0 text-foreground hover:bg-muted disabled:opacity-40">
             <ZoomOut className="w-3.5 h-3.5" />
           </Button>
-          <span className="text-[11px] w-10 text-center font-medium select-none">{Math.round(scale * 100)}%</span>
-          <Button size="sm" variant="ghost" onClick={handleZoomIn} aria-label="Zoom in" disabled={scale >= 5} className="h-10 w-10 p-0 text-white hover:text-white hover:bg-white/10 disabled:opacity-40">
+          <span className="text-[11px] w-10 text-center font-medium select-none text-foreground">{Math.round(scale * 100)}%</span>
+          <Button size="sm" variant="ghost" onClick={handleZoomIn} aria-label="Zoom in" disabled={scale >= 5} className="h-8 w-8 p-0 text-foreground hover:bg-muted disabled:opacity-40">
             <ZoomIn className="w-3.5 h-3.5" />
           </Button>
-          <Button size="sm" variant="ghost" onClick={handleReset} aria-label="Reset zoom" className="h-10 w-10 p-0 text-white hover:text-white hover:bg-white/10" title="Reset">
+          <Button size="sm" variant="ghost" onClick={handleReset} aria-label="Reset zoom" className="h-8 w-8 p-0 text-foreground hover:bg-muted" title="Reset">
             <RotateCcw className="w-3 h-3" />
           </Button>
-          <div className="w-px h-3 bg-white/20 mx-1" />
-          <Button asChild size="sm" variant="ghost" className="h-6 px-1.5 text-[11px] text-white hover:text-white hover:bg-white/10">
+          <div className="w-px h-3 bg-border mx-1" />
+          <Button asChild size="sm" variant="ghost" className="h-6 px-1.5 text-[11px] text-foreground hover:bg-muted">
             <a href={signedUrl} target="_blank" rel="noreferrer">
               <ExternalLink className="w-3 h-3 mr-1" />
               Open
@@ -144,11 +184,15 @@ export default function AssetPreview({
 
         <div
           ref={containerRef}
-          className="flex-1 min-h-0 flex items-center justify-center p-4 overflow-hidden relative bg-zinc-50/50 dark:bg-zinc-900/50 cursor-grab active:cursor-grabbing"
+          className="flex-1 min-h-0 flex items-center justify-center p-4 overflow-hidden relative bg-zinc-50/50 dark:bg-zinc-900/50 cursor-grab active:cursor-grabbing touch-none"
           onMouseDown={onMouseDown}
           onMouseMove={onMouseMove}
           onMouseUp={onMouseUp}
           onMouseLeave={onMouseUp}
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+          onTouchCancel={onTouchEnd}
         >
           <Image
             src={signedUrl}

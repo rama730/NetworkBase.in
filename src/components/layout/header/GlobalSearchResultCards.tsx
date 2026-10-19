@@ -23,6 +23,7 @@ import {
 import type { ReactNode } from "react";
 
 import { SkillIcon } from "@/components/skills";
+import { hasSkillIcon } from "@/lib/skills/icon-policy";
 import { SocialPresenceIcon } from "@/components/profile/SocialPresenceIcon";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { PersonPresenceDot } from "@/components/network/PersonPresenceDot";
@@ -129,11 +130,14 @@ function SkillIconRail({ skills, max = 5 }: { skills: string[]; max?: number }) 
     const hidden = Math.max(0, skills.length - visible.length);
     return (
         <span className="flex shrink-0 items-center gap-1.5" aria-label={`Skills: ${skills.join(", ")}`}>
-            {visible.map((skill) => (
-                <span key={skill} title={skill} className="inline-flex size-6 items-center justify-center rounded-[3px] text-muted-foreground">
-                    <SkillIcon skill={resolveClientSkill(skill)} size={15} />
-                </span>
-            ))}
+            {visible.map((name) => {
+                const skill = resolveClientSkill(name);
+                return <span key={name} title={name} className={hasSkillIcon(skill)
+                    ? "inline-flex size-6 items-center justify-center rounded-[3px] text-muted-foreground"
+                    : "max-w-20 truncate text-[11px] text-muted-foreground"}>
+                    {hasSkillIcon(skill) ? <SkillIcon skill={skill} size={15} /> : name}
+                </span>;
+            })}
             {hidden ? <span className="font-mono text-[11px] font-medium text-muted-foreground/80">+{hidden}</span> : null}
         </span>
     );

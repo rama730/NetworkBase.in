@@ -9,7 +9,7 @@ const A = "11111111-1111-4111-8111-111111111111";
 test("canvas asset ids come only from chat attachment URLs, deduped and capped", () => {
   const body = `![a](/api/v1/chat/attachments/${A} "m")\n![b](https://x.test/api/v1/chat/attachments/${A.toUpperCase()})\n![c](https://evil.test/${A})`;
   assert.deepEqual(canvasAssetIds(body), [A]);
-  const many = Array.from({ length: 60 }, (_, i) => `/api/v1/chat/attachments/${A.slice(0, -2)}${String(i).padStart(2, "0")}`).join(" ");
+  const many = Array.from({ length: 60 }, (_, i) => `![image](/api/v1/chat/attachments/${A.slice(0, -2)}${String(i).padStart(2, "0")})`).join("\n");
   assert.equal(canvasAssetIds(many).length, 50);
 });
 

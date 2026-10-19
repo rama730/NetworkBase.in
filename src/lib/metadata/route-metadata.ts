@@ -4,17 +4,21 @@ export const DEFAULT_ROUTE_OG_IMAGE = "/og/routes-card.png";
 
 type RouteMetadataOptions = {
   title: string;
+  robots?: Metadata["robots"];
   description: string;
   path: string;
   image?: string | null;
   imageAlt?: string;
   imageWidth?: number;
   imageHeight?: number;
+  imageType?: string;
   twitterCard?: "summary" | "summary_large_image";
+  openGraphType?: "website" | "profile";
 };
 
 function normalizeRoutePath(path: string): string {
   if (!path) return "/";
+  if (/^https?:\/\//.test(path)) return path;
   return path.startsWith("/") ? path : `/${path}`;
 }
 
@@ -23,26 +27,31 @@ function resolveRouteImage({
   alt,
   width,
   height,
+  type,
 }: {
   image?: string | null;
   alt?: string;
   width?: number;
   height?: number;
+  type?: string;
 }) {
   const url = image?.trim() || DEFAULT_ROUTE_OG_IMAGE;
-  if (!width || !height) return [{ url, alt }];
-  return [{ url, width, height, alt }];
+  if (!width || !height) return [{ url, alt, ...(type ? { type } : {}) }];
+  return [{ url, width, height, alt, ...(type ? { type } : {}) }];
 }
 
 export function buildRouteMetadata({
   title,
+  robots,
   description,
   path,
   image,
   imageAlt,
   imageWidth,
   imageHeight,
+  imageType,
   twitterCard = "summary_large_image",
+  openGraphType = "website",
 }: RouteMetadataOptions): Metadata {
   const canonicalPath = normalizeRoutePath(path);
   const images = resolveRouteImage({
@@ -50,18 +59,21 @@ export function buildRouteMetadata({
     alt: imageAlt ?? title,
     width: imageWidth,
     height: imageHeight,
+    type: imageType,
   });
 
   return {
     title,
+    ...(robots ? { robots } : {}),
     description,
     alternates: {
       canonical: canonicalPath,
     },
     openGraph: {
+      siteName: "NetworkBase™",
       title,
       description,
-      type: "website",
+      type: openGraphType,
       url: canonicalPath,
       images,
     },

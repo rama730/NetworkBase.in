@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader";
 import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
+import { SettingsSectionsSkeleton } from "@/components/settings/ui/SettingsSectionsSkeleton";
 import { usePrivacySettings } from "@/hooks/useSettingsQueries";
 import { invalidatePrivacyDependents } from "@/lib/privacy/client-invalidation";
 import type { ConnectionPrivacySetting, MessagePrivacySetting, ProfileVisibilitySetting } from "@/lib/privacy/relationship-state";
@@ -124,9 +125,9 @@ export default function PrivacySettings({ embedded = false }: { embedded?: boole
     unblockMutation.mutate(userId);
   };
 
-  if (isLoading) return <div className="space-y-4"><div className="h-96 rounded-lg border border-border bg-muted" /><div className="h-48 rounded-lg border border-border bg-muted" /></div>;
+  if (isLoading) return <SettingsSectionsSkeleton />;
 
-  return <div className="space-y-6">
+  return <div className={embedded ? "space-y-8" : "space-y-6"}>
     {!embedded ? <SettingsPageHeader title="Privacy" description="Control profile visibility, interactions, and blocked accounts." /> : null}
 
     <SettingsSectionCard title="Privacy controls" description="Choose who can view your profile and contact you.">

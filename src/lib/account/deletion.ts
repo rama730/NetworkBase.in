@@ -6,9 +6,7 @@ import { db } from "@/lib/db";
 import {
   accountDeletions,
   connections,
-  profileAuditEvents,
   profiles,
-  projectFollows,
   projects,
 } from "@/lib/db/schema";
 
@@ -92,19 +90,6 @@ export async function scheduleAccountDeletionForUser(input: {
         connectionCount: peers.length,
       },
     }).returning({ id: accountDeletions.id });
-
-    await tx.delete(connections).where(or(eq(connections.requesterId, input.userId), eq(connections.addresseeId, input.userId)));
-    await tx.execute(sql`
-      UPDATE projects SET followers_count = GREATEST(0, followers_count - 1)
-      WHERE id IN (SELECT project_id FROM project_follows WHERE user_id = ${input.userId}::uuid)
-    `);
-    await tx.delete(projectFollows).where(eq(projectFollows.userId, input.userId));
-    await tx.delete(profileAuditEvents).where(eq(profileAuditEvents.userId, input.userId));
-    await tx.execute(sql`
-      UPDATE profile_audit_events
-      SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{viewerUserId}', '"deleted_user"'::jsonb)
-      WHERE metadata->>'viewerUserId' = ${input.userId}
-    `);
 
     const affectedUserIds = peers
       .map((row) => (row.requesterId === input.userId ? row.addresseeId : row.requesterId))

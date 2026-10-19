@@ -2,11 +2,14 @@ import { readFileSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import sharp from 'sharp'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { SkillIcon } from '../src/components/skills/SkillIcon'
 import { MARKET_SKILLS } from '../src/lib/skills/catalog'
 import { resolveClientSkill, setSkillCatalog, type SkillCatalog } from '../src/lib/skills/client'
 import { GENERATED_SKILL_ICON_THEME_ASSET_VARIANTS } from '../src/lib/skills/generated-icon-theme-variants'
 import { resolveSkillIconThemeVariant } from '../src/lib/skills/icon-theme-policy'
-import { SKILL_SEMANTIC_ICON_KEYS } from '../src/lib/skills/semantic-icons'
+import { hasSkillIcon } from '../src/lib/skills/icon-policy'
 import type { SkillSummary } from '../src/lib/skills/types'
 
 setSkillCatalog(JSON.parse(readFileSync(path.join(process.cwd(), 'public', 'skill-catalog.json'), 'utf8')) as SkillCatalog)
@@ -44,9 +47,9 @@ type FallbackAuditEntry = {
     canonicalKey: string
     name: string
     categoryKey: string
-    iconSource: 'lucide' | 'monogram'
+    iconSource: SkillSummary['iconSource']
     iconKey: string
-    strategy: 'semantic-current-color' | 'theme-token-monogram'
+    strategy: 'name-only'
     pass: boolean
 }
 
@@ -151,26 +154,21 @@ async function main() {
     const fallbacks: FallbackAuditEntry[] = []
     const failures: string[] = []
     const audited = new Map<string, { light: VisibilityResult; dark: VisibilityResult }>()
-    const semanticIconKeys = new Set<string>(SKILL_SEMANTIC_ICON_KEYS)
-    const rendererSource = await readFile(path.join(process.cwd(), 'src', 'components', 'skills', 'SkillIcon.tsx'), 'utf8')
-    const monogramThemeTokensPresent = /dark:bg-zinc-700/.test(rendererSource) && /dark:text-zinc-100/.test(rendererSource)
 
     for (const definition of MARKET_SKILLS) {
         const skill = resolveClientSkill(definition.name)
-        if (skill.iconSource === 'lucide' || skill.iconSource === 'monogram') {
-            const pass = skill.iconSource === 'lucide'
-                ? semanticIconKeys.has(skill.iconKey)
-                : monogramThemeTokensPresent
+        if (!hasSkillIcon(skill)) {
+            const pass = renderToStaticMarkup(createElement(SkillIcon, { skill })) === ''
             fallbacks.push({
                 canonicalKey: skill.canonicalKey,
                 name: skill.name,
                 categoryKey: skill.categoryKey,
                 iconSource: skill.iconSource,
                 iconKey: skill.iconKey,
-                strategy: skill.iconSource === 'lucide' ? 'semantic-current-color' : 'theme-token-monogram',
+                strategy: 'name-only',
                 pass,
             })
-            if (!pass) failures.push(`${skill.name} (${skill.iconKey}): theme-readable fallback contract failed`)
+            if (!pass) failures.push(`${skill.name} (${skill.iconKey}): name-only fallback contract failed`)
             continue
         }
         const identity = [skill.iconSource, skill.iconKey, skill.brandColor ?? ''].join(':')
@@ -234,7 +232,7 @@ async function main() {
         failures.forEach((failure) => console.error(`- ${failure}`))
         process.exitCode = 1
     } else {
-        console.log(`[skills] Visibility valid for all ${entries.length + fallbacks.length} catalog skills: ${entries.length} branded renders (${audited.size} unique) and ${fallbacks.length} theme-token fallbacks.`)
+        console.log(`[skills] Visibility valid for all ${entries.length + fallbacks.length} catalog skills: ${entries.length} branded renders (${audited.size} unique) and ${fallbacks.length} name-only skills.`)
     }
 }
 

@@ -451,17 +451,19 @@ export async function markNotificationsSeen(
     if (ids.length === 0) return [] as Array<typeof userNotifications.$inferSelect>;
     const tx = getExecutor(executor);
     const seenAt = new Date();
+    const seenAtIso = seenAt.toISOString();
     return tx
         .update(userNotifications)
         .set({
             seenAt,
+            readAt: sql`COALESCE(${userNotifications.readAt}, ${seenAtIso}::timestamptz)`,
             updatedAt: seenAt,
         })
         .where(and(
             eq(userNotifications.userId, userId),
             inArray(userNotifications.id, ids),
-            isNull(userNotifications.seenAt),
             isNull(userNotifications.dismissedAt),
+            or(isNull(userNotifications.readAt), isNull(userNotifications.seenAt)),
         ))
         .returning();
 }

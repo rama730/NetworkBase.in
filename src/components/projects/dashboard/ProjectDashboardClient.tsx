@@ -8,6 +8,7 @@ import { Loader2, Lock } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { createClient } from '@/lib/supabase/client';
 import ProjectLayout from '@/components/projects/dashboard/ProjectLayout';
+import { PlainContentHeadings } from '@/components/projects/PlainContentHeadings';
 import { TabErrorBoundary } from '@/components/projects/TabErrorBoundary';
 import type { Project } from '@/types/discover';
 import { toggleProjectFollowAction, updateProjectStageAction, incrementProjectViewAction } from '@/app/actions/project';
@@ -1009,7 +1010,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
     );
 
     return (
-        <>
+        <PlainContentHeadings>
         {shareOpen ? <ResourceShareDialog kind="project" path={canonicalProjectHref} returnFocusElement={shareTrigger.current} onClose={() => setShareOpen(false)} /> : null}
         <ProjectLayout project={projectWithLiveStats} isOwner={isOwner} canManageSettings={canManageProjectSettings} isOwnerOrMember={isOwnerOrMember} publicTabVisibility={publicTabVisibility} activeTab={activeTab ?? ''} onTabChange={handleTabChange} followersCount={followersCount} viewCount={viewCount} filesSyncBadge={filesSyncBadge} isFollowing={isFollowing} onFollow={handleFollow} followLoading={followLoading} onShare={handleShare} onInvite={() => setIsInviteModalOpen(true)} canInvite={canManageProjectSettings} onTabHover={handleTabHover} members={allMembers} loadingMembers={loadingMembers} stageLabel={lifecycleStageNames[optimisticStageIndex] ?? null} stageIndex={optimisticStageIndex} stageCount={lifecycleStageNames.length} openRolesCount={rolesWithFilled.filter((role: any) => (role?.count || 0) - (role?.filled || 0) > 0).length}>
             {!activeTab && (
@@ -1133,6 +1134,6 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                 />
             )}
         </ProjectLayout>
-        </>
+        </PlainContentHeadings>
     );
 }

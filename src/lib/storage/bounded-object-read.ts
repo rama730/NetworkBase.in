@@ -8,15 +8,27 @@ export async function readBoundedStorageBytes(input: {
   storageKey: string;
   maxBytes: number;
   timeoutMs?: number;
+  signal?: AbortSignal;
 }) {
+  input.signal?.throwIfAborted();
   const admin = await createAdminClient();
-  const { data, error } = await admin.storage.from(input.bucket).createSignedUrl(input.storageKey, 60);
-  if (error || !data?.signedUrl) throw error ?? new Error("Unable to authorize storage read");
+  const { data, error } = await admin.storage
+    .from(input.bucket)
+    .createSignedUrl(input.storageKey, 60);
+  if (error || !data?.signedUrl)
+    throw error ?? new Error("Unable to authorize storage read");
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), input.timeoutMs ?? 10_000);
+  const abort = () => controller.abort();
+  input.signal?.addEventListener("abort", abort, { once: true });
+  if (input.signal?.aborted) controller.abort();
+  const timeout = setTimeout(abort, input.timeoutMs ?? 10_000);
   try {
-    const response = await fetch(data.signedUrl, { cache: "no-store", signal: controller.signal });
-    if (!response.ok || !response.body) throw new Error(`Storage read failed (${response.status})`);
+    const response = await fetch(data.signedUrl, {
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    if (!response.ok || !response.body)
+      throw new Error(`Storage read failed (${response.status})`);
     const reportedLength = reportedContentLength(response.headers);
     if (reportedLength !== null && reportedLength > input.maxBytes) {
       throw new Error("Stored object exceeds the inline read limit");
@@ -47,6 +59,7 @@ export async function readBoundedStorageBytes(input: {
     }
   } finally {
     clearTimeout(timeout);
+    input.signal?.removeEventListener("abort", abort);
   }
 }
 
@@ -55,6 +68,7 @@ export async function readBoundedStorageText(input: {
   storageKey: string;
   maxBytes: number;
   timeoutMs?: number;
+  signal?: AbortSignal;
 }) {
   const bytes = await readBoundedStorageBytes(input);
   return new TextDecoder().decode(bytes);

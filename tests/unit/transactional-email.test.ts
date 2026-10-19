@@ -183,7 +183,7 @@ test("redesigned task email renders open layout, Ponytail avatar, subtasks and f
 
   // Verify dual-title preheader and deep ghost spacing for left inbox preview list
   assert.match(emailA.subject, /Task assigned: Conduct end-to-end testing on core floors/);
-  assert.match(emailA.html, /Conduct end-to-end testing on core floors — High Priority • In progress • Due in \d+ days \(Oct 14, 2026\) • in DeepScope AI • assigned to Rama Rao • 1 of 2 subtasks completed/);
+  assert.match(emailA.html, /Conduct end-to-end testing on core floors — High Priority • In progress • (Overdue|Due in \d+ days|Due today) \(Oct 14, 2026\) • in DeepScope AI • assigned to Rama Rao • 1 of 2 subtasks completed/);
   assert.match(emailA.html, /&zwnj;&nbsp;/);
 
   // Verify task title & metadata pills

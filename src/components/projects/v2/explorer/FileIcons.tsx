@@ -215,3 +215,9 @@ export function FileIcon({
     />
   );
 }
+
+export function extOf(filename: string): string {
+  const clean = (filename || "").trim().toLowerCase();
+  const lastDot = clean.lastIndexOf(".");
+  return lastDot > 0 ? clean.slice(lastDot + 1) : "";
+}

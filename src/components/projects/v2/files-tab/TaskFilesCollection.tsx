@@ -13,12 +13,15 @@ import {
   type TaskCollectionEntry,
   type TaskFileGroup,
 } from "@/app/actions/files/collections";
+import dynamic from "next/dynamic";
 import { FolderListView } from "./folder/FolderListView";
 import { UserAvatar } from "@/components/ui/UserAvatar";
-import {
-  FilesTabUploadModal,
-  type FilesTabUploadConfirmResult,
-} from "./upload/FilesTabUploadModal";
+import type { FilesTabUploadConfirmResult } from "./upload/FilesTabUploadModal";
+
+const FilesTabUploadModal = dynamic(
+  () => import("./upload/FilesTabUploadModal").then((mod) => mod.FilesTabUploadModal),
+  { ssr: false }
+);
 import { FilesWorkspaceMenu, FilesHeaderSlot } from "./FilesWorkspaceHeader";
 import {
   DropdownMenu,
@@ -255,6 +258,15 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
   // Keyboard navigation across tasks
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target?.isContentEditable ||
+        target?.closest('[role="dialog"]')
+      ) {
+        return;
+      }
       if (!taskId) {
         if (e.key === "ArrowDown") {
           e.preventDefault();
@@ -938,7 +950,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
                                 const url = new URL(window.location.href);
                                 url.searchParams.set("tab", "files");
                                 url.searchParams.set("filesView", view);
-                                url.searchParams.set("taskId", group.id);
+                                url.searchParams.set("filesTask", group.id);
                                 void navigator.clipboard.writeText(url.toString());
                                 toast.success("Task link copied to clipboard");
                               }}

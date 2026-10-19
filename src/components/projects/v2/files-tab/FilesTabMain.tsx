@@ -23,16 +23,14 @@ import { SavedFilesCollection } from "./SavedFilesCollection";
 import { TrashFilesCollection } from "./TrashFilesCollection";
 import dynamic from "next/dynamic";
 import type { GithubImportAccessState } from "@/lib/github/import-types";
+import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonGitHubSync } from "@/components/projects/skeletons/SkeletonGitHubSync";
 
 const GitHubSyncWorkspace = dynamic(
   () => import("./GitHubSyncWorkspace").then((mod) => mod.GitHubSyncWorkspace),
   {
     ssr: false,
-    loading: () => (
-      <div className="flex flex-1 items-center justify-center p-8 text-muted-foreground">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-      </div>
-    ),
+    loading: () => <SkeletonGitHubSync />,
   },
 );
 
@@ -131,6 +129,7 @@ export function FilesTabMain({
         {isCollection ? (
           workspaceView.view === "github" ? (
             <GitHubSyncWorkspace
+              key={projectId}
               projectId={projectId}
               projectSlug={projectSlug}
               projectName={projectName}
@@ -157,13 +156,13 @@ export function FilesTabMain({
             data-testid="files-tab-main-loading"
             className="flex-1 space-y-2 p-4"
           >
-            <div className="h-8 w-44 rounded-[5px] bg-muted/60 animate-pulse" />
+            <Skeleton className="h-8 w-44 rounded-[5px]" />
             <div className="space-y-1">
               {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex h-10 items-center gap-3 rounded-[5px] border border-border/40 px-3">
-                  <div className="size-4 rounded-[3px] bg-muted animate-pulse" />
-                  <div className="h-4 w-36 rounded-[3px] bg-muted animate-pulse" />
-                  <div className="ml-auto h-3 w-16 rounded-[3px] bg-muted/70 animate-pulse" />
+                  <Skeleton className="size-4 rounded-[3px]" />
+                  <Skeleton className="h-4 w-36 rounded-[3px]" />
+                  <Skeleton className="ml-auto h-3 w-16 rounded-[3px]" />
                 </div>
               ))}
             </div>

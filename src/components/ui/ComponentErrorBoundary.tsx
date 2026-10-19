@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 interface Props {
   children: React.ReactNode;
   fallbackMessage?: string;
+  onError?: () => void;
 }
 
 interface State {
@@ -21,6 +22,10 @@ export class ComponentErrorBoundary extends React.Component<Props, State> {
 
   static getDerivedStateFromError(): State {
     return { hasError: true };
+  }
+
+  componentDidCatch() {
+    this.props.onError?.();
   }
 
   render() {

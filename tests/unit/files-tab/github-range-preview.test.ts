@@ -85,7 +85,8 @@ describe("GitHub Range Preview & Ecosystem Contracts", () => {
 
     it("supports projectId fallback prop for PDF previews", () => {
       assert.match(assetPreviewSource, /projectId\?: string/);
-      assert.match(assetPreviewSource, /if \(!node\.projectId && projectId\) node\.projectId = projectId/);
+      assert.match(assetPreviewSource, /node\.projectId \|\| projectId/);
+      assert.doesNotMatch(assetPreviewSource, /node\.projectId = projectId/, "the prop is never mutated");
     });
   });
 });

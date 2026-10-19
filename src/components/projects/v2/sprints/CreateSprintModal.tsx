@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { AlertTriangle, CalendarDays, Trash2, X } from "lucide-react";
+import { AlertTriangle, Trash2, X } from "lucide-react";
 import { z } from "zod";
 
 import type { SprintListItem } from "@/lib/projects/sprint-detail";
@@ -393,7 +393,6 @@ export default function SprintEditorModal({
               </div>
 
               <div className="flex items-center gap-2 rounded-[5px] border border-border bg-muted/30 px-3 py-2 font-mono text-[11px] text-muted-foreground">
-                <CalendarDays className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 <span className="font-medium text-foreground">
                   {scheduleSummary?.label ?? "Set valid start and end dates to see the sprint duration."}
                 </span>

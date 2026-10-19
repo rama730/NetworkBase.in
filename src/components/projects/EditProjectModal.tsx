@@ -7,10 +7,7 @@ import * as z from "zod";
 import { LifecycleEditor } from "@/components/projects/LifecycleEditor";
 import { ProjectRolesEditor } from "@/components/projects/settings/ProjectRolesEditor";
 import { normalizeProjectRoleFormValues } from "@/lib/projects/project-roles-form";
-import {
-    Layout, FileText, Layers, Users, X, Sparkles,
-    Check, Info, CheckCircle
-} from "lucide-react";
+import { Layout, FileText, Layers, Users, X, Check, Info, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { updateProject, updateProjectLifecycleAction } from "@/app/actions/project";
@@ -253,14 +250,9 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                 >
                     {/* Header */}
                     <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg app-accent-gradient flex items-center justify-center ring-2 ring-primary/20">
-                                <Sparkles className="w-5 h-5 text-white" />
-                            </div>
-                            <div>
-                                <DialogTitle className="text-xl font-semibold text-foreground">Edit Project</DialogTitle>
-                                <DialogDescription className="text-xs text-muted-foreground font-medium">Make your project stand out</DialogDescription>
-                            </div>
+                        <div>
+                            <DialogTitle className="text-xl font-semibold text-foreground">Edit Project</DialogTitle>
+                            <DialogDescription className="text-xs text-muted-foreground font-medium">Make your project stand out</DialogDescription>
                         </div>
                         <button 
                             type="button"

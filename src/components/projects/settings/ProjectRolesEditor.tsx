@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Controller, type Control, type FieldErrors, type UseFormRegister } from "react-hook-form";
-import { Briefcase, Eye, Plus, Trash2, UserCog, UserPlus, Users } from "lucide-react";
+import { Eye, Plus, Trash2, UserCog, UserPlus } from "lucide-react";
 import type { ProjectRoleFormValue } from "@/lib/projects/project-roles-form";
 import type { ProjectSettingsMember } from "@/lib/projects/settings-policies";
 import { SkillPicker } from "@/components/skills/SkillPicker";
@@ -252,7 +252,6 @@ export function ProjectRolesEditor({
                     {/* OCCUPIED ROLES SECTION */}
                     <div className="flex items-center gap-2 shrink-0">
                         <div className="flex items-center gap-1.5 pr-1">
-                            <Users className="h-3.5 w-3.5 text-muted-foreground" />
                             <span className="nb-ui-label text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                                 Occupied ({occupiedEntries.length})
                             </span>
@@ -333,7 +332,6 @@ export function ProjectRolesEditor({
                     {/* OPEN POSITIONS SECTION */}
                     <div className="flex items-center gap-2 shrink-0">
                         <div className="flex items-center gap-1.5 pr-1">
-                            <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
                             <span className="nb-ui-label text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                                 Open ({openEntries.length})
                             </span>

@@ -2,15 +2,8 @@
 
 import React from "react";
 import { SPRINT_STATUS_PRESENTATION } from "@/lib/projects/sprint-detail";
-import {
-  CheckSquare,
-  ChevronDown,
-  Paperclip,
-  Trash2,
-  User,
-  X,
-  Zap,
-} from "lucide-react";
+import { CheckSquare, ChevronDown, Paperclip, Trash2, User, X, Zap } from "lucide-react";
+import { usePlainContentHeadings } from "@/components/projects/PlainContentHeadings";
 
 import { cn } from "@/lib/utils";
 import type { ProjectNode } from "@/lib/db/schema";
@@ -163,6 +156,7 @@ export default function CreateTaskModal({
   projectName,
   canAssignSprint = false,
 }: CreateTaskModalProps) {
+  const plainContentHeadings = usePlainContentHeadings();
   const availableSprints = React.useMemo(
     () => normalizeSprintOptions(sprints),
     [sprints],
@@ -629,10 +623,12 @@ export default function CreateTaskModal({
                           key={subtask.id}
                           className="flex items-center justify-between gap-2 rounded-[5px] border border-border bg-muted/20 px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted/40"
                         >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <CheckSquare className="size-3.5 text-muted-foreground shrink-0" />
-                            <span className="truncate">{subtask.title}</span>
-                          </div>
+                          {plainContentHeadings ? <span className="min-w-0 truncate">{subtask.title}</span> : (
+                            <div className="flex items-center gap-2 min-w-0">
+                              <CheckSquare className="size-3.5 text-muted-foreground shrink-0" />
+                              <span className="truncate">{subtask.title}</span>
+                            </div>
+                          )}
                           <button
                             type="button"
                             aria-label={`Remove subtask ${subtask.title}`}

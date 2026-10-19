@@ -519,6 +519,11 @@ export function FilesTabSidebar({
     onContextMenu: handleContextMenu,
   });
 
+  // ── Authoritative task count sync for task collection contract ──
+  const authoritativeTaskCount = useMemo(() => {
+    return Object.values(taskLinkCounts).reduce((acc, c) => acc + (c || 0), 0);
+  }, [taskLinkCounts]);
+
   // ── Render ────────────────────────────────────────────────────────
   const collapsedToggleLabel = sidebarCollapsed
     ? "Show sidebar"

@@ -8,6 +8,7 @@ import { MoreHorizontal, Star, X } from "lucide-react";
 import type { ProjectNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 import { getTaskWorkingFilesDisplayName } from "@/lib/files/task-working-files";
+import { extractFoldersFromDataTransfer } from "@/lib/files/folder-drop";
 
 import { FileTypeChip } from "../FileTypeChip";
 import { TaskLinkPopover } from "../TaskLinkPopover";
@@ -235,9 +236,31 @@ export const FolderListRow = React.memo(function FolderListRow({
       setDropHighlight(false);
 
       // Desktop file drop → upload into this folder (viewers excluded).
-      if (canEdit && e.dataTransfer.files.length > 0 && onDesktopFileDrop) {
-        const files = Array.from(e.dataTransfer.files);
-        onDesktopFileDrop(files, node.id);
+      if (canEdit && onDesktopFileDrop && (e.dataTransfer.files.length > 0 || (e.dataTransfer.items && e.dataTransfer.items.length > 0))) {
+        void extractFoldersFromDataTransfer(e.dataTransfer).then((extracted) => {
+          const allFiles: File[] = [
+            ...extracted.looseFiles,
+            ...extracted.folders.flatMap((folder) =>
+              folder.files.map((item) => {
+                const fullRelativePath = item.relativePath
+                  ? `${folder.name}/${item.relativePath}`
+                  : `${folder.name}/${item.file.name}`;
+                try {
+                  Object.defineProperty(item.file, "webkitRelativePath", {
+                    value: fullRelativePath,
+                    configurable: true,
+                  });
+                } catch {}
+                return item.file;
+              }),
+            ),
+          ];
+          const files = allFiles.length > 0 ? allFiles : Array.from(e.dataTransfer.files || []);
+          if (files.length > 0) onDesktopFileDrop(files, node.id);
+        }).catch(() => {
+          const files = Array.from(e.dataTransfer.files || []);
+          if (files.length > 0) onDesktopFileDrop(files, node.id);
+        });
         return;
       }
       if (!canMove || !onDropOnFolder) return;
@@ -505,6 +528,7 @@ export const FolderListRow = React.memo(function FolderListRow({
       <div
         role="cell"
         data-column="updated"
+        suppressHydrationWarning
         className="min-w-0 truncate font-mono text-xs text-[#6B7880] dark:text-muted-foreground"
         title={node.versionUpdatedAt ? String(node.versionUpdatedAt) : node.updatedAt ? String(node.updatedAt) : undefined}
       >

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, Briefcase, Check, Loader2, Search, Users } from "lucide-react";
+import { usePlainContentHeadings } from "@/components/projects/PlainContentHeadings";
 import { del, get, set } from "idb-keyval";
 import { toast } from "sonner";
 import { Virtuoso } from "react-virtuoso";
@@ -124,6 +125,7 @@ export default function InviteCollaboratorModal({
     candidate: initialCandidate,
     canAppointGuidance = false,
 }: InviteCollaboratorModalProps) {
+    const plainContentHeadings = usePlainContentHeadings();
     const { user } = useAuth();
     const [loadingOptions, setLoadingOptions] = useState(false);
     const [searching, setSearching] = useState(false);
@@ -518,8 +520,8 @@ export default function InviteCollaboratorModal({
         <Dialog open={isOpen} onOpenChange={(open) => !open && !submitting && closeComposer("dismissed")}>
             <DialogContent className="sm:max-w-[550px] gap-0 overflow-hidden rounded-[12px] border border-border bg-card p-0 text-foreground shadow-lg">
                 <DialogHeader className="border-b border-border px-6 py-4 text-left">
-                    <DialogTitle className="nb-card-title flex items-center gap-2 text-foreground">
-                        {mode === "apply" ? <Briefcase aria-hidden="true" className="size-5 text-primary" /> : <Users aria-hidden="true" className="size-5 text-primary" />}
+                    <DialogTitle className={plainContentHeadings ? "nb-card-title text-foreground" : "nb-card-title flex items-center gap-2 text-foreground"}>
+                        {!plainContentHeadings && (mode === "apply" ? <Briefcase aria-hidden="true" className="size-5 text-primary" /> : <Users aria-hidden="true" className="size-5 text-primary" />)}
                         {mode === "apply" ? "Apply to Join" : "Invite Collaborator"}
                     </DialogTitle>
                 </DialogHeader>

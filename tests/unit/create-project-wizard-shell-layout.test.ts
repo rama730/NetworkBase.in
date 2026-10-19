@@ -42,7 +42,7 @@ test("create-project is a normal page inside the app shell: no modal, one 1000px
   assert.doesNotMatch(layout, /if \(focus\)/);
   assert.match(layout, /<AppSidebar \/>[\s\S]*<TopNav \/>[\s\S]*\{children\}/);
   assert.match(loading, /<CreateProjectShellSkeleton \/>/);
-  assert.match(chat, /NO_WINDOW_PREFIXES = \["\/messages", "\/projects\/new"\]/);
+  assert.match(chat, /NO_WINDOW_PREFIXES = \["\/messages", "\/projects\/new", "\/my-profile\/edit"\]/);
   // Browser Back keeps work: unsaved changes are saved as a draft on unmount unless the user chose to leave.
   assert.match(hook, /if \(hasUnsavedRef\.current && !skipDraftOnUnmountRef\.current\) void saveDraftRef\.current\(true\)/);
   assert.match(hook, /if \(createdProjectId && onSuccess\) onSuccess\(createdProjectId\);\s*else onClose\(\);/);
