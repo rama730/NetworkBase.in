@@ -180,7 +180,7 @@ export async function getPersonContext(input: { userId: string }) {
         SELECT p.id, p.title, p.slug FROM project_members a
         JOIN project_members b ON b.project_id = a.project_id AND b.user_id = ${input.userId}::uuid
         JOIN projects p ON p.id = a.project_id
-        WHERE a.user_id = ${user.id}::uuid ORDER BY p.title LIMIT 10
+        WHERE a.user_id = ${user.id}::uuid AND p.deleted_at IS NULL ORDER BY p.title LIMIT 10
       `),
       chatRows<PersonContext["sharedChannels"][number]>(sql`
         SELECT c.id, c.name, p.title AS project_title FROM chat_channel_members a
