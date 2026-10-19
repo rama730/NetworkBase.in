@@ -115,8 +115,10 @@ describe("password auth helpers", () => {
     });
   });
 
+  // AUTH-001: the throwaway verifier session must not revoke the user's other devices.
   it("signs out the temporary verifier session after a successful password check", async () => {
     let signOutCalls = 0;
+    let signOutScope: string | undefined;
 
     const result = await __testOnly.verifyPasswordCredentialWithVerifier(
       {
@@ -124,8 +126,9 @@ describe("password auth helpers", () => {
           async signInWithPassword() {
             return { error: null };
           },
-          async signOut() {
+          async signOut(options?: { scope?: string }) {
             signOutCalls += 1;
+            signOutScope = options?.scope;
           },
         },
       },
@@ -135,6 +138,7 @@ describe("password auth helpers", () => {
 
     assert.deepEqual(result, { ok: true });
     assert.equal(signOutCalls, 1);
+    assert.equal(signOutScope, "local");
   });
 
   it("keeps verification successful even when temporary-session cleanup fails", async () => {
