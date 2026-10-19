@@ -306,7 +306,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
   };
   const createTask = async () => {
     const title = plain().replace(/\s+/g, " ").trim().slice(0, 200) || "Task from chat";
-    const result = await createTaskFromMessage({ channelId: ctx.channelId, title, threadRootSeq: message.thread_root_seq ?? (ctx.inThread ? null : message.seq) });
+    const result = await createTaskFromMessage({ channelId: ctx.channelId, title, threadRootSeq: message.thread_root_seq ?? (ctx.inThread ? null : message.seq), operationId: crypto.randomUUID() });
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
     if (!result.message.thread_root_seq) update((pages) => upsertMessage(pages, result.message));
     toast.success("Task created");
