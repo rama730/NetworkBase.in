@@ -2,11 +2,20 @@ import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { inngest } from "../client";
 import { db } from "@/lib/db";
 import { jobHeartbeats, projectNodeEvents, projectNodes } from "@/lib/db/schema";
+import { logger } from "@/lib/logger";
 import { buildProjectFileKey } from "@/lib/storage/project-file-key";
 
 const MAX_KEYS_PER_PROJECT = 200;
 const MAX_EVENTS_PER_RUN = 200;
 const RECONCILIATION_JOB_ID = "project-files-reconciliation";
+const RECONCILIATION_RUNS_PER_DAY = 24; // cron "0 * * * *"
+/** Acceptable delay before a missing or orphaned object is detected (PERF-006). */
+export const RECONCILIATION_MAX_CYCLE_HOURS = 7 * 24;
+
+/** Hours one full pass over every active file takes at the current page size and cadence. */
+export function estimateReconciliationCycleHours(activeFiles: number, filesPerRun = MAX_KEYS_PER_PROJECT, runsPerDay = RECONCILIATION_RUNS_PER_DAY) {
+    return Math.ceil(activeFiles / filesPerRun) * (24 / runsPerDay);
+}
 
 type ActiveFileRow = {
     nodeId: string;
@@ -37,7 +46,7 @@ function readCursor(payload: unknown): ReconciliationCursor | null {
 
 export const reconcileProjectFiles = inngest.createFunction(
     { id: RECONCILIATION_JOB_ID, retries: 1, concurrency: 1 },
-    { cron: "0 */6 * * *" },
+    { cron: "0 * * * *" },
     async () => {
         const [checkpoint] = await db
             .select({ payload: jobHeartbeats.lastPayload })
@@ -343,8 +352,19 @@ export const reconcileProjectFiles = inngest.createFunction(
                 });
         }
 
+        // Measure the detection delay this cadence implies, so growth shows up before it matters.
+        const [{ total } = { total: 0 }] = await db
+            .select({ total: sql<number>`count(*)::int` })
+            .from(projectNodes)
+            .where(basePredicate);
+        const estimatedCycleHours = estimateReconciliationCycleHours(total);
+        if (estimatedCycleHours > RECONCILIATION_MAX_CYCLE_HOURS) {
+            logger.warn("project.files.reconciliation.cycle_too_long", { module: "storage", count: total, value: estimatedCycleHours });
+        }
+
         return {
             scannedProjects: byProject.size,
+            estimatedCycleHours,
             missingObjects,
             orphanObjects,
             attachedObjects,
