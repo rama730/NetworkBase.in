@@ -19,11 +19,11 @@ import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
 import {
+    CONNECTION_BANNER_HIDE_AFTER_MS,
     CONNECTION_REQUEST_HISTORY_STATUSES,
     type ConnectionRequestHistoryStatus,
-} from '@/lib/applications/status';
+} from '@/lib/connections/request-history';
 import { runInFlightDeduped } from '@/lib/utils/inflight-dedupe';
-import { APPLICATION_BANNER_HIDE_AFTER_MS } from '@/lib/applications/banner-lifecycle';
 import { redis, getCachedData, cacheData } from '@/lib/redis';
 import { visibleLastActiveAt } from '@/lib/presence/sql';
 import {
@@ -2584,7 +2584,7 @@ export async function checkConnectionStatus(
             const updatedAtMs = new Date(activeApp.updatedAt).getTime();
             const isFreshTerminal =
                 Number.isFinite(updatedAtMs) &&
-                Date.now() - updatedAtMs <= APPLICATION_BANNER_HIDE_AFTER_MS;
+                Date.now() - updatedAtMs <= CONNECTION_BANNER_HIDE_AFTER_MS;
 
             // Only override the standard status with the application gate if it is tangibly active or fresh.
             if (isPending || isFreshTerminal) {

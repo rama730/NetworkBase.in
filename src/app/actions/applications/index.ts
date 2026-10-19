@@ -11,10 +11,8 @@ export type { AcceptApplicationsResult, RoleApplicationCounts, SentProjectInvita
 export {
     acceptApplicationAction,
     acceptApplicationsAction,
-    acceptProposedRoleAction,
     applyToRoleAction,
     cancelSentProjectInvitationAction,
-    declineProposedRoleAction,
     editPendingApplicationAction,
     getApplicationStatusAction,
     getIncomingApplicationsAction,

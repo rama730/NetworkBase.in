@@ -13,7 +13,7 @@ import { TabErrorBoundary } from '@/components/projects/TabErrorBoundary';
 import type { Project } from '@/types/discover';
 import { toggleProjectFollowAction, updateProjectStageAction, incrementProjectViewAction } from '@/app/actions/project';
 import { ROUTES } from '@/constants/routes';
-import { getApplicationStatusAction, withdrawApplicationAction, acceptProposedRoleAction, declineProposedRoleAction, type ApplicationStatusResult } from '@/app/actions/applications';
+import { getApplicationStatusAction, withdrawApplicationAction, type ApplicationStatusResult } from '@/app/actions/applications';
 import type { ApplicationStatusLoad } from '@/lib/applications/card-state';
 import { resolveProjectInvitationAction } from '@/app/actions/project/guidance';
 import { useProjectMembers } from '@/hooks/projects/useProjectMembers';
@@ -355,19 +355,11 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
         if (invitationLoading) return;
         setInvitationLoading(true);
         try {
-            let res;
-            if (applicationStatus.applicationId) {
-                res = action === 'accept'
-                    ? await acceptProposedRoleAction(applicationStatus.applicationId)
-                    : await declineProposedRoleAction(applicationStatus.applicationId);
-            } else if (applicationStatus.invitationId) {
-                res = await resolveProjectInvitationAction({
-                    invitationId: applicationStatus.invitationId,
-                    action,
-                });
-            } else {
-                throw new Error('No active invitation ID found.');
-            }
+            if (!applicationStatus.invitationId) throw new Error('No active invitation ID found.');
+            const res = await resolveProjectInvitationAction({
+                invitationId: applicationStatus.invitationId,
+                action,
+            });
 
             if (res.success) {
                 toast.success(action === 'accept' ? 'Invitation accepted successfully!' : 'Invitation declined.');

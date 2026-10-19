@@ -1,1 +1,0 @@
-export const APPLICATION_BANNER_HIDE_AFTER_MS = 5 * 60 * 1000;
