@@ -524,7 +524,7 @@ export default function CommentsTab({
     const map = new Map<string, string>();
     for (const m of Array.isArray(members) ? members : []) {
       const id = m?.userId || m?.user_id || m?.user?.id || m?.id;
-      const name = m?.fullName || m?.full_name || m?.user?.fullName || m?.user?.full_name || m?.username || m?.user?.username;
+      const name = m?.fullName || m?.user?.fullName || m?.username || m?.user?.username;
       if (typeof id === "string" && typeof name === "string" && name) map.set(id, name);
     }
     return map;

@@ -47,4 +47,25 @@ describe("check-data-shape-contract script", () => {
     assert.ok(result.errors.length > 0, "Expected strict-mode violations but none were reported");
     assert.ok(result.errors.some((line) => line.includes("direct snake_case")));
   });
+
+  // MAINT-004: the native chat person DTO is a scoped exemption; nothing else is.
+  it("allows only the native chat person fields in chat surfaces", () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "data-shape-native-"));
+    write(path.join(tmp, "src/components/messages/Row.tsx"), `export const n = (p) => p.full_name || p.avatar_url;`);
+    write(path.join(tmp, "src/components/presence/PersonHoverCard.tsx"), `export const n = (p) => p.full_name;`);
+    assert.deepEqual(validateDataShapeContract(tmp).errors, []);
+
+    write(path.join(tmp, "src/components/messages/Bad.tsx"), `export const n = (p) => p.banner_url;`);
+    write(path.join(tmp, "src/components/network/Card.tsx"), `export const n = (p) => p.full_name;`);
+    const errors = validateDataShapeContract(tmp).errors;
+    assert.equal(errors.length, 2);
+    assert.ok(errors.some((line) => line.startsWith("src/components/messages/Bad.tsx")));
+    assert.ok(errors.some((line) => line.startsWith("src/components/network/Card.tsx")));
+  });
+
+  it("ignores Supabase Auth provider metadata keys", () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "data-shape-auth-"));
+    write(path.join(tmp, "src/components/projects/Review.tsx"), `export const n = (u) => u.user_metadata?.full_name ?? u.user_metadata.avatar_url;`);
+    assert.deepEqual(validateDataShapeContract(tmp).errors, []);
+  });
 });

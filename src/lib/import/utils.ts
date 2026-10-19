@@ -5,9 +5,6 @@ import { eq, and, inArray, isNull, sql } from 'drizzle-orm';
 
 const ROOT_KEY = 'root';
 const DB_BATCH_SIZE = 500;
-const MAX_IMPORT_FILE_COUNT = Number(process.env.GITHUB_IMPORT_MAX_FILES || 20000);
-const MAX_IMPORT_TOTAL_BYTES = Number(process.env.GITHUB_IMPORT_MAX_TOTAL_BYTES || 1024 * 1024 * 1024); // 1GB
-const MAX_IMPORT_DIR_COUNT = Number(process.env.GITHUB_IMPORT_MAX_DIRS || 8000);
 
 function normalizeRelativePath(p: string): string {
     return (p || '').replaceAll('\\', '/').replace(/^\/+/, '');

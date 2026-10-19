@@ -9,6 +9,16 @@ type ValidationResult = {
 
 const DISALLOWED_SURFACE_TOKENS_RE = /\b(full_name|avatar_url|social_links|availability_status|experience_level|open_to|banner_url)\b/;
 
+/**
+ * The native chat RPCs return people as `{ id, username, full_name, avatar_url, can_dm }`; those
+ * DTO fields, and only those, may appear in the surfaces that consume them (MAINT-004). Everything
+ * else stays camelCase, and a surface leaves the DTO shape by building an identity object at its edge.
+ */
+const NATIVE_CHAT_DTO_SURFACES = [/^src\/components\/messages\//, /^src\/components\/presence\/PersonHoverCard\.tsx$/];
+const NATIVE_CHAT_DTO_FIELDS_RE = /\b(full_name|avatar_url)\b/g;
+/** Supabase Auth provider metadata keys (`user_metadata.full_name`) are not our data shape. */
+const AUTH_METADATA_KEYS_RE = /user_metadata\??\.(full_name|avatar_url)\b/g;
+
 function toPosix(filePath: string) {
   return filePath.split(path.sep).join("/");
 }
@@ -40,7 +50,9 @@ export function validateDataShapeContract(
   for (const absolute of files) {
     const rel = toPosix(path.relative(rootDir, absolute));
     const source = fs.readFileSync(absolute, "utf8");
-    if (!DISALLOWED_SURFACE_TOKENS_RE.test(source)) continue;
+    let checked = source.replace(AUTH_METADATA_KEYS_RE, "");
+    if (NATIVE_CHAT_DTO_SURFACES.some((surface) => surface.test(rel))) checked = checked.replace(NATIVE_CHAT_DTO_FIELDS_RE, "");
+    if (!DISALLOWED_SURFACE_TOKENS_RE.test(checked)) continue;
 
     errors.push(`${rel}: direct snake_case identity/profile fields are forbidden in component surfaces.`);
   }
