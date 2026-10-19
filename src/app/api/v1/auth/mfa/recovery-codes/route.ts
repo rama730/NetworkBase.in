@@ -116,6 +116,8 @@ export async function POST(request: Request) {
     // Supabase orders by created_at ASC.
     const bindingFactorId = verifiedTotpFactors[0]?.id ?? null;
     const result = await db.transaction(async (tx) => {
+      // FOR UPDATE locks nothing when the row is absent, so two first requests would both pass as "initial".
+      await tx.insert(profileSecurityStates).values({ userId: user.id }).onConflictDoNothing();
       const rows = await tx.execute<{
         security_recovery_codes: unknown;
         recovery_codes_generated_at: Date | string | null;

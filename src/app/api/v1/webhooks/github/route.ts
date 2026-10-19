@@ -13,14 +13,10 @@ import { normalizeGithubRepoUrl } from "@/lib/github/repo-validation";
 
 // A webhook is a change notification, never permission to overwrite a workspace.
 export async function POST(request: NextRequest) {
-  const deliveryId = request.headers.get("x-github-delivery");
-  // ponytail: per-delivery rate limit key isolates retries. ceiling: 600 req/min per delivery. upgrade: Redis deduplication nonce cache if duplicate replay protection SLA requires strict exactly-once processing.
-  const rateLimitKey = deliveryId
-    ? `api:v1:webhooks:github:delivery:${deliveryId}`
-    : "api:v1:webhooks:github";
+  // The delivery id is attacker-chosen before the signature check, so it must not pick the bucket.
   const limited = await enforceRouteLimit(
     request,
-    rateLimitKey,
+    "api:v1:webhooks:github",
     600,
     60,
   );
