@@ -1,5 +1,6 @@
+import {normalizeAndValidateUploadRelativePath} from "@/lib/upload/security";
 import crypto from "crypto";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { jsonError } from "@/app/api/v1/_shared";
@@ -9,14 +10,26 @@ import { fileVersions, projectNodes } from "@/lib/db/schema";
 import { getProjectAccessById } from "@/lib/data/project-access";
 import type { ApplyFileRevisionResult } from "@/lib/files/apply-file-revision";
 import { buildProjectFileKey } from "@/lib/storage/project-file-key";
-import { assertProjectUploadAccess } from "@/lib/files/internal-helpers";
+import { assertProjectUploadAccess,assertProjectUploadAccessTx } from "@/lib/files/internal-helpers";
 
 export const checksumSchema = z.string().regex(/^[a-f0-9]{64}$/i);
 
 type ProjectNode = typeof projectNodes.$inferSelect;
 
-export async function resolveWritableExtensionFile(projectId: string, path: string, userId: string) {
-  const [access, node] = await Promise.all([
+export async function resolveWritableExtensionFile(
+  projectId: string,
+  rawPath: string,
+  userId: string,
+  options?: { createIfMissing?: boolean },
+) {
+  let path:string;
+  try {path="/"+normalizeAndValidateUploadRelativePath(rawPath);if(path!==rawPath)throw new Error("File path must use canonical segments without surrounding whitespace");}
+  catch(error){return {response:jsonError(error instanceof Error?error.message:"Invalid file path",400,"BAD_REQUEST"),node:null};}
+  if (path === "/" || path.startsWith("/.system") || path.startsWith("/.networkbase") || path.split("/").includes("..")) {
+    return { response: jsonError("Invalid file path", 400, "BAD_REQUEST"), node: null };
+  }
+
+  const [access, existingNode] = await Promise.all([
     getProjectAccessById(projectId, userId),
     db.query.projectNodes.findFirst({
       where: and(
@@ -34,8 +47,85 @@ export async function resolveWritableExtensionFile(projectId: string, path: stri
   } catch {
     return { response: jsonError("File uploads are disabled for this member", 403, "FORBIDDEN"), node: null };
   }
-  if (!node) return { response: jsonError("File node not found", 404, "NOT_FOUND"), node: null };
-  return { response: null, node };
+  if (existingNode) {
+    return { response: null, node: existingNode };
+  }
+  if (!options?.createIfMissing) {
+    return { response: jsonError("File node not found", 404, "NOT_FOUND"), node: null };
+  }
+
+  const segments = path.split("/").filter(Boolean);
+  if (segments.length === 0 || segments.length > 32) {
+    return { response: jsonError("Invalid file path depth", 400, "BAD_REQUEST"), node: null };
+  }
+
+  const createdNode = await db.transaction(async (tx) => {
+    await assertProjectUploadAccessTx(tx,projectId,userId);
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`ext-create-node:${projectId}`}))`);
+
+    const recheck = await tx.query.projectNodes.findFirst({
+      where: and(
+        eq(projectNodes.projectId, projectId),
+        eq(projectNodes.path, path),
+        eq(projectNodes.type, "file"),
+        isNull(projectNodes.deletedAt),
+      ),
+    });
+    if (recheck) return recheck;
+
+    let parentId: string | null = null;
+    let currentFolderPath = "";
+    for (let i = 0; i < segments.length - 1; i++) {
+      const folderName = segments[i]!;
+      currentFolderPath += `/${folderName}`;
+      const existingFolder = await tx.query.projectNodes.findFirst({
+        where: and(
+          eq(projectNodes.projectId, projectId),
+          eq(projectNodes.path, currentFolderPath),
+          eq(projectNodes.type, "folder"),
+          isNull(projectNodes.deletedAt),
+          isNull(projectNodes.taskId),
+        ),
+      });
+      if (existingFolder) {
+        parentId = existingFolder.id;
+      } else {
+        const newFolderRows: Array<{ id: string }> = await tx
+          .insert(projectNodes)
+          .values({
+            projectId,
+            parentId,
+            path: currentFolderPath,
+            type: "folder",
+            name: folderName,
+            createdBy: userId,
+            currentVersion: 1,
+            syncStatus: "merged",
+          })
+          .returning({ id: projectNodes.id });
+        parentId = newFolderRows[0]!.id;
+      }
+    }
+
+    const fileName = segments[segments.length - 1]!;
+    const [newFile] = await tx
+      .insert(projectNodes)
+      .values({
+        projectId,
+        parentId,
+        path,
+        type: "file",
+        name: fileName,
+        size: 0,
+        currentVersion: 1,
+        createdBy: userId,
+        syncStatus: "merged",
+      })
+      .returning();
+    return newFile!;
+  });
+
+  return { response: null, node: createdNode };
 }
 
 export async function assertNoExtensionWriteConflict(params: {
@@ -118,4 +208,14 @@ export function extensionRevisionConflictResponse(error: unknown) {
   return /changed on the server|locked by|editing lease|lease expired|lease was replaced/i.test(message)
     ? jsonError(message, 409, "CONFLICT")
     : null;
+}
+
+/** A durable committed receipt survives Redis expiry and later active-version replacement. */
+export async function readCommittedExtensionReceipt(projectId:string,nodeId:string,userId:string,operationId:string,contentHash:string) {
+ const {projectNodeEvents}=await import("@/lib/db/schema");
+ const committed=await db.query.projectNodeEvents.findFirst({where:and(eq(projectNodeEvents.projectId,projectId),eq(projectNodeEvents.actorId,userId),sql`${projectNodeEvents.metadata}->>'operationId' = ${operationId}`)});
+ if(!committed)return null;const metadata=committed.metadata || {};
+ if((metadata.nodeId||committed.nodeId)!==nodeId)throw new Error("This operation already committed to a removed or different file");
+ if(metadata.hash!==contentHash)throw new Error("Operation ID was already used for different contents");
+ return {nodeId,version:Number(metadata.version),size:Number(metadata.size),contentHash:String(metadata.hash),mimeType:metadata.mimeType,revisionMode:metadata.revisionMode,versionIncremented:Boolean(metadata.versionIncremented),sequenceNumber:committed.sequenceNumber,updatedAt:committed.createdAt.toISOString()};
 }

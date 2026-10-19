@@ -4,7 +4,7 @@ import {
 } from "@/app/api/v1/_shared";
 import { jsonSuccessConditional } from "@/app/api/v1/_conditional";
 import { db } from "@/lib/db";
-import { tasks } from "@/lib/db/schema";
+import { tasks, profiles } from "@/lib/db/schema";
 import { canReadProjectTab, getProjectAccessById } from "@/lib/data/project-access";
 import { and, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { logger } from "@/lib/logger";
@@ -22,6 +22,8 @@ const cursorSchema = z.object({
 const querySchema = z.object({
   projectId: z.string().uuid(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
+  scope: z.enum(["mine","all"]).default("all"),
+  q: z.string().max(200).default(""),
   cursor: z.string().max(2048).optional(),
 });
 
@@ -54,6 +56,8 @@ export async function GET(request: Request) {
       projectId: searchParams.get("projectId")?.trim(),
       limit: searchParams.get("limit") ?? undefined,
       cursor: searchParams.get("cursor")?.trim() || undefined,
+      scope: searchParams.get("scope") || "all",
+      q: searchParams.get("q") || "",
     });
     if (!parsed.success)
       return jsonError("Invalid project task query", 400, "BAD_REQUEST");
@@ -77,14 +81,22 @@ export async function GET(request: Request) {
           description: sql<string | null>`SUBSTRING(${tasks.description} FROM 1 FOR 140)`,
           status: tasks.status,
           priority: tasks.priority,
+          reviewStatus:tasks.reviewStatus,
+          assigneeId:tasks.assigneeId,
+          assigneeName:profiles.fullName,
+          assigneeAvatarUrl:profiles.avatarUrl,
+          dueDate:tasks.dueDate,
           taskNumber: tasks.taskNumber,
           updatedAt: tasks.updatedAt,
         })
         .from(tasks)
+        .leftJoin(profiles,eq(profiles.id,tasks.assigneeId))
         .where(
           and(
             eq(tasks.projectId, projectId),
             isNull(tasks.deletedAt),
+            parsed.data.scope === "mine" ? eq(tasks.assigneeId,user.id) : undefined,
+            parsed.data.q ? sql`(${tasks.title} ILIKE ${'%' + parsed.data.q.replace(/[\%_]/g, c => '\\'+c) + '%'} OR ${tasks.taskNumber}::text = ${parsed.data.q.replace(/^.*-/, '')})` : undefined,
             cursor && cursorDate
               ? or(
                   lt(tasks.updatedAt, cursorDate),
@@ -113,11 +125,15 @@ export async function GET(request: Request) {
         description: task.description,
         status: task.status,
         priority: task.priority,
+        reviewStatus:task.reviewStatus,assigneeId:task.assigneeId,assigneeName:task.assigneeName,assigneeAvatarUrl:task.assigneeAvatarUrl,dueDate:task.dueDate,
         taskNumber: task.taskNumber,
         filesCount: fileCountMap.get(task.id) || 0,
         updatedAt: task.updatedAt.toISOString(),
       })),
       totalCount: summary.taskCount,
+      scope: parsed.data.scope,
+      query:parsed.data.q,
+      totalScope:"project",
       hasMore,
       nextCursor: hasMore && lastTask ? encodeCursor(lastTask) : null,
     });

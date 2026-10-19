@@ -1,7 +1,7 @@
 import { requireAuthenticatedUser, jsonSuccess, jsonError, getRequestId } from "@/app/api/v1/_shared";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { db } from "@/lib/db";
-import { profiles, projectNodes, taskNodeLinks, taskPushes, } from "@/lib/db/schema";
+import { profiles, tasks, taskSubtasks, projectSprints, projectNodes, taskNodeLinks, taskPushes, } from "@/lib/db/schema";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { logger } from "@/lib/logger";
 import { canReadProjectTab, getProjectAccessById } from "@/lib/data/project-access";
@@ -20,6 +20,10 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const taskId = searchParams.get("taskId")?.trim();
     if (!taskId) return jsonError("Missing taskId", 400, "BAD_REQUEST");
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!UUID_REGEX.test(taskId)) {
+      return jsonError("Invalid taskId format: must be a valid UUID", 400, "BAD_REQUEST");
+    }
 
     const rows = (await db.execute(sql`
       SELECT t.id, t.project_id AS "projectId", t.title, t.task_number AS "taskNumber"
@@ -37,6 +41,14 @@ export async function GET(request: Request) {
     if (!canReadProjectTab(access, "tasks")) return jsonError("Forbidden", 403, "FORBIDDEN");
     const canReadFiles = canReadProjectTab(access, "files");
 
+    const fullTask = await db.query.tasks.findFirst({where:eq(tasks.id,taskId)});
+    if (!fullTask) return jsonError("Task not found",404,"NOT_FOUND");
+    const [subtasks, assignee, sprint] = await Promise.all([
+      db.select().from(taskSubtasks).where(eq(taskSubtasks.taskId,taskId)).orderBy(taskSubtasks.position),
+      fullTask.assigneeId ? db.query.profiles.findFirst({where:eq(profiles.id,fullTask.assigneeId),columns:{id:true,fullName:true,avatarUrl:true}}) : null,
+      fullTask.sprintId ? db.query.projectSprints.findFirst({where:eq(projectSprints.id,fullTask.sprintId),columns:{id:true,name:true}}) : null,
+    ]);
+    const canWrite = access.isOwner || ["admin","member"].includes(access.member?.role || "");
     const task = {
       id: row.id,
       projectId: row.projectId,
@@ -77,12 +89,9 @@ export async function GET(request: Request) {
     ]);
 
     return jsonSuccess({
-      task: {
-        id: task.id,
-        projectId: task.projectId,
-        title: task.title,
-        taskNumber: task.taskNumber,
-      },
+      task: {...fullTask, assignee: assignee ? {id:assignee.id,name:assignee.fullName,avatarUrl:assignee.avatarUrl}:null,sprint},
+      subtasks,
+      capabilities: {canUpdate:canWrite,canApprove:access.isOwner,canReadFiles},
       files: fileRows.map((row) => ({
         id: row.node.id,
         nodeId: row.node.id,

@@ -16,6 +16,7 @@ const folderCursorSchema = z.object({
 const folderQuerySchema = z.object({
   projectId: z.string().uuid(),
   parentId: z.string().uuid().nullable(),
+  parentPath:z.string().max(2048).optional(),
   limit: z.coerce.number().int().min(1).max(200).default(100),
   cursor: z.string().max(2048).optional(),
 });
@@ -48,13 +49,15 @@ export async function GET(request: Request) {
     const rawParentId = searchParams.get("parentId")?.trim();
     const parsedQuery = folderQuerySchema.safeParse({
       projectId: searchParams.get("projectId")?.trim(),
+      parentPath:searchParams.get("parentPath")||undefined,
       parentId: rawParentId && rawParentId !== "null" && rawParentId !== "undefined" ? rawParentId : null,
       limit: searchParams.get("limit") ?? undefined,
       cursor: searchParams.get("cursor")?.trim() || undefined,
     });
     if (!parsedQuery.success) return jsonError("Invalid folder query", 400, "BAD_REQUEST");
 
-    const { projectId, parentId, limit, cursor: rawCursor } = parsedQuery.data;
+    const { projectId, limit, cursor: rawCursor } = parsedQuery.data;
+    let parentId=parsedQuery.data.parentId;
     const cursor = decodeFolderCursor(rawCursor);
     if (rawCursor && !cursor) return jsonError("Invalid folder cursor", 400, "BAD_REQUEST");
 
@@ -67,6 +70,10 @@ export async function GET(request: Request) {
       return jsonError("Forbidden", 403, "FORBIDDEN");
     }
 
+    if(parsedQuery.data.parentPath&&parsedQuery.data.parentPath!=="/"){
+      const folder=await db.query.projectNodes.findFirst({where:and(eq(projectNodes.projectId,projectId),eq(projectNodes.path,parsedQuery.data.parentPath),eq(projectNodes.type,"folder"),isNull(projectNodes.deletedAt),canReadProjectTab(access,"tasks")?undefined:projectContentNodeSql),columns:{id:true}});
+      if(!folder)return jsonError("Folder not found",404,"NOT_FOUND");if(parentId&&parentId!==folder.id)return jsonError("Folder identity mismatch",400,"BAD_REQUEST");parentId=folder.id;
+    }
     // Find the child nodes
     const rows = await db.query.projectNodes.findMany({
       where: and(
