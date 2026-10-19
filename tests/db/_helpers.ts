@@ -13,6 +13,12 @@ import { requireDisposableDatabaseUrl } from "../../scripts/lib/disposable-db";
 
 dotenv.config({ path: ".env.local", quiet: true });
 
+// Tests never reach a real Redis. Under NODE_ENV=test the rate limiter keeps its own in-memory limits;
+// without this CI (no Redis, production-like fail-closed mode) rejects every rate-limited action.
+delete process.env.UPSTASH_REDIS_REST_URL;
+delete process.env.UPSTASH_REDIS_REST_TOKEN;
+(process.env as Record<string, string>).NODE_ENV = "test";
+
 // App modules import "server-only"; outside Next's react-server build it is a no-op.
 type Loader = (request: string, parent: unknown, isMain: boolean) => unknown;
 const moduleWithLoad = Module as unknown as { _load: Loader };
