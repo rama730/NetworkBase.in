@@ -161,7 +161,7 @@ async function main() {
       if (!latest.success || !latest.root) return false;
       const older = await messages.listThread({ channelId: general, rootSeq: top.message.seq, limit: 2, before: latest.replies[0]!.seq });
       return latest.replies.map((m) => m.body).join() === "r2,r3" && latest.hasOlder
-        && older.success && older.root === null && older.replies.map((m) => m.body).join() === "r1" && !older.hasOlder;
+        && older.success && older.root?.seq === top.message.seq && older.replies.map((m) => m.body).join() === "r1" && !older.hasOlder;
     });
     // Give the owner's 4 sends back (1 token/s) so later owner checks aren't rate limited.
     await new Promise((resolve) => setTimeout(resolve, 4_200));

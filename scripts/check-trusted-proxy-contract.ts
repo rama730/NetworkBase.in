@@ -39,7 +39,7 @@ async function main() {
   const disallowedUsages = rawHeaderMatches.filter((line) => !line.startsWith("src/lib/security/request-ip.ts:"));
 
   const checks: Array<[string, boolean]> = [
-    ["trusted proxy helper requires a platform marker in production", requestIpSource.includes("hasTrustedProxyMarker(headers)")],
+    ["trusted proxy helper trusts only a configured edge header or a hop count in production", requestIpSource.includes("TRUSTED_PROXY_IP_HEADER") && requestIpSource.includes("TRUSTED_PROXY_HOPS") && requestIpSource.includes("isIP(") && !requestIpSource.includes("TRUSTED_PROXY_MARKER_HEADERS")],
     ["API routes resolve request IP through the trusted helper", sharedRouteSource.includes('getTrustedRequestIp(request) ?? "unknown"')],
     ["no raw forwarded headers are read outside the trusted proxy helper", disallowedUsages.length === 0],
   ];
