@@ -111,6 +111,40 @@ export function availabilityLabel(availability: Availability, lastActiveAt?: str
   return "Active this week";
 }
 
+const AVAILABILITY_RANK: Record<Availability, number> = { offline: 0, week: 1, today: 2, now: 3 };
+
+/** Degrees the badge's rings turn for a change: a full turn clockwise up in activity, counter-clockwise down. */
+export function spinDelta(prev: Availability, next: Availability): 0 | 360 | -360 {
+  const change = AVAILABILITY_RANK[next] - AVAILABILITY_RANK[prev];
+  return change > 0 ? 360 : change < 0 ? -360 : 0;
+}
+
+export type BadgeSpin = { availability: Availability; armed: boolean; angle: number; halo: number };
+
+/**
+ * The badge's spin state for a new render. It spins only for a change seen while
+ * data was already loaded (`armed`): the first render and the change that arrives
+ * with the first data are the baseline. `halo` counts "became Active now" plays.
+ */
+export function advanceBadgeSpin(state: BadgeSpin, availability: Availability, animate: boolean): BadgeSpin {
+  const changed = state.availability !== availability;
+  if (!changed && state.armed === animate) return state;
+  const spins = changed && state.armed && animate;
+  return {
+    availability,
+    armed: animate,
+    angle: spins ? state.angle + spinDelta(state.availability, availability) : state.angle,
+    halo: spins && availability === "now" ? state.halo + 1 : state.halo,
+  };
+}
+
+/** The status emoji chip needs room: it shows only on badges at least this big (px). */
+export const STATUS_CHIP_MIN_SIZE = 14;
+
+export function showStatusChip(emoji: string | null | undefined, size: number): emoji is string {
+  return Boolean(emoji?.trim()) && size >= STATUS_CHIP_MIN_SIZE;
+}
+
 /** A status whose end time has passed is treated as cleared. */
 export function activeStatus<T extends { expiresAt: string | null }>(status: T | null, now: Date = new Date()): T | null {
   if (!status) return null;

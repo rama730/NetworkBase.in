@@ -142,6 +142,7 @@ export async function readNetworkInvitationsAction(
       user.id,
       page.map((row) => row.actor_id),
     );
+    // ponytail: privacy-hidden people are dropped after LIMIT, so a page can come back a row or two short while hasMore stays true (cursors are exact, nothing is skipped). ceiling: short pages. upgrade: move the privacy predicate into the SQL once it exists as one expression.
     const items: NetworkInvitation[] = page
       .filter((row) => !details[row.actor_id]?.isUnavailable)
       .map((row) => ({

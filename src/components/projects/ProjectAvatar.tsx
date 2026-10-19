@@ -168,11 +168,15 @@ export function ProjectPresenceDot({
     // Status (set by owners) and activity come from the shared Node badge;
     // the local event above keeps activity instant after your own changes.
     const activityLabel = formatProjectActivePresenceLabel(liveActiveAt) ?? formatProjectOfflinePresenceLabel(liveActiveAt, clientLocale);
+    // 18 on a card's 44px avatar, 30 on the detail page's 80px one, 14 beside a title; the corner offset grows with the badge.
+    const size = standalone ? 14 : compact ? 18 : 30;
+    const offset = -Math.round(size * 0.2);
     return (
         <ProjectPresenceBadge
             projectId={projectId && isLooseUuid(projectId) ? projectId : null}
             updatedAt={liveActiveAt ?? null}
-            size={standalone ? 14 : compact ? 14 : 18}
+            size={size}
+            style={standalone ? undefined : { right: offset, bottom: offset }}
             className={cn(standalone ? "" : "nb-person-presence-dot", className)}
             testId="project-avatar-presence-dot"
             activityLabel={activityLabel}

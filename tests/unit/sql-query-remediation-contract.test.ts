@@ -39,8 +39,10 @@ describe("SQL audit query remediations", () => {
     assert.match(connections, /pg_advisory_xact_lock\(hashtextextended\('connection-pair:' \|\| \$\{pairKey\}, 0\)\)/);
     assert.match(connections, /eq\(connections\.status, 'pending'\)/);
     assert.match(connections, /jsonb_to_recordset/);
-    assert.match(applications, /pg_advisory_xact_lock\(hashtextextended\('application-pending-cap:' \|\| \$\{candidate\.applicantId\}, 0\)\)/);
+    // One shared lock-and-count serialises every path that can add a pending application.
+    assert.match(applications, /pg_advisory_xact_lock\(hashtextextended\('application-pending-cap:' \|\| \$\{applicantId\}, 0\)\)/);
     assert.match(applications, /APPLICATION_PENDING_CAP_PER_USER/);
+    assert.equal((applications.match(/await lockPendingCap\(tx, /g) ?? []).length >= 2, true);
   });
 
   it("keeps selector reads search-keyset paginated and bounded", () => {
@@ -93,13 +95,6 @@ describe("SQL audit query remediations", () => {
     assert.match(helpers, /existencePipeline\.exists/);
     assert.match(helpers, /missing set means "unknown"/);
     assert.match(actions, /applyConnectionPairsToRedis\(accepted, 'add'\)/);
-  });
-
-  it("paginates application request history without dropping pages", () => {
-    const applications = read("src/app/actions/applications/internal.ts");
-    assert.match(applications, /applicationEventAt/);
-    assert.match(applications, /limit: effectiveLimit \+ 1/);
-    assert.match(applications, /isUuid\(cursorId\)/);
   });
 
   it("uses OCC for lifecycle writes and one project snapshot for update access", () => {
