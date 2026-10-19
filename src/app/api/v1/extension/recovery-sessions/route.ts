@@ -33,6 +33,8 @@ const sessionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("clean"), ...identity }),
 ]);
 
+class SessionIdInUseError extends Error {}
+
 export async function POST(request: Request) {
   const csrfError = validateCsrf(request);
   if (csrfError) return csrfError;
@@ -69,7 +71,7 @@ export async function POST(request: Request) {
               endedAt: previousStatus === "clean" ? now : null,
               incidentDetectedAt: previousStatus === "interrupted" ? now : null,
               updatedAt: now,
-            });
+            }).onConflictDoNothing(); // an id that already belongs to someone else is not ours to record
           } else if (previous.status !== "clean" && previous.status !== "resolved") {
             await tx.update(extensionRecoverySessions).set({
               status: previousStatus,
@@ -102,7 +104,10 @@ export async function POST(request: Request) {
             endedAt: null,
             updatedAt: now,
           },
+          // A session id is an identifier, not authority: only its owner may restart it (AUTH-003).
+          setWhere: eq(extensionRecoverySessions.userId, user.id),
         }).returning();
+        if (!started) throw new SessionIdInUseError();
         return started;
       }
 
@@ -128,7 +133,8 @@ export async function POST(request: Request) {
         lastHeartbeatAt: now,
         endedAt: status === "clean" ? now : null,
         updatedAt: now,
-      }).returning();
+      }).onConflictDoNothing().returning();
+      if (!created) throw new SessionIdInUseError();
       return created;
     });
 
@@ -143,6 +149,7 @@ export async function POST(request: Request) {
       lastHeartbeatAt: session?.lastHeartbeatAt?.toISOString(),
     });
   } catch (error) {
+    if (error instanceof SessionIdInUseError) return jsonError("This recovery session id is already in use", 409, "CONFLICT");
     logger.error("extension.recovery.session.failed", {
       action: parsed.data.action,
       userId: user.id,

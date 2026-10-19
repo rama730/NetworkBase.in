@@ -103,7 +103,7 @@ export async function POST(request: Request) {
     return jsonError("Too many signup attempts. Please wait and try again.", 429, "RATE_LIMITED");
   }
 
-  return withIdempotentRoute(request, { namespace: "auth-signup", scopeId: ipAddress }, async () => {
+  return withIdempotentRoute(request, { namespace: "auth-signup", scopeId: ipAddress, replayBody: false }, async () => {
   let rawBody: unknown;
   try {
     rawBody = await request.json();
