@@ -1576,6 +1576,13 @@
       "when": 1792342029016,
       "tag": "0227_application_lifecycle_constraints",
       "breakpoints": true
+    },
+    {
+      "idx": 225,
+      "version": "7",
+      "when": 1792342030016,
+      "tag": "0228_application_thread_messaging",
+      "breakpoints": true
     }
   ]
 }

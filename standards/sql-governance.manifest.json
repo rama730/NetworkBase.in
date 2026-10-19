@@ -228,7 +228,8 @@
     "drizzle/0224_presence_activity_authority.sql",
     "drizzle/0225_deleted_projects_own_no_chat.sql",
     "drizzle/0226_application_thread_rules.sql",
-    "drizzle/0227_application_lifecycle_constraints.sql"
+    "drizzle/0227_application_lifecycle_constraints.sql",
+    "drizzle/0228_application_thread_messaging.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",

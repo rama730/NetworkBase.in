@@ -3,7 +3,7 @@
 import { readPersonCardDetails } from '@/lib/network/person-card-read';
 import type { PersonCardDetails } from '@/lib/network/person-card';
 import { logger } from '@/lib/logger';
-import { ensureApplicationChannel, postApplicationUpdate } from '@/lib/messaging/integrations';
+import { announceApplicationChannel, ensureApplicationChannel, postApplicationUpdate } from '@/lib/messaging/integrations';
 import { db } from '@/lib/db';
 import {
     roleApplications,
@@ -29,6 +29,7 @@ import {
 } from '@/lib/applications/reasons';
 import {
     APPLICATION_EDIT_WINDOW_MS,
+    APPLICATION_REOPEN_WINDOW_MS,
     calculateCooldown,
     normalizeApplicationMessageText,
     resolveLifecycleStatus,
@@ -66,7 +67,6 @@ type ApplicationDecisionStatus = 'accepted' | 'rejected' | 'withdrawn' | 'propos
 // ============================================================================
 // COOLDOWN HELPER (24 hours)
 // ============================================================================
-const APPLICATION_REOPEN_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
 const APPLICATION_PENDING_CAP_PER_USER = 20;
 const APPLICATION_APPLY_COOLDOWN_PER_PROJECT_SECONDS = 60;
 const APPLICATION_APPLY_COOLDOWN_GLOBAL_SECONDS = 8;
@@ -233,9 +233,10 @@ async function enqueueApplicationReceivedBestEffort(params: {
             actorName: params.actorName,
             actorAvatarUrl: params.actorAvatarUrl ?? null,
             eventKey: "applications.received",
-            title: `${params.actorName || "Someone"} applied to ${params.projectTitle || "your project"}`,
-            body: params.roleTitle ? `Role: ${params.roleTitle}` : params.projectTitle ? `Project: ${params.projectTitle}` : "New application received",
-            href: `/network?tab=requests&applicationId=${encodeURIComponent(params.applicationId)}`,
+            title: `${params.actorName || "Someone"} applied for ${params.roleTitle || "a role"}`,
+            body: params.projectTitle ? `Project: ${params.projectTitle}` : "New application received",
+            // The thread has the cover letter and the Accept / Decline controls; the inbox is the fallback.
+            href: params.channelId ? conversationHref(params.channelId) : '/network?tab=invitations',
             entityRefs: {
                 applicationId: params.applicationId,
                 channelId: params.channelId ?? null,
@@ -268,6 +269,8 @@ async function enqueueApplicationReceivedBestEffort(params: {
 async function enqueueApplicationDecisionBestEffort(params: {
     applicationId: string;
     status: "accepted" | "rejected" | "reopened" | "role_filled";
+    /** The reviewer's note or the reason in words, so the applicant sees why in the notification. */
+    reasonText?: string | null;
     channelId?: string | null;
     projectId: string;
     projectSlug?: string | null;
@@ -289,11 +292,9 @@ async function enqueueApplicationDecisionBestEffort(params: {
             applicantId: params.applicantId,
             title: params.status === "role_filled"
                 ? "The role you applied for was filled"
-                : `${params.actorName || "Someone"} ${params.status === "accepted" ? "accepted" : params.status === "rejected" ? "updated" : "reopened"} your application`,
-            body: params.projectTitle ? `Project: ${params.projectTitle}` : null,
-            href: params.channelId
-                ? conversationHref(params.channelId)
-                : `/network?tab=requests&applicationId=${encodeURIComponent(params.applicationId)}`,
+                : `${params.actorName || "Someone"} ${params.status === "accepted" ? "accepted" : params.status === "rejected" ? "declined" : "reopened"} your application`,
+            body: params.reasonText?.trim().slice(0, 240) || (params.projectTitle ? `Project: ${params.projectTitle}` : null),
+            href: params.channelId ? conversationHref(params.channelId) : '/network?tab=invitations',
             entityRefs: {
                 applicationId: params.applicationId,
                 channelId: params.channelId ?? null,
@@ -329,6 +330,7 @@ async function enqueueApplicationWithdrawnBestEffort(params: {
     projectTitle?: string | null;
     roleId?: string | null;
     roleTitle?: string | null;
+    channelId?: string | null;
     actorUserId: string;
     actorName: string | null;
     actorAvatarUrl?: string | null;
@@ -341,11 +343,12 @@ async function enqueueApplicationWithdrawnBestEffort(params: {
             actorName: params.actorName,
             actorAvatarUrl: params.actorAvatarUrl ?? null,
             eventKey: "applications.withdrawn",
-            title: `${params.actorName || "Someone"} withdrew an application`,
+            title: `${params.actorName || "Someone"} withdrew their application`,
             body: params.roleTitle ? `Role: ${params.roleTitle}` : params.projectTitle ? `Project: ${params.projectTitle}` : "Application withdrawn",
-            href: `/network?tab=requests&applicationId=${encodeURIComponent(params.applicationId)}`,
+            href: params.channelId ? conversationHref(params.channelId) : '/network?tab=invitations',
             entityRefs: {
                 applicationId: params.applicationId,
+                channelId: params.channelId ?? null,
                 projectId: params.projectId,
                 projectSlug: params.projectSlug ?? null,
                 roleId: params.roleId ?? null,
@@ -806,9 +809,10 @@ function invitationLifecycle(status: string): { status: 'pending' | 'accepted' |
  * The application's private thread. Status changes show on its live card; a
  * reviewer's or applicant's note is posted as a line in the thread.
  */
-async function applicationThread(tx: Parameters<typeof ensureApplicationChannel>[0], applicationId: string, actorId: string, note?: string | null) {
+async function applicationThread(tx: Parameters<typeof ensureApplicationChannel>[0], applicationId: string, actorId: string, verb: string, note?: string | null) {
+    // Every status change leaves a line that says who did what; a note rides along after it.
     const text = (note || '').trim();
-    return text ? postApplicationUpdate(tx, applicationId, actorId, text) : ensureApplicationChannel(tx, applicationId);
+    return postApplicationUpdate(tx, applicationId, actorId, text ? `${verb}: ${text}` : verb);
 }
 
 // ============================================================================
@@ -1144,7 +1148,7 @@ export async function applyToRoleAction(
                     );
                     if (transition !== 'reopened') return transition;
                     // The application card in its private thread shows the new message and status live.
-                    return { channelId: await postApplicationUpdate(tx, existingApp.id, user.id, 'reapplied') };
+                    return { channelId: await postApplicationUpdate(tx, existingApp.id, user.id, 'applied again') };
                 });
                 if (revived === 'cap') {
                     return toApplicationFailure(traceId, 'CAP_REACHED', CAP_REACHED_MESSAGE);
@@ -1187,6 +1191,7 @@ export async function applyToRoleAction(
             if (!createdApplication) {
                 return toApplicationFailure(traceId, 'CAP_REACHED', CAP_REACHED_MESSAGE);
             }
+            announceApplicationChannel(createdApplication.channelId, user.id);
             await notifyReviewers(createdApplication.applicationId, createdApplication.channelId);
             return toApplicationSuccess(traceId, {
                 applicationId: createdApplication.applicationId,
@@ -1318,7 +1323,7 @@ export async function acceptApplicationAction(
                 });
 
                 await ensureAcceptedConnectionInternal(tx, user.id, application.applicantId);
-                const channelId = await applicationThread(tx, applicationId, user.id, message);
+                const channelId = await applicationThread(tx, applicationId, user.id, 'accepted this application', message);
                 return { ...lifecycle, channelId };
             });
 
@@ -1476,7 +1481,7 @@ export async function rejectApplicationAction(
                     throw new Error('Application already processed');
                 }
 
-                channelId = await applicationThread(tx, applicationId, user.id, message);
+                channelId = await applicationThread(tx, applicationId, user.id, 'declined this application', message);
             });
 
             const slugOrId = application.project?.slug || application.projectId;
@@ -1494,6 +1499,7 @@ export async function rejectApplicationAction(
             await enqueueApplicationDecisionBestEffort({
                 applicationId,
                 status: 'rejected',
+                reasonText: (message || '').trim() || APPLICATION_DECISION_REASON_TEMPLATES[normalizedReason],
                 channelId,
                 projectId: application.projectId,
                 projectSlug: application.project?.slug ?? null,
@@ -1695,7 +1701,7 @@ export async function withdrawApplicationAction(
                 throw new Error('Application already processed');
             }
 
-            channelId = await applicationThread(tx, applicationId, user.id, (message || '').trim() || 'Application withdrawn by applicant');
+            channelId = await applicationThread(tx, applicationId, user.id, 'withdrew this application', message);
         });
 
         const slugOrId = application.project?.slug || application.projectId;
@@ -1712,6 +1718,7 @@ export async function withdrawApplicationAction(
         });
         await enqueueApplicationWithdrawnBestEffort({
             applicationId,
+            channelId,
             projectId: application.projectId,
             projectSlug: application.project?.slug ?? null,
             projectTitle: application.project?.title ?? null,
@@ -1821,7 +1828,7 @@ export async function reopenApplicationAction(
                 'reopened_by_reviewer',
             );
             if (transition !== 'reopened') return transition;
-            return { channelId: await applicationThread(tx, applicationId, user.id, (message || '').trim() || 'Application reopened for review.') };
+            return { channelId: await applicationThread(tx, applicationId, user.id, 'reopened this application', message) };
         });
         if (reopened === 'cap') {
             return toApplicationFailure(traceId, 'CAP_REACHED', 'This person already has 20 pending applications, so this one cannot be reopened yet.');

@@ -3,6 +3,7 @@
 import { normalizeSafeExternalUrl } from "@/lib/messaging/safe-links";
 import { sql } from "drizzle-orm";
 
+import { applicationMetaSql } from "@/lib/messaging/application-meta";
 import { CHAT_CHANNEL_NAME_PATTERN, CHAT_MAX_DESCRIPTION } from "@/lib/messaging/constants";
 import { publishChannel, publishUser } from "@/lib/messaging/publish";
 import { chatFailure, chatRows, chatValue, invalidInput, isUuid, jsonParam, requireChatUser, unauthorized, uuidArray } from "@/lib/messaging/server";
@@ -218,6 +219,7 @@ export async function getChannel(input: { channelId: string }) {
              coalesce(m.role, 'member') AS role,
              m.user_id IS NOT NULL AS is_member,
              app_private.chat_is_channel_admin(c.id, ${user.id}::uuid) AS can_admin,
+             CASE WHEN c.application_id IS NULL THEN NULL ELSE ${applicationMetaSql(sql`c.application_id`, user.id)} END AS application,
              CASE WHEN c.kind = 'dm' THEN (
                SELECT jsonb_build_object('id', pr.id, 'username', pr.username, 'full_name', pr.full_name, 'avatar_url', pr.avatar_url)
                FROM chat_channel_members o JOIN profiles pr ON pr.id = o.user_id

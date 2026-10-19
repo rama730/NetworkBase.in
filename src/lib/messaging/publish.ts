@@ -41,6 +41,31 @@ export function publishUserEvents(userId: string, events: { event: string; paylo
   after(() => broadcast(events.map(({ event, payload }) => ({ topic: userTopic(userId), event, payload }))));
 }
 
+/**
+ * A system line or a new card landed in a conversation: open viewers refetch the timeline, and the
+ * other members get the unread hint (a thread they don't know yet appears in their list).
+ * Application threads use it for every status change; the lines are written by SQL, not the send path.
+ */
+export function publishChannelActivity(channelId: string, actorId: string | null) {
+  after(async () => {
+    const [state] = await chatRows<{ last_seq: string; members: string[] }>(sql`
+      SELECT c.last_seq,
+             (SELECT coalesce(array_agg(m.user_id), '{}') FROM chat_channel_members m WHERE m.channel_id = c.id) AS members
+      FROM chat_channels c WHERE c.id = ${channelId}::uuid
+    `);
+    if (!state) return;
+    const seq = Number(state.last_seq);
+    await broadcast([
+      { topic: channelTopic(channelId), event: "message.system", payload: { seq } },
+      ...state.members.filter((userId) => userId !== actorId).map((userId) => ({
+        topic: userTopic(userId),
+        event: "hint",
+        payload: { channel_id: channelId, seq, mention: false, thread_root_seq: null, follows: false },
+      })),
+    ]);
+  });
+}
+
 // Push fan-out runs in after(); 10 at a time keeps sockets and DB connections bounded.
 // ponytail: one push_subscriptions lookup per recipient (ACT-06). ceiling: 10 concurrent
 // indexed lookups. upgrade: batch the lookup (or move fan-out to Inngest) past ~100 recipients.

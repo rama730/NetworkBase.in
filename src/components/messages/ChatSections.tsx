@@ -30,6 +30,7 @@ import {
   projectBadges, projectsByActivity, rowCount, sectionsFor, swipeButtons,
 } from "@/lib/messaging/channel-view";
 import { chatErrorMessage } from "@/lib/messaging/errors";
+import { APPLICATION_STATUS_LABEL, APPLICATION_STATUS_TONE, isDecidedApplication } from "@/lib/messaging/application-status";
 import type { ChatChannelSummary, ChatNotify } from "@/lib/messaging/types";
 import { copyWithToast } from "@/lib/clipboard";
 import { conversationHref } from "@/lib/messaging/routes";
@@ -112,6 +113,9 @@ function Row({ channel, meId, variant, onSelect, online, draft }: { channel: Cha
         <span className="min-w-0 truncate">{title}</span>
         {channel.kind === "dm" && channel.dm_user ? <DmStatus userId={channel.dm_user.id} /> : null}
       </span>
+      {isDecidedApplication(channel.application?.status) ? (
+        <span className="nb-status flex-none" data-status={APPLICATION_STATUS_TONE[channel.application!.status] ?? "archived"}>{APPLICATION_STATUS_LABEL[channel.application!.status]}</span>
+      ) : null}
       {draftMark}
       {srNotes}
       <Count value={count} />
@@ -578,6 +582,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
   // ponytail: "N more" expands the bootstrap's DMs (the 100 most recent) in place; older ones via ⌘K
   // or search. upgrade: page older DMs from the server when someone has more than 100.
   const [allDms, setAllDms] = useState(false);
+  const [decidedOpen, setDecidedOpen] = useState<Record<string, boolean>>({});
   // An unread DM always shows, however old: "N more" only hides read ones.
   const dmRows = variant === "sidebar" && !allDms ? others.filter((c, i) => i < DM_SIDEBAR_LIMIT || needsAttention(c)) : others;
   const hiddenDms = others.length - dmRows.length;
@@ -636,6 +641,20 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
       <button type="button" onClick={() => setCreateFor(id)} className="nb-chat-row text-muted-foreground"><Plus size={16} aria-hidden="true" /><span className="flex-1">Create channel</span></button>
     </>
   ) : null;
+  // Decided applications (accepted, declined, withdrawn) fold away, so the list shows what still needs an answer.
+  const decidedGroup = (key: string, rows: ChatChannelSummary[]) => {
+    if (!rows.length) return null;
+    const isOpen = Boolean(decidedOpen[key]) || rows.some(needsAttention);
+    return (
+      <div>
+        <button type="button" className="nb-chat-row text-muted-foreground" aria-expanded={isOpen} onClick={() => setDecidedOpen((current) => ({ ...current, [key]: !isOpen }))}>
+          <ChevronDown size={14} aria-hidden="true" className={`flex-none ${isOpen ? "" : "-rotate-90"}`} />
+          <span className="flex-1 text-left">Decided ({rows.length})</span>
+        </button>
+        {isOpen ? rows.map(row) : null}
+      </div>
+    );
+  };
   /** A project's channels, then its application threads in their own collapsible group. */
   const projectRows = (id: string, channelRows: ChatChannelSummary[], applicationRows: ChatChannelSummary[]) => {
     const appsKey = `apps:${id}`;
@@ -657,7 +676,12 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
                 <Count value={applicationRows.filter(needsAttention).length} noun="unread conversations" />
               </button>
             </h3>
-            {collapsed[appsKey] ? null : applicationRows.map(row)}
+            {collapsed[appsKey] ? null : (
+              <>
+                {applicationRows.filter((c) => !isDecidedApplication(c.application?.status)).map(row)}
+                {decidedGroup(`decided:${id}`, applicationRows.filter((c) => isDecidedApplication(c.application?.status)))}
+              </>
+            )}
           </div>
         ) : null}
         {unreadsOnly ? null : browseRow(id)}
@@ -806,7 +830,8 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
 
       {myApplications.length ? (
         <Section id="applications" title="My applications" noun="unread conversations" count={myApplications.filter(needsAttention).length} collapsed={Boolean(collapsed.applications)} onToggle={toggle} attention={myApplications.filter(needsAttention).map(row)}>
-          {myApplications.map(row)}
+          {myApplications.filter((c) => !isDecidedApplication(c.application?.status)).map(row)}
+          {decidedGroup("decided:mine", myApplications.filter((c) => isDecidedApplication(c.application?.status)))}
         </Section>
       ) : null}
       {markAll.dialog}

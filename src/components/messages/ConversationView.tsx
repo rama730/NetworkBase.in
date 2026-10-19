@@ -42,6 +42,7 @@ import { useDocumentTitlePrefix } from "@/hooks/useDocumentTitlePrefix";
 import type { ChannelDetails } from "@/app/actions/chat/channels";
 import type { CanvasTemplate } from "@/lib/messaging/canvas-store";
 import { conversationTabs, restoreTabOrder, type ChannelTabItem } from "@/lib/messaging/channel-tabs";
+import { ApplicationStatusBar } from "@/components/messages/cards/ApplicationCard";
 import { canAddPeople, channelTitle, isSelfDm, notifiesEveryMessage, notifyChoice, notifyChoices, notifyLabel, personName } from "@/lib/messaging/channel-view";
 import { CHAT_BROADCAST_MENTION_MAX_MEMBERS } from "@/lib/messaging/constants";
 import { chatErrorMessage } from "@/lib/messaging/errors";
@@ -84,6 +85,19 @@ function Intro({ channel, meId, isMember, hasCanvas, onDetails, onAddPeople, onC
           {self
             ? "This is your space. Jot down notes, drafts and links only you can see."
             : `This is the very beginning of your direct message history with ${personName(channel.dm_user)}.`}
+        </p>
+      </div>
+    );
+  }
+  if (channel.application_id) {
+    const meta = channel.application;
+    const subject = meta ? `${meta.role_removed ? "a removed role" : meta.role_title ?? "a role"} on ${meta.project_title}` : "a project role";
+    return (
+      <div className="px-4 py-4 text-[13px] text-muted-foreground">
+        <p>
+          {meta?.is_applicant
+            ? `This is your application for ${subject}. The project's reviewers answer here, and you can ask or add anything they need.`
+            : `This is the application${meta ? ` from ${personName(meta.applicant)}` : ""} for ${subject}. Accept or decline from the bar above, and ask questions here.`}
         </p>
       </div>
     );
@@ -493,7 +507,9 @@ export function ConversationView({ channelId, around = null, surface = "page", o
   const self = isSelfDm(channel, meId);
   const title = self ? `${personName(channel.dm_user)} (you)` : channelTitle(channel, meId);
   const dmOnline = channel.kind === "dm" && channel.dm_user ? online[channel.dm_user.id] : undefined;
-  const placeholder = self ? "Jot something down…" : isDirect ? `Message ${title}` : `Message #${title}`;
+  const placeholder = self ? "Jot something down…"
+    : channel.application_id ? (channel.application?.is_applicant ? "Message the reviewers" : `Message ${channel.application ? personName(channel.application.applicant).split(" ")[0] : "the applicant"}`)
+      : isDirect ? `Message ${title}` : `Message #${title}`;
   const displayName = isChannel ? `#${title}` : title;
   const notify = notifyChoice(channel, (channel.notify ?? "all") as ChatNotify);
   // Bell = the default; a dot = DMs set to mentions only; crossed out = muted.
@@ -675,6 +691,8 @@ export function ConversationView({ channelId, around = null, surface = "page", o
           )}
         </header>
 
+        {channel.application_id && isMember ? <ApplicationStatusBar applicationId={channel.application_id} /> : null}
+
         {showTabBar ? (
           <ChannelTabBar
             activeTab={activeTab.id}
@@ -774,7 +792,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 channelId={channelId}
                 placeholder={placeholder}
                 people={people}
-                allowBroadcast={!isDirect && channel.member_count <= CHAT_BROADCAST_MENTION_MAX_MEMBERS}
+                allowBroadcast={!isDirect && !channel.application_id && channel.member_count <= CHAT_BROADCAST_MENTION_MAX_MEMBERS}
                 canCreateTask={Boolean(channel.project_id)}
                 onOpenCanvas={isChannel && surface === "page" ? () => openCanvas() : undefined}
                 onTyping={typing.notify}
