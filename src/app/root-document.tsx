@@ -50,9 +50,6 @@ export const rootMetadata: Metadata = {
   metadataBase: APP_METADATA_BASE,
   applicationName: "NetworkBase",
   manifest: "/manifest.webmanifest",
-  openGraph: {
-    siteName: "NetworkBase™",
-  },
   icons: {
     // Transparent margin avoids Safari's contrast outline around the cream tile.
     icon: [

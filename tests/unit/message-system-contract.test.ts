@@ -311,18 +311,10 @@ test("Section 2 (1M-Scale Pure Performance & Optimization) contracts", () => {
         "utf8",
     );
 
-    // 2.1 Fast Showing: Offline-first storage cache
-    assert.ok(storageCacheExists, "Client storage cache module must exist");
-    assert.match(
-        useConversationSource,
-        /getCachedTimeline\(channelId\)/,
-        "useConversation must read cached timeline for instant <5ms showing",
-    );
-    assert.match(
-        useConversationSource,
-        /setCachedTimeline\(channelId, messages\.filter\(\(m\) => m\.seq > 0\)\)/,
-        "useConversation must persist timeline in client storage cache",
-    );
+    // The retired cache exists only to purge legacy keys; query data owns active timelines.
+    assert.ok(storageCacheExists, "Legacy persisted timelines must be purged");
+    assert.doesNotMatch(useConversationSource, /getCachedTimeline|setCachedTimeline/);
+    assert.match(useConversationSource, /query\.data \? \[\.\.\.query\.data\.pages\]/);
 
     // 2.2 Fast Uploading: Optimistic blob preview and progress bar
     assert.match(
@@ -739,7 +731,7 @@ test("Section 7 (Header Ergonomics & Message Action Menu Fixes) contracts", () =
     );
     assert.match(
         channelScreensSource,
-        /panes\.thread \|\| panes\.details \? <ChatDrawer/,
+        /panes\.thread \|\| panes\.details[\s\S]*?<ChatDrawer/,
         "Thread and Details open in one drawer beside the conversation (?thread=, ?details=)",
     );
 });

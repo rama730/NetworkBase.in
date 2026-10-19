@@ -1940,9 +1940,18 @@
             </li>
             <li>
               Icon wrapper: Lucide vocabulary, 1.75 stroke, sizes 14 dense / 16
-              controls / 18 section headers / 24 empty state. Decorative icons
+              controls / 18 contextual indicators / 24 empty state. Decorative icons
               are hidden from assistive technology; icon-only actions require
               names and visible keyboard focus.
+            </li>
+            <li>
+              Content headings and static section labels use text without a
+              decorative leading icon or reserved icon space. Preserve navigation,
+              action, status, file-type, provider, and actual identity icons. Remove
+              redundant icon placeholders from matching loading headers. The entire
+              Messages system is excluded from this cleanup, including shared project
+              dialogs and task surfaces when rendered inside Messages; non-Messages
+              project/profile entry points explicitly opt into plain headings.
             </li>
             <li>
               Use compass for discovery, users-round for network, folder-kanban
@@ -10877,22 +10886,33 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
           </h2>
           <span class="basis">Extension</span>
           <p>
-            PersonCard follows the reference: 48px squared avatar, 14px gap,
-            15px semibold name, 12px mono location, 13px professional headline,
-            22px skill tags with 5px gaps, 12px mono shared-connection line.
-            White 8px card with 20px inset; action occupies a separate stable
-            trailing region. In a 320px rail, use a stacked/header-first variant
-            rather than squeezing long names between avatar and button.
+            Person cards share a 176px outer boundary across Network, invitations and the
+            320px Discover rail. Use squared avatars (48px desktop, 40px compact touch),
+            a 14px identity gap, Instrument Sans 600 at 15px/20px for names, and a
+            13px/1.5 professional headline. Metadata uses JetBrains Mono 400 at
+            12px/1.35. Cards use an 8px radius and 20px desktop or 16px compact inset;
+            skill tags reuse the Discover project-card pill outline through the shared nb-tag class, retaining their 22px height and 5px gaps.
+            Skills without proper artwork show their name only; generic glyphs and letter monograms are omitted without reserving icon space.
           </p>
           <p>
-            <strong>Placement rule.</strong> Exactly one line sits under the
-            name: the location if present, otherwise the real headline. The
-            headline drops full width below the avatar only when a location
-            took that line; secondary mono meta (shared connections,
-            &ldquo;Connected&nbsp;&hellip;&rdquo;, role) follows it. Never show
-            filler headlines or messages: omit the line instead. Cards size to
-            their content; in a grid, each row aligns to its tallest card. A
-            fixed card height to suit a virtualizer is not allowed.
+            <strong>Approved placement — 16 October 2026.</strong> A permitted saved
+            “Open to collaborate” flag appears immediately after the name as a compact
+            sentence-case badge. Headline sits below the name, with a truthful public
+            portfolio, location or username fallback when absent. The next line flows
+            naturally from a 14px map pin and mono location into “Portfolio · Title”
+            (one public project) or “Portfolio · N projects”; Portfolio is medium and
+            darker, its separator muted. Public portfolio evidence includes published
+            external work and past/completed contributions; it never implies current
+            activity or exposes private work. Do not duplicate subtitle evidence.
+            Skills occupy one measured row, with canonical 14px skill icons, up to four labels and an accurate
+            +N button opening a keyboard/touch-accessible disclosure. Shared connections
+            and the immutable connected month/year follow skills. Missing middle rows
+            collapse inside the same card boundary. Unknown acceptance dates say
+            “Connected”; mutable update/request dates are not acceptance history.
+            Actions move into the trailing footer below 430px and on the rail, with
+            44px primary touch targets. Review dialogs retain errors and decisions
+            on failure. Long details remain available through accessible navigation,
+            titles and disclosures rather than expanding or internally scrolling cards.
           </p>
           <div class="table-wrap">
             <table>
@@ -10907,9 +10927,9 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
                 <tr>
                   <td>Network suggestions</td>
                   <td>
-                    One column below 640px, two above; avatar with name,
-                    location-or-headline line and action beside it; skills
-                    below; one compact connection action. Content-sized cards.
+                    One or two columns according to available content width; shared 176px
+                    cards keep identity, context, skills and relationship footer in order.
+                    Sparse cards retain their size; actions use the available trailing region.
                   </td>
                   <td>
                     Not connected, pending outgoing, pending incoming,
@@ -10919,8 +10939,8 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
                 <tr>
                   <td>Discovery rail</td>
                   <td>
-                    Compact stacked identity; 2 skill tags plus overflow text;
-                    small secondary action bottom-right.
+                    Compact stacked identity with saved collaboration, location/portfolio context,
+                    a measured skill strip and a stable action bottom-right.
                   </td>
                   <td>
                     No forced wrapping into one-word name columns; real
@@ -11263,6 +11283,31 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
             data source, the page uses a wider feed or available real context;
             placeholder suggestions are not introduced.
           </p>
+          <p>
+            Below People you should meet, replace Explore people with a Shared
+            connections micro heading and hairline, then a compact sunken panel
+            with up to four squared avatars and an exact “and N others” count.
+            These are distinct accepted connections the viewer shares with at
+            least one suggestion currently shown. Avatar links open the person's
+            profile. Omit private, deleted, blocked and incomplete profiles;
+            when no shared connections are available, use the same compact panel
+            for up to four additional suggestions under “More people to meet”,
+            with a View more link to Network's Suggested tab. These profiles
+            must differ from the three full cards and never be labelled as
+            shared connections. Hide the panel only if neither source has data.
+            Desktop and the compact People drawer use the same data and presentation. Include
+            the summary in the existing suggestion response, without per-card
+            requests or a separate polling loop.
+          </p>
+          <p>
+            The desktop rail shares the route's scroll container. A rail taller
+            than that viewport scrolls naturally alongside the feed until its
+            bottom reaches a 24px inset, then stays there as the feed continues.
+            Short rails retain a 24px top inset. Measure the actual rail and
+            route viewport on resize/content changes; use native sticky
+            positioning without a separate rail scroller or per-scroll React
+            updates. Keep the existing compact People drawer below 1200px.
+          </p>
           <div class="table-wrap">
             <table>
               <thead>
@@ -11403,12 +11448,59 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
           </h2>
           <span class="basis">Extension</span>
           <p>
-            Apply NetworkScreen to /people. Page title 30px, search at right
-            240px desktop, underlined tabs with mono counts, 18px gap before
-            results. Keep the current Discover/Network/Requests semantics even
+            Network shares Discover's 1240px maximum page width, 24px desktop
+            gutters, 24px top inset and title/subtitle alignment. Put underlined
+            tabs with mono counts 16px after the tagline, followed directly by the
+            256px search control and Filters with 8px between controls. Do not
+            display Recommended/Best match labels or sort selects in the toolbar.
+            Invitation and connection sorting belongs inside Filters. Use 16px before results. The active orange underline
+            overlaps the gray divider, including wrapped and touch layouts.
+            When controls cannot fit, wrap them above the tabs so the tab strip
+            remains attached to the divider. Keep the search compact, never stretched
+            across a separate desktop row. Apply the existing Discover typography,
+            control heights, borders, and colors.
+            At 1200px and wider use Discover's 320px right rail and 24px column
+            gap. Your network shows existing connection and invitation counts
+            with links to the corresponding tabs, plus legal links; do not add
+            a separate count query or polling loop. Use the same bottom-pinning
+            scroll behavior as Discover, and place legal links below content
+            when the desktop rail is hidden. Within the main column, show two
+            card columns only when at least 720px is available; otherwise use
+            one. Preserve every person card's internal placements and its 176px
+            minimum height, including loading states. On an initial Network visit,
+            keep the full route skeleton visible through authentication and the
+            first active-tab data request: title, tagline, tabs, search, Filters,
+            cards and overview rail all show placeholders. Mount the active data
+            reader once and reveal the page on success, empty results or error;
+            errors must show recovery controls. Later tab switches, filter changes
+            and background refreshes retain the live header. Keep the current Discover/Network/Requests semantics even
             if visible labels are refined to Suggested/Connections/Requests. A
             tab label change must not conflate professional connection requests
             and project applications.
+          </p>
+          <p>
+            Discover and Network share one filter panel component: a 420px right
+            drawer on desktop and an 85dvh maximum bottom sheet on phones, with
+            the same Filters heading, scrollable padded body, paper footer,
+            Clear all and Done. Network and Discover apply each filter or sorting
+            change immediately while the panel stays open. Clear all also applies
+            immediately. Done, Escape, the overlay and the close button only close
+            the panel; they never apply or discard selected options.
+            Sorting is included in the panel's active-option count and reset.
+            Suggested keeps recommendation and search-relevance ordering without
+            displaying a ranking label;
+            filters match all selected public skills, literal location text, live
+            visible shared connections, and saved Open to collaborate status.
+            Connections sorts by actual acceptance time (request time only as an
+            ordering fallback for historical records) or name, with skills,
+            location, and shared-connection filters. Invitations sorts newest/oldest
+            across connection requests, project invitations, and applications;
+            filter by received/sent and connection/project type. Preserve existing
+            review and relationship actions. Search and filters run on the server
+            before pagination. Each section remembers its own search, filters,
+            and ordering in the URL for refresh and Back navigation. Show removable
+            filter chips, Clear all, and a reset action for empty filtered results.
+            Failed page loads retain visible cards and offer an explicit retry.
           </p>
           <div class="table-wrap">
             <table>
@@ -11526,8 +11618,12 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
             Use the reference Profile header: white 8px panel, 24px inset, 72px
             squared avatar, 30px name, availability badge, 15px professional
             headline, mono location/connection/project counts, skill tags.
-            Share/Edit or Connect/Message actions align right on desktop and
-            below identity on mobile. Public/own context is behavioral, not a
+            Share/Edit or Share/relationship actions align right on desktop and
+            below identity on mobile. Visitor Share and relationship controls
+            share one row and control size. Permitted Message actions live in
+            the relationship dropdown alongside the existing connection actions;
+            this also applies to pending requests and message-only Actions menus.
+            Public/own context is behavioral, not a
             separate visual system.
           </p>
           <p>
@@ -11573,18 +11669,35 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
                   <td>Right rail</td>
                   <td>
                     Profile context, availability or supported relationship
-                    summaries in 300–320px hairline panels.
+                    summaries in 300–320px hairline panels. Role preferences,
+                    Links and Profile completeness use Discover's People you
+                    should meet heading pattern: 11px medium JetBrains Mono,
+                    uppercase, muted, with a flexible horizontal hairline after
+                    the title and 12px before the content panel. Titles sit
+                    outside panels; no duplicate icon/header row. Edit actions
+                    follow the hairline. Separate rail sections by 24px.
+                    Preference values flow inline with commas, wrapping only
+                    when needed. Omit the entire Links section when there are
+                    no valid links, for owners and visitors alike; links remain
+                    editable through Edit profile / Social presence.
                   </td>
                   <td>
                     Collapse below main content or into context drawer when
-                    narrow; no duplicate identity header.
+                    narrow; no duplicate identity header. On desktop, share
+                    the route scroll: tall rails scroll until their bottom is
+                    24px above the viewport bottom, then stay there while main
+                    content continues. Short rails keep a 24px top inset.
+                    Recalculate for content and viewport resizing; preserve
+                    the existing mobile content order and normal scrolling.
                   </td>
                 </tr>
                 <tr>
                   <td>Edit profile</td>
                   <td>
-                    Large dialog up to 960px; left section nav 200px, form
-                    content flexible; sticky Save/Cancel footer.
+                    Dedicated owner page in the main application shell; left section nav
+                    matches the shared sidebar width and density. Edit profile micro
+                    heading with a divider below; flexible form content and a slim
+                    Save/Cancel row confined to the right column.
                   </td>
                   <td>
                     General, experience/contributions, skills, social presence,
@@ -11919,6 +12032,24 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
             task/file/editor canvas has useful height. Do not constrain Kanban
             or code work to a 640px reading column. Shared header still
             communicates which project owns the active work.
+          </p>
+          <p>
+            Dashboard rail sections Journey, Recent activity and Open roles use
+            Discover's external micro heading and horizontal hairline, with
+            12px to the bordered content and 24px between sections. Remove
+            internal card header rows on desktop and mobile. Keep Journey's
+            previous/next actions at the end of its heading row and the mobile
+            stage summary inside its content. Preserve all role, invitation,
+            activity loading/retry, and audience visibility behavior. Main
+            content cards retain their own header hierarchy.
+          </p>
+          <p>
+            The desktop Dashboard rail uses the same native sticky behavior
+            as Discover and profiles: scroll with the page, then pin its bottom
+            at a 24px viewport inset. Short rails stick 24px below the project
+            tab bar, using its measured height. Update measurements on content
+            and viewport resize without per-scroll React updates or a separate
+            rail scroller. Below the desktop breakpoint, retain normal flow.
           </p>
           <div class="sources">
             <b>Source anchors</b><code>src/components/projects/dashboard</code
@@ -13198,13 +13329,27 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
           </h2>
           <span class="basis">Extension</span>
           <p>
-            Use the Profile/Workspace page grammar: 30px Settings heading, local
-            200–248px settings navigation, flexible form column max 800px, white
-            8px section cards with 24px inset. At 1280px, prefer compact local
-            navigation or a dropdown if global/sidebar width would crowd forms.
-            Mobile uses a labeled section selector. Active settings row is paper
-            well with clay icon; avoid black filled cards and blurred
-            containers.
+            Use the approved Edit profile page grammar: a full-height section
+            navigation beside the main application sidebar, using its shared width,
+            compact link sizing and selected state. Place an 11px mono Settings
+            micro heading above a divider and the section links. The flexible
+            right column scrolls the existing settings document, with form content
+            capped at 896px (max-w-4xl), matching Edit profile, with density-aware panel insets. Narrow screens wrap
+            the section links and keep the document usable on short viewports.
+            Active settings rows use the paper well and clay icon. Preserve section
+            URLs, deep anchors, drafts and existing settings actions.
+          </p>
+          <p>
+            Main Settings uses Edit profile's open content sections: 20px section
+            titles, 17px subsection titles, descriptions directly underneath,
+            32px heading-to-content and subsection gaps, and horizontal dividers
+            with 24px bottom spacing. Do not wrap subsections in rounded bordered
+            cards or inset their headers and bodies separately. Keep controls,
+            selection options, warnings and confirmation dialogs appropriately
+            contained. Loading states use the same open structure and content
+            width. This presentation is scoped to the main Settings document;
+            project-settings consumers and the Messages system retain their
+            existing presentation and behavior.
           </p>
           <div class="table-wrap">
             <table>

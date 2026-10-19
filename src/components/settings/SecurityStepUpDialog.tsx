@@ -158,7 +158,7 @@ export default function SecurityStepUpDialog({
             </div>
           ) : null}
 
-          <div className="rounded-lg border border-zinc-200 bg-zinc-50/80 px-4 py-3 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-zinc-300">
+          <div className="rounded-lg border border-border bg-muted/50 px-4 py-3 nb-compact text-muted-foreground">
             This verification stays active for up to 5 minutes on this device.
           </div>
         </div>

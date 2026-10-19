@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, Suspense } from "react";
-import { LogOut, Menu, Plus, Scale, Search, Smile, UserRound } from "lucide-react";
+import { LogOut, Menu, Plus, Scale, Search, Share2, Smile, UserRound } from "lucide-react";
 import Logo from "./Logo";
 import {
     DropdownMenu,
@@ -17,6 +17,7 @@ import { SignOutConfirmDialog } from "@/components/auth/SignOutConfirmDialog";
 import ThemeToggle from "./ThemeToggle";
 // Dynamic Imports for heavy interactive components
 import dynamic from "next/dynamic";
+const ResourceShareDialog = dynamic(() => import('@/components/sharing/ShareDialog').then(mod => mod.ShareDialog), { ssr: false });
 const MobileMenu = dynamic(() => import("./MobileMenu"), { ssr: false });
 const CommandPalette = dynamic(() => import("./CommandPalette"), { ssr: false });
 // The placeholder reserves the bell's slot so the mobile topbar does not shift on hydration.
@@ -69,6 +70,8 @@ export default function TopNav() {
     const [commandPaletteContext, setCommandPaletteContext] = useState<GlobalSearchContext | undefined>();
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+    const [shareApplication, setShareApplication] = useState(false);
+    const [shareReturnFocus, setShareReturnFocus] = useState<HTMLElement | null>(null);
     const profileMenuTriggerRef = useRef<HTMLButtonElement>(null);
     const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null);
 
@@ -274,6 +277,9 @@ export default function TopNav() {
                                         </div>
                                         <DropdownMenuSeparator className="-mx-1 my-1 bg-border" />
                                         <StatusMenuItem userId={user?.id ?? null} />
+                                        <DropdownMenuItem onSelect={() => { setShareReturnFocus(profileMenuTriggerRef.current); setShareApplication(true); }}>
+                                            <Share2 className="size-4" aria-hidden="true" />Share NetworkBase
+                                        </DropdownMenuItem>
                                         <DropdownMenuItem asChild>
                                             <Link
                                                 href={ROUTES.MY_PROFILE}
@@ -321,6 +327,7 @@ export default function TopNav() {
 
                 </div>
 
+                {shareApplication ? <ResourceShareDialog kind="application" path="/" returnFocusElement={shareReturnFocus} onClose={() => setShareApplication(false)} /> : null}
                 {mounted && authUiState === "signed-in" && (
                     <Suspense fallback={null}>
                         <MobileMenu
@@ -329,6 +336,7 @@ export default function TopNav() {
                             returnFocusRef={mobileMenuTriggerRef}
                             profile={profile}
                             onSignOut={signOut}
+                            onShareApplication={() => { setShareReturnFocus(mobileMenuTriggerRef.current); setShowMobileMenu(false); setShareApplication(true); }}
                             connectionHealth={connectionHealth}
                         />
                     </Suspense>

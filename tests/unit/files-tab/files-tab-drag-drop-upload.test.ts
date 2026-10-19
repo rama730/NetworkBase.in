@@ -42,6 +42,16 @@ describe("Files Tab Drag & Drop Upload Integration", () => {
     // Must support folder picker & task search
     assert.match(source, /FolderPicker/);
     assert.match(source, /searchProjectTasks/);
+
+    // Must support pre-upload file rename
+    assert.match(source, /renameFileObject/);
+    assert.match(source, /isRenamingSingle/);
+    assert.match(source, /applySingleRename/);
+    assert.match(source, /Rename file/);
+
+    // Must prevent close button overlap with generous right clearance and separate extension truncation
+    assert.match(source, /<DialogHeader className="pr-10">/);
+    assert.match(source, /singleFileNameParts/);
   });
 
   it("FolderListView implements container drag & drop with overlay and upload modal", () => {
@@ -174,7 +184,7 @@ describe("Files Tab Drag & Drop Upload Integration", () => {
     assert.match(source, /loadPage\(ancestorId\)/);
   });
 
-  it("10 Ponytail Enhancements: 2-level Escape, destination pill, smart category heuristics, removable chips & transitions", () => {
+  it("upload categories require an explicit choice while preserving Escape, destination and file controls", () => {
     const source = readFileSync(modalPath, "utf-8");
 
     // 2-level Escape: intercept onEscapeKeyDown and onKeyDown
@@ -185,10 +195,13 @@ describe("Files Tab Drag & Drop Upload Integration", () => {
     assert.match(source, /Destination:/);
     assert.match(source, /destinationFolderName/);
 
-    // Smart category heuristics: computeInitialIntent
-    assert.match(source, /computeInitialIntent/);
-    assert.match(source, /spec\|brief\|reference\|req\|asset\|guide\|input/);
-    assert.match(source, /draft\|wip\|temp\|working/);
+    // No filename, collision, or task heuristic may preselect a category.
+    assert.doesNotMatch(source, /computeInitialIntent/);
+    assert.match(source, /useState<FilesUploadIntent \| null>\(null\)/);
+    assert.match(source, /setIntent\(null\)/);
+    assert.match(source, /intent === null \|\|/);
+    assert.match(source, /disabled=\{isConfirmDisabled\}/);
+    assert.match(source, /if \(isConfirmDisabled \|\| intent === null\) return/);
 
     // Removable chips list with remove button & aggregate size
     assert.match(source, /formatBytes\(totalBytes\)/);

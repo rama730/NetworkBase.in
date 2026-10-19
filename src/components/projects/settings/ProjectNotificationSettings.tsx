@@ -1,18 +1,7 @@
 'use client';
 
 import { useMemo } from "react";
-import {
-    Bell,
-    ChevronDown,
-    FileText,
-    Folder,
-    Lock,
-    ShieldCheck,
-    SlidersHorizontal,
-    UserCog,
-    Users,
-    Workflow,
-} from "lucide-react";
+import { ChevronDown, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
     resolveProjectNotificationDecision,
@@ -22,18 +11,6 @@ import {
     type ProjectNotificationRegistryEntry,
 } from "@/lib/notifications/project-policy";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
-
-const NOTIFICATION_GROUP_ICONS = {
-    membership_access: Users,
-    roles_applications: UserCog,
-    project_lifecycle: Workflow,
-    tasks_workflow: SlidersHorizontal,
-    files_workspace: Folder,
-    readme: FileText,
-    updates: Bell,
-    security_audit: ShieldCheck,
-    future: Bell,
-} as const satisfies Record<ProjectNotificationGroupId, typeof Bell>;
 
 export function ProjectNotificationCategoryCard({
     group,
@@ -66,8 +43,6 @@ export function ProjectNotificationCategoryCard({
         return group.entries.filter((entry) => entry.mandatory).length;
     }, [group.entries]);
 
-    const IconComponent = NOTIFICATION_GROUP_ICONS[group.id] ?? Bell;
-
     return (
         <div className="rounded-lg border border-border bg-card overflow-hidden transition-colors">
             <button
@@ -77,29 +52,24 @@ export function ProjectNotificationCategoryCard({
                 aria-controls={`notification-group-${group.id}`}
                 className="flex w-full items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
-                <div className="flex items-center gap-3.5 min-w-0">
-                    <div className="flex size-9 shrink-0 items-center justify-center rounded-[5px] border border-border bg-muted/40 text-foreground">
-                        <IconComponent className="size-4 text-foreground" />
-                    </div>
-                    <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <span className="nb-ui-label text-sm font-semibold text-foreground">
-                                {group.title}
+                <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="nb-ui-label text-sm font-semibold text-foreground">
+                            {group.title}
+                        </span>
+                        <span className="inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/60 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-muted-foreground">
+                            {enabledCount}/{group.entries.length} Active
+                        </span>
+                        {mandatoryCount > 0 ? (
+                            <span className="inline-flex h-5 items-center gap-1 rounded-[3px] border border-amber-500/20 bg-amber-500/10 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-amber-700 dark:text-amber-400">
+                                <Lock className="size-3" />
+                                {mandatoryCount} Mandatory
                             </span>
-                            <span className="inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/60 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-muted-foreground">
-                                {enabledCount}/{group.entries.length} Active
-                            </span>
-                            {mandatoryCount > 0 ? (
-                                <span className="inline-flex h-5 items-center gap-1 rounded-[3px] border border-amber-500/20 bg-amber-500/10 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-amber-700 dark:text-amber-400">
-                                    <Lock className="size-3" />
-                                    {mandatoryCount} Mandatory
-                                </span>
-                            ) : null}
-                        </div>
-                        <p className="mt-0.5 nb-compact text-xs text-muted-foreground truncate">
-                            {group.description}
-                        </p>
+                        ) : null}
                     </div>
+                    <p className="mt-0.5 nb-compact text-xs text-muted-foreground truncate">
+                        {group.description}
+                    </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                     <ChevronDown

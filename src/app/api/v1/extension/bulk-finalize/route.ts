@@ -207,6 +207,7 @@ export async function POST(request: Request) {
         eventType: "extension_file_saved",
         eventMetadata: {
           uploadIntentId: intent.id,
+          operationId:metadata.operationId,
           uploadSessionId: uploadSessionId || null,
           transfer: "bulk_signed_upload",
         },

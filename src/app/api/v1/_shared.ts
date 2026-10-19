@@ -108,7 +108,7 @@ export async function requireAuthenticatedUser() {
         const now = new Date();
         // One bounded read: the session and the profile email together; revocation and expiry are checked on every call.
         const [found] = await db
-          .select({ session: extensionDeviceSessions, email: profiles.email })
+          .select({ session: extensionDeviceSessions, email: profiles.email, fullName:profiles.fullName,avatarUrl:profiles.avatarUrl,username:profiles.username })
           .from(extensionDeviceSessions)
           .leftJoin(profiles, eq(profiles.id, extensionDeviceSessions.userId))
           .where(and(
@@ -166,7 +166,7 @@ export async function requireAuthenticatedUser() {
             aud: "authenticated",
             role: "authenticated",
             app_metadata: {},
-            user_metadata: {},
+            user_metadata: {full_name:found?.fullName,avatar_url:found?.avatarUrl,username:found?.username},
             identities: [],
             factors: [],
             created_at: session.createdAt.toISOString(),

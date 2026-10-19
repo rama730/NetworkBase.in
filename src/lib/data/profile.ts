@@ -19,6 +19,7 @@ import {
     type ProfileCollaborationSummary,
 } from '@/lib/profile/collaboration'
 import { getRedisClient } from '@/lib/redis'
+import { getConnectionStatsForUser } from '@/lib/connections/stats'
 
 // Presence columns (0184) are read only through app/actions/presence.ts, never with the profile.
 type PresenceColumns = 'showActivity' | 'statusEmoji' | 'statusText' | 'statusExpiresAt' | 'statusSetAt' | 'statusPausesNotifications' | 'statusVisibility'
@@ -41,6 +42,7 @@ function toBootstrapProfile(
         | 'interests'
         | 'education'
         | 'openTo'
+        | 'openToCollaborate'
         | 'openToCustomRoles'
         | 'preferredCategories'
         | 'socialLinks'
@@ -113,6 +115,7 @@ export const getUserProfile = cache(async (userId: string) => {
                 interests: profiles.interests,
                 education: profiles.education,
                 openTo: profiles.openTo,
+                openToCollaborate: profiles.openToCollaborate,
                 openToCustomRoles: profiles.openToCustomRoles,
                 preferredCategories: profiles.preferredCategories,
                 socialLinks: profiles.socialLinks,
@@ -242,6 +245,7 @@ const PROFILE_DETAIL_COLUMNS = {
     interests: true,
     education: true,
     openTo: true,
+    openToCollaborate: true,
     openToCustomRoles: true,
     preferredCategories: true,
     experienceLevel: true,
@@ -344,7 +348,7 @@ export async function getProfileDetails(username?: string, options: ProfileDetai
         });
     }
 
-    const [collaborationSummary, mutualCount] = canViewProfile
+    const [collaborationSummary, mutualCount, connectionStats] = canViewProfile
         ? await Promise.all([
             options.skipHeavyData
                 ? Promise.resolve(EMPTY_COLLABORATION_SUMMARY)
@@ -355,8 +359,9 @@ export async function getProfileDetails(username?: string, options: ProfileDetai
             shouldResolveViewerState && viewerUser
                 ? getProfileMutualCount(viewerUser.id, profileData.id)
                 : Promise.resolve(0),
+            getConnectionStatsForUser(profileData.id),
         ])
-        : [EMPTY_COLLABORATION_SUMMARY, 0];
+        : [EMPTY_COLLABORATION_SUMMARY, 0, { totalConnections: 0 }];
 
     const connectionStatus: ConnectionState =
         privacyRelationship.connectionState === 'connected'
@@ -369,7 +374,7 @@ export async function getProfileDetails(username?: string, options: ProfileDetai
                         ? 'blocked'
                         : 'none';
 
-    const normalizedProfile = normalizeProfile(profileData)
+    const normalizedProfile = normalizeProfile({ ...profileData, connectionsCount: connectionStats.totalConnections })
     const visibleProfile = normalizedProfile
         ? buildViewerScopedProfileView({
             profile: normalizedProfile as Record<string, unknown> & { id: string },
@@ -400,7 +405,7 @@ export async function getProfileDetails(username?: string, options: ProfileDetai
         profile: visibleProfile,
         collaborationSummary: canViewProfile ? collaborationSummary : EMPTY_COLLABORATION_SUMMARY,
         stats: {
-            connectionsCount: lockedShell ? 0 : (profileData.connectionsCount || 0),
+            connectionsCount: connectionStats.totalConnections,
             projectsCount: lockedShell ? 0 : (collaborationSummary.stats.projectsCount || profileData.projectsCount || 0),
             followersCount: lockedShell ? 0 : (profileData.followersCount || 0),
             mutualCount,

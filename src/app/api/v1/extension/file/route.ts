@@ -23,6 +23,7 @@ import {
   buildExtensionRevisionStorageKey,
   extensionRevisionConflictResponse,
   extensionRevisionData,
+  readCommittedExtensionReceipt,
   parseExtensionLeaseHeaders,
   resolveWritableExtensionFile,
 } from "@/app/api/v1/extension/_file-revision";
@@ -74,7 +75,7 @@ export async function GET(request: Request) {
         id: true,
         name: true,
         path: true,
-        type: true,
+        type: true,taskId:true,deletedAt:true,
         s3Key: true,
         size: true,
         mimeType: true,
@@ -97,6 +98,8 @@ export async function GET(request: Request) {
         columns: { contentHash: true },
       }),
     ]);
+
+    if(transfer==="metadata")return jsonSuccess({nodeId:node.id,id:node.id,path:node.path,name:node.name,type:node.type,size:node.size,mimeType:node.mimeType,currentVersion:node.currentVersion,contentHash:version?.contentHash||null,updatedAt:node.updatedAt});
 
     const useSignedTransfer = transfer === "signed"
       || (transfer !== "inline" && shouldUseSignedDownload(node.mimeType, node.size ?? 0));
@@ -271,6 +274,10 @@ export async function PUT(request: Request) {
     if (resolved.response) return resolved.response;
     const node = resolved.node!;
 
+    const operationId = request.headers.get("idempotency-key")?.trim() || crypto.randomUUID();
+    const contentHash = crypto.createHash("sha256").update(savePayload.buffer).digest("hex");
+    const committed = await readCommittedExtensionReceipt(projectId,node.id,user.id,operationId,contentHash);
+    if(committed)return jsonSuccess({success:true,...committed});
     const baseVersionHeader = request.headers.get("x-nb-base-version")?.trim();
     const baseHashHeader = request.headers.get("x-nb-base-hash")?.trim();
     const baseVersion = baseVersionHeader ? Number(baseVersionHeader) : null;
@@ -285,10 +292,8 @@ export async function PUT(request: Request) {
     // Prepare upload metadata. Lease ownership is checked in the same
     // transaction as the revision write below.
     const adminClient = await createAdminClient();
-    const contentHash = crypto.createHash("sha256").update(savePayload.buffer).digest("hex");
     const size = savePayload.buffer.byteLength;
     const mimeType = savePayload.mimeType || inferMimeType(path);
-    const operationId = request.headers.get("idempotency-key")?.trim() || crypto.randomUUID();
     const s3Key = buildExtensionRevisionStorageKey(
       projectId,
       node.id,

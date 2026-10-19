@@ -1,8 +1,10 @@
-'use client';
+"use client";
 
 import { useState } from "react";
 import * as sync from "@/app/actions/github-sync";
-import { button } from '@/components/projects/v2/files-tab/github-sync/sync-styles';
+import { ErrorNotice } from "@/components/ui/ErrorNotice";
+import { button, primaryButton, quietButton } from "./sync-styles";
+import styles from "./SyncWorkspace.module.css";
 
 export function ContributorIdentitySection({
   identity,
@@ -11,112 +13,117 @@ export function ContributorIdentitySection({
   identity?: { login: string; email: string } | null;
   onApproved: (email: string) => Promise<void>;
 }) {
-  const [options, setOptions] = useState<{
-    account: { login: string; [key: string]: unknown };
-    emails: string[];
-  } | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [selectedEmail, setSelectedEmail] = useState(identity?.email || "");
-  const [saved, setSaved] = useState(false);
+  const [emails, setEmails] = useState<string[] | null>(null);
+  const [selected, setSelected] = useState(identity?.email || "");
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-
-  const fetchOptions = async () => {
-    setLoading(true);
+  const [saved, setSaved] = useState(false);
+  async function fetchOptions() {
+    setBusy(true);
     setError("");
     try {
-      const res = await sync.getGitHubCommitIdentityOptions();
-      if (res.success) {
-        setOptions(res.data);
-        if (!selectedEmail && res.data.emails[0]) {
-          setSelectedEmail(res.data.emails[0]);
-        }
-      } else {
-        setError(res.error);
-      }
+      const result = await sync.getGitHubCommitIdentityOptions();
+      if (!result.success) throw new Error(result.error);
+      setEmails(result.data.emails);
+      setSelected(
+        identity?.email && result.data.emails.includes(identity.email)
+          ? identity.email
+          : result.data.emails[0] || "",
+      );
     } catch (e) {
-      setError((e as Error).message);
+      setError(
+        e instanceof Error ? e.message : "Verified identities could not load.",
+      );
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
-  };
-
+  }
+  async function save() {
+    setBusy(true);
+    setError("");
+    try {
+      await onApproved(selected);
+      setSaved(true);
+      setEmails(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Attribution could not save.");
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
-    <div className="rounded-[6px] border border-[#DBD5C8] bg-[#FAF8F4] p-3.5 text-xs dark:border-border dark:bg-white/5 transition-colors">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h4 className="font-semibold text-xs text-[#141A1E] dark:text-foreground">
-            Git Commit Attribution
-          </h4>
-          <p className="text-[11px] text-[#6B7880] dark:text-muted-foreground mt-0.5">
-            {identity
-              ? `Currently configured as: ${identity.login} <${identity.email}>`
-              : "Approve your verified GitHub email or privacy-safe noreply handle for commit attribution."}
-          </p>
-        </div>
-        {!options && (
-          <button
-            type="button"
-            className="rounded-[5px] border border-[#DBD5C8] bg-white px-3 py-1.5 text-xs font-medium text-[#374349] hover:bg-[#F3F0EA] dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-white/5 cursor-pointer transition-colors shadow-2xs"
-            disabled={loading}
-            onClick={() => void fetchOptions()}
+    <div>
+      <p className={styles.muted}>
+        {identity
+          ? `${identity.login} <${identity.email}>`
+          : "Choose your verified email or privacy-safe noreply identity. The transfer publisher is not automatically credited for every file."}
+      </p>
+      {error && (
+        <ErrorNotice message={error} onRetry={() => void fetchOptions()} />
+      )}
+      {saved && (
+        <p role="status" className={styles.info}>
+          Commit attribution saved.
+        </p>
+      )}
+      {emails ? (
+        <div className={styles.footer}>
+          <label
+            className={styles.field}
+            style={{ flex: "0 1 420px", maxWidth: "100%" }}
           >
-            {loading ? "Loading…" : identity ? "Change Email" : "Configure Email"}
-          </button>
-        )}
-      </div>
-
-      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
-
-      {options && (
-        <div className="mt-3 space-y-2 border-t border-[#E8E3D9] pt-3 dark:border-border">
-          <label className="block text-xs font-medium text-[#374349] dark:text-foreground">
-            Select verified commit author email:
-          </label>
-          <div className="flex flex-wrap items-center gap-2">
+            Verified commit email
             <select
-              aria-label="Verified GitHub emails"
-              className="min-h-9 rounded-[5px] border border-[#DBD5C8] bg-white px-2.5 py-1 text-xs text-[#141A1E] dark:border-border dark:bg-card dark:text-foreground"
-              value={selectedEmail}
-              onChange={(e) => setSelectedEmail(e.target.value)}
+              value={selected}
+              onChange={(e) => {
+                setSelected(e.target.value);
+                setSaved(false);
+              }}
             >
-              {options.emails.map((email) => (
+              {emails.map((email) => (
                 <option key={email} value={email}>
                   {email}
                 </option>
               ))}
             </select>
-            <button
-              type="button"
-              className="min-h-9 rounded-[5px] bg-[#141A1E] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#212B30] dark:bg-white dark:text-[#141A1E] dark:hover:bg-white/90 disabled:opacity-50 cursor-pointer shadow-2xs transition-colors"
-              disabled={loading || !selectedEmail}
-              onClick={async () => {
-                setLoading(true);
-                setError("");
-                try {
-                  await onApproved(selectedEmail);
-                  setSaved(true);
-                  setTimeout(() => setSaved(false), 3000);
-                  setOptions(null);
-                } catch (e) {
-                  setError((e as Error).message);
-                } finally {
-                  setLoading(false);
-                }
-              }}
-            >
-              {loading ? "Saving…" : "Save Attribution"}
-            </button>
-            <button
-              type="button"
-              className="min-h-9 rounded-[5px] border border-[#DBD5C8] bg-white px-3 py-1.5 text-xs text-[#374349] hover:bg-[#F3F0EA] dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-white/5 cursor-pointer transition-colors"
-              onClick={() => setOptions(null)}
-            >
-              Cancel
-            </button>
-          </div>
-          {saved && (
-            <p className="text-[11px] text-[#1E7E34] font-medium">Attribution saved successfully.</p>
+          </label>
+          <button
+            type="button"
+            className={primaryButton}
+            disabled={busy || !selected}
+            onClick={() => void save()}
+          >
+            {busy ? "Saving…" : "Save attribution"}
+          </button>
+          <button
+            type="button"
+            className={quietButton}
+            disabled={busy}
+            onClick={() => setEmails(null)}
+          >
+            Cancel
+          </button>
+          {!emails.length && (
+            <p>
+              No verified email is available. Check your GitHub account before
+              retrying.
+            </p>
           )}
+        </div>
+      ) : (
+        <div className={styles.footer}>
+          <button
+            type="button"
+            className={button}
+            disabled={busy}
+            onClick={() => void fetchOptions()}
+          >
+            {busy
+              ? "Loading verified emails…"
+              : identity
+                ? "Change email"
+                : "Choose verified email"}
+          </button>
         </div>
       )}
     </div>

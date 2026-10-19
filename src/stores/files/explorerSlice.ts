@@ -8,28 +8,8 @@ import type {
   WorkspacePane,
 } from "./types";
 import { defaultWorkspace, parentKey } from "./types";
-import { set as idbSet } from "idb-keyval";
 import { deleteFileContent } from "./contentMap";
 
-const syncTimeouts: Record<string, NodeJS.Timeout> = {};
-
-function syncIdbCache(
-  projectId: string,
-  nodesById: Record<string, ProjectNode>,
-  childrenByParentId: Record<string, string[]>
-) {
-  if (syncTimeouts[projectId]) {
-    clearTimeout(syncTimeouts[projectId]);
-  }
-
-  syncTimeouts[projectId] = setTimeout(() => {
-    delete syncTimeouts[projectId];
-    void idbSet(`nb-s3-workspace-${projectId}`, {
-      nodesById,
-      childrenByParentId
-    }).catch(e => console.warn("Failed to save IDB cache", e));
-  }, 500); // 500ms debounce
-}
 
 function toEpochMs(value: unknown): number {
   if (value instanceof Date) return value.getTime();
@@ -394,8 +374,6 @@ export const createExplorerSlice: StateCreator<FilesWorkspaceState, [], [], Expl
         treeVersion: ws.treeVersion + 1,
       };
 
-      syncIdbCache(projectId, limitedNodesById, prunedChildrenByParentId);
-
       return {
         byProjectId: {
           ...state.byProjectId,
@@ -409,8 +387,6 @@ export const createExplorerSlice: StateCreator<FilesWorkspaceState, [], [], Expl
       const ws = state.byProjectId[projectId] ?? defaultWorkspace();
       const key = parentKey(parentId);
       const nextChildren = { ...ws.childrenByParentId, [key]: Array.from(new Set(childIds)) };
-
-      syncIdbCache(projectId, ws.nodesById, nextChildren);
 
       return {
         byProjectId: {
@@ -429,8 +405,6 @@ export const createExplorerSlice: StateCreator<FilesWorkspaceState, [], [], Expl
       const ws = state.byProjectId[projectId] ?? defaultWorkspace();
       const key = parentKey(parentId);
       const nextChildren = { ...ws.childrenByParentId, [key]: Array.from(new Set(payload.childIds)) };
-
-      syncIdbCache(projectId, ws.nodesById, nextChildren);
 
       return {
         byProjectId: {
@@ -461,8 +435,6 @@ export const createExplorerSlice: StateCreator<FilesWorkspaceState, [], [], Expl
       const budgeted = enforceNodesBudget(nextById, nextChildren, 5000, [parentId ?? "", ...nodes.map(n => n.id)]);
       const limitedNodesById = budgeted.nodesById;
       const prunedChildrenByParentId = budgeted.childrenByParentId;
-
-      syncIdbCache(projectId, limitedNodesById, prunedChildrenByParentId);
 
       return {
         byProjectId: {
@@ -562,8 +534,6 @@ export const createExplorerSlice: StateCreator<FilesWorkspaceState, [], [], Expl
         activeTabId: pane.activeTabId === nodeId ? null : pane.activeTabId,
       });
 
-      syncIdbCache(projectId, nextById, nextChildren);
-
       return {
         byProjectId: {
           ...state.byProjectId,
@@ -646,8 +616,6 @@ export const createExplorerSlice: StateCreator<FilesWorkspaceState, [], [], Expl
       const limitedNodesById = budgeted.nodesById;
       const prunedChildrenByParentId = budgeted.childrenByParentId;
 
-      syncIdbCache(projectId, limitedNodesById, prunedChildrenByParentId);
-
       return {
         byProjectId: {
           ...state.byProjectId,
@@ -685,8 +653,6 @@ export const createExplorerSlice: StateCreator<FilesWorkspaceState, [], [], Expl
       const budgeted = enforceNodesBudget(nextById, nextChildren, 5000, nodes.map(n => n.id));
       const limitedNodesById = budgeted.nodesById;
       const prunedChildrenByParentId = budgeted.childrenByParentId;
-
-      syncIdbCache(projectId, limitedNodesById, prunedChildrenByParentId);
 
       return {
         byProjectId: {

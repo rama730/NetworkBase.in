@@ -47,16 +47,28 @@ export const gitPull = inngest.createFunction(
     )
       throw new Error("A signed, reviewed pull operation is required");
 
-    const activeLease = await db.query.projectNodeLocks.findFirst({
-      where: and(
-        eq(projectNodeLocks.projectId, projectId),
-        sql`${projectNodeLocks.expiresAt} > now()`,
-      ),
-      columns: { nodeId: true, expiresAt: true },
+    const activeLease = await step.run("check-file-leases", async () => {
+      return db.query.projectNodeLocks.findFirst({
+        where: and(
+          eq(projectNodeLocks.projectId, projectId),
+          sql`${projectNodeLocks.expiresAt} > now()`,
+        ),
+        columns: { nodeId: true, expiresAt: true },
+      });
     });
     if (activeLease) {
-      throw new Error(
-        `Git pull deferred because a collaborator is editing a file until ${activeLease.expiresAt.toISOString()}`,
+      await step.run("record-lease-deferral", async () => {
+        await db
+          .update(githubSyncRuns)
+          .set({
+            stage: `Git pull deferred because a collaborator is editing a file until ${new Date(activeLease.expiresAt).toLocaleTimeString()}`,
+            updatedAt: new Date(),
+          })
+          .where(eq(githubSyncRuns.id, runId));
+      });
+      await step.sleepUntil(
+        "wait-for-collaborator-lease",
+        new Date(activeLease.expiresAt),
       );
     }
 
@@ -143,13 +155,13 @@ export const gitSyncRecovery = inngest.createFunction(
 );
 export const uploadIntentCleanup = inngest.createFunction(
   { id: "upload-intent-cleanup", concurrency: 1 },
-  { cron: "0 * * * *" },
+  { cron: "*/15 * * * *" },
   async ({ step }) =>
     step.run("cleanup-expired-intents", cleanupExpiredUploadIntents),
 );
 export const lockCleanup = inngest.createFunction(
   { id: "lock-cleanup" },
-  { cron: "0 * * * *" },
+  { cron: "*/5 * * * *" },
   async () => {
     let deleted = 0;
     for (let batch = 0; batch < 10; batch++) {

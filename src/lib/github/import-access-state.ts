@@ -8,6 +8,7 @@ import type { GithubImportAccessState } from '@/lib/github/import-types';
 import { openGithubImportToken, sealGithubImportToken } from '@/lib/github/repo-security';
 import { resolveGithubExternalAccountHealth } from '@/lib/github/account-health';
 import { validateGithubUserAccessToken } from '@/lib/github/user-access-token';
+import { loadGithubLinkedUser } from '@/lib/github/linked-user';
 
 export async function getGithubImportAccessState() {
   const supabase = await createClient();
@@ -19,39 +20,20 @@ export async function getGithubImportAccessState() {
     supabase.auth.getSession(),
   ]);
 
-  let user = initialUserData.user;
+  const snapshotUser = initialUserData.user;
 
-  if (!user?.id) {
+  if (!snapshotUser?.id) {
     return {
       success: false as const,
       error: 'Unauthorized. Please sign in first.',
     };
   }
 
-  if (!Array.isArray(user.identities) || user.identities.length === 0) {
-    try {
-      const { db } = await import('@/lib/db');
-      const { sql } = await import('drizzle-orm');
-      const identitiesResult = await db.execute<{
-        id: string;
-        provider: string;
-        identity_data: Record<string, unknown> | null;
-      }>(
-        sql`SELECT id, provider, identity_data FROM auth.identities WHERE user_id = ${user.id}::uuid ORDER BY last_sign_in_at DESC NULLS LAST, created_at DESC`,
-      );
-      if (Array.isArray(identitiesResult) && identitiesResult.length > 0) {
-        user = {
-          ...user,
-          identities: identitiesResult.map((row) => ({
-            id: String(row.id),
-            provider: String(row.provider),
-            identity_data: (row.identity_data || {}) as Record<string, unknown>,
-          })) as any,
-        };
-      }
-    } catch {
-      // Ignore if db unavailable
-    }
+  let user;
+  try {
+    user = await loadGithubLinkedUser(snapshotUser);
+  } catch {
+    return { success: false as const, error: 'Could not check your linked GitHub account. Please retry.' };
   }
 
   const githubConnection = buildGithubAccountConnectionState(user);

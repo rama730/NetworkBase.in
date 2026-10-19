@@ -2,6 +2,7 @@
 
 import InviteCollaboratorModal, { type ParticipationProject } from "@/components/projects/dashboard/InviteCollaboratorModal";
 import type { ProfileInviteProjectOption } from "@/lib/profile/collaboration";
+import { PlainContentHeadings } from "@/components/projects/PlainContentHeadings";
 
 interface ProfileInviteModalProps {
     isOpen: boolean;
@@ -19,5 +20,5 @@ export default function ProfileInviteModal({ isOpen, onClose, profileId, profile
         slug: project.slug,
         role: project.role,
     }));
-    return <InviteCollaboratorModal isOpen={isOpen} onClose={onClose} projects={projectOptions} candidate={{ id: profileId, fullName: profileName, username: null, avatarUrl: null, headline: null }} />;
+    return <PlainContentHeadings><InviteCollaboratorModal isOpen={isOpen} onClose={onClose} projects={projectOptions} candidate={{ id: profileId, fullName: profileName, username: null, avatarUrl: null, headline: null }} /></PlainContentHeadings>;
 }

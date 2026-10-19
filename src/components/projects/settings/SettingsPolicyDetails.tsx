@@ -1,7 +1,6 @@
 'use client';
 
 import React from "react";
-import { KeyRound } from "lucide-react";
 import {
     buildProjectAccessTransitionPolicy,
     type ProjectSettingsMember,
@@ -225,8 +224,7 @@ function PolicyList({ items }: { items: string[] }) {
     return (
         <ul className="grid gap-2">
             {items.map((item) => (
-                <li key={item} className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/20 px-3.5 py-2.5 text-sm text-foreground">
-                    <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                <li key={item} className="rounded-lg border border-border bg-muted/20 px-3.5 py-2.5 text-sm text-foreground">
                     <span className="leading-relaxed">{item}</span>
                 </li>
             ))}

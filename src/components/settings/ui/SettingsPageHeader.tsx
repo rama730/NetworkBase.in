@@ -18,7 +18,7 @@ export function SettingsPageHeader({
     return (
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
-                <Heading className={level === 1 ? "nb-page-title text-foreground" : "text-xl font-semibold text-foreground"}>
+                <Heading className={level === 1 ? "nb-page-title text-foreground" : "nb-section-title text-foreground"}>
                     {title}
                 </Heading>
                 {description ? (

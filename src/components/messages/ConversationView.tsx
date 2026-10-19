@@ -208,7 +208,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
   const { user, profile } = useAuth();
   const meId = user?.id ?? null;
   const shell = useChatShell();
-  const panes = usePanes(channelId);
+  const panes = usePanes(channelId, surface === "page");
   const setProject = useChatUi((state) => state.setProject);
   const details = useChannelDetails(channelId);
   const channel = details.data ?? null;
@@ -230,12 +230,8 @@ export function ConversationView({ channelId, around = null, surface = "page", o
   const setTab = useCallback((id: string) => {
     setTabState(id);
     if (surface !== "page" || !pathname) return;
-    const params = new URLSearchParams(window.location.search);
-    if (id === "messages") params.delete("tab");
-    else params.set("tab", id);
-    const query = params.toString();
-    router.replace(`${pathname}${query ? `?${query}` : ""}`, { scroll: false });
-  }, [pathname, router, surface]);
+    router.replace(conversationHref(channelId, id === "messages" ? { tab: null } : { tab: id, m: null }, window.location.search), { scroll: false });
+  }, [channelId, pathname, router, surface]);
   const [canvasHidden, setCanvasHidden] = useState(false);
   const [dialog, setDialog] = useState<"bookmark" | "tabs" | "template" | "existing" | "people" | null>(null);
   const [shareSeq, setShareSeq] = useState<number | null>(null);
@@ -255,7 +251,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
   }
   const typing = useTyping(channelId, { rootSeq: null, people, memberCount: channel?.member_count ?? 0, enabled: isMember });
   // The browser tab says which conversation ("#design | Messages"), on the full page only.
-  useDocumentTitlePrefix(surface === "page" && channel ? (isSelfDm(channel, meId) ? "Notes to self" : channel.name ? `#${channel.name}` : channelTitle(channel, meId)) : null);
+  useDocumentTitlePrefix(surface === "page" && meId && channel && !details.isError ? (isSelfDm(channel, meId) ? "Notes to self" : channel.name ? `#${channel.name}` : channelTitle(channel, meId)) : null);
   // Bumped on each send, so the timeline follows your message down even if you were reading older ones.
   const [sentTick, setSentTick] = useState(0);
   const onSent = useCallback(() => setSentTick((tick) => tick + 1), []);
@@ -281,7 +277,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
   const pinCount = pinsQuery.data?.length ?? 0;
 
   // The canvas is shared: once anyone writes one, everyone sees its tab (unless they hid it).
-  const hasCanvas = Boolean(canvasQuery.data) || tab === "canvas";
+  const hasCanvas = isChannel && (Boolean(canvasQuery.data) || tab === "canvas");
   const tabs = useMemo(() => conversationTabs({
     pinCount,
     canvasTitle: hasCanvas ? canvasQuery.data?.title?.trim() || "Canvas" : null,
@@ -291,6 +287,9 @@ export function ConversationView({ channelId, around = null, surface = "page", o
     projectId: channel?.project_id ?? null,
   }), [canvasHidden, canvasQuery.data?.title, channel?.project_id, hasCanvas, pinCount, sharedTabs.data, tab]);
   const activeTab = tabs.find((t) => t.id === tab) ?? tabs[0]!;
+  useEffect(() => {
+    if (sharedTabs.isSuccess && (!isChannel || canvasQuery.isSuccess) && pinsQuery.isSuccess && tab !== "messages" && !tabs.some((t) => t.id === tab)) setTab("messages");
+  }, [sharedTabs.isSuccess, canvasQuery.isSuccess, pinsQuery.isSuccess, isChannel, tab, tabs, setTab]);
 
   const hideCanvas = useCallback((hidden: boolean) => {
     const list = new Set(readChatUi().hiddenCanvas ?? []);
@@ -574,7 +573,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                       ) : null}
                     </>
                   ) : null}
-                  <DropdownMenuItem onSelect={() => { useChatWindow.getState().close(); router.push(conversationHref(channelId)); }}>
+                  <DropdownMenuItem onSelect={() => { useChatWindow.getState().close(); router.push(conversationHref(channelId, { m: around })); }}>
                     <ExternalLink /> Open in Messages
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -650,7 +649,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                       </>
                     ) : null}
                     {isMember ? <DropdownMenuSeparator /> : null}
-                    <DropdownMenuItem onSelect={() => { void copyWithToast(`${window.location.origin}${conversationHref(channelId)}`, "Link copied"); }}>
+                    <DropdownMenuItem onSelect={() => { void copyWithToast(`${window.location.origin}${conversationHref(channelId, surface === "page" ? panes : {}, surface === "page" ? window.location.search : "")}`, "Link copied"); }}>
                       <Link2 /> Copy link
                     </DropdownMenuItem>
                     {isMember && hasUnread ? <DropdownMenuItem onSelect={() => void markAllRead(true)}><CheckCheck /> Mark as read</DropdownMenuItem> : null}

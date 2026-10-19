@@ -1,5 +1,8 @@
 "use client";
 
+import { sameOriginPath } from "@/lib/messaging/safe-links";
+import { evictCachedTimelines } from "@/lib/messaging/storage-cache";
+import { useChatWindow } from "@/components/messages/chat-window-store";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
@@ -9,11 +12,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { CHAT_POLL_BASE_MS, CHAT_POLL_JITTER_MS, userTopic } from "@/lib/messaging/constants";
 import { applyHint, applyInboxCounts, applyMentionCount, applyReadMoved, chatBadge, mergeDelta, type ChatHint, type InboxCounts } from "@/lib/messaging/shell-state";
 import type { ChatBootstrap } from "@/lib/messaging/types";
+import { invalidateLinkPreviewAccess } from "@/lib/links/client-preview-cache";
 import { queryKeys } from "@/lib/query-keys";
 import { subscribeBroadcast, type BroadcastStatus } from "@/lib/realtime/private-broadcast";
 import { readShellPart } from "@/lib/shell-batch";
 import { useDocumentTitlePrefix } from "@/hooks/useDocumentTitlePrefix";
-import { retryAllFailed } from "@/components/messages/failed-sends";
+import { clearFailedSends, retryAllFailed } from "@/components/messages/failed-sends";
 
 type Pending = { invites: number; applications: number };
 type Snapshot = { data: ChatBootstrap; pending: Pending };
@@ -70,6 +74,27 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const userId = user?.id ?? null;
+  const resetAccount = useCallback(() => {
+    void queryClient.cancelQueries({ queryKey: queryKeys.sharing.root() });
+    queryClient.removeQueries({ queryKey: queryKeys.sharing.root() });
+    void queryClient.cancelQueries({ queryKey: queryKeys.sharing.linksRoot() });
+    queryClient.removeQueries({ queryKey: queryKeys.sharing.linksRoot() });
+    void queryClient.cancelQueries({ queryKey: queryKeys.chat.root() });
+    queryClient.removeQueries({ queryKey: queryKeys.chat.root() });
+    useChatWindow.getState().close();
+    clearFailedSends();
+  }, [queryClient]);
+  const previousUser = useRef(userId);
+  useEffect(() => {
+    if (previousUser.current !== userId) {
+      resetAccount();
+      previousUser.current = userId;
+    }
+  }, [resetAccount, userId]);
+  useEffect(() => {
+    window.addEventListener("auth:signout", resetAccount);
+    return () => window.removeEventListener("auth:signout", resetAccount);
+  }, [resetAccount]);
   const key = useMemo(() => queryKeys.chat.bootstrap(userId), [userId]);
   const [status, setStatus] = useState<BroadcastStatus>("connecting");
   const wasDisconnected = useRef(false);
@@ -115,6 +140,8 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
+      evictCachedTimelines(window.localStorage);
+      evictCachedTimelines(window.sessionStorage);
       LEGACY_STORAGE_KEYS.forEach((name) => window.localStorage.removeItem(name));
     } catch {
       // Storage blocked: nothing to purge.
@@ -156,7 +183,14 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
     const subscription = subscribeBroadcast(
       userTopic(userId),
       (event, payload) => {
-        if (event === "membership.changed") return refresh();
+        if (event === "share.preview_changed") {
+          if (typeof payload.resource_key === "string" && /^[a-f\d]{64}$/.test(payload.resource_key)) void invalidateLinkPreviewAccess(queryClient, payload.resource_key);
+          return;
+        }
+        if (event === "membership.changed") {
+          void invalidateLinkPreviewAccess(queryClient);
+          return refresh();
+        }
         const current = queryClient.getQueryData<Snapshot>(key);
         if (!current) return;
         if (event === "hint") {
@@ -208,7 +242,9 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
     const onMessage = (event: MessageEvent) => {
       const message = event.data as { type?: string; href?: unknown } | null;
       if (message?.type !== "nb:navigate" || typeof message.href !== "string" || !message.href.startsWith("/") || message.href.startsWith("//")) return;
-      router.push(message.href);
+      const path = sameOriginPath(message.href, window.location.origin);
+      if (!path) return;
+      router.push(path);
       event.ports[0]?.postMessage("ok");
     };
     worker.addEventListener("message", onMessage);

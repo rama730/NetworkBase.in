@@ -2,7 +2,10 @@ import "server-only";
 
 import { sql } from "drizzle-orm";
 
-import { CHAT_MAX_ATTACHMENTS } from "@/lib/messaging/constants";
+import { CHAT_MAX_ATTACHMENTS, CHAT_MAX_BODY } from "@/lib/messaging/constants";
+import { selectMessages } from "@/lib/messaging/queries";
+import { isMessageSeq } from "@/lib/messaging/routes";
+import { normalizeMediaDimensions } from "@/lib/messaging/media-metadata";
 import { publishSentMessage } from "@/lib/messaging/publish";
 import { chatRows, chatValue, isUuid, jsonParam, uuidArray } from "@/lib/messaging/server";
 import { parseMentions } from "@/lib/messaging/tokens";
@@ -48,23 +51,32 @@ async function authorAndChannel(userId: string, channelId: string) {
  * actions, the scheduled-send job and sharing call it, the browser never does.
  */
 export async function sendAs(user: ChatSender, input: SendInput, card: ChatCardRef | null) {
-  const body = typeof input.body === "string" ? input.body : "";
-  const assetIds = (input.assetIds ?? []).filter(isUuid).slice(0, CHAT_MAX_ATTACHMENTS);
+  if (!isUuid(input.channelId) || typeof input.body !== "string" || input.body.length > CHAT_MAX_BODY
+    || (input.clientId != null && (typeof input.clientId !== "string" || input.clientId.length > 160))
+    || (input.threadRootSeq != null && !isMessageSeq(input.threadRootSeq))
+    || (input.assetIds !== undefined && (!Array.isArray(input.assetIds) || input.assetIds.some((id) => !isUuid(id))))) {
+    return { success: false as const, error: "chat_invalid_input" };
+  }
+  const body = input.body;
+  const assetIds = input.assetIds ?? [];
+  if (assetIds.length > CHAT_MAX_ATTACHMENTS) return { success: false as const, error: "chat_too_many_attachments" };
+  if (new Set(assetIds).size !== assetIds.length) return { success: false as const, error: "chat_invalid_input" };
 
   // Only the sender's own verified uploads can be attached; size and type come
   // from the verified asset, never from the client.
   let attachments: ChatAttachmentView[] = [];
   if (assetIds.length > 0) {
-    const assets = await chatRows<{ id: string; mime: string; size: number; name: string; width: number | null; height: number | null }>(sql`
+    const assets = await chatRows<{ id: string; mime: string; size: number; name: string; width: string | null; height: string | null }>(sql`
       SELECT id, coalesce(verified_mime_type, declared_mime_type) AS mime, coalesce(verified_size, declared_size)::bigint AS size,
-             coalesce(metadata->>'filename', '') AS name, (metadata->>'width')::int AS width, (metadata->>'height')::int AS height
+             coalesce(metadata->>'filename', '') AS name, metadata->>'width' AS width, metadata->>'height' AS height
       FROM storage_assets
-      WHERE id = ANY(${uuidArray(assetIds)}) AND owner_user_id = ${user.id}::uuid AND state = 'verified'
+      WHERE id = ANY(${uuidArray(assetIds)}) AND owner_user_id = ${user.id}::uuid AND state = 'verified' AND bucket = 'chat-attachments'
     `);
     if (assets.length !== assetIds.length) return { success: false as const, error: "chat_attachment_not_ready" };
     attachments = assetIds.map((id, idx) => {
       const asset = assets.find((row) => row.id === id)!;
-      return { idx, asset_id: id, name: asset.name, mime: asset.mime, size: Number(asset.size), width: asset.width, height: asset.height };
+      const dimensions = /^(image|video)\//.test(asset.mime) ? normalizeMediaDimensions(asset.width, asset.height) : null;
+      return { idx, asset_id: id, name: asset.name, mime: asset.mime, size: Number(asset.size), width: dimensions?.width ?? null, height: dimensions?.height ?? null };
     });
   }
 
@@ -76,6 +88,12 @@ export async function sendAs(user: ChatSender, input: SendInput, card: ChatCardR
       ${jsonParam(attachments.map(({ idx: _idx, ...rest }) => rest))}, ${card ? jsonParam(card) : null}::jsonb
     ) AS value
   `), authorAndChannel(user.id, input.channelId)]);
+
+  if (result.deduped) {
+    const [message] = await selectMessages(user.id, input.channelId, sql`m.channel_seq = ${result.channel_seq}`, sql`m.channel_seq ASC`, 1);
+    if (!message) return { success: false as const, error: "chat_message_not_found" };
+    return { success: true as const, message };
+  }
 
   const message: ChatMessageView = {
     channel_id: input.channelId,
@@ -90,7 +108,7 @@ export async function sendAs(user: ChatSender, input: SendInput, card: ChatCardR
     last_reply_at: null,
     edited_at: null,
     deleted_at: null,
-    created_at: result.created_at,
+    created_at: new Date(result.created_at).toISOString(),
     client_message_id: input.clientId ?? null,
     attachments,
     reactions: [],

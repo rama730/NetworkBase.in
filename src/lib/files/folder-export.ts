@@ -35,7 +35,7 @@ export async function prepareFolderExport(input: {
 }): Promise<PreparedFolderExport> {
   const operationId = randomUUID();
   const expiresAt = new Date(Date.now() + FOLDER_EXPORT_PIN_MS);
-  const rows = await db.transaction(async (tx) => {
+  const exportResult = await db.transaction(async (tx) => {
     const anchor = input.folderId
       ? sql`n.id = ${input.folderId} AND n.type = 'folder'`
       : sql`n.parent_id IS NULL`;
@@ -83,7 +83,11 @@ export async function prepareFolderExport(input: {
       throw new Error("The export folder tree is too deeply nested");
     }
 
-    const { entries } = buildFolderExportEntries(found, input.folderId);
+    const { entries, totalBytes } = buildFolderExportEntries(found, input.folderId);
+    if (entries.length === 0 || !entries.some((entry) => entry.type === "file")) {
+      throw new Error("No files found to download");
+    }
+
     const assetIds = Array.from(new Set(entries.flatMap((entry) => entry.assetId ? [entry.assetId] : []))).sort();
     if (assetIds.length > 0) {
       const locked = await tx
@@ -104,19 +108,14 @@ export async function prepareFolderExport(input: {
         })));
       }
     }
-    return found;
+    return { rows: found, entries, totalBytes };
   });
 
-  const { entries, totalBytes } = buildFolderExportEntries(rows, input.folderId);
-  if (entries.length === 0 || !entries.some((entry) => entry.type === "file")) {
-    await releaseFolderExport(operationId);
-    throw new Error("No files found to download");
-  }
   return {
     operationId,
-    entries,
-    totalBytes,
-    requiresTaskAccess: rows.some((row) => !!row.task_id || row.path.startsWith("/.system")),
+    entries: exportResult.entries,
+    totalBytes: exportResult.totalBytes,
+    requiresTaskAccess: exportResult.rows.some((row) => !!row.task_id || row.path.startsWith("/.system")),
   };
 }
 

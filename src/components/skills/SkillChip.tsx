@@ -53,7 +53,7 @@ export function SkillChip({
                 <button
                     type="button"
                     onClick={onRemove}
-                    className="-mr-1 inline-flex min-h-6 min-w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-destructive focus-visible:outline-none"
+                    className="nb-touch-target -mr-1 inline-flex min-h-6 min-w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-destructive focus-visible:bg-muted focus-visible:text-destructive focus-visible:outline-none"
                     aria-label={`Remove ${name}`}
                 >
                     <X className="h-3.5 w-3.5" aria-hidden="true" />

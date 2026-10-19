@@ -3,10 +3,9 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
-import { Bell, ChevronDown, Lock, Palette, Plug, Scale, Shield, User, type LucideIcon } from "lucide-react";
+import { Bell, Lock, Palette, Plug, Scale, Shield, User, type LucideIcon } from "lucide-react";
 import { settingsTabHref } from "@/constants/routes";
 import { SETTINGS_SECTION_META } from "@/constants/settings";
-import { cn } from "@/lib/utils";
 
 type SettingsItem = { title: string; tab: string; href: string; icon: LucideIcon; description: string };
 const settingsItems: SettingsItem[] = [
@@ -26,12 +25,12 @@ function SettingsNav({
   activeTab: string;
   onNavigate: (event: MouseEvent<HTMLAnchorElement>, item: SettingsItem) => void;
 }) {
-  return <nav aria-label="Settings sections" className="space-y-1">{settingsItems.map((item) => {
+  return <nav aria-label="Settings sections" className="grid grid-cols-2 gap-1 pr-1 md:flex md:flex-col">{settingsItems.map((item) => {
     const Icon = item.icon;
     const active = activeTab === item.tab;
-    return <Link key={item.tab} href={item.href} aria-current={active ? "page" : undefined} onClick={(event) => onNavigate(event, item)} className={cn("group flex min-h-16 items-start gap-3 rounded-md px-3 py-3 transition-colors duration-[130ms]", active ? "bg-sidebar-accent text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
-      <span className={cn("mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md", active ? "bg-background text-primary ring-1 ring-inset ring-border" : "bg-muted text-muted-foreground")}><Icon className="size-4" strokeWidth={1.75} aria-hidden="true" /></span>
-      <span className="min-w-0"><span className="nb-ui-label block text-foreground">{item.title}</span><span className="nb-compact mt-0.5 block text-muted-foreground">{item.description}</span></span>
+    return <Link key={item.tab} href={item.href} aria-current={active ? "page" : undefined} onClick={(event) => onNavigate(event, item)} title={item.title} className="nb-nav-link min-w-0 focus-visible:brightness-95">
+      <Icon className="size-4 shrink-0" aria-hidden="true" />
+      <span className="min-w-0 whitespace-normal break-words md:truncate md:whitespace-nowrap">{item.title}</span>
     </Link>;
   })}</nav>;
 }
@@ -39,22 +38,32 @@ function SettingsNav({
 export default function SettingsLayout({ children }: { children: ReactNode }) {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const requestedTab = searchParams.get("tab") ?? "account";
+  const requestedTab = settingsItems.find((item) => item.tab === searchParams.get("tab"))?.tab ?? "account";
   const [activeTab, setActiveTab] = useState(requestedTab);
   const scrollRootRef = useRef<HTMLDivElement>(null);
+  const scrollFrameRef = useRef<number | null>(null);
   const locallyNavigatedTabRef = useRef<{ tab: string } | null>(null);
   const hasMountedRef = useRef(false);
   const active = settingsItems.find((item) => item.tab === activeTab) ?? settingsItems[0]!;
-  const ActiveIcon = active.icon;
+
+  const cancelScrollAlignment = useCallback(() => {
+    if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current);
+    scrollFrameRef.current = null;
+  }, []);
 
   const scrollToSection = useCallback((tab: string, behavior: ScrollBehavior = "smooth", useHash = false) => {
+    cancelScrollAlignment();
     const hashTarget = useHash && window.location.hash
       ? document.getElementById(window.location.hash.slice(1))
       : null;
-    const target = hashTarget ?? document.getElementById(`settings-${tab}`);
+    const root = scrollRootRef.current;
+    const target = hashTarget && root?.contains(hashTarget) ? hashTarget : document.getElementById(`settings-${tab}`);
     if (!target) return;
-    target.scrollIntoView({ behavior, block: "start" });
-  }, []);
+    const motion = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : behavior;
+    target.scrollIntoView({ behavior: motion, block: "start" });
+  }, [cancelScrollAlignment]);
+
+  useEffect(() => cancelScrollAlignment, [cancelScrollAlignment]);
 
   useEffect(() => {
     const isLocalNavigation = locallyNavigatedTabRef.current?.tab === requestedTab;
@@ -68,17 +77,16 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     const behavior: ScrollBehavior = isInitialMount ? "auto" : "smooth";
     hasMountedRef.current = true;
     if (isInitialMount) setActiveTab(requestedTab);
-    if (requestedTab === "account" && !window.location.hash) return;
-    const frame = window.requestAnimationFrame(() => scrollToSection(requestedTab, behavior, true));
-    return () => window.cancelAnimationFrame(frame);
-  }, [requestedTab, scrollToSection]);
+    scrollFrameRef.current = window.requestAnimationFrame(() => scrollToSection(requestedTab, behavior, true));
+    return cancelScrollAlignment;
+  }, [requestedTab, scrollToSection, cancelScrollAlignment]);
 
   useEffect(() => {
     const root = scrollRootRef.current;
     if (!root) return;
     const updateActiveSection = () => {
       const rootTop = root.getBoundingClientRect().top;
-      let closest = settingsItems.at(-1)?.tab ?? "account";
+      let closest: string | null = null;
       let distance = Number.POSITIVE_INFINITY;
       for (const item of settingsItems) {
         const section = document.getElementById(`settings-${item.tab}`);
@@ -91,7 +99,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
           distance = nextDistance;
         }
       }
-      setActiveTab(closest);
+      if (closest) setActiveTab(closest);
     };
     updateActiveSection();
     root.addEventListener("scroll", updateActiveSection, { passive: true });
@@ -99,6 +107,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
   }, [requestedTab]);
 
   const handleNavigate = (event: MouseEvent<HTMLAnchorElement>, item: SettingsItem) => {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
     const localNavigation = { tab: item.tab };
     locallyNavigatedTabRef.current = localNavigation;
@@ -107,15 +116,20 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     window.setTimeout(() => {
       if (locallyNavigatedTabRef.current === localNavigation) locallyNavigatedTabRef.current = null;
     }, 1000);
-    event.currentTarget.closest("details")?.removeAttribute("open");
   };
 
   return (
-    <div ref={scrollRootRef} data-scroll-root="route" className="h-full min-h-0 w-full app-scroll app-scroll-y app-scroll-gutter">
-      <div className="mx-auto grid min-h-full w-full max-w-[1320px] gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[248px_minmax(0,1fr)]">
-        <aside className="nb-settings-local-nav hidden w-[248px] self-start lg:block"><div className="nb-settings-local-nav-panel app-scroll app-scroll-y app-scroll-hidden rounded-lg border border-border bg-card p-2"><div className="px-3 pb-3 pt-2"><div className="nb-card-title text-foreground">Settings</div><div className="nb-compact mt-0.5 text-muted-foreground">Account & preferences</div></div><SettingsNav activeTab={active.tab} onNavigate={handleNavigate} /></div></aside>
-        <main className="min-w-0"><details className="sticky top-0 z-20 mb-4 rounded-lg bg-background pb-2 lg:hidden"><summary className="flex cursor-pointer list-none items-center justify-between rounded-lg border border-border bg-card p-3"><span className="flex min-w-0 items-center gap-3"><span className="flex size-9 items-center justify-center rounded-md bg-muted"><ActiveIcon className="size-4 text-muted-foreground" strokeWidth={1.75} /></span><span><span className="nb-ui-label block text-foreground">{active.title}</span><span className="nb-compact block truncate text-muted-foreground">{active.description}</span></span></span><ChevronDown className="size-4 text-muted-foreground" /></summary><div className="mt-2 rounded-lg border border-border bg-card p-2"><SettingsNav activeTab={active.tab} onNavigate={handleNavigate} /></div></details><div className="space-y-6">{children}</div></main>
+    <section className="flex h-full min-h-0 w-full flex-col bg-card md:flex-row" aria-labelledby="settings-navigation-title">
+      <aside aria-label="Settings navigation" className="w-full min-h-0 shrink-0 overflow-y-auto border-b border-border bg-card px-3 py-4 max-md:max-h-[45%] md:w-[var(--nb-sidebar-width)] md:border-b-0 md:border-r">
+        <div className="mb-3 space-y-3 px-2 pr-3">
+          <h1 id="settings-navigation-title" className="nb-micro">Settings</h1>
+          <div className="h-px w-full bg-border" aria-hidden="true" />
+        </div>
+        <SettingsNav activeTab={active.tab} onNavigate={handleNavigate} />
+      </aside>
+      <div ref={scrollRootRef} data-scroll-root="route" onWheel={cancelScrollAlignment} onTouchStart={cancelScrollAlignment} onKeyDown={cancelScrollAlignment} className="min-w-0 min-h-0 flex-1 app-scroll app-scroll-y p-4 md:p-[calc(var(--ui-panel-padding)+4px)]">
+        {children}
       </div>
-    </div>
+    </section>
   );
 }

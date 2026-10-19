@@ -11,18 +11,7 @@ import {
     createWorkspaceTaskHandoff,
     WORKSPACE_TASK_HANDOFF_STORAGE_KEY,
 } from "@/stores/ui-store";
-import {
-    ListChecks,
-    Folder,
-    MoreHorizontal,
-    Search,
-    X,
-    ChevronDown,
-    Copy,
-    ExternalLink,
-    Calendar,
-    User,
-} from "lucide-react";
+import { ListChecks, MoreHorizontal, Search, X, ChevronDown, Copy, ExternalLink, Calendar, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { TaskCard } from "@/components/projects/v2/tasks/TaskCard";
@@ -486,7 +475,6 @@ export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTab
                                     )}
                                     aria-hidden="true"
                                 />
-                                <Folder className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                                 <span className="min-w-0 truncate">{group.title}</span>
                                 <span className="nb-meta rounded-[3px] bg-secondary px-1.5 py-0.5 uppercase">{group.key}</span>
                                 <span className="nb-meta rounded-[3px] bg-muted/70 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground" title={`${group.tasks.length} open task${group.tasks.length === 1 ? "" : "s"}`}>

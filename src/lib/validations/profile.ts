@@ -102,6 +102,7 @@ export const profileUpdateSchema = z.object({
         .optional(),
     visibility: z.enum(['public', 'connections', 'private']).optional(),
     openTo: z.array(z.string()).optional(),
+    openToCollaborate: z.boolean().optional(),
     openToCustomRoles: z.array(z.string()).optional(),
     preferredCategories: z.array(z.string()).optional(),
     messagePrivacy: z.enum(['everyone', 'connections']).optional(),

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Pencil, User } from 'lucide-react'
+import { Pencil } from 'lucide-react'
 import { Card } from './Card'
 
 interface AboutCardProps {
@@ -22,7 +22,6 @@ export function AboutCard({ profile, isOwner, onEdit }: AboutCardProps) {
     return (
         <Card
             title="About"
-            icon={<User className="w-5 h-5" />}
             action={isOwner && onEdit ? (
                 <button
                     type="button"

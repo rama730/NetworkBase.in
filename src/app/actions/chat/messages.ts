@@ -10,8 +10,8 @@ import { listTopLevel, selectMessages } from "@/lib/messaging/queries";
 import { takeReactToken, takeSendToken } from "@/lib/messaging/send-bucket";
 import { sendAs, type SendInput } from "@/lib/messaging/send";
 import { chatFailure, chatRows, chatValue, invalidInput, isUuid, requireChatUser, unauthorized, uuidArray } from "@/lib/messaging/server";
-import { parseMentions, tokensToPlainText } from "@/lib/messaging/tokens";
-import { messageHref } from "@/lib/messaging/routes";
+import { parseMentions, previewText, tokensToPlainText } from "@/lib/messaging/tokens";
+import { isMessageSeq, messageHref } from "@/lib/messaging/routes";
 import type { ChatCardRef } from "@/lib/messaging/types";
 import { rateLimit } from "@/lib/redis";
 import { countsOrNothing } from "@/lib/messaging/inbox-counts";
@@ -21,7 +21,7 @@ import { createHash } from "node:crypto";
 export async function sendMessage(input: SendInput & { alsoToChannel?: boolean }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
-  if (!isUuid(input?.channelId) || typeof input.body !== "string" || input.body.length > CHAT_MAX_BODY) return invalidInput;
+  if (!isUuid(input?.channelId) || typeof input.body !== "string" || input.body.length > CHAT_MAX_BODY || (input.threadRootSeq != null && !isMessageSeq(input.threadRootSeq))) return invalidInput;
   if (input.clientId != null && (typeof input.clientId !== "string" || input.clientId.length > 160)) return invalidInput;
   if (!takeSendToken(user.id)) return { success: false as const, error: "chat_rate_limited" };
   try {
@@ -66,7 +66,7 @@ async function flattenMentions(body: string) {
 export async function createTaskFromMessage(input: { channelId: string; title: string; threadRootSeq?: number | null; operationId?: string }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
-  if (!isUuid(input?.channelId) || typeof input.title !== "string" || !input.title.trim()) return invalidInput;
+  if (!isUuid(input?.channelId) || typeof input.title !== "string" || !input.title.trim() || (input.threadRootSeq != null && !isMessageSeq(input.threadRootSeq))) return invalidInput;
   if (input.operationId !== undefined && !isUuid(input.operationId)) return invalidInput;
   if (!takeSendToken(user.id)) return { success: false as const, error: "chat_rate_limited" };
   try {
@@ -100,7 +100,7 @@ class TaskCreateFailed extends Error {}
 export async function editMessage(input: { channelId: string; seq: number; body: string }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
-  if (!isUuid(input?.channelId) || !Number.isInteger(input.seq) || typeof input.body !== "string") return invalidInput;
+  if (!isUuid(input?.channelId) || !isMessageSeq(input.seq) || typeof input.body !== "string") return invalidInput;
   try {
     // Mentions follow the edited body (MUT-01); newly mentioned people get a hint for their Inbox.
     const added = await chatValue<string[]>(sql`
@@ -116,13 +116,13 @@ export async function editMessage(input: { channelId: string; seq: number; body:
 }
 
 /** Remove your message's link preview for everyone (the link stays in the text). */
-export async function hideLinkPreview(input: { channelId: string; seq: number }) {
+export async function hideLinkPreview(input: { channelId: string; seq: number; hidden?: boolean }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
-  if (!isUuid(input?.channelId) || !Number.isInteger(input.seq)) return invalidInput;
+  if (!isUuid(input?.channelId) || !isMessageSeq(input.seq) || (input.hidden !== undefined && typeof input.hidden !== 'boolean')) return invalidInput;
   try {
     const rows = await chatRows<{ channel_seq: number }>(sql`
-      UPDATE chat_messages SET link_preview_hidden = true
+      UPDATE chat_messages SET link_preview_hidden = ${input.hidden ?? true}
       WHERE channel_id = ${input.channelId}::uuid AND channel_seq = ${input.seq} AND author_id = ${user.id}::uuid AND deleted_at IS NULL
         -- Same rule as editing: a current member, in a live channel (DB-002).
         AND app_private.chat_is_member(${input.channelId}::uuid, ${user.id}::uuid)
@@ -130,7 +130,7 @@ export async function hideLinkPreview(input: { channelId: string; seq: number })
       RETURNING channel_seq
     `);
     if (!rows.length) return { success: false as const, error: "chat_not_editable" };
-    publishChannel(input.channelId, "message.preview_hidden", { channel_id: input.channelId, seq: input.seq });
+    publishChannel(input.channelId, "message.preview_hidden", { channel_id: input.channelId, seq: input.seq, hidden: input.hidden ?? true });
     return { success: true as const };
   } catch (error) {
     return chatFailure(error, "hide_preview");
@@ -140,7 +140,7 @@ export async function hideLinkPreview(input: { channelId: string; seq: number })
 export async function deleteMessage(input: { channelId: string; seq: number }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
-  if (!isUuid(input?.channelId) || !Number.isInteger(input.seq)) return invalidInput;
+  if (!isUuid(input?.channelId) || !isMessageSeq(input.seq)) return invalidInput;
   try {
     await chatRows(sql`SELECT app_private.chat_delete_message(${input.channelId}::uuid, ${input.seq}::bigint, ${user.id}::uuid)`);
     publishChannel(input.channelId, "message.delete", { channel_id: input.channelId, seq: input.seq });
@@ -156,7 +156,7 @@ const THREAD_PAGE = 500;
 export async function listMessages(input: { channelId: string; before?: number; around?: number }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
-  if (!isUuid(input?.channelId)) return invalidInput;
+  if (!isUuid(input?.channelId) || (input.before !== undefined && !isMessageSeq(input.before)) || (input.around !== undefined && !isMessageSeq(input.around))) return invalidInput;
   try {
     const messages = await listTopLevel(user.id, input.channelId, { before: input.before, around: input.around });
     const cards = await hydrateCards(user.id, messages.flatMap((message) => (message.card ? [message.card] : [])));
@@ -166,41 +166,60 @@ export async function listMessages(input: { channelId: string; before?: number; 
   }
 }
 
-/** Thread replies, newest page first (default 500); `before` pages older ones (no root then). */
-export async function listThread(input: { channelId: string; rootSeq: number; before?: number; limit?: number }) {
+/** Message-location lookup uses exactly the same read authorization as the timeline. */
+export async function resolveMessageTarget(input: { channelId: string; seq: number }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
-  if (!isUuid(input?.channelId) || !Number.isInteger(input.rootSeq)) return invalidInput;
-  if (input.before !== undefined && !Number.isInteger(input.before)) return invalidInput;
+  if (!isUuid(input?.channelId) || !isMessageSeq(input.seq)) return invalidInput;
+  try {
+    const [message] = await selectMessages(user.id, input.channelId, sql`m.channel_seq = ${input.seq} AND m.deleted_at IS NULL`, sql`m.channel_seq ASC`, 1);
+    if (!message) return { success: false as const, error: "chat_message_not_found" };
+    return { success: true as const, seq: message.seq, threadRootSeq: message.thread_root_seq };
+  } catch (error) {
+    return chatFailure(error, "resolve_target");
+  }
+}
+
+/** Bounded thread windows, with explicit older/newer gaps and an authorized root. */
+export async function listThread(input: { channelId: string; rootSeq: number; before?: number; after?: number; around?: number; limit?: number }) {
+  const user = await requireChatUser();
+  if (!user) return unauthorized;
+  if (!isUuid(input?.channelId) || !isMessageSeq(input.rootSeq)) return invalidInput;
+  if ([input.before, input.after, input.around].some((seq) => seq !== undefined && !isMessageSeq(seq))) return invalidInput;
+  if ([input.before, input.after, input.around].filter((seq) => seq !== undefined).length > 1) return invalidInput;
   const limit = Number.isInteger(input.limit) ? Math.min(Math.max(input.limit!, 1), THREAD_PAGE) : THREAD_PAGE;
   try {
-    const [rootRows, newest, [follow]] = await Promise.all([
-      input.before === undefined
-        ? selectMessages(user.id, input.channelId, sql`m.channel_seq = ${input.rootSeq}`, sql`m.channel_seq ASC`, 1)
+    const base = sql`m.thread_root_seq = ${input.rootSeq}`;
+    const around = input.around;
+    const leftLimit = Math.ceil(limit / 2);
+    const rightLimit = Math.floor(limit / 2);
+    const [rootRows, left, right, [follow]] = await Promise.all([
+      selectMessages(user.id, input.channelId, sql`m.channel_seq = ${input.rootSeq} AND m.thread_root_seq IS NULL`, sql`m.channel_seq ASC`, 1),
+      around !== undefined
+        ? selectMessages(user.id, input.channelId, sql`${base} AND m.channel_seq <= ${around}`, sql`m.channel_seq DESC`, leftLimit + 1)
+        : selectMessages(user.id, input.channelId,
+            input.before !== undefined ? sql`${base} AND m.channel_seq < ${input.before}`
+              : input.after !== undefined ? sql`${base} AND m.channel_seq > ${input.after}` : base,
+            input.after !== undefined ? sql`m.channel_seq ASC` : sql`m.channel_seq DESC`, limit + 1),
+      around !== undefined
+        ? selectMessages(user.id, input.channelId, sql`${base} AND m.channel_seq > ${around}`, sql`m.channel_seq ASC`, rightLimit + 1)
         : Promise.resolve([]),
-      selectMessages(
-        user.id, input.channelId,
-        input.before === undefined
-          ? sql`m.thread_root_seq = ${input.rootSeq}`
-          : sql`m.thread_root_seq = ${input.rootSeq} AND m.channel_seq < ${input.before}`,
-        sql`m.channel_seq DESC`, limit + 1,
-      ),
       chatRows<{ last_read_seq: number }>(sql`
         SELECT last_read_seq::int FROM chat_thread_follows
         WHERE user_id = ${user.id}::uuid AND channel_id = ${input.channelId}::uuid AND root_seq = ${input.rootSeq}
       `),
     ]);
-    const replies = newest.slice(0, limit).reverse();
-    const rows = [...rootRows, ...replies];
-    const cards = await hydrateCards(user.id, rows.flatMap((message) => (message.card ? [message.card] : [])));
+    const forward = input.after !== undefined;
+    const replies = around !== undefined
+      ? [...left.slice(0, leftLimit).reverse(), ...right.slice(0, rightLimit)]
+      : forward ? left.slice(0, limit) : left.slice(0, limit).reverse();
+    const root = rootRows[0] ?? null;
+    const cards = await hydrateCards(user.id, [root, ...replies].flatMap((message) => message?.card ? [message.card] : []));
     return {
-      success: true as const,
-      root: rootRows[0] ?? null,
-      replies,
-      hasOlder: newest.length > limit,
-      cards,
-      following: Boolean(follow),
-      lastReadSeq: follow?.last_read_seq ?? null,
+      success: true as const, root, replies, cards,
+      hasOlder: around !== undefined ? left.length > leftLimit : !forward && left.length > limit,
+      hasNewer: around !== undefined ? right.length > rightLimit : forward && left.length > limit,
+      following: Boolean(follow), lastReadSeq: follow?.last_read_seq ?? null,
     };
   } catch (error) {
     return chatFailure(error, "thread");
@@ -211,7 +230,7 @@ export async function listThread(input: { channelId: string; rootSeq: number; be
 export async function setThreadFollow(input: { channelId: string; rootSeq: number; on: boolean }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
-  if (!isUuid(input?.channelId) || !Number.isInteger(input.rootSeq)) return invalidInput;
+  if (!isUuid(input?.channelId) || !isMessageSeq(input.rootSeq)) return invalidInput;
   try {
     await chatRows(sql`SELECT app_private.chat_set_thread_follow(${input.channelId}::uuid, ${user.id}::uuid, ${input.rootSeq}::bigint, ${Boolean(input.on)})`);
     // Leaving a thread reads its replies: the badge drops everywhere now.
@@ -226,7 +245,7 @@ export async function setThreadFollow(input: { channelId: string; rootSeq: numbe
 export async function markUnread(input: { channelId: string; seq: number }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
-  if (!isUuid(input?.channelId) || !Number.isInteger(input.seq) || input.seq < 1) return invalidInput;
+  if (!isUuid(input?.channelId) || !isMessageSeq(input.seq) || input.seq < 1) return invalidInput;
   try {
     await chatRows(sql`SELECT app_private.chat_mark_unread(${input.channelId}::uuid, ${user.id}::uuid, ${input.seq}::bigint)`);
     publishUser(user.id, "membership.changed", { channel_id: input.channelId });
@@ -240,7 +259,7 @@ export async function markUnread(input: { channelId: string; seq: number }) {
 export async function listReactors(input: { channelId: string; seq: number }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
-  if (!isUuid(input?.channelId) || !Number.isInteger(input.seq)) return invalidInput;
+  if (!isUuid(input?.channelId) || !isMessageSeq(input.seq)) return invalidInput;
   try {
     const rows = await chatRows<{ emoji: string; names: string[] }>(sql`
       SELECT r.emoji, jsonb_agg(CASE WHEN r.user_id = ${user.id}::uuid THEN 'You' ELSE coalesce(pr.full_name, pr.username, 'Someone') END ORDER BY r.created_at) AS names
@@ -264,7 +283,7 @@ export async function listReactors(input: { channelId: string; seq: number }) {
 export async function shareMessage(input: { channelId: string; seq: number; toChannelId: string; note?: string }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
-  if (!isUuid(input?.channelId) || !isUuid(input.toChannelId) || !Number.isInteger(input.seq)) return invalidInput;
+  if (!isUuid(input?.channelId) || !isUuid(input.toChannelId) || !isMessageSeq(input.seq)) return invalidInput;
   if (input.note !== undefined && (typeof input.note !== "string" || input.note.length > 1000)) return invalidInput;
   if (!takeSendToken(user.id)) return { success: false as const, error: "chat_rate_limited" };
   try {
@@ -330,7 +349,7 @@ export async function refreshCard(input: { kind: ChatCardRef["kind"]; refId: str
 export async function react(input: { channelId: string; seq: number; emoji: string; on: boolean }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
-  if (!isUuid(input?.channelId) || !Number.isInteger(input.seq) || typeof input.emoji !== "string" || !input.emoji || input.emoji.length > 64) return invalidInput;
+  if (!isUuid(input?.channelId) || !isMessageSeq(input.seq) || typeof input.emoji !== "string" || !input.emoji || input.emoji.length > 64) return invalidInput;
   if (!takeReactToken(user.id)) return { success: false as const, error: "chat_rate_limited" };
   try {
     await chatRows(sql`SELECT app_private.chat_react(${input.channelId}::uuid, ${input.seq}::bigint, ${user.id}::uuid, ${input.emoji}, ${Boolean(input.on)})`);
@@ -346,7 +365,7 @@ export async function react(input: { channelId: string; seq: number; emoji: stri
 export async function pinMessage(input: { channelId: string; seq: number; on: boolean }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
-  if (!isUuid(input?.channelId) || !Number.isInteger(input.seq)) return invalidInput;
+  if (!isUuid(input?.channelId) || !isMessageSeq(input.seq)) return invalidInput;
   try {
     await chatRows(sql`SELECT app_private.chat_pin(${input.channelId}::uuid, ${input.seq}::bigint, ${user.id}::uuid, ${Boolean(input.on)})`);
     publishChannel(input.channelId, "pin.changed", { channel_id: input.channelId, seq: input.seq, pinned: Boolean(input.on) });
@@ -375,7 +394,7 @@ export async function listPins(input: { channelId: string }) {
 export async function reportMessage(input: { channelId: string; seq: number; reason: string }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
-  if (!isUuid(input?.channelId) || !Number.isInteger(input.seq) || typeof input.reason !== "string") return invalidInput;
+  if (!isUuid(input?.channelId) || !isMessageSeq(input.seq) || typeof input.reason !== "string") return invalidInput;
   if (!(await rateLimit(`chat:report:${user.id}`, 10, 3600))) return { success: false as const, error: "chat_rate_limited" };
   try {
     await chatRows(sql`SELECT app_private.chat_report(${input.channelId}::uuid, ${input.seq}::bigint, ${user.id}::uuid, ${input.reason.slice(0, 1000)})`);
@@ -391,15 +410,16 @@ export async function listTaskSourceMessages(input: { taskId: string }) {
   if (!user) return unauthorized;
   if (!isUuid(input?.taskId)) return invalidInput;
   try {
-    const links = await chatRows<{ channel_id: string; seq: number; channel_name: string | null; preview: string | null }>(sql`
-      SELECT c.channel_id, c.message_seq::int AS seq, ch.name AS channel_name, ch.last_preview AS preview
+    const links = await chatRows<{ channel_id: string; seq: number; thread_root_seq: number | null; channel_name: string | null; preview: string | null }>(sql`
+      SELECT c.channel_id, c.message_seq::int AS seq, m.thread_root_seq::int AS thread_root_seq, ch.name AS channel_name, left(m.body, 160) AS preview
       FROM chat_message_cards c
       JOIN chat_channels ch ON ch.id = c.channel_id
-      WHERE c.kind = 'task' AND c.ref_id = ${input.taskId}::uuid
+      JOIN chat_messages m ON m.channel_id = c.channel_id AND m.channel_seq = c.message_seq
+      WHERE m.deleted_at IS NULL AND c.kind = 'task' AND c.ref_id = ${input.taskId}::uuid
         AND app_private.chat_is_member(c.channel_id, ${user.id}::uuid)
       LIMIT 5
     `);
-    return { success: true as const, links };
+    return { success: true as const, links: links.map((link) => ({ ...link, preview: previewText(link.preview ?? "") || "Task" })) };
   } catch (error) {
     return chatFailure(error, "task_source");
   }

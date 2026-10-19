@@ -10,9 +10,12 @@
  * 5. Excessive payload sizes exceeding client safety ceilings (e.g. >5,000 files)
  */
 
+export const DEFAULT_PROJECT_UPLOAD_MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MiB
+
 export interface UploadValidationOptions {
   isFolder?: boolean;
   maxFiles?: number;
+  maxFileBytes?: number;
 }
 
 export interface UploadValidationResult {
@@ -84,9 +87,24 @@ export const FORBIDDEN_ROOT_DIRS = new Set([
   ".hg",
 ]);
 
+export const EXE_BLOCKLIST = new Set([
+  "exe",
+  "bat",
+  "cmd",
+  "sh",
+  "vbs",
+  "ps1",
+  "scr",
+  "com",
+  "msi",
+  "jar",
+  "vbe",
+  "wsf",
+  "cpl",
+]);
+
+
 export const KNOWN_USER_DIR_NAMES = new Set([
-  "chrama",
-  "ch rama",
   "user",
   "users",
   "home",
@@ -189,11 +207,11 @@ export function validateUploadSelection(
 
   // Check for folder upload safety
   const isFolderUpload = options.isFolder || cleanFiles.some((f) => (f as File & { webkitRelativePath?: string }).webkitRelativePath?.includes("/"));
+  let detectedFolderName: string | undefined;
 
   if (isFolderUpload) {
     // Collect distinct top-level directories
     const topLevelFolders = new Set<string>();
-    let detectedFolderName: string | undefined;
 
     for (const file of cleanFiles) {
       const rel = (file as File & { webkitRelativePath?: string }).webkitRelativePath;
@@ -279,7 +297,40 @@ export function validateUploadSelection(
         }
       }
     }
+  }
 
+  // Check for forbidden executable / script extensions
+  for (const file of cleanFiles) {
+    const name = file.name.toLowerCase();
+    const dotIdx = name.lastIndexOf(".");
+    if (dotIdx !== -1) {
+      const ext = name.slice(dotIdx + 1);
+      if (EXE_BLOCKLIST.has(ext)) {
+        return {
+          valid: false,
+          error: `Uploading executable or script files (.${ext}) is prohibited for security reasons.`,
+          files: [],
+        };
+      }
+    }
+  }
+
+  // Check for maximum individual file size limit (10MB default)
+  const maxFileBytes = options.maxFileBytes ?? DEFAULT_PROJECT_UPLOAD_MAX_FILE_BYTES;
+  for (const file of cleanFiles) {
+    if (typeof file.size === "number" && file.size > maxFileBytes) {
+      const mb = Math.floor(maxFileBytes / (1024 * 1024));
+      return {
+        valid: false,
+        error: cleanFiles.length === 1
+          ? `"${file.name}" exceeds the maximum upload size limit of ${mb}MB.`
+          : `"${file.name}" exceeds the maximum upload size limit of ${mb}MB. Please select files smaller than ${mb}MB.`,
+        files: [],
+      };
+    }
+  }
+
+  if (isFolderUpload) {
     return {
       valid: true,
       files: cleanFiles,

@@ -8,6 +8,8 @@ import { channelTitle } from "@/lib/messaging/channel-view";
 import { ArrowLeft, ExternalLink, Minus, X } from "lucide-react";
 
 import { useChatWindow } from "@/components/messages/chat-window-store";
+import { useMessageTarget } from "@/components/messages/useConversation";
+import { ConversationSkeleton } from "@/components/messages/ConversationSkeleton";
 import { ConversationView } from "@/components/messages/ConversationView";
 import { ListScreen } from "@/components/messages/ListScreen";
 import { InboxView } from "@/components/messages/MessagesViews";
@@ -16,7 +18,7 @@ import { QuickSwitcher } from "@/components/messages/QuickSwitcher";
 import { ThreadPane } from "@/components/messages/ThreadPane";
 import { editingWithText, escapeTaken } from "@/components/messages/keys";
 import { WindowNavContext } from "@/components/messages/window-nav";
-import { threadHref } from "@/lib/messaging/routes";
+import { conversationHref } from "@/lib/messaging/routes";
 
 // ponytail: fixed size and position, no shortcut, no auto-open (L-26).
 // upgrade: a movable window or shortcut when power users ask.
@@ -28,7 +30,12 @@ export default function ChatWindow({ onMinimize, onClose }: { onMinimize: () => 
   const stack = useChatWindow((state) => state.stack);
   const push = useChatWindow((state) => state.push);
   const back = useChatWindow((state) => state.back);
-  const screen = stack[stack.length - 1] ?? { type: "list" as const };
+  const rawScreen = stack[stack.length - 1] ?? { type: "list" as const };
+  const located = useMessageTarget("channelId" in rawScreen ? rawScreen.channelId : "", "m" in rawScreen ? rawScreen.m ?? null : null);
+  const screen = located.data && "channelId" in rawScreen
+    ? located.data.threadRootSeq ? { type: "thread" as const, channelId: rawScreen.channelId, rootSeq: located.data.threadRootSeq, m: located.data.seq }
+      : { type: "channel" as const, channelId: rawScreen.channelId, m: located.data.seq }
+    : rawScreen;
   const ref = useRef<HTMLElement>(null);
 
   // Opening moves focus into the window (unless a field inside already took it); Close/Minimize return it to the launcher.
@@ -54,7 +61,7 @@ export default function ChatWindow({ onMinimize, onClose }: { onMinimize: () => 
   // The thread's Follow and ⋯ go in this header (one header row, not two).
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   // "Open in Messages" keeps where you are (a thread, or the people picked for a new message).
-  const fullHref = screen.type === "thread" ? threadHref(screen.channelId, screen.rootSeq) : screen.type === "inbox" ? "/messages/inbox" : screen.type === "new" ? "/messages/new" : "/messages";
+  const fullHref = screen.type === "thread" ? conversationHref(screen.channelId, { thread: screen.rootSeq, m: screen.m }) : screen.type === "channel" ? conversationHref(screen.channelId, { m: screen.m }) : screen.type === "inbox" ? "/messages/inbox" : screen.type === "new" ? "/messages/new" : "/messages";
   const shell = useChatShell();
   const { user } = useAuth();
   const threadChannel = screen.type === "thread" ? shell.data?.channels.find((c) => c.id === screen.channelId) : undefined;
@@ -95,6 +102,9 @@ export default function ChatWindow({ onMinimize, onClose }: { onMinimize: () => 
         </header>
       )}
       <div className="min-h-0 flex-1">
+        {located.isError ? <p role="alert" className="p-3 text-[13px]">That message is unavailable.</p> : null}
+        {"m" in rawScreen && rawScreen.m && located.isPending ? <ConversationSkeleton /> : <>
+
         {screen.type === "list" ? <ListScreen onSelect={openChannel} onNewMessage={() => push({ type: "new" })} onInbox={() => push({ type: "inbox" })} actions={actions} /> : null}
         {screen.type === "inbox" ? (
           <WindowNavContext.Provider value={{ open: openItem, back, actions }}>
@@ -113,7 +123,8 @@ export default function ChatWindow({ onMinimize, onClose }: { onMinimize: () => 
             windowActions={controls}
           />
         ) : null}
-        {screen.type === "thread" ? <ThreadPane key={`${screen.channelId}:${screen.rootSeq}`} channelId={screen.channelId} rootSeq={screen.rootSeq} focusSeq={screen.m ?? null} headerSlot={slot} autoFocus /> : null}
+        {screen.type === "thread" ? <ThreadPane key={`${screen.channelId}:${screen.rootSeq}`} channelId={screen.channelId} rootSeq={screen.rootSeq} focusSeq={screen.m ?? null} headerSlot={slot} autoFocus surface="window" onShowInConversation={() => useChatWindow.setState((state) => ({ stack: [...state.stack.slice(0, -1), { type: "channel", channelId: screen.channelId, m: screen.rootSeq }] }))} /> : null}
+        </>}
       </div>
       <QuickSwitcher onSelect={openChannel} />
     </section>

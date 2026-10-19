@@ -81,11 +81,12 @@ import {
 import { sortFolderListNodes } from "./sort";
 import styles from "./FolderList.module.css";
 import {
-  FilesTabUploadModal,
   type FilesTabUploadConfirmResult,
 } from "../upload/FilesTabUploadModal";
 import { validateUploadSelection } from "@/lib/files/upload-validator";
+import { extractFoldersFromDataTransfer } from "@/lib/files/folder-drop";
 
+const FilesTabUploadModal = dynamic(() => import("../upload/FilesTabUploadModal").then((mod) => mod.FilesTabUploadModal), { ssr: false });
 const TaskSearchPicker = dynamic(() => import("../picker/TaskSearchPicker").then((mod) => mod.TaskSearchPicker), { ssr: false });
 const RevisionControlModal = dynamic(() => import("@/components/ui/RevisionControlModal").then((mod) => mod.RevisionControlModal), { ssr: false });
 const ExplorerDialogsHost = dynamic(() => import("../../explorer/ExplorerDialogsHost").then((mod) => mod.ExplorerDialogsHost), { ssr: false });
@@ -615,17 +616,41 @@ export function FolderListView({
       e.stopPropagation();
       resetDragState();
 
-      const rawFiles = Array.from(e.dataTransfer.files || []);
-      const validation = validateUploadSelection(rawFiles, {
-        isFolder: rawFiles.some((f) => f.webkitRelativePath?.includes("/")),
-      });
-      if (!validation.valid) {
-        if (validation.error) toast.error(validation.error);
-        return;
-      }
+      const dataTransfer = e.dataTransfer;
+      void extractFoldersFromDataTransfer(dataTransfer).then((extracted) => {
+        const allFiles: File[] = [
+          ...extracted.looseFiles,
+          ...extracted.folders.flatMap((folder) =>
+            folder.files.map((item) => {
+              const fullRelativePath = item.relativePath
+                ? `${folder.name}/${item.relativePath}`
+                : `${folder.name}/${item.file.name}`;
+              try {
+                Object.defineProperty(item.file, "webkitRelativePath", {
+                  value: fullRelativePath,
+                  configurable: true,
+                });
+              } catch {}
+              return item.file;
+            }),
+          ),
+        ];
+        const rawFiles = allFiles.length > 0 ? allFiles : Array.from(dataTransfer.files || []);
+        if (rawFiles.length === 0) return;
 
-      setTargetDropFolderId(folderId);
-      setPendingUploadFiles(validation.files);
+        const validation = validateUploadSelection(rawFiles, {
+          isFolder: rawFiles.some((f) => f.webkitRelativePath?.includes("/")),
+        });
+        if (!validation.valid) {
+          if (validation.error) toast.error(validation.error);
+          return;
+        }
+
+        setTargetDropFolderId(folderId);
+        setPendingUploadFiles(validation.files);
+      }).catch((error) => {
+        toast.error(error instanceof Error ? error.message : "Could not read dropped folder");
+      });
     };
 
   // ── Desktop file drop wiring (opens modal with target folder) ──────────

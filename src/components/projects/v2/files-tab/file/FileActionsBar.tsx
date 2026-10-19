@@ -323,6 +323,11 @@ export function FileActionsBar({
     url.searchParams.set("tab", "files");
     url.searchParams.set("fileId", nodeId);
     ["path", "filesView", "filesTask", "filesRole", "filesQuery", "filesGroupQuery", "filesPanel"].forEach(key => url.searchParams.delete(key));
+    if (window.location.hash && /^#L\d+/i.test(window.location.hash)) {
+      url.hash = window.location.hash;
+    } else {
+      url.hash = "";
+    }
     try { await navigator.clipboard.writeText(url.toString()); toast.success("File link copied. Recipients still need access."); }
     catch { toast.error("Could not copy the link. Check browser clipboard permissions."); }
   }

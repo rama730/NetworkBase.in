@@ -14,7 +14,10 @@ export function FileInspectorContainer({
   children: React.ReactNode;
   testId?: string;
 }) {
-  const [compact, setCompact] = useState(true);
+  const [compact, setCompact] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth < 1024;
+  });
   const anchorRef = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     const container = anchorRef.current?.parentElement;

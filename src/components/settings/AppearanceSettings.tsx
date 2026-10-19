@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader";
 import { SettingsRow } from "@/components/settings/ui/SettingsRow";
 import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
+import { SettingsSectionsSkeleton } from "@/components/settings/ui/SettingsSectionsSkeleton";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 import { ACCENT_PALETTES, DENSITY_LABELS, getAccentSwatchBackground } from "@/lib/theme/appearance-runtime";
 import { DEFAULT_APPEARANCE_SNAPSHOT } from "@/lib/theme/appearance";
@@ -25,13 +26,13 @@ export default function AppearanceSettings({ embedded = false }: { embedded?: bo
   useEffect(() => setMounted(true), []);
 
   if (!mounted) {
-    return <div className="space-y-4 pb-10">{!embedded ? <SettingsPageHeader title="Appearance" description="Customize theme, color, density, and motion." /> : null}<div className="h-72 rounded-lg border border-border bg-muted" /><div className="h-44 rounded-lg border border-border bg-muted" /></div>;
+    return <div className={embedded ? "space-y-8" : "space-y-4 pb-10"}>{!embedded ? <SettingsPageHeader title="Appearance" description="Customize theme, color, density, and motion." /> : null}<SettingsSectionsSkeleton /></div>;
   }
 
   const isDefaultAppearance = theme === DEFAULT_APPEARANCE_SNAPSHOT.theme && accentColor === DEFAULT_APPEARANCE_SNAPSHOT.accentColor && density === DEFAULT_APPEARANCE_SNAPSHOT.density && reduceMotion === DEFAULT_APPEARANCE_SNAPSHOT.reduceMotion;
   const syncMessage = syncState === "saving" ? "Syncing to your account" : syncState === "save_failed" ? "Couldn’t sync account preference" : syncState === "saved" ? `Saved to your account${lastSyncedAt ? ` · ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}` : "Saved on this device";
 
-  return <div className="space-y-6 pb-10">
+  return <div className={embedded ? "space-y-8" : "space-y-6 pb-10"}>
     {!embedded ? <SettingsPageHeader title="Appearance" description="Customize theme, color, density, and motion." /> : null}
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <p className={cn("nb-compact text-muted-foreground", syncState === "save_failed" && "text-destructive")}>{syncMessage}</p>
@@ -56,7 +57,7 @@ export default function AppearanceSettings({ embedded = false }: { embedded?: bo
         <h4 className="nb-ui-label text-foreground">Accent color</h4>
         <p className="nb-compact mt-1 text-muted-foreground">Used for actions, selected states, and focus indicators.</p>
         <div className="mt-4 flex flex-wrap gap-3">
-          {Object.values(ACCENT_PALETTES).map((accent) => <button key={accent.id} type="button" onClick={() => setAccentColor(accent.id)} title={`${accent.label}: ${accent.description}`} aria-label={accent.label} aria-pressed={accentColor === accent.id} data-testid={`appearance-accent-${accent.id}`} className={cn("relative flex size-10 items-center justify-center rounded-full border border-border transition-transform hover:scale-105", accentColor === accent.id && "ring-2 ring-ring ring-offset-2 ring-offset-background")}>
+          {Object.values(ACCENT_PALETTES).map((accent) => <button key={accent.id} type="button" onClick={() => setAccentColor(accent.id)} title={`${accent.label}: ${accent.description}`} aria-label={accent.label} aria-pressed={accentColor === accent.id} data-testid={`appearance-accent-${accent.id}`} className={cn("relative flex size-11 items-center justify-center rounded-full border border-border transition-transform hover:scale-105", accentColor === accent.id && "ring-2 ring-ring ring-offset-2 ring-offset-background")}>
             <span className="size-8 rounded-full" style={{ background: getAccentSwatchBackground(accent.id) }} />
           </button>)}
         </div>
@@ -74,7 +75,7 @@ export default function AppearanceSettings({ embedded = false }: { embedded?: bo
         </div>
       </div>
       <div className="mt-4 border-t border-border pt-2">
-        <SettingsRow title="Reduce motion" description="Minimize animation, hover movement, and smooth scrolling throughout the interface." right={<div className="flex items-center gap-3"><span className="nb-meta text-muted-foreground select-none w-6 text-right">{reduceMotion ? "On" : "Off"}</span><SettingsSwitch checked={reduceMotion} onCheckedChange={setReduceMotion} data-testid="appearance-reduce-motion-toggle" aria-label="Reduce motion" /></div>} />
+        <SettingsRow title="Reduce motion" description="Minimize animation, hover movement, and smooth scrolling throughout the interface." right={<SettingsSwitch showLabel checked={reduceMotion} onCheckedChange={setReduceMotion} data-testid="appearance-reduce-motion-toggle" aria-label="Reduce motion" />} />
       </div>
     </SettingsSectionCard>
   </div>;

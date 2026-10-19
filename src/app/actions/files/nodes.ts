@@ -372,7 +372,6 @@ export async function getNodeMetadataBatch(
             }
         }
 
-        const enrichedNodes = await enrichNodesWithLatestVersionAttribution(nodes);
         const breadcrumbsByNodeId: Record<string, Array<{ id: string; name: string }>> = {};
         for (const node of nodes) {
             const crumbs: Array<{ id: string; name: string }> = [{ id: node.id, name: node.name }];
@@ -386,7 +385,7 @@ export async function getNodeMetadataBatch(
             breadcrumbsByNodeId[node.id] = crumbs;
         }
 
-        return { success: true, data: { nodes: enrichedNodes, breadcrumbsByNodeId } };
+        return { success: true, data: { nodes, breadcrumbsByNodeId } };
     } catch (error) {
         return {
             success: false,

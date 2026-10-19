@@ -21,6 +21,8 @@ import {
   renewFileLease,
 } from "@/lib/files/file-lock-service";
 
+import { resolveWritableExtensionFile } from "@/app/api/v1/extension/_file-revision";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -33,6 +35,7 @@ const baseSchema = z.object({
 const acquireSchema = baseSchema.extend({
   action: z.literal("acquire").optional().default("acquire"),
   ttlMs: leaseTtlMsSchema.optional(),
+  createIfMissing: z.boolean().optional(),
 });
 
 const ownedSchema = baseSchema.extend({
@@ -57,7 +60,14 @@ const releaseAllSchema = z.object({
   clientSessionId: z.string().uuid(),
 });
 
-async function resolveEditableNode(projectId: string, path: string, userId: string) {
+async function resolveEditableNode(projectId: string, path: string, userId: string, createIfMissing?: boolean) {
+  if (createIfMissing) {
+    const resolved = await resolveWritableExtensionFile(projectId, path, userId, { createIfMissing: true });
+    if (resolved.response || !resolved.node) {
+      return { error: resolved.response ?? jsonError("File not found", 404, "NOT_FOUND") };
+    }
+    return { node: { id: resolved.node.id } };
+  }
   const access = await getProjectAccessById(projectId, userId);
   if (!access.project) return { error: jsonError("Project not found", 404, "NOT_FOUND") };
   if (!access.canWrite) return { error: jsonError("Forbidden", 403, "FORBIDDEN") };
@@ -107,7 +117,8 @@ export async function POST(request: Request) {
 
     const parsed = action === "acquire" ? acquireSchema.safeParse(body) : ownedSchema.safeParse(body);
     if (!parsed.success) return jsonError("Invalid file lease request", 400, "BAD_REQUEST");
-    const resolved = await resolveEditableNode(parsed.data.projectId, parsed.data.path, auth.user.id);
+    const createIfMissing = parsed.data.action === "acquire" && "createIfMissing" in parsed.data ? Boolean(parsed.data.createIfMissing) : false;
+    const resolved = await resolveEditableNode(parsed.data.projectId, parsed.data.path, auth.user.id, createIfMissing);
     if (resolved.error) return resolved.error;
 
     if (parsed.data.action === "acquire") {

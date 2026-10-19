@@ -111,6 +111,7 @@ export default function ProjectLayout({
     const tabsRef = useRef<HTMLDivElement>(null);
     const actionsTrigger = useRef<HTMLButtonElement>(null);
     const tabListRef = useRef<HTMLDivElement>(null);
+    const isScrolled = false;
     const projectIdentityRef = useRef<HTMLDivElement>(null);
 
     const isFilesTab = activeTab === "files";
@@ -447,7 +448,8 @@ export default function ProjectLayout({
             {/* Bottom Row: Navigation Tabs (sticky) */}
             <div ref={tabsRef} className={cn(
                 "z-30 shrink-0 border-b border-border bg-card transition-shadow duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)]",
-                "sticky"
+                "sticky",
+                isScrolled && "shadow-none"
             )}
                 data-project-sticky-tabs="true"
                 style={{ top: 0 }}

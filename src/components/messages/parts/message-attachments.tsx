@@ -14,6 +14,7 @@ import {
     normalizeMediaDimensions,
     type MediaDimensions,
 } from '@/lib/messaging/media-metadata';
+import { attachmentRetryUrl } from '@/lib/messaging/attachment-ttl';
 import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
 import type { MediaItem } from '@/components/ui/media-viewer';
@@ -317,6 +318,10 @@ function MediaAttachmentTileV2({
                     onError={() => {
                         if (!fallbackUrl && displayUrl !== attachment.url) {
                             setFallbackUrl(attachment.url);
+                        } else if (displayUrl === attachment.url) {
+                            const renewed = attachmentRetryUrl(attachment.url, 0);
+                            if (renewed) setFallbackUrl(renewed);
+                            else { setHasError(true); setLoaded(true); }
                         } else {
                             setHasError(true);
                             setLoaded(true);

@@ -8,6 +8,7 @@ import {
   checksumSchema,
   extensionRevisionConflictResponse,
   extensionRevisionData,
+  readCommittedExtensionReceipt,
   parseExtensionLeaseMetadata,
   resolveWritableExtensionFile,
 } from "@/app/api/v1/extension/_file-revision";
@@ -290,6 +291,7 @@ async function handleFinalize(userId: string, body: z.infer<typeof finalizeSchem
     return jsonError("Upload intent metadata mismatch", 400, "BAD_REQUEST");
   }
 
+  if(operationId){const committed=await readCommittedExtensionReceipt(intent.projectId,nodeId,userId,operationId,contentHash);if(committed)return jsonSuccess(committed);}
   const conflict = await assertNoExtensionWriteConflict({
     node: resolved.node!,
     baseVersion,

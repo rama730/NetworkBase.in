@@ -660,9 +660,21 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
             if (notificationId) viewedNotificationIdsRef.current.add(notificationId);
         }
     }, []);
+    useEffect(() => {
+        if (!isTrayOpen) return;
+        for (const item of items) {
+            if (!item.seenAt) {
+                viewedNotificationIdsRef.current.add(item.id);
+            }
+        }
+    }, [isTrayOpen, items]);
+
     const setTrayOpen = useCallback((open: boolean) => {
         if (open) {
             viewedNotificationIdsRef.current.clear();
+            for (const item of items) {
+                if (!item.seenAt) viewedNotificationIdsRef.current.add(item.id);
+            }
             isTrayOpenRef.current = true;
             setIsTrayOpen(true);
             return;
@@ -672,7 +684,7 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
         isTrayOpenRef.current = false;
         setIsTrayOpen(false);
         commitViewedNotifications(viewedIds);
-    }, [commitViewedNotifications]);
+    }, [commitViewedNotifications, items]);
     const openTray = useCallback(() => setTrayOpen(true), [setTrayOpen]);
     const closeTray = useCallback(() => setTrayOpen(false), [setTrayOpen]);
     const markUnread = useCallback((notificationId: string) => markUnreadMutation.mutateAsync(notificationId), [markUnreadMutation]);

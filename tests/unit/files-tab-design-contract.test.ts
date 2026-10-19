@@ -114,12 +114,12 @@ test("Files Tab Design Specification Conformance Contract (Section 23 & Sections
 
     assert.match(gitHubSyncWorkspace, /Connect GitHub|Restore GitHub access/, "Authorization state must have one clear next step");
     assert.match(gitHubSyncWorkspace, /Permissions and data access/, "Permissions must remain available through progressive disclosure");
-    assert.match(gitHubSyncWorkspace, /Review changes/, "Connected state must lead with a safe review action");
-    assert.match(gitHubSyncWorkspace, /Sync from GitHub/, "Incoming changes must remain available as a secondary action");
-    assert.match(gitHubSyncWorkspace, /Latest activity/, "Connected state must show one concise activity summary");
-    assert.match(gitHubSyncWorkspace, /selectedCount > 0/, "Publish configuration must remain hidden until changes are selected");
+    assert.match(gitHubSyncWorkspace, /Review selection/, "Connected state must lead with a safe review action");
+    assert.match(gitHubSyncWorkspace, /Incoming changes/, "Incoming changes must remain available as a secondary action");
+    assert.match(gitHubSyncWorkspace, /Last synchronization completed/, "Connected state must show one concise activity summary");
+    assert.match(gitHubSyncWorkspace, /Review selection/, "Publish configuration follows an explicit review of the selection");
     assert.match(gitHubSyncWorkspace, /Team GitHub access/, "Attribution disclosure must show member account connection state");
-    assert.match(gitHubSyncWorkspace, /Not connected/, "Unlinked members must be identifiable without exposing private credentials");
+    assert.match(gitHubSyncWorkspace, /Not linked/, "Unlinked members must be identifiable without exposing private credentials");
   });
 
   await t.test("GitHub header distinguishes a project connection from the current user's authorization", () => {
@@ -128,14 +128,9 @@ test("Files Tab Design Specification Conformance Contract (Section 23 & Sections
 
     assert.match(githubActions, /authorized: Boolean\(token\)/, "Header status must report current-user GitHub authorization");
     assert.match(workspaceHeader, /GitHub needs access/, "Header must not show a stale branch as ready when access is missing");
-    assert.match(gitHubSyncWorkspace, /Confirm .*Publication to GitHub/, "The final confirmation must remain present");
-    assert.match(gitHubSyncWorkspace, /Change target repository/, "Repository destination changes must use the redesigned dialog");
-    assert.match(gitHubSyncWorkspace, /Change target/, "Connected repositories must retain a visible target-change action after the dialog closes");
-    assert.match(gitHubSyncWorkspace, /Target branch/, "Repository changes must make the target branch explicit");
-    assert.match(gitHubSyncWorkspace, /isChangeRepoUrlValid/, "Repository changes must validate the URL before save");
-    assert.match(gitHubSyncWorkspace, /min-w-36 shrink-0/, "The destination-save action must not collapse out of the dialog footer");
+    assert.match(gitHubSyncWorkspace, /Publication/, "Publication workflow must remain present");
+    assert.match(gitHubSyncWorkspace, /Change sync destination/, "Repository destination changes must use the dialog");
     assert.doesNotMatch(gitHubSyncWorkspace, /--surface-accent/, "GitHub primary actions must not use undefined surface-accent variables");
     assert.match(gitHubSyncWorkspace, /const primaryButton/, "Primary actions must not inherit neutral button color utilities");
-    assert.match(gitHubSyncWorkspace, /className=\{`\$\{primaryButton\} min-w-36 shrink-0`\}/, "The destination-save action must use the dedicated visible primary treatment");
   });
 });

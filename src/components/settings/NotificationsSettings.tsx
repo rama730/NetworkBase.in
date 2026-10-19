@@ -5,12 +5,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { resumeNotifications } from "@/app/actions/presence";
 import { useMyPresenceSettings } from "@/components/presence/useMyPresence";
 import { queryKeys } from "@/lib/query-keys";
-import { BellOff, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader";
 import { SettingsRow } from "@/components/settings/ui/SettingsRow";
 import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
+import { SettingsSectionsSkeleton } from "@/components/settings/ui/SettingsSectionsSkeleton";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 import { useNotificationPreferences, useUpdateNotificationPreferences } from "@/hooks/useSettingsQueries";
 import type { NotificationPreferences } from "@/types/settingsTypes";
@@ -20,7 +21,7 @@ import { getBrowserNotificationSupport, requestBrowserNotificationPermission, ty
 import { getCurrentPushStatus, isWebPushSupported, subscribeWebPush, unsubscribeWebPush, type WebPushClientStatus } from "@/lib/notifications/web-push-client";
 
 function NotificationsSkeleton() {
-  return <div aria-hidden="true" className="space-y-4"><div className="nb-skeleton h-80 rounded-lg border border-border" /><div className="nb-skeleton h-40 rounded-lg border border-border" /></div>;
+  return <SettingsSectionsSkeleton count={3} />;
 }
 
 function PreferenceSwitch({ id, title, description, checked, disabled, onToggle }: { id: string; title: string; description: string; checked: boolean; disabled: boolean; onToggle: () => void }) {
@@ -66,8 +67,17 @@ export default function NotificationsPage({ embedded = false }: { embedded?: boo
   const pause = (choice: "1h" | "8h" | "tomorrow") => { if (preferences) save({ ...preferences, pausedUntil: pauseUntil(choice).toISOString() }); };
   // Resume also lifts a pause your status set (so your card stops saying "Notifications paused").
   const resume = async () => {
+    if (preferences) {
+      queryClient.setQueryData(queryKeys.settings.notifications(), {
+        ...preferences,
+        pausedUntil: null,
+      });
+    }
     const result = await resumeNotifications();
-    if (!result.success) return void toast.error("Couldn't resume notifications.");
+    if (!result.success) {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.settings.notifications() });
+      return void toast.error("Couldn't resume notifications.");
+    }
     void queryClient.invalidateQueries({ queryKey: queryKeys.settings.notifications() });
     void queryClient.invalidateQueries({ queryKey: queryKeys.presence.mine() });
   };
@@ -131,9 +141,9 @@ export default function NotificationsPage({ embedded = false }: { embedded?: boo
     push: pushStatus === "unsupported" ? "This browser doesn't support web push." : pushStatus === "denied" ? "Push permission is blocked in browser settings." : "Deliver important updates and chat messages even when this tab is closed.",
   };
 
-  return <div className="space-y-6">
+  return <div className={embedded ? "space-y-8" : "space-y-6"}>
     {!embedded ? <SettingsPageHeader title="Notifications" description="Choose which updates appear and how they reach you." /> : null}
-    {isSaving ? <p className="flex items-center gap-2 nb-compact text-muted-foreground"><Loader2 className="size-4 animate-spin" />Saving changes…</p> : null}
+    {isSaving ? <p aria-live="polite" className="flex items-center gap-2 nb-compact text-muted-foreground"><Loader2 className="size-4 animate-spin" />Saving changes…</p> : null}
 
     <SettingsSectionCard title="Notification preferences" description="Choose what appears in the notification tray and when delivery pauses.">
       <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
@@ -156,11 +166,11 @@ export default function NotificationsPage({ embedded = false }: { embedded?: boo
           />
           <SettingsRow title="Quiet hours" description={preferences.quietHours.enabled ? `From ${formatMinuteOfDay(preferences.quietHours.startMinute)} to ${formatMinuteOfDay(preferences.quietHours.endMinute)} each day, updates wait in the tray until it ends and chat messages don't push (they stay unread in Messages).` : "Set a recurring daily period without delivery interruptions."} right={<div className="flex items-center gap-3"><span className="nb-meta text-muted-foreground select-none w-6 text-right">{preferences.quietHours.enabled ? "On" : "Off"}</span><SettingsSwitch aria-label="Enable quiet hours" checked={preferences.quietHours.enabled} onCheckedChange={() => save({ ...preferences, quietHours: { ...preferences.quietHours, enabled: !preferences.quietHours.enabled } })} disabled={isSaving} /></div>} />
           {preferences.quietHours.enabled ? <div className="grid gap-3 py-4 sm:grid-cols-2">
-            {(["startMinute", "endMinute"] as const).map((field) => <label key={field} className="nb-compact text-muted-foreground"><span className="mb-2 block nb-meta text-foreground">{field === "startMinute" ? "From" : "Until"}</span><input type="time" aria-label={field === "startMinute" ? "Quiet hours start" : "Quiet hours end"} value={formatMinuteOfDay(preferences.quietHours[field])} disabled={isSaving} onChange={(event) => setQuietTime(field, event.target.value)} className="h-10 w-full rounded-md border border-border bg-background px-3 nb-compact text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50" /></label>)}
+            {(["startMinute", "endMinute"] as const).map((field) => <label key={field} className="nb-compact text-muted-foreground"><span className="mb-2 block nb-meta text-foreground">{field === "startMinute" ? "From" : "Until"}</span><input type="time" aria-label={field === "startMinute" ? "Quiet hours start" : "Quiet hours end"} value={formatMinuteOfDay(preferences.quietHours[field])} onChange={(event) => setQuietTime(field, event.target.value)} className="h-10 w-full rounded-md border border-border bg-background px-3 nb-compact text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50" /></label>)}
           </div> : null}
         </div>
         <div className="border-t border-border pt-4">
-          <h5 className="flex items-center gap-2 nb-ui-label text-foreground"><BellOff className="size-4 text-muted-foreground" strokeWidth={1.75} />Muted scopes</h5>
+          <h5 className="nb-ui-label text-foreground">Muted scopes</h5>
           {preferences.mutedScopes.length ? <div className="mt-3 divide-y divide-border">{preferences.mutedScopes.map((scope) => <SettingsRow key={`${scope.kind}:${scope.value}`} title={scope.label || scope.value} description={`${scope.kind === "notification_type" ? "Notification type" : scope.kind} mute`} right={<Button type="button" variant="ghost" size="sm" onClick={() => save({ ...preferences, mutedScopes: preferences.mutedScopes.filter((item) => item !== scope) })} disabled={isSaving}>Remove</Button>} />)}</div> : <p className="mt-2 nb-compact text-muted-foreground">Nothing muted.</p>}
         </div>
       </div>

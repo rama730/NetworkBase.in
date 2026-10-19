@@ -22,7 +22,8 @@ test("comparison does not reject the entire workspace by byte size", () => {
     /tree\.reduce\([\s\S]{0,300}SYNC_LIMITS\.operationBytes/,
   );
   assert.match(source, /total > SYNC_LIMITS\.operationBytes/);
-  assert.match(source, /\.filter\(\(path\) => !excludedSyncPath\(path\)\)/);
+  assert.doesNotMatch(source, /\.filter\(\(path\) => !excludedSyncPath\(path\)\)/);
+  assert.match(source, /let blocked = excludedSyncPath\(path\)/);
 });
 
 test("large reviewed selections are prepared in bounded failure-safe batches", () => {

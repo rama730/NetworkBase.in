@@ -226,6 +226,18 @@ export async function getTaskProjectId(taskId: string): Promise<string> {
 }
 
 export async function ensureSystemRootFolder(projectId: string, userId: string, fallbackName: string) {
+    // Fast-path read check without transaction or advisory lock
+    const fastExisting = await db.query.projectNodes.findFirst({
+        where: and(
+            eq(projectNodes.projectId, projectId),
+            isNull(projectNodes.parentId),
+            eq(projectNodes.type, "folder"),
+            isNull(projectNodes.deletedAt),
+            sql`coalesce(${projectNodes.metadata}->>'isSystem', 'false') = 'true'`
+        ),
+    });
+    if (fastExisting) return fastExisting;
+
     return await db.transaction(async (tx) => {
         await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`files-system-root:${projectId}`}))`);
 
@@ -395,55 +407,6 @@ export async function assertNotMovingAnyIntoDescendant(projectId: string, folder
         SELECT 1 FROM ancestors WHERE id IN (${sql.join(folderIds.map((id) => sql`${id}::uuid`), sql`, `)}) LIMIT 1
     `));
     if (hit) throw new Error("Cannot move a folder into itself or its descendant");
-}
-
-export async function assertNotMovingIntoDescendant(
-    projectId: string,
-    nodeId: string,
-    targetParentId: string | null,
-    tx: any = db
-) {
-    if (!targetParentId) return;
-    if (targetParentId === nodeId) {
-        throw new Error("Cannot move a folder into itself or its descendant");
-    }
-
-    // PURE OPTIMIZATION (Item 24): Single recursive CTE checks entire ancestry chain in 1 round-trip instead of N queries in a loop.
-    const result = (await tx.execute(sql`
-        WITH RECURSIVE ancestors AS (
-            SELECT id, parent_id, 1 AS depth
-            FROM project_nodes
-            WHERE id = ${targetParentId}::uuid
-              AND project_id = ${projectId}::uuid
-              AND deleted_at IS NULL
-            UNION ALL
-            SELECT p.id, p.parent_id, a.depth + 1
-            FROM project_nodes p
-            JOIN ancestors a ON p.id = a.parent_id
-            WHERE p.project_id = ${projectId}::uuid
-              AND p.deleted_at IS NULL
-              AND a.depth < 256
-        )
-        SELECT id, depth FROM ancestors
-    `)) as Array<{ id: string; depth: number }>;
-
-    const ancestry = Array.from(result);
-    if (ancestry.length === 0) {
-        throw new NotFoundError("Destination folder not found");
-    }
-
-    const visited = new Set<string>();
-    for (const row of ancestry) {
-        const cursor = row.id;
-        const depth = row.depth;
-        if (depth >= 256 || visited.has(cursor)) {
-            throw new Error("Folder hierarchy is inconsistent; move cancelled");
-        }
-        visited.add(cursor);
-        if (cursor === nodeId) {
-            throw new Error("Cannot move a folder into itself or its descendant");
-        }
-    }
 }
 
 export async function recordNodeEvent(

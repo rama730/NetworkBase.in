@@ -7,6 +7,7 @@ import {
   validateUploadSelection,
   stripOsJunkFiles,
   FORBIDDEN_ROOT_DIRS,
+  EXE_BLOCKLIST,
 } from "@/lib/files/upload-validator";
 
 function createMockFile(name: string, relativePath?: string, size: number = 100): File {
@@ -165,6 +166,46 @@ describe("Upload Security & Selection Validation", () => {
     const res2 = validateUploadSelection(userProfileFiles, { isFolder: true });
     assert.equal(res2.valid, false);
     assert.match(res2.error || "", /Cannot upload user home directory/i);
+  });
+
+  it("EXE_BLOCKLIST includes dangerous executables and scripts", () => {
+    assert.equal(EXE_BLOCKLIST.has("exe"), true);
+    assert.equal(EXE_BLOCKLIST.has("bat"), true);
+    assert.equal(EXE_BLOCKLIST.has("cmd"), true);
+    assert.equal(EXE_BLOCKLIST.has("sh"), true);
+    assert.equal(EXE_BLOCKLIST.has("ps1"), true);
+  });
+
+  it("rejects uploads containing executable or script files", () => {
+    const dangerousFiles = [
+      createMockFile("virus.exe"),
+      createMockFile("script.sh", "scripts/script.sh"),
+      createMockFile("installer.msi"),
+    ];
+    for (const file of dangerousFiles) {
+      const res = validateUploadSelection([file]);
+      assert.equal(res.valid, false);
+      assert.match(res.error || "", /Uploading executable or script files/i);
+    }
+  });
+
+  it("rejects files exceeding the maximum upload size limit (10MB)", () => {
+    const oversized = createMockFile("My Movie 1.mov", undefined, 22 * 1024 * 1024);
+    const res = validateUploadSelection([oversized]);
+    assert.equal(res.valid, false);
+    assert.match(res.error || "", /exceeds the maximum upload size limit of 10MB/i);
+    assert.equal(res.files.length, 0);
+  });
+
+  it("respects custom maxFileBytes option in validateUploadSelection", () => {
+    const file = createMockFile("photo.jpg", undefined, 5 * 1024 * 1024);
+    const resPass = validateUploadSelection([file], { maxFileBytes: 10 * 1024 * 1024 });
+    assert.equal(resPass.valid, true);
+    assert.equal(resPass.files.length, 1);
+
+    const resFail = validateUploadSelection([file], { maxFileBytes: 2 * 1024 * 1024 });
+    assert.equal(resFail.valid, false);
+    assert.match(resFail.error || "", /exceeds the maximum upload size limit of 2MB/i);
   });
 });
 

@@ -1,71 +1,33 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import path from "node:path";
 
-describe("GitHub Sync Destination Simplification & Inline Controls", () => {
-  const workspacePath = path.resolve(
-    process.cwd(),
+describe("Reviewed GitHub Sync destinations", () => {
+  const source = readFileSync(
     "src/components/projects/v2/files-tab/GitHubSyncWorkspace.tsx",
+    "utf8",
   );
-
-  it("eliminates the full-page Change repository destination card when connection exists", () => {
-    const source = readFileSync(workspacePath, "utf-8");
-
-    // The old bulky card must NOT be rendered when state.connection exists
+  it("keeps repository context compact and target edits behind settings", () => {
+    assert.match(source, /className=\{styles.repoRow\}/);
+    assert.match(source, /setTarget\(connection\)/);
+    assert.match(source, /title="Repository settings"/);
+    assert.match(source, /Review destination/);
     assert.doesNotMatch(
       source,
-      /state\.connection\s*&&\s*editingDestination/,
-      "Must not render editingDestination card when connection is present",
-    );
-
-    // Initial setup card is strictly for unlinked projects
-    assert.match(
-      source,
-      /!state\.connection\s*&&\s*setupMode\s*!==\s*null/,
-      "Setup card should only appear for unlinked projects",
+      /handleSwitchBranch|group\/branch|\+ Custom branch/,
     );
   });
-
-  it("provides inline Target Branch Switcher dropdown directly in the main header", () => {
-    const source = readFileSync(workspacePath, "utf-8");
-
-    // Must render details dropdown with branch icon and branch name
-    assert.match(
-      source,
-      /<details className="relative group\/branch">/,
-      "Must have an inline details dropdown for branch switching",
-    );
-    assert.match(
-      source,
-      /handleSwitchBranch\(b\)/,
-      "Must call handleSwitchBranch on 1-click select",
-    );
-    assert.match(
-      source,
-      /Custom branch/,
-      "Must offer custom branch creation option",
-    );
+  it("requires explicit confirmation before a saved target changes", () => {
+    assert.match(source, /case "target"/);
+    assert.match(source, /Change sync destination/);
+    assert.match(source, /Confirm destination/);
+    assert.match(source, /sync.connectGitHubSyncRepository/);
   });
-
-  it("provides compact Change Target Repository dialog directly from the main interface", () => {
-    const source = readFileSync(workspacePath, "utf-8");
-
-    // Must have changeRepoDialogOpen dialog
-    assert.match(
-      source,
-      /<Dialog open=\{changeRepoDialogOpen\}/,
-      "Must mount compact Change Target Repository Dialog",
-    );
-    assert.match(
-      source,
-      /Change target repository/i,
-      "Dialog title must be present",
-    );
-    assert.match(
-      source,
-      /handleSaveRepoUrl/,
-      "Must save repository URL using handleSaveRepoUrl",
-    );
+  it("creates new branches as reviewed drafts while pull only chooses existing sources", () => {
+    assert.match(source, /setup.direction === "push"/);
+    assert.match(source, /Create new branch/);
+    assert.match(source, /newBranch: creating/);
+    assert.match(source, /Source branch/);
+    assert.match(source, /Created only when you confirm publication/);
   });
 });

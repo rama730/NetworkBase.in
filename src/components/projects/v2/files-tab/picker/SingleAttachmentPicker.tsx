@@ -30,6 +30,8 @@ export interface SingleAttachmentPickerProps {
 
 // ─── Component ───────────────────────────────────────────────────────
 
+const EMPTY_INITIAL_SELECTION: ProjectNode[] = [];
+
 export function SingleAttachmentPicker({
   projectId,
   taskId,
@@ -41,7 +43,14 @@ export function SingleAttachmentPicker({
   const [isLinking, setIsLinking] = useState(false);
 
   // Track already-attached node IDs so we can filter them from selection
-  const existingIds = new Set(existingAttachments.map((n) => n.id));
+  const existingIds = React.useMemo(
+    () => new Set(existingAttachments.map((n) => n.id)),
+    [existingAttachments],
+  );
+  const excludedNodeIds = React.useMemo(
+    () => existingAttachments.map((node) => node.id),
+    [existingAttachments],
+  );
 
   const handleSelectionChange = useCallback(
     async (nodes: ProjectNode[]) => {
@@ -75,9 +84,9 @@ export function SingleAttachmentPicker({
       projectId={projectId}
       isOpen={isOpen}
       onClose={onClose}
-      initialSelection={[]}
+      initialSelection={EMPTY_INITIAL_SELECTION}
       selectionMode="single"
-      excludedNodeIds={existingAttachments.map((node) => node.id)}
+      excludedNodeIds={excludedNodeIds}
       onSelectionChange={handleSelectionChange}
     />
   );

@@ -1,4 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { RailSection } from "@/components/ui/rail-section";
 
 export function ProfileRouteSkeleton() {
     return (
@@ -66,25 +67,23 @@ export function ProfileRouteSkeleton() {
                             <div className="contents lg:sticky lg:block lg:space-y-6" style={{ top: "24px" }}>
                                 {/* Highlights: OpenToRolesCard */}
                                 <div className="order-3 space-y-6">
-                                    <div className="rounded-lg border border-border bg-card p-5 space-y-3">
-                                        <Skeleton className="h-5 w-32 rounded-[3px]" />
+                                    <RailSection title="Role preferences" contentClassName="p-5 max-md:p-4 space-y-3">
                                         <Skeleton className="h-4 w-3/4 rounded-[3px]" />
                                         <div className="flex gap-2 pt-1">
                                             <Skeleton className="h-6 w-20 rounded-[4px]" />
                                             <Skeleton className="h-6 w-24 rounded-[4px]" />
                                         </div>
-                                    </div>
+                                    </RailSection>
                                 </div>
 
                                 {/* Rail: Links card */}
                                 <div className="order-5 space-y-6">
-                                    <div className="rounded-lg border border-border bg-card p-5 space-y-3">
-                                        <Skeleton className="h-4 w-28 rounded-[3px]" />
+                                    <RailSection title="Links" contentClassName="px-5 max-md:px-4">
                                         <div className="space-y-2">
                                             <Skeleton className="h-11 w-full rounded-[3px]" />
                                             <Skeleton className="h-11 w-full rounded-[3px]" />
                                         </div>
-                                    </div>
+                                    </RailSection>
                                 </div>
                             </div>
                         </aside>

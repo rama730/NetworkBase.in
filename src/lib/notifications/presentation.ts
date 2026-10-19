@@ -310,7 +310,7 @@ export function shouldSuppressNotificationToast(params: {
     } = params;
     if (trayOpen || documentVisible === false) return true;
     if (item.importance !== "important") return true;
-    if (item.seenAt) return true;
+    if (item.readAt || item.seenAt) return true;
 
     const normalizedSearch = search ? (search.startsWith("?") ? search : `?${search}`) : "";
     const activePath = `${pathname ?? ""}${normalizedSearch}`;

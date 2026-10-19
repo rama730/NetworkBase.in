@@ -36,6 +36,7 @@ export function buildViewerScopedProfileView(params: {
     // Link health is recovery state for the owner, not public profile data.
     socialLinkMetadata: isOwner ? profile.socialLinkMetadata ?? {} : {},
     openTo: profile.openTo,
+    openToCollaborate: profile.openToCollaborate,
     openToCustomRoles: profile.openToCustomRoles,
     preferredCategories: profile.preferredCategories,
     experienceLevel: profile.experienceLevel,
@@ -66,6 +67,7 @@ export function buildViewerScopedProfileView(params: {
     bannerUrl: null,
     socialLinks: {},
     openTo: [],
+    openToCollaborate: false,
     openToCustomRoles: [],
     preferredCategories: [],
     experienceLevel: null,
