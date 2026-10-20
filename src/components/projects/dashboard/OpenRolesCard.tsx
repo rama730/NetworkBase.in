@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CheckCircle, Clock, Loader2, RotateCcw, XCircle } from "lucide-react";
+import { CheckCircle, Clock, Loader2, MinusCircle, RotateCcw, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RailSection } from "@/components/ui/rail-section";
 import { SkillList } from "@/components/skills/SkillList";
@@ -128,7 +128,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                                 card.banner.tone === "muted" && "text-muted-foreground",
                             )}
                         >
-                            {card.banner.tone === "danger" ? <XCircle aria-hidden="true" className="h-3.5 w-3.5" /> : card.banner.tone === "warning" ? <Clock aria-hidden="true" className="h-3.5 w-3.5" /> : <CheckCircle aria-hidden="true" className="h-3.5 w-3.5" />}
+                            {card.banner.tone === "danger" ? <XCircle aria-hidden="true" className="h-3.5 w-3.5" /> : card.banner.tone === "warning" ? <Clock aria-hidden="true" className="h-3.5 w-3.5" /> : card.banner.tone === "muted" ? <MinusCircle aria-hidden="true" className="h-3.5 w-3.5" /> : <CheckCircle aria-hidden="true" className="h-3.5 w-3.5" />}
                             <span>{card.banner.text}</span>
                         </div>
                         {card.banner.detail ? <p className="text-[12px] leading-relaxed text-muted-foreground">{card.banner.detail}</p> : null}
@@ -196,7 +196,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                         <div className="space-y-1">
                             {openRoles.slice(0, 10).map((role, roleIndex) => {
                                 // Below md only the first three roles show until "Show all" (no nested scroller, R10).
-                                const hiddenOnMobile = !showAllMobile && roleIndex >= 3;
+                                const hiddenOnMobile = !showAllMobile && roleIndex >= 3 && !(card.appliedRowLabel && role.id === applicationStatus.roleId);
                                 const remaining = (role?.count || 0) - (role?.filled || 0);
                                 const isInteractive = !isCreator && !isCollaborator;
                                 const isThisProposedRole = isProposed && (role.id === applicationStatus.proposedRoleId || role.id === applicationStatus.roleId);
@@ -358,17 +358,20 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                                     isInteractiveRow
                                         ? "group cursor-pointer rounded-[5px] transition-[background-color,color] duration-[130ms] hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
                                         : "",
+                                    isInteractiveRow && isApplyDisabled && "cursor-not-allowed hover:bg-transparent focus-visible:bg-muted",
                                 );
 
                                 return isInteractiveRow ? (
                                     <button
                                         key={role.id}
                                         type="button"
-                                        onClick={() => onApply(role)}
-                                        disabled={isApplyDisabled}
+                                        onClick={() => { if (!isApplyDisabled) onApply(role); }}
+                                        // aria-disabled, not disabled: the row stays reachable by keyboard, so its reason (described below) can be read.
                                         aria-disabled={isApplyDisabled}
-                                        // The row's text holds the whole description; the name is just the role and its spots.
-                                        aria-label={`${card.applyLabel} for ${role.title ?? role.role}, ${remaining} ${remaining === 1 ? "spot" : "spots"} left`}
+                                        // The row's text holds the whole description; the name is its role, its spots and where your own application stands.
+                                        aria-label={isThisAppliedRole && card.appliedRowLabel
+                                            ? `${role.title ?? role.role}, your application: ${card.appliedRowLabel.toLowerCase()}`
+                                            : `${card.applyLabel} for ${role.title ?? role.role}, ${remaining} ${remaining === 1 ? "spot" : "spots"} left`}
                                         aria-describedby={isApplyDisabled ? "open-roles-apply-disabled-reason" : undefined}
                                         title={isApplyDisabled ? (blockedReason || "Application is currently unavailable") : `Apply for ${role.title ?? role.role}`}
                                         className={className}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { UserPlus } from "lucide-react";
 import { keepPreviousData, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
@@ -75,6 +75,7 @@ export default function InvitationsClient({
         useState(false);
     const [withdrawingApplication, setWithdrawingApplication] =
         useState<NetworkInvitation | null>(null);
+    const withdrawReturn = useRef<HTMLElement | null>(null);
     const queryClient = useQueryClient();
     const { refresh: refreshPendingCounts } = useNetworkNotifications();
     const browse =
@@ -837,7 +838,7 @@ export default function InvitationsClient({
                                             name={application.projectTitle || "the project"}
                                             projectHref={`/projects/${application.projectSlug || application.projectId}`}
                                             channelId={application.channelId}
-                                            onWithdraw={() => setWithdrawingApplication(application)}
+                                            onWithdraw={(trigger) => { withdrawReturn.current = trigger; setWithdrawingApplication(application); }}
                                         />
                                     }
                                 />
@@ -998,6 +999,7 @@ export default function InvitationsClient({
                 roleTitle={withdrawingApplication?.roleTitle}
                 onClose={() => setWithdrawingApplication(null)}
                 onConfirm={withdrawSentApplication}
+                returnFocusTo={withdrawReturn.current}
             />
             <ConfirmDialog
                 open={isWithdrawAllConfirmOpen}

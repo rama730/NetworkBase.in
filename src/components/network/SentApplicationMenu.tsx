@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 
@@ -23,13 +24,14 @@ export function SentApplicationMenu({ status, reasonCode = null, name, projectHr
     name: string;
     projectHref: string;
     channelId: string | null;
-    onWithdraw: () => void;
+    onWithdraw: (trigger: HTMLElement | null) => void;
 }) {
+    const trigger = useRef<HTMLButtonElement>(null);
     return <DropdownMenu><DropdownMenuTrigger asChild>
-        <button className="nb-person-control" aria-label={`${labelFor(status, reasonCode)}: options for your application to ${name}`}>{labelFor(status, reasonCode)}<ChevronDown className="size-3" aria-hidden="true" /></button>
+        <button ref={trigger} className="nb-person-control" aria-label={`${labelFor(status, reasonCode)}: options for your application to ${name}`}>{labelFor(status, reasonCode)}<ChevronDown className="size-3" aria-hidden="true" /></button>
     </DropdownMenuTrigger><DropdownMenuContent align="end">
         {channelId ? <DropdownMenuItem asChild><Link href={conversationHref(channelId)}>Open conversation</Link></DropdownMenuItem> : null}
         <DropdownMenuItem asChild><Link href={projectHref}>View project</Link></DropdownMenuItem>
-        {status === "pending" ? <DropdownMenuItem onSelect={onWithdraw}>Withdraw application</DropdownMenuItem> : null}
+        {status === "pending" ? <DropdownMenuItem onSelect={() => onWithdraw(trigger.current)}>Withdraw application</DropdownMenuItem> : null}
     </DropdownMenuContent></DropdownMenu>;
 }
