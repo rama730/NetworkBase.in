@@ -4,10 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { LEGAL_VERSIONS } from "@/lib/legal/versions";
-
-function safeNext(value: string | null) {
-  return value?.startsWith("/") && !value.startsWith("//") ? value : "/discover";
-}
+import { normalizeAuthNextPath } from "@/lib/auth/redirects";
 
 export default function LegalAcceptancePage() {
   const router = useRouter();
@@ -32,7 +29,7 @@ export default function LegalAcceptancePage() {
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok || payload?.success === false) throw new Error(payload?.error || "Could not record acceptance");
-      router.replace(safeNext(searchParams.get("next")));
+      router.replace(normalizeAuthNextPath(searchParams.get("next")));
       router.refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not record acceptance");

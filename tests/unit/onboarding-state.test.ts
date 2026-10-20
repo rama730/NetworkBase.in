@@ -5,7 +5,6 @@ import {
     clampCompletedThrough,
     clampOnboardingStep,
     isCompletedOnboardingStatus,
-    normalizeOnboardingSection,
     onboardingStorageKeys,
 } from '@/lib/onboarding/state'
 
@@ -14,7 +13,6 @@ describe('onboarding state contract', () => {
         const first = onboardingStorageKeys('user-a')
         const second = onboardingStorageKeys('user-b')
         assert.notEqual(first.draft, second.draft)
-        assert.notEqual(first.submit, second.submit)
         assert.match(first.draft, new RegExp(`user-a:.*v${ONBOARDING_SCHEMA_VERSION}$`))
     })
 
@@ -25,14 +23,9 @@ describe('onboarding state contract', () => {
         assert.equal(clampCompletedThrough(9), 4)
     })
 
-    it('normalizes unknown Details sections to Identity', () => {
-        assert.equal(normalizeOnboardingSection('social'), 'social')
-        assert.equal(normalizeOnboardingSection('unknown'), 'identity')
-    })
-
-    it('uses explicit status before the legacy username fallback', () => {
-        assert.equal(isCompletedOnboardingStatus('completed', null), true)
-        assert.equal(isCompletedOnboardingStatus('in_progress', 'legacy-user'), false)
-        assert.equal(isCompletedOnboardingStatus(undefined, 'legacy-user'), true)
+    it('only the recorded status completes onboarding, never a username alone', () => {
+        assert.equal(isCompletedOnboardingStatus('completed'), true)
+        assert.equal(isCompletedOnboardingStatus('in_progress'), false)
+        assert.equal(isCompletedOnboardingStatus(undefined), false)
     })
 })

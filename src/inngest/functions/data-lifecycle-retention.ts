@@ -23,6 +23,7 @@ export type RetentionCounts = {
   profile_read_audits: number;
   profile_activity_audits: number;
   onboarding_events: number;
+  onboarding_drafts: number;
   extension_session_events: number;
   legal_acceptances: number;
   account_deletion_records_anonymized: number;
@@ -32,6 +33,7 @@ const NO_COUNTS: RetentionCounts = {
   profile_read_audits: 0,
   profile_activity_audits: 0,
   onboarding_events: 0,
+  onboarding_drafts: 0,
   extension_session_events: 0,
   legal_acceptances: 0,
   account_deletion_records_anonymized: 0,
@@ -108,6 +110,17 @@ export const dataLifecycleRetention = inngest.createFunction(
           USING expired_onboarding expired
           WHERE event.id = expired.id
           RETURNING event.id
+        ), expired_onboarding_drafts AS (
+          SELECT user_id FROM onboarding_drafts
+          WHERE expires_at < now()
+          ORDER BY expires_at, user_id
+          FOR UPDATE SKIP LOCKED
+          LIMIT ${DATA_LIFECYCLE_RETENTION.batchSize}
+        ), deleted_onboarding_drafts AS (
+          DELETE FROM onboarding_drafts draft
+          USING expired_onboarding_drafts expired
+          WHERE draft.user_id = expired.user_id
+          RETURNING draft.user_id
         ), expired_extension_events AS (
           SELECT id FROM extension_device_session_events
           WHERE created_at < now() - (${DATA_LIFECYCLE_RETENTION.extensionSessionEventDays} * interval '1 day')
@@ -157,6 +170,7 @@ export const dataLifecycleRetention = inngest.createFunction(
           (SELECT count(*)::int FROM deleted_profile_reads) AS profile_read_audits,
           (SELECT count(*)::int FROM deleted_profile_activity) AS profile_activity_audits,
           (SELECT count(*)::int FROM deleted_onboarding) AS onboarding_events,
+          (SELECT count(*)::int FROM deleted_onboarding_drafts) AS onboarding_drafts,
           (SELECT count(*)::int FROM deleted_extension_events) AS extension_session_events,
           (SELECT count(*)::int FROM deleted_legal_acceptances) AS legal_acceptances,
           (SELECT count(*)::int FROM anonymized_account_deletion_records) AS account_deletion_records_anonymized

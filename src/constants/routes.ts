@@ -2,7 +2,6 @@ export const ROUTES = {
     HOME: '/',
     LOGIN: '/login',
     SIGNUP: '/signup',
-    ONBOARDING: '/onboarding',
     WORKSPACE: '/workspace',
     DISCOVER: '/discover',
     NETWORK: '/network',

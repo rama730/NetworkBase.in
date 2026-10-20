@@ -139,9 +139,14 @@ test('mapUsernamePersistenceError preserves explicit username errors', () => {
     assert.equal(result.message, 'This username is reserved')
 })
 
-test('mapUsernamePersistenceError maps database uniqueness violations to USERNAME_TAKEN', () => {
-    const result = mapUsernamePersistenceError({ code: '23505' })
+test('mapUsernamePersistenceError maps username uniqueness violations to USERNAME_TAKEN', () => {
+    const result = mapUsernamePersistenceError({ code: '23505', constraint_name: 'profiles_username_unique' })
 
     assert.equal(result.code, 'USERNAME_TAKEN')
     assert.equal(result.message, 'Username is already taken')
+})
+
+test('mapUsernamePersistenceError does not blame the username for other uniqueness violations', () => {
+    assert.equal(mapUsernamePersistenceError({ code: '23505', constraint_name: 'profiles_email_unique' }).code, 'DB_ERROR')
+    assert.equal(mapUsernamePersistenceError({ code: '23505' }).code, 'DB_ERROR')
 })

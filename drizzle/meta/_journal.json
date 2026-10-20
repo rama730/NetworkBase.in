@@ -1625,6 +1625,13 @@
       "when": 1792454401000,
       "tag": "0234_application_closures",
       "breakpoints": true
+    },
+    {
+      "idx": 232,
+      "version": "7",
+      "when": 1792454402000,
+      "tag": "0235_onboarding_integrity",
+      "breakpoints": true
     }
   ]
 }

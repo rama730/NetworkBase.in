@@ -1,46 +1,43 @@
 'use server'
 
+import { after } from 'next/server'
+import { headers } from 'next/headers'
+import { and, eq, sql } from 'drizzle-orm'
+import type { User } from '@supabase/supabase-js'
 import { db } from '@/lib/db'
-import { onboardingDrafts, onboardingEvents, onboardingSubmissions, profiles, usernameAliases } from '@/lib/db/schema'
-import {
-    ONBOARDING_EXPERIENCE_LEVEL_VALUES,
-    ONBOARDING_GENDER_VALUES,
-    ONBOARDING_HOURS_PER_WEEK_VALUES,
-    ONBOARDING_MESSAGE_PRIVACY_VALUES,
-    ONBOARDING_SOCIAL_KEYS,
-    ONBOARDING_TOTAL_STEPS,
-    ONBOARDING_VISIBILITY_VALUES,
-    type OnboardingExperienceLevel,
-    type OnboardingGenderIdentity,
-    type OnboardingHoursPerWeek,
-    type OnboardingMessagePrivacy,
-    type OnboardingSocialLinks,
-    type OnboardingVisibility,
-} from '@/lib/onboarding/contracts'
+import { onboardingDrafts, onboardingEvents, profiles } from '@/lib/db/schema'
+import { ONBOARDING_TOTAL_STEPS } from '@/lib/onboarding/contracts'
 import { sanitizeOnboardingTelemetryBatch, type OnboardingEventInput } from '@/lib/onboarding/events'
 import { onboardingError, type OnboardingError } from '@/lib/onboarding/errors'
-import { beginOnboardingSubmission, finalizeOnboardingSubmission, type OnboardingAttempt } from '@/lib/onboarding/submissions'
-import { UsernamePersistenceError, findUnavailableUsernames, generateDeterministicUsernameCandidates, getUsernameAvailability, mapUsernamePersistenceError } from '@/lib/usernames/service'
-import { consumeRateLimit } from '@/lib/security/rate-limit'
-import { createAdminClient, createClient } from '@/lib/supabase/server'
-import { isEmailVerified } from '@/lib/auth/email-verification'
-import type { OnboardingPayloadInput } from '@/lib/validations/onboarding'
-import { normalizeOnboardingPayload } from '@/lib/validations/onboarding'
-import { normalizeUsername, sanitizeUsernameInput, validateUsername } from '@/lib/validations/username'
-import { and, eq, sql } from 'drizzle-orm'
-import { headers } from 'next/headers'
-import { getTrustedHeadersIp } from '@/lib/security/request-ip'
-import type { User } from '@supabase/supabase-js'
+import { syncOnboardingClaims } from '@/lib/onboarding/claims'
+import { consumeUsernameCheckBudget } from '@/lib/onboarding/username-check'
 import {
-    ONBOARDING_LOCAL_DRAFT_TTL_MS,
     ONBOARDING_SCHEMA_VERSION,
+    ONBOARDING_SERVER_DRAFT_TTL_MS,
     clampCompletedThrough,
-    isCompletedOnboardingStatus,
-    normalizeOnboardingSection,
+    clampOnboardingStep,
 } from '@/lib/onboarding/state'
-import type { OnboardingStep2SectionId } from '@/lib/onboarding/config'
+import {
+    claimPrimaryAlias,
+    findUnavailableUsernames,
+    generateDeterministicUsernameCandidates,
+    getUsernameAvailability,
+    mapUsernamePersistenceError,
+} from '@/lib/usernames/service'
+import { consumeRateLimit } from '@/lib/security/rate-limit'
+import { getTrustedHeadersIp } from '@/lib/security/request-ip'
+import { isSafeHttpUrl } from '@/lib/security/urls'
+import { createClient } from '@/lib/supabase/server'
+import { isEmailVerified } from '@/lib/auth/email-verification'
+import {
+    normalizeOnboardingPayload,
+    parseOnboardingDraft,
+    type OnboardingDraft,
+    type OnboardingPayload,
+    type OnboardingPayloadInput,
+} from '@/lib/validations/onboarding'
+import { normalizeUsername, validateUsername } from '@/lib/validations/username'
 import { syncProfileSkills } from '@/lib/skills/service'
-import { getRolePreferences } from '@/lib/profile/role-preferences'
 import { ensureProfileShell } from '@/lib/services/profile-service'
 import { enqueueSupersededProfileImages } from '@/lib/profile/image-cleanup'
 import { queueEmail, wakeEmailWorker } from '@/lib/email/outbox'
@@ -49,272 +46,71 @@ const ONBOARDING_COMPLETE_LIMIT = 10
 const ONBOARDING_COMPLETE_WINDOW_SECONDS = 60
 const ONBOARDING_COMPLETE_IP_LIMIT = 30
 const ONBOARDING_COMPLETE_FINGERPRINT_LIMIT = 20
-const ONBOARDING_IDEMPOTENCY_MIN_CHARS = 12
-const ONBOARDING_IDEMPOTENCY_MAX_CHARS = 80
-const ONBOARDING_STEP_MIN = 1
-const ONBOARDING_STEP_MAX = ONBOARDING_TOTAL_STEPS
-const MAX_DRAFT_TAG_ITEMS = 25
-const MAX_DRAFT_OPEN_TO_ITEMS = 12
-const MAX_DRAFT_TAG_ITEM_CHARS = 32
-const MAX_DRAFT_HEADLINE_CHARS = 120
-const MAX_DRAFT_BIO_CHARS = 500
-const MAX_DRAFT_LOCATION_CHARS = 120
-const MAX_DRAFT_WEBSITE_CHARS = 200
-const MAX_DRAFT_PRONOUNS_CHARS = 60
-const MAX_DRAFT_SOCIAL_URL_CHARS = 200
-const MAX_DRAFT_FULL_NAME_CHARS = 80
 
-type DraftPayload = {
-    username?: string
-    fullName?: string
-    avatarUrl?: string
-    headline?: string
-    bio?: string
-    location?: string
-    website?: string
-    skills?: string[]
-    interests?: string[]
-    openTo?: string[]
-    messagePrivacy?: OnboardingMessagePrivacy
-    socialLinks?: OnboardingSocialLinks
-    experienceLevel?: OnboardingExperienceLevel
-    hoursPerWeek?: OnboardingHoursPerWeek
-    genderIdentity?: OnboardingGenderIdentity
-    pronouns?: string
-    visibility?: OnboardingVisibility
+type FailedResult = { success: false; error: string; errorDetails: OnboardingError }
+
+function failed(details: OnboardingError): FailedResult {
+    return { success: false, error: details.message, errorDetails: details }
 }
 
-function clampStep(step: number): number {
-    if (!Number.isFinite(step)) return ONBOARDING_STEP_MIN
-    return Math.min(ONBOARDING_STEP_MAX, Math.max(ONBOARDING_STEP_MIN, Math.floor(step)))
-}
-
-function trimOptionalString(value: unknown, maxLength: number): string | undefined {
-    if (typeof value !== 'string') return undefined
-    const normalized = value.trim().slice(0, maxLength)
-    return normalized.length > 0 ? normalized : undefined
-}
-
-function trimOptionalUrl(value: unknown, maxLength: number): string | undefined {
-    if (typeof value !== 'string') return undefined
-    const normalized = value.trim().slice(0, maxLength)
-    if (!normalized) return undefined
-    if (/^https?:\/\//i.test(normalized)) return normalized
-    return `https://${normalized}`
-}
-
-function sanitizeEnum<T extends string>(
-    value: unknown,
-    allowed: readonly T[]
-): T | undefined {
-    if (typeof value !== 'string') return undefined
-    return allowed.includes(value as T) ? (value as T) : undefined
-}
-
-function sanitizeDraftTagList(value: unknown): string[] | undefined {
-    if (!Array.isArray(value)) return undefined
-    const seen = new Set<string>()
-    const list: string[] = []
-
-    for (const item of value) {
-        if (typeof item !== 'string') continue
-        const normalized = item.trim().slice(0, MAX_DRAFT_TAG_ITEM_CHARS)
-        if (!normalized) continue
-        const key = normalized.toLowerCase()
-        if (seen.has(key)) continue
-        seen.add(key)
-        list.push(normalized)
-        if (list.length >= MAX_DRAFT_TAG_ITEMS) break
-    }
-
-    return list
-}
-
-function sanitizeDraftOpenToList(value: unknown): string[] | undefined {
-    const roles = getRolePreferences(value).slice(0, MAX_DRAFT_OPEN_TO_ITEMS)
-    return roles.length > 0 ? roles : undefined
-}
-
-function sanitizeDraftSocialLinks(value: unknown): OnboardingSocialLinks | undefined {
-    if (!value || typeof value !== 'object') return undefined
-    const source = value as Record<string, unknown>
-    const result: OnboardingSocialLinks = {}
-    for (const key of ONBOARDING_SOCIAL_KEYS) {
-        const normalized = trimOptionalUrl(source[key], MAX_DRAFT_SOCIAL_URL_CHARS)
-        if (!normalized) continue
-        result[key] = normalized
-    }
-    return Object.keys(result).length > 0 ? result : undefined
-}
-
-function sanitizeOnboardingDraft(input: unknown): DraftPayload {
-    const source = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>
-    const visibility = source.visibility
-    const messagePrivacy = sanitizeEnum(
-        source.messagePrivacy,
-        ONBOARDING_MESSAGE_PRIVACY_VALUES
-    )
-    const experienceLevel = sanitizeEnum(
-        source.experienceLevel,
-        ONBOARDING_EXPERIENCE_LEVEL_VALUES
-    )
-    const hoursPerWeek = sanitizeEnum(
-        source.hoursPerWeek,
-        ONBOARDING_HOURS_PER_WEEK_VALUES
-    )
-    const genderIdentity = sanitizeEnum(
-        source.genderIdentity,
-        ONBOARDING_GENDER_VALUES
-    )
+async function getViewer() {
+    const supabase = await createClient()
+    const [{ data: authData }, headerStore] = await Promise.all([supabase.auth.getUser(), headers()])
     return {
-        username: typeof source.username === 'string' ? sanitizeUsernameInput(source.username) : undefined,
-        fullName: trimOptionalString(source.fullName, MAX_DRAFT_FULL_NAME_CHARS),
-        avatarUrl: trimOptionalString(source.avatarUrl, 2000),
-        headline: trimOptionalString(source.headline, MAX_DRAFT_HEADLINE_CHARS),
-        bio: trimOptionalString(source.bio, MAX_DRAFT_BIO_CHARS),
-        location: trimOptionalString(source.location, MAX_DRAFT_LOCATION_CHARS),
-        website: trimOptionalUrl(source.website, MAX_DRAFT_WEBSITE_CHARS),
-        skills: sanitizeDraftTagList(source.skills),
-        interests: sanitizeDraftTagList(source.interests),
-        openTo: sanitizeDraftOpenToList(source.openTo),
-        messagePrivacy,
-        socialLinks: sanitizeDraftSocialLinks(source.socialLinks),
-        experienceLevel,
-        hoursPerWeek,
-        genderIdentity,
-        pronouns: trimOptionalString(source.pronouns, MAX_DRAFT_PRONOUNS_CHARS),
-        visibility: ONBOARDING_VISIBILITY_VALUES.includes(visibility as OnboardingVisibility)
-            ? (visibility as OnboardingVisibility)
-            : undefined,
+        user: authData.user || null,
+        ipAddress: getTrustedHeadersIp(headerStore) ?? 'unknown',
+        userAgent: headerStore.get('user-agent') || 'unknown',
     }
 }
 
-function sanitizeTelemetryMetadata(input: unknown): Record<string, unknown> {
-    if (!input || typeof input !== 'object') return {}
-    const entries = Object.entries(input as Record<string, unknown>).slice(0, 20)
-    const metadata: Record<string, unknown> = {}
-    for (const [key, value] of entries) {
-        if (!key) continue
-        if (typeof value === 'string') {
-            metadata[key] = value.slice(0, 300)
-            continue
-        }
-        if (typeof value === 'number' || typeof value === 'boolean' || value === null) {
-            metadata[key] = value
-            continue
-        }
+/** Runs after the response when there is a request to run after; a plain background call otherwise (tests, scripts). */
+function afterResponse(task: () => Promise<unknown>) {
+    const run = () => task().catch((error) => console.error('Onboarding follow-up failed:', error))
+    try {
+        after(run)
+    } catch {
+        void run()
     }
-    return metadata
 }
 
-function toLegacyErrorMessage(error: OnboardingError | undefined, fallback: string): string {
-    return error?.message || fallback
+type EventRow = { eventType: string; step?: number | null; metadata?: Record<string, unknown> }
+
+function writeEvents(executor: Pick<typeof db, 'insert'>, userId: string, events: EventRow[]) {
+    if (events.length === 0) return Promise.resolve()
+    return executor.insert(onboardingEvents).values(
+        events.map((event) => ({
+            userId,
+            eventType: event.eventType,
+            step: typeof event.step === 'number' ? clampOnboardingStep(event.step) : null,
+            metadata: event.metadata ?? {},
+        })),
+    )
 }
 
-function parseIdempotencyKey(value: unknown): string | null {
-    if (typeof value !== 'string') return null
-    const normalized = value.trim()
-    if (normalized.length < ONBOARDING_IDEMPOTENCY_MIN_CHARS) return null
-    if (normalized.length > ONBOARDING_IDEMPOTENCY_MAX_CHARS) return null
-    if (!/^[a-zA-Z0-9:_-]+$/.test(normalized)) return null
-    return normalized
-}
-
-function buildOnboardingCompleteRateLimitKeys(params: {
-    userId: string
-    ipAddress: string
-    userAgent: string
-}) {
-    const ua = params.userAgent.toLowerCase().slice(0, 120) || 'unknown'
-    return {
-        user: `onboarding:complete:user:${params.userId}`,
-        ip: `onboarding:complete:ip:${params.ipAddress}`,
-        fingerprint: `onboarding:complete:fingerprint:${params.ipAddress}:${ua}`,
-    }
+function describeInvalid(error: unknown): string {
+    const issue = (error as { issues?: Array<{ path: PropertyKey[]; message: string }> })?.issues?.[0]
+    if (!issue) return 'Some details look invalid. Please review and try again.'
+    const field = issue.path.length > 0 ? `${String(issue.path[0])}: ` : ''
+    return `${field}${issue.message}`
 }
 
 function mapOnboardingPersistenceError(error: unknown): OnboardingError {
     const usernameError = mapUsernamePersistenceError(error)
-    if (usernameError.code !== 'DB_ERROR') {
-        return usernameError
-    }
+    if (usernameError.code !== 'DB_ERROR') return usernameError
     const code = (error as { code?: string })?.code
-    if (code === '22P02') {
-        return onboardingError('INVALID_INPUT', 'Invalid onboarding input')
-    }
+    if (code === '22P02') return onboardingError('INVALID_INPUT', 'Invalid onboarding input')
     return onboardingError('DB_ERROR', 'Unable to complete onboarding right now', true)
 }
 
-async function getViewerIdentity() {
-    const supabase = await createClient()
-    const [{ data: authData }, headerStore] = await Promise.all([
-        supabase.auth.getUser(),
-        headers(),
-    ])
-
-    const user = authData.user || null
-    const ipAddress = getTrustedHeadersIp(headerStore) ?? 'unknown'
-    const userAgent = headerStore.get('user-agent') || 'unknown'
-    const viewerKey = user?.id || `anon:${ipAddress}`
-
-    return {
-        supabase,
-        user,
-        ipAddress,
-        userAgent,
-        viewerKey,
-    }
-}
-
-async function syncOnboardingClaims(params: {
-    userId: string
-    userMetadata?: User['user_metadata']
-    appMetadata?: User['app_metadata']
-    username: string
-    fullName: string
-    avatarUrl?: string
-    emailVerified?: boolean
-}): Promise<boolean> {
-    const payload = {
-        user_metadata: {
-            ...(params.userMetadata || {}),
-            username: params.username,
-            onboarded: true,
-            full_name: params.fullName,
-            avatar_url: params.avatarUrl || null,
-        },
-        app_metadata: {
-            ...(params.appMetadata || {}),
-            onboarding_complete: true,
-            onboarding_version: ONBOARDING_SCHEMA_VERSION,
-        },
-    }
-    const admin = await createAdminClient()
-
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-        const { error } = await admin.auth.admin.updateUserById(params.userId, payload)
-        if (!error) return true
-        console.error('Error syncing onboarding claims (attempt):', attempt + 1, error.message)
-    }
-    return false
-}
-
-async function ensureUsernameIsAvailable(params: {
-    username: string
-    userId: string
-}) {
+async function ensureUsernameIsAvailable(params: { username: string; userId: string }) {
     try {
-        const availability = await getUsernameAvailability({
-            username: params.username,
-            viewerId: params.userId,
-        })
+        const availability = await getUsernameAvailability({ username: params.username, viewerId: params.userId })
         if (!availability.available) {
             return {
                 ok: false as const,
                 error: availability.error || onboardingError(availability.code || 'USERNAME_TAKEN', availability.message),
             }
         }
-
         return { ok: true as const }
     } catch (error) {
         console.error('Error checking username availability:', error)
@@ -322,33 +118,6 @@ async function ensureUsernameIsAvailable(params: {
             ok: false as const,
             error: onboardingError('DB_ERROR', 'Unable to verify username availability', true),
         }
-    }
-}
-
-function buildProfileOnboardingValues(params: {
-    userEmail: string
-    payload: ReturnType<typeof normalizeOnboardingPayload>
-    avatarUrl: string | null
-}) {
-    return {
-        email: params.userEmail,
-        username: params.payload.username,
-        fullName: params.payload.fullName,
-        avatarUrl: params.avatarUrl,
-        headline: params.payload.headline || null,
-        bio: params.payload.bio || null,
-        location: params.payload.location || null,
-        website: params.payload.website || null,
-        skills: params.payload.skills,
-        interests: params.payload.interests,
-        openTo: params.payload.openTo,
-        messagePrivacy: params.payload.messagePrivacy,
-        socialLinks: params.payload.socialLinks,
-        experienceLevel: params.payload.experienceLevel || null,
-        hoursPerWeek: params.payload.hoursPerWeek || null,
-        genderIdentity: params.payload.genderIdentity || null,
-        pronouns: params.payload.pronouns || null,
-        visibility: params.payload.visibility,
     }
 }
 
@@ -365,198 +134,134 @@ async function ensureOnboardingProfileShell(params: {
             error: onboardingError('INVALID_INPUT', 'Account email is missing. Please re-authenticate.'),
         }
     }
+    return { success: false, error: onboardingError('DB_ERROR', 'Unable to prepare your account profile', true) }
+}
+
+function profileValues(params: { userEmail: string; payload: OnboardingPayload; avatarUrl: string | null }) {
+    const { payload } = params
     return {
-        success: false,
-        error: onboardingError('DB_ERROR', 'Unable to prepare your account profile', true),
+        email: params.userEmail,
+        username: payload.username,
+        fullName: payload.fullName,
+        avatarUrl: params.avatarUrl,
+        headline: payload.headline || null,
+        bio: payload.bio || null,
+        location: payload.location || null,
+        website: payload.website || null,
+        skills: payload.skills,
+        interests: payload.interests,
+        openTo: payload.openTo,
+        messagePrivacy: payload.messagePrivacy,
+        socialLinks: payload.socialLinks,
+        experienceLevel: payload.experienceLevel || null,
+        hoursPerWeek: payload.hoursPerWeek || null,
+        genderIdentity: payload.genderIdentity || null,
+        pronouns: payload.pronouns || null,
+        visibility: payload.visibility,
     }
-}
-
-async function writeOnboardingEventBestEffort(params: {
-    userId: string
-    eventType: string
-    step: number | null
-    metadata?: Record<string, unknown>
-    context: string
-}): Promise<boolean> {
-    try {
-        await db.insert(onboardingEvents).values({
-            userId: params.userId,
-            eventType: params.eventType,
-            step: typeof params.step === 'number' ? clampStep(params.step) : null,
-            metadata: sanitizeTelemetryMetadata(params.metadata),
-        })
-        return true
-    } catch (error) {
-        console.error(`Error tracking onboarding event (${params.context}):`, error)
-        return false
-    }
-}
-
-function generateCandidateUsernames(fullName: string): string[] {
-    return generateDeterministicUsernameCandidates(fullName)
 }
 
 export async function completeOnboarding(
-    data: OnboardingPayloadInput & { idempotencyKey?: string; telemetry?: OnboardingEventInput[] }
-): Promise<{
-    success: boolean
-    error?: string
-    errorDetails?: OnboardingError
-    needsMetadataSync?: boolean
-}> {
-    let attempt: OnboardingAttempt | null = null
-    try {
-        const normalizedUsername = normalizeUsername(data.username)
-        const usernameValidation = validateUsername(normalizedUsername)
-        if (!usernameValidation.valid) {
-            const error = onboardingError('USERNAME_INVALID', usernameValidation.message)
-            return { success: false, error: error.message, errorDetails: error }
-        }
+    data: OnboardingPayloadInput & { telemetry?: OnboardingEventInput[] },
+): Promise<{ success: boolean; error?: string; errorDetails?: OnboardingError }> {
+    const telemetry = sanitizeOnboardingTelemetryBatch(data.telemetry)
+    let userId: string | null = null
 
-        const telemetry = sanitizeOnboardingTelemetryBatch(data.telemetry)
-        let payload: ReturnType<typeof normalizeOnboardingPayload>
-        try {
-            payload = normalizeOnboardingPayload({ ...data, username: normalizedUsername })
-        } catch (error) {
-            const message = error instanceof Error ? error.message : 'Invalid onboarding data'
-            const details = onboardingError('INVALID_INPUT', message)
-            return { success: false, error: details.message, errorDetails: details }
-        }
-
-        const { user, ipAddress, userAgent } = await getViewerIdentity()
-        if (!user) {
-            const error = onboardingError('NOT_AUTHENTICATED', 'Session expired. Please login again.')
-            return { success: false, error: error.message, errorDetails: error }
-        }
-        if (!isEmailVerified(user as unknown as Record<string, unknown>)) {
-            const error = onboardingError(
-                'INVALID_INPUT',
-                'Verify your email before completing onboarding.'
+    // The server, not the browser, records how a submit ended, so the success rate stays honest.
+    const finish = <T extends { success: boolean }>(result: T, metadata: Record<string, unknown> = {}): T => {
+        const id = userId
+        if (id) {
+            afterResponse(() =>
+                writeEvents(db, id, [
+                    { eventType: 'submit_start', step: ONBOARDING_TOTAL_STEPS },
+                    ...telemetry,
+                    result.success
+                        ? { eventType: 'submit_success', step: ONBOARDING_TOTAL_STEPS, metadata }
+                        : { eventType: 'submit_error', step: ONBOARDING_TOTAL_STEPS, metadata },
+                ]),
             )
-            return { success: false, error: error.message, errorDetails: error }
+        }
+        return result
+    }
+
+    try {
+        // Auth first: nothing is parsed for a caller who is not signed in.
+        const { user, ipAddress, userAgent } = await getViewer()
+        if (!user) return failed(onboardingError('NOT_AUTHENTICATED', 'Session expired. Please login again.'))
+        userId = user.id
+        if (!isEmailVerified(user as unknown as Record<string, unknown>)) {
+            return finish(failed(onboardingError('INVALID_INPUT', 'Verify your email before completing onboarding.')), {
+                reason: 'INVALID_INPUT',
+            })
         }
 
-        const rateKeys = buildOnboardingCompleteRateLimitKeys({
-            userId: user.id,
-            ipAddress,
-            userAgent,
-        })
+        const username = normalizeUsername(data.username)
+        const usernameValidation = validateUsername(username)
+        if (!usernameValidation.valid) {
+            return finish(failed(onboardingError('USERNAME_INVALID', usernameValidation.message)), { reason: 'USERNAME_INVALID' })
+        }
+        let payload: OnboardingPayload
+        try {
+            payload = normalizeOnboardingPayload({ ...data, username })
+        } catch (error) {
+            return finish(failed(onboardingError('INVALID_INPUT', describeInvalid(error))), { reason: 'INVALID_INPUT' })
+        }
+
+        const ua = userAgent.toLowerCase().slice(0, 120) || 'unknown'
         const [userRate, ipRate, fingerprintRate] = await Promise.all([
-            consumeRateLimit(rateKeys.user, ONBOARDING_COMPLETE_LIMIT, ONBOARDING_COMPLETE_WINDOW_SECONDS),
-            consumeRateLimit(rateKeys.ip, ONBOARDING_COMPLETE_IP_LIMIT, ONBOARDING_COMPLETE_WINDOW_SECONDS),
+            consumeRateLimit(`onboarding:complete:user:${user.id}`, ONBOARDING_COMPLETE_LIMIT, ONBOARDING_COMPLETE_WINDOW_SECONDS),
+            consumeRateLimit(`onboarding:complete:ip:${ipAddress}`, ONBOARDING_COMPLETE_IP_LIMIT, ONBOARDING_COMPLETE_WINDOW_SECONDS),
             consumeRateLimit(
-                rateKeys.fingerprint,
+                `onboarding:complete:fingerprint:${ipAddress}:${ua}`,
                 ONBOARDING_COMPLETE_FINGERPRINT_LIMIT,
-                ONBOARDING_COMPLETE_WINDOW_SECONDS
+                ONBOARDING_COMPLETE_WINDOW_SECONDS,
             ),
         ])
         if (!userRate.allowed || !ipRate.allowed || !fingerprintRate.allowed) {
-            const error = onboardingError(
-                'RATE_LIMITED',
-                'Too many attempts. Please wait a minute and try again.',
-                true
-            )
-            return { success: false, error: error.message, errorDetails: error }
+            return finish(failed(onboardingError('RATE_LIMITED', 'Too many attempts. Please wait a minute and try again.', true)), {
+                reason: 'RATE_LIMITED',
+            })
         }
 
         if (!user.email) {
-            const error = onboardingError('INVALID_INPUT', 'Account email is missing. Please re-authenticate.')
-            return { success: false, error: error.message, errorDetails: error }
+            return finish(failed(onboardingError('INVALID_INPUT', 'Account email is missing. Please re-authenticate.')), {
+                reason: 'INVALID_INPUT',
+            })
         }
         const userEmail = user.email
-        const shell = await ensureOnboardingProfileShell({
-            userId: user.id,
-            userEmail,
-            metadata: user.user_metadata,
-        })
-        if (!shell.success) {
-            return { success: false, error: shell.error.message, errorDetails: shell.error }
-        }
+        const shell = await ensureOnboardingProfileShell({ userId: user.id, userEmail, metadata: user.user_metadata })
+        if (!shell.success) return finish(failed(shell.error), { reason: shell.error.code })
 
-        const idempotencyKey =
-            parseIdempotencyKey(data.idempotencyKey) ||
-            `fallback:${user.id}:${payload.username}`
-        const submission = await beginOnboardingSubmission({
-            userId: user.id,
-            idempotencyKey,
-        })
-        if (submission.mode === 'replay') {
-            if (submission.response.success) {
-                return {
-                    success: true,
-                    needsMetadataSync: submission.response.needsMetadataSync,
-                }
-            }
-            return {
-                success: false,
-                error: toLegacyErrorMessage(submission.response.error, 'Unable to complete onboarding'),
-                errorDetails: submission.response.error,
-            }
-        }
-        if (submission.mode === 'in-progress') {
-            const error = onboardingError('SUBMISSION_IN_PROGRESS', 'Your onboarding request is already processing.', true)
-            return { success: false, error: error.message, errorDetails: error }
-        }
-        attempt = { submissionId: submission.submissionId, attemptToken: submission.attemptToken }
+        const availability = await ensureUsernameIsAvailable({ username: payload.username, userId: user.id })
+        if (!availability.ok) return finish(failed(availability.error), { reason: availability.error.code })
 
-        const availability = await ensureUsernameIsAvailable({
-            username: payload.username,
-            userId: user.id,
-        })
-        if (!availability.ok) {
-            if (attempt) {
-                await finalizeOnboardingSubmission({
-                    ...attempt,
-                    status: 'failed',
-                    response: { success: false, error: availability.error },
-                })
-            }
-            return {
-                success: false,
-                error: availability.error.message,
-                errorDetails: availability.error,
-            }
-        }
+        // The provider photo is user-editable metadata: it passes the same safe-URL gate as an uploaded one.
+        const metadataAvatar = user.user_metadata?.avatar_url
+        const avatarUrl =
+            payload.avatarUrl || (typeof metadataAvatar === 'string' && isSafeHttpUrl(metadataAvatar) ? metadataAvatar : null)
+        const values = profileValues({ userEmail, payload, avatarUrl })
+        const now = new Date()
 
-        const avatarUrl = payload.avatarUrl || user.user_metadata?.avatar_url || null
-        const profileValues = buildProfileOnboardingValues({
-            userEmail,
-            payload,
-            avatarUrl,
-        })
-        let previousAvatarUrl: string | null = null
-        await db.transaction(async (tx) => {
-            const existingProfile = await tx.query.profiles.findFirst({
-                where: eq(profiles.id, user.id),
-                columns: {
-                    username: true,
-                    avatarUrl: true,
-                    onboardingStatus: true,
-                },
-            })
-            previousAvatarUrl = existingProfile?.avatarUrl ?? null
-            const previousUsername = existingProfile?.username ? normalizeUsername(existingProfile.username) : null
+        const outcome = await db.transaction(async (tx) => {
+            // The row lock is the whole idempotency story: a second or repeated completion waits here, sees
+            // 'completed' and writes nothing, so a finished account can never be rewritten through this action.
+            const [existing] = await tx
+                .select({ avatarUrl: profiles.avatarUrl, onboardingStatus: profiles.onboardingStatus })
+                .from(profiles)
+                .where(eq(profiles.id, user.id))
+                .for('update')
+            if (existing?.onboardingStatus === 'completed') return { alreadyCompleted: true as const }
 
+            const completion = {
+                onboardingStatus: 'completed' as const,
+                onboardingCompletedAt: now,
+                onboardingVersion: ONBOARDING_SCHEMA_VERSION,
+                updatedAt: now,
+            }
             await tx
                 .insert(profiles)
-                .values({
-                    id: user.id,
-                    ...profileValues,
-                    onboardingStatus: 'completed',
-                    onboardingCompletedAt: new Date(),
-                    onboardingVersion: ONBOARDING_SCHEMA_VERSION,
-                    updatedAt: new Date(),
-                })
-                .onConflictDoUpdate({
-                    target: profiles.id,
-                    set: {
-                        ...profileValues,
-                        onboardingStatus: 'completed',
-                        onboardingCompletedAt: new Date(),
-                        onboardingVersion: ONBOARDING_SCHEMA_VERSION,
-                        updatedAt: new Date(),
-                    },
-                })
+                .values({ id: user.id, ...values, ...completion })
+                .onConflictDoUpdate({ target: profiles.id, set: { ...values, ...completion } })
 
             const resolvedSkills = await syncProfileSkills(tx, user.id, payload.skills)
             await tx
@@ -564,227 +269,116 @@ export async function completeOnboarding(
                 .set({ skills: resolvedSkills.map((skill) => skill.name) })
                 .where(eq(profiles.id, user.id))
 
-            if (previousUsername && previousUsername !== payload.username) {
-                await tx
-                    .update(usernameAliases)
-                    .set({
-                        isPrimary: false,
-                        replacedAt: new Date(),
-                    })
-                    .where(eq(usernameAliases.username, previousUsername))
-            }
+            await claimPrimaryAlias(tx, user.id, payload.username)
+            await tx.delete(onboardingDrafts).where(eq(onboardingDrafts.userId, user.id))
+            await queueEmail(tx, { kind: 'welcome', eventId: user.id, userId: user.id })
 
-            const existingAlias = await tx.query.usernameAliases.findFirst({
-                where: eq(usernameAliases.username, payload.username),
-                columns: {
-                    userId: true,
-                    isPrimary: true,
-                },
-            })
-            if (existingAlias) {
-                if (existingAlias.userId !== user.id) {
-                    throw new UsernamePersistenceError('USERNAME_TAKEN', 'Username is already taken')
-                }
-
-                if (!existingAlias.isPrimary) {
-                    await tx
-                        .update(usernameAliases)
-                        .set({
-                            isPrimary: true,
-                            replacedAt: null,
-                        })
-                        .where(
-                            and(
-                                eq(usernameAliases.username, payload.username),
-                                eq(usernameAliases.userId, user.id),
-                            ),
-                        )
-                }
-            } else {
-                await tx.insert(usernameAliases).values({
-                    username: payload.username,
-                    userId: user.id,
-                    isPrimary: true,
-                    claimedAt: new Date(),
-                    replacedAt: null,
-                })
-            }
-
-            await tx
-                .delete(onboardingDrafts)
-                .where(eq(onboardingDrafts.userId, user.id))
-
-            if (existingProfile?.onboardingStatus !== 'completed') {
-                await queueEmail(tx, { kind: 'welcome', eventId: user.id, userId: user.id })
-            }
-
-            if (telemetry.length > 0) {
-                await tx.insert(onboardingEvents).values(telemetry.map((event) => ({
-                    userId: user.id,
-                    eventType: event.eventType,
-                    step: typeof event.step === 'number' ? clampStep(event.step) : null,
-                    metadata: sanitizeTelemetryMetadata(event.metadata),
-                })))
-            }
+            return { alreadyCompleted: false as const, previousAvatarUrl: existing?.avatarUrl ?? null }
         })
 
-        await wakeEmailWorker()
+        if (outcome.alreadyCompleted) return finish({ success: true as const }, { alreadyCompleted: true })
 
-        if (previousAvatarUrl && previousAvatarUrl !== avatarUrl) {
-            await enqueueSupersededProfileImages(user.id, [previousAvatarUrl])
-        }
-
-        await writeOnboardingEventBestEffort({
-            userId: user.id,
-            eventType: 'submit_profile_saved',
-            step: ONBOARDING_STEP_MAX,
-            context: 'submit_profile_saved',
-            metadata: {
-                visibility: payload.visibility,
-                messagePrivacy: payload.messagePrivacy,
-                hasHeadline: Boolean(payload.headline),
-                hasBio: Boolean(payload.bio),
-                hasPronouns: Boolean(payload.pronouns),
-                hasGenderIdentity: Boolean(payload.genderIdentity),
-                hasExperienceLevel: Boolean(payload.experienceLevel),
-                hasHoursPerWeek: Boolean(payload.hoursPerWeek),
-                socialLinksCount: Object.keys(payload.socialLinks || {}).length,
-                openToCount: payload.openTo.length,
-                skillsCount: payload.skills.length,
-                interestsCount: payload.interests.length,
-            },
-        })
-
-        const metadataSynced = await syncOnboardingClaims({
+        // The next page load reads this claim, so it is written before the response. If it fails the
+        // database still says completed and the gate heals the claim itself (lib/onboarding/completion.ts).
+        const claimSynced = await syncOnboardingClaims({
             userId: user.id,
             userMetadata: user.user_metadata,
             appMetadata: user.app_metadata,
-            username: payload.username,
-            fullName: payload.fullName,
-            avatarUrl: avatarUrl || undefined,
-            emailVerified: true,
+            profile: { username: payload.username, fullName: payload.fullName, avatarUrl },
         })
 
-        await writeOnboardingEventBestEffort({
-            userId: user.id,
-            eventType: metadataSynced ? 'submit_success' : 'submit_success_needs_claim_sync',
-            step: ONBOARDING_STEP_MAX,
-            context: 'submit_success',
-            metadata: {
-                needsMetadataSync: !metadataSynced,
-            },
+        afterResponse(async () => {
+            await wakeEmailWorker()
+            if (outcome.previousAvatarUrl && outcome.previousAvatarUrl !== avatarUrl) {
+                await enqueueSupersededProfileImages(user.id, [outcome.previousAvatarUrl])
+            }
         })
-
-        if (attempt) {
-            await finalizeOnboardingSubmission({
-                ...attempt,
-                status: 'completed',
-                response: { success: true, needsMetadataSync: !metadataSynced },
-            })
-        }
-
-        return { success: true, needsMetadataSync: !metadataSynced }
+        return finish({ success: true as const }, { claimSynced })
     } catch (error) {
         console.error('Error completing onboarding:', error)
         const details = mapOnboardingPersistenceError(error)
-        if (attempt) {
-            await finalizeOnboardingSubmission({
-                ...attempt,
-                status: 'failed',
-                response: { success: false, error: details },
-            })
-        }
-        return { success: false, error: details.message, errorDetails: details }
-    }
-}
-
-export async function repairOnboardingClaims(): Promise<{ success: boolean; error?: string }> {
-    try {
-        const supabase = await createClient()
-        const { data: authData } = await supabase.auth.getUser()
-        const user = authData.user
-        if (!user) return { success: false, error: 'Not authenticated' }
-
-        const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('username, full_name, avatar_url, onboarding_status')
-            .eq('id', user.id)
-            .maybeSingle()
-
-        if (profileError) {
-            console.error('Error fetching profile for claim repair:', profileError)
-            return { success: false, error: 'Unable to read profile for metadata sync' }
-        }
-        // AUTH-010: a username can be set before onboarding finishes, so only the recorded
-        // completion state and a confirmed email may mint the server-owned completion claim.
-        if (!profile?.username || !isCompletedOnboardingStatus(profile.onboarding_status, profile.username)) {
-            return { success: false, error: 'Onboarding is not complete' }
-        }
-        if (!isEmailVerified(user as unknown as Record<string, unknown>)) {
-            return { success: false, error: 'Email is not verified' }
-        }
-
-        const synced = await syncOnboardingClaims({
-            userId: user.id,
-            userMetadata: user.user_metadata,
-            appMetadata: user.app_metadata,
-            username: profile.username,
-            fullName: profile.full_name || user.user_metadata?.full_name || user.email || 'User',
-            avatarUrl: profile.avatar_url || undefined,
-            emailVerified: true,
-        })
-
-        return synced
-            ? { success: true }
-            : { success: false, error: 'Unable to sync metadata claims' }
-    } catch (error) {
-        console.error('Error repairing onboarding claims:', error)
-        return { success: false, error: 'Unable to sync metadata claims' }
+        return finish(failed(details), { reason: details.code })
     }
 }
 
 export async function getUsernameSuggestions(fullName: string): Promise<{ suggestions: string[] }> {
-    const candidates = generateCandidateUsernames(fullName).slice(0, 12)
+    const { user, ipAddress, userAgent } = await getViewer()
+    if (!user) return { suggestions: [] }
+
+    // Which names are free is the answer to "is this username taken?", so it spends the same budget as the check.
+    const budget = await consumeUsernameCheckBudget({ viewerKey: user.id, viewerId: user.id, ipAddress, userAgent })
+    if (!budget.allowed) return { suggestions: [] }
+
+    const candidates = generateDeterministicUsernameCandidates(String(fullName ?? '').slice(0, 80))
+        .slice(0, 12)
+        .map((candidate) => normalizeUsername(candidate))
     if (candidates.length === 0) return { suggestions: [] }
 
-    const normalizedCandidates = candidates.map((candidate) => normalizeUsername(candidate))
     try {
-        const taken = await findUnavailableUsernames(normalizedCandidates)
-
-        const suggestions = normalizedCandidates
-            .filter((candidate) => !taken.has(candidate))
-            .slice(0, 5)
-        return { suggestions }
+        const taken = await findUnavailableUsernames(candidates)
+        return { suggestions: candidates.filter((candidate) => !taken.has(candidate)).slice(0, 5) }
     } catch (error) {
         console.error('Error building username suggestions:', error)
         return { suggestions: [] }
     }
 }
 
+type CommitResult =
+    | {
+          success: true
+          step: number
+          committedThrough: number
+          version: number
+          draft: OnboardingDraft
+      }
+    | (FailedResult & {
+          step?: number
+          committedThrough?: number
+          version?: number
+          draft?: OnboardingDraft
+      })
+
+const draftColumns = { step: true, completedThrough: true, version: true, draft: true } as const
+
 export async function commitOnboardingStep(input: {
     step: number
-    draft: DraftPayload
-    activeSection?: OnboardingStep2SectionId
+    draft: unknown
     expectedVersion: number
     telemetry?: OnboardingEventInput[]
-}): Promise<{
-    success: boolean
-    step?: number
-    committedThrough?: number
-    activeSection?: OnboardingStep2SectionId
-    version?: number
-    schemaVersion?: number
-    draft?: DraftPayload
-    error?: string
-    errorDetails?: OnboardingError
-}> {
+}): Promise<CommitResult> {
     try {
-        const supabase = await createClient()
-        const { data: authData } = await supabase.auth.getUser()
-        const user = authData.user
-        if (!user) {
-            const details = onboardingError('NOT_AUTHENTICATED', 'Session expired. Please sign in again.')
-            return { success: false, error: details.message, errorDetails: details }
+        const { user, ipAddress, userAgent } = await getViewer()
+        if (!user) return failed(onboardingError('NOT_AUTHENTICATED', 'Session expired. Please sign in again.'))
+        if (!isEmailVerified(user as unknown as Record<string, unknown>)) {
+            return failed(onboardingError('INVALID_INPUT', 'Verify your email to continue.'))
+        }
+
+        const currentStep = clampOnboardingStep(input.step)
+        if (currentStep >= ONBOARDING_TOTAL_STEPS) {
+            return failed(onboardingError('INVALID_INPUT', 'Complete the final step to finish onboarding.'))
+        }
+
+        const draft = parseOnboardingDraft(input.draft)
+        if (currentStep === 1) {
+            // The raw value is judged, not a cleaned-up copy: a name with a space or symbol is refused, not silently changed.
+            const username = normalizeUsername(draft.username ?? '')
+            const usernameValidation = validateUsername(username)
+            if (!usernameValidation.valid) {
+                return failed(onboardingError('USERNAME_INVALID', usernameValidation.message))
+            }
+            if ((draft.fullName ?? '').length < 2) {
+                return failed(onboardingError('INVALID_INPUT', 'Enter your full name (at least 2 characters).'))
+            }
+            const budget = await consumeUsernameCheckBudget({ viewerKey: user.id, viewerId: user.id, ipAddress, userAgent })
+            if (!budget.allowed) {
+                return failed(onboardingError('RATE_LIMITED', 'Too many checks. Please wait and try again.', true))
+            }
+            const availability = await ensureUsernameIsAvailable({ username, userId: user.id })
+            if (!availability.ok) return failed(availability.error)
+            draft.username = username
+        }
+        if (currentStep === 3 && (!draft.skills || draft.skills.length === 0)) {
+            return failed(onboardingError('INVALID_INPUT', 'Select at least one skill to continue.'))
         }
 
         const profileShell = await ensureOnboardingProfileShell({
@@ -792,57 +386,20 @@ export async function commitOnboardingStep(input: {
             userEmail: user.email,
             metadata: user.user_metadata,
         })
-        if (!profileShell.success) {
-            return {
-                success: false,
-                error: profileShell.error.message,
-                errorDetails: profileShell.error,
-            }
-        }
+        if (!profileShell.success) return failed(profileShell.error)
 
-        const currentStep = clampStep(input.step)
-        if (currentStep >= ONBOARDING_STEP_MAX) {
-            const details = onboardingError('INVALID_INPUT', 'Complete the final step to finish onboarding.')
-            return { success: false, error: details.message, errorDetails: details }
-        }
-
-        const draft = sanitizeOnboardingDraft(input.draft)
-        if (currentStep === 1) {
-            const username = normalizeUsername(draft.username || '')
-            const usernameValidation = validateUsername(username)
-            if (!usernameValidation.valid || (draft.fullName || '').trim().length < 2) {
-                const details = onboardingError('INVALID_INPUT', usernameValidation.message || 'Name and username are required.')
-                return { success: false, error: details.message, errorDetails: details }
-            }
-            const availability = await ensureUsernameIsAvailable({ username, userId: user.id })
-            if (!availability.ok) {
-                return {
-                    success: false,
-                    error: availability.error.message,
-                    errorDetails: availability.error,
-                }
-            }
-            draft.username = username
-        }
-        if (currentStep === 3 && (!draft.skills || draft.skills.length === 0)) {
-            const details = onboardingError('INVALID_INPUT', 'Select at least one skill to continue.')
-            return { success: false, error: details.message, errorDetails: details }
-        }
-
-        const activeSection = normalizeOnboardingSection(input.activeSection)
         const telemetry = sanitizeOnboardingTelemetryBatch(input.telemetry)
-        const nextStep = Math.min(ONBOARDING_STEP_MAX, currentStep + 1)
+        const nextStep = Math.min(ONBOARDING_TOTAL_STEPS, currentStep + 1)
         const now = new Date()
-        const expiresAt = new Date(now.getTime() + ONBOARDING_LOCAL_DRAFT_TTL_MS * 30)
+        const expiresAt = new Date(now.getTime() + ONBOARDING_SERVER_DRAFT_TTL_MS)
 
-        const result = await db.transaction(async (tx) => {
-            const rows = await tx
+        const rows = await db.transaction(async (tx) => {
+            const saved = await tx
                 .insert(onboardingDrafts)
                 .values({
                     userId: user.id,
                     step: nextStep,
                     completedThrough: currentStep,
-                    activeSection,
                     version: 1,
                     schemaVersion: ONBOARDING_SCHEMA_VERSION,
                     draft,
@@ -852,110 +409,86 @@ export async function commitOnboardingStep(input: {
                 .onConflictDoUpdate({
                     target: onboardingDrafts.userId,
                     set: {
-                        step: nextStep,
+                        // Revisiting an earlier step from the review never moves the resume point backwards.
+                        step: sql`GREATEST(${onboardingDrafts.step}, ${nextStep})`,
                         completedThrough: sql`GREATEST(${onboardingDrafts.completedThrough}, ${currentStep})`,
-                        activeSection,
                         version: sql`${onboardingDrafts.version} + 1`,
                         schemaVersion: ONBOARDING_SCHEMA_VERSION,
                         draft,
                         expiresAt,
                         updatedAt: now,
                     },
-                    where: eq(onboardingDrafts.version, input.expectedVersion),
+                    // A step can only be saved once the one before it has been: no skipping ahead.
+                    where: and(
+                        eq(onboardingDrafts.version, input.expectedVersion),
+                        sql`${onboardingDrafts.completedThrough} >= ${currentStep - 1}`,
+                    ),
                 })
                 .returning({
                     step: onboardingDrafts.step,
                     completedThrough: onboardingDrafts.completedThrough,
-                    activeSection: onboardingDrafts.activeSection,
                     version: onboardingDrafts.version,
-                    schemaVersion: onboardingDrafts.schemaVersion,
                     draft: onboardingDrafts.draft,
                 })
 
-            if (rows.length > 0) {
+            if (saved.length > 0) {
+                // Marks the account in progress once; later saves leave the indexed row alone.
                 await tx
                     .update(profiles)
-                    .set({
-                        onboardingStatus: 'in_progress',
-                        onboardingVersion: ONBOARDING_SCHEMA_VERSION,
-                        updatedAt: now,
-                    })
-                    .where(
-                        and(
-                            eq(profiles.id, user.id),
-                            sql`${profiles.onboardingStatus} <> 'completed'`,
-                        ),
-                    )
-
-                if (telemetry.length > 0) {
-                    await tx.insert(onboardingEvents).values(telemetry.map((event) => ({
-                        userId: user.id,
-                        eventType: event.eventType,
-                        step: typeof event.step === 'number' ? clampStep(event.step) : null,
-                        metadata: sanitizeTelemetryMetadata(event.metadata),
-                    })))
-                }
+                    .set({ onboardingStatus: 'in_progress', onboardingVersion: ONBOARDING_SCHEMA_VERSION, updatedAt: now })
+                    .where(and(eq(profiles.id, user.id), sql`${profiles.onboardingStatus} NOT IN ('in_progress', 'completed')`))
+                await writeEvents(tx, user.id, telemetry)
             }
-            return rows
+            return saved
         })
 
-        if (result.length > 0) {
+        const saved = rows[0]
+        if (saved) {
             return {
                 success: true,
-                step: clampStep(result[0]!.step),
-                committedThrough: clampCompletedThrough(result[0]!.completedThrough),
-                activeSection: normalizeOnboardingSection(result[0]!.activeSection),
-                version: result[0]!.version,
-                schemaVersion: result[0]!.schemaVersion,
-                draft: sanitizeOnboardingDraft(result[0]!.draft),
+                step: clampOnboardingStep(saved.step),
+                committedThrough: clampCompletedThrough(saved.completedThrough),
+                version: saved.version,
+                draft: parseOnboardingDraft(saved.draft),
             }
         }
 
         const latest = await db.query.onboardingDrafts.findFirst({
             where: eq(onboardingDrafts.userId, user.id),
-            columns: {
-                step: true,
-                completedThrough: true,
-                activeSection: true,
-                version: true,
-                schemaVersion: true,
-                draft: true,
-            },
+            columns: draftColumns,
         })
-        const details = onboardingError('DRAFT_CONFLICT', 'This onboarding draft changed in another tab. The latest version is ready to review.')
+        const latestDraft = latest ? parseOnboardingDraft(latest.draft) : undefined
+
+        // The save landed but its response was lost: the retry finds exactly what it was about to write.
+        if (
+            latest &&
+            latestDraft &&
+            latest.version === input.expectedVersion + 1 &&
+            latest.step === nextStep &&
+            JSON.stringify(latestDraft) === JSON.stringify(draft)
+        ) {
+            return {
+                success: true,
+                step: clampOnboardingStep(latest.step),
+                committedThrough: clampCompletedThrough(latest.completedThrough),
+                version: latest.version,
+                draft: latestDraft,
+            }
+        }
+
         return {
-            success: false,
-            error: details.message,
-            errorDetails: details,
-            step: latest ? clampStep(latest.step) : currentStep,
+            ...failed(
+                onboardingError('DRAFT_CONFLICT', 'This onboarding draft changed in another tab. The latest version is ready to review.'),
+            ),
+            step: latest ? clampOnboardingStep(latest.step) : currentStep,
             committedThrough: latest ? clampCompletedThrough(latest.completedThrough) : undefined,
-            activeSection: latest ? normalizeOnboardingSection(latest.activeSection) : activeSection,
             version: latest?.version,
-            schemaVersion: latest?.schemaVersion,
-            draft: latest ? sanitizeOnboardingDraft(latest.draft) : undefined,
+            draft: latestDraft,
         }
     } catch (error) {
         console.error('Error committing onboarding step:', error)
-        const details = onboardingError('DB_ERROR', 'Unable to save this step right now. Your entries are still available in this browser.', true)
-        return { success: false, error: details.message, errorDetails: details }
-    }
-}
-
-export async function clearOnboardingDraft(): Promise<{ success: boolean; error?: string }> {
-    try {
-        const supabase = await createClient()
-        const { data: authData } = await supabase.auth.getUser()
-        const user = authData.user
-        if (!user) {
-            const details = onboardingError('NOT_AUTHENTICATED', 'Not authenticated')
-            return { success: false, error: details.message }
-        }
-
-        await db.delete(onboardingDrafts).where(eq(onboardingDrafts.userId, user.id))
-        return { success: true }
-    } catch (error) {
-        console.error('Error clearing onboarding draft:', error)
-        const details = onboardingError('DB_ERROR', 'Unable to clear onboarding draft', true)
-        return { success: false, error: details.message }
+        return failed(
+            onboardingError('DB_ERROR', 'Unable to save this step right now. Your entries are still available in this browser.', true),
+        )
     }
 }

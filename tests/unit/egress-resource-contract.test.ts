@@ -39,7 +39,9 @@ test("avatar and onboarding writes use the shared optimized lifecycle", () => {
   const onboarding = read("src/app/(site)/(onboarding)/onboarding/page.tsx");
   assert.doesNotMatch(onboarding, /saveOnboardingDraft/);
   assert.doesNotMatch(onboarding, /trackOnboardingEvent/);
-  assert.match(onboarding, /telemetry,/);
+  assert.match(onboarding, /telemetry: events/);
+  assert.match(onboarding, /compressAvatarOffMainThread/);
+  assert.match(onboarding, /cacheProfile: 'public'/);
 });
 
 test("visibility-mutable project media stays inside the revocation cache budget", () => {

@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { profileSecurityStates, profiles } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import { parseStoredRecoveryCodes, type StoredRecoveryCode } from "@/lib/security/recovery-codes";
+import { isSafeHttpUrl } from "@/lib/security/urls";
+import { PROFILE_FIELD_LIMITS } from "@/lib/validations/profile-fields";
 
 export type ProtectedRecoveryCodes = {
   hasRecoveryCodes: boolean;
@@ -35,10 +37,22 @@ export function readAuthMetadataString(metadata: User["user_metadata"], key: str
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+/** A name that fits the profile limits (2 to 80 characters), or null: a provider can send either extreme. */
+function fitsNameLimits(value: string | null | undefined) {
+  const trimmed = value?.trim().slice(0, PROFILE_FIELD_LIMITS.fullNameMax).trim();
+  return trimmed && trimmed.length >= PROFILE_FIELD_LIMITS.fullNameMin ? trimmed : null;
+}
+
 export function buildProfileShellMetadata(userEmail: string, metadata: User["user_metadata"]) {
+  // The provider photo is user-editable metadata, so it passes the same safe-URL gate as an uploaded one.
+  const avatarUrl = readAuthMetadataString(metadata, "avatar_url");
   return {
-    fullName: readAuthMetadataString(metadata, "full_name") || readAuthMetadataString(metadata, "name") || userEmail.split("@")[0]?.replace(/[._-]+/g, " ").trim() || null,
-    avatarUrl: readAuthMetadataString(metadata, "avatar_url"),
+    fullName:
+      fitsNameLimits(readAuthMetadataString(metadata, "full_name"))
+      || fitsNameLimits(readAuthMetadataString(metadata, "name"))
+      || fitsNameLimits(userEmail.split("@")[0]?.replace(/[._-]+/g, " "))
+      || null,
+    avatarUrl: avatarUrl && isSafeHttpUrl(avatarUrl) ? avatarUrl : null,
   };
 }
 

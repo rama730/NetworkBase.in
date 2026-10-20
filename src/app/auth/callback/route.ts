@@ -5,7 +5,7 @@ import { normalizeAuthNextPath, resolveAuthBaseUrl } from '@/lib/auth/redirects'
 import { getAuthHardeningPhase } from '@/lib/auth/hardening'
 import { clearGithubImportAccessCookie, setGithubImportAccessCookie } from '@/lib/github/import-access-cookie'
 import { sealGithubImportToken } from '@/lib/github/repo-security'
-import { isCompletedOnboardingStatus } from '@/lib/onboarding/state'
+import { hasCompletedOnboarding } from '@/lib/onboarding/completion'
 import { ensureDefaultGithubContributorIdentity } from '@/lib/github/contributor-identity'
 import { recordSecurityEvent } from '@/lib/security/audit'
 import { getLegalAcceptanceState } from '@/lib/legal/acceptance'
@@ -135,14 +135,7 @@ export async function GET(request: Request) {
             ? await getLegalAcceptanceState(data.user.id)
             : null
         const hasCurrentAcceptance = acceptanceState?.current === true
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('username, onboarding_status')
-            .eq('id', data.user.id)
-            .maybeSingle()
-        const complete =
-            data.user.app_metadata?.onboarding_complete === true
-            || isCompletedOnboardingStatus(profile?.onboarding_status, profile?.username)
+        const complete = await hasCompletedOnboarding(data.user)
 
         if (!complete) {
             const onboardingUrl = new URL('/onboarding', baseUrl)

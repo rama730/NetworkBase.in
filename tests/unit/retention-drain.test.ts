@@ -11,7 +11,7 @@ const { drainRetention } = require("../../src/inngest/functions/data-lifecycle-r
 type Counts = Awaited<Parameters<typeof drainRetention>[0] extends (round: number) => Promise<infer C> ? C : never>;
 const counts = (partial: Partial<Counts>): Counts => ({
   profile_read_audits: 0, profile_activity_audits: 0, onboarding_events: 0,
-  extension_session_events: 0, legal_acceptances: 0, account_deletion_records_anonymized: 0, ...partial,
+  onboarding_drafts: 0, extension_session_events: 0, legal_acceptances: 0, account_deletion_records_anonymized: 0, ...partial,
 });
 const limits = { maxRounds: 5, batchSize: 10 };
 

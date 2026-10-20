@@ -10,7 +10,6 @@ function getWorkerOnlyFunctions() {
   const { gitPull, gitPush, gitSyncRecovery, lockCleanup, uploadIntentCleanup } = loadModule("./functions/git-sync");
   const { finishPendingFileDeletions } = loadModule("./functions/project-files-permanent-delete");
   const { reconcileProjectFiles } = loadModule("./functions/project-files-reconciliation");
-  const { onboardingClaimsRepair } = loadModule("./functions/onboarding-claims-repair");
   const { projectImport } = loadModule("./functions/project-import");
   const { projectImportHydrate } = loadModule("./functions/project-import-hydrate");
   const { projectImportStaleReconcile } = loadModule("./functions/project-import-reconcile");
@@ -40,7 +39,6 @@ function getWorkerOnlyFunctions() {
     gitSyncRecovery,
     lockCleanup,
     uploadIntentCleanup,
-    onboardingClaimsRepair,
     flushProjectViews,
     flushUpdateLikes,
     cleanupProjectUpdate,

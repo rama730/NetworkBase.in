@@ -13,3 +13,8 @@ test("onboarding telemetry accepts valid events and caps a boundary batch", () =
   assert.equal(sanitized.length, ONBOARDING_TELEMETRY_BATCH_LIMIT);
   assert.deepEqual(sanitizeOnboardingTelemetryBatch({}), []);
 });
+
+test("the browser cannot report submit outcomes: the server writes those", () => {
+  const sent = [{ eventType: "submit_success" }, { eventType: "submit_start" }, { eventType: "submit_error" }, { eventType: "step_skip", step: 2 }];
+  assert.deepEqual(sanitizeOnboardingTelemetryBatch(sent), [{ eventType: "step_skip", step: 2 }]);
+});
