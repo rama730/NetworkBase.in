@@ -16,6 +16,7 @@ import {
   loadingSettlePlan,
   projectAvailabilityOf,
   resolveLive,
+  retryPresence,
   ringOrder,
   ringWeight,
   showStatusEmoji,
@@ -200,4 +201,11 @@ test("loadingSettlePlan: a response before the loader showed only fades; otherwi
   assert.deepEqual(loadingSettlePlan(1_000, 1_100), { mode: "settle", delay: 500 });
   assert.deepEqual(loadingSettlePlan(1_000, 1_600), { mode: "settle", delay: 0 });
   assert.deepEqual(loadingSettlePlan(1_000, 4_000), { mode: "settle", delay: 0 });
+});
+
+test("retryPresence: one retry for a flaky request, none when the viewer is not signed in", () => {
+  assert.equal(retryPresence(0, new Error("unavailable")), true);
+  assert.equal(retryPresence(1, new Error("unavailable")), false);
+  assert.equal(retryPresence(0, new Error("unauthorized")), false);
+  assert.equal(retryPresence(0, "boom"), true);
 });
