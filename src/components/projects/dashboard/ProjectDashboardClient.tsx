@@ -357,13 +357,15 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
         lastStatusRef.current = next.status;
         setApplicationStatus(next);
         setApplicationLoad(next.loadFailed ? 'error' : 'ready');
+        // Discover and profile cards show your application too: they re-read it.
+        void queryClient.invalidateQueries({ queryKey: queryKeys.discover.myApplications(currentUserId) });
         // Accepted while this page is open: the page becomes the team's (tabs, roles) and welcomes the new member.
         if (before === 'pending' && next.status === 'accepted' && !next.membershipEnded) {
             toast.success(`You joined ${project.title}`);
             setIsOnboardingOpen(true);
             router.refresh();
         }
-    }, [project.id, project.title, router]);
+    }, [currentUserId, project.id, project.title, queryClient, router]);
 
     const handleInvitation = useCallback(async (action: 'accept' | 'decline') => {
         if (invitationLoading) return;

@@ -10,6 +10,7 @@ import { DiscoverFeedError, useDiscoverProjects } from '@/hooks/discover/useDisc
 import { useAuth } from '@/hooks/useAuth';
 import { useDiscoverSessionSeen } from '@/hooks/discover/useDiscoverSessionSeen';
 import { useUserFollowedProjects } from '@/hooks/projects/useUserInteractions';
+import { useMyApplicationStates } from '@/hooks/projects/useMyApplicationStates';
 import { useDiscoverUrlFilters } from '@/hooks/discover/useDiscoverUrlFilters';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useSuggestedPeople } from '@/hooks/useConnections';
@@ -170,6 +171,7 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
     );
     const pageIds = useMemo(() => (data?.pages ?? []).map((page) => page.projects.map((project) => project.id)), [data]);
     const followed = useUserFollowedProjects(viewerId, pageIds);
+    const myApplications = useMyApplicationStates(viewerId, pageIds);
 
     // Everything loaded is already opened: keep loading until there's something to show (never on a failing page).
     useEffect(() => {
@@ -278,10 +280,11 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
                 // In Following every card is followed; no flash of "not following" while that loads.
                 isFollowing={following || followed.has(project.id)}
                 followersCount={project.followersCount}
+                applicationChip={myApplications.get(project.id)}
                 onOpenProject={markSeen}
             />
         </div>
-    ), [followed, following, markSeen]);
+    ), [followed, following, markSeen, myApplications]);
 
     // Clearing moves focus to the feed's heading, so it never drops to the page body.
     const focusFeed = useCallback(() => requestAnimationFrame(() => feedHeading.current?.focus()), []);

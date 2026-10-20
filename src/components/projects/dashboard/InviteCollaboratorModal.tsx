@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
 import { AlertCircle, Briefcase, Check, Loader2, Search, Users } from "lucide-react";
 import { usePlainContentHeadings } from "@/components/projects/PlainContentHeadings";
 import { del, get, set } from "idb-keyval";
@@ -168,6 +170,7 @@ export default function InviteCollaboratorModal({
     const plainContentHeadings = usePlainContentHeadings();
     const { user } = useAuth();
     const router = useRouter();
+    const queryClient = useQueryClient();
     const phone = useMediaQuery("(max-width: 639px)");
     // The edit target is read when the dialog opens; a new object on every parent render must not reset the form.
     const editRef = useRef(editApplication);
@@ -544,6 +547,8 @@ export default function InviteCollaboratorModal({
                     return showError(applyErrorCopy(result.errorCode, result.error), roleGone ? roleSelectRef : applicationMessageRef);
                 }
                 completedRef.current = true;
+                // The cards on Discover and profiles read your application separately: tell them it changed.
+                void queryClient.invalidateQueries({ queryKey: queryKeys.discover.myApplications(user?.id) });
                 applied = { applicationId: result.applicationId, channelId: result.channelId, roleId };
                 if (user?.id && !editing) await del(applicationDraftKey);
                 const title = editing || result.outcome === "updated" ? "Application updated"

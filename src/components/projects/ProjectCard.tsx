@@ -8,6 +8,7 @@ import { ROUTES } from "@/constants/routes";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { Project } from "@/types/discover";
+import type { ApplicationCardChip } from "@/app/actions/applications";
 import { toProjectCardViewModel, type ProjectCardViewModel } from "@/lib/view-models/project-card";
 import { useToggleProjectFollow } from "@/hooks/mutations/useProjectMutations";
 import { UserAvatar } from "@/components/ui/UserAvatar";
@@ -18,6 +19,8 @@ import { resolveProjectSocialLinks } from "@/lib/projects/social-links";
 import ProjectAvatar, { getProjectAvatarUrl } from "@/components/projects/ProjectAvatar";
 
 const MAX_PROJECT_CARD_SKILL_ICONS = 6;
+const APPLICATION_CHIP_LABEL = { applied: "Applied", declined: "Declined", invited: "Invited" } as const;
+const APPLICATION_CHIP_TONE = { applied: "draft", declined: "blocked", invited: "active" } as const;
 
 interface ProjectCardProps {
     project: Project;
@@ -25,10 +28,12 @@ interface ProjectCardProps {
     viewModel?: ProjectCardViewModel;
     isFollowing?: boolean;
     followersCount?: number;
+    /** The viewer's own application or invitation on this project (read per viewer, since the feed is public and cached). */
+    applicationChip?: ApplicationCardChip;
     onOpenProject?: (projectId: string) => void;
 }
 
-export default memo(function ProjectCard({ project, viewModel, isFollowing = false, followersCount: initialFollowers, onOpenProject }: ProjectCardProps) {
+export default memo(function ProjectCard({ project, viewModel, isFollowing = false, followersCount: initialFollowers, applicationChip, onOpenProject }: ProjectCardProps) {
     useSkillCatalog();
     const { user } = useAuth();
     const { mutateAsync } = useToggleProjectFollow();
@@ -120,7 +125,8 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
                     {teamSize > 4 && <span className="flex size-[26px] items-center justify-center rounded-md border-2 border-card bg-secondary font-mono text-[11px]">+{teamSize - 4}</span>}
                 </div>
                 {collaborators.length === 0 && <span className="nb-meta inline-flex items-center gap-1"><Users size={14} aria-hidden="true" />No team yet</span>}
-                {totalOpenRoles > 0 && <span className="nb-meta text-primary">{totalOpenRoles} open {totalOpenRoles === 1 ? "role" : "roles"}</span>}
+                {applicationChip ? <span className="nb-status relative z-10" data-status={APPLICATION_CHIP_TONE[applicationChip]} title="Your application on this project">{APPLICATION_CHIP_LABEL[applicationChip]}</span>
+                    : totalOpenRoles > 0 && <span className="nb-meta text-primary">{totalOpenRoles} open {totalOpenRoles === 1 ? "role" : "roles"}</span>}
             </div>
             <div className="relative z-10 flex flex-wrap items-center gap-1">
                 {visibleLinks.map(link => <a key={link.id || link.canonicalKey} href={linkHref(link)} target="_blank" rel="noopener noreferrer" className="nb-icon-button" aria-label={`Open ${link.customLabel || link.platformLabel}: ${link.accountLabel} (opens in new tab)`}>

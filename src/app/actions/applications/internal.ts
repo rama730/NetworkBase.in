@@ -52,6 +52,7 @@ import type {
     ApplicationCursorPaginationInput,
     ApplicationStatusResult,
     ApplicationActionErrorCode,
+    ApplicationCardChip,
 } from './types';
 import { refreshWorkspaceCountersForUsers } from '@/lib/workspace/profile-counters';
 import { addProjectMemberInternal } from '@/lib/projects/collaborator-lifecycle';
@@ -1273,6 +1274,45 @@ export async function getApplicationAlignmentAction(applicationId: string): Prom
         return await getProfileToRoleAlignmentAction(application.applicantId, application.roleId);
     } catch {
         return null;
+    }
+}
+
+// ============================================================================
+// THE VIEWER'S OWN STATE ON A PAGE OF PROJECT CARDS
+// ============================================================================
+/**
+ * Project cards come from a public, cached feed, so the viewer's own application is read separately for the cards on screen:
+ * pending, declined while the 24 h cooldown lasts, or an invitation waiting. One query per page of ids.
+ */
+export async function getMyApplicationStatesAction(projectIds: string[]): Promise<Record<string, ApplicationCardChip>> {
+    try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        const ids = Array.isArray(projectIds) ? [...new Set(projectIds.filter((id) => isUuid(id)))].slice(0, 60) : [];
+        if (!user || ids.length === 0) return {};
+        const idList = sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `);
+        const [applications, invitations] = await Promise.all([
+            db.execute<{ project_id: string; status: string; chip: string | null }>(sql`
+                SELECT a.project_id, a.status::text AS status,
+                       CASE WHEN a.status = 'pending' THEN 'applied'
+                            WHEN a.status = 'rejected' AND a.decision_by IS DISTINCT FROM a.applicant_id
+                                 AND coalesce(a.decision_reason_code, '') NOT IN ('role_filled', 'project_closed', 'role_removed')
+                                 AND a.updated_at > now() - interval '24 hours' THEN 'declined' END AS chip
+                FROM role_applications a
+                WHERE a.applicant_id = ${user.id}::uuid AND a.project_id IN (${idList}) AND a.status IN ('pending', 'rejected')
+            `),
+            db.execute<{ project_id: string }>(sql`
+                SELECT DISTINCT i.project_id FROM project_invitations i
+                WHERE i.candidate_id = ${user.id}::uuid AND i.project_id IN (${idList}) AND i.status = 'pending' AND i.expires_at > now()
+            `),
+        ]);
+        const chips: Record<string, ApplicationCardChip> = {};
+        for (const row of Array.from(applications)) if (row.chip) chips[row.project_id] = row.chip as ApplicationCardChip;
+        for (const row of Array.from(invitations)) chips[row.project_id] = 'invited';
+        return chips;
+    } catch (error) {
+        console.error('Failed to read application states for project cards:', error);
+        return {};
     }
 }
 
