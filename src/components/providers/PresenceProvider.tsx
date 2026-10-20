@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { liveStore } from '@/components/presence/live-online';
 import { useAuth } from '@/hooks/useAuth';
 import { usePublishOnlinePresence } from '@/hooks/usePublishOnlinePresence';
 import { PRESENCE_VISIBILITY_EVENT } from '@/lib/presence/events';
@@ -25,9 +26,11 @@ function OnlinePresencePublisher() {
 
 /** App-wide presence: a coarse heartbeat for last-active plus the user's own presence room while engaged. */
 export function PresenceProvider({ children = null, presenceEnabled = true }: PresenceProviderProps) {
-    const { user, isLoading } = useAuth();
+    const { user, session, isLoading } = useAuth();
     const active = Boolean(user) && !isLoading;
     const presenceActive = active && presenceEnabled;
+    // Realtime needs the access token, like every other realtime hook.
+    const realtimeReady = Boolean(user && session?.access_token && !isLoading) && presenceEnabled;
     const [engaged, setEngaged] = useState(() => typeof document === 'undefined' || !document.hidden);
     // Hidden activity (server says so): no realtime "online" either.
     const [hidden, setHidden] = useState(false);
@@ -64,6 +67,14 @@ export function PresenceProvider({ children = null, presenceEnabled = true }: Pr
     }, [presenceActive]);
 
     // Changing "Show when I'm active" takes effect at once, without waiting for a heartbeat.
+    // The one shared "who is online" store: open only while signed in with a token and not hiding your own activity.
+    useEffect(() => {
+        liveStore.setReady(realtimeReady && !hidden);
+    }, [realtimeReady, hidden]);
+    useEffect(() => {
+        liveStore.setSelf(user?.id ?? null);
+    }, [user?.id]);
+
     useEffect(() => {
         const onVisibility = (event: Event) => setHidden((event as CustomEvent<{ hidden?: boolean }>).detail?.hidden === true);
         window.addEventListener(PRESENCE_VISIBILITY_EVENT, onVisibility);

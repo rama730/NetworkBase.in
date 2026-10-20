@@ -27,7 +27,6 @@ import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
-import { useOnlineUsers } from "@/hooks/useOnlineUsers";
 import type { ChannelMember } from "@/app/actions/chat/channels";
 import { canAddPeople, notifyChoice, notifyChoices, notifyHelp, personName } from "@/lib/messaging/channel-view";
 import { PersonHoverCard } from "@/components/presence/PersonHoverCard";
@@ -152,10 +151,10 @@ function NotifyRow({ channel, onChange }: { channel: ChannelDetails; onChange: (
   );
 }
 
-function MemberRow({ member, channel, meId, online, onRemove }: { member: ChannelMember; channel: ChannelDetails; meId: string | null; online?: boolean; onRemove: (member: ChannelMember) => void }) {
+function MemberRow({ member, channel, meId, onRemove }: { member: ChannelMember; channel: ChannelDetails; meId: string | null; onRemove: (member: ChannelMember) => void }) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const presence = usePersonPresence(member.id, { live: online });
+  const presence = usePersonPresence(member.id);
   const self = member.id === meId;
   const [opening, setOpening] = useState(false);
   const message = async () => {
@@ -183,7 +182,7 @@ function MemberRow({ member, channel, meId, online, onRemove }: { member: Channe
     // The badge's cut-out follows the row's hover colour (no card-coloured halo).
     <div role="listitem" className="group/member flex min-h-12 items-center gap-2.5 rounded-md px-2 hover:bg-muted hover:[--presence-cut:var(--muted)]">
       <PersonHoverCard person={member} focusable={false}>
-        <span className="inline-flex flex-none"><PresenceAvatar userId={member.id} live={online} identity={member} size={34} /></span>
+        <span className="inline-flex flex-none"><PresenceAvatar userId={member.id} identity={member} size={34} /></span>
       </PersonHoverCard>
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-1.5">
@@ -253,11 +252,7 @@ function Members({ channel, meId, onAdd, onJoin, scrollParent }: { channel: Chan
   const list = (members.data ?? [])
     .filter((m) => !filter || personName(m).toLowerCase().includes(filter.toLowerCase()) || (m.username ?? "").toLowerCase().includes(filter.toLowerCase()))
     .sort((a, b) => rank(a) - rank(b) || personName(a).localeCompare(personName(b)));
-  // Only the rows on screen render (Virtuoso). Live presence covers the first few of them
-  // (useOnlineUsers caps realtime rooms at 3); the rest show the batched presence.
-  const [range, setRange] = useState({ start: 0, end: 30 });
-  const ids = useMemo(() => list.slice(range.start, range.end + 1).slice(0, 50).map((m) => m.id), [list, range]);
-  const online = useOnlineUsers(ids);
+  // Only the rows on screen render (Virtuoso); each badge watches its own person through the shared live store.
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.members(channel.id) });
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.channel(channel.id) });
@@ -309,9 +304,8 @@ function Members({ channel, meId, onAdd, onJoin, scrollParent }: { channel: Chan
           customScrollParent={scrollParent}
           data={list}
           computeItemKey={(_index, member) => member.id}
-          rangeChanged={({ startIndex, endIndex }) => setRange({ start: startIndex, end: endIndex })}
           components={MEMBER_LIST}
-          itemContent={(_index, member) => <MemberRow member={member} channel={channel} meId={meId} online={online[member.id]} onRemove={setRemoving} />}
+          itemContent={(_index, member) => <MemberRow member={member} channel={channel} meId={meId} onRemove={setRemoving} />}
         />
       ) : null}
       {members.data && !list.length ? <EmptyState compact icon={Search} title="No members match" description={`Nobody here matches "${filter}".`} /> : null}

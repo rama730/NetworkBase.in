@@ -14,6 +14,7 @@ import {
   type PersonPresence,
   type ProjectStatus,
 } from "@/lib/presence/model";
+import { useLiveOnline } from "@/components/presence/live-online";
 import { queryKeys } from "@/lib/query-keys";
 
 const STALE_MS = 60_000;
@@ -124,10 +125,12 @@ export function usePersonPresence(userId: string | null | undefined, options: { 
     refetchInterval: REFRESH_MS,
     refetchIntervalInBackground: false,
   });
+  // One shared realtime source for every badge; an explicit `live` (the viewer's own badge) wins.
+  const realtime = useLiveOnline(options.live === undefined ? userId : null);
   return useMemo(() => {
     const data = query.data ?? null;
     const lastActiveAt = data ? data.lastActiveAt : options.fallbackLastActiveAt ?? null;
-    const availability = availabilityOf({ live: resolveLive(options.live, data?.live), lastActiveAt });
+    const availability = availabilityOf({ live: resolveLive(options.live ?? realtime, data?.live), lastActiveAt });
     const availabilityText = availabilityLabel(availability, lastActiveAt);
     const status = data?.status ?? null;
     const statusText = status ? statusLabel(status) : null;
@@ -144,7 +147,7 @@ export function usePersonPresence(userId: string | null | undefined, options: { 
       updatedAt: query.dataUpdatedAt,
       statusTimer,
     };
-  }, [options.fallbackLastActiveAt, options.live, query.data, query.dataUpdatedAt, query.isError]);
+  }, [options.fallbackLastActiveAt, options.live, realtime, query.data, query.dataUpdatedAt, query.isError]);
 }
 
 export function useProjectPresence(projectId: string | null | undefined, fallbackUpdatedAt?: string | Date | null) {

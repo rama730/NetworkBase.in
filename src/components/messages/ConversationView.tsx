@@ -37,7 +37,6 @@ import { detailsKeys, isDetailsKey, keyLabel } from "@/components/messages/keys"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
-import { useOnlineUsers } from "@/hooks/useOnlineUsers";
 import { useDocumentTitlePrefix } from "@/hooks/useDocumentTitlePrefix";
 import type { ChannelDetails } from "@/app/actions/chat/channels";
 import type { CanvasTemplate } from "@/lib/messaging/canvas-store";
@@ -275,9 +274,6 @@ export function ConversationView({ channelId, around = null, surface = "page", o
   // Bumped on each send, so the timeline follows your message down even if you were reading older ones.
   const [sentTick, setSentTick] = useState(0);
   const onSent = useCallback(() => setSentTick((tick) => tick + 1), []);
-  const online = useOnlineUsers(channel?.kind === "dm" && channel.dm_user && channel.dm_user.id !== meId ? [channel.dm_user.id] : []);
-  const memberIds = useMemo(() => people.slice(0, 3).map((p) => p.id), [people]);
-  const memberOnline = useOnlineUsers(memberIds);
   // Files dropped on the timeline go to this conversation's composer.
   const drop = useFileDrop((files) => dropFilesTo(draftKeyOf(channelId, null), files));
 
@@ -518,7 +514,6 @@ export function ConversationView({ channelId, around = null, surface = "page", o
       ? `With ${personName(meta.lead)} · Lead of ${meta.project_title}`
       : `${meta.project_title} · Applied ${new Date(meta.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
   const title = self ? `${personName(channel.dm_user)} (you)` : channelTitle(channel, meId);
-  const dmOnline = channel.kind === "dm" && channel.dm_user ? online[channel.dm_user.id] : undefined;
   const placeholder = self ? "Jot something down…"
     : channel.application_id ? (channel.application?.is_applicant ? "Message the reviewers" : `Message ${channel.application ? personName(channel.application.applicant).split(" ")[0] : "the applicant"}`)
       : isDirect ? `Message ${title}` : `Message #${title}`;
@@ -545,7 +540,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
           {backButton}
           {channel.kind === "dm" ? (
             <button type="button" onClick={() => openDetails("about")} className="inline-flex flex-none rounded-md" aria-label={`About ${title}`}>
-              <PresenceAvatar identity={channel.dm_user} userId={channel.dm_user?.id} live={channel.dm_user?.id === meId || dmOnline} size={34} title="" />
+              <PresenceAvatar identity={channel.dm_user} userId={channel.dm_user?.id} size={34} title="" />
             </button>
           ) : other ? (
             // An application thread shows the person on the other side: the applicant to reviewers, the project's lead to the applicant.
@@ -571,7 +566,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 </button>
               ) : null}
               {channel.kind === "dm" && channel.dm_user ? (
-                <DmHeaderStatus userId={channel.dm_user.id} live={channel.dm_user.id === meId || dmOnline} />
+                <DmHeaderStatus userId={channel.dm_user.id} />
               ) : null}
             </div>
             {applicationSubline ? (
@@ -646,7 +641,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                     {people.slice(0, 3).map((p) => (
                       <span key={p.id} className="relative inline-block rounded-sm ring-2 ring-card">
                         <UserAvatar title="" identity={p} size={20} />
-                        <PersonPresenceBadge userId={p.id} live={memberOnline[p.id]} size={8} className="absolute" style={{ right: -2, bottom: -2, ["--presence-cut" as string]: "var(--card)" }} />
+                        <PersonPresenceBadge userId={p.id} size={8} className="absolute" style={{ right: -2, bottom: -2, ["--presence-cut" as string]: "var(--card)" }} />
                       </span>
                     ))}
                   </span>
@@ -902,8 +897,8 @@ function DmContextLine({ person }: { person: ChatPerson }) {
 }
 
 /** Next to a DM's name: their status (emoji + text), else when they were active. */
-function DmHeaderStatus({ userId, live }: { userId: string; live?: boolean | undefined }) {
-  const presence = usePersonPresence(userId, { live });
+function DmHeaderStatus({ userId }: { userId: string }) {
+  const presence = usePersonPresence(userId);
   return (
     <span className="inline-flex min-w-0 items-center gap-1 truncate text-[13px] text-muted-foreground">
       {presence.status ? <StatusInline emoji={presence.status.emoji} text={presence.statusText} className="truncate" /> : <span className="truncate">{presence.availabilityText}</span>}
