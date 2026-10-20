@@ -14,13 +14,13 @@ test("project roles editor tab eliminates duplicate headers and renders a single
   // SectionHeader is suppressed on roles-applications tab to avoid duplicate titles
   assert.match(
     settingsTab,
-    /activeSection !== "roles-applications"/,
+    /id="project-settings-roles-applications"/,
     "SectionHeader must be suppressed on roles-applications tab to prevent duplicate headers"
   );
 
   // Extract roles-applications block
   const rolesBlock =
-    settingsTab.split('activeSection === "roles-applications" && (')[1]?.split(/activeSection === "(?:tasks-workflow|readme)"/)[0] ?? "";
+    settingsTab.split('id="project-settings-roles-applications"')[1]?.split(/id="project-settings-(?:tasks-workflow|readme)"/)[0] ?? "";
   assert.ok(rolesBlock.length > 0, "roles-applications settings block must exist in ProjectSettingsTab");
 
   // Redundant SummaryCard, AdvancedDisclosure, and Application behavior cards removed
@@ -37,7 +37,7 @@ test("project roles editor tab eliminates duplicate headers and renders a single
   assert.match(rolesBlock, /rolesDirty\s*\?\s*"You have unsaved changes in project roles\."\s*:\s*"All project roles are saved\."/, "Footer must display dynamic status text based on rolesDirty");
   assert.match(rolesBlock, /onClick=\{handleCancelRoles\}/, "Footer must have Cancel button wired to handleCancelRoles");
   assert.match(rolesBlock, /onClick=\{handleSaveRoles\}/, "Footer must have Save changes button wired to handleSaveRoles");
-  assert.match(rolesBlock, /disabled=\{!rolesDirty \|\| savingSettings\}/, "Cancel and Save changes buttons must be disabled when clean or saving");
+  assert.match(rolesBlock, /disabled=\{!rolesDirty \|\| savingRoles\}/, "Cancel and Save changes buttons must be disabled when clean or saving");
 });
 
 test("ProjectRolesEditor features a single-row layout with separate Occupied and Open roles segments", () => {
@@ -80,7 +80,7 @@ test("ProjectRolesEditor provides rich master-detail workspaces for Occupied and
   assert.match(editorSrc, /Delete Position/, "Open position workspace must offer deletion action");
   assert.match(editorSrc, /Applicant View Preview/, "Open position workspace must render live applicant preview card");
 
-  assert.match(editorSrc, /nb-empty-state nb-grid-ground[^"]*border-dashed border-border\/80/, "Empty state must use the shared empty-state surface with a dashed border");
+  assert.match(editorSrc, /nb-empty-state[^"]*py-8 text-center/, "Empty state must use the shared empty-state typography without an enclosing card");
   assert.match(editorSrc, /No roles configured/, "Empty state must display clear copy");
 });
 

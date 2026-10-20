@@ -1,4 +1,6 @@
 import "server-only";
+import { lockTaskForWrite, transitionTaskTx, afterTaskTransition } from "@/lib/projects/task-transition-service";
+import { logger } from "@/lib/logger";
 import { randomUUID } from "node:crypto";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -784,7 +786,8 @@ export async function runReviewedGitHubSync(
       }
     }
     await update({ result, stage: "Recording synchronization result" });
-    await db.transaction(async (tx) => {
+    const taskCompletion = await db.transaction(async (tx) => {
+      let completion: { taskId: string; locked: Awaited<ReturnType<typeof lockTaskForWrite>>; result: Awaited<ReturnType<typeof transitionTaskTx>> } | null = null;
       await assertProjectWriteAccessTx(tx, projectId, actorId);
       const locked = await tx.execute(
         sql`SELECT id FROM github_sync_runs WHERE id=${runId} AND lease_id=${leaseId} AND status='running' FOR UPDATE`,
@@ -839,26 +842,20 @@ export async function runReviewedGitHubSync(
         tx,
       );
 
-      // Automated Task Directive: Closes/Fixes #KEY transitions task to done
-      if (manifest.message) {
-        const directiveMatch = manifest.message.match(
-          /\b(?:closes?|fix(?:es)?|resolv(?:es?))\s+#?([A-Za-z0-9_-]+)/i,
-        );
-        if (directiveMatch && directiveMatch[1]) {
-          const rawKey = directiveMatch[1];
-          const numMatch = rawKey.match(/(\d+)$/);
-          if (numMatch && numMatch[1]) {
-            const taskNum = parseInt(numMatch[1], 10);
-            await tx
-              .update(tasks)
-              .set({ status: "done", updatedAt: new Date() })
-              .where(
-                and(
-                  eq(tasks.projectId, projectId),
-                  eq(tasks.taskNumber, taskNum),
-                ),
-              )
-              .catch(() => null);
+      // An explicit closing directive uses the same completion policy as the board.
+      // Opening a PR or importing files does not complete a task before a merge.
+      if (manifest.direction === "push" && result.pushed && !result.pullRequestUrl && manifest.message) {
+        const directive = manifest.message.match(/\b(?:closes?|fix(?:es)?|resolv(?:es?))\s+#?([A-Za-z0-9_-]+)/i)?.[1];
+        const number = directive?.match(/(\d+)$/)?.[1];
+        const matchesProject = directive && (/^\d+$/.test(directive) || directive.toLowerCase() === `${ctx.project.key}-${number}`.toLowerCase());
+        if (number && matchesProject) {
+          const task = await tx.query.tasks.findFirst({ where: and(eq(tasks.projectId, projectId), eq(tasks.taskNumber, Number(number)), isNull(tasks.deletedAt)), columns: { id: true } });
+          if (task) {
+            const lockedTask = await lockTaskForWrite(tx, task.id, actorId);
+            if (lockedTask.currentStatus !== "done") {
+              const transition = await transitionTaskTx(tx, lockedTask, { taskId: task.id, userId: actorId, status: "done" });
+              completion = { taskId: task.id, locked: lockedTask, result: transition };
+            }
           }
         }
       }
@@ -920,7 +917,11 @@ export async function runReviewedGitHubSync(
             eq(githubSyncRuns.leaseId, leaseId),
           ),
         );
+      return completion;
     });
+    if (taskCompletion) {
+      await afterTaskTransition({ id: actorId }, taskCompletion.locked, taskCompletion.taskId, taskCompletion.result).catch(error => logger.error("github.task_completion_effects_failed", { projectId, taskId: taskCompletion.taskId, error: String(error) }));
+    }
     return result;
   } catch (error) {
     const message = sanitizeGitErrorMessage(error);

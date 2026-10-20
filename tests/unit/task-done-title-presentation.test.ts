@@ -8,7 +8,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { TaskCard } from "../../src/components/projects/v2/tasks/TaskCard";
 import { getTaskTitlePresentation } from "../../src/lib/projects/task-presentation";
 
-test("the canonical title rule treats workflow Done as complete regardless of review state", () => {
+test("the canonical title rule distinguishes completed work from pending review", () => {
   const done = getTaskTitlePresentation({ status: "done", title: "Ship it" });
 
   assert.equal(done.isCompleted, true);
@@ -38,15 +38,17 @@ function renderTask(status: string, reviewStatus: string) {
   );
 }
 
-test("task cards strike Done titles during review and restore active titles when reopened", () => {
+test("task cards only strike approved or directly completed titles", () => {
   const completed = renderTask("done", "none");
   const pendingReview = renderTask("done", "pending");
   const reopened = renderTask("in_progress", "rejected");
 
-  for (const html of [completed, pendingReview]) {
+  for (const html of [completed]) {
     assert.match(html, /line-through/);
     assert.match(html, /aria-label="Completed task: Publish the release"/);
   }
+  assert.doesNotMatch(pendingReview, /line-through/);
+  assert.doesNotMatch(pendingReview, /Completed task:/);
   assert.doesNotMatch(reopened, /line-through/);
   assert.doesNotMatch(reopened, /Completed task:/);
 });

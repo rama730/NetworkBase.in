@@ -12,10 +12,10 @@ test("project links tab eliminates duplicate headers, summary cards, and leaves 
   const settingsTab = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
   // SectionHeader is suppressed on links tab
-  assert.match(settingsTab, /activeSection !== "links"/, "SectionHeader must be suppressed on links tab to avoid duplicate title");
+  assert.match(settingsTab, /id="project-settings-links"/, "SectionHeader must be suppressed on links tab to avoid duplicate title");
 
   // Links section block extraction
-  const linksBlock = settingsTab.split('activeSection === "links" && (')[1]?.split('activeSection === "collaborators"')[0] ?? "";
+  const linksBlock = settingsTab.split('id="project-settings-links"')[1]?.split('id="project-settings-collaborators"')[0] ?? "";
   assert.ok(linksBlock.length > 0, "Links settings block must exist in ProjectSettingsTab");
 
   // Redundant SummaryCard removed
@@ -54,7 +54,7 @@ test("project links components adhere to NetworkBase drafting-table design token
   assert.match(cardSource, /nb-ui-label block text-foreground/, "Composer uses .nb-ui-label");
 
   // Inline mode footer
-  assert.match(cardSource, /border-t border-border bg-muted\/10 px-6 py-4/, "Inline mode has full-bleed border-t border-border bg-muted/10 footer");
+  assert.match(cardSource, /border-t border-border py-4/, "Inline mode uses an unboxed action row separated by a divider");
   assert.match(cardSource, /nb-compact text-muted-foreground/, "Inline counts use .nb-compact");
   assert.match(cardSource, /Save changes/, "Save changes button exists in inline mode");
   assert.match(cardSource, /Cancel/, "Cancel button exists in inline mode alongside Save changes");

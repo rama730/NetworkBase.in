@@ -51,6 +51,7 @@ export function CollaboratorCard({
     ownerId,
     isProjectOwner,
     actorRole,
+    disabled = false,
     onRoleChange,
     onRemove,
     onTransfer,
@@ -60,6 +61,7 @@ export function CollaboratorCard({
     ownerId: string | null;
     isProjectOwner: boolean;
     actorRole: ProjectMemberRole;
+    disabled?: boolean;
     onRoleChange: (member: ProjectSettingsMember, role: Exclude<ProjectMemberRole, "owner">) => void;
     onRemove: (member: ProjectSettingsMember) => void | Promise<void>;
     onTransfer: (member: ProjectSettingsMember) => void;
@@ -87,7 +89,7 @@ export function CollaboratorCard({
     const roleOptions: Array<Exclude<ProjectMemberRole, "owner">> = ["admin", "member", "viewer"];
 
     return (
-        <article className="flex flex-col justify-between rounded-lg border border-border bg-card p-4 transition-colors hover:border-foreground/20">
+        <article className="flex min-w-0 flex-col justify-between border-b border-border py-4">
             <div>
                 <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3 min-w-0">
@@ -104,7 +106,7 @@ export function CollaboratorCard({
                         />
                         <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-1.5">
-                                <p className="nb-ui-label truncate text-sm font-semibold text-foreground">{reference.displayName}</p>
+                                <p className="nb-ui-label break-words text-foreground">{reference.displayName}</p>
                                 <span
                                     className={cn(
                                         "h-5 px-[7px] rounded-[3px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none shrink-0 inline-flex items-center border",
@@ -136,6 +138,7 @@ export function CollaboratorCard({
                         <DropdownMenuTrigger asChild>
                             <Button
                                 type="button"
+                                disabled={disabled}
                                 variant="outline"
                                 size="sm"
                                 className="nb-touch-target h-[28px] gap-1 rounded-[5px] border-border px-2.5 text-xs font-medium text-foreground shrink-0 hover:bg-muted"
@@ -158,7 +161,7 @@ export function CollaboratorCard({
                                     return (
                                         <DropdownMenuItem
                                             key={option}
-                                            disabled={!optionPolicy.canChangeRole || role === option}
+                                            disabled={disabled || !optionPolicy.canChangeRole || role === option}
                                             onClick={() => onRoleChange(member, option)}
                                             className="gap-2 text-xs"
                                         >
@@ -187,6 +190,7 @@ export function CollaboratorCard({
 
                             {mutationPolicy.canTransferOwnership ? (
                                 <DropdownMenuItem
+                                    disabled={disabled}
                                     onClick={() => onTransfer(member)}
                                     className="gap-2 text-xs text-foreground"
                                 >
@@ -196,7 +200,8 @@ export function CollaboratorCard({
                             ) : null}
 
                             <DropdownMenuItem
-                                onClick={() => void onNotificationSettings(member)}
+                                disabled={disabled}
+                                    onClick={() => void onNotificationSettings(member)}
                                 className="gap-2 text-xs text-foreground"
                             >
                                 <Bell className="h-3.5 w-3.5 text-muted-foreground" />
@@ -207,7 +212,8 @@ export function CollaboratorCard({
                                 <>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
-                                        onClick={() => void onRemove(member)}
+                                        disabled={disabled}
+                                    onClick={() => void onRemove(member)}
                                         className="gap-2 text-xs text-destructive focus:bg-destructive/10 focus:text-destructive"
                                     >
                                         <UserMinus className="h-3.5 w-3.5" />

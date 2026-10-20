@@ -14,6 +14,7 @@ import {
 import dynamic from "next/dynamic";
 import { useSearchParams, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useTaskCompletionPolicy } from "@/hooks/useTaskCompletionPolicy";
 import { useRealtimeTasks } from "@/hooks/useRealtimeTasks";
 import {
   createTaskAction,
@@ -122,6 +123,7 @@ export default function TasksTab({
   initialFileId = null,
   onInitialTaskOpened,
 }: TasksTabProps) {
+  const completionPolicy = useTaskCompletionPolicy(projectId);
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -169,9 +171,9 @@ export default function TasksTab({
     [members],
   );
   // Local State
-  const [scope, setScope] = useState<"all" | "backlog" | "sprint">(() => {
+  const [scope, setScope] = useState<"all" | "backlog" | "sprint" | "review">(() => {
     const requestedScope = searchParams.get("taskScope");
-    return requestedScope === "backlog" || requestedScope === "sprint"
+    return requestedScope === "backlog" || requestedScope === "sprint" || requestedScope === "review"
       ? requestedScope
       : "all";
   });
@@ -725,6 +727,10 @@ export default function TasksTab({
 
   return (
     <div className="flex min-h-0 flex-col space-y-4">
+      <p className="nb-meta flex flex-wrap items-center gap-2 text-muted-foreground">
+        {completionPolicy.isPending ? "Loading completion workflow…" : completionPolicy.isError ? "Completion workflow unavailable; the server will apply the current project setting." : completionPolicy.data?.reviewRequired ? "Marking work as done submits it for review. A project lead approves completion." : "Marking work as done completes it immediately."}
+        {completionPolicy.data?.canManage ? <a className="underline" href={`/projects/${projectSlug || projectId}?tab=settings&section=tasks-workflow`}>Completion settings</a> : null}
+      </p>
       <div className="w-full shrink-0">
         <div className="flex w-full flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
           <div className="flex items-center gap-2.5">

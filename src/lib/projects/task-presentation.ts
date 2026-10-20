@@ -1,3 +1,4 @@
+import { isTaskCompleted } from "@/lib/projects/task-completion-policy";
 import {
   SPRINT_STATUS_PRESENTATION,
   type SprintStatus,
@@ -37,6 +38,8 @@ export type TaskSurfaceRecord = {
   description?: string | null;
   status: TaskWorkflowStatus;
   reviewStatus: "none" | "pending" | "rejected";
+  reviewSubmittedAt?: string | null;
+  completedAt?: string | null;
   priority: TaskPriority;
   assigneeId: string | null;
   creatorId: string | null;
@@ -68,14 +71,14 @@ export type TaskTitlePresentation = {
 
 /**
  * One presentation rule for every task-oriented surface. A task is visually
- * complete whenever its canonical workflow status is Done; review state does
- * not alter the title treatment.
+ * complete only after direct completion or review approval.
  */
 export function getTaskTitlePresentation(task: {
   status?: string | null;
   title?: string | null;
+  reviewStatus?: string | null;
 }): TaskTitlePresentation {
-  const isCompleted = task.status === "done";
+  const isCompleted = isTaskCompleted(task);
   return {
     isCompleted,
     className: isCompleted
@@ -191,6 +194,7 @@ export type TaskTimeHealth =
 export function calculateTaskTimeHealth(
   task: {
     status: string;
+    reviewStatus?: string | null;
     dueDate?: string | null;
     completedAt?: string | null;
     updatedAt?: string | null;
@@ -201,7 +205,7 @@ export function calculateTaskTimeHealth(
     completedAt?: string | null;
   } | null,
 ): { state: TaskTimeHealth; label: string; daysLate?: number } {
-  const isTaskDone = task.status === "done" || !!task.completedAt;
+  const isTaskDone = isTaskCompleted(task);
   const isSprintFinished =
     sprint?.status === "completed" || sprint?.status === "archived";
 
@@ -215,11 +219,9 @@ export function calculateTaskTimeHealth(
     return { state: "none", label: "" };
   }
 
-  // A task row does not persist a dedicated completion timestamp. Its latest
-  // status transition updates `updatedAt`, which is the durable completion
-  // signal available to these presentation-only surfaces.
+  // Legacy tasks may predate the dedicated completion timestamp.
   const completionTimestamp =
-    task.completedAt ?? (task.status === "done" ? task.updatedAt ?? null : null);
+    task.completedAt ?? (isTaskDone ? task.updatedAt ?? null : null);
 
   // ponytail: a task completed after its due day remains Done and is also Overdue, independently of whether its Sprint is still active. ceiling: completedAt timestamp vs referenceDate. upgrade: store discrete historical status audit logs if completion latency tracking needed.
   if (isTaskDone) {
@@ -268,6 +270,8 @@ export function normalizeTaskSurfaceRecord(value: any): TaskSurfaceRecord {
     title: asTrimmedString(value?.title) ?? "Untitled task",
     description: asTrimmedString(value?.description),
     status: isTaskWorkflowStatus(rawStatus) ? rawStatus : "todo",
+    reviewSubmittedAt: asIsoString(value?.reviewSubmittedAt ?? value?.review_submitted_at),
+    completedAt: asIsoString(value?.completedAt ?? value?.completed_at),
     reviewStatus: (value?.reviewStatus || value?.review_status || "none") as
       | "none"
       | "pending"
@@ -411,9 +415,9 @@ export function formatTaskDueDate(dueDate: string | null | undefined, now = new 
   }).format(date);
 }
 
-export function isTaskOverdue(task: { dueDate?: string | null; status: string }, now = new Date()) {
+export function isTaskOverdue(task: { dueDate?: string | null; status: string; reviewStatus?: string | null }, now = new Date()) {
   const key = taskDueDateKey(task.dueDate);
-  if (!key || task.status === "done") return false;
+  if (!key || isTaskCompleted(task)) return false;
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   return today > key;
 }

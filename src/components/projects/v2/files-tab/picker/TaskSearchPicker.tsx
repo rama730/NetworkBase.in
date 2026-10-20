@@ -34,6 +34,7 @@ interface SearchableTask {
   id: string;
   title: string;
   status: string;
+  reviewStatus?: string | null;
   priority: string;
   taskNumber: number | null;
   projectKey: string | null;
@@ -343,8 +344,8 @@ export function TaskSearchPicker({
                         {taskLabel && (
                           <span className="font-mono">{taskLabel}</span>
                         )}
-                        <StatusDot status={task.status} />
-                        <span className="capitalize">{task.status.replace("_", " ")}</span>
+                        <StatusDot status={task.reviewStatus === "pending" ? "in_review" : task.status} />
+                        <span className="capitalize">{task.reviewStatus === "pending" ? "In review" : task.status.replace("_", " ")}</span>
                         {task.assigneeName && (
                           <>
                             <span className="text-muted-foreground/50">•</span>
@@ -369,6 +370,7 @@ export function TaskSearchPicker({
 function StatusDot({ status }: { status: string }) {
   const colorClass = useMemo(() => {
     switch (status) {
+      case "in_review": return "bg-amber-500";
       case "done":
         return "bg-[#2F6B4F]";
       case "in_progress":

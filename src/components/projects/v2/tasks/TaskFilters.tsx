@@ -3,14 +3,15 @@
 import { cn } from "@/lib/utils";
 
 interface TaskFiltersProps {
-  scope: "all" | "backlog" | "sprint";
-  setScope?: (scope: "all" | "backlog" | "sprint") => void;
+  scope: "all" | "backlog" | "sprint" | "review";
+  setScope?: (scope: "all" | "backlog" | "sprint" | "review") => void;
 }
 
 const options = [
   { value: "all", label: "All tasks" },
   { value: "sprint", label: "Sprint" },
   { value: "backlog", label: "Backlog" },
+  { value: "review", label: "In review" },
 ] as const;
 
 export default function TaskFilters({ scope, setScope }: TaskFiltersProps) {

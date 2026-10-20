@@ -234,6 +234,7 @@
     "drizzle/0230_application_update_one_trip.sql",
     "drizzle/0231_validate_application_message_length.sql",
     "drizzle/0232_application_thread_guards.sql",
+    "drizzle/0233_task_completion_policy.sql",
     "drizzle/0234_application_closures.sql"
   ],
   "legacyDatabaseTags": [

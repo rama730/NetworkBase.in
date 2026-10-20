@@ -8,6 +8,9 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader";
+import { SettingsLoadState, type SettingsLoadStatus } from "./SettingsLoadState";
+import { useOpenSettingsSections } from "@/components/settings/ui/SettingsSectionLayout";
 import {
     OTHER_PROJECT_TYPE_ID,
     PROJECT_TYPE_OPTIONS,
@@ -19,6 +22,8 @@ export function SettingsCard({
     children,
     footer,
     danger = false,
+    loadState,
+    headingLevel = 3,
     className,
 }: {
     title: string;
@@ -26,27 +31,34 @@ export function SettingsCard({
     children: React.ReactNode;
     footer?: React.ReactNode;
     danger?: boolean;
+    loadState?: SettingsLoadStatus;
+    headingLevel?: 2 | 3;
     className?: string;
 }) {
+    const open = useOpenSettingsSections();
     return (
         <section
             className={cn(
-                "min-w-0 rounded-lg border bg-card shadow-none",
-                danger
-                    ? "border-destructive/30 bg-destructive/5"
-                    : "border-border",
+                open ? "min-w-0 space-y-4" : "min-w-0 rounded-lg border bg-card shadow-none",
+                !open && (danger ? "border-destructive/30 bg-destructive/5" : "border-border"),
                 className,
             )}
         >
-            <div className="border-b border-border p-6">
-                <h4 className={cn("nb-card-title", danger ? "text-destructive" : "text-foreground")}>{title}</h4>
+            <div className={cn(!open && "border-b border-border p-6", danger && "[&_h2]:text-destructive")}>
+                {headingLevel === 2 ? <SettingsPageHeader level={2} title={title} description={description} /> : <>
+                <h3 className={cn("nb-card-title", danger ? "text-destructive" : "text-foreground")}>{title}</h3>
                 {description ? (
                     <p className={cn("nb-compact mt-1", danger ? "text-destructive/80" : "text-muted-foreground")}>{description}</p>
                 ) : null}
+                </>}
+
             </div>
-            <div className="p-6">{children}</div>
-            {footer ? (
-                <div className="flex flex-col gap-3 border-t border-border bg-muted/10 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className={open ? undefined : "p-6"}>
+                {loadState ? <SettingsLoadState {...loadState} /> : null}
+                {(!loadState || loadState.hasData) ? <fieldset disabled={Boolean((loadState?.loading && !loadState.allowInteractionWhileLoading) || loadState?.error)} className="min-w-0">{children}</fieldset> : null}
+            </div>
+            {footer && (!loadState || loadState.hasData) ? (
+                <div className={cn("flex flex-col gap-3 border-t border-border py-4 sm:flex-row sm:items-center sm:justify-between", !open && "bg-muted/10 px-6")}>
                     {footer}
                 </div>
             ) : null}

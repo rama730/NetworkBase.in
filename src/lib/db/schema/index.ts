@@ -784,6 +784,9 @@ export const projects = pgTable(
       .notNull(),
     status: statusProjectEnum("status").default("draft"),
 
+    taskReviewRequired: boolean("task_review_required").default(false).notNull(),
+    taskCompletionPolicyVersion: integer("task_completion_policy_version").default(0).notNull(),
+
     // Project Key System
     key: text("key").unique(), // e.g. "NB"
     currentTaskNumber: integer("current_task_number").default(0),
@@ -2122,6 +2125,11 @@ export const tasks = pgTable(
     })
       .default("none")
       .notNull(),
+    reviewSubmittedAt: timestamp("review_submitted_at", { withTimezone: true }),
+    reviewContentHash: text("review_content_hash"),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    completedBy: uuid("completed_by").references(() => profiles.id, { onDelete: "set null" }),
+    completionSource: text("completion_source", { enum: ["direct", "review", "legacy"] }),
     position: doublePrecision("position"),
     priority: text("priority", { enum: ["low", "medium", "high", "urgent"] })
       .default("medium")
@@ -2141,6 +2149,8 @@ export const tasks = pgTable(
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (t) => ({
+    completedByIdx: index("tasks_completed_by_idx").on(t.completedBy),
+    pendingReviewIdx: index("tasks_pending_review_idx").on(t.projectId).where(sql`${t.reviewStatus} = 'pending' AND ${t.deletedAt} IS NULL`),
     workflowColumnIdx: index("tasks_workflow_column_idx").on(
       t.workflowColumnId,
     ),
@@ -2200,6 +2210,15 @@ export const tasks = pgTable(
 );
 
 // Durable task lifecycle events. The task itself is soft-deleted, so its audit trail remains available to owners.
+export const projectTaskPolicyEvents = pgTable("project_task_policy_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  actorId: uuid("actor_id").references(() => profiles.id, { onDelete: "set null" }),
+  reviewRequired: boolean("review_required").notNull(),
+  policyVersion: integer("policy_version").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({ projectVersionIdx: uniqueIndex("project_task_policy_events_version_idx").on(t.projectId, t.policyVersion), actorIdx: index("project_task_policy_events_actor_idx").on(t.actorId) }));
+
 export const taskActivityEvents = pgTable(
   "task_activity_events",
   {

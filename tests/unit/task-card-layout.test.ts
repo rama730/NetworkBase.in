@@ -52,7 +52,7 @@ test("task cards omit status badge when showStatus is false (Kanban board) and r
   assert.match(kanbanHtml, /In Review/);
 
   // Workspace panel / default view (showStatus: true)
-  const workspaceHtml = renderTask();
+  const workspaceHtml = renderTask({ reviewStatus: "none" });
   assert.match(workspaceHtml, />To Do<\/span>/);
   assert.match(workspaceHtml, />High<\/span>/);
 });
@@ -67,7 +67,7 @@ test("task cards wrap titles and badges without hiding workflow information", ()
   assert.match(html, /h-6/);
   assert.match(html, /line-clamp-3 text-left (?:text-sm font-semibold leading-5|text-\[13px\] font-medium leading-\[18px\])/);
   assert.doesNotMatch(html, /overflow-x-auto/);
-  assert.match(html, /To Do/);
+  assert.doesNotMatch(html, /To Do/);
   assert.match(html, /In Review/);
   assert.match(html, /Overtime/);
   assert.match(html, /Needs reassignment/);

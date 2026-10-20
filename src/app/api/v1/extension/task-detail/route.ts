@@ -1,11 +1,13 @@
 import { requireAuthenticatedUser, jsonSuccess, jsonError, getRequestId } from "@/app/api/v1/_shared";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { db } from "@/lib/db";
-import { profiles, tasks, taskSubtasks, projectSprints, projectNodes, taskNodeLinks, taskPushes, } from "@/lib/db/schema";
+import { taskActivityEvents, projects, profiles, tasks, taskSubtasks, projectSprints, projectNodes, taskNodeLinks, taskPushes, } from "@/lib/db/schema";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { logger } from "@/lib/logger";
 import { canReadProjectTab, getProjectAccessById } from "@/lib/data/project-access";
 import { projectContentNodeSql } from "@/lib/files/internal-helpers";
+
+import { taskReviewSnapshot } from "@/lib/projects/task-review-snapshot";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,6 +50,9 @@ export async function GET(request: Request) {
       fullTask.assigneeId ? db.query.profiles.findFirst({where:eq(profiles.id,fullTask.assigneeId),columns:{id:true,fullName:true,avatarUrl:true}}) : null,
       fullTask.sprintId ? db.query.projectSprints.findFirst({where:eq(projectSprints.id,fullTask.sprintId),columns:{id:true,name:true}}) : null,
     ]);
+    const policy = await db.query.projects.findFirst({ where: eq(projects.id, row.projectId), columns: { taskReviewRequired: true, taskCompletionPolicyVersion: true } });
+    const reviewContentChanged = fullTask.reviewStatus === "pending" && (!fullTask.reviewContentHash || fullTask.reviewContentHash !== await taskReviewSnapshot(db, taskId));
+    const latestRequest = fullTask.reviewStatus === "rejected" ? await db.query.taskActivityEvents.findFirst({ where: and(eq(taskActivityEvents.taskId, taskId), eq(taskActivityEvents.eventType, "changes_requested")), orderBy: [desc(taskActivityEvents.createdAt)] }) : null;
     const canWrite = access.isOwner || ["admin","member"].includes(access.member?.role || "");
     const task = {
       id: row.id,
@@ -89,9 +94,9 @@ export async function GET(request: Request) {
     ]);
 
     return jsonSuccess({
-      task: {...fullTask, assignee: assignee ? {id:assignee.id,name:assignee.fullName,avatarUrl:assignee.avatarUrl}:null,sprint},
+      task: {...fullTask, reviewContentChanged, reviewReason: typeof latestRequest?.payload?.reason === "string" ? latestRequest.payload.reason : null, assignee: assignee ? {id:assignee.id,name:assignee.fullName,avatarUrl:assignee.avatarUrl}:null,sprint},
       subtasks,
-      capabilities: {canUpdate:canWrite,canApprove:access.isOwner,canReadFiles},
+      capabilities: {canUpdate:canWrite && (access.isOwner || access.member?.role === "admin" || !fullTask.assigneeId || fullTask.assigneeId === user.id),canApprove:access.isOwner || access.member?.role === "admin",canReadFiles,reviewRequired:policy?.taskReviewRequired ?? false,policyVersion:policy?.taskCompletionPolicyVersion ?? 0},
       files: fileRows.map((row) => ({
         id: row.node.id,
         nodeId: row.node.id,

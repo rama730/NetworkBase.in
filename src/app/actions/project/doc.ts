@@ -385,7 +385,7 @@ const acceptedRoleTitleSql = (projectId: string, userId: unknown) => sql<string 
 )`;
 
 type TaskReferenceRow = Pick<typeof tasks.$inferSelect,
-    "id" | "title" | "description" | "status" | "priority" | "taskNumber" | "assigneeId" | "creatorId"
+    "id" | "title" | "description" | "status" | "reviewStatus" | "priority" | "taskNumber" | "assigneeId" | "creatorId"
 > & {
     assigneeName?: string | null;
     creatorName?: string | null;
@@ -403,7 +403,8 @@ function optionFromTask(row: TaskReferenceRow, project: { id: string; slug: stri
         kindLabel: "Task",
         title: formatTaskReferenceTitle(row.title),
         subtitle: truncateReferenceText(row.description),
-        status: formatLabel(row.status),
+        status: row.reviewStatus === "pending" ? "In review" : formatLabel(row.status),
+        reviewStatus: row.reviewStatus,
         meta: assignment,
         context: [formatLabel(row.status), assignment, priority].filter(Boolean).join(" · "),
         badges: [priority].filter((badge): badge is string => Boolean(badge)),
@@ -658,6 +659,7 @@ export async function readProjectDocSmartBlockPreviewsAction(projectId: string, 
                         title: tasks.title,
                         description: tasks.description,
                         status: tasks.status,
+                        reviewStatus: tasks.reviewStatus,
                         priority: tasks.priority,
                         taskNumber: tasks.taskNumber,
                         assigneeId: tasks.assigneeId,
@@ -675,6 +677,7 @@ export async function readProjectDocSmartBlockPreviewsAction(projectId: string, 
                         title: tasks.title,
                         description: tasks.description,
                         status: tasks.status,
+                        reviewStatus: tasks.reviewStatus,
                         priority: tasks.priority,
                         taskNumber: tasks.taskNumber,
                         assigneeId: tasks.assigneeId,

@@ -14,13 +14,13 @@ test("project notifications tab eliminates duplicate header and redundant cards,
     // 1. SectionHeader is suppressed on notifications tab to avoid duplicate title
     assert.match(
         settingsTab,
-        /activeSection !== "notifications"/,
+        /id="project-settings-notifications"/,
         "SectionHeader must be suppressed on notifications tab to avoid duplicate title",
     );
 
     // 2. Extract notifications section block
     const notifBlock =
-        settingsTab.split('activeSection === "notifications" && (')[1]?.split('activeSection === "privacy-policies"')[0] ?? "";
+        settingsTab.split('id="project-settings-notifications"')[1]?.split('id="project-settings-privacy-policies"')[0] ?? "";
     assert.ok(notifBlock.length > 0, "notifications settings block must exist in ProjectSettingsTab");
 
     // 3. Redundant SummaryCard, fragmented split cards, and outer AdvancedDisclosure removed
@@ -112,7 +112,7 @@ test("project notifications tab eliminates duplicate header and redundant cards,
 test("project notifications settings adhere to NetworkBase drafting-table design tokens and switches", () => {
     const settingsTab = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
     const notifBlock =
-        settingsTab.split('activeSection === "notifications" && (')[1]?.split('activeSection === "privacy-policies"')[0] ?? "";
+        settingsTab.split('id="project-settings-notifications"')[1]?.split('id="project-settings-privacy-policies"')[0] ?? "";
 
     // 1. Uses canonical SettingsSwitch instead of TogglePill
     assert.doesNotMatch(
@@ -129,8 +129,8 @@ test("project notifications settings adhere to NetworkBase drafting-table design
     );
     assert.match(
         settingsTab,
-        /\{enabledCount\}\/\{group\.entries\.length\} Active/,
-        "Category trigger must display live active trigger count in Section 10 badge",
+        /\{enabledCount\}\/\{group\.entries\.length\} enabled/,
+        "Category trigger must display its live enabled count",
     );
 
     // 3. Full-bleed footer with Save changes and Cancel buttons

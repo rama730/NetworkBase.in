@@ -83,13 +83,15 @@ function transition() {
       }),
     }),
   };
-  const service = load("src/lib/projects/task-transition-service.ts", {});
+  const service = load("src/lib/projects/task-transition-service.ts", { "@/lib/projects/task-review-snapshot": { taskReviewSnapshot: async () => "snapshot" } });
   const locked = {
     projectId: "p",
     isOwner: false,
     isLeader: true,
     currentStatus: "in_progress",
     reviewStatus: "none",
+    reviewRequired: true,
+    policyVersion: 1,
     currentWorkflowColumnId: "working",
     title: "Task",
     taskNumber: 1,
@@ -111,33 +113,44 @@ test("extension and app share the canonical transition: done means pending revie
     ["tasks", "taskActivityEvents"],
   );
 });
-test("admin membership cannot move a pending review out of review; owner can reject it", async () => {
+test("review-disabled completion is immediate and never stamps files approved", async () => {
   const { tx, changes, service, locked } = transition();
-  tx.query.projectWorkflowColumns.findFirst = async () => ({
-    id: "todo-column",
-    status: "todo",
-    title: "Todo",
-  });
-  await assert.rejects(
-    service.transitionTaskTx(
-      tx,
-      { ...locked, currentStatus: "done", reviewStatus: "pending" },
-      { taskId: "t", userId: "admin", status: "todo" },
-    ),
-    /Only project leads/,
-  );
+  const result = await service.transitionTaskTx(tx, { ...locked, reviewRequired: false }, { taskId: "t", userId: "u", status: "done" });
+  assert.equal(result.reviewStatus, "none");
+  assert.equal(result.outcome, "completed");
+  assert.equal(changes[0].values.completedBy, "u");
+  assert.equal(changes[0].values.completionSource, "direct");
+  assert.ok(changes[0].values.completedAt instanceof Date);
+  assert.ok(changes.every(change => change.table === "tasks" || change.table === "taskActivityEvents"));
+});
+test("pending review survives policy disable and only an explicit lead request returns work to In progress", async () => {
+  const { tx, changes, service, locked } = transition();
+  const pending = { ...locked, currentStatus: "done", reviewStatus: "pending", reviewRequired: false };
+  const unchanged = await service.transitionTaskTx(tx, pending, { taskId: "t", userId: "u", status: "done" });
+  assert.equal(unchanged.reviewStatus, "pending");
+  assert.equal(changes[0].values.completedAt, undefined);
+  tx.query.projectWorkflowColumns.findFirst = async () => ({ id: "progress", status: "in_progress", title: "In progress" });
+  await assert.rejects(service.transitionTaskTx(tx, { ...pending, isLeader: false }, { taskId: "t", userId: "u", status: "in_progress", reviewReason: "Fix keyboard focus" }), /Only project leads/);
+  await assert.rejects(service.transitionTaskTx(tx, pending, { taskId: "t", userId: "lead", status: "in_progress" }), /provide a reason/);
+  const requested = await service.transitionTaskTx(tx, pending, { taskId: "t", userId: "lead", status: "in_progress", reviewReason: "Fix keyboard focus" });
+  assert.equal(requested.reviewStatus, "rejected");
+  assert.equal(requested.outcome, "changes_requested");
+  assert.equal(changes.at(-1).values.payload.reason, "Fix keyboard focus");
+});
+test("resubmission captures current content while preserving review even when policy is disabled", async () => {
+  const { tx, changes, service, locked } = transition();
+  const result = await service.transitionTaskTx(tx, { ...locked, currentStatus: "done", reviewStatus: "pending", reviewRequired: false }, { taskId: "t", userId: "u", status: "done", resubmit: true });
+  assert.equal(result.reviewStatus, "pending");
+  assert.equal(changes[0].values.reviewContentHash, "snapshot");
+  assert.ok(changes[0].values.reviewSubmittedAt instanceof Date);
+  assert.equal(changes[0].values.completedAt, null);
+  assert.equal(changes[1].values.eventType, "review_submitted");
+});
+test("members cannot complete someone else's task or resubmit work that is not under review", async () => {
+  const { tx, changes, service, locked } = transition();
+  await assert.rejects(service.transitionTaskTx(tx, { ...locked, isLeader: false, previousAssigneeId: "other" }, { taskId: "t", userId: "u", status: "done" }), /Only the assignee/);
+  await assert.rejects(service.transitionTaskTx(tx, locked, { taskId: "t", userId: "u", status: "done", resubmit: true }), /not pending/);
   assert.equal(changes.length, 0);
-  const result = await service.transitionTaskTx(
-    tx,
-    {
-      ...locked,
-      isOwner: true,
-      currentStatus: "done",
-      reviewStatus: "pending",
-    },
-    { taskId: "t", userId: "owner", status: "todo" },
-  );
-  assert.equal(result.reviewStatus, "rejected");
 });
 test("durable file operation replay returns the original committed receipt without another revision or lease write", async () => {
   let writes = 0,

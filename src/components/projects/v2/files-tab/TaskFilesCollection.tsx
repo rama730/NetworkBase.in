@@ -160,7 +160,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
       const norm = g.status.toLowerCase().replace(/-/g, "_");
       if (norm === "todo" || norm === "backlog") todo++;
       else if (norm === "in_progress") in_progress++;
-      else if (norm === "done" || norm === "completed") done++;
+      else if ((norm === "done" || norm === "completed") && g.reviewStatus !== "pending") done++;
       if (
         norm === "review" ||
         norm === "in_review" ||
@@ -201,7 +201,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
         const norm = g.status.toLowerCase().replace(/-/g, "_");
         if (statusFilter === "todo") return norm === "todo" || norm === "backlog";
         if (statusFilter === "in_progress") return norm === "in_progress";
-        if (statusFilter === "done") return norm === "done" || norm === "completed";
+        if (statusFilter === "done") return (norm === "done" || norm === "completed") && g.reviewStatus !== "pending";
         if (statusFilter === "review")
           return norm === "review" || norm === "in_review" || g.reviewStatus === "pending" || g.reviewStatus === "rejected";
         return true;
@@ -808,7 +808,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
                           >
                             {group.title}
                           </span>
-                          <span
+                          {group.reviewStatus !== "pending" && <span
                             data-testid="task-group-status-badge"
                             className={cn(
                               "shrink-0 inline-flex items-center rounded-[3px] px-1.5 py-0.5 text-[10px] max-md:text-[11px] font-mono font-medium uppercase tracking-wider",
@@ -816,7 +816,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
                             )}
                           >
                             {group.status.replaceAll("_", " ")}
-                          </span>
+                          </span>}
                           {group.reviewStatus === "pending" && (
                             <span
                               data-testid="task-group-review-badge"

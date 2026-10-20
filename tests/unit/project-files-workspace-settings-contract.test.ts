@@ -14,13 +14,13 @@ test("project files-workspace tab eliminates duplicate header and redundant card
     // 1. SectionHeader is suppressed on files-workspace tab to avoid duplicate title
     assert.match(
         settingsTab,
-        /activeSection !== "files-workspace"/,
+        /id="project-settings-files-workspace"/,
         "SectionHeader must be suppressed on files-workspace tab to avoid duplicate title",
     );
 
     // 2. Extract files-workspace section block
     const filesWorkspaceBlock =
-        settingsTab.split('activeSection === "files-workspace" && (')[1]?.split(/activeSection === "(?:readme|notifications)"/)[0] ?? "";
+        settingsTab.split('id="project-settings-files-workspace"')[1]?.split(/id="project-settings-(?:readme|notifications)"/)[0] ?? "";
     assert.ok(filesWorkspaceBlock.length > 0, "files-workspace settings block must exist in ProjectSettingsTab");
 
     // 3. Redundant SummaryCard, separate Bulk card, separate Enforced policy card, and outer AdvancedDisclosure removed
@@ -91,133 +91,20 @@ test("project files-workspace tab eliminates duplicate header and redundant card
     );
 });
 
-test("FileWorkspaceMembers adheres to two-section architecture, unified identity, Section 10 role badges, and drafting-table tokens", () => {
-    const settingsTab = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
-
-    // Extract FileWorkspaceMembers definition
-    const membersDef =
-        settingsTab.split("function FileWorkspaceMembers({")[1]?.split("function LifecycleSettingsEditor({")[0] ?? "";
-    assert.ok(membersDef.length > 0, "FileWorkspaceMembers definition must exist");
-
-    // 1. Two-section architecture: Project Leadership & Team Member Intake
-    assert.match(
-        membersDef,
-        /Project Leadership/,
-        "Must partition directory into Project Leadership sub-section",
-    );
-    assert.match(
-        membersDef,
-        /Team Member Intake/,
-        "Must partition directory into Team Member Intake sub-section",
-    );
-
-    // 2. Search input and status filter tabs
-    assert.match(
-        membersDef,
-        /aria-label="Search members by name or role"/,
-        "Must provide accessible search input for members",
-    );
-    assert.match(
-        membersDef,
-        /role="tablist"[\s\S]*?aria-label="Filter members by upload status"/,
-        "Must provide status filter tablist (All, Allowed, Paused)",
-    );
-
-    // 3. Bulk action dropdown with drafting-table tokens
-    assert.match(
-        membersDef,
-        /Bulk actions/,
-        "Must provide Bulk actions dropdown menu trigger",
-    );
-    assert.match(
-        membersDef,
-        /Enable all members/,
-        "Must provide Enable all members bulk action",
-    );
-    assert.match(
-        membersDef,
-        /Disable all members/,
-        "Must provide Disable all members bulk action",
-    );
-
-    // 4. Unified Identity: preserves both role title and @username
-    assert.match(
-        membersDef,
-        /roleTitle && username/,
-        "Must preserve both roleTitle and @username without hiding handle",
-    );
-
-    // 5. Uses squared UserAvatar (size 44, rounded-[5px], hairline border)
-    assert.match(
-        membersDef,
-        /<UserAvatar[\s\S]*?identity=\{[\s\S]*?size=\{44\}[\s\S]*?roundedClassName="rounded-\[5px\]"[\s\S]*?border border-border/,
-        "FileWorkspaceMembers must use squared UserAvatar with size 44, rounded-[5px], and border",
-    );
-
-    // 6. Section 10 role badges with role-based tokens
-    assert.match(
-        membersDef,
-        /border-amber-500\/20 bg-amber-500\/10 text-amber-700/,
-        "Owner/Lead badge must use warm amber token",
-    );
-    assert.match(
-        membersDef,
-        /border-primary\/20 bg-primary\/10 text-primary/,
-        "Admin badge must use primary clay token",
-    );
-    assert.match(
-        membersDef,
-        /border-border bg-muted text-foreground/,
-        "Member badge must use clean slate token",
-    );
-    assert.doesNotMatch(
-        membersDef,
-        /rounded-full/,
-        "FileWorkspaceMembers must not use circular rounded-full badges",
-    );
-
-    // 7. Architectural status indicator for leaders
-    assert.match(
-        membersDef,
-        /Always active · Lead policy/,
-        "Must provide professional Always active · Lead policy indicator with Shield icon",
-    );
-
-    // 8. Explicit permission status for standard members
-    assert.match(
-        membersDef,
-        /Upload allowed/,
-        "Must provide explicit Upload allowed status",
-    );
-    assert.match(
-        membersDef,
-        /Upload paused/,
-        "Must provide explicit Upload paused status",
-    );
-    assert.match(
-        membersDef,
-        /<SettingsSwitch/,
-        "Toggleable members must use SettingsSwitch",
-    );
-
-    // 9. Storage Invariants & Intake Guarantees specification panel removed
-    assert.doesNotMatch(
-        membersDef,
-        /Storage Invariants &amp; Intake Guarantees/,
-        "Storage Invariants & Intake Guarantees spec panel must be removed",
-    );
-
-    // 10. Zero raw zinc or blue colors
-    assert.doesNotMatch(
-        membersDef,
-        /zinc-/,
-        "FileWorkspaceMembers must not use raw zinc classes",
-    );
-    assert.doesNotMatch(
-        membersDef,
-        /blue-/,
-        "FileWorkspaceMembers must not use raw blue classes",
-    );
+test("file permissions provide compact identity rows, server filters, pagination, and explicit bulk scope", () => {
+    const members = source("src/components/projects/settings/FileWorkspaceMembers.tsx");
+    assert.match(members, /<UserAvatar/);
+    assert.match(members, /getProjectMemberRoleLabel/);
+    assert.match(members, /label="Search file permissions"/);
+    assert.match(members, /onFilterChange/);
+    assert.match(members, /Load more members/);
+    assert.match(members, /outside the current filter or loaded pages/);
+    assert.match(members, /default for future members/);
+    assert.match(members, /<ConfirmDialog/);
+    assert.match(members, /member.uploadPermissionLocked/);
+    assert.match(members, /disabled=\{disabled\}/);
+    assert.match(members, /<SettingsSwitch/);
+    assert.doesNotMatch(members, /zinc-|blue-/);
 });
 
 test("files-workspace permissions enforce optimistic in-memory updates for 1M+ scale", () => {

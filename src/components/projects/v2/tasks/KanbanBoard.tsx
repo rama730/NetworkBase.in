@@ -1,5 +1,7 @@
 "use client";
 
+import { completionOutcomeLabel } from "@/lib/projects/task-completion-policy";
+import { taskCompletionPolicyKey, syncTaskCompletionPolicy } from "@/hooks/useTaskCompletionPolicy";
 import React, { useMemo, useState, useEffect, } from "react";
 import {
   getColumnColors,
@@ -384,6 +386,9 @@ const KanbanColumn = React.memo(
           </div>
         </div>
 
+        {col.status === "done" && colTasks.length > 0 ? <p className="nb-meta px-3 pt-2 text-muted-foreground" aria-live="polite">
+          {colTasks.filter((task: Task) => task.reviewStatus !== "pending").length} completed · {colTasks.filter((task: Task) => task.reviewStatus === "pending").length} in review
+        </p> : null}
         <div className="p-3 space-y-3 min-h-[150px] flex-1 flex flex-col">
           <SortableContext
             items={visibleTaskIds}
@@ -724,8 +729,17 @@ export default function KanbanBoard({
       toast.error("This spot is too crowded to place a card. Drop it one card higher or lower.");
       return;
     }
+    if (draggedTask.reviewStatus === "pending" && targetColumn.status !== "done") {
+      clearDragSnapshot();
+      onTaskDragStateChange?.(null);
+      toast.error("Open the task and use Approve or Request changes to resolve its review.");
+      return;
+    }
     const updatedTask = {
       ...draggedTask,
+      reviewStatus: targetColumn.status === "done" && draggedTask.status !== "done"
+        ? queryClient.getQueryData<{ reviewRequired: boolean }>(taskCompletionPolicyKey(projectId))?.reviewRequired ? "pending" as const : "none" as const
+        : draggedTask.reviewStatus,
       workflowColumnId: targetColumn.id,
       status: targetColumn.status,
       position: newPosition,
@@ -763,11 +777,15 @@ export default function KanbanBoard({
         toast.error("Failed to move task: " + result.error);
         return;
       }
+      syncTaskCompletionPolicy(queryClient, projectId, result);
+      if (targetColumn.status === "done" && draggedTask.status !== "done") toast.success(completionOutcomeLabel(result.reviewStatus));
       const persistedTask = result.updatedAt
         ? {
             ...updatedTask,
             updatedAt: result.updatedAt,
             reviewStatus: result.reviewStatus ?? updatedTask.reviewStatus,
+            completedAt: result.outcome === "completed" ? result.updatedAt : updatedTask.status !== "done" || result.reviewStatus === "pending" ? null : updatedTask.completedAt,
+            ...(result.outcome === "submitted" ? { reviewSubmittedAt: result.updatedAt } : {}),
           }
         : updatedTask;
       setTasks((current) =>

@@ -63,6 +63,7 @@ export type SprintTaskTimelineEntity = {
   title: string;
   description: string | null;
   status: SprintTaskStatus;
+  reviewStatus?: "none" | "pending" | "rejected";
   priority: SprintTaskPriority;
   storyPoints: number | null;
   dueDate: string | null;

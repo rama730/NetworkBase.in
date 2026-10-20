@@ -464,8 +464,8 @@ export const PROJECT_NOTIFICATION_EVENT_REGISTRY = {
     "tasks.status_attention": E({
         key: "tasks.status_attention",
         group: "tasks_workflow",
-        label: "Task blocked, done, or reopened",
-        description: "Notify direct task participants when status creates attention.",
+        label: "Task completion, review, or status change",
+        description: "Notify task participants about completion, review submissions, approvals and requested changes.",
         category: "tasks",
         notificationKind: "task_status_attention",
         defaultEnabled: true,

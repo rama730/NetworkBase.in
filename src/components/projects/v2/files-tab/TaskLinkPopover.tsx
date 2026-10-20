@@ -103,7 +103,7 @@ function PopoverTaskRow({ task, projectId, nodeId }: { task: LinkedTask; project
           aria-hidden="true"
           className={cn(
             "inline-block size-2 shrink-0 rounded-[2px]",
-            task.status === "done"
+            task.status === "done" && task.reviewStatus !== "pending"
               ? "bg-[#2F6B4F]"
               : task.status === "in_progress"
                 ? "bg-[#D14E24]"
@@ -114,7 +114,7 @@ function PopoverTaskRow({ task, projectId, nodeId }: { task: LinkedTask; project
         />
         <span className="min-w-0 flex-1">
           <span className={cn("block truncate text-xs font-medium text-[#141A1E] dark:text-foreground", presentation.className)} aria-label={presentation.ariaLabel}>{task.title}</span>
-          <span className="block font-mono text-[11px] capitalize text-[#6B7880] dark:text-muted-foreground">{task.status.replace(/_/g, " ")}</span>
+          <span className="block font-mono text-[11px] capitalize text-[#6B7880] dark:text-muted-foreground">{task.reviewStatus === "pending" ? "In review" : task.status.replace(/_/g, " ")}</span>
         </span>
       </a>
     </li>

@@ -1,5 +1,8 @@
 "use client";
 
+import { toast } from "sonner";
+import { completionOutcomeLabel } from "@/lib/projects/task-completion-policy";
+import { taskCompletionPolicyKey, syncTaskCompletionPolicy } from "@/hooks/useTaskCompletionPolicy";
 import { useCallback, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -232,6 +235,7 @@ export function useTaskSurfaceMutations(params: {
       const nextTask = normalizeTaskSurfaceRecord({
         ...task,
         status,
+        reviewStatus: status === "done" && queryClient.getQueryData<{ reviewRequired: boolean }>(taskCompletionPolicyKey(projectId))?.reviewRequired ? "pending" : "none",
         ...(defaultColumnId ? { workflowColumnId: defaultColumnId } : {}),
         updatedAt: new Date().toISOString(),
       });
@@ -240,19 +244,30 @@ export function useTaskSurfaceMutations(params: {
       applyOptimisticTask(nextTask, "status");
 
       try {
-        const result = await updateTaskStatusAction(task.id, status, projectId);
+        const result = await updateTaskStatusAction(task.id, status, projectId, undefined, previousTask.updatedAt);
         if (!result.success) {
           throw new Error(result.error || "Failed to update task status");
         }
+        syncTaskCompletionPolicy(queryClient, projectId, result);
         setStatusWarnings(
           Array.isArray(result.warnings) ? result.warnings : [],
         );
         if (result.updatedAt) {
           applyOptimisticTask(
-            normalizeTaskSurfaceRecord({ ...nextTask, updatedAt: result.updatedAt, reviewStatus: result.reviewStatus ?? nextTask.reviewStatus }),
+            normalizeTaskSurfaceRecord({
+              ...nextTask,
+              status: result.status ?? nextTask.status,
+              updatedAt: result.updatedAt,
+              reviewStatus: result.reviewStatus ?? nextTask.reviewStatus,
+              completedAt: result.outcome === "completed"
+                ? result.updatedAt
+                : status !== "done" || result.reviewStatus === "pending" ? null : nextTask.completedAt,
+              ...(result.outcome === "submitted" ? { reviewSubmittedAt: result.updatedAt } : {}),
+            }),
             "status",
           );
         }
+        if (status === "done") toast.success(completionOutcomeLabel(result.reviewStatus));
         return { success: true as const };
       } catch (error) {
         const message =
@@ -343,18 +358,22 @@ export function useTaskSurfaceMutations(params: {
       try {
         const result = await moveTaskToWorkflowColumnAction(
           task.id,
-          workflowColumnId,
           projectId,
+          workflowColumnId,
           undefined,
           previousTask.updatedAt,
         );
         if (!result.success) throw new Error(result.error || "Failed to move task");
+        syncTaskCompletionPolicy(queryClient, projectId, result);
         if (result.updatedAt) {
           applyOptimisticTask(
             normalizeTaskSurfaceRecord({
               ...nextTask,
+              status: result.status ?? nextTask.status,
               updatedAt: result.updatedAt,
               reviewStatus: result.reviewStatus ?? nextTask.reviewStatus,
+              completedAt: result.outcome === "completed" ? result.updatedAt : result.status !== "done" || result.reviewStatus === "pending" ? null : nextTask.completedAt,
+              ...(result.outcome === "submitted" ? { reviewSubmittedAt: result.updatedAt } : {}),
             }),
             "workflowColumnId",
           );

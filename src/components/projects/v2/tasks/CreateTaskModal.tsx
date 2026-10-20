@@ -1,5 +1,7 @@
 "use client";
 
+import { useTaskCompletionPolicy } from "@/hooks/useTaskCompletionPolicy";
+import { completionActionLabel } from "@/lib/projects/task-completion-policy";
 import React from "react";
 import { SPRINT_STATUS_PRESENTATION } from "@/lib/projects/sprint-detail";
 import { CheckSquare, ChevronDown, Paperclip, Trash2, User, X, Zap } from "lucide-react";
@@ -156,6 +158,7 @@ export default function CreateTaskModal({
   projectName,
   canAssignSprint = false,
 }: CreateTaskModalProps) {
+  const completionPolicy = useTaskCompletionPolicy(projectId ?? "");
   const plainContentHeadings = usePlainContentHeadings();
   const availableSprints = React.useMemo(
     () => normalizeSprintOptions(sprints),
@@ -445,8 +448,8 @@ export default function CreateTaskModal({
                         )}
                       >
                         {TASK_WORKFLOW_STATUSES.map((status) => (
-                          <option key={status} value={status}>
-                            {getTaskStatusPresentation(status).label}
+                          <option key={status} value={status} disabled={status === "done" && !completionPolicy.data}>
+                            {status === "done" ? completionActionLabel(completionPolicy.data?.reviewRequired ?? false) : getTaskStatusPresentation(status).label}
                           </option>
                         ))}
                       </select>

@@ -25,7 +25,7 @@ export async function getWorkspaceSummaryAction() {
         const [taskResult, applicationResult, inviteResult] = await Promise.all([
             db.select({ value: count() }).from(tasks).where(and(
                 isNull(tasks.deletedAt),
-                sql`${tasks.status} <> 'done'`,
+                sql`(${tasks.status} <> 'done' OR ${tasks.reviewStatus} = 'pending')`,
                 eq(tasks.assigneeId, user.id),
                 exists(db.select({ id: projects.id }).from(projects).where(and(
                     eq(projects.id, tasks.projectId),
@@ -76,7 +76,7 @@ export async function fetchWorkspaceTasksAction(
 
         const baseWhere = and(
             isNull(tasks.deletedAt),
-            sql`${tasks.status} <> 'done'`
+            sql`(${tasks.status} <> 'done' OR ${tasks.reviewStatus} = 'pending')`
         );
 
         const visibleProjectCheck = exists(

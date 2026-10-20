@@ -17,6 +17,7 @@ export const reconcileWorkspaceProfileCounters = inngest.createFunction(
             dueDateColumn,
             now,
             todayEnd,
+            sql.raw('"review_status"'),
         )
 
         await step.run('rebuild-profile-counters', async () => {

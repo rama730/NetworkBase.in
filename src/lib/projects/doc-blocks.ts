@@ -23,6 +23,7 @@ export type ProjectDocReferenceOption = {
     kindLabel?: string | null;
     subtitle?: string | null;
     status?: string | null;
+    reviewStatus?: string | null;
     meta?: string | null;
     context?: string | null;
     badges?: string[];

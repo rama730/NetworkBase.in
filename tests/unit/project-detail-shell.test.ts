@@ -22,7 +22,7 @@ test("the canonical slug redirect keeps repeated params repeated", () => {
 test("tab, doc and settings-section clicks are history entries", () => {
   assert.match(read(PDC), /router\.push\(nextUrl, \{ scroll: false \}\)/);
   assert.match(read("src/components/projects/doc/ProjectDocRail.tsx"), /router\[replace \? "replace" : "push"\]/);
-  assert.match(read("src/components/projects/tabs/ProjectSettingsTab.tsx"), /params\.set\("settings", sectionId\);\s*router\.push\(/);
+  assert.match(read("src/hooks/useProjectSettingsNavigation.ts"), /router\.push\(`\?\$\{next\.toString\(\)\}#project-settings-/);
 });
 
 test("lifecycle rows are keyed by id, never by stage text", () => {

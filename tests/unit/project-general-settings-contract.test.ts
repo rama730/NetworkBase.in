@@ -12,7 +12,7 @@ test("project general settings renders 3 canonical cards and removes redundant o
   const content = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
   // General tab block extraction
-  const tabGeneralSlot = content.split('activeSection === "general" && (')[1]?.split('activeSection === "access"')[0] ?? "";
+  const tabGeneralSlot = source("src/components/projects/tabs/ProjectSettingsTab.tsx");
   assert.match(tabGeneralSlot, /<GeneralSettingsSection/, "The General slot must render GeneralSettingsSection");
   const generalBlock = source("src/components/projects/settings/GeneralSettingsSection.tsx");
   assert.ok(generalBlock.length > 0, "General settings block must exist");
@@ -39,7 +39,7 @@ test("project general settings renders 3 canonical cards and removes redundant o
   assert.doesNotMatch(generalBlock, /\{coverDraft \? "Choose different avatar" : coverImage \? "Replace avatar" : "Upload avatar"\}/, "Must not have legacy separate button bar");
 
   // Structured divide-y layout in identity and tags/skills cards
-  assert.match(generalBlock, /<div className="divide-y divide-border">/, "Must use divide-y divide-border structure inside settings cards");
+  assert.match(generalBlock, /<fieldset disabled=\{savingSettings\} className="min-w-0 divide-y divide-border">/, "Must use divide-y divide-border structure inside settings cards");
 
   // No legacy indigo/blue styling in General
   assert.doesNotMatch(generalBlock, /tone="indigo"/, "Tags chip editor must not use legacy indigo tone");
@@ -60,22 +60,22 @@ test("project general settings removes duplicate header card and renders card-le
   const content = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
   // Duplicate header card removed from general tab
-  assert.match(content, /activeSection !== "general"/, "SectionHeader must be skipped for General tab to avoid duplicate header");
+  assert.match(content, /id="project-settings-general"/, "SectionHeader must be skipped for General tab to avoid duplicate header");
   assert.doesNotMatch(content, /data-testid="project-settings-dirty-banner"/, "Header dirty banner must be removed in favor of card footers");
 
   // General tab block extraction
-  const tabGeneralSlot = content.split('activeSection === "general" && (')[1]?.split('activeSection === "access"')[0] ?? "";
+  const tabGeneralSlot = source("src/components/projects/tabs/ProjectSettingsTab.tsx");
   assert.match(tabGeneralSlot, /<GeneralSettingsSection/, "The General slot must render GeneralSettingsSection");
   const generalBlock = source("src/components/projects/settings/GeneralSettingsSection.tsx");
   assert.match(generalBlock, /Save changes/, "General settings cards must provide Save changes button in footer");
   assert.match(generalBlock, /Cancel/, "General settings cards must provide Cancel button in footer");
 });
 
-test("project settings sidebar and header follow NetworkBase layout standards", () => {
+test("project settings uses the main Settings navigation and content width", () => {
   const content = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
-
-  assert.match(content, /max-w-\[1320px\]/, "Settings container max width must be 1320px matching Layout Pattern G");
-  assert.match(content, /border-border bg-card/, "Sidebar aside must use semantic border and card background");
-  assert.match(content, /bg-muted font-medium text-foreground/, "Active nav item must use bg-muted and text-foreground");
-  assert.match(content, /text-muted-foreground hover:bg-muted hover:text-foreground/, "Inactive nav item must use muted foreground with hover muted");
+  assert.match(content, /max-w-4xl/);
+  assert.match(content, /var\(--nb-sidebar-width\)/);
+  assert.match(content, /nb-nav-link/);
+  assert.match(content, /aria-current=\{activeSection === section.id \? "page" : undefined\}/);
+  assert.doesNotMatch(content, /SECTION_GROUPS/);
 });

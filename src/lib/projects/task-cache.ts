@@ -21,7 +21,7 @@ type TaskInfiniteData = {
   pageParams: unknown[];
 };
 
-type TaskScope = "all" | "backlog" | "sprint";
+type TaskScope = "all" | "backlog" | "sprint" | "review";
 
 function isInfiniteTaskData(value: unknown): value is TaskInfiniteData {
   return (
@@ -33,6 +33,7 @@ function isInfiniteTaskData(value: unknown): value is TaskInfiniteData {
 
 function matchesScope(task: TaskSurfaceRecord, scope: TaskScope) {
   if (scope === "backlog") return !task.sprintId;
+  if (scope === "review") return task.reviewStatus === "pending";
   if (scope === "sprint") return !!task.sprintId;
   return true;
 }

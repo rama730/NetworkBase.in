@@ -201,7 +201,7 @@ export function ProjectRolesEditor({
     if (fields.length === 0) {
         return (
             <div className={`space-y-6 ${className}`}>
-                <div className="nb-empty-state nb-grid-ground flex flex-col items-center justify-center rounded-lg border border-dashed border-border/80 p-8 text-center">
+                <div className="nb-empty-state flex flex-col items-center justify-center py-8 text-center">
                     <UserCog className="h-8 w-8 text-muted-foreground/70 mb-2.5" />
                     <p className="nb-card-title text-foreground">No roles configured</p>
                     <p className="nb-compact mt-1 text-xs text-muted-foreground">
@@ -420,11 +420,11 @@ export function ProjectRolesEditor({
                                     roundedClassName="rounded-md"
                                 />
                                 <div className="flex flex-col min-w-0">
-                                    <h4 className="nb-card-title text-sm font-semibold text-foreground truncate">
+                                    <h4 className="nb-card-title text-foreground break-words">
                                         {selectedOccupant.fullName || selectedOccupant.username || "Team Member"}
                                     </h4>
                                     {selectedOccupant.username ? (
-                                        <p className="nb-compact text-xs text-muted-foreground truncate">
+                                        <p className="nb-compact text-muted-foreground break-words">
                                             @{selectedOccupant.username}
                                         </p>
                                     ) : null}
@@ -699,7 +699,7 @@ export function ProjectRolesEditor({
                             <p className="nb-compact text-xs text-muted-foreground">
                                 Preview how candidates see this vacancy on the public project page.
                             </p>
-                            <div className="rounded-lg border border-border bg-muted/10 p-4 space-y-3">
+                            <div className="border-t border-border pt-4 space-y-3">
                                 <div className="flex items-start justify-between gap-2">
                                     <div>
                                         <h5 className="font-semibold text-sm text-foreground">

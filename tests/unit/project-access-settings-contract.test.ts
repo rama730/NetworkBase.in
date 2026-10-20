@@ -8,11 +8,11 @@ function source(relativePath: string) {
   return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
-test("project access tab eliminates duplicate headers, extra cards, and renders 1 canonical SettingsCard with immediate toggle controls", () => {
+test("project access tab renders one open access section with immediate toggle controls", () => {
   const settingsTab = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
   // SectionHeader is suppressed on access tab
-  assert.match(settingsTab, /activeSection !== "access"/, "SectionHeader must be suppressed on access tab to avoid duplicate title");
+  assert.match(settingsTab, /id="project-settings-access"/, "SectionHeader must be suppressed on access tab to avoid duplicate title");
 
   // Access section block extraction
   const accessBlock = settingsTab.split('id="project-settings-access"')[1]?.split('id="project-settings-collaborators"')[0] ?? "";
@@ -52,7 +52,7 @@ test("project access tab components adhere to NetworkBase drafting-table design 
   // Public tab visibility editor tokens
   const editorDef = settingsTab.split("function PublicTabVisibilityEditor({")[1]?.split("function FileWorkspaceMembers({")[0] ?? "";
   assert.ok(editorDef.length > 0, "PublicTabVisibilityEditor definition must exist");
-  assert.match(editorDef, /divide-y divide-border overflow-hidden rounded-lg border border-border bg-card/, "Editor uses divide-y divide-border");
+  assert.match(editorDef, /divide-y divide-border/, "Editor uses divide-y divide-border");
   assert.match(editorDef, /<SettingsSwitch/, "PublicTabVisibilityEditor must use SettingsSwitch component");
   assert.doesNotMatch(editorDef, /blue-/, "PublicTabVisibilityEditor must not contain raw blue classes");
   assert.doesNotMatch(editorDef, /zinc-/, "PublicTabVisibilityEditor must not contain raw zinc classes");

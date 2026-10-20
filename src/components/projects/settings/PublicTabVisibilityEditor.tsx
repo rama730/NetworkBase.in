@@ -23,14 +23,14 @@ export function PublicTabVisibilityEditor({
     savingTabId?: ProjectPublicTabId | null;
 }) {
     return (
-        <div className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
+        <div className="divide-y divide-border">
             {PUBLIC_TAB_ORDER.map((tabId) => {
                 const isEnabled = Boolean(value[tabId]);
                 const isSaving = savingTabId === tabId;
                 return (
                     <div
                         key={tabId}
-                        className="flex items-center justify-between gap-4 p-4 transition-colors hover:bg-muted/20"
+                        className="flex min-h-16 items-start justify-between gap-4 py-3 sm:items-center"
                     >
                         <div className="min-w-0 flex-1">
                             <p className="nb-ui-label text-foreground">{PROJECT_PUBLIC_TAB_LABELS[tabId]}</p>

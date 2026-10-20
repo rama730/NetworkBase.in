@@ -99,10 +99,10 @@ test("story points save, deleted tasks refuse edits, and a drag to Done is the s
     const [{ story_points }] = await sql`SELECT story_points FROM tasks WHERE id = ${taskId}`;
     assert.equal(story_points, 5);
 
-    // COR-027: a drag records the status transition and asks for review, like the status control.
+    // COR-027: a drag records the status transition like the status control; review is only asked for when the project requires it (default: no).
     const moved = await taskActions.moveTaskToWorkflowColumnAction(taskId, projectId, col("done"));
     assert.equal(moved.success, true, JSON.stringify(moved));
-    assert.equal(moved.reviewStatus, "pending");
+    assert.equal(moved.reviewStatus, "none");
     const events = await sql`SELECT event_type FROM task_activity_events WHERE task_id = ${taskId} AND event_type = 'status_changed'`;
     assert.equal(events.length, 1);
 
