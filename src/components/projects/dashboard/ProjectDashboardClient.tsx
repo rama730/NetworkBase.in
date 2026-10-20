@@ -15,6 +15,8 @@ import { toggleProjectFollowAction, updateProjectStageAction, incrementProjectVi
 import { ROUTES } from '@/constants/routes';
 import { getApplicationStatusAction, withdrawApplicationAction, type ApplicationStatusResult } from '@/app/actions/applications';
 import type { ApplicationStatusLoad } from '@/lib/applications/card-state';
+import { userTopic } from '@/lib/messaging/constants';
+import { subscribeBroadcast } from '@/lib/realtime/private-broadcast';
 import { resolveProjectInvitationAction } from '@/app/actions/project/guidance';
 import { useProjectMembers } from '@/hooks/projects/useProjectMembers';
 import { queryKeys } from '@/lib/query-keys';
@@ -491,11 +493,16 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
         const onVisible = () => { if (document.visibilityState === 'visible') void refreshApplicationStatus(); };
         document.addEventListener('visibilitychange', onVisible);
         window.addEventListener('focus', onVisible);
+        // A reviewer's decision arrives live, so the card changes while the page is open.
+        const live = subscribeBroadcast(userTopic(currentUserId), (event, payload) => {
+            if (event === 'application.changed' && payload.project_id === project.id) void refreshApplicationStatus();
+        });
         return () => {
             document.removeEventListener('visibilitychange', onVisible);
             window.removeEventListener('focus', onVisible);
+            live.unsubscribe();
         };
-    }, [currentUserId, isOwner, isMember, refreshApplicationStatus]);
+    }, [currentUserId, isOwner, isMember, project.id, refreshApplicationStatus]);
 
     // Hook Integration: Scalable Member Loading
     const shouldLoadMembers = activeTab === 'dashboard' || activeTab === 'tasks' || activeTab === 'updates' || activeTab === 'sprints' || activeTab === 'settings';
