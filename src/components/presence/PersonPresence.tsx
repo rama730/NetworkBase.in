@@ -19,6 +19,7 @@ export function PersonPresenceBadge({
   lastActiveAt,
   live,
   size = 14,
+  statusSize,
   className,
   style,
 }: {
@@ -26,6 +27,8 @@ export function PersonPresenceBadge({
   lastActiveAt?: string | null;
   live?: boolean;
   size?: number;
+  /** The size the badge grows to when the person has a status emoji. */
+  statusSize?: number;
   className?: string;
   style?: React.CSSProperties;
 }) {
@@ -39,7 +42,11 @@ export function PersonPresenceBadge({
       className={className}
       style={style}
       statusEmoji={presence.status?.emoji}
+      statusSize={statusSize}
+      statusTimer={presence.statusTimer}
+      statusPaused={presence.status?.pausesNotifications}
       animate={presence.loaded}
+      pulseKey={presence.updatedAt}
     />
   );
 }
@@ -59,7 +66,7 @@ export function PresenceAvatar({
   return (
     <span className={cn("relative inline-flex flex-none", className)} style={{ width: size, height: size }}>
       <UserAvatar size={size} {...avatar} />
-      <PersonPresenceBadge userId={userId} lastActiveAt={lastActiveAt} live={live} size={badge} className="absolute" style={{ right: -3, bottom: -3 }} />
+      <PersonPresenceBadge userId={userId} lastActiveAt={lastActiveAt} live={live} size={badge} statusSize={size >= 32 ? 20 : undefined} className="absolute" style={{ right: -3, bottom: -3 }} />
     </span>
   );
 }
@@ -69,6 +76,7 @@ export function ProjectPresenceBadge({
   projectId,
   updatedAt,
   size = 14,
+  statusSize,
   className,
   style,
   testId,
@@ -80,6 +88,8 @@ export function ProjectPresenceBadge({
   projectId: string | null | undefined;
   updatedAt?: string | Date | null;
   size?: number;
+  /** The size the badge grows to when the project has a status emoji. */
+  statusSize?: number;
   className?: string;
   style?: React.CSSProperties;
 }) {
@@ -94,6 +104,7 @@ export function ProjectPresenceBadge({
       style={style}
       testId={testId}
       statusEmoji={presence.status?.emoji}
+      statusSize={statusSize}
     />
   );
 }

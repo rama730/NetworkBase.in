@@ -249,7 +249,7 @@ export default function TopNav() {
                                         >
                                             <span className="relative inline-flex">
                                                 <ProfileAvatar profile={profile} size={32} priority />
-                                                <PersonPresenceBadge userId={user?.id} live size={16} className="absolute" style={{ right: -2, bottom: -2 }} />
+                                                <PersonPresenceBadge userId={user?.id} live size={16} statusSize={20} className="absolute" style={{ right: -2, bottom: -2 }} />
                                             </span>
                                         </button>
                                     </DropdownMenuTrigger>
