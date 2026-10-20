@@ -41,7 +41,7 @@ second decline after a reopen notifies again. Links open the thread; a decline c
 
 ## Where it shows
 
-- Project page → **Open roles** card: loading / error / pending (Edit, Withdraw, View conversation) / declined with
+- Project page → **Open roles** card (re-read on focus and the moment a reviewer decides): loading / error / pending (Edit, Withdraw, View conversation) / declined with
   reason / withdrawn / ended membership / closed project.
 - **Network → Invitations**: "Project applications" (pending, with a review dialog), "Your applications" (sent),
   and the **Decided applications** filter (last 30 days).
@@ -52,6 +52,6 @@ second decline after a reopen notifies again. Links open the thread; a decline c
 
 ## Database notes
 
-Migrations 0226–0229 (thread rules, lifecycle constraints, thread messaging, dropped proposal columns).
+Migrations 0226–0230 (thread rules, lifecycle constraints, thread messaging, dropped proposal columns, one-call status lines and the prefix-duplicate index drops).
 `role_applications_message_length_check` was added `NOT VALID`; validate it after a read-only check of the live data.
 `chat_get_or_create_dm` still has an unreachable `'application'` reason from 0180 (applied migrations are immutable).

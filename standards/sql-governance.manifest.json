@@ -230,7 +230,8 @@
     "drizzle/0226_application_thread_rules.sql",
     "drizzle/0227_application_lifecycle_constraints.sql",
     "drizzle/0228_application_thread_messaging.sql",
-    "drizzle/0229_drop_application_proposal_columns.sql"
+    "drizzle/0229_drop_application_proposal_columns.sql",
+    "drizzle/0230_application_update_one_trip.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",

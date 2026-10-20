@@ -39,14 +39,18 @@ export async function ensureApplicationChannel(executor: Executor, applicationId
 }
 
 /**
- * A system line in an application thread, e.g. a status change. Pass the thread id when the caller
- * already holds it (saves the lookup). Open viewers and the other members are told after the write.
+ * A system line in an application thread, e.g. a status change: one database call finds (or opens) the thread and
+ * posts. Open viewers and the other members are told after the write.
  */
-export async function postApplicationUpdate(executor: Executor, applicationId: string, actorId: string, text: string, knownChannelId?: string | null) {
-  const channelId = knownChannelId ?? await ensureApplicationChannel(executor, applicationId);
-  await executor.execute(sql`SELECT app_private.chat_post_system(${channelId}::uuid, ${actorId}::uuid, ${text.slice(0, 4000)})`);
+export async function postApplicationUpdate(executor: Executor, applicationId: string, actorId: string, text: string) {
+  const channelId = await value<string>(executor, sql`SELECT app_private.chat_post_application_update(${applicationId}::uuid, ${actorId}::uuid, ${text}) AS value`);
   tell(() => publishChannelActivity(channelId, actorId));
   return channelId;
+}
+
+/** The applicant's open project page re-reads its Open roles card as soon as a reviewer decides. */
+export function announceApplicationChange(applicantId: string, projectId: string) {
+  tell(() => publishUser(applicantId, "application.changed", { project_id: projectId }));
 }
 
 /** A brand-new application thread: its members learn of it now, not at the next poll. */

@@ -111,3 +111,14 @@ test("every status change leaves a line that says who did what, and the card rea
     assert.equal(summary!.application?.role_removed, true);
   });
 });
+
+test("a status line is one call that opens a missing thread, and old threads get their card back", async () => {
+  await withThread(async ({ owner, applicationId, channelId }) => {
+    const [{ id }] = await sql`SELECT app_private.chat_post_application_update(${applicationId}::uuid, ${owner}::uuid, 'looking at this now') AS id`;
+    assert.equal(id, channelId, "it posts into the existing thread");
+    const [line] = await sql`SELECT body FROM chat_messages WHERE channel_id = ${channelId} AND kind = 'system' ORDER BY channel_seq DESC LIMIT 1`;
+    assert.equal(line!.body, "looking at this now");
+    const indexes = await sql`SELECT indexname FROM pg_indexes WHERE tablename = 'role_applications' AND indexname IN ('role_applications_project_id_idx', 'role_applications_applicant_id_idx', 'role_applications_role_id_idx')`;
+    assert.equal(indexes.length, 0, "the prefix-duplicate indexes are gone");
+  });
+});

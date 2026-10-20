@@ -1565,7 +1565,6 @@ export const roleApplications = pgTable(
     pendingProjectIdx: index("role_applications_pending_project_idx")
       .on(t.projectId)
       .where(sql`${t.status} = 'pending'`),
-    roleIdIdx: index("role_applications_role_id_idx").on(t.roleId),
     decisionByIdx: index("role_applications_decision_by_idx").on(t.decisionBy),
   }),
 );

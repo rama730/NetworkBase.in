@@ -3,7 +3,7 @@
 import { readPersonCardDetails } from '@/lib/network/person-card-read';
 import type { PersonCardDetails } from '@/lib/network/person-card';
 import { logger } from '@/lib/logger';
-import { announceApplicationChannel, ensureApplicationChannel, postApplicationUpdate } from '@/lib/messaging/integrations';
+import { announceApplicationChange, announceApplicationChannel, ensureApplicationChannel, postApplicationUpdate } from '@/lib/messaging/integrations';
 import { db } from '@/lib/db';
 import {
     roleApplications,
@@ -282,6 +282,7 @@ async function enqueueApplicationDecisionBestEffort(params: {
     actorAvatarUrl?: string | null;
     traceId: string;
 }) {
+    announceApplicationChange(params.applicantId, params.projectId);
     try {
         await enqueueProjectNotificationEvent({
             projectId: params.projectId,
