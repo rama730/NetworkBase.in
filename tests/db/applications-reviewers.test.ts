@@ -230,3 +230,18 @@ test("per-role counts are for reviewers only, and accepting several reports each
     void applicant;
   });
 });
+
+test("Your applications keeps a withdrawn application for a while and says why a decline happened", async () => {
+  await withApplication(async ({ applicant, applicationId }) => {
+    viewerId = applicant;
+    assert.equal((await apps.withdrawApplicationAction(applicationId)).success, true);
+    const result = await invitations.readNetworkInvitationsAction({ direction: "sent", kind: "projects" });
+    assert.equal(result.success, true, JSON.stringify(result));
+    const item = result.success ? result.items.find((entry) => entry.id === applicationId) : undefined;
+    assert.equal(item?.applicationStatus, "withdrawn");
+    await sql`UPDATE role_applications SET status = 'rejected', decision_reason_code = 'role_filled', decision_at = now() WHERE id = ${applicationId}`;
+    const again = await invitations.readNetworkInvitationsAction({ direction: "sent", kind: "projects" });
+    const filled = again.success ? again.items.find((entry) => entry.id === applicationId) : undefined;
+    assert.equal(filled?.decisionCode, "role_filled", "the sent list carries the code so it can read 'Role filled'");
+  });
+});

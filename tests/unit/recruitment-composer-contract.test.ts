@@ -89,7 +89,7 @@ test("guidance invitations use the existing Open Roles invitation lifecycle", ()
     assert.match(dashboard, /applicationStatus\.invitationId/);
     assert.doesNotMatch(dashboard, /rolesWithFilled\.length === 0\) return/);
     assert.match(openRoles, /applicationStatus\.invitationKind === "guidance_appointment"/);
-    assert.match(openRoles, /openRoles\.length === 0 && !isGuidanceInvitation\) return null/);
+    assert.match(openRoles, /openRoles\.length === 0 && !isGuidanceInvitation && !hasMyApplication\) return null/);
     assert.doesNotMatch(openRoles, /No open positions listed/);
     assert.match(openRoles, />\s*Invited\s*</);
     assert.match(openRoles, /\bAccept\b/);

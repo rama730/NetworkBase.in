@@ -86,6 +86,7 @@ async function ResolvedPublicProfile({
             lockedShell={data.lockedShell}
             collaborationSummary={data.collaborationSummary}
             initialOpenRolesProjects={openRolesProjects.items}
+            applicationsCapReached={openRolesProjects.capReached}
         />
     );
 }

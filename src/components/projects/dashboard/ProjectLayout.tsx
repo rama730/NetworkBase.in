@@ -59,6 +59,8 @@ interface ProjectLayoutProps {
     stageCount?: number;
     /** Roles with open spots; visitors get a mobile shortcut to the Open roles card. */
     openRolesCount?: number;
+    /** The visitor's own application ("Application pending"), shown on the same mobile link. */
+    applicationLabel?: string | null;
 }
 
 const TABS = [
@@ -104,6 +106,7 @@ export default function ProjectLayout({
     stageIndex = 0,
     stageCount = 0,
     openRolesCount = 0,
+    applicationLabel = null,
 }: ProjectLayoutProps) {
     const [summaryExpanded, setSummaryExpanded] = useState(false);
     const [projectTabsHeight, setProjectTabsHeight] = useState(0);
@@ -398,9 +401,9 @@ export default function ProjectLayout({
                                 <Share2 className="size-4" aria-hidden="true" />
                             </button>
 
-                            {!(isOwnerOrMember ?? isOwner) && openRolesCount > 0 && activeTab === "dashboard" ? (
+                            {!(isOwnerOrMember ?? isOwner) && (openRolesCount > 0 || applicationLabel) && activeTab === "dashboard" ? (
                                 <a href="#open-roles" className="nb-touch-target nb-ui-label inline-flex items-center px-1 text-primary md:hidden">
-                                    {openRolesCount} open {openRolesCount === 1 ? "role" : "roles"} ›
+                                    {applicationLabel ?? `${openRolesCount} open ${openRolesCount === 1 ? "role" : "roles"}`} ›
                                 </a>
                             ) : null}
                         </div>

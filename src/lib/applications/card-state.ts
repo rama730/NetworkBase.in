@@ -65,7 +65,9 @@ export function describeApplyCard(
             // A current member never sees this card as an applicant; an ended membership can apply again.
             return {
                 ...NOTHING,
-                banner: status.membershipEnded ? { tone: "muted", text: "You were on this project" } : { tone: "success", text: "Team member" },
+                banner: status.membershipEnded
+                    ? { tone: "muted", text: "You were on this project" }
+                    : { tone: "success", text: status.roleTitle ? `You joined as ${status.roleTitle}` : "Team member" },
                 blockedReason: status.membershipEnded ? closed : null,
                 applyLabel: "Apply again",
             };

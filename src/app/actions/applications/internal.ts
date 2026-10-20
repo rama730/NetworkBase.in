@@ -731,6 +731,9 @@ export async function getApplicationStatusAction(projectId: string): Promise<App
                 : null;
             const lifecycleStatus = resolveLifecycleStatus(application.status, decisionReason);
             const [threadRow] = await db.execute<{ id: string }>(sql`SELECT id FROM chat_channels WHERE application_id = ${application.id} LIMIT 1`);
+            const [chatRow] = application.status === 'accepted'
+                ? await db.execute<{ id: string }>(sql`SELECT c.id FROM chat_channels c WHERE c.project_id = ${projectId} AND c.is_default AND app_private.chat_is_member(c.id, ${user.id}::uuid) LIMIT 1`)
+                : [];
             const editableUntilMs = new Date(application.createdAt).getTime() + APPLICATION_EDIT_WINDOW_MS;
             const own = {
                 applicationId: application.id,
@@ -738,6 +741,7 @@ export async function getApplicationStatusAction(projectId: string): Promise<App
                 details: cleanDetails(application.details as ApplicationDetails),
                 decisionReasonText: application.decisionReasonText,
                 channelId: threadRow?.id ?? null,
+                projectChatId: chatRow?.id ?? null,
                 ...(application.status === 'pending' && editableUntilMs > Date.now() ? { editableUntil: new Date(editableUntilMs) } : {}),
             };
 

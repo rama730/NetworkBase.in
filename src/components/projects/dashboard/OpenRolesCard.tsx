@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CheckCircle, Clock, Loader2, RotateCcw, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -50,6 +50,16 @@ export const OpenRolesCard = memo(function OpenRolesCard({
     invitationLoading = false,
 }: OpenRolesCardProps) {
     const [showAllMobile, setShowAllMobile] = useState(false);
+    // The Edit window is 10 minutes: the link goes away when it ends, without waiting for the next read.
+    const editableUntil = applicationStatus.editableUntil ? new Date(applicationStatus.editableUntil).getTime() : 0;
+    const [editOpen, setEditOpen] = useState(false);
+    useEffect(() => {
+        const left = editableUntil - Date.now();
+        setEditOpen(left > 0);
+        if (left <= 0) return;
+        const timer = window.setTimeout(() => setEditOpen(false), left);
+        return () => window.clearTimeout(timer);
+    }, [editableUntil]);
     const openRoles = useMemo(() => {
         return roles.filter((role: any) => {
             const remaining = (role?.count || 0) - (role?.filled || 0);
@@ -60,9 +70,11 @@ export const OpenRolesCard = memo(function OpenRolesCard({
     const isProposed = applicationStatus.status === "proposed";
     const isGuidanceInvitation = isProposed && applicationStatus.invitationKind === "guidance_appointment";
 
-    if (!isCreator && openRoles.length === 0 && !isGuidanceInvitation) return null;
+    // Someone with an application keeps seeing its state (and Withdraw / Edit) even when no role has a spot left.
+    const hasMyApplication = applicationStatus.status !== "none" || Boolean(applicationStatus.loadFailed) || application?.load === "loading";
+    if (!isCreator && openRoles.length === 0 && !isGuidanceInvitation && !hasMyApplication) return null;
 
-    if (openRoles.length === 0 && !isGuidanceInvitation) {
+    if (isCreator && openRoles.length === 0 && !isGuidanceInvitation) {
         return (
             <RailSection title="Open roles" id="open-roles" className="scroll-mt-28" contentClassName="p-3">
                 <div className="space-y-3 py-1">
@@ -79,7 +91,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
         );
     }
 
-    const card = describeApplyCard(applicationStatus, {
+    const card = describeApplyCard(editOpen ? applicationStatus : { ...applicationStatus, editableUntil: undefined }, {
         load: application?.load ?? "ready",
         projectClosed: application?.projectClosed ?? false,
     });
@@ -117,11 +129,12 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                             <span>{card.banner.text}</span>
                         </div>
                         {card.banner.detail ? <p className="text-[12px] leading-relaxed text-muted-foreground">{card.banner.detail}</p> : null}
-                        {card.canEdit || card.canWithdraw || applicationStatus.channelId ? (
+                        {card.canEdit || card.canWithdraw || applicationStatus.channelId || applicationStatus.projectChatId ? (
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-0.5 text-[12px] font-medium">
                                 {card.canEdit ? <button type="button" onClick={application?.onEdit} className="nb-touch-target text-primary hover:underline">Edit</button> : null}
                                 {card.canWithdraw ? <button type="button" onClick={application?.onWithdraw} className="nb-touch-target text-muted-foreground hover:text-foreground hover:underline">Withdraw</button> : null}
                                 {applicationStatus.channelId ? <Link href={conversationHref(applicationStatus.channelId)} className="nb-touch-target text-primary hover:underline">View conversation</Link> : null}
+                                {applicationStatus.status === "accepted" && !applicationStatus.membershipEnded && applicationStatus.projectChatId ? <Link href={conversationHref(applicationStatus.projectChatId)} className="nb-touch-target text-primary hover:underline">Open project chat</Link> : null}
                             </div>
                         ) : null}
                         {card.canRetry ? (

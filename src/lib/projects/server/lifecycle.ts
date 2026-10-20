@@ -2603,11 +2603,11 @@ export async function getProfileProjectsWithOpenRolesAction(
   input: { search?: string; cursor?: string; limit?: number } = {},
 ) {
   try {
-    if (!targetProfileId || !isLooseUuid(targetProfileId)) return { items: [], nextCursor: null };
+    if (!targetProfileId || !isLooseUuid(targetProfileId)) return { items: [], nextCursor: null, capReached: false };
     const { userId: excludeMemberUserId } = await getViewerAuthContext();
     if (excludeMemberUserId !== targetProfileId) {
       const relationship = await resolvePrivacyRelationship(excludeMemberUserId, targetProfileId);
-      if (!relationship?.canViewProfile) return { items: [], nextCursor: null };
+      if (!relationship?.canViewProfile) return { items: [], nextCursor: null, capReached: false };
     }
     const requestedLimit = Number(input.limit ?? 20);
     const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(Math.trunc(requestedLimit), 50)) : 20;
@@ -2630,6 +2630,13 @@ export async function getProfileProjectsWithOpenRolesAction(
       excludeMemberUserId ? sql`${projects.ownerId} <> ${excludeMemberUserId}::uuid` : undefined,
       // Not offered where the viewer can't apply right now: already pending, or declined within the 24 h cooldown
       // (withdrawn, ended-membership and filled-role applications can apply again).
+      // An invitation to the same project is the answer to wait for (applying is refused alongside it).
+      excludeMemberUserId ? sql`NOT EXISTS (
+        SELECT 1 FROM project_invitations AS open_invitation
+        WHERE open_invitation.project_id = ${projects.id}
+          AND open_invitation.candidate_id = ${excludeMemberUserId}::uuid
+          AND open_invitation.status = 'pending' AND open_invitation.expires_at > now()
+      )` : undefined,
       excludeMemberUserId ? sql`NOT EXISTS (
         SELECT 1
         FROM role_applications AS blocking_application
@@ -2702,7 +2709,7 @@ export async function getProfileProjectsWithOpenRolesAction(
     const projectIds = Array.from(
       new Set(pageProjects.map((project) => project.id)),
     );
-    if (projectIds.length === 0) return { items: [], nextCursor: null };
+    if (projectIds.length === 0) return { items: [], nextCursor: null, capReached: false };
     const eligibleProjectIds = projectIds;
 
     // 3. Batch fetch open roles only for projects we identified as having vacancies
@@ -2754,14 +2761,19 @@ export async function getProfileProjectsWithOpenRolesAction(
 
     const items = Array.from(listMap.values()).filter((p) => p.openRoles.length > 0);
     const last = pageProjects.at(-1);
+    // The 20-pending cap, said up front instead of failing when the form is submitted.
+    const [pending] = excludeMemberUserId
+      ? await db.select({ count: sql<number>`count(*)::int` }).from(roleApplications).where(and(eq(roleApplications.applicantId, excludeMemberUserId), eq(roleApplications.status, "pending")))
+      : [];
     return {
       items,
       nextCursor: projectsMerged.length > limit && last
         ? `${last.updatedAt.toISOString()}|${last.id}`
         : null,
+      capReached: (pending?.count ?? 0) >= 20,
     };
   } catch (error) {
     console.error("Failed to get profile projects with open roles", error);
-    return { items: [], nextCursor: null };
+    return { items: [], nextCursor: null, capReached: false };
   }
 }
