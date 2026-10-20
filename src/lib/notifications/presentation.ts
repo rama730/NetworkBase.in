@@ -56,6 +56,7 @@ export function getNotificationReason(kind: NotificationKind, refs?: Notificatio
     if (kind === "task_status_attention") {
         const status = typeof refs?.status === "string" ? refs.status : null;
         if (status === "blocked") return "blocked";
+        if (refs?.reviewStatus === "pending") return "workflow";
         if (status === "done") return "done";
     }
     return KIND_REASON[kind] ?? "update";

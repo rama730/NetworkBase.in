@@ -56,6 +56,7 @@ export type GlobalSearchTaskPreview = GlobalSearchPreviewBase & {
     kind: "task";
     taskCode: string;
     status: string;
+    reviewStatus?: string | null;
     priority: string;
     sprintName: string | null;
     assignee: { fullName: string | null; avatarUrl: string | null } | null;
@@ -279,6 +280,7 @@ async function fetchTaskPreviews(projectIdentifier: string, query: string): Prom
             href: `/projects/${encodeURIComponent(projectIdentifier)}?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(taskCode)}`,
             taskCode,
             status: task.status,
+            reviewStatus: task.reviewStatus,
             priority: task.priority,
             sprintName: task.sprint?.name ?? null,
             assignee: task.assignee ? { fullName: task.assignee.fullName, avatarUrl: task.assignee.avatarUrl } : null,

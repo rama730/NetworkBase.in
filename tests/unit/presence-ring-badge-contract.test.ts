@@ -135,6 +135,8 @@ test("while presence data loads: a gray placeholder, then gray arcs that spin, t
   assert.match(badge, /className="nb-presence-spin"/);
   assert.match(badge, /DOMMatrix/);
   assert.match(badge, /setLoadHalo\(true\)/);
+  // transform-box: view-box measures from the user-space origin, not the viewBox corner, so the pivot is the rings' centre in px.
+  assert.match(css, /\.nb-presence-spin \{ transform-box:view-box; transform-origin:645px 710px; \}/);
   assert.match(css, /\.nb-presence-halo\[data-load\] \{ animation-delay:0s; \}/);
   assert.match(badge, /useLayoutEffect/);
   assert.match(badge, /data-reverse=\{index % 2 \? "" : undefined\}/);

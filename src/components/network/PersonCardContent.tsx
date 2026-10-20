@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Loader2, MapPin, Users } from 'lucide-react';
 import { readPersonSharedConnectionsAction } from '@/app/actions/connections';
@@ -47,7 +47,7 @@ export function PersonCardLayout({ avatar, head, headline, location, meta = [], 
             {aside ? <div className="nb-person-action">{aside}</div> : null}
             {location ? <div className="nb-person-context">{location}</div> : null}
             {body ? <div className="nb-person-skills-row">{body}</div> : null}
-            <div className="nb-person-relationship">{meta.filter(Boolean)}</div>
+            <div className="nb-person-relationship">{meta.map((item, index) => <Fragment key={index}>{item}</Fragment>)}</div>
         </article>
     </div>;
 }
@@ -152,15 +152,15 @@ function SharedConnections({ person, count }: { person: PersonCardIdentity; coun
 }
 
 /** Shared presentation only: callers retain their existing authenticated mutation handlers. */
-export function PersonCardContent({ person: input, action, variant = 'network', viewerSkills, connected, acceptedAt, requestedAt, context, footer, priority, className }: {
+export function PersonCardContent({ person: input, action, variant = 'network', viewerSkills, connected, acceptedAt, context, footer, priority, className }: {
     person: PersonCardIdentity; action: ReactNode; variant?: 'network' | 'rail'; viewerSkills?: string[];
-    connected?: boolean; acceptedAt?: string | Date | null; requestedAt?: string | Date | null; context?: ReactNode; footer?: ReactNode; priority?: boolean; className?: string;
+    connected?: boolean; acceptedAt?: string | Date | null; context?: ReactNode; footer?: ReactNode; priority?: boolean; className?: string;
 }) {
     if (input.isUnavailable) return null;
     const locked = input.isLockedProfile === true;
     const person = locked ? { ...input, headline: null, location: null, skills: [], portfolio: null, openToCollaborate: null, mutualConnections: null, lastActiveAt: null } : input;
     const name = personCardName(person), href = profileHref(person), subtitle = personCardSubtitle(person);
-    const count = personSharedCount(person.mutualConnections), portfolio = personPortfolioText(person.portfolio), date = personConnectedDate(acceptedAt, requestedAt);
+    const count = personSharedCount(person.mutualConnections), portfolio = personPortfolioText(person.portfolio), date = personConnectedDate(acceptedAt);
     return <PersonCardLayout variant={variant} className={className}
         avatar={<div className="relative"><Link href={href} tabIndex={-1} aria-hidden="true"><UserAvatar identity={person} size={48} priority={priority} /></Link>
             {!locked && person.id ? <PersonPresenceDot userId={person.id} lastActiveAt={person.lastActiveAt} /> : null}</div>}

@@ -54,35 +54,36 @@ export function personCardSubtitle(person: PersonCardIdentity) {
     return { kind: 'username' as const, text: person.username?.trim() ? `@${person.username.trim()}` : '' };
 }
 
-export function personConnectedDate(value?: string | Date | null, requestedAt?: string | Date | null) {
+export function personConnectedDate(value?: string | Date | null) {
     const date = value ? new Date(value) : null;
     if (!date || !Number.isFinite(date.getTime())) {
-        const requestDate = requestedAt ? new Date(requestedAt) : null;
-        if (requestDate && Number.isFinite(requestDate.getTime())) {
-            const month = new Intl.DateTimeFormat('en', { month: 'short', year: 'numeric', timeZone: 'UTC' }).format(requestDate);
-            return {
-                text: `Request sent · ${month}`,
-                compactText: `Requested · ${month}`,
-                title: `Connection request sent on ${requestDate.toUTCString()}; acceptance date unavailable`,
-            };
-        }
+        // A request timestamp cannot establish when the connection was accepted.
         return { text: 'Connected', compactText: 'Connected', title: 'Connected; acceptance date unavailable' };
     }
     const month = new Intl.DateTimeFormat('en', { month: 'short', year: 'numeric', timeZone: 'UTC' }).format(date);
     return {
-        text: `Connected · ${month}`,
+        text: `Connected since ${month}`,
         compactText: `Since ${month}`,
         title: `Connected on ${date.toUTCString()}`,
     };
 }
 
-export function personRequestDate(value?: string | Date | null) {
+const requestAgeFormatter = new Intl.RelativeTimeFormat('en', { numeric: 'always' });
+const requestAgeUnits: Array<[Intl.RelativeTimeFormatUnit, number]> = [
+    ['year', 365 * 86_400_000], ['month', 30 * 86_400_000], ['day', 86_400_000], ['hour', 3_600_000], ['minute', 60_000],
+];
+
+export function personRequestDate(value?: string | Date | null, nowMs = Date.now(), label = 'Requested') {
     const date = value ? new Date(value) : null;
-    if (!date || !Number.isFinite(date.getTime())) return null;
-    const text = new Intl.DateTimeFormat('en-GB', {
-        day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
-    }).format(date);
-    return { text: `Requested · ${text}`, compactText: text, title: date.toUTCString() };
+    if (!date || !Number.isFinite(date.getTime()) || !Number.isFinite(nowMs)) return null;
+    const elapsed = nowMs - date.getTime();
+    const absolute = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(date);
+    const unit = requestAgeUnits.find(([, duration]) => elapsed >= duration);
+    // Show a real future date rather than a negative or invented waiting duration.
+    const text = elapsed < -60_000 ? absolute : unit
+        ? requestAgeFormatter.format(-Math.floor(elapsed / unit[1]), unit[0])
+        : 'Just now';
+    return { text: `${label} · ${text}`, compactText: text, title: date.toUTCString() };
 }
 
 export function personSharedCount(value?: number | null) {
