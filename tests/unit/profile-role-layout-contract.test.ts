@@ -38,7 +38,7 @@ test('current availability is absent from live product contracts and schema', ()
   assert.doesNotMatch(schema, /availabilityStatus/)
   assert.doesNotMatch(onboarding, /Current availability|Availability Status/)
   assert.match(onboarding, /Weekly capacity/)
-  assert.match(onboarding, /Open to Roles/)
+  assert.match(onboarding, /Open to roles/)
   assert.match(migration, /DROP COLUMN IF EXISTS "availability_status"/)
 })
 

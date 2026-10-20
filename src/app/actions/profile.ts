@@ -6,7 +6,7 @@ import { publishUser } from '@/lib/messaging/publish'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { db } from '@/lib/db'
 import { scheduleAssetDeletionIfUnreferenced } from '@/lib/storage/asset-deletion'
-import { profileAuditEvents, profiles, storageAssets, storageQuotaScopes, usernameAliases } from '@/lib/db/schema'
+import { profileAuditEvents, profiles, storageAssets, storageQuotaScopes } from '@/lib/db/schema'
 import { eq, and, desc, inArray, sql } from 'drizzle-orm'
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { DISCOVER_ANON_CACHE_TAG } from '@/constants/discover'
@@ -27,7 +27,7 @@ import { normalizeAndValidateFileSize, normalizeAndValidateMimeType } from '@/li
 import { createUploadIntent, finalizeUploadIntent } from '@/lib/upload/upload-intents'
 import { resolvePrivacyRelationship } from '@/lib/privacy/resolver'
 import { logger } from '@/lib/logger'
-import { UsernamePersistenceError, getUsernameAvailability, mapUsernamePersistenceError } from '@/lib/usernames/service'
+import { claimPrimaryAlias, getUsernameAvailability, mapUsernamePersistenceError } from '@/lib/usernames/service'
 import { syncProfileSkills } from '@/lib/skills/service'
 import { socialLinkItemsFromStorage, toFormState, validateSocialLinkCollection, type ProfileFormState } from '@/lib/profile/normalization'
 import { enqueueSupersededProfileImages } from '@/lib/profile/image-cleanup'
@@ -646,51 +646,7 @@ export async function updateProfileAction(data: UpdateProfileInput): Promise<Upd
                 }
 
                 if (patch.username && patch.username !== current.username) {
-                    const nextUsername = patch.username
-                    const previousUsername = current.username
-                    if (previousUsername && previousUsername !== nextUsername) {
-                        await tx
-                            .update(usernameAliases)
-                            .set({
-                                isPrimary: false,
-                                replacedAt: new Date(),
-                            })
-                            .where(eq(usernameAliases.username, previousUsername))
-                    }
-
-                    const existingAlias = await tx.query.usernameAliases.findFirst({
-                        where: eq(usernameAliases.username, nextUsername),
-                        columns: { userId: true, isPrimary: true },
-                    })
-
-                    if (existingAlias) {
-                        if (existingAlias.userId !== user.id) {
-                            throw new UsernamePersistenceError('USERNAME_TAKEN', 'Username is already taken')
-                        }
-
-                        if (!existingAlias.isPrimary) {
-                            await tx
-                                .update(usernameAliases)
-                                .set({
-                                    isPrimary: true,
-                                    replacedAt: null,
-                                })
-                                .where(
-                                    and(
-                                        eq(usernameAliases.username, nextUsername),
-                                        eq(usernameAliases.userId, user.id),
-                                    ),
-                                )
-                        }
-                    } else {
-                        await tx.insert(usernameAliases).values({
-                            username: nextUsername,
-                            userId: user.id,
-                            isPrimary: true,
-                            claimedAt: new Date(),
-                            replacedAt: null,
-                        })
-                    }
+                    await claimPrimaryAlias(tx, user.id, patch.username)
                 }
 
                 if (auditRows.length > 0) {

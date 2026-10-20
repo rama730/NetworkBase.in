@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { normalizeUsername, validateUsername } from '@/lib/validations/username'
 import { isSafeHttpUrl } from '@/lib/security/urls'
+import { PROFILE_FIELD_LIMITS } from '@/lib/validations/profile-fields'
 import {
     normalizeOptionalProfileUrl,
     type SocialLinkStorage,
@@ -19,11 +20,11 @@ export { SOCIAL_LINK_PLATFORMS, type SocialLinkPlatform }
 export const PROFILE_LIMITS = {
     usernameMin: 3,
     usernameMax: 20,
-    fullNameMax: 100,
-    headlineMax: 100,
-    bioMax: 5000,
-    locationMax: 100,
-    websiteMax: 200,
+    fullNameMax: PROFILE_FIELD_LIMITS.fullNameMax,
+    headlineMax: PROFILE_FIELD_LIMITS.headlineMax,
+    bioMax: PROFILE_FIELD_LIMITS.bioMax,
+    locationMax: PROFILE_FIELD_LIMITS.locationMax,
+    websiteMax: PROFILE_FIELD_LIMITS.websiteMax,
     listMaxItems: 25,
     listItemMax: 40,
 } as const

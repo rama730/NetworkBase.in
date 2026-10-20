@@ -8,25 +8,15 @@ import {
     ONBOARDING_VISIBILITY_VALUES,
 } from '@/lib/onboarding/contracts'
 import { normalizeUsername, validateUsername } from '@/lib/validations/username'
+import { PROFILE_FIELD_LIMITS as L } from '@/lib/validations/profile-fields'
 import { getRolePreferences } from '@/lib/profile/role-preferences'
+import { normalizeOptionalProfileUrl, validateSocialLinkCollection } from '@/lib/profile/normalization'
+import { isSafeHttpUrl } from '@/lib/security/urls'
 
-const MAX_HEADLINE_CHARS = 120
-const MAX_BIO_CHARS = 500
-const MAX_LOCATION_CHARS = 120
-const MAX_WEBSITE_CHARS = 200
-const MAX_SOCIAL_URL_CHARS = 200
-const MAX_PRONOUNS_CHARS = 60
-const MAX_AVATAR_DATAURL_LENGTH = 700_000
-const MAX_TAG_ITEMS = 25
-const MAX_OPEN_TO_ITEMS = 12
-const MAX_TAG_ITEM_CHARS = 32
+// Raw input is bounded before normalizing; the stored length is checked after (https:// is added).
+const RAW_URL_MAX = 2048
 
-const nonEmptyTrimmed = (min: number, max: number) =>
-    z
-        .string()
-        .trim()
-        .min(min)
-        .max(max)
+const nonEmptyTrimmed = (min: number, max: number) => z.string().trim().min(min).max(max)
 
 const optionalTrimmed = (max: number) =>
     z
@@ -35,60 +25,50 @@ const optionalTrimmed = (max: number) =>
         .max(max)
         .optional()
         .nullable()
-        .transform((value) => {
-            const normalized = (value || '').trim()
-            return normalized.length > 0 ? normalized : undefined
-        })
+        .transform((value) => (value || '').trim() || undefined)
 
-const normalizeOptionalUrl = (value: string | null | undefined) => {
-    const normalized = (value || '').trim()
-    if (!normalized) return undefined
-    if (/^https?:\/\//i.test(normalized)) return normalized
-    return `https://${normalized}`
+/** A profile URL, normalized the same way profile edit does, with the stored length checked. */
+function checkedUrl(raw: string | null | undefined, max: number, ctx: z.RefinementCtx) {
+    const value = (raw || '').trim()
+    if (!value) return undefined
+    const normalized = normalizeOptionalProfileUrl(value)
+    if (!normalized) {
+        ctx.addIssue({ code: 'custom', message: 'Enter a valid web address' })
+        return z.NEVER
+    }
+    if (normalized.length > max) {
+        ctx.addIssue({ code: 'custom', message: `Web addresses can be up to ${max} characters` })
+        return z.NEVER
+    }
+    return normalized
 }
 
-const optionalHttpUrlSchema = (max: number) =>
-    z
-        .string()
-        .trim()
-        .max(max)
-        .optional()
-        .nullable()
-        .transform((value) => normalizeOptionalUrl(value))
-        .refine((value) => {
-            if (!value) return true
-            try {
-                const parsed = new URL(value)
-                return parsed.protocol === 'http:' || parsed.protocol === 'https:'
-            } catch {
-                return false
-            }
-        }, 'Must be a valid http(s) URL')
-
-const websiteSchema = optionalHttpUrlSchema(MAX_WEBSITE_CHARS)
-
-const socialLinksSchema = z
-    .object(
-        Object.fromEntries(
-            ONBOARDING_SOCIAL_KEYS.map((key) => [key, optionalHttpUrlSchema(MAX_SOCIAL_URL_CHARS)])
-        ) as Record<(typeof ONBOARDING_SOCIAL_KEYS)[number], ReturnType<typeof optionalHttpUrlSchema>>
-    )
-    .optional()
-    .transform((value) => {
-        const source = value || {}
-        const cleaned: Record<string, string> = {}
-        for (const [key, raw] of Object.entries(source)) {
-            if (typeof raw !== 'string' || !raw) continue
-            cleaned[key] = raw
-        }
-        return cleaned
-    })
-
-const tagItemSchema = z
+const websiteSchema = z
     .string()
     .trim()
-    .min(1)
-    .max(MAX_TAG_ITEM_CHARS)
+    .max(RAW_URL_MAX)
+    .optional()
+    .nullable()
+    .transform((value, ctx) => checkedUrl(value, L.websiteMax, ctx))
+
+/** The form keeps the four keyed fields; storage is the ordered list profile edit writes. */
+const socialLinksSchema = z
+    .record(z.string(), z.string().max(RAW_URL_MAX).nullable().optional())
+    .optional()
+    .transform((value, ctx) => {
+        const entries = ONBOARDING_SOCIAL_KEYS.flatMap((key) => {
+            const url = checkedUrl(value?.[key], L.socialUrlMax, ctx)
+            return url ? [[key, url] as const] : []
+        })
+        const result = validateSocialLinkCollection(Object.fromEntries(entries))
+        if (!result.success) {
+            ctx.addIssue({ code: 'custom', message: result.error })
+            return z.NEVER
+        }
+        return result.links
+    })
+
+const tagItemSchema = z.string().trim().min(1).max(L.tagItemMax)
 
 const dedupeNormalized = (items: string[]) => {
     const seen = new Set<string>()
@@ -104,94 +84,53 @@ const dedupeNormalized = (items: string[]) => {
     return result
 }
 
+const tagListSchema = z
+    .array(tagItemSchema)
+    .transform(dedupeNormalized)
+    .refine((items) => items.length <= L.tagMaxItems, { message: `Use ${L.tagMaxItems} items or fewer` })
+    .optional()
+    .default([])
+
 const openToSchema = z
     .array(tagItemSchema)
     .transform(dedupeNormalized)
     .transform(getRolePreferences)
-    .refine((items) => items.length <= MAX_OPEN_TO_ITEMS, {
-        message: `Open-to must have ${MAX_OPEN_TO_ITEMS} items or fewer`,
+    .refine((items) => items.length <= L.openToMaxItems, {
+        message: `Open-to must have ${L.openToMaxItems} items or fewer`,
     })
     .optional()
     .default([])
-
-const messagePrivacySchema = z.enum(ONBOARDING_MESSAGE_PRIVACY_VALUES)
-const experienceLevelSchema = z.enum(ONBOARDING_EXPERIENCE_LEVEL_VALUES)
-const hoursPerWeekSchema = z.enum(ONBOARDING_HOURS_PER_WEEK_VALUES)
-const genderIdentitySchema = z.enum(ONBOARDING_GENDER_VALUES)
-
-const pronounsSchema = z
-    .string()
-    .trim()
-    .max(MAX_PRONOUNS_CHARS)
-    .optional()
-    .nullable()
-    .transform((value) => {
-        const normalized = (value || '').trim()
-        return normalized.length > 0 ? normalized : undefined
-    })
 
 const avatarUrlSchema = z
     .string()
     .trim()
     .optional()
     .nullable()
-    .transform((value) => {
-        const normalized = (value || '').trim()
-        return normalized.length > 0 ? normalized : undefined
-    })
-    .refine((value) => {
-        if (!value) return true
-        if (value.startsWith('data:image/')) return true
-        try {
-            const parsed = new URL(value)
-            return parsed.protocol === 'http:' || parsed.protocol === 'https:'
-        } catch {
-            return false
-        }
-    }, 'Avatar must be a data URL or valid http(s) URL')
-    .refine((value) => {
-        if (!value) return true
-        if (!value.startsWith('data:image/')) return true
-        return value.length <= MAX_AVATAR_DATAURL_LENGTH
-    }, `Avatar data URL is too large (max ${MAX_AVATAR_DATAURL_LENGTH} characters)`)
+    .transform((value) => (value || '').trim() || undefined)
+    // Same SEC-C5 gate as profile edit. The client always uploads first, so a data: or blob: URL is never valid here.
+    .refine((value) => !value || (value.length <= L.avatarUrlMax && isSafeHttpUrl(value)), 'Avatar must be a safe http(s) URL')
 
 export const onboardingPayloadSchema = z.object({
     username: z
         .string()
         .trim()
         .transform((value) => normalizeUsername(value))
-        .refine((value) => validateUsername(value).valid, {
-            message: 'Invalid username',
-        }),
-    fullName: nonEmptyTrimmed(2, 80),
+        .refine((value) => validateUsername(value).valid, { message: 'Invalid username' }),
+    fullName: nonEmptyTrimmed(L.fullNameMin, L.fullNameMax),
     avatarUrl: avatarUrlSchema,
-    headline: optionalTrimmed(MAX_HEADLINE_CHARS),
-    bio: optionalTrimmed(MAX_BIO_CHARS),
-    location: optionalTrimmed(MAX_LOCATION_CHARS),
+    headline: optionalTrimmed(L.headlineMax),
+    bio: optionalTrimmed(L.bioMax),
+    location: optionalTrimmed(L.locationMax),
     website: websiteSchema,
-    skills: z
-        .array(tagItemSchema)
-        .transform(dedupeNormalized)
-        .refine((items) => items.length <= MAX_TAG_ITEMS, {
-            message: `Skills must have ${MAX_TAG_ITEMS} items or fewer`,
-        })
-        .optional()
-        .default([]),
-    interests: z
-        .array(tagItemSchema)
-        .transform(dedupeNormalized)
-        .refine((items) => items.length <= MAX_TAG_ITEMS, {
-            message: `Interests must have ${MAX_TAG_ITEMS} items or fewer`,
-        })
-        .optional()
-        .default([]),
+    skills: tagListSchema,
+    interests: tagListSchema,
     openTo: openToSchema,
-    messagePrivacy: messagePrivacySchema.optional().default('connections'),
+    messagePrivacy: z.enum(ONBOARDING_MESSAGE_PRIVACY_VALUES).optional().default('connections'),
     socialLinks: socialLinksSchema,
-    experienceLevel: experienceLevelSchema.optional(),
-    hoursPerWeek: hoursPerWeekSchema.optional(),
-    genderIdentity: genderIdentitySchema.optional(),
-    pronouns: pronounsSchema,
+    experienceLevel: z.enum(ONBOARDING_EXPERIENCE_LEVEL_VALUES).optional(),
+    hoursPerWeek: z.enum(ONBOARDING_HOURS_PER_WEEK_VALUES).optional(),
+    genderIdentity: z.enum(ONBOARDING_GENDER_VALUES).optional(),
+    pronouns: optionalTrimmed(L.pronounsMax),
     visibility: z.enum(ONBOARDING_VISIBILITY_VALUES).optional().default('public'),
 })
 
@@ -200,4 +139,68 @@ export type OnboardingPayload = z.output<typeof onboardingPayloadSchema>
 
 export function normalizeOnboardingPayload(input: OnboardingPayloadInput): OnboardingPayload {
     return onboardingPayloadSchema.parse(input)
+}
+
+/* ---- Drafts ----
+ * A draft is a half-filled form, so it is never rejected: a bad field is dropped and an over-long one is
+ * cut. Completion re-validates everything with the strict schema above. Used for the server draft and for
+ * the browser's crash buffer, so both read the same shape. */
+
+const draftText = (max: number) =>
+    z.unknown().transform((value) => (typeof value === 'string' ? value.trim().slice(0, max) || undefined : undefined))
+
+const draftEnum = <T extends string>(values: readonly T[]) =>
+    z.unknown().transform((value) => (values.includes(value as T) ? (value as T) : undefined))
+
+const draftTags = z.unknown().transform((value) => {
+    if (!Array.isArray(value)) return undefined
+    const items = value.flatMap((item) => (typeof item === 'string' ? [item.trim().slice(0, L.tagItemMax)] : []))
+    return dedupeNormalized(items).slice(0, L.tagMaxItems)
+})
+
+const draftOpenTo = z.unknown().transform((value) => {
+    const roles = getRolePreferences(value).slice(0, L.openToMaxItems)
+    return roles.length > 0 ? roles : undefined
+})
+
+const draftSocialLinks = z.unknown().transform((value) => {
+    if (!value || typeof value !== 'object') return undefined
+    const source = value as Record<string, unknown>
+    const links: Partial<Record<(typeof ONBOARDING_SOCIAL_KEYS)[number], string>> = {}
+    for (const key of ONBOARDING_SOCIAL_KEYS) {
+        const text = typeof source[key] === 'string' ? source[key].trim().slice(0, L.socialUrlMax) : ''
+        if (text) links[key] = text
+    }
+    return Object.keys(links).length > 0 ? links : undefined
+})
+
+const draftAvatar = z.unknown().transform((value) =>
+    typeof value === 'string' && value.length <= L.avatarUrlMax && isSafeHttpUrl(value) ? value.trim() : undefined,
+)
+
+export const onboardingDraftSchema = z.object({
+    username: z.unknown().transform((value) => (typeof value === 'string' ? normalizeUsername(value).slice(0, 64) || undefined : undefined)),
+    fullName: draftText(L.fullNameMax),
+    avatarUrl: draftAvatar,
+    headline: draftText(L.headlineMax),
+    bio: draftText(L.bioMax),
+    location: draftText(L.locationMax),
+    website: draftText(L.websiteMax),
+    skills: draftTags,
+    interests: draftTags,
+    openTo: draftOpenTo,
+    messagePrivacy: draftEnum(ONBOARDING_MESSAGE_PRIVACY_VALUES),
+    socialLinks: draftSocialLinks,
+    experienceLevel: draftEnum(ONBOARDING_EXPERIENCE_LEVEL_VALUES),
+    hoursPerWeek: draftEnum(ONBOARDING_HOURS_PER_WEEK_VALUES),
+    genderIdentity: draftEnum(ONBOARDING_GENDER_VALUES),
+    pronouns: draftText(L.pronounsMax),
+    visibility: draftEnum(ONBOARDING_VISIBILITY_VALUES),
+})
+
+export type OnboardingDraft = z.output<typeof onboardingDraftSchema>
+
+export function parseOnboardingDraft(input: unknown): OnboardingDraft {
+    const source = input && typeof input === 'object' ? input : {}
+    return onboardingDraftSchema.parse(source)
 }

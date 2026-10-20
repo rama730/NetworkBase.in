@@ -4,7 +4,6 @@ import { logger } from '@/lib/logger'
 import { getUsernameAvailability } from '@/lib/usernames/service'
 import { normalizeUsername } from '@/lib/validations/username'
 import { positiveIntegerOr } from '@/lib/utils/number'
-import type { SupabaseClient } from '@supabase/supabase-js'
 
 export type UsernameAvailabilityResult = {
     available: boolean
@@ -14,7 +13,7 @@ export type UsernameAvailabilityResult = {
     error?: OnboardingError
 }
 
-export function getUsernameCheckRateLimitConfig() {
+function rateConfig() {
     return {
         limit: positiveIntegerOr(process.env.ONBOARDING_USERNAME_CHECK_LIMIT, 30),
         windowSeconds: positiveIntegerOr(process.env.ONBOARDING_USERNAME_CHECK_WINDOW_SECONDS, 60),
@@ -31,97 +30,72 @@ export function getUsernameCheckRateLimitConfig() {
     }
 }
 
+// No per-username key: it was shared by everyone, so one person could keep a name returning 429 for all.
 export function buildOnboardingRateLimitKeys(params: {
     viewerKey: string
-    normalizedUsername: string
     ipAddress?: string | null
     userAgent?: string | null
 }) {
     const ip = (params.ipAddress || 'unknown').trim() || 'unknown'
-    const rawUa = (params.userAgent || 'unknown').trim().toLowerCase()
-    const ua = rawUa.slice(0, 120) || 'unknown'
+    const ua = (params.userAgent || 'unknown').trim().toLowerCase().slice(0, 120) || 'unknown'
     return {
         user: `onboarding:username-check:user:${params.viewerKey}`,
         ip: `onboarding:username-check:ip:${ip}`,
         fingerprint: `onboarding:username-check:fingerprint:${ip}:${ua}`,
-        target: `onboarding:username-check:target:${params.normalizedUsername}`,
         anonDaily: `onboarding:username-check:anon-daily:${ip}`,
     }
 }
 
-export async function checkUsernameAvailabilityWithClient(params: {
-    supabase?: Pick<SupabaseClient, 'from'>
+/**
+ * The one budget every "is this name taken?" answer spends: the check API, the step 1 save and the
+ * suggestions. Anything that reveals availability must call this first.
+ */
+export async function consumeUsernameCheckBudget(params: {
+    viewerKey: string
+    viewerId?: string | null
+    ipAddress?: string | null
+    userAgent?: string | null
+}): Promise<{ allowed: boolean }> {
+    const config = rateConfig()
+    const keys = buildOnboardingRateLimitKeys(params)
+    const results = await Promise.all([
+        consumeRateLimit(keys.user, config.limit, config.windowSeconds),
+        consumeRateLimit(keys.ip, config.ipLimit, config.windowSeconds),
+        consumeRateLimit(keys.fingerprint, config.fingerprintLimit, config.windowSeconds),
+        params.viewerId
+            ? Promise.resolve({ allowed: true } as const)
+            : consumeRateLimit(keys.anonDaily, config.anonDailyLimit, config.anonDailyWindowSeconds),
+    ])
+    const allowed = results.every((result) => result.allowed)
+    if (!allowed) {
+        logger.metric('username.availability.rate_limited', {
+            viewerKey: params.viewerKey,
+            allowed: results.map((result) => result.allowed),
+        })
+    }
+    return { allowed }
+}
+
+export const USERNAME_CHECK_LIMITED = onboardingError(
+    'RATE_LIMITED',
+    'Too many checks. Please wait and try again.',
+    true,
+)
+
+export async function checkUsernameAvailability(params: {
     username: string
     viewerKey: string
     viewerId?: string | null
     ipAddress?: string | null
     userAgent?: string | null
 }): Promise<UsernameAvailabilityResult> {
-    const normalizedUsername = normalizeUsername(params.username)
-    const rateConfig = getUsernameCheckRateLimitConfig()
-    const keys = buildOnboardingRateLimitKeys({
-        viewerKey: params.viewerKey,
-        normalizedUsername,
-        ipAddress: params.ipAddress,
-        userAgent: params.userAgent,
-    })
-
-    const isAnonymous = !params.viewerId
-    const [userRate, ipRate, fingerprintRate, targetRate, anonDailyRate] = await Promise.all([
-        consumeRateLimit(
-            keys.user,
-            rateConfig.limit,
-            rateConfig.windowSeconds
-        ),
-        consumeRateLimit(
-            keys.ip,
-            rateConfig.ipLimit,
-            rateConfig.windowSeconds
-        ),
-        consumeRateLimit(
-            keys.fingerprint,
-            rateConfig.fingerprintLimit,
-            rateConfig.windowSeconds
-        ),
-        consumeRateLimit(
-            keys.target,
-            Math.max(5, Math.floor(rateConfig.limit / 2)),
-            rateConfig.windowSeconds
-        ),
-        isAnonymous
-            ? consumeRateLimit(
-                keys.anonDaily,
-                rateConfig.anonDailyLimit,
-                rateConfig.anonDailyWindowSeconds,
-            )
-            : Promise.resolve({ allowed: true } as const),
-    ])
-
-    if (
-        !userRate.allowed
-        || !ipRate.allowed
-        || !fingerprintRate.allowed
-        || !targetRate.allowed
-        || !anonDailyRate.allowed
-    ) {
-        const error = onboardingError(
-            'RATE_LIMITED',
-            'Too many checks. Please wait and try again.',
-            true
-        )
-        logger.metric('username.availability.rate_limited', {
-            viewerKey: params.viewerKey,
-            userAllowed: userRate.allowed,
-            ipAllowed: ipRate.allowed,
-            fingerprintAllowed: fingerprintRate.allowed,
-            targetAllowed: targetRate.allowed,
-            anonDailyAllowed: anonDailyRate.allowed,
-        })
+    const budget = await consumeUsernameCheckBudget(params)
+    if (!budget.allowed) {
         return {
             available: false,
-            message: error.message,
-            code: error.code,
-            error,
+            message: USERNAME_CHECK_LIMITED.message,
+            code: USERNAME_CHECK_LIMITED.code,
+            error: USERNAME_CHECK_LIMITED,
             rateLimited: true,
         }
     }
@@ -131,23 +105,13 @@ export async function checkUsernameAvailabilityWithClient(params: {
             username: params.username,
             viewerId: params.viewerId,
         })
-        return {
-            available: result.available,
-            message: result.message,
-            code: result.code,
-            error: result.error,
-        }
+        return { available: result.available, message: result.message, code: result.code, error: result.error }
     } catch (queryError) {
         console.error('Error checking username availability:', {
-            username: params.username,
+            username: normalizeUsername(params.username),
             error: queryError,
         })
         const error = onboardingError('DB_ERROR', 'Error checking availability', true)
-        logger.metric('username.availability.result', {
-            username: params.username,
-            available: false,
-            reason: error.code,
-        })
         return { available: false, message: error.message, code: error.code, error }
     }
 }

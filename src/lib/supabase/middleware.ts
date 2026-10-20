@@ -259,7 +259,9 @@ export async function updateSession(request: NextRequest, options: UpdateSession
             return withRequestId(supabaseResponse, requestId, routeClass)
         }
 
-        url.pathname = '/signup'
+        // Same destination as the onboarding layout: someone returning to setup has an account, so sign in and come back.
+        url.pathname = '/login'
+        url.searchParams.set('redirect', '/onboarding')
         return redirectWithRequestId(url, requestId, routeClass, supabaseResponse)
     }
 

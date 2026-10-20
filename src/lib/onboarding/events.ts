@@ -1,30 +1,17 @@
 import { z } from 'zod'
 import { ONBOARDING_TOTAL_STEPS } from '@/lib/onboarding/contracts'
 
-export type OnboardingStepId = 1 | 2 | 3 | 4
-
-export const ONBOARDING_EVENT_TYPES = [
-    'step_view',
-    'step_continue',
-    'step_commit_success',
-    'step_commit_error',
-    'step_back',
-    'submit_start',
-    'submit_success',
-    'submit_error',
-    'draft_loaded',
-    'draft_conflict',
-    'time_to_continue',
-    'time_to_submit',
-    'input_latency',
-    'save_draft_latency',
-    'step_render_time',
-] as const
+// Only what the browser alone can know. The server writes the outcomes (submit_start, submit_success,
+// submit_error), so a client can never inflate the success rate behind onboarding_slo_daily.
+const ONBOARDING_CLIENT_EVENT_TYPES = ['step_view', 'step_continue', 'step_back', 'step_skip', 'draft_conflict'] as const
 
 export const onboardingEventInputSchema = z.object({
-    eventType: z.enum(ONBOARDING_EVENT_TYPES),
+    eventType: z.enum(ONBOARDING_CLIENT_EVENT_TYPES),
     step: z.number().int().min(1).max(ONBOARDING_TOTAL_STEPS).optional(),
-    metadata: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])).optional(),
+    metadata: z
+        .record(z.string().max(64), z.union([z.string().max(300), z.number(), z.boolean(), z.null()]))
+        .refine((metadata) => Object.keys(metadata).length <= 20, 'Too many metadata keys')
+        .optional(),
 })
 
 export type OnboardingEventInput = z.infer<typeof onboardingEventInputSchema>
@@ -38,4 +25,3 @@ export function sanitizeOnboardingTelemetryBatch(input: unknown): OnboardingEven
         return parsed.success ? [parsed.data] : []
     })
 }
-

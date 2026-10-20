@@ -1,4 +1,4 @@
-import { eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray, ne } from 'drizzle-orm'
 import { profiles, reservedUsernames, usernameAliases } from '@/lib/db/schema'
 import { logger } from '@/lib/logger'
 import { onboardingError, type OnboardingError } from '@/lib/onboarding/errors'
@@ -349,6 +349,21 @@ export async function findUnavailableUsernames(
     return new Set([...claimed, ...reserved].map((value) => normalizeUsername(value)))
 }
 
+const USERNAME_UNIQUE_CONSTRAINTS = new Set(['profiles_username_unique', 'username_aliases_pkey'])
+
+/** The Postgres error behind a driver or drizzle wrapper. */
+function postgresError(error: unknown): { code?: string; message: string; constraint?: string } {
+    const wrapped = error as { cause?: unknown } | null
+    const source = (wrapped?.cause && typeof wrapped.cause === 'object' ? wrapped.cause : error) as
+        | { code?: string; message?: string; constraint_name?: string; constraint?: string }
+        | null
+    return {
+        code: source?.code,
+        message: String(source?.message || ''),
+        constraint: source?.constraint_name || source?.constraint,
+    }
+}
+
 export function mapUsernamePersistenceError(
     error: unknown,
     fallbackMessage = 'Unable to update username right now.',
@@ -357,10 +372,14 @@ export function mapUsernamePersistenceError(
         return error.usernameError
     }
 
-    const code = (error as { code?: string })?.code
-    const message = String((error as { message?: string })?.message || '')
+    const { code, message, constraint } = postgresError(error)
     if (code === '23505') {
-        return onboardingError('USERNAME_TAKEN', 'Username is already taken')
+        // Only the username constraints mean "taken". Any other unique violation (email, the one-primary-alias
+        // index) is not the person's fault, and telling them their name is taken would be wrong and unfixable.
+        if (constraint && USERNAME_UNIQUE_CONSTRAINTS.has(constraint)) {
+            return onboardingError('USERNAME_TAKEN', 'Username is already taken')
+        }
+        return onboardingError('DB_ERROR', fallbackMessage, true)
     }
     if (code === '23514') {
         if (message.toLowerCase().includes('reserved')) {
@@ -369,4 +388,45 @@ export function mapUsernamePersistenceError(
         return onboardingError('USERNAME_INVALID', 'Invalid username format')
     }
     return onboardingError('DB_ERROR', fallbackMessage, true)
+}
+
+/**
+ * Makes `username` this user's one primary alias. Every other primary alias of theirs is retired first, so the
+ * one-primary-per-user index holds even when the profile row has no username yet (a retried onboarding).
+ */
+export async function claimPrimaryAlias(tx: any, userId: string, username: string) {
+    await tx
+        .update(usernameAliases)
+        .set({ isPrimary: false, replacedAt: new Date() })
+        .where(
+            and(
+                eq(usernameAliases.userId, userId),
+                eq(usernameAliases.isPrimary, true),
+                ne(usernameAliases.username, username),
+            ),
+        )
+
+    const existing: { userId: string; isPrimary: boolean } | undefined = await tx.query.usernameAliases.findFirst({
+        where: eq(usernameAliases.username, username),
+        columns: { userId: true, isPrimary: true },
+    })
+    if (!existing) {
+        await tx.insert(usernameAliases).values({
+            username,
+            userId,
+            isPrimary: true,
+            claimedAt: new Date(),
+            replacedAt: null,
+        })
+        return
+    }
+    if (existing.userId !== userId) {
+        throw new UsernamePersistenceError('USERNAME_TAKEN', 'Username is already taken')
+    }
+    if (!existing.isPrimary) {
+        await tx
+            .update(usernameAliases)
+            .set({ isPrimary: true, replacedAt: null })
+            .where(and(eq(usernameAliases.username, username), eq(usernameAliases.userId, userId)))
+    }
 }

@@ -19,3 +19,15 @@ export const ONBOARDING_SOCIAL_KEYS = ['github', 'linkedin', 'x', 'portfolio'] a
 export type OnboardingSocialLinkKey = typeof ONBOARDING_SOCIAL_KEYS[number]
 export type OnboardingSocialLinks = Partial<Record<OnboardingSocialLinkKey, string>>
 
+
+/** Wording for the visibility and messaging choices. Onboarding and Settings both read these, so they cannot drift. */
+export const VISIBILITY_CHOICES: ReadonlyArray<{ value: OnboardingVisibility; label: string; description: string }> = [
+    { value: 'public', label: 'Public', description: 'Anyone can open your profile. You appear in Discovery and people search.' },
+    { value: 'connections', label: 'Connections only', description: 'Only accepted connections can open your full profile.' },
+    { value: 'private', label: 'Private', description: 'Other people see a limited profile shell. You are hidden from Discovery and people search.' },
+]
+
+export const MESSAGE_PRIVACY_CHOICES: ReadonlyArray<{ value: OnboardingMessagePrivacy; label: string; description: string }> = [
+    { value: 'everyone', label: 'Everyone', description: 'Anyone who is not blocked can start a conversation.' },
+    { value: 'connections', label: 'Connections only', description: 'Only accepted connections can start a conversation.' },
+]

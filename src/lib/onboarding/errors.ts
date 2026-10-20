@@ -6,10 +6,7 @@ export type OnboardingErrorCode =
     | 'USERNAME_INVALID'
     | 'USERNAME_RESERVED'
     | 'DRAFT_CONFLICT'
-    | 'SUBMISSION_IN_PROGRESS'
     | 'DB_ERROR'
-    | 'CLAIMS_SYNC_FAILED'
-    | 'UNKNOWN'
 
 export type OnboardingError = {
     code: OnboardingErrorCode

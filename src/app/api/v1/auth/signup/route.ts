@@ -242,8 +242,6 @@ export async function POST(request: Request) {
         data: {
           full_name: parsed.data.fullName || "",
           username: parsed.data.suggestedUsername || "",
-          suggested_username: parsed.data.suggestedUsername || "",
-          invite_token: parsed.data.inviteToken || "",
           legal_acceptance: {
             ...CURRENT_LEGAL_ACCEPTANCE,
             acceptedAt: new Date().toISOString(),

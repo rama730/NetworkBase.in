@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { normalizeUsername, sanitizeUsernameInput, validateUsername } from '@/lib/validations/username'
 
 export type UsernameAvailabilityStatus = 'idle' | 'checking' | 'valid' | 'invalid' | 'error'
@@ -134,6 +134,8 @@ export async function requestUsernameAvailability(username: string): Promise<Use
     return task
 }
 
+type RemoteCheck = { forValue: string; status: UsernameAvailabilityStatus; message: string }
+
 export function useUsernameAvailability(params: {
     value: string
     currentUsername?: string | null
@@ -141,84 +143,50 @@ export function useUsernameAvailability(params: {
     enabled?: boolean
 }) {
     const { value, currentUsername, debounceMs = 350, enabled = true } = params
-    const [status, setStatus] = useState<UsernameAvailabilityStatus>('idle')
-    const [message, setMessage] = useState('')
-    const requestIdRef = useRef(0)
+    const normalizedValue = normalizeUsername(value)
+    const isCurrent = Boolean(currentUsername) && normalizedValue === normalizeUsername(currentUsername || '')
+    const validation = normalizedValue ? validateUsername(normalizedValue) : null
+    const needsRemoteCheck = enabled && Boolean(normalizedValue) && !isCurrent && validation?.valid === true
+
+    // The answer is stored with the name it belongs to, so a result for the previous name is never shown for this one.
+    const [remote, setRemote] = useState<RemoteCheck | null>(null)
 
     useEffect(() => {
-        if (!enabled) {
-            setStatus('idle')
-            setMessage('')
-            return
-        }
-
-        if (!value) {
-            setStatus('idle')
-            setMessage('')
-            return
-        }
-
-        const normalizedValue = normalizeUsername(value)
-        const normalizedCurrent = normalizeUsername(currentUsername || '')
-        if (normalizedCurrent && normalizedValue === normalizedCurrent) {
-            setStatus('idle')
-            setMessage('')
-            return
-        }
-
-        const validation = validateUsername(normalizedValue)
-        if (!validation.valid) {
-            setStatus('invalid')
-            setMessage(validation.message)
-            return
-        }
-
-        setStatus('checking')
-        setMessage('Checking availability...')
-        const requestId = requestIdRef.current + 1
-        requestIdRef.current = requestId
-
+        if (!needsRemoteCheck) return
+        let cancelled = false
         const timer = window.setTimeout(async () => {
+            const done = (status: UsernameAvailabilityStatus, message: string) => {
+                if (!cancelled) setRemote({ forValue: normalizedValue, status, message })
+            }
             try {
                 const { ok, status: responseStatus, payload, responseText } = await requestUsernameAvailability(normalizedValue)
-                if (requestId !== requestIdRef.current) return
-
                 if (!ok) {
                     if (responseStatus === 429 || payload.code === 'RATE_LIMITED') {
-                        setStatus('invalid')
-                        setMessage('Too many checks. Please wait and try again.')
-                        return
+                        // Not a verdict on the name: no red cross, and saving still re-checks on the server.
+                        return done('error', 'Too many checks. Wait a moment and try again.')
                     }
-                    setStatus('error')
-                    setMessage(resolveUsernameAvailabilityMessage(payload, responseText) || `HTTP ${responseStatus}`)
-                    return
+                    return done('error', resolveUsernameAvailabilityMessage(payload, responseText) || `HTTP ${responseStatus}`)
                 }
-
-                if (payload.available) {
-                    setStatus('valid')
-                    setMessage('Username is available')
-                    return
-                }
-
+                if (payload.available) return done('valid', 'Username is available')
                 if (typeof payload.available !== 'boolean') {
-                    setStatus('error')
-                    setMessage(payload.message || responseText || 'Unable to verify username right now. Please retry.')
-                    return
+                    return done('error', payload.message || responseText || 'Unable to verify username right now. Please retry.')
                 }
-
-                setStatus('invalid')
-                setMessage(resolveUsernameAvailabilityMessage(payload, responseText) || 'Username is unavailable')
+                return done('invalid', resolveUsernameAvailabilityMessage(payload, responseText) || 'Username is unavailable')
             } catch {
-                if (requestId !== requestIdRef.current) return
-                setStatus('error')
-                setMessage('Unable to verify username right now. Please retry.')
+                done('error', 'Unable to verify username right now. Please retry.')
             }
         }, debounceMs)
 
         return () => {
+            cancelled = true
             window.clearTimeout(timer)
         }
-    }, [currentUsername, debounceMs, enabled, value])
+    }, [debounceMs, needsRemoteCheck, normalizedValue])
 
-    return { status, message }
+    if (!enabled || !normalizedValue || isCurrent) return { status: 'idle' as const, message: '', checkedValue: '' }
+    if (validation && !validation.valid) return { status: 'invalid' as const, message: validation.message, checkedValue: normalizedValue }
+    if (remote && remote.forValue === normalizedValue) {
+        return { status: remote.status, message: remote.message, checkedValue: normalizedValue }
+    }
+    return { status: 'checking' as const, message: 'Checking availability...', checkedValue: normalizedValue }
 }
