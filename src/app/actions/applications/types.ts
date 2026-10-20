@@ -69,6 +69,8 @@ export type ApplicationStatusResult = {
     decisionReasonText?: string | null;
     /** The application's private thread. */
     channelId?: string | null;
+    /** After acceptance: the project's #general, once the applicant is in it. */
+    projectChatId?: string | null;
     /** When the applicant can still edit; absent once the window has closed. */
     editableUntil?: Date;
 };

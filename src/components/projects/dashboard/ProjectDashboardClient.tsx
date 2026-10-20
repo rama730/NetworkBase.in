@@ -332,12 +332,14 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
         const source = searchParams?.get('source');
         if (source === 'application_accepted' && (isMember || isOwner)) {
             setIsOnboardingOpen(true);
+            // The welcome names the role they were accepted for (a member's status is not read otherwise).
+            void getApplicationStatusAction(project.id).then(setApplicationStatus);
             // Clean URL
             const url = new URL(window.location.href);
             url.searchParams.delete('source');
             window.history.replaceState({}, '', url);
         }
-    }, [searchParams, isMember, isOwner]);
+    }, [searchParams, isMember, isOwner, project.id]);
 
     // Application status for non-owner/non-member users
     const [applicationStatus, setApplicationStatus] = useState<ApplicationStatusResult>({ status: 'none' });
@@ -347,11 +349,20 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
     const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
 
     /** Reads where the viewer's application stands; a failed read is an error state, never "no application". */
+    const lastStatusRef = useRef<ApplicationStatusResult['status']>('none');
     const refreshApplicationStatus = useCallback(async () => {
         const next = await getApplicationStatusAction(project.id).catch(() => ({ status: 'none', loadFailed: true }) as ApplicationStatusResult);
+        const before = lastStatusRef.current;
+        lastStatusRef.current = next.status;
         setApplicationStatus(next);
         setApplicationLoad(next.loadFailed ? 'error' : 'ready');
-    }, [project.id]);
+        // Accepted while this page is open: the page becomes the team's (tabs, roles) and welcomes the new member.
+        if (before === 'pending' && next.status === 'accepted' && !next.membershipEnded) {
+            toast.success(`You joined ${project.title}`);
+            setIsOnboardingOpen(true);
+            router.refresh();
+        }
+    }, [project.id, project.title, router]);
 
     const handleInvitation = useCallback(async (action: 'accept' | 'decline') => {
         if (invitationLoading) return;
@@ -855,6 +866,10 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
         };
     }, [project?.id]);
 
+    // The visitor's own application, on the mobile header link (where "N open roles" is otherwise).
+    const applicationHeaderLabel = applicationStatus.status === 'pending' ? 'Application pending'
+        : applicationStatus.status === 'rejected' ? 'Application declined'
+            : applicationStatus.status === 'withdrawn' ? 'Application withdrawn' : null;
     const projectClosed = ['archived', 'completed'].includes(String((project as { status?: string | null }).status ?? ''));
     const applicationControls = useMemo(() => ({
         load: applicationLoad,
@@ -1067,7 +1082,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
     return (
         <PlainContentHeadings>
         {shareOpen ? <ResourceShareDialog kind="project" path={canonicalProjectHref} returnFocusElement={shareTrigger.current} onClose={() => setShareOpen(false)} /> : null}
-        <ProjectLayout project={projectWithLiveStats} isOwner={isOwner} canManageSettings={canManageProjectSettings} isOwnerOrMember={isOwnerOrMember} publicTabVisibility={publicTabVisibility} activeTab={activeTab ?? ''} onTabChange={handleTabChange} followersCount={followersCount} viewCount={viewCount} filesSyncBadge={filesSyncBadge} isFollowing={isFollowing} onFollow={handleFollow} followLoading={followLoading} onShare={handleShare} onInvite={() => setIsInviteModalOpen(true)} canInvite={canManageProjectSettings} onTabHover={handleTabHover} members={allMembers} loadingMembers={loadingMembers} stageLabel={lifecycleStageNames[optimisticStageIndex] ?? null} stageIndex={optimisticStageIndex} stageCount={lifecycleStageNames.length} openRolesCount={rolesWithFilled.filter((role: any) => (role?.count || 0) - (role?.filled || 0) > 0).length}>
+        <ProjectLayout project={projectWithLiveStats} isOwner={isOwner} canManageSettings={canManageProjectSettings} isOwnerOrMember={isOwnerOrMember} publicTabVisibility={publicTabVisibility} activeTab={activeTab ?? ''} onTabChange={handleTabChange} followersCount={followersCount} viewCount={viewCount} filesSyncBadge={filesSyncBadge} isFollowing={isFollowing} onFollow={handleFollow} followLoading={followLoading} onShare={handleShare} onInvite={() => setIsInviteModalOpen(true)} canInvite={canManageProjectSettings} onTabHover={handleTabHover} members={allMembers} loadingMembers={loadingMembers} stageLabel={lifecycleStageNames[optimisticStageIndex] ?? null} stageIndex={optimisticStageIndex} stageCount={lifecycleStageNames.length} applicationLabel={applicationHeaderLabel} openRolesCount={rolesWithFilled.filter((role: any) => (role?.count || 0) - (role?.filled || 0) > 0).length}>
             {!activeTab && (
                 <div className="w-full h-full min-h-[40vh] flex items-center justify-center p-8">
                     <div className="nb-empty-state max-w-md text-center py-12" role="status">
@@ -1143,7 +1158,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                     isOpen={isOnboardingOpen}
                     onClose={() => setIsOnboardingOpen(false)}
                     projectTitle={project.title}
-                    roleTitle={currentProjectRole ? PROJECT_MEMBER_ROLE_LABELS[currentProjectRole] : undefined}
+                    roleTitle={applicationStatus.status === 'accepted' && applicationStatus.roleTitle ? applicationStatus.roleTitle : currentProjectRole ? PROJECT_MEMBER_ROLE_LABELS[currentProjectRole] : undefined}
                     onViewTasks={() => {
                         setIsOnboardingOpen(false);
                         handleTabChange('tasks');
@@ -1157,7 +1172,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
 
             {isEditModalOpen ? <EditProjectModal project={extendedProject} isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} onSaved={() => refreshProjectData()} /> : null}
 
-            {isApplyModalOpen && rolesWithFilled.length > 0 && (
+            {isApplyModalOpen && (rolesWithFilled.length > 0 || isEditApplicationOpen) && (
                 <ApplyRoleModal
                     isOpen={isApplyModalOpen}
                     onClose={() => {
@@ -1166,6 +1181,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                         setPreselectedRoleId(undefined);
                     }}
                     onRolesStale={() => refreshProjectData()}
+                    lead={(extendedProject?.owner ?? project.owner) as { id: string; username?: string | null; fullName?: string | null; avatarUrl?: string | null } | undefined}
                     editApplication={isEditApplicationOpen && applicationStatus.applicationId ? {
                         applicationId: applicationStatus.applicationId,
                         roleId: applicationStatus.roleId,
@@ -1182,6 +1198,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                     onSuccess={(result) => {
                         refreshProjectData();
                         // Show Pending at once; the read below fills in the rest.
+                        if (result?.applicationId) lastStatusRef.current = 'pending';
                         if (result?.applicationId) setApplicationStatus((current) => ({ ...current, status: 'pending', applicationId: result.applicationId, channelId: result.channelId ?? current.channelId }));
                         void refreshApplicationStatus();
                     }}

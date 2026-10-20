@@ -146,11 +146,11 @@ export async function readNetworkInvitationsAction(
                 WHERE a.status='pending' AND ${canReviewProjectSql(user.id, sql`a.project_id`)}
                 UNION ALL
                 SELECT a.id,'application','sent',a.created_at,a.message,a.project_id,p.title,p.slug,coalesce(r.title,r.role,'Role removed'),
-                    a.status::text,a.decision_reason_text,ch.id,NULL,NULL,p.owner_id
+                    a.status::text,a.decision_reason_text,ch.id,a.decision_reason_code,NULL,p.owner_id
                 FROM role_applications a JOIN projects p ON p.id=a.project_id LEFT JOIN project_open_roles r ON r.id=a.role_id
                     LEFT JOIN chat_channels ch ON ch.application_id=a.id
                 WHERE a.applicant_id=${user.id}::uuid AND p.deleted_at IS NULL
-                    AND (a.status='pending' OR (a.status IN ('accepted','rejected') AND a.updated_at>now()-interval '30 days'))`}
+                    AND (a.status='pending' OR (a.status IN ('accepted','rejected','withdrawn') AND a.updated_at>now()-interval '30 days'))`}
             ), matching AS (
                 SELECT entries.*,profiles.username,profiles.full_name,profiles.avatar_url,profiles.headline,profiles.location
                 FROM entries JOIN profiles ON profiles.id=entries.actor_id

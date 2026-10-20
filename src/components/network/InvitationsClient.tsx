@@ -176,7 +176,7 @@ export default function InvitationsClient({
             applicant: item.person,
         }));
     const sentApplications = entries.filter(
-        (item) => item.source === "application" && item.direction === "sent" && item.applicationStatus && item.applicationStatus !== "withdrawn",
+        (item) => item.source === "application" && item.direction === "sent" && item.applicationStatus,
     );
     const sentProjectInvitations: SentProjectInvitationItem[] = entries
         .filter(
@@ -826,14 +826,15 @@ export default function InvitationsClient({
                                     footer={
                                         <>
                                             {requestDate(application.createdAt)}
-                                            {status === "rejected" && application.decisionReason ? (
+                                            {(status === "rejected" || status === "withdrawn") && application.decisionReason ? (
                                                 <span className="nb-meta block text-muted-foreground">{application.decisionReason}</span>
                                             ) : null}
                                         </>
                                     }
                                     action={
                                         <SentApplicationMenu
-                                            status={status as "pending" | "accepted" | "rejected"}
+                                            status={status}
+                                            reasonCode={application.decisionCode}
                                             name={application.projectTitle || "the project"}
                                             projectHref={`/projects/${application.projectSlug || application.projectId}`}
                                             channelId={application.channelId}

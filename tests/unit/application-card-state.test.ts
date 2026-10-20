@@ -27,6 +27,8 @@ test("withdrawn and ended membership can apply again", () => {
   const ended = describeApplyCard({ status: "accepted", membershipEnded: true }, ready);
   assert.equal(ended.blockedReason, null);
   assert.match(ended.banner?.text ?? "", /were on this project/);
+  const joined = describeApplyCard({ status: "accepted", roleTitle: "Designer" }, ready);
+  assert.equal(joined.banner?.text, "You joined as Designer");
 });
 
 test("declined: the reason shows, the cooldown blocks, and it lifts after the wait", () => {

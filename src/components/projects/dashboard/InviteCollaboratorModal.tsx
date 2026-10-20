@@ -58,6 +58,9 @@ type CachedOptions = { roles: ParticipationRole[]; people: Candidate[] };
 /** What a successful apply or edit hands back, so the page can show Pending before it re-reads. */
 export type ApplySuccessHandler = (result?: { applicationId?: string; channelId?: string | null; roleId?: string }) => void;
 
+/** Who leads the project (its owner): shown to an applicant as the person they are writing to. */
+export type ProjectLead = { id: string; username?: string | null; fullName?: string | null; avatarUrl?: string | null };
+
 /** A pending application opened for editing. */
 export type EditableApplication = {
     applicationId: string;
@@ -74,6 +77,8 @@ export interface InviteCollaboratorModalProps {
     editApplication?: EditableApplication;
     /** Apply mode: a role turned out to be full or gone, so the page should re-read its roles. */
     onRolesStale?: () => void;
+    /** Apply mode: the project's lead, so the applicant sees who they are writing to. */
+    lead?: ProjectLead;
     mode?: "invite" | "apply";
     projectId?: string;
     projectTitle?: string;
@@ -158,6 +163,7 @@ export default function InviteCollaboratorModal({
     canAppointGuidance = false,
     editApplication,
     onRolesStale,
+    lead,
 }: InviteCollaboratorModalProps) {
     const plainContentHeadings = usePlainContentHeadings();
     const { user } = useAuth();
@@ -586,7 +592,7 @@ export default function InviteCollaboratorModal({
                 : !applicationMessage.trim() ? "Tell the reviewers why you are a fit." : null;
 
     const step = (label: string) => <p className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">{label}</p>;
-    const selectedProjectContext = selectedProject ? <div className="flex items-center justify-between rounded-[5px] border border-border bg-muted/30 px-3.5 py-2.5 text-[13px] text-foreground"><span><span className="text-muted-foreground">Project:</span> <strong>{selectedProject.title}</strong></span>{!projectIsFixed ? <Button type="button" variant="ghost" size="sm" aria-expanded={isChoosingProject} aria-controls="recruitment-project-list" onClick={() => setIsChoosingProject((open) => !open)} className="nb-touch-target h-[28px] rounded-[5px] px-2 text-xs font-medium">{isChoosingProject ? "Cancel" : "Change"}</Button> : null}</div> : null;
+    const selectedProjectContext = selectedProject ? <div className="flex items-center justify-between rounded-[5px] border border-border bg-muted/30 px-3.5 py-2.5 text-[13px] text-foreground"><span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"><span className="min-w-0 truncate"><span className="text-muted-foreground">Project:</span> <strong>{selectedProject.title}</strong></span>{mode === "apply" && lead ? <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"><UserAvatar identity={lead} size={18} />Lead: {lead.fullName || lead.username}</span> : null}</span>{!projectIsFixed ? <Button type="button" variant="ghost" size="sm" aria-expanded={isChoosingProject} aria-controls="recruitment-project-list" onClick={() => setIsChoosingProject((open) => !open)} className="nb-touch-target h-[28px] rounded-[5px] px-2 text-xs font-medium">{isChoosingProject ? "Cancel" : "Change"}</Button> : null}</div> : null;
     // An anchored list keeps the application form and modal dimensions intact.
     const projectPicker = showProjectPicker ? <div ref={projectPickerRef} tabIndex={-1} className="absolute inset-x-0 top-full z-10 mt-2 animate-in fade-in slide-in-from-top-1 duration-[130ms] rounded-[8px] border border-border bg-card p-2 shadow-md outline-none">{step("Select project")}<div
                 ref={projectListRef}

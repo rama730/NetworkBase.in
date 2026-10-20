@@ -42,6 +42,8 @@ interface ProfileClientProps extends Omit<ProfilePageData, 'stats'> {
     stats?: ProfileStats;
     collaborationSummary?: ProfileCollaborationSummary;
     initialOpenRolesProjects?: any[];
+    /** The viewer has 20 pending applications: the picker says so instead of failing on submit. */
+    applicationsCapReached?: boolean;
 }
 
 function parseProfileTab(value: string | null): ProfileTabKey {
@@ -126,6 +128,7 @@ export function ProfileV2Client({
     lockedShell: initialLockedShell = false,
     collaborationSummary: initialCollaborationSummary = EMPTY_COLLABORATION_SUMMARY,
     initialOpenRolesProjects = [],
+    applicationsCapReached = false,
 }: ProfileClientProps) {
     const { user: authUser } = useAuth()
     const viewerUser = authUser ?? currentUser
@@ -589,9 +592,13 @@ export function ProfileV2Client({
     }, [handleTabChange])
 
     const handleOpenApplyModal = useCallback(() => {
+        if (applicationsCapReached) {
+            toast.error('You have 20 pending applications. Withdraw one to apply.')
+            return
+        }
         setIsApplyModalOpen(true)
         void loadApplyRoleModal()
-    }, [loadApplyRoleModal])
+    }, [applicationsCapReached, loadApplyRoleModal])
 
     const handleShareProfile = useCallback((trigger?: HTMLElement) => { shareTrigger.current = trigger ?? null; setShareOpen(true); }, [])
 
@@ -652,7 +659,7 @@ export function ProfileV2Client({
                             onInvite={viewerUser && !isOwner ? handleOpenInvite : undefined}
                             onInviteIntent={prefetchInviteOptions}
                             onApply={viewerUser && !isOwner ? handleOpenApplyModal : undefined}
-                            hasOpenRoles={openRolesProjects.length > 0}
+                            hasOpenRoles={openRolesProjects.length > 0 || applicationsCapReached}
                         />
                     </ComponentErrorBoundary>
                 )}

@@ -27,6 +27,7 @@ async function withProject(fn: (ctx: Ctx) => Promise<void>, options: { roleCount
     viewerId = applicant;
     await fn({ owner, applicant, projectId, roleId: role!.id as string });
   } finally {
+    await sql`DELETE FROM project_invitations WHERE project_id = ${projectId}`;
     await sql`DELETE FROM role_applications WHERE project_id = ${projectId}`;
     await sql`DELETE FROM project_members WHERE project_id = ${projectId}`;
     await sql`DELETE FROM project_open_roles WHERE project_id = ${projectId}`;
@@ -231,5 +232,11 @@ test("a profile's apply picker leaves out projects the viewer cannot apply to ri
     assert.equal(await offered(), true, "offered after the cooldown");
     await sql`UPDATE projects SET status = 'archived' WHERE id = ${projectId}`;
     assert.equal(await offered(), false, "not offered once archived");
+    await sql`UPDATE projects SET status = 'active' WHERE id = ${projectId}`;
+    assert.equal(await offered(), true);
+    await sql`INSERT INTO project_invitations (project_id, inviter_id, candidate_id, kind, role_id, role_title, project_title, status, expires_at)
+      VALUES (${projectId}, ${owner}, ${viewerId}, 'ordinary_role', ${roleId}, 'Designer', 'P', 'pending', now() + interval '1 day')`;
+    assert.equal(await offered(), false, "not offered while an invitation to it is pending");
+    assert.equal((await lifecycle.getProfileProjectsWithOpenRolesAction(owner)).capReached, false);
   });
 });
