@@ -14,6 +14,7 @@ export {
     applyToRoleAction,
     cancelSentProjectInvitationAction,
     editPendingApplicationAction,
+    getApplicationAlignmentAction,
     getApplicationStatusAction,
     getIncomingApplicationsAction,
     getProjectInviteOptionsAction,

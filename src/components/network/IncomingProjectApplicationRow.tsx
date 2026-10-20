@@ -5,6 +5,7 @@ import { Check, Loader2, X } from "lucide-react";
 import { formatDistanceToNowStrict } from "@/lib/utils/date";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/ui/UserAvatar";
+import { conversationHref } from "@/lib/messaging/routes";
 import { profileHref } from "@/lib/routing/identifiers";
 
 export type IncomingProjectApplication = {
@@ -15,6 +16,8 @@ export type IncomingProjectApplication = {
   projectSlug?: string | null;
   roleTitle: string;
   createdAt?: string | Date | null;
+  /** An application's private thread. */
+  channelId?: string | null;
   actor?: {
     id?: string | null;
     username?: string | null;
@@ -81,6 +84,7 @@ export function IncomingProjectApplicationRow({
             {app.projectTitle}
           </Link>
           {receivedAt ? <span aria-label={`Received ${receivedAt}`}>{receivedAt}</span> : null}
+          {app.channelId ? <Link href={conversationHref(app.channelId)} className="font-medium text-primary hover:underline">Read cover letter</Link> : null}
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
@@ -88,9 +92,9 @@ export function IncomingProjectApplicationRow({
           {isAccepting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
           Accept
         </Button>
-        <Button size="sm" variant="outline" onClick={onReject} disabled={isBusy} aria-label={`Reject ${sourceLabel.toLowerCase()} from ${actorName} for ${app.projectTitle}`}>
+        <Button size="sm" variant="outline" onClick={onReject} disabled={isBusy} aria-label={`Decline ${sourceLabel.toLowerCase()} from ${actorName} for ${app.projectTitle}`}>
           {isRejecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
-          Reject
+          Decline
         </Button>
       </div>
     </div>

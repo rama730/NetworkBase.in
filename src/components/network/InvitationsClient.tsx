@@ -204,9 +204,6 @@ export default function InvitationsClient({
                 queryKey: queryKeys.workspace.sentProjectInvitationsRoot(),
             }),
             queryClient.invalidateQueries({
-                queryKey: ["network", "project-applications"],
-            }),
-            queryClient.invalidateQueries({
                 queryKey: queryKeys.workspace.root(),
             }),
             queryClient.invalidateQueries({
@@ -731,9 +728,11 @@ export default function InvitationsClient({
                                     }
                                     action={
                                         <ApplicationReview
+                                            applicationId={app.id}
                                             applicantName={name}
                                             profileHref={profileHref(actor ?? {})}
                                             headline={actor?.headline}
+                                            location={actor?.location}
                                             skills={actor?.skills}
                                             roleTitle={app.roleTitle}
                                             projectTitle={app.projectTitle}

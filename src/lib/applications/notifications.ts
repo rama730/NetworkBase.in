@@ -35,6 +35,8 @@ async function latestApplicationEventId(applicationId: string) {
 
 export async function enqueueApplicationReceivedBestEffort(params: {
     applicationId: string;
+    /** A reapplication or an edit that brings it back to review: the title says so. */
+    again?: boolean;
     channelId?: string | null;
     projectId: string;
     projectSlug?: string | null;
@@ -53,7 +55,7 @@ export async function enqueueApplicationReceivedBestEffort(params: {
             actorName: params.actorName,
             actorAvatarUrl: params.actorAvatarUrl ?? null,
             eventKey: "applications.received",
-            title: `${params.actorName || "Someone"} applied for ${params.roleTitle || "a role"}`,
+            title: `${params.actorName || "Someone"} applied ${params.again ? "again " : ""}for ${params.roleTitle || "a role"}`,
             body: params.projectTitle ? `Project: ${params.projectTitle}` : "New application received",
             // The thread has the cover letter and the Accept / Decline controls; the inbox is the fallback.
             href: params.channelId ? conversationHref(params.channelId) : '/network?tab=invitations',
