@@ -53,5 +53,5 @@ second decline after a reopen notifies again. Links open the thread; a decline c
 ## Database notes
 
 Migrations 0226–0230 (thread rules, lifecycle constraints, thread messaging, dropped proposal columns, one-call status lines and the prefix-duplicate index drops).
-`role_applications_message_length_check` was added `NOT VALID`; validate it after a read-only check of the live data.
+`role_applications_message_length_check` was added `NOT VALID` in 0227 and is validated by 0231 when no existing message is over the limit.
 `chat_get_or_create_dm` still has an unreachable `'application'` reason from 0180 (applied migrations are immutable).
