@@ -15,7 +15,7 @@ import { DecisionDialog, type DecisionInput } from "@/components/applications/De
 import { Actions, primary, secondary, Shell, STATUS_TONE, useCardAction, useCardQuery } from "@/components/messages/cards/card-parts";
 import WithdrawApplicationDialog from "@/components/projects/dashboard/WithdrawApplicationDialog";
 import { UserAvatar } from "@/components/ui/UserAvatar";
-import { reopenState } from "@/lib/applications/utils";
+import { reopenState, safeHttpUrl } from "@/lib/applications/utils";
 import { APPLICATION_STATUS_LABEL } from "@/lib/messaging/application-status";
 import { personName } from "@/lib/messaging/channel-view";
 import { conversationHref } from "@/lib/messaging/routes";
@@ -169,9 +169,9 @@ export function ApplicationCard({ view }: { view: ApplicationCardView }) {
         <ul className="mt-2.5 flex flex-wrap gap-1.5 text-[11px]" aria-label="About the applicant">
           {view.applicant_skills.map((skill) => <li key={skill} className="rounded-[3px] border border-border bg-muted/40 px-1.5 py-0.5 text-muted-foreground">{skill}</li>)}
           {view.details.availability ? <li className="rounded-[3px] border border-border bg-muted/40 px-1.5 py-0.5 text-foreground">{view.details.availability}</li> : null}
-          {view.details.portfolioUrl ? (
+          {safeHttpUrl(view.details.portfolioUrl) ? (
             <li>
-              <a href={view.details.portfolioUrl} target="_blank" rel="noopener noreferrer nofollow" className="rounded-[3px] border border-border bg-muted/40 px-1.5 py-0.5 text-primary hover:underline">Portfolio ↗</a>
+              <a href={safeHttpUrl(view.details.portfolioUrl)!} target="_blank" rel="noopener noreferrer nofollow" className="rounded-[3px] border border-border bg-muted/40 px-1.5 py-0.5 text-primary hover:underline">Portfolio ↗</a>
             </li>
           ) : null}
         </ul>

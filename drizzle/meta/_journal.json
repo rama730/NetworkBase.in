@@ -1611,6 +1611,13 @@
       "when": 1792342034016,
       "tag": "0232_application_thread_guards",
       "breakpoints": true
+    },
+    {
+      "idx": 231,
+      "version": "7",
+      "when": 1792454401000,
+      "tag": "0234_application_closures",
+      "breakpoints": true
     }
   ]
 }

@@ -8,7 +8,7 @@ import { DecisionDialog, type DecisionInput } from "@/components/applications/De
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { conversationHref } from "@/lib/messaging/routes";
-import { reopenState } from "@/lib/applications/utils";
+import { reopenState, safeHttpUrl } from "@/lib/applications/utils";
 
 type Details = { portfolioUrl?: string; availability?: string } | null;
 
@@ -73,7 +73,7 @@ export function ApplicationReview({
                     </div>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px]">
                         <Link href={profileHref} className="text-primary hover:underline">View profile</Link>
-                        {details?.portfolioUrl ? <a href={details.portfolioUrl} target="_blank" rel="noopener noreferrer nofollow" className="text-primary hover:underline">Portfolio ↗</a> : null}
+                        {safeHttpUrl(details?.portfolioUrl) ? <a href={safeHttpUrl(details?.portfolioUrl)!} target="_blank" rel="noopener noreferrer nofollow" className="text-primary hover:underline">Portfolio ↗</a> : null}
                         {channelId ? <Link href={conversationHref(channelId)} className="text-primary hover:underline">Open conversation</Link> : null}
                     </div>
                     <div className="flex gap-2">

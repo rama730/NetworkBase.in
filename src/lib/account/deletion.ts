@@ -5,9 +5,11 @@ import { and, eq, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   accountDeletions,
+  applicationEvents,
   connections,
   profiles,
   projects,
+  roleApplications,
 } from "@/lib/db/schema";
 
 /**
@@ -73,6 +75,23 @@ export async function scheduleAccountDeletionForUser(input: {
     await tx.update(profiles)
       .set({ deletedAt: now, visibility: "private", updatedAt: now })
       .where(eq(profiles.id, input.userId));
+
+    // Their pending applications are withdrawn: reviewers should not keep a queue of someone who is gone.
+    const withdrawn = await tx.update(roleApplications)
+      .set({ status: "withdrawn", decisionAt: now, decisionBy: input.userId, decisionReasonCode: "withdrawn_by_applicant", decisionReasonText: "Application withdrawn by applicant.", updatedAt: now })
+      .where(and(eq(roleApplications.applicantId, input.userId), eq(roleApplications.status, "pending")))
+      .returning({ id: roleApplications.id });
+    if (withdrawn.length > 0) {
+      await tx.insert(applicationEvents).values(withdrawn.map((application) => ({
+        applicationId: application.id,
+        actorId: input.userId,
+        kind: "withdrawn" as const,
+        fromStatus: "pending",
+        toStatus: "withdrawn",
+        reasonCode: "withdrawn_by_applicant",
+        metadata: { source: "account_deletion" },
+      })));
+    }
 
     const [deletion] = await tx.insert(accountDeletions).values({
       userId: input.userId,

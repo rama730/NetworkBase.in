@@ -1,6 +1,8 @@
 export const APPLICATION_DECISION_REASON_CODES = [
     'skills_mismatch',
     'role_filled',
+    'project_closed',
+    'role_removed',
     'availability',
     'experience',
     'other',
@@ -15,6 +17,8 @@ const APPLICATION_DECISION_REASON_SET = new Set<string>(APPLICATION_DECISION_REA
 export const APPLICATION_DECISION_REASON_TEMPLATES: Record<ApplicationDecisionReasonCode, string> = {
     skills_mismatch: 'Your skills are strong, but this role currently needs a closer stack match.',
     role_filled: 'This role has already been filled by another applicant.',
+    project_closed: 'The project is no longer taking applications.',
+    role_removed: 'The role was removed from the project.',
     availability: 'Current availability requirements do not align with the team schedule.',
     experience: 'We need deeper experience for this role at this stage of the project.',
     other: 'Thank you for applying. We are moving forward with another direction right now.',

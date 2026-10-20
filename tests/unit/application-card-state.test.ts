@@ -65,3 +65,13 @@ test("reopen: only a recent decline, never a filled or removed role, never withd
   assert.equal(reopenState(declined(2, { status: "withdrawn" }), now).canReopen, false);
   assert.equal(reopenState(declined(2, { decision_at: null }), now).canReopen, false);
 });
+
+import { safeHttpUrl } from "../../src/lib/applications/utils";
+
+test("only plain http(s) links from an application are ever put in an href", () => {
+  assert.equal(safeHttpUrl("https://github.com/me"), "https://github.com/me");
+  assert.equal(safeHttpUrl("http://example.com/x"), "http://example.com/x");
+  for (const bad of ["javascript:alert(1)", "data:text/html,<script>", "ftp://x.test", "//evil.test", "not a url", "", null, undefined, 3]) {
+    assert.equal(safeHttpUrl(bad), null, String(bad));
+  }
+});

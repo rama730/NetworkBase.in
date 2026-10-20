@@ -893,6 +893,10 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                 toast.error('You already have a pending application');
                 return;
             }
+            if (applicationStatus.status === 'proposed') {
+                toast.error('You have an invitation to this project. Accept or decline it first.');
+                return;
+            }
             if (applicationStatus.status === 'rejected' && !applicationStatus.canReapply) {
                 toast.error(`You can apply again in ${applicationStatus.waitTime}`);
                 return;

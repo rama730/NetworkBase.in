@@ -24,6 +24,7 @@ import {
     type ConnectionRequestHistoryStatus,
 } from '@/lib/connections/request-history';
 import { runInFlightDeduped } from '@/lib/utils/inflight-dedupe';
+import { canReviewProjectSql } from '@/lib/applications/reviewers';
 import { redis, getCachedData, cacheData } from '@/lib/redis';
 import { visibleLastActiveAt } from '@/lib/presence/sql';
 import {
@@ -2555,18 +2556,16 @@ export async function checkConnectionStatus(
                 .select({
                     id: roleApplications.id,
                     applicantId: roleApplications.applicantId,
-                    creatorId: roleApplications.creatorId,
                     status: roleApplications.status,
                     projectId: roleApplications.projectId,
                     updatedAt: roleApplications.updatedAt,
                 })
                 .from(roleApplications)
                 .where(
-                    and(
-                        or(
-                            and(eq(roleApplications.applicantId, user.id), eq(roleApplications.creatorId, otherUserId)),
-                            and(eq(roleApplications.applicantId, otherUserId), eq(roleApplications.creatorId, user.id))
-                        )
+                    // The two people are an applicant and one of the project's reviewers (its owner or an admin).
+                    or(
+                        and(eq(roleApplications.applicantId, user.id), canReviewProjectSql(otherUserId, sql`${roleApplications.projectId}`)),
+                        and(eq(roleApplications.applicantId, otherUserId), canReviewProjectSql(user.id, sql`${roleApplications.projectId}`))
                     )
                 )
                 .orderBy(desc(roleApplications.updatedAt), desc(roleApplications.id))
@@ -2578,7 +2577,8 @@ export async function checkConnectionStatus(
         }
 
         // RULE: If there is an active application, the gate is OPEN
-        if (activeApp) {
+        // A block always wins: an application never opens a conversation between two people who blocked each other.
+        if (activeApp && !(privacy.blockedByViewer || privacy.blockedByTarget)) {
             const appStatus = activeApp.status as 'pending' | 'accepted' | 'rejected' | 'project_deleted';
             const isPending = appStatus === 'pending';
             const updatedAtMs = new Date(activeApp.updatedAt).getTime();
@@ -2597,7 +2597,7 @@ export async function checkConnectionStatus(
                     activeApplicationStatus: appStatus,
                     activeProjectId: activeApp.projectId, // Mapped correctly by Drizzle
                     isApplicant: activeApp.applicantId === user.id,
-                    isCreator: activeApp.creatorId === user.id,
+                    isCreator: activeApp.applicantId !== user.id,
                     // PURE OPTIMIZATION: Crucially append connection booleans so profile UI doesn't visually drop existing connection requests!
                     isIncomingRequest: privacy.connectionState === 'pending_incoming',
                     isPendingSent: privacy.connectionState === 'pending_outgoing'

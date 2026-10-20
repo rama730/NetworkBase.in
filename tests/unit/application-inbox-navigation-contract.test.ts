@@ -8,7 +8,7 @@ function readProjectFile(relativePath: string) {
 }
 
 test('application notifications open the application thread, never a message', () => {
-    const action = readProjectFile('src/app/actions/applications/internal.ts');
+    const action = readProjectFile('src/app/actions/applications/internal.ts') + readProjectFile('src/lib/applications/notifications.ts');
 
     assert.doesNotMatch(action, /applicationMessageIdByApplicationId/);
     assert.doesNotMatch(action, /sourceMessageId:/);

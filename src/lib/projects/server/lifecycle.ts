@@ -2,7 +2,7 @@ import "server-only";
 
 import { type ProjectVisibility, isProjectVisibility } from "@/lib/projects/project-visibility";
 import { db } from "@/lib/db";
-import { projects, projectMembers, profiles, projectOpenRoles, tags, projectTags, storageAssets, projectNodeEvents, projectGuidanceAppointments, projectFollows } from "@/lib/db/schema";
+import { projects, projectMembers, profiles, projectOpenRoles, tags, projectTags, storageAssets, projectNodeEvents, projectGuidanceAppointments, projectFollows, roleApplications } from "@/lib/db/schema";
 import { eq, sql, inArray, and, desc, isNull, gt, ilike } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { clearSealedGithubTokenFromImportSource, sanitizeGitErrorMessage, sealGithubImportToken } from "@/lib/github/repo-security";
@@ -39,6 +39,8 @@ import { headers } from "next/headers";
 import { buildJourneyCompletionDates, normalizeJourneyCompletionDates } from "@/lib/projects/journey-completion";
 import { isLooseUuid } from "@/lib/validations/uuid";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
+import { closePendingApplications, type ClosedApplication, type ClosingReason } from "@/lib/applications/closing";
+import { notifyClosedApplications } from "@/lib/applications/notifications";
 import { normalizeSearchQuery, containsLikePattern } from "@/lib/search/query";
 import { isMissingColumn, invalidateProjectPublicCaches, enqueueProjectNotificationBestEffort, actorNotificationSnapshot, PROJECT_COVER_UPLOAD_MAX_FILE_BYTES, PROJECT_COVER_UPLOAD_BUCKET, buildProjectImageRoute, revalidateProjectPaths, type ProjectSettingsMutationResult, loadOwnedProjectForSettings, type ProjectSettingsErrorCode } from "./common";
 
@@ -997,6 +999,8 @@ export async function updateProject(projectId: string, input: UpdateProjectInput
           externalLinkMetadata: projects.externalLinkMetadata,
           importSource: projects.importSource,
           slug: projects.slug,
+          title: projects.title,
+          status: projects.status,
         })
         .from(projects)
         .where(eq(projects.id, projectId))
@@ -1004,6 +1008,8 @@ export async function updateProject(projectId: string, input: UpdateProjectInput
 
       if (!project) throw new Error("Project not found");
       if (project.ownerId !== user.id) throw new Error("Unauthorized");
+      // Pending applications this update closes (the project stopped taking them, or a role went away); their applicants are told after commit.
+      const closedApplications: Array<{ reason: ClosingReason; items: ClosedApplication[] }> = [];
 
       const { roles, deletedRoleIds, ...raw } = data;
 
@@ -1044,6 +1050,13 @@ export async function updateProject(projectId: string, input: UpdateProjectInput
         .set(updateValues)
         .where(eq(projects.id, projectId));
       await markProjectCollaboratorsSummaryStale(projectId, tx);
+      const stopsTakingApplications = (status: string | null | undefined) => status === "archived" || status === "completed";
+      if (raw.status !== undefined && stopsTakingApplications(raw.status) && !stopsTakingApplications(project.status)) {
+        closedApplications.push({
+          reason: "project_closed",
+          items: await closePendingApplications(tx, { projectId, actorId: user.id, reason: "project_closed", source: "project_update" }),
+        });
+      }
 
       // Sync Junction Tables for normalized relational search
       if (raw.tags !== undefined) {
@@ -1156,6 +1169,11 @@ export async function updateProject(projectId: string, input: UpdateProjectInput
         }
 
         if (cleanDeletedIds.length > 0) {
+          // The people waiting on a role that goes away are told, not left with a card for a role that no longer exists.
+          closedApplications.push({
+            reason: "role_removed",
+            items: await closePendingApplications(tx, { projectId, actorId: user.id, reason: "role_removed", roleIds: cleanDeletedIds, source: "role_deleted" }),
+          });
           await tx
             .delete(projectOpenRoles)
             .where(
@@ -1217,6 +1235,12 @@ export async function updateProject(projectId: string, input: UpdateProjectInput
           }
         }
 
+        // Lowering a role's count to what is already filled leaves nothing to apply for.
+        closedApplications.push({
+          reason: "role_filled",
+          items: await closePendingApplications(tx, { projectId, actorId: user.id, reason: "role_filled", filledRolesOnly: true, source: "role_count_lowered" }),
+        });
+
         openRoles = await tx
           .select({
             id: projectOpenRoles.id,
@@ -1243,6 +1267,8 @@ export async function updateProject(projectId: string, input: UpdateProjectInput
         slug: project.slug,
         id: project.id,
         ownerId: project.ownerId,
+        title: project.title,
+        closedApplications,
         openRoles,
       };
     })
@@ -1252,11 +1278,16 @@ export async function updateProject(projectId: string, input: UpdateProjectInput
         slug,
         id,
         ownerId,
+        title,
+        closedApplications,
         openRoles,
       }) => {
         revalidatePath(`/projects/${slug}`);
         revalidatePath(`/projects/${id}`);
         await invalidateProjectPublicCaches(id);
+        for (const closed of closedApplications) {
+          await notifyClosedApplications(closed.items, { reason: closed.reason, projectId: id, projectSlug: slug, projectTitle: title, actorUserId: user.id, traceId: `project_update_${id.slice(0, 8)}` });
+        }
         if (data.roles) {
           const createdCount = data.roles.filter((role) => !role.id).length;
           const updatedCount = data.roles.length - createdCount;
@@ -1712,11 +1743,13 @@ export async function archiveProjectAction(
     }
 
     const archivedAt = new Date();
+    let closedByArchive: ClosedApplication[] = [];
     await db.transaction(async (tx) => {
       await tx
         .update(projects)
         .set({ status: "archived", updatedAt: archivedAt })
         .where(eq(projects.id, projectId));
+      closedByArchive = await closePendingApplications(tx, { projectId, actorId: user.id, reason: "project_closed", source: "project_archived" });
       const ended = await tx
         .update(projectGuidanceAppointments)
         .set({
@@ -1748,6 +1781,7 @@ export async function archiveProjectAction(
       }
     });
     await revalidateProjectPaths(projectId);
+    await notifyClosedApplications(closedByArchive, { reason: "project_closed", projectId, projectSlug: owned.project.slug, projectTitle: owned.project.title, actorUserId: user.id, traceId: `project_archive_${projectId.slice(0, 8)}` });
     const actor = actorNotificationSnapshot(user);
     await enqueueProjectNotificationBestEffort(
       {
@@ -1886,6 +1920,7 @@ export async function deleteProject(
       .select({
         ownerId: projects.ownerId,
         slug: projects.slug,
+        title: projects.title,
       })
       .from(projects)
       .where(eq(projects.id, projectId))
@@ -1918,6 +1953,7 @@ export async function deleteProject(
     // Preserve deletion evidence before domain rows cascade away. Ownership and
     // storage registration are rechecked under the project row lock, so a
     // transfer or new legacy reference after the preflight blocks it (COR-048).
+    let waitingApplicants: ClosedApplication[] = [];
     const blocked = await db.transaction(async (tx) => {
       const [locked] = await tx
         .select({ ownerId: projects.ownerId })
@@ -1926,6 +1962,11 @@ export async function deleteProject(
         .for("update");
       if (!locked || locked.ownerId !== user.id) return "FORBIDDEN" as const;
       if (await countUnregisteredProjectStorage(projectId, tx) > 0) return "STORAGE_MIGRATION_PENDING" as const;
+      // The applications go with the project: their applicants are told once the delete has committed.
+      waitingApplicants = await tx
+        .select({ id: roleApplications.id, applicantId: roleApplications.applicantId, roleId: roleApplications.roleId })
+        .from(roleApplications)
+        .where(and(eq(roleApplications.projectId, projectId), eq(roleApplications.status, "pending")));
       await scheduleProjectStorageDeletion(tx, projectId);
       // Hard-delete the project (cascades to nodes, tasks, sprints, members,
       // and its chat channels; cards elsewhere then show a restricted placeholder).
@@ -1954,6 +1995,8 @@ export async function deleteProject(
           : "Project deletion is waiting for storage references to be registered.",
       };
     }
+
+    await notifyClosedApplications(waitingApplicants, { reason: "project_closed", projectId, projectSlug: project.slug, projectTitle: project.title, actorUserId: user.id, traceId: `project_delete_${projectId.slice(0, 8)}` });
 
     logger.metric("project.settings.delete.result", {
       projectId,
