@@ -52,7 +52,7 @@ test("a decision line is unread news with a preview, not silent", async () => {
     await sql`SELECT app_private.chat_post_system(${channelId}::uuid, ${owner}::uuid, 'declined this application')`;
     const [after] = await sql`SELECT last_top_seq, last_preview, last_author_id FROM chat_channels WHERE id = ${channelId}`;
     assert.ok(Number(after!.last_top_seq) > Number(before!.last_top_seq), "the line counts as top-level, so unread");
-    assert.equal(after!.last_preview, "declined this application");
+    assert.match(String(after!.last_preview), /declined this application$/);
     const [member] = await sql`SELECT last_read_seq FROM chat_channel_members WHERE channel_id = ${channelId} AND user_id = ${applicant}`;
     assert.ok(Number(member!.last_read_seq) < Number(after!.last_top_seq), "the applicant has it unread");
     void applicationId;
@@ -122,5 +122,46 @@ test("a status line is one call that opens a missing thread, and old threads get
     assert.equal(line!.body, "looking at this now");
     const indexes = await sql`SELECT indexname FROM pg_indexes WHERE tablename = 'role_applications' AND indexname IN ('role_applications_project_id_idx', 'role_applications_applicant_id_idx', 'role_applications_role_id_idx')`;
     assert.equal(indexes.length, 0, "the prefix-duplicate indexes are gone");
+  });
+});
+
+test("the cover letter follows the application, the card message and member roles are protected, previews name the actor", async () => {
+  await withThread(async ({ owner, applicant, applicationId, channelId, projectId, roleId }) => {
+    viewerId = applicant;
+    const edited = await apps.editPendingApplicationAction(applicationId, "A much better cover letter");
+    assert.equal(edited.success, true, JSON.stringify(edited));
+    const [first] = await sql`SELECT channel_seq, body, edited_at FROM chat_messages WHERE channel_id = ${channelId} AND client_message_id = ${"application:" + applicationId}`;
+    assert.equal(first!.body, "A much better cover letter", "the first message shows the new text");
+    assert.ok(first!.edited_at);
+
+    await assert.rejects(sql`SELECT app_private.chat_edit_message(${channelId}::uuid, ${first!.channel_seq}::bigint, ${applicant}::uuid, ${"sneaky"})`, /chat_not_editable/);
+    await assert.rejects(sql`SELECT app_private.chat_set_member_role(${channelId}::uuid, ${owner}::uuid, ${applicant}::uuid, 'admin')`, /chat_application_members_fixed/);
+
+    await sql`SELECT app_private.chat_post_system(${channelId}::uuid, ${owner}::uuid, 'declined this application')`;
+    const [channel] = await sql`SELECT last_preview FROM chat_channels WHERE id = ${channelId}`;
+    assert.match(String(channel!.last_preview), /^\S+ declined this application$/, "the preview says who");
+
+    // Legacy rows: the portfolio and availability lines inside the message move into details.
+    const migration = (await import("node:fs")).readFileSync("drizzle/0232_application_thread_guards.sql", "utf8");
+    const statement = migration.split("--> statement-breakpoint").find((part) => part.includes("UPDATE public.role_applications a"))!;
+    await sql`UPDATE role_applications SET message = ${"I build things.\n\nPortfolio / GitHub: https://github.com/me\n\nAvailability: 10 hrs/week"}, details = '{}'::jsonb WHERE id = ${applicationId}`;
+    await sql.unsafe(statement.replace(/^[\s\S]*?(UPDATE public\.role_applications a)/, "$1"));
+    const [row] = await sql`SELECT message, details FROM role_applications WHERE id = ${applicationId}`;
+    assert.equal(row!.message, "I build things.");
+    assert.deepEqual(row!.details, { portfolioUrl: "https://github.com/me", availability: "10 hrs/week" });
+    void projectId; void roleId;
+  });
+});
+
+test("a closed thread comes back when a status line or a message lands", async () => {
+  await withThread(async ({ owner, applicant, applicationId, channelId }) => {
+    const closedFor = async (userId: string) => (await sql`SELECT archived_at FROM chat_channel_members WHERE channel_id = ${channelId} AND user_id = ${userId}`)[0]!.archived_at;
+    await sql`UPDATE chat_channel_members SET archived_at = now() WHERE channel_id = ${channelId} AND user_id = ${applicant}`;
+    assert.ok(await closedFor(applicant));
+    await sql`SELECT app_private.chat_post_application_update(${applicationId}::uuid, ${owner}::uuid, 'reopened this application')`;
+    assert.equal(await closedFor(applicant), null, "a status line reopens it for the other side");
+    await sql`UPDATE chat_channel_members SET archived_at = now() WHERE channel_id = ${channelId} AND user_id = ${applicant}`;
+    await send(channelId, owner, "one more thing");
+    assert.equal(await closedFor(applicant), null, "so does a message");
   });
 });

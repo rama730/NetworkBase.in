@@ -287,8 +287,8 @@ export async function shareMessage(input: { channelId: string; seq: number; toCh
   if (input.note !== undefined && (typeof input.note !== "string" || input.note.length > 1000)) return invalidInput;
   if (!takeSendToken(user.id)) return { success: false as const, error: "chat_rate_limited" };
   try {
-    const [source] = await chatRows<{ body: string; author: string | null; channel_name: string | null; thread_root_seq: number | null }>(sql`
-      SELECT m.body, m.thread_root_seq, coalesce(pr.full_name, pr.username) AS author, c.name AS channel_name
+    const [source] = await chatRows<{ body: string; author: string | null; channel_name: string | null; thread_root_seq: number | null; private_thread: boolean }>(sql`
+      SELECT m.body, m.thread_root_seq, coalesce(pr.full_name, pr.username) AS author, c.name AS channel_name, c.application_id IS NOT NULL AS private_thread
       FROM chat_messages m
       JOIN chat_channels c ON c.id = m.channel_id
       LEFT JOIN profiles pr ON pr.id = m.author_id
@@ -296,6 +296,8 @@ export async function shareMessage(input: { channelId: string; seq: number; toCh
         AND app_private.chat_is_member(${input.channelId}::uuid, ${user.id}::uuid)
     `);
     if (!source) return { success: false as const, error: "chat_message_not_found" };
+    // An application thread is private to the applicant and the reviewers: its text (the cover letter) is not quoted elsewhere.
+    if (source.private_thread) return { success: false as const, error: "chat_share_not_allowed" };
     const names = await chatRows<{ id: string; name: string }>(sql`
       SELECT p.id, coalesce(p.full_name, p.username, 'someone') AS name FROM profiles p
       WHERE p.id = ANY(${uuidArray(Array.from(source.body.matchAll(/<@([0-9a-f-]{36})>/g), (m) => m[1]!))})

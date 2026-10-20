@@ -39,6 +39,8 @@ const MESSAGES: Record<string, string> = {
   chat_task_in_progress: "That task is still being created. Try again in a moment.",
   chat_attachment_not_ready: "An attachment is still uploading.",
   chat_group_size: "Group chats have up to 9 people.",
+  chat_share_not_allowed: "Messages in an application conversation are private and can't be shared.",
+  chat_application_members_fixed: "People in an application conversation are fixed: the applicant and the project's reviewers.",
   chat_canvas_not_installed: "Canvases aren't set up on this server yet (database migration 0182 is pending).",
   chat_canvas_delete_forbidden: "Only channel admins can delete a canvas that has content.",
   chat_canvas_conflict: "Someone else just edited this canvas. Showing the latest version.",

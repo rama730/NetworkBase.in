@@ -24,6 +24,7 @@ export async function hydrateCards(viewerId: string, refs: ChatCardRef[]): Promi
              a.role_id, a.role_id IS NULL AS role_removed, a.details,
              a.decision_reason_code, a.decision_reason_text,
              CASE WHEN dp.id IS NULL THEN NULL ELSE ${person("dp")} END AS decided_by,
+             (SELECT c.id FROM chat_channels c WHERE c.project_id = a.project_id AND c.is_default AND app_private.chat_is_member(c.id, ${viewerId}::uuid)) AS project_chat_id,
              ap.headline AS applicant_headline,
              CASE WHEN jsonb_typeof(ap.skills) = 'array' THEN (SELECT coalesce(jsonb_agg(s), '[]'::jsonb) FROM (SELECT jsonb_array_elements_text(ap.skills) AS s LIMIT 4) top) ELSE '[]'::jsonb END AS applicant_skills,
              ${person("ap")} AS applicant,

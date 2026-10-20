@@ -18,6 +18,7 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 import { reopenState } from "@/lib/applications/utils";
 import { APPLICATION_STATUS_LABEL } from "@/lib/messaging/application-status";
 import { personName } from "@/lib/messaging/channel-view";
+import { conversationHref } from "@/lib/messaging/routes";
 import type { ApplicationCardView } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
 import { profileHref } from "@/lib/routing/identifiers";
@@ -123,6 +124,17 @@ export function ApplicationActions({ view, layout = "card" }: { view: Applicatio
   );
 }
 
+/** After an application is accepted: straight into the project and its chat. */
+export function ApplicationLinks({ view }: { view: ApplicationCardView }) {
+  if (view.status !== "accepted") return null;
+  return (
+    <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
+      {view.project_chat_id ? <Link href={conversationHref(view.project_chat_id)} className="font-medium text-primary hover:underline">Open project chat</Link> : null}
+      <Link href={`/projects/${view.project_slug ?? view.project_id}`} className="font-medium text-primary hover:underline">Open project</Link>
+    </p>
+  );
+}
+
 /** Where the application stands, in a line: who decided, when, and why. */
 export function applicationOutcome(view: ApplicationCardView) {
   if (view.status === "pending") return null;
@@ -169,7 +181,7 @@ export function ApplicationCard({ view }: { view: ApplicationCardView }) {
         {outcome ? <li className="text-foreground">{outcome}</li> : null}
         {view.status === "rejected" && view.decision_reason_text ? <li>{view.decision_reason_text}</li> : null}
       </ol>
-      <ApplicationActions view={view} />
+      <ApplicationLinks view={view} />
     </Shell>
   );
 }
@@ -193,6 +205,12 @@ export function ApplicationStatusBar({ applicationId }: { applicationId: string 
         {outcome ? <span> · {outcome}</span> : null}
       </p>
       <ApplicationActions view={view} layout="bar" />
+      {view.status === "accepted" ? (
+        <span className="flex flex-wrap gap-x-3 text-[13px]">
+          {view.project_chat_id ? <Link href={conversationHref(view.project_chat_id)} className="font-medium text-primary hover:underline">Project chat</Link> : null}
+          <Link href={`/projects/${view.project_slug ?? view.project_id}`} className="font-medium text-primary hover:underline">Open project</Link>
+        </span>
+      ) : null}
     </div>
   );
 }

@@ -130,6 +130,8 @@ export type ApplicationCardView = {
   decision_reason_code: string | null;
   decision_reason_text: string | null;
   decided_by: ChatPerson | null;
+  /** The project's #general, once you are in it (after you are accepted). */
+  project_chat_id: string | null;
   applicant: ChatPerson;
   applicant_headline: string | null;
   applicant_skills: string[];

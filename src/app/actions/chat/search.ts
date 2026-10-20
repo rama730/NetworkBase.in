@@ -68,7 +68,8 @@ export async function searchMessages(input: SearchInput) {
       JOIN chat_messages m ON m.channel_id = mem.channel_id
       LEFT JOIN profiles pr ON pr.id = m.author_id
       WHERE mem.user_id = ${user.id}::uuid
-        AND m.kind = 'user' AND m.deleted_at IS NULL
+        -- Decision lines (and their notes) in an application thread are findable too.
+        AND (m.kind = 'user' OR (m.kind = 'system' AND c.application_id IS NOT NULL)) AND m.deleted_at IS NULL
         AND (${query.length >= 2} = false OR to_tsvector('simple', m.body) @@ websearch_to_tsquery('simple', ${query}))
         AND (${input.channelId ?? null}::uuid IS NULL OR m.channel_id = ${input.channelId ?? null}::uuid)
         AND (${input.authorId ?? null}::uuid IS NULL OR m.author_id = ${input.authorId ?? null}::uuid)
