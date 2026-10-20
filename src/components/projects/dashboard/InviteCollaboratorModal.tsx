@@ -770,7 +770,13 @@ export default function InviteCollaboratorModal({
                 <DialogFooter className="flex items-center justify-end gap-2.5 border-t border-border bg-muted/10 px-4 py-3.5 sm:px-6">
                     {submitBlocker ? <p id="recruitment-submit-hint" className="mr-auto min-w-0 text-xs text-muted-foreground">{submitBlocker}</p> : null}
                     <Button type="button" variant="outline" onClick={() => closeComposer("cancelled")} disabled={submitting} className="nb-touch-target h-[34px] rounded-[5px] border-border text-foreground hover:bg-muted">Cancel</Button>
-                    <Button type="button" onClick={submit} aria-describedby={submitBlocker ? "recruitment-submit-hint" : undefined} disabled={submitting || !selectedProject || (mode === "apply" ? !roleId || !applicationMessage.trim() : !selectedCandidate || hasPendingApplication || hasPendingInvitation || (inviteKind === "ordinary_role" && !roleId) || (inviteKind === "guidance_appointment" && (!guidanceLabel.trim() || guidanceLoading || guidanceUnavailable)))} className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]">{submitting ? <Loader2 aria-label="Submitting" className="size-4 animate-spin" /> : null}{submitting ? "Sending..." : mode === "apply" ? (isEditing ? "Save changes" : "Submit Application") : "Send Invitation"}</Button>
+                    <Button
+                        type="button"
+                        // Apply mode keeps the button reachable (aria-disabled) so its reason is read; submit() answers a blocked click with the same reason.
+                        onClick={mode === "apply" && submitBlocker ? () => showError(submitBlocker, !roleId ? roleSelectRef : applicationMessageRef) : submit}
+                        aria-describedby={submitBlocker ? "recruitment-submit-hint" : undefined}
+                        aria-disabled={mode === "apply" ? Boolean(submitBlocker) || undefined : undefined}
+                        disabled={submitting || (mode === "apply" ? false : !selectedProject || !selectedCandidate || hasPendingApplication || hasPendingInvitation || (inviteKind === "ordinary_role" && !roleId) || (inviteKind === "guidance_appointment" && (!guidanceLabel.trim() || guidanceLoading || guidanceUnavailable)))} className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2] aria-disabled:cursor-not-allowed aria-disabled:opacity-60">{submitting ? <Loader2 aria-label="Submitting" className="size-4 animate-spin" /> : null}{submitting ? "Sending..." : mode === "apply" ? (isEditing ? "Save changes" : "Submit Application") : "Send Invitation"}</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

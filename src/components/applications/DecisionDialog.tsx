@@ -123,6 +123,7 @@ export function DecisionDialog({
     roleTitle,
     onClose,
     onConfirm,
+    returnFocusTo,
 }: {
     open: boolean;
     mode: "accept" | "decline";
@@ -130,11 +131,21 @@ export function DecisionDialog({
     roleTitle?: string | null;
     onClose: () => void;
     onConfirm: (input: DecisionInput) => Promise<string | null>;
+    /** Where focus goes when the dialog closes, when the control that opened it is gone. */
+    returnFocusTo?: HTMLElement | null;
 }) {
     const phone = useMediaQuery("(max-width: 639px)");
     return (
         <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-            <DialogContent presentation={phone ? "bottom-sheet" : "center"} className={phone ? "p-4" : "sm:max-w-[460px]"}>
+            <DialogContent
+                presentation={phone ? "bottom-sheet" : "center"}
+                className={phone ? "p-4" : "sm:max-w-[460px]"}
+                onCloseAutoFocus={(event) => {
+                    if (!returnFocusTo) return;
+                    event.preventDefault();
+                    returnFocusTo.focus();
+                }}
+            >
                 <DecisionForm mode={mode} applicantName={applicantName} roleTitle={roleTitle} onCancel={onClose} onConfirm={onConfirm} />
             </DialogContent>
         </Dialog>

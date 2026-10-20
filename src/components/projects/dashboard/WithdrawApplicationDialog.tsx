@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const NOTE_LIMIT = 500;
@@ -14,13 +15,17 @@ export default function WithdrawApplicationDialog({
     roleTitle,
     onClose,
     onConfirm,
+    returnFocusTo,
 }: {
     open: boolean;
     roleTitle?: string | null;
     onClose: () => void;
+    /** Where focus goes when the dialog closes (the menu it was opened from is gone by then). */
+    returnFocusTo?: HTMLElement | null;
     /** Resolves to an error message, or null when the withdrawal went through. */
     onConfirm: (note: string) => Promise<string | null>;
 }) {
+    const phone = useMediaQuery("(max-width: 639px)");
     const [note, setNote] = useState("");
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -45,7 +50,15 @@ export default function WithdrawApplicationDialog({
 
     return (
         <Dialog open={open} onOpenChange={(next) => !next && !busy && onClose()}>
-            <DialogContent className="sm:max-w-[440px]">
+            <DialogContent
+                presentation={phone ? "bottom-sheet" : "center"}
+                className={phone ? "p-4" : "sm:max-w-[440px]"}
+                onCloseAutoFocus={(event) => {
+                    if (!returnFocusTo) return;
+                    event.preventDefault();
+                    returnFocusTo.focus();
+                }}
+            >
                 <DialogHeader>
                     <DialogTitle>Withdraw your application?</DialogTitle>
                     <DialogDescription>
