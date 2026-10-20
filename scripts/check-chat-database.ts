@@ -388,7 +388,7 @@ async function main() {
       await send(inviteDm, owner, "join us", { card: { kind: "invite", ref_id: invitationId } });
       await sql`DELETE FROM realtime.messages WHERE event = 'card.changed'`;
       await sql`UPDATE tasks SET status = 'done' WHERE id = ${taskId}`;
-      await sql`UPDATE role_applications SET status = 'accepted' WHERE id = ${applicationId}`;
+      await sql`UPDATE role_applications SET status = 'accepted', decision_at = now() WHERE id = ${applicationId}`;
       await sql`UPDATE project_invitations SET status = 'accepted' WHERE id = ${invitationId}`;
       await sql`UPDATE tasks SET description = 'not a card field' WHERE id = ${taskId}`;
       const rows = await sql`SELECT payload->>'kind' AS kind, topic FROM realtime.messages WHERE event = 'card.changed'`;
