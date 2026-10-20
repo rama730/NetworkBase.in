@@ -15,12 +15,6 @@ import { reopenState, safeHttpUrl } from "@/lib/applications/utils";
 
 type Details = { portfolioUrl?: string; availability?: string } | null;
 
-/** How long a pending application has been waiting, once it is a day or more ("Waiting 3 days"). */
-export function waitingLabel(createdAt: string | Date, nowMs: number = Date.now()) {
-    const days = Math.floor((nowMs - new Date(createdAt).getTime()) / 86_400_000);
-    return days >= 1 ? `Waiting ${days} ${days === 1 ? "day" : "days"}` : null;
-}
-
 /** The three profile-vs-role checks, as the invite form shows them. */
 function FitSummary({ fit }: { fit: AttributeAlignment }) {
     const required = fit.skillsMatch.matched.length + fit.skillsMatch.missing.length;

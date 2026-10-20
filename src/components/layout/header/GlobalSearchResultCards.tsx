@@ -300,7 +300,7 @@ export function ProfileSearchResultCard({ result, onOpen, onConnect, isConnectin
 }
 
 export function TaskSearchResultCard({ result, onOpen, onRemove, ...interaction }: ResultInteractionProps & { result: GlobalSearchTaskPreview; onOpen: (result: GlobalSearchPreview) => void; onRemove?: () => void }) {
-    const status = getTaskStatusPresentation(result.status);
+    const status = { ...getTaskStatusPresentation(result.status), ...(result.reviewStatus === "pending" ? { label: "In review" } : {}) };
     const titlePresentation = getTaskTitlePresentation(result);
     const priority = getTaskPriorityPresentation(result.priority);
     const dueDate = result.dueDate ? new Date(result.dueDate) : null;

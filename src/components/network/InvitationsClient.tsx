@@ -16,7 +16,7 @@ import {
 } from "@/app/actions/applications";
 import WithdrawApplicationDialog from "@/components/projects/dashboard/WithdrawApplicationDialog";
 import { SentApplicationMenu } from "./SentApplicationMenu";
-import { ApplicationReview, DecidedApplicationMenu, waitingLabel } from "./ApplicationReview";
+import { ApplicationReview, DecidedApplicationMenu } from "./ApplicationReview";
 import type { DecisionInput } from "@/components/applications/DecisionDialog";
 import { resolveProjectInvitationAction } from "@/app/actions/project/guidance";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -705,7 +705,6 @@ export default function InvitationsClient({
                         {projectApplications.map((app) => {
                             const actor = app.actor ?? app.applicant;
                             const name = personCardName(actor ?? {});
-                            const waiting = waitingLabel(app.createdAt);
                             return (
                                 <PersonCardContent
                                     key={app.id}
@@ -721,12 +720,7 @@ export default function InvitationsClient({
                                             </span>
                                         </Link>
                                     }
-                                    footer={
-                                        <>
-                                            {requestDate(app.createdAt)}
-                                            {waiting ? <span className="nb-meta block text-muted-foreground">{waiting}</span> : null}
-                                        </>
-                                    }
+                                    footer={requestDate(app.createdAt)}
                                     action={
                                         <ApplicationReview
                                             applicationId={app.id}
@@ -776,7 +770,7 @@ export default function InvitationsClient({
                                     }
                                     footer={
                                         <>
-                                            {requestDate(app.createdAt)}
+                                            {requestDate(app.createdAt, app.applicationStatus === "accepted" ? "Accepted" : app.applicationStatus === "withdrawn" ? "Withdrawn" : "Declined")}
                                             {app.decisionReason ? <span className="nb-meta block text-muted-foreground">{app.decisionReason}</span> : null}
                                         </>
                                     }
@@ -825,7 +819,7 @@ export default function InvitationsClient({
                                     }
                                     footer={
                                         <>
-                                            {requestDate(application.createdAt)}
+                                            {requestDate(application.createdAt, status === "pending" ? "Applied" : status === "accepted" ? "Accepted" : status === "withdrawn" ? "Withdrawn" : "Declined")}
                                             {(status === "rejected" || status === "withdrawn") && application.decisionReason ? (
                                                 <span className="nb-meta block text-muted-foreground">{application.decisionReason}</span>
                                             ) : null}
@@ -1019,8 +1013,8 @@ export default function InvitationsClient({
 const INVITATION_GRID =
     "nb-person-card-grid grid grid-cols-1 gap-[14px] sm:grid-cols-2";
 
-function requestDate(value?: Date | string | null) {
-    const date = personRequestDate(value);
+function requestDate(value?: Date | string | null, label = "Requested") {
+    const date = personRequestDate(value, Date.now(), label);
     if (!date) return null;
     return (
         <span className="nb-meta nb-person-date" title={date.title}>

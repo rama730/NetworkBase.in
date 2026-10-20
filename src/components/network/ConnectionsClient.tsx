@@ -298,7 +298,6 @@ function ConnectionCard({
             person={user}
             connected
             acceptedAt={connection.acceptedAt}
-            requestedAt={connection.createdAt}
             action={
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>

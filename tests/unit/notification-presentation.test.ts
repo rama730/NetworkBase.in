@@ -215,3 +215,8 @@ test("shouldSuppressNotificationToast suppresses active destinations", () => {
     trayOpen: false,
   }), true);
 });
+
+test("pending review notifications are workflow attention rather than completion", () => {
+  assert.equal(getNotificationReason("task_status_attention", { status: "done", reviewStatus: "pending" }), "workflow");
+  assert.equal(getNotificationReason("task_status_attention", { status: "done", reviewStatus: "none" }), "done");
+});

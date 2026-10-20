@@ -17,6 +17,7 @@ export type NetworkInvitation = {
   id: string;
   source: "connection" | "invitation" | "application";
   direction: "received" | "sent";
+  /** Time of the card’s current activity: request, latest reopening, or decision. */
   createdAt: string;
   note: string | null;
   projectId: string | null;
@@ -96,6 +97,15 @@ export async function readNetworkInvitationsAction(
                 OR (${readableProfileIdentitySql(user.id)} AND (profiles.headline ILIKE ${pattern} OR profiles.location ILIKE ${pattern}
                     OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(${publicPersonSkillsSql()}) label(value) WHERE label.value ILIKE ${pattern}))))`;
     });
+    // Editing an application must not restart its age. Reopening it starts a new pending period.
+    // The application/event index keeps this lookup scoped to one application's history.
+    const pendingApplicationDate = sql`greatest(a.created_at, coalesce((
+        SELECT e.created_at FROM application_events e
+        WHERE e.application_id=a.id AND e.kind='reopened' AND e.to_status='pending'
+        ORDER BY e.created_at DESC LIMIT 1
+    ), a.created_at))`;
+    const applicationActivityDate = sql`CASE WHEN a.status='pending' THEN ${pendingApplicationDate}
+        ELSE coalesce(a.decision_at,a.updated_at) END`;
     const rows = await db.execute<{
       id: string;
       source: NetworkInvitation["source"];
@@ -140,12 +150,12 @@ export async function readNetworkInvitationsAction(
                 FROM project_invitations i JOIN projects p ON p.id=i.project_id
                 WHERE i.status='pending' AND i.expires_at>now() AND p.deleted_at IS NULL AND (i.inviter_id=${user.id}::uuid OR i.candidate_id=${user.id}::uuid)
                 UNION ALL
-                SELECT a.id,'application','received',a.created_at,a.message,a.project_id,p.title,p.slug,coalesce(r.title,r.role,'Role removed'),NULL,NULL,ch.id,NULL,a.details,a.applicant_id
+                SELECT a.id,'application','received',${pendingApplicationDate},a.message,a.project_id,p.title,p.slug,coalesce(r.title,r.role,'Role removed'),NULL,NULL,ch.id,NULL,a.details,a.applicant_id
                 FROM role_applications a JOIN projects p ON p.id=a.project_id LEFT JOIN project_open_roles r ON r.id=a.role_id
                     LEFT JOIN chat_channels ch ON ch.application_id=a.id
                 WHERE a.status='pending' AND ${canReviewProjectSql(user.id, sql`a.project_id`)}
                 UNION ALL
-                SELECT a.id,'application','sent',a.created_at,a.message,a.project_id,p.title,p.slug,coalesce(r.title,r.role,'Role removed'),
+                SELECT a.id,'application','sent',${applicationActivityDate},a.message,a.project_id,p.title,p.slug,coalesce(r.title,r.role,'Role removed'),
                     a.status::text,a.decision_reason_text,ch.id,a.decision_reason_code,NULL,p.owner_id
                 FROM role_applications a JOIN projects p ON p.id=a.project_id LEFT JOIN project_open_roles r ON r.id=a.role_id
                     LEFT JOIN chat_channels ch ON ch.application_id=a.id

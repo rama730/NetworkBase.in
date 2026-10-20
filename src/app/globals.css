@@ -980,7 +980,7 @@ svg.lucide { stroke-width:1.75; }
 .nb-presence-emoji[data-leaving] { animation:none; transform:translate(-50%, -50%) scale(0); opacity:0; transition:transform .3s ease, opacity .3s ease; }
 @keyframes nb-presence-emoji-pop { from { transform:translate(-50%, -50%) scale(0); opacity:0; } to { transform:translate(-50%, -50%) scale(1); opacity:1; } }
 /* Loading, until the presence data is here: a static gray placeholder, after 200 ms gray arcs that keep turning (odd rings the other way), then on arrival the rings ease to rest, grow into full rings and fade to the real hue. */
-.nb-presence-spin { transform-box:view-box; transform-origin:50% 50%; }
+.nb-presence-spin { transform-box:view-box; transform-origin:645px 710px; }
 .nb-presence-badge[data-phase="wait"], .nb-presence-badge[data-phase="load"] { --presence-arc:var(--presence-off); --presence-weight:.6; }
 .nb-presence-badge[data-phase="wait"] .nb-presence-ring { opacity:.55; }
 .nb-presence-badge[data-phase="load"] .nb-presence-arc { animation:nb-presence-load-in .25s ease-out both; }
