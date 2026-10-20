@@ -16,7 +16,7 @@ import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
-import { channelTitle, isVisible, needsAttention, personName, rowCount } from "@/lib/messaging/channel-view";
+import { channelTitle, counterpart, isVisible, needsAttention, personName, rowCount } from "@/lib/messaging/channel-view";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { conversationHref } from "@/lib/messaging/routes";
 import type { ChatPerson } from "@/lib/messaging/types";
@@ -75,7 +75,7 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
         id: c.id,
         title: channelTitle(c, meId),
         conversation: c,
-        person: c.dm_user,
+        person: c.dm_user ?? counterpart(c),
         project: c.project_id ? projects.get(c.project_id) ?? null : null,
         count: rowCount(c),
         unread: needsAttention(c),

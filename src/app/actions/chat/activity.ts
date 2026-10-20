@@ -32,10 +32,18 @@ const author = sql`CASE WHEN pr.id IS NULL THEN NULL ELSE jsonb_build_object(
   'id', pr.id, 'username', pr.username, 'full_name', pr.full_name, 'avatar_url', pr.avatar_url
 ) END AS author`;
 
-/** A DM shows the other person's name (like Saved), never "a direct message". */
+/**
+ * A DM shows the other person's name (like Saved), never "a direct message". An application thread is named for the other
+ * side, like in the sidebar: the applicant and role for a reviewer, the role for the applicant.
+ */
 const channelTitle = (userId: string) => sql`CASE WHEN c.kind = 'dm' THEN (
   SELECT coalesce(op.full_name, op.username) FROM chat_channel_members o JOIN profiles op ON op.id = o.user_id
   WHERE o.channel_id = c.id ORDER BY (o.user_id = ${userId}::uuid) LIMIT 1
+) WHEN c.application_id IS NOT NULL THEN (
+  SELECT CASE WHEN a.applicant_id = ${userId}::uuid THEN coalesce(r.title, r.role, 'Application')
+              ELSE coalesce(ap.full_name, ap.username, 'Applicant') || ' · ' || coalesce(r.title, r.role, 'Role') END
+  FROM role_applications a JOIN profiles ap ON ap.id = a.applicant_id LEFT JOIN project_open_roles r ON r.id = a.role_id
+  WHERE a.id = c.application_id
 ) ELSE c.title END AS channel_title`;
 
 /** The cursor text for a row: time at microsecond precision, then the keys that break ties. */

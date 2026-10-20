@@ -26,7 +26,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { TimePickerDialog } from "@/components/messages/parts/TimePickerDialog";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
-import { channelTitle, formatChatTime, fullTime, isDirectLike, isVisible, personName } from "@/lib/messaging/channel-view";
+import { channelTitle, formatChatTime, fullTime, isApplicationThread, isDirectLike, isVisible, personName } from "@/lib/messaging/channel-view";
 import { CHAT_LIST_PAGE } from "@/lib/messaging/constants";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { groupNoun } from "@/lib/messaging/inbox";
@@ -857,7 +857,7 @@ export function DraftsView() {
     const channel = data?.channels.find((c) => c.id === channelId);
     if (!channel) return "a conversation";
     const title = channelTitle(channel, meId);
-    return isDirectLike(channel) ? title : `#${title}`;
+    return isDirectLike(channel) || isApplicationThread(channel) ? title : `#${title}`;
   };
   // A stable order: by conversation, then thread drafts after the conversation's own.
   const sortedDrafts = [...drafts].sort((a, b) => titleOf(a.channelId).localeCompare(titleOf(b.channelId)) || Number(Boolean(a.threadRootSeq)) - Number(Boolean(b.threadRootSeq)));
@@ -1062,7 +1062,7 @@ export function SearchView() {
   };
   // In: recent conversations first (the ones you're likely to mean), then the rest A–Z.
   const conversations = useMemo(() => {
-    const list = (data?.channels ?? []).filter(isVisible).map((c) => ({ id: c.id, title: isDirectLike(c) ? channelTitle(c, meId) : `#${channelTitle(c, meId)}`, at: c.last_message_at ?? "" }));
+    const list = (data?.channels ?? []).filter(isVisible).map((c) => ({ id: c.id, title: isDirectLike(c) || isApplicationThread(c) ? channelTitle(c, meId) : `#${channelTitle(c, meId)}`, at: c.last_message_at ?? "" }));
     const recent = [...list].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 8);
     const recentIds = new Set(recent.map((c) => c.id));
     return { recent, rest: list.filter((c) => !recentIds.has(c.id)).sort((a, b) => a.title.localeCompare(b.title)) };

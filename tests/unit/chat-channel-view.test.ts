@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { channelTitle, projectBadges, projectsByActivity, rowCount, sectionsFor } from "@/lib/messaging/channel-view";
+import { channelTitle, counterpart, projectBadges, projectsByActivity, rowCount, sectionsFor, sidebarOrder } from "@/lib/messaging/channel-view";
 import type { ChatBootstrap, ChatChannelSummary } from "@/lib/messaging/types";
 
 function channel(id: string, patch: Partial<ChatChannelSummary> = {}): ChatChannelSummary {
@@ -37,23 +37,41 @@ const data: ChatBootstrap = {
   ],
 };
 
-test("an open project shows its channels (#general first) and applications; DMs always show", () => {
+test("an open project shows its channels (#general first); applications and DMs always show", () => {
   const sections = sectionsFor(data, "p1");
   // Starred #design sits in Starred only (not repeated under Channels).
   assert.deepEqual(sections.channels.map((c) => c.id), ["general", "muted"]);
-  assert.deepEqual(sections.applications.map((c) => c.id), ["app-review"]);
+  // Every application thread is in one section: the ones you review and the ones you sent, whatever project is open.
+  assert.deepEqual(sections.applications.map((c) => c.id).sort(), ["app-mine", "app-review"]);
   assert.deepEqual(sections.dms.map((c) => c.id), ["dm", "self"]);
-  assert.deepEqual(sections.myApplications.map((c) => c.id), ["app-mine"]);
   assert.deepEqual(sections.starred.map((c) => c.id), ["design"]);
 });
 
-test("with no project open there are no channels, but DMs, starred and your applications remain", () => {
+test("with no project open there are no channels, but DMs, starred and applications remain", () => {
   const sections = sectionsFor(data, null);
   assert.deepEqual(sections.channels, []);
-  assert.deepEqual(sections.applications, []);
-  assert.deepEqual(sections.myApplications.map((c) => c.id), ["app-mine"]);
+  assert.deepEqual(sections.applications.map((c) => c.id).sort(), ["app-mine", "app-review"]);
   assert.deepEqual(sections.dms.map((c) => c.id), ["dm", "self"]);
   assert.deepEqual(sections.starred.map((c) => c.id), ["design"]);
+});
+
+test("the sidebar order starts with Applications, the way the list is drawn", () => {
+  const order = sidebarOrder(data, "p1").map((c) => c.id);
+  assert.deepEqual(order.slice(0, 2).sort(), ["app-mine", "app-review"]);
+  assert.equal(order[2], "design", "then Starred");
+});
+
+test("an application thread shows the other side: the applicant to a reviewer, the lead to the applicant", () => {
+  const lead = { id: "u9", username: "lead", full_name: "Lena Lead", avatar_url: null };
+  const meta = (isApplicant: boolean) => ({
+    status: "pending" as const, role_title: "Designer", role_removed: false, project_title: "Payments", project_slug: null,
+    decision_at: null, created_at: "2026-10-01T00:00:00Z", is_applicant: isApplicant, applicant: priya, lead,
+  });
+  assert.equal(counterpart({ application: meta(false) })?.id, "u2");
+  assert.equal(counterpart({ application: meta(true) })?.id, "u9");
+  assert.equal(counterpart({ application: null }), null);
+  assert.equal(channelTitle(channel("a", { kind: "private", name: null, application_id: "x", application: meta(false) }), "me"), "Priya Shah · Designer");
+  assert.equal(channelTitle(channel("a", { kind: "private", name: null, application_id: "x", application: meta(true) }), "me"), "Designer · Payments");
 });
 
 test("titles, counts and project badges follow the report rules", () => {
@@ -65,7 +83,7 @@ test("titles, counts and project badges follow the report rules", () => {
   assert.equal(rowCount(byId.get("general")!), 2, "channels count mentions only");
   assert.equal(rowCount(byId.get("muted")!), byId.get("muted")!.mention_count, "muted channels still show their mentions (#157)");
   const badges = projectBadges(data);
-  assert.equal(badges.get("p1"), 2 + 1 + 4, "general mentions + unread application + the muted channel's mentions (rows and badge agree)");
+  assert.equal(badges.get("p1"), 2 + 4, "general mentions + the muted channel's mentions; application threads count in their own section");
   assert.equal(badges.get("p2"), undefined);
   assert.equal(badges.size, 1, "DMs never count toward a project");
 });

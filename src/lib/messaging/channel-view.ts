@@ -108,51 +108,62 @@ export function attention(channel: ChatChannelSummary) {
 
 export type ChatSections = {
   starred: ChatChannelSummary[];
-  /** Channels and application threads of the selected project. */
+  /** Channels of the selected project. */
   channels: ChatChannelSummary[];
+  /** Every application thread you are in, sent or received, whatever project is open. */
   applications: ChatChannelSummary[];
-  /** Applications you sent to projects you are not in. */
-  myApplications: ChatChannelSummary[];
   dms: ChatChannelSummary[];
 };
 
-/** DMs, your applications and starred rows always; channels only for the open project. */
+/** An application thread: private room of an applicant and a project's reviewers. */
+export function isApplicationThread(channel: Pick<ChatChannelSummary, "application_id">) {
+  return Boolean(channel.application_id);
+}
+
+/**
+ * The other side of an application thread, for its avatar and header: the applicant for a reviewer,
+ * the project's lead (its owner) for the applicant.
+ */
+export function counterpart(channel: Pick<ChatChannelSummary, "application">): ChatPerson | null {
+  const meta = channel.application;
+  if (!meta) return null;
+  return meta.is_applicant ? meta.lead : meta.applicant;
+}
+
+/** DMs and application threads always; starred rows always; channels only for the open project. */
 export function sectionsFor(data: ChatBootstrap | undefined, projectId: string | null): ChatSections {
-  const sections: ChatSections = { starred: [], channels: [], applications: [], myApplications: [], dms: [] };
+  const sections: ChatSections = { starred: [], channels: [], applications: [], dms: [] };
   if (!data) return sections;
-  const memberOf = new Set((data.projects ?? []).map((project) => project.id));
   for (const channel of data.channels) {
     if (!isVisible(channel)) continue;
-    // Starred follows the open project (DMs and groups always); a starred row isn't repeated below.
-    if (channel.starred && (!projectId || isDirectLike(channel) || channel.project_id === projectId)) {
+    // Starred follows the open project (DMs, groups and applications always); a starred row isn't repeated below.
+    if (channel.starred && (!projectId || isDirectLike(channel) || isApplicationThread(channel) || channel.project_id === projectId)) {
       sections.starred.push(channel);
       continue;
     }
     if (isDirectLike(channel)) sections.dms.push(channel);
-    else if (channel.application_id && !memberOf.has(channel.project_id ?? "")) sections.myApplications.push(channel);
+    else if (isApplicationThread(channel)) sections.applications.push(channel);
     else if (channel.project_id !== projectId) continue;
-    else if (channel.application_id) sections.applications.push(channel);
     else sections.channels.push(channel);
   }
   sections.starred.sort(byRecent);
   sections.channels.sort((a, b) => Number(b.is_default) - Number(a.is_default) || byName(a, b));
   sections.applications.sort(byRecent);
-  sections.myApplications.sort(byRecent);
   sections.dms.sort(byRecent);
   return sections;
 }
 
 /**
- * Every visible conversation in the sidebar's order (Starred, Channels or the project groups,
- * DMs, My applications). A starred row counts once, where it first appears.
+ * Every visible conversation in the sidebar's order (Applications, Starred, Channels or the project groups,
+ * DMs). A starred row counts once, where it first appears.
  */
 export function sidebarOrder(data: ChatBootstrap | undefined, projectId: string | null) {
   const sections = sectionsFor(data, projectId);
   const projectRows = projectId
-    ? [...sections.channels, ...sections.applications]
+    ? sections.channels
     : projectsByActivity(data).flatMap((project) => channelsByProject(data).get(project.id) ?? []);
   const seen = new Set<string>();
-  return [...sections.starred, ...projectRows, ...sections.dms, ...sections.myApplications].filter((channel) => !seen.has(channel.id) && Boolean(seen.add(channel.id)));
+  return [...sections.applications, ...sections.starred, ...projectRows, ...sections.dms].filter((channel) => !seen.has(channel.id) && Boolean(seen.add(channel.id)));
 }
 
 /** Unread, or carrying a mention (the Unreads filter). Muted rows never count. */
@@ -166,22 +177,22 @@ export function channelsByProject(data: ChatBootstrap | undefined) {
   if (!data) return groups;
   const memberOf = new Set((data.projects ?? []).map((project) => project.id));
   for (const channel of data.channels) {
-    if (!isVisible(channel) || isDirectLike(channel) || !channel.project_id || !memberOf.has(channel.project_id)) continue;
+    if (!isVisible(channel) || isDirectLike(channel) || isApplicationThread(channel) || !channel.project_id || !memberOf.has(channel.project_id)) continue;
     const list = groups.get(channel.project_id) ?? [];
     list.push(channel);
     groups.set(channel.project_id, list);
   }
-  for (const list of groups.values()) list.sort((a, b) => Number(Boolean(a.application_id)) - Number(Boolean(b.application_id)) || Number(b.is_default) - Number(a.is_default) || byName(a, b));
+  for (const list of groups.values()) list.sort((a, b) => Number(b.is_default) - Number(a.is_default) || byName(a, b));
   return groups;
 }
 
-/** Unread attention per project (its channels and application threads). */
+/** Unread attention per project (its channels; application threads count in their own section). */
 export function projectBadges(data: ChatBootstrap | undefined) {
   const badges = new Map<string, number>();
   if (!data) return badges;
   const memberOf = new Set((data.projects ?? []).map((project) => project.id));
   for (const channel of data.channels) {
-    if (!isVisible(channel) || isDirectLike(channel) || !channel.project_id || !memberOf.has(channel.project_id)) continue;
+    if (!isVisible(channel) || isDirectLike(channel) || isApplicationThread(channel) || !channel.project_id || !memberOf.has(channel.project_id)) continue;
     const count = attention(channel);
     if (count) badges.set(channel.project_id, (badges.get(channel.project_id) ?? 0) + count);
   }
