@@ -72,6 +72,7 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
     const queryClient = useQueryClient();
     const [isBatchBusy, setIsBatchBusy] = useState(false);
     const [declining, setDeclining] = useState<WorkspaceRequest | null>(null);
+    const [accepting, setAccepting] = useState<WorkspaceRequest | null>(null);
     const [confirmAcceptAll, setConfirmAcceptAll] = useState(false);
 
     const query = useQuery({
@@ -118,16 +119,23 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
     const invalidate = () => {
         void queryClient.invalidateQueries({ queryKey: queryKeys.workspace.root() });
         void queryClient.invalidateQueries({ queryKey: ["connections", "pending-requests"] });
-        void queryClient.invalidateQueries({ queryKey: ["network", "project-applications"] });
+        // The Network page's open and decided lists.
+        void queryClient.invalidateQueries({ queryKey: queryKeys.connections.pending() });
         void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.root() });
     };
 
-    const acceptApp = useMutation({
-        mutationFn: async (id: string) => unwrap(await acceptApplicationAction(id)),
-        onMutate: removeOptimistically,
-        onSuccess: () => { toast.success("Accepted"); invalidate(); },
-        onError: (error: unknown) => { invalidate(); toast.error(errorMessage(error)); },
-    });
+    /** Accepting offers a welcome note first; an error comes back to the dialog. */
+    const acceptApp = async (app: WorkspaceRequest, { note }: DecisionInput) => {
+        try {
+            unwrap(await acceptApplicationAction(app.id, note || undefined));
+        } catch (failure) {
+            return errorMessage(failure);
+        }
+        removeOptimistically(app.id);
+        toast.success(`${personCardName(app.applicant ?? {})} accepted`);
+        invalidate();
+        return null;
+    };
 
     /** Declining asks for a reason first; an error comes back to the dialog, a success offers Undo. */
     const declineApp = async (app: WorkspaceRequest, { reason, note }: DecisionInput) => {
@@ -337,20 +345,29 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
                                 onClick={() => setConfirmAcceptAll(true)}
                                 className="text-[11px] font-semibold text-primary hover:underline disabled:text-muted-foreground disabled:no-underline"
                             >
-                                {isBatchBusy ? "Accepting all..." : `Accept all (${pendingIncoming.length})`}
+                                {isBatchBusy ? "Accepting…" : `Accept these ${pendingIncoming.length}`}
                             </button>
                         )}
                     </div>
                     <div className="space-y-2">
                         {pendingIncoming.map((app) => {
-                            const isAccepting = acceptApp.isPending && acceptApp.variables === app.id;
-                            const isProcessing = isAccepting;
-                            
-                            return <IncomingProjectApplicationRow key={app.id} app={app} busy={isProcessing || isBatchBusy} onAccept={() => acceptApp.mutate(app.id)} onReject={() => setDeclining(app)} />;
+                            return <IncomingProjectApplicationRow key={app.id} app={app} busy={isBatchBusy} onAccept={() => setAccepting(app)} onReject={() => setDeclining(app)} />;
                         })}
                     </div>
                 </div>
             )}
+            <DecisionDialog
+                open={accepting !== null}
+                mode="accept"
+                applicantName={accepting ? personCardName(accepting.applicant ?? {}) : "this person"}
+                roleTitle={accepting?.roleTitle}
+                onClose={() => setAccepting(null)}
+                onConfirm={async (input) => {
+                    const failure = accepting ? await acceptApp(accepting, input) : null;
+                    if (!failure) setAccepting(null);
+                    return failure;
+                }}
+            />
             <DecisionDialog
                 open={declining !== null}
                 mode="decline"
@@ -367,8 +384,8 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
                 open={confirmAcceptAll}
                 onOpenChange={setConfirmAcceptAll}
                 title={`Accept ${pendingIncoming.length} applications?`}
-                description="Each person joins their project right away, and everyone is told. Decline any you are unsure about first."
-                confirmLabel={`Accept all (${pendingIncoming.length})`}
+                description="This list shows your 20 newest applications. Each person joins their project right away, and everyone is told. Decline any you are unsure about first."
+                confirmLabel={`Accept these ${pendingIncoming.length}`}
                 onConfirm={() => void handleAcceptAllIncoming()}
             />
             {hasAnyRequests ? (

@@ -31,6 +31,8 @@ interface OpenRolesCardProps {
     applicationStatus: ApplicationStatusResult;
     onApply: (role?: any) => void;
     application?: ApplicationCardControls;
+    /** Owners and admins: applications waiting for them on this project. */
+    pendingApplications?: number;
     onManageRoles: () => void;
     onAcceptInvitation?: () => void;
     onDeclineInvitation?: () => void;
@@ -44,6 +46,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
     applicationStatus,
     onApply,
     application,
+    pendingApplications = 0,
     onManageRoles,
     onAcceptInvitation,
     onDeclineInvitation,
@@ -404,6 +407,13 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                             </span>
                         )}
                     </div>
+                ) : null}
+
+                {pendingApplications > 0 ? (
+                    <Link href="/network?tab=invitations" className="nb-touch-target flex items-center justify-between rounded-[5px] border border-primary/30 bg-primary/5 px-3 py-2 text-[13px] font-medium text-primary hover:bg-primary/10">
+                        <span>{pendingApplications} pending {pendingApplications === 1 ? "application" : "applications"}</span>
+                        <span aria-hidden="true">Review ›</span>
+                    </Link>
                 ) : null}
 
                 {isCreator ? (

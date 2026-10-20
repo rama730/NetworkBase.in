@@ -66,6 +66,7 @@ import {
     type ApplicationDetails,
 } from '@/lib/validations/application';
 import { conversationHref } from '@/lib/messaging/routes';
+import { getProfileToRoleAlignmentAction, type AttributeAlignment } from '@/app/actions/matchmaking/resolver';
 
 // ============================================================================
 // TYPES
@@ -915,7 +916,7 @@ export async function applyToRoleAction(
             }
 
             const roleTitleText = role.title || role.role || 'Unknown Role';
-            const notifyReviewers = async (applicationId: string, channelId: string | null) => {
+            const notifyReviewers = async (applicationId: string, channelId: string | null, again = false) => {
                 revalidatePath(`/projects/${project.slug || projectId}`);
                 logger.metric('applications.apply_submitted', {
                     module: 'applications',
@@ -928,6 +929,7 @@ export async function applyToRoleAction(
                 });
                 await enqueueApplicationReceivedBestEffort({
                     applicationId,
+                    again,
                     channelId,
                     projectId,
                     projectSlug: project.slug ?? null,
@@ -999,7 +1001,7 @@ export async function applyToRoleAction(
                 if (revived === 'gone') {
                     return toApplicationFailure(traceId, 'INVALID_STATE', 'Your application changed in another tab. Refresh and try again.');
                 }
-                await notifyReviewers(existingApp.id, revived.channelId);
+                await notifyReviewers(existingApp.id, revived.channelId, true);
                 return toApplicationSuccess(traceId, { applicationId: existingApp.id, channelId: revived.channelId, outcome: 'resubmitted' });
             }
 
@@ -1224,6 +1226,8 @@ export async function acceptApplicationAction(
             await enqueueApplicationDecisionBestEffort({
                 applicationId,
                 status: 'accepted',
+                // A welcome note travels with the notification, not only the thread.
+                reasonText: (message || '').trim() || null,
                 channelId: memberLifecycle.channelId,
                 projectId: application.projectId,
                 projectSlug: application.project?.slug ?? null,
@@ -1246,6 +1250,29 @@ export async function acceptApplicationAction(
             return toApplicationFailure(traceId, 'ROLE_FULL', 'This role is now full');
         }
         return toApplicationFailure(traceId, 'INTERNAL_ERROR', 'Failed to accept application');
+    }
+}
+
+// ============================================================================
+// HOW WELL AN APPLICANT FITS THE ROLE (for the review dialog)
+// ============================================================================
+/** Skills, commitment, capacity and experience against the role they applied for; null when the viewer can't review it. */
+export async function getApplicationAlignmentAction(applicationId: string): Promise<AttributeAlignment | null> {
+    try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user || !isUuid(applicationId)) return null;
+        const application = await db.query.roleApplications.findFirst({
+            where: eq(roleApplications.id, applicationId),
+            columns: { applicantId: true, roleId: true, projectId: true },
+            with: { project: { columns: { ownerId: true } } },
+        });
+        if (!application?.roleId) return null;
+        if (!(await canReviewProjectApplicationInternal(db, application.projectId, user.id, application.project?.ownerId))) return null;
+        // The resolver also checks that the viewer manages the project and may read the applicant's profile.
+        return await getProfileToRoleAlignmentAction(application.applicantId, application.roleId);
+    } catch {
+        return null;
     }
 }
 
@@ -1851,6 +1878,16 @@ export async function getIncomingApplicationsAction(
 
         const invites = await listInvitationsInternal({ userId: user.id, pendingOnly: true, cursorDate, cursorId, limit: safeLimit + 1 });
 
+        // Each row can open its thread (cover letter, questions): look the threads up in one go.
+        const threadByApplication = new Map<string, string>();
+        if (roleApps.length > 0) {
+            const threads = await db.execute<{ id: string; application_id: string }>(sql`
+                SELECT id, application_id FROM chat_channels
+                WHERE application_id IN (${sql.join(roleApps.map((app) => sql`${app.id}::uuid`), sql`, `)})
+            `);
+            for (const row of Array.from(threads)) threadByApplication.set(row.application_id, row.id);
+        }
+
         const mappedApps = roleApps
             .filter((app) => Boolean(app.applicant?.id) && Boolean(app.project?.id))
             .map((app) => {
@@ -1875,6 +1912,7 @@ export async function getIncomingApplicationsAction(
             status: app.status as 'pending' | 'accepted' | 'rejected' | 'withdrawn',
             createdAt: app.createdAt,
             isInvitation: false,
+            channelId: threadByApplication.get(app.id) ?? null,
             };
         });
 

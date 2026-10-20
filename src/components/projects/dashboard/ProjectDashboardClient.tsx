@@ -15,6 +15,7 @@ import { toggleProjectFollowAction, updateProjectStageAction, incrementProjectVi
 import { ROUTES } from '@/constants/routes';
 import { getApplicationStatusAction, withdrawApplicationAction, type ApplicationStatusResult } from '@/app/actions/applications';
 import type { ApplicationStatusLoad } from '@/lib/applications/card-state';
+import { useRoleApplicationCounts } from '@/hooks/useRoleApplicationCounts';
 import { userTopic } from '@/lib/messaging/constants';
 import { subscribeBroadcast } from '@/lib/realtime/private-broadcast';
 import { resolveProjectInvitationAction } from '@/app/actions/project/guidance';
@@ -870,6 +871,9 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
     const applicationHeaderLabel = applicationStatus.status === 'pending' ? 'Application pending'
         : applicationStatus.status === 'rejected' ? 'Application declined'
             : applicationStatus.status === 'withdrawn' ? 'Application withdrawn' : null;
+    // Owners and admins see how many applications wait for them (the counts action answers only for reviewers).
+    const roleApplicationCounts = useRoleApplicationCounts(project.id, canManageProjectSettings);
+    const pendingApplicationsForReviewer = Object.values(roleApplicationCounts).reduce((sum, counts) => sum + counts.pending, 0);
     const projectClosed = ['archived', 'completed'].includes(String((project as { status?: string | null }).status ?? ''));
     const applicationControls = useMemo(() => ({
         load: applicationLoad,
@@ -1098,7 +1102,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
             {activeTab === 'dashboard' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Dashboard">
-                        <DashboardTab project={projectWithLiveStats} isCreator={isOwner} isCollaborator={isMember} rolesWithFilled={rolesWithFilled} onEdit={handleEdit} onAdvanceStage={handleAdvanceStage} onRedoStage={handleRegressStage} onApplyToRole={handleApplyToRole} lifecycleStages={lifecycleStages} currentStageIndex={optimisticStageIndex} applicationStatus={applicationStatus} onAcceptInvitation={() => void handleInvitation('accept')} onDeclineInvitation={() => void handleInvitation('decline')} invitationLoading={invitationLoading} application={applicationControls} />
+                        <DashboardTab project={projectWithLiveStats} isCreator={isOwner} isCollaborator={isMember} rolesWithFilled={rolesWithFilled} onEdit={handleEdit} onAdvanceStage={handleAdvanceStage} onRedoStage={handleRegressStage} onApplyToRole={handleApplyToRole} lifecycleStages={lifecycleStages} currentStageIndex={optimisticStageIndex} applicationStatus={applicationStatus} onAcceptInvitation={() => void handleInvitation('accept')} onDeclineInvitation={() => void handleInvitation('decline')} invitationLoading={invitationLoading} application={applicationControls} pendingApplications={pendingApplicationsForReviewer} />
                     </TabErrorBoundary>
                 </div>
             )}

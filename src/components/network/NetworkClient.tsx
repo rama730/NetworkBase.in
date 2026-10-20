@@ -78,7 +78,7 @@ const TAB_CONFIG: Array<{
 export default function NetworkClient({ initialUser }: NetworkClientProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { pendingConnections, pendingInvites, totalConnections } =
+    const { pendingConnections, pendingInvites, pendingApplications, totalConnections } =
         useNetworkNotifications();
     const isAuthed = Boolean(initialUser?.id);
     const tabParam = (searchParams?.get("tab") || "").toLowerCase();
@@ -138,7 +138,7 @@ export default function NetworkClient({ initialUser }: NetworkClientProps) {
     ]);
 
     function tabCount(tab: TabKey) {
-        if (tab === "invitations") return pendingConnections + pendingInvites;
+        if (tab === "invitations") return pendingConnections + pendingInvites + pendingApplications;
         if (tab === "connections") return totalConnections;
         return null;
     }
@@ -393,6 +393,11 @@ export default function NetworkClient({ initialUser }: NetworkClientProps) {
                                             {
                                                 label: "Project invitations",
                                                 count: pendingInvites,
+                                                tab: "invitations" as const,
+                                            },
+                                            {
+                                                label: "Project applications",
+                                                count: pendingApplications,
                                                 tab: "invitations" as const,
                                             },
                                         ].map((item) => (

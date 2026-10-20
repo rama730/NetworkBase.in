@@ -24,6 +24,7 @@ interface DashboardTabProps {
     onDeclineInvitation?: () => void;
     invitationLoading?: boolean;
     application?: ApplicationCardControls;
+    pendingApplications?: number;
 }
 
 export function DashboardTab({
@@ -42,6 +43,7 @@ export function DashboardTab({
     onDeclineInvitation,
     invitationLoading,
     application,
+    pendingApplications,
 }: DashboardTabProps) {
     const stickyRail = useBottomStickyRail({ topInset: "calc(var(--project-tabs-height, 0px) + 24px)" });
     const stages = lifecycleStages.map((stage: any) => stage?.name ?? stage).filter(Boolean);
@@ -76,6 +78,7 @@ export function DashboardTab({
                     onDeclineInvitation={onDeclineInvitation}
                     invitationLoading={invitationLoading}
                     application={application}
+                    pendingApplications={pendingApplications}
                 />
             </aside>
         </div>

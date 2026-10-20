@@ -245,3 +245,34 @@ test("Your applications keeps a withdrawn application for a while and says why a
     assert.equal(filled?.decisionCode, "role_filled", "the sent list carries the code so it can read 'Role filled'");
   });
 });
+
+test("every badge agrees with its list: deleted and blocked applicants are in neither; the Workspace rows carry their thread", async () => {
+  const { countReviewableApplications } = await loadAppModule(() => import("../../src/lib/applications/reviewers"));
+  await withApplication(async ({ owner, applicant, applicationId, channelId }) => {
+    assert.equal(await countReviewableApplications(owner), 1);
+    viewerId = owner;
+    const incoming = await apps.getIncomingApplicationsAction({ limit: 20 });
+    assert.equal(incoming.success, true, JSON.stringify(incoming));
+    const row = incoming.success ? incoming.applications.find((item: { id: string }) => item.id === applicationId) : undefined;
+    assert.equal((row as { channelId?: string } | undefined)?.channelId, channelId, "the row can open its thread");
+
+    await sql`INSERT INTO connections (requester_id, addressee_id, status, blocked_by, blocked_at) VALUES (${owner}, ${applicant}, 'blocked', ${owner}, now())`;
+    assert.equal(await countReviewableApplications(owner), 0, "a blocked applicant is not counted");
+    assert.equal(await queue(owner), 0, "nor listed");
+    await sql`DELETE FROM connections WHERE requester_id = ${owner} AND addressee_id = ${applicant}`;
+    await sql`UPDATE profiles SET deleted_at = now() WHERE id = ${applicant}`;
+    assert.equal(await countReviewableApplications(owner), 0, "a deleted account is not counted");
+    await sql`UPDATE profiles SET deleted_at = NULL WHERE id = ${applicant}`;
+    assert.equal(await countReviewableApplications(owner), 1);
+  });
+});
+
+test("the review dialog's fit comes only for someone who can review the application", async () => {
+  await withApplication(async ({ owner, member, applicationId }) => {
+    viewerId = owner;
+    const fit = await apps.getApplicationAlignmentAction(applicationId);
+    assert.ok(fit && "skillsMatch" in fit, JSON.stringify(fit));
+    viewerId = member;
+    assert.equal(await apps.getApplicationAlignmentAction(applicationId), null, "a plain member gets nothing");
+  });
+});

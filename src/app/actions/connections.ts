@@ -24,7 +24,7 @@ import {
     type ConnectionRequestHistoryStatus,
 } from '@/lib/connections/request-history';
 import { runInFlightDeduped } from '@/lib/utils/inflight-dedupe';
-import { canReviewProjectSql } from '@/lib/applications/reviewers';
+import { canReviewProjectSql, countReviewableApplications } from '@/lib/applications/reviewers';
 import { redis, getCachedData, cacheData } from '@/lib/redis';
 import { visibleLastActiveAt } from '@/lib/presence/sql';
 import {
@@ -59,16 +59,18 @@ export interface ConnectionStats {
 export async function readNetworkPendingCountsAction() {
     try {
         const user = await getAuthUser();
-        if (!user) return { success: false as const, error: 'Not authenticated', pendingConnections: 0, pendingInvites: 0, totalConnections: 0 };
+        if (!user) return { success: false as const, error: 'Not authenticated', pendingConnections: 0, pendingInvites: 0, pendingApplications: 0, totalConnections: 0 };
 
-        const [stats, pendingInvites] = await Promise.all([
+        const [stats, pendingInvites, pendingApplications] = await Promise.all([
             getConnectionStatsForUser(user.id),
             countPendingInvitationsForCandidate(user.id),
+            countReviewableApplications(user.id),
         ]);
         return {
             success: true as const,
             pendingConnections: stats.pendingIncoming,
             pendingInvites,
+            pendingApplications,
             totalConnections: stats.totalConnections,
         };
     } catch (error) {
@@ -76,7 +78,7 @@ export async function readNetworkPendingCountsAction() {
             module: 'connections',
             error: error instanceof Error ? error.message : String(error),
         });
-        return { success: false as const, error: 'Failed to load pending requests', pendingConnections: 0, pendingInvites: 0, totalConnections: 0 };
+        return { success: false as const, error: 'Failed to load pending requests', pendingConnections: 0, pendingInvites: 0, pendingApplications: 0, totalConnections: 0 };
     }
 }
 

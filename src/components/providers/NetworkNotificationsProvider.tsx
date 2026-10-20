@@ -24,6 +24,7 @@ const WORKSPACE_NOTIFICATION_KINDS = new Set([
   "workflow_resolved",
   "application_received",
   "application_decision",
+  "project_application_activity",
 ]);
 
 type WorkspaceInvalidationDomain = "connections" | "requests" | "tasks";
@@ -31,7 +32,7 @@ type WorkspaceInvalidationDomain = "connections" | "requests" | "tasks";
 function workspaceInvalidationDomains(kind: string): WorkspaceInvalidationDomain[] {
   if (kind.startsWith("connection_request_")) return ["connections", "requests"];
   if (kind.startsWith("task_")) return ["tasks"];
-  if (kind.startsWith("workflow_") || kind.startsWith("application_")) return ["requests"];
+  if (kind.startsWith("workflow_") || kind.startsWith("application_") || kind === "project_application_activity") return ["requests"];
   return [];
 }
 
@@ -46,6 +47,8 @@ interface NetworkNotificationsContextValue {
   totalPending: number;
   pendingConnections: number;
   pendingInvites: number;
+  /** Applications to this person's projects waiting for a decision. */
+  pendingApplications: number;
   totalConnections: number;
   refresh: () => Promise<void>;
 }
@@ -54,6 +57,7 @@ const NetworkNotificationsContext = createContext<NetworkNotificationsContextVal
   totalPending: 0,
   pendingConnections: 0,
   pendingInvites: 0,
+  pendingApplications: 0,
   totalConnections: 0,
   refresh: async () => {},
 });
@@ -83,6 +87,7 @@ export function NetworkNotificationsProvider({ children, enabled = true }: { chi
   }, [query]);
   const pendingConnections = query.data?.pendingConnections ?? 0;
   const pendingInvites = query.data?.pendingInvites ?? 0;
+  const pendingApplications = query.data?.pendingApplications ?? 0;
   const totalConnections = query.data?.totalConnections ?? 0;
 
   // One app-level listener owns workspace attention invalidation. This avoids
@@ -110,6 +115,8 @@ export function NetworkNotificationsProvider({ children, enabled = true }: { chi
           void queryClient.invalidateQueries({ queryKey: queryKeys.workspace.root(), refetchType: "active" });
           void queryClient.invalidateQueries({ queryKey: queryKeys.workspace.joinRequestsRoot(), refetchType: "active" });
           void queryClient.invalidateQueries({ queryKey: queryKeys.workspace.sentProjectInvitationsRoot(), refetchType: "active" });
+          // The Network page's own list (open and decided applications) follows too.
+          void queryClient.invalidateQueries({ queryKey: queryKeys.connections.pending(), refetchType: "active" });
         }
       }, 150);
     });
@@ -123,13 +130,14 @@ export function NetworkNotificationsProvider({ children, enabled = true }: { chi
 
   const value = useMemo<NetworkNotificationsContextValue>(
     () => ({
-      totalPending: pendingConnections + pendingInvites,
+      totalPending: pendingConnections + pendingInvites + pendingApplications,
       pendingConnections,
       pendingInvites,
+      pendingApplications,
       totalConnections,
       refresh,
     }),
-    [pendingConnections, pendingInvites, totalConnections, refresh],
+    [pendingConnections, pendingInvites, pendingApplications, totalConnections, refresh],
   );
 
   return <NetworkNotificationsContext.Provider value={value}>{children}</NetworkNotificationsContext.Provider>;
