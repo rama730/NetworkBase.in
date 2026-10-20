@@ -177,6 +177,12 @@ export function loadingSettlePlan(shownAt: number | null, arrivedAt: number): { 
   return { mode: "settle", delay: Math.max(0, LOADING_MIN_MS - (arrivedAt - shownAt)) };
 }
 
+/** React Query retry rule for presence: a refused request (not signed in) will not change by retrying, a flaky one gets one retry. */
+export function retryPresence(failureCount: number, error: unknown) {
+  if (error instanceof Error && error.message === "unauthorized") return false;
+  return failureCount < 1;
+}
+
 /** Ring `index` (0 inner to 3 outer) in the change wave: inner first going up, outer first going down. */
 export function ringOrder(index: number, direction: 1 | -1) {
   return direction > 0 ? index : 3 - index;

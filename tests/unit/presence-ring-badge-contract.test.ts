@@ -37,7 +37,7 @@ test("rings turn only through advanceBadgeSpin, never on first render, before da
   assert.match(badge, /motionBudget\.take\(\)/);
   assert.match(badge, /IntersectionObserver/);
   assert.match(badge, /key=\{spin\.halo\}/);
-  assert.match(person, /animate=\{presence\.loaded\}/);
+  assert.match(person, /animate=\{presence\.settled\}/);
 });
 
 test("ring weight and wave order come from the model, not from CSS copies", () => {
@@ -151,7 +151,14 @@ test("while presence data loads: a gray placeholder, then gray arcs that spin, t
 });
 
 test("only people badges load: projects already know their activity", () => {
-  assert.match(person, /animate=\{presence\.loaded\}/);
+  assert.match(person, /animate=\{presence\.settled\}/);
   const projectBadge = person.slice(person.indexOf("export function ProjectPresenceBadge"));
   assert.doesNotMatch(projectBadge, /animate=/);
+});
+
+test("a failed or refused presence request ends the loading state instead of leaving the loader up", () => {
+  assert.match(hook, /settled: Boolean\(data\) \|\| query\.isError/);
+  assert.match(hook, /retry: retryPresence/);
+  assert.match(person, /animate=\{presence\.settled\}/);
+  assert.doesNotMatch(person, /animate=\{presence\.loaded\}/);
 });

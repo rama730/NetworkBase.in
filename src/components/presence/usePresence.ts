@@ -8,6 +8,7 @@ import {
   availabilityOf,
   projectAvailabilityOf,
   resolveLive,
+  retryPresence,
   statusLabel,
   type Availability,
   type PersonPresence,
@@ -74,6 +75,8 @@ export type PersonPresenceView = {
   /** The badge's accessible label: status first, then availability. */
   label: string;
   loaded: boolean;
+  /** The data arrived or the request failed: the badge stops loading either way. */
+  settled: boolean;
   /** When the data last refreshed: the badge ripples on a change while Active now. */
   updatedAt: number;
   /** Start and end of a timed status, for the badge's timer ring. */
@@ -116,6 +119,7 @@ export function usePersonPresence(userId: string | null | undefined, options: { 
     queryKey: queryKeys.presence.person(userId ?? "none"),
     enabled: Boolean(userId),
     queryFn: () => loadPerson(userId!),
+    retry: retryPresence,
     staleTime: STALE_MS,
     refetchInterval: REFRESH_MS,
     refetchIntervalInBackground: false,
@@ -136,10 +140,11 @@ export function usePersonPresence(userId: string | null | undefined, options: { 
       statusText,
       label: statusLine ? `${statusLine} · ${availabilityText}` : availabilityText,
       loaded: Boolean(data),
+      settled: Boolean(data) || query.isError,
       updatedAt: query.dataUpdatedAt,
       statusTimer,
     };
-  }, [options.fallbackLastActiveAt, options.live, query.data, query.dataUpdatedAt]);
+  }, [options.fallbackLastActiveAt, options.live, query.data, query.dataUpdatedAt, query.isError]);
 }
 
 export function useProjectPresence(projectId: string | null | undefined, fallbackUpdatedAt?: string | Date | null) {

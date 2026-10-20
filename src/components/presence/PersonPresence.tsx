@@ -45,7 +45,7 @@ export function PersonPresenceBadge({
       statusSize={statusSize}
       statusTimer={presence.statusTimer}
       statusPaused={presence.status?.pausesNotifications}
-      animate={presence.loaded}
+      animate={presence.settled}
       pulseKey={presence.updatedAt}
     />
   );
