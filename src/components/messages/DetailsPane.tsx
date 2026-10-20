@@ -177,7 +177,8 @@ function MemberRow({ member, channel, meId, online, onRemove }: { member: Channe
     const previous = next === "admin" ? "member" : "admin";
     toast.success(`${personName(member)} is now ${next === "admin" ? "an admin" : "a member"}`, undo ? { action: { label: "Undo", onClick: () => void role(previous, false) } } : undefined);
   };
-  const canManage = channel.can_admin && !self && member.role !== "owner" && channel.kind !== "dm";
+  // An application thread has a fixed cast: nobody is promoted or removed by hand (the database refuses too).
+  const canManage = channel.can_admin && !self && member.role !== "owner" && channel.kind !== "dm" && !channel.application_id;
   return (
     // The badge's cut-out follows the row's hover colour (no card-coloured halo).
     <div role="listitem" className="group/member flex min-h-12 items-center gap-2.5 rounded-md px-2 hover:bg-muted hover:[--presence-cut:var(--muted)]">

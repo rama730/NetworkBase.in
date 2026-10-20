@@ -1,15 +1,18 @@
 import type { ChatBootstrap, ChatChannelSummary, ChatNotify, ChatPerson } from "@/lib/messaging/types";
 import { formatAbsoluteTimestamp, formatRelativeTimestamp } from "@/lib/notifications/presentation";
 
+type NotifyChannel = Pick<ChatChannelSummary, "kind" | "project_id"> & { application_id?: string | null };
+
 /**
  * Notification choices. Every message notifies only in DMs and group chats outside projects
  * (chat_send_message); project channels notify on mentions and followed threads, so "All" would do nothing there.
  */
-export function notifiesEveryMessage(channel: Pick<ChatChannelSummary, "kind" | "project_id">) {
-  return channel.kind === "dm" || (channel.kind === "private" && !channel.project_id);
+export function notifiesEveryMessage(channel: NotifyChannel) {
+  // An application thread is a small private room: every message notifies, like a group chat.
+  return channel.kind === "dm" || (channel.kind === "private" && !channel.project_id) || Boolean(channel.application_id);
 }
 
-export function notifyChoices(channel: Pick<ChatChannelSummary, "kind" | "project_id">): { value: ChatNotify; label: string }[] {
+export function notifyChoices(channel: NotifyChannel): { value: ChatNotify; label: string }[] {
   // A 1:1 DM: nobody @mentions you in your own DM, so "Mentions only" would mean "never".
   if (channel.kind === "dm") return [{ value: "all", label: "All messages" }, { value: "mute", label: "Mute" }];
   return notifiesEveryMessage(channel)
@@ -18,20 +21,20 @@ export function notifyChoices(channel: Pick<ChatChannelSummary, "kind" | "projec
 }
 
 /** The selected choice: in channels "all" behaves (and shows) as mentions & threads; a DM is all or muted. */
-export function notifyChoice(channel: Pick<ChatChannelSummary, "kind" | "project_id">, notify: ChatNotify): ChatNotify {
+export function notifyChoice(channel: NotifyChannel, notify: ChatNotify): ChatNotify {
   if (channel.kind === "dm") return notify === "mute" ? "mute" : "all";
   return notifiesEveryMessage(channel) || notify === "mute" ? notify : "mentions";
 }
 
 /** One line under the setting: what it actually does. */
-export function notifyHelp(channel: Pick<ChatChannelSummary, "kind" | "project_id">, notify: ChatNotify) {
+export function notifyHelp(channel: NotifyChannel, notify: ChatNotify) {
   const choice = notifyChoice(channel, notify);
   if (choice === "mute") return "No notifications. @mentions still show in your Inbox.";
   if (choice === "all") return "Every new message notifies you.";
   return notifiesEveryMessage(channel) ? "Only when someone @mentions you." : "@mentions, @here and replies in threads you follow.";
 }
 
-export function notifyLabel(channel: Pick<ChatChannelSummary, "kind" | "project_id">, notify: ChatNotify) {
+export function notifyLabel(channel: NotifyChannel, notify: ChatNotify) {
   const choice = notifyChoice(channel, notify);
   return choice === "mute" ? "Muted" : notifyChoices(channel).find((c) => c.value === choice)!.label;
 }

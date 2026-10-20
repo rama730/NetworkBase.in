@@ -4,8 +4,8 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  AlarmClock, Archive, Bookmark, BookmarkCheck, Copy, Flag, Forward, Hash, Link2, LogIn, LogOut, MailOpen, MessageSquareText, Eye, EyeOff,
-  MoreHorizontal, Pencil, Pin, SmilePlus, SquareCheck, Trash2, UserMinus, type LucideIcon,
+  AlarmClock, Archive, Bookmark, BookmarkCheck, CheckCircle2, Copy, Flag, Forward, Hash, Link2, Lock, LogIn, LogOut, MailOpen, MessageSquareText, Eye, EyeOff,
+  MoreHorizontal, Pencil, Pin, RotateCcw, Send, SmilePlus, SquareCheck, Trash2, Undo2, UserMinus, XCircle, type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -31,6 +31,7 @@ import { PersonHoverCard } from "@/components/presence/PersonHoverCard";
 import { usePersonPresence } from "@/components/presence/usePresence";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { formatChatTime, personName } from "@/lib/messaging/channel-view";
+import { applicationLineKind, normalizeApplicationLine, type ApplicationLineKind } from "@/lib/messaging/application-status";
 import { messageHref } from "@/lib/messaging/routes";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { applyReaction, patchPages, upsertMessage } from "@/lib/messaging/timeline";
@@ -126,18 +127,26 @@ const SYSTEM_ICONS: Array<[RegExp, LucideIcon]> = [
   [/^set the topic/, MessageSquareText], [/^(unarchived|archived)/, Archive], [/^created/, Hash],
 ];
 
+// Application status lines: each verb has its own mark, so a decline never looks like a channel being created.
+const APPLICATION_LINE_ICONS: Record<ApplicationLineKind, LucideIcon> = {
+  accepted: CheckCircle2, declined: XCircle, withdrew: Undo2, reopened: RotateCcw, applied: Send, edited: Pencil, closed: Lock,
+};
+
 function SystemRow({ message, others }: { message: ChatMessageView; others?: ChatMessageView[] }) {
   const ctx = useConversationContext();
-  const Icon = SYSTEM_ICONS.find(([pattern]) => pattern.test(message.body))?.[1] ?? Hash;
+  const lineKind = applicationLineKind(message.body);
+  const Icon = (lineKind ? APPLICATION_LINE_ICONS[lineKind] : undefined) ?? SYSTEM_ICONS.find(([pattern]) => pattern.test(message.body))?.[1] ?? Hash;
   const people = [message, ...(others ?? [])].map((m) => personName(m.author));
   const who = people.length === 1 ? people[0] : people.length === 2 ? `${people[0]} and ${people[1]}` : `${people[0]} and ${people.length - 1} others`;
-  const body = message.body.startsWith("removed <@") ? `removed ${ctx.nameOf(message.body.slice(10, -1)) ?? "someone"}` : message.body;
+  const body = message.body.startsWith("removed <@") ? `removed ${ctx.nameOf(message.body.slice(10, -1)) ?? "someone"}` : normalizeApplicationLine(message.body);
+  const at = (others?.at(-1) ?? message).created_at;
   return (
-    <div className="my-1 flex items-center gap-2.5 px-4 py-1 text-[13px] text-muted-foreground" data-seq={message.seq} title={people.length > 2 ? people.join(", ") : undefined}>
+    <div className="my-1 flex items-start gap-2.5 px-4 py-1 text-[13px] text-muted-foreground" data-seq={message.seq} title={people.length > 2 ? people.join(", ") : undefined}>
       {/* The icon sits in the avatar column, so the text lines up with message text. */}
       <span className="flex w-[34px] flex-none justify-center" aria-hidden="true"><span className="inline-flex size-5 items-center justify-center rounded-sm bg-muted text-muted-foreground"><Icon size={14} /></span></span>
-      <span className="min-w-0 flex-1 truncate"><span className="font-medium text-foreground">{who}</span> {body}</span>
-      <span className="nb-meta">{formatChatTime((others?.at(-1) ?? message).created_at, "clock")}</span>
+      {/* A decision note can be long: it wraps instead of being cut off. */}
+      <span className="min-w-0 flex-1 whitespace-pre-wrap break-words"><span className="font-medium text-foreground">{who}</span> {body}</span>
+      <span className="nb-meta" title={new Date(at).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}>{formatChatTime(at, "clock")}</span>
     </div>
   );
 }
@@ -174,7 +183,8 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
   const member = ctx.isMember !== false;
   const actions = !pending && !deleted && member;
   const editing = ctx.editingSeq === message.seq;
-  const canDelete = own || ctx.canAdmin;
+  // The application card is the application's record: it is never deleted (the database refuses too).
+  const canDelete = (own || ctx.canAdmin) && message.card?.kind !== "application";
   const saved = ctx.savedSeqs?.has(message.seq) ?? false;
   const authorName = personName(message.author);
   // Like Slack: the author's status emoji after their name (💬 when the status is text only).
@@ -478,7 +488,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
                 <div className="mt-1 max-w-[480px]"><MessageAttachmentsV2 attachments={message.attachments.map(toViewerAttachment)} /></div>
               ) : null}
               {message.card ? <MessageCard card={message.card} /> : null}
-              {message.body && !message.link_preview_hidden ? <MessageLinkPreview body={message.body} onRemove={own && actions ? onRemovePreview : undefined} /> : null}
+              {message.body && !message.link_preview_hidden && message.card?.kind !== "application" ? <MessageLinkPreview body={message.body} onRemove={own && actions ? onRemovePreview : undefined} /> : null}
             </>
           )}
           {/* A deleted message keeps no reactions (like Slack). */}

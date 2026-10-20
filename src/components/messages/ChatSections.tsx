@@ -141,6 +141,8 @@ function useRowActions(channel: ChatChannelSummary) {
   const { refresh, applyRead } = useChatShell();
   const [confirmLeave, setConfirmLeave] = useState(false);
   const direct = isDirectLike(channel);
+  // A finished application can be closed from your list, like a DM; a new message or status line brings it back.
+  const closable = direct || (isApplicationThread(channel) && isDecidedApplication(channel.application?.status));
   const muted = channel.notify === "mute";
   const state = async (patch: { notify?: ChatNotify; starred?: boolean; archived?: boolean }) => {
     const result = await setMemberState({ channelId: channel.id, ...patch });
@@ -189,7 +191,7 @@ function useRowActions(channel: ChatChannelSummary) {
     />
   );
   return {
-    direct, muted, mute, star, read, unreadAgain, copy, leaveDialog,
+    direct, closable, muted, mute, star, read, unreadAgain, copy, leaveDialog,
     close: () => void close(),
     leave: () => setConfirmLeave(true),
     canLeave: !direct && !channel.is_default && !channel.application_id,
@@ -206,7 +208,7 @@ function RowMenuItems({ channel, actions }: { channel: ChatChannelSummary; actio
       <DropdownMenuItem onSelect={actions.mute}>{actions.muted ? <><Bell /> Unmute</> : <><BellOff /> Mute</>}</DropdownMenuItem>
       <DropdownMenuItem onSelect={actions.star}>{channel.starred ? <><StarOff /> Unstar</> : <><Star /> Star</>}</DropdownMenuItem>
       <DropdownMenuItem onSelect={actions.copy}><Link2 /> Copy link</DropdownMenuItem>
-      {actions.direct ? (
+      {actions.closable ? (
         <>
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={actions.close}><X /> Close conversation</DropdownMenuItem>
@@ -297,7 +299,7 @@ function SwipeActions({ channel, meId, children }: { channel: ChatChannelSummary
     setOffset(0);
     action();
   };
-  const labels = swipeButtons({ unread: actions.unread, muted: actions.muted, direct: actions.direct, starred: channel.starred });
+  const labels = swipeButtons({ unread: actions.unread, muted: actions.muted, direct: actions.closable, starred: channel.starred });
   const handlers: Record<string, () => void> = {
     Read: actions.read, Mute: actions.mute, Unmute: actions.mute, Close: actions.close, Star: actions.star, Unstar: actions.star,
   };

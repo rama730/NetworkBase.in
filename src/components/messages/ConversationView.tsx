@@ -43,6 +43,7 @@ import type { ChannelDetails } from "@/app/actions/chat/channels";
 import type { CanvasTemplate } from "@/lib/messaging/canvas-store";
 import { conversationTabs, restoreTabOrder, type ChannelTabItem } from "@/lib/messaging/channel-tabs";
 import { ApplicationStatusBar } from "@/components/messages/cards/ApplicationCard";
+import { APPLICATION_STATUS_LABEL, isDecidedApplication } from "@/lib/messaging/application-status";
 import { canAddPeople, counterpart, channelTitle, isSelfDm, notifiesEveryMessage, notifyChoice, notifyChoices, notifyLabel, personName } from "@/lib/messaging/channel-view";
 import { CHAT_BROADCAST_MENTION_MAX_MEMBERS } from "@/lib/messaging/constants";
 import { chatErrorMessage } from "@/lib/messaging/errors";
@@ -92,12 +93,14 @@ function Intro({ channel, meId, isMember, hasCanvas, onDetails, onAddPeople, onC
   if (channel.application_id) {
     const meta = channel.application;
     const subject = meta ? `${meta.role_removed ? "a removed role" : meta.role_title ?? "a role"} on ${meta.project_title}` : "a project role";
+    const decided = meta ? isDecidedApplication(meta.status) : false;
+    const outcome = meta ? (APPLICATION_STATUS_LABEL[meta.status] ?? meta.status).toLowerCase() : "";
     return (
       <div className="px-4 py-4 text-[13px] text-muted-foreground">
         <p>
           {meta?.is_applicant
-            ? `This is your application for ${subject}. The project's reviewers answer here, and you can ask or add anything they need.`
-            : `This is the application${meta ? ` from ${personName(meta.applicant)}` : ""} for ${subject}. Accept or decline from the bar above, and ask questions here.`}
+            ? `This is your application for ${subject}. ${decided ? `It was ${outcome}. You can still ask or reply here.` : "The project's reviewers answer here, and you can ask or add anything they need."}`
+            : `This is the application${meta ? ` from ${personName(meta.applicant)}` : ""} for ${subject}. ${decided ? `It was ${outcome}. You can still reply here.` : "Accept or decline from the bar above, and ask questions here."}`}
         </p>
       </div>
     );
@@ -232,6 +235,9 @@ export function ConversationView({ channelId, around = null, surface = "page", o
   const canPreview = !isMember && channel?.kind === "public" && !archived;
   const isChannel = Boolean(channel && channel.kind !== "dm" && channel.name !== null);
   const isDirect = channel?.kind === "dm" || (channel?.kind === "private" && channel?.name === null);
+  // An application thread is a fixed private room: no bookmarks, files tab, tasks, canvases or sharing out of it.
+  const isApplication = Boolean(channel?.application_id);
+  const canCloseApplication = isApplication && isDecidedApplication(channel?.application?.status);
   const members = useChannelMembers(channelId, isMember);
   const people = useMemo(() => members.data ?? [], [members.data]);
   const searchParams = useSearchParams();
@@ -423,9 +429,9 @@ export function ConversationView({ channelId, around = null, surface = "page", o
   const ctx = useMemo<ConversationContextValue>(() => ({
     channelId, meId, canAdmin: Boolean(channel?.can_admin), isDm: Boolean(isDirect),
     people, nameOf, channelNameOf, editingSeq, setEditingSeq, openThread, inThread: false,
-    openPinsTab, isMember, projectId: channel?.project_id ?? null,
-    savedSeqs: saved.seqs, setSaved: (seq, on, remindAt) => void saved.setSaved(seq, on, remindAt), share: setShareSeq,
-  }), [channel?.can_admin, channel?.project_id, channelId, channelNameOf, editingSeq, isDirect, isMember, meId, nameOf, openPinsTab, openThread, people, saved]);
+    openPinsTab, isMember, projectId: isApplication ? null : channel?.project_id ?? null,
+    savedSeqs: saved.seqs, setSaved: (seq, on, remindAt) => void saved.setSaved(seq, on, remindAt), share: isApplication ? undefined : setShareSeq,
+  }), [channel?.can_admin, channel?.project_id, channelId, channelNameOf, editingSeq, isApplication, isDirect, isMember, meId, nameOf, openPinsTab, openThread, people, saved]);
 
   const editLast = useCallback(() => {
     for (let i = conversation.messages.length - 1; i >= 0; i -= 1) {
@@ -529,7 +535,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
   const headerButton = "nb-icon-button nb-touch-target size-8";
   const detailsShortcut = keyLabel(detailsKeys());
   // DMs with only Messages skip the tab bar (40px for one tab); bookmarks and files move to ⋯.
-  const showTabBar = isMember && surface === "page" && (tabs.length > 1 || !isDirect);
+  const showTabBar = isMember && surface === "page" && !isApplication && (tabs.length > 1 || !isDirect);
   const starLabel = channel.starred ? `Unstar ${isChannel ? "channel" : "conversation"}` : `Star ${isChannel ? "channel" : "conversation"}`;
 
   return (
@@ -596,7 +602,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                       <DropdownMenuLabel>Notifications</DropdownMenuLabel>
                       {notifyMenu}
                       <DropdownMenuSeparator />
-                      {channel.kind === "dm" ? (
+                      {channel.kind === "dm" || canCloseApplication ? (
                         <DropdownMenuItem onSelect={() => void closeConversation()}><X /> Close conversation</DropdownMenuItem>
                       ) : !channel.is_default && !channel.application_id ? (
                         <DropdownMenuItem variant="destructive" onSelect={() => setConfirm("leave")}><LogOut /> Leave {isChannel ? "channel" : "conversation"}</DropdownMenuItem>
@@ -674,8 +680,8 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                     {/* A DM without its tab bar: bookmarks and files start here. */}
                     {isMember && !showTabBar ? (
                       <>
-                        <DropdownMenuItem onSelect={() => setDialog("bookmark")}><Bookmark /> Add a bookmark</DropdownMenuItem>
-                        {!(sharedTabs.data ?? []).some((t) => t.kind === "files") ? <DropdownMenuItem onSelect={() => void addTab("files", "Files")}><FileText /> Show files</DropdownMenuItem> : null}
+                        {isApplication ? null : <DropdownMenuItem onSelect={() => setDialog("bookmark")}><Bookmark /> Add a bookmark</DropdownMenuItem>}
+                        {!isApplication && !(sharedTabs.data ?? []).some((t) => t.kind === "files") ? <DropdownMenuItem onSelect={() => void addTab("files", "Files")}><FileText /> Show files</DropdownMenuItem> : null}
                       </>
                     ) : null}
                     {isMember ? <DropdownMenuSeparator /> : null}
@@ -683,8 +689,8 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                       <Link2 /> Copy link
                     </DropdownMenuItem>
                     {isMember && hasUnread ? <DropdownMenuItem onSelect={() => void markAllRead(true)}><CheckCheck /> Mark as read</DropdownMenuItem> : null}
-                    {isMember && (channel.kind === "dm" || (!channel.is_default && !channel.application_id) || (channel.can_admin && isChannel && !channel.is_default)) ? <DropdownMenuSeparator /> : null}
-                    {!isMember ? null : channel.kind === "dm" ? (
+                    {isMember && (channel.kind === "dm" || canCloseApplication || (!channel.is_default && !channel.application_id) || (channel.can_admin && isChannel && !channel.is_default)) ? <DropdownMenuSeparator /> : null}
+                    {!isMember ? null : channel.kind === "dm" || canCloseApplication ? (
                       <DropdownMenuItem onSelect={() => void closeConversation()}><X /> Close conversation</DropdownMenuItem>
                     ) : !channel.is_default && !channel.application_id && !archived ? (
                       <DropdownMenuItem variant="destructive" onSelect={() => setConfirm("leave")}><LogOut /> Leave {isChannel ? "channel" : "conversation"}</DropdownMenuItem>
@@ -807,7 +813,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 placeholder={placeholder}
                 people={people}
                 allowBroadcast={!isDirect && !channel.application_id && channel.member_count <= CHAT_BROADCAST_MENTION_MAX_MEMBERS}
-                canCreateTask={Boolean(channel.project_id)}
+                canCreateTask={Boolean(channel.project_id) && !isApplication}
                 onOpenCanvas={isChannel && surface === "page" ? () => openCanvas() : undefined}
                 onTyping={typing.notify}
                 typingNames={typing.names}

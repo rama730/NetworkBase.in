@@ -9,6 +9,7 @@ import { MessageRow } from "@/components/messages/MessageRow";
 import { Button } from "@/components/ui/button";
 import { LatestBar } from "@/components/messages/parts/LatestBar";
 import { formatChatTime } from "@/lib/messaging/channel-view";
+import { applicationLineKind } from "@/lib/messaging/application-status";
 import { buildTimeline, newFromOthers, type TimelineItem } from "@/lib/messaging/timeline";
 import type { ChatMessageView } from "@/lib/messaging/types";
 
@@ -155,7 +156,7 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
   // "12 new messages since Today 3:42 PM": what was unread when the conversation opened. When the
   // first loaded message is already unread and older pages exist, there are more than we can count: "50+".
   const [unreadAtOpen] = useState(() => {
-    const unread = messages.filter((m) => m.seq > lastReadSeq && m.seq > 0 && m.author_id !== meId && m.kind === "user");
+    const unread = messages.filter((m) => m.seq > lastReadSeq && m.seq > 0 && m.author_id !== meId && (m.kind === "user" || (m.kind === "system" && applicationLineKind(m.body) !== null)));
     const firstLoaded = messages.find((m) => m.seq > 0);
     const more = hasOlder && Boolean(firstLoaded && firstLoaded.seq > lastReadSeq);
     return unread.length ? { count: unread.length, more, since: unread[0]!.created_at } : null;
