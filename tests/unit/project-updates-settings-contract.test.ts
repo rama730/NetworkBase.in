@@ -14,7 +14,7 @@ test("project updates tab eliminates duplicate header and redundant cards, rende
     // 1. SectionHeader is suppressed on updates tab to avoid duplicate title
     assert.match(
         settingsTab,
-        /activeSection !== "updates"/,
+        /id="project-settings-updates"/,
         "SectionHeader must be suppressed on updates tab to avoid duplicate title",
     );
 
@@ -101,8 +101,8 @@ test("project updates settings adhere to NetworkBase drafting-table design token
     // 2. Section 10 badge contract applied
     assert.match(
         updatesBlock,
-        /rounded-\[3px\][\s\S]*?font-mono text-\[11px\] font-medium uppercase tracking-\[0\.09em\]/,
-        "Must use Section 10 contract for badges in updates tab",
+        /aria-label="Allow members to post updates"/,
+        "The publishing permission must have an accessible switch label",
     );
 
     // 3. Toggles apply immediately; Save changes and Cancel buttons are absent

@@ -29,18 +29,19 @@ export function buildWorkspaceTaskCounterFilters(
     dueDateExpression: SQL,
     now: Date | string,
     todayEnd: Date | string,
+    reviewStatusExpression: SQL = sql`'none'`,
 ) {
     const nowParam = sql`${serializeWorkspaceCounterTimestamp(now)}::timestamptz`
     const todayEndParam = sql`${serializeWorkspaceCounterTimestamp(todayEnd)}::timestamptz`
 
     return {
         dueToday: sql`${deletedAtExpression} IS NULL
-            AND (${statusExpression} IS NULL OR ${statusExpression} <> 'done')
+            AND (${statusExpression} IS NULL OR ${statusExpression} <> 'done' OR ${reviewStatusExpression} = 'pending')
             AND ${dueDateExpression} IS NOT NULL
             AND ${dueDateExpression} >= ${nowParam}
             AND ${dueDateExpression} <= ${todayEndParam}`,
         overdue: sql`${deletedAtExpression} IS NULL
-            AND (${statusExpression} IS NULL OR ${statusExpression} <> 'done')
+            AND (${statusExpression} IS NULL OR ${statusExpression} <> 'done' OR ${reviewStatusExpression} = 'pending')
             AND ${dueDateExpression} IS NOT NULL
             AND ${dueDateExpression} < ${nowParam}`,
         inProgress: sql`${deletedAtExpression} IS NULL

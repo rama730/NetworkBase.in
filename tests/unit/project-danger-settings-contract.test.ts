@@ -26,7 +26,7 @@ test("project settings eliminates Security & Data tab completely and standardize
     );
     assert.doesNotMatch(
         settingsTab,
-        /activeSection === "security-audit"/,
+        /id="project-settings-security-audit"/,
         "security-audit section render block must be removed from ProjectSettingsTab",
     );
     assert.doesNotMatch(
@@ -63,7 +63,7 @@ test("project danger zone tab is redesigned into 1 canonical SettingsCard with l
 
     // 1. Redundant SummaryCard, standalone Preflight card, and DangerAction wrappers removed
     const dangerBlock =
-        settingsTab.split('activeSection === "danger" && (')[1]?.split('</SettingsCard>')[0] ?? "";
+        settingsTab.split('id="project-settings-danger"')[1]?.split('</SettingsCard>')[0] ?? "";
     assert.ok(dangerBlock.length > 0, "Danger zone settings block must exist in ProjectSettingsTab");
 
     assert.doesNotMatch(

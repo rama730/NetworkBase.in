@@ -47,12 +47,12 @@ export async function readProjectRecentActivityAction(projectId: string): Promis
     .orderBy(desc(projectNodeEvents.createdAt), desc(projectNodeEvents.id)).limit(3);
 
   const taskEventsPromise = audience.mayReadTasks
-    ? db.select({ id: taskActivityEvents.id, payload: taskActivityEvents.payload, createdAt: taskActivityEvents.createdAt,
+    ? db.select({ id: taskActivityEvents.id, eventType: taskActivityEvents.eventType, payload: taskActivityEvents.payload, createdAt: taskActivityEvents.createdAt,
       taskId: tasks.id, title: tasks.title, actorName: actor.fullName, actorUsername: actor.username, actorVisibility: actor.visibility })
       .from(taskActivityEvents)
       .innerJoin(tasks, and(eq(tasks.id, taskActivityEvents.taskId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt)))
       .leftJoin(actor, and(eq(actor.id, taskActivityEvents.actorId), isNull(actor.deletedAt)))
-      .where(and(eq(taskActivityEvents.projectId, projectId), eq(taskActivityEvents.eventType, "status_changed"),
+      .where(and(eq(taskActivityEvents.projectId, projectId), inArray(taskActivityEvents.eventType, ["status_changed", "review_submitted", "review_approved", "changes_requested"]),
         sql`${taskActivityEvents.payload}->>'to' IN ('in_progress', 'done')`))
       .orderBy(desc(taskActivityEvents.createdAt), desc(taskActivityEvents.id)).limit(3)
     : Promise.resolve([]);
@@ -109,7 +109,7 @@ export async function readProjectRecentActivityAction(projectId: string): Promis
     const destination = event.payload?.to;
     const actorName = activityActorName(!isMember && event.actorVisibility !== "public" ? null : { fullName: event.actorName, username: event.actorUsername });
     items.push({ id: `task:${event.id}`, type: "task",
-      text: `${actorName} moved ${event.title} to ${destination === "done" ? "Done" : "In Progress"}`,
+      text: event.eventType === "review_submitted" ? `${actorName} submitted ${event.title} for review` : event.eventType === "review_approved" ? `${actorName} approved and completed ${event.title}` : event.eventType === "changes_requested" ? `${actorName} requested changes on ${event.title}` : `${actorName} moved ${event.title} to ${destination === "done" ? "Done" : "In Progress"}`,
       occurredAt: event.createdAt.toISOString(), href: `${projectHref}?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(event.taskId)}` });
   }
   for (const event of fileEvents) {

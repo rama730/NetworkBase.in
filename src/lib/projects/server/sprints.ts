@@ -143,6 +143,8 @@ type SprintTaskActivityQueryRow = {
   title: string;
   description: string | null;
   status: SprintTaskTimelineEntity["status"];
+  review_status: "none" | "pending" | "rejected";
+  completed_at: Date | string | null;
   priority: SprintTaskTimelineEntity["priority"];
   task_number: number | null;
   story_points: number | null;
@@ -550,6 +552,7 @@ async function readSprintSummary(sprintId: string) {
             SELECT DISTINCT ON (m.task_id)
                 t.id,
                 t.status,
+                t.review_status,
                 t.story_points
             FROM ${sprintTaskMemberships} m
             JOIN ${tasks} t ON t.id = m.task_id AND t.deleted_at IS NULL
@@ -557,7 +560,7 @@ async function readSprintSummary(sprintId: string) {
         )
         SELECT
             COUNT(*)::int AS total_tasks,
-            COUNT(*) FILTER (WHERE st.status = 'done')::int AS completed_tasks,
+            COUNT(*) FILTER (WHERE st.status = 'done' AND st.review_status <> 'pending')::int AS completed_tasks,
             COUNT(*) FILTER (WHERE st.status = 'blocked')::int AS blocked_tasks,
             (
                 SELECT COUNT(*)::int
@@ -566,7 +569,7 @@ async function readSprintSummary(sprintId: string) {
                 WHERE lnk.task_id IN (SELECT id FROM sprint_tasks)
             ) AS linked_file_count,
             COALESCE(SUM(COALESCE(st.story_points, 0)), 0)::int AS total_story_points,
-            COALESCE(SUM(COALESCE(st.story_points, 0)) FILTER (WHERE st.status = 'done'), 0)::int AS completed_story_points
+            COALESCE(SUM(COALESCE(st.story_points, 0)) FILTER (WHERE st.status = 'done' AND st.review_status <> 'pending'), 0)::int AS completed_story_points
         FROM sprint_tasks st
     `);
 
@@ -615,6 +618,8 @@ async function readSprintTaskActivityPage(input: {
                 t.title,
                 t.description,
                 t.status,
+                t.review_status,
+                t.completed_at,
                 t.priority,
                 t.task_number,
                 t.story_points,
@@ -700,6 +705,8 @@ async function readSprintTaskActivityPage(input: {
                 t.title,
                 t.description,
                 t.status,
+                t.review_status,
+                t.completed_at,
                 t.priority,
                 t.task_number,
                 t.story_points,
@@ -854,14 +861,13 @@ async function readSprintTaskActivityPage(input: {
     title: row.title,
     description: row.description ?? null,
     status: row.status,
+    reviewStatus: row.review_status,
     priority: row.priority,
     storyPoints: row.story_points ?? null,
     dueDate: toIsoString(row.due_date),
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at),
-    // Tasks persist status and updated_at, not a completed_at
-    // timestamp. Sprint closeout keeps its own durable completedAt field.
-    completedAt: null,
+    completedAt: toIsoString(row.completed_at),
     activityAt:
       toIsoString(row.activity_at) ??
       toIsoString(row.updated_at) ??
@@ -1806,7 +1812,7 @@ export async function completeSprintAction(
             eq(tasks.projectId, projectId),
             eq(tasks.sprintId, sprintId),
             isNull(tasks.deletedAt),
-            sql`${tasks.status} <> 'done'`,
+            sql`(${tasks.status} <> 'done' OR ${tasks.reviewStatus} = 'pending')`,
           ),
           columns: { id: true },
         });

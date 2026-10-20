@@ -123,11 +123,10 @@ describe("sprint tab target architecture contract", () => {
     assert.doesNotMatch(sprintActionsSource, /await startDueSprints\(/);
   });
 
-  it("does not query a non-existent task completion timestamp", () => {
-    assert.doesNotMatch(sprintActionsSource, /\bt\.completed_at\b/);
-    assert.match(
-      sprintActionsSource,
-      /tasks persist status and updated_at, not a completed_at/i,
-    );
+  it("uses the persisted task completion timestamp and excludes pending review from completed counts", () => {
+    assert.match(sprintActionsSource, /\bt\.completed_at\b/);
+    assert.match(sprintActionsSource, /st\.review_status <> 'pending'/);
+    const schema = fs.readFileSync(path.join(process.cwd(), "src/lib/db/schema/index.ts"), "utf8");
+    assert.match(schema, /completedAt: timestamp\("completed_at"/);
   });
 });

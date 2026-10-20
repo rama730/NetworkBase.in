@@ -14,13 +14,13 @@ test("project lifecycle tab eliminates duplicate header and redundant summary ca
     // 1. SectionHeader is suppressed on tasks-workflow tab
     assert.match(
         settingsTab,
-        /activeSection !== "tasks-workflow"/,
+        /id="project-settings-tasks-workflow"/,
         "SectionHeader must be suppressed on tasks-workflow tab to avoid duplicate title",
     );
 
     // 2. Extract tasks-workflow section block
     const workflowBlock =
-        settingsTab.split('activeSection === "tasks-workflow" && (')[1]?.split('activeSection === "files-workspace"')[0] ?? "";
+        settingsTab.split('id="project-settings-tasks-workflow"')[1]?.split('id="project-settings-files-workspace"')[0] ?? "";
     assert.ok(workflowBlock.length > 0, "tasks-workflow settings block must exist in ProjectSettingsTab");
 
     // 3. Redundant SummaryCard must be removed
@@ -84,7 +84,7 @@ test("project lifecycle tab eliminates duplicate header and redundant summary ca
     );
     assert.match(
         editorDef,
-        /border border-border bg-muted\/20/,
+        /border-b border-border pb-4/,
         "Guidance callout must use semantic drafting-table tokens",
     );
 });

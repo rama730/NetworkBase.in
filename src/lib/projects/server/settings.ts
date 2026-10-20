@@ -1,4 +1,5 @@
 import "server-only";
+import { encodeFilePermissionCursor, normalizeFilePermissionOptions, type FilePermissionOptions } from "@/lib/projects/file-permission-pagination";
 
 import { type ProjectVisibility, normalizeProjectVisibility } from "@/lib/projects/project-visibility";
 import { type ProjectNotificationPolicy, summarizeProjectNotificationPolicy, type ProjectMemberNotificationOverrides, normalizeProjectNotificationPolicy, type ProjectNotificationPreset, buildDefaultProjectNotificationPolicy, normalizeProjectMemberNotificationOverrides } from "@/lib/notifications/project-policy";
@@ -56,6 +57,7 @@ type ProjectFileWorkspaceSettingsResult =
         };
         /** True when more members exist than `members` holds; the summary always covers everyone. */
         hasMore: boolean;
+        nextCursor: string | null;
       };
     }
   | { success: false; message: string; errorCode: ProjectSettingsErrorCode };
@@ -256,7 +258,7 @@ async function readProjectCollaboratorResponsibilityCounts(
         and(
           eq(tasks.projectId, projectId),
           isNull(tasks.deletedAt),
-          sql`${tasks.status} <> 'done'`,
+          sql`(${tasks.status} <> 'done' OR ${tasks.reviewStatus} = 'pending')`,
           inArray(tasks.assigneeId, memberIds),
         ),
       )
@@ -268,7 +270,7 @@ async function readProjectCollaboratorResponsibilityCounts(
         and(
           eq(tasks.projectId, projectId),
           isNull(tasks.deletedAt),
-          sql`${tasks.status} <> 'done'`,
+          sql`(${tasks.status} <> 'done' OR ${tasks.reviewStatus} = 'pending')`,
           inArray(tasks.creatorId, memberIds),
         ),
       )
@@ -676,29 +678,45 @@ function formatFileUploadPermission(
 
 
 
-const FILE_WORKSPACE_MEMBER_LIMIT = 100;
+
 
 
 export async function getProjectFileWorkspaceSettingsAction(
   projectId: string,
+  options: FilePermissionOptions = {},
 ): Promise<ProjectFileWorkspaceSettingsResult> {
   const viewer = await signedInSettingsViewer();
   if (!viewer) return UNAUTHORIZED_SETTINGS;
-  return readFileWorkspaceSettings(viewer, projectId);
+  return readFileWorkspaceSettings(viewer, projectId, options);
 }
 
 export async function readFileWorkspaceSettings(
   viewer: SettingsViewer,
   projectId: string,
+  options: FilePermissionOptions = {},
 ): Promise<ProjectFileWorkspaceSettingsResult> {
   try {
     const capability = capabilityFromAccess(await viewer.access(projectId), "manage_files");
 
+    const page = normalizeFilePermissionOptions(options);
+    const rank = sql<number>`CASE WHEN ${projectMembers.userId} = ${capability.project.ownerId} THEN 0 WHEN ${projectMembers.role} = 'admin' THEN 1 WHEN ${projectMembers.role} = 'member' THEN 2 ELSE 3 END`;
+    const name = sql<string>`COALESCE(${profiles.fullName}, ${profiles.username}, '')`;
     const effectiveRole = effectiveCollaboratorRoleSql(capability.project.ownerId);
+    const conditions = [eq(projectMembers.projectId, projectId)];
+    if (page.query) {
+      const pattern = `%${page.query.replace(/[%_\\]/g, (ch) => `\\${ch}`)}%`;
+      conditions.push(or(ilike(profiles.fullName, pattern), ilike(profiles.username, pattern))!);
+    }
+    if (page.permissionFilter !== "all") {
+      conditions.push(and(sql`${effectiveRole} = 'member'`, page.permissionFilter === "enabled" ? sql`${projectMembers.fileUploadEnabled} IS NOT FALSE` : eq(projectMembers.fileUploadEnabled, false))!);
+    }
+    if (page.cursor) conditions.push(sql`(${rank}, ${name}, ${projectMembers.userId}) > (${page.cursor.rank}, ${page.cursor.name}, ${page.cursor.id}::uuid)`);
     const [rowsPlusOne, [counts]] = await Promise.all([
       db
         .select({
           userId: projectMembers.userId,
+          cursorRank: rank,
+          cursorName: name,
           role: projectMembers.role,
           fileUploadEnabled: projectMembers.fileUploadEnabled,
           joinedAt: projectMembers.joinedAt,
@@ -708,15 +726,9 @@ export async function readFileWorkspaceSettings(
         })
         .from(projectMembers)
         .leftJoin(profiles, eq(profiles.id, projectMembers.userId))
-        .where(eq(projectMembers.projectId, projectId))
-        .orderBy(
-          sql`CASE WHEN ${projectMembers.userId} = ${capability.project.ownerId} THEN 0 WHEN ${projectMembers.role} = 'admin' THEN 1 WHEN ${projectMembers.role} = 'member' THEN 2 ELSE 3 END`,
-          sql`${profiles.fullName} ASC NULLS LAST`,
-          sql`${profiles.username} ASC NULLS LAST`,
-          projectMembers.userId,
-        )
-        // ponytail: the list is capped (owner and co-leaders sort first); the summary below counts everyone.
-        .limit(FILE_WORKSPACE_MEMBER_LIMIT + 1),
+        .where(and(...conditions))
+        .orderBy(rank, name, projectMembers.userId)
+        .limit(page.limit + 1),
       db
         .select({
           alwaysAllowed: sql<number>`count(*) filter (where ${effectiveRole} in ('owner', 'admin'))::int`,
@@ -726,8 +738,8 @@ export async function readFileWorkspaceSettings(
         .from(projectMembers)
         .where(eq(projectMembers.projectId, projectId)),
     ]);
-    const hasMore = rowsPlusOne.length > FILE_WORKSPACE_MEMBER_LIMIT;
-    const rows = rowsPlusOne.slice(0, FILE_WORKSPACE_MEMBER_LIMIT);
+    const hasMore = rowsPlusOne.length > page.limit;
+    const rows = rowsPlusOne.slice(0, page.limit);
 
     const memberIds = rows.map((row) => row.userId);
     const roleTitleByUser = await readAcceptedRoleTitles(projectId, memberIds);
@@ -755,6 +767,7 @@ export async function readFileWorkspaceSettings(
       };
     });
 
+    const lastRow = rows.at(-1);
     return {
       success: true,
       data: {
@@ -765,6 +778,7 @@ export async function readFileWorkspaceSettings(
           disabledMemberCount: Number(counts?.disabled ?? 0),
         },
         hasMore,
+        nextCursor: hasMore && lastRow ? encodeFilePermissionCursor({ rank: lastRow.cursorRank, name: lastRow.cursorName, id: lastRow.userId }) : null,
       },
     };
   } catch (error) {
@@ -1890,7 +1904,7 @@ export async function readDangerZonePreflight(
           and(
             eq(tasks.projectId, projectId),
             isNull(tasks.deletedAt),
-            sql`${tasks.status} <> 'done'`,
+            sql`(${tasks.status} <> 'done' OR ${tasks.reviewStatus} = 'pending')`,
           ),
         )
         .limit(1),
@@ -1932,7 +1946,6 @@ export async function readDangerZonePreflight(
 export async function readProjectSettingsBootstrapAction(
   projectId: string,
   collaborators: ProjectCollaboratorSettingsOptions,
-  isOwner = false,
 ) {
   // One sign-in check and one project access read serve every section (PERF-011).
   const viewer = await signedInSettingsViewer();
@@ -1947,12 +1960,15 @@ export async function readProjectSettingsBootstrapAction(
     };
   }
 
+  // Ownership is verified on the server, never supplied by the caller.
+  const isOwner = (await viewer.access(projectId)).isOwner;
+
   const [collaboratorSettings, fileWorkspace, notifications, docSettings, dangerPreflight] = await Promise.all([
     readCollaboratorSettings(viewer, projectId, collaborators),
     readFileWorkspaceSettings(viewer, projectId),
     readNotificationSettings(viewer, projectId),
     readProjectDocSettingsAction(projectId),
-    isOwner ? readDangerZonePreflight(viewer, projectId) : Promise.resolve({ success: false as const, errorCode: "FORBIDDEN" as const, message: "Only the project owner can access settings." }),
+    isOwner ? readDangerZonePreflight(viewer, projectId) : Promise.resolve({ success: false as const, errorCode: "FORBIDDEN" as const, message: "Only the project owner can access danger zone settings." }),
   ]);
   return { collaboratorSettings, fileWorkspace, notifications, docSettings, dangerPreflight };
 }

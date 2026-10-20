@@ -19,7 +19,7 @@ function actionBody(name: string, nextName: string) {
 const service = fs.readFileSync(path.join(process.cwd(), "src/lib/projects/task-transition-service.ts"), "utf8");
 const transition = service.slice(service.indexOf("async function transitionTaskTx"), service.indexOf("async function afterTaskTransition"));
 
-test("done transitions request review without publishing task files", () => {
+test("done transitions respect project review policy without publishing task files", () => {
   const updateStatus = actionBody(
     "updateTaskStatusAction",
     "moveTaskToWorkflowColumnAction",
@@ -29,7 +29,9 @@ test("done transitions request review without publishing task files", () => {
     "assignTaskAction",
   );
 
-  assert.match(transition, /reviewStatus = "pending"/);
+  assert.match(transition, /locked\.reviewRequired/);
+  assert.match(transition, /taskReviewSnapshot/);
+  assert.match(transition, /completionSource: "direct"/);
   assert.match(updateStatus, /transitionTaskTx\(tx, locked/);
   assert.match(moveColumn, /transitionTaskTx\(tx, locked/);
   assert.match(updateStatus, /afterTaskTransition\(/);

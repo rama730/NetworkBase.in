@@ -1,45 +1,21 @@
 import "server-only";
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
 import { db } from "@/lib/db";
-import { wakeEmailWorker } from "@/lib/email/outbox";
 import {
-  recordTaskAssignment,
-  taskAssignmentNotification,
-} from "@/lib/projects/task-assignment";
-import {
-  fileVersions,
-  profiles,
   projectMembers,
   projectNodes,
-  projectSprints,
-  sprintTaskMemberships,
   projectWorkflowColumns,
   taskActivityEvents,
   taskNodeLinks,
   tasks,
 } from "@/lib/db/schema";
-import { createClient } from "@/lib/supabase/server";
 import { enqueueProjectNotificationEvent } from "@/lib/notifications/project-events";
-import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { queueCounterRefreshBestEffort } from "@/lib/workspace/counter-buffer";
-import {
-  getTaskFileWarnings,
-  inferTaskFileRole,
-  markTaskFileVersionApproved,
-} from "@/lib/projects/task-file-intelligence";
+import { getTaskFileWarnings } from "@/lib/projects/task-file-intelligence";
 import { logger } from "@/lib/logger";
 import { projectTaskHref } from "@/lib/projects/task-presentation";
-import {
-  isProjectMemberEligibleFor,
-  requireProjectCapability,
-} from "@/lib/projects/collaborator-lifecycle";
-import {
-  taskDescriptionSchema,
-  taskTitleSchema,
-  updateTaskFieldSchema,
-} from "@/lib/validations/task";
+import { taskReviewSnapshot } from "@/lib/projects/task-review-snapshot";
 
 export type TaskStatus = "todo" | "in_progress" | "done" | "blocked";
 export function taskActorSnapshot(user: {
@@ -74,6 +50,10 @@ export async function lockTaskForWrite(
   projectId: string;
   isOwner: boolean;
   isLeader: boolean;
+  ownerId: string;
+  reviewRequired: boolean;
+  reviewContentHash: string | null;
+  policyVersion: number;
   previousAssigneeId: string | null;
   previousSprintId: string | null;
   currentWorkflowColumnId: string | null;
@@ -101,6 +81,9 @@ export async function lockTaskForWrite(
     review_status: "none" | "pending" | "rejected";
     updated_at: Date;
     owner_id: string;
+    task_review_required: boolean;
+    task_completion_policy_version: number;
+    review_content_hash: string | null;
     slug: string | null;
     key: string | null;
     deleted_at: Date | string | null;
@@ -110,8 +93,8 @@ export async function lockTaskForWrite(
         SELECT
             t.id, t.project_id, t.assignee_id, t.sprint_id, t.workflow_column_id,
             t.timeline_origin_sprint_id, t.creator_id, t.title, t.task_number,
-            t.status, t.review_status, t.updated_at, t.deleted_at AS task_deleted_at,
-            p.owner_id, p.slug, p.key, p.deleted_at,
+            t.status, t.review_status, t.review_content_hash, t.updated_at, t.deleted_at AS task_deleted_at,
+            p.owner_id, p.slug, p.key, p.deleted_at, p.task_review_required, p.task_completion_policy_version,
             m.role as member_role
         FROM tasks t
         JOIN projects p ON p.id = t.project_id
@@ -141,12 +124,16 @@ export async function lockTaskForWrite(
     if (!row.member_role) {
       throw new Error("Forbidden");
     }
-    if ((row.member_role ?? "").toLowerCase() === "viewer") {
+    if (!["admin", "member"].includes((row.member_role ?? "").toLowerCase())) {
       throw new Error("Forbidden");
     }
   }
   return {
     projectId: row.project_id,
+    ownerId: row.owner_id,
+    reviewRequired: row.task_review_required,
+    policyVersion: row.task_completion_policy_version,
+    reviewContentHash: row.review_content_hash,
     isOwner,
     isLeader: isOwner || (row.member_role ?? "").toLowerCase() === "admin",
     previousAssigneeId: row.assignee_id ?? null,
@@ -165,11 +152,20 @@ export async function lockTaskForWrite(
 }
 
 type TaskLock = Awaited<ReturnType<typeof lockTaskForWrite>>;
-type TaskTransitionResult = {
+export type TaskTransitionResult = {
   updatedAt: Date;
   status: TaskStatus;
   reviewStatus: "none" | "pending" | "rejected";
   activityEventId: string | null;
+  outcome?:
+    | "submitted"
+    | "completed"
+    | "changes_requested"
+    | "approved"
+    | "moved";
+  reviewRequired?: boolean;
+  policyVersion?: number;
+  reviewReason?: string;
 };
 
 /**
@@ -185,6 +181,8 @@ export async function transitionTaskTx(
     status?: TaskStatus;
     columnId?: string;
     position?: number;
+    resubmit?: boolean;
+    reviewReason?: string;
   },
 ): Promise<TaskTransitionResult> {
   const column = await tx.query.projectWorkflowColumns.findFirst({
@@ -208,18 +206,42 @@ export async function transitionTaskTx(
     );
   const status = column.status as TaskStatus;
 
-  // Review lifecycle: entering done asks for review; leaving a pending review rejects it (leads only).
+  if (
+    !locked.isLeader &&
+    locked.previousAssigneeId &&
+    locked.previousAssigneeId !== input.userId
+  )
+    throw new Error("Only the assignee or a project lead can move this task.");
+  if (input.resubmit && locked.reviewStatus !== "pending")
+    throw new Error("Task is not pending review. Reload before submitting.");
   let reviewStatus = locked.reviewStatus;
-  if (status === "done" && locked.currentStatus !== "done") {
-    reviewStatus = "pending";
-  } else if (locked.reviewStatus === "pending" && status !== "done") {
-    if (!locked.isOwner)
+  let outcome: TaskTransitionResult["outcome"] = "moved";
+  if (locked.reviewStatus === "pending" && status !== "done") {
+    if (!locked.isLeader)
+      throw new Error("Only project leads can request changes.");
+    if (status !== "in_progress" || !input.reviewReason?.trim())
       throw new Error(
-        "Only project leads can move a task out of pending review.",
+        "Use Request changes and provide a reason to return this task to In progress.",
       );
     reviewStatus = "rejected";
-  }
+    outcome = "changes_requested";
+  } else if (
+    status === "done" &&
+    (locked.currentStatus !== "done" || input.resubmit)
+  ) {
+    // Turning the setting off never approves an existing pending submission.
+    reviewStatus =
+      locked.reviewRequired || locked.reviewStatus === "pending"
+        ? "pending"
+        : "none";
+    outcome = reviewStatus === "pending" ? "submitted" : "completed";
+  } else if (status !== "done" && reviewStatus !== "rejected")
+    reviewStatus = "none";
 
+  const reviewContentHash =
+    outcome === "submitted"
+      ? await taskReviewSnapshot(tx, input.taskId, true)
+      : undefined;
   const updatedAt = new Date();
   await tx
     .update(tasks)
@@ -227,6 +249,26 @@ export async function transitionTaskTx(
       workflowColumnId: column.id,
       status,
       reviewStatus,
+      ...(outcome === "submitted" && {
+        reviewSubmittedAt: updatedAt,
+        reviewContentHash,
+        completedAt: null,
+        completedBy: null,
+        completionSource: null,
+      }),
+      ...(outcome === "completed" && {
+        completedAt: updatedAt,
+        completedBy: input.userId,
+        completionSource: "direct" as const,
+        reviewSubmittedAt: null,
+        reviewContentHash: null,
+      }),
+      ...(status !== "done" && {
+        completedAt: null,
+        completedBy: null,
+        completionSource: null,
+        reviewContentHash: null,
+      }),
       ...(input.position !== undefined && { position: input.position }),
       updatedAt,
     })
@@ -235,7 +277,7 @@ export async function transitionTaskTx(
   const statusChanged = locked.currentStatus !== status;
   const columnChanged = locked.currentWorkflowColumnId !== column.id;
   let activityEventId: string | null = null;
-  if (statusChanged || columnChanged) {
+  if (statusChanged || columnChanged || input.resubmit || outcome === "changes_requested") {
     const [event] = await tx
       .insert(taskActivityEvents)
       .values({
@@ -243,29 +285,53 @@ export async function transitionTaskTx(
         projectId: locked.projectId,
         sprintId: locked.previousSprintId,
         actorId: input.userId,
-        eventType: statusChanged ? "status_changed" : "workflow_column_changed",
-        payload: statusChanged
-          ? {
-              version: 1,
-              taskTitle: locked.title,
-              taskNumber: locked.taskNumber,
-              taskStatus: status,
-              from: locked.currentStatus,
-              to: status,
-            }
-          : {
-              version: 1,
-              taskTitle: locked.title,
-              taskNumber: locked.taskNumber,
-              fromColumnId: locked.currentWorkflowColumnId,
-              toColumnId: column.id,
-              toColumnTitle: column.title,
-            },
+        eventType:
+          outcome === "submitted"
+            ? "review_submitted"
+            : outcome === "changes_requested"
+              ? "changes_requested"
+              : statusChanged
+                ? "status_changed"
+                : "workflow_column_changed",
+        payload:
+          statusChanged || input.resubmit || outcome === "changes_requested"
+            ? {
+                version: 1,
+                outcome,
+                reviewRequired: locked.reviewRequired,
+                policyVersion: locked.policyVersion,
+                ...(input.reviewReason && {
+                  reason: input.reviewReason.trim(),
+                }),
+                ...(reviewContentHash && { reviewContentHash }),
+                taskTitle: locked.title,
+                taskNumber: locked.taskNumber,
+                taskStatus: status,
+                from: locked.currentStatus,
+                to: status,
+              }
+            : {
+                version: 1,
+                taskTitle: locked.title,
+                taskNumber: locked.taskNumber,
+                fromColumnId: locked.currentWorkflowColumnId,
+                toColumnId: column.id,
+                toColumnTitle: column.title,
+              },
       })
       .returning({ id: taskActivityEvents.id });
     activityEventId = event?.id ?? null;
   }
-  return { updatedAt, status, reviewStatus, activityEventId };
+  return {
+    updatedAt,
+    status,
+    reviewStatus,
+    activityEventId,
+    outcome,
+    reviewRequired: locked.reviewRequired,
+    policyVersion: locked.policyVersion,
+    reviewReason: input.reviewReason?.trim(),
+  };
 }
 
 /** Post-commit effects of a transition, identical for every caller: counters, attention, file warnings. */
@@ -299,12 +365,21 @@ export async function afterTaskTransition(
           .then((rows) =>
             getTaskFileWarnings({ status: result.status, attachments: rows }),
           )
+          .catch((error) => {
+            logger.error("tasks.file_warnings_failed", {
+              taskId,
+              error: String(error),
+            });
+            return [];
+          })
       : [];
 
   await queueCounterRefreshBestEffort([locked.previousAssigneeId]);
   if (
-    (result.status === "blocked" || result.status === "done") &&
-    result.status !== locked.currentStatus &&
+    (result.status !== locked.currentStatus ||
+      result.outcome === "submitted" ||
+      result.outcome === "approved" ||
+      result.outcome === "changes_requested") &&
     result.activityEventId
   ) {
     const recipients = new Set<string>();
@@ -312,6 +387,28 @@ export async function afterTaskTransition(
     if (locked.previousAssigneeId && locked.previousAssigneeId !== user.id)
       recipients.add(locked.previousAssigneeId);
     try {
+      if (result.outcome === "submitted") {
+        recipients.add(locked.ownerId);
+        const leads = await db.query.projectMembers.findMany({
+          where: and(
+            eq(projectMembers.projectId, locked.projectId),
+            eq(projectMembers.role, "admin"),
+          ),
+          columns: { userId: true },
+        });
+        for (const lead of leads) recipients.add(lead.userId);
+      }
+      recipients.delete(user.id);
+      const outcomeText =
+        result.reviewStatus === "pending"
+          ? "submitted a task for review"
+          : result.outcome === "changes_requested"
+            ? "requested changes on a task"
+            : result.outcome === "approved"
+              ? "approved and completed a task"
+              : result.status === "done"
+                ? "completed a task"
+                : `moved a task to ${result.status.replaceAll("_", " ")}`;
       const actor = taskActorSnapshot(user);
       await enqueueProjectNotificationEvent({
         projectId: locked.projectId,
@@ -319,21 +416,25 @@ export async function afterTaskTransition(
         ...actor,
         eventKey: "tasks.status_attention",
         taskParticipantIds: Array.from(recipients),
-        title: `${actor.actorName || "Someone"} marked a task ${result.status === "blocked" ? "as an issue" : "done"}`,
-        body: locked.title,
+        title: `${actor.actorName || "Someone"} ${outcomeText}`,
+        body: result.reviewReason
+          ? `${locked.title} — Changes requested: ${result.reviewReason}`
+          : locked.title,
         href: projectTaskHref(locked.projectSlug || locked.projectId, taskId),
         entityRefs: {
           projectId: locked.projectId,
           projectSlug: locked.projectSlug ?? null,
           taskId,
           status: result.status,
+          reviewStatus: result.reviewStatus,
         },
         preview: {
           actorName: actor.actorName,
           actorAvatarUrl: actor.actorAvatarUrl,
           contextLabel: taskContextLabel(locked.projectKey, locked.taskNumber),
           contextKind: "task",
-          secondaryText: result.status === "blocked" ? "issue" : result.status,
+          secondaryText:
+            result.reviewStatus === "pending" ? "In review" : result.status,
         },
         // COR-028: one id per transition, so becoming blocked/done again notifies again.
         sourceEventId: result.activityEventId,

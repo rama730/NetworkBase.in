@@ -25,6 +25,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { useOpenSettingsSections } from '@/components/settings/ui/SettingsSectionLayout';
 import { fetchLinkPreview, useLinkPreview } from '@/hooks/useLinkPreview';
 import { normalizeLinkDestinationTitle } from '@/lib/links/destination-title';
 import {
@@ -156,6 +157,7 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
     onPendingChange,
     commitContext = 'settings',
 }, ref) {
+    const openSections = useOpenSettingsSections();
     const draft = useMemo(() => hydrateProjectSocialLinks(links, health), [health, links]);
     const saved = useMemo(() => savedLinks === undefined ? null : socialLinkItemsFromStorage(savedLinks), [savedLinks]);
     const [url, setUrl] = useState('');
@@ -410,7 +412,7 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
                     <div
                         key={repo.id}
                         data-testid={`project-managed-repo-${repo.id}`}
-                        className="flex min-w-0 items-center gap-3 rounded-lg border border-border bg-card px-3.5 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
+                        className={openSections ? "flex min-w-0 items-center gap-3 border-b border-border py-3" : "flex min-w-0 items-center gap-3 rounded-lg border border-border bg-card px-3.5 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.03)]"}
                     >
                         <ProjectLinkIcon link={repo} className="h-4 w-4 text-muted-foreground" />
                         <span className="min-w-0 flex-1">
@@ -436,7 +438,7 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
                 <SortableLinkList
                     items={draft}
                     disabled={disabled}
-                    className="min-w-0 max-w-full divide-y divide-border overflow-hidden rounded-lg border border-border bg-card"
+                    className={openSections ? "min-w-0 max-w-full divide-y divide-border" : "min-w-0 max-w-full divide-y divide-border overflow-hidden rounded-lg border border-border bg-card"}
                     itemClassName="flex min-w-0 max-w-full items-center gap-2.5 overflow-hidden bg-card px-3.5 py-2.5 text-sm transition-colors hover:bg-muted/30"
                     handleClassName="-ml-1 text-muted-foreground hover:text-foreground"
                     getItemLabel={(item) => {
@@ -592,6 +594,7 @@ export function ProjectLinksManager({
     const hasUnsavedChanges = changeCount > 0 || hasComposerDraft;
 
     useEffect(() => {
+        if (mode === 'inline' && hasUnsavedChanges) return;
         if (mode === 'inline' || open) {
             const next = hydrateProjectSocialLinks(links, health ?? {});
             setDraft(next);
@@ -625,6 +628,8 @@ export function ProjectLinksManager({
             onOpenChange?.(false);
             router.refresh();
             toast.success('Project links saved');
+        } catch (error) {
+            setSaveError(error instanceof Error ? error.message : 'Unable to save project links. Your changes are retained.');
         } finally {
             setSaving(false);
         }
@@ -658,7 +663,7 @@ export function ProjectLinksManager({
                 projectType={projectType}
                 disabled={saving}
             />
-            {saveError ? <p role="alert" className="break-words text-sm text-red-600">{saveError}</p> : null}
+            {saveError ? <p role="alert" className="break-words text-sm text-destructive">{saveError}</p> : null}
         </div>
     );
 
@@ -668,7 +673,7 @@ export function ProjectLinksManager({
                 <div className="space-y-4">
                     {content}
                 </div>
-                <div className="-mx-6 -mb-6 mt-6 flex flex-col gap-3 border-t border-border bg-muted/10 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="mt-6 flex flex-col gap-3 border-t border-border py-4 sm:flex-row sm:items-center sm:justify-between">
                     <p className="nb-compact text-muted-foreground">
                         {hasUnsavedChanges
                             ? `You have unsaved changes in project links (${changeCount + (hasComposerDraft ? 1 : 0)} pending).`

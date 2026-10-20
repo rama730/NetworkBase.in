@@ -8,14 +8,15 @@ import type { SprintDetailPayload } from '@/lib/projects/sprint-detail';
 import { mergeSprintTimelineRows } from '@/lib/projects/sprint-timeline';
 import { normalizeTaskSurfaceRecord } from '@/lib/projects/task-presentation';
 
-export type ProjectTaskScope = 'all' | 'backlog' | 'sprint';
+export type ProjectTaskScope = 'all' | 'backlog' | 'sprint' | 'review';
 
-const normalizeScope = (scope: ProjectTaskScope): ProjectTaskScope => (scope === 'backlog' || scope === 'sprint' ? scope : 'all');
+const normalizeScope = (scope: ProjectTaskScope): ProjectTaskScope => (scope === 'backlog' || scope === 'sprint' || scope === 'review' ? scope : 'all');
 
 const filterTasksByScope = (tasks: any[], scope: ProjectTaskScope) => {
     if (!Array.isArray(tasks) || tasks.length === 0) return [];
     const normalized = tasks.map(normalizeTaskSurfaceRecord);
     if (scope === 'backlog') return normalized.filter((task) => !task.sprintId);
+    if (scope === 'review') return normalized.filter((task) => task.reviewStatus === 'pending');
     if (scope === 'sprint') return normalized.filter((task) => !!task.sprintId);
     return normalized;
 };

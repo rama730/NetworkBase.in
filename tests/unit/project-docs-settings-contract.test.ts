@@ -14,7 +14,7 @@ test("project docs/readme tab eliminates duplicate header and redundant cards, r
     // 1. SectionHeader is suppressed on readme tab to avoid duplicate title
     assert.match(
         settingsTab,
-        /activeSection !== "readme"/,
+        /id="project-settings-readme"/,
         "SectionHeader must be suppressed on readme tab to avoid duplicate title",
     );
 

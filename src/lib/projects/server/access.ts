@@ -402,7 +402,7 @@ async function readProjectAccessImpactCounts(projectId: string) {
         and(
           eq(tasks.projectId, projectId),
           isNull(tasks.deletedAt),
-          sql`${tasks.status} <> 'done'`,
+          sql`(${tasks.status} <> 'done' OR ${tasks.reviewStatus} = 'pending')`,
         ),
       )
       .limit(1),

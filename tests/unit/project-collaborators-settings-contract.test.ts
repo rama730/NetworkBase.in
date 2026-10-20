@@ -8,14 +8,14 @@ function source(relativePath: string) {
   return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
-test("project collaborators tab eliminates duplicate headers and renders a single unified canonical SettingsCard", () => {
+test("project collaborators tab eliminates duplicate headers and renders one unified open section", () => {
   const settingsTab = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
   // SectionHeader is suppressed on collaborators tab to avoid duplicate title
-  assert.match(settingsTab, /activeSection !== "collaborators"/, "SectionHeader must be suppressed on collaborators tab to avoid duplicate title");
+  assert.match(settingsTab, /id="project-settings-collaborators"/, "SectionHeader must be suppressed on collaborators tab to avoid duplicate title");
 
   // Extract collaborators section block
-  const collaboratorsBlock = settingsTab.split('activeSection === "collaborators" && (')[1]?.split('activeSection === "roles-applications"')[0] ?? "";
+  const collaboratorsBlock = settingsTab.split('id="project-settings-collaborators"')[1]?.split('id="project-settings-roles-applications"')[0] ?? "";
   assert.ok(collaboratorsBlock.length > 0, "Collaborators settings block must exist in ProjectSettingsTab");
 
   // Redundant SummaryCard, AdvancedDisclosure, and Role summary removed
@@ -36,6 +36,6 @@ test("project collaborators tab eliminates duplicate headers and renders a singl
   // Team search input, role filter pills, and empty state
   assert.match(collaboratorsBlock, /aria-label="Filter collaborators by role"/, "Role filter tablist must exist");
   assert.match(collaboratorsBlock, /<CollaboratorSearchField onCommit=\{setCollaboratorSearch\} \/>/, "Collaborator search input must exist");
-  assert.match(source("src/components/projects/settings/CollaboratorSearchField.tsx"), /aria-label="Search collaborators"/, "Collaborator search input must be labelled");
+  assert.match(source("src/components/projects/settings/CollaboratorSearchField.tsx"), /label = "Search collaborators"/, "Collaborator search input must be labelled");
   assert.match(collaboratorsBlock, /No collaborators found/, "Team Directory must have empty state when filtered");
 });

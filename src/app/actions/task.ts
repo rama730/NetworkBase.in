@@ -1,7 +1,7 @@
 "use server";
 import { requireAuthenticatedUser } from "@/app/api/v1/_shared";
 
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
@@ -40,6 +40,8 @@ import {
   updateTaskFieldSchema,
 } from "@/lib/validations/task";
 
+import { canReadProjectTab, getProjectAccessById } from "@/lib/data/project-access";
+import { taskReviewSnapshot } from "@/lib/projects/task-review-snapshot";
 import { taskActorSnapshot, taskContextLabel, lockTaskForWrite, transitionTaskTx, afterTaskTransition } from "@/lib/projects/task-transition-service";
 
 type Priority = "low" | "medium" | "high" | "urgent";
@@ -320,9 +322,8 @@ export async function updateTaskFieldAction(
 }
 
 async function requireTaskWriter() {
-  const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) return null;
+  const { user } = await requireAuthenticatedUser();
+  if (!user) return null;
   const { allowed } = await consumeRateLimit(`task:${user.id}`, 60, 60);
   if (!allowed) throw new Error("Rate limit exceeded");
   return user;
@@ -368,6 +369,10 @@ export async function updateTaskStatusAction(
       warnings,
       updatedAt: result.updatedAt.toISOString(),
       reviewStatus: result.reviewStatus,
+      status: result.status,
+      outcome: result.outcome,
+      reviewRequired: result.reviewRequired,
+      policyVersion: result.policyVersion,
     };
   } catch (error: any) {
     console.error("Unexpected error:", error);
@@ -414,6 +419,10 @@ export async function moveTaskToWorkflowColumnAction(
       success: true as const,
       updatedAt: result.updatedAt.toISOString(),
       reviewStatus: result.reviewStatus,
+      status: result.status,
+      outcome: result.outcome,
+      reviewRequired: result.reviewRequired,
+      policyVersion: result.policyVersion,
       warnings,
     };
   } catch (error) {
@@ -601,18 +610,22 @@ export async function approveTaskReviewAction(
   expectedUpdatedAt?:string,
 ) {
   try {
-    const {user}=await requireAuthenticatedUser();
+    if (!z.string().uuid().safeParse(taskId).success || !z.string().uuid().safeParse(projectId).success || (expectedUpdatedAt && !z.string().datetime().safeParse(expectedUpdatedAt).success)) return { success: false, error: "Invalid task review request" };
+    const user = await requireTaskWriter();
     if (!user) return { success: false, error: "Unauthorized" };
 
     const result = await db.transaction(async (tx) => {
       const locked = await lockTaskForWrite(tx, taskId, user.id);
       if (locked.projectId !== projectId) throw new Error("Task mismatch");
       if(expectedUpdatedAt && locked.currentUpdatedAt.getTime()!==new Date(expectedUpdatedAt).getTime()) throw new Error("Task changed elsewhere. Reload before approving.");
-      if (!locked.isOwner)
+      if (!locked.isLeader)
         return { error: "Only project leads can approve tasks" } as const;
-      if (locked.reviewStatus !== "pending")
+      if (locked.reviewStatus !== "pending" || locked.currentStatus !== "done")
         throw new Error("Task is not pending review");
 
+      const snapshot = await taskReviewSnapshot(tx, taskId, true);
+      if (!locked.reviewContentHash || locked.reviewContentHash !== snapshot)
+        throw new Error("Task requirements, subtasks or files changed after submission. Ask the assignee to resubmit before approving.");
       const updatedAt = new Date();
       const linkedFiles = await tx
         .select({
@@ -649,17 +662,64 @@ export async function approveTaskReviewAction(
         .update(tasks)
         .set({
           reviewStatus: "none",
+          completedAt: updatedAt,
+          completedBy: user.id,
+          completionSource: "review",
           updatedAt,
         })
         .where(eq(tasks.id, taskId));
 
-      return { updatedAt } as const;
+      const [event] = await tx.insert(taskActivityEvents).values({ taskId, projectId, sprintId: locked.previousSprintId, actorId: user.id, eventType: "review_approved", payload: { version: 1, taskTitle: locked.title, taskNumber: locked.taskNumber, taskStatus: "done", from: "in_review", to: "done", reviewContentHash: snapshot } }).returning({ id: taskActivityEvents.id });
+      return { updatedAt, locked, activityEventId: event?.id ?? null } as const;
     });
 
     if ("error" in result) return { success: false, error: result.error };
-    revalidatePath(`/projects/${projectId}`);
-    return { success: true, updatedAt: result.updatedAt.toISOString() };
+    await afterTaskTransition(user, result.locked, taskId, { updatedAt: result.updatedAt, status: "done", reviewStatus: "none", activityEventId: result.activityEventId, outcome: "approved" });
+    return { success: true, updatedAt: result.updatedAt.toISOString(), outcome: "approved" as const };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to approve task" };
   }
+}
+
+/** Explicit review actions cannot be bypassed with a generic status move. */
+export async function requestTaskChangesAction(taskId: string, projectId: string, reason: string, expectedUpdatedAt: string) {
+  return performTaskReviewAction(taskId, projectId, expectedUpdatedAt, { reviewReason: reason });
+}
+
+export async function resubmitTaskReviewAction(taskId: string, projectId: string, expectedUpdatedAt: string) {
+  return performTaskReviewAction(taskId, projectId, expectedUpdatedAt, { resubmit: true });
+}
+
+async function performTaskReviewAction(taskId: string, projectId: string, expectedUpdatedAt: string, action: { resubmit?: boolean; reviewReason?: string }) {
+  try {
+    if (!z.object({ taskId: z.string().uuid(), projectId: z.string().uuid(), expectedUpdatedAt: z.string().datetime() }).safeParse({ taskId, projectId, expectedUpdatedAt }).success) throw new Error("Invalid task review request");
+    if (!action.resubmit) action.reviewReason = z.string().trim().min(1, "Explain the requested changes").max(2000).parse(action.reviewReason);
+    const user = await requireTaskWriter();
+    if (!user) throw new Error("Unauthorized");
+    const { locked, result } = await db.transaction(async (tx) => {
+      const locked = await lockTaskForWrite(tx, taskId, user.id);
+      if (locked.projectId !== projectId) throw new Error("Task mismatch");
+      if (!expectedUpdatedAt || locked.currentUpdatedAt.getTime() !== new Date(expectedUpdatedAt).getTime()) throw new Error("Task changed elsewhere. Reload before retrying.");
+      if (locked.reviewStatus !== "pending") throw new Error("Task is not pending review");
+      const result = await transitionTaskTx(tx, locked, { taskId, userId: user.id, status: action.resubmit ? "done" : "in_progress", ...action });
+      return { locked, result };
+    });
+    await afterTaskTransition(user, locked, taskId, result);
+    return { success: true as const, updatedAt: result.updatedAt.toISOString(), reviewStatus: result.reviewStatus, status: result.status, outcome: result.outcome };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Review update failed" };
+  }
+}
+
+export async function getTaskReviewStateAction(taskId: string, projectId: string) {
+  try {
+    const { user } = await requireAuthenticatedUser();
+    const access = await getProjectAccessById(projectId, user?.id ?? null);
+    if (!canReadProjectTab(access, "tasks")) throw new Error("Forbidden");
+    const task = await db.query.tasks.findFirst({ where: and(eq(tasks.id, taskId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt)) });
+    if (!task) throw new Error("Task not found");
+    const changed = task.reviewStatus === "pending" && (!task.reviewContentHash || task.reviewContentHash !== await taskReviewSnapshot(db, taskId));
+    const latest = task.reviewStatus === "rejected" ? await db.query.taskActivityEvents.findFirst({ where: and(eq(taskActivityEvents.taskId, taskId), eq(taskActivityEvents.eventType, "changes_requested")), orderBy: [desc(taskActivityEvents.createdAt)] }) : null;
+    return { success: true as const, changed, submittedAt: task.reviewSubmittedAt?.toISOString() ?? null, completedAt: task.completedAt?.toISOString() ?? null, reason: typeof latest?.payload?.reason === "string" ? latest.payload.reason : null };
+  } catch (error) { return { success: false as const, error: error instanceof Error ? error.message : "Unable to load review" }; }
 }

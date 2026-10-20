@@ -569,10 +569,13 @@ export default function TaskDetailPanel({
                   onUpdateField={resource.taskMutations.updateField}
                   onUpdateStatus={resource.taskMutations.updateStatus}
                   onUpdateAssignee={resource.taskMutations.updateAssignee}
-                  onReviewApproved={(updatedAt) =>
+                  onReviewApproved={(updatedAt, status = "done", reviewStatus = "none") =>
                     onTaskUpdated?.({
                       ...resource.task,
-                      reviewStatus: "none",
+                      status,
+                      reviewStatus,
+                      completedAt: status === "done" && reviewStatus === "none" ? updatedAt : null,
+                      ...(reviewStatus === "pending" ? { reviewSubmittedAt: updatedAt } : {}),
                       updatedAt,
                     })
                   }

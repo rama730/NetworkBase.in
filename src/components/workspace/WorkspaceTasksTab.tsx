@@ -117,7 +117,7 @@ function TaskRow({
             )}
         >
             <div className="flex min-w-0 flex-1 items-center gap-2">
-                <TaskStatusBadge status={taskRecord.status} className="shrink-0" />
+                <TaskStatusBadge status={taskRecord.status} reviewStatus={taskRecord.reviewStatus} className="shrink-0" />
                 <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
                     {task.title}
                 </span>
@@ -126,7 +126,7 @@ function TaskRow({
             <div className="flex shrink-0 items-center gap-2">
                 <TaskPriorityBadge priority={taskRecord.priority} className="hidden sm:inline-flex" />
 
-                {hasValidDueDate && taskRecord.status !== "done" && (
+                {hasValidDueDate && (taskRecord.status !== "done" || taskRecord.reviewStatus === "pending") && (
                     <div
                         className={cn(
                             "flex items-center gap-1 rounded-[3px] border px-1.5 py-0.5 font-mono text-[10px] max-md:text-[11px] font-semibold",

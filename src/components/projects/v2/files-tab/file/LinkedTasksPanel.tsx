@@ -194,7 +194,7 @@ function LinkedTaskRow({
         data-testid={`linked-task-row-open-${task.taskId}`}
       >
         <div className="flex items-start gap-2">
-          <StatusDot status={task.status} />
+          <StatusDot status={task.reviewStatus === "pending" ? "in_review" : task.status} />
           <div className="min-w-0 flex-1">
             <div
               className={cn(
@@ -207,7 +207,7 @@ function LinkedTaskRow({
             </div>
             <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
               <span className="capitalize">
-                {task.status.replace(/_/g, " ")}
+                {task.reviewStatus === "pending" ? "In review" : task.status.replace(/_/g, " ")}
               </span>
               {task.assigneeName && (
                 <>
@@ -314,6 +314,7 @@ function LinkedTaskRow({
 function StatusDot({ status }: { status: string }): React.JSX.Element {
   const colorClass = React.useMemo(() => {
     switch (status) {
+      case "in_review": return "bg-amber-500";
       case "done":
         return "bg-emerald-500";
       case "in_progress":

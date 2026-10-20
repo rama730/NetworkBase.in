@@ -114,7 +114,7 @@ export function LifecycleSettingsEditor({
             }
         >
             <div className="space-y-6">
-                <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/20 p-4">
+                <div className="flex items-start gap-3 border-b border-border pb-4">
                     <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                     <div className="space-y-1">
                         <p className="nb-ui-label text-foreground">Lifecycle roadmap alignment</p>
@@ -127,7 +127,7 @@ export function LifecycleSettingsEditor({
                 <BaseLifecycleEditor
                     key={editorKey}
                     stages={stages}
-                    disabled={!isOwner}
+                    disabled={!isOwner || isSaving}
                     onChange={(next, current) => {
                         if (!isOwner) return;
                         setStages(next);

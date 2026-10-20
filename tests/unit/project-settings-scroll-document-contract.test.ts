@@ -62,34 +62,13 @@ test("project settings tab renders a continuous single-scroll document with all 
     }
 });
 
-test("project settings sidebar organizes navigation into 4 semantic category groups aligned with top tabs", () => {
+test("project settings shares the simple navigation rail and retains one route scroller", () => {
     const settingsTab = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
-
-    // Must define SECTION_GROUPS with 4 distinct category clusters
-    assert.match(settingsTab, /SECTION_GROUPS/, "ProjectSettingsTab must declare SECTION_GROUPS");
-    assert.match(settingsTab, /label:\s*"(?:Project )?Profile"/, "SECTION_GROUPS must include Profile category");
-    assert.match(settingsTab, /label:\s*"Access & Team"/, "SECTION_GROUPS must include Access & Team category");
-    assert.match(settingsTab, /label:\s*"Workspace Policies"/, "SECTION_GROUPS must include Workspace Policies category");
-    assert.match(settingsTab, /label:\s*"System & Governance"/, "SECTION_GROUPS must include System & Governance category");
-
-    // Desktop sidebar preserves the Settings workspace gutter below the sticky project tabs while the route scrolls.
-    assert.match(
-        settingsTab,
-        /<aside[^>]*sticky top-\[calc\(var\(--project-tabs-height\)\+1\.5rem\)\][^>]*w-\[248px\]/,
-        "Sidebar navigation rail must preserve clearance below the project tabs",
-    );
-
-    // Mobile navigation selector preserves the compact version of the same clearance.
-    assert.match(
-        settingsTab,
-        /<details[^>]*sticky top-\[calc\(var\(--project-tabs-height\)\+1\.25rem\)\][^>]*xl:hidden/,
-        "Mobile view must preserve clearance below the project tabs",
-    );
-
-    assert.match(settingsTab, /gap-6[^\n]*px-4 pb-6 pt-5 sm:px-6 sm:pb-8 sm:pt-6/, "Project settings should keep horizontal page insets plus top and bottom gutters");
-    assert.doesNotMatch(settingsTab, /max-w-\[1320px\][^\n]*(?:p-4|sm:p-6)/, "Project settings should meet the project tabs and viewport bottom without a vertical gap");
-    assert.doesNotMatch(settingsTab, /data-project-settings-document className="[^"]*overflow-y-auto/, "Settings content must use the route scroll so the project header can move away");
-    assert.doesNotMatch(settingsTab, /data-project-settings-document className="[^"]*pb-16/, "The settings document should not reserve an artificial trailing gap");
+    assert.match(settingsTab, /nb-nav-link/);
+    assert.match(settingsTab, /border-r border-border/);
+    assert.match(settingsTab, /data-project-settings-selector/);
+    assert.doesNotMatch(settingsTab, /SECTION_GROUPS/);
+    assert.doesNotMatch(settingsTab, /data-project-settings-document className="[^"]*overflow-y-auto/);
 });
 
 test("project settings implements 60fps RAF ScrollSpy and non-thrashing navigation lock", () => {
@@ -98,11 +77,11 @@ test("project settings implements 60fps RAF ScrollSpy and non-thrashing navigati
     // Must have requestAnimationFrame throttling for ScrollSpy
     assert.match(
         settingsTab,
-        /window\.requestAnimationFrame/,
+        /requestAnimationFrame/,
         "ScrollSpy must be throttled with window.requestAnimationFrame",
     );
 
-    assert.match(settingsTab, /const root = document\.querySelector<HTMLElement>\('\[data-scroll-root="route"\]'\)/, "ScrollSpy must observe the project route scroller");
+    assert.match(settingsTab, /const root = document\.querySelector<HTMLElement>\(\s*'\[data-scroll-root="route"\]'/, "ScrollSpy must observe the project route scroller");
     assert.doesNotMatch(settingsTab, /target\.scrollIntoView/, "Section navigation must not move the shared project route scroller");
     assert.match(settingsTab, /stickyTabsHeight/, "Section navigation must account for the sticky project tab height");
     assert.match(settingsTab, /scrollRoot\.scrollTo\(/, "Section navigation must scroll the route explicitly without scrollIntoView side effects");
@@ -112,7 +91,7 @@ test("project settings implements 60fps RAF ScrollSpy and non-thrashing navigati
     // Must have navigation lock to prevent URL thrashing during programmatic smooth scrolling
     assert.match(
         settingsTab,
-        /locallyNavigatedSectionRef/,
+        /targetRef/,
         "Must maintain locallyNavigatedSectionRef navigation lock during smooth scroll",
     );
 

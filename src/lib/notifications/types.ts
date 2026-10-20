@@ -107,6 +107,7 @@ export type NotificationEntityRefs = {
     previousRole?: string | null;
     nextRole?: string | null;
     status?: string | null;
+    reviewStatus?: string | null;
     createdAt?: string | null;
 };
 

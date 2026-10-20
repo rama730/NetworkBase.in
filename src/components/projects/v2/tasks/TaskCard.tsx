@@ -177,7 +177,7 @@ export const TaskCard = memo(function TaskCard({
 
         {/* Keep the card compact: stable status first (if enabled), then semantic labels without a horizontal scroller. */}
         <div className="flex min-h-6 min-w-0 flex-wrap items-center gap-1.5">
-          {showStatus && (
+          {showStatus && taskRecord.reviewStatus !== "pending" && (
             <TaskStatusBadge status={taskRecord.status} className="shrink-0" />
           )}
           <div className="shrink-0">
@@ -265,7 +265,7 @@ export const TaskCard = memo(function TaskCard({
           </div>
 
           <div className="flex shrink-0 items-center gap-1.5">
-            {hasValidDueDate && taskRecord.status !== "done" && (
+            {hasValidDueDate && !titlePresentation.isCompleted && (
               <div
                 className={cn(
                   "flex items-center gap-1 rounded-[3px] border px-1.5 py-0.5 font-mono text-[11px] font-semibold",

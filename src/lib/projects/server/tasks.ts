@@ -1,3 +1,4 @@
+import { lockTaskForWrite, transitionTaskTx, afterTaskTransition } from "@/lib/projects/task-transition-service";
 import "server-only";
 
 import { type ProjectAccess, getProjectAccessById, canReadProjectTab, ProjectTabForbiddenError, getProjectAccessByIdentifier, assertProjectTabReadAccess } from "@/lib/data/project-access";
@@ -95,14 +96,14 @@ async function fetchProjectTasksForActor(
   actorId: string | null,
   limit: number = 100,
   cursor?: string,
-  scope: "all" | "backlog" | "sprint" = "all",
+  scope: "all" | "backlog" | "sprint" | "review" = "all",
   search: string = "",
   authorizedAccess?: ProjectAccess,
   surface: "full" | "preview" = "full",
 ) {
   const safeLimit = Math.min(Math.max(limit, 1), 200);
   const normalizedScope =
-    scope === "backlog" || scope === "sprint" ? scope : "all";
+    scope === "backlog" || scope === "sprint" || scope === "review" ? scope : "all";
   const normalizedSearch = normalizeSearchQuery(search);
   const searchPattern = normalizedSearch
     ? containsLikePattern(normalizedSearch)
@@ -198,6 +199,7 @@ async function fetchProjectTasksForActor(
                 )
               : undefined,
             pageCursor,
+            normalizedScope === "review" ? eq(t.reviewStatus, "pending") : undefined,
             normalizedScope === "backlog"
               ? isNull(t.sprintId)
               : normalizedScope === "sprint"
@@ -235,6 +237,8 @@ async function fetchProjectTasksForActor(
           description: surface === "full",
           status: true,
           reviewStatus: true,
+        reviewSubmittedAt: true,
+        completedAt: true,
           position: true,
           priority: true,
           taskNumber: true,
@@ -427,7 +431,7 @@ export async function fetchProjectTasksAction(
   projectId: string,
   limit: number = 100,
   cursor?: string,
-  scope: "all" | "backlog" | "sprint" = "all",
+  scope: "all" | "backlog" | "sprint" | "review" = "all",
   search: string = "",
 ) {
   try {
@@ -692,6 +696,8 @@ export async function getProjectTaskDetailAction(
         description: true,
         status: true,
         reviewStatus: true,
+        reviewSubmittedAt: true,
+        completedAt: true,
         position: true,
         priority: true,
         taskNumber: true,
@@ -971,7 +977,7 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
       const defaultColumn = await tx.query.projectWorkflowColumns.findFirst({
         where: and(
           eq(projectWorkflowColumns.projectId, validated.projectId),
-          eq(projectWorkflowColumns.status, validated.status),
+          eq(projectWorkflowColumns.status, validated.status === "done" ? "todo" : validated.status),
           eq(projectWorkflowColumns.isDefault, true),
         ),
         columns: { id: true },
@@ -985,7 +991,7 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
           projectId: validated.projectId,
           title: validated.title.trim(),
           description: validated.description?.trim() || null,
-          status: validated.status,
+          status: validated.status === "done" ? "todo" : validated.status,
           workflowColumnId: defaultColumn.id,
           // Top of its column (the board sorts position DESC) with room for drops between cards.
           position: sql`(SELECT COALESCE(MAX(position), 0) + 1024 FROM tasks WHERE workflow_column_id = ${defaultColumn.id} AND deleted_at IS NULL)`,
@@ -1106,8 +1112,14 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
         );
       }
 
-      return newTask;
+      const completion = validated.status === "done" ? await (async () => {
+        const locked = await lockTaskForWrite(tx, newTask.id, user.id);
+        const result = await transitionTaskTx(tx, locked, { taskId: newTask.id, userId: user.id, status: "done" });
+        return { locked, result };
+      })() : null;
+      return { ...newTask, completion };
     });
+    if (createdTask.completion) await afterTaskTransition(user, createdTask.completion.locked, createdTask.id, createdTask.completion.result);
 
     await wakeEmailWorker();
     await queueCounterRefreshBestEffort([validated.assigneeId ?? null]);
@@ -1125,6 +1137,8 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
         description: true,
         status: true,
         reviewStatus: true,
+        reviewSubmittedAt: true,
+        completedAt: true,
         priority: true,
         taskNumber: true,
         storyPoints: true,

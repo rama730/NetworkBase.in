@@ -145,6 +145,7 @@ export function SprintTimelineContent({
           const timeHealth = calculateTaskTimeHealth(
             {
               status: task.status,
+              reviewStatus: task.reviewStatus,
               dueDate: task.dueDate,
               completedAt: task.completedAt,
               updatedAt: task.updatedAt,
@@ -165,7 +166,7 @@ export function SprintTimelineContent({
           const titlePresentation = getTaskTitlePresentation(task);
           const isRemoved = task.isDeleted || task.membershipState === "historical";
           const isExpanded = expandedTaskId === task.id;
-          const isDone = task.status === "done" || titlePresentation.isCompleted;
+          const isDone = titlePresentation.isCompleted;
 
           return (
             <li key={task.id} className={cn("group flex flex-col transition-colors hover:bg-muted/40", isRemoved && "bg-muted/40 text-muted-foreground")}>
@@ -177,7 +178,7 @@ export function SprintTimelineContent({
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex items-center gap-2">
                     <span className={cn("inline-flex items-center rounded-[3px] px-2 py-0.5 font-mono text-[11px] font-medium uppercase tracking-[0.09em] ring-1 ring-inset", status.toneClassName)}>
-                      {status.label}
+                      {task.reviewStatus === "pending" ? "In review" : status.label}
                     </span>
                     {!isDone && timeHealth.state === "overdue" && (
                       <span className="inline-flex items-center rounded-[3px] border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.09em] text-destructive">

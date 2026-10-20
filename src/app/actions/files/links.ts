@@ -89,6 +89,7 @@ export interface LinkedTask {
     taskId: string;
     title: string;
     status: string;
+    reviewStatus?: string | null;
     priority: string;
     assigneeId: string | null;
     assigneeName: string | null;
@@ -114,6 +115,7 @@ export async function getTaskLinksForNode(projectId: string, nodeId: string): Pr
             taskId: tasks.id,
             title: tasks.title,
             status: tasks.status,
+            reviewStatus: tasks.reviewStatus,
             priority: tasks.priority,
             assigneeId: tasks.assigneeId,
             assigneeName: profiles.fullName,
@@ -130,6 +132,7 @@ export async function getTaskLinksForNode(projectId: string, nodeId: string): Pr
         taskId: r.taskId,
         title: r.title,
         status: r.status,
+        reviewStatus: r.reviewStatus,
         priority: r.priority,
         assigneeId: r.assigneeId,
         assigneeName: r.assigneeName,
@@ -315,6 +318,7 @@ export interface SearchableTask {
     id: string;
     title: string;
     status: string;
+    reviewStatus?: string | null;
     priority: string;
     taskNumber: number | null;
     projectKey: string | null;
@@ -339,6 +343,7 @@ export async function searchProjectTasks(
             id: tasks.id,
             title: tasks.title,
             status: tasks.status,
+            reviewStatus: tasks.reviewStatus,
             priority: tasks.priority,
             taskNumber: tasks.taskNumber,
             projectKey: projects.key,

@@ -23,13 +23,15 @@ import {
   afterTaskTransition,
 } from "@/lib/projects/task-transition-service";
 import { lockSubtaskWriteScope } from "@/lib/projects/subtask-write-scope";
-import { approveTaskReviewAction } from "@/app/actions/task";
+import { approveTaskReviewAction, requestTaskChangesAction, resubmitTaskReviewAction } from "@/app/actions/task";
 import {
   extensionReviewEvidenceSchema,
   classifyReportedCheck,
 } from "@/lib/extension/review-evidence";
 export const runtime = "nodejs";
 const inputSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("request_changes"), projectId: z.string().uuid(), taskId: z.string().uuid(), reason: z.string().trim().min(1).max(2000), expectedUpdatedAt: z.string().datetime() }),
+  z.object({ kind: z.literal("resubmit"), projectId: z.string().uuid(), taskId: z.string().uuid(), expectedUpdatedAt: z.string().datetime() }),
   z.object({
     kind: z.literal("approve"),
     projectId: z.string().uuid(),
@@ -65,9 +67,12 @@ export async function PATCH(request: Request) {
     if (!parsed.success)
       return jsonError("Invalid task update", 400, "BAD_REQUEST");
     const input = parsed.data;
-    const limit = await consumeRateLimit(`task:${user.id}`, 60, 60);
-    if (!limit.allowed)
-      return jsonError("Rate limit exceeded", 429, "RATE_LIMITED");
+    if (input.kind === "request_changes" || input.kind === "resubmit") {
+      const result = input.kind === "resubmit"
+        ? await resubmitTaskReviewAction(input.taskId, input.projectId, input.expectedUpdatedAt)
+        : await requestTaskChangesAction(input.taskId, input.projectId, input.reason, input.expectedUpdatedAt);
+      return result.success ? jsonSuccess(result) : jsonError(result.error || "Review update failed", 409, "CONFLICT");
+    }
     if (input.kind === "approve") {
       const result = await approveTaskReviewAction(
         input.taskId,
@@ -78,6 +83,9 @@ export async function PATCH(request: Request) {
         ? jsonSuccess(result)
         : jsonError(result.error || "Approval failed", 409, "CONFLICT");
     }
+    const limit = await consumeRateLimit(`task:${user.id}`, 60, 60);
+    if (!limit.allowed)
+      return jsonError("Rate limit exceeded", 429, "RATE_LIMITED");
     if (input.kind === "subtask") {
       const row = await db.transaction(async (tx) => {
         const taskId = await lockSubtaskWriteScope(
@@ -133,7 +141,7 @@ export async function PATCH(request: Request) {
       if (input.evidence) {
         if (input.status !== "done")
           throw new Error(
-            "Review evidence is only attached to an explicit review submission",
+            "Completion evidence is only attached to an explicit completion attempt",
           );
         for (const receipt of input.evidence.receipts) {
           const event = await tx.query.projectNodeEvents.findFirst({
@@ -158,7 +166,7 @@ export async function PATCH(request: Request) {
             projectId: input.projectId,
             sprintId: locked.previousSprintId,
             actorId: user.id,
-            eventType: "extension_review_evidence",
+            eventType: result.reviewStatus === "pending" ? "extension_review_evidence" : "extension_completion_evidence",
             payload: {
               version: 1,
               summary: input.evidence.summary,
@@ -175,6 +183,8 @@ export async function PATCH(request: Request) {
               receipts: input.evidence.receipts,
               expectedTaskVersion: input.expectedUpdatedAt,
               approval: false,
+              outcome: result.outcome,
+              reviewRequired: result.reviewRequired,
             },
           });
       }

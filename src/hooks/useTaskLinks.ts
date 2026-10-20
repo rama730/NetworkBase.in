@@ -7,6 +7,7 @@ export interface LinkedTask {
   taskId: string;
   title: string;
   status: string;
+  reviewStatus?: string | null;
   priority: string;
   assigneeId: string | null;
   assigneeName: string | null;

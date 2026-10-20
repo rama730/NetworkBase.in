@@ -8,7 +8,7 @@ import { getProjectAccessById } from "@/lib/data/project-access";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
 import { streamPrivateObject } from "@/lib/storage/private-object-response";
-import { jsonError } from "@/app/api/v1/_shared";
+import { jsonError, requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
 export const runtime = "nodejs";
@@ -28,8 +28,16 @@ export async function GET(
         return jsonError("Not found", 404, "NOT_FOUND");
     }
 
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // Browser images use cookies; the IDE host supplies its verified device bearer.
+    let user: { id: string } | null;
+    if (/^bearer(\s|$)/i.test(request.headers.get("authorization")?.trim() || "")) {
+        const auth = await requireAuthenticatedUser();
+        if (auth.response) return auth.response;
+        user = auth.user;
+    } else {
+        const supabase = await createClient();
+        user = (await supabase.auth.getUser()).data.user;
+    }
     // Access check and cover lookup don't depend on each other.
     const [access, [project]] = await Promise.all([
         getProjectAccessById(projectId, user?.id ?? null),

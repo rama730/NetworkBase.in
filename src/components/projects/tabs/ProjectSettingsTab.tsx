@@ -1,14 +1,14 @@
 "use client";
 
 import { useRoleApplicationCounts } from "@/hooks/useRoleApplicationCounts";
+import { TaskCompletionSettings } from "@/components/projects/settings/TaskCompletionSettings";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Archive, Bell, ChevronDown, Crown, FileText, Folder, Globe, Link2, Loader2, Lock, Newspaper, RefreshCw, Scale, Settings, Shield, Trash2, UserCog, Users, Workflow } from "lucide-react";
+import { Archive, Crown, Loader2, Lock, RefreshCw, Shield, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
@@ -61,6 +61,10 @@ import {
 import { ProjectRolesEditor } from "@/components/projects/settings/ProjectRolesEditor";
 import { ProjectLinksManager } from "@/components/projects/dashboard/ProjectSocialLinksCard";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
+import { OpenSettingsSections } from "@/components/settings/ui/SettingsSectionLayout";
+import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader";
+import { ProjectSettingsNavigation } from "@/components/projects/settings/ProjectSettingsNavigation";
+import { useProjectSettingsNavigation } from "@/hooks/useProjectSettingsNavigation";
 import { LegalAndDataRightsSection } from "@/components/settings/LegalAndDataRightsSection";
 import {
     normalizeProjectRoleFormValues,
@@ -121,49 +125,6 @@ type ProjectNotificationSettingsData = {
 
 type CollaboratorFilter = "all" | "admin" | "member" | "viewer";
 type RemovalMode = "preserve_history" | "unassign_active_tasks" | "reassign_active_tasks";
-const SECTION_ICONS: Record<ProjectSettingsSectionId, React.ComponentType<{ className?: string }>> = {
-    general: Settings,
-    links: Link2,
-    access: Globe,
-    collaborators: Users,
-    "roles-applications": UserCog,
-    readme: FileText,
-    updates: Newspaper,
-    "tasks-workflow": Workflow,
-    "files-workspace": Folder,
-    notifications: Bell,
-    "privacy-policies": Scale,
-    "privacy-terms": Scale,
-    danger: AlertTriangle,
-};
-
-const SECTION_GROUPS: Array<{
-    id: string;
-    label: string;
-    sectionIds: ProjectSettingsSectionId[];
-}> = [
-    {
-        id: "profile",
-        label: "Project Profile",
-        sectionIds: ["general", "links"],
-    },
-    {
-        id: "access",
-        label: "Access & Team",
-        sectionIds: ["access", "collaborators", "roles-applications"],
-    },
-    {
-        id: "workspace",
-        label: "Workspace Policies",
-        sectionIds: ["readme", "updates", "tasks-workflow", "files-workspace"],
-    },
-    {
-        id: "governance",
-        label: "System & Governance",
-        sectionIds: ["notifications", "privacy-policies", "danger"],
-    },
-];
-
 const VISIBILITY_OPTIONS: Array<{
     id: ProjectSettingsVisibility;
     title: string;
@@ -220,7 +181,11 @@ interface ProjectSettingsTabProps {
     loadingMembers?: boolean;
 }
 
-export default function ProjectSettingsTab({
+export default function ProjectSettingsTab(props: ProjectSettingsTabProps) {
+    return <ProjectSettingsContent key={props.projectId} {...props} />;
+}
+
+function ProjectSettingsContent({
     projectId,
     project,
     onProjectUpdated,
@@ -230,8 +195,11 @@ export default function ProjectSettingsTab({
     loadingMembers = false,
 }: ProjectSettingsTabProps) {
     const router = useRouter();
-    const searchParams = useSearchParams();
-    const queryClient = useQueryClient();
+    const mountedRef = useRef(true);
+    useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+    const [settingsErrors, setSettingsErrors] = useState<Record<string, string | null>>({});
+    const setLoadError = useCallback((section: string, message: string | null) => setSettingsErrors((current) => ({ ...current, [section]: message })), []);
+    const [readmeLoaded, setReadmeLoaded] = useState(false);
     const actorProjectRole = isProjectOwner ? "owner" : actorRole ?? "member";
     const canManageSettings = isProjectOwner || actorProjectRole === "admin";
     const sections = useMemo(() => {
@@ -255,73 +223,10 @@ export default function ProjectSettingsTab({
         }
         return visible.filter((section) => section.id === "collaborators" || section.id === "privacy-policies" || section.id === "privacy-terms");
     }, [actorProjectRole, isProjectOwner]);
-    const [activeSection, setActiveSection] = useState<ProjectSettingsSectionId>(() => {
-        const querySection = searchParams.get("settings") || searchParams.get("section");
-        if (querySection === "privacy" || querySection === "privacy-terms" || querySection === "privacy-policies") {
-            return "privacy-policies";
-        }
-        if (querySection === "security-audit" || querySection === "security-data") {
-            return "general";
-        }
-        if (querySection && sections.some((s) => s.id === querySection)) {
-            return querySection as ProjectSettingsSectionId;
-        }
-        return canManageSettings && searchParams.get("settings") === "links"
-            ? "links"
-            : (sections[0]?.id as ProjectSettingsSectionId) || "general";
-    });
-    const locallyNavigatedSectionRef = useRef<{ id: string } | null>(null);
-    const localNavigationReleaseTimerRef = useRef<number | null>(null);
-    const hasMountedRef = useRef(false);
-
-    const scrollToSection = useCallback((sectionId: string, behavior: ScrollBehavior = "smooth") => {
-        const scrollRoot = document.querySelector<HTMLElement>('[data-scroll-root="route"]');
-        const target = document.getElementById(`project-settings-${sectionId}`);
-        if (!scrollRoot || !target) return;
-
-        const rootRect = scrollRoot.getBoundingClientRect();
-        const targetRect = target.getBoundingClientRect();
-        const projectTabs = document.querySelector<HTMLElement>('[data-project-sticky-tabs="true"]');
-        const stickyTabsHeight = projectTabs?.offsetHeight ?? 0;
-        const nextTop = scrollRoot.scrollTop + targetRect.top - rootRect.top - stickyTabsHeight;
-        scrollRoot.scrollTo({
-            top: Math.max(0, nextTop),
-            left: scrollRoot.scrollLeft,
-            behavior,
-        });
-    }, []);
-
-    const handleNavigateSection = (sectionId: ProjectSettingsSectionId) => {
-        const localNav = { id: sectionId };
-        locallyNavigatedSectionRef.current = localNav;
-        setActiveSection(sectionId);
-
-        if (typeof window !== "undefined") {
-            const params = new URLSearchParams(window.location.search);
-            params.set("tab", "settings");
-            params.set("settings", sectionId);
-            router.push(`?${params.toString()}`, { scroll: false });
-        }
-
-        scrollToSection(sectionId, "smooth");
-
-        if (localNavigationReleaseTimerRef.current !== null) {
-            window.clearTimeout(localNavigationReleaseTimerRef.current);
-        }
-        localNavigationReleaseTimerRef.current = window.setTimeout(() => {
-            if (locallyNavigatedSectionRef.current === localNav) {
-                locallyNavigatedSectionRef.current = null;
-            }
-            localNavigationReleaseTimerRef.current = null;
-        }, 800);
-    };
-
-    useEffect(() => () => {
-        if (localNavigationReleaseTimerRef.current !== null) {
-            window.clearTimeout(localNavigationReleaseTimerRef.current);
-        }
-    }, []);
-    const [savingSettings, setSavingSettings] = useState(false);
+    const { activeSection, navigate: handleNavigateSection } = useProjectSettingsNavigation(sections);
+    const [savingAccess, setSavingAccess] = useState(false);
+    const [savingRoles, setSavingRoles] = useState(false);
+    const [savingNotifications, setSavingNotifications] = useState(false);
     const [savingLifecycle, setSavingLifecycle] = useState(false);
     const [confirmLoading, setConfirmLoading] = useState(false);
     const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
@@ -333,22 +238,29 @@ export default function ProjectSettingsTab({
     const [selectedTransferCandidate, setSelectedTransferCandidate] = useState<ProjectSettingsMember | null>(null);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [collaboratorData, setCollaboratorData] = useState<CollaboratorSettingsData | null>(null);
-    const [collaboratorLoading, setCollaboratorLoading] = useState(false);
+    const [collaboratorLoading, setCollaboratorLoading] = useState(true);
     const [collaboratorRefreshing, setCollaboratorRefreshing] = useState(false);
     const [collaboratorLoadingMore, setCollaboratorLoadingMore] = useState(false);
     const [collaboratorFilter, setCollaboratorFilter] = useState<CollaboratorFilter>("all");
     const [collaboratorSearch, setCollaboratorSearch] = useState("");
     const [fileWorkspaceData, setFileWorkspaceData] = useState<FileWorkspaceSettingsData | null>(null);
-    const [fileWorkspaceLoading, setFileWorkspaceLoading] = useState(false);
+    const [fileWorkspaceQuery, setFileWorkspaceQuery] = useState("");
+    const [fileWorkspaceFilter, setFileWorkspaceFilter] = useState<"all" | "enabled" | "disabled">("all");
+    const [fileWorkspaceLoadingMore, setFileWorkspaceLoadingMore] = useState(false);
+    const fileWorkspaceDataRef = useRef<FileWorkspaceSettingsData | null>(null);
+    const fileWorkspaceRequestRef = useRef(0);
+    const [fileWorkspaceLoading, setFileWorkspaceLoading] = useState(true);
     const [fileWorkspaceSavingMemberId, setFileWorkspaceSavingMemberId] = useState<string | null>(null);
     const [fileWorkspaceBulkSaving, setFileWorkspaceBulkSaving] = useState(false);
+    const projectNotificationDataRef = useRef<ProjectNotificationSettingsData | null>(null);
     const [projectNotificationData, setProjectNotificationData] = useState<ProjectNotificationSettingsData | null>(null);
     const [projectNotificationDraft, setProjectNotificationDraft] = useState<ProjectNotificationPolicy>(() => buildDefaultProjectNotificationPolicy());
-    const [projectNotificationLoading, setProjectNotificationLoading] = useState(false);
+    useEffect(() => { projectNotificationDataRef.current = projectNotificationData; }, [projectNotificationData]);
+    const [projectNotificationLoading, setProjectNotificationLoading] = useState(true);
     const [expandedNotificationGroups, setExpandedNotificationGroups] = useState<Record<string, boolean>>({});
-    const [readmeSettings, setReadmeSettings] = useState<ProjectDocSettings>(() => DEFAULT_PROJECT_DOC_SETTINGS);
+    const [, setReadmeSettings] = useState<ProjectDocSettings>(() => DEFAULT_PROJECT_DOC_SETTINGS);
     const [readmeSettingsDraft, setReadmeSettingsDraft] = useState<ProjectDocSettings>(() => DEFAULT_PROJECT_DOC_SETTINGS);
-    const [readmeSettingsLoading, setReadmeSettingsLoading] = useState(false);
+    const [readmeSettingsLoading, setReadmeSettingsLoading] = useState(true);
     const [savingReadmeKey, setSavingReadmeKey] = useState<keyof ProjectDocSettings | null>(null);
     const [savingMemberUpdates, setSavingMemberUpdates] = useState(false);
     const [memberNotificationData, setMemberNotificationData] = useState<MemberNotificationSettingsData | null>(null);
@@ -423,13 +335,21 @@ export default function ProjectSettingsTab({
     const initialFileUploadDefault = initialSettings.memberFileUploadDefault;
 
     useEffect(() => {
+        if (savingAccess) return;
         setVisibility(initialVisibility);
-        setPublicTabVisibility(initialSettings.publicTabVisibility);
         setSavedVisibility(initialVisibility);
+    }, [initialVisibility]);
+    useEffect(() => {
+        if (savingPublicTabId) return;
+        setPublicTabVisibility(initialSettings.publicTabVisibility);
         setSavedPublicTabVisibility(initialSettings.publicTabVisibility);
-        setMemberUpdatesEnabled(initialMemberUpdates);
-        setMemberFileUploadDefault(initialFileUploadDefault);
-    }, [initialVisibility, initialPublicTabVisibilityKey, initialMemberUpdates, initialFileUploadDefault]);
+    }, [initialPublicTabVisibilityKey]);
+    useEffect(() => {
+        if (!savingMemberUpdates) setMemberUpdatesEnabled(initialMemberUpdates);
+    }, [initialMemberUpdates]);
+    useEffect(() => {
+        if (!savingMemberFileUploadDefault && !fileWorkspaceBulkSaving) setMemberFileUploadDefault(initialFileUploadDefault);
+    }, [initialFileUploadDefault]);
 
     const initialRolesKey = JSON.stringify(initialRoles);
     useEffect(() => {
@@ -449,83 +369,6 @@ export default function ProjectSettingsTab({
     useEffect(() => {
         removalReassignToUserIdRef.current = removalReassignToUserId;
     }, [removalReassignToUserId]);
-
-    const initialTitle = initialIdentity.title;
-    useEffect(() => {
-        setProjectTitle(initialTitle);
-    }, [initialTitle]);
-
-    useEffect(() => {
-        const querySection = searchParams.get("settings") || searchParams.get("section");
-        const targetSection = querySection === "privacy" || querySection === "privacy-terms" || querySection === "privacy-policies"
-            ? "privacy-policies"
-            : querySection === "security-audit" || querySection === "security-data"
-                ? "general"
-                : querySection && sections.some((s) => s.id === querySection)
-                    ? (querySection as ProjectSettingsSectionId)
-                    : null;
-
-        if (locallyNavigatedSectionRef.current?.id === targetSection) {
-            hasMountedRef.current = true;
-            return;
-        }
-
-        const isInitialMount = !hasMountedRef.current;
-        hasMountedRef.current = true;
-
-        let cancelFrame: (() => void) | undefined;
-        if (targetSection && targetSection !== "general") {
-            const frame = window.requestAnimationFrame(() => {
-                scrollToSection(targetSection, isInitialMount ? "auto" : "smooth");
-            });
-            cancelFrame = () => window.cancelAnimationFrame(frame);
-        } else if (isInitialMount && (!querySection || querySection === "general")) {
-            const routeRoot = document.querySelector<HTMLElement>('[data-scroll-root="route"]');
-            routeRoot?.scrollTo({ top: 0, left: routeRoot.scrollLeft, behavior: "auto" });
-        }
-        return cancelFrame;
-    }, [searchParams, sections, scrollToSection]);
-
-    useEffect(() => {
-        const root = document.querySelector<HTMLElement>('[data-scroll-root="route"]');
-        if (!root) return;
-        let rafId = 0;
-        const updateActiveSection = () => {
-            if (locallyNavigatedSectionRef.current) return;
-            if (rafId) return;
-            rafId = window.requestAnimationFrame(() => {
-                rafId = 0;
-                const rootTop = root.getBoundingClientRect().top;
-                const projectTabs = document.querySelector<HTMLElement>('[data-project-sticky-tabs="true"]');
-                const contentTop = rootTop + (projectTabs?.offsetHeight ?? 0);
-                let closest = sections[sections.length - 1]?.id ?? "general";
-                let distance = Number.POSITIVE_INFINITY;
-                for (const section of sections) {
-                    const el = document.getElementById(`project-settings-${section.id}`);
-                    if (!el) continue;
-                    const rect = el.getBoundingClientRect();
-                    if (rect.bottom <= contentTop + 16) continue;
-                    const nextDistance = Math.abs(rect.top - contentTop);
-                    if (nextDistance < distance) {
-                        closest = section.id;
-                        distance = nextDistance;
-                    }
-                }
-                setActiveSection((prev) => (prev === closest ? prev : closest));
-            });
-        };
-        updateActiveSection();
-        root.addEventListener("scroll", updateActiveSection, { passive: true });
-        return () => {
-            root.removeEventListener("scroll", updateActiveSection);
-            if (rafId) window.cancelAnimationFrame(rafId);
-        };
-    }, [sections]);
-
-    useEffect(() => {
-        if (sections.some((section) => section.id === activeSection)) return;
-        setActiveSection(sections[0]?.id ?? "collaborators");
-    }, [activeSection, sections]);
 
     const ownerId = projectOwnerId(project);
     const collaboratorMembers = collaboratorData?.members ?? members;
@@ -561,23 +404,28 @@ export default function ProjectSettingsTab({
         if (!isProjectOwner) return;
         if (dangerPreflightLoadedRef.current && !force) return;
         setDangerPreflightLoading(true);
+        setLoadError("danger", null);
         try {
             const result = await (pending ?? getProjectDangerZonePreflightAction(projectId));
+            if (!mountedRef.current) return;
             if (!result.success) {
-                setDangerPreflight(null);
+                setLoadError("danger", result.message);
+
                 toast.error(result.message);
                 return;
             }
             dangerPreflightLoadedRef.current = true;
             setDangerPreflight(result.data);
         } catch (error) {
+            if (!mountedRef.current) return;
+            setLoadError("danger", "Unable to load these settings. Please retry.");
             console.error("Failed to load danger-zone preflight", error);
-            setDangerPreflight(null);
+
             toast.error("Failed to load danger-zone checks.");
         } finally {
             setDangerPreflightLoading(false);
         }
-    }, [isProjectOwner, projectId]);
+    }, [isProjectOwner, projectId, setLoadError]);
 
     const loadCollaborators = useCallback(async (mode: "initial" | "refresh" | "more" = "initial", pending?: ReturnType<typeof getProjectCollaboratorSettingsAction>) => {
         const seq = ++collaboratorRequestSeqRef.current;
@@ -595,6 +443,7 @@ export default function ProjectSettingsTab({
                 setCollaboratorRefreshing(true);
             }
         }
+        setLoadError("collaborators", null);
         try {
             const result = await (pending ?? getProjectCollaboratorSettingsAction(projectId, {
                 limit: 40,
@@ -602,9 +451,10 @@ export default function ProjectSettingsTab({
                 query: collaboratorSearch,
                 roleFilter: collaboratorFilter,
             }));
-            if (seq !== collaboratorRequestSeqRef.current) return;
+            if (!mountedRef.current || seq !== collaboratorRequestSeqRef.current) return;
             if (!result.success) {
-                setCollaboratorData(null);
+                setLoadError("collaborators", result.message);
+
                 toast.error(result.message);
                 return;
             }
@@ -621,9 +471,10 @@ export default function ProjectSettingsTab({
                 };
             });
         } catch (error) {
-            if (seq !== collaboratorRequestSeqRef.current) return;
+            if (!mountedRef.current || seq !== collaboratorRequestSeqRef.current) return;
+            setLoadError("collaborators", "Unable to load these settings. Please retry.");
             console.error("Failed to load collaborators", error);
-            setCollaboratorData(null);
+
             toast.error("Failed to load collaborators.");
         } finally {
             if (seq === collaboratorRequestSeqRef.current) {
@@ -632,78 +483,97 @@ export default function ProjectSettingsTab({
                 setCollaboratorLoadingMore(false);
             }
         }
-    }, [collaboratorFilter, collaboratorSearch, projectId]);
+    }, [collaboratorFilter, collaboratorSearch, projectId, setLoadError]);
 
-    const fileWorkspaceLoadedRef = useRef(false);
-    const loadFileWorkspaceSettings = useCallback(async (force = false, pending?: ReturnType<typeof getProjectFileWorkspaceSettingsAction>) => {
-        if (fileWorkspaceLoadedRef.current && !force) return;
-        setFileWorkspaceLoading(true);
+    const loadFileWorkspaceSettings = useCallback(async (mode: "replace" | "more" = "replace", pending?: ReturnType<typeof getProjectFileWorkspaceSettingsAction>) => {
+        const more = mode === "more";
+        if (more && !fileWorkspaceDataRef.current?.nextCursor) return;
+        const seq = ++fileWorkspaceRequestRef.current;
+        if (more) setFileWorkspaceLoadingMore(true); else setFileWorkspaceLoading(true);
+        setLoadError("files", null);
         try {
-            const result = await (pending ?? getProjectFileWorkspaceSettingsAction(projectId));
-            if (!result.success) {
-                setFileWorkspaceData(null);
-                toast.error(result.message);
-                return;
-            }
-            fileWorkspaceLoadedRef.current = true;
-            setFileWorkspaceData(result.data);
-        } catch (error) {
-            console.error("Failed to load file workspace settings", error);
-            setFileWorkspaceData(null);
-            toast.error("Failed to load file workspace settings.");
+            const result = await (pending ?? getProjectFileWorkspaceSettingsAction(projectId, {
+                query: fileWorkspaceQuery, permissionFilter: fileWorkspaceFilter,
+                cursor: more ? fileWorkspaceDataRef.current?.nextCursor : undefined,
+            }));
+            if (!mountedRef.current || seq !== fileWorkspaceRequestRef.current) return;
+            if (!result.success) { setLoadError("files", result.message); return; }
+            setFileWorkspaceData((current) => {
+                const existing = new Set(current?.members.map((member) => member.id));
+                return more && current ? { ...result.data, members: [...current.members, ...result.data.members.filter((member) => !existing.has(member.id))] } : result.data;
+            });
+        } catch {
+            if (mountedRef.current && seq === fileWorkspaceRequestRef.current) setLoadError("files", "Unable to load file permissions. Please retry.");
         } finally {
-            setFileWorkspaceLoading(false);
+            if (mountedRef.current && seq === fileWorkspaceRequestRef.current) { setFileWorkspaceLoading(false); setFileWorkspaceLoadingMore(false); }
         }
-    }, [projectId]);
+    }, [projectId, fileWorkspaceQuery, fileWorkspaceFilter, setLoadError]);
+    useEffect(() => { fileWorkspaceDataRef.current = fileWorkspaceData; }, [fileWorkspaceData]);
+    const initialFileFilterRef = useRef(false);
+    useEffect(() => {
+        if (!initialFileFilterRef.current) { initialFileFilterRef.current = true; return; }
+        void loadFileWorkspaceSettings();
+    }, [fileWorkspaceQuery, fileWorkspaceFilter, loadFileWorkspaceSettings]);
 
     const projectNotificationLoadedRef = useRef(false);
     const loadProjectNotificationSettings = useCallback(async (force = false, pending?: ReturnType<typeof readProjectNotificationSettingsAction>) => {
         if (projectNotificationLoadedRef.current && !force) return;
         setProjectNotificationLoading(true);
+        setLoadError("notifications", null);
         try {
             const result = await (pending ?? readProjectNotificationSettingsAction(projectId));
+            if (!mountedRef.current) return;
             if (!result.success) {
-                setProjectNotificationData(null);
+                setLoadError("notifications", result.message);
+
                 toast.error(result.message);
                 return;
             }
             projectNotificationLoadedRef.current = true;
             setProjectNotificationData(result.data);
-            setProjectNotificationDraft(result.data.policy);
+            setProjectNotificationDraft((draft) => projectNotificationDataRef.current && JSON.stringify(draft) !== JSON.stringify(projectNotificationDataRef.current.policy) ? draft : result.data.policy);
         } catch (error) {
+            if (!mountedRef.current) return;
+            setLoadError("notifications", "Unable to load these settings. Please retry.");
             console.error("Failed to load project notification settings", error);
-            setProjectNotificationData(null);
+
             toast.error("Failed to load project notification settings.");
         } finally {
             setProjectNotificationLoading(false);
         }
-    }, [projectId]);
+    }, [projectId, setLoadError]);
 
     const readmeLoadedRef = useRef(false);
     const loadReadmeSettings = useCallback(async (force = false, pending?: ReturnType<typeof readProjectDocSettingsAction>) => {
         if (readmeLoadedRef.current && !force) return;
         setReadmeSettingsLoading(true);
+        setLoadError("readme", null);
         try {
             const result = await (pending ?? readProjectDocSettingsAction(projectId));
+            if (!mountedRef.current) return;
             if (!result.success) {
+                setLoadError("readme", result.error);
                 toast.error(result.error);
                 return;
             }
             readmeLoadedRef.current = true;
+            setReadmeLoaded(true);
             const normalized = normalizeProjectDocSettings(result.settings);
             setReadmeSettings(normalized);
             setReadmeSettingsDraft(normalized);
         } catch (error) {
+            if (!mountedRef.current) return;
+            setLoadError("readme", "Unable to load these settings. Please retry.");
             console.error("Failed to load document settings", error);
             toast.error("Failed to load document settings.");
         } finally {
             setReadmeSettingsLoading(false);
         }
-    }, [projectId]);
+    }, [projectId, setLoadError]);
 
     const bootstrappedProjectRef = useRef<string | null>(null);
     useEffect(() => {
-        if (bootstrappedProjectRef.current === projectId) return;
+        if (!canManageSettings || bootstrappedProjectRef.current === projectId) return;
         bootstrappedProjectRef.current = projectId;
         const bootstrap = readProjectSettingsBootstrapAction(projectId, {
             limit: 40,
@@ -711,11 +581,11 @@ export default function ProjectSettingsTab({
             roleFilter: collaboratorFilter,
         });
         void loadCollaborators("initial", bootstrap.then((data) => data.collaboratorSettings));
-        void loadFileWorkspaceSettings(false, bootstrap.then((data) => data.fileWorkspace));
+        void loadFileWorkspaceSettings("replace", bootstrap.then((data) => data.fileWorkspace));
         void loadProjectNotificationSettings(false, bootstrap.then((data) => data.notifications));
         void loadReadmeSettings(false, bootstrap.then((data) => data.docSettings));
-        void loadDangerPreflight(false, bootstrap.then((data) => data.dangerPreflight));
-    }, [collaboratorFilter, collaboratorSearch, loadCollaborators, loadDangerPreflight, loadFileWorkspaceSettings, loadProjectNotificationSettings, loadReadmeSettings, projectId]);
+        if (isProjectOwner) void loadDangerPreflight(false, bootstrap.then((data) => data.dangerPreflight));
+    }, [collaboratorFilter, collaboratorSearch, loadCollaborators, loadDangerPreflight, loadFileWorkspaceSettings, loadProjectNotificationSettings, loadReadmeSettings, projectId, canManageSettings, isProjectOwner]);
 
     const initialCollaboratorFilterRef = useRef(false);
     useEffect(() => {
@@ -767,10 +637,10 @@ export default function ProjectSettingsTab({
     }, [initialRoles, isProjectOwner, resetRolesForm]);
 
     const handleSaveRoles = useCallback(() => {
-        if (!isProjectOwner) return;
+        if (!isProjectOwner || savingRoles) return;
         void handleRolesSubmit(
             async (values) => {
-                setSavingSettings(true);
+                setSavingRoles(true);
                 try {
                     const result = await updateProject(projectId, {
                         roles: values.roles,
@@ -792,17 +662,17 @@ export default function ProjectSettingsTab({
                     console.error("Failed to save project roles", error);
                     toast.error(error instanceof Error ? error.message : "Failed to update project roles.");
                 } finally {
-                    setSavingSettings(false);
+                    setSavingRoles(false);
                 }
             },
             () => {
                 toast.error("Fix role fields before saving.");
             },
         )();
-    }, [deletedRoleIds, handleRolesSubmit, isProjectOwner, onProjectUpdated, projectId, resetRolesForm, router]);
+    }, [deletedRoleIds, handleRolesSubmit, isProjectOwner, onProjectUpdated, projectId, resetRolesForm, router, savingRoles]);
 
     const handleTogglePublicTab = useCallback(async (tabId: ProjectPublicTabId, enabled: boolean) => {
-        if (savingPublicTabId) return;
+        if (savingPublicTabId || savingAccess) return;
         const previous = publicTabVisibility;
         const next: ProjectPublicTabVisibility = {
             ...previous,
@@ -832,11 +702,11 @@ export default function ProjectSettingsTab({
         } finally {
             setSavingPublicTabId(null);
         }
-    }, [onProjectUpdated, projectId, publicTabVisibility, router]);
+    }, [onProjectUpdated, projectId, publicTabVisibility, router, savingPublicTabId, savingAccess]);
 
     const handleSelectVisibility = async (nextVisibility: ProjectSettingsVisibility) => {
-        if (nextVisibility === visibility) return;
-        setSavingSettings(true);
+        if (savingAccess || confirmLoading || nextVisibility === visibility) return;
+        setSavingAccess(true);
         try {
             const preflightResult = await getProjectAccessTransitionPreflightAction(projectId, nextVisibility);
             if (!preflightResult.success) {
@@ -865,12 +735,12 @@ export default function ProjectSettingsTab({
             console.error("Failed to prepare access transition", error);
             toast.error("Failed to prepare access transition.");
         } finally {
-            setSavingSettings(false);
+            setSavingAccess(false);
         }
     };
 
     const handleToggleMemberFileUpload = useCallback(async (member: FileWorkspaceSettingsData["members"][number], enabled: boolean) => {
-        if (member.uploadPermissionLocked) return;
+        if (member.uploadPermissionLocked || fileWorkspaceSavingMemberId || fileWorkspaceBulkSaving || savingMemberFileUploadDefault || fileWorkspaceLoading || settingsErrors.files) return;
         setFileWorkspaceSavingMemberId(member.id);
         const previousData = fileWorkspaceData;
         if (previousData) {
@@ -909,9 +779,10 @@ export default function ProjectSettingsTab({
         } finally {
             setFileWorkspaceSavingMemberId(null);
         }
-    }, [fileWorkspaceData, projectId]);
+    }, [fileWorkspaceData, projectId, fileWorkspaceSavingMemberId, fileWorkspaceBulkSaving, savingMemberFileUploadDefault, fileWorkspaceLoading, settingsErrors.files]);
 
     const handleBulkFileUploadPermission = useCallback(async (enabled: boolean) => {
+        if (fileWorkspaceSavingMemberId || fileWorkspaceBulkSaving || savingMemberFileUploadDefault || fileWorkspaceLoading || !fileWorkspaceData || settingsErrors.files) return false;
         setFileWorkspaceBulkSaving(true);
         const previousData = fileWorkspaceData;
         if (previousData) {
@@ -939,17 +810,20 @@ export default function ProjectSettingsTab({
             if (!result.success) {
                 if (previousData) setFileWorkspaceData(previousData);
                 toast.error(result.message);
-                return;
+                return false;
             }
+            setMemberFileUploadDefault(enabled);
             toast.success(result.message);
+            return true;
         } catch (error) {
             if (previousData) setFileWorkspaceData(previousData);
             console.error("Failed to update file upload defaults", error);
             toast.error("Failed to update file upload defaults.");
+            return false;
         } finally {
             setFileWorkspaceBulkSaving(false);
         }
-    }, [fileWorkspaceData, projectId]);
+    }, [fileWorkspaceData, projectId, fileWorkspaceSavingMemberId, fileWorkspaceBulkSaving, savingMemberFileUploadDefault, fileWorkspaceLoading, settingsErrors.files]);
 
     const handleProjectNotificationPreset = (preset: ProjectNotificationPreset) => {
         setProjectNotificationDraft(buildDefaultProjectNotificationPolicy(preset));
@@ -974,7 +848,8 @@ export default function ProjectSettingsTab({
     }, []);
 
     const handleSaveNotifications = async () => {
-        setSavingSettings(true);
+        if (savingNotifications || !projectNotificationData || settingsErrors.notifications) return;
+        setSavingNotifications(true);
         try {
             const result = await updateProjectNotificationSettingsAction(projectId, projectNotificationDraft);
             if (!result.success) {
@@ -988,11 +863,12 @@ export default function ProjectSettingsTab({
             console.error("Failed to save project notification settings", error);
             toast.error("Failed to save project notification settings.");
         } finally {
-            setSavingSettings(false);
+            setSavingNotifications(false);
         }
     };
 
     const handleToggleReadmeSetting = async (key: keyof ProjectDocSettings, enabled: boolean) => {
+        if (!readmeLoaded || savingReadmeKey || settingsErrors.readme) return;
         const previous = readmeSettingsDraft;
         const next: ProjectDocSettings = {
             ...previous,
@@ -1026,7 +902,7 @@ export default function ProjectSettingsTab({
     };
 
     const handleResetNotifications = async () => {
-        setSavingSettings(true);
+        setSavingNotifications(true);
         try {
             const result = await resetProjectNotificationSettingsAction(projectId, "balanced");
             if (!result.success) {
@@ -1040,7 +916,7 @@ export default function ProjectSettingsTab({
             console.error("Failed to reset project notification settings", error);
             toast.error("Failed to reset project notification settings.");
         } finally {
-            setSavingSettings(false);
+            setSavingNotifications(false);
         }
     };
 
@@ -1177,6 +1053,7 @@ export default function ProjectSettingsTab({
             toast.success(result.message);
             if (result.refresh) {
                 void loadCollaborators("refresh");
+                void loadFileWorkspaceSettings();
                 onProjectUpdated();
             }
             setConfirmAction(null);
@@ -1192,7 +1069,7 @@ export default function ProjectSettingsTab({
         } finally {
             setConfirmLoading(false);
         }
-    }, [confirmAction, loadCollaborators, onProjectUpdated, router]);
+    }, [confirmAction, loadCollaborators, loadFileWorkspaceSettings, onProjectUpdated, router]);
 
     const handleExecuteArchive = useCallback(async () => {
         setConfirmLoading(true);
@@ -1467,124 +1344,10 @@ export default function ProjectSettingsTab({
     ) : confirmAction?.content;
 
     return (
-        <div className="mx-auto grid w-full max-w-[1320px] gap-6 px-4 pb-6 pt-5 sm:px-6 sm:pb-8 sm:pt-6 xl:grid-cols-[248px_minmax(0,1fr)]">
-            <aside className="sticky top-[calc(var(--project-tabs-height)+1.5rem)] hidden max-h-[calc(100dvh-var(--ui-topnav-height)-var(--project-tabs-height)-3.5rem)] w-[248px] self-start overflow-y-auto rounded-lg border border-border bg-card p-2 shadow-none app-scroll app-scroll-y app-scroll-gutter xl:block">
-                <div className="px-3 pb-3 pt-2">
-                    <p className="nb-micro">Project settings</p>
-                    <h2 className="nb-section-title mt-1 text-foreground">Project preferences</h2>
-                    <p className="nb-compact mt-1 text-muted-foreground">
-                        {isProjectOwner
-                            ? "Manage your project, team and preferences."
-                            : "Manage the settings available to your role."}
-                    </p>
-                </div>
-                <nav aria-label="Project settings sections" className="mt-1 space-y-4">
-                    {SECTION_GROUPS.map((group) => {
-                        const groupSections = sections.filter((s) => group.sectionIds.includes(s.id));
-                        if (groupSections.length === 0) return null;
-                        return (
-                            <div key={group.id} className="space-y-1">
-                                <div className="px-3 py-1 font-mono text-[10px] max-md:text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-                                    {group.label}
-                                </div>
-                                {groupSections.map((section) => {
-                                    const Icon = SECTION_ICONS[section.id];
-                                    const active = activeSection === section.id;
-                                    return (
-                                        <button
-                                            key={section.id}
-                                            type="button"
-                                            aria-current={active ? "page" : undefined}
-                                            onClick={() => handleNavigateSection(section.id)}
-                                            className={cn(
-                                                "group flex min-h-[44px] w-full items-start gap-2.5 rounded-md px-3 py-2 text-left transition-colors duration-[130ms] ease-[cubic-bezier(.2,.8,.3,1)]",
-                                                active
-                                                    ? "bg-muted font-medium text-foreground"
-                                                    : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
-                                            )}
-                                        >
-                                            <Icon className={cn("mt-0.5 h-4 w-4 shrink-0 transition-colors", active ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
-                                            <span className="min-w-0 flex-1">
-                                                <span className="nb-ui-label block truncate text-[13px] leading-tight">{section.label}</span>
-                                                <span className={cn("mt-0.5 block truncate text-[11px] leading-snug", active ? "text-foreground/80" : "text-muted-foreground/70")}>
-                                                    {section.description}
-                                                </span>
-                                            </span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        );
-                    })}
-                </nav>
-            </aside>
-
-            <main data-project-settings-document className="min-w-0 space-y-12">
-                {/* Mobile / Tablet Sticky Section Selector */}
-                <details className="sticky top-[calc(var(--project-tabs-height)+1.25rem)] z-20 mb-4 rounded-lg border border-border bg-card p-2 xl:hidden">
-                    <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2">
-                        <span className="flex min-w-0 items-center gap-2.5">
-                            {(() => {
-                                const ActiveIcon = SECTION_ICONS[activeSection] || Settings;
-                                const activeSec = sections.find((s) => s.id === activeSection) ?? sections[0];
-                                return (
-                                    <>
-                                        <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                                            <ActiveIcon className="size-3.5" />
-                                        </span>
-                                        <span className="min-w-0">
-                                            <span className="nb-ui-label block truncate text-foreground font-medium text-sm">
-                                                {activeSec?.label ?? "Settings"}
-                                            </span>
-                                            <span className="nb-compact block truncate text-xs text-muted-foreground">
-                                                {activeSec?.description}
-                                            </span>
-                                        </span>
-                                    </>
-                                );
-                            })()}
-                        </span>
-                        <ChevronDown className="size-4 text-muted-foreground" />
-                    </summary>
-                    <div className="mt-2 space-y-3 border-t border-border pt-2 max-md:max-h-[60dvh] max-md:overflow-y-auto max-md:overscroll-contain">
-                        {SECTION_GROUPS.map((group) => {
-                            const groupSections = sections.filter((s) => group.sectionIds.includes(s.id));
-                            if (groupSections.length === 0) return null;
-                            return (
-                                <div key={group.id} className="space-y-1">
-                                    <div className="px-3 py-1 font-mono text-[10px] max-md:text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-                                        {group.label}
-                                    </div>
-                                    {groupSections.map((section) => {
-                                        const Icon = SECTION_ICONS[section.id];
-                                        const active = activeSection === section.id;
-                                        return (
-                                            <button
-                                                key={section.id}
-                                                type="button"
-                                                onClick={(e) => {
-                                                    handleNavigateSection(section.id);
-                                                    e.currentTarget.closest("details")?.removeAttribute("open");
-                                                }}
-                                                className={cn(
-                                                    "flex min-h-[40px] w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-left text-sm transition-colors",
-                                                    active ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
-                                                )}
-                                            >
-                                                <Icon className="size-4 shrink-0" />
-                                                <span className="truncate">{section.label}</span>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            );
-                        })}
-                    </div>
-                </details>
-
-
-                {/* SectionHeader suppressed when activeSection !== "general" to avoid duplicate header */}
-                {/* activeSection === "general" && ( */}
+        <OpenSettingsSections>
+        <div className="grid w-full min-w-0 grid-cols-1 bg-card xl:grid-cols-[var(--nb-sidebar-width)_minmax(0,1fr)]">
+            <ProjectSettingsNavigation sections={sections} activeSection={activeSection} onNavigate={handleNavigateSection} />
+            <main data-project-settings-document className="mx-auto min-w-0 w-full max-w-4xl space-y-12 p-4 md:p-[calc(var(--ui-panel-padding)+4px)] [&>[data-project-settings-section]]:border-b [&>[data-project-settings-section]]:border-border [&>[data-project-settings-section]]:pb-8 [&>[data-project-settings-section]:last-child]:border-b-0">
                 {sections.some((s) => s.id === "general") && (
                     <GeneralSettingsSection
                         projectId={projectId}
@@ -1595,14 +1358,12 @@ export default function ProjectSettingsTab({
                         onProjectTitleChange={setProjectTitle}
                     />
                 )}
-
-                {/* SectionHeader suppressed when activeSection !== "links" to avoid duplicate title */}
-                {/* activeSection === "links" && ( */}
                 {sections.some((s) => s.id === "links") && (
                     <section id="project-settings-links" data-project-settings-section className="space-y-6">
                         <div className="space-y-6">
                             <SettingsCard
                                 title="Project links"
+                                headingLevel={2}
                                 description="External project destinations and connected repositories displayed beside the project title and across public surfaces."
                             >
                                 <ProjectLinksManager
@@ -1620,14 +1381,12 @@ export default function ProjectSettingsTab({
                         </div>
                     </section>
                 )}
-
-                {/* SectionHeader suppressed when activeSection !== "access" to avoid duplicate title */}
-                {/* activeSection === "access" && ( */}
                 {sections.some((s) => s.id === "access") && (
                     <section id="project-settings-access" data-project-settings-section className="space-y-6">
                         <div className="space-y-6">
                             <SettingsCard
                                 title="Project access & visibility"
+                                headingLevel={2}
                                 description="This one owner-controlled policy is used by project cards, detail pages, search, files, applications, notifications, and public surfaces."
                             >
                                 <div className="divide-y divide-border">
@@ -1639,15 +1398,16 @@ export default function ProjectSettingsTab({
                                             </p>
                                         </div>
                                         {isProjectOwner ? (
-                                            <div className="grid gap-3 sm:grid-cols-2">
+                                            <div role="group" aria-label="Project visibility" className="grid gap-3 sm:grid-cols-2">
                                                 {VISIBILITY_OPTIONS.map((option) => {
                                                     const isSelected = visibility === option.id;
                                                     return (
                                                         <button
                                                             key={option.id}
                                                             type="button"
+                                                            aria-pressed={isSelected}
                                                             onClick={() => void handleSelectVisibility(option.id)}
-                                                            disabled={savingSettings}
+                                                            disabled={savingAccess}
                                                             className={cn(
                                                                 "flex flex-col justify-between rounded-lg border p-4 text-left transition-colors duration-150",
                                                                 isSelected
@@ -1659,7 +1419,7 @@ export default function ProjectSettingsTab({
                                                                 <span className="nb-ui-label text-foreground">{option.title}</span>
                                                                 <span className="mt-1 block nb-compact text-muted-foreground">{option.description}</span>
                                                             </div>
-                                                            <span className="mt-3 block rounded-[5px] border border-border/60 bg-muted/30 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+                                                            <span className="mt-2 block nb-compact text-muted-foreground">
                                                                 {option.detail}
                                                             </span>
                                                         </button>
@@ -1686,10 +1446,10 @@ export default function ProjectSettingsTab({
                                         <PublicTabVisibilityEditor
                                             value={publicTabVisibility}
                                             onChange={handleTogglePublicTab}
-                                            disabled={savingSettings}
+                                            disabled={savingAccess}
                                             savingTabId={savingPublicTabId}
                                         />
-                                        <div className="mt-4 rounded-[5px] border border-border bg-muted/20 p-3.5 text-xs leading-relaxed text-muted-foreground">
+                                        <div className="mt-4 border-t border-border pt-4 text-xs leading-relaxed text-muted-foreground">
                                             Defaults are Dashboard, Docs, Updates, and Files on; Sprints and Tasks off. If the project is Private, these settings are saved but only apply after the project becomes Public again.
                                         </div>
                                     </div>
@@ -1698,14 +1458,13 @@ export default function ProjectSettingsTab({
                         </div>
                     </section>
                 )}
-
-                {/* SectionHeader suppressed when activeSection !== "collaborators" to avoid duplicate title */}
-                {/* activeSection === "collaborators" && ( */}
                 {sections.some((s) => s.id === "collaborators") && (
                     <section id="project-settings-collaborators" data-project-settings-section className="space-y-6">
                         <div className="space-y-6">
                         <SettingsCard
                             title="Collaborators"
+                                headingLevel={2}
+                                loadState={{ allowInteractionWhileLoading: true, loading: collaboratorLoading || collaboratorRefreshing || collaboratorLoadingMore, hasData: Boolean(collaboratorData), error: settingsErrors.collaborators ?? null, retry: () => void loadCollaborators("refresh") }}
                             description="Manage project leadership, team members, roles, and permissions in one place."
                             footer={
                                 <>
@@ -1718,7 +1477,7 @@ export default function ProjectSettingsTab({
                                             variant="outline"
                                             size="sm"
                                             onClick={() => void loadCollaborators("refresh")}
-                                            disabled={collaboratorRefreshing}
+                                            disabled={collaboratorRefreshing || collaboratorLoadingMore || collaboratorLoading}
                                             className="nb-touch-target h-[34px] gap-1.5 rounded-[5px] border-border px-3 text-[13px] font-medium leading-[1.2] text-foreground shrink-0 hover:bg-muted"
                                         >
                                             <RefreshCw className={cn("h-3.5 w-3.5 text-muted-foreground", collaboratorRefreshing && "animate-spin")} />
@@ -1766,7 +1525,7 @@ export default function ProjectSettingsTab({
                                 <div className="space-y-3 pb-6">
                                     <div className="flex items-center justify-between pb-2 border-b border-border/60">
                                         <div className="flex items-center gap-2">
-                                            <span className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                            <span className="nb-ui-label text-foreground">
                                                 Project Leadership
                                             </span>
                                         </div>
@@ -1775,9 +1534,10 @@ export default function ProjectSettingsTab({
                                         </span>
                                     </div>
 
-                                    <div className="grid gap-3 lg:grid-cols-2">
+                                    <div className="divide-y divide-border">
                                         {rolePolicy.owner ? (
                                             <CollaboratorCard
+                                                        disabled={collaboratorLoading || collaboratorRefreshing || collaboratorLoadingMore || confirmLoading}
                                                 member={rolePolicy.owner}
                                                 ownerId={ownerId}
                                                 isProjectOwner={isProjectOwner}
@@ -1795,6 +1555,7 @@ export default function ProjectSettingsTab({
                                         {rolePolicy.coLeaders.length > 0 ? (
                                             rolePolicy.coLeaders.map((member) => (
                                                 <CollaboratorCard
+                                                        disabled={collaboratorLoading || collaboratorRefreshing || collaboratorLoadingMore || confirmLoading}
                                                     key={member.id}
                                                     member={member}
                                                     ownerId={ownerId}
@@ -1829,7 +1590,7 @@ export default function ProjectSettingsTab({
                                 {(collaboratorFilter === "all" || collaboratorFilter === "admin") && !collaboratorSearch.trim() ? (
                                     <div className="flex items-center justify-between pb-2 border-b border-border/60">
                                         <div className="flex items-center gap-2">
-                                            <span className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                            <span className="nb-ui-label text-foreground">
                                                 Team Directory
                                             </span>
                                         </div>
@@ -1865,9 +1626,10 @@ export default function ProjectSettingsTab({
                                         }
 
                                         return (
-                                            <div className="grid gap-3 lg:grid-cols-2">
+                                            <div className="divide-y divide-border">
                                                 {displayMembers.map((member) => (
                                                     <CollaboratorCard
+                                                        disabled={collaboratorLoading || collaboratorRefreshing || collaboratorLoadingMore || confirmLoading}
                                                         key={member.id}
                                                         member={member}
                                                         ownerId={ownerId}
@@ -1890,7 +1652,7 @@ export default function ProjectSettingsTab({
                                             type="button"
                                             variant="outline"
                                             onClick={() => void loadCollaborators("more")}
-                                            disabled={collaboratorLoadingMore}
+                                            disabled={collaboratorLoadingMore || collaboratorRefreshing || collaboratorLoading}
                                             className="nb-touch-target h-[34px] gap-2 rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground"
                                         >
                                             {collaboratorLoadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
@@ -1903,14 +1665,12 @@ export default function ProjectSettingsTab({
                         </div>
                     </section>
                 )}
-
-                {/* SectionHeader suppressed when activeSection !== "roles-applications" to prevent duplicate headers */}
-                {/* activeSection === "roles-applications" && ( */}
                 {sections.some((s) => s.id === "roles-applications") && (
                     <section id="project-settings-roles-applications" data-project-settings-section className="space-y-6">
                         <div className="space-y-6">
                             <SettingsCard
                                 title="Project roles"
+                                headingLevel={2}
                                 description="Define open positions for collaborators, set target headcounts, and customize skill profiles for application intake."
                                 footer={
                                     !isProjectOwner ? (
@@ -1930,7 +1690,7 @@ export default function ProjectSettingsTab({
                                                     variant="outline"
                                                     size="sm"
                                                     onClick={handleCancelRoles}
-                                                    disabled={!rolesDirty || savingSettings}
+                                                    disabled={!rolesDirty || savingRoles}
                                                     className="nb-touch-target h-[34px] rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground hover:bg-muted"
                                                 >
                                                     Cancel
@@ -1939,10 +1699,10 @@ export default function ProjectSettingsTab({
                                                     type="button"
                                                     size="sm"
                                                     onClick={handleSaveRoles}
-                                                    disabled={!rolesDirty || savingSettings}
+                                                    disabled={!rolesDirty || savingRoles}
                                                     className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
                                                 >
-                                                    {savingSettings ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+                                                    {savingRoles ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
                                                     Save changes
                                                 </Button>
                                             </div>
@@ -1955,7 +1715,7 @@ export default function ProjectSettingsTab({
                                     register={registerRoles}
                                     control={rolesControl}
                                     errors={roleErrors}
-                                    disabled={savingSettings || !isProjectOwner}
+                                    disabled={savingRoles || !isProjectOwner}
                                     onAddRole={handleAddSettingsRole}
                                     onRemoveRole={handleRemoveSettingsRole}
                                     applicationCounts={roleApplicationCounts}
@@ -1965,29 +1725,19 @@ export default function ProjectSettingsTab({
                         </div>
                     </section>
                 )}
-
-                {/* SectionHeader suppressed when activeSection !== "readme" to avoid duplicate title */}
-                {/* activeSection === "readme" && ( */}
                 {sections.some((s) => s.id === "readme") && (
                     <section id="project-settings-readme" data-project-settings-section className="space-y-6">
                         <div className="space-y-6">
                             <SettingsCard
                                 title="Document publishing"
-                                description="Configure document distribution rules, image security boundaries, and publish notifications."
+                                headingLevel={2}
+                                loadState={{ loading: readmeSettingsLoading, hasData: readmeLoaded, error: settingsErrors.readme ?? null, retry: () => void loadReadmeSettings(true) }}
+                                description="Control whether documentation can load images from external websites."
                             >
                                 <div className="space-y-6">
                                     {/* Content Delivery & Notification Rules */}
                                     <div className="space-y-3">
-                                        <div className="flex items-center justify-between border-b border-border/60 pb-2">
-                                            <div className="flex items-center gap-2">
-                                                <span className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                                    Content delivery &amp; notification rules
-                                                </span>
-                                            </div>
-                                            <span className="nb-meta text-xs text-muted-foreground">
-                                                Security &amp; alerts
-                                            </span>
-                                        </div>
+
 
                                         <div className="grid gap-3">
                                             {([
@@ -1995,7 +1745,7 @@ export default function ProjectSettingsTab({
                                             ] as const).map(([key, title, description]) => (
                                                 <div
                                                     key={key}
-                                                    className="flex items-center justify-between gap-4 rounded-lg border border-border bg-card p-4 transition-colors hover:border-foreground/20"
+                                                    className="flex min-h-16 items-start justify-between gap-4 py-3 sm:items-center"
                                                 >
                                                     <div className="min-w-0 flex-1">
                                                         <p className="nb-ui-label text-sm font-semibold text-foreground">{title}</p>
@@ -2013,7 +1763,7 @@ export default function ProjectSettingsTab({
                                                         </span>
                                                         <SettingsSwitch
                                                             checked={Boolean(readmeSettingsDraft[key])}
-                                                            disabled={readmeSettingsLoading || savingReadmeKey === key}
+                                                            disabled={readmeSettingsLoading || Boolean(savingReadmeKey) || Boolean(settingsErrors.readme)}
                                                             aria-label={`Toggle ${title}`}
                                                             onCheckedChange={(checked) => void handleToggleReadmeSetting(key, checked)}
                                                         />
@@ -2027,45 +1777,26 @@ export default function ProjectSettingsTab({
                         </div>
                     </section>
                 )}
-
-                {/* SectionHeader suppressed when activeSection !== "updates" to avoid duplicate title */}
                 {sections.some((s) => s.id === "updates") && (
                     <section id="project-settings-updates" data-project-settings-section className="space-y-6">
                         <div className="space-y-6">
                             <SettingsCard
                                 title="Project updates"
+                                headingLevel={2}
                                 description="Configure member publishing permissions and broadcast settings for project progress updates."
                             >
                                 <div className="space-y-6">
                                     {/* Section 1: Publishing Permissions */}
                                     <div className="space-y-3">
-                                        <div className="flex items-center justify-between border-b border-border/60 pb-2">
-                                            <div className="flex items-center gap-2">
-                                                <span className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                                    Publishing permissions
-                                                </span>
-                                            </div>
-                                            <span className="nb-meta text-xs text-muted-foreground">
-                                                {memberUpdatesEnabled ? "Open collaboration" : "Restricted to leadership"}
-                                            </span>
-                                        </div>
 
-                                        <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-card p-4 transition-colors hover:border-foreground/20">
+
+                                        <div className="flex min-h-16 items-start justify-between gap-4 py-3 sm:items-center">
                                             <div className="min-w-0 flex-1">
                                                 <div className="flex items-center gap-2">
                                                     <p className="nb-ui-label text-sm font-semibold text-foreground">
                                                         Allow members to post updates
                                                     </p>
-                                                    <span
-                                                        className={cn(
-                                                            "inline-flex h-5 items-center rounded-[3px] border px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none",
-                                                            memberUpdatesEnabled
-                                                                ? "border-primary/20 bg-primary/10 text-primary"
-                                                                : "border-border bg-muted/60 text-muted-foreground",
-                                                        )}
-                                                    >
-                                                        {memberUpdatesEnabled ? "Members enabled" : "Leaders only"}
-                                                    </span>
+
                                                 </div>
                                                 <p className="nb-compact mt-1 text-xs text-muted-foreground leading-relaxed">
                                                     When enabled, all verified project members can author and publish progress updates. When disabled, update authoring is restricted exclusively to the Project Owner and Co-leaders.
@@ -2100,11 +1831,10 @@ export default function ProjectSettingsTab({
                         </div>
                     </section>
                 )}
-
-                {/* SectionHeader suppressed when activeSection !== "tasks-workflow" to avoid duplicate title */}
-                {/* activeSection === "tasks-workflow" && ( */}
                 {sections.some((s) => s.id === "tasks-workflow") && (
-                    <section id="project-settings-tasks-workflow" data-project-settings-section className="space-y-6">
+                    <section id="project-settings-tasks-workflow" data-project-settings-section className="space-y-8">
+                        <SettingsPageHeader level={2} title="Lifecycle & Workflow" description="Manage task completion and your project’s lifecycle stages." />
+                        <TaskCompletionSettings projectId={projectId} />
                         <div className="space-y-6">
                             <LifecycleSettingsEditor
                                 initialStages={project?.lifecycle_stages || project?.lifecycleStages || ["Concept", "MVP", "Launch"]}
@@ -2132,13 +1862,12 @@ export default function ProjectSettingsTab({
                         </div>
                     </section>
                 )}
-
-                {/* SectionHeader suppressed when activeSection !== "files-workspace" to avoid duplicate title */}
-                {/* activeSection === "files-workspace" && ( */}
                 {sections.some((s) => s.id === "files-workspace") && (
                     <section id="project-settings-files-workspace" data-project-settings-section className="space-y-6">
                         <SettingsCard
                             title="Files and workspace"
+                                headingLevel={2}
+                                loadState={{ allowInteractionWhileLoading: true, loading: fileWorkspaceLoading, hasData: Boolean(fileWorkspaceData), error: settingsErrors.files ?? null, retry: () => void loadFileWorkspaceSettings() }}
                             description="Control file intake clearly: leaders can always upload, members can be toggled on or off, and viewers stay read-focused."
                             footer={
                                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 w-full">
@@ -2156,8 +1885,8 @@ export default function ProjectSettingsTab({
                                         type="button"
                                         variant="outline"
                                         size="sm"
-                                        disabled={fileWorkspaceLoading}
-                                        onClick={() => void loadFileWorkspaceSettings(true)}
+                                        disabled={fileWorkspaceLoading || fileWorkspaceLoadingMore || fileWorkspaceBulkSaving || Boolean(fileWorkspaceSavingMemberId)}
+                                        onClick={() => void loadFileWorkspaceSettings()}
                                         className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium gap-2 self-start sm:self-auto border-border hover:bg-muted/50"
                                     >
                                         <RefreshCw className={cn("size-3.5", fileWorkspaceLoading && "animate-spin")} />
@@ -2178,16 +1907,22 @@ export default function ProjectSettingsTab({
                                 </div>
                                 <SettingsSwitch
                                     checked={memberFileUploadDefault}
-                                    disabled={savingMemberFileUploadDefault || !isProjectOwner}
+                                    disabled={savingMemberFileUploadDefault || fileWorkspaceBulkSaving || !isProjectOwner}
                                     aria-label="New members can upload files"
                                     onCheckedChange={(checked) => void handleToggleMemberFileUploadDefault(checked)}
                                 />
                             </div>
                             <FileWorkspaceMembers
+                                query={fileWorkspaceQuery}
+                                permissionFilter={fileWorkspaceFilter}
+                                onQueryChange={setFileWorkspaceQuery}
+                                onFilterChange={setFileWorkspaceFilter}
+                                onLoadMore={() => void loadFileWorkspaceSettings("more")}
+                                loadingMore={fileWorkspaceLoadingMore}
                                 data={fileWorkspaceData}
-                                isLoading={fileWorkspaceLoading && !fileWorkspaceData}
+                                isLoading={fileWorkspaceLoading}
                                 savingMemberId={fileWorkspaceSavingMemberId}
-                                bulkSaving={fileWorkspaceBulkSaving}
+                                bulkSaving={fileWorkspaceBulkSaving || Boolean(fileWorkspaceSavingMemberId) || savingMemberFileUploadDefault}
                                 onToggle={handleToggleMemberFileUpload}
                                 onBulkToggle={handleBulkFileUploadPermission}
                                 filePolicy={FILE_POLICY}
@@ -2195,15 +1930,14 @@ export default function ProjectSettingsTab({
                         </SettingsCard>
                     </section>
                 )}
-
-                {/* SectionHeader suppressed when activeSection !== "notifications" to avoid duplicate title */}
-                {/* activeSection === "notifications" && ( */}
                 {sections.some((s) => s.id === "notifications") && (
                     <section id="project-settings-notifications" data-project-settings-section className="space-y-6">
                         <div className="space-y-6">
                             <SettingsCard
                                 title="Project notification policy"
-                                description="Configure workflow event triggers and delivery rules across 7 core project categories. Critical responsibility and safety events stay locked on."
+                                headingLevel={2}
+                                loadState={{ loading: projectNotificationLoading, hasData: Boolean(projectNotificationData), error: settingsErrors.notifications ?? null, retry: () => void loadProjectNotificationSettings(true) }}
+                                description="Configure workflow event triggers and delivery rules for your project. Critical responsibility and safety events stay locked on."
                                 footer={
                                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 w-full">
                                         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -2221,7 +1955,7 @@ export default function ProjectSettingsTab({
                                                 type="button"
                                                 variant="outline"
                                                 size="sm"
-                                                disabled={!notificationDirty || savingSettings}
+                                                disabled={!projectNotificationData || Boolean(settingsErrors.notifications) || !notificationDirty || savingNotifications}
                                                 onClick={handleCancelNotifications}
                                                 className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2] border-border hover:bg-muted/50"
                                             >
@@ -2230,11 +1964,11 @@ export default function ProjectSettingsTab({
                                             <Button
                                                 type="button"
                                                 size="sm"
-                                                disabled={!notificationDirty || savingSettings}
+                                                disabled={!projectNotificationData || Boolean(settingsErrors.notifications) || !notificationDirty || savingNotifications}
                                                 onClick={() => void handleSaveNotifications()}
                                                 className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2] gap-1.5"
                                             >
-                                                {savingSettings ? <Loader2 className="size-3.5 animate-spin" /> : null}
+                                                {savingNotifications ? <Loader2 className="size-3.5 animate-spin" /> : null}
                                                 Save changes
                                             </Button>
                                         </div>
@@ -2246,12 +1980,12 @@ export default function ProjectSettingsTab({
                                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border/60 pb-3">
                                         <div>
                                             <div className="flex items-center gap-2">
-                                                <h3 className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-foreground">
+                                                <h3 className="nb-ui-label text-foreground">
                                                     Workflow event triggers
                                                 </h3>
                                             </div>
                                             <p className="nb-compact mt-0.5 text-xs text-muted-foreground leading-relaxed">
-                                                36 triggers organized across 7 core workflow categories. Click any category trigger to expand and customize event delivery.
+                                                {notificationSummary.visibleCount} triggers organized across {NOTIFICATION_GROUPS.length} workflow categories. Click any category trigger to expand and customize event delivery.
                                             </p>
                                         </div>
                                         <div className="flex items-center gap-2">
@@ -2267,45 +2001,37 @@ export default function ProjectSettingsTab({
                                         </div>
                                     </div>
 
-                                    {/* 7 Workflow Category Dropdown Cards */}
-                                    {projectNotificationLoading ? (
-                                        <div className="flex items-center gap-2 rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
-                                            <Loader2 className="size-4 animate-spin" />
-                                            Loading notification controls...
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-3">
-                                            {NOTIFICATION_GROUPS.map((group) => (
-                                                <ProjectNotificationCategoryCard
-                                                    key={group.id}
-                                                    group={group}
-                                                    policy={projectNotificationDraft}
-                                                    isExpanded={Boolean(expandedNotificationGroups[group.id])}
-                                                    onToggleExpand={() => toggleNotificationGroup(group.id)}
-                                                    onToggleRule={handleProjectNotificationToggle}
-                                                    disabled={savingSettings}
-                                                />
-                                            ))}
-                                        </div>
-                                    )}
+                                    {/* Categories retain their controls during a background refresh. */}
+                                    <div className="space-y-3">
+                                        {NOTIFICATION_GROUPS.map((group) => (
+                                            <ProjectNotificationCategoryCard
+                                                key={group.id}
+                                                group={group}
+                                                policy={projectNotificationDraft}
+                                                isExpanded={Boolean(expandedNotificationGroups[group.id])}
+                                                onToggleExpand={() => toggleNotificationGroup(group.id)}
+                                                onToggleRule={handleProjectNotificationToggle}
+                                                disabled={savingNotifications}
+                                            />
+                                        ))}
+                                    </div>
                                 </div>
                             </SettingsCard>
                         </div>
                     </section>
                 )}
-
-                {/* activeSection === "privacy-policies" && ( */}
                 {sections.some((s) => s.id === "privacy-policies" || s.id === "privacy-terms") && (
                     <section id="project-settings-privacy-policies" data-project-settings-section className="space-y-6">
+                        <SettingsPageHeader level={2} title="Privacy and Policies" description="These agreements and data rights apply to your signed-in account, not everyone on this project." />
                         <LegalAndDataRightsSection />
                     </section>
                 )}
-
-                {/* activeSection === "danger" && ( */}
                 {sections.some((s) => s.id === "danger") && (
                     <section id="project-settings-danger" data-project-settings-section className="space-y-6">
                         <SettingsCard
                             title="Danger Zone"
+                                headingLevel={2}
+                                loadState={{ loading: dangerPreflightLoading, hasData: Boolean(dangerPreflight), error: settingsErrors.danger ?? null, retry: () => void loadDangerPreflight(true) }}
                             description="Irreversible and sensitive project operations. Archive to preserve read-only history, transfer ownership to a team member, or permanently delete."
                             danger
                         footer={
@@ -2367,7 +2093,7 @@ export default function ProjectSettingsTab({
                                         <Button
                                             variant="outline"
                                             onClick={prepareArchive}
-                                            disabled={confirmLoading || dangerPreflightLoading || !dangerPreflight || !preflightPolicy.canArchive}
+                                            disabled={Boolean(settingsErrors.danger) || confirmLoading || dangerPreflightLoading || !dangerPreflight || !preflightPolicy.canArchive}
                                             className="nb-touch-target h-[34px] gap-2 rounded-[5px] border-border px-3.5 text-[13px] font-medium"
                                         >
                                             <Archive className="h-4 w-4" />
@@ -2463,7 +2189,7 @@ export default function ProjectSettingsTab({
                             </div>
 
                             {/* Operation 3: Delete Project */}
-                            <div className="rounded-[6px] border border-destructive/20 bg-destructive/[0.02] p-5 sm:p-6 transition-colors">
+                            <div className="border-b border-border py-6 last:border-b-0">
                                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                     <div className="min-w-0 flex-1 space-y-1.5">
                                         <div className="flex flex-wrap items-center gap-2">
@@ -2493,7 +2219,7 @@ export default function ProjectSettingsTab({
                                         <Button
                                             variant="destructive"
                                             onClick={prepareDelete}
-                                            disabled={confirmLoading || dangerPreflightLoading || !dangerPreflight || !isProjectOwner || !preflightPolicy.canDelete}
+                                            disabled={Boolean(settingsErrors.danger) || confirmLoading || dangerPreflightLoading || !dangerPreflight || !isProjectOwner || !preflightPolicy.canDelete}
                                             className="nb-touch-target h-[34px] gap-2 rounded-[5px] px-3.5 text-[13px] font-medium"
                                         >
                                             <Trash2 className="h-4 w-4" />
@@ -2566,5 +2292,6 @@ export default function ProjectSettingsTab({
                 onConfirmDelete={handleExecuteDelete}
             />
         </div>
+        </OpenSettingsSections>
     );
 }

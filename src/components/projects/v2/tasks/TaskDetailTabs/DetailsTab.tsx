@@ -32,7 +32,7 @@ import {
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { listTaskSourceMessages } from "@/app/actions/chat/messages";
 import { queryKeys } from "@/lib/query-keys";
-import { approveTaskReviewAction } from "@/app/actions/task";
+import { approveTaskReviewAction, requestTaskChangesAction, resubmitTaskReviewAction, getTaskReviewStateAction } from "@/app/actions/task";
 import type { TaskFileReadinessWarning } from "@/lib/projects/task-file-intelligence";
 import { normalizeTaskTitleDraft } from "@/lib/projects/task-file-intelligence";
 import { SPRINT_STATUS_PRESENTATION } from "@/lib/projects/sprint-detail";
@@ -52,6 +52,8 @@ import {
 import type { TaskPanelTab } from "@/hooks/useTaskPanelResource";
 import { buildProjectPersonReference } from "@/lib/projects/settings-policies";
 import { messageHref } from "@/lib/messaging/routes";
+import { useTaskCompletionPolicy } from "@/hooks/useTaskCompletionPolicy";
+import { completionActionLabel } from "@/lib/projects/task-completion-policy";
 import { cn } from "@/lib/utils";
 
 interface DetailsTabProps {
@@ -85,7 +87,7 @@ interface DetailsTabProps {
   onUpdateAssignee: (
     assigneeId: string | null,
   ) => Promise<{ success: boolean; error?: string }>;
-  onReviewApproved: (updatedAt: string) => void;
+  onReviewApproved: (updatedAt: string, status?: "done" | "in_progress" | "todo" | "blocked", reviewStatus?: "none" | "pending" | "rejected") => void;
   onOpenTab: (tab: TaskPanelTab) => void;
   workflowColumns?: { id: string; name: string }[];
   onMoveToColumn?: (columnId: string) => Promise<{ success: boolean; error?: string }>;
@@ -113,6 +115,20 @@ export default function DetailsTab({
   workflowColumns,
   onMoveToColumn,
 }: DetailsTabProps) {
+  const policy = useTaskCompletionPolicy(task.projectId ?? "");
+  const reviewState = useQuery({
+    queryKey: ["task-review-state", task.id, task.updatedAt, completedSubtaskCount, attachmentCount],
+    enabled: Boolean(task.projectId),
+    staleTime: 0,
+    queryFn: async () => {
+      const result = await getTaskReviewStateAction(task.id, task.projectId!);
+      if (!result.success) throw new Error(result.error);
+      return result;
+    },
+  });
+  const canReview = canEdit && policy.data?.canManage;
+  const [requestingChanges, setRequestingChanges] = useState(false);
+  const [changesReason, setChangesReason] = useState("");
   const titlePresentation = getTaskTitlePresentation(task);
   const titleInputRef = useRef<HTMLTextAreaElement | null>(null);
   const [titleDraft, setTitleDraft] = useState(task.title);
@@ -247,7 +263,7 @@ export default function DetailsTab({
     setReviewError(null);
     setIsApproving(true);
     try {
-      const res = await approveTaskReviewAction(task.id, task.projectId);
+      const res = await approveTaskReviewAction(task.id, task.projectId, task.updatedAt ?? undefined);
       if (res.success && res.updatedAt) {
         onReviewApproved(res.updatedAt);
         void queryClient.invalidateQueries({
@@ -259,8 +275,22 @@ export default function DetailsTab({
     }
   };
 
-  const handleReject = () => {
-    void onUpdateStatus("blocked");
+  const updateReview = async (resubmit: boolean) => {
+    if (!task.projectId || !task.updatedAt) return;
+    setIsApproving(true);
+    setReviewError(null);
+    try {
+      const result = resubmit
+        ? await resubmitTaskReviewAction(task.id, task.projectId, task.updatedAt)
+        : await requestTaskChangesAction(task.id, task.projectId, changesReason, task.updatedAt);
+      if (!result.success) throw new Error(result.error);
+      onReviewApproved(result.updatedAt, result.status, result.reviewStatus);
+      setRequestingChanges(false);
+      setChangesReason("");
+      void reviewState.refetch();
+      void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(task.projectId) });
+    } catch (error) { setReviewError(error instanceof Error ? error.message : "Unable to update review"); }
+    finally { setIsApproving(false); }
   };
 
   return (
@@ -282,39 +312,48 @@ export default function DetailsTab({
             <div className="space-y-2 flex-1">
               <div className="font-semibold text-foreground">In Review</div>
               <div className="text-xs text-muted-foreground">
-                The assignee has marked this as done. You can approve it to
-                finalize the task and publish its files, or request changes back to
-                the assignee.
+                Waiting for a project lead’s approval. Approving completes this task; file publication remains separate.
+                {reviewState.data?.submittedAt ? ` Submitted ${formatDistanceToNow(new Date(reviewState.data.submittedAt), { addSuffix: true })}.` : ""}
               </div>
               {reviewError ? (
                 <p className="text-xs text-destructive">{reviewError}</p>
               ) : null}
-              {canManageSprint ? (
+              {reviewState.data?.changed ? <p className="text-xs text-amber-700 dark:text-amber-300">Requirements, subtasks or linked files changed. Resubmit the current work before approval.</p> : null}
+              {reviewState.isError ? <p role="alert" className="text-xs text-destructive">Unable to check this submission. <button type="button" className="underline" onClick={() => void reviewState.refetch()}>Retry</button></p> : null}
+              {canReview ? (
                 <div className="flex items-center gap-2 pt-2">
                   <button
                     type="button"
                     onClick={() => void handleApprove()}
-                    disabled={isApproving}
+                    disabled={isApproving || !reviewState.data || reviewState.data.changed}
                     className="nb-touch-target inline-flex h-[34px] items-center gap-1.5 px-3 rounded-[5px] bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
                   >
                     <Check className="size-3.5" />
-                    {isApproving ? "Approving..." : "Done"}
+                    {isApproving ? "Saving…" : "Approve & complete"}
                   </button>
                   <button
                     type="button"
-                    onClick={handleReject}
+                    onClick={() => setRequestingChanges((value) => !value)}
                     disabled={isApproving}
                     className="nb-touch-target inline-flex h-[34px] items-center gap-1.5 px-3 rounded-[5px] border border-border bg-card text-foreground text-xs font-medium hover:bg-muted transition-colors disabled:opacity-50"
                   >
                     <XIcon className="size-3.5" />
-                    Issues
+                    Request changes
                   </button>
                 </div>
               ) : null}
+              {canEdit && (reviewState.data?.changed || !reviewState.data?.submittedAt || Boolean(reviewError)) ? <button type="button" disabled={isApproving} className="nb-touch-target text-xs font-medium underline" onClick={() => void updateReview(true)}>Resubmit current work</button> : null}
+              {requestingChanges && canReview ? <div className="space-y-2 border-t border-border pt-3">
+                <label htmlFor="task-review-reason" className="text-xs font-medium">What needs to change?</label>
+                <textarea id="task-review-reason" value={changesReason} onChange={(event) => setChangesReason(event.target.value)} maxLength={2000} rows={3} className="w-full rounded-[5px] border border-border bg-background px-3 py-2 text-sm" />
+                <div className="flex gap-3"><button type="button" disabled={isApproving || !changesReason.trim()} className="nb-touch-target text-xs font-medium disabled:opacity-50" onClick={() => void updateReview(false)}>Return to In progress</button><button type="button" className="nb-touch-target text-xs" onClick={() => setRequestingChanges(false)}>Cancel</button></div>
+              </div> : null}
             </div>
           </div>
         </div>
       ) : null}
+      {task.reviewStatus === "rejected" && reviewState.data?.reason ? <p className="border-b border-border pb-3 text-sm"><span className="font-medium">Changes requested: </span>{reviewState.data.reason}</p> : null}
+      {reviewState.data?.completedAt ? <p className="nb-meta text-muted-foreground">Completed {format(new Date(reviewState.data.completedAt), "MMM d, yyyy h:mm a")}</p> : null}
 
       {showDoneWarnings ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
@@ -323,7 +362,7 @@ export default function DetailsTab({
             <div className="space-y-2">
               <div className="font-medium">
                 {fileWarningSummary ||
-                  "This task is done, but its file state still needs follow-up."}
+                  "Task files need follow-up."}
               </div>
               <ul className="space-y-1 text-xs text-amber-700 dark:text-amber-200">
                 {fileWarnings.map((warning) => (
@@ -603,7 +642,7 @@ export default function DetailsTab({
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  disabled={!canEdit || isMutating}
+                  disabled={!canEdit || isMutating || task.reviewStatus === "pending"}
                   className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] text-foreground flex items-center justify-between transition hover:border-foreground/30 focus:border-primary disabled:opacity-50"
                   aria-label="Select status"
                 >
@@ -621,7 +660,7 @@ export default function DetailsTab({
                       )}
                     />
                     <span className="font-medium">
-                      {getTaskStatusPresentation(task.status).label}
+                      {task.reviewStatus === "pending" ? "In review" : getTaskStatusPresentation(task.status).label}
                     </span>
                   </span>
                   <ChevronDown className="size-3.5 text-muted-foreground" />
@@ -634,6 +673,7 @@ export default function DetailsTab({
                   return (
                     <DropdownMenuItem
                       key={status}
+                      disabled={status === "done" && !policy.data}
                       onClick={() => void onUpdateStatus(status)}
                       className="flex items-center justify-between px-2.5 py-1.5 text-xs rounded-[4px] cursor-pointer"
                     >
@@ -650,7 +690,7 @@ export default function DetailsTab({
                                   : "bg-muted-foreground/60",
                           )}
                         />
-                        <span className="font-medium">{pres.label}</span>
+                        <span className="font-medium">{status === "done" ? completionActionLabel(policy.data?.reviewRequired ?? false) : pres.label}</span>
                       </span>
                       {isSelected ? (
                         <Check className="size-3.5 text-primary stroke-[2.5]" />

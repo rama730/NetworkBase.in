@@ -30,6 +30,7 @@ export async function refreshWorkspaceCountersForUsers(
         dueDateColumn,
         now,
         todayEnd,
+        sql.raw('"review_status"'),
     )
 
     const values = sql.join(targetUserIds.map((userId) => sql`(${userId}::uuid)`), sql`, `)

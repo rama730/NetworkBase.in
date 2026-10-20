@@ -1,0 +1,47 @@
+{
+  "appliedNow": true,
+  "tag": "0233_task_completion_policy",
+  "checksum": "7b7e4ea05dd8f79e0b19aeff698e93e677120d0dbaea4e1c53c2ab0dff93d8be",
+  "journalIndex": 230,
+  "projectRef": "iutauehhgdymtpzrnzcy",
+  "statements": 6,
+  "existingDataPreserved": true,
+  "counts": {
+    "projects": 15,
+    "tasks": 21,
+    "pending_reviews": 0,
+    "completed_tasks": 1
+  },
+  "reviewOffProjects": 15,
+  "auditTableRls": true,
+  "indexes": [
+    {
+      "name": "project_task_policy_events_actor_idx",
+      "valid": true
+    },
+    {
+      "name": "project_task_policy_events_version_idx",
+      "valid": true
+    },
+    {
+      "name": "tasks_completed_by_idx",
+      "valid": true
+    },
+    {
+      "name": "tasks_pending_review_idx",
+      "valid": true
+    }
+  ],
+  "remainingPending": [
+    "0232_application_thread_guards"
+  ],
+  "verifiedAt": "2026-10-20T06:37:22.574Z",
+  "committed": true,
+  "browserAuditTableAccess": {
+    "anonSelect": false,
+    "authenticatedSelect": false,
+    "anonTruncate": false,
+    "authenticatedTruncate": false
+  },
+  "constraintsVerified": true
+}

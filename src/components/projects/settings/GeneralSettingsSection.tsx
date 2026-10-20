@@ -1,5 +1,6 @@
 'use client';
 
+import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -254,15 +255,28 @@ export function GeneralSettingsSection({
     const projectImageDragRef = useRef<ProjectImageDragState | null>(null);
     const coverInputRef = useRef<HTMLInputElement | null>(null);
     const filePickerScrollSnapshotRef = useRef<ScrollSnapshot | null>(null);
+    const [savedIdentity, setSavedIdentity] = useState(initialIdentity);
+    const categoryValue = resolveProjectCategory(categoryChoice, customCategory);
+    const identityDirty =
+        projectTitle !== savedIdentity.title ||
+        shortDescription !== savedIdentity.shortDescription ||
+        description !== savedIdentity.description ||
+        categoryValue !== savedIdentity.category ||
+        !areStringArraysEqual(tags, savedIdentity.tags) ||
+        !areStringArraysEqual(skills, savedIdentity.skills);
     useEffect(() => {
+        // An unrelated project refresh must not replace this draft.
+        if (identityDirty) return;
+        setSavedIdentity(initialIdentity);
+        onProjectTitleChange(initialIdentity.title);
         setShortDescription(initialIdentity.shortDescription);
         setDescription(initialIdentity.description);
         setCategoryChoice(initialIdentity.categoryChoice);
         setCustomCategory(initialIdentity.customCategory);
         setTags(initialIdentity.tags);
         setSkills(initialIdentity.skills);
-        setCoverImage(initialIdentity.coverImage);
-    }, [initialIdentity]);
+    }, [initialIdentity, onProjectTitleChange]);
+    useEffect(() => setCoverImage(initialIdentity.coverImage), [initialIdentity.coverImage]);
     useEffect(() => {
         return () => {
             if (coverDraft?.previewUrl) {
@@ -288,15 +302,8 @@ export function GeneralSettingsSection({
         return () => window.removeEventListener("focus", handleWindowFocus);
     }, [restoreFilePickerScroll]);
 
-    const categoryValue = resolveProjectCategory(categoryChoice, customCategory);
-    const identityDirty =
-        projectTitle !== initialIdentity.title ||
-        shortDescription !== initialIdentity.shortDescription ||
-        description !== initialIdentity.description ||
-        categoryValue !== initialIdentity.category ||
-        !areStringArraysEqual(tags, initialIdentity.tags) ||
-        !areStringArraysEqual(skills, initialIdentity.skills);
     const handleSaveGeneral = async () => {
+        if (savingSettings) return;
         const trimmedTitle = projectTitle.trim();
         if (!trimmedTitle) {
             toast.error("Project name cannot be empty.");
@@ -322,6 +329,10 @@ export function GeneralSettingsSection({
                 return;
             }
 
+            setSavedIdentity(resetIdentityFromProject({ title: trimmedTitle, shortDescription: shortDescription.trim(), description: description.trim(), category: nextCategory, tags: [...tags], skills: [...skills], coverImage }));
+            onProjectTitleChange(trimmedTitle);
+            setShortDescription(shortDescription.trim());
+            setDescription(description.trim());
             toast.success("General settings updated.");
             onProjectUpdated();
             broadcastProjectUpdated(projectId);
@@ -337,14 +348,14 @@ export function GeneralSettingsSection({
     };
 
     const handleCancelGeneral = useCallback(() => {
-        onProjectTitleChange(initialIdentity.title);
-        setShortDescription(initialIdentity.shortDescription);
-        setDescription(initialIdentity.description);
-        setCategoryChoice(initialIdentity.categoryChoice);
-        setCustomCategory(initialIdentity.customCategory);
-        setTags(initialIdentity.tags);
-        setSkills(initialIdentity.skills);
-    }, [initialIdentity, onProjectTitleChange]);
+        onProjectTitleChange(savedIdentity.title);
+        setShortDescription(savedIdentity.shortDescription);
+        setDescription(savedIdentity.description);
+        setCategoryChoice(savedIdentity.categoryChoice);
+        setCustomCategory(savedIdentity.customCategory);
+        setTags(savedIdentity.tags);
+        setSkills(savedIdentity.skills);
+    }, [savedIdentity, onProjectTitleChange]);
 
     const handleCoverImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         restoreFilePickerScroll();
@@ -514,13 +525,14 @@ export function GeneralSettingsSection({
     const coverInputId = `project-image-${projectId}`;
 
     return (
-    <section id="project-settings-general" data-project-settings-section className="space-y-6">
-        <div className="space-y-6">
+    <section id="project-settings-general" data-project-settings-section className="space-y-8">
+        <SettingsPageHeader level={2} title="General" description="Manage your project’s avatar, public identity, tags, and skills." />
+        <div className="space-y-8 divide-y divide-border [&>section]:pb-6">
         <section
             data-testid="project-avatar-settings-card"
-            className="rounded-lg border border-border bg-card shadow-xs"
+            className="space-y-4"
         >
-            <div className="p-5 sm:p-6">
+            <div>
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex min-w-0 flex-1 items-center gap-4 sm:gap-5">
                         <div className="relative size-20 sm:size-24 shrink-0 overflow-hidden rounded-lg border border-border bg-muted/30">
@@ -745,37 +757,9 @@ export function GeneralSettingsSection({
         <SettingsCard
             title="Project identity"
             description="These public fields update project headers, cards, search, notifications, and project links that render project copy."
-            footer={
-                <>
-                    <p className="nb-compact text-muted-foreground">
-                        {identityDirty ? "You have unsaved changes in project details." : "All project details are saved."}
-                    </p>
-                    <div className="flex items-center gap-2">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={handleCancelGeneral}
-                            disabled={!identityDirty || savingSettings}
-                            className="nb-touch-target h-[34px] rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground hover:bg-muted"
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => void handleSaveGeneral()}
-                            disabled={!identityDirty || savingSettings}
-                            className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
-                        >
-                            {savingSettings ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
-                            Save changes
-                        </Button>
-                    </div>
-                </>
-            }
+
         >
-            <div className="divide-y divide-border">
+            <fieldset disabled={savingSettings} className="min-w-0 divide-y divide-border">
                 <div className="pb-6">
                     <ReadOnlySlugField slug={project?.slug ?? ""} />
                 </div>
@@ -815,7 +799,7 @@ export function GeneralSettingsSection({
                         description="Primary category to help builders discover your project."
                     />
                 </div>
-            </div>
+            </fieldset>
         </SettingsCard>
 
         <SettingsCard
@@ -824,7 +808,7 @@ export function GeneralSettingsSection({
             footer={
                 <>
                     <p className="nb-compact text-muted-foreground">
-                        {identityDirty ? "You have unsaved changes in project details." : "All project details are saved."}
+                        {identityDirty ? "You have unsaved changes in General settings." : "All General settings are saved."}
                     </p>
                     <div className="flex items-center gap-2">
                         <Button
@@ -851,7 +835,7 @@ export function GeneralSettingsSection({
                 </>
             }
         >
-            <div className="divide-y divide-border">
+            <fieldset disabled={savingSettings} className="min-w-0 divide-y divide-border">
                 <div className="pb-6">
                     <ChipEditor
                         label="Tags"
@@ -872,7 +856,7 @@ export function GeneralSettingsSection({
                         description="Select the technologies and professional skills used by this project (up to 12 skills)."
                     />
                 </div>
-            </div>
+            </fieldset>
         </SettingsCard>
         </div>
     </section>
