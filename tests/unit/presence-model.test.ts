@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   activeStatus,
   advanceBadgeSpin,
+  initialBadgeSpin,
   availabilityLabel,
   availabilityOf,
   clearAfterToDate,
@@ -11,10 +12,14 @@ import {
   isStatusEmoji,
   projectAvailabilityOf,
   resolveLive,
-  showStatusChip,
+  ringOrder,
+  ringWeight,
+  showStatusEmoji,
   spinDelta,
+  statusBadgeSize,
   statusLabel,
-  STATUS_CHIP_MIN_SIZE,
+  statusTimerFraction,
+  STATUS_EMOJI_MIN_SIZE,
   validStatusExpiry,
 } from "@/lib/presence/model";
 
@@ -84,8 +89,8 @@ test("status emoji: any emoji (flags, skin tones, ZWJ), nothing else", () => {
 });
 
 test("away = notifications paused", () => {
-  assert.equal(isAway({ emoji: "🌴", text: "Vacationing", expiresAt: null, pausesNotifications: true }), true);
-  assert.equal(isAway({ emoji: "📅", text: "In a meeting", expiresAt: null, pausesNotifications: false }), false);
+  assert.equal(isAway({ emoji: "🌴", text: "Vacationing", expiresAt: null, setAt: null, pausesNotifications: true }), true);
+  assert.equal(isAway({ emoji: "📅", text: "In a meeting", expiresAt: null, setAt: null, pausesNotifications: false }), false);
   assert.equal(isAway(null), false);
 });
 
@@ -118,29 +123,67 @@ test("spinDelta: a rise in activity turns the rings clockwise, a drop counter-cl
   assert.equal(spinDelta("offline", "now"), 360);
 });
 
-test("showStatusChip: the status emoji needs an emoji and a badge of at least 14px", () => {
-  assert.equal(STATUS_CHIP_MIN_SIZE, 14);
-  assert.equal(showStatusChip(null, 24), false);
-  assert.equal(showStatusChip(undefined, 24), false);
-  assert.equal(showStatusChip("  ", 24), false);
-  assert.equal(showStatusChip("📅", 11), false);
-  assert.equal(showStatusChip("📅", 13), false);
-  assert.equal(showStatusChip("📅", 14), true);
-  assert.equal(showStatusChip("👥", 24), true);
+test("showStatusEmoji: the status emoji needs an emoji and a badge of at least 20px", () => {
+  assert.equal(STATUS_EMOJI_MIN_SIZE, 20);
+  assert.equal(showStatusEmoji(null, 30), false);
+  assert.equal(showStatusEmoji(undefined, 30), false);
+  assert.equal(showStatusEmoji("  ", 30), false);
+  assert.equal(showStatusEmoji("📅", 14), false);
+  assert.equal(showStatusEmoji("📅", 19), false);
+  assert.equal(showStatusEmoji("📅", 20), true);
+  assert.equal(showStatusEmoji("👥", 30), true);
 });
 
-test("advanceBadgeSpin: spins only on a change after the badge was armed, halo only when it becomes now", () => {
-  const start = { availability: "week" as const, armed: true, angle: 0, halo: 0 };
+test("statusBadgeSize: a status emoji grows the badge to the status size, never shrinks it", () => {
+  assert.equal(statusBadgeSize(16, 20, "📅"), 20);
+  assert.equal(statusBadgeSize(14, 20, "📅"), 20);
+  assert.equal(statusBadgeSize(30, 20, "📅"), 30);
+  assert.equal(statusBadgeSize(16, 20, null), 16);
+  assert.equal(statusBadgeSize(16, 20, "  "), 16);
+  assert.equal(statusBadgeSize(11, undefined, "📅"), 11);
+});
+
+test("statusTimerFraction: share of the status time left, clamped, null without a start or end", () => {
+  const set = "2026-10-20T10:00:00.000Z";
+  const end = "2026-10-20T12:00:00.000Z";
+  assert.equal(statusTimerFraction(set, end, Date.parse("2026-10-20T10:00:00.000Z")), 1);
+  assert.equal(statusTimerFraction(set, end, Date.parse("2026-10-20T11:00:00.000Z")), 0.5);
+  assert.equal(statusTimerFraction(set, end, Date.parse("2026-10-20T13:00:00.000Z")), 0);
+  assert.equal(statusTimerFraction(set, end, Date.parse("2026-10-20T09:00:00.000Z")), 1);
+  assert.equal(statusTimerFraction(null, end), null);
+  assert.equal(statusTimerFraction(set, null), null);
+  assert.equal(statusTimerFraction(end, set), null);
+  assert.equal(statusTimerFraction("nope", end), null);
+});
+
+test("ringOrder: the wave runs inner to outer going up, outer to inner going down", () => {
+  assert.deepEqual([0, 1, 2, 3].map((index) => ringOrder(index, 1)), [0, 1, 2, 3]);
+  assert.deepEqual([0, 1, 2, 3].map((index) => ringOrder(index, -1)), [3, 2, 1, 0]);
+});
+
+test("ringWeight: rings get thinner as activity drops", () => {
+  assert.deepEqual(["now", "today", "week", "offline"].map((a) => ringWeight(a as "now")), [1, 0.88, 0.74, 0.6]);
+});
+
+test("advanceBadgeSpin: spins only for an armed, full change; halo only when it becomes now", () => {
+  const start = initialBadgeSpin("week", true);
+  assert.deepEqual(start, { availability: "week", from: "week", armed: true, angle: 0, cycle: 0, halo: 0, dir: 1 });
   assert.equal(advanceBadgeSpin(start, "week", true), start);
   const up = advanceBadgeSpin(start, "now", true);
-  assert.deepEqual(up, { availability: "now", armed: true, angle: 360, halo: 1 });
+  assert.deepEqual(up, { availability: "now", from: "week", armed: true, angle: 360, cycle: 1, halo: 1, dir: 1 });
   const down = advanceBadgeSpin(up, "today", true);
-  assert.deepEqual(down, { availability: "today", armed: true, angle: 0, halo: 1 });
+  assert.deepEqual(down, { availability: "today", from: "now", armed: true, angle: 0, cycle: 2, halo: 1, dir: -1 });
   const again = advanceBadgeSpin(down, "now", true);
-  assert.deepEqual(again, { availability: "now", armed: true, angle: 360, halo: 2 });
-  // Data arriving (animate flips to true) together with a new state is the baseline, not a change.
-  const loading = { availability: "today" as const, armed: false, angle: 0, halo: 0 };
+  assert.deepEqual(again, { availability: "now", from: "today", armed: true, angle: 360, cycle: 3, halo: 2, dir: 1 });
+});
+
+test("advanceBadgeSpin: the first data and a busy list (not full) only record the change", () => {
+  const loading = initialBadgeSpin("today", false);
   assert.equal(advanceBadgeSpin(loading, "today", false), loading);
-  assert.deepEqual(advanceBadgeSpin(loading, "now", true), { availability: "now", armed: true, angle: 0, halo: 0 });
-  assert.deepEqual(advanceBadgeSpin(loading, "now", false), { availability: "now", armed: false, angle: 0, halo: 0 });
+  // Data arriving (animate flips to true) together with a new state is the baseline, not a change.
+  assert.deepEqual(advanceBadgeSpin(loading, "now", true), { availability: "now", from: "today", armed: true, angle: 0, cycle: 0, halo: 0, dir: 1 });
+  assert.deepEqual(advanceBadgeSpin(loading, "now", false), { availability: "now", from: "today", armed: false, angle: 0, cycle: 0, halo: 0, dir: 1 });
+  // Over the animation budget: availability and from move, nothing spins.
+  const armed = initialBadgeSpin("week", true);
+  assert.deepEqual(advanceBadgeSpin(armed, "now", true, false), { availability: "now", from: "week", armed: true, angle: 0, cycle: 0, halo: 0, dir: 1 });
 });

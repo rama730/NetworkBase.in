@@ -7,57 +7,108 @@ const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8"
 const badge = read("src/components/presence/PresenceBadge.tsx");
 const css = read("src/app/globals.css");
 const person = read("src/components/presence/PersonPresence.tsx");
+const hook = read("src/components/presence/usePresence.ts");
+const action = read("src/app/actions/presence.ts");
 
-test("ring badge draws four rings, each a gray track plus colored arcs", () => {
+test("ring badge draws four full rings, each a gray track plus colored arcs", () => {
   assert.match(badge, /^"use client";/);
   assert.match(badge, /viewBox="205 270 880 880"/);
   for (const radius of [135, 240, 330, 413]) assert.match(badge, new RegExp(`r: ${radius}\\b`));
+  for (const radius of [237, 303, 366, 428]) assert.match(badge, new RegExp(`rs: ${radius}\\b`));
   assert.match(badge, /className="nb-presence-ring"/);
   assert.match(badge, /className="nb-presence-track"/);
   assert.match(badge, /className="nb-presence-arc"/);
+  assert.match(css, /\.nb-presence-arc \{[^}]*stroke-dasharray:360 0/);
 });
 
-test("ring badge keeps its accessible name, test id and availability hook", () => {
+test("ring badge keeps its accessible name, test id and availability hooks", () => {
   assert.match(badge, /role=\{label \? "img" : undefined\}/);
   assert.match(badge, /aria-label=\{label\}/);
   assert.match(badge, /title=\{label\}/);
   assert.match(badge, /data-testid=\{testId\}/);
   assert.match(badge, /data-availability=\{availability\}/);
+  assert.match(badge, /data-from=\{spin\.from\}/);
 });
 
-test("rings spin only through advanceBadgeSpin, never on the first render or before data loads", () => {
+test("rings turn only through advanceBadgeSpin, never on first render, before data loads, or over the budget", () => {
   assert.match(badge, /advanceBadgeSpin\(/);
   assert.match(badge, /animate = true/);
   assert.match(badge, /rotate\(\$\{spin\.angle\}deg\)/);
+  assert.match(badge, /motionBudget\.take\(\)/);
+  assert.match(badge, /IntersectionObserver/);
   assert.match(badge, /key=\{spin\.halo\}/);
   assert.match(person, /animate=\{presence\.loaded\}/);
 });
 
-test("the status emoji chip renders only through showStatusChip", () => {
-  assert.match(badge, /showStatusChip\(statusEmoji, size\)/);
-  assert.match(badge, /className="nb-presence-chip"/);
+test("ring weight and wave order come from the model, not from CSS copies", () => {
+  assert.match(badge, /ringWeight\(availability\)/);
+  assert.match(badge, /ringOrder\(index, spin\.dir\)/);
+  assert.match(badge, /"--order"/);
+});
+
+test("status emoji sits inside the rings, only through showStatusEmoji, growing through statusBadgeSize", () => {
+  assert.doesNotMatch(badge, /nb-presence-chip/);
+  assert.match(badge, /statusBadgeSize\(size, statusSize, statusEmoji\)/);
+  assert.match(badge, /showStatusEmoji\(statusEmoji, px\)/);
+  assert.match(badge, /className="nb-presence-emoji"/);
+  assert.match(badge, /data-status=\{open \? "" : undefined\}/);
+  assert.doesNotMatch(css, /\.nb-presence-chip/);
   assert.match(person, /statusEmoji=\{presence\.status\?\.emoji\}/);
-  assert.match(person, /statusEmoji=\{presence\.status\?\.emoji\}[\s\S]*ProjectPresenceBadge|ProjectPresenceBadge[\s\S]*statusEmoji=\{presence\.status\?\.emoji\}/);
+  assert.match(person, /statusSize=\{statusSize\}/);
+  assert.match(person, /statusSize=\{size >= 32 \? 20 : undefined\}/);
+});
+
+test("timer ring and dotted ring come from the status's end time, start time and notification pause", () => {
+  assert.match(badge, /statusTimerFraction\(/);
+  assert.match(badge, /useNow\(/);
+  assert.match(badge, /<mask/);
+  assert.match(badge, /0\.1 11\.9/);
+  assert.match(person, /statusTimer=\{presence\.statusTimer\}/);
+  assert.match(person, /statusPaused=\{presence\.status\?\.pausesNotifications\}/);
+  assert.match(hook, /statusTimer:/);
+  assert.match(hook, /export function useNow/);
+  assert.match(action, /status_set_at/);
+  assert.match(action, /setAt:/);
+});
+
+test("the heartbeat ripple follows data refreshes for Active now badges of 20px or more", () => {
+  assert.match(badge, /pulseKey/);
+  assert.match(badge, /availability === "now"/);
+  assert.match(person, /pulseKey=\{presence\.updatedAt\}/);
+  assert.match(hook, /updatedAt:/);
+  assert.match(css, /@keyframes nb-presence-ripple-a/);
+  assert.match(css, /@keyframes nb-presence-ripple-b/);
 });
 
 test("one hue per state with a dark override for every token", () => {
   for (const state of ["now", "today", "week", "offline"]) {
     const token = state === "offline" ? "off" : state;
     assert.match(css, new RegExp(`\\.nb-presence\\[data-availability="${state}"\\] \\{ --presence-arc:var\\(--presence-${token}\\); \\}`));
+    assert.match(css, new RegExp(`\\.nb-presence\\[data-from="${state}"\\] \\{ --presence-from:var\\(--presence-${token}\\); \\}`));
   }
   const dark = css.slice(css.indexOf(".dark {", css.indexOf("Presence ring badge")));
   const darkBlock = dark.slice(0, dark.indexOf("}"));
   for (const token of ["now", "today", "week", "off", "chip", "track"]) assert.match(darkBlock, new RegExp(`--presence-${token}:`));
 });
 
-test("ring and arc transitions: 1.1s spin, staggered inner to outer, reduced motion keeps only the color fade", () => {
-  assert.match(css, /\.nb-presence-ring \{[^}]*transition:transform 1\.1s cubic-bezier\(\.45,\.05,\.2,1\)/);
-  assert.match(css, /\.nb-presence-arc \{[^}]*transition:stroke 1s ease/);
-  for (const [index, delay] of [[2, ".088s"], [3, ".176s"], [4, ".264s"]]) {
-    assert.match(css, new RegExp(`\\.nb-presence-svg > \\.nb-presence-ring:nth-child\\(${index}\\) \\{ transition-delay:${delay.replace(".", "\\.")}; \\}`));
+test("a change shrinks the rings to their arcs, spins them, grows them back, with a staggered wave, a pop and a halo", () => {
+  assert.match(css, /\.nb-presence-ring \{[^}]*transition:transform \.98s cubic-bezier\(\.45,\.05,\.2,1\) calc\(\.17s \+ var\(--order, 0\) \* \.09s\)/);
+  for (const name of ["a", "b"]) {
+    assert.match(css, new RegExp(`\\.nb-presence-badge\\[data-cycle="${name}"\\] \\.nb-presence-arc \\{[^}]*nb-presence-arc-${name} 1\\.44s ease-in-out calc\\(var\\(--order, 0\\) \\* \\.09s\\) both`));
+    assert.match(css, new RegExp(`@keyframes nb-presence-arc-${name} \\{`));
+    assert.match(css, new RegExp(`@keyframes nb-presence-pop-${name} \\{`));
   }
+  assert.match(css, /\.nb-presence-halo \{[^}]*animation:nb-presence-halo \.9s ease-out 1\.65s 1 both/);
   assert.match(css, /@keyframes nb-presence-halo/);
-  assert.match(css, /@media \(prefers-reduced-motion:reduce\) \{[^}]*\.nb-presence-ring \{ transition:none; \}[^}]*\.nb-presence-halo \{ display:none; \}/);
+});
+
+test("status moves: rings open over .7s, emoji pops in, badge size eases, reduced motion keeps only the fades", () => {
+  assert.match(css, /\.nb-presence-svg circle \{[^}]*r \.7s ease/);
+  assert.match(css, /\.nb-presence-badge \{[^}]*transition:width \.4s ease, height \.4s ease/);
+  assert.match(css, /\.nb-presence-emoji \{[^}]*animation:nb-presence-emoji-pop \.7s cubic-bezier\(\.34,1\.56,\.64,1\) both/);
+  assert.match(css, /@media \(prefers-reduced-motion:reduce\) \{[^@]*\.nb-presence-halo \{ display:none; \}/);
+  assert.match(css, /@media \(prefers-reduced-motion:reduce\) \{[^@]*animation:none !important/);
+  assert.match(css, /@media \(prefers-reduced-motion:reduce\) \{[^@]*\.nb-presence-ring \{ transition:none; \}/);
 });
 
 test("badge sizes per place follow the approved table", () => {
@@ -65,12 +116,11 @@ test("badge sizes per place follow the approved table", () => {
   assert.match(person, /if \(avatarSize <= 40\) return 14;/);
   assert.match(person, /if \(avatarSize <= 64\) return 20;/);
   assert.match(person, /return 26;/);
-  assert.match(read("src/components/network/PersonPresenceDot.tsx"), /size=\{compact \? 16 : 20\}/);
-  assert.match(read("src/components/layout/header/TopNav.tsx"), /<PersonPresenceBadge userId=\{user\?\.id\} live size=\{16\}/);
+  assert.match(read("src/components/network/PersonPresenceDot.tsx"), /size=\{compact \? 16 : 20\} statusSize=\{20\}/);
+  assert.match(read("src/components/layout/header/TopNav.tsx"), /<PersonPresenceBadge userId=\{user\?\.id\} live size=\{16\} statusSize=\{20\}/);
   assert.match(read("src/components/profile/v2/ProfileHeader.tsx"), /live=\{isOwner \|\| undefined\} size=\{30\}/);
-  // Project avatars: 18 on the card (44px avatar), 30 on the detail page (80px), 14 standalone beside a title; the corner offset scales with the badge.
   const project = read("src/components/projects/ProjectAvatar.tsx");
-  assert.match(project, /size=\{size\}/);
   assert.match(project, /standalone \? 14 : compact \? 18 : 30/);
   assert.match(project, /Math\.round\(size \* 0\.2\)/);
+  assert.match(project, /statusSize=\{standalone \? undefined : 20\}/);
 });

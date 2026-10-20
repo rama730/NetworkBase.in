@@ -112,7 +112,7 @@ test("Presence dot enhancements: fine-grained recency, in-tab BroadcastChannel s
     // Idea 4: Color-vision accessibility (WCAG 2.2 Compliant)
     assert.match(presenceBadgeSource, /role=\{label \? "img" : undefined\}/);
     // The ring badge separates from any photo with a 2 px cut-out in the surface color.
-    assert.match(globalStyles, /\.nb-presence-badge, \.nb-presence-chip \{[^}]*box-shadow:0 0 0 2px var\(--presence-cut\)/);
+    assert.match(globalStyles, /\.nb-presence-badge \{[^}]*box-shadow:0 0 0 2px var\(--presence-cut\)/);
     // One hue per state; offline is the grey one.
     assert.match(globalStyles, /\.nb-presence\[data-availability="offline"\] \{ --presence-arc:var\(--presence-off\); \}/);
     assert.match(globalStyles, /\.nb-presence\[data-availability="today"\] \{ --presence-arc:var\(--presence-today\); \}/);

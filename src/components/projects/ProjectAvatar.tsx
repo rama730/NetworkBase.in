@@ -176,6 +176,7 @@ export function ProjectPresenceDot({
             projectId={projectId && isLooseUuid(projectId) ? projectId : null}
             updatedAt={liveActiveAt ?? null}
             size={size}
+            statusSize={standalone ? undefined : 20}
             style={standalone ? undefined : { right: offset, bottom: offset }}
             className={cn(standalone ? "" : "nb-person-presence-dot", className)}
             testId="project-avatar-presence-dot"

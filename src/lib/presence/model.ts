@@ -24,6 +24,8 @@ export type PersonStatus = {
   emoji: string | null;
   text: string | null;
   expiresAt: string | null;
+  /** When the status was set (for the timer ring); null for old rows. */
+  setAt: string | null;
   pausesNotifications: boolean;
 };
 
@@ -119,30 +121,77 @@ export function spinDelta(prev: Availability, next: Availability): 0 | 360 | -36
   return change > 0 ? 360 : change < 0 ? -360 : 0;
 }
 
-export type BadgeSpin = { availability: Availability; armed: boolean; angle: number; halo: number };
+export type BadgeSpin = {
+  availability: Availability;
+  /** The availability before the last change: the arcs fade from this hue. */
+  from: Availability;
+  armed: boolean;
+  angle: number;
+  /** Counts full change cycles (shrink, spin, grow); it restarts the CSS animations. */
+  cycle: number;
+  /** Counts "became Active now" halos. */
+  halo: number;
+  /** Direction of the last full cycle: 1 up in activity, -1 down. */
+  dir: 1 | -1;
+};
+
+export function initialBadgeSpin(availability: Availability, armed: boolean): BadgeSpin {
+  return { availability, from: availability, armed, angle: 0, cycle: 0, halo: 0, dir: 1 };
+}
 
 /**
- * The badge's spin state for a new render. It spins only for a change seen while
- * data was already loaded (`armed`): the first render and the change that arrives
- * with the first data are the baseline. `halo` counts "became Active now" plays.
+ * The badge's spin state for a new availability. A change runs the full cycle only
+ * when it was seen while data was already loaded (`armed`) and the badge won the
+ * animation budget (`full`); otherwise the hue and weight just fade. The first
+ * render and the change that arrives with the first data are the baseline.
  */
-export function advanceBadgeSpin(state: BadgeSpin, availability: Availability, animate: boolean): BadgeSpin {
+export function advanceBadgeSpin(state: BadgeSpin, availability: Availability, animate: boolean, full = true): BadgeSpin {
   const changed = state.availability !== availability;
   if (!changed && state.armed === animate) return state;
-  const spins = changed && state.armed && animate;
+  const spins = changed && state.armed && animate && full;
+  const delta = changed ? spinDelta(state.availability, availability) : 0;
   return {
     availability,
+    from: changed ? state.availability : state.from,
     armed: animate,
-    angle: spins ? state.angle + spinDelta(state.availability, availability) : state.angle,
+    angle: spins ? state.angle + delta : state.angle,
+    cycle: spins ? state.cycle + 1 : state.cycle,
     halo: spins && availability === "now" ? state.halo + 1 : state.halo,
+    dir: spins ? (delta > 0 ? 1 : -1) : state.dir,
   };
 }
 
-/** The status emoji chip needs room: it shows only on badges at least this big (px). */
-export const STATUS_CHIP_MIN_SIZE = 14;
+/** Ring `index` (0 inner to 3 outer) in the change wave: inner first going up, outer first going down. */
+export function ringOrder(index: number, direction: 1 | -1) {
+  return direction > 0 ? index : 3 - index;
+}
 
-export function showStatusChip(emoji: string | null | undefined, size: number): emoji is string {
-  return Boolean(emoji?.trim()) && size >= STATUS_CHIP_MIN_SIZE;
+const RING_WEIGHT: Record<Availability, number> = { now: 1, today: 0.88, week: 0.74, offline: 0.6 };
+
+/** Ring thickness by availability: thinner as activity drops, a cue that does not rely on color. */
+export function ringWeight(availability: Availability) {
+  return RING_WEIGHT[availability];
+}
+
+/** The status emoji shows inside the rings only on badges at least this big (px). */
+export const STATUS_EMOJI_MIN_SIZE = 20;
+
+export function showStatusEmoji(emoji: string | null | undefined, size: number): emoji is string {
+  return Boolean(emoji?.trim()) && size >= STATUS_EMOJI_MIN_SIZE;
+}
+
+/** A status emoji grows the badge to `statusSize` so the emoji fits; the badge never shrinks. */
+export function statusBadgeSize(size: number, statusSize: number | undefined, emoji: string | null | undefined) {
+  return emoji?.trim() && statusSize ? Math.max(size, statusSize) : size;
+}
+
+/** Share of a timed status still to run (1 just set, 0 ended); null without a start and an end. */
+export function statusTimerFraction(setAt: string | null | undefined, expiresAt: string | null | undefined, now: number = Date.now()) {
+  if (!setAt || !expiresAt) return null;
+  const start = Date.parse(setAt);
+  const end = Date.parse(expiresAt);
+  if (!(end > start)) return null;
+  return Math.min(1, Math.max(0, (end - now) / (end - start)));
 }
 
 /** A status whose end time has passed is treated as cleared. */

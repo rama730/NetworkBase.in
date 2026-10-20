@@ -50,6 +50,7 @@ type PresenceRow = {
   status_emoji: string | null;
   status_text: string | null;
   status_expires_at: string | null;
+  status_set_at: string | null;
   status_pauses_notifications: boolean;
   status_visibility: StatusVisibility;
   connected: boolean;
@@ -73,7 +74,7 @@ export async function getPresence(input: { userIds: string[] }) {
     const viewerShows = viewer?.show_activity ?? true;
     const found = await rows<PresenceRow>(sql`
       SELECT p.id, p.last_active_at, p.show_activity,
-             p.status_emoji, p.status_text, p.status_expires_at, p.status_pauses_notifications, p.status_visibility,
+             p.status_emoji, p.status_text, p.status_expires_at, p.status_set_at, p.status_pauses_notifications, p.status_visibility,
              EXISTS (
                SELECT 1 FROM connections c
                WHERE c.status = 'accepted'
@@ -111,6 +112,7 @@ export async function getPresence(input: { userIds: string[] }) {
           emoji: row.status_emoji,
           text: row.status_text,
           expiresAt: row.status_expires_at ? new Date(row.status_expires_at).toISOString() : null,
+          setAt: row.status_set_at ? new Date(row.status_set_at).toISOString() : null,
           pausesNotifications: row.status_pauses_notifications,
         })
         : null;
@@ -134,7 +136,7 @@ export async function getMyPresenceSettings() {
   const user = await getAuthUser();
   if (!user) return unauthorized;
   const [row] = await rows<PresenceRow>(sql`
-    SELECT id, show_activity, status_emoji, status_text, status_expires_at, status_pauses_notifications, status_visibility
+    SELECT id, show_activity, status_emoji, status_text, status_expires_at, status_set_at, status_pauses_notifications, status_visibility
     FROM profiles WHERE id = ${user.id}::uuid
   `);
   if (!row) return unauthorized;
@@ -143,6 +145,7 @@ export async function getMyPresenceSettings() {
       emoji: row.status_emoji,
       text: row.status_text,
       expiresAt: row.status_expires_at ? new Date(row.status_expires_at).toISOString() : null,
+      setAt: row.status_set_at ? new Date(row.status_set_at).toISOString() : null,
       pausesNotifications: row.status_pauses_notifications,
     })
     : null;

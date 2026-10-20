@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 
 import {
   availabilityLabel,
@@ -74,7 +74,37 @@ export type PersonPresenceView = {
   /** The badge's accessible label: status first, then availability. */
   label: string;
   loaded: boolean;
+  /** When the data last refreshed: the badge ripples on a change while Active now. */
+  updatedAt: number;
+  /** Start and end of a timed status, for the badge's timer ring. */
+  statusTimer: { setAt: string; expiresAt: string } | null;
 };
+
+const NOW_TICK_MS = 30_000;
+const nowListeners = new Set<() => void>();
+let nowTimer: ReturnType<typeof setInterval> | null = null;
+let nowValue = Date.now();
+
+function subscribeNow(listener: () => void) {
+  nowValue = Date.now();
+  nowListeners.add(listener);
+  nowTimer ??= setInterval(() => {
+    nowValue = Date.now();
+    nowListeners.forEach((notify) => notify());
+  }, NOW_TICK_MS);
+  return () => {
+    nowListeners.delete(listener);
+    if (nowListeners.size === 0 && nowTimer) {
+      clearInterval(nowTimer);
+      nowTimer = null;
+    }
+  };
+}
+
+/** The time, refreshed every 30 s by one shared timer that runs only while something uses it. */
+export function useNow(enabled: boolean) {
+  return useSyncExternalStore(enabled ? subscribeNow : () => () => {}, () => nowValue, () => nowValue);
+}
 
 /**
  * One person's presence. `fallbackLastActiveAt` (already on many payloads)
@@ -98,8 +128,18 @@ export function usePersonPresence(userId: string | null | undefined, options: { 
     const status = data?.status ?? null;
     const statusText = status ? statusLabel(status) : null;
     const statusLine = status ? [status.emoji, statusText].filter(Boolean).join(" ") : null;
-    return { availability, availabilityText, status, statusText, label: statusLine ? `${statusLine} · ${availabilityText}` : availabilityText, loaded: Boolean(data) };
-  }, [options.fallbackLastActiveAt, options.live, query.data]);
+    const statusTimer = status?.setAt && status.expiresAt ? { setAt: status.setAt, expiresAt: status.expiresAt } : null;
+    return {
+      availability,
+      availabilityText,
+      status,
+      statusText,
+      label: statusLine ? `${statusLine} · ${availabilityText}` : availabilityText,
+      loaded: Boolean(data),
+      updatedAt: query.dataUpdatedAt,
+      statusTimer,
+    };
+  }, [options.fallbackLastActiveAt, options.live, query.data, query.dataUpdatedAt]);
 }
 
 export function useProjectPresence(projectId: string | null | undefined, fallbackUpdatedAt?: string | Date | null) {
