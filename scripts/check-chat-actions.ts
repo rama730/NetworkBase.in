@@ -200,10 +200,10 @@ async function main() {
     });
 
     as(member, "Mason");
-    await check("bootstrap returns channels, projects and pending counts", async () => {
+    await check("bootstrap returns channels and projects", async () => {
       const result = await read.bootstrap();
       return result.success && result.data.channels.some((c) => c.id === dmId && c.dm_user?.id === owner)
-        && (result.data.projects ?? []).some((p) => p.id === projectId) && typeof result.pending?.invites === "number";
+        && (result.data.projects ?? []).some((p) => p.id === projectId);
     });
     await check("markRead moves the cursor once and publishes read.moved", async () => {
       const [lastRow] = await sql`SELECT last_seq::int AS last FROM chat_channels WHERE id = ${general}`;

@@ -145,8 +145,11 @@ export type ChatApplicationMeta = {
   project_title: string;
   project_slug: string | null;
   decision_at: string | null;
+  created_at: string;
   is_applicant: boolean;
   applicant: ChatPerson;
+  /** The project's lead (its owner): who the applicant is talking to. */
+  lead: ChatPerson;
 };
 
 export type TaskCardView = {

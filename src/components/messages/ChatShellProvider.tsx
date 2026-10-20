@@ -19,14 +19,10 @@ import { readShellPart } from "@/lib/shell-batch";
 import { useDocumentTitlePrefix } from "@/hooks/useDocumentTitlePrefix";
 import { clearFailedSends, retryAllFailed } from "@/components/messages/failed-sends";
 
-type Pending = { invites: number; applications: number };
-type Snapshot = { data: ChatBootstrap; pending: Pending };
-/** Delta polls skip the invite/application counts (null): keep the last ones. */
-type Loaded = { data: ChatBootstrap; pending: Pending | null };
+type Snapshot = { data: ChatBootstrap };
 
 export type ChatShell = {
   data: ChatBootstrap | undefined;
-  pending: Pending;
   badge: number;
   status: BroadcastStatus;
   /** The channel list could not be loaded (shown with a Retry). */
@@ -37,7 +33,6 @@ export type ChatShell = {
   applyRead: (channelId: string, seq: number) => void;
 };
 
-const NO_PENDING: Pending = { invites: 0, applications: 0 };
 // A delta asks for changes since the last server_time minus this overlap, so a
 // send that committed just after that snapshot is never missed.
 const DELTA_OVERLAP_MS = 5_000;
@@ -47,7 +42,6 @@ const LEGACY_STORAGE_KEYS = ["messages-v2-ui", "messages-v2-outbox"];
 
 const ChatShellContext = createContext<ChatShell>({
   data: undefined,
-  pending: NO_PENDING,
   badge: 0,
   status: "connecting",
   loadError: null,
@@ -55,14 +49,14 @@ const ChatShellContext = createContext<ChatShell>({
   applyRead: () => undefined,
 });
 
-async function load(since: string | null): Promise<Loaded> {
+async function load(since: string | null): Promise<Snapshot> {
   const result = since ? await bootstrap({ since }) : await readShellPart("chatSummary");
   if (!result?.success) {
     const code = result?.error ?? "chat_unavailable";
     console.error("[chat] conversations failed to load", code);
     throw new Error(code);
   }
-  return { data: result.data, pending: result.pending };
+  return { data: result.data };
 }
 
 /**
@@ -103,8 +97,7 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
     queryKey: key,
     enabled: Boolean(userId),
     queryFn: async (): Promise<Snapshot> => {
-      const loaded = await load(null);
-      return { data: loaded.data, pending: loaded.pending ?? NO_PENDING };
+      return load(null);
     },
     staleTime: Infinity,
     refetchOnWindowFocus: false,
@@ -125,7 +118,7 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
     const since = new Date(Date.parse(current.data.server_time) - DELTA_OVERLAP_MS).toISOString();
     try {
       const next = await load(since);
-      queryClient.setQueryData<Snapshot>(key, (prev) => (prev ? { data: mergeDelta(prev.data, next.data), pending: next.pending ?? prev.pending } : prev));
+      queryClient.setQueryData<Snapshot>(key, (prev) => (prev ? { data: mergeDelta(prev.data, next.data) } : prev));
     } catch {
       // The next tick retries; a failed background poll never surfaces.
     }
@@ -232,7 +225,6 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
   }, [key, pollDelta, queryClient, refresh, userId]);
 
   const data = userId ? query.data?.data : undefined;
-  const pending = (userId && query.data?.pending) || NO_PENDING;
   const badge = useMemo(() => chatBadge(data), [data]);
   const router = useRouter();
   // A notification click asks this tab to route in-app instead of reloading (public/sw.js).
@@ -254,8 +246,8 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
   useDocumentTitlePrefix(badge ? `(${badge > 99 ? "99+" : badge})` : null, " ");
   const loadError = userId && query.isError && !data ? query.error.message : null;
   const shell = useMemo<ChatShell>(
-    () => ({ data, pending, badge, status, loadError, refresh, applyRead }),
-    [applyRead, badge, data, loadError, pending, refresh, status],
+    () => ({ data, badge, status, loadError, refresh, applyRead }),
+    [applyRead, badge, data, loadError, refresh, status],
   );
 
   return (

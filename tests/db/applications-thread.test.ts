@@ -109,6 +109,8 @@ test("every status change leaves a line that says who did what, and the card rea
     assert.equal(summary!.application?.is_applicant, true);
     assert.equal(summary!.application?.status, "rejected");
     assert.equal(summary!.application?.role_removed, true);
+    assert.equal(summary!.application?.lead.id, owner, "the applicant is told who leads the project");
+    assert.ok(summary!.application?.created_at);
   });
 });
 

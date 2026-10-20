@@ -61,7 +61,8 @@ test("sidebar: starred by recent activity, All projects grouping, unread attenti
   assert.deepEqual(sectionsFor(data, null).starred.map((c) => c.id), ["b", "a"]);
   const groups = channelsByProject(data);
   assert.deepEqual(groups.get("p1")?.map((c) => c.id), ["a", "b"]);
-  assert.deepEqual(groups.get("p2")?.map((c) => c.id), ["c", "muted", "d"], "default first, application threads last");
+  assert.deepEqual(groups.get("p2")?.map((c) => c.id), ["c", "muted"], "default first; application threads live in their own section");
+  assert.deepEqual(sectionsFor(data, null).applications.map((c) => c.id), ["d"]);
   assert.equal(needsAttention(channel("x", { last_top_seq: 3 })), true);
   assert.equal(needsAttention(channel("x", { mention_count: 1 })), true);
   assert.equal(needsAttention(channel("x", { last_top_seq: 3, notify: "mute" })), false, "muted never counts");

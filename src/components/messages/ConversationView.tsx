@@ -43,7 +43,7 @@ import type { ChannelDetails } from "@/app/actions/chat/channels";
 import type { CanvasTemplate } from "@/lib/messaging/canvas-store";
 import { conversationTabs, restoreTabOrder, type ChannelTabItem } from "@/lib/messaging/channel-tabs";
 import { ApplicationStatusBar } from "@/components/messages/cards/ApplicationCard";
-import { canAddPeople, channelTitle, isSelfDm, notifiesEveryMessage, notifyChoice, notifyChoices, notifyLabel, personName } from "@/lib/messaging/channel-view";
+import { canAddPeople, counterpart, channelTitle, isSelfDm, notifiesEveryMessage, notifyChoice, notifyChoices, notifyLabel, personName } from "@/lib/messaging/channel-view";
 import { CHAT_BROADCAST_MENTION_MAX_MEMBERS } from "@/lib/messaging/constants";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { conversationHref, messageHref, type DetailsTab } from "@/lib/messaging/routes";
@@ -505,6 +505,12 @@ export function ConversationView({ channelId, around = null, surface = "page", o
   if (!channel) return <ConversationSkeleton header={<>{backButton}{surface === "window" ? <span className="ml-auto flex items-center">{windowActions}</span> : null}</>} tabs={surface === "page"} />;
 
   const self = isSelfDm(channel, meId);
+  const other = counterpart(channel);
+  const meta = channel.application;
+  const applicationSubline = !meta ? null
+    : meta.is_applicant
+      ? `With ${personName(meta.lead)} · Lead of ${meta.project_title}`
+      : `${meta.project_title} · Applied ${new Date(meta.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
   const title = self ? `${personName(channel.dm_user)} (you)` : channelTitle(channel, meId);
   const dmOnline = channel.kind === "dm" && channel.dm_user ? online[channel.dm_user.id] : undefined;
   const placeholder = self ? "Jot something down…"
@@ -535,6 +541,11 @@ export function ConversationView({ channelId, around = null, surface = "page", o
             <button type="button" onClick={() => openDetails("about")} className="inline-flex flex-none rounded-md" aria-label={`About ${title}`}>
               <PresenceAvatar identity={channel.dm_user} userId={channel.dm_user?.id} live={channel.dm_user?.id === meId || dmOnline} size={34} title="" />
             </button>
+          ) : other ? (
+            // An application thread shows the person on the other side: the applicant to reviewers, the project's lead to the applicant.
+            <button type="button" onClick={() => openDetails("about")} className="inline-flex flex-none rounded-md" aria-label={`About ${personName(other)}`}>
+              <PresenceAvatar identity={other} userId={other.id} size={34} title="" />
+            </button>
           ) : null}
           <div className="min-w-0 flex-1 pl-1">
             <div className="flex min-w-0 items-center gap-1">
@@ -544,7 +555,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 className="group/title inline-flex min-w-0 items-center gap-1 rounded-sm text-left"
                 title={`Conversation details (${detailsShortcut})`}
               >
-                {channel.kind !== "dm" ? <ConversationIcon channel={channel} size={16} aria-hidden="true" className="shrink-0" /> : null}
+                {channel.kind !== "dm" && !other ? <ConversationIcon channel={channel} size={16} aria-hidden="true" className="shrink-0" /> : null}
                 <h1 className="nb-card-title truncate text-foreground group-hover/title:underline">{title}</h1>
               </button>
               {/* Only a starred conversation shows its star (click to unstar); starring lives in ⋯ and Details, so no empty slot. */}
@@ -557,8 +568,11 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 <DmHeaderStatus userId={channel.dm_user.id} live={channel.dm_user.id === meId || dmOnline} />
               ) : null}
             </div>
+            {applicationSubline ? (
+              <p className="truncate text-xs leading-4 text-muted-foreground">{applicationSubline}</p>
+            ) : null}
             {/* One quiet line under the name: the project and the topic, when there are any. */}
-            {channel.kind !== "dm" && (channel.project_title || channel.topic) ? (
+            {channel.kind !== "dm" && !channel.application && (channel.project_title || channel.topic) ? (
               <p className="flex min-w-0 items-center gap-1.5 text-xs leading-4 text-muted-foreground">
                 {channel.project_title ? <span className="hidden flex-none truncate sm:inline">{channel.project_title}</span> : null}
                 {channel.project_title && channel.topic ? <span aria-hidden="true" className="hidden sm:inline">·</span> : null}

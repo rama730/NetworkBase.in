@@ -20,14 +20,14 @@ import { channelTitle, formatChatTime, fullTime, isDirectLike, isVisible, needsA
 import type { ChatChannelSummary } from "@/lib/messaging/types";
 import { conversationHref } from "@/lib/messaging/routes";
 import { useMarkAllRead } from "@/components/messages/useMarkAllRead";
-import { MARK_ALL_LABEL } from "@/lib/messaging/channel-view";
+import { MARK_ALL_LABEL, counterpart } from "@/lib/messaging/channel-view";
 import { ConversationIcon } from "@/components/messages/ConversationIcon";
 
 function ConversationLink({ channel, meId }: { channel: ChatChannelSummary; meId: string | null }) {
   const count = rowCount(channel);
   return (
     <Link href={conversationHref(channel.id)} className="flex min-h-11 items-center gap-2.5 rounded-md px-2 hover:bg-muted">
-      {channel.kind === "dm" ? <UserAvatar identity={channel.dm_user} size={26} /> : <ConversationIcon channel={channel} size={16} aria-hidden="true" className="mx-[5px] text-muted-foreground" />}
+      {channel.kind === "dm" || counterpart(channel) ? <UserAvatar identity={channel.dm_user ?? counterpart(channel)} size={26} /> : <ConversationIcon channel={channel} size={16} aria-hidden="true" className="mx-[5px] text-muted-foreground" />}
       <span className="min-w-0 flex-1">
         {/* The icon already says # or 🔒: the name goes without a "#". */}
         <span className={`block truncate text-[13px] ${needsAttention(channel) ? "font-semibold" : "font-medium"}`}>{channelTitle(channel, meId)}</span>

@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
-import { channelTitle } from "@/lib/messaging/channel-view";
+import { channelTitle, counterpart } from "@/lib/messaging/channel-view";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 
 /** Share a message into another conversation you're in, with an optional note. */
@@ -79,7 +79,7 @@ export function ShareDialog({ channelId, seq, onClose }: { channelId: string; se
           {options.map(({ channel, title }, index) => (
             <li key={channel.id} id={`share-option-${channel.id}`} role="option" aria-selected={target === channel.id}>
               <button type="button" tabIndex={-1} onClick={() => setTarget(channel.id)} onMouseEnter={() => setActive(index)} className={`flex min-h-[34px] w-full items-center gap-2 rounded-md px-2 text-left text-[13px] pointer-coarse:min-h-11 ${target === channel.id ? "bg-accent text-accent-foreground" : index === active ? "bg-muted" : "hover:bg-muted"}`}>
-                {channel.kind === "dm" ? <UserAvatar identity={channel.dm_user} size={20} /> : <ConversationIcon channel={channel} size={16} aria-hidden="true" className="text-muted-foreground" />}
+                {channel.kind === "dm" || counterpart(channel) ? <UserAvatar identity={channel.dm_user ?? counterpart(channel)} size={20} /> : <ConversationIcon channel={channel} size={16} aria-hidden="true" className="text-muted-foreground" />}
                 <span className="truncate">{title}</span>
               </button>
             </li>

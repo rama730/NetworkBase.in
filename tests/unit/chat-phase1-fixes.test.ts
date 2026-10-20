@@ -33,10 +33,10 @@ const data: ChatBootstrap = {
   ],
 };
 
-test("sidebarOrder follows the sidebar: starred once, then channels, DMs, my applications", () => {
-  assert.deepEqual(sidebarOrder(data, "p1").map((c) => c.id), ["design", "general", "dm", "app-mine"]);
+test("sidebarOrder follows the sidebar: applications, starred once, then channels, DMs", () => {
+  assert.deepEqual(sidebarOrder(data, "p1").map((c) => c.id), ["app-mine", "design", "general", "dm"]);
   // All projects: groups by latest activity (Atlas first), each #general first.
-  assert.deepEqual(sidebarOrder(data, null).map((c) => c.id), ["design", "atlas-general", "general", "dm", "app-mine"]);
+  assert.deepEqual(sidebarOrder(data, null).map((c) => c.id), ["app-mine", "design", "atlas-general", "general", "dm"]);
 });
 
 test("a thread reply's link opens its thread; a channel message links by seq", () => {

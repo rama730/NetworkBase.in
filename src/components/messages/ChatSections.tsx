@@ -26,7 +26,7 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useOnlineUsers } from "@/hooks/useOnlineUsers";
 import {
-  DM_SIDEBAR_LIMIT, attention, channelTitle, channelsByProject, formatChatTime, fullTime, isDirectLike, isSelfDm, isUnread, needsAttention,
+  DM_SIDEBAR_LIMIT, attention, channelTitle, channelsByProject, counterpart, formatChatTime, fullTime, isApplicationThread, isDirectLike, isSelfDm, isUnread, needsAttention,
   projectBadges, projectsByActivity, rowCount, sectionsFor, swipeButtons,
 } from "@/lib/messaging/channel-view";
 import { chatErrorMessage } from "@/lib/messaging/errors";
@@ -56,6 +56,9 @@ function ChannelIcon({ channel, meId, online }: { channel: ChatChannelSummary; m
     // Chat's realtime presence marks the first few Active now at once; the rest come from the batch.
     return <PresenceAvatar identity={channel.dm_user} userId={channel.dm_user?.id} live={channel.dm_user?.id === meId || online} size={20} title="" />;
   }
+  // An application thread shows the person on the other side, like a DM: the applicant to reviewers, the lead to the applicant.
+  const other = counterpart(channel);
+  if (other) return <PresenceAvatar identity={other} userId={other.id} size={20} title="" />;
   return <ConversationIcon channel={channel} size={16} aria-hidden="true" className="flex-none" />;
 }
 
@@ -82,7 +85,7 @@ function Row({ channel, meId, variant, onSelect, online, draft }: { channel: Cha
   const current = pathname === href || pathname?.startsWith(`${href}/`);
   const count = rowCount(channel);
   const title = channelTitle(channel, meId);
-  const preview = variant === "list" && isDirectLike(channel);
+  const preview = variant === "list" && (isDirectLike(channel) || isApplicationThread(channel));
   // No aria-label: the row reads as what it shows (name, preview, time, count), plus these sr-only notes.
   const draftMark = draft && !current ? <Pencil size={14} aria-hidden="true" className="flex-none text-muted-foreground" /> : null;
   // Bold alone isn't heard: unread rows say so (a count says it already).
@@ -112,6 +115,8 @@ function Row({ channel, meId, variant, onSelect, online, draft }: { channel: Cha
       <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
         <span className="min-w-0 truncate">{title}</span>
         {channel.kind === "dm" && channel.dm_user ? <DmStatus userId={channel.dm_user.id} /> : null}
+        {/* Applications span projects, so a reviewer's row says which one. */}
+        {channel.application && !channel.application.is_applicant ? <span className="nb-meta min-w-0 shrink-[999] truncate font-normal text-muted-foreground">{channel.application.project_title}</span> : null}
       </span>
       {isDecidedApplication(channel.application?.status) ? (
         <span className="nb-status flex-none" data-status={APPLICATION_STATUS_TONE[channel.application!.status] ?? "archived"}>{APPLICATION_STATUS_LABEL[channel.application!.status]}</span>
@@ -627,7 +632,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
 
   const selfIdentity = profile ? { id: profile.id, username: profile.username, fullName: profile.fullName, avatarUrl: profile.avatarUrl } : null;
   const starred = sections.starred.filter(keep);
-  const myApplications = sections.myApplications.filter(keep);
+  const applications = sections.applications.filter(keep);
   const dmUnread = sections.dms.filter(needsAttention).length;
   // The same rows the Unreads filter shows (needsAttention): the button appears when any of them is unread.
   const projectAttention = (id: string) => (byProject.get(id) ?? []).filter(needsAttention);
@@ -655,9 +660,8 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
       </div>
     );
   };
-  /** A project's channels, then its application threads in their own collapsible group. */
-  const projectRows = (id: string, channelRows: ChatChannelSummary[], applicationRows: ChatChannelSummary[]) => {
-    const appsKey = `apps:${id}`;
+  /** A project's channels (its application threads live in the Applications section). */
+  const projectRows = (id: string, channelRows: ChatChannelSummary[]) => {
     const empty = !(byProject.get(id) ?? []).length;
     return (
       <>
@@ -666,23 +670,6 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
           <p className="px-2.5 py-1 text-[13px] text-muted-foreground">
             No channels yet{inPage ? null : <> · <Link href={`/messages/p/${id}/browse`} className="font-medium text-primary hover:underline">Open Messages</Link></>}
           </p>
-        ) : null}
-        {applicationRows.length ? (
-          <div className="pt-1">
-            <h3>
-              <button type="button" className="nb-chat-section-title flex w-full items-center gap-1 text-left pointer-coarse:min-h-11" aria-expanded={!collapsed[appsKey]} onClick={() => toggle(appsKey)}>
-                <ChevronDown size={14} aria-hidden="true" className={`flex-none ${collapsed[appsKey] ? "-rotate-90" : ""}`} />
-                <span className="flex-1">Applications</span>
-                <Count value={applicationRows.filter(needsAttention).length} noun="unread conversations" />
-              </button>
-            </h3>
-            {collapsed[appsKey] ? null : (
-              <>
-                {applicationRows.filter((c) => !isDecidedApplication(c.application?.status)).map(row)}
-                {decidedGroup(`decided:${id}`, applicationRows.filter((c) => isDecidedApplication(c.application?.status)))}
-              </>
-            )}
-          </div>
         ) : null}
         {unreadsOnly ? null : browseRow(id)}
       </>
@@ -749,7 +736,14 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
         </div>
       )}
 
-      {unreadsOnly && !starred.length && !others.length && !myApplications.length && (open ? ![...sections.channels, ...sections.applications].some(keep) : !anyProjectRows) ? (
+      {applications.length ? (
+        <Section id="applications" title="Applications" noun="unread conversations" count={applications.filter(needsAttention).length} collapsed={Boolean(collapsed.applications)} onToggle={toggle} attention={applications.filter(needsAttention).map(row)}>
+          {applications.filter((c) => !isDecidedApplication(c.application?.status)).map(row)}
+          {decidedGroup("decided:applications", applications.filter((c) => isDecidedApplication(c.application?.status)))}
+        </Section>
+      ) : null}
+
+      {unreadsOnly && !starred.length && !others.length && !applications.length && (open ? !sections.channels.some(keep) : !anyProjectRows) ? (
         <EmptyState compact icon={CheckCheck} title="You're all caught up" description="Nothing unread here." className="px-3 py-6" />
       ) : null}
 
@@ -757,19 +751,19 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
         <Section id="starred" title="Starred" noun="unread conversations" count={starred.filter(needsAttention).length} collapsed={Boolean(collapsed.starred)} onToggle={toggle} attention={starred.filter(needsAttention).map(row)}>{starred.map(row)}</Section>
       ) : null}
 
-      {open && !(unreadsOnly && ![...sections.channels, ...sections.applications].some(keep)) ? (
+      {open && !(unreadsOnly && !sections.channels.some(keep)) ? (
         <Section
           id="channels"
           title="Channels"
           noun="mentions"
           // This list only: starred channels count under Starred.
-          count={[...sections.channels, ...sections.applications].reduce((sum, c) => sum + attention(c), 0)}
+          count={sections.channels.reduce((sum, c) => sum + attention(c), 0)}
           collapsed={Boolean(collapsed.channels)}
           onToggle={toggle}
           action={projectActions(open.id)}
-          attention={[...sections.channels, ...sections.applications].filter(needsAttention).map(row)}
+          attention={sections.channels.filter(needsAttention).map(row)}
         >
-          {projectRows(open.id, sections.channels.filter(keep), sections.applications.filter(keep))}
+          {projectRows(open.id, sections.channels.filter(keep))}
         </Section>
       ) : open ? null : projects.length ? (
         projects.map((project) => {
@@ -791,7 +785,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
               action={projectActions(project.id)}
               attention={rows.filter(needsAttention).map(row)}
             >
-              {projectRows(project.id, rows.filter((c) => !c.application_id), rows.filter((c) => c.application_id))}
+              {projectRows(project.id, rows)}
             </Section>
           );
         })
@@ -828,12 +822,6 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
       </Section>
       )}
 
-      {myApplications.length ? (
-        <Section id="applications" title="My applications" noun="unread conversations" count={myApplications.filter(needsAttention).length} collapsed={Boolean(collapsed.applications)} onToggle={toggle} attention={myApplications.filter(needsAttention).map(row)}>
-          {myApplications.filter((c) => !isDecidedApplication(c.application?.status)).map(row)}
-          {decidedGroup("decided:mine", myApplications.filter((c) => isDecidedApplication(c.application?.status)))}
-        </Section>
-      ) : null}
       {markAll.dialog}
     </div>
   );

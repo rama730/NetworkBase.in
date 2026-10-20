@@ -8,12 +8,14 @@ export function applicationMetaSql(applicationId: SQL, viewerId: string): SQL {
   return sql`(
     SELECT jsonb_build_object(
       'status', a.status::text, 'role_title', coalesce(r.title, r.role), 'role_removed', a.role_id IS NULL,
-      'project_title', p.title, 'project_slug', p.slug, 'decision_at', a.decision_at,
+      'project_title', p.title, 'project_slug', p.slug, 'decision_at', a.decision_at, 'created_at', a.created_at,
       'is_applicant', a.applicant_id = ${viewerId}::uuid,
-      'applicant', jsonb_build_object('id', ap.id, 'username', ap.username, 'full_name', ap.full_name, 'avatar_url', ap.avatar_url))
+      'applicant', jsonb_build_object('id', ap.id, 'username', ap.username, 'full_name', ap.full_name, 'avatar_url', ap.avatar_url),
+      'lead', jsonb_build_object('id', lp.id, 'username', lp.username, 'full_name', lp.full_name, 'avatar_url', lp.avatar_url))
     FROM role_applications a
     JOIN projects p ON p.id = a.project_id
     JOIN profiles ap ON ap.id = a.applicant_id
+    JOIN profiles lp ON lp.id = p.owner_id
     LEFT JOIN project_open_roles r ON r.id = a.role_id
     WHERE a.id = ${applicationId})`;
 }
