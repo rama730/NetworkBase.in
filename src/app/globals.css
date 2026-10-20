@@ -956,7 +956,7 @@ svg.lucide { stroke-width:1.75; }
 .nb-presence-svg circle { stroke-width:calc(var(--w) * var(--presence-weight)); transition:stroke .98s ease, stroke-width .98s ease, r .7s ease, stroke-dasharray .6s ease; }
 .nb-presence-track { stroke:var(--presence-track); }
 .nb-presence-arc { stroke:var(--presence-arc); stroke-dasharray:360 0; }
-.nb-presence-ring { transform-box:fill-box; transform-origin:50% 50%; transition:transform .98s cubic-bezier(.45,.05,.2,1) calc(.17s + var(--order, 0) * .09s); }
+.nb-presence-ring { transform-box:fill-box; transform-origin:50% 50%; transition:transform .98s cubic-bezier(.45,.05,.2,1) calc(.17s + var(--order, 0) * .09s), opacity .6s ease; }
 /* One change: each ring shrinks to its arcs (0-16%), turns while the hue fades (12-80%), then grows back to a full ring (84-100%). Two copies of the keyframes alternate so every change restarts the animation. */
 .nb-presence-badge[data-cycle="a"] .nb-presence-arc { animation:nb-presence-arc-a 1.44s ease-in-out calc(var(--order, 0) * .09s) both; }
 .nb-presence-badge[data-cycle="b"] .nb-presence-arc { animation:nb-presence-arc-b 1.44s ease-in-out calc(var(--order, 0) * .09s) both; }
@@ -968,6 +968,7 @@ svg.lucide { stroke-width:1.75; }
 @keyframes nb-presence-pop-b { 0%, 100% { transform:scale(1); } 50% { transform:scale(1.16); } }
 /* One halo when someone becomes Active now, after the rings have landed; it starts invisible. */
 .nb-presence-halo { position:absolute; inset:0; border-radius:32%; border:2px solid var(--presence-now); pointer-events:none; opacity:0; animation:nb-presence-halo .9s ease-out 1.65s 1 both; }
+.nb-presence-halo[data-load] { animation-delay:0s; }
 @keyframes nb-presence-halo { 0% { opacity:0; transform:scale(1); } 1% { opacity:.8; transform:scale(1); } 100% { opacity:0; transform:scale(2); } }
 /* Heartbeat: while Active now, a soft dip passes outward through the rings when fresh data arrives. */
 .nb-presence-badge[data-ripple="a"] .nb-presence-ring { animation:nb-presence-ripple-a .55s ease-in-out calc(var(--i, 0) * .154s) both; }
@@ -978,11 +979,24 @@ svg.lucide { stroke-width:1.75; }
 .nb-presence-emoji { position:absolute; left:50%; top:50%; display:flex; align-items:center; justify-content:center; line-height:1; pointer-events:none; transform:translate(-50%, -50%); animation:nb-presence-emoji-pop .7s cubic-bezier(.34,1.56,.64,1) both; }
 .nb-presence-emoji[data-leaving] { animation:none; transform:translate(-50%, -50%) scale(0); opacity:0; transition:transform .3s ease, opacity .3s ease; }
 @keyframes nb-presence-emoji-pop { from { transform:translate(-50%, -50%) scale(0); opacity:0; } to { transform:translate(-50%, -50%) scale(1); opacity:1; } }
+/* Loading, until the presence data is here: a static gray placeholder, after 200 ms gray arcs that keep turning (odd rings the other way), then on arrival the rings ease to rest, grow into full rings and fade to the real hue. */
+.nb-presence-spin { transform-box:view-box; transform-origin:50% 50%; }
+.nb-presence-badge[data-phase="wait"], .nb-presence-badge[data-phase="load"] { --presence-arc:var(--presence-off); --presence-weight:.6; }
+.nb-presence-badge[data-phase="wait"] .nb-presence-ring { opacity:.55; }
+.nb-presence-badge[data-phase="load"] .nb-presence-arc { animation:nb-presence-load-in .25s ease-out both; }
+.nb-presence-badge[data-phase="load"] .nb-presence-spin { animation:nb-presence-load-spin calc(2.6s / (1 + var(--i, 0) * .12)) linear infinite; }
+.nb-presence-badge[data-phase="load"] .nb-presence-ring[data-reverse] .nb-presence-spin { animation-direction:reverse; }
+.nb-presence-badge[data-paused] .nb-presence-spin { animation-play-state:paused; }
+.nb-presence-badge[data-phase="settle"] .nb-presence-arc { animation:nb-presence-settle .9s ease-in-out both; }
+@keyframes nb-presence-load-in { from { stroke-dasharray:360 0; } to { stroke-dasharray:var(--arc-len) var(--arc-gap); } }
+@keyframes nb-presence-load-spin { to { transform:rotate(360deg); } }
+@keyframes nb-presence-settle { 0%, 30% { stroke-dasharray:var(--arc-len) var(--arc-gap); } 100% { stroke-dasharray:360 0; } }
 @media (prefers-reduced-motion:reduce) {
   .nb-presence-badge, .nb-presence-badge .nb-presence-arc, .nb-presence-badge .nb-presence-ring, .nb-presence-emoji { animation:none !important; }
   .nb-presence-ring { transition:none; }
   .nb-presence-badge { transition:none; }
   .nb-presence-svg circle { transition:stroke .98s ease, stroke-width .98s ease; }
+  .nb-presence-badge .nb-presence-spin { animation:none !important; }
   .nb-presence-halo { display:none; }
 }
 /* Corner placement on an avatar (people cards, search, discover). */

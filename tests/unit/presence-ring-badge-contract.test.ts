@@ -124,3 +124,34 @@ test("badge sizes per place follow the approved table", () => {
   assert.match(project, /Math\.round\(size \* 0\.2\)/);
   assert.match(project, /statusSize=\{standalone \? undefined : 20\}/);
 });
+
+test("while presence data loads: a gray placeholder, then gray arcs that spin, then a settle into the real state", () => {
+  assert.match(badge, /data-phase=\{phase\}/);
+  assert.match(badge, /LOADING_SHOW_AFTER_MS/);
+  assert.match(badge, /LOADING_GIVE_UP_MS/);
+  assert.match(badge, /loadingSettlePlan\(/);
+  assert.match(badge, /const SETTLE_MS = 900/);
+  assert.match(badge, /const FADE_MS = 600/);
+  assert.match(badge, /className="nb-presence-spin"/);
+  assert.match(badge, /DOMMatrix/);
+  assert.match(badge, /setLoadHalo\(true\)/);
+  assert.match(css, /\.nb-presence-halo\[data-load\] \{ animation-delay:0s; \}/);
+  assert.match(badge, /useLayoutEffect/);
+  assert.match(badge, /data-reverse=\{index % 2 \? "" : undefined\}/);
+  assert.match(badge, /data-paused=\{onScreen \? undefined : ""\}/);
+  assert.match(css, /\.nb-presence-badge\[data-phase="wait"\], \.nb-presence-badge\[data-phase="load"\] \{[^}]*--presence-arc:var\(--presence-off\)[^}]*--presence-weight:\.6/);
+  assert.match(css, /\.nb-presence-badge\[data-phase="wait"\] \.nb-presence-ring \{ opacity:\.55; \}/);
+  assert.match(css, /\.nb-presence-badge\[data-phase="load"\] \.nb-presence-arc \{[^}]*nb-presence-load-in \.25s/);
+  assert.match(css, /\.nb-presence-badge\[data-phase="load"\] \.nb-presence-spin \{[^}]*nb-presence-load-spin calc\(2\.6s \/ \(1 \+ var\(--i, 0\) \* \.12\)\) linear infinite/);
+  assert.match(css, /\.nb-presence-badge\[data-phase="settle"\] \.nb-presence-arc \{[^}]*nb-presence-settle \.9s/);
+  assert.match(css, /@keyframes nb-presence-load-in/);
+  assert.match(css, /@keyframes nb-presence-load-spin/);
+  assert.match(css, /@keyframes nb-presence-settle/);
+  assert.match(css, /@media \(prefers-reduced-motion:reduce\) \{[^@]*\.nb-presence-spin[^@]*animation:none !important/);
+});
+
+test("only people badges load: projects already know their activity", () => {
+  assert.match(person, /animate=\{presence\.loaded\}/);
+  const projectBadge = person.slice(person.indexOf("export function ProjectPresenceBadge"));
+  assert.doesNotMatch(projectBadge, /animate=/);
+});

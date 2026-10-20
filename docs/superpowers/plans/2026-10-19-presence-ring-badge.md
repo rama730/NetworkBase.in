@@ -99,6 +99,45 @@ Replaces the docked status chip of version 1 (design A, chip beside the rings). 
 - Emoji render differently per OS and may look slightly off-centre; judge on screen and nudge with a per-emoji-free `translateY` if needed.
 - Project statuses have no `setAt` in this plan, so projects get the emoji but no timer ring.
 
+## Iteration 4 (2026-10-20): presence loading on reload (option A, gray arcs spin)
+
+Status: implemented on local main (2026-10-20), see "Verification of iteration 4" at the end of this file. Approved from a mock.
+
+**What the person sees on a page reload (or any fresh mount while the data is still loading).**
+1. 0 to 200 ms: a static gray placeholder, the four full rings in the neutral gray at 55% opacity and the thin weight (0.6). Nothing animates yet, so a fast response never flashes a loader.
+2. Still loading after 200 ms: the rings shrink to their gray short and long arcs (0.25 s) and keep turning, alternating directions ring by ring (one turn in 2.6 s divided by `1 + 0.12 x ring index`, so the rings drift apart).
+3. Data arrives: the loader stays up for at least 0.6 s after it appeared (no flicker), then the rings ease to a stop at the nearest rest angle (0.9 s, ease-out, in their own direction), the arcs grow into full rings, the hue fades from gray to the real state hue and the weight from 0.6 to the state's weight. The status emoji opens the rings and pops in during the second half; the badge pops as it lands; Active now ends with the halo.
+4. Data arrives before 200 ms: no loader; the placeholder just fades to the real hue and weight (0.6 s).
+5. Data never arrives (error or offline) within 8 s: the badge stops loading and shows what it has (the availability from the fallback `lastActiveAt` or Offline) with the same fade.
+A badge that mounts with data already cached (client-side navigation) skips all of this and shows its real state at once. Server-rendered HTML carries the placeholder, so the first paint is never a wrong hue. Reduced motion: the placeholder stays static (no shrink, no turning) until the data arrives, then only the fade.
+
+**Scope.** People badges (`PersonPresenceBadge`, `PresenceAvatar`, `PersonPresenceDot`, TopNav, profile header). Project badges keep showing their availability from `updatedAt` at once (they already have it in the payload), so they get no loader. The change cycle, the budget, the ripple and the status behavior from iterations 2 and 3 are unchanged; the first data never triggers a cycle (it is the baseline).
+
+### Iteration 4 files
+
+| File | Change |
+|---|---|
+| `src/lib/presence/model.ts` | Constants `LOADING_SHOW_AFTER_MS = 200`, `LOADING_MIN_MS = 600`, `LOADING_GIVE_UP_MS = 8000`. Pure `loadingSettlePlan(shownAt: number \| null, arrivedAt: number)`: `{ mode: "fade", delay: 0 }` when the loader was never shown (`shownAt` null), else `{ mode: "settle", delay: max(0, LOADING_MIN_MS - (arrivedAt - shownAt)) }`. |
+| `src/components/presence/PresenceBadge.tsx` | Phase state machine `wait` to `load` to `settle` to `rest` (and `fade`), driven by `animate` (false while loading) with timers from the constants and the 8 s give-up. `data-phase` on `.nb-presence-badge`; ring inline weight is 0.6 while loading. The arcs of each ring move into a nested `<g class="nb-presence-spin">` so the loader's turning never touches the change cycle's rotation. On settle an effect reads each spin wrapper's current angle (computed transform matrix), pins it inline, then transitions it to the nearest rest angle in its own direction over 0.9 s and clears it on `transitionend`. The radii open and the emoji pop wait until the second half of the settle (`statusReady`). Loader turning only while the badge is on screen (the existing `IntersectionObserver`, kept in state while loading). A badge that mounts with `animate` true starts in `rest`. |
+| `src/app/globals.css` | `.nb-presence-badge[data-phase="wait"]` gray placeholder rules (arcs gray, ring opacity 0.55); `[data-phase="load"]` shrink-in keyframes `nb-presence-load-in` (0.25 s) and the spin keyframes `nb-presence-load-spin` with alternating direction (odd rings reverse) and `calc(2.6s / (1 + var(--i, 0) * .12))` duration; `[data-phase="settle"]` keyframes `nb-presence-settle` (arcs grow from 30%, hue gray to state from 10% to 70%, 0.9 s); ring opacity transition 0.6 s for the fade; reduced motion: no load-in, no spin, no settle animation (placeholder stays static, fade only). |
+| `docs/architecture/presence.md` | Add the loading behavior and its timings. |
+| Tests | `presence-model.test.ts`: `loadingSettlePlan` (never shown, shown 100 ms ago, shown 700 ms ago, shown exactly 600 ms ago). `presence-ring-badge-contract.test.ts`: phases and `data-phase`, the keyframe names, the nested spin wrapper, the 200 ms, 600 ms and 8 s constants used by the component, the reduced-motion rule, projects pass no loading. |
+
+### Iteration 4 steps
+
+1. Tests first, watch them fail.
+2. `model.ts`, then `PresenceBadge.tsx`.
+3. `globals.css`.
+4. Docs.
+5. Verify: `npm run typecheck`, `npm run lint`, `npm run test:unit`. In a temporary harness page (deleted afterwards) with `animate` flipped after 100 ms (no loader), 600 ms (loader, held to 800 ms, then settle), 3.5 s (a longer spin, then settle) and never (give-up at 8 s). Check the placeholder at first paint, the spin directions alternate, the settle stops each ring on a rest angle without a jump, the hue and weight land, the emoji pops after the rings open, the halo for Active now, no cycle on first data, reduced motion, dark mode, and a mount with cached data starts at rest. If the app's dev server serves stale CSS, load the new CSS by hand as before or restart it.
+
+### Iteration 4 risks
+
+- A person's badge now shows gray on every reload until the batch returns (typically 100 to 300 ms), including chat rows that already know someone is online from realtime presence. That is the requested behavior; if it feels slow in chat, give those badges a shorter show-after.
+- The settle reads each ring's live angle from the computed transform; a browser without `DOMMatrix` would snap to rest instead (guarded).
+- Many badges on a long page: the loader is CSS only and runs only for on-screen badges, but a page of 100 people cards will still animate the visible ones together.
+- The gray placeholder replaces the fallback hue drawn from `lastActiveAt` today; if the request fails the 8 s give-up falls back to that hue.
+
 ## What changes (version 1, partly superseded above)
 
 The corner "Node" badge (one rounded square, `PresenceBadge.tsx`) becomes a four-ring SVG badge.
@@ -198,3 +237,14 @@ Deviations from the plan, made while building:
 Checked in the browser (temporary harness page using the real `PresenceBadge` and the new CSS, since removed): full rings at rest with weight 0.6 offline; offline to week to now to week turns the rings 360, 720 and back with alternating `a`/`b` animations; the wave order flips to 3,2,1,0 going down; the halo appears on now; with `animate` false a change does not cycle; six badges changing at once run three cycles; the ripple plays for Active now at 20px and up (three at a time) and not offline; the emoji sits inside the rings at 20px and up (TopNav and members grow to 20) and not on the 11px DM row; the outer ring drains to a third for a 20 of 60 minutes status; Out sick draws the dotted ring with a mask; clearing shrinks the emoji and closes the rings; dark mode.
 Not verified: real app pages (needs a login), reduced motion in a browser (contract test only), the Playwright profile spec (setup fails here), Safari (CSS `r` transition may snap).
 Environment note: the running dev server kept serving the old `globals.css`; the new CSS was loaded into the page by hand for the check. Restart `next dev` to see it in the app.
+
+## Verification of iteration 4 (2026-10-20)
+
+Deviations from the plan:
+- Active now ends the settle with a halo (`data-load`, no delay), as the mock showed; the plan text listed it but not as a separate element.
+- The settle's "current angle" is read just before the phase changes (the spin animation is removed on the next commit), and pinned in a layout effect so nothing jumps.
+- `useVisible` takes an optional callback so a loader that scrolls off screen pauses (`data-paused`).
+
+Checked in the browser on a scratch copy of the project (the running dev server was not hydrating the temporary harness page; the scratch server on port 3100 and the copy are deleted): placeholder at first paint (gray, 55% opacity, no turning); after 200 ms the arcs shrink and the four rings turn with durations 2600, 2321, 2097, 1912 ms and odd rings reversed; data at 600 ms is held until 800 ms, then the settle fades the hue, grows the arcs, opens the rings (237) and pops the emoji, and Active now gets the halo; data at 100 ms fades without a loader; data at 3.5 s settles after a longer spin; no data stops at 8 s and settles with the fallback state; a mount with cached data starts at rest with no halo.
+Not verified: real app pages (needs a login), reduced motion in a browser (contract test only), Safari.
+Environment note: the already-running `next dev` on port 3000 was serving stale CSS and, for the new harness route, not hydrating; restart it to see this iteration in the app.
