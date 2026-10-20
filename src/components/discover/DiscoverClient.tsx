@@ -21,7 +21,6 @@ import DiscoverHeader from '@/components/discover/DiscoverHeader';
 import { DiscoverFiltersPanel } from '@/components/discover/DiscoverFiltersPanel';
 import { DiscoverPeopleRail } from '@/components/discover/DiscoverPeopleRail';
 import { DiscoverRail } from '@/components/discover/DiscoverRail';
-import { ProfileChecklist, useProfileChecklistItems } from '@/components/discover/ProfileChecklist';
 import { LegalLinks } from '@/components/legal/LegalLinks';
 import { AppScrollArea } from '@/components/ui/AppScrollArea';
 import { Button } from '@/components/ui/button';
@@ -116,13 +115,12 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
     // One history entry per visit to the Filters drawer: its first change pushes, the rest replace.
     const drawerPushed = useRef(false);
 
-    // ---- The rail: shown only at 1200px+ and only with something in it (people or the checklist).
+    // ---- The rail: shown only at 1200px+ and only with something in it (people).
     const wide = useMediaQuery('(min-width: 1200px)');
     const suggestions = useSuggestedPeople(DISCOVER_RAIL_PEOPLE_LIMIT, undefined, DISCOVER_RAIL_FILTERS, initialPeopleSuggestions, false, true);
     const hasPeople = Boolean(viewerId) && (suggestions.isLoading || (suggestions.data?.pages[0]?.items.length ?? 0) > 0 || suggestions.isError);
-    const checklist = useProfileChecklistItems(viewerId);
     // Before hydration knows the width, CSS decides (the rail column is hidden below 1200px).
-    const showRail = wide !== false && (hasPeople || checklist.length > 0);
+    const showRail = wide !== false && hasPeople;
 
     const filters = useMemo(() => ({
         status,
@@ -385,7 +383,6 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
                                 people={people}
                             />
                         </div>
-                        {wide === false ? <ProfileChecklist items={checklist} className="mb-4" /> : null}
                         <h2 ref={feedHeading} id="discover-feed" tabIndex={-1} className="sr-only">Projects</h2>
                         {feed}
                         {/* With no rail beside the feed, the legal links close the page instead. */}
@@ -393,7 +390,6 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
                     </div>
                     {showRail ? (
                         <DiscoverRail scrollContainer={scrollContainer}>
-                            <ProfileChecklist items={checklist} />
                             {hasPeople ? <DiscoverPeopleRail initialPage={initialPeopleSuggestions} variant="desktop" /> : null}
                             <div className="pt-2">{legal}</div>
                         </DiscoverRail>

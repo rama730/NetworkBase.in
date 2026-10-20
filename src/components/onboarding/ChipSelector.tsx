@@ -13,111 +13,69 @@ interface ChipSelectorProps {
   options: ChipOption[]
   selected: Set<string>
   onToggle: (value: string) => void
-  variant: 'single' | 'multi'
-  size?: 'sm' | 'md'
-  colorVariant?: 'primary' | 'secondary'
+  /** Names the group for assistive tech: the id of the label that describes it. */
+  labelledBy: string
   maxVisible?: number
-  expandLabel?: string
 }
 
-export default function ChipSelector({
-  options,
-  selected,
-  onToggle,
-  variant,
-  size = 'md',
-  colorVariant: _colorVariant = 'primary',
-  maxVisible = 12,
-  expandLabel = 'Show more',
-}: ChipSelectorProps) {
+export default function ChipSelector({ options, selected, onToggle, labelledBy, maxVisible = 12 }: ChipSelectorProps) {
   const [expanded, setExpanded] = useState(false)
 
   const shouldCollapse = options.length > maxVisible
-  const visibleOptions = shouldCollapse && !expanded
-    ? options.slice(0, maxVisible)
-    : options
-
+  const visibleOptions = shouldCollapse && !expanded ? options.slice(0, maxVisible) : options
   const hiddenCount = options.length - maxVisible
-
-  const handleToggle = (value: string) => {
-    if (variant === 'single') {
-      // In single mode, toggling the already-selected value deselects it
-      onToggle(value)
-    } else {
-      onToggle(value)
-    }
-  }
 
   return (
     <div className="flex flex-col gap-2">
-      <div role="group" className="flex flex-wrap gap-2">
+      <div role="group" aria-labelledby={labelledBy} className="flex flex-wrap gap-2">
         {visibleOptions.map((option) => {
           const isSelected = selected.has(option.value)
-
           return (
             <button
               key={option.value}
               type="button"
-              role="button"
               aria-pressed={isSelected}
-              onClick={() => handleToggle(option.value)}
+              onClick={() => onToggle(option.value)}
               className={cn(
-                'onb-focusable inline-flex items-center rounded-full border transition-[background-color,border-color,color] duration-[130ms] ease-in-out',
-                'text-[13px] font-medium leading-none select-none',
-                'min-h-[44px] sm:min-h-0',
-                // Size variants
-                size === 'sm' && 'px-[14px] py-[6px]',
-                size === 'md' && 'px-4 py-2',
-                // Unselected state
-                !isSelected && [
-                  'bg-card border-border text-foreground',
-                  'hover:bg-muted hover:border-foreground/40',
-                ],
-                isSelected && 'border-foreground bg-foreground text-background',
+                'onb-focusable inline-flex min-h-11 select-none items-center rounded-full border px-4 py-2 text-[13px] font-medium leading-none',
+                'transition-[background-color,border-color,color] duration-[130ms] ease-in-out',
+                isSelected
+                  ? 'border-foreground bg-foreground text-background'
+                  : 'border-border bg-card text-foreground hover:border-foreground/40 hover:bg-muted',
               )}
             >
-              {isSelected && (
-                <Check
-                  className={cn(
-                    'w-3 h-3 mr-1.5 shrink-0',
-                    'text-background',
-                  )}
-                  strokeWidth={2.5}
-                />
-              )}
+              {isSelected ? <Check className="mr-1.5 h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden="true" /> : null}
               {option.label}
             </button>
           )
         })}
       </div>
 
-      {/* Show more / Show less toggle */}
-      {shouldCollapse && (
+      {shouldCollapse ? (
         <button
           type="button"
           onClick={() => setExpanded(!expanded)}
-          className="onb-focusable inline-flex min-h-[44px] self-start items-center gap-1 rounded text-[13px] text-muted-foreground transition-colors duration-[130ms] hover:text-foreground sm:min-h-0"
+          aria-expanded={expanded}
+          className="onb-focusable inline-flex min-h-11 items-center gap-1 self-start rounded text-[13px] text-muted-foreground transition-colors duration-[130ms] hover:text-foreground"
         >
           {expanded ? (
             <>
-              <ChevronUp className="w-3.5 h-3.5" />
+              <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
               Show less
             </>
           ) : (
             <>
-              <ChevronDown className="w-3.5 h-3.5" />
-              {expandLabel} ({hiddenCount} more)
+              <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+              Show more ({hiddenCount} more)
             </>
           )}
         </button>
-      )}
+      ) : null}
 
-      {/* Selection counter */}
-      {selected.size > 0 && (
-        <p className="onb-field-hint" aria-live="polite">
-          {selected.size} selected
-        </p>
-      )}
+      {/* Always mounted, so a change is announced. */}
+      <p className="onb-field-hint" role="status" aria-live="polite">
+        {selected.size > 0 ? `${selected.size} selected` : ''}
+      </p>
     </div>
   )
 }

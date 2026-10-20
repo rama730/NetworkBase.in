@@ -4,8 +4,8 @@ Recorded on: 2026-03-12
 
 ## Baseline Scenarios
 
-1. `/login?redirect=/hub` with email sign-in -> redirects to `/hub` (or middleware-owned onboarding route when not onboarded).
-2. `/signup?redirect=/hub` with immediate session creation -> redirects to `/hub` (or middleware-owned onboarding route when not onboarded).
+1. `/login?redirect=/discover` with email sign-in -> redirects to `/discover` (or onboarding route (set by the server layouts) when not onboarded).
+2. `/signup?redirect=/discover` with immediate session creation -> redirects to `/discover` (or onboarding route (set by the server layouts) when not onboarded).
 3. OAuth callback success with safe `next` -> redirects to normalized internal path.
 4. OAuth callback failure/missing code -> redirects to `/login?error=auth-code-error&redirect=<safe-next>`.
 5. Middleware timeout/transient auth lookup with auth cookies -> no destructive sign-out redirect (degraded mode).
@@ -23,6 +23,6 @@ Recorded on: 2026-03-12
 1. `npm run test:unit -- auth-redirects auth-session-lookup auth-e2e-fallback`
 2. `npm run typecheck -- --pretty false`
 3. Manual callback check:
-   - `/auth/callback?next=/hub` (no code) -> login error redirect.
+   - `/auth/callback?next=/discover` (no code) -> login error redirect.
 4. Manual protected-route check:
-   - Signed out -> `/hub` redirects to `/login?redirect=%2Fhub`.
+   - Signed out -> `/discover` redirects to `/login?redirect=%2Fhub`.

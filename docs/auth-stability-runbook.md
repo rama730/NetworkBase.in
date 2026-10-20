@@ -9,7 +9,7 @@ This contract is non-negotiable for all auth entrypoints.
 1. OAuth start emits a callback URL built from canonical app base (`APP_URL` server, `NEXT_PUBLIC_APP_URL` client fallback).
 2. Redirect intent is always normalized by `normalizeAuthNextPath` and must be internal (`/...`) only.
 3. `/auth/callback` is the single owner of `exchangeCodeForSession(code)` and final redirect.
-4. Middleware is the single owner of route guarding and onboarding gating.
+4. Onboarding gating is owned by the server layouts (`(main)`, `(onboarding)`, `/authorize`) and the callback, all through `hasCompletedOnboarding` (`src/lib/onboarding/completion.ts`). Middleware only fast-paths on the signed `onboarding_complete` claim and never decides alone.
 5. Runtime auth decisions do not use E2E custom fallback cookies.
 
 ## 2) Required Environment Variables

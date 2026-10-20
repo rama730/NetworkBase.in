@@ -13,5 +13,5 @@ Request-path authentication is resolved from the Supabase access token locally, 
 ## Consequences
 
 - Middleware and server bootstraps must rely on `AuthSnapshot`, not remote `auth.getUser()` calls.
-- Onboarding completion and email verification must be present in token-backed claims.
+- Email verification and, as a fast path, onboarding completion are read from token-backed claims. The database (`profiles.onboarding_status`) is the record of completion: when it says completed and the claim is missing (a failed claim write, or an account that finished before claims existed), `hasCompletedOnboarding` writes the claim once so the next token carries it. Until then a request pays one extra redirect, never a wrong answer.
 - Invalid or expired auth cookies fail closed and are cleared centrally.

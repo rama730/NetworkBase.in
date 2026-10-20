@@ -26,21 +26,29 @@ function attachOnboardingMonitoring(page: import('@playwright/test').Page) {
     })
 }
 
-async function switchStep2Section(page: import('@playwright/test').Page, sectionName: string) {
-    await page
-        .getByRole('navigation', { name: 'Section navigation' })
-        .getByRole('button', { name: sectionName })
-        .click()
+async function fillIdentity(page: import('@playwright/test').Page, fullName: string, username: string) {
+    await page.getByLabel(/Full name/).fill(fullName)
+    await page.locator('#username').fill(username)
+    await expect(page.getByText('Username is available')).toBeVisible({ timeout: 15000 })
 }
 
-async function selectComboboxOption(
-    page: import('@playwright/test').Page,
-    comboboxName: string,
-    optionName: string,
-) {
-    await page.getByRole('combobox', { name: comboboxName }).click()
-    await page.getByRole('option', { name: optionName }).click()
+async function addSkill(page: import('@playwright/test').Page, skill: string) {
+    await page.getByRole('combobox').fill(skill)
+    await page.keyboard.press('Enter')
+    await expect(page.getByText(/1 of 25 skills selected/)).toBeVisible()
 }
+
+/** After the finish screen: the button, then the legal acceptance the fixture user has not seen yet. */
+async function continueFromFinishScreen(page: import('@playwright/test').Page, expectedPath: string) {
+    await page.getByRole('button', { name: /^(Go to Discover|Continue)/ }).click()
+    await expect.poll(() => new URL(page.url()).pathname, { timeout: 45000 }).not.toBe('/onboarding')
+    if (new URL(page.url()).pathname === '/legal/accept') {
+        await page.getByRole('checkbox').check()
+        await page.getByRole('button', { name: 'Agree and continue' }).click()
+    }
+    await expect.poll(() => new URL(page.url()).pathname, { timeout: 45000 }).toBe(expectedPath)
+}
+
 const FIXTURE_EMAILS = {
     happy: process.env.E2E_ONBOARDING_HAPPY_EMAIL || 'codex.onboarding.happy@example.com',
     legacy: process.env.E2E_ONBOARDING_LEGACY_EMAIL || 'codex.onboarding.legacy@example.com',
@@ -49,6 +57,8 @@ const FIXTURE_EMAILS = {
     rateLimit: process.env.E2E_ONBOARDING_RATELIMIT_EMAIL || 'codex.onboarding.ratelimit@example.com',
     idempotent: process.env.E2E_ONBOARDING_IDEMPOTENT_EMAIL || 'codex.onboarding.idempotent@example.com',
     resume: process.env.E2E_ONBOARDING_RESUME_EMAIL || 'codex.onboarding.resume@example.com',
+    next: process.env.E2E_ONBOARDING_NEXT_EMAIL || 'codex.onboarding.next@example.com',
+    lateTaken: process.env.E2E_ONBOARDING_LATE_TAKEN_EMAIL || 'codex.onboarding.latetaken@example.com',
 }
 
 const EXISTING_USERNAME = process.env.E2E_ONBOARDING_COLLISION_TARGET || 'e2e_6ff73371'
@@ -179,7 +189,7 @@ async function login(page: import('@playwright/test').Page, email: string) {
 test.describe('Onboarding smoke', () => {
     test.skip(!canManageFixtures, 'Supabase service role is required for onboarding fixture setup')
 
-    test('happy path completes onboarding and redirects to hub', async ({ browser }) => {
+    test('happy path completes onboarding, lands on Discover, and keeps a finished account out of onboarding', async ({ browser }) => {
         const email = FIXTURE_EMAILS.happy
         await ensureOnboardingFixture(email)
 
@@ -189,31 +199,30 @@ test.describe('Onboarding smoke', () => {
 
         await login(page, email)
 
-        await page.getByLabel('Full Name').fill('Onboarding Happy User')
         const username = scopedName('onb').replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20)
+        await page.getByLabel(/Full name/).fill('Onboarding Happy User')
         await page.locator('#username').fill(username)
         await expect(page.getByRole('button', { name: 'Continue' })).toBeDisabled()
         await expect(page.getByText('Username is available')).toBeVisible({ timeout: 15000 })
         await expect(page.getByRole('button', { name: 'Continue' })).toBeEnabled()
-        await page.getByRole('button', { name: 'Continue' }).click()
-        await page.getByText('Male', { exact: true }).click()
-        await page.getByLabel('Pronouns (optional)').fill('he/him')
-        await switchStep2Section(page, 'Work prefs')
-        await selectComboboxOption(page, 'Experience level', 'Mid-level')
-        await selectComboboxOption(page, 'Weekly availability', '10-20 hrs/week')
-        await page.getByText('Freelance projects', { exact: true }).click()
-        await page.getByRole('radio', { name: /Available/ }).click()
-        await switchStep2Section(page, 'Social')
+        await page.getByLabel(/Full name/).press('Enter') // Enter in a field presses Continue
+        await expect(page.getByRole('heading', { name: 'Tell us about yourself' })).toBeVisible()
+
+        // Step 2 is one page: every group is here at once.
+        await page.getByLabel('Experience level').selectOption({ label: 'Mid-level' })
+        await page.getByLabel('Weekly capacity').selectOption({ label: '10–20 hours per week' })
+        await page.getByRole('button', { name: 'Freelance' }).click()
         await page.getByLabel('GitHub').fill('github.com/onboarding-happy')
+        await page.getByText('Male', { exact: true }).click()
+        await page.getByLabel('Pronouns').fill('he/him')
         await page.getByRole('button', { name: 'Continue' }).click()
-        await page.getByText('React', { exact: true }).click()
+
+        await addSkill(page, 'React')
         await page.getByRole('button', { name: 'Continue' }).click()
         await page.getByText('Everyone', { exact: true }).click()
-        await page.getByRole('button', { name: 'Finish profile' }).click()
-
-        await expect
-            .poll(() => new URL(page.url()).pathname, { timeout: 45000 })
-            .toBe('/discover')
+        await page.getByRole('button', { name: 'Finish setup' }).click()
+        await expect(page.getByRole('heading', { name: /Welcome to NetworkBase/ })).toBeVisible({ timeout: 45000 })
+        await continueFromFinishScreen(page, '/discover')
 
         const saved = await adminClient().from('profiles')
             .select('username, full_name, onboarding_status, avatar_url').eq('email', email).single()
@@ -227,12 +236,80 @@ test.describe('Onboarding smoke', () => {
         // An uploaded/provider image or the existing initials fallback must survive navigation.
         await expect(avatar.locator('img, [data-avatar-tone]')).toBeVisible()
 
+        // A finished account never sees onboarding again.
+        await page.goto('/onboarding')
+        await expect.poll(() => new URL(page.url()).pathname, { timeout: 15000 }).toBe('/discover')
+
         await monitor.assertNoViolations()
         monitor.detach()
         await context.close()
     })
 
-    test('unscoped legacy drafts are discarded instead of crossing accounts', async ({ browser }) => {
+    test('finishing returns the person to the page they were heading to', async ({ browser }) => {
+        const email = FIXTURE_EMAILS.next
+        await ensureOnboardingFixture(email)
+
+        const context = await browser.newContext()
+        const page = await context.newPage()
+        const monitor = attachOnboardingMonitoring(page)
+        await login(page, email)
+
+        await page.goto('/onboarding?next=/my-profile')
+        const username = scopedName('next').replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20)
+        await fillIdentity(page, 'Next Path User', username)
+        await page.getByRole('button', { name: 'Continue' }).click()
+        await page.getByRole('button', { name: 'Skip for now' }).click()
+        await addSkill(page, 'React')
+        await page.getByRole('button', { name: 'Continue' }).click()
+        await page.getByRole('button', { name: 'Finish setup' }).click()
+        await continueFromFinishScreen(page, '/my-profile')
+
+        await monitor.assertNoViolations()
+        monitor.detach()
+        await context.close()
+    })
+
+    test('a username taken between step 1 and Finish sends the person back to fix it, and they can finish', async ({ browser }) => {
+        const email = FIXTURE_EMAILS.lateTaken
+        await ensureOnboardingFixture(email)
+        const admin = adminClient()
+        const owner = await admin.from('username_aliases').select('user_id').eq('username', EXISTING_USERNAME).maybeSingle()
+        test.skip(!owner.data?.user_id, 'needs an existing account that owns E2E_ONBOARDING_COLLISION_TARGET')
+
+        const context = await browser.newContext()
+        const page = await context.newPage()
+        const monitor = attachOnboardingMonitoring(page)
+        await login(page, email)
+
+        const username = scopedName('late').replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20)
+        await fillIdentity(page, 'Late Taken User', username)
+        await page.getByRole('button', { name: 'Continue' }).click()
+        await page.getByRole('button', { name: 'Skip for now' }).click()
+        await addSkill(page, 'React')
+        await page.getByRole('button', { name: 'Continue' }).click()
+
+        // Someone else claims the name while this person is on the review.
+        await admin.from('username_aliases').insert({ username, user_id: owner.data!.user_id, is_primary: false })
+        try {
+            await page.getByRole('button', { name: 'Finish setup' }).click()
+            await expect(page.getByText(/already taken|unavailable/i)).toBeVisible({ timeout: 20000 })
+            await expect(page.getByRole('heading', { name: "Let's set up your profile" })).toBeVisible()
+
+            const replacement = scopedName('late2').replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20)
+            await fillIdentity(page, 'Late Taken User', replacement)
+            await page.getByRole('button', { name: 'Back to review' }).click()
+            await page.getByRole('button', { name: 'Finish setup' }).click()
+            await expect(page.getByRole('heading', { name: /Welcome to NetworkBase/ })).toBeVisible({ timeout: 45000 })
+        } finally {
+            await admin.from('username_aliases').delete().eq('username', username)
+        }
+
+        await monitor.assertNoViolations()
+        monitor.detach()
+        await context.close()
+    })
+
+    test('an old unscoped draft key is never read into the form', async ({ browser }) => {
         const email = FIXTURE_EMAILS.legacy
         await ensureOnboardingFixture(email)
 
@@ -242,23 +319,16 @@ test.describe('Onboarding smoke', () => {
 
         await login(page, email)
         await page.evaluate(() => {
-            localStorage.removeItem('onboarding:draft:v2')
             localStorage.setItem('onboarding:draft:v1', JSON.stringify({
                 step: 2,
-                data: {
-                    fullName: 'Legacy Draft User',
-                    pronouns: 'they/them',
-                    availabilityStatus: 'busy',
-                },
+                data: { fullName: 'Legacy Draft User', pronouns: 'they/them' },
                 updatedAt: Date.now(),
             }))
         })
         await page.reload()
 
         await expect(page.getByRole('heading', { name: "Let's set up your profile" })).toBeVisible()
-        await expect(page.getByLabel('Pronouns (optional)')).not.toBeVisible()
-        const legacyValue = await page.evaluate(() => localStorage.getItem('onboarding:draft:v1'))
-        expect(legacyValue).toBeNull()
+        await expect(page.getByLabel(/Full name/)).not.toHaveValue('Legacy Draft User')
 
         await monitor.assertNoViolations()
         monitor.detach()
@@ -274,18 +344,17 @@ test.describe('Onboarding smoke', () => {
         const monitor = attachOnboardingMonitoring(page)
         await login(page, email)
 
-        await page.getByLabel('Full Name').fill('Resume Contract User')
         const username = scopedName('resume').replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20)
-        await page.locator('#username').fill(username)
-        await expect(page.getByText('Username is available')).toBeVisible({ timeout: 15000 })
+        await fillIdentity(page, 'Resume Contract User', username)
         await page.getByRole('button', { name: 'Continue' }).click()
         await expect(page.getByRole('heading', { name: 'Tell us about yourself' })).toBeVisible()
 
         await page.reload()
 
         await expect(page.getByRole('heading', { name: 'Tell us about yourself' })).toBeVisible()
-        await expect(page.getByText('Step 1 completed')).toBeAttached()
-        await expect(page.locator('[aria-current="step"]')).toContainText('2')
+        const rail = page.getByRole('list', { name: 'Setup steps' })
+        await expect(rail.getByRole('listitem').first()).toContainText('completed')
+        await expect(rail.locator('[aria-current="step"]')).toContainText('Details')
 
         await monitor.assertNoViolations()
         monitor.detach()
@@ -301,7 +370,7 @@ test.describe('Onboarding smoke', () => {
         const monitor = attachOnboardingMonitoring(page)
 
         await login(page, email)
-        await page.getByLabel('Full Name').fill('Reserved Username User')
+        await page.getByLabel(/Full name/).fill('Reserved Username User')
         await page.locator('#username').fill('admin')
         await expect(page.getByText('This username is reserved')).toBeVisible({ timeout: 15000 })
         await expect(page.getByRole('button', { name: 'Continue' })).toBeDisabled()
@@ -320,7 +389,7 @@ test.describe('Onboarding smoke', () => {
         const monitor = attachOnboardingMonitoring(page)
 
         await login(page, email)
-        await page.getByLabel('Full Name').fill('Collision Username User')
+        await page.getByLabel(/Full name/).fill('Collision Username User')
         await page.locator('#username').fill(EXISTING_USERNAME)
         await expect(page.getByText(/already taken/i)).toBeVisible({ timeout: 15000 })
 
@@ -373,7 +442,7 @@ test.describe('Onboarding smoke', () => {
         await context.close()
     })
 
-    test('duplicate submit reuses idempotent onboarding result', async ({ browser }) => {
+    test('double-clicking Finish creates the profile once', async ({ browser }) => {
         const email = FIXTURE_EMAILS.idempotent
         await ensureOnboardingFixture(email)
 
@@ -382,22 +451,21 @@ test.describe('Onboarding smoke', () => {
         const monitor = attachOnboardingMonitoring(page)
 
         await login(page, email)
-        await page.getByLabel('Full Name').fill('Idempotent User')
         const username = scopedName('idem').replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20)
-        await page.locator('#username').fill(username)
-        await expect(page.getByText('Username is available')).toBeVisible({ timeout: 15000 })
+        await fillIdentity(page, 'Idempotent User', username)
         await page.getByRole('button', { name: 'Continue' }).click()
-        await switchStep2Section(page, 'Social')
-        await page.getByRole('button', { name: 'Continue' }).click()
-        await page.getByText('React', { exact: true }).click()
+        await page.getByRole('button', { name: 'Skip for now' }).click()
+        await addSkill(page, 'React')
         await page.getByRole('button', { name: 'Continue' }).click()
 
-        const submitButton = page.getByRole('button', { name: 'Finish profile' })
-        await submitButton.dblclick()
+        await page.getByRole('button', { name: 'Finish setup' }).dblclick()
+        await expect(page.getByRole('heading', { name: /Welcome to NetworkBase/ })).toBeVisible({ timeout: 45000 })
+        await continueFromFinishScreen(page, '/discover')
 
-        await expect
-            .poll(() => new URL(page.url()).pathname, { timeout: 45000 })
-            .toBe('/discover')
+        const saved = await adminClient().from('profiles').select('id, username').eq('email', email).single()
+        expect(saved.data?.username).toBe(username)
+        const welcome = await adminClient().from('email_outbox').select('id').eq('user_id', saved.data!.id)
+        expect(welcome.data?.length ?? 0).toBeLessThanOrEqual(1)
 
         await monitor.assertNoViolations()
         monitor.detach()

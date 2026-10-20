@@ -1,20 +1,15 @@
 'use client'
 
 import { createContext, useContext } from 'react'
-import type { OnboardingStep2SectionId } from '@/lib/onboarding/config'
-import type { OnboardingStatus } from '@/lib/onboarding/state'
+import type { OnboardingDraft } from '@/lib/validations/onboarding'
 
 export type OnboardingBootstrap = {
   userId: string
-  status: OnboardingStatus
   draft: {
     step: number
     completedThrough: number
-    activeSection: OnboardingStep2SectionId
     version: number
-    schemaVersion: number
-    data: Record<string, unknown>
-    updatedAt: string | null
+    data: OnboardingDraft
   }
 }
 

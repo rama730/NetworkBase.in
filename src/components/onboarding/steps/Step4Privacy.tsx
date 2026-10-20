@@ -1,25 +1,13 @@
 'use client'
 
-import { useState } from 'react'
-import { StepHeader } from '@/components/onboarding/StepHeader'
-import type { OnboardingMessagePrivacy, OnboardingVisibility } from '@/lib/onboarding/contracts'
+import {
+  MESSAGE_PRIVACY_CHOICES,
+  VISIBILITY_CHOICES,
+  type OnboardingMessagePrivacy,
+  type OnboardingVisibility,
+} from '@/lib/onboarding/contracts'
 
-type PrivacyChoice = {
-  value: string
-  label: string
-  description: string
-}
-
-const VISIBILITY_OPTIONS: PrivacyChoice[] = [
-  { value: 'public', label: 'Public', description: 'Appears in Discovery and people search.' },
-  { value: 'connections', label: 'Connections only', description: 'Visible to people after you connect.' },
-  { value: 'private', label: 'Private', description: 'Hidden from Discovery and people search.' },
-]
-
-const MESSAGE_PRIVACY_OPTIONS: PrivacyChoice[] = [
-  { value: 'everyone', label: 'Everyone', description: 'Any NetworkBase member can start a conversation.' },
-  { value: 'connections', label: 'Connections only', description: 'Only people you connect with can start a conversation.' },
-]
+type PrivacyChoice = { value: string; label: string; description: string }
 
 const VISIBILITY_CONTEXT: Record<OnboardingVisibility, string> = {
   public: 'Your profile can be discovered by anyone using NetworkBase.',
@@ -32,10 +20,10 @@ const MESSAGE_CONTEXT: Record<OnboardingMessagePrivacy, string> = {
   connections: 'New conversations are limited to people in your network.',
 }
 
-interface ReviewSummaryItem {
+export interface ReviewSummaryItem {
   label: string
   value: string
-  editLabel?: string
+  /** Where the person fixes this: absent for the choices made on this very step. */
   onEdit?: () => void
 }
 
@@ -44,9 +32,8 @@ interface Step4PrivacyProps {
   messagePrivacy: OnboardingMessagePrivacy
   onVisibilityChange: (value: OnboardingVisibility) => void
   onMessagePrivacyChange: (value: OnboardingMessagePrivacy) => void
-  /** The existing onboarding values shown for a final, non-editing review. */
+  /** What will be saved, with a way back to each part. */
   summaryItems: ReviewSummaryItem[]
-  error?: string | null
 }
 
 interface PrivacyChoiceGroupProps {
@@ -102,20 +89,9 @@ export function Step4Privacy({
   onVisibilityChange,
   onMessagePrivacyChange,
   summaryItems,
-  error,
 }: Step4PrivacyProps) {
-  const [hasChangedVisibility, setHasChangedVisibility] = useState(false)
-  const [hasChangedMessagePrivacy, setHasChangedMessagePrivacy] = useState(false)
-
   return (
     <div className="onb-privacy-step">
-      <StepHeader
-        title="Privacy & visibility"
-        subtitle="Choose who can find you and start a conversation. You can change these settings later."
-        step={4}
-        totalSteps={4}
-      />
-
       <section className="onb-privacy-section" aria-labelledby="profile-visibility-title">
         <p className="onb-section-kicker">Profile access</p>
         <h2 id="profile-visibility-title" className="onb-privacy-section-title">Who can discover you?</h2>
@@ -124,14 +100,11 @@ export function Step4Privacy({
         </p>
         <PrivacyChoiceGroup
           id="profile-visibility"
-          choices={VISIBILITY_OPTIONS}
+          choices={VISIBILITY_CHOICES as PrivacyChoice[]}
           selected={visibility}
-          onChange={(value) => {
-            setHasChangedVisibility(true)
-            onVisibilityChange(value as OnboardingVisibility)
-          }}
+          onChange={(value) => onVisibilityChange(value as OnboardingVisibility)}
         />
-        <p className="onb-privacy-context" aria-live={hasChangedVisibility ? 'polite' : 'off'}>{VISIBILITY_CONTEXT[visibility]}</p>
+        <p className="onb-privacy-context" aria-live="polite">{VISIBILITY_CONTEXT[visibility]}</p>
         {visibility === 'public' ? (
           <p className="onb-privacy-disclosure">Public profiles can be viewed without an account and may be indexed or cached. Do not add confidential information.</p>
         ) : null}
@@ -145,14 +118,11 @@ export function Step4Privacy({
         </p>
         <PrivacyChoiceGroup
           id="message-privacy"
-          choices={MESSAGE_PRIVACY_OPTIONS}
+          choices={MESSAGE_PRIVACY_CHOICES as PrivacyChoice[]}
           selected={messagePrivacy}
-          onChange={(value) => {
-            setHasChangedMessagePrivacy(true)
-            onMessagePrivacyChange(value as OnboardingMessagePrivacy)
-          }}
+          onChange={(value) => onMessagePrivacyChange(value as OnboardingMessagePrivacy)}
         />
-        <p className="onb-privacy-context" aria-live={hasChangedMessagePrivacy ? 'polite' : 'off'}>{MESSAGE_CONTEXT[messagePrivacy]}</p>
+        <p className="onb-privacy-context" aria-live="polite">{MESSAGE_CONTEXT[messagePrivacy]}</p>
       </section>
 
       <aside className="onb-privacy-review" aria-labelledby="privacy-review-title">
@@ -169,16 +139,16 @@ export function Step4Privacy({
               <dt>{item.label}</dt>
               <dd>
                 <span>{item.value}</span>
-                {item.onEdit && item.editLabel ? (
-                  <button type="button" className="onb-review-edit onb-focusable" onClick={item.onEdit}>{item.editLabel}</button>
+                {item.onEdit ? (
+                  <button type="button" className="onb-review-edit onb-focusable" onClick={item.onEdit}>
+                    Edit<span className="sr-only"> {item.label}</span>
+                  </button>
                 ) : null}
               </dd>
             </div>
           ))}
         </dl>
       </aside>
-
-      {error ? <div className="onb-alert-error onb-privacy-error" role="alert">{error}</div> : null}
     </div>
   )
 }
