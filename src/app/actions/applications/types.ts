@@ -80,3 +80,6 @@ export type ApplicationCursorPaginationInput = {
     cursor?: string | null;
 };
 
+
+/** What a project card says about the viewer's own application: applied, declined (still cooling down) or invited. */
+export type ApplicationCardChip = 'applied' | 'declined' | 'invited';

@@ -1,6 +1,7 @@
 export type {
     ApplicationActionErrorCode,
     ApplicationActionOptions,
+    ApplicationCardChip,
     ApplicationActionResult,
     ApplicationCursorPaginationInput,
     ApplicationStatusResult,
@@ -16,6 +17,7 @@ export {
     editPendingApplicationAction,
     getApplicationAlignmentAction,
     getApplicationStatusAction,
+    getMyApplicationStatesAction,
     getIncomingApplicationsAction,
     getProjectInviteOptionsAction,
     getRoleApplicationCountsAction,

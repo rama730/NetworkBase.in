@@ -240,3 +240,23 @@ test("a profile's apply picker leaves out projects the viewer cannot apply to ri
     assert.equal((await lifecycle.getProfileProjectsWithOpenRolesAction(owner)).capReached, false);
   });
 });
+
+test("project cards can show your own application: applied, declined while cooling down, invited", async () => {
+  await withProject(async ({ owner, applicant, projectId, roleId }) => {
+    const chips = async () => (await apps.getMyApplicationStatesAction([projectId, "not-a-uuid"]));
+    assert.deepEqual(await chips(), {}, "nothing yet");
+    const first = await apps.applyToRoleAction(projectId, roleId, "hello");
+    assert.deepEqual(await chips(), { [projectId]: "applied" });
+    await sql`UPDATE role_applications SET status = 'rejected', decision_at = now(), decision_by = ${owner}, decision_reason_code = 'other', updated_at = now() WHERE id = ${first.applicationId!}`;
+    assert.deepEqual(await chips(), { [projectId]: "declined" });
+    await sql`UPDATE role_applications SET decision_reason_code = 'role_filled' WHERE id = ${first.applicationId!}`;
+    assert.deepEqual(await chips(), {}, "a decline the project caused is not shown as a decline");
+    await sql`UPDATE role_applications SET decision_reason_code = 'other', updated_at = now() - interval '25 hours' WHERE id = ${first.applicationId!}`;
+    assert.deepEqual(await chips(), {}, "after the cooldown the card is plain again");
+    await sql`INSERT INTO project_invitations (project_id, inviter_id, candidate_id, kind, role_id, role_title, project_title, status, expires_at)
+      VALUES (${projectId}, ${owner}, ${applicant}, 'ordinary_role', ${roleId}, 'Designer', 'P', 'pending', now() + interval '1 day')`;
+    assert.deepEqual(await chips(), { [projectId]: "invited" });
+    viewerId = "";
+    assert.deepEqual(await apps.getMyApplicationStatesAction([projectId]), {}, "signed out: nothing");
+  });
+});

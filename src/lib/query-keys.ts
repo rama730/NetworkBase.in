@@ -2,7 +2,7 @@ import type { FilterView } from "@/constants/discover";
 import type { DiscoverFilters } from "@/types/discover";
 
 const asNullable = (value?: string | null) => value ?? null;
-type ProjectTaskScope = "all" | "backlog" | "sprint";
+type ProjectTaskScope = "all" | "backlog" | "sprint" | "review";
 
 export const queryKeys = {
   sharing: {
@@ -22,6 +22,9 @@ export const queryKeys = {
       ["discover", "projects-simple", asNullable(viewerId), view, filters] as const,
     userFollowedProjects: (userId: string | null | undefined) =>
       ["discover", "user-followed-projects", asNullable(userId)] as const,
+    /** Where the viewer's own applications and invitations stand on the projects shown (a card chip). */
+    myApplications: (userId: string | null | undefined) =>
+      ["discover", "my-applications", asNullable(userId)] as const,
   },
   /** Presence and status (people and projects). */
   presence: {
