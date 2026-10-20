@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 
 import { useNow } from "@/components/presence/usePresence";
 import {
   advanceBadgeSpin,
   initialBadgeSpin,
+  LOADING_GIVE_UP_MS,
+  LOADING_SHOW_AFTER_MS,
+  loadingSettlePlan,
   ringOrder,
   ringWeight,
   showStatusEmoji,
@@ -29,21 +32,38 @@ const RINGS = [
 ] as const;
 
 const CENTER = "645 710";
+const SETTLE_MS = 900;
+const FADE_MS = 600;
+/** The status emoji opens the rings this long into the settle. */
+const EMOJI_AFTER_MS = 450;
+
+/** `wait` placeholder, `load` spinning gray arcs, `settle` landing on the real state, `fade` a quick answer, `rest`. */
+type Phase = "wait" | "load" | "settle" | "fade" | "rest";
 const vars = (values: Record<string, string | number>) => values as React.CSSProperties;
 const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 const parity = (count: number) => (count === 0 ? undefined : count % 2 ? "a" : "b");
 
-/** Whether the badge is on screen (kept in a ref: only read when something changes). */
-function useVisible(ref: React.RefObject<HTMLElement | null>) {
+/** Whether the badge is on screen (kept in a ref: only read when something changes; `onChange` is for the loader). */
+function useVisible(ref: React.RefObject<HTMLElement | null>, onChange?: (visible: boolean) => void) {
   const visible = useRef(true);
   useEffect(() => {
     const element = ref.current;
     if (!element || typeof IntersectionObserver === "undefined") return;
-    const observer = new IntersectionObserver(([entry]) => { visible.current = entry?.isIntersecting ?? true; });
+    const observer = new IntersectionObserver(([entry]) => {
+      visible.current = entry?.isIntersecting ?? true;
+      onChange?.(visible.current);
+    });
     observer.observe(element);
     return () => observer.disconnect();
-  }, [ref]);
+  }, [ref, onChange]);
   return visible;
+}
+
+/** A ring's turning angle right now, read from its computed transform. */
+function currentAngle(element: SVGGElement) {
+  if (typeof DOMMatrix === "undefined") return 0;
+  const { a, b } = new DOMMatrix(getComputedStyle(element).transform);
+  return (Math.atan2(b, a) * 180) / Math.PI;
 }
 
 /** Keeps the last emoji on screen for the 0.3 s it takes to shrink away. */
@@ -71,7 +91,9 @@ function useLingering(emoji: string | null) {
  * rings (they pull outward to make room) on badges of 20px or more; a timed
  * status drains the outer ring, one that pauses notifications dots it. While
  * Active now, the rings ripple when `pulseKey` (the data refresh time) changes.
- * `animate` is false until the data behind `availability` has loaded.
+ * `animate` is false until the data behind `availability` has loaded: the badge is
+ * then a gray placeholder, and after 200 ms gray arcs that keep turning, until the
+ * data arrives and the rings settle into the real state (a quick answer just fades).
  * Colors, the 2 px cut-out and the motion come from `--presence-*` rules (globals.css).
  */
 export function PresenceBadge({
@@ -103,7 +125,94 @@ export function PresenceBadge({
   pulseKey?: number;
 }) {
   const rootRef = useRef<HTMLSpanElement>(null);
-  const visible = useVisible(rootRef);
+
+  const [gaveUp, setGaveUp] = useState(false);
+  const busy = !animate && !gaveUp;
+  const [phase, setPhase] = useState<Phase>(busy ? "wait" : "rest");
+  const phaseRef = useRef(phase);
+  const go = useCallback((next: Phase) => {
+    phaseRef.current = next;
+    setPhase(next);
+  }, []);
+  const [settleHalf, setSettleHalf] = useState(false);
+  const [loadHalo, setLoadHalo] = useState(false);
+  const availabilityRef = useRef(availability);
+  useEffect(() => {
+    availabilityRef.current = availability;
+  }, [availability]);
+  const [onScreen, setOnScreen] = useState(true);
+  const shownAt = useRef<number | null>(null);
+  const pins = useRef<number[]>([]);
+  const spinRefs = useRef<(SVGGElement | null)[]>([]);
+  const visible = useVisible(rootRef, useCallback((now: boolean) => {
+    if (phaseRef.current === "wait" || phaseRef.current === "load") setOnScreen(now);
+  }, []));
+
+  useEffect(() => {
+    const current = phaseRef.current;
+    if (current !== "wait" && current !== "load") return;
+    if (busy) {
+      const show = setTimeout(() => {
+        if (phaseRef.current !== "wait") return;
+        shownAt.current = performance.now();
+        go("load");
+      }, LOADING_SHOW_AFTER_MS);
+      const giveUp = setTimeout(() => setGaveUp(true), LOADING_GIVE_UP_MS);
+      return () => {
+        clearTimeout(show);
+        clearTimeout(giveUp);
+      };
+    }
+    const plan = loadingSettlePlan(current === "load" ? shownAt.current : null, performance.now());
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    if (plan.mode === "fade") {
+      timers.push(setTimeout(() => {
+        go("fade");
+        timers.push(setTimeout(() => go("rest"), FADE_MS));
+      }, 0));
+    } else {
+      timers.push(setTimeout(() => {
+        pins.current = spinRefs.current.map((element) => (element ? currentAngle(element) : 0));
+        go("settle");
+        timers.push(
+          setTimeout(() => setSettleHalf(true), EMOJI_AFTER_MS),
+          setTimeout(() => { if (availabilityRef.current === "now") setLoadHalo(true); }, SETTLE_MS * 0.8),
+          setTimeout(() => go("rest"), SETTLE_MS),
+        );
+      }, plan.delay));
+    }
+    return () => timers.forEach(clearTimeout);
+  }, [busy, go]);
+
+  // Settling: pin each ring at the angle it was turning at, then ease it to the nearest rest angle in its own direction.
+  useLayoutEffect(() => {
+    if (phase !== "settle") return;
+    const elements = spinRefs.current;
+    elements.forEach((element, index) => {
+      if (!element) return;
+      element.style.transition = "none";
+      element.style.transform = `rotate(${pins.current[index] ?? 0}deg)`;
+    });
+    const frame = requestAnimationFrame(() => requestAnimationFrame(() => {
+      elements.forEach((element, index) => {
+        if (!element) return;
+        const angle = pins.current[index] ?? 0;
+        const turned = ((angle % 360) + 360) % 360;
+        const target = index % 2 ? angle - turned : angle + (turned === 0 ? 0 : 360 - turned);
+        element.style.transition = `transform ${SETTLE_MS}ms cubic-bezier(.2,.7,.2,1)`;
+        element.style.transform = `rotate(${target}deg)`;
+      });
+    }));
+    return () => cancelAnimationFrame(frame);
+  }, [phase]);
+  useEffect(() => {
+    if (phase !== "rest") return;
+    spinRefs.current.forEach((element) => {
+      if (!element) return;
+      element.style.transition = "";
+      element.style.transform = "";
+    });
+  }, [phase]);
 
   const [spin, setSpin] = useState(() => initialBadgeSpin(availability, animate));
   const spinRef = useRef(spin);
@@ -118,7 +227,8 @@ export function PresenceBadge({
   }, [availability, animate, visible]);
 
   const px = statusBadgeSize(size, statusSize, statusEmoji);
-  const open = showStatusEmoji(statusEmoji, px);
+  const statusReady = phase === "rest" || phase === "fade" || (phase === "settle" && settleHalf);
+  const open = showStatusEmoji(statusEmoji, px) && statusReady;
   const emoji = useLingering(open ? statusEmoji ?? null : null);
 
   const [ripple, setRipple] = useState(0);
@@ -153,6 +263,8 @@ export function PresenceBadge({
     >
       <span
         className="nb-presence-badge"
+        data-phase={phase}
+        data-paused={onScreen ? undefined : ""}
         data-cycle={parity(spin.cycle)}
         data-ripple={parity(ripple)}
         data-status={open ? "" : undefined}
@@ -171,10 +283,12 @@ export function PresenceBadge({
               <g
                 key={ring.r}
                 className="nb-presence-ring"
+                data-reverse={index % 2 ? "" : undefined}
                 mask={outer && dotted && fraction !== null ? `url(#${maskId})` : undefined}
                 style={{ ...vars({ "--order": ringOrder(index, spin.dir), "--i": index }), transform: `rotate(${spin.angle}deg)` }}
               >
                 <circle className="nb-presence-track" cx="645" cy="710" r={radius} fill="none" strokeWidth={ring.w} style={vars({ "--w": `${ring.w}px` })} />
+                <g className="nb-presence-spin" ref={(element) => { spinRefs.current[index] = element; }}>
                 {ring.arcs.map(([start, length], arc) => {
                   const draining = outer && !dotted && fraction !== null;
                   const hidden = outer && arc > 0 && (dotted || draining);
@@ -195,6 +309,7 @@ export function PresenceBadge({
                     />
                   );
                 })}
+                </g>
               </g>
             );
           })}
@@ -203,6 +318,7 @@ export function PresenceBadge({
           <span key={emoji.emoji} aria-hidden="true" className="nb-presence-emoji" data-leaving={emoji.leaving ? "" : undefined} style={{ fontSize: Math.round(px * 0.4) }}>{emoji.emoji}</span>
         ) : null}
         {spin.halo > 0 ? <span key={spin.halo} aria-hidden="true" className="nb-presence-halo" /> : null}
+        {loadHalo ? <span aria-hidden="true" className="nb-presence-halo" data-load="" /> : null}
       </span>
     </span>
   );

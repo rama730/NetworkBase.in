@@ -10,6 +10,10 @@ import {
   clearAfterToDate,
   isAway,
   isStatusEmoji,
+  LOADING_GIVE_UP_MS,
+  LOADING_MIN_MS,
+  LOADING_SHOW_AFTER_MS,
+  loadingSettlePlan,
   projectAvailabilityOf,
   resolveLive,
   ringOrder,
@@ -186,4 +190,14 @@ test("advanceBadgeSpin: the first data and a busy list (not full) only record th
   // Over the animation budget: availability and from move, nothing spins.
   const armed = initialBadgeSpin("week", true);
   assert.deepEqual(advanceBadgeSpin(armed, "now", true, false), { availability: "now", from: "week", armed: true, angle: 0, cycle: 0, halo: 0, dir: 1 });
+});
+
+test("loadingSettlePlan: a response before the loader showed only fades; otherwise the loader stays up its minimum time", () => {
+  assert.equal(LOADING_SHOW_AFTER_MS, 200);
+  assert.equal(LOADING_MIN_MS, 600);
+  assert.equal(LOADING_GIVE_UP_MS, 8000);
+  assert.deepEqual(loadingSettlePlan(null, 5_000), { mode: "fade", delay: 0 });
+  assert.deepEqual(loadingSettlePlan(1_000, 1_100), { mode: "settle", delay: 500 });
+  assert.deepEqual(loadingSettlePlan(1_000, 1_600), { mode: "settle", delay: 0 });
+  assert.deepEqual(loadingSettlePlan(1_000, 4_000), { mode: "settle", delay: 0 });
 });

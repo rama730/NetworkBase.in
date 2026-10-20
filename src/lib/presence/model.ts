@@ -161,6 +161,22 @@ export function advanceBadgeSpin(state: BadgeSpin, availability: Availability, a
   };
 }
 
+/** While presence data loads: a static placeholder for this long, then the loader (gray arcs that spin). */
+export const LOADING_SHOW_AFTER_MS = 200;
+/** Once shown, the loader stays at least this long so it never flickers. */
+export const LOADING_MIN_MS = 600;
+/** Data that has not arrived by now stops the loader: the badge shows what it has. */
+export const LOADING_GIVE_UP_MS = 8000;
+
+/**
+ * What the badge does when its data arrives: fade straight from the placeholder when
+ * the loader never showed, else keep the loader up to its minimum time, then settle.
+ */
+export function loadingSettlePlan(shownAt: number | null, arrivedAt: number): { mode: "fade" | "settle"; delay: number } {
+  if (shownAt === null) return { mode: "fade", delay: 0 };
+  return { mode: "settle", delay: Math.max(0, LOADING_MIN_MS - (arrivedAt - shownAt)) };
+}
+
 /** Ring `index` (0 inner to 3 outer) in the change wave: inner first going up, outer first going down. */
 export function ringOrder(index: number, direction: 1 | -1) {
   return direction > 0 ? index : 3 - index;
