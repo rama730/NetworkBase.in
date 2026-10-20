@@ -26,7 +26,15 @@ jobs:
           E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
           E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
           UNTRUSTED_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true }}
+          E2E_ENABLED: ${{ vars.E2E_ENABLED }}
         run: |
+          # Opt-in: E2E needs a disposable Supabase project plus six repository secrets. Until the repository variable
+          # E2E_ENABLED is 'true' the gate skips (visible warning, green run); once enabled, a missing secret fails closed.
+          if [ "$E2E_ENABLED" != "true" ]; then
+            echo "::warning::E2E skipped: set repository variable E2E_ENABLED=true and the six E2E secrets to run it"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           for name in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY E2E_DATABASE_URL E2E_USER_EMAIL E2E_USER_PASSWORD; do
             if [ -z "${!name}" ]; then
               if [ "$UNTRUSTED_FORK" = "true" ]; then
