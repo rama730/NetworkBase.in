@@ -24,7 +24,6 @@ import { PresenceAvatar, ProjectPresenceBadge } from "@/components/presence/Pers
 import { usePersonPresence } from "@/components/presence/usePresence";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
-import { useOnlineUsers } from "@/hooks/useOnlineUsers";
 import {
   DM_SIDEBAR_LIMIT, attention, channelTitle, channelsByProject, counterpart, formatChatTime, fullTime, isApplicationThread, isDirectLike, isSelfDm, isUnread, needsAttention,
   projectBadges, projectsByActivity, rowCount, sectionsFor, swipeButtons,
@@ -51,10 +50,9 @@ type Props = {
   onInbox?: () => void;
 };
 
-function ChannelIcon({ channel, meId, online }: { channel: ChatChannelSummary; meId: string | null; online?: boolean }) {
+function ChannelIcon({ channel }: { channel: ChatChannelSummary }) {
   if (channel.kind === "dm") {
-    // Chat's realtime presence marks the first few Active now at once; the rest come from the batch.
-    return <PresenceAvatar identity={channel.dm_user} userId={channel.dm_user?.id} live={channel.dm_user?.id === meId || online} size={20} title="" />;
+    return <PresenceAvatar identity={channel.dm_user} userId={channel.dm_user?.id} size={20} title="" />;
   }
   // An application thread shows the person on the other side, like a DM: the applicant to reviewers, the lead to the applicant.
   const other = counterpart(channel);
@@ -79,7 +77,7 @@ function Count({ value, noun = "unread", hidden = false }: { value: number; noun
   return <span className="nb-chat-count" aria-hidden={hidden || undefined}>{value > 99 ? "99+" : value}{hidden ? null : <span className="sr-only"> {noun}</span>}</span>;
 }
 
-function Row({ channel, meId, variant, onSelect, online, draft }: { channel: ChatChannelSummary; meId: string | null; variant: ChatSectionsVariant; onSelect?: Props["onSelect"]; online?: boolean; draft: boolean }) {
+function Row({ channel, meId, variant, onSelect, draft }: { channel: ChatChannelSummary; meId: string | null; variant: ChatSectionsVariant; onSelect?: Props["onSelect"]; draft: boolean }) {
   const pathname = usePathname();
   const href = conversationHref(channel.id);
   const current = pathname === href || pathname?.startsWith(`${href}/`);
@@ -93,7 +91,7 @@ function Row({ channel, meId, variant, onSelect, online, draft }: { channel: Cha
   const srNotes = <>{unread ? <span className="sr-only">, unread</span> : null}{draft && !preview ? <span className="sr-only">, draft</span> : null}{channel.notify === "mute" ? <span className="sr-only">, muted</span> : null}</>;
   const body: ReactNode = preview ? (
     <>
-      <span className="mt-0.5"><ChannelIcon channel={channel} meId={meId} online={online} /></span>
+      <span className="mt-0.5"><ChannelIcon channel={channel} /></span>
       <span className="min-w-0 flex-1">
         <span className="flex items-baseline gap-2">
           <span className="truncate">{title}</span>
@@ -111,7 +109,7 @@ function Row({ channel, meId, variant, onSelect, online, draft }: { channel: Cha
     </>
   ) : (
     <>
-      <ChannelIcon channel={channel} meId={meId} online={online} />
+      <ChannelIcon channel={channel} />
       <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
         <span className="min-w-0 truncate">{title}</span>
         {channel.kind === "dm" && channel.dm_user ? <DmStatus userId={channel.dm_user.id} /> : null}
@@ -593,11 +591,6 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
   // An unread DM always shows, however old: "N more" only hides read ones.
   const dmRows = variant === "sidebar" && !allDms ? others.filter((c, i) => i < DM_SIDEBAR_LIMIT || needsAttention(c)) : others;
   const hiddenDms = others.length - dmRows.length;
-  const presenceIds = useMemo(
-    () => dmRows.filter((c) => c.kind === "dm" && c.dm_user && c.dm_user.id !== meId).slice(0, 3).map((c) => c.dm_user!.id),
-    [dmRows, meId],
-  );
-  const online = useOnlineUsers(presenceIds);
   const inboxUnread = data?.inbox_unread ?? 0;
   const savedDue = data?.saved_due ?? 0;
 
@@ -619,7 +612,6 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
         variant={variant}
         onSelect={onSelect}
         draft={draftChannels.has(channel.id)}
-        online={presenceIds.includes(channel.dm_user?.id ?? "") ? online[channel.dm_user!.id] : undefined}
       />
     );
     // The page's list screen swipes; the sidebar and the floating window get the ⋯ menu.

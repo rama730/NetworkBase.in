@@ -32,7 +32,7 @@ test("Realtime health distinguishes authentication startup from terminal channel
   const provider = source("src/components/providers/RealtimeProvider.tsx");
   const notifications = source("src/hooks/useNotifications.ts");
   const typing = source("src/hooks/usePresenceTyping.ts");
-  const online = source("src/hooks/useOnlineUsers.ts");
+  const online = source("src/components/providers/PresenceProvider.tsx");
   const publisher = source("src/hooks/usePublishOnlinePresence.ts");
 
   assert.match(provider, /'idle' \| 'connecting' \| 'connected' \| 'disconnected'/);
