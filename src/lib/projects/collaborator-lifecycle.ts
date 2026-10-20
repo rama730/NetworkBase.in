@@ -17,7 +17,8 @@ import {
     projectNodes,
     projectInvitations,
 } from "@/lib/db/schema";
-import { postApplicationUpdate, syncProjectChat } from "@/lib/messaging/integrations";
+import { closePendingApplications, resolveApplicationsOnJoin } from "@/lib/applications/closing";
+import { syncProjectChat } from "@/lib/messaging/integrations";
 import { recordTaskAssignment, taskAssignmentNotification } from "@/lib/projects/task-assignment";
 import type { EnqueueProjectNotificationEventInput } from "@/lib/notifications/project-events";
 import {
@@ -59,6 +60,8 @@ export type ProjectCollaboratorLifecycleResult = {
     nextRole: ProjectMemberRole | null;
     /** Pending applications closed because this member filled their role (the caller notifies them after commit). */
     closedApplications?: Array<{ id: string; applicantId: string; roleId: string }>;
+    /** Candidates whose pending invitation expired because the role filled (the caller tells them after commit). */
+    expiredInvitationCandidates?: string[];
 };
 
 function displayNameForSnapshot(snapshot: ProjectCollaboratorSnapshot | null) {
@@ -216,6 +219,7 @@ export async function addProjectMemberInternal(
     const nextRole = params.userId === project.ownerId ? "owner" : normalizeProjectMemberRole(params.role ?? "member", "member");
     let changed = false;
     let closedApplications: Array<{ id: string; applicantId: string; roleId: string }> = [];
+    let expiredInvitationCandidates: string[] = [];
 
     if (!previousRole) {
         await executor.insert(projectMembers).values({
@@ -279,46 +283,15 @@ export async function addProjectMemberInternal(
                 if (i.assigneeUserId) userIdsToInvalidate.add(i.assigneeUserId);
             });
 
-            // Sweep database records
-            const rejectedApplications = await executor
-                .update(roleApplications)
-                .set({
-                    status: 'rejected',
-                    decisionAt: new Date(),
-                    decisionBy: params.actorId,
-                    decisionReasonCode: 'role_filled',
-                    decisionReasonText: 'The project role was filled before this application was accepted.',
-                    updatedAt: new Date(),
-                })
-                .where(and(
-                    eq(roleApplications.projectId, params.projectId),
-                    eq(roleApplications.roleId, params.roleId),
-                    eq(roleApplications.status, 'pending')
-                ))
-                .returning({ id: roleApplications.id, applicantId: roleApplications.applicantId });
-
-            if (rejectedApplications.length > 0) {
-                await executor.insert(applicationEvents).values(
-                    rejectedApplications.map((application) => ({
-                        applicationId: application.id,
-                        actorId: params.actorId,
-                        kind: 'rejected' as const,
-                        fromStatus: 'pending',
-                        toStatus: 'rejected',
-                        reasonCode: 'role_filled',
-                        reasonText: 'The project role was filled before this application was accepted.',
-                        metadata: {
-                            source: params.source,
-                            roleId: params.roleId,
-                        },
-                    })),
-                );
-                // Each closed applicant is told in their own thread (the card chip already flips live).
-                for (const application of rejectedApplications) {
-                    await postApplicationUpdate(executor, application.id, params.actorId, 'closed this application: the role was filled.');
-                }
-                closedApplications = rejectedApplications.map((application) => ({ ...application, roleId: params.roleId as string }));
-            }
+            // The other applicants for this role are closed in the same transaction.
+            const closed = await closePendingApplications(executor, {
+                projectId: params.projectId,
+                actorId: params.actorId,
+                reason: 'role_filled',
+                roleIds: [params.roleId],
+                source: params.source,
+            });
+            closedApplications = closed.map((application) => ({ ...application, roleId: params.roleId as string }));
 
             // Pending invitations for the filled role expire; their chat cards follow live.
             const expiredInvitations = await executor
@@ -331,6 +304,7 @@ export async function addProjectMemberInternal(
                 ))
                 .returning({ candidateId: projectInvitations.candidateId });
             expiredInvitations.forEach((invitation) => userIdsToInvalidate.add(invitation.candidateId));
+            expiredInvitationCandidates = expiredInvitations.map((invitation) => invitation.candidateId);
 
             if (userIdsToInvalidate.size > 0) {
                 // Invalidate caches (non-blocking)
@@ -342,6 +316,11 @@ export async function addProjectMemberInternal(
 
     // Project members join the project's #general (report 7.1).
     await syncProjectChat(executor, params.projectId, params.userId, "add");
+
+    // Joining another way (an invitation, being added) closes a pending application of the same person.
+    if (!previousRole && params.source !== "application_accept") {
+        await resolveApplicationsOnJoin(executor, { projectId: params.projectId, userId: params.userId, actorId: params.actorId });
+    }
 
     const [event] = await executor.insert(projectNodeEvents).values({
         projectId: params.projectId,
@@ -380,7 +359,7 @@ export async function addProjectMemberInternal(
         await markProfileCollaborationSummaryStale(project.ownerId, executor);
     }
 
-    return { eventId: event?.id ?? null, changed, project, target, previousRole, nextRole, closedApplications };
+    return { eventId: event?.id ?? null, changed, project, target, previousRole, nextRole, closedApplications, expiredInvitationCandidates };
 }
 
 export async function changeProjectMemberRoleInternal(
@@ -446,13 +425,13 @@ export async function readProjectMemberRemovalImpact(
         executor
             .select({ id: tasks.id, title: tasks.title, taskNumber: tasks.taskNumber, status: tasks.status })
             .from(tasks)
-            .where(and(eq(tasks.projectId, projectId), eq(tasks.assigneeId, memberUserId), isNull(tasks.deletedAt), sql`${tasks.status} <> 'done'`))
+            .where(and(eq(tasks.projectId, projectId), eq(tasks.assigneeId, memberUserId), isNull(tasks.deletedAt), sql`(${tasks.status} <> 'done' OR ${tasks.reviewStatus} = 'pending')`))
             .orderBy(sql`${tasks.updatedAt} DESC`)
             .limit(8),
         executor
             .select({ id: tasks.id, title: tasks.title, taskNumber: tasks.taskNumber, status: tasks.status })
             .from(tasks)
-            .where(and(eq(tasks.projectId, projectId), eq(tasks.creatorId, memberUserId), isNull(tasks.deletedAt), sql`${tasks.status} <> 'done'`))
+            .where(and(eq(tasks.projectId, projectId), eq(tasks.creatorId, memberUserId), isNull(tasks.deletedAt), sql`(${tasks.status} <> 'done' OR ${tasks.reviewStatus} = 'pending')`))
             .orderBy(sql`${tasks.updatedAt} DESC`)
             .limit(8),
         executor
@@ -534,12 +513,12 @@ async function readProjectMemberRemovalImpactCounts(
         executor
             .select({ count: sql<number>`count(*)::int` })
             .from(tasks)
-            .where(and(eq(tasks.projectId, projectId), eq(tasks.assigneeId, memberUserId), isNull(tasks.deletedAt), sql`${tasks.status} <> 'done'`))
+            .where(and(eq(tasks.projectId, projectId), eq(tasks.assigneeId, memberUserId), isNull(tasks.deletedAt), sql`(${tasks.status} <> 'done' OR ${tasks.reviewStatus} = 'pending')`))
             .limit(1),
         executor
             .select({ count: sql<number>`count(*)::int` })
             .from(tasks)
-            .where(and(eq(tasks.projectId, projectId), eq(tasks.creatorId, memberUserId), isNull(tasks.deletedAt), sql`${tasks.status} <> 'done'`))
+            .where(and(eq(tasks.projectId, projectId), eq(tasks.creatorId, memberUserId), isNull(tasks.deletedAt), sql`(${tasks.status} <> 'done' OR ${tasks.reviewStatus} = 'pending')`))
             .limit(1),
         executor
             .select({ count: sql<number>`count(*)::int` })
@@ -607,7 +586,7 @@ export async function removeProjectMemberInternal(
         await executor
             .update(tasks)
             .set({ assigneeId: null, updatedAt: new Date() })
-            .where(and(eq(tasks.projectId, params.projectId), eq(tasks.assigneeId, params.targetUserId), isNull(tasks.deletedAt), sql`${tasks.status} <> 'done'`));
+            .where(and(eq(tasks.projectId, params.projectId), eq(tasks.assigneeId, params.targetUserId), isNull(tasks.deletedAt), sql`(${tasks.status} <> 'done' OR ${tasks.reviewStatus} = 'pending')`));
     } else if (params.mode === "reassign_active_tasks") {
         const replacementId = params.reassignToUserId;
         if (!replacementId || replacementId === params.targetUserId) throw new Error("Choose a valid replacement assignee");
@@ -620,7 +599,7 @@ export async function removeProjectMemberInternal(
         const reassignedTasks = await executor
             .update(tasks)
             .set({ assigneeId: replacementId, updatedAt: new Date() })
-            .where(and(eq(tasks.projectId, params.projectId), eq(tasks.assigneeId, params.targetUserId), isNull(tasks.deletedAt), sql`${tasks.status} <> 'done'`))
+            .where(and(eq(tasks.projectId, params.projectId), eq(tasks.assigneeId, params.targetUserId), isNull(tasks.deletedAt), sql`(${tasks.status} <> 'done' OR ${tasks.reviewStatus} = 'pending')`))
             .returning({ id: tasks.id, title: tasks.title, taskNumber: tasks.taskNumber, status: tasks.status, sprintId: tasks.sprintId });
         for (const task of reassignedTasks) {
             const actorName = actor?.fullName || actor?.username || null;

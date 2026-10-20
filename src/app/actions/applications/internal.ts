@@ -38,6 +38,14 @@ import type { ApplicationCoreStatus } from '@/lib/applications/status';
 import { canReviewProjectSql } from '@/lib/applications/reviewers';
 import { isApplicationReviewerRole } from '@/lib/applications/authorization';
 import { enqueueProjectNotificationEvent } from '@/lib/notifications/project-events';
+import {
+    applicationActorSnapshot,
+    enqueueApplicationDecisionBestEffort,
+    enqueueApplicationReceivedBestEffort,
+    enqueueApplicationWithdrawnBestEffort,
+    notifyClosedApplications,
+    notifyExpiredInvitations,
+} from '@/lib/applications/notifications';
 import type {
     ApplicationActionOptions,
     ApplicationActionResult,
@@ -189,190 +197,6 @@ function toApplicationSuccess(
     };
 }
 
-
-function applicationActorSnapshot(user: { user_metadata?: Record<string, unknown> | null }) {
-    return {
-        actorName: (user.user_metadata?.full_name as string | undefined) ?? (user.user_metadata?.username as string | undefined) ?? null,
-        actorAvatarUrl: (user.user_metadata?.avatar_url as string | undefined) ?? null,
-    };
-}
-
-/**
- * One id per transition (each writes an application event first), so a reapply or a second
- * rejection after a reopen notifies again instead of being swallowed by the dedupe key.
- * ponytail: reads the newest event at notify time. ceiling: two transitions racing inside the same
- * few milliseconds share an id and notify once. upgrade: return the event id from each writer.
- */
-async function latestApplicationEventId(applicationId: string) {
-    const [event] = await db
-        .select({ id: applicationEvents.id })
-        .from(applicationEvents)
-        .where(eq(applicationEvents.applicationId, applicationId))
-        .orderBy(desc(applicationEvents.createdAt))
-        .limit(1);
-    return event?.id ?? applicationId;
-}
-
-async function enqueueApplicationReceivedBestEffort(params: {
-    applicationId: string;
-    channelId?: string | null;
-    projectId: string;
-    projectSlug?: string | null;
-    projectTitle?: string | null;
-    roleId?: string | null;
-    roleTitle?: string | null;
-    actorUserId: string;
-    actorName: string | null;
-    actorAvatarUrl?: string | null;
-    traceId: string;
-}) {
-    try {
-        await enqueueProjectNotificationEvent({
-            projectId: params.projectId,
-            actorUserId: params.actorUserId,
-            actorName: params.actorName,
-            actorAvatarUrl: params.actorAvatarUrl ?? null,
-            eventKey: "applications.received",
-            title: `${params.actorName || "Someone"} applied for ${params.roleTitle || "a role"}`,
-            body: params.projectTitle ? `Project: ${params.projectTitle}` : "New application received",
-            // The thread has the cover letter and the Accept / Decline controls; the inbox is the fallback.
-            href: params.channelId ? conversationHref(params.channelId) : '/network?tab=invitations',
-            entityRefs: {
-                applicationId: params.applicationId,
-                channelId: params.channelId ?? null,
-                projectId: params.projectId,
-                projectSlug: params.projectSlug ?? null,
-                roleId: params.roleId ?? null,
-            },
-            preview: {
-                actorName: params.actorName,
-                actorAvatarUrl: params.actorAvatarUrl ?? null,
-                contextLabel: params.projectTitle ?? "Application",
-                contextKind: "application",
-                secondaryText: params.roleTitle ?? "Application received",
-            },
-            sourceEventId: await latestApplicationEventId(params.applicationId),
-        });
-    } catch (notificationError) {
-        console.error('[applications] Failed to enqueue application received notification', {
-            applicationId: params.applicationId,
-            actorUserId: params.actorUserId,
-            projectId: params.projectId,
-            projectSlug: params.projectSlug ?? null,
-            projectTitle: params.projectTitle ?? null,
-            traceId: params.traceId,
-            error: notificationError instanceof Error ? notificationError.message : String(notificationError),
-        });
-    }
-}
-
-async function enqueueApplicationDecisionBestEffort(params: {
-    applicationId: string;
-    status: "accepted" | "rejected" | "reopened" | "role_filled";
-    /** The reviewer's note or the reason in words, so the applicant sees why in the notification. */
-    reasonText?: string | null;
-    channelId?: string | null;
-    projectId: string;
-    projectSlug?: string | null;
-    projectTitle?: string | null;
-    roleId?: string | null;
-    applicantId: string;
-    actorUserId: string;
-    actorName: string | null;
-    actorAvatarUrl?: string | null;
-    traceId: string;
-}) {
-    announceApplicationChange(params.applicantId, params.projectId);
-    try {
-        await enqueueProjectNotificationEvent({
-            projectId: params.projectId,
-            actorUserId: params.actorUserId,
-            actorName: params.actorName,
-            actorAvatarUrl: params.actorAvatarUrl ?? null,
-            eventKey: "applications.decision",
-            applicantId: params.applicantId,
-            title: params.status === "role_filled"
-                ? "The role you applied for was filled"
-                : `${params.actorName || "Someone"} ${params.status === "accepted" ? "accepted" : params.status === "rejected" ? "declined" : "reopened"} your application`,
-            body: params.reasonText?.trim().slice(0, 240) || (params.projectTitle ? `Project: ${params.projectTitle}` : null),
-            href: params.channelId ? conversationHref(params.channelId) : '/network?tab=invitations',
-            entityRefs: {
-                applicationId: params.applicationId,
-                channelId: params.channelId ?? null,
-                projectId: params.projectId,
-                projectSlug: params.projectSlug ?? null,
-                roleId: params.roleId ?? null,
-            },
-            preview: {
-                actorName: params.actorName,
-                actorAvatarUrl: params.actorAvatarUrl ?? null,
-                contextLabel: params.projectTitle ?? "Application",
-                contextKind: "application",
-                secondaryText: params.status,
-            },
-            sourceEventId: await latestApplicationEventId(params.applicationId),
-        });
-    } catch (notificationError) {
-        console.error('[applications] Failed to enqueue application decision notification', {
-            applicationId: params.applicationId,
-            status: params.status,
-            actorUserId: params.actorUserId,
-            recipientUserId: params.applicantId,
-            traceId: params.traceId,
-            error: notificationError instanceof Error ? notificationError.message : String(notificationError),
-        });
-    }
-}
-
-async function enqueueApplicationWithdrawnBestEffort(params: {
-    applicationId: string;
-    projectId: string;
-    projectSlug?: string | null;
-    projectTitle?: string | null;
-    roleId?: string | null;
-    roleTitle?: string | null;
-    channelId?: string | null;
-    actorUserId: string;
-    actorName: string | null;
-    actorAvatarUrl?: string | null;
-    traceId: string;
-}) {
-    try {
-        await enqueueProjectNotificationEvent({
-            projectId: params.projectId,
-            actorUserId: params.actorUserId,
-            actorName: params.actorName,
-            actorAvatarUrl: params.actorAvatarUrl ?? null,
-            eventKey: "applications.withdrawn",
-            title: `${params.actorName || "Someone"} withdrew their application`,
-            body: params.roleTitle ? `Role: ${params.roleTitle}` : params.projectTitle ? `Project: ${params.projectTitle}` : "Application withdrawn",
-            href: params.channelId ? conversationHref(params.channelId) : '/network?tab=invitations',
-            entityRefs: {
-                applicationId: params.applicationId,
-                channelId: params.channelId ?? null,
-                projectId: params.projectId,
-                projectSlug: params.projectSlug ?? null,
-                roleId: params.roleId ?? null,
-            },
-            preview: {
-                actorName: params.actorName,
-                actorAvatarUrl: params.actorAvatarUrl ?? null,
-                contextLabel: params.projectTitle ?? "Application",
-                contextKind: "application",
-                secondaryText: "Withdrawn",
-            },
-            sourceEventId: await latestApplicationEventId(params.applicationId),
-        });
-    } catch (notificationError) {
-        console.error('[applications] Failed to enqueue application withdrawn notification', {
-            applicationId: params.applicationId,
-            actorUserId: params.actorUserId,
-            projectId: params.projectId,
-            traceId: params.traceId,
-            error: notificationError instanceof Error ? notificationError.message : String(notificationError),
-        });
-    }
-}
 
 async function enqueueMemberJoinedBestEffort(params: {
     projectId: string;
@@ -623,6 +447,12 @@ function sameDetails(a: unknown, b: ApplicationDetails) {
     return (stored.portfolioUrl ?? '') === (b.portfolioUrl ?? '') && (stored.availability ?? '') === (b.availability ?? '');
 }
 
+/** What the applicant is told: the reason in words, then the reviewer's own note (a note adds to the reason, never replaces it). */
+function declineReasonText(reason: ApplicationDecisionReasonCode, note?: string | null) {
+    const text = (note || '').trim();
+    return text ? `${APPLICATION_DECISION_REASON_TEMPLATES[reason]}\n\n${text}` : APPLICATION_DECISION_REASON_TEMPLATES[reason];
+}
+
 function isUniqueViolation(error: unknown) {
     const candidate = error as { code?: string; cause?: { code?: string } } | null;
     return candidate?.code === '23505' || candidate?.cause?.code === '23505';
@@ -649,6 +479,20 @@ async function guardProjectForApplication(
         return { code: 'FORBIDDEN', message: 'This application is not available' };
     }
     return null;
+}
+
+/**
+ * The deciding reviewer and the project's lead can each be blocked with the applicant: either block refuses the decision
+ * (apply already checks the lead; an admin must not accept someone who blocked the owner).
+ */
+async function guardDecision(
+    project: { status: string | null; deletedAt: Date | null; ownerId: string },
+    applicantId: string,
+    reviewerId: string,
+): Promise<ApplicationGuardFailure | null> {
+    const first = await guardProjectForApplication(project, applicantId, reviewerId);
+    if (first || project.ownerId === reviewerId) return first;
+    return guardProjectForApplication(project, applicantId, project.ownerId);
 }
 
 type PendingTransition = 'reopened' | 'cap' | 'gone';
@@ -1039,6 +883,19 @@ export async function applyToRoleAction(
             if (!role) {
                 return toApplicationFailure(traceId, 'ROLE_NOT_FOUND', 'Role not found');
             }
+            // An invitation to this project is the answer to wait for: applying alongside it would leave two open offers.
+            const pendingInvitation = await db.query.projectInvitations.findFirst({
+                where: and(
+                    eq(projectInvitations.projectId, projectId),
+                    eq(projectInvitations.candidateId, user.id),
+                    eq(projectInvitations.status, 'pending'),
+                    sql`${projectInvitations.expiresAt} > now()`,
+                ),
+                columns: { id: true },
+            });
+            if (pendingInvitation) {
+                return toApplicationFailure(traceId, 'INVALID_STATE', 'You have an invitation to this project. Accept or decline it first.');
+            }
             const sameRolePending = existingApp?.status === 'pending' && existingApp.roleId === roleId;
             if (!sameRolePending && role.filled >= role.count) {
                 return toApplicationFailure(traceId, 'ROLE_FULL', 'This role has no available spots');
@@ -1222,6 +1079,11 @@ export async function acceptApplicationAction(
                 return toApplicationFailure(traceId, 'RATE_LIMITED', 'Too many decisions. Please wait a moment.');
             }
 
+            const acceptNote = applicationNoteSchema.safeParse(message);
+            if (!acceptNote.success) {
+                return toApplicationFailure(traceId, 'INVALID_INPUT', acceptNote.error.issues[0]?.message ?? `Notes are limited to ${APPLICATION_NOTE_MAX} characters`);
+            }
+
             const application = await db.query.roleApplications.findFirst({
                 where: eq(roleApplications.id, applicationId),
                 with: {
@@ -1257,7 +1119,7 @@ export async function acceptApplicationAction(
                 return toApplicationFailure(traceId, 'INVALID_STATE', 'The applicant withdrew this application');
             }
             if (application.project) {
-                const blocked = await guardProjectForApplication(application.project, application.applicantId, user.id);
+                const blocked = await guardDecision(application.project, application.applicantId, user.id);
                 if (blocked) return toApplicationFailure(traceId, blocked.code, blocked.message);
             }
 
@@ -1337,30 +1199,24 @@ export async function acceptApplicationAction(
                     traceId,
                 });
             }
-            const closed = memberLifecycle.closedApplications ?? [];
-            if (closed.length > 0) {
-                // Everyone else waiting on that role was closed in the same transaction: tell each of them.
-                const closedChannels = await db.execute<{ id: string; application_id: string }>(sql`
-                    SELECT id, application_id FROM chat_channels
-                    WHERE application_id IN (${sql.join(closed.map((item) => sql`${item.id}::uuid`), sql`, `)})
-                `);
-                const channelByApplication = new Map(Array.from(closedChannels).map((row) => [row.application_id, row.id]));
-                for (const item of closed) {
-                    await enqueueApplicationDecisionBestEffort({
-                        applicationId: item.id,
-                        status: 'role_filled',
-                        channelId: channelByApplication.get(item.id) ?? null,
-                        projectId: application.projectId,
-                        projectSlug: application.project?.slug ?? null,
-                        projectTitle: application.project?.title ?? null,
-                        roleId: item.roleId,
-                        applicantId: item.applicantId,
-                        actorUserId: user.id,
-                        ...applicationActorSnapshot(user),
-                        traceId,
-                    });
-                }
-            }
+            // Everyone else waiting on that role was closed in the same transaction: tell each of them.
+            await notifyClosedApplications(memberLifecycle.closedApplications ?? [], {
+                reason: 'role_filled',
+                projectId: application.projectId,
+                projectSlug: application.project?.slug ?? null,
+                projectTitle: application.project?.title ?? null,
+                actorUserId: user.id,
+                traceId,
+            });
+            // Candidates whose invitation for that role expired are told too.
+            await notifyExpiredInvitations(memberLifecycle.expiredInvitationCandidates ?? [], {
+                projectId: application.projectId,
+                projectSlug: application.project?.slug ?? null,
+                projectTitle: application.project?.title ?? null,
+                actorUserId: user.id,
+                roleTitle: application.role?.title || application.role?.role || null,
+                eventId: memberLifecycle.eventId,
+            });
             await enqueueApplicationDecisionBestEffort({
                 applicationId,
                 status: 'accepted',
@@ -1460,13 +1316,18 @@ export async function rejectApplicationAction(
                 return toApplicationFailure(traceId, 'RATE_LIMITED', 'Too many decisions. Please wait a moment.');
             }
 
+            const rejectNote = applicationNoteSchema.safeParse(message);
+            if (!rejectNote.success) {
+                return toApplicationFailure(traceId, 'INVALID_INPUT', rejectNote.error.issues[0]?.message ?? `Notes are limited to ${APPLICATION_NOTE_MAX} characters`);
+            }
+
             const application = await db.query.roleApplications.findFirst({
                 where: eq(roleApplications.id, applicationId),
                 with: {
                     project: { columns: { title: true, slug: true, ownerId: true } },
                     role: { columns: { title: true, role: true } }
                 },
-                columns: { id: true, applicantId: true, creatorId: true, projectId: true, roleId: true, status: true }
+                columns: { id: true, applicantId: true, creatorId: true, projectId: true, roleId: true, status: true, decisionBy: true }
             });
 
             if (!application) {
@@ -1487,7 +1348,14 @@ export async function rejectApplicationAction(
             }
 
             if (application.status === 'rejected') {
-                return toApplicationSuccess(traceId, { idempotent: true, applicationId });
+                if (application.decisionBy === user.id) {
+                    return toApplicationSuccess(traceId, { idempotent: true, applicationId });
+                }
+                // Another reviewer got there first: say so, never pretend this decision (and its reason) was the one that counted.
+                const [decider] = application.decisionBy
+                    ? await db.select({ fullName: profiles.fullName, username: profiles.username }).from(profiles).where(eq(profiles.id, application.decisionBy)).limit(1)
+                    : [];
+                return toApplicationFailure(traceId, 'ALREADY_PROCESSED', `Already declined${decider ? ` by ${decider.fullName || decider.username}` : ''}.`);
             }
             if (application.status === 'accepted') {
                 return toApplicationFailure(traceId, 'INVALID_STATE', 'This application has already been accepted');
@@ -1502,8 +1370,7 @@ export async function rejectApplicationAction(
                     status: 'rejected',
                     decisionBy: user.id,
                     reasonCode: normalizedReason,
-                    reasonText: (message || '').trim()
-                        || APPLICATION_DECISION_REASON_TEMPLATES[normalizedReason],
+                    reasonText: declineReasonText(normalizedReason, message),
                 });
 
                 if (!transitioned) {
@@ -1528,7 +1395,7 @@ export async function rejectApplicationAction(
             await enqueueApplicationDecisionBestEffort({
                 applicationId,
                 status: 'rejected',
-                reasonText: (message || '').trim() || APPLICATION_DECISION_REASON_TEMPLATES[normalizedReason],
+                reasonText: declineReasonText(normalizedReason, message),
                 channelId,
                 projectId: application.projectId,
                 projectSlug: application.project?.slug ?? null,
@@ -1793,7 +1660,7 @@ export async function reopenApplicationAction(
             where: eq(roleApplications.id, applicationId),
             with: {
                 project: { columns: { title: true, slug: true, ownerId: true, status: true, deletedAt: true } },
-                role: { columns: { title: true, role: true } },
+                role: { columns: { title: true, role: true, filled: true, count: true } },
             },
             columns: {
                 id: true,
@@ -1803,6 +1670,7 @@ export async function reopenApplicationAction(
                 status: true,
                 creatorId: true,
                 decisionAt: true,
+                decisionReasonCode: true,
                 updatedAt: true,
             },
         });
@@ -1845,8 +1713,16 @@ export async function reopenApplicationAction(
         }
 
         if (application.project) {
-            const blocked = await guardProjectForApplication(application.project, application.applicantId, user.id);
+            const blocked = await guardDecision(application.project, application.applicantId, user.id);
             if (blocked) return toApplicationFailure(traceId, blocked.code, blocked.message);
+        }
+        // A decline the project caused (role filled, role removed, project closed) is not the reviewer's to undo; and a role
+        // with no spot left cannot take the person back.
+        if (application.decisionReasonCode === 'project_closed' || application.decisionReasonCode === 'role_removed' || !application.role) {
+            return toApplicationFailure(traceId, 'ROLE_REMOVED', 'This application was closed with its role or project and cannot be reopened.');
+        }
+        if (application.role.filled >= application.role.count) {
+            return toApplicationFailure(traceId, 'ROLE_FULL', 'This role has no spots left, so this application cannot be reopened.');
         }
 
         const reopened = await db.transaction(async (tx) => {

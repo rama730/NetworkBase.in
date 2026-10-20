@@ -59,13 +59,13 @@ EXECUTE FUNCTION app_private.chat_application_letter_changed();
 --> statement-breakpoint
 
 -- 2. Old applications carried their portfolio link and availability inside the message ("Portfolio / GitHub: ...").
--- Move them into details, keep the cover letter clean (the trigger above updates each thread's first message).
+-- Move them into details (only http(s) links: anything else stays in the text and is never rendered as a link), keep the cover letter clean (the trigger above updates each thread's first message).
 UPDATE public.role_applications a
 SET details = a.details || jsonb_strip_nulls(jsonb_build_object(
-      'portfolioUrl', substring(a.message from '(?:^|\n)Portfolio / GitHub: (\S+)'),
+      'portfolioUrl', substring(a.message from '(?:^|\n)Portfolio / GitHub: (https?://\S+)'),
       'availability', nullif(btrim(substring(a.message from '(?:^|\n)Availability: ([^\n]*)')), ''))),
-    message = coalesce(nullif(btrim(regexp_replace(regexp_replace(a.message, '\n*Portfolio / GitHub: \S+', '', 'g'), '\n*Availability: [^\n]*', '', 'g')), ''), a.message)
-WHERE a.details = '{}'::jsonb AND a.message ~ '(^|\n)(Portfolio / GitHub: \S|Availability: )';
+    message = coalesce(nullif(btrim(regexp_replace(regexp_replace(a.message, '\n*Portfolio / GitHub: https?://\S+', '', 'g'), '\n*Availability: [^\n]*', '', 'g')), ''), a.message)
+WHERE a.details = '{}'::jsonb AND a.message ~ '(^|\n)(Portfolio / GitHub: https?://\S|Availability: )';
 --> statement-breakpoint
 
 -- 3. The application card message is not editable through chat; its text is the application's.

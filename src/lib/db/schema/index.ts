@@ -1504,9 +1504,8 @@ export const roleApplications = pgTable(
     applicantId: uuid("applicant_id")
       .notNull()
       .references(() => profiles.id, { onDelete: "cascade" }),
-    creatorId: uuid("creator_id")
-      .notNull()
-      .references(() => profiles.id, { onDelete: "cascade" }), // Denormalized for O(1) creator queries
+    // History only (the owner when it was sent); reviewers come from project membership. Survives its profile.
+    creatorId: uuid("creator_id").references(() => profiles.id, { onDelete: "set null" }),
     message: text("message"), // Application message from user
     status: statusRoleApplicationEnum("status").default("pending").notNull(),
     acceptedRoleTitle: text("accepted_role_title"),

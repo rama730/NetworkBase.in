@@ -63,3 +63,14 @@ export function resolveLifecycleStatus(
     if (decisionReason === 'role_filled') return 'role_filled';
     return 'rejected';
 }
+
+/** A link from an application's details, only if it is a plain http(s) URL: anything else is never put in an href. */
+export function safeHttpUrl(value: unknown): string | null {
+    if (typeof value !== 'string') return null;
+    try {
+        const url = new URL(value.trim());
+        return url.protocol === 'https:' || url.protocol === 'http:' ? url.toString() : null;
+    } catch {
+        return null;
+    }
+}
