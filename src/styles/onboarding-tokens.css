@@ -1,18 +1,10 @@
 /* Onboarding visual contract. The wizard uses the shared semantic theme. */
 
 :root {
-  --onb-space-xs: 4px;
   --onb-space-sm: 8px;
   --onb-space-md: 16px;
   --onb-space-lg: 24px;
   --onb-space-xl: 32px;
-  --onb-space-2xl: 48px;
-  --onb-font-size-step-title: 1.875rem;
-  --onb-font-weight-step-title: 600;
-  --onb-line-height-step-title: 1.28;
-  --onb-font-size-subtitle: .8125rem;
-  --onb-font-weight-subtitle: 400;
-  --onb-line-height-subtitle: 1.5;
   --onb-font-size-section-heading: 1.25rem;
   --onb-font-weight-section-heading: 600;
   --onb-line-height-section-heading: 1.28;
@@ -21,11 +13,8 @@
   --onb-line-height-field-label: 1.2;
   --onb-radius-card: 8px;
   --onb-radius-input: 5px;
-  --onb-radius-chip: 999px;
   --onb-radius-avatar: 8px;
   --onb-radius-radio-card: 8px;
-  --onb-shadow-soft: 0 1px 2px rgba(0, 0, 0, .05);
-  --onb-shadow-overlay: 0 12px 32px rgba(0, 0, 0, .12);
   /* Component layer: onboarding controls inherit the semantic theme. */
   --onb-control-bg: var(--card);
   --onb-control-border: var(--border);
@@ -67,68 +56,39 @@
 .onb-field-error { color: var(--destructive); font-size: 13px; line-height: 1.5; }
 .onb-required { color: var(--primary); }
 
-.onb-input {
-  border-width: 1px;
-  border-color: var(--input);
-  background-color: var(--card);
-  border-radius: var(--onb-radius-input);
-  outline: none;
-  transition: border-color 130ms cubic-bezier(.2,.8,.3,1), background-color 130ms cubic-bezier(.2,.8,.3,1), box-shadow 130ms cubic-bezier(.2,.8,.3,1);
-}
-
+.onb-input,
 .onb-textarea,
 .onb-select-trigger {
   border-width: 1px;
   border-color: var(--input);
   background-color: var(--card);
   border-radius: var(--onb-radius-input);
-  outline: none;
-  transition: border-color 130ms cubic-bezier(.2,.8,.3,1), background-color 130ms cubic-bezier(.2,.8,.3,1), box-shadow 130ms cubic-bezier(.2,.8,.3,1);
+  transition: border-color 130ms cubic-bezier(.2,.8,.3,1), background-color 130ms cubic-bezier(.2,.8,.3,1);
 }
 
-.onb-input:focus-visible {
-  border-color: var(--input);
-  background-color: color-mix(in srgb, var(--muted) 20%, var(--card));
-  box-shadow: none;
-  outline: none;
-}
-
+/* The app strips every outline and ring on purpose (globals.css), so focus here is a solid dark border and a
+   tint: a change of at least 3:1 against the resting border, with no outline or shadow. */
+.onb-input:focus-visible,
 .onb-textarea:focus-visible,
 .onb-select-trigger:focus-visible,
 .onb-focusable:focus-visible {
-  border-color: var(--input);
-  background-color: color-mix(in srgb, var(--muted) 20%, var(--card));
-  box-shadow: none;
-  outline: none;
+  border-color: var(--foreground);
+  background-color: color-mix(in srgb, var(--muted) 35%, var(--card));
+}
+.onb-footer [data-slot="button"]:focus-visible,
+.onb-review-edit:focus-visible,
+.onb-link:focus-visible {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
 }
 
 .onb-input[aria-invalid="true"],
-.onb-input.onb-input--error {
-  border-width: 1.5px;
-  border-color: var(--destructive);
-  background-color: color-mix(in srgb, var(--destructive) 5%, var(--card));
-}
-
+.onb-input.onb-input--error,
 .onb-textarea[aria-invalid="true"] {
   border-width: 1.5px;
   border-color: var(--destructive);
   background-color: color-mix(in srgb, var(--destructive) 5%, var(--card));
-}
-
-.onb-input:disabled {
-  border-color: color-mix(in srgb, var(--border) 50%, transparent);
-  background-color: var(--muted);
-  cursor: not-allowed;
-  opacity: 1;
-  pointer-events: none;
-}
-
-.onb-textarea:disabled {
-  border-color: color-mix(in srgb, var(--border) 50%, transparent);
-  background-color: var(--muted);
-  cursor: not-allowed;
-  opacity: 1;
-  pointer-events: none;
 }
 
 .onb-textarea { min-height: 112px; padding: 10px 12px; resize: vertical; }
@@ -154,9 +114,6 @@
   background-color: var(--primary);
   color: var(--primary-foreground);
 }
-.onb-tab-list { border-bottom: 1px solid var(--border); }
-.onb-tab { border-bottom: 2px solid transparent; color: var(--muted-foreground); }
-.onb-tab[data-active="true"] { border-bottom-color: var(--primary); color: var(--foreground); }
 
 /* Step 4: privacy choices are purpose-built rather than generic form cards. */
 .onb-privacy-step { display: flex; flex-direction: column; }
@@ -278,7 +235,7 @@
 }
 .onb-privacy-review-item dt { color: var(--muted-foreground); }
 .onb-privacy-review-item dd { align-items: end; color: var(--foreground); display: flex; flex-direction: column; font-weight: 500; gap: 4px; margin: 0; text-align: right; }
-.onb-review-edit { background: none; border: 0; color: var(--primary); cursor: pointer; font-size: 12px; font-weight: 500; padding: 0; text-decoration: underline; text-underline-offset: 2px; }
+.onb-review-edit { background: none; border: 0; color: var(--primary); cursor: pointer; font-size: 12px; font-weight: 500; min-height: 44px; padding: 0 4px; text-decoration: underline; text-underline-offset: 2px; }
 .onb-privacy-error { margin-top: var(--onb-space-md); }
 
 .onb-alert-error {
@@ -289,36 +246,36 @@
   padding: 12px;
 }
 
-.onb-action-primary {
-  background: var(--primary);
-  border: 1px solid var(--primary);
-  border-radius: var(--onb-radius-input);
-  color: var(--primary-foreground);
-  transition: background-color 130ms cubic-bezier(.2,.8,.3,1), border-color 130ms cubic-bezier(.2,.8,.3,1), color 130ms cubic-bezier(.2,.8,.3,1), box-shadow 130ms cubic-bezier(.2,.8,.3,1), transform 80ms cubic-bezier(.2,.8,.3,1);
+.onb-footer-status { color: var(--muted-foreground); font-size: 12px; line-height: 1.35; margin: 0; }
+
+/* Step change: a short enter only (180ms, 4px). Reduced motion gets none. */
+@keyframes onb-step-enter {
+  from { opacity: 0; transform: translateX(4px); }
+  to { opacity: 1; transform: translateX(0); }
 }
+.onb-step-enter { animation: onb-step-enter 180ms cubic-bezier(.2,.8,.3,1) both; }
 
-.onb-action-primary:hover:not(:disabled) { background: var(--primary-hover); border-color: var(--primary-hover); }
-.onb-action-primary:active:not(:disabled) { background: var(--primary-active); border-color: var(--primary-active); transform: translateY(1px); }
-.onb-action-primary:focus-visible { box-shadow:none; filter:brightness(.92); }
-.onb-action-primary:disabled { cursor: not-allowed; opacity: .45; }
-.onb-footer-status { color: var(--muted-foreground); font-size: 12px; line-height: 1.35; margin: 0; max-width: 32ch; text-align: right; }
-
-.animate-pulse-step,
-.animate-stepper-fill,
-.animate-stepper-check,
-.animate-stepper-line-fill { animation: none; transform: none; }
+/* Below lg the actions stay in reach while a long step scrolls. */
+.onb-footer {
+  background: var(--background);
+  border-top: 1px solid var(--border);
+  bottom: 0;
+  margin-top: var(--onb-space-xl);
+  padding: var(--onb-space-md) 0 max(var(--onb-space-md), env(safe-area-inset-bottom));
+  position: sticky;
+  z-index: 20;
+}
+@media (min-width: 1024px) {
+  .onb-footer { position: static; padding-bottom: 0; padding-top: var(--onb-space-lg); }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .onb-input,
   .onb-textarea,
-  .onb-select-trigger,
-  .onb-action-primary { transition-duration: 0ms; }
+  .onb-select-trigger { transition-duration: 0ms; }
+  .onb-step-enter { animation: none; }
 }
 
 @media (min-width: 768px) {
   .onb-privacy-review-list { column-gap: var(--onb-space-xl); grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-@media (max-width: 640px) {
-  .onb-footer-status { max-width: none; text-align: left; }
 }

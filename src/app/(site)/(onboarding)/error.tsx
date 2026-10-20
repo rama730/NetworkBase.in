@@ -1,6 +1,7 @@
 'use client'
 
-import { AlertTriangle, RefreshCw } from 'lucide-react'
+import { useEffect } from 'react'
+import { Button } from '@/components/ui/button'
 
 export default function OnboardingError({
     error,
@@ -9,24 +10,23 @@ export default function OnboardingError({
     error: Error & { digest?: string }
     reset: () => void
 }) {
+    useEffect(() => {
+        console.error('Onboarding error:', error)
+    }, [error])
+
     return (
-        <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
-            <div className="text-center p-8 max-w-md">
-                <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-                <h2 className="text-xl font-semibold text-zinc-900 dark:text-white mb-2">
-                    Onboarding Error
-                </h2>
-                <p className="text-zinc-500 dark:text-zinc-400 mb-6 text-sm">
-                    {error.message || 'Something went wrong during setup. Your progress has been saved.'}
+        <main className="onb-page flex min-h-dvh items-center justify-center px-4">
+            <div className="max-w-md text-center" role="alert">
+                <h1 className="text-xl font-semibold text-foreground">Setup hit a problem</h1>
+                <p className="mt-2 text-sm text-muted-foreground">
+                    Steps you already saved are kept, and what you typed since is still in this browser. Try again; if it keeps
+                    happening, contact support.
                 </p>
-                <button
-                    onClick={reset}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
-                >
-                    <RefreshCw className="w-4 h-4" />
+                <Button type="button" onClick={reset} className="mt-6 min-h-11">
                     Try again
-                </button>
+                </Button>
+                {error.digest ? <p className="mt-4 font-mono text-[11px] text-muted-foreground">Reference: {error.digest}</p> : null}
             </div>
-        </div>
+        </main>
     )
 }

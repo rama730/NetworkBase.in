@@ -1,597 +1,291 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { MapPin, Globe, Loader2 } from 'lucide-react'
+import { useState } from 'react'
+import { Globe, Loader2, MapPin } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { SectionNav } from '@/components/onboarding/SectionNav'
 import ChipSelector from '@/components/onboarding/ChipSelector'
-import type { OnboardingStep2SectionId } from '@/lib/onboarding/config'
-import type {
-  OnboardingExperienceLevel,
-  OnboardingGenderIdentity,
-  OnboardingHoursPerWeek,
-  OnboardingSocialLinkKey,
-} from '@/lib/onboarding/contracts'
+import { urlFieldError } from '@/lib/onboarding/block-reason'
 import {
-  EXPERIENCE_LEVEL_OPTIONS,
-  ROLE_PREFERENCE_OPTIONS,
-  WEEKLY_CAPACITY_OPTIONS,
-} from '@/lib/profile/role-preferences'
+  ONBOARDING_GENDER_VALUES,
+  ONBOARDING_SOCIAL_KEYS,
+  type OnboardingGenderIdentity,
+  type OnboardingSocialLinkKey,
+} from '@/lib/onboarding/contracts'
+import type { OnboardingData } from '@/lib/onboarding/form-data'
+import { PROFILE_FIELD_LIMITS as LIMITS } from '@/lib/validations/profile-fields'
+import { EXPERIENCE_LEVEL_OPTIONS, ROLE_PREFERENCE_OPTIONS, WEEKLY_CAPACITY_OPTIONS } from '@/lib/profile/role-preferences'
 
-// --- Option constants ---
-
-const GENDER_OPTIONS = [
-  { value: 'male', label: 'Male' },
-  { value: 'female', label: 'Female' },
-  { value: 'non_binary', label: 'Non-binary' },
-  { value: 'other', label: 'Other' },
-  { value: 'prefer_not_to_say', label: 'Prefer not to say' },
-] as const
-
-// --- Section definitions for SectionNav ---
-
-const SECTION_NAV_ITEMS = [
-  { id: 'identity', label: 'Identity' },
-  { id: 'work', label: 'Work prefs' },
-  { id: 'profile', label: 'Profile' },
-  { id: 'social', label: 'Social' },
-] as const
-
-function optionalUrlError(value: string) {
-  const normalized = value.trim()
-  if (!normalized) return null
-  try {
-    const url = new URL(/^https?:\/\//i.test(normalized) ? normalized : `https://${normalized}`)
-    return url.protocol === 'http:' || url.protocol === 'https:' ? null : 'Use an http or https address.'
-  } catch {
-    return 'Enter a valid web address, such as example.com.'
-  }
+const GENDER_LABELS: Record<OnboardingGenderIdentity, string> = {
+  male: 'Male',
+  female: 'Female',
+  non_binary: 'Non-binary',
+  other: 'Other',
+  prefer_not_to_say: 'Prefer not to say',
 }
 
-// --- Props ---
+const SOCIAL_FIELDS: Record<OnboardingSocialLinkKey, { label: string; placeholder: string }> = {
+  github: { label: 'GitHub', placeholder: 'github.com/' },
+  linkedin: { label: 'LinkedIn', placeholder: 'linkedin.com/in/' },
+  x: { label: 'X (Twitter)', placeholder: 'x.com/' },
+  portfolio: { label: 'Portfolio', placeholder: 'https://' },
+}
+
+type Details = Pick<
+  OnboardingData,
+  'genderIdentity' | 'pronouns' | 'experienceLevel' | 'hoursPerWeek' | 'openTo' | 'headline' | 'bio' | 'location' | 'website' | 'socialLinks'
+>
 
 export interface Step2DetailsProps {
-  // Section navigation
-  step2Section: OnboardingStep2SectionId
-  onSectionChange: (sectionId: OnboardingStep2SectionId) => void
-
-  // Identity section
-  genderIdentity: OnboardingGenderIdentity | ''
-  pronouns: string
-  onGenderChange: (value: OnboardingGenderIdentity | '') => void
-  onPronounsChange: (value: string) => void
-
-  // Work section
-  experienceLevel: OnboardingExperienceLevel | ''
-  hoursPerWeek: OnboardingHoursPerWeek | ''
-  openTo: string[]
-  onExperienceLevelChange: (value: OnboardingExperienceLevel | '') => void
-  onHoursPerWeekChange: (value: OnboardingHoursPerWeek | '') => void
+  data: Details
+  onChange: (updates: Partial<Details>) => void
   onToggleOpenTo: (value: string) => void
-
-  // Profile section
-  headline: string
-  bio: string
-  location: string
-  website: string
-  onHeadlineChange: (value: string) => void
-  onBioChange: (value: string) => void
-  onLocationChange: (value: string) => void
-  onWebsiteChange: (value: string) => void
-  isDetectingLocation?: boolean
-  locationError?: string | null
-  onDetectLocation?: () => void
-
-  // Social section
-  socialLinks: Record<OnboardingSocialLinkKey, string>
   onSocialLinkChange: (key: OnboardingSocialLinkKey, value: string) => void
+  isDetectingLocation: boolean
+  locationError: string | null
+  onDetectLocation: () => void
+  /** After a refused Continue: show every invalid link, not just the ones already left. */
+  showErrors: boolean
 }
+
+function SectionHeading({ id, kicker, title, description }: { id: string; kicker: string; title: string; description: string }) {
+  return (
+    <div>
+      <p className="onb-section-kicker">{kicker}</p>
+      <h2 id={id} tabIndex={-1} className="mt-2 text-[20px] font-semibold leading-[1.28] tracking-[-0.01em] text-foreground outline-none">
+        {title}
+      </h2>
+      <p className="mt-1 text-[13px] leading-5 text-muted-foreground">{description}</p>
+    </div>
+  )
+}
+
+const selectClass =
+  'onb-select-trigger h-[var(--ui-control-height)] w-full px-3 text-[14px] text-foreground'
 
 /**
- * Step 2 — Profile Details with SectionNav.
- *
- * Visual changes from the original:
- * - SectionNav replaces sticky tabs + completion badges
- * - Identity section: ChipSelector (single mode) for gender, pronouns input
- * - Work section: shadcn Select for experience/hours (2-col grid on desktop),
- *   ChipSelector (multi) for role preferences
- * - Profile section: headline input, bio textarea (112px min-height,
- *   character counter only when content exists), location/website 2-col grid on desktop
- * - Social section: single-column layout, placeholder text showing URL prefix patterns
- * - No Clock3, Users icons in section headers
- * - No "Skip for now" buttons
- * - No sticky positioning on SectionNav
+ * Step 2: everything optional, on one page. Four groups in the order people finish them: what you do, how you
+ * introduce it, where to find you, then (last, and clearly optional) how you identify.
  */
 export default function Step2Details({
-  step2Section,
-  onSectionChange,
-  genderIdentity,
-  pronouns,
-  onGenderChange,
-  onPronounsChange,
-  experienceLevel,
-  hoursPerWeek,
-  openTo,
-  onExperienceLevelChange,
-  onHoursPerWeekChange,
+  data,
+  onChange,
   onToggleOpenTo,
-  headline,
-  bio,
-  location,
-  website,
-  onHeadlineChange,
-  onBioChange,
-  onLocationChange,
-  onWebsiteChange,
-  isDetectingLocation = false,
-  locationError,
-  onDetectLocation,
-  socialLinks,
   onSocialLinkChange,
-}: Step2DetailsProps) {
-  // Compute completed sections for SectionNav dot indicators
-  const completedSections = useMemo(() => {
-    const completed = new Set<string>()
-    if (genderIdentity || pronouns) completed.add('identity')
-    if (experienceLevel || hoursPerWeek || openTo.length > 0) completed.add('work')
-    if (headline || bio || location || website) completed.add('profile')
-    if (Object.values(socialLinks).some(Boolean)) completed.add('social')
-    return completed
-  }, [genderIdentity, pronouns, experienceLevel, hoursPerWeek, openTo, headline, bio, location, website, socialLinks])
-
-  // Memoize selected sets for ChipSelector
-  const selectedGender = useMemo(
-    () => (genderIdentity ? new Set([genderIdentity]) : new Set<string>()),
-    [genderIdentity]
-  )
-  const selectedOpenTo = useMemo(() => new Set(openTo), [openTo])
-
-  return (
-    <div className="flex flex-col gap-8">
-      {/* Section navigation keeps the active detail group in the document flow. */}
-      <SectionNav
-        sections={[...SECTION_NAV_ITEMS]}
-        activeSection={step2Section}
-        completedSections={completedSections}
-        onSectionChange={(id) => onSectionChange(id as OnboardingStep2SectionId)}
-      />
-
-      {/* One active tab panel keeps the four optional detail groups manageable. */}
-      <div
-        id={`onb-details-${step2Section}-panel`}
-        role="tabpanel"
-        aria-labelledby={`onb-details-${step2Section}`}
-        tabIndex={0}
-        className="outline-none"
-      >
-        {step2Section === 'identity' && (
-          <IdentitySection
-            selectedGender={selectedGender}
-            onGenderChange={onGenderChange}
-            pronouns={pronouns}
-            onPronounsChange={onPronounsChange}
-          />
-        )}
-
-        {step2Section === 'work' && (
-          <WorkSection
-            experienceLevel={experienceLevel}
-            hoursPerWeek={hoursPerWeek}
-            selectedOpenTo={selectedOpenTo}
-            onExperienceLevelChange={onExperienceLevelChange}
-            onHoursPerWeekChange={onHoursPerWeekChange}
-            onToggleOpenTo={onToggleOpenTo}
-          />
-        )}
-
-        {step2Section === 'profile' && (
-          <ProfileSection
-            headline={headline}
-            bio={bio}
-            location={location}
-            website={website}
-            onHeadlineChange={onHeadlineChange}
-            onBioChange={onBioChange}
-            onLocationChange={onLocationChange}
-            onWebsiteChange={onWebsiteChange}
-          isDetectingLocation={isDetectingLocation}
-          locationError={locationError}
-            onDetectLocation={onDetectLocation}
-          />
-        )}
-
-        {step2Section === 'social' && (
-          <SocialSection
-            socialLinks={socialLinks}
-            onSocialLinkChange={onSocialLinkChange}
-          />
-        )}
-      </div>
-    </div>
-  )
-}
-
-// --- Identity Section ---
-
-function IdentitySection({
-  selectedGender,
-  onGenderChange,
-  pronouns,
-  onPronounsChange,
-}: {
-  selectedGender: Set<string>
-  onGenderChange: (value: OnboardingGenderIdentity | '') => void
-  pronouns: string
-  onPronounsChange: (value: string) => void
-}) {
-  const handleGenderToggle = (value: string) => {
-    // Single mode: if already selected, deselect; otherwise select
-    if (selectedGender.has(value)) {
-      onGenderChange('')
-    } else {
-      onGenderChange(value as OnboardingGenderIdentity)
-    }
-  }
-
-  return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <p className="onb-section-kicker">Identity context</p>
-        <h2 className="mt-2 text-[20px] font-semibold leading-[1.28] tracking-[-0.01em] text-foreground">How you identify</h2>
-        <p className="mt-1 text-[13px] leading-5 text-muted-foreground">These details are optional and remain editable from your profile.</p>
-      </div>
-      {/* Gender — ChipSelector single mode */}
-      <div className="onb-field">
-        <label className="onb-field-label">
-          Gender (optional)
-        </label>
-        <p className="onb-field-hint">Choose “Prefer not to say” or leave this blank.</p>
-        <ChipSelector
-          options={[...GENDER_OPTIONS]}
-          selected={selectedGender}
-          onToggle={handleGenderToggle}
-          variant="single"
-          size="md"
-          colorVariant="primary"
-        />
-      </div>
-
-      {/* Pronouns input */}
-      <div className="onb-field">
-        <label htmlFor="pronouns" className="onb-field-label">
-          Pronouns (optional)
-        </label>
-        <Input
-          id="pronouns"
-          placeholder="e.g. they/them"
-          value={pronouns}
-          onChange={(e) => onPronounsChange(e.target.value)}
-          className="onb-input"
-        />
-        <p className="onb-field-hint">
-          You can always change these in settings
-        </p>
-      </div>
-    </div>
-  )
-}
-
-// --- Work Section ---
-
-function WorkSection({
-  experienceLevel,
-  hoursPerWeek,
-  selectedOpenTo,
-  onExperienceLevelChange,
-  onHoursPerWeekChange,
-  onToggleOpenTo,
-}: {
-  experienceLevel: OnboardingExperienceLevel | ''
-  hoursPerWeek: OnboardingHoursPerWeek | ''
-  selectedOpenTo: Set<string>
-  onExperienceLevelChange: (value: OnboardingExperienceLevel | '') => void
-  onHoursPerWeekChange: (value: OnboardingHoursPerWeek | '') => void
-  onToggleOpenTo: (value: string) => void
-}) {
-  return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <p className="onb-section-kicker">Professional information</p>
-        <h2 className="mt-2 text-[20px] font-semibold leading-[1.28] tracking-[-0.01em] text-foreground">Your work preferences</h2>
-        <p className="mt-1 text-[13px] leading-5 text-muted-foreground">Share the type of collaboration that works for you.</p>
-      </div>
-      {/* Experience level + Hours per week — 2-col grid on desktop, stacked on mobile */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="onb-field">
-          <label htmlFor="experienceLevel" className="onb-field-label">
-            Experience level
-          </label>
-          <Select
-            value={experienceLevel || undefined}
-            onValueChange={(val) => onExperienceLevelChange(val as OnboardingExperienceLevel)}
-          >
-            <SelectTrigger id="experienceLevel" className="onb-select-trigger">
-              <SelectValue placeholder="Select level" />
-            </SelectTrigger>
-            <SelectContent>
-              {EXPERIENCE_LEVEL_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="onb-field">
-          <label htmlFor="hoursPerWeek" className="onb-field-label">
-            Weekly capacity
-          </label>
-          <Select
-            value={hoursPerWeek || undefined}
-            onValueChange={(val) => onHoursPerWeekChange(val as OnboardingHoursPerWeek)}
-          >
-            <SelectTrigger id="hoursPerWeek" className="onb-select-trigger">
-              <SelectValue placeholder="Select hours" />
-            </SelectTrigger>
-            <SelectContent>
-              {WEEKLY_CAPACITY_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* Open to Roles — ChipSelector multi mode */}
-      <div className="onb-field">
-        <label className="onb-field-label">Open to roles</label>
-        <ChipSelector
-          options={[...ROLE_PREFERENCE_OPTIONS]}
-          selected={selectedOpenTo}
-          onToggle={onToggleOpenTo}
-          variant="multi"
-          size="md"
-          colorVariant="primary"
-        />
-      </div>
-    </div>
-  )
-}
-
-// --- Profile Section ---
-
-function ProfileSection({
-  headline,
-  bio,
-  location,
-  website,
-  onHeadlineChange,
-  onBioChange,
-  onLocationChange,
-  onWebsiteChange,
   isDetectingLocation,
   locationError,
   onDetectLocation,
-}: {
-  headline: string
-  bio: string
-  location: string
-  website: string
-  onHeadlineChange: (value: string) => void
-  onBioChange: (value: string) => void
-  onLocationChange: (value: string) => void
-  onWebsiteChange: (value: string) => void
-  isDetectingLocation?: boolean
-  locationError?: string | null
-  onDetectLocation?: () => void
-}) {
-  const [websiteError, setWebsiteError] = useState<string | null>(null)
+  showErrors,
+}: Step2DetailsProps) {
+  // A link's error appears once the person has left that field (or pressed a blocked Continue).
+  const [touched, setTouched] = useState<Set<string>>(new Set())
+  const touch = (key: string) => setTouched((current) => new Set(current).add(key))
+  const errorFor = (key: string, value: string, max: number) => (touched.has(key) || showErrors ? urlFieldError(value, max) : null)
+  const websiteError = errorFor('website', data.website, LIMITS.websiteMax)
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <p className="onb-section-kicker">Profile</p>
-        <h2 className="mt-2 text-[20px] font-semibold leading-[1.28] tracking-[-0.01em] text-foreground">Introduce your work</h2>
-        <p className="mt-1 text-[13px] leading-5 text-muted-foreground">Use a concise headline and enough context for collaborators to recognise your strengths.</p>
-      </div>
-      {/* Headline */}
-      <div className="onb-field">
-        <label htmlFor="headline" className="onb-field-label">
-          Headline
-        </label>
-        <Input
-          id="headline"
-          placeholder="Full Stack Developer | OSS"
-          value={headline}
-          onChange={(e) => onHeadlineChange(e.target.value)}
-          className="onb-input"
-        />
-        <p className="onb-field-hint">
-          A short tagline for your profile
-        </p>
-      </div>
-
-      {/* Bio */}
-      <div className="onb-field">
-        <label htmlFor="bio" className="onb-field-label">
-          Bio
-        </label>
-        <textarea
-          id="bio"
-          placeholder="Tell us about yourself..."
-          value={bio}
-          onChange={(e) => onBioChange(e.target.value)}
-          className={cn('onb-textarea w-full text-[15px] leading-[1.5] text-foreground placeholder:text-muted-foreground')}
-          maxLength={500}
-        />
-        {/* Character counter — only visible when bio has content */}
-        {bio.length > 0 && (
-          <p className="font-mono text-[12px] text-muted-foreground text-right">
-            {bio.length}/500
-          </p>
-        )}
-      </div>
-
-      {/* Location + Website — 2-col grid on desktop */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="onb-field">
-          <label htmlFor="location" className="onb-field-label">
-            Location
-          </label>
-          <div className="relative">
-            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              id="location"
-              placeholder="San Francisco, CA"
-              value={location}
-              onChange={(e) => onLocationChange(e.target.value)}
-              className="onb-input pl-10"
-            />
+    <div className="flex flex-col gap-12">
+      <section aria-labelledby="onb-work" className="flex flex-col gap-6">
+        <SectionHeading id="onb-work" kicker="Professional information" title="Your work preferences" description="Share the type of collaboration that works for you." />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="onb-field">
+            <label htmlFor="experienceLevel" className="onb-field-label">Experience level</label>
+            <select
+              id="experienceLevel"
+              value={data.experienceLevel}
+              onChange={(event) => onChange({ experienceLevel: event.target.value as Details['experienceLevel'] })}
+              className={selectClass}
+            >
+              <option value="">Not set</option>
+              {EXPERIENCE_LEVEL_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
           </div>
-          {onDetectLocation && (
+          <div className="onb-field">
+            <label htmlFor="hoursPerWeek" className="onb-field-label">Weekly capacity</label>
+            <select
+              id="hoursPerWeek"
+              value={data.hoursPerWeek}
+              onChange={(event) => onChange({ hoursPerWeek: event.target.value as Details['hoursPerWeek'] })}
+              className={selectClass}
+            >
+              <option value="">Not set</option>
+              {WEEKLY_CAPACITY_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="onb-field">
+          <span id="open-to-label" className="onb-field-label">Open to roles</span>
+          <ChipSelector
+            options={[...ROLE_PREFERENCE_OPTIONS]}
+            selected={new Set(data.openTo)}
+            onToggle={onToggleOpenTo}
+            labelledBy="open-to-label"
+          />
+        </div>
+      </section>
+
+      <section aria-labelledby="onb-profile" className="flex flex-col gap-6">
+        <SectionHeading id="onb-profile" kicker="Profile" title="Introduce your work" description="A concise headline and enough context for collaborators to recognise your strengths." />
+        <div className="onb-field">
+          <label htmlFor="headline" className="onb-field-label">Headline</label>
+          <Input
+            id="headline"
+            placeholder="Full Stack Developer | OSS"
+            value={data.headline}
+            onChange={(event) => onChange({ headline: event.target.value })}
+            className="onb-input"
+            maxLength={LIMITS.headlineMax}
+            aria-describedby="headline-hint"
+          />
+          <p id="headline-hint" className="onb-field-hint">A short tagline for your profile.</p>
+        </div>
+        <div className="onb-field">
+          <label htmlFor="bio" className="onb-field-label">Bio</label>
+          <textarea
+            id="bio"
+            placeholder="Tell us about yourself..."
+            value={data.bio}
+            onChange={(event) => onChange({ bio: event.target.value })}
+            className={cn('onb-textarea w-full text-[15px] leading-[1.5] text-foreground placeholder:text-muted-foreground')}
+            maxLength={LIMITS.bioMax}
+            aria-describedby="bio-count"
+          />
+          <p id="bio-count" className="text-right font-mono text-[12px] text-muted-foreground">
+            {data.bio.length > 0 ? `${data.bio.length}/${LIMITS.bioMax}` : ''}
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="onb-field">
+            <label htmlFor="location" className="onb-field-label">Location</label>
+            <div className="relative">
+              <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+              <Input
+                id="location"
+                placeholder="San Francisco, CA"
+                value={data.location}
+                onChange={(event) => onChange({ location: event.target.value })}
+                className="onb-input pl-10"
+                maxLength={LIMITS.locationMax}
+                autoComplete="address-level2"
+                aria-describedby={locationError ? 'location-error' : undefined}
+              />
+            </div>
             <button
               type="button"
               onClick={onDetectLocation}
               disabled={isDetectingLocation}
-              className="onb-focusable inline-flex min-h-[44px] self-start items-center gap-1 rounded text-[13px] text-primary hover:underline disabled:opacity-50 sm:min-h-0"
+              className="onb-focusable onb-link inline-flex min-h-11 items-center gap-1 self-start rounded text-[13px] text-primary hover:underline disabled:opacity-50"
             >
-              {isDetectingLocation ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : null}
-              {isDetectingLocation ? 'Detecting...' : 'Use my location'}
+              {isDetectingLocation ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : null}
+              {isDetectingLocation ? 'Detecting…' : 'Use my location'}
             </button>
-          )}
-          {locationError ? <p className="onb-field-error" role="alert">{locationError}</p> : null}
-        </div>
-
-        <div className="onb-field">
-          <label htmlFor="website" className="onb-field-label">
-            Website
-          </label>
-          <div className="relative">
-            <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              id="website"
-              placeholder="https://yoursite.com"
-              value={website}
-              onChange={(e) => onWebsiteChange(e.target.value)}
-              onBlur={() => setWebsiteError(optionalUrlError(website))}
-              aria-invalid={Boolean(websiteError)}
-              aria-describedby={websiteError ? 'website-error' : undefined}
-              className="onb-input pl-10"
-            />
+            {locationError ? <p id="location-error" className="onb-field-error" role="alert">{locationError}</p> : null}
           </div>
-          {websiteError ? <p id="website-error" className="onb-field-error" role="alert">{websiteError}</p> : null}
+          <div className="onb-field">
+            <label htmlFor="website" className="onb-field-label">Website</label>
+            <div className="relative">
+              <Globe className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+              <Input
+                id="website"
+                placeholder="https://yoursite.com"
+                value={data.website}
+                onChange={(event) => onChange({ website: event.target.value })}
+                onBlur={() => touch('website')}
+                aria-invalid={Boolean(websiteError)}
+                aria-describedby={websiteError ? 'website-error' : undefined}
+                className="onb-input pl-10"
+                inputMode="url"
+                autoCapitalize="none"
+              />
+            </div>
+            {websiteError ? <p id="website-error" className="onb-field-error" role="alert">{websiteError}</p> : null}
+          </div>
         </div>
-      </div>
-    </div>
-  )
-}
+      </section>
 
-// --- Social Section ---
+      <section aria-labelledby="onb-social" className="flex flex-col gap-6">
+        <SectionHeading id="onb-social" kicker="Social destinations" title="Links you want to share" description="Add only destinations you are comfortable displaying on your profile." />
+        <div className="flex flex-col gap-4">
+          {ONBOARDING_SOCIAL_KEYS.map((key) => {
+            const error = errorFor(key, data.socialLinks[key], LIMITS.socialUrlMax)
+            return (
+              <div className="onb-field" key={key}>
+                <label htmlFor={`${key}-link`} className="onb-field-label">{SOCIAL_FIELDS[key].label}</label>
+                <Input
+                  id={`${key}-link`}
+                  placeholder={SOCIAL_FIELDS[key].placeholder}
+                  value={data.socialLinks[key]}
+                  onChange={(event) => onSocialLinkChange(key, event.target.value)}
+                  onBlur={() => touch(key)}
+                  aria-invalid={Boolean(error)}
+                  aria-describedby={error ? `${key}-link-error` : undefined}
+                  className="onb-input"
+                  maxLength={LIMITS.socialUrlMax}
+                  inputMode="url"
+                  autoCapitalize="none"
+                />
+                {error ? <p id={`${key}-link-error`} className="onb-field-error" role="alert">{error}</p> : null}
+              </div>
+            )
+          })}
+        </div>
+      </section>
 
-function SocialSection({
-  socialLinks,
-  onSocialLinkChange,
-}: {
-  socialLinks: Record<OnboardingSocialLinkKey, string>
-  onSocialLinkChange: (key: OnboardingSocialLinkKey, value: string) => void
-}) {
-  const [errors, setErrors] = useState<Partial<Record<OnboardingSocialLinkKey, string>>>({})
-
-  const validate = (key: OnboardingSocialLinkKey) => {
-    setErrors((current) => ({ ...current, [key]: optionalUrlError(socialLinks[key]) || undefined }))
-  }
-
-  return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <p className="onb-section-kicker">Social destinations</p>
-        <h2 className="mt-2 text-[20px] font-semibold leading-[1.28] tracking-[-0.01em] text-foreground">Links you want to share</h2>
-        <p className="mt-1 text-[13px] leading-5 text-muted-foreground">Optional. Add only destinations you are comfortable displaying on your profile.</p>
-      </div>
-
-      {/* Single-column layout for social links */}
-      <div className="flex flex-col gap-4">
+      <section aria-labelledby="onb-about" className="flex flex-col gap-6">
+        <SectionHeading id="onb-about" kicker="About you" title="How you identify" description="Optional, and you can change it from your profile later." />
+        <fieldset className="onb-field">
+          <legend className="onb-field-label">Gender</legend>
+          <p id="gender-hint" className="onb-field-hint">Choose “Prefer not to say” or leave this blank.</p>
+          <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-describedby="gender-hint">
+            {ONBOARDING_GENDER_VALUES.map((value) => (
+              <label
+                key={value}
+                className={cn(
+                  'inline-flex min-h-11 cursor-pointer select-none items-center rounded-full border px-4 text-[13px] font-medium leading-none transition-colors',
+                  'has-[:focus-visible]:underline has-[:focus-visible]:decoration-2 has-[:focus-visible]:underline-offset-4',
+                  data.genderIdentity === value
+                    ? 'border-foreground bg-foreground text-background'
+                    : 'border-border bg-card text-foreground hover:border-foreground/40 hover:bg-muted',
+                )}
+              >
+                <input
+                  type="radio"
+                  name="genderIdentity"
+                  value={value}
+                  checked={data.genderIdentity === value}
+                  onChange={() => onChange({ genderIdentity: value })}
+                  className="sr-only"
+                />
+                {GENDER_LABELS[value]}
+              </label>
+            ))}
+            {data.genderIdentity ? (
+              <button
+                type="button"
+                onClick={() => onChange({ genderIdentity: '' })}
+                className="onb-focusable onb-link min-h-11 rounded px-2 text-[13px] text-muted-foreground hover:text-foreground"
+              >
+                Clear
+              </button>
+            ) : null}
+          </div>
+        </fieldset>
         <div className="onb-field">
-          <label htmlFor="githubLink" className="onb-field-label">
-            GitHub
-          </label>
+          <label htmlFor="pronouns" className="onb-field-label">Pronouns</label>
           <Input
-            id="githubLink"
-            placeholder="github.com/"
-            value={socialLinks.github}
-            onChange={(e) => onSocialLinkChange('github', e.target.value)}
-            onBlur={() => validate('github')}
-            aria-invalid={Boolean(errors.github)}
-            aria-describedby={errors.github ? 'github-link-error' : undefined}
+            id="pronouns"
+            placeholder="e.g. they/them"
+            value={data.pronouns}
+            onChange={(event) => onChange({ pronouns: event.target.value })}
             className="onb-input"
+            maxLength={LIMITS.pronounsMax}
           />
-          {errors.github ? <p id="github-link-error" className="onb-field-error" role="alert">{errors.github}</p> : null}
         </div>
-
-        <div className="onb-field">
-          <label htmlFor="linkedinLink" className="onb-field-label">
-            LinkedIn
-          </label>
-          <Input
-            id="linkedinLink"
-            placeholder="linkedin.com/in/"
-            value={socialLinks.linkedin}
-            onChange={(e) => onSocialLinkChange('linkedin', e.target.value)}
-            onBlur={() => validate('linkedin')}
-            aria-invalid={Boolean(errors.linkedin)}
-            aria-describedby={errors.linkedin ? 'linkedin-link-error' : undefined}
-            className="onb-input"
-          />
-          {errors.linkedin ? <p id="linkedin-link-error" className="onb-field-error" role="alert">{errors.linkedin}</p> : null}
-        </div>
-
-        <div className="onb-field">
-          <label htmlFor="xLink" className="onb-field-label">
-            X (Twitter)
-          </label>
-          <Input
-            id="xLink"
-            placeholder="x.com/"
-            value={socialLinks.x}
-            onChange={(e) => onSocialLinkChange('x', e.target.value)}
-            onBlur={() => validate('x')}
-            aria-invalid={Boolean(errors.x)}
-            aria-describedby={errors.x ? 'x-link-error' : undefined}
-            className="onb-input"
-          />
-          {errors.x ? <p id="x-link-error" className="onb-field-error" role="alert">{errors.x}</p> : null}
-        </div>
-
-        <div className="onb-field">
-          <label htmlFor="portfolioLink" className="onb-field-label">
-            Portfolio
-          </label>
-          <Input
-            id="portfolioLink"
-            placeholder="https://"
-            value={socialLinks.portfolio}
-            onChange={(e) => onSocialLinkChange('portfolio', e.target.value)}
-            onBlur={() => validate('portfolio')}
-            aria-invalid={Boolean(errors.portfolio)}
-            aria-describedby={errors.portfolio ? 'portfolio-link-error' : undefined}
-            className="onb-input"
-          />
-          {errors.portfolio ? <p id="portfolio-link-error" className="onb-field-error" role="alert">{errors.portfolio}</p> : null}
-        </div>
-      </div>
+      </section>
     </div>
   )
 }

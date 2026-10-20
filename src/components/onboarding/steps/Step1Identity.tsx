@@ -1,73 +1,61 @@
 'use client'
 
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Loader2 } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import UsernameInput from '@/components/onboarding/UsernameInput'
-import type { UsernameAvailabilityStatus } from '@/hooks/useUsernameAvailability'
+import { initialsForName } from '@/lib/profile/display'
+import { PROFILE_FIELD_LIMITS } from '@/lib/validations/profile-fields'
+import type { UsernameCheck } from '@/lib/onboarding/block-reason'
 
 export interface Step1IdentityProps {
   fullName: string
   username: string
   avatarUrl: string
   isUploadingAvatar: boolean
+  /** Shown beside the photo: "uploaded" or why it failed. */
+  avatarMessage: { kind: 'status' | 'error'; text: string } | null
+  usernameServerError: string | null
+  /** After a refused Continue: show what is missing. */
+  showErrors: boolean
   onFullNameChange: (value: string) => void
   onUsernameChange: (value: string) => void
-  onAvatarChange: (e: React.ChangeEvent<HTMLInputElement>) => void
-  onUsernameStatusChange: (status: UsernameAvailabilityStatus) => void
-  allowRemoteUsernameChecks?: boolean
-  avatarStatus?: string | null
+  onAvatarPick: (file: File) => void
+  onUsernameCheck: (check: UsernameCheck) => void
 }
 
-/**
- * Step 1 — Identity layout (redesigned).
- *
- * Visual changes from the original:
- * - Avatar: 72px, compact inline row (not stacked), with the shared fallback
- * - Contextual upload or replacement action beside avatar
- * - Username field with `@` prefix indicator inside input
- * - Pre-fill hints in neutral `muted-foreground` at 12px (no green, no icon)
- * - No emoji in headings, left-aligned everything
- * - Mobile: avatar centered above form (not inline row)
- */
 export function Step1Identity({
   fullName,
   username,
   avatarUrl,
   isUploadingAvatar,
+  avatarMessage,
+  usernameServerError,
+  showErrors,
   onFullNameChange,
   onUsernameChange,
-  onAvatarChange,
-  onUsernameStatusChange,
-  allowRemoteUsernameChecks = true,
-  avatarStatus,
+  onAvatarPick,
+  onUsernameCheck,
 }: Step1IdentityProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const initials = fullName
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((name) => name[0])
-    .join('')
-    .toUpperCase() || 'U'
+  const [nameTouched, setNameTouched] = useState(false)
+  // Handles are suggested once, when the person leaves the name field, not on every keystroke.
+  const [suggestFor, setSuggestFor] = useState(() =>
+    fullName.trim().length >= PROFILE_FIELD_LIMITS.fullNameMin ? fullName.trim() : '',
+  )
+  const nameError = (nameTouched || showErrors) && fullName.trim().length < PROFILE_FIELD_LIMITS.fullNameMin
+    ? 'Enter your full name (at least 2 characters).'
+    : null
 
   return (
     <div className="space-y-8">
-      {/* Avatar row: inline on desktop, centered on mobile */}
-      <div
-        className={cn(
-          'flex items-center gap-4',
-          'max-md:flex-col max-md:items-start'
-        )}
-      >
+      <div className="flex items-center gap-4 max-md:flex-col max-md:items-start">
         <Avatar className="h-[72px] w-[72px] rounded-[var(--onb-radius-avatar)] border border-border">
-          <AvatarImage src={avatarUrl} alt={fullName || 'Profile photo'} />
+          <AvatarImage src={avatarUrl} alt="" />
           <AvatarFallback identityKey={username || fullName} className="rounded-[var(--onb-radius-avatar)] bg-muted text-lg text-muted-foreground">
-            {initials}
+            {initialsForName(fullName, username)}
           </AvatarFallback>
         </Avatar>
 
@@ -76,51 +64,70 @@ export function Step1Identity({
           <input
             type="file"
             ref={fileInputRef}
-            onChange={onAvatarChange}
-            accept="image/*"
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              // Cleared so choosing the same file again (after an error) still fires.
+              event.target.value = ''
+              if (file) onAvatarPick(file)
+            }}
+            accept="image/jpeg,image/png,image/webp"
             className="hidden"
-            aria-label="Upload profile photo"
+            tabIndex={-1}
+            aria-hidden="true"
           />
           <Button
+            type="button"
             variant="outline"
             size="sm"
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploadingAvatar}
-            className="onb-focusable min-h-[44px] md:min-h-0"
+            className="min-h-11"
           >
-            {isUploadingAvatar ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {isUploadingAvatar ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : null}
             {isUploadingAvatar ? 'Uploading photo' : avatarUrl ? 'Replace photo' : 'Upload photo'}
           </Button>
-          <p className="onb-field-hint">Optional. You can change this later.</p>
-          {avatarStatus ? <p className="onb-field-status" role="status" aria-live="polite">{avatarStatus}</p> : null}
+          <p className="onb-field-hint">Optional. JPG, PNG or WebP. You can change it later.</p>
+          <p
+            className={avatarMessage?.kind === 'error' ? 'onb-field-error' : 'onb-field-status'}
+            role="status"
+            aria-live="polite"
+          >
+            {avatarMessage?.text ?? ''}
+          </p>
         </div>
       </div>
 
-      {/* Full Name field */}
       <div className="onb-field">
         <label htmlFor="fullName" className="onb-field-label">
-          Full name <span className="onb-required">*</span>
+          Full name <span className="onb-required" aria-hidden="true">*</span>
+          <span className="sr-only"> (required)</span>
         </label>
         <Input
           id="fullName"
           placeholder="John Doe"
           value={fullName}
-          onChange={(e) => onFullNameChange(e.target.value)}
+          onChange={(event) => onFullNameChange(event.target.value)}
+          onBlur={() => {
+            setNameTouched(true)
+            setSuggestFor(fullName.trim().length >= PROFILE_FIELD_LIMITS.fullNameMin ? fullName.trim() : '')
+          }}
           className="onb-input"
-          aria-describedby="full-name-hint"
+          maxLength={PROFILE_FIELD_LIMITS.fullNameMax}
+          autoComplete="name"
+          aria-required="true"
+          aria-invalid={Boolean(nameError)}
+          aria-describedby={nameError ? 'full-name-hint full-name-error' : 'full-name-hint'}
         />
-        <p id="full-name-hint" className="onb-field-hint">
-          {avatarUrl ? 'Pre-filled from your account. Use the name you want collaborators to see.' : 'Use the name you want collaborators to see.'}
-        </p>
+        <p id="full-name-hint" className="onb-field-hint">Use the name you want collaborators to see.</p>
+        <p id="full-name-error" className="onb-field-error" role={nameError ? 'alert' : undefined}>{nameError ?? ''}</p>
       </div>
 
-      {/* Username field */}
       <UsernameInput
         value={username}
         onChange={onUsernameChange}
-        fullName={fullName}
-        allowRemoteChecks={allowRemoteUsernameChecks}
-        onStatusChange={onUsernameStatusChange}
+        onCheck={onUsernameCheck}
+        suggestFor={suggestFor}
+        serverError={usernameServerError}
       />
     </div>
   )

@@ -17,6 +17,11 @@ import { profileHref } from "@/lib/routing/identifiers";
 import type { PrivacyBlockedAccount } from "@/types/settingsTypes";
 import { formatCalendarDate, formatDateTime } from "@/lib/ui/date-formatting";
 import { cn } from "@/lib/utils";
+import { MESSAGE_PRIVACY_CHOICES, VISIBILITY_CHOICES } from "@/lib/onboarding/contracts";
+
+// One wording for these choices, shared with onboarding.
+const VISIBILITY_COPY = Object.fromEntries(VISIBILITY_CHOICES.map((choice) => [choice.value, choice])) as Record<(typeof VISIBILITY_CHOICES)[number]["value"], (typeof VISIBILITY_CHOICES)[number]>;
+const MESSAGE_COPY = Object.fromEntries(MESSAGE_PRIVACY_CHOICES.map((choice) => [choice.value, choice])) as Record<(typeof MESSAGE_PRIVACY_CHOICES)[number]["value"], (typeof MESSAGE_PRIVACY_CHOICES)[number]>;
 
 async function patchPrivacy(url: string, body: Record<string, unknown>) {
   const res = await fetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -133,16 +138,16 @@ export default function PrivacySettings({ embedded = false }: { embedded?: boole
     <SettingsSectionCard title="Privacy controls" description="Choose who can view your profile and contact you.">
       <GroupHeading title="Profile visibility" description="Choose who can open your full profile." />
       <div className="mt-3 grid gap-2">
-        <OptionButton title="Public" description="Anyone can open your profile." icon={Globe} selected={settings?.profileVisibility === "public"} disabled={updateMutation.isPending || !settings} onClick={() => handleProfileVisibilityChange("public")} />
-        <OptionButton title="Connections only" description="Only accepted connections can open your full profile." icon={Users} selected={settings?.profileVisibility === "connections"} disabled={updateMutation.isPending || !settings} onClick={() => handleProfileVisibilityChange("connections")} />
-        <OptionButton title="Private" description="Other people see a limited profile shell." icon={Lock} selected={settings?.profileVisibility === "private"} disabled={updateMutation.isPending || !settings} onClick={() => handleProfileVisibilityChange("private")} />
+        <OptionButton title={VISIBILITY_COPY.public.label} description={VISIBILITY_COPY.public.description} icon={Globe} selected={settings?.profileVisibility === "public"} disabled={updateMutation.isPending || !settings} onClick={() => handleProfileVisibilityChange("public")} />
+        <OptionButton title={VISIBILITY_COPY.connections.label} description={VISIBILITY_COPY.connections.description} icon={Users} selected={settings?.profileVisibility === "connections"} disabled={updateMutation.isPending || !settings} onClick={() => handleProfileVisibilityChange("connections")} />
+        <OptionButton title={VISIBILITY_COPY.private.label} description={VISIBILITY_COPY.private.description} icon={Lock} selected={settings?.profileVisibility === "private"} disabled={updateMutation.isPending || !settings} onClick={() => handleProfileVisibilityChange("private")} />
       </div>
 
       <div className="my-6 border-t border-border" />
       <GroupHeading title="Messages" description="Choose who can start a direct conversation with you." />
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        <OptionButton title="Connections only" description="Only accepted connections." selected={settings?.messagePrivacy === "connections"} disabled={updateMutation.isPending || !settings} onClick={() => handleMessagePrivacyChange("connections")} />
-        <OptionButton title="Everyone" description="Anyone who is not blocked." selected={settings?.messagePrivacy === "everyone"} disabled={updateMutation.isPending || !settings} onClick={() => handleMessagePrivacyChange("everyone")} />
+        <OptionButton title={MESSAGE_COPY.connections.label} description={MESSAGE_COPY.connections.description} selected={settings?.messagePrivacy === "connections"} disabled={updateMutation.isPending || !settings} onClick={() => handleMessagePrivacyChange("connections")} />
+        <OptionButton title={MESSAGE_COPY.everyone.label} description={MESSAGE_COPY.everyone.description} selected={settings?.messagePrivacy === "everyone"} disabled={updateMutation.isPending || !settings} onClick={() => handleMessagePrivacyChange("everyone")} />
       </div>
 
       <div className="my-6 border-t border-border" />
