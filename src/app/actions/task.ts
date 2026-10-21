@@ -357,7 +357,7 @@ export async function updateTaskStatusAction(
     const { locked, result } = await db.transaction(async (tx) => {
       const locked = await lockTaskForWrite(tx, taskId, user.id);
       if (locked.projectId !== projectId) throw new Error("Task does not belong to this project");
-      if (expectedVersion && locked.currentUpdatedAt.getTime() !== expectedVersion.getTime()) {
+      if (expectedVersion && new Date(locked.currentUpdatedAt).getTime() !== expectedVersion.getTime()) {
         throw new Error("This task changed elsewhere. Reload it and try again.");
       }
       return { locked, result: await transitionTaskTx(tx, locked, { taskId, userId: user.id, status, position }) };
@@ -410,7 +410,7 @@ export async function moveTaskToWorkflowColumnAction(
       // Members move their own or unassigned tasks; leads move any (the board mirrors this).
       if (!locked.isLeader && locked.previousAssigneeId && locked.previousAssigneeId !== user.id)
         throw new Error("Only the assignee or a project lead can move this task.");
-      if (expectedVersion && locked.currentUpdatedAt.getTime() !== expectedVersion.getTime())
+      if (expectedVersion && new Date(locked.currentUpdatedAt).getTime() !== expectedVersion.getTime())
         throw new Error("This task changed elsewhere. Reload and try again.");
       return { locked, result: await transitionTaskTx(tx, locked, { taskId, userId: user.id, columnId: workflowColumnId, position }) };
     });
@@ -617,7 +617,7 @@ export async function approveTaskReviewAction(
     const result = await db.transaction(async (tx) => {
       const locked = await lockTaskForWrite(tx, taskId, user.id);
       if (locked.projectId !== projectId) throw new Error("Task mismatch");
-      if(expectedUpdatedAt && locked.currentUpdatedAt.getTime()!==new Date(expectedUpdatedAt).getTime()) throw new Error("Task changed elsewhere. Reload before approving.");
+      if(expectedUpdatedAt && new Date(locked.currentUpdatedAt).getTime()!==new Date(expectedUpdatedAt).getTime()) throw new Error("Task changed elsewhere. Reload before approving.");
       if (!locked.isLeader)
         return { error: "Only project leads can approve tasks" } as const;
       if (locked.reviewStatus !== "pending" || locked.currentStatus !== "done")
@@ -699,7 +699,7 @@ async function performTaskReviewAction(taskId: string, projectId: string, expect
     const { locked, result } = await db.transaction(async (tx) => {
       const locked = await lockTaskForWrite(tx, taskId, user.id);
       if (locked.projectId !== projectId) throw new Error("Task mismatch");
-      if (!expectedUpdatedAt || locked.currentUpdatedAt.getTime() !== new Date(expectedUpdatedAt).getTime()) throw new Error("Task changed elsewhere. Reload before retrying.");
+      if (!expectedUpdatedAt || new Date(locked.currentUpdatedAt).getTime() !== new Date(expectedUpdatedAt).getTime()) throw new Error("Task changed elsewhere. Reload before retrying.");
       if (locked.reviewStatus !== "pending") throw new Error("Task is not pending review");
       const result = await transitionTaskTx(tx, locked, { taskId, userId: user.id, status: action.resubmit ? "done" : "in_progress", ...action });
       return { locked, result };

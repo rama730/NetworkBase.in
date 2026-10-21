@@ -129,7 +129,7 @@ export async function PATCH(request: Request) {
       if (locked.projectId !== input.projectId)
         throw new Error("Task mismatch");
       if (
-        locked.currentUpdatedAt.getTime() !==
+        new Date(locked.currentUpdatedAt).getTime() !==
         new Date(input.expectedUpdatedAt).getTime()
       )
         return null;

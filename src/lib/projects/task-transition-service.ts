@@ -79,7 +79,7 @@ export async function lockTaskForWrite(
     task_number: number | null;
     status: TaskStatus;
     review_status: "none" | "pending" | "rejected";
-    updated_at: Date;
+    updated_at: Date | string;
     owner_id: string;
     task_review_required: boolean;
     task_completion_policy_version: number;
@@ -145,7 +145,7 @@ export async function lockTaskForWrite(
     taskNumber: row.task_number ?? null,
     currentStatus: row.status,
     reviewStatus: row.review_status,
-    currentUpdatedAt: row.updated_at,
+    currentUpdatedAt: row.updated_at instanceof Date ? row.updated_at : new Date(row.updated_at),
     projectSlug: row.slug ?? null,
     projectKey: row.key ?? null,
   };
