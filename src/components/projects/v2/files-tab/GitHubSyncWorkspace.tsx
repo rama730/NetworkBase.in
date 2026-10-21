@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import * as sync from "@/app/actions/github-sync";
+import { createClient } from "@/lib/supabase/client";
 import {
   fetchGithubImportBranches,
   fetchGithubImportRepositories,
@@ -436,14 +437,64 @@ export function GitHubSyncWorkspace({
   }, [view, run]);
   const loadRef = useRef(load);
   loadRef.current = load;
+  const activeRunRef = useRef(activeRun);
+  activeRunRef.current = activeRun;
+
+  // Supabase Realtime channel for zero-latency push updates
+  useEffect(() => {
+    if (!canManage) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`github-sync-run-${projectId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "github_sync_runs",
+          filter: `project_id=eq.${projectId}`,
+        },
+        (payload: { new?: Record<string, unknown> | null }) => {
+          const updated = payload.new as { id?: string; status?: string } | undefined | null;
+          if (updated?.id && activeRunRef.current?.id === updated.id) {
+            void sync.getActiveSyncRun(projectId, updated.id).then((res) => {
+              if (res.success && mounted.current) {
+                setRun(res.data);
+                if (!isActiveRun(res.data)) {
+                  void loadRef.current().catch(() => {});
+                }
+              }
+            });
+          } else {
+            void loadRef.current().catch(() => {});
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [projectId, canManage]);
+
+  // Gentle fallback heartbeat using lightweight getActiveSyncRun (1 query, 1ms, zero heavy joins)
   useEffect(() => {
     if (!activeRun || !canManage) return;
     let pending = false;
+    const runId = activeRun.id;
     return createVisibilityAwareInterval(() => {
       if (pending) return;
       pending = true;
-      void loadRef
-        .current()
+      void sync
+        .getActiveSyncRun(projectId, runId)
+        .then((res) => {
+          if (res.success && mounted.current) {
+            setRun(res.data);
+            if (!isActiveRun(res.data)) {
+              void loadRef.current().catch(() => {});
+            }
+          }
+        })
         .catch((e) =>
           setPollError(
             e instanceof Error ? e.message : "Progress could not refresh.",
@@ -452,7 +503,7 @@ export function GitHubSyncWorkspace({
         .finally(() => {
           pending = false;
         });
-    }, 2000);
+    }, 3500);
   }, [Boolean(activeRun), canManage]);
   useEffect(() => {
     if (!state) return;

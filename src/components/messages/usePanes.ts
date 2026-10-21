@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import { readPanes, conversationHref, type DetailsTab, type Panes } from "@/lib/messaging/routes";
 
@@ -16,10 +16,15 @@ export function usePanes(channelId: string, enabled = true) {
   const params = useSearchParams();
   const search = active ? params?.toString() ?? "" : "";
   const { thread = null, details = null, m = null, tab = null, pane = null } = readPanes(new URLSearchParams(search));
+  const lastReplacedRef = useRef<string | null>(null);
   useEffect(() => {
     if (!active) return;
     const href = conversationHref(channelId, {}, search);
-    if (href !== `/messages/${channelId}${search ? `?${search}` : ""}`) router.replace(href, { scroll: false });
+    const current = `/messages/${channelId}${search ? `?${search}` : ""}`;
+    if (href !== current && lastReplacedRef.current !== href) {
+      lastReplacedRef.current = href;
+      router.replace(href, { scroll: false });
+    }
   }, [active, channelId, search, router]);
   // At 1024px+ the drawer sits beside the timeline: replace, so Back leaves the conversation
   // instead of reopening a drawer you closed. Below that it covers the screen like a page:

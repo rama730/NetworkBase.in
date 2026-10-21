@@ -145,6 +145,9 @@ export const RATE_LIMIT_SCOPE_POLICIES: RateLimitScopePolicy[] = [
     { prefix: 'step-up:', failMode: 'fail_closed', category: 'sensitive' },
     { prefix: 'recovery:', failMode: 'fail_closed', category: 'sensitive' },
     { prefix: 'account:', failMode: 'fail_closed', category: 'sensitive' },
+    // Read-only "is this name taken?" answers: a Redis outage must not stop people finishing sign-up. Completion
+    // and every other onboarding limit below stay closed. First prefix wins, so this precedes `onboarding:`.
+    { prefix: 'onboarding:username-check:', failMode: 'allow', category: 'soft' },
     { prefix: 'onboarding:', failMode: 'fail_closed', category: 'sensitive' },
     { prefix: 'upload:', failMode: 'fail_closed', category: 'sensitive' },
     { prefix: 'admin-', failMode: 'fail_closed', category: 'sensitive' },

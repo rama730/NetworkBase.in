@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { ConversationSkeleton } from "@/components/messages/ConversationSkeleton";
 import { ChatDrawer } from "@/components/messages/ChatDrawer";
 import { ConversationView } from "@/components/messages/ConversationView";
@@ -19,11 +19,15 @@ export function ChannelScreen({ channelId }: { channelId: string }) {
   const target = useMessageTarget(channelId, panes.m);
   const resolved = panes.m ? target.data : undefined;
   const thread = resolved ? (resolved.threadRootSeq ?? (panes.thread === panes.m ? panes.thread : null)) : panes.thread;
+  const lastReplacedRef = useRef<string | null>(null);
   useEffect(() => {
     if (!resolved) return;
     const href = conversationHref(channelId, { thread, tab: null }, search);
     const current = `/messages/${channelId}${search ? `?${search}` : ""}`;
-    if (href !== current) router.replace(href, { scroll: false });
+    if (href !== current && lastReplacedRef.current !== href) {
+      lastReplacedRef.current = href;
+      router.replace(href, { scroll: false });
+    }
   }, [channelId, resolved, thread, search, router]);
   if (panes.m && (target.isPending || (resolved && thread !== panes.thread))) return <ConversationSkeleton />;
   const around = resolved && !resolved.threadRootSeq ? panes.m : null;

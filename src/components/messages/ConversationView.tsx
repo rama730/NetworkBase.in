@@ -249,8 +249,13 @@ export function ConversationView({ channelId, around = null, surface = "page", o
   const setTab = useCallback((id: string) => {
     setTabState(id);
     if (surface !== "page" || !pathname) return;
-    router.replace(conversationHref(channelId, id === "messages" ? { tab: null } : { tab: id, m: null }, window.location.search), { scroll: false });
-  }, [channelId, pathname, router, surface]);
+    const currentSearch = searchParams?.toString() ?? "";
+    const href = conversationHref(channelId, id === "messages" ? { tab: null } : { tab: id, m: null }, currentSearch);
+    const current = `/messages/${channelId}${currentSearch ? `?${currentSearch}` : ""}`;
+    if (href !== current) {
+      router.replace(href, { scroll: false });
+    }
+  }, [channelId, pathname, router, searchParams, surface]);
   const [canvasHidden, setCanvasHidden] = useState(false);
   const [dialog, setDialog] = useState<"bookmark" | "tabs" | "template" | "existing" | "people" | null>(null);
   const [shareSeq, setShareSeq] = useState<number | null>(null);
