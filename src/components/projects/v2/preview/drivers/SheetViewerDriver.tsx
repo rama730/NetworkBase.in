@@ -46,7 +46,23 @@ export function SheetViewerDriver({
 
         // XLSX workbook parsing via fflate
         const buffer = await res.arrayBuffer();
-        const unzipped = fflate.unzipSync(new Uint8Array(buffer));
+        let unzipped: fflate.Unzipped | null = null;
+        try {
+          unzipped = fflate.unzipSync(new Uint8Array(buffer));
+        } catch {
+          // If unzip fails, check if the file is plain text (like an unencoded CSV or mocked string)
+          const textDecoder = new TextDecoder("utf-8");
+          const text = textDecoder.decode(buffer);
+          if (/^[\x20-\x7E\s\r\n\t]+$/.test(text.slice(0, 1024))) {
+            const parsed = parseDelimitedText(text, ",");
+            if (active) {
+              setSheets([{ name: "Text Content", headers: parsed.headers, rows: parsed.rows }]);
+              setLoading(false);
+            }
+            return;
+          }
+          throw new Error("This file is not a valid XLSX workbook (invalid zip data or legacy .xls binary).");
+        }
 
         // 1. Parse shared strings if present
         const sharedStrings: string[] = [];

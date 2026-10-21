@@ -41,8 +41,29 @@ export function DocxViewerDriver({
         if (!response.ok) throw new Error("Failed to download document content");
         const buffer = await response.arrayBuffer();
 
-        // Decompress the DOCX archive
-        const unzipped = fflate.unzipSync(new Uint8Array(buffer));
+        let unzipped: fflate.Unzipped | null = null;
+        try {
+          unzipped = fflate.unzipSync(new Uint8Array(buffer));
+        } catch {
+          // If unzip fails, check if file is plain text (e.g. mocked or error text)
+          const textDecoder = new TextDecoder("utf-8");
+          const text = textDecoder.decode(buffer);
+          if (/^[\x20-\x7E\s\r\n\t]+$/.test(text.slice(0, 1024))) {
+            if (active) {
+              setHtmlContent(
+                `<div class="p-4 rounded-md border border-amber-500/30 bg-amber-500/10 mb-4 text-xs text-amber-700 dark:text-amber-400">
+                  <strong>Notice:</strong> This file is named <code>${escapeHtml(node.name)}</code>, but its raw content is plain text rather than a binary DOCX document.
+                </div>
+                <pre class="font-mono text-sm whitespace-pre-wrap text-foreground p-4 bg-muted/40 rounded-md border border-border">${escapeHtml(text)}</pre>`,
+              );
+              setLoading(false);
+            }
+            return;
+          }
+          throw new Error(
+            "This file is not a valid DOCX package (invalid zip structure or legacy .doc binary).",
+          );
+        }
 
         // Locate word/document.xml
         const docXmlEntry = unzipped["word/document.xml"];
