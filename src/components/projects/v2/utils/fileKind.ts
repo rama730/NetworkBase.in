@@ -153,3 +153,70 @@ export function fileKind(node: Pick<ProjectNode, "type" | "name" | "mimeType">):
 
   return "binary";
 }
+
+export type UniversalPreviewType =
+  | "image"
+  | "video"
+  | "audio"
+  | "pdf"
+  | "docx"
+  | "sheet"
+  | "archive"
+  | "markdown"
+  | "text"
+  | "binary";
+
+export function resolvePreviewType(
+  node: Pick<ProjectNode, "type" | "name" | "mimeType">,
+): UniversalPreviewType {
+  if (node.type === "folder") return "binary";
+
+  const ext = extOf(node.name);
+  const mime = (node.mimeType || "").toLowerCase();
+
+  if (ext === "md" || ext === "markdown") return "markdown";
+  if (ext === "pdf" || mime === "application/pdf") return "pdf";
+
+  if (
+    ["png", "jpg", "jpeg", "gif", "webp", "svg", "avif", "bmp", "ico"].includes(ext) ||
+    mime.startsWith("image/")
+  ) {
+    return "image";
+  }
+
+  if (["mp4", "mov", "webm", "m4v", "ogv"].includes(ext) || mime.startsWith("video/")) {
+    return "video";
+  }
+
+  if (["mp3", "wav", "ogg", "m4a", "aac", "flac"].includes(ext) || mime.startsWith("audio/")) {
+    return "audio";
+  }
+
+  if (
+    ext === "docx" ||
+    mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  ) {
+    return "docx";
+  }
+
+  if (
+    ["xlsx", "xls", "csv", "tsv", "ods"].includes(ext) ||
+    mime.includes("spreadsheet") ||
+    mime.includes("excel") ||
+    mime === "text/csv" ||
+    mime === "text/tab-separated-values"
+  ) {
+    return "sheet";
+  }
+
+  if (["zip"].includes(ext) || mime === "application/zip" || mime === "application/x-zip-compressed") {
+    return "archive";
+  }
+
+  if (isTextLike(node)) {
+    return "text";
+  }
+
+  return "binary";
+}
+
