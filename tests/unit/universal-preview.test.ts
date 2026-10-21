@@ -106,3 +106,23 @@ test("hex dump generation produces standard formatted offsets and ASCII represen
   assert.equal(hex.trim(), "7f 45 4c 46 02 01 01 00");
   assert.equal(ascii, ".ELF....");
 });
+
+test("handles non-binary text content named with .docx extension gracefully", () => {
+  const rawText = "404 NOT FOUND";
+  const buffer = new TextEncoder().encode(rawText);
+
+  let unzipped: fflate.Unzipped | null = null;
+  let isInvalidZip = false;
+  try {
+    unzipped = fflate.unzipSync(buffer);
+  } catch {
+    isInvalidZip = true;
+  }
+
+  assert.equal(isInvalidZip, true, "13-byte plain text string is not a valid zip archive");
+  assert.equal(unzipped, null);
+
+  const decoded = new TextDecoder().decode(buffer);
+  assert.equal(decoded, "404 NOT FOUND");
+  assert.ok(/^[\x20-\x7E\s\r\n\t]+$/.test(decoded));
+});
