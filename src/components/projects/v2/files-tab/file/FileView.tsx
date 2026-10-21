@@ -78,6 +78,7 @@ import { useFileVersions } from "@/hooks/useFileVersions";
 import { fileKind, type FileKind } from "../../utils/fileKind";
 import AssetPreview from "../../preview/AssetPreview";
 import MarkdownPreview from "../../preview/MarkdownPreview";
+import UniversalPreviewEngine from "../../preview/UniversalPreviewEngine";
 
 import { FileVersionCompareView } from "./FileVersionCompareView";
 import { FileVersionHistoryPanel } from "./FileVersionHistoryPanel";
@@ -829,6 +830,15 @@ function renderPreviewRegion(p: PreviewRegionProps): React.JSX.Element {
 
   // Text default view: `TextViewer` in view mode (read-only with line numbers).
   if (p.kind === "text") {
+    const ext = extOf(p.node.name);
+    if ((ext === "csv" || ext === "tsv") && p.signedUrl && p.mode === "view") {
+      return (
+        <div className="flex-1 min-h-0">
+          <UniversalPreviewEngine node={p.node} signedUrl={p.signedUrl} projectId={p.projectId} />
+        </div>
+      );
+    }
+
     return (
       <TextViewer
         projectId={p.projectId}
@@ -976,6 +986,14 @@ function BinaryFallback({
   node,
   signedUrl,
 }: BinaryFallbackProps): React.JSX.Element {
+  if (signedUrl) {
+    return (
+      <div data-testid="files-tab-file-view-binary-fallback" className="flex flex-1 flex-col h-full w-full">
+        <UniversalPreviewEngine node={node} signedUrl={signedUrl} projectId={node.projectId || ""} />
+      </div>
+    );
+  }
+
   return (
     <div
       data-testid="files-tab-file-view-binary-fallback"
