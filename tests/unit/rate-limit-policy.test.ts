@@ -46,10 +46,16 @@ describe("consumeRateLimit policy overrides", () => {
     assert.equal(resolveScopeFailMode("mfa:totp:user:abc"), "fail_closed");
     assert.equal(resolveScopeFailMode("recovery:redeem:user:abc"), "fail_closed");
     assert.equal(resolveScopeFailMode("account:delete:user:abc"), "fail_closed");
-    assert.equal(resolveScopeFailMode("onboarding:username-check:user:abc"), "fail_closed");
+    assert.equal(resolveScopeFailMode("onboarding:complete:user:abc"), "fail_closed");
     assert.equal(resolveScopeFailMode("upload:avatar:user:abc"), "fail_closed");
     assert.equal(resolveScopeFailMode("admin-reserved-usernames:user:abc"), "fail_closed");
     assert.equal(resolveScopeFailMode("connections-send:user:abc"), "fail_closed");
+  });
+
+  it("lets the read-only username check fail open while completion stays closed", () => {
+    assert.equal(resolveScopeFailMode("onboarding:username-check:user:abc"), "allow");
+    assert.equal(resolveScopeFailMode("onboarding:username-check:anon-daily:1.2.3.4"), "allow");
+    assert.equal(resolveScopeFailMode("onboarding:complete:ip:1.2.3.4"), "fail_closed");
   });
 
   it("resolves soft fail modes for non-sensitive hot paths", () => {

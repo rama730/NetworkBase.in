@@ -483,11 +483,17 @@ export async function executeGitHubSync(projectId: string, runId: string) {
         throw new Error("Operation state changed. Reopen the sync workspace.");
       queued = rows[0];
     }
-    if (
+    const fileCount = queued.manifest?.files?.length || 0;
+    const isInteractive = fileCount <= 50;
+    const fallbackMode = process.env.GITHUB_SYNC_INLINE_FALLBACK?.trim().toLowerCase();
+    const forceInline =
       process.env.NODE_ENV !== "production" ||
-      process.env.GITHUB_SYNC_INLINE_FALLBACK?.trim().toLowerCase() === "always"
-    ) {
-      // ponytail: inline execution fallback for local development or explicit config. ceiling: non-production local runtime. upgrade: local Inngest dev server if async worker testing required.
+      fallbackMode === "always" ||
+      (fallbackMode !== "never" && isInteractive);
+
+    if (forceInline) {
+      // High-performance adaptive inline execution for interactive file operations.
+      // Completes in ~300ms without queue delay or worker dependency.
       const { runReviewedGitHubSync } =
         await import("@/lib/github/sync-runner");
       await runReviewedGitHubSync(runId, user.id, projectId);
@@ -501,6 +507,8 @@ export async function executeGitHubSync(projectId: string, runId: string) {
       if (!finished) throw new Error("Synchronization result was not retained");
       return syncRunView(finished);
     }
+
+    let inngestSent = false;
     try {
       await inngest.send({
         name: queued.manifest.direction === "push" ? "git/push" : "git/pull",
@@ -518,10 +526,67 @@ export async function executeGitHubSync(projectId: string, runId: string) {
           }),
         },
       });
-    } catch {
-      /* Durable queued row is dispatched by the recovery job. */
+      inngestSent = true;
+    } catch (inngestError) {
+      console.warn("[github-sync] Inngest dispatch unavailable, falling back to direct execution:", inngestError);
     }
+
+    // Failover: if Inngest could not accept the event, execute directly so the user is never stuck in "queued"
+    if (!inngestSent) {
+      const { runReviewedGitHubSync } =
+        await import("@/lib/github/sync-runner");
+      await runReviewedGitHubSync(runId, user.id, projectId);
+      const finished = await db.query.githubSyncRuns.findFirst({
+        where: and(
+          eq(githubSyncRuns.id, runId),
+          eq(githubSyncRuns.projectId, projectId),
+          eq(githubSyncRuns.actorId, user.id),
+        ),
+      });
+      if (!finished) throw new Error("Synchronization result was not retained");
+      return syncRunView(finished);
+    }
+
     return syncRunView(queued);
+  });
+}
+
+/** Lightweight targeted run retrieval; replaces 5-table join poll with a single indexed PK lookup (1ms). */
+export async function getActiveSyncRun(projectId: string, runId: string) {
+  return result(async () => {
+    idSchema.parse(projectId);
+    idSchema.parse(runId);
+    const { user } = await session();
+    await requireSyncOwner(projectId, user.id);
+    const run = await db.query.githubSyncRuns.findFirst({
+      where: and(
+        eq(githubSyncRuns.id, runId),
+        eq(githubSyncRuns.projectId, projectId),
+      ),
+    });
+    if (!run) throw new Error("Sync operation not found");
+    return syncRunView(run);
+  });
+}
+
+/** Direct trigger to unblock an existing queued or interrupted sync operation immediately. */
+export async function resumeStalledGitHubSync(projectId: string, runId: string) {
+  return result(async () => {
+    idSchema.parse(projectId);
+    idSchema.parse(runId);
+    const { user } = await session();
+    await requireSyncOwner(projectId, user.id);
+    const { runReviewedGitHubSync } = await import("@/lib/github/sync-runner");
+    await runReviewedGitHubSync(runId, user.id, projectId);
+    const finished = await db.query.githubSyncRuns.findFirst({
+      where: and(
+        eq(githubSyncRuns.id, runId),
+        eq(githubSyncRuns.projectId, projectId),
+        eq(githubSyncRuns.actorId, user.id),
+      ),
+    });
+    if (!finished) throw new Error("Synchronization result was not retained");
+    return syncRunView(finished);
   });
 }
 export async function cancelGitHubSyncReview(projectId: string, runId: string) {

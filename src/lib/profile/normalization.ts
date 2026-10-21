@@ -423,6 +423,9 @@ export type ProfileFormState = {
     openToCollaborate: boolean;
     experienceLevel: string;
     hoursPerWeek: string;
+    genderIdentity: string;
+    pronouns: string;
+    interests: string[];
     skills: string[];
     socialLinks: SocialLinkStorage;
     socialLinkMetadata: Record<string, { health: 'unknown' | 'active' | 'unavailable'; checkedAt?: string }>;
@@ -450,6 +453,9 @@ export function toFormState(profile: Record<string, unknown> | null | undefined)
         openToCollaborate: (s.openToCollaborate ?? s.open_to_collaborate) === true,
         experienceLevel: str(s.experienceLevel ?? s.experience_level),
         hoursPerWeek: str(s.hoursPerWeek ?? s.hours_per_week),
+        genderIdentity: str(s.genderIdentity ?? s.gender_identity),
+        pronouns: str(s.pronouns),
+        interests: arr(s.interests),
         skills: arr(s.skills),
         socialLinks: normalizeSocialLinkStorage(s.socialLinks ?? s.social_links),
         socialLinkMetadata: socialLinkMetadata(s.socialLinkMetadata ?? s.social_link_metadata),
@@ -477,6 +483,9 @@ export type ProfileServerPayload = {
     openToCollaborate: boolean;
     experienceLevel: string | null;
     hoursPerWeek: string | null;
+    genderIdentity: string | null;
+    pronouns: string | null;
+    interests: string[];
     education: unknown[];
     openToCustomRoles: string[];
     preferredCategories: string[];
@@ -512,6 +521,9 @@ export function toServerPayload(
         openToCollaborate: formState.openToCollaborate,
         experienceLevel: formState.experienceLevel || null,
         hoursPerWeek: formState.hoursPerWeek || null,
+        genderIdentity: formState.genderIdentity || null,
+        pronouns: formState.pronouns.trim() || null,
+        interests: formState.interests,
         education: formState.education,
         openToCustomRoles: formState.openToCustomRoles || [],
         preferredCategories: formState.preferredCategories || [],
@@ -533,7 +545,7 @@ export function toChangedServerPayload(formState: ProfileFormState, base: Profil
 const OPTIMISTIC_KEYS = [
     "fullName", "username", "headline", "bio", "location", "website",
     "avatarUrl", "bannerUrl", "skills", "socialLinks",
-    "openTo", "openToCollaborate", "experienceLevel", "hoursPerWeek", "education",
+    "openTo", "openToCollaborate", "experienceLevel", "hoursPerWeek", "genderIdentity", "pronouns", "interests", "education",
     "openToCustomRoles", "preferredCategories",
 ] as const;
 

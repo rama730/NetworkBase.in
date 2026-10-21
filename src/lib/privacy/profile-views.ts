@@ -41,6 +41,9 @@ export function buildViewerScopedProfileView(params: {
     preferredCategories: profile.preferredCategories,
     experienceLevel: profile.experienceLevel,
     hoursPerWeek: profile.hoursPerWeek,
+    // Sensitive and shown nowhere on a public profile: the owner can read and edit them, nobody else.
+    genderIdentity: isOwner ? profile.genderIdentity ?? null : null,
+    pronouns: isOwner ? profile.pronouns ?? null : null,
     skills: profile.skills,
     interests: profile.interests,
     // Legacy profile JSON is an owner-only edit document. Public project

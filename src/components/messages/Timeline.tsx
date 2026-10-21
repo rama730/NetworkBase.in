@@ -167,10 +167,17 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
   const head = items[0]?.key ?? null;
   const [prepend, setPrepend] = useState({ head, first: START_INDEX });
   let firstItemIndex = prepend.first;
-  if (head !== prepend.head) {
-    const previous = prepend.head ? items.findIndex((item) => item.key === prepend.head) : -1;
-    firstItemIndex = previous > 0 ? prepend.first - previous : prepend.first;
-    setPrepend({ head, first: firstItemIndex });
+  if (head && prepend.head && head !== prepend.head) {
+    const previous = items.findIndex((item) => item.key === prepend.head);
+    if (previous > 0) {
+      firstItemIndex = prepend.first - previous;
+      setPrepend({ head, first: firstItemIndex });
+    } else if (previous === -1) {
+      // Replaced entirely (e.g. reload or fresh timeline)
+      setPrepend({ head, first: START_INDEX });
+    }
+  } else if (head && !prepend.head) {
+    setPrepend({ head, first: START_INDEX });
   }
 
   const newestSeq = useMemo(() => {
@@ -212,9 +219,9 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
     lastJump.current = highlightSeq;
     const index = items.findIndex((item) => item.type === "message" && item.message.seq === highlightSeq);
     if (index < 0) return;
-    virtuoso.current?.scrollToIndex({ index, align: "center", behavior: "smooth" });
+    virtuoso.current?.scrollToIndex({ index: firstItemIndex + index, align: "center", behavior: "smooth" });
     setHighlight(highlightSeq);
-  }, [highlightSeq, items]);
+  }, [firstItemIndex, highlightSeq, items]);
 
   // A thread closed with "Show in conversation" asks for its root.
   useEffect(() => {
@@ -223,12 +230,12 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
       const index = items.findIndex((item) => item.type === "message" && item.message.seq === seq && item.message.channel_id === channelId);
       if (index < 0) return;
       // Next frame: the drawer that covered the timeline is gone by then.
-      requestAnimationFrame(() => virtuoso.current?.scrollToIndex({ index, align: "center" }));
+      requestAnimationFrame(() => virtuoso.current?.scrollToIndex({ index: firstItemIndex + index, align: "center" }));
       setHighlight(seq);
     };
     window.addEventListener(REVEAL_EVENT, onReveal);
     return () => window.removeEventListener(REVEAL_EVENT, onReveal);
-  }, [items]);
+  }, [firstItemIndex, items]);
 
   // Editing an older message (↑ in the composer) scrolls it into view, once per edit.
   const revealed = useRef<number | null>(null);
@@ -241,8 +248,8 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
     const index = items.findIndex((item) => item.type === "message" && item.message.seq === revealSeq);
     if (index < 0) return;
     revealed.current = revealSeq;
-    virtuoso.current?.scrollIntoView({ index });
-  }, [items, revealSeq]);
+    virtuoso.current?.scrollIntoView({ index: firstItemIndex + index });
+  }, [firstItemIndex, items, revealSeq]);
 
   // Jump to a date: the first message on or after it, loading older pages as needed.
   useEffect(() => {
@@ -252,7 +259,7 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
     const reached = first?.type === "message" && Date.parse(first.message.created_at) <= jump.at;
     const limit = hasOlder && jump.pages >= MAX_JUMP_PAGES && !reached;
     if (index >= 0 && (reached || !hasOlder || jump.pages >= MAX_JUMP_PAGES)) {
-      virtuoso.current?.scrollToIndex({ index, align: "start" });
+      virtuoso.current?.scrollToIndex({ index: firstItemIndex + index, align: "start" });
       const item = items[index];
       if (item?.type === "message") setHighlight(item.message.seq);
       setJump(null);
@@ -262,23 +269,25 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
         loadOlder();
       }
     } else {
-      virtuoso.current?.scrollToIndex({ index: index >= 0 ? index : 0, align: "start" });
+      virtuoso.current?.scrollToIndex({ index: firstItemIndex + (index >= 0 ? index : 0), align: "start" });
       setJump(null);
     }
     // It stopped short: say so instead of landing somewhere unexplained.
     if (limit) toast("That day is further back. Showing the earliest messages loaded so far.");
-  }, [hasOlder, items, jump, loadOlder, loadingOlder]);
+  }, [firstItemIndex, hasOlder, items, jump, loadOlder, loadingOlder]);
   const pickDate = useCallback((date: string) => setJump({ at: startOfDay(date), pages: 0 }), []);
 
-  // Only the first render positions the list.
-  const [initialIndex] = useState(() => {
+  // Initial position: points into the virtuoso firstItemIndex coordinate space.
+  const initialIndex = useMemo(() => {
+    if (!items.length) return undefined;
     if (highlightSeq) {
       const index = items.findIndex((item) => item.type === "message" && item.message.seq === highlightSeq);
-      if (index >= 0) return { index, align: "center" as const };
+      if (index >= 0) return { index: firstItemIndex + index, align: "center" as const };
     }
     const divider = items.findIndex((item) => item.type === "new");
-    return divider >= 0 ? { index: divider, align: "start" as const } : { index: Math.max(0, items.length - 1), align: "end" as const };
-  });
+    const target = divider >= 0 ? divider : Math.max(0, items.length - 1);
+    return { index: firstItemIndex + target, align: (divider >= 0 ? "start" : "end") as "start" | "end" };
+  }, [firstItemIndex, highlightSeq, items]);
 
   const markRead = useCallback(() => {
     setBannerOpen(false);
@@ -301,8 +310,8 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
   }, [sentTick]);
   const toFirstUnread = useCallback(() => {
     const index = items.findIndex((item) => item.type === "new");
-    if (index >= 0) virtuoso.current?.scrollToIndex({ index, align: "start", behavior: "smooth" });
-  }, [items]);
+    if (index >= 0) virtuoso.current?.scrollToIndex({ index: firstItemIndex + index, align: "start", behavior: "smooth" });
+  }, [firstItemIndex, items]);
 
   // Tab lands on the row you last focused while it's still loaded, else the newest real message
   // (never a system line, which isn't a row you can act on).
@@ -328,7 +337,7 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
     if (target?.type !== "message") return;
     e.preventDefault();
     setFocusSeq(target.message.seq);
-    virtuoso.current?.scrollIntoView({ index: next });
+    virtuoso.current?.scrollIntoView({ index: firstItemIndex + next });
     // Next frame the row is rendered; focus it without another scroll.
     requestAnimationFrame(() => requestAnimationFrame(() => {
       row.closest("[role=log]")?.querySelector<HTMLElement>(`[data-message-row][data-seq="${target.message.seq}"]`)?.focus({ preventScroll: true });

@@ -134,10 +134,6 @@ export function useChannelMessages(channelId: string, options: { around?: number
     if (target) return !cached.pages.some((page) => page.some((m) => m.seq === target));
     return (cached.pages[0]?.at(-1)?.seq ?? 0) < shellTopSeq;
   }, [shellTopSeq]);
-  useState(() => {
-    if (unusable(queryClient.getQueryData<Paged>(key), around)) queryClient.removeQueries({ queryKey: key });
-    return null;
-  });
   const lastAround = useRef(around);
   useEffect(() => {
     if (around === lastAround.current) return;

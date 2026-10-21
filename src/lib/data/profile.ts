@@ -250,6 +250,9 @@ const PROFILE_DETAIL_COLUMNS = {
     preferredCategories: true,
     experienceLevel: true,
     hoursPerWeek: true,
+    // Loaded for everyone but only ever handed to the owner (see buildViewerScopedProfileView).
+    genderIdentity: true,
+    pronouns: true,
     socialLinks: true,
     socialLinkMetadata: true,
     visibility: true,
