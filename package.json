@@ -128,7 +128,7 @@
     "inngest": "^3.50.0",
     "lucide-react": "^0.562.0",
     "mime-types": "^3.0.2",
-    "next": "^16.2.3",
+    "next": "^16.4.3",
     "next-themes": "^0.4.6",
     "postgres": "^3.4.8",
     "prettier": "^3.8.1",
@@ -149,13 +149,13 @@
     "tus-js-client": "^4.3.1",
     "use-debounce": "^10.1.0",
     "web-push": "^3.6.7",
-    "zod": "^4.3.5",
+    "zod": "^4.6.7",
     "zustand": "^5.0.10"
   },
   "devDependencies": {
     "@iconify-json/logos": "1.2.11",
     "@iconify-json/skill-icons": "1.2.4",
-    "@next/bundle-analyzer": "^16.2.2",
+    "@next/bundle-analyzer": "^16.4.3",
     "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4",
     "@types/canvas-confetti": "^1.9.0",
@@ -170,7 +170,7 @@
     "dotenv": "^17.2.3",
     "drizzle-kit": "^0.31.9",
     "eslint": "^9.39.4",
-    "eslint-config-next": "^16.2.2",
+    "eslint-config-next": "^16.4.3",
     "fast-check": "^4.7.0",
     "playwright": "^1.58.2",
     "pyright": "^1.1.400",
@@ -187,6 +187,10 @@
     "picomatch": "4.0.4",
     "yaml": "2.8.3",
     "postcss": "8.5.28",
-    "source-map-js": "1.2.2"
+    "source-map-js": "1.2.2",
+    "markdown-it": "14.3.3",
+    "inngest": {
+      "zod": "$zod"
+    }
   }
 }
