@@ -1,5 +1,7 @@
 # Text-selection browser checks
 
+Desktop IDE: `npx playwright test -c tests/browser/playwright.config.ts desktop-ide.spec.ts --project chromium --project webkit` renders the production control and My Work header with isolated auth/session data. It covers nested drawers, editor search and keyboard focus, connected preferences, protocol fallback, project selection and paging, dark mode, mobile sheets and touch sizing. OS editor launches are intercepted.
+
 Run from the repository root:
 
 ```sh

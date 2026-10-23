@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Flag } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/feedback';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';

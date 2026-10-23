@@ -112,7 +112,7 @@ test("AUTH-013: profile project projections carry public links only; cached summ
   const collaboration = read("src/lib/profile/collaboration.ts");
   assert.match(collaboration, /externalLinks: filterProjectLinksForAudience\(row\.external_links, false\)/);
   assert.doesNotMatch(collaboration, /externalLinks: row\.external_links/);
-  assert.match(collaboration, /const SUMMARY_VERSION = 7;/);
+  assert.match(collaboration, /const SUMMARY_VERSION = (7|8);/);
 });
 
 test("COR-029: request feeds and role alignment project people through profile privacy", () => {

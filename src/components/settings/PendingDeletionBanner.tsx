@@ -1,6 +1,6 @@
 "use client";
 
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,7 @@ export default function PendingDeletionBanner({ hardDeleteAt, onCancelled }: Pro
                 toast.success("Account reactivated successfully!");
                 onCancelled();
             } else {
-                toast.error(result.error || "Failed to cancel deletion");
+                toast.error(feedbackError(result.error || "Failed to cancel deletion", "Failed to cancel deletion"));
             }
         } catch {
             toast.error("Failed to cancel deletion");
@@ -39,34 +39,10 @@ export default function PendingDeletionBanner({ hardDeleteAt, onCancelled }: Pro
     };
 
     return (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4">
-            <div className="flex items-start gap-3">
-                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-destructive/15 shrink-0 mt-0.5">
-                    <AlertTriangle className="h-4 w-4 text-destructive" />
-                </div>
-                <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground">
-                        Account Scheduled for Deletion
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        Your account will be permanently deleted on{" "}
-                        <span className="font-semibold text-foreground">{formatCalendarDate(deleteDate)}</span>
-                        {daysRemaining > 0 && (
-                            <> ({daysRemaining} day{daysRemaining !== 1 ? "s" : ""} remaining)</>
-                        )}
-                        . You can cancel the deletion to keep your account.
-                    </p>
-                    <div className="mt-3">
-                        <Button
-                            variant="outline"
-                            onClick={handleCancel}
-                            disabled={cancelling}
-                        >
-                            {cancelling ? "Cancelling..." : "Cancel Deletion & Reactivate"}
-                        </Button>
-                    </div>
-                </div>
-            </div>
+        <div className="flex flex-wrap items-center gap-3 border-t border-border py-3 text-[12px] text-muted-foreground">
+            <AlertTriangle className="size-3.5 shrink-0 text-[var(--status-warning)]" aria-hidden="true" />
+            <span className="min-w-0 flex-1">Account deletion scheduled for <strong className="font-medium text-foreground">{formatCalendarDate(deleteDate)}</strong>{daysRemaining > 0 ? ` · ${daysRemaining} day${daysRemaining === 1 ? "" : "s"} remaining` : ""}.</span>
+            <Button variant="outline" size="sm" onClick={handleCancel} disabled={cancelling}>{cancelling ? "Cancelling…" : "Reactivate account"}</Button>
         </div>
     );
 }

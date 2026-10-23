@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 import Link from "next/link";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 
 import PersonCard from "@/components/network/PersonCard";
 import { PersonCardSkeleton } from "@/components/network/PersonCardSkeleton";

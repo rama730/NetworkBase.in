@@ -7,18 +7,14 @@ import {
   Folder,
   Download,
   Search,
-  ExternalLink,
   Loader2,
   AlertTriangle,
-  ChevronRight,
-  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { ProjectNode } from "@/lib/db/schema";
 import { formatBytes } from "../../files-tab/folder/format";
 import * as fflate from "fflate";
-import { cn } from "@/lib/utils";
 
 interface ArchiveEntry {
   path: string;
@@ -41,7 +37,6 @@ export function ArchiveViewerDriver({
   const [error, setError] = React.useState<string | null>(null);
   const [entries, setEntries] = React.useState<ArchiveEntry[]>([]);
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [selectedFile, setSelectedFile] = React.useState<{ name: string; content: string } | null>(null);
 
   React.useEffect(() => {
     let active = true;
@@ -54,22 +49,27 @@ export function ArchiveViewerDriver({
         if (!res.ok) throw new Error("Failed to download archive");
         const buffer = await res.arrayBuffer();
 
-        const unzipped = fflate.unzipSync(new Uint8Array(buffer));
         const parsedEntries: ArchiveEntry[] = [];
-
-        for (const [filePath, fileData] of Object.entries(unzipped)) {
+        const unzipper = new fflate.Unzip((stream) => {
+          const filePath = stream.name;
           const isDir = filePath.endsWith("/");
           const parts = filePath.replace(/\/$/, "").split("/");
           const name = parts[parts.length - 1] || filePath;
+          const uncompressedSize =
+            typeof stream.originalSize === "number" ? stream.originalSize : (stream.size || 0);
+          const compressedSize =
+            typeof stream.size === "number" ? stream.size : uncompressedSize;
 
           parsedEntries.push({
             path: filePath,
             name,
-            size: fileData.byteLength,
-            compressedSize: fileData.byteLength,
+            size: uncompressedSize,
+            compressedSize,
             isDir,
           });
-        }
+        });
+
+        unzipper.push(new Uint8Array(buffer), true);
 
         // Sort folders first, then alphabetically
         parsedEntries.sort((a, b) => {

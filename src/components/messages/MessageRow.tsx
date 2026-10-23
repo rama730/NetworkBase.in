@@ -7,7 +7,7 @@ import {
   AlarmClock, Archive, Bookmark, BookmarkCheck, CheckCircle2, Copy, Flag, Forward, Hash, Link2, Lock, LogIn, LogOut, MailOpen, MessageSquareText, Eye, EyeOff,
   MoreHorizontal, Pencil, Pin, RotateCcw, Send, SmilePlus, SquareCheck, Trash2, Undo2, UserMinus, XCircle, type LucideIcon,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast, feedbackError, deferredFeedback } from "@/lib/feedback";
 
 import { createTaskFromMessage, deleteMessage, editMessage, hideLinkPreview, listReactors, markUnread, pinMessage, react, reportMessage } from "@/app/actions/chat/messages";
 import { useConversationContext } from "@/components/messages/conversation-context";
@@ -45,7 +45,6 @@ import { copyWithToast } from "@/lib/clipboard";
 /** The hover bar shows the first few of the shared quick set (recently used first). */
 const HOVER_QUICK_COUNT = 3;
 const LONG_PRESS_MS = 500;
-const UNDO_DELETE_MS = 5_000;
 
 // ponytail: the timeline shows the uploaded image itself, already capped at 1920px
 // and 5 MB on the device (S3-07). ceiling: ~6-10 MB for a channel of 20 photos.
@@ -61,7 +60,7 @@ const EditBox = dynamic(() => import("@/components/messages/MessageEditBox").the
 type Action = { id: string; label: string; icon: LucideIcon; run: () => void; shortcut?: string; destructive?: boolean; group: 1 | 2 | 3 };
 
 // Deletes of your own messages wait out an Undo window; pending ones live here.
-const pendingDeletes = new Map<string, { timer: ReturnType<typeof setTimeout>; run: () => void }>();
+const pendingDeletes = new Map<string, { commit: () => void }>();
 let flushOnLeave = false;
 /**
  * Leaving the page (or hiding it, which on phones is often the last event before it's killed)
@@ -73,15 +72,11 @@ function bindFlushOnLeave() {
   flushOnLeave = true;
   const flush = () => {
     for (const [key, pending] of pendingDeletes) {
-      clearTimeout(pending.timer);
       pendingDeletes.delete(key);
-      pending.run();
+      pending.commit();
     }
   };
   window.addEventListener("pagehide", flush);
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") flush();
-  });
 }
 
 /** Who reacted, loaded when the tooltip opens. */
@@ -251,7 +246,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     if (!result.success) throw new Error(chatErrorMessage(result.error));
     update((pages) => patchPages(pages, message.seq, (m) => ({ ...m, body: "", attachments: [], deleted_at: new Date().toISOString() })));
   };
-  // Your own message disappears at once with an Undo; it's deleted for real after 5 s.
+  // The toast reading clock also owns the deferred commit, including hover/focus/hidden-tab pauses.
   const removeWithUndo = () => {
     const key = `${ctx.channelId}:${message.seq}`;
     const before = message;
@@ -260,26 +255,17 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
       if (result.success) return;
       update((pages) => patchPages(pages, before.seq, () => before));
       toast.error(chatErrorMessage(result.error));
+    }).catch(() => {
+      update((pages) => patchPages(pages, before.seq, () => before));
+      void queryClient.invalidateQueries({ queryKey: queryKeys.chat.messages(ctx.channelId) });
+      toast.error("Deletion wasn’t confirmed", { description: "Refreshing message status." });
     });
     bindFlushOnLeave();
-    pendingDeletes.set(key, { run, timer: setTimeout(() => {
+    const pending = deferredFeedback("Message deleted", () => {
       pendingDeletes.delete(key);
-      run();
-    }, UNDO_DELETE_MS) });
-    toast("Message deleted", {
-      duration: UNDO_DELETE_MS,
-      action: {
-        label: "Undo",
-        onClick: () => {
-          const pending = pendingDeletes.get(key);
-          // Hiding the page sent it already: say so instead of an Undo that does nothing.
-          if (!pending) return void toast("Already deleted");
-          clearTimeout(pending.timer);
-          pendingDeletes.delete(key);
-          update((pages) => patchPages(pages, before.seq, () => before));
-        },
-      },
-    });
+      update((pages) => patchPages(pages, before.seq, () => before));
+    }, () => { pendingDeletes.delete(key); run(); });
+    pendingDeletes.set(key, pending);
   };
   // The author's × on the link card: gone for everyone (the link stays in the text).
   const removePreview = useCallback(async (hidden = true) => {
@@ -296,7 +282,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
       if (!result.success) throw new Error(chatErrorMessage(result.error));
     } catch (error) {
       update((pages) => patchPages(pages, message.seq, (m) => m.link_preview_hidden === hidden ? { ...m, link_preview_hidden: previous } : m));
-      toast.error(error instanceof Error ? error.message : 'Could not update the link preview.');
+      toast.error(feedbackError(error instanceof Error ? error.message : 'Could not update the link preview.', "Could not update the link preview."));
       void queryClient.invalidateQueries({ queryKey: queryKeys.chat.messages(ctx.channelId) });
     } finally {
       previewMutationRef.current = false;

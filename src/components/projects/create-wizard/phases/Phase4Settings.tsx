@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, 
 import { useFormContext, useWatch } from 'react-hook-form';
 import { Bell, Check, ChevronDown, FileText, Folder, Globe, ImageIcon, ImagePlus, Info, Link2, Lock, Users, Workflow, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
+import { toast } from '@/lib/feedback';
 import { Button } from '@/components/ui/button';
 import { LifecycleEditor } from '@/components/projects/LifecycleEditor';
 import { ProjectLinkEditorFields } from '@/components/projects/dashboard/ProjectSocialLinksCard';

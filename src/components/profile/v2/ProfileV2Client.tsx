@@ -9,7 +9,7 @@ import type { ProfilePageData, ProfilePrivacyRelationship, ProfileStats, Profile
 import type { ProfileCollaborationSummary, ProfileInviteProjectOption } from '@/lib/profile/collaboration'
 import { ProfileShell } from './ProfileShell'
 import { ProfileTabs } from './ProfileTabs'
-import { toast } from 'sonner';
+import { toast, feedbackError } from "@/lib/feedback";
 import { useAuth } from '@/hooks/use-auth';
 import { invalidatePrivacyDependents } from '@/lib/privacy/client-invalidation';
 import type { ConnectionState } from './types';
@@ -319,7 +319,7 @@ export function ProfileV2Client({
             toast.success(checked ? 'Open to collaboration' : 'Collaboration turned off')
         } catch (error) {
             applyOptimisticProfileUpdate({ openToCollaborate: previous })
-            toast.error(error instanceof Error ? error.message : 'Could not update availability')
+            toast.error(feedbackError(error instanceof Error ? error.message : 'Could not update availability', "Could not update availability"))
             router.refresh()
         } finally {
             availabilityInFlight.current = false
@@ -496,6 +496,7 @@ export function ProfileV2Client({
             <ComponentErrorBoundary fallbackMessage="Failed to load project contributions.">
                 <ProjectContributionsCard
                     contributions={collaborationContributions}
+                    profileId={profile.id}
                     isOwner={isOwner}
                     onAdd={isOwner ? () => openEditPage('experience') : undefined}
                     projects={projectOptionsForEditing}
@@ -568,7 +569,7 @@ export function ProfileV2Client({
                 error: error instanceof Error ? error.message : String(error),
                 stack: error instanceof Error ? error.stack : undefined,
             })
-            toast.error(error instanceof Error ? error.message : 'Failed to update block state')
+            toast.error(feedbackError(error instanceof Error ? error.message : 'Failed to update block state', "Failed to update block state"))
         } finally {
             setIsBlocking(false)
         }

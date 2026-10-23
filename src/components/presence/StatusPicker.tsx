@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 
 import { clearMyStatus, setMyStatus, setShowActivity, setStatusVisibility } from "@/app/actions/presence";
 import { PRESENCE_VISIBILITY_EVENT } from "@/lib/presence/events";

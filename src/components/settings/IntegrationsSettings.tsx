@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { formatDistanceToNow } from "@/lib/utils/date";
 import { ChevronDown, Code2, Copy, ExternalLink, GitBranch, Github, KeyRound, Link2, Loader2, Mail } from "lucide-react";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -214,7 +214,7 @@ export default function IntegrationsSettings({ embedded = false }: { embedded?: 
       toast.info("This GitHub account is already linked.");
     } else if (outcome === "error") {
       const desc = searchParams.get("githubErrorDesc");
-      toast.error(desc || "Could not link GitHub account. Please try again.");
+      toast.error(feedbackError(desc || "Could not link GitHub account. Please try again.", "Could not link GitHub account. Please try again."));
     }
     const next = new URLSearchParams(searchParams.toString());
     next.delete("githubIdentity");
@@ -259,7 +259,7 @@ export default function IntegrationsSettings({ embedded = false }: { embedded?: 
         setGeneratedToken(result.rawToken);
         await refetchSessions();
       } else {
-        toast.error(result.error || "Failed to generate token");
+        toast.error(feedbackError(result.error || "Failed to generate token", "Failed to generate token"));
       }
     } catch {
       toast.error("Failed to generate token");
@@ -278,7 +278,7 @@ export default function IntegrationsSettings({ embedded = false }: { embedded?: 
       const { error: linkError } = await createSupabaseBrowserClient().auth.linkIdentity({ provider, options: { redirectTo: `${window.location.origin}/settings?tab=integrations` } });
       if (linkError) throw identityLinkError(linkError, "Google");
     } catch (linkError) {
-      toast.error(linkError instanceof Error ? linkError.message : `Failed to link ${provider}`);
+      toast.error(feedbackError(linkError instanceof Error ? linkError.message : `Failed to link ${provider}`, "Action couldn’t finish"));
       setLinking(null);
     }
   };
@@ -309,7 +309,7 @@ export default function IntegrationsSettings({ embedded = false }: { embedded?: 
       setReplacementConfirmOpen(false);
       setStepUpOpen(true);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not start account replacement");
+      toast.error(feedbackError(error instanceof Error ? error.message : "Could not start account replacement", "Could not start account replacement"));
     }
   };
 
@@ -327,7 +327,7 @@ export default function IntegrationsSettings({ embedded = false }: { embedded?: 
         },
       });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not replace GitHub account");
+      toast.error(feedbackError(error instanceof Error ? error.message : "Could not replace GitHub account", "Could not replace GitHub account"));
       setReplacingGithub(false);
       void refetch();
     }
@@ -357,7 +357,7 @@ export default function IntegrationsSettings({ embedded = false }: { embedded?: 
         if (previousSessions) {
           queryClient.setQueryData(queryKeys.settings.extensionSessions(), previousSessions);
         }
-        toast.error(result.error || "Could not revoke editor session");
+        toast.error(feedbackError(result.error || "Could not revoke editor session", "Could not revoke editor session"));
       }
     } catch {
       if (previousSessions) {

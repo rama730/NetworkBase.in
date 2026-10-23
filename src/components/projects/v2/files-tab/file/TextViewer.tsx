@@ -39,7 +39,7 @@
 "use client";
 import { FilesHeaderSlot } from "../FilesHeaderSlot";
 
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 
 import * as React from "react";
 import dynamic from "next/dynamic";
@@ -526,7 +526,7 @@ export function TextViewer({
               : "Active revision updated successfully");
         } else {
           setSaveError(result.error || "Failed to save revision");
-          toast.error(result.error || "Failed to save revision");
+          toast.error(feedbackError(result.error || "Failed to save revision", "Failed to save revision"));
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error";

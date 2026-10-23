@@ -13,7 +13,7 @@ import {
     Loader2,
     MessageCircle,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 import { createProjectUpdateAction, readProjectUpdateAction, readProjectUpdatesAction, type ProjectUpdateView } from "@/app/actions/project/updates";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -381,7 +381,7 @@ export default function UpdatesTab({
       if (context?.previous)
         queryClient.setQueryData(updatesQueryKey, context.previous);
       toast.error(
-        error instanceof Error ? error.message : "Failed to post update",
+        feedbackError(error instanceof Error ? error.message : "Failed to post update", "Failed to post update"),
       );
     },
     onSuccess: (update, _input, context) => {

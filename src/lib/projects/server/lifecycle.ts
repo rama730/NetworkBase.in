@@ -26,7 +26,7 @@ import { getLifecycleStagesForProjectType } from "@/lib/projects/lifecycle-templ
 import { normalizeProjectPublicTabVisibility } from "@/lib/projects/settings-policies";
 import { buildCreateProjectNotificationPolicy } from "@/lib/notifications/project-policy";
 import { syncProjectChat } from "@/lib/messaging/integrations";
-import { upsertProfileProjectContributionFromMembership, markProjectCollaboratorsSummaryStale } from "@/lib/profile/collaboration";
+import { upsertProfileProjectContributionFromMembership, markProjectCollaboratorsSummaryStale, markProfileCollaborationSummaryStale } from "@/lib/profile/collaboration";
 import { syncRoleSkillsBatch, syncProjectSkills, syncRoleSkills } from "@/lib/skills/service";
 import { normalizeAndValidateMimeType, normalizeAndValidateFileSize } from "@/lib/upload/security";
 import { randomUUID } from "crypto";
@@ -887,7 +887,10 @@ export async function createProjectAction(
         });
 
         await invalidateProjectPublicCaches(result.id);
+        await markProfileCollaborationSummaryStale(user.id);
         revalidatePath("/projects");
+        revalidatePath("/my-profile");
+        revalidatePath("/u/[username]", "page");
 
         // Add to Import Queue if applicable
         if (

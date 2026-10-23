@@ -1,6 +1,6 @@
 "use client";
 
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
@@ -48,11 +48,7 @@ import {
     getRolePreferences,
     replaceRolePreferences,
 } from "@/lib/profile/role-preferences";
-import {
-    contributionEntryChanged,
-    createExternalContributionDraft,
-    type ContributionEditorEntry,
-} from "@/lib/profile/contribution-editor";
+import { ContributionWorkspace } from "./ContributionWorkspace";
 import {
     resolveSocialPresence,
     socialLinkItemsFromStorage,
@@ -73,6 +69,8 @@ import type { ProfileEditSection as EditProfileSection } from "@/lib/profile/edi
 
 interface EditProfileTabsProps {
     profile: any;
+    contributionProfileId?: string;
+    contributionProfileVisibility?: string;
     actions: ReactNode;
     originalUsername: string;
     section: EditProfileSection;
@@ -85,6 +83,8 @@ interface EditProfileTabsProps {
     contributionTotal?: number;
     onLoadMoreContributions?: () => void;
     onImageFinalized?: (avatarUrl: string, updatedAt?: string) => void;
+    onCancelContribution?: () => void;
+    showContributionExitPrompt?: boolean;
 }
 
 const EDIT_SECTIONS: Array<{
@@ -101,6 +101,8 @@ const EDIT_SECTIONS: Array<{
 
 export function EditProfileTabs({
     profile,
+    contributionProfileId = "",
+    contributionProfileVisibility = "public",
     actions,
     originalUsername,
     section,
@@ -113,11 +115,14 @@ export function EditProfileTabs({
     contributionTotal = 0,
     onLoadMoreContributions,
     onImageFinalized,
+    onCancelContribution,
+    showContributionExitPrompt = false,
 }: EditProfileTabsProps) {
     const [avatarUploading, setAvatarUploading] = useState(false);
     const desktopNavigation = useMediaQuery("(min-width: 768px)");
     const fileInputRef = useRef<HTMLInputElement>(null);
     const contentScrollRef = useRef<HTMLDivElement>(null);
+    const [contributionFooterHost, setContributionFooterHost] = useState<HTMLDivElement | null>(null);
     useEffect(() => { contentScrollRef.current?.scrollTo({top:0}); }, [section]);
 
     const { status: usernameStatus, message: usernameMessage } = useUsernameAvailability({
@@ -135,7 +140,7 @@ export function EditProfileTabs({
         if (!file) return;
 
         if (file.size > 2 * 1024 * 1024) {
-            toast.error("Image must be 2MB or smaller", { position: 'top-right' });
+            toast.error("Image must be 2MB or smaller");
             return;
         }
 
@@ -167,11 +172,11 @@ export function EditProfileTabs({
 
             updateForm("avatarUrl", finalized.publicUrl);
             onImageFinalized?.(finalized.publicUrl, finalized.updatedAt);
-            toast.success("Avatar ready to save", { position: 'top-right' });
+            toast.message("Avatar ready to save");
         } catch (error: any) {
             updateForm("avatarUrl", previousAvatarUrl);
             const message = error?.message || "Unknown error";
-            toast.error(`Failed to upload avatar: ${message}`, { position: 'top-right' });
+            toast.error(`Failed to upload avatar: ${message}`);
         } finally {
             URL.revokeObjectURL(localPreview);
             setAvatarUploading(false);
@@ -181,7 +186,7 @@ export function EditProfileTabs({
 
     const handleRemoveAvatar = () => {
         updateForm("avatarUrl", "");
-        toast.success("Avatar removed", { position: 'top-right' });
+        toast.message("Avatar removed from your draft");
     };
 
     const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -508,19 +513,10 @@ export function EditProfileTabs({
                         </div>
                     </TabsContent>
 
-                    <TabsContent value="experience" className="space-y-6 mt-0">
-                        <h2 className="nb-section-title text-foreground">Project contributions</h2>
-                        <ProjectContributionsList
-                            items={profile.experience ?? []}
-                            originalItems={profile.contributionBase ?? []}
-                            onChange={(items) => updateForm("experience", items)}
-                            errors={contributionErrors}
-                            saving={contributionsSaving}
-                            loadingMore={contributionsLoadingMore}
-                            hasMore={contributionHasMore}
-                            total={contributionTotal}
-                            onLoadMore={onLoadMoreContributions}
-                        />
+                    <TabsContent value="experience" forceMount hidden={section !== "experience"} className="mt-0">
+                        <fieldset disabled={section !== "experience"} className="min-w-0">
+                        <ContributionWorkspace profileId={contributionProfileId} profileVisibility={contributionProfileVisibility} items={profile.experience ?? []} hasMore={contributionHasMore} loadingMore={contributionsLoadingMore} onLoadMore={onLoadMoreContributions} footerContainer={contributionFooterHost} onCancel={onCancelContribution}/>
+                        </fieldset>
                     </TabsContent>
 
                     <TabsContent value="skills" className="space-y-6 mt-0">
@@ -546,7 +542,8 @@ export function EditProfileTabs({
                     </TabsContent>
                 </div>
             </div>
-            {actions}
+            <div ref={setContributionFooterHost} hidden={section !== "experience" || showContributionExitPrompt} data-contribution-footer-host className="shrink-0" />
+            {section !== "experience" || showContributionExitPrompt ? actions : null}
             </div>
         </Tabs>
     );
@@ -686,12 +683,12 @@ function RolePreferencesEditor({ profile, onChange }: { profile: any; onChange: 
                     <label className="flex items-center gap-2 nb-ui-label cursor-pointer" htmlFor="open-to-collaborate-switch">
                         <span>Open to collaborate</span>
                         {profile.openToCollaborate ? (
-                            <span className="nb-micro inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-medium text-emerald-600 dark:text-emerald-400">
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+                            <span className="nb-micro inline-flex items-center gap-1 rounded-[4px] border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-medium text-emerald-600 dark:text-emerald-400">
+                                <span className="h-1.5 w-1.5 rounded-[2px] bg-emerald-500" aria-hidden="true" />
                                 Available
                             </span>
                         ) : (
-                            <span className="nb-micro inline-flex items-center gap-1 rounded-full border border-border bg-muted/60 px-2 py-0.5 text-muted-foreground">
+                            <span className="nb-micro inline-flex items-center gap-1 rounded-[4px] border border-border bg-muted/60 px-2 py-0.5 text-muted-foreground">
                                 Hidden
                             </span>
                         )}
@@ -917,234 +914,6 @@ function RolePreferencesEditor({ profile, onChange }: { profile: any; onChange: 
             ) : null}
         </section>
     )
-}
-
-function ProjectContributionsList({
-    items = [],
-    originalItems = [],
-    onChange,
-    errors = {},
-    saving = false,
-    loadingMore = false,
-    hasMore = false,
-    total = 0,
-    onLoadMore,
-}: {
-    items: ContributionEditorEntry[];
-    originalItems: ContributionEditorEntry[];
-    onChange: (items: ContributionEditorEntry[]) => void;
-    errors?: Record<string, string>;
-    saving?: boolean;
-    loadingMore?: boolean;
-    hasMore?: boolean;
-    total?: number;
-    onLoadMore?: () => void;
-}) {
-    const [expandedKey, setExpandedKey] = useState<string | null>(null);
-    const [announcement, setAnnouncement] = useState("");
-    const [focusRequest, setFocusRequest] = useState(0);
-    const focusDraftRef = useRef<string | null>(null);
-    const projectInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
-    const accordionId = useId().replace(/:/g, "");
-    const originalById = new Map(originalItems.map((item) => [item.draftId, item]));
-    const incompleteExternalDraft = items.find((item) =>
-        item.kind === "external" && !item.contributionId && !item.projectTitle.trim(),
-    );
-    const unsavedDrafts = items.filter((item) => item.kind === "external" && !item.contributionId);
-    const persistedItems = items.filter((item) => item.contributionId);
-    const displayItems = [...unsavedDrafts, ...persistedItems];
-
-    useEffect(() => {
-        const firstError = Object.keys(errors)[0];
-        if (firstError) setExpandedKey(firstError);
-    }, [errors]);
-
-    useEffect(() => {
-        const draftId = focusDraftRef.current;
-        if (!draftId || expandedKey !== draftId) return;
-        const input = projectInputRefs.current[draftId];
-        if (!input) return;
-        input.scrollIntoView({ block: "nearest", behavior: "smooth" });
-        input.focus();
-        focusDraftRef.current = null;
-    }, [displayItems, expandedKey, focusRequest]);
-
-    const updateItem = (draftId: string, updates: Partial<ContributionEditorEntry>) => {
-        onChange(items.map((item) => item.draftId === draftId ? { ...item, ...updates } : item));
-    };
-
-    const handleAddExternal = () => {
-        if (incompleteExternalDraft) {
-            setExpandedKey(incompleteExternalDraft.draftId);
-            focusDraftRef.current = incompleteExternalDraft.draftId;
-            setFocusRequest((current) => current + 1);
-            setAnnouncement("Finish or remove the current external-project draft before adding another.");
-            return;
-        }
-        const draft = createExternalContributionDraft();
-        focusDraftRef.current = draft.draftId;
-        onChange([draft, ...items]);
-        setExpandedKey(draft.draftId);
-        setFocusRequest((current) => current + 1);
-        setAnnouncement("External project added. Enter its project name to continue.");
-    };
-
-    const handleDeleteExternal = (draftId: string) => {
-        onChange(items.filter((item) => item.draftId !== draftId));
-        setExpandedKey((current) => current === draftId ? null : current);
-    };
-
-    return (
-        <div className="space-y-6">
-            <p className="sr-only" role="status" aria-live="polite">{announcement}</p>
-            <div className="flex flex-col items-start gap-4 @min-[640px]:flex-row @min-[640px]:items-center @min-[640px]:justify-between">
-                <div>
-                    <h3 className="nb-card-title text-foreground">Your contributions</h3>
-                    <p className="nb-compact mt-1 text-muted-foreground">
-                        Open one project at a time. Platform project names and roles come from the project team.
-                        {total > 0 ? ` Showing ${Math.min(persistedItems.length, total)} of ${total} saved.` : ""}
-                        {unsavedDrafts.length > 0 ? ` ${unsavedDrafts.length} unsaved external ${unsavedDrafts.length === 1 ? "project" : "projects"}.` : ""}
-                    </p>
-                </div>
-                <Button type="button" variant="outline" size="sm" onClick={handleAddExternal} disabled={saving}>
-                    <Plus className="mr-1 h-4 w-4" /> Add external project
-                </Button>
-            </div>
-
-            {items.length === 0 ? (
-                <div className="nb-empty-state nb-grid-ground rounded-lg px-5 py-8 text-center">
-                    <p className="nb-card-title text-foreground">No project contributions yet</p>
-                    <p className="nb-compact mt-1 text-muted-foreground">Platform contributions appear after you join a project. You can also add an external project.</p>
-                </div>
-            ) : null}
-
-            <div className="space-y-3">
-                {unsavedDrafts.length > 0 ? (
-                    <p className="nb-micro text-[var(--status-warning)]">
-                        Unsaved external projects
-                    </p>
-                ) : null}
-                {displayItems.map((item) => {
-                    const isPublic = item.visibility === "public";
-                    const isExpanded = expandedKey === item.draftId;
-                    const panelId = `${accordionId}-contribution-${item.draftId}`;
-                    const isDirty = contributionEntryChanged(item, originalById.get(item.draftId));
-                    const itemError = errors[item.draftId];
-                    return (
-                        <div key={item.draftId} data-contribution-draft-id={item.draftId} className="overflow-hidden rounded-lg border border-border bg-card">
-                            <button
-                                type="button"
-                                aria-expanded={isExpanded}
-                                aria-controls={panelId}
-                                onClick={() => setExpandedKey((current) => current === item.draftId ? null : item.draftId)}
-                                className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
-                            >
-                                <span className="min-w-0">
-                                    <span title={item.projectTitle || "Untitled external project"} className="nb-card-title block truncate text-foreground">{item.projectTitle || "Untitled external project"}</span>
-                                    <span className="nb-meta mt-1 block truncate text-muted-foreground">{item.roleTitle || "Role not specified"}</span>
-                                </span>
-                                <span className="flex shrink-0 items-center gap-2">
-                                    {itemError ? <span className="nb-micro text-destructive">Needs attention</span> : null}
-                                    {!itemError && saving && isDirty ? <span className="nb-micro text-primary">Saving…</span> : null}
-                                    {!itemError && !saving && isDirty ? <span className="nb-micro text-[var(--status-warning)]">Unsaved</span> : null}
-                                    {item.kind === "external" ? <span className="nb-micro text-muted-foreground">External</span> : null}
-                                    {!isPublic ? <span className="nb-micro text-muted-foreground">Private</span> : null}
-                                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`} aria-hidden="true" />
-                                </span>
-                            </button>
-
-                            {isExpanded ? (
-                                <div id={panelId} className="space-y-4 border-t border-border p-5">
-                                    {itemError ? (
-                                        <p role="alert" aria-live="assertive" className="nb-compact rounded-md border border-destructive/20 bg-destructive/10 px-4 py-3 text-destructive">
-                                            {itemError}
-                                        </p>
-                                    ) : null}
-                                    {item.kind === "external" ? (
-                                        <div className="flex justify-end">
-                                            <Button type="button" variant="ghost" size="sm" onClick={() => handleDeleteExternal(item.draftId)} className="nb-touch-target px-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
-                                                <Trash2 className="mr-1.5 h-4 w-4" /> Remove
-                                            </Button>
-                                        </div>
-                                    ) : null}
-
-                                    <div className="flex items-center justify-between rounded-lg border border-border bg-muted/40 p-4">
-                                        <div className="space-y-1">
-                                            <span className="nb-ui-label font-semibold text-foreground">Show publicly on profile</span>
-                                            <p className="nb-compact max-w-[64ch] text-muted-foreground">Off keeps this contribution visible only to you.</p>
-                                        </div>
-                                        <SettingsSwitch
-                                            checked={isPublic}
-                                            aria-label={`${isPublic ? "Hide" : "Show"} ${item.projectTitle || "project contribution"} on profile`}
-                                            onCheckedChange={(checked) => updateItem(item.draftId, { visibility: checked ? "public" : "private" })}
-                                        />
-                                    </div>
-
-                                    {item.kind === "platform" ? (
-                                        <dl className="grid grid-cols-1 gap-4 rounded-lg bg-muted/40 p-4 @min-[640px]:grid-cols-2">
-                                            <div><dt className="nb-meta text-muted-foreground">Project</dt><dd className="nb-compact mt-1 font-medium text-foreground">{item.projectTitle}</dd></div>
-                                            <div><dt className="nb-meta text-muted-foreground">Your role</dt><dd className="nb-compact mt-1 font-medium text-foreground">{item.roleTitle}</dd></div>
-                                        </dl>
-                                    ) : (
-                                        <div className="grid grid-cols-1 gap-4 @min-[640px]:grid-cols-2">
-                                            <div>
-                                                <label htmlFor={`${panelId}-project`} className="nb-ui-label flex items-center gap-2 text-muted-foreground"><Briefcase className="h-3.5 w-3.5" /> Project name</label>
-                                                <Input ref={(node) => { projectInputRefs.current[item.draftId] = node; }} id={`${panelId}-project`} maxLength={120} aria-required="true" value={item.projectTitle} onChange={(event) => updateItem(item.draftId, { projectTitle: event.target.value })} className="mt-2" />
-                                            </div>
-                                            <div>
-                                                <label htmlFor={`${panelId}-role`} className="nb-ui-label flex items-center gap-2 text-muted-foreground"><Code className="h-3.5 w-3.5" /> Your role</label>
-                                                <Input id={`${panelId}-role`} maxLength={120} value={item.roleTitle} onChange={(event) => updateItem(item.draftId, { roleTitle: event.target.value })} className="mt-2" />
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div className="grid grid-cols-1 gap-4 @min-[640px]:grid-cols-2">
-                                        <div>
-                                            <label htmlFor={`${panelId}-start`} className="nb-ui-label flex items-center gap-2 text-muted-foreground"><Calendar className="h-3.5 w-3.5" /> Joined</label>
-                                            <Input id={`${panelId}-start`} type="month" value={item.startedAt} onChange={(event) => updateItem(item.draftId, { startedAt: event.target.value })} className="mt-2" />
-                                        </div>
-                                        <div>
-                                            <label htmlFor={`${panelId}-end`} className="nb-ui-label flex items-center gap-2 text-muted-foreground"><Calendar className="h-3.5 w-3.5" /> Ended (optional)</label>
-                                            <Input id={`${panelId}-end`} type="month" value={item.endedAt} onChange={(event) => updateItem(item.draftId, { endedAt: event.target.value })} className="mt-2" />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 gap-4 @min-[640px]:grid-cols-2">
-                                        {item.kind === "external" ? (
-                                            <div>
-                                                <label htmlFor={`${panelId}-url`} className="nb-ui-label flex items-center gap-2 text-muted-foreground"><LinkIcon className="h-3.5 w-3.5" /> Project URL</label>
-                                                <Input id={`${panelId}-url`} type="url" value={item.projectUrl} onChange={(event) => updateItem(item.draftId, { projectUrl: event.target.value })} className="mt-2" placeholder="https://" />
-                                            </div>
-                                        ) : <div />}
-                                        <div>
-                                            <label htmlFor={`${panelId}-repo`} className="nb-ui-label flex items-center gap-2 text-muted-foreground"><Github className="h-3.5 w-3.5" /> Repository URL</label>
-                                            <Input id={`${panelId}-repo`} type="url" value={item.repositoryUrl} onChange={(event) => updateItem(item.draftId, { repositoryUrl: event.target.value })} className="mt-2" placeholder="https://github.com/..." />
-                                        </div>
-                                    </div>
-
-                                    <SkillPicker value={item.skills} onChange={(skills) => updateItem(item.draftId, { skills })} maxSkills={20} label="Skills & tools" description="Choose the skills demonstrated in this contribution." placeholder="Search skills" />
-
-                                    <div>
-                                        <label htmlFor={`${panelId}-summary`} className="nb-ui-label text-muted-foreground">Contribution summary</label>
-                                        <textarea id={`${panelId}-summary`} maxLength={2000} className="nb-body mt-1.5 min-h-[96px] w-full resize-y rounded-md border border-input bg-card px-[var(--ui-control-px)] py-2 outline-none focus-visible:bg-muted/20 text-foreground" value={item.summary} onChange={(event) => updateItem(item.draftId, { summary: event.target.value })} placeholder="What did you build, improve, or lead?" />
-                                    </div>
-                                </div>
-                            ) : null}
-                        </div>
-                    );
-                })}
-            </div>
-
-            {hasMore && onLoadMore ? (
-                <div className="flex justify-center border-t border-border pt-4">
-                    <Button type="button" variant="outline" size="sm" onClick={onLoadMore} disabled={loadingMore || saving}>
-                        {loadingMore ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : null}
-                        {loadingMore ? "Loading contributions…" : "Load more contributions"}
-                    </Button>
-                </div>
-            ) : null}
-        </div>
-    );
 }
 
 function SkillsEditor({ skills, onChange }: { skills: string[]; onChange: (skills: string[]) => void }) {

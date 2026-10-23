@@ -36,15 +36,15 @@ function PresenceChips({ userId, lastActiveAt, isOwner, className }: { userId: s
     return (
         <div className={cn("flex flex-wrap items-center gap-2", className)}>
             {presence.status ? (
-                <span className="inline-flex min-h-[26px] max-w-full items-center rounded-full bg-muted px-2.5 py-1 text-[13px] font-medium text-foreground [overflow-wrap:anywhere]">
+                <span className="inline-flex min-h-[26px] max-w-full items-center rounded-[6px] bg-muted px-2.5 py-1 text-[13px] font-medium text-foreground [overflow-wrap:anywhere]">
                     <StatusInline emoji={presence.status.emoji} text={presence.statusText} />
                 </span>
             ) : null}
             {showAvailability ? (
-                <span className="inline-flex h-[26px] items-center rounded-full bg-muted px-2.5 text-[13px] text-muted-foreground">{presence.availabilityText}</span>
+                <span className="inline-flex h-[26px] items-center rounded-[6px] bg-muted px-2.5 text-[13px] text-muted-foreground">{presence.availabilityText}</span>
             ) : null}
             {isOwner ? (
-                <button type="button" onClick={() => openPicker(true)} className="inline-flex h-[26px] max-md:min-h-11 items-center gap-1.5 rounded-full border border-dashed border-border px-2.5 text-[13px] text-muted-foreground hover:bg-muted hover:text-foreground">
+                <button type="button" onClick={() => openPicker(true)} className="inline-flex h-[26px] max-md:min-h-11 items-center gap-1.5 rounded-[6px] border border-dashed border-border px-2.5 text-[13px] text-muted-foreground hover:bg-muted hover:text-foreground">
                     <Smile className="size-3.5" aria-hidden="true" />
                     {presence.status ? 'Change status' : 'Update your status'}
                 </button>

@@ -9,7 +9,7 @@ import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { QuickSwitcher } from "@/components/messages/QuickSwitcher";
 import { ShortcutsDialog } from "@/components/messages/ShortcutsDialog";
 import { usePathname, useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 import { markRead } from "@/app/actions/chat/read";
 import { escapeTaken, isTypingTarget } from "@/components/messages/keys";
 import { useMarkAllRead } from "@/components/messages/useMarkAllRead";

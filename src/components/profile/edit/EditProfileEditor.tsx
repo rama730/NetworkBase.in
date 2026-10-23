@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, AlertTriangle } from "lucide-react";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 
 import { saveProfileContributionsAction } from "@/app/actions/profile-contributions";
 import { updateProfileAction } from "@/app/actions/profile";
@@ -151,7 +151,7 @@ export function EditProfileEditor({
         setShowDiscardConfirm(false);
         setActiveSection(section);
 
-        void loadProfileContributionsPage(profile.id, { limit: 50, offset: 0, stageLimit: 8 })
+        void loadProfileContributionsPage(profile.id, { limit: 50, offset: 0, stageLimit: 20 })
             .then((page) => {
                 if (openGenerationRef.current !== generation) return;
                 setContributionTotal(page.total);
@@ -176,7 +176,7 @@ export function EditProfileEditor({
                 if (openGenerationRef.current !== generation) return;
                 const message = error instanceof Error ? error.message : "Could not load all project contributions";
                 setSaveErrorMessage(message);
-                toast.error(message, { position: 'top-right' });
+                toast.error(feedbackError(message, "Action couldn’t finish"));
             })
             .finally(() => {
                 if (openGenerationRef.current === generation) setContributionsLoadingMore(false);
@@ -254,7 +254,7 @@ export function EditProfileEditor({
             setActiveSection("experience");
             setSaveState("error");
             setSaveErrorMessage("Fix the highlighted project contribution before saving.");
-            toast.error("Fix the highlighted project contribution before saving.", { position: 'top-right' });
+            toast.error("Fix the highlighted project contribution before saving.");
             return;
         }
 
@@ -348,7 +348,7 @@ export function EditProfileEditor({
             invalidateProfileReads(profilePayload);
             void refreshProfile().catch(() => undefined);
             await onSaved?.(lastKnownUpdatedAtRef.current, mutations.length > 0);
-            toast.success("Profile updated successfully", { position: 'top-right' });
+            toast.success("Profile updated successfully");
             if (closeOnSuccess) onClose();
         } catch (error) {
             if (profileSaved) {
@@ -361,7 +361,7 @@ export function EditProfileEditor({
                 : errorMessage;
             setSaveState("error");
             setSaveErrorMessage(message);
-            toast.error(message, { position: 'top-right' });
+            toast.error(feedbackError(message, "Action couldn’t finish"));
         } finally {
             inFlightRef.current = false;
         }
@@ -377,7 +377,7 @@ export function EditProfileEditor({
             const page = await loadProfileContributionsPage(profile.id, {
                 limit: 50,
                 offset: baseEntries.length,
-                stageLimit: 8,
+                stageLimit: 20,
             });
             if (openGenerationRef.current !== generation) return;
             const incoming = page.contributions.map(contributionToEditorEntry);
@@ -404,7 +404,7 @@ export function EditProfileEditor({
         } catch (error) {
             const message = error instanceof Error ? error.message : "Could not load more project contributions";
             setSaveErrorMessage(message);
-            toast.error(message, { position: 'top-right' });
+            toast.error(feedbackError(message, "Action couldn’t finish"));
         } finally {
             if (openGenerationRef.current === generation) setContributionsLoadingMore(false);
         }
@@ -466,7 +466,7 @@ export function EditProfileEditor({
         setConflictProfile(null);
         setSaveState("idle");
         setSaveErrorMessage(null);
-        toast.info("Latest saved changes loaded. Your draft edits are kept; review and save again.", { position: 'top-right' });
+        toast.info("Latest saved changes loaded. Your draft edits are kept; review and save again.");
     };
 
     const handleSave = (e?: React.MouseEvent) => {
@@ -478,11 +478,15 @@ export function EditProfileEditor({
     if (user && user.id !== profile.id) return <section role="alert" className="space-y-4 p-6"><p>This editor belongs to a different account. Return to your profile to continue.</p><Button onClick={() => { allowLeave(); router.replace("/my-profile"); }}>Go to my profile</Button></section>;
 
     return (
-        <section data-profile-editor className="flex h-full min-h-0 flex-col bg-background text-foreground" aria-labelledby="profile-editor-title">
-                <form className="flex min-h-0 flex-1 flex-col" onSubmit={(event) => { event.preventDefault(); void persistChanges(true); }} aria-label="Edit profile form">
-                    <fieldset disabled={saveState === "saving"} className="flex min-h-0 w-full flex-1 flex-col overflow-hidden md:flex-row">
+        <section data-profile-editor className="flex h-full min-h-0 flex-col overflow-clip bg-background text-foreground" aria-labelledby="profile-editor-title">
+                <form className="flex min-h-0 flex-1 flex-col overflow-clip" onSubmit={(event) => { event.preventDefault(); void persistChanges(true); }} aria-label="Edit profile form">
+                    <fieldset disabled={saveState === "saving"} className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-clip md:flex-row">
                         <EditProfileTabs
                             profile={formState || profile}
+                            contributionProfileId={profile.id}
+                            contributionProfileVisibility={profile.visibility ?? "public"}
+                            onCancelContribution={() => handleCancel()}
+                            showContributionExitPrompt={showDiscardConfirm}
                             originalUsername={originalUsernameRef.current}
                             section={activeSection}
                             onSectionChange={handleSectionChange}

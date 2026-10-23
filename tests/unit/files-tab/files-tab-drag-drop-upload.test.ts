@@ -229,7 +229,7 @@ describe("Files Tab Drag & Drop Upload Integration", () => {
     assert.match(source, /resolveFileMimeType\(f\)/);
 
     // uploadFiles and uploadFilesDirectly return Promise<ProjectNode[]>
-    assert.match(source, /async \(files: File\[\], parentId: string \| null\): Promise<ProjectNode\[\]>/);
+    assert.match(source, /async \(files: File\[\], parentId: string \| null, retryToastId\?: string \| number\): Promise<ProjectNode\[\]>/);
     assert.match(source, /return createdNodes;/);
   });
 

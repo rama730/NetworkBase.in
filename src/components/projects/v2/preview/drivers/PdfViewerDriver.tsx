@@ -6,7 +6,6 @@ import {
   Download,
   AlertTriangle,
   FileText,
-  Maximize2,
   RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -46,44 +45,32 @@ export function PdfViewerDriver({
   }, []);
 
   return (
-    <div className="relative flex h-full w-full flex-col bg-muted/10">
-      {/* Top Controls Bar */}
-      <div className="flex h-11 shrink-0 items-center justify-between border-b border-border bg-background px-4">
-        <div className="flex items-center gap-2 overflow-hidden">
-          <FileText className="h-4 w-4 shrink-0 text-red-500" />
-          <span className="truncate text-xs font-medium text-foreground">
-            {node.name}
-          </span>
-          <span className="text-[11px] text-muted-foreground">
-            ({formatBytes(node.size)})
-          </span>
-        </div>
+    <div className="relative flex h-full w-full flex-col bg-muted/10 overflow-hidden">
+      {/* Floating Action Pill — No extra horizontal navbar */}
+      <div className="absolute right-4 top-4 z-20 flex items-center gap-1.5 rounded-lg border border-border/80 bg-background/90 px-2 py-1 shadow-md backdrop-blur-md">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={handleRetry}
+          className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+          title="Reload PDF"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${isRetrying ? "animate-spin" : ""}`} />
+        </Button>
 
-        <div className="flex items-center gap-1.5">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={handleRetry}
-            className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-            title="Reload PDF"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${isRetrying ? "animate-spin" : ""}`} />
-          </Button>
+        <Button asChild size="sm" variant="ghost" className="h-7 px-2 text-xs">
+          <a href={downloadUrl} download={node.name} title="Download PDF">
+            <Download className="mr-1 h-3.5 w-3.5" />
+            Download
+          </a>
+        </Button>
 
-          <Button asChild size="sm" variant="ghost" className="h-7 px-2 text-xs">
-            <a href={downloadUrl} download={node.name} title="Download PDF">
-              <Download className="mr-1 h-3.5 w-3.5" />
-              Download
-            </a>
-          </Button>
-
-          <Button asChild size="sm" variant="outline" className="h-7 px-2 text-xs">
-            <a href={signedUrl || previewUrl} target="_blank" rel="noreferrer" title="Open full PDF viewer">
-              <ExternalLink className="mr-1 h-3.5 w-3.5" />
-              Open in tab
-            </a>
-          </Button>
-        </div>
+        <Button asChild size="sm" variant="outline" className="h-7 px-2 text-xs">
+          <a href={signedUrl || previewUrl} target="_blank" rel="noreferrer" title="Open full PDF viewer">
+            <ExternalLink className="mr-1 h-3.5 w-3.5" />
+            Open in tab
+          </a>
+        </Button>
       </div>
 
       {/* Embedded PDF Viewer */}

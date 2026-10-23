@@ -11,7 +11,7 @@ import { Markdown } from "tiptap-markdown";
 import {
   Code, Copy, Download, ExternalLink, GripVertical, Heading1, Heading2, Heading3, List, ListChecks, ListOrdered, Quote, Trash2, Type, CopyPlus,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 
 import { uploadChatFile } from "@/components/messages/upload";
 import {

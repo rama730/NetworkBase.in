@@ -15,7 +15,7 @@ import {
     IncomingProjectApplicationRow,
     type IncomingProjectApplication,
 } from "@/components/network/IncomingProjectApplicationRow";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { RequestProfileRow } from "@/components/network/RequestProfileRow";
 import { useConnectionMutations, usePendingRequests } from "@/hooks/useConnections";
@@ -150,7 +150,7 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
                 label: "Undo",
                 onClick: () => void reopenApplicationAction(app.id).then((undone) => {
                     if (undone.success) toast.success("Decline undone");
-                    else toast.error(undone.error || "Could not undo");
+                    else toast.error(feedbackError(undone.error || "Could not undo", "Could not undo"));
                     invalidate();
                 }),
             },
@@ -163,14 +163,14 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
         mutationFn: async (id: string) => unwrap(await resolveProjectInvitationAction({ invitationId: id, action: "accept" })),
         onMutate: removeOptimistically,
         onSuccess: () => { toast.success("Invite accepted"); invalidate(); },
-        onError: (error: unknown) => { invalidate(); toast.error(errorMessage(error)); },
+        onError: (error: unknown) => { invalidate(); toast.error(feedbackError(errorMessage(error), "Action couldn’t finish")); },
     });
 
     const rejectInvite = useMutation({
         mutationFn: async (id: string) => unwrap(await resolveProjectInvitationAction({ invitationId: id, action: "decline" })),
         onMutate: removeOptimistically,
         onSuccess: () => { toast.success("Invite rejected"); invalidate(); },
-        onError: (error: unknown) => { invalidate(); toast.error(errorMessage(error)); },
+        onError: (error: unknown) => { invalidate(); toast.error(feedbackError(errorMessage(error), "Action couldn’t finish")); },
     });
 
     const resolveConnection = async (requestId: string, action: "accept" | "reject") => {
@@ -184,7 +184,7 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
             }
             invalidate();
         } catch (connectionError) {
-            toast.error(errorMessage(connectionError));
+            toast.error(feedbackError(errorMessage(connectionError), "Action couldn’t finish"));
         }
     };
 
@@ -198,7 +198,7 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
             const failed = settled.find((item): item is PromiseRejectedResult => item.status === "rejected");
             if (!failed) toast.success(`Accepted ${accepted} ${noun}${accepted === 1 ? "" : "s"}`);
             else if (accepted) toast.warning(`Accepted ${accepted}, ${ids.length - accepted} could not be accepted`, { description: errorMessage(failed.reason) });
-            else toast.error(errorMessage(failed.reason));
+            else toast.error(feedbackError(errorMessage(failed.reason), "Action couldn’t finish"));
         } finally {
             invalidate();
             setIsBatchBusy(false);
@@ -220,9 +220,9 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
             const failed = outcome.results.filter((item) => !item.success);
             if (!failed.length) toast.success(`Accepted ${accepted} application${accepted === 1 ? "" : "s"}`);
             else if (accepted) toast.warning(`Accepted ${accepted}, ${failed.length} could not be accepted`, { description: failed[0]?.error });
-            else toast.error(failed[0]?.error || outcome.error || "No application could be accepted");
+            else toast.error(feedbackError(failed[0]?.error || outcome.error || "No application could be accepted", "No application could be accepted"));
         } catch (batchErr) {
-            toast.error(errorMessage(batchErr));
+            toast.error(feedbackError(errorMessage(batchErr), "Action couldn’t finish"));
         } finally {
             invalidate();
             setIsBatchBusy(false);

@@ -1,6 +1,6 @@
 "use client";
 
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 
 import { getOrCreateDm } from "@/app/actions/chat/members";
 import { openChatWindow, prefersChatWindow } from "@/components/messages/chat-window-store";

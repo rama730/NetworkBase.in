@@ -45,7 +45,7 @@
 
 import dynamic from "next/dynamic";
 import { extOf } from "@/components/projects/v2/utils/fileKind";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 
 import * as React from "react";
 import {
@@ -368,7 +368,7 @@ export function FileView({
         } catch (err) {
           const message =
             err instanceof Error ? err.message : "Drop failed";
-          toast.error(message);
+          toast.error(feedbackError(message, "Action couldn’t finish"));
         }
       })();
     },
@@ -389,7 +389,7 @@ export function FileView({
             // Set node in store
             useFilesWorkspaceStore.getState().setNodes(projectId, [result.node]);
           } else {
-            toast.error(result.error || "Failed to commit revision");
+            toast.error(feedbackError(result.error || "Failed to commit revision", "Failed to commit revision"));
           }
         } else {
           const { saveFileRevision } = await import("@/hooks/useFileVersions");
@@ -411,7 +411,7 @@ export function FileView({
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : "Upload failed";
-        toast.error(message);
+        toast.error(feedbackError(message, "Action couldn’t finish"));
       }
     },
     [pendingDropFile, projectId, node.id, node.s3Key, saveAsNewVersion]
@@ -518,7 +518,7 @@ export function FileView({
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Could not prepare raw file";
-        toast.error(message);
+        toast.error(feedbackError(message, "Action couldn’t finish"));
       }
     })();
   }, [textLike, signedUrl, projectId, node.id, mode, editorDirty, leaveEditMode]);
@@ -533,7 +533,7 @@ export function FileView({
       .then(() => setMode("edit"))
       .catch((error) => {
         const message = error instanceof Error ? error.message : "Could not start editing";
-        toast.error(message);
+        toast.error(feedbackError(message, "Action couldn’t finish"));
       });
   }, [canEdit, textLike,fileLease]);
 

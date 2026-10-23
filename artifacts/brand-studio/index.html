@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="en" data-theme="paper" data-accent="clay">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="description"
+      content="An interactive study of the NetworkBase identity in motion: wordmark reveals, fourteen loading mechanics, three mascot directions, and application scenarios."
+    />
+    <title>NetworkBase — Identity in motion</title>
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="studio.css" />
+    <script src="studio.js" defer></script>
+  </head>
+  <body>
+    <a class="skip" href="#signature">Skip to previews</a>
+    <header class="masthead">
+      <a href="#top" class="wordmark" aria-label="NetworkBase preview home"
+        ><i class="brand-dot"></i><span>NetworkBase</span></a
+      >
+      <span class="masthead-label"
+        >Brand explorations <span class="slash">/</span> 01</span
+      >
+      <nav aria-label="Studio sections">
+        <a href="#signature">Signature</a><a href="#mechanics">Motion</a
+        ><a href="#mascots">Mascot</a><a href="#contexts">In context</a
+        ><a href="#resilience">Details</a>
+      </nav>
+      <span class="preview-label">Interactive study</span>
+    </header>
+
+    <main id="top">
+      <div class="introduction wrap">
+        <div>
+          <p class="eyebrow">
+            <span class="tiny-square"></span> NETWORKBASE / IDENTITY STUDIES
+          </p>
+          <h1>A little square.<br />A world in <em>motion.</em></h1>
+        </div>
+        <div class="intro-aside">
+          <span class="edition">01—03</span>
+          <p>
+            One familiar shape. A signature entrance.<br />A companion with a
+            purpose.
+          </p>
+          <p class="muted">
+            Explore every direction. Change the pace.<br />Find what feels like
+            NetworkBase.
+          </p>
+        </div>
+      </div>
+
+      <div class="toolbar" aria-label="Global preview controls">
+        <div class="toolbar-inner wrap">
+          <div class="control">
+            <label for="theme">Appearance</label
+            ><select id="theme">
+              <option value="paper">Paper</option>
+              <option value="ink">Ink</option>
+              <option value="system">System</option>
+            </select>
+          </div>
+          <div class="control accent-control">
+            <label for="accent">Accent</label
+            ><select id="accent">
+              <option value="clay">Clay</option>
+              <option value="orchid">Orchid</option>
+              <option value="forest">Forest</option>
+              <option value="ember">Ember</option>
+              <option value="rose">Rose</option>
+              <option value="lagoon">Lagoon</option>
+            </select>
+          </div>
+          <div class="control">
+            <label for="speed">Playback</label
+            ><select id="speed">
+              <option value="0.5">0.5×</option>
+              <option value="1" selected>1×</option>
+              <option value="1.5">1.5×</option>
+              <option value="2">2×</option>
+            </select>
+          </div>
+          <label class="check-control"
+            ><input id="reduced" type="checkbox" /><span
+              >Reduced motion</span
+            ></label
+          >
+          <button id="pause-all" class="button quiet" aria-pressed="false">
+            <span aria-hidden="true">Ⅱ</span> Pause motion
+          </button>
+          <button id="replay-all" class="button dark">↻ Replay all</button>
+        </div>
+        <div id="system-motion" class="system-notice wrap" hidden>
+          Your system requests reduced motion. All specimens show their
+          resolved, still state.
+        </div>
+      </div>
+
+      <section id="signature" class="wrap section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">01 / THE SIGNATURE</p>
+            <h2>It starts with a connection.</h2>
+          </div>
+          <p>
+            The square leads. The name follows.<br />Right to left, exactly as
+            imagined.
+          </p>
+        </div>
+        <div class="signature-layout">
+          <div class="signature-sheet">
+            <div class="sheet-meta">
+              <span>NETWORKBASE / WORDMARK STUDY</span
+              ><span id="intro-mode-label">01A · STEPPED REVEAL</span>
+            </div>
+            <div id="signature-stage" class="signature-stage grid-ground">
+              <div class="corner corner-tl"></div>
+              <div class="corner corner-br"></div>
+              <div
+                id="hero-wordmark"
+                class="intro-mark"
+                aria-label="NetworkBase"
+                role="img"
+              ></div>
+              <span class="stage-baseline" aria-hidden="true"></span>
+              <span class="stage-caption"
+                >A single motion. A familiar place to land.</span
+              >
+            </div>
+            <div class="timeline">
+              <button
+                id="intro-replay"
+                class="icon-button"
+                aria-label="Replay signature introduction"
+              >
+                ↻</button
+              ><label class="sr-only" for="intro-scrub"
+                >Signature timeline</label
+              ><input
+                id="intro-scrub"
+                type="range"
+                min="0"
+                max="100"
+                value="100"
+              /><output id="intro-time" for="intro-scrub">900 ms</output>
+            </div>
+            <div class="phase-rail">
+              <span><b>01</b> Arrive</span><span><b>02</b> Reveal</span
+              ><span><b>03</b> Resolve</span><span><b>04</b> Continue</span>
+            </div>
+          </div>
+          <aside class="signature-notes">
+            <span class="pill">Your original concept</span>
+            <h3>Write the name.<br />From the other end.</h3>
+            <p>
+              The square crosses the future wordmark, revealing
+              <span class="suffix">e → se → ase → Base</span> until the complete
+              name is in place.
+            </p>
+            <div class="segmented" aria-label="Reveal treatment">
+              <button data-reveal="stepped" aria-pressed="true">Stepped</button
+              ><button data-reveal="continuous" aria-pressed="false">
+                Continuous
+              </button>
+            </div>
+            <label class="field-label" for="intro-duration"
+              >Choreography <output id="duration-label">900 ms</output></label
+            ><input
+              id="intro-duration"
+              type="range"
+              min="700"
+              max="1400"
+              step="50"
+              value="900"
+            />
+            <div class="note-rule">
+              <b id="reveal-description"
+                >Individual letters. One coordinated sweep.</b
+              >
+              <p>
+                Fixed letter positions, reserved width, and an exact return to
+                the canonical mark.
+              </p>
+            </div>
+            <p class="small muted">
+              Drag the timeline to examine any frame. The introduction is
+              replayable here; a product entrance would play once per tab
+              session and yield to ready content.
+            </p>
+          </aside>
+        </div>
+      </section>
+
+      <section id="mechanics" class="wrap section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">02 / THE MOTION VOCABULARY</p>
+            <h2>Fourteen ways to keep moving.</h2>
+          </div>
+          <p>
+            Every concept, ready to compare.<br />All roads return to one still
+            square.
+          </p>
+        </div>
+        <div class="gallery-tools">
+          <div class="filter-group" aria-label="Filter motion studies">
+            <button data-filter="all" aria-pressed="true">
+              All studies <span>14</span></button
+            ><button data-filter="everyday" aria-pressed="false">
+              Everyday <span>2</span></button
+            ><button data-filter="alternative" aria-pressed="false">
+              Alternatives <span>3</span></button
+            ><button data-filter="expressive" aria-pressed="false">
+              Expressive <span>6</span></button
+            ><button data-filter="opening" aria-pressed="false">
+              Opening <span>3</span>
+            </button>
+          </div>
+          <button id="compare-open" class="text-button" disabled>
+            Compare selected <span id="compare-count">0/3</span> ↗
+          </button>
+        </div>
+        <div id="mechanics-grid" class="mechanics-grid"></div>
+        <p class="section-footnote">
+          <span class="tiny-square"></span> Breathe + Shuttle form the proposed
+          everyday vocabulary. Expressive studies deliberately explore beyond
+          the current restrained motion rules.
+        </p>
+      </section>
+
+      <section id="mascots" class="mascot-section">
+        <div class="wrap section">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">03 / A FAMILIAR COMPANION</p>
+              <h2>Small shape. Real character.</h2>
+            </div>
+            <p>
+              Three directions for the same identity.<br />A connector, a
+              companion, a builder.
+            </p>
+          </div>
+          <div class="mascot-controls">
+            <p>
+              Working name <strong>Node</strong>
+              <span class="muted">/ naming exploration</span>
+            </p>
+            <div class="control">
+              <label for="gesture">Try a gesture</label
+              ><select id="gesture">
+                <option value="connect">Connect</option>
+                <option value="curious">Look closer</option>
+                <option value="guide">Guide</option>
+                <option value="build">Build</option>
+                <option value="acknowledge">Acknowledge</option>
+                <option value="wait">Wait</option>
+                <option value="rest">Rest</option>
+              </select>
+            </div>
+            <button id="gesture-replay" class="text-button">
+              Replay gesture ↻
+            </button>
+          </div>
+          <div id="mascot-grid" class="mascot-grid"></div>
+          <div class="territory-strip">
+            <span class="eyebrow">THE CHARACTER'S PURPOSE</span>
+            <div class="territory-buttons">
+              <button data-territory="connect" aria-pressed="true">
+                <b>The Connector</b
+                ><span>Bring people and ideas together.</span></button
+              ><button data-territory="build" aria-pressed="false">
+                <b>The Builder</b
+                ><span>Give work a little structure.</span></button
+              ><button data-territory="guide" aria-pressed="false">
+                <b>The Guide</b><span>Make the next step feel clear.</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="contexts" class="wrap section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">04 / LIFE INSIDE NETWORKBASE</p>
+            <h2>Personality, with a purpose.</h2>
+          </div>
+          <p>
+            See the character in the application.<br />Useful moments. Quiet
+            working surfaces.
+          </p>
+        </div>
+        <div class="context-tools">
+          <div class="control">
+            <label for="context-mascot">Character</label
+            ><select id="context-mascot">
+              <option value="living">Living square</option>
+              <option value="companion">Square companion</option>
+              <option value="builder">Builder character</option>
+            </select>
+          </div>
+          <div class="control">
+            <label for="viewport">Canvas</label
+            ><select id="viewport">
+              <option value="desktop">Desktop</option>
+              <option value="mobile">Phone · 375px</option>
+            </select>
+          </div>
+          <button id="context-replay" class="text-button">
+            Replay moment ↻
+          </button>
+        </div>
+        <div
+          id="scenario-tabs"
+          class="scenario-tabs"
+          aria-label="Application scenarios"
+        ></div>
+        <div class="context-surround">
+          <div id="application" class="application">
+            <div class="app-topbar">
+              <span class="wordmark"
+                ><i class="brand-dot"></i><span>NetworkBase</span></span
+              ><span class="app-search">Search your network <kbd>⌘ K</kbd></span
+              ><span class="avatar">AM</span>
+            </div>
+            <div class="app-layout">
+              <aside class="app-sidebar">
+                <span class="sidebar-eyebrow">YOUR SPACE</span
+                ><span>◈ &nbsp; Discover</span
+                ><span id="nav-network">⌘ &nbsp; Network</span
+                ><span id="nav-projects">▱ &nbsp; Projects</span
+                ><span>□ &nbsp; Messages <small>2</small></span>
+                <div class="sidebar-bottom">A place for your next idea.</div>
+              </aside>
+              <div id="app-content" class="app-content"></div>
+            </div>
+          </div>
+        </div>
+        <div class="context-caption">
+          <span id="scenario-caption"></span
+          ><span class="pill neutral">Simulated product content</span>
+        </div>
+      </section>
+
+      <section id="operation-lab" class="wrap section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">05 / THE WAITING ROOM</p>
+            <h2>Good timing is good design.</h2>
+          </div>
+          <p>
+            Run an operation, interrupt it, or retry.<br />Activity and outcome
+            stay connected.
+          </p>
+        </div>
+        <div class="operation-layout">
+          <div class="operation-controls">
+            <h3>What happens next?</h3>
+            <label class="field-label" for="operation-outcome"
+              >Simulate an outcome</label
+            ><select id="operation-outcome">
+              <option value="normal">Normal · completes in 1.6s</option>
+              <option value="fast">Fast · completes in 120ms</option>
+              <option value="slow">Slow · still working at 10s</option>
+              <option value="failure">Error · fails after 1.4s</option>
+              <option value="offline">Offline · connection unavailable</option>
+              <option value="progress">Measurable progress · 4s</option>
+              <option value="background">
+                Background refresh · 1.6s
+              </option></select
+            ><label class="field-label" for="operation-mechanic"
+              >Loading treatment</label
+            ><select id="operation-mechanic">
+              <option value="breathe">Breathe</option>
+              <option value="shuttle">Shuttle</option>
+              <option value="trace">Trace</option>
+            </select>
+            <div class="button-row">
+              <button id="operation-run" class="button dark">
+                Run simulation →</button
+              ><button id="operation-cancel" class="button quiet" disabled>
+                Cancel
+              </button>
+            </div>
+            <p class="small muted">
+              Timings are real in this demo. Waits under 300ms have no loader.
+              Ten seconds means delayed, not failed. No real network requests or
+              changes.
+            </p>
+          </div>
+          <div class="operation-panel">
+            <div class="sheet-meta">
+              <span>OPERATION PREVIEW</span
+              ><span id="operation-clock">READY</span>
+            </div>
+            <div
+              id="operation-result"
+              class="operation-result"
+              aria-live="polite"
+              aria-atomic="true"
+            ></div>
+            <div id="background-content" class="background-content" hidden>
+              <span class="project-glyph">F</span>
+              <div>
+                <b>Fieldnotes</b
+                ><span>Project workspace · content remains available</span>
+              </div>
+              <span class="pill neutral">Open</span>
+            </div>
+            <div class="operation-trace">
+              <span>REQUEST</span><span>300ms · SHOW</span
+              ><span>10s · EXPLAIN</span><span>RESOLVE</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="resilience" class="wrap section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">06 / THE DETAILS MATTER</p>
+            <h2>Still NetworkBase. At every scale.</h2>
+          </div>
+          <p>
+            Small sizes, large type, fixed exports.<br />The identity holds
+            together.
+          </p>
+        </div>
+        <div class="detail-grid">
+          <article class="detail-card">
+            <div class="detail-heading">
+              <h3>The small-size test</h3>
+              <span class="pill neutral">Live</span>
+            </div>
+            <div id="size-specimens" class="size-specimens"></div>
+            <p class="small muted">
+              Below 16px, multi-part mechanics simplify to Breathe. Here, sizes
+              refer to the visible square.
+            </p>
+          </article>
+          <article class="detail-card">
+            <div class="detail-heading">
+              <h3>A resolved, readable mark</h3>
+              <label class="check-control"
+                ><input id="zoom" type="checkbox" /><span
+                  >200% type</span
+                ></label
+              >
+            </div>
+            <div id="zoom-specimen" class="zoom-specimen">
+              <span class="wordmark"
+                ><i class="brand-dot"></i><span>NetworkBase</span></span
+              >
+            </div>
+            <p class="small muted">
+              Reserved geometry. No delayed information with reduced motion. The
+              static mark is the fallback if motion cannot run.
+            </p>
+          </article>
+          <article class="detail-card export-card">
+            <div class="detail-heading">
+              <h3>One identity, beyond the app</h3>
+              <span class="pill neutral">Fixed color</span>
+            </div>
+            <div class="export-specimens">
+              <div>
+                <img
+                  src="assets/favicon.svg"
+                  width="64"
+                  height="64"
+                  alt="NetworkBase app icon in fixed Clay on Paper"
+                /><span>App icon</span>
+              </div>
+              <div>
+                <img
+                  class="maskable-preview"
+                  src="assets/icon-paper-maskable-192.png"
+                  width="64"
+                  height="64"
+                  alt="NetworkBase maskable icon cropped to a circle"
+                /><span>Maskable crop</span>
+              </div>
+              <div
+                class="mono-icon"
+                role="img"
+                aria-label="Monochrome NetworkBase icon"
+              >
+                <i></i><span>Monochrome</span>
+              </div>
+              <div class="tab-specimen">
+                <img
+                  src="assets/favicon.svg"
+                  width="16"
+                  height="16"
+                  alt=""
+                /><span>NetworkBase</span><small>×</small>
+              </div>
+            </div>
+            <p class="small muted">
+              Canonical app assets stay Clay / Ink / Paper when the product
+              accent changes.
+            </p>
+          </article>
+        </div>
+        <div class="principles">
+          <div>
+            <span>01</span>
+            <h3>Recognizable at rest.</h3>
+            <p>
+              The square always returns to the same identity. Application
+              navigation stays still.
+            </p>
+          </div>
+          <div>
+            <span>02</span>
+            <h3>Useful in motion.</h3>
+            <p>
+              One meaningful status announcement. Recovery stays visible and
+              keyboard accessible.
+            </p>
+          </div>
+          <div>
+            <span>03</span>
+            <h3>Light by design.</h3>
+            <p>
+              Local fonts and assets, native CSS and SVG, and no added runtime
+              dependencies.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <footer class="wrap footer">
+        <a href="#top" class="wordmark"
+          ><i class="brand-dot"></i><span>NetworkBase</span></a
+        >
+        <p>
+          A motion study, made for discussion.<br />Every animation is a
+          proposal. Nothing here changes the live product.
+        </p>
+        <a href="README.md">Coverage & review notes ↗</a
+        ><a href="#top">Back to the beginning ↑</a>
+      </footer>
+    </main>
+
+    <dialog id="study-dialog" aria-labelledby="dialog-title">
+      <div class="dialog-top">
+        <div>
+          <p class="eyebrow" id="dialog-eyebrow">MOTION STUDY</p>
+          <h2 id="dialog-title">Breathe</h2>
+        </div>
+        <button id="dialog-close" class="icon-button" aria-label="Close study">
+          ×
+        </button>
+      </div>
+      <div id="dialog-body"></div>
+    </dialog>
+    <div
+      id="announcement"
+      class="sr-only"
+      role="status"
+      aria-live="polite"
+    ></div>
+    <noscript
+      ><div class="noscript">
+        This interactive study needs JavaScript for playback and scenario
+        controls. The resting identity is
+        <span class="wordmark"><i class="brand-dot"></i>NetworkBase</span>.
+      </div></noscript
+    >
+  </body>
+</html>

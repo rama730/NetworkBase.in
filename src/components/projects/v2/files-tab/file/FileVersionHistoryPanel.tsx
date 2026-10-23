@@ -18,7 +18,7 @@
 
 "use client";
 
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 
 import * as React from "react";
 import {
@@ -178,12 +178,12 @@ export function FileVersionHistoryPanel({
           // Refresh the list to show the updated active version
           await listVersions();
         } else {
-          toast.error(result.error || "Restore failed");
+          toast.error(feedbackError(result.error || "Restore failed", "Restore failed"));
         }
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Restore failed";
-        toast.error(message);
+        toast.error(feedbackError(message, "Action couldn’t finish"));
       } finally {
         setPendingAction(null);
         onVersionChanged?.(null);
@@ -214,7 +214,7 @@ export function FileVersionHistoryPanel({
         signedUrlCache.delete(`${projectId}:${nodeId}:${version.version}`);
         const message =
           err instanceof Error ? err.message : "Download failed";
-        toast.error(message);
+        toast.error(feedbackError(message, "Action couldn’t finish"));
       } finally {
         setPendingAction(null);
       }
@@ -242,11 +242,11 @@ export function FileVersionHistoryPanel({
           window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId } }));
           await listVersions();
         } else {
-          toast.error(result.error || "Delete failed");
+          toast.error(feedbackError(result.error || "Delete failed", "Delete failed"));
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : "Delete failed";
-        toast.error(message);
+        toast.error(feedbackError(message, "Action couldn’t finish"));
       } finally {
         setPendingAction(null);
         onVersionChanged?.(null);

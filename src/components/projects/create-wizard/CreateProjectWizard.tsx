@@ -6,7 +6,7 @@ import { Save } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
 import { TOTAL_PHASES, WIZARD_PHASES } from '@/constants/project-wizard';
-import { toast } from 'sonner';
+import { toast } from '@/lib/feedback';
 
 // Hook
 import { useCreateProjectWizard } from './useCreateProjectWizard';

@@ -10,7 +10,7 @@ import {
   moveProjectNodes,
 } from "@/app/actions/files/mutations";
 import { TaskFileRow } from "@/components/projects/v2/tasks/components/TaskFileRow";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 import { composeAnnotation } from "@/lib/projects/task-file-label";
 import { TASK_WORKING_FILES_TITLE } from "@/lib/files/task-working-files";
 import {
@@ -93,7 +93,7 @@ export function TaskFilesExplorer({
       setLocationDialog({ open: false, nodes: [], targetFolderId: null, mode: "move" });
     } catch (error) {
       const message = error instanceof Error ? error.message : "File operation failed";
-      toast.error(message);
+      toast.error(feedbackError(message, "Action couldn’t finish"));
       throw error;
     }
   }, [canManageFiles, locationDialog, onFilesChanged, projectId]);
@@ -135,7 +135,7 @@ export function TaskFilesExplorer({
       }));
       setChildCursors((prev) => ({ ...prev, [folderId]: res.nextCursor }));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to load more files");
+      toast.error(feedbackError(error instanceof Error ? error.message : "Failed to load more files", "Failed to load more files"));
     } finally {
       setLoadingFolders((prev) => ({ ...prev, [folderId]: false }));
     }
@@ -149,7 +149,7 @@ export function TaskFilesExplorer({
       } catch (e: unknown) {
         const message =
           e instanceof Error ? e.message : "Failed to save annotation";
-        toast.error(message);
+        toast.error(feedbackError(message, "Action couldn’t finish"));
       }
     },
     [taskId],
@@ -162,7 +162,7 @@ export function TaskFilesExplorer({
         await onFilesChanged?.();
       } catch (e: unknown) {
         const message = e instanceof Error ? e.message : "Failed to save tags";
-        toast.error(message);
+        toast.error(feedbackError(message, "Action couldn’t finish"));
       }
     },
     [onFilesChanged, taskId],

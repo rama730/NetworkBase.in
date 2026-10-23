@@ -3,7 +3,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Copy, Eraser, FileDown, FileText, ImagePlus, Link2, MoreHorizontal, Sparkles, Trash2, X } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 
 import { saveCanvas, type ChannelCanvas as CanvasRow } from "@/app/actions/chat/canvas";
 import type { ChannelDetails } from "@/app/actions/chat/channels";

@@ -1,0 +1,4847 @@
+[
+  {
+    "id": "s1",
+    "group": "Essentials",
+    "type": "success",
+    "title": "Changes saved",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Changes saved",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s2",
+    "group": "Essentials",
+    "type": "success",
+    "title": "Link copied",
+    "body": "People opening this link still need access.",
+    "action": "",
+    "duration": 3,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Link copied",
+      "body": "Access is still required.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s3",
+    "group": "Essentials",
+    "type": "error",
+    "title": "Couldn’t copy the link",
+    "body": "Your browser blocked the clipboard. Select and copy the link instead.",
+    "action": "Select link",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Couldn’t copy the link",
+      "body": "Clipboard is blocked.",
+      "action": "Select link",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s4",
+    "group": "Essentials",
+    "type": "error",
+    "title": "Changes weren’t saved",
+    "body": "Check your connection and try again.",
+    "action": "Retry",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Changes not saved",
+      "body": "",
+      "action": "Retry",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s5",
+    "group": "Essentials",
+    "type": "info",
+    "title": "You’re already up to date",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Already up to date",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s6",
+    "group": "Essentials",
+    "type": "neutral",
+    "title": "Nothing changed",
+    "body": "Your existing settings were kept.",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Nothing changed",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s7",
+    "group": "Essentials",
+    "type": "loading",
+    "title": "Saving changes…",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Saving changes…",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s8",
+    "group": "Essentials",
+    "type": "warning",
+    "title": "Some changes need attention",
+    "body": "Your other changes were saved.",
+    "action": "Review",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Some changes need attention",
+      "body": "Other changes saved.",
+      "action": "Review",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s9",
+    "group": "Files & transfers",
+    "type": "loading",
+    "title": "Uploading 8 files",
+    "body": "Project Files · 3 of 8 complete",
+    "action": "Cancel",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Uploading 8 files",
+      "body": "",
+      "action": "Cancel",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s10",
+    "group": "Files & transfers",
+    "type": "success",
+    "title": "8 files uploaded",
+    "body": "Added to Project Files.",
+    "action": "View files",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "8 files uploaded",
+      "body": "",
+      "action": "View files",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s11",
+    "group": "Files & transfers",
+    "type": "warning",
+    "title": "6 uploaded · 2 need attention",
+    "body": "Completed uploads are safe. Retry the 2 interrupted files.",
+    "action": "Retry failed",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "6 uploaded · 2 failed",
+      "body": "Uploads safe.",
+      "action": "Retry failed",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s12",
+    "group": "Files & transfers",
+    "type": "error",
+    "title": "Upload interrupted",
+    "body": "Completed files are safe. Retry the remaining files.",
+    "action": "Retry",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Upload interrupted",
+      "body": "Completed files safe.",
+      "action": "Retry",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s13",
+    "group": "Files & transfers",
+    "type": "warning",
+    "title": "This file is too large",
+    "body": "Choose a file within the upload limit shown here.",
+    "action": "Review files",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "File too large",
+      "body": "",
+      "action": "Choose file",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s14",
+    "group": "Files & transfers",
+    "type": "neutral",
+    "title": "Upload cancelled",
+    "body": "Completed files were kept.",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Upload cancelled",
+      "body": "Completed files kept.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s15",
+    "group": "Files & transfers",
+    "type": "info",
+    "title": "No new files to upload",
+    "body": "All selected files already exist.",
+    "action": "",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "No new files to upload",
+      "body": "All files already exist.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s16",
+    "group": "Files & transfers",
+    "type": "success",
+    "title": "Folder created",
+    "body": "Research is ready in Project Files.",
+    "action": "Open folder",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Folder created",
+      "body": "",
+      "action": "Open folder",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s17",
+    "group": "Files & transfers",
+    "type": "success",
+    "title": "File renamed",
+    "body": "Renamed to research-notes.md.",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "File renamed",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s18",
+    "group": "Files & transfers",
+    "type": "neutral",
+    "title": "3 files moved",
+    "body": "Moved to Research.",
+    "action": "Undo",
+    "duration": 10,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "3 files moved",
+      "body": "To Research.",
+      "action": "Undo",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s19",
+    "group": "Files & transfers",
+    "type": "neutral",
+    "title": "3 files moved to Trash",
+    "body": "You can restore them from Trash.",
+    "action": "Undo",
+    "duration": 10,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "3 files moved to Trash",
+      "body": "",
+      "action": "Undo",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s20",
+    "group": "Files & transfers",
+    "type": "success",
+    "title": "3 files restored",
+    "body": "Returned to their original folders.",
+    "action": "View files",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "3 files restored",
+      "body": "Back in original folders.",
+      "action": "View files",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s21",
+    "group": "Files & transfers",
+    "type": "success",
+    "title": "Trash emptied",
+    "body": "Trashed files were permanently deleted.",
+    "action": "",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Trash emptied",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s22",
+    "group": "Files & transfers",
+    "type": "success",
+    "title": "Export started",
+    "body": "Preparing your folder for download.",
+    "action": "View transfers",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Export started",
+      "body": "",
+      "action": "View transfers",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s23",
+    "group": "Files & transfers",
+    "type": "error",
+    "title": "Download couldn’t start",
+    "body": "The file is still available. Try downloading it again.",
+    "action": "Retry",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Download couldn’t start",
+      "body": "",
+      "action": "Retry",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s24",
+    "group": "Files & transfers",
+    "type": "success",
+    "title": "Version 7 saved",
+    "body": "research-notes.md · New revision committed.",
+    "action": "View history",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Version 7 saved",
+      "body": "",
+      "action": "View history",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s25",
+    "group": "Files & transfers",
+    "type": "success",
+    "title": "Active revision updated",
+    "body": "Your changes are saved.",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Active revision updated",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s26",
+    "group": "Files & transfers",
+    "type": "success",
+    "title": "Version 3 restored as version 8",
+    "body": "Earlier versions are still in the history.",
+    "action": "View history",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Version 3 restored",
+      "body": "Saved as version 8.",
+      "action": "View history",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s27",
+    "group": "Files & transfers",
+    "type": "success",
+    "title": "Version 3 deleted",
+    "body": "Other versions were kept.",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Version 3 deleted",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s28",
+    "group": "Files & transfers",
+    "type": "warning",
+    "title": "Someone else updated this file",
+    "body": "Your text is preserved. Review the latest version before saving.",
+    "action": "Review changes",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "File changed elsewhere",
+      "body": "Text preserved.",
+      "action": "Review",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s29",
+    "group": "Files & transfers",
+    "type": "error",
+    "title": "Editing access expired",
+    "body": "Your text is preserved. Reacquire the file to save.",
+    "action": "Reacquire",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Editing access expired",
+      "body": "Text preserved.",
+      "action": "Reacquire",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s30",
+    "group": "Files & transfers",
+    "type": "info",
+    "title": "Preview opened",
+    "body": "This file format can’t be edited here.",
+    "action": "",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Preview opened",
+      "body": "This format isn’t editable.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s31",
+    "group": "Files & transfers",
+    "type": "warning",
+    "title": "File types don’t match",
+    "body": "Choose another .md file to save a new revision.",
+    "action": "Choose file",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "File types don’t match",
+      "body": "Choose another .md file.",
+      "action": "Choose file",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s32",
+    "group": "Files & transfers",
+    "type": "warning",
+    "title": "That name is already in use",
+    "body": "Choose a different name in this folder.",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "That name is already in use",
+      "body": "Choose a different name.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s33",
+    "group": "Files & transfers",
+    "type": "warning",
+    "title": "Select up to 200 items",
+    "body": "Reduce your selection to continue.",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Select up to 200 items",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s34",
+    "group": "Files & transfers",
+    "type": "warning",
+    "title": "Files uploaded · 2 weren’t attached",
+    "body": "Retry attaching the 2 files. Don’t upload them again.",
+    "action": "Retry attachment",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "2 files weren’t attached",
+      "body": "Already uploaded.",
+      "action": "Retry linking",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s35",
+    "group": "Files & transfers",
+    "type": "success",
+    "title": "File attached to task",
+    "body": "The file stays in Project Files.",
+    "action": "View task",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "File attached to task",
+      "body": "",
+      "action": "View task",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s36",
+    "group": "Files & transfers",
+    "type": "success",
+    "title": "Published to Project Files",
+    "body": "The task reference is still available.",
+    "action": "View files",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Published to Project Files",
+      "body": "",
+      "action": "View files",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s37",
+    "group": "Files & transfers",
+    "type": "warning",
+    "title": "Files saved · list is refreshing",
+    "body": "We’ll refresh the folder automatically.",
+    "action": "Refresh now",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Saved · refreshing list",
+      "body": "Files are safely saved.",
+      "action": "Refresh now",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s38",
+    "group": "Projects",
+    "type": "loading",
+    "title": "Creating your project",
+    "body": "You can keep this window open while we finish.",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Creating your project",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s39",
+    "group": "Projects",
+    "type": "success",
+    "title": "Project created",
+    "body": "Your workspace is ready.",
+    "action": "Open project",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Project created",
+      "body": "",
+      "action": "Open project",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s40",
+    "group": "Projects",
+    "type": "success",
+    "title": "Project created · folder imported",
+    "body": "Your files are ready in the workspace.",
+    "action": "Open project",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Project & files ready",
+      "body": "",
+      "action": "Open project",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s41",
+    "group": "Projects",
+    "type": "warning",
+    "title": "Project created · image needs attention",
+    "body": "Add the project image again in Settings.",
+    "action": "Open settings",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Project created",
+      "body": "Image upload failed.",
+      "action": "Settings",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s42",
+    "group": "Projects",
+    "type": "warning",
+    "title": "Project created · permissions unchanged",
+    "body": "Document editing is still limited to leaders.",
+    "action": "Review permissions",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Project created",
+      "body": "Docs stay leaders-only.",
+      "action": "Check access",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s43",
+    "group": "Projects",
+    "type": "warning",
+    "title": "Project created · 2 files need attention",
+    "body": "Your project and completed uploads are safe.",
+    "action": "Retry failed",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Project created",
+      "body": "2 files failed.",
+      "action": "Retry failed",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s44",
+    "group": "Projects",
+    "type": "info",
+    "title": "Folder upload continues in the background",
+    "body": "Follow its progress in Transfers.",
+    "action": "View transfers",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Uploading in background",
+      "body": "",
+      "action": "View transfers",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s45",
+    "group": "Projects",
+    "type": "success",
+    "title": "Project settings saved",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Project settings saved",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s46",
+    "group": "Projects",
+    "type": "success",
+    "title": "Project image updated",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Project image updated",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s47",
+    "group": "Projects",
+    "type": "success",
+    "title": "Project image removed",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Project image removed",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s48",
+    "group": "Projects",
+    "type": "neutral",
+    "title": "Following Fieldnotes",
+    "body": "You’ll see updates from this project.",
+    "action": "Undo",
+    "duration": 10,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Following Fieldnotes",
+      "body": "",
+      "action": "Undo",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s49",
+    "group": "Projects",
+    "type": "neutral",
+    "title": "Project unfollowed",
+    "body": "You can follow it again at any time.",
+    "action": "Undo",
+    "duration": 10,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Project unfollowed",
+      "body": "",
+      "action": "Undo",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s50",
+    "group": "Projects",
+    "type": "success",
+    "title": "Moved to Build",
+    "body": "The project stage is updated.",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Moved to Build",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s51",
+    "group": "Projects",
+    "type": "info",
+    "title": "Stage updated elsewhere",
+    "body": "The latest stage is now shown.",
+    "action": "",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Stage updated elsewhere",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s52",
+    "group": "Projects",
+    "type": "warning",
+    "title": "Only the project owner can change stages",
+    "body": "Ask the owner to update this stage.",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Only owners can change stages",
+      "body": "Ask the project owner.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s53",
+    "group": "Projects",
+    "type": "success",
+    "title": "Project roles updated",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Project roles updated",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s54",
+    "group": "Projects",
+    "type": "success",
+    "title": "Tab visibility updated",
+    "body": "Your new visibility settings are active.",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Tab visibility updated",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s55",
+    "group": "Projects",
+    "type": "success",
+    "title": "Upload permissions updated",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Upload permissions updated",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s56",
+    "group": "Projects",
+    "type": "success",
+    "title": "Document permissions updated",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Doc permissions updated",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s57",
+    "group": "Projects",
+    "type": "success",
+    "title": "Publishing permissions updated",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Publishing access saved",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s58",
+    "group": "Projects",
+    "type": "success",
+    "title": "Lifecycle updated",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Lifecycle updated",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s59",
+    "group": "Projects",
+    "type": "success",
+    "title": "Ownership transferred",
+    "body": "Kavya Menon is now the project owner.",
+    "action": "View members",
+    "duration": 6,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Ownership transferred",
+      "body": "To Kavya Menon.",
+      "action": "Members",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s60",
+    "group": "Projects",
+    "type": "success",
+    "title": "Project archived",
+    "body": "It’s available in your archived projects.",
+    "action": "",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Project archived",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s61",
+    "group": "Projects",
+    "type": "success",
+    "title": "Project deleted",
+    "body": "The project was permanently deleted.",
+    "action": "",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Project deleted",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s62",
+    "group": "Projects",
+    "type": "error",
+    "title": "Project couldn’t be deleted",
+    "body": "Review the project’s deletion requirements.",
+    "action": "Review requirements",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Project wasn’t deleted",
+      "body": "",
+      "action": "Review",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s63",
+    "group": "Projects",
+    "type": "warning",
+    "title": "Complete the highlighted fields",
+    "body": "Your project draft is still here.",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Check required fields",
+      "body": "Draft kept.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s64",
+    "group": "Projects",
+    "type": "warning",
+    "title": "Choose a supported image",
+    "body": "Use JPG, PNG, WebP, or GIF under 2 MB.",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Choose a supported image",
+      "body": "JPG, PNG, WebP, GIF · <2 MB",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s65",
+    "group": "Projects",
+    "type": "success",
+    "title": "Draft restored",
+    "body": "Continue where you left off.",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Draft restored",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s66",
+    "group": "Projects",
+    "type": "neutral",
+    "title": "Project draft cleared",
+    "body": "Start again with a new project.",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Project draft cleared",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s67",
+    "group": "Projects",
+    "type": "error",
+    "title": "Draft wasn’t saved",
+    "body": "Keep this page open and try again.",
+    "action": "Retry",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Draft wasn’t saved",
+      "body": "Keep this page open.",
+      "action": "Retry",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s68",
+    "group": "Projects",
+    "type": "warning",
+    "title": "GitHub wasn’t connected",
+    "body": "Your project draft is still here.",
+    "action": "Connect GitHub",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "GitHub wasn’t connected",
+      "body": "Draft preserved.",
+      "action": "Connect GitHub",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s69",
+    "group": "Network & requests",
+    "type": "loading",
+    "title": "Sending connection request…",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Sending connection request…",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s70",
+    "group": "Network & requests",
+    "type": "success",
+    "title": "Connection request sent",
+    "body": "Your request to Kavya Menon is on its way.",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Request sent",
+      "body": "To Kavya Menon.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s71",
+    "group": "Network & requests",
+    "type": "success",
+    "title": "You’re connected",
+    "body": "You and Kavya Menon can now collaborate.",
+    "action": "Message",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "You’re connected",
+      "body": "With Kavya Menon.",
+      "action": "Message",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s72",
+    "group": "Network & requests",
+    "type": "neutral",
+    "title": "Connection request cancelled",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Request cancelled",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s73",
+    "group": "Network & requests",
+    "type": "neutral",
+    "title": "Connection request declined",
+    "body": "You can undo this decision.",
+    "action": "Undo",
+    "duration": 10,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Request declined",
+      "body": "",
+      "action": "Undo",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s74",
+    "group": "Network & requests",
+    "type": "neutral",
+    "title": "Connection removed",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Connection removed",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s75",
+    "group": "Network & requests",
+    "type": "success",
+    "title": "Account blocked",
+    "body": "You can manage blocked accounts in Privacy.",
+    "action": "Open privacy",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Account blocked",
+      "body": "",
+      "action": "Open privacy",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s76",
+    "group": "Network & requests",
+    "type": "success",
+    "title": "Account unblocked",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Account unblocked",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s77",
+    "group": "Network & requests",
+    "type": "success",
+    "title": "Invitation sent",
+    "body": "Kavya Menon was invited to Fieldnotes.",
+    "action": "",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Invitation sent",
+      "body": "Kavya · Fieldnotes",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s78",
+    "group": "Network & requests",
+    "type": "warning",
+    "title": "Invitation sent · capacity is limited",
+    "body": "This person is nearing their Guide capacity.",
+    "action": "View invitation",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Sent · capacity warning",
+      "body": "Guide nearly full.",
+      "action": "View",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s79",
+    "group": "Network & requests",
+    "type": "success",
+    "title": "Invitation accepted",
+    "body": "You’ve joined Fieldnotes.",
+    "action": "Open project",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Invitation accepted",
+      "body": "Joined Fieldnotes.",
+      "action": "Open project",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s80",
+    "group": "Network & requests",
+    "type": "neutral",
+    "title": "Invitation declined",
+    "body": "Your decision has been saved.",
+    "action": "Undo",
+    "duration": 10,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Invitation declined",
+      "body": "",
+      "action": "Undo",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s81",
+    "group": "Network & requests",
+    "type": "success",
+    "title": "Application submitted",
+    "body": "The project’s reviewers have been notified.",
+    "action": "View application",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Application submitted",
+      "body": "",
+      "action": "View",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s82",
+    "group": "Network & requests",
+    "type": "success",
+    "title": "Application resubmitted",
+    "body": "The project’s reviewers have been notified.",
+    "action": "View application",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Application resubmitted",
+      "body": "",
+      "action": "View",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s83",
+    "group": "Network & requests",
+    "type": "success",
+    "title": "Application accepted",
+    "body": "Kavya Menon can now join the project.",
+    "action": "View application",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Application accepted",
+      "body": "Kavya Menon",
+      "action": "View",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s84",
+    "group": "Network & requests",
+    "type": "neutral",
+    "title": "Application declined",
+    "body": "You can reopen this application.",
+    "action": "Undo",
+    "duration": 10,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Application declined",
+      "body": "",
+      "action": "Undo",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s85",
+    "group": "Network & requests",
+    "type": "success",
+    "title": "Application reopened",
+    "body": "The application is ready for review.",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Application reopened",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s86",
+    "group": "Network & requests",
+    "type": "neutral",
+    "title": "Application withdrawn",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Application withdrawn",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s87",
+    "group": "Network & requests",
+    "type": "success",
+    "title": "7 applications accepted",
+    "body": "All selected applications were updated.",
+    "action": "",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "7 applications accepted",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s88",
+    "group": "Network & requests",
+    "type": "warning",
+    "title": "5 accepted · 2 need attention",
+    "body": "Accepted applications are saved. Review the remaining 2.",
+    "action": "Review remaining",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "5 accepted · 2 failed",
+      "body": "Accepted changes saved.",
+      "action": "Review",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s89",
+    "group": "Network & requests",
+    "type": "warning",
+    "title": "You already have a pending application",
+    "body": "Open your application to check its status.",
+    "action": "View application",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Application already pending",
+      "body": "",
+      "action": "View",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s90",
+    "group": "Network & requests",
+    "type": "warning",
+    "title": "You have 20 pending applications",
+    "body": "Withdraw an application before applying again.",
+    "action": "View applications",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "20 applications pending",
+      "body": "Withdraw one to apply.",
+      "action": "View applications",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s91",
+    "group": "Network & requests",
+    "type": "info",
+    "title": "You can apply again later",
+    "body": "The application will show when you’re eligible.",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "You can apply again later",
+      "body": "Check your application.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s92",
+    "group": "Tasks & sprints",
+    "type": "success",
+    "title": "Task created",
+    "body": "Added to the project’s task board.",
+    "action": "View task",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Task created",
+      "body": "",
+      "action": "View task",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s93",
+    "group": "Tasks & sprints",
+    "type": "success",
+    "title": "Task completed",
+    "body": "The task is now Done.",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Task completed",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s94",
+    "group": "Tasks & sprints",
+    "type": "success",
+    "title": "Task submitted for review",
+    "body": "A reviewer will check it before completion.",
+    "action": "View task",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Task submitted for review",
+      "body": "",
+      "action": "View task",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s95",
+    "group": "Tasks & sprints",
+    "type": "warning",
+    "title": "Review this task before moving it",
+    "body": "Open the task to approve it or request changes.",
+    "action": "Open task",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Task needs review",
+      "body": "",
+      "action": "Open task",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s96",
+    "group": "Tasks & sprints",
+    "type": "error",
+    "title": "Task couldn’t be moved",
+    "body": "It’s back in its previous position.",
+    "action": "Retry",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Task couldn’t be moved",
+      "body": "Previous position kept.",
+      "action": "Retry",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s97",
+    "group": "Tasks & sprints",
+    "type": "warning",
+    "title": "4 subtasks updated · 2 need attention",
+    "body": "Your completed changes are saved.",
+    "action": "Review remaining",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "4 updated · 2 failed",
+      "body": "Completed changes saved.",
+      "action": "Review",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s98",
+    "group": "Tasks & sprints",
+    "type": "success",
+    "title": "Workflow saved",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Workflow saved",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s99",
+    "group": "Tasks & sprints",
+    "type": "success",
+    "title": "Section deleted",
+    "body": "Its tasks were handled by your selected option.",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Section deleted",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s100",
+    "group": "Tasks & sprints",
+    "type": "success",
+    "title": "Sprint created",
+    "body": "Your sprint is ready to plan.",
+    "action": "View sprint",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Sprint created",
+      "body": "",
+      "action": "View sprint",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s101",
+    "group": "Tasks & sprints",
+    "type": "success",
+    "title": "Sprint updated",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Sprint updated",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s102",
+    "group": "Tasks & sprints",
+    "type": "success",
+    "title": "Sprint deleted",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Sprint deleted",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s103",
+    "group": "Tasks & sprints",
+    "type": "info",
+    "title": "Task move in progress",
+    "body": "Wait for this move to finish before moving another task.",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Task move in progress",
+      "body": "Wait for this move.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s104",
+    "group": "Messages",
+    "type": "error",
+    "title": "Message wasn’t sent",
+    "body": "Your message is back in the composer.",
+    "action": "Retry",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Message wasn’t sent",
+      "body": "Text kept in composer.",
+      "action": "Retry",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s105",
+    "group": "Messages",
+    "type": "success",
+    "title": "Reply sent",
+    "body": "Your reply is in the thread.",
+    "action": "View thread",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Reply sent",
+      "body": "",
+      "action": "View thread",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s106",
+    "group": "Messages",
+    "type": "success",
+    "title": "Message shared",
+    "body": "Shared with your selected conversation.",
+    "action": "View message",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Message shared",
+      "body": "",
+      "action": "View message",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s107",
+    "group": "Messages",
+    "type": "success",
+    "title": "Message scheduled",
+    "body": "Today at 4:30 PM IST.",
+    "action": "View scheduled",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Message scheduled",
+      "body": "Today · 4:30 PM IST",
+      "action": "View",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s108",
+    "group": "Messages",
+    "type": "success",
+    "title": "Message rescheduled",
+    "body": "Tomorrow at 10:00 AM IST.",
+    "action": "View scheduled",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Message rescheduled",
+      "body": "Tomorrow · 10 AM IST",
+      "action": "View",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s109",
+    "group": "Messages",
+    "type": "neutral",
+    "title": "Scheduled message cancelled",
+    "body": "Keep the message if you want to send it later.",
+    "action": "Keep as draft",
+    "duration": 10,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Scheduled message cancelled",
+      "body": "",
+      "action": "Keep as draft",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s110",
+    "group": "Messages",
+    "type": "neutral",
+    "title": "Draft discarded",
+    "body": "Your draft can be restored for 10 seconds.",
+    "action": "Undo",
+    "duration": 10,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Draft discarded",
+      "body": "",
+      "action": "Undo",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s111",
+    "group": "Messages",
+    "type": "neutral",
+    "title": "Message deleted",
+    "body": "Undo is available for 10 seconds.",
+    "action": "Undo",
+    "duration": 10,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Message deleted",
+      "body": "",
+      "action": "Undo",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s112",
+    "group": "Messages",
+    "type": "success",
+    "title": "Message restored",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Message restored",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s113",
+    "group": "Messages",
+    "type": "neutral",
+    "title": "Message deletion complete",
+    "body": "The undo window has ended.",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Message deletion complete",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s114",
+    "group": "Messages",
+    "type": "warning",
+    "title": "Reply sent · channel copy failed",
+    "body": "Your thread reply is safe. Retry only the channel copy.",
+    "action": "Retry copy",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Sent · copy failed",
+      "body": "Your thread reply is safe.",
+      "action": "Retry copy",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s115",
+    "group": "Messages",
+    "type": "success",
+    "title": "Message pinned",
+    "body": "It’s available in the conversation’s pins.",
+    "action": "View pins",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Message pinned",
+      "body": "",
+      "action": "View pins",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s116",
+    "group": "Messages",
+    "type": "neutral",
+    "title": "Message unpinned",
+    "body": "It’s still in the conversation.",
+    "action": "Undo",
+    "duration": 10,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Message unpinned",
+      "body": "",
+      "action": "Undo",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s117",
+    "group": "Messages",
+    "type": "success",
+    "title": "Message saved",
+    "body": "Find it in Saved.",
+    "action": "View saved",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Message saved",
+      "body": "",
+      "action": "View",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s118",
+    "group": "Messages",
+    "type": "neutral",
+    "title": "Removed from Saved",
+    "body": "Your message is still in the conversation.",
+    "action": "Undo",
+    "duration": 10,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Removed from Saved",
+      "body": "",
+      "action": "Undo",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s119",
+    "group": "Messages",
+    "type": "success",
+    "title": "Reminder set",
+    "body": "Tomorrow at 10:00 AM IST.",
+    "action": "View saved",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Reminder set",
+      "body": "Tomorrow · 10 AM IST",
+      "action": "View",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s120",
+    "group": "Messages",
+    "type": "success",
+    "title": "Reminder cleared",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Reminder cleared",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s121",
+    "group": "Messages",
+    "type": "success",
+    "title": "Conversations marked as read",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Marked as read",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s122",
+    "group": "Messages",
+    "type": "success",
+    "title": "Marked unread from here",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Marked unread from here",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s123",
+    "group": "Messages",
+    "type": "info",
+    "title": "Following this thread",
+    "body": "You’ll be notified about new replies.",
+    "action": "",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Following this thread",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s124",
+    "group": "Messages",
+    "type": "warning",
+    "title": "Following · conversation is muted",
+    "body": "Unmute the conversation to receive reply notifications.",
+    "action": "Review settings",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Following · muted",
+      "body": "Unmute for notifications.",
+      "action": "Settings",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s125",
+    "group": "Messages",
+    "type": "neutral",
+    "title": "Thread unfollowed",
+    "body": "You won’t receive notifications for new replies.",
+    "action": "Undo",
+    "duration": 10,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Thread unfollowed",
+      "body": "",
+      "action": "Undo",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s126",
+    "group": "Messages",
+    "type": "success",
+    "title": "Channel created",
+    "body": "Your new channel is ready.",
+    "action": "Open channel",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Channel created",
+      "body": "",
+      "action": "Open channel",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s127",
+    "group": "Messages",
+    "type": "success",
+    "title": "Channel renamed",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Channel renamed",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s128",
+    "group": "Messages",
+    "type": "success",
+    "title": "Channel is now private",
+    "body": "Only members can access this conversation.",
+    "action": "",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Channel is now private",
+      "body": "Members only.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s129",
+    "group": "Messages",
+    "type": "success",
+    "title": "Channel is now public",
+    "body": "Project members can find this channel.",
+    "action": "",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Channel is now public",
+      "body": "Project members can join.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s130",
+    "group": "Messages",
+    "type": "neutral",
+    "title": "Channel archived",
+    "body": "Its messages are still available.",
+    "action": "Undo",
+    "duration": 10,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Channel archived",
+      "body": "Messages are kept.",
+      "action": "Undo",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s131",
+    "group": "Messages",
+    "type": "success",
+    "title": "Channel unarchived",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Channel unarchived",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s132",
+    "group": "Messages",
+    "type": "neutral",
+    "title": "Conversation closed",
+    "body": "You can reopen it from your conversations.",
+    "action": "Undo",
+    "duration": 10,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Conversation closed",
+      "body": "",
+      "action": "Undo",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s133",
+    "group": "Messages",
+    "type": "neutral",
+    "title": "You left the channel",
+    "body": "Public channels can be joined again.",
+    "action": "Rejoin",
+    "duration": 10,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "You left the channel",
+      "body": "",
+      "action": "Rejoin",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s134",
+    "group": "Messages",
+    "type": "success",
+    "title": "Kavya Menon added",
+    "body": "They can now access this conversation.",
+    "action": "",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Kavya Menon added",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s135",
+    "group": "Messages",
+    "type": "neutral",
+    "title": "Kavya Menon removed",
+    "body": "They no longer have access.",
+    "action": "Undo",
+    "duration": 10,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Kavya Menon removed",
+      "body": "",
+      "action": "Undo",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s136",
+    "group": "Messages",
+    "type": "success",
+    "title": "Channel role updated",
+    "body": "Kavya Menon is now an admin.",
+    "action": "Undo",
+    "duration": 10,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Channel role updated",
+      "body": "Kavya is now admin.",
+      "action": "Undo",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s137",
+    "group": "Messages",
+    "type": "success",
+    "title": "Bookmark added for everyone",
+    "body": "Research brief is now in this conversation.",
+    "action": "",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Bookmark added for everyone",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s138",
+    "group": "Messages",
+    "type": "neutral",
+    "title": "Bookmark removed for everyone",
+    "body": "",
+    "action": "Undo",
+    "duration": 10,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Shared bookmark removed",
+      "body": "",
+      "action": "Undo",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s139",
+    "group": "Messages",
+    "type": "neutral",
+    "title": "Canvas hidden for you",
+    "body": "Other members still see the canvas.",
+    "action": "Undo",
+    "duration": 10,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Canvas hidden for you",
+      "body": "Still visible to others.",
+      "action": "Undo",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s140",
+    "group": "Messages",
+    "type": "success",
+    "title": "Template applied",
+    "body": "Your canvas is ready to edit.",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Template applied",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s141",
+    "group": "Messages",
+    "type": "warning",
+    "title": "Canvas updated by someone else",
+    "body": "The latest saved version is now shown.",
+    "action": "Review canvas",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Canvas changed elsewhere",
+      "body": "Latest version is shown.",
+      "action": "Review",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s142",
+    "group": "Messages",
+    "type": "success",
+    "title": "Report submitted",
+    "body": "Your report has been sent for review.",
+    "action": "",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Report submitted",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s143",
+    "group": "Messages",
+    "type": "warning",
+    "title": "Group created · name wasn’t saved",
+    "body": "Rename the group from conversation settings.",
+    "action": "Rename group",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Created · name not saved",
+      "body": "Your group is ready.",
+      "action": "Rename group",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s144",
+    "group": "Messages",
+    "type": "warning",
+    "title": "An attachment needs attention",
+    "body": "Retry or remove the failed file before sending.",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "An attachment needs attention",
+      "body": "Retry or remove the file.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s145",
+    "group": "Profile & presence",
+    "type": "success",
+    "title": "Profile saved",
+    "body": "Your public profile is up to date.",
+    "action": "View profile",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Profile saved",
+      "body": "",
+      "action": "View profile",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s146",
+    "group": "Profile & presence",
+    "type": "neutral",
+    "title": "Avatar ready to save",
+    "body": "Save your profile to publish this change.",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Avatar ready to save",
+      "body": "Save profile to publish.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s147",
+    "group": "Profile & presence",
+    "type": "neutral",
+    "title": "Avatar removed from your draft",
+    "body": "Save your profile to publish this change.",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Avatar removed from draft",
+      "body": "Save profile to publish.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s148",
+    "group": "Profile & presence",
+    "type": "warning",
+    "title": "Profile changed in another session",
+    "body": "Your draft is preserved. Review the latest saved changes.",
+    "action": "Review changes",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Profile changed elsewhere",
+      "body": "Draft preserved.",
+      "action": "Review",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s149",
+    "group": "Profile & presence",
+    "type": "success",
+    "title": "Open to collaboration",
+    "body": "Your availability is updated.",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Open to collaboration",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s150",
+    "group": "Profile & presence",
+    "type": "success",
+    "title": "Collaboration turned off",
+    "body": "Your availability is updated.",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Collaboration turned off",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s151",
+    "group": "Profile & presence",
+    "type": "success",
+    "title": "Status updated",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Status updated",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s152",
+    "group": "Profile & presence",
+    "type": "success",
+    "title": "Status cleared",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Status cleared",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s153",
+    "group": "Profile & presence",
+    "type": "success",
+    "title": "Project status updated",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Project status updated",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s154",
+    "group": "Profile & presence",
+    "type": "success",
+    "title": "Project status cleared",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Project status cleared",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s155",
+    "group": "Profile & presence",
+    "type": "info",
+    "title": "This role is already on your profile",
+    "body": "Choose another role to add.",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Role already added",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s156",
+    "group": "Profile & presence",
+    "type": "warning",
+    "title": "Choose when your status should clear",
+    "body": "Add an end time to save this status.",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Choose a status end time",
+      "body": "Add an end time.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s157",
+    "group": "Updates & docs",
+    "type": "success",
+    "title": "Project update posted",
+    "body": "Your collaborators can now see it.",
+    "action": "View update",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Project update posted",
+      "body": "",
+      "action": "View update",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s158",
+    "group": "Updates & docs",
+    "type": "success",
+    "title": "Update edited",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Update edited",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s159",
+    "group": "Updates & docs",
+    "type": "success",
+    "title": "Update removed",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Update removed",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s160",
+    "group": "Updates & docs",
+    "type": "error",
+    "title": "Comment wasn’t posted",
+    "body": "Your text is still in the editor.",
+    "action": "Retry",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Comment wasn’t posted",
+      "body": "Text kept in editor.",
+      "action": "Retry",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s161",
+    "group": "Updates & docs",
+    "type": "error",
+    "title": "Reaction wasn’t saved",
+    "body": "Try adding your reaction again.",
+    "action": "Retry",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Reaction wasn’t saved",
+      "body": "",
+      "action": "Retry",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s162",
+    "group": "Updates & docs",
+    "type": "success",
+    "title": "Added to Docs",
+    "body": "The document is now in your project.",
+    "action": "Open docs",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Added to Docs",
+      "body": "",
+      "action": "Open docs",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s163",
+    "group": "Updates & docs",
+    "type": "neutral",
+    "title": "Removed from Docs",
+    "body": "The original document wasn’t deleted.",
+    "action": "",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Removed from Docs",
+      "body": "Original doc kept.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s164",
+    "group": "Updates & docs",
+    "type": "neutral",
+    "title": "Update hidden until reload",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Update hidden until reload",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s165",
+    "group": "Notifications",
+    "type": "activity",
+    "title": "Kavya mentioned you",
+    "body": "Fieldnotes · Design review",
+    "action": "View message",
+    "duration": 6,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Kavya mentioned you",
+      "body": "Fieldnotes · Design review",
+      "action": "View message",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s166",
+    "group": "Notifications",
+    "type": "activity",
+    "title": "4 new updates in Fieldnotes",
+    "body": "Mentions, requests, and project updates.",
+    "action": "Review updates",
+    "duration": 6,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "4 new updates in Fieldnotes",
+      "body": "",
+      "action": "Review updates",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s167",
+    "group": "Notifications",
+    "type": "success",
+    "title": "All notifications cleared",
+    "body": "Your notification inbox is up to date.",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "All notifications cleared",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s168",
+    "group": "Notifications",
+    "type": "success",
+    "title": "Notification snoozed",
+    "body": "It will return at your selected time.",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Notification snoozed",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s169",
+    "group": "Notifications",
+    "type": "success",
+    "title": "Notification settings saved",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Notification settings saved",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s170",
+    "group": "Notifications",
+    "type": "warning",
+    "title": "Browser notifications are blocked",
+    "body": "Enable notifications in your browser settings.",
+    "action": "How to enable",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Notifications blocked",
+      "body": "Check browser settings.",
+      "action": "How to enable",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s171",
+    "group": "Notifications",
+    "type": "info",
+    "title": "Push isn’t available in this browser",
+    "body": "Your in-app notifications still work.",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Push unavailable here",
+      "body": "In-app alerts still work.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s172",
+    "group": "Notifications",
+    "type": "warning",
+    "title": "Push disabled · cleanup is pending",
+    "body": "Notifications are off on this device.",
+    "action": "Retry cleanup",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Push off · cleanup pending",
+      "body": "Push is off on this device.",
+      "action": "Retry cleanup",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s173",
+    "group": "Security & account",
+    "type": "success",
+    "title": "Password updated",
+    "body": "Your new password is active.",
+    "action": "",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Password updated",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s174",
+    "group": "Security & account",
+    "type": "success",
+    "title": "Password added",
+    "body": "You can now sign in with a password.",
+    "action": "",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Password added",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s175",
+    "group": "Security & account",
+    "type": "success",
+    "title": "Authenticator enabled",
+    "body": "Your account has an extra layer of security.",
+    "action": "View security",
+    "duration": 6,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Authenticator enabled",
+      "body": "",
+      "action": "View security",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s176",
+    "group": "Security & account",
+    "type": "warning",
+    "title": "Authenticator enabled · codes weren’t created",
+    "body": "Generate recovery codes before leaving Security.",
+    "action": "Generate codes",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Authenticator enabled",
+      "body": "Recovery codes missing.",
+      "action": "Get codes",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s177",
+    "group": "Security & account",
+    "type": "success",
+    "title": "Authenticator removed",
+    "body": "Review your remaining sign-in methods.",
+    "action": "View security",
+    "duration": 6,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Authenticator removed",
+      "body": "Review sign-in methods.",
+      "action": "View security",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s178",
+    "group": "Security & account",
+    "type": "success",
+    "title": "Recovery codes regenerated",
+    "body": "Save these codes. Your previous codes no longer work.",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Recovery codes regenerated",
+      "body": "Previous codes invalid.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s179",
+    "group": "Security & account",
+    "type": "success",
+    "title": "Recovery codes copied",
+    "body": "Keep them somewhere private.",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Recovery codes copied",
+      "body": "Keep codes private.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s180",
+    "group": "Security & account",
+    "type": "success",
+    "title": "Setup key copied",
+    "body": "Keep this key private.",
+    "action": "",
+    "duration": 3,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Setup key copied",
+      "body": "Keep this key private.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s181",
+    "group": "Security & account",
+    "type": "success",
+    "title": "Device verified",
+    "body": "You can continue with this security change.",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Device verified",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s182",
+    "group": "Security & account",
+    "type": "success",
+    "title": "Other devices signed out",
+    "body": "This device is still signed in.",
+    "action": "",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Other devices signed out",
+      "body": "This device stays signed in.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s183",
+    "group": "Security & account",
+    "type": "warning",
+    "title": "Sign in to continue",
+    "body": "Your session has ended.",
+    "action": "Sign in",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "banner",
+    "contextKind": "condition",
+    "compact": {
+      "title": "Sign in to continue",
+      "body": "Session ended.",
+      "action": "Sign in",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s184",
+    "group": "Security & account",
+    "type": "warning",
+    "title": "Enter the 6-digit code",
+    "body": "Use the current code from your authenticator app.",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Enter the 6-digit code",
+      "body": "Use your authenticator.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s185",
+    "group": "Security & account",
+    "type": "warning",
+    "title": "Passwords don’t match",
+    "body": "Enter the same password in both fields.",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Passwords don’t match",
+      "body": "Use the same password.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s186",
+    "group": "Security & account",
+    "type": "success",
+    "title": "Privacy settings saved",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Privacy settings saved",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s187",
+    "group": "Security & account",
+    "type": "success",
+    "title": "Application cache cleared",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Application cache cleared",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s188",
+    "group": "Security & account",
+    "type": "neutral",
+    "title": "Account deletion scheduled",
+    "body": "Your account is scheduled for deletion in 30 days.",
+    "action": "Review deletion",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "banner",
+    "contextKind": "condition",
+    "compact": {
+      "title": "Account deletion scheduled",
+      "body": "In 30 days · preview date",
+      "action": "Review deletion",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s189",
+    "group": "Security & account",
+    "type": "success",
+    "title": "Account reactivated",
+    "body": "Your scheduled deletion was cancelled.",
+    "action": "",
+    "duration": 6,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Account reactivated",
+      "body": "Deletion cancelled.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s190",
+    "group": "Security & account",
+    "type": "success",
+    "title": "Legal acceptance recorded",
+    "body": "",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Legal acceptance recorded",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s191",
+    "group": "Integrations",
+    "type": "success",
+    "title": "GitHub connected",
+    "body": "Your GitHub account is linked to NetworkBase.",
+    "action": "View integration",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "GitHub connected",
+      "body": "",
+      "action": "View",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s192",
+    "group": "Integrations",
+    "type": "success",
+    "title": "GitHub account replaced",
+    "body": "Your new account is now linked.",
+    "action": "",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "GitHub account replaced",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s193",
+    "group": "Integrations",
+    "type": "info",
+    "title": "GitHub is already connected",
+    "body": "This account is already linked.",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "GitHub is already connected",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s194",
+    "group": "Integrations",
+    "type": "error",
+    "title": "GitHub couldn’t connect",
+    "body": "Your current account link is unchanged.",
+    "action": "Try again",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "GitHub couldn’t connect",
+      "body": "Existing link unchanged.",
+      "action": "Try again",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s195",
+    "group": "Integrations",
+    "type": "warning",
+    "title": "Add another sign-in method first",
+    "body": "Add a password or authenticator before replacing GitHub.",
+    "action": "Open security",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Add a sign-in method first",
+      "body": "Before replacing GitHub.",
+      "action": "Security",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s196",
+    "group": "Integrations",
+    "type": "success",
+    "title": "Editor connected",
+    "body": "You can continue in your editor.",
+    "action": "",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Editor connected",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s197",
+    "group": "Integrations",
+    "type": "success",
+    "title": "Editor session revoked",
+    "body": "That editor can no longer access your account.",
+    "action": "",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Editor session revoked",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s198",
+    "group": "Integrations",
+    "type": "error",
+    "title": "Editor token wasn’t created",
+    "body": "Try generating a new connection token.",
+    "action": "Retry",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Curated from application flows",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Editor token wasn’t created",
+      "body": "",
+      "action": "Retry",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s199",
+    "group": "System & edge cases",
+    "type": "warning",
+    "title": "You’re offline",
+    "body": "Live updates will resume when your connection returns.",
+    "action": "Try reconnecting",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Proposed guardrail",
+    "sourceChannel": "banner",
+    "contextKind": "condition",
+    "compact": {
+      "title": "You’re offline",
+      "body": "Live updates paused.",
+      "action": "Reconnect",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s200",
+    "group": "System & edge cases",
+    "type": "loading",
+    "title": "Reconnecting…",
+    "body": "Checking your connection.",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Proposed guardrail",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Reconnecting…",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s201",
+    "group": "System & edge cases",
+    "type": "success",
+    "title": "You’re back online",
+    "body": "Live updates have resumed.",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Proposed guardrail",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "You’re back online",
+      "body": "Live updates resumed.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s202",
+    "group": "System & edge cases",
+    "type": "error",
+    "title": "Live updates are unavailable",
+    "body": "Your last loaded data is still shown.",
+    "action": "Try reconnecting",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Proposed guardrail",
+    "sourceChannel": "banner",
+    "contextKind": "condition",
+    "compact": {
+      "title": "Live updates are unavailable",
+      "body": "Last loaded data kept.",
+      "action": "Reconnect",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s203",
+    "group": "System & edge cases",
+    "type": "warning",
+    "title": "You no longer have access",
+    "body": "This workspace’s permissions have changed.",
+    "action": "Back to workspace",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Proposed guardrail",
+    "sourceChannel": "banner",
+    "contextKind": "condition",
+    "compact": {
+      "title": "You no longer have access",
+      "body": "Permissions changed.",
+      "action": "Go back",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s204",
+    "group": "System & edge cases",
+    "type": "warning",
+    "title": "Please wait before trying again",
+    "body": "The server has asked you to slow down.",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Proposed guardrail",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Please wait to try again",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s205",
+    "group": "System & edge cases",
+    "type": "info",
+    "title": "This item is no longer available",
+    "body": "It may have been removed or your access may have changed.",
+    "action": "",
+    "duration": 6,
+    "channel": "toast",
+    "origin": "Proposed guardrail",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Item unavailable",
+      "body": "Removed or access changed.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s206",
+    "group": "System & edge cases",
+    "type": "error",
+    "title": "That action couldn’t be completed",
+    "body": "Try again. If it keeps happening, contact support.",
+    "action": "Retry",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Proposed guardrail",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Action couldn’t finish",
+      "body": "",
+      "action": "Retry",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s207",
+    "group": "System & edge cases",
+    "type": "loading",
+    "title": "Still working…",
+    "body": "This is taking longer than usual. You can check the operation’s status.",
+    "action": "View status",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Proposed guardrail",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Still working…",
+      "body": "",
+      "action": "View status",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s208",
+    "group": "System & edge cases",
+    "type": "error",
+    "title": "Couldn’t undo that change",
+    "body": "The original action is still in effect.",
+    "action": "Retry undo",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Proposed guardrail",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Couldn’t undo change",
+      "body": "Change still applies.",
+      "action": "Retry undo",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "s209",
+    "group": "System & edge cases",
+    "type": "success",
+    "title": "Change undone",
+    "body": "Your previous state has been restored.",
+    "action": "",
+    "duration": 4,
+    "channel": "toast",
+    "origin": "Proposed guardrail",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Change undone",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s210",
+    "group": "System & edge cases",
+    "type": "info",
+    "title": "Undo is no longer available",
+    "body": "The change was already committed.",
+    "action": "",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Proposed guardrail",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Undo window closed",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "s211",
+    "group": "System & edge cases",
+    "type": "success",
+    "title": "Link copied",
+    "body": "research-and-collaboration-notes-for-the-entire-fieldnotes-project.md · Access is still required.",
+    "action": "",
+    "duration": 5,
+    "channel": "toast",
+    "origin": "Proposed guardrail",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Link copied",
+      "body": "Access is still required.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_unauthorized",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "Sign in to continue.",
+    "body": "",
+    "action": "Sign in",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_unauthorized",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Sign in to continue",
+      "body": "Session ended.",
+      "action": "Sign in",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "chat_network",
+    "group": "Message error contracts",
+    "type": "error",
+    "title": "Couldn’t reach the server",
+    "body": "Your message is still available in the composer.",
+    "action": "Retry",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_network",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Couldn’t reach the server",
+      "body": "Message preserved.",
+      "action": "Retry",
+      "inlineContext": true
+    }
+  },
+  {
+    "id": "chat_invalid_input",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "That didn't look right. Check it and try again.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_invalid_input",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Check your entry",
+      "body": "Correct the marked value.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_rate_limited",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "You're going a bit fast. Try again in a moment.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_rate_limited",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Please wait to try again",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_duplicate",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "A channel with that name already exists.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_duplicate",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Channel name already used",
+      "body": "Choose another name.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_blocked",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "You can't message this person.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_blocked",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Can’t message this person",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_dm_not_allowed",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "This person only accepts messages from their connections.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_dm_not_allowed",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Connect before messaging",
+      "body": "Connections only.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_channel_archived",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "This channel is archived.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_channel_archived",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Channel archived",
+      "body": "Messages are read-only.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_channel_member_limit",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "This channel is full (500 members).",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_channel_member_limit",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Channel full",
+      "body": "500-member limit.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_project_channel_limit",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "This project has reached 200 channels.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_project_channel_limit",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Project channel limit",
+      "body": "200 channels maximum.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_user_channel_limit",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "You've reached the channel limit.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_user_channel_limit",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Channel limit reached",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_invalid_channel_name",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "Use lowercase letters, numbers and hyphens.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_invalid_channel_name",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Check the channel name",
+      "body": "Lowercase, numbers, hyphens.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_not_member",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "You're not a member of this conversation.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_not_member",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Join the conversation first",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_not_project_member",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "Only project members can do that.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_not_project_member",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Project members only",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_not_channel_admin",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "Only channel admins can do that.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_not_channel_admin",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Channel admins only",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_channel_not_leavable",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "You can't leave the project's default channel.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_channel_not_leavable",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Default channel required",
+      "body": "You can’t leave this channel.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_channel_not_archivable",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "The default channel can't be archived.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_channel_not_archivable",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Can’t archive this channel",
+      "body": "Default channel is required.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_channel_privacy_fixed",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "This conversation can't switch between public and private.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_channel_privacy_fixed",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Privacy can’t change",
+      "body": "This conversation is fixed.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_channel_not_joinable",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "This channel can't be joined.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_channel_not_joinable",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Can’t join this channel",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_broadcast_mention_too_large",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "@channel and @here work in channels of 100 or fewer.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_broadcast_mention_too_large",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Broadcast mention unavailable",
+      "body": "100 members maximum.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_body_too_long",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "Messages can be up to 4,000 characters.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_body_too_long",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Message too long",
+      "body": "4,000 characters maximum.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_invalid_body",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "Messages can be up to 4,000 characters, and need text or a file.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_invalid_body",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Check your message",
+      "body": "Text or file · max 4,000 chars",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_empty_message",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "Write a message first.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_empty_message",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Write a message first",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_no_recipients",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "Add who it's for first.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_no_recipients",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Add a recipient first",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_too_many_attachments",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "Up to 10 attachments per message.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_too_many_attachments",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Too many attachments",
+      "body": "10 files per message.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_not_editable",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "This message can't be edited.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_not_editable",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Message can’t be edited",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_not_deletable",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "This message can't be deleted.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_not_deletable",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Message can’t be deleted",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_not_allowed_to_pin",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "Only members can pin here.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_not_allowed_to_pin",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Only members can pin",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_message_not_found",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "That message isn't available anymore.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_message_not_found",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Message unavailable",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_invalid_role",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "That role isn't available.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_invalid_role",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Role unavailable",
+      "body": "Choose another role.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_member_not_found",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "That person isn't in this channel.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_member_not_found",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Person isn’t in this channel",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_schedule_in_past",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "Pick a time in the future.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_schedule_in_past",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Choose a future time",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_search_too_short",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "Type at least 2 characters to search.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_search_too_short",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Keep typing to search",
+      "body": "At least 2 characters.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_search_too_broad",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "That search is too broad. Narrow it with In, From or dates.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_search_too_broad",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Narrow your search",
+      "body": "Use In, From, or dates.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_task_needs_project",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "Tasks can only be created in project channels.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_task_needs_project",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Project channel required",
+      "body": "Create tasks in a project.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_task_create_failed",
+    "group": "Message error contracts",
+    "type": "error",
+    "title": "The task couldn't be created.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_task_create_failed",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Task wasn’t created",
+      "body": "",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_task_in_progress",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "That task is still being created. Try again in a moment.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_task_in_progress",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Task is being created",
+      "body": "Please wait to try again.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_attachment_not_ready",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "An attachment is still uploading.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_attachment_not_ready",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Attachment still uploading",
+      "body": "Wait before sending.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_group_size",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "Group chats have up to 9 people.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_group_size",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Group chat is full",
+      "body": "9 people maximum.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_share_not_allowed",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "Messages in an application conversation are private and can't be shared.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_share_not_allowed",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Private conversation",
+      "body": "Messages can’t be shared.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_application_members_fixed",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "People in an application conversation are fixed: the applicant and the project's reviewers.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_application_members_fixed",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Members can’t change",
+      "body": "Applicant and reviewers only.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_canvas_not_installed",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "Canvas is unavailable",
+    "body": "Contact your workspace administrator.",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_canvas_not_installed",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Canvas unavailable",
+      "body": "Ask your administrator.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_canvas_delete_forbidden",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "Only channel admins can delete a canvas that has content.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_canvas_delete_forbidden",
+    "sourceChannel": "inline",
+    "contextKind": "validation",
+    "compact": {
+      "title": "Canvas has content",
+      "body": "Only admins can delete it.",
+      "action": "",
+      "inlineContext": false
+    }
+  },
+  {
+    "id": "chat_canvas_conflict",
+    "group": "Message error contracts",
+    "type": "warning",
+    "title": "Someone else just edited this canvas. Showing the latest version.",
+    "body": "",
+    "action": "",
+    "duration": 0,
+    "channel": "toast",
+    "origin": "Shared error contract · chat_canvas_conflict",
+    "sourceChannel": "toast",
+    "contextKind": "outcome",
+    "compact": {
+      "title": "Canvas changed elsewhere",
+      "body": "Latest version is shown.",
+      "action": "",
+      "inlineContext": false
+    }
+  }
+]

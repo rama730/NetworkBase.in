@@ -22,7 +22,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { clearProjectCoverImageAction, updateProject } from "@/app/actions/project";
 import {
@@ -246,6 +246,7 @@ export function GeneralSettingsSection({
     const [savingSettings, setSavingSettings] = useState(false);
     const [shortDescription, setShortDescription] = useState(initialIdentity.shortDescription);
     const [description, setDescription] = useState(initialIdentity.description);
+    const [identitySubmitted, setIdentitySubmitted] = useState(false);
     const [categoryChoice, setCategoryChoice] = useState(initialIdentity.categoryChoice);
     const [customCategory, setCustomCategory] = useState(initialIdentity.customCategory);
     const [tags, setTags] = useState<string[]>(initialIdentity.tags);
@@ -304,9 +305,11 @@ export function GeneralSettingsSection({
 
     const handleSaveGeneral = async () => {
         if (savingSettings) return;
+        setIdentitySubmitted(true);
         const trimmedTitle = projectTitle.trim();
         if (!trimmedTitle) {
-            toast.error("Project name cannot be empty.");
+            toast.warning("Check required fields");
+            document.getElementById("settings-project-name")?.focus();
             return;
         }
         const nextCategory = resolveProjectCategory(categoryChoice, customCategory);
@@ -341,7 +344,7 @@ export function GeneralSettingsSection({
             router.refresh();
         } catch (error) {
             console.error("Failed to save general project settings", error);
-            toast.error(error instanceof Error ? error.message : "Failed to save general settings.");
+            toast.error(feedbackError(error instanceof Error ? error.message : "Failed to save general settings.", "Failed to save general settings."));
         } finally {
             setSavingSettings(false);
         }
@@ -482,7 +485,7 @@ export function GeneralSettingsSection({
             router.refresh();
         } catch (error) {
             console.error("Failed to upload project avatar", error);
-            toast.error(error instanceof Error ? error.message : "Failed to upload project avatar.");
+            toast.error(feedbackError(error instanceof Error ? error.message : "Failed to upload project avatar.", "Failed to upload project avatar."));
         } finally {
             setUploadingCoverImage(false);
         }
@@ -515,7 +518,7 @@ export function GeneralSettingsSection({
             router.refresh();
         } catch (error) {
             console.error("Failed to remove project avatar", error);
-            toast.error(error instanceof Error ? error.message : "Failed to remove project avatar.");
+            toast.error(feedbackError(error instanceof Error ? error.message : "Failed to remove project avatar.", "Failed to remove project avatar."));
         } finally {
             setUploadingCoverImage(false);
         }
@@ -765,6 +768,8 @@ export function GeneralSettingsSection({
                 </div>
                 <div className="py-6">
                     <TextField
+                        id="settings-project-name"
+                        error={identitySubmitted && !projectTitle.trim() ? "Project name is required." : undefined}
                         label="Project name"
                         description="The public title shown in headers, cards, and search."
                         value={projectTitle}

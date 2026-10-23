@@ -6,7 +6,6 @@ import {
   ZoomOut,
   RotateCcw,
   RotateCw,
-  Maximize2,
   ExternalLink,
   Code2,
   Image as ImageIcon,
@@ -19,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ProjectNode } from "@/lib/db/schema";
 import { extOf } from "../../utils/fileKind";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 
 interface ImageViewerDriverProps {
   node: ProjectNode;
@@ -45,8 +44,6 @@ export function ImageViewerDriver({
 
   const containerRef = React.useRef<HTMLDivElement>(null);
   const dragStart = React.useRef({ x: 0, y: 0 });
-  const scaleRef = React.useRef(scale);
-  scaleRef.current = scale;
 
   // Fetch SVG text if it is an SVG file to support viewing source
   React.useEffect(() => {

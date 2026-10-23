@@ -1,13 +1,15 @@
-import { toast } from "sonner";
+import { toast } from '@/lib/feedback';
 
-/** Copy, then confirm only if it worked (the clipboard can refuse: permissions, insecure origin). */
+/** Acknowledge confirmed writes; a blocked clipboard retains a usable manual-copy path. */
 export async function copyWithToast(text: string, done: string) {
   try {
     await navigator.clipboard.writeText(text);
     toast.success(done);
     return true;
   } catch {
-    toast.error("Couldn't copy. Your browser blocked the clipboard.");
+    toast.error('Couldn’t copy the link', {
+      action: { label: 'Select link', onClick: () => window.dispatchEvent(new CustomEvent('nb:manual-copy', { detail: { text } })) },
+    });
     return false;
   }
 }

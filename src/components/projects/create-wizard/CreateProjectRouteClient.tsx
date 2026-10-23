@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { toast } from '@/lib/feedback'
 import { queryKeys } from '@/lib/query-keys'
 import CreateProjectWizard from './CreateProjectWizard'
 import { CreateProjectShellSkeleton } from './CreateProjectShellSkeleton'

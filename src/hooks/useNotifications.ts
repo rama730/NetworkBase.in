@@ -10,7 +10,7 @@ import {
     useQueryClient,
     type InfiniteData,
 } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 
 import {
     dismissAllNotificationsAction,
@@ -247,7 +247,7 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
                 } else {
                     void queryClient.invalidateQueries({ queryKey: unreadCountQueryKey });
                 }
-                toast.error(error instanceof Error ? error.message : "Failed to mark notification read");
+                toast.error(feedbackError(error instanceof Error ? error.message : "Failed to mark notification read", "Failed to mark notification read"));
             }
         }
         if (!href) return false;
@@ -275,14 +275,11 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
         const title = queued.length === 1
             ? first.title
             : `${queued.length} new updates in ${context}`;
-        toast(title, {
-            description: queued.length === 1 ? first.body ?? undefined : "Open the bell to review the grouped updates.",
-            action: first.href
-                ? {
-                    label: "Open",
-                    onClick: () => void openItem(first, "notification_toast"),
-                }
-                : undefined,
+        toast.activity(title, {
+            description: queued.length === 1 ? first.preview?.contextLabel ?? undefined : undefined,
+            action: queued.length > 1
+                ? { label: "Review updates", onClick: () => { isTrayOpenRef.current = true; setActiveFilter("all"); setIsTrayOpen(true); } }
+                : first.href ? { label: "Open", onClick: () => void openItem(first, "notification_toast") } : undefined,
         });
     }, [openItem]);
 
@@ -486,7 +483,7 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
             // succeeded meanwhile. The authoritative refetch repairs the cache.
             void queryClient.invalidateQueries({ queryKey: notificationsQueryKey });
             void queryClient.invalidateQueries({ queryKey: unreadCountQueryKey });
-            toast.error(error instanceof Error ? error.message : "Failed to update notification state");
+            toast.error(feedbackError(error instanceof Error ? error.message : "Failed to update notification state", "Failed to update notification state"));
         },
         onSuccess: (result) => {
             for (const item of result.items) {
@@ -523,7 +520,7 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
         onError: (error, _notificationId, context) => {
             if (context?.previous) queryClient.setQueryData(notificationsQueryKey, context.previous);
             void queryClient.invalidateQueries({ queryKey: unreadCountQueryKey });
-            toast.error(error instanceof Error ? error.message : "Failed to mark notification unread");
+            toast.error(feedbackError(error instanceof Error ? error.message : "Failed to mark notification unread", "Failed to mark notification unread"));
         },
         onSuccess: (item) => {
             patchNotificationCache((existing) => patchNotificationReadStateInInfiniteData(existing, item));
@@ -551,7 +548,7 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
         onError: (error, _notificationId, context) => {
             if (context?.previous) queryClient.setQueryData(notificationsQueryKey, context.previous);
             void queryClient.invalidateQueries({ queryKey: unreadCountQueryKey });
-            toast.error(error instanceof Error ? error.message : "Failed to dismiss notification");
+            toast.error(feedbackError(error instanceof Error ? error.message : "Failed to dismiss notification", "Failed to dismiss notification"));
         },
     });
 
@@ -582,7 +579,7 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
         onError: (error, _variables, context) => {
             if (context?.previous) queryClient.setQueryData(notificationsQueryKey, context.previous);
             void queryClient.invalidateQueries({ queryKey: unreadCountQueryKey });
-            toast.error(error instanceof Error ? error.message : "Failed to clear notifications");
+            toast.error(feedbackError(error instanceof Error ? error.message : "Failed to clear notifications", "Failed to clear notifications"));
         },
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: notificationsQueryKey });
@@ -598,7 +595,7 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
             return result.preferences;
         },
         onError: (error) => {
-            toast.error(error instanceof Error ? error.message : "Failed to turn off notifications");
+            toast.error(feedbackError(error instanceof Error ? error.message : "Failed to turn off notifications", "Failed to turn off notifications"));
         },
     });
 
@@ -623,7 +620,7 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
         onError: (error, _variables, context) => {
             if (context?.previous) queryClient.setQueryData(notificationsQueryKey, context.previous);
             void queryClient.invalidateQueries({ queryKey: unreadCountQueryKey });
-            toast.error(error instanceof Error ? error.message : "Failed to snooze notification");
+            toast.error(feedbackError(error instanceof Error ? error.message : "Failed to snooze notification", "Failed to snooze notification"));
         },
         onSuccess: () => {
             toast.success("Snoozed — we'll bring it back");

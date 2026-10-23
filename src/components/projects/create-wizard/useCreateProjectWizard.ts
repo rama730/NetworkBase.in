@@ -5,7 +5,7 @@ import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createProjectSchema, type CreateProjectInput, type OpenRoleInput } from '@/lib/validations/project';
 import { DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY } from '@/lib/projects/settings-policies';
-import { toast } from 'sonner';
+import { toast, feedbackError } from "@/lib/feedback";
 import { TOTAL_PHASES, WizardPhaseId } from '@/constants/project-wizard';
 import { createProjectAction } from '@/app/actions/project';
 import { parseGithubRepo } from '@/lib/github/repo-preview';
@@ -545,7 +545,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                     }
                     const metadata = (getValues('import_source.metadata') || {}) as Record<string, unknown>;
                     if (metadata.uploadValidationStatus !== 'ok') {
-                        toast.error(String(metadata.uploadValidationError || 'Resolve blocked files before continuing.'));
+                        toast.error(feedbackError(String(metadata.uploadValidationError || 'Resolve blocked files before continuing.'), "Resolve blocked files before continuing."));
                         return;
                     }
                 }
@@ -621,6 +621,12 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
         submissionRef.current = true;
         setIsSubmitting(true);
         const importType = data.import_source?.type || 'scratch';
+        const creationToastId = toast.loading('Creating project…');
+        const creationWarnings: string[] = [];
+        const warnCreation = (message: string) => {
+            if (!creationWarnings.includes(message)) creationWarnings.push(message);
+            toast.warning('Project created', { id: creationToastId, description: creationWarnings.join(' ') });
+        };
         let createdProjectId: string | null = null;
         let uploadSessionContext: { sessionId?: string; manifestHash?: string } | null = null;
         const resolvedRoles = (data.roles || []).filter((role) => (role.role || '').trim().length > 0);
@@ -666,6 +672,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                 readmeApplied = true;
             } catch (error) {
                 console.warn('[create-project] Doc setup failed', error);
+                warnCreation('Doc setup failed.');
             }
         };
 
@@ -678,13 +685,13 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                     await uploadProjectImage(projectId, projectImage);
                 } catch (error) {
                     console.warn('[create-project] Project picture upload failed', error);
-                    toast.warning('Project created, but the picture didn’t upload. Add it from Project settings.');
+                    warnCreation('Image upload failed.');
                 }
             }
             if (readmeIntent.mode !== 'skip' && data.doc_edit_policy === 'members') {
                 const { updateProjectDocSettingsAction } = await import('@/app/actions/project/doc');
                 const result = await updateProjectDocSettingsAction(projectId, { editPolicy: 'members' });
-                if (!result.success) toast.warning('Project created, but doc editing is still leaders only. Change it from Project settings.');
+                if (!result.success) warnCreation('Docs stay leaders-only.');
             }
         };
 
@@ -712,7 +719,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                     throw new Error('Please select a folder to upload.');
                 }
                 setUploadProgress({ percent: 0, currentFile: '', isUploading: true });
-                toast.info('Uploading your folder in the background…');
+                toast.loading('Uploading folder…', { id: creationToastId });
 
                 const [{ uploadFolder }, uploadActions, importActions] = await Promise.all([
                     import('@/lib/upload/chunked-upload'),
@@ -891,7 +898,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                         const ownerInfo = registerResult.lockOwnerSessionId
                             ? ` (active session: ${registerResult.lockOwnerSessionId})`
                             : '';
-                        toast.info(`Upload registration already in progress${ownerInfo}.`);
+                        toast.loading('Registering uploaded files…', { id: creationToastId });
                     } else {
                         throw new Error('Failed to register uploaded files.');
                     }
@@ -901,21 +908,22 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                 setUploadProgress({ percent: 100, currentFile: '', isUploading: false });
 
                 if (!uploadRes.success) {
-                    toast.warning(`Project created. ${uploadRes.failedFiles.length} file(s) failed to upload.`);
+                    warnCreation(`${uploadRes.failedFiles.length} files failed.`);
                 } else {
-                    toast.success('Project created and folder imported.');
+                    // Final outcome resolves the same card after post-create setup.
                 }
             } else {
                 if (createdProjectId) {
                     await applyReadmeSetup(createdProjectId);
                 }
-                toast.success('Project created.');
+                // Post-create setup determines the final outcome.
             }
 
             if (createdProjectId && !readmeApplied) {
                 await applyReadmeSetup(createdProjectId);
             }
             if (createdProjectId) await applyLaunchSettingsAfterCreate(createdProjectId);
+            if (!creationWarnings.length) toast.success(importType === 'upload' ? 'Project & files ready' : 'Project created', { id: creationToastId });
 
             const { draftStore } = await import('@/lib/storage/draft-store');
             await draftStore.clear(userId);
@@ -935,7 +943,8 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                     });
                 }
             } catch { }
-            toast.error(error.message || 'Failed to create project');
+            if (createdProjectId) warnCreation('Some setup needs attention.');
+            else toast.error(feedbackError(error.message || 'Failed to create project', 'Failed to create project'), { id: creationToastId });
         } finally {
             submissionRef.current = false;
             setIsSubmitting(false);

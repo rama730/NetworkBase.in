@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 
 import { createChannel } from "@/app/actions/chat/channels";
 import { useChatShell } from "@/components/messages/ChatShellProvider";

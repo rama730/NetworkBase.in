@@ -4,7 +4,7 @@ import { CONNECTION_COPY } from "@/lib/connections/copy";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Users } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 
 import PersonCard, { PersonCardGrid } from "@/components/network/PersonCard";
 import { PersonCardSkeleton } from "@/components/network/PersonCardSkeleton";

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Globe, Lock, Search, ShieldBan, Users, type LucideIcon } from "lucide-react";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader";
@@ -84,12 +84,12 @@ export default function PrivacySettings({ embedded = false }: { embedded?: boole
   const updateMutation = useMutation({
     mutationFn: (update: { url: string; body: Record<string, unknown>; successMessage: string }) => patchPrivacy(update.url, update.body),
     onSuccess: async (_data, update) => { toast.success(update.successMessage); await refreshPrivacy(); },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Failed to update privacy settings"),
+    onError: (error) => toast.error(feedbackError(error instanceof Error ? error.message : "Failed to update privacy settings", "Failed to update privacy settings")),
   });
   const unblockMutation = useMutation({
     mutationFn: unblockAccount,
     onSuccess: async () => { toast.success("Account unblocked"); setMore(null); await refreshPrivacy(); },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Failed to unblock account"),
+    onError: (error) => toast.error(feedbackError(error instanceof Error ? error.message : "Failed to unblock account", "Failed to unblock account")),
   });
 
   const settings = data?.settings;
@@ -104,7 +104,7 @@ export default function PrivacySettings({ embedded = false }: { embedded?: boole
       const page = await fetchBlockedPage(nextBlockedCursor);
       setMore({ base: data?.blockedAccounts, accounts: [...(extra?.accounts ?? []), ...page.accounts], cursor: page.nextCursor });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to load more blocked accounts");
+      toast.error(feedbackError(error instanceof Error ? error.message : "Failed to load more blocked accounts", "Failed to load more blocked accounts"));
     } finally {
       setLoadingMore(false);
     }

@@ -3,7 +3,7 @@
 import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, ExternalLink, Globe, Link2, Loader2, LockKeyhole, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
+import { toast } from '@/lib/feedback';
 import { updateProjectExternalLinksAction } from '@/app/actions/project';
 import { SocialPresenceIcon } from '@/components/profile/SocialPresenceIcon';
 import { SortableLinkList } from '@/components/links/SortableLinkList';

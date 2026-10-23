@@ -8,7 +8,7 @@
 
 "use client";
 
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 
 import React, { useCallback, useState } from "react";
 
@@ -68,7 +68,7 @@ export function SingleAttachmentPicker({
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to attach file";
-        toast.error(message);
+        toast.error(feedbackError(message, "Action couldn’t finish"));
         // Keep picker open on failure (Req 9.5 pattern)
       } finally {
         setIsLinking(false);

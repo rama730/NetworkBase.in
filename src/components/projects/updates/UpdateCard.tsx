@@ -18,7 +18,7 @@ import {
     Pin,
     Trash2,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 import { deleteProjectUpdateAction, editProjectUpdateAction, toggleProjectUpdateLikeAction, toggleProjectUpdatePinAction, type ProjectUpdateView } from "@/app/actions/project/updates";
 import { Button } from "@/components/ui/button";
 import {
@@ -98,7 +98,7 @@ function UpdateCard({
       if (context?.previous)
         queryClient.setQueryData(updatesQueryKey, context.previous);
       toast.error(
-        error instanceof Error ? error.message : "Failed to update like",
+        feedbackError(error instanceof Error ? error.message : "Failed to update like", "Failed to update like"),
       );
     },
     onSuccess: (result) => {
@@ -143,7 +143,7 @@ function UpdateCard({
     },
     onError: (error) =>
       toast.error(
-        error instanceof Error ? error.message : "Failed to edit update",
+        feedbackError(error instanceof Error ? error.message : "Failed to edit update", "Failed to edit update"),
       ),
   });
 
@@ -165,7 +165,7 @@ function UpdateCard({
     },
     onError: (error) =>
       toast.error(
-        error instanceof Error ? error.message : "Failed to delete update",
+        feedbackError(error instanceof Error ? error.message : "Failed to delete update", "Failed to delete update"),
       ),
   });
 
@@ -185,7 +185,7 @@ function UpdateCard({
     },
     onError: (error) =>
       toast.error(
-        error instanceof Error ? error.message : "Failed to update pin",
+        feedbackError(error instanceof Error ? error.message : "Failed to update pin", "Failed to update pin"),
       ),
   });
 

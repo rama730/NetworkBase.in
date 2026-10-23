@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { UserPlus } from "lucide-react";
 import { keepPreviousData, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 
 import {
     cancelSentProjectInvitationAction,
@@ -431,7 +431,7 @@ export default function InvitationsClient({
                         onClick: () => {
                             void reopenApplicationAction(id).then((undone) => {
                                 if (undone.success) toast.success("Decline undone");
-                                else toast.error(undone.error || "Could not undo");
+                                else toast.error(feedbackError(undone.error || "Could not undo", "Could not undo"));
                                 void refreshInvitationSurfaces();
                             });
                         },
@@ -447,7 +447,7 @@ export default function InvitationsClient({
     async function reopenDecided(id: string) {
         const result = await reopenApplicationAction(id);
         if (result.success) toast.success("Application reopened");
-        else toast.error(result.error || "Could not reopen the application");
+        else toast.error(feedbackError(result.error || "Could not reopen the application", "Could not reopen the application"));
         await refreshInvitationSurfaces();
     }
 

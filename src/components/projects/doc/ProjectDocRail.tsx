@@ -4,7 +4,7 @@ import { useState } from "react";
 import { FileText, Loader2, Plus, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 
 import { AddDocDialog } from "@/components/projects/doc/AddDocDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";

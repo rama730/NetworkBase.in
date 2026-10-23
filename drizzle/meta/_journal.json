@@ -1632,6 +1632,20 @@
       "when": 1792454402000,
       "tag": "0235_onboarding_integrity",
       "breakpoints": true
+    },
+    {
+      "idx": 233,
+      "version": "7",
+      "when": 1792454403000,
+      "tag": "0236_storage_media_contracts",
+      "breakpoints": true
+    },
+    {
+      "idx": 234,
+      "version": "7",
+      "when": 1792454404000,
+      "tag": "0237_profile_contribution_stories",
+      "breakpoints": true
     }
   ]
 }

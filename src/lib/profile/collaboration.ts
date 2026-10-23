@@ -21,6 +21,10 @@ import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
 import { containsLikePattern, normalizeSearchQuery } from "@/lib/search/query";
 import { isUuid } from "@/lib/validations/uuid";
 
+import { hydratePublicStory } from "@/lib/profile/contribution-story-server";
+import { parseContributionStory, reconcileRecordedPositionTitles, type ContributionStory, type ResolvedStoryReference } from "@/lib/profile/contribution-story";
+import { formatContributionPosition } from "@/lib/profile/contribution-position";
+
 type DbExecutor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export type ProfileCollaborationMemberPreview = {
@@ -79,6 +83,17 @@ export type ProfileCollaborationRoleStage = {
 };
 
 export type ProfileCollaborationContribution = {
+  projectIdentityLinks?: ContributionStory["links"];
+  presentation?: ContributionStory | null;
+  draftStory?: ContributionStory | null;
+  resolvedReferences?: ResolvedStoryReference[];
+  draftReferences?: ResolvedStoryReference[];
+  featured?: boolean;
+  publishedAt?: string | null;
+  projectVisibility?: string | null;
+  projectStatus?: string | null;
+  recordedJoinedAt?: string | null;
+  membershipRole?: string | null;
   fileContributionCount?: number;
   id: string;
   projectId: string | null;
@@ -92,6 +107,8 @@ export type ProfileCollaborationContribution = {
   description: string | null;
   startDate: string | null;
   endDate: string | null;
+  createdAt?: string | null;
+  projectCreatedAt?: string | null;
   currentlyActive: boolean;
   skills: string[];
   source: string;
@@ -159,6 +176,13 @@ type ProfileProjectRow = {
 };
 
 type ProfileContributionRow = {
+  project_github_repo_url: string | null;
+  project_external_links: unknown;
+  recorded_joined_at: Date | string | null;
+  presentation: unknown;
+  draft_story: unknown;
+  featured: boolean;
+  published_at: Date | string | null;
   file_contribution_count?: number;
   contribution_id: string;
   project_id: string | null;
@@ -181,6 +205,8 @@ type ProfileContributionRow = {
   canonical_skills: unknown;
   started_at: Date | string | null;
   ended_at: Date | string | null;
+  created_at?: Date | string | null;
+  project_created_at?: Date | string | null;
   source: string;
   verified_at: Date | string | null;
   visibility: "public" | "private";
@@ -189,7 +215,7 @@ type ProfileContributionRow = {
 };
 
 // v7: members-only project links removed from cached summaries (AUTH-013).
-const SUMMARY_VERSION = 7;
+const SUMMARY_VERSION = 8;
 const SUMMARY_TTL_MS = 10 * 60 * 1000;
 const DEFAULT_LIMIT = 12;
 const EMPTY_SUMMARY: ProfileCollaborationSummary = {
@@ -375,11 +401,13 @@ function projectFromRow(row: ProfileProjectRow): ProfileCollaborationProject {
 function contributionRoleLabel(row: ProfileContributionRow) {
   if (!row.project_id) return trimDisplayText(row.role_title) || "Contributor";
   const membershipRole = trimDisplayText(row.membership_role) || trimDisplayText(row.role_kind) || "member";
-  const projectRoleTitle = trimOptionalDisplayText(row.role_title) ?? trimOptionalDisplayText(row.accepted_role_title);
-  if (!["owner", "admin", "member", "viewer"].includes(membershipRole)) {
-    return projectRoleTitle || defaultRoleTitle(membershipRole);
-  }
-  return formatProjectTeamRole({ membershipRole, projectRoleTitle, leadFocus: row.lead_focus });
+  return formatContributionPosition({
+    roleKind: membershipRole,
+    title: row.role_title,
+    projectPosition: membershipRole === "owner"
+      ? row.lead_focus || row.accepted_role_title
+      : row.accepted_role_title,
+  });
 }
 
 function contributionFromRow(row: ProfileContributionRow): ProfileCollaborationContribution {
@@ -388,6 +416,13 @@ function contributionFromRow(row: ProfileContributionRow): ProfileCollaborationC
   const formattedRole = contributionRoleLabel(row);
   const stages = roleStages(row.role_stages, row.contribution_id).map((stage) => ({
     ...stage,
+    roleTitle: row.project_id
+      ? formatContributionPosition({
+          roleKind: stage.roleKind,
+          title: stage.roleTitle,
+          projectPosition: stage.currentlyActive ? formattedRole : null,
+        })
+      : stage.roleTitle,
     skills: contributionSkills,
   }));
   const fallbackStage: ProfileCollaborationRoleStage = {
@@ -414,13 +449,30 @@ function contributionFromRow(row: ProfileContributionRow): ProfileCollaborationC
   const projectHref = row.project_id
     ? buildProjectHref({ id: row.project_id, slug: row.project_slug })
     : trimOptionalDisplayText(row.project_url);
+  const publicProjectLinks=filterProjectLinksForAudience(row.project_external_links,false);
+  const website=publicProjectLinks.find(link=>link.purpose==='live-product'||link.platform==='website');
+  const repository=publicProjectLinks.find(link=>link.purpose==='source-code');
+  const repositoryIsMembersOnly=filterProjectLinksForAudience(row.project_external_links,true).some(link=>link.audience==='members'&&link.url===row.project_github_repo_url);
+  const identityLinks:ContributionStory["links"] = row.project_id ? [
+    ...(website?[{id:row.contribution_id,label:'Project website',url:website.url}]:[]),
+    ...(repository||(row.project_github_repo_url&&!repositoryIsMembersOnly)?[{id:row.contribution_id,label:'Repository',url:repository?.url??row.project_github_repo_url!}]:[]),
+  ] : [];
   return {
+    projectIdentityLinks:identityLinks,
+    presentation: reconcileRecordedPositionTitles(parseContributionStory(row.presentation), normalizedStages),
+    draftStory: reconcileRecordedPositionTitles(parseContributionStory(row.draft_story), normalizedStages),
+    featured: Boolean(row.featured),
+    publishedAt: toIsoDate(row.published_at),
+    projectVisibility: row.project_visibility,
+    projectStatus: row.project_status,
+    recordedJoinedAt: toShortDate(row.recorded_joined_at),
+    membershipRole: row.membership_role,
     fileContributionCount: Number(row.file_contribution_count || 0),
     id: row.contribution_id,
     projectId: row.project_id,
     externalKey: row.external_key,
     version: Number(row.version) || 1,
-    title: row.project_id ? formattedRole : activeStage.roleTitle,
+    title: activeStage.roleTitle,
     projectTitle,
     projectHref,
     projectUrl: trimOptionalDisplayText(row.project_url),
@@ -428,6 +480,8 @@ function contributionFromRow(row: ProfileContributionRow): ProfileCollaborationC
     description: trimOptionalDisplayText(row.summary) ?? activeStage.summary,
     startDate: toShortDate(row.started_at),
     endDate: toShortDate(row.ended_at),
+    createdAt: toIsoDate(row.created_at),
+    projectCreatedAt: toIsoDate(row.project_created_at),
     currentlyActive: !row.ended_at,
     skills: contributionSkills,
     source: trimDisplayText(row.source) || "membership",
@@ -523,7 +577,7 @@ async function queryProfileProjectRows(profileId: string, options: {
       WHERE p.deleted_at IS NULL
         AND (${visibilitySql})
         AND (${includePrivate ? sql`TRUE` : sql`COALESCE(pc.visibility, 'public') = 'public'`})
-      ORDER BY p.view_count DESC NULLS LAST, p.updated_at DESC, p.created_at DESC, p.id DESC
+      ORDER BY p.created_at DESC, p.updated_at DESC, p.id DESC
       LIMIT ${limit} OFFSET ${offset}
     )
     SELECT
@@ -570,7 +624,7 @@ async function queryProfileProjectRows(profileId: string, options: {
       ) ranked
       WHERE ranked.member_rank <= 3
     ) members ON true
-    ORDER BY ps.view_count DESC NULLS LAST, ps.updated_at DESC, ps.created_at DESC, ps.project_id DESC
+    ORDER BY ps.created_at DESC, ps.updated_at DESC, ps.project_id DESC
   `);
 
   return Array.from(rows);
@@ -589,6 +643,12 @@ async function queryProfileContributionRows(profileId: string, options: {
   const rows = await db.execute<ProfileContributionRow>(sql`
     SELECT
       contribution.id AS contribution_id,
+      contribution.created_at AS created_at,
+      project.created_at AS project_created_at,
+      contribution.presentation,
+      contribution.featured,
+      contribution.published_at,
+      ${includePrivate ? sql`(SELECT d.document FROM profile_contribution_drafts d WHERE d.contribution_id=contribution.id AND d.profile_id=${profileId}::uuid)` : sql`NULL::jsonb`} AS draft_story,
       contribution.project_id,
       contribution.external_key,
       contribution.version,
@@ -600,10 +660,14 @@ async function queryProfileContributionRows(profileId: string, options: {
        WHERE event.project_id=contribution.project_id AND event.actor_id=${profileId}
          AND event.type='file_content_contributed' AND node.task_id IS NULL
          AND node.deleted_at IS NULL AND node.path NOT LIKE '/.system/%') AS file_contribution_count,
+      project.github_repo_url AS project_github_repo_url,
+      project.external_links AS project_external_links,
       project.title AS project_title,
       project.slug AS project_slug,
       project.visibility AS project_visibility,
-      project.status AS project_status,
+      CASE WHEN project.deleted_at IS NOT NULL THEN 'deleted' ELSE project.status::text END AS project_status,
+      COALESCE(member.joined_at,CASE WHEN project.owner_id=${profileId}::uuid THEN project.created_at END,
+        (SELECT min(recorded.started_at) FROM profile_project_contribution_stages recorded WHERE recorded.contribution_id=contribution.id)) AS recorded_joined_at,
       project.owner_id AS project_owner_id,
       CASE
         WHEN project.owner_id = ${profileId} THEN 'owner'
@@ -625,7 +689,7 @@ async function queryProfileContributionRows(profileId: string, options: {
     FROM ${profileProjectContributions} contribution
     LEFT JOIN ${projects} project
       ON project.id = contribution.project_id
-     AND project.deleted_at IS NULL
+     AND (${includePrivate ? sql`TRUE` : sql`project.deleted_at IS NULL`})
     LEFT JOIN project_members member
       ON member.project_id = contribution.project_id
      AND member.user_id = ${profileId}
@@ -677,7 +741,7 @@ async function queryProfileContributionRows(profileId: string, options: {
     ) stages ON true
     WHERE contribution.profile_id = ${profileId}
       AND contribution.deleted_at IS NULL
-      AND (${includePrivate ? sql`TRUE` : sql`contribution.visibility = 'public'`})
+      AND (${includePrivate ? sql`TRUE` : sql`contribution.visibility = 'public' AND (contribution.presentation IS NULL OR (contribution.presentation->>'visible'='true' AND (project.visibility IS DISTINCT FROM 'unlisted' OR contribution.presentation->>'allowUnlisted'='true')))`})
       AND (
         contribution.project_id IS NULL
         OR (
@@ -685,10 +749,9 @@ async function queryProfileContributionRows(profileId: string, options: {
           AND (${includePrivate ? sql`TRUE` : sql`project.visibility IN ('public', 'unlisted') AND project.status <> 'draft'`})
         )
       )
-    ORDER BY
-      CASE WHEN contribution.ended_at IS NULL THEN 0 ELSE 1 END,
-      contribution.started_at DESC NULLS LAST,
-      contribution.updated_at DESC,
+    ORDER BY contribution.featured DESC,
+      COALESCE(contribution.started_at, project.created_at, contribution.created_at) DESC NULLS LAST,
+      COALESCE(project.created_at, contribution.created_at) DESC,
       contribution.id DESC
     LIMIT ${limit} OFFSET ${offset}
   `);
@@ -765,11 +828,12 @@ export async function getProfileCollaborationSummary(profileId: string, options:
   const preferCached = options.preferCached !== false && !includePrivate;
   const maxAgeMs = options.maxAgeMs ?? SUMMARY_TTL_MS;
   const dedupeKey = `profile-collaboration:${profileId}:${includePrivate ? "owner" : "public"}:${preferCached}:${maxAgeMs}`;
-  return runInFlightDeduped(dedupeKey, () => readProfileCollaborationSummary(profileId, {
-    includePrivate,
-    preferCached,
-    maxAgeMs,
-  }));
+  const summary = await runInFlightDeduped(dedupeKey, () => readProfileCollaborationSummary(profileId, { includePrivate, preferCached, maxAgeMs }));
+  // Reference labels and public project gates must be live even on a summary-cache hit.
+  const live = summary.cacheStatus === "hit"
+    ? (await queryProfileContributionRows(profileId, {includePrivate,limit:24,stageLimit:20})).map(contributionFromRow)
+    : summary.contributions;
+  return {...summary,contributions:await Promise.all(live.map(hydratePublicStory))};
 }
 
 async function readProfileCollaborationSummary(profileId: string, options: {
@@ -807,7 +871,7 @@ async function readProfileCollaborationSummary(profileId: string, options: {
 
   const [projectRows, contributionRows] = await Promise.all([
     queryProfileProjectRows(profileId, { includePrivate, limit: DEFAULT_LIMIT, offset: 0 }),
-    queryProfileContributionRows(profileId, { includePrivate, limit: 24, offset: 0, stageLimit: 8 }),
+    queryProfileContributionRows(profileId, { includePrivate, limit: 24, offset: 0, stageLimit: 20 }),
   ]);
   const summary = buildSummaryFromRows(projectRows, contributionRows);
 
@@ -840,7 +904,7 @@ export async function getProfileContributions(profileId: string, options: {
 } = {}) {
   const startedAt = Date.now();
   const rows = await queryProfileContributionRows(profileId, options);
-  const contributions = rows.map(contributionFromRow);
+  const contributions = await Promise.all(rows.map(contributionFromRow).map(hydratePublicStory));
   const total = Number(rows[0]?.total_count ?? contributions.length);
   logger.metric("profile.collaboration.contributions", {
     profileId,

@@ -24,7 +24,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 import { getTotpVerificationErrorMessage, normalizeTotpQrCodeSource } from "@/lib/auth/mfa-ui";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { queryKeys } from "@/lib/query-keys";
@@ -73,6 +73,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
   const [protectedActionPending, setProtectedActionPending] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
+  const [verificationError, setVerificationError] = useState<string | null>(null);
   const [pendingFactor, setPendingFactor] = useState<PendingTotpFactor | null>(null);
   const [unenrollId, setUnenrollId] = useState<string | null>(null);
   const [stepUpOpen, setStepUpOpen] = useState(false);
@@ -143,7 +144,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
       });
       setVerificationCode("");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to start authenticator setup");
+      toast.error(feedbackError(error instanceof Error ? error.message : "Failed to start authenticator setup", "Failed to start authenticator setup"));
     } finally {
       setEnrolling(false);
     }
@@ -175,10 +176,13 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
 
     const code = verificationCode.trim();
     if (!/^[0-9]{6}$/.test(code)) {
-      toast.error("Enter the 6-digit code from your authenticator app");
+      setVerificationError("Enter the current 6-digit code from your authenticator.");
+      toast.warning("Enter the 6-digit code");
+      document.getElementById("mfa-verification-code")?.focus();
       return;
     }
 
+    setVerificationError(null);
     setVerifying(true);
     try {
       const result = await supabase.auth.mfa.challengeAndVerify({
@@ -190,22 +194,29 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
         throw result.error;
       }
 
-      toast.success("Authenticator app enabled");
+      const outcomeId = toast.success("Authenticator enabled");
       resetSetupDialog();
       setSetupOpen(false);
       await refreshSecurity();
 
       try {
         await handleGenerateRecoveryCodes("initial");
-      } catch (recoveryError) {
-        toast.error(
-          recoveryError instanceof Error
-            ? `Authenticator app enabled, but recovery code generation failed: ${recoveryError.message}`
-            : "Authenticator app enabled, but recovery code generation failed. Generate them from Security settings.",
-        );
+      } catch {
+        const generateCodes = async () => {
+          toast.loading("Creating recovery codes…", { id: outcomeId });
+          try {
+            await handleGenerateRecoveryCodes("initial");
+            toast.success("Recovery codes generated", { id: outcomeId, description: "Save your codes privately." });
+          } catch {
+            toast.warning("Authenticator enabled", { id: outcomeId, description: "Recovery codes missing.", action: { label: "Get codes", onClick: generateCodes } });
+          }
+        };
+        toast.warning("Authenticator enabled", { id: outcomeId, description: "Recovery codes missing.", action: { label: "Get codes", onClick: generateCodes } });
       }
     } catch (error) {
-      toast.error(getTotpVerificationErrorMessage(error as Error));
+      const message = getTotpVerificationErrorMessage(error as Error);
+      setVerificationError(message);
+      toast.error(feedbackError(message, "Code couldn’t be verified"));
     } finally {
       setVerifying(false);
     }
@@ -238,7 +249,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
       setProtectedAction(null);
       setUnenrollId(null);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to complete this security action");
+      toast.error(feedbackError(error instanceof Error ? error.message : "Failed to complete this security action", "Failed to complete this security action"));
     } finally {
       setProtectedActionPending(false);
     }
@@ -367,7 +378,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
                   return;
                 }
                 void handleGenerateRecoveryCodes("initial").catch((error) => {
-                  toast.error(error instanceof Error ? error.message : "Failed to generate recovery codes");
+                  toast.error(feedbackError(error instanceof Error ? error.message : "Failed to generate recovery codes", "Failed to generate recovery codes"));
                 });
               }}
             >
@@ -444,16 +455,19 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
                     <label htmlFor="mfa-verification-code" className="text-sm font-medium leading-none">6-digit code</label>
                     <Input
                       id="mfa-verification-code"
+                      aria-invalid={Boolean(verificationError)}
+                      aria-describedby={verificationError ? "mfa-verification-error" : undefined}
                       inputMode="numeric"
                       pattern="[0-9]*"
                       maxLength={6}
                       value={verificationCode}
                       onChange={(event) =>
-                        setVerificationCode(event.target.value.replace(/\D/g, "").slice(0, 6))
+                        { setVerificationCode(event.target.value.replace(/\D/g, "").slice(0, 6)); setVerificationError(null); }
                       }
                       placeholder="Enter the current code"
                       disabled={verifying}
                     />
+                    {verificationError && <p id="mfa-verification-error" className="nb-compact text-destructive">{verificationError}</p>}
                     <p className="nb-meta text-muted-foreground">
                       Use the current 6-digit code from your authenticator app. Codes refresh every 30 seconds.
                     </p>

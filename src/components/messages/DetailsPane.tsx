@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 import { Bell, Copy, Link2, Lock, MessageSquare, MoreHorizontal, Search, ShieldCheck, ShieldOff, Star, User, UserMinus, UserPlus, Users, X } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 
 import { joinChannel, renameGroup, setChannelPrivacy, updateChannel, type ChannelDetails } from "@/app/actions/chat/channels";
 import { addMembers, getOrCreateDm, removeMember, setMemberRole, setMemberState } from "@/app/actions/chat/members";

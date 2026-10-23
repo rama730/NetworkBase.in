@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
   ArrowLeft,
@@ -15,7 +15,7 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 
 import {
   Dialog,
@@ -118,6 +118,7 @@ export function FilesTabUploadModal({
   onCancel,
 }: FilesTabUploadModalProps) {
   const [fileList, setFileList] = useState<File[]>(files);
+  const sizeFeedbackId = useRef<string | number | null>(null);
   const [isRenamingSingle, setIsRenamingSingle] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const [editingMultiIndex, setEditingMultiIndex] = useState<number | null>(null);
@@ -171,6 +172,25 @@ export function FilesTabUploadModal({
     () => fileList.filter((f) => (f.size || 0) > DEFAULT_PROJECT_UPLOAD_MAX_FILE_BYTES),
     [fileList],
   );
+
+  useEffect(() => {
+    if (!isOpen || !oversizedFiles.length) {
+      if (sizeFeedbackId.current !== null) toast.dismiss(sizeFeedbackId.current);
+      sizeFeedbackId.current = null;
+      return;
+    }
+    sizeFeedbackId.current = toast.warning("File too large", {
+      id: sizeFeedbackId.current ?? undefined,
+      dismissOnAction: false,
+      description: `Upload limit: ${formatBytes(DEFAULT_PROJECT_UPLOAD_MAX_FILE_BYTES)}.`,
+      action: { label: "Choose file", onClick: () => {
+        const input = document.createElement("input"); input.type = "file"; input.multiple = true;
+        input.onchange = () => { if (input.files?.length) setFileList(Array.from(input.files)); };
+        input.click();
+      } },
+    });
+  }, [isOpen, oversizedFiles]);
+  useEffect(() => () => { if (sizeFeedbackId.current !== null) toast.dismiss(sizeFeedbackId.current); }, []);
 
   // Categorization always requires an explicit choice for each upload.
   const [intent, setIntent] = useState<FilesUploadIntent | null>(null);
@@ -493,19 +513,12 @@ export function FilesTabUploadModal({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Oversized file error banner */}
-        {oversizedFiles.length > 0 && (
-          <div className="rounded-[6px] border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive">
-            <p className="font-semibold">
-              {oversizedFiles.length === 1
-                ? `"${oversizedFiles[0]?.name}" exceeds the maximum upload size limit of 10MB.`
-                : `${oversizedFiles.length} files exceed the maximum upload size limit of 10MB.`}
-            </p>
-            <p className="mt-0.5 text-muted-foreground">
-              Files above 10MB cannot be uploaded. Please remove {oversizedFiles.length === 1 ? "it" : "them"} to continue.
-            </p>
-          </div>
-        )}
+        {oversizedFiles.length > 0 && <div className="space-y-2 border-t border-border pt-2" aria-label="Rejected upload selections">
+          {oversizedFiles.map((file, index) => <div key={`${file.name}-${index}`} className="flex items-start gap-2 text-[12px] leading-4">
+            <AlertCircle className="mt-0.5 size-3.5 shrink-0 text-[var(--status-warning)]" aria-hidden="true" />
+            <div className="min-w-0 flex-1"><strong className="block break-all font-medium">{file.name}</strong><span className="text-muted-foreground">{formatBytes(file.size)} · Limit {formatBytes(DEFAULT_PROJECT_UPLOAD_MAX_FILE_BYTES)} · Not uploaded</span></div>
+          </div>)}
+        </div>}
 
         {/* Multi-file Removable Chip List */}
         {fileList.length > 1 && expandedCard === null && (

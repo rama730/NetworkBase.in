@@ -1,6 +1,6 @@
 "use client";
 
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 import { completionOutcomeLabel } from "@/lib/projects/task-completion-policy";
 import { taskCompletionPolicyKey, syncTaskCompletionPolicy } from "@/hooks/useTaskCompletionPolicy";
 import { useCallback, useMemo, useState } from "react";

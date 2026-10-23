@@ -26,7 +26,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { FileIcon } from "@/components/projects/v2/explorer/FileIcons";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 import { cn } from "@/lib/utils";
 import type { ProjectNode } from "@/lib/db/schema";
 import { extractLabel } from "@/lib/projects/task-file-label";

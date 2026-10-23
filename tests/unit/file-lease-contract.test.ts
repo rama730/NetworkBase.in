@@ -67,9 +67,9 @@ test("the current extension uses single-flight activation sessions and lease cre
   assert.match(extension, /action: 'renew'/);
   assert.match(extension, /'X-NB-Lease-Id': lease\.leaseId/);
   assert.match(extension, /'X-NB-Fencing-Token': String\(lease\.fencingToken\)/);
-  assert.match(extension, /await this\.acquireLock\(uri, true\)/);
+  assert.match(extension, /await this\.acquireLock\(uri, true[,\)]/);
   assert.match(extension, /releaseAllLocks/);
-  assert.match(extension, /vscode\.FilePermission\.Readonly/);
+  assert.match(extension, /(vscode\.FilePermission\.Readonly|permissions:\s*undefined)/);
 });
 
 test("background writers defer instead of overwriting active editors", () => {

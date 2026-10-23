@@ -1,6 +1,6 @@
 # Profile contributions: authority, operations, and repair
 
-This runbook defines the production contract for the profile contribution ecosystem. The normalized relational model is authoritative. `profiles.experience` is compatibility data only and must never be read or written as a contribution source.
+This runbook defines the production contract for the profile contribution ecosystem. The normalized relational model is authoritative. The contribution-story extension below supersedes the former accordion presentation and adds private drafts and explicit publication. `profiles.experience` is compatibility data only and must never be read or written as a contribution source.
 
 ## Field ownership matrix
 
@@ -13,7 +13,7 @@ This runbook defines the production contract for the profile contribution ecosys
 | Public/private visibility | `profile_project_contributions.visibility` | Yes | One parent switch. Stage visibility is only a compatibility mirror. |
 | External project identity and presentation | `profile_project_contributions` with `project_id IS NULL` and stable `external_key` | Yes | External contributions may be created, edited, and deleted by the profile owner. |
 | Canonical skills | `profile_contribution_skills` joined to `skills` | Yes | The JSON label array is a compatibility projection, not the read authority. |
-| Role history | `profile_project_contribution_stages` | No in profile editor | Bounded history created by membership/application lifecycle events. |
+| Recorded role history | `profile_project_contribution_stages` | No | Bounded history created by membership/application lifecycle events. Personal presentation positions live in the story snapshot and cannot change these rows. |
 | Mutation history and retry identity | `profile_audit_events` | No | One unique audit row per user and idempotency key. |
 
 ## Forty-two-point closure map
@@ -53,7 +53,7 @@ This runbook defines the production contract for the profile contribution ecosys
 | 31 | Private owner preview | Private rows remain visible to their owner with an explicit Private status. |
 | 32 | Complete UI states | Loading, empty, private, saving, validation, conflict, and failure states are explicit. |
 | 33 | Paginated editor list | The editor loads 50 rows at a time, caps one session at 500, and appends without losing drafts. |
-| 34 | Accessible accordion | Stable IDs, `aria-expanded`, focusable controls, and one expanded contribution reduce complexity. |
+| 34 | Dedicated contribution editor | Stable contribution URLs open one full editor, with a compact overview and an inline position editor. |
 | 35 | Descriptive platform fields | Platform-owned identity and role render as read-only definitions instead of disabled editable inputs. |
 | 36 | Per-item draft state | Dirty, private, saving, attention, and field-error states remain attached to each contribution. |
 | 37 | Database integration contract | A disposable-only rollback test verifies constraints, indexes, policies, and concurrency. |
@@ -163,4 +163,15 @@ Alert when any of the following occurs:
 
 - Maximum 50 mutations per batch, 20 skills per contribution, 50 contribution rows per page, 20 role-history rows per contribution, and 10 editor pages (500 rows) per open session.
 - Public summaries use request deduplication and a versioned cache; owner/private reads bypass shared public cache content.
-- The editor renders one expanded contribution at a time and fetches pages incrementally, preventing all-project/all-stage DOM expansion.
+- The editor opens one dedicated contribution page at a time and fetches overview pages incrementally, preventing all-project/all-stage DOM expansion.
+
+
+## Contribution story extension — 23 October 2026
+
+See [the implementation and feature-closure map](../design/project-contribution-stories.md). Migration `0237_profile_contribution_stories.sql` must precede the new application code. `profile_contribution_drafts` holds private owner documents, `profile_project_contributions.presentation` holds the last published document, and `profile_contribution_media_assets` retains their image assets. Membership, project identity and actual stage history keep their original authority.
+
+The story command is authenticated, strictly validated, owner-scoped, transactional, version checked, rate limited and audited. Draft saves never publish. Hide takes effect on the parent immediately; public/unlisted project and profile restrictions still apply at read time. A duplicate external project merge changes only the target private draft and can be undone atomically while its version is unchanged. Repeated request identities do not replay a completed operation.
+
+The editor supports an optional activity token inside the summary, public-resource mentions, up to 20 personal position presentations, eight private images, canonical skills, supporting links, pinning, export, recovery and conflict review. Unknown end dates display the start month alone; current status is explicit. Public image delivery rechecks the last published snapshot, current profile/project access and source-file availability; it never exposes a permanent public storage URL.
+
+`tests/unit/contribution-story.test.ts`, `tests/unit/contribution-story-render.test.tsx` and `tests/db/contribution-stories.test.ts` cover the new contracts without using a browser. The account export includes private drafts and published stories, and account deletion removes draft/media-reference rows through parent foreign keys before shared asset cleanup runs.

@@ -245,7 +245,7 @@ test("task uploads preserve the selected intent and destination", () => {
   assert.match(files, /intent === "deliverable" \? targetNodeId : undefined/);
   assert.match(
     files,
-    /toast\.error\(failed\.error \|\| "Failed to upload files"\)/,
+    /toast\.error\(feedbackError\(failed\.error \|\| "Failed to upload files", "Failed to upload files"\)\)/,
   );
   assert.match(files, /Array\.from\(dataTransfer\.files \|\| \[\]\)/);
 });

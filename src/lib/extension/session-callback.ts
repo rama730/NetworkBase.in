@@ -52,11 +52,20 @@ export function inferExtensionCallbackUri(
     case "vscode-insiders":
     case "cursor":
     case "windsurf":
+    case "vscodium":
+    case "trae":
+    case "zed":
+    case "antigravity":
       return callbackUriForScheme((editorHost || "").toLowerCase());
     default: {
       const name = (editorName || "").toLowerCase();
       if (name.includes("antigravity")) return callbackUriForScheme("antigravity");
-      if (name.includes("visual studio code")) return callbackUriForScheme("vscode");
+      if (name.includes("cursor")) return callbackUriForScheme("cursor");
+      if (name.includes("windsurf")) return callbackUriForScheme("windsurf");
+      if (name.includes("vscodium") || name.includes("codium")) return callbackUriForScheme("vscodium");
+      if (name.includes("trae")) return callbackUriForScheme("trae");
+      if (name.includes("zed")) return callbackUriForScheme("zed");
+      if (name.includes("visual studio code") || name.includes("vscode")) return callbackUriForScheme("vscode");
       return null;
     }
   }

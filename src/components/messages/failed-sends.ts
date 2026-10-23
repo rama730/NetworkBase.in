@@ -1,7 +1,7 @@
 "use client";
 
 import type { InfiniteData, QueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 
 import { sendMessage } from "@/app/actions/chat/messages";
 import { chatErrorMessage } from "@/lib/messaging/errors";

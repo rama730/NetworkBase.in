@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Search, Users } from "lucide-react";
 import { ConversationIcon, type ConversationKind } from "@/components/messages/ConversationIcon";
 import { keyLabel } from "@/components/messages/keys";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 
 import { searchChannels } from "@/app/actions/chat/channels";
 import { getOrCreateDm } from "@/app/actions/chat/members";

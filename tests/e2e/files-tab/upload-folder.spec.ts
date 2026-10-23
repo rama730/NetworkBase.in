@@ -171,10 +171,10 @@ test.describe("Files tab V3 — folder upload", () => {
             // either success or failure; we accept the success toast as the
             // pass signal, and the error toast as a Req-18.1 `fail`.
             const successToast = page
-                .getByText(/Successfully uploaded folder/i)
+                .getByText(/^\d+ files? uploaded$/i)
                 .first();
             const errorToast = page
-                .getByText(/Upload failed|Folder upload failed/i)
+                .locator('[data-testid="toast"]').filter({ hasText: /Upload interrupted|File too large|\d+ uploaded.*\d+ failed|Check file requirements/i })
                 .first();
 
             const outcome = await Promise.race([

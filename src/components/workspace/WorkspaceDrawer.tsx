@@ -12,6 +12,7 @@ import { useNetworkNotifications } from "@/hooks/useNetworkNotifications";
 
 import WorkspaceTasksTab from "./WorkspaceTasksTab";
 import WorkspaceRequestsTab from "./WorkspaceRequestsTab";
+import { OpenInIdeButton } from "@/components/projects/v2/files-tab/OpenInIdeButton";
 
 export default function WorkspaceDrawer() {
   const isWorkspaceOpen = useUIStore((s) => s.isWorkspaceOpen);
@@ -64,23 +65,24 @@ export default function WorkspaceDrawer() {
         className="z-[201] h-full w-full max-w-full gap-0 border-border bg-card p-0 text-card-foreground shadow-lg sm:w-[520px] sm:max-w-[520px]"
       >
         <div className="flex-shrink-0 border-b border-border">
-          <div className="flex h-14 items-center justify-between px-4 md:px-6">
-            <div className="flex items-center gap-2">
+          <div className="flex h-14 items-center justify-between gap-3 px-4 md:px-6">
+            <div className="flex shrink-0 items-center gap-2">
               <DialogTitle className="nb-card-title text-[17px] font-semibold text-foreground">
-                {/* ponytail: dual label keeps desktop copy frozen; drop the desktop span once a desktop copy pass is approved. */}
-                <span className="md:hidden">My work</span>
-                <span className="hidden md:inline">Workspace</span>
+                My work
               </DialogTitle>
               <DialogDescription className="sr-only">
                 Review open work and pending invitations.
               </DialogDescription>
             </div>
-            <DialogClose
-              aria-label="Close workspace"
-              className="nb-icon-button min-h-8 min-w-8 rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <X className="h-4 w-4" aria-hidden="true" />
-            </DialogClose>
+            <div className="flex min-w-0 items-center gap-2">
+              <OpenInIdeButton className="min-w-0 shrink" />
+              <DialogClose
+                aria-label="Close workspace"
+                className="nb-icon-button min-h-8 min-w-8 shrink-0 rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </DialogClose>
+            </div>
           </div>
 
           <div

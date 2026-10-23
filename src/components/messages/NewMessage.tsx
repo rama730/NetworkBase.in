@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 import { X } from "lucide-react";
 
 import { renameGroup } from "@/app/actions/chat/channels";

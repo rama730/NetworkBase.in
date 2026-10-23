@@ -1,6 +1,6 @@
 "use client";
 
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 import { filesReturnQuery } from "@/lib/files/task-navigation";
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -327,7 +327,7 @@ export default function TasksTab({
       if (context?.previousWorkflow)
         queryClient.setQueryData(workflowQueryKey, context.previousWorkflow);
       toast.error(
-        error instanceof Error ? error.message : "Failed to save workflow",
+        feedbackError(error instanceof Error ? error.message : "Failed to save workflow", "Failed to save workflow"),
       );
     },
   });
@@ -524,7 +524,7 @@ export default function TasksTab({
         columnPendingDeletion.id,
       );
       if (!result.success) {
-        toast.error(result.error || "Failed to delete section");
+        toast.error(feedbackError(result.error || "Failed to delete section", "Failed to delete section"));
         return;
       }
       queryClient.setQueryData(
@@ -534,7 +534,7 @@ export default function TasksTab({
       setColumnPendingDeletion(null);
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to delete section",
+        feedbackError(error instanceof Error ? error.message : "Failed to delete section", "Failed to delete section"),
       );
     } finally {
       setIsDeletingColumn(false);
@@ -643,7 +643,7 @@ export default function TasksTab({
       const message =
         "Could not open the requested task. It may have been moved, deleted, or unavailable.";
       setInitialTaskLoadError(message);
-      toast.error(message);
+      toast.error(feedbackError(message, "Action couldn’t finish"));
     };
 
     void getProjectTaskDetailAction(projectId, initialOpenTaskId)

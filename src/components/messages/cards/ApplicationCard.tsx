@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 
 import {
   acceptApplicationAction,
@@ -66,7 +66,7 @@ export function ApplicationActions({ view, layout = "card" }: { view: Applicatio
           label: "Undo",
           onClick: () => void reopenApplicationAction(view.id).then((undone) => {
             refresh();
-            if (!undone.success) toast.error(undone.error || "Could not undo");
+            if (!undone.success) toast.error(feedbackError(undone.error || "Could not undo", "Could not undo"));
           }),
         },
       });

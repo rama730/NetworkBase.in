@@ -556,8 +556,8 @@ type UploadOutcome = "success" | "error" | "timeout";
  * scenarios in this spec.
  */
 async function awaitUploadToast(page: Page): Promise<UploadOutcome> {
-  const successToast = page.getByText(/^Uploaded \d+ file\(s\)/i).first();
-  const errorToast = page.getByText(/^Upload failed/i).first();
+  const successToast = page.getByText(/^\d+ files? uploaded$/i).first();
+  const errorToast = page.locator('[data-testid="toast"]').filter({ hasText: /Upload interrupted|File too large|\d+ uploaded.*\d+ failed|Check file requirements/i }).first();
 
   const result = await Promise.race([
     successToast

@@ -3,7 +3,7 @@
 
 import dynamic from "next/dynamic";
 import { extOf } from "@/components/projects/v2/utils/fileKind";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 
 import * as React from "react";
 import {
@@ -183,7 +183,7 @@ export function FileActionsBar({
         // On failure: show error toast, keep picker open for retry (Req 9.5).
         const message =
           err instanceof Error ? err.message : "Failed to attach file to task";
-        toast.error(message);
+        toast.error(feedbackError(message, "Action couldn’t finish"));
       } finally {
         setIsLinking(false);
       }
@@ -198,7 +198,7 @@ export function FileActionsBar({
       const { unlinkProjectDocAction } = await import("@/app/actions/project/doc");
       const result = await unlinkProjectDocAction(projectId, linkedDoc.slug);
       if (!result.success) {
-        toast.error(result.error || "Failed to remove from Docs");
+        toast.error(feedbackError(result.error || "Failed to remove from Docs", "Failed to remove from Docs"));
         return;
       }
       toast.success("Removed from Docs");
@@ -207,7 +207,7 @@ export function FileActionsBar({
         queryClient.invalidateQueries({ queryKey: PROJECT_DOCS_QUERY_KEY(projectId) })
       ]);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to remove from Docs");
+      toast.error(feedbackError(err instanceof Error ? err.message : "Failed to remove from Docs", "Failed to remove from Docs"));
     } finally {
       setIsImportingReadme(false);
     }
@@ -281,11 +281,11 @@ export function FileActionsBar({
         } else if (result.lockConflict) {
           setLockConflict(result.lockConflict);
         } else {
-          toast.error(result.error || "Failed to save revision");
+          toast.error(feedbackError(result.error || "Failed to save revision", "Failed to save revision"));
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to replace file";
-        toast.error(message);
+        toast.error(feedbackError(message, "Action couldn’t finish"));
       } finally {
         setIsReplacing(false);
       }
@@ -314,7 +314,7 @@ export function FileActionsBar({
       anchor.rel = "noopener";
       anchor.click();
       if (local) setTimeout(() => URL.revokeObjectURL(url), 30_000);
-    } catch (error) { toast.error(error instanceof Error ? error.message : "Could not download file"); }
+    } catch (error) { toast.error(feedbackError(error instanceof Error ? error.message : "Could not download file", "Could not download file")); }
     finally { setDownloading(false); }
   }
   async function copyLink() {
@@ -356,13 +356,13 @@ export function FileActionsBar({
           {workspace && <DropdownMenuItem onSelect={() => workspace.setInspector(current => current === "details" ? null : "details")}><Info className="size-4" />Details</DropdownMenuItem>}
           {projectId && nodeId && <>
             <DropdownMenuItem onSelect={() => useFilesWorkspaceStore.getState().toggleFavorite(projectId, nodeId)}><Star className="size-4" fill={starred ? "currentColor" : "none"} />{starred ? "Unstar" : "Star"}</DropdownMenuItem>
-            <DropdownMenuItem disabled={downloading} onClick={() => void downloadFile()} className="gap-2"><Download className="size-4" />{downloading ? "Downloading…" : "Download"}</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => void copyLink()} className="gap-2"><Copy className="size-4" />Copy file link</DropdownMenuItem>
+            <DropdownMenuItem disabled={downloading} onSelect={() => void downloadFile()} className="gap-2"><Download className="size-4" />{downloading ? "Downloading…" : "Download"}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void copyLink()} className="gap-2"><Copy className="size-4" />Copy file link</DropdownMenuItem>
             <DropdownMenuSeparator />
           </>}
           {/* View / Preview option */}
           {mode !== "view" && (
-            <DropdownMenuItem onClick={onView} className="gap-2 cursor-pointer">
+            <DropdownMenuItem onSelect={onView} className="gap-2 cursor-pointer">
               <BookOpenText className="h-4 w-4 opacity-70" />
               <span>Preview</span>
             </DropdownMenuItem>
@@ -370,7 +370,7 @@ export function FileActionsBar({
 
           {/* Raw option */}
           {showRawOption && mode !== "raw" && (
-            <DropdownMenuItem onClick={onRaw} className="gap-2 cursor-pointer">
+            <DropdownMenuItem onSelect={onRaw} className="gap-2 cursor-pointer">
               <FileCode2 className="h-4 w-4 opacity-70" />
               <span>Raw</span>
             </DropdownMenuItem>
@@ -378,7 +378,7 @@ export function FileActionsBar({
 
           {/* Edit option */}
           {canEditOption && mode !== "edit" && (
-            <DropdownMenuItem onClick={onEdit} className="gap-2 cursor-pointer">
+            <DropdownMenuItem onSelect={onEdit} className="gap-2 cursor-pointer">
               <Pencil className="h-4 w-4 opacity-70" />
               <span>Edit</span>
             </DropdownMenuItem>
@@ -387,7 +387,7 @@ export function FileActionsBar({
           {/* Replace option */}
           {canReplaceOption && (
             <DropdownMenuItem
-              onClick={handleReplaceClick}
+              onSelect={handleReplaceClick}
               disabled={isReplacing || mode === "edit"}
               className="gap-2 cursor-pointer"
               aria-label="Upload a file revision"
@@ -399,14 +399,14 @@ export function FileActionsBar({
 
           {/* Attach to task option */}
           {canAttachOption && (
-            <DropdownMenuItem onClick={handleOpenTaskPicker} className="gap-2 cursor-pointer">
+            <DropdownMenuItem onSelect={handleOpenTaskPicker} className="gap-2 cursor-pointer">
               <Link2 className="h-4 w-4 opacity-70" />
               <span>Attach to task…</span>
             </DropdownMenuItem>
           )}
 
           {canReadmeOption && (
-            <DropdownMenuItem onClick={handleRemoveFromDocs} className="gap-2 cursor-pointer">
+            <DropdownMenuItem onSelect={handleRemoveFromDocs} className="gap-2 cursor-pointer">
               <BookOpenText className="h-4 w-4 opacity-70" />
               <span>Remove from Docs</span>
             </DropdownMenuItem>
@@ -419,7 +419,7 @@ export function FileActionsBar({
           {/* Toggle panels */}
           {onToggleLinkedTasks && roleCtx?.canReadTasks && (
             <DropdownMenuItem
-              onClick={onToggleLinkedTasks}
+              onSelect={onToggleLinkedTasks}
               data-testid="linked-tasks-toggle"
               aria-pressed={isLinkedTasksPanelOpen}
               className={cn("gap-2 cursor-pointer", isLinkedTasksPanelOpen && "bg-muted font-medium")}
@@ -431,7 +431,7 @@ export function FileActionsBar({
 
           {onToggleVersionHistory && (
             <DropdownMenuItem
-              onClick={onToggleVersionHistory}
+              onSelect={onToggleVersionHistory}
               data-testid="version-history-toggle"
               aria-pressed={isVersionHistoryPanelOpen}
               className={cn("gap-2 cursor-pointer", isVersionHistoryPanelOpen && "bg-muted font-medium")}

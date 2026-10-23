@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 import { resolveProjectUpdateMentionTargetAction, type ProjectUpdateView } from "@/app/actions/project/updates";
 import {
     ProjectUpdateMediaFrame,
@@ -59,7 +59,7 @@ function ReferenceLink({
         id: reference.id,
       });
       if (!result.success) {
-        toast.error(result.error || "This item is not available or you do not have access.");
+        toast.error(feedbackError(result.error || "This item is not available or you do not have access.", "This item is not available or you do not have access."));
         return;
       }
       router.push(result.href);

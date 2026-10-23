@@ -13,7 +13,7 @@ import {
 } from "@/stores/ui-store";
 import { ListChecks, MoreHorizontal, Search, X, ChevronDown, Copy, ExternalLink, Calendar, User } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 import { TaskCard } from "@/components/projects/v2/tasks/TaskCard";
 import TaskPriorityBadge from "@/components/projects/v2/tasks/badges/TaskPriorityBadge";
 import TaskStatusBadge from "@/components/projects/v2/tasks/badges/TaskStatusBadge";

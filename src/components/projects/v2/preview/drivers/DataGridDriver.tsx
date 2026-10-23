@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 import { cn } from "@/lib/utils";
 
 export interface SheetData {

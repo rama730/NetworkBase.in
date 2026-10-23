@@ -16,7 +16,7 @@ import {
     Trash2,
     X,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 import { createProjectUpdateCommentAction, deleteProjectUpdateCommentAction, readProjectUpdateCommentsAction, type ProjectUpdateCommentView, type ProjectUpdateView } from "@/app/actions/project/updates";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { ThreadAvatarRail, ThreadRailBridge } from "@/components/ui/ThreadRail";
@@ -492,7 +492,7 @@ export function UpdateComments({
       if (context?.previousUpdates)
         queryClient.setQueryData(updatesQueryKey, context.previousUpdates);
       toast.error(
-        error instanceof Error ? error.message : "Failed to post comment",
+        feedbackError(error instanceof Error ? error.message : "Failed to post comment", "Failed to post comment"),
       );
     },
     onSuccess: (comment, _content, context) => {
@@ -575,7 +575,7 @@ export function UpdateComments({
     },
     onError: (error) =>
       toast.error(
-        error instanceof Error ? error.message : "Failed to delete comment",
+        feedbackError(error instanceof Error ? error.message : "Failed to delete comment", "Failed to delete comment"),
       ),
   });
 

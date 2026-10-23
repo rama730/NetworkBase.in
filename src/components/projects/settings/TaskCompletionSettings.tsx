@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 import { SettingsCard } from "@/components/projects/settings/SettingsFormFields";
 import {
@@ -36,9 +36,9 @@ export function TaskCompletionSettings({ projectId }: { projectId: string }) {
       );
     } catch (error) {
       toast.error(
-        error instanceof Error
+        feedbackError(error instanceof Error
           ? error.message
-          : "Unable to save completion settings",
+          : "Unable to save completion settings", "Unable to save completion settings"),
       );
       void policy.refetch();
     } finally {
