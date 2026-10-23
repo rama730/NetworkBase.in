@@ -121,7 +121,7 @@ export function ProjectContributionsCard({
             )}
           </div>
         ) : (
-          <div className="nb-empty-state py-8 text-center">
+          <div className="nb-empty-state nb-grid-ground py-8 text-center">
             <FolderGit2 className="nb-empty-state-icon mb-2" />
             <p className="nb-card-title">No project contributions</p>
             <p className="nb-compact mt-1 text-muted-foreground">

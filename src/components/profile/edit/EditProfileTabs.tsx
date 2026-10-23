@@ -1089,8 +1089,8 @@ function SocialLinksEditor({ links, metadata, onChange }: { links: SocialLinkSto
                     )}
                 </SortableLinkList>
             ) : (
-                <div className="nb-body rounded-md border border-dashed border-border bg-muted/40 px-4 py-5 text-muted-foreground">
-                    Add a public profile, portfolio, or website to get started.
+                <div className="nb-empty-state nb-grid-ground rounded-md border border-dashed border-border px-4 py-5 text-center">
+                    <p className="nb-compact text-muted-foreground">Add a public profile, portfolio, or website to get started.</p>
                 </div>
             )}
 

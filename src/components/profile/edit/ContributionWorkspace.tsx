@@ -1115,7 +1115,7 @@ export function ContributionWorkspace({
             })}
           </div>
           {!filtered.length && (
-            <div className="py-12 text-center">
+            <div className="nb-empty-state nb-grid-ground rounded-lg py-12 text-center">
               <h3 className="nb-card-title">
                 {search
                   ? "No matching contributions"
