@@ -48,6 +48,8 @@ type PresenceRoomEntry = {
   _lastTrackTime?: number;
   _pendingTrackTimer?: ReturnType<typeof setTimeout> | null;
   failureReported: boolean;
+  reconnectTimer?: ReturnType<typeof setTimeout> | null;
+  reconnectAttempts?: number;
 };
 
 type SupabasePresenceMeta = Partial<PresenceMemberState> & {
@@ -74,6 +76,9 @@ type RealtimeSubscribeStatus =
   (typeof REALTIME_SUBSCRIBE_STATES)[keyof typeof REALTIME_SUBSCRIBE_STATES];
 
 const ENTRY_RELEASE_GRACE_MS = 1_500;
+const RECONNECT_BASE_DELAY_MS = 1_500;
+const RECONNECT_MAX_DELAY_MS = 20_000;
+const MAX_RECONNECT_ATTEMPTS = 10;
 const presenceEntries = new Map<string, PresenceRoomEntry>();
 const presenceHealthListeners = new Set<PresenceHealthListener>();
 
@@ -394,6 +399,46 @@ function createEntry(roomType: PresenceRoomType, roomId: string, role: PresenceR
   return entry;
 }
 
+function scheduleReconnect(entry: PresenceRoomEntry) {
+  if (entry.reconnectTimer) {
+    clearTimeout(entry.reconnectTimer);
+    entry.reconnectTimer = null;
+  }
+
+  const roomKey = getRoomKey(entry.roomType, entry.roomId);
+  if (presenceEntries.get(roomKey) !== entry) return;
+  if (entry.listeners.size === 0 && entry.statusListeners.size === 0) return;
+
+  const attempts = entry.reconnectAttempts ?? 0;
+  if (attempts >= MAX_RECONNECT_ATTEMPTS) {
+    return;
+  }
+
+  const jitter = Math.random() * 400;
+  const delay = Math.min(
+    RECONNECT_BASE_DELAY_MS * Math.pow(1.6, attempts) + jitter,
+    RECONNECT_MAX_DELAY_MS
+  );
+
+  entry.reconnectAttempts = attempts + 1;
+  entry.reconnectTimer = setTimeout(() => {
+    entry.reconnectTimer = null;
+    if (presenceEntries.get(roomKey) !== entry) return;
+    if (entry.listeners.size === 0 && entry.statusListeners.size === 0) return;
+
+    updateStatus(entry, "connecting");
+    const supabase = createClient();
+    try {
+      void supabase.removeChannel(entry.channel);
+    } catch {
+      // ignore cleanup errors on stale channel
+    }
+
+    entry.channel = setupChannel(entry.roomType, entry.roomId, entry.connectionId);
+    void connectEntry(entry);
+  }, delay);
+}
+
 async function connectEntry(entry: PresenceRoomEntry) {
   const supabase = createClient();
   const accessToken = await realtimeUserToken();
@@ -401,6 +446,7 @@ async function connectEntry(entry: PresenceRoomEntry) {
 
   if (!accessToken) {
     updateStatus(entry, "error");
+    scheduleReconnect(entry);
     return;
   }
 
@@ -417,6 +463,7 @@ async function connectEntry(entry: PresenceRoomEntry) {
       });
     }
     updateStatus(entry, "error");
+    scheduleReconnect(entry);
     return;
   }
 
@@ -425,6 +472,11 @@ async function connectEntry(entry: PresenceRoomEntry) {
   entry.channel.subscribe((status: RealtimeSubscribeStatus, subError?: Error) => {
       if (status === REALTIME_SUBSCRIBE_STATES.SUBSCRIBED) {
         entry.failureReported = false;
+        entry.reconnectAttempts = 0;
+        if (entry.reconnectTimer) {
+          clearTimeout(entry.reconnectTimer);
+          entry.reconnectTimer = null;
+        }
         updateStatus(entry, "connected");
         void trackPresence(entry);
         return;
@@ -445,9 +497,8 @@ async function connectEntry(entry: PresenceRoomEntry) {
           });
         }
         updateStatus(entry, "error");
-        if (subError?.message.includes("Unauthorized")) {
-          void supabase.removeChannel(entry.channel);
-        }
+        void supabase.removeChannel(entry.channel);
+        scheduleReconnect(entry);
         return;
       }
 
@@ -478,6 +529,9 @@ function cleanupEntry(roomKey: string) {
   }
   if (entry._pendingTrackTimer) {
     clearTimeout(entry._pendingTrackTimer);
+  }
+  if (entry.reconnectTimer) {
+    clearTimeout(entry.reconnectTimer);
   }
   presenceEntries.delete(roomKey);
   createClient().removeChannel(entry.channel);
@@ -550,4 +604,16 @@ export function subscribePresenceHealth(listener: PresenceHealthListener) {
     presenceHealthListeners.delete(listener);
   };
 }
+
+if (typeof window !== "undefined") {
+  window.addEventListener("online", () => {
+    for (const entry of presenceEntries.values()) {
+      if ((entry.status === "error" || entry.status === "disconnected") && (entry.listeners.size > 0 || entry.statusListeners.size > 0)) {
+        entry.reconnectAttempts = 0;
+        scheduleReconnect(entry);
+      }
+    }
+  });
+}
+
 
