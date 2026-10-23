@@ -3,6 +3,7 @@
 import { sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
+import { withDbRetry } from "@/lib/db/retry";
 import { getProjectAccessByIds } from "@/lib/data/project-access";
 import { logger } from "@/lib/logger";
 import { uuidArray } from "@/lib/messaging/server";
@@ -27,8 +28,12 @@ const unauthorized: Failure = { success: false, error: "unauthorized" };
 const invalid: Failure = { success: false, error: "invalid_input" };
 const MAX_BATCH = 100;
 
-async function rows<T>(query: ReturnType<typeof sql>) {
-  return (await db.execute(query)) as unknown as T[];
+async function rows<T>(query: ReturnType<typeof sql>, action = "presence.read") {
+  return (await withDbRetry(action, () => db.execute(query), { module: "presence" })) as unknown as T[];
+}
+
+async function exec(query: ReturnType<typeof sql>, action = "presence.write") {
+  return await withDbRetry(action, () => db.execute(query), { module: "presence" });
 }
 
 async function liveSet(userIds: string[]) {
@@ -177,7 +182,7 @@ export async function setMyStatus(input: {
   const pause = Boolean(input.pauseNotifications);
   // Pausing with no end still needs one; it lifts when the status is cleared.
   const pauseUntil = pause ? (expires ?? new Date(Date.now() + 90 * 24 * 60 * 60_000)).toISOString() : null;
-  await db.execute(sql`
+  await exec(sql`
     UPDATE profiles SET
       status_emoji = ${emoji},
       status_text = ${text},
@@ -198,7 +203,7 @@ export async function setMyStatus(input: {
 export async function clearMyStatus() {
   const user = await getAuthUser();
   if (!user) return unauthorized;
-  await db.execute(sql`
+  await exec(sql`
     UPDATE profiles SET
       notification_preferences = CASE
         WHEN status_pauses_notifications THEN jsonb_set(coalesce(notification_preferences, '{}'::jsonb), '{pausedUntil}', 'null'::jsonb)
@@ -218,7 +223,7 @@ export async function clearMyStatus() {
 export async function resumeNotifications() {
   const user = await getAuthUser();
   if (!user) return unauthorized;
-  await db.execute(sql`
+  await exec(sql`
     UPDATE profiles SET
       notification_preferences = jsonb_set(coalesce(notification_preferences, '{}'::jsonb), '{pausedUntil}', 'null'::jsonb),
       status_pauses_notifications = false
@@ -232,7 +237,7 @@ export async function setStatusVisibility(input: { visibility: StatusVisibility 
   const user = await getAuthUser();
   if (!user) return unauthorized;
   if (!VISIBILITIES.includes(input?.visibility)) return invalid;
-  await db.execute(sql`UPDATE profiles SET status_visibility = ${input.visibility} WHERE id = ${user.id}::uuid`);
+  await exec(sql`UPDATE profiles SET status_visibility = ${input.visibility} WHERE id = ${user.id}::uuid`, "presence.set_visibility");
   return { success: true as const };
 }
 
@@ -245,10 +250,10 @@ export async function setShowActivity(input: { show: boolean }) {
   const user = await getAuthUser();
   if (!user) return unauthorized;
   const show = Boolean(input?.show);
-  await db.execute(sql`
+  await exec(sql`
     UPDATE profiles SET show_activity = ${show}::boolean, last_active_at = CASE WHEN ${show}::boolean THEN last_active_at ELSE NULL END
     WHERE id = ${user.id}::uuid
-  `);
+  `, "presence.set_activity_visibility");
   if (!show) await getRedisClient()?.del(`presence:live:${user.id}`).catch(() => undefined);
   return { success: true as const };
 }
@@ -307,12 +312,12 @@ export async function setProjectStatus(input: { projectId: string; emoji?: strin
   const expires = validStatusExpiry(input.expiresAt ?? null);
   if (expires === "invalid") return invalid;
   if (!(await canManageProject(input.projectId, user.id))) return { success: false as const, error: "forbidden" };
-  await db.execute(sql`
+  await exec(sql`
     UPDATE projects SET status_emoji = ${emoji}, status_text = ${text},
       status_expires_at = ${expires ? expires.toISOString() : null}::timestamptz,
       status_set_by = ${user.id}::uuid, status_set_at = now()
     WHERE id = ${input.projectId}::uuid
-  `);
+  `, "presence.set_project_status");
   return { success: true as const };
 }
 
@@ -321,9 +326,9 @@ export async function clearProjectStatus(input: { projectId: string }) {
   if (!user) return unauthorized;
   if (!isUuid(input?.projectId)) return invalid;
   if (!(await canManageProject(input.projectId, user.id))) return { success: false as const, error: "forbidden" };
-  await db.execute(sql`
+  await exec(sql`
     UPDATE projects SET status_emoji = NULL, status_text = NULL, status_expires_at = NULL, status_set_by = NULL, status_set_at = NULL
     WHERE id = ${input.projectId}::uuid
-  `);
+  `, "presence.clear_project_status");
   return { success: true as const };
 }
