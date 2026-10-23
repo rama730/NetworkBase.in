@@ -51,7 +51,7 @@ export const rootMetadata: Metadata = {
   applicationName: "NetworkBase",
   manifest: "/manifest.webmanifest",
   icons: {
-    // Transparent margin avoids Safari's contrast outline around the cream tile.
+    // White border and 8% inset avoids Safari's dark contrast outline around the cream tile.
     icon: [
       { url: "/icon-paper-tab.ico", sizes: "16x16 32x32 48x48", type: "image/x-icon" },
       { url: "/icon-paper-tab-32.png", sizes: "32x32", type: "image/png" },
