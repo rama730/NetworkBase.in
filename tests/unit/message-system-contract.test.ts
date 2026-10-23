@@ -1065,7 +1065,7 @@ test("Section 12 (Messages reorganization, 96-item plan) contracts", () => {
     assert.match(timeline, /title="Jump to a date"/, "Day labels jump to a date");
     assert.match(row, /"Mark unread"[\s\S]*"Create task"[\s\S]*"Copy text"|"Copy text"[\s\S]*"Mark unread"[\s\S]*"Create task"/, "Message menu: copy text, mark unread, create task");
     assert.match(row, /listReactors/, "Reaction tooltips name who reacted");
-    assert.match(row, /UNDO_DELETE_MS/, "Deleting your own message has an Undo window");
+    assert.match(row, /deferredFeedback\("Message deleted"/, "Deleting your own message uses the shared active Undo clock");
 
     // H. Threads: follow, participants, new-replies divider, virtualized.
     assert.match(thread, /setThreadFollow\(/, "Follow / Unfollow a thread");

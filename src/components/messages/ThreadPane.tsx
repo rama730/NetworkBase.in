@@ -12,7 +12,7 @@ import { LatestBar } from "@/components/messages/parts/LatestBar";
 import { Button } from "@/components/ui/button";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { REVEAL_EVENT, type RevealEvent } from "@/components/messages/Timeline";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 
 import { storedFailedSends } from "@/components/messages/failed-sends";
 import { joinChannel } from "@/app/actions/chat/channels";

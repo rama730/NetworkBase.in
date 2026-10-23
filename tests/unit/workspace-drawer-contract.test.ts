@@ -134,7 +134,7 @@ it("uses the shared drawer motion contract and concise workspace naming", () => 
   const indicator = read("src/components/layout/header/WorkspaceIndicator.tsx");
 
   assert.match(drawer, /presentation="right-drawer"/);
-  assert.match(drawer, /<DialogTitle[^>]*>[\s\S]*?<span className="md:hidden">My work<\/span>\s*<span className="hidden md:inline">Workspace<\/span>/);
+  assert.match(drawer, /<DialogTitle[^>]*>\s*My work\s*<\/DialogTitle>/);
   assert.match(host, /const \[hasMounted, setHasMounted\]/);
   assert.match(host, /return hasMounted \? <WorkspaceDrawer \/> : null/);
   assert.match(indicator, />\s*My work\s*</);

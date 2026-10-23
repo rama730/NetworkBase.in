@@ -16,9 +16,10 @@ const eslintConfig = defineConfig([
     "artifacts/**",
     "coverage/**",
     "next-env.d.ts",
-    // Local skills, exploratory files, and service packages have their own
+    // Local skills, exploratory files, docs audits, and service packages have their own
     // toolchains; they are not part of the Next product lint boundary.
     "scratch/**",
+    "docs/**",
   ]),
   {
     rules: {

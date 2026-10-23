@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { useFormContext } from 'react-hook-form';
 import { Check, ChevronDown, ChevronRight, CircleHelp, File, Folder, FolderUp, GitBranch, Github, Loader2, RefreshCcw } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { toast } from 'sonner';
+import { toast, feedbackError } from "@/lib/feedback";
 import type { CreateProjectInput } from '@/lib/validations/project';
 import { logger } from '@/lib/logger';
 import { getAuthHardeningPhase } from '@/lib/auth/hardening';
@@ -354,7 +354,7 @@ export default function Phase1SourceSelection({
         } catch (error: any) {
             setIsConnectingGithub(false);
             clearGithubOAuthResume(resumeId);
-            toast.error(`Failed to connect GitHub: ${error?.message || 'Unknown error'}`);
+            toast.error(feedbackError(`Failed to connect GitHub: ${error?.message || 'Unknown error'}`, "Unknown error"));
         }
     };
 
@@ -429,7 +429,7 @@ export default function Phase1SourceSelection({
             if (needsRefresh) {
                 setHasGithubRepoAccess(false);
             }
-            toast.error(message);
+            toast.error(feedbackError(message, "Action couldn’t finish"));
         } finally {
             setIsLoadingRepos(false);
         }

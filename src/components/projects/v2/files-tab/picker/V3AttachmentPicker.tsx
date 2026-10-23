@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Search, X } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   getProjectNodes,

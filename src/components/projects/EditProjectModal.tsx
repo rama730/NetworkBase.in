@@ -10,7 +10,7 @@ import { ProjectRolesEditor } from "@/components/projects/settings/ProjectRolesE
 import { normalizeProjectRoleFormValues } from "@/lib/projects/project-roles-form";
 import { Layout, FileText, Layers, Users, X, Check, Info, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 import { updateProject, updateProjectLifecycleAction } from "@/app/actions/project";
 import { SkillPicker } from "@/components/skills/SkillPicker";
 import { ProjectLinkEditorFields, type ProjectLinkEditorHandle } from "@/components/projects/dashboard/ProjectSocialLinksCard";

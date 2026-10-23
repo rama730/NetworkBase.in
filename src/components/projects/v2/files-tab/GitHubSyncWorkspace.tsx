@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import * as sync from "@/app/actions/github-sync";
 import { createClient } from "@/lib/supabase/client";
+import { subscribeActiveResource } from "@/lib/realtime/subscriptions";
 import {
   fetchGithubImportBranches,
   fetchGithubImportRepositories,
@@ -444,33 +445,34 @@ export function GitHubSyncWorkspace({
   useEffect(() => {
     if (!canManage) return;
     const supabase = createClient();
-    const channel = supabase
-      .channel(`github-sync-run-${projectId}`)
-      .on(
-        "postgres_changes",
+    const channel = subscribeActiveResource({
+      supabase,
+      resourceType: "project_workflow",
+      resourceId: projectId,
+      subscriberId: "github-sync-workspace",
+      bindings: [
         {
           event: "*",
-          schema: "public",
           table: "github_sync_runs",
           filter: `project_id=eq.${projectId}`,
-        },
-        (payload: { new?: Record<string, unknown> | null }) => {
-          const updated = payload.new as { id?: string; status?: string } | undefined | null;
-          if (updated?.id && activeRunRef.current?.id === updated.id) {
-            void sync.getActiveSyncRun(projectId, updated.id).then((res) => {
-              if (res.success && mounted.current) {
-                setRun(res.data);
-                if (!isActiveRun(res.data)) {
-                  void loadRef.current().catch(() => {});
+          handler: (payload) => {
+            const updated = payload.new as { id?: string; status?: string } | undefined | null;
+            if (updated?.id && activeRunRef.current?.id === updated.id) {
+              void sync.getActiveSyncRun(projectId, updated.id).then((res) => {
+                if (res.success && mounted.current) {
+                  setRun(res.data);
+                  if (!isActiveRun(res.data)) {
+                    void loadRef.current().catch(() => {});
+                  }
                 }
-              }
-            });
-          } else {
-            void loadRef.current().catch(() => {});
-          }
+              });
+            } else {
+              void loadRef.current().catch(() => {});
+            }
+          },
         },
-      )
-      .subscribe();
+      ],
+    });
 
     return () => {
       void supabase.removeChannel(channel);

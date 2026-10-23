@@ -5,7 +5,7 @@ import {
     Loader2,
     Info,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { LifecycleEditor as BaseLifecycleEditor } from "@/components/projects/LifecycleEditor";
 import { SettingsCard } from '@/components/projects/settings/SettingsFormFields';

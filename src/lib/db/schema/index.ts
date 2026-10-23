@@ -455,6 +455,7 @@ export const profileAuditEvents = pgTable(
       .notNull(),
   },
   (t) => ({
+    storyRequestUnique: uniqueIndex("profile_audit_events_story_request_unique").on(t.userId,sql`(${t.metadata}->>'requestId')`).where(sql`${t.eventType} = 'contribution_story_saved'`),
     userEventIdx: index("profile_audit_events_user_event_idx").on(
       t.userId,
       t.eventType,
@@ -1139,6 +1140,9 @@ export const profileProjectContributions = pgTable(
     projectTitle: text("project_title"),
     projectUrl: text("project_url"),
     repositoryUrl: text("repository_url"),
+    presentation: jsonb("presentation").$type<import("@/lib/profile/contribution-story").ContributionStory>(),
+    featured: boolean("featured").default(false).notNull(),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
     source: text("source", {
       enum: ["membership", "application", "owner", "manual"],
     })
@@ -1197,6 +1201,7 @@ export const profileProjectContributions = pgTable(
     verifiedByIdx: index("profile_project_contributions_verified_by_idx").on(
       t.verifiedBy,
     ),
+    presentationSizeCheck: check("profile_contribution_presentation_size",sql`${t.presentation} IS NULL OR octet_length(${t.presentation}::text) <= 150000`),
     authorityShapeCheck: check(
       "profile_project_contributions_authority_shape_check",
       sql`((${t.projectId} IS NOT NULL AND ${t.externalKey} IS NULL) OR (${t.projectId} IS NULL AND ${t.externalKey} IS NOT NULL AND NULLIF(BTRIM(${t.projectTitle}), '') IS NOT NULL))`,
@@ -3147,7 +3152,7 @@ export const uploadIntents = pgTable(
     bucket: text("bucket").notNull(),
     storageKey: text("storage_key").notNull(),
     scope: text("scope", {
-      enum: ["project_file", "project_update_media", "profile_image", "project_cover", "chat_attachment", "recovery_draft", "import_manifest", "sync_snapshot"],
+      enum: ["project_file", "project_update_media", "profile_image", "project_cover", "chat_attachment", "recovery_draft", "import_manifest", "sync_snapshot", "contribution_image"],
     }).notNull(),
     kind: text("kind", { enum: ["file", "avatar", "banner", "cover", "draft", "manifest", "snapshot"] }).notNull(),
     expectedMimeType: text("expected_mime_type").notNull(),
@@ -5289,3 +5294,14 @@ export type ChatChannelMember = typeof chatChannelMembers.$inferSelect;
 export type ChatMessage = typeof chatMessages.$inferSelect;
 export type ChatMessageCard = typeof chatMessageCards.$inferSelect;
 export type ChatAttachment = typeof chatAttachments.$inferSelect;
+
+export const profileContributionDrafts = pgTable("profile_contribution_drafts", {
+  contributionId: uuid("contribution_id").primaryKey().references(() => profileProjectContributions.id, {onDelete:"cascade"}),
+  profileId: uuid("profile_id").notNull().references(() => profiles.id,{onDelete:"cascade"}),
+  document: jsonb("document").$type<import("@/lib/profile/contribution-story").ContributionStory>().notNull(),
+  updatedAt: timestamp("updated_at",{withTimezone:true}).defaultNow().notNull(),
+},t=>({profileIdx:index("profile_contribution_drafts_profile_idx").on(t.profileId)}));
+export const profileContributionMediaAssets = pgTable("profile_contribution_media_assets", {
+  contributionId: uuid("contribution_id").notNull().references(() => profileProjectContributions.id,{onDelete:"cascade"}),
+  assetId: uuid("asset_id").notNull().references(() => storageAssets.id),
+},t=>({pk:primaryKey({columns:[t.contributionId,t.assetId]}),assetIdx:index("profile_contribution_media_assets_asset_idx").on(t.assetId)}));

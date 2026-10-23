@@ -69,7 +69,7 @@ export async function loadProfileContributionWindow(profileId: string, desiredCo
     const page = await loadProfileContributionsPage(profileId, {
       limit: Math.min(50, target - offset),
       offset,
-      stageLimit: 8,
+      stageLimit: 20,
     });
     contributions.push(...page.contributions);
     total = page.total;

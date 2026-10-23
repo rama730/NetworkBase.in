@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Download, Loader2, Trash2, TriangleAlert } from "lucide-react";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { formatCalendarDate } from "@/lib/ui/date-formatting";
 import SecurityStepUpDialog from "@/components/settings/SecurityStepUpDialog";
@@ -51,7 +51,7 @@ export default function AccountDeletionWizard({ onClose, onDeleted }: Props) {
                 : "Account scheduled for deletion in 30 days.");
             onDeleted();
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : "Failed to delete account");
+            toast.error(feedbackError(error instanceof Error ? error.message : "Failed to delete account", "Failed to delete account"));
         } finally {
             setDeleting(false);
         }

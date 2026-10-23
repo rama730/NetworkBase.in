@@ -196,8 +196,8 @@ test.describe("Files tab V3 — move", () => {
       // may or may not include the leading name depending on toaster
       // configuration.
       const errorToast = page
-        .locator('[data-sonner-toast]')
-        .filter({ hasText: /(into its own descendant|into itself)/i })
+        .locator('[data-testid="toast"]')
+        .filter({ hasText: /Invalid move destination/i })
         .first();
       await expect(errorToast).toBeVisible({ timeout: 15000 });
 

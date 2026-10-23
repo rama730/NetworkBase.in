@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2, Download, ExternalLink, Loader2, Scale } from "lucide-react";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
@@ -82,7 +82,7 @@ export function LegalAndDataRightsSection() {
       setState(refreshed.data as AcceptanceState);
       toast.success("Your legal acceptance was recorded");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save acceptance");
+      toast.error(feedbackError(error instanceof Error ? error.message : "Could not save acceptance", "Could not save acceptance"));
     } finally {
       setAccepting(false);
     }

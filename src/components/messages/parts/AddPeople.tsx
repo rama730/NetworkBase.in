@@ -3,7 +3,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Check, Search, UserPlus } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 
 import { addMembers } from "@/app/actions/chat/members";
 import { usePeopleSearch } from "@/components/messages/usePeopleSearch";

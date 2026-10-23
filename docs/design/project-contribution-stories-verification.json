@@ -1,0 +1,165 @@
+{
+  "date": "2026-10-23",
+  "mode": "code-only",
+  "browserUsed": false,
+  "previewReference": "/Users/chrama/.codex/visualizations/2026/10/22/01a16372-adee-7043-8c85-973602b36c2c/contributions",
+  "previewSourceSha256": {
+    "app.jsx": "916090a84503012e3aad45f2758b161b0932d2e9c2267ea2a989f8967d648abd",
+    "contribution-ui.jsx": "4e03f68c256c9150dc5c8bd58a02cbc3612afc66d71b7b13eabbe7d45f392167",
+    "data.js": "6493e40f8f320939ac603393ccb5d3576d91696a801bbf9260dba585a1f2b0bb",
+    "style.css": "2924a6827ceb54d003db02afc85039d64687a017757933cb557741a9f7540ac2"
+  },
+  "tests": {
+    "unitAndSsrAndState": {
+      "tests": 84,
+      "pass": 84,
+      "fail": 0
+    },
+    "existingDesktopIdeContracts": {
+      "tests": 45,
+      "pass": 45,
+      "fail": 0
+    },
+    "disposablePostgres": {
+      "tests": 13,
+      "pass": 13,
+      "fail": 0
+    },
+    "total": 142
+  },
+  "checks": {
+    "typecheck": "passed",
+    "scopedEslint": "passed",
+    "productionBuild": "passed (isolated output and disposable database)",
+    "profileContributionContract": "passed",
+    "themeContract": "passed",
+    "apiEnvelopeContract": "passed",
+    "migrationJournal": "passed",
+    "sqlGovernance": "passed",
+    "impactReview": "passed"
+  },
+  "migration": {
+    "file": "drizzle/0237_profile_contribution_stories.sql",
+    "testedAgainstDisposableDatabase": true,
+    "configuredDatabaseApplied": true,
+    "configuredDatabaseCompletedAt": "2026-10-22T23:53:37.401Z",
+    "configuredDatabaseVerification": {
+      "liveMigrationLineage": "passed (235 canonical tags, 7 legacy aliases)",
+      "sourceChecksumAndJournalIndex": "passed",
+      "publishedColumnsAndDefaults": "passed",
+      "privateTablesAndOwnerRls": "passed",
+      "constraintsAndIndexes": "passed",
+      "privateImageBucketAndLimits": "passed",
+      "applicationAndServiceRoleGrants": "passed",
+      "verificationMode": "read-only SQL; no browser or fixture mutations"
+    },
+    "deploymentApplied": false
+  },
+  "otherRepositoryFinding": {
+    "check": "check:runtime-boundaries",
+    "status": "existing violation outside changed contribution paths",
+    "file": "src/components/projects/v2/files-tab/GitHubSyncWorkspace.tsx",
+    "detail": "Direct Supabase channel usage outside approved wrappers."
+  },
+  "transportTestBoundary": "Storage signing and byte transport are stubbed in image-access DB tests. Ownership, quota reservations, SQL persistence, RLS, version checks, reference visibility and snapshot selection use real migrated PostgreSQL.",
+  "followupAudit": {
+    "date": "2026-10-23",
+    "scope": "Current-status consistency and compact contribution presentation",
+    "browserUsed": false,
+    "targetedUnitSsrStateAndProfileTests": 36,
+    "disposableDatabaseTests": 13,
+    "totalPassed": 49,
+    "typecheck": "passed",
+    "scopedEslint": "passed",
+    "profileContributionContract": "passed",
+    "themeContract": "passed",
+    "applicationCssCompilation": "passed; no warnings",
+    "coverage": [
+      "Project current checkbox clears all personal position current flags without inventing end dates",
+      "A current position marks the personal project contribution ongoing",
+      "Previously inconsistent published/read/recovered stories reconcile personal position flags",
+      "Server draft and publish commands persist consistent status",
+      "Project and primary position share the header; date and identity links are in its right column",
+      "Position section and role titles use semantic, emphasized headings",
+      "Single-row identity/date grid supports narrow cards and truncates long titles"
+    ]
+  },
+  "headerLayoutCorrection": {
+    "supersededLayoutBy": "uploadValidationAndFooterFollowup",
+    "date": "2026-10-23",
+    "browserUsed": false,
+    "renderAndCompiledCssTestsPassed": 3,
+    "profileContributionContract": "passed",
+    "themeContract": "passed",
+    "layout": "Non-wrapping project and role on the left, date on the same baseline at right, identity links in a right-aligned second row",
+    "narrowCards": "Identity text truncates; date stays on the first row"
+  },
+  "positionAndLinkFollowup": {
+    "date": "2026-10-23",
+    "browserUsed": false,
+    "unitSsrEditorStateProfileAndCompiledCssTestsPassed": 40,
+    "disposableDatabaseTestsPassed": 14,
+    "totalPassed": 54,
+    "typecheck": "passed",
+    "scopedEslint": "passed",
+    "profileContributionContract": "passed",
+    "themeContract": "passed",
+    "rootCause": "Story positions used stale recorded stage labels rather than the live project position",
+    "coverage": [
+      "Zero or one visible position omits history; multiple visible positions show history",
+      "Single-position responsibilities are preserved without repeating the role heading",
+      "GitHub and globe links are icon-only, labeled, deduplicated, destination-aware and URL-validated",
+      "Current project position precedes Lead, Co-lead or Member membership",
+      "Legacy generated titles reconcile in owner drafts and public snapshots without modifying stored canonical records",
+      "Distinct personal title overrides and historical stage positions are preserved"
+    ],
+    "applicationDatabaseDiagnosis": "read-only SQL",
+    "newMigrationRequired": false
+  },
+  "uploadValidationAndFooterFollowup": {
+    "date": "2026-10-23",
+    "browserUsed": false,
+    "unitSsrEditorStateProfileRouteAndCompiledCssTestsPassed": 47,
+    "disposableDatabaseTestsPassed": 14,
+    "totalPassed": 61,
+    "typecheck": "passed",
+    "scopedEslint": "passed",
+    "profileContributionContract": "passed",
+    "themeContract": "passed",
+    "coverage": [
+      "Owned-pane scrolling and preventScroll focus avoid moving shell ancestors",
+      "Action footer portals outside the scrolling pane without negative offsets",
+      "Missing image descriptions have field-specific validation, inline errors and focus",
+      "Descriptions persist through publication/public reads and are visibly rendered alongside optional captions",
+      "Icons are in the first row immediately before the date",
+      "Publish updates is conditional on unpublished changes and remains after Save draft",
+      "Cancel preserves local draft recovery before returning to the profile",
+      "Native file selection restores the visible trigger without scrolling"
+    ],
+    "newMigrationRequired": false
+  },
+  "footerAndMentionsFollowup": {
+    "date": "2026-10-23",
+    "browserUsed": false,
+    "unitSsrEditorProseMirrorAndUpdatesRegressionTestsPassed": 89,
+    "disposableDatabaseTestsPassed": 14,
+    "totalPassed": 103,
+    "typecheck": "passed",
+    "scopedEslint": "passed",
+    "profileContributionContract": "passed",
+    "themeContract": "passed",
+    "footerRootCause": "The development server was still serving an obsolete sticky footer selector with negative offsets",
+    "footerFix": "Removed selector dependency; action footer owns flex layout, padding and safe-area spacing through Tailwind utilities",
+    "servedStylesheetVerification": "After refreshing the development server, a direct HTTP CSS source read confirmed the obsolete footer rule is absent and current safe-area padding is present",
+    "mentionParity": "Updates and contributions share inline reference option UI and whole-reference deletion logic; contribution links use the same non-inclusive emphasized styling",
+    "coverage": [
+      "Typed @ opens inline teammate search without a modal",
+      "Search selection inserts an identity reference at the editor cursor and preserves plain trailing text",
+      "Reference serialization supports names containing brackets and markup characters",
+      "Backspace/Delete remove complete references across formatted nodes without ancestor scroll requests",
+      "Public teammate name and @username search; private-profile revocation",
+      "Footer layout avoids obsolete CSS selectors and negative offsets"
+    ],
+    "newMigrationRequired": false
+  }
+}

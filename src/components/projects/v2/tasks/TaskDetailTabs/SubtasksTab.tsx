@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 import {
   Check,
   CheckSquare,

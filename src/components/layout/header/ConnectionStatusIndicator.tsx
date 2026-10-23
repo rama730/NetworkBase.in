@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+import { toast } from "@/lib/feedback";
 import { RefreshCw, WifiOff } from "lucide-react";
 
 import { useRealtime } from "@/components/providers/RealtimeProvider";
@@ -7,6 +9,24 @@ import { cn } from "@/lib/utils";
 
 export function ConnectionStatusIndicator() {
     const { connectionHealth, retryRealtime } = useRealtime();
+
+    const previous = useRef(connectionHealth);
+    const feedbackId = useRef<string | number | undefined>(undefined);
+    useEffect(() => {
+        const before = previous.current;
+        const timer = setTimeout(() => {
+            previous.current = connectionHealth;
+            if (connectionHealth === "healthy") {
+                if (before !== "healthy") toast.success("You’re back online", { id: feedbackId.current });
+            } else {
+                const options = { id: feedbackId.current, description: connectionHealth === "offline" ? "Live updates paused." : connectionHealth === "unavailable" ? "Last loaded data kept." : undefined,
+                    action: { label: "Reconnect", onClick: () => { retryRealtime(); } } };
+                feedbackId.current = connectionHealth === "reconnecting" ? toast.loading("Reconnecting…", options)
+                    : connectionHealth === "offline" ? toast.warning("You’re offline", options) : toast.error("Live updates are unavailable", options);
+            }
+        }, connectionHealth === "healthy" ? 1500 : 800);
+        return () => clearTimeout(timer);
+    }, [connectionHealth, retryRealtime]);
 
     if (connectionHealth === "healthy") return null;
 
@@ -23,13 +43,12 @@ export function ConnectionStatusIndicator() {
             type="button"
             title={label}
             aria-label={label}
-            disabled={isOffline}
             onClick={retryRealtime}
             className={cn(
-                "inline-flex h-10 w-10 items-center justify-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed",
+                "inline-flex h-10 w-10 items-center justify-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed",
                 isOffline || isUnavailable
-                    ? "border-rose-500/25 bg-rose-500/10 text-rose-600 dark:text-rose-400"
-                    : "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+                    ? "border-border bg-transparent text-[var(--status-warning)]"
+                    : "border-border bg-transparent text-muted-foreground",
             )}
         >
             {isOffline || isUnavailable ? (

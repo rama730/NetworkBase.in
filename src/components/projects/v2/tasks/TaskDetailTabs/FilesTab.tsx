@@ -1,6 +1,6 @@
 "use client";
 
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
@@ -134,7 +134,7 @@ export default function FilesTab({
       if (!canEdit || files.length === 0) return;
       const validation = validateUploadSelection(files, { isFolder: false });
       if (!validation.valid) {
-        if (validation.error) toast.error(validation.error);
+        if (validation.error) toast.error(feedbackError(validation.error, "Action couldn’t finish"));
         return;
       }
       setPendingUploadFiles(validation.files);
@@ -166,7 +166,7 @@ export default function FilesTab({
           setPendingUploadFiles(null);
           setPendingUploadFolders(null);
         } else {
-          toast.error(result.error || "Failed to save new version");
+          toast.error(feedbackError(result.error || "Failed to save new version", "Failed to save new version"));
         }
       } catch {
         toast.error("Failed to save new version");
@@ -204,7 +204,7 @@ export default function FilesTab({
       }
       const failed = results.find((result) => !result.success);
       if (failed) {
-        toast.error(failed.error || "Failed to upload files");
+        toast.error(feedbackError(failed.error || "Failed to upload files", "Failed to upload files"));
         return;
       }
       setPendingUploadFiles(null);
@@ -277,7 +277,7 @@ export default function FilesTab({
           proceedWithExtracted(extracted);
         } catch (error) {
           toast.error(
-            error instanceof Error ? error.message : "Could not read the dropped files",
+            feedbackError(error instanceof Error ? error.message : "Could not read the dropped files", "Could not read the dropped files"),
           );
         } finally {
           setIsProcessingDrop(false);
@@ -398,7 +398,7 @@ export default function FilesTab({
             const files = Array.from(e.target.files || []);
             const validation = validateUploadSelection(files, { isFolder: false });
             if (!validation.valid) {
-              if (validation.error) toast.error(validation.error);
+              if (validation.error) toast.error(feedbackError(validation.error, "Action couldn’t finish"));
               e.target.value = "";
               return;
             }
@@ -417,7 +417,7 @@ export default function FilesTab({
             const files = Array.from(e.target.files || []);
             const validation = validateUploadSelection(files, { isFolder: true });
             if (!validation.valid) {
-              if (validation.error) toast.error(validation.error);
+              if (validation.error) toast.error(feedbackError(validation.error, "Action couldn’t finish"));
               e.target.value = "";
               return;
             }

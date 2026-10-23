@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Loader2, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 import { parseUserAgent } from "@/lib/utils/device";
 import type { Session } from "@/types/settingsTypes";
 import SecurityStepUpDialog from "@/components/settings/SecurityStepUpDialog";
@@ -69,7 +69,7 @@ export function SessionsList({
       setSessions((prev) => prev.filter((session) => session.is_current));
       toast.success("Other devices were signed out");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to sign out other devices");
+      toast.error(feedbackError(error instanceof Error ? error.message : "Failed to sign out other devices", "Failed to sign out other devices"));
     } finally {
       setBusy(false);
       setPendingAction(null);

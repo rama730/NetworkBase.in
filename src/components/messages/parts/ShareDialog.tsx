@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 
 import { shareMessage } from "@/app/actions/chat/messages";
 import { useChatShell } from "@/components/messages/ChatShellProvider";

@@ -73,6 +73,7 @@ export function PresenceProvider({ children = null, presenceEnabled = true }: Pr
     }, [realtimeReady, hidden]);
     useEffect(() => {
         liveStore.setSelf(user?.id ?? null);
+        lastSuccessfulHeartbeatAt = 0;
     }, [user?.id]);
 
     useEffect(() => {
@@ -117,6 +118,7 @@ export function PresenceProvider({ children = null, presenceEnabled = true }: Pr
         if (!presenceActive) return;
         const goOffline = (event: PageTransitionEvent) => {
             if (event.persisted) return; // bfcache: page may come back
+            lastSuccessfulHeartbeatAt = 0;
             void fetch('/api/v1/presence/heartbeat', { method: 'DELETE', keepalive: true }).catch(() => undefined);
         };
         window.addEventListener('pagehide', goOffline);

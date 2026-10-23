@@ -3,6 +3,7 @@ import type { ProfileContributionMutation } from "@/lib/profile/contribution-con
 import { isSafeHttpUrl } from "@/lib/security/urls";
 
 export type ContributionEditorEntry = {
+  contribution?: ProfileCollaborationContribution;
   draftId: string;
   contributionId: string | null;
   externalKey: string | null;
@@ -33,6 +34,7 @@ export function contributionToEditorEntry(
   contribution: ProfileCollaborationContribution,
 ): ContributionEditorEntry {
   return {
+    contribution,
     draftId: contribution.id,
     contributionId: contribution.id,
     externalKey: contribution.externalKey ?? null,

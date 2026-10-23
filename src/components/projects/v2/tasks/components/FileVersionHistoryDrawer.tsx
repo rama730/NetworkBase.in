@@ -1,6 +1,6 @@
 "use client";
 
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 import { History } from "lucide-react";
 import { usePlainContentHeadings } from "@/components/projects/PlainContentHeadings";
 /**
@@ -111,7 +111,7 @@ export function FileVersionHistoryDrawer({
         nextCursor: page.nextCursor,
       });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to load older versions");
+      toast.error(feedbackError(error instanceof Error ? error.message : "Failed to load older versions", "Failed to load older versions"));
     } finally {
       setPendingAction(null);
     }
@@ -153,7 +153,7 @@ export function FileVersionHistoryDrawer({
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Download failed";
-        toast.error(message);
+        toast.error(feedbackError(message, "Action couldn’t finish"));
       } finally {
         setPendingAction(null);
       }
@@ -178,7 +178,7 @@ export function FileVersionHistoryDrawer({
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Restore failed";
-        toast.error(message);
+        toast.error(feedbackError(message, "Action couldn’t finish"));
       } finally {
         setPendingAction(null);
       }

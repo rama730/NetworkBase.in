@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Check, FileText, Loader2 } from "lucide-react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -62,7 +62,7 @@ export function AddDocDialog({
             const { linkProjectDocAction } = await import("@/app/actions/project/doc");
             const result = await linkProjectDocAction(projectId, nodeId);
             if (!result.success) {
-                toast.error(result.error);
+                toast.error(feedbackError(result.error, "Action couldn’t finish"));
                 return;
             }
             await Promise.all([

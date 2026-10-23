@@ -8,7 +8,10 @@ import {
   connections,
   legalAcceptances,
   profileContributionSkills,
+  profileContributionDrafts,
+  profileContributionMediaAssets,
   profileProjectContributions,
+  profileProjectContributionStages,
   profiles,
   projects,
   skills,
@@ -49,6 +52,10 @@ async function* streamAccountExport(input: {
         platformProjectTitle: projects.title,
         roleTitle: profileProjectContributions.roleTitle,
         summary: profileProjectContributions.summary,
+        publishedStory: profileProjectContributions.presentation,
+        privateDraft: profileContributionDrafts.document,
+        featured: profileProjectContributions.featured,
+        publishedAt: profileProjectContributions.publishedAt,
         projectUrl: profileProjectContributions.projectUrl,
         repositoryUrl: profileProjectContributions.repositoryUrl,
         startedAt: profileProjectContributions.startedAt,
@@ -59,6 +66,7 @@ async function* streamAccountExport(input: {
       })
       .from(profileProjectContributions)
       .leftJoin(projects, eq(projects.id, profileProjectContributions.projectId))
+      .leftJoin(profileContributionDrafts,and(eq(profileContributionDrafts.contributionId,profileProjectContributions.id),eq(profileContributionDrafts.profileId,userId)))
       .where(and(
         eq(profileProjectContributions.profileId, userId),
         isNull(profileProjectContributions.deletedAt),
@@ -68,22 +76,66 @@ async function* streamAccountExport(input: {
       .orderBy(asc(profileProjectContributions.id))
       .limit(EXPORT_PAGE_SIZE);
     if (page.length === 0) break;
-    const skillRows = await db
-      .select({
-        contributionId: profileContributionSkills.contributionId,
-        name: skills.name,
-        displayOrder: profileContributionSkills.displayOrder,
-      })
-      .from(profileContributionSkills)
-      .innerJoin(skills, eq(skills.id, profileContributionSkills.skillId))
-      .where(inArray(profileContributionSkills.contributionId, page.map((row) => row.id)))
-      .orderBy(asc(profileContributionSkills.displayOrder));
+    const pageIds = page.map((row) => row.id);
+    const [skillRows, stageRows, mediaRows] = await Promise.all([
+      db
+        .select({
+          contributionId: profileContributionSkills.contributionId,
+          name: skills.name,
+          displayOrder: profileContributionSkills.displayOrder,
+        })
+        .from(profileContributionSkills)
+        .innerJoin(skills, eq(skills.id, profileContributionSkills.skillId))
+        .where(inArray(profileContributionSkills.contributionId, pageIds))
+        .orderBy(asc(profileContributionSkills.displayOrder)),
+      db
+        .select({
+          id: profileProjectContributionStages.id,
+          contributionId: profileProjectContributionStages.contributionId,
+          roleKind: profileProjectContributionStages.roleKind,
+          roleTitle: profileProjectContributionStages.roleTitle,
+          summary: profileProjectContributionStages.summary,
+          startedAt: profileProjectContributionStages.startedAt,
+          endedAt: profileProjectContributionStages.endedAt,
+          source: profileProjectContributionStages.source,
+          verifiedAt: profileProjectContributionStages.verifiedAt,
+        })
+        .from(profileProjectContributionStages)
+        .where(
+          and(
+            inArray(profileProjectContributionStages.contributionId, pageIds),
+            isNull(profileProjectContributionStages.deletedAt),
+          ),
+        )
+        .orderBy(asc(profileProjectContributionStages.startedAt)),
+      db
+        .select({
+          contributionId: profileContributionMediaAssets.contributionId,
+          assetId: profileContributionMediaAssets.assetId,
+        })
+        .from(profileContributionMediaAssets)
+        .where(inArray(profileContributionMediaAssets.contributionId, pageIds)),
+    ]);
+
     const skillNames = new Map<string, string[]>();
     for (const skill of skillRows) {
       const names = skillNames.get(skill.contributionId) ?? [];
       if (!names.includes(skill.name)) names.push(skill.name);
       skillNames.set(skill.contributionId, names);
     }
+    const stageMap = new Map<string, Array<Record<string, unknown>>>();
+    for (const stage of stageRows) {
+      const list = stageMap.get(stage.contributionId) ?? [];
+      list.push(stage);
+      stageMap.set(stage.contributionId, list);
+    }
+    const mediaMap = new Map<string, string[]>();
+    for (const media of mediaRows) {
+      const list = mediaMap.get(media.contributionId) ?? [];
+      list.push(media.assetId);
+      mediaMap.set(media.contributionId, list);
+    }
+
     for (const row of page) {
       if (written++) yield ",";
       yield json({
@@ -94,6 +146,10 @@ async function* streamAccountExport(input: {
         projectTitle: row.platformProjectTitle || row.projectTitle,
         roleTitle: row.roleTitle,
         summary: row.summary,
+        publishedStory: row.publishedStory,
+        privateDraft: row.privateDraft,
+        featured: row.featured,
+        publishedAt: row.publishedAt,
         projectUrl: row.projectUrl,
         repositoryUrl: row.repositoryUrl,
         startedAt: row.startedAt,
@@ -102,6 +158,8 @@ async function* streamAccountExport(input: {
         version: row.version,
         source: row.source,
         skills: skillNames.get(row.id) ?? [],
+        stages: stageMap.get(row.id) ?? [],
+        mediaAssets: mediaMap.get(row.id) ?? [],
       });
     }
     contributionCursor = page.at(-1)!.id;

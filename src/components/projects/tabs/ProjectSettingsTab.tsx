@@ -9,7 +9,7 @@ import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Archive, Crown, Loader2, Lock, RefreshCw, Shield, Trash2, Users } from "lucide-react";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
     ProjectArchiveModal,
@@ -411,7 +411,7 @@ function ProjectSettingsContent({
             if (!result.success) {
                 setLoadError("danger", result.message);
 
-                toast.error(result.message);
+                toast.error(feedbackError(result.message, "Action couldn’t finish"));
                 return;
             }
             dangerPreflightLoadedRef.current = true;
@@ -455,7 +455,7 @@ function ProjectSettingsContent({
             if (!result.success) {
                 setLoadError("collaborators", result.message);
 
-                toast.error(result.message);
+                toast.error(feedbackError(result.message, "Action couldn’t finish"));
                 return;
             }
             setCollaboratorData((current) => {
@@ -526,7 +526,7 @@ function ProjectSettingsContent({
             if (!result.success) {
                 setLoadError("notifications", result.message);
 
-                toast.error(result.message);
+                toast.error(feedbackError(result.message, "Action couldn’t finish"));
                 return;
             }
             projectNotificationLoadedRef.current = true;
@@ -553,7 +553,7 @@ function ProjectSettingsContent({
             if (!mountedRef.current) return;
             if (!result.success) {
                 setLoadError("readme", result.error);
-                toast.error(result.error);
+                toast.error(feedbackError(result.error, "Action couldn’t finish"));
                 return;
             }
             readmeLoadedRef.current = true;
@@ -660,7 +660,7 @@ function ProjectSettingsContent({
                     onProjectUpdated();
                 } catch (error) {
                     console.error("Failed to save project roles", error);
-                    toast.error(error instanceof Error ? error.message : "Failed to update project roles.");
+                    toast.error(feedbackError(error instanceof Error ? error.message : "Failed to update project roles.", "Failed to update project roles."));
                 } finally {
                     setSavingRoles(false);
                 }
@@ -689,7 +689,7 @@ function ProjectSettingsContent({
                 // Rollback on failure
                 setPublicTabVisibility(previous);
                 setSavedPublicTabVisibility(previous);
-                toast.error(result.message);
+                toast.error(feedbackError(result.message, "Action couldn’t finish"));
                 return;
             }
             toast.success(`${PROJECT_PUBLIC_TAB_LABELS[tabId]} visibility updated.`);
@@ -710,7 +710,7 @@ function ProjectSettingsContent({
         try {
             const preflightResult = await getProjectAccessTransitionPreflightAction(projectId, nextVisibility);
             if (!preflightResult.success) {
-                toast.error(preflightResult.message);
+                toast.error(feedbackError(preflightResult.message, "Action couldn’t finish"));
                 return;
             }
             const preflight: AccessTransitionPreflightData = preflightResult.data;
@@ -768,7 +768,7 @@ function ProjectSettingsContent({
             const result = await updateProjectMemberFileUploadAction(projectId, member.id, enabled);
             if (!result.success) {
                 if (previousData) setFileWorkspaceData(previousData);
-                toast.error(result.message);
+                toast.error(feedbackError(result.message, "Action couldn’t finish"));
                 return;
             }
             toast.success(result.message);
@@ -809,7 +809,7 @@ function ProjectSettingsContent({
             const result = await updateProjectFileUploadDefaultsAction(projectId, enabled);
             if (!result.success) {
                 if (previousData) setFileWorkspaceData(previousData);
-                toast.error(result.message);
+                toast.error(feedbackError(result.message, "Action couldn’t finish"));
                 return false;
             }
             setMemberFileUploadDefault(enabled);
@@ -853,7 +853,7 @@ function ProjectSettingsContent({
         try {
             const result = await updateProjectNotificationSettingsAction(projectId, projectNotificationDraft);
             if (!result.success) {
-                toast.error(result.message);
+                toast.error(feedbackError(result.message, "Action couldn’t finish"));
                 return;
             }
             setProjectNotificationData(result.data);
@@ -883,7 +883,7 @@ function ProjectSettingsContent({
             if (!result.success) {
                 setReadmeSettingsDraft(previous);
                 setReadmeSettings(previous);
-                toast.error(result.error || "Failed to update document setting.");
+                toast.error(feedbackError(result.error || "Failed to update document setting.", "Failed to update document setting."));
                 return;
             }
             const normalized = normalizeProjectDocSettings(result.settings);
@@ -906,7 +906,7 @@ function ProjectSettingsContent({
         try {
             const result = await resetProjectNotificationSettingsAction(projectId, "balanced");
             if (!result.success) {
-                toast.error(result.message);
+                toast.error(feedbackError(result.message, "Action couldn’t finish"));
                 return;
             }
             setProjectNotificationData(result.data);
@@ -934,7 +934,7 @@ function ProjectSettingsContent({
         try {
             const result = await readProjectMemberNotificationSettingsAction(projectId, member.id);
             if (!result.success) {
-                toast.error(result.message);
+                toast.error(feedbackError(result.message, "Action couldn’t finish"));
                 setConfirmAction(null);
                 return;
             }
@@ -955,7 +955,7 @@ function ProjectSettingsContent({
         try {
             const result = await updateProjectMemberNotificationSettingsAction(projectId, memberNotificationData.member.id, memberNotificationDraft);
             if (!result.success) {
-                toast.error(result.message);
+                toast.error(feedbackError(result.message, "Action couldn’t finish"));
                 return;
             }
             setMemberNotificationData(result.data);
@@ -975,7 +975,7 @@ function ProjectSettingsContent({
         try {
             const result = await resetProjectMemberNotificationSettingsAction(projectId, memberNotificationData.member.id);
             if (!result.success) {
-                toast.error(result.message);
+                toast.error(feedbackError(result.message, "Action couldn’t finish"));
                 return;
             }
             setMemberNotificationData(result.data);
@@ -1009,7 +1009,7 @@ function ProjectSettingsContent({
         } catch (error) {
             setMemberUpdatesEnabled(previous);
             console.error("Failed to save updates settings", error);
-            toast.error(error instanceof Error ? error.message : "Failed to save updates settings.");
+            toast.error(feedbackError(error instanceof Error ? error.message : "Failed to save updates settings.", "Failed to save updates settings."));
         } finally {
             setSavingMemberUpdates(false);
         }
@@ -1032,7 +1032,7 @@ function ProjectSettingsContent({
             onProjectUpdated();
         } catch (error) {
             setMemberFileUploadDefault(previous);
-            toast.error(error instanceof Error ? error.message : "Failed to update the upload default for new members.");
+            toast.error(feedbackError(error instanceof Error ? error.message : "Failed to update the upload default for new members.", "Failed to update the upload default for new members."));
         } finally {
             setSavingMemberFileUploadDefault(false);
         }
@@ -1047,7 +1047,7 @@ function ProjectSettingsContent({
         try {
             const result = await confirmAction.action();
             if (!result.success) {
-                toast.error(result.message);
+                toast.error(feedbackError(result.message, "Action couldn’t finish"));
                 return;
             }
             toast.success(result.message);
@@ -1076,7 +1076,7 @@ function ProjectSettingsContent({
         try {
             const result = await archiveProjectAction(projectId);
             if (!result.success) {
-                toast.error(result.message);
+                toast.error(feedbackError(result.message, "Action couldn’t finish"));
                 return;
             }
             await loadDangerPreflight(true);
@@ -1096,7 +1096,7 @@ function ProjectSettingsContent({
         try {
             const result = await transferProjectOwnership(projectId, candidate.id);
             if (!result.success) {
-                toast.error(result.error ?? "Failed to transfer ownership.");
+                toast.error(feedbackError(result.error ?? "Failed to transfer ownership.", "Failed to transfer ownership."));
                 return;
             }
             await loadCollaborators("refresh");
@@ -1155,7 +1155,7 @@ function ProjectSettingsContent({
             nextRole,
         });
         if (!policy.canChangeRole) {
-            toast.error(policy.blockedReason ?? "This member role cannot be changed.");
+            toast.error(feedbackError(policy.blockedReason ?? "This member role cannot be changed.", "This member role cannot be changed."));
             return;
         }
         setConfirmAction({
@@ -1183,14 +1183,14 @@ function ProjectSettingsContent({
             targetRole: currentRole,
         });
         if (!policy.canRemove) {
-            toast.error(policy.blockedReason ?? "This member cannot be removed.");
+            toast.error(feedbackError(policy.blockedReason ?? "This member cannot be removed.", "This member cannot be removed."));
             return;
         }
 
         try {
             const result = await getProjectMemberRemovalPreflightAction(projectId, member.id);
             if (!result.success) {
-                toast.error(result.message);
+                toast.error(feedbackError(result.message, "Action couldn’t finish"));
                 return;
             }
             const preflight: RemovalPreflightData = result.data;
@@ -1230,7 +1230,7 @@ function ProjectSettingsContent({
         try {
             const result = await deleteProject(projectId);
             if (!result.success) {
-                toast.error(result.message);
+                toast.error(feedbackError(result.message, "Action couldn’t finish"));
                 return;
             }
             setDeleteModalOpen(false);
@@ -1849,7 +1849,7 @@ function ProjectSettingsContent({
                                             toast.success("Lifecycle updated.");
                                             onProjectUpdated();
                                         } else {
-                                            toast.error(result.error || "Failed to update lifecycle.");
+                                            toast.error(feedbackError(result.error || "Failed to update lifecycle.", "Failed to update lifecycle."));
                                         }
                                     } catch (error) {
                                         console.error("Failed to update lifecycle", error);

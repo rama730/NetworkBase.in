@@ -1,6 +1,6 @@
 "use client";
 
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Database, Loader2, LogOut } from "lucide-react";

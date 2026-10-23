@@ -3,7 +3,7 @@
 
 "use client";
 
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 import { useQueryClient } from "@tanstack/react-query";
 
 import React, {
@@ -44,7 +44,7 @@ function showFilesToast(
   type: "success" | "error" | "info" | "warning" = "info",
 ) {
   if (type === "success") toast.success(message);
-  else if (type === "error") toast.error(message);
+  else if (type === "error") toast.error(feedbackError(message, "Action couldn’t finish"));
   else if (type === "warning") toast.warning(message);
   else toast.info(message);
 }
@@ -358,7 +358,7 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
             ? "The deep link is empty."
             : "Deep link target not found.";
       setDeepLinkError(reason);
-      toast.error(reason);
+      toast.error(feedbackError(reason, "Action couldn’t finish"));
     },
   });
 
@@ -413,7 +413,7 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
       .then((result) => {
         if (cancelled) return;
         if (!result.success) {
-          toast.error(result.message || "The requested file is not available.");
+          toast.error(feedbackError(result.message || "The requested file is not available.", "The requested file is not available."));
           completeInitialFileResolution(initialOpenFileId);
           return;
         }

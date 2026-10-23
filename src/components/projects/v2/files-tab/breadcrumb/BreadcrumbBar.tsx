@@ -40,9 +40,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  getBreadcrumbs,
-} from "@/app/actions/files/nodes";
-import {
   useFilesWorkspaceStore,
 } from "@/stores/filesWorkspaceStore";
 import {
@@ -250,6 +247,7 @@ export function BreadcrumbBar({
 
     void (async () => {
       try {
+        const { getBreadcrumbs } = await import("@/app/actions/files/nodes");
         const rows = (await getBreadcrumbs(projectId, fetchTarget)) as Array<{
           id: string;
           name: string;

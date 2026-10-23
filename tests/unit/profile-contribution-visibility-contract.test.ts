@@ -230,7 +230,7 @@ test("reads apply privacy first, prefer relational skills, bound history, and de
   assert.match(collaboration, /canonical_skills/);
   assert.match(collaboration, /stageLimit/);
   assert.match(collaboration, /runInFlightDeduped/);
-  assert.match(collaboration, /const SUMMARY_VERSION = 7/);
+  assert.match(collaboration, /const SUMMARY_VERSION = 8/);
   assert.match(collaboration, /fileContributionCount/);
   assert.match(collaboration, /newer_invalidation/);
   assert.match(route, /"Cache-Control": "private, no-store"/);
@@ -247,10 +247,12 @@ test("the contribution editor loads real pages and preserves the loaded baseline
   assert.match(browserProfile, /options\.offset/);
   assert.match(modal, /offset: baseEntries\.length/);
   assert.match(modal, /experience: \[\.\.\.baseEntries, \.\.\.additions\]/);
-  assert.match(editor, /Load more contributions/);
-  assert.match(editor, /onChange\(\[draft, \.\.\.items\]\)/);
-  assert.match(editor, /scrollIntoView\(\{ block: "nearest", behavior: "smooth" \}\)/);
-  assert.match(editor, /Finish or remove the current external-project draft/);
+  const workspace = read("src/components/profile/edit/ContributionWorkspace.tsx");
+  assert.match(editor, /<ContributionWorkspace/);
+  assert.match(workspace, /Load more contributions/);
+  assert.match(workspace, /createContributionStoryAction/);
+  assert.match(workspace, /draftStorage/);
+  assert.match(workspace, /mergeContributionStory/);
   assert.match(modal, /validateContributionEditorEntry/);
   assert.match(modal, /Profile details were saved, but project contributions were not/);
 });
@@ -263,18 +265,19 @@ test("parent visibility is the UI and read authority while owners retain a priva
   assert.doesNotMatch(collaboration, /updateProfileProjectContributionStage/);
   assert.doesNotMatch(collaboration, /stage\.visibility/);
   assert.doesNotMatch(collaboration, /legacy_skills/);
-  assert.match(editor, /Show publicly on profile/);
-  assert.match(editor, /aria-expanded=\{isExpanded\}/);
-  assert.match(editor, /Private/);
-  assert.match(editor, /Needs attention/);
-  assert.match(editor, /Saving…/);
-  assert.match(editor, /role="alert"/);
+  const workspace = read("src/components/profile/edit/ContributionWorkspace.tsx");
+  assert.match(editor, /<ContributionWorkspace/);
+  assert.match(workspace, /Show this contribution on profile/);
+  assert.match(workspace, /Preview private draft/);
+  assert.match(workspace, /Draft save failed/);
+  assert.match(workspace, /Saving…/);
+  assert.match(workspace, /role="alert"/);
   assert.match(card, /Private/);
   assert.doesNotMatch(card, /collaboration-stages/);
   assert.match(retiredStageRoute, /,\s*410,/);
 });
 
-test("profile contributions reuse team role terminology and display only the joined month", () => {
+test("profile contributions preserve recorded team terminology while stories use explicit current status", () => {
   assert.equal(formatProjectTeamRole({ membershipRole: "owner", leadFocus: "Frontend Developer" }), "Lead / Frontend Developer");
   assert.equal(formatProjectTeamRole({ membershipRole: "owner", projectRoleTitle: "Lead", leadFocus: "Tester" }), "Lead / Tester");
   assert.equal(formatProjectTeamRole({ membershipRole: "member", projectRoleTitle: "QA Engineer" }), "QA Engineer · Member");
@@ -283,7 +286,9 @@ test("profile contributions reuse team role terminology and display only the joi
   assert.doesNotMatch(card, /statusLabel: contribution\.currentlyActive \? 'Current'/);
   assert.doesNotMatch(card, /Present/);
   assert.doesNotMatch(card, /formatRange/);
-  assert.match(card, /Joined/);
+  assert.match(card, /ContributionStoryView/);
+  const story = read("src/lib/profile/contribution-story.ts");
+  assert.match(story, /if \(!value.current && !value.end\) return storyMonth\(value.start\)/);
 });
 
 test("migration enforces normalized authority, parent-derived RLS, relational skills, and idempotency", () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 import type { FormEvent } from "react";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -42,6 +42,7 @@ export default function PasswordManagementSection({
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [stepUpOpen, setStepUpOpen] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
   const isChangingPassword = changePasswordMutation.isPending;
   const title = hasPassword ? "Change password" : "Set a password";
@@ -56,6 +57,7 @@ export default function PasswordManagementSection({
   const formattedLastChanged = lastChangedAt ? new Date(lastChangedAt).toLocaleString() : null;
 
   const resetForm = () => {
+    setSubmitted(false);
     setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
@@ -72,7 +74,7 @@ export default function PasswordManagementSection({
         setStepUpOpen(true);
         return;
       }
-      toast.error(result.message || "Failed to update password");
+      toast.error(feedbackError(result.message || "Failed to update password", "Failed to update password"));
       return;
     }
 
@@ -88,14 +90,17 @@ export default function PasswordManagementSection({
 
   const handlePasswordSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    setSubmitted(true);
 
     if (newPassword !== confirmPassword) {
-      toast.error("Passwords do not match");
+      toast.warning("Passwords don’t match");
+      document.getElementById("confirm-password")?.focus();
       return;
     }
 
     if (!passwordPolicy.ok) {
-      toast.error(passwordPolicy.error || "Password does not meet security requirements");
+      toast.warning("Check password requirements");
+      document.getElementById("new-password")?.focus();
       return;
     }
 
@@ -152,6 +157,8 @@ export default function PasswordManagementSection({
                 <div className="relative">
                   <Input
                     id="new-password"
+                    aria-invalid={submitted && !passwordPolicy.ok}
+                    aria-describedby={submitted && !passwordPolicy.ok ? "new-password-error" : undefined}
                     type={showNewPassword ? "text" : "password"}
                     value={newPassword}
                     onChange={(event) => setNewPassword(event.target.value)}
@@ -169,6 +176,7 @@ export default function PasswordManagementSection({
                   </button>
                 </div>
                 <PasswordStrengthMeter password={newPassword} result={passwordPolicy} />
+                {submitted && !passwordPolicy.ok && <p id="new-password-error" className="nb-compact text-destructive">{passwordPolicy.error}</p>}
               </div>
 
               <div className="space-y-2">
@@ -176,6 +184,8 @@ export default function PasswordManagementSection({
                 <div className="relative">
                   <Input
                     id="confirm-password"
+                    aria-invalid={Boolean((submitted || confirmPassword) && newPassword !== confirmPassword)}
+                    aria-describedby="confirm-password-error"
                     type={showConfirmPassword ? "text" : "password"}
                     value={confirmPassword}
                     onChange={(event) => setConfirmPassword(event.target.value)}
@@ -192,8 +202,8 @@ export default function PasswordManagementSection({
                     {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                   </button>
                 </div>
-                {confirmPassword && newPassword !== confirmPassword ? (
-                  <p className="nb-compact text-destructive">Passwords do not match.</p>
+                {(submitted || confirmPassword) && newPassword !== confirmPassword ? (
+                  <p id="confirm-password-error" className="nb-compact text-destructive">Passwords don’t match.</p>
                 ) : null}
               </div>
             </div>

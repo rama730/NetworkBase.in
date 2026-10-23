@@ -159,7 +159,7 @@ test.describe("desktop freeze 1280px", () => {
       await settle(page);
       await expect(page).toHaveScreenshot(`${route.replace(/[^a-z0-9]+/gi, "-")}.png`, {
         animations: "disabled",
-        mask: [page.locator("time"), page.locator("[data-sonner-toaster]")],
+        mask: [page.locator("time"), page.locator(".nb-feedback-system")],
         maxDiffPixelRatio: 0.002,
       });
     }

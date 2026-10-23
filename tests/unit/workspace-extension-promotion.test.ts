@@ -195,17 +195,13 @@ describe("WorkSpace Extension Desktop Deep-Linking & Promotion Contract", () => 
       // Hook lookup
       assert.ok(content.includes("useExtensionSessionsData"));
 
-      // State branches
+      // Both one and multiple connections use the same preferred-editor control.
       assert.ok(content.includes("!hasConnected"));
-      assert.ok(content.includes("Connect Desktop IDE"));
-      assert.ok(content.includes("initiateLaunch"));
-      assert.ok(content.includes("connectedIdes.length === 1"));
-
-      // When only 1 connected, shows only that connected IDE
-      assert.ok(content.includes("Open in {connectedIdes[0].ide.name}"));
-
-      // Connected indicator dot
-      assert.ok(content.includes("bg-emerald-500"));
+      assert.ok(content.includes("Connect desktop IDE"));
+      assert.ok(content.includes("executeDispatch"));
+      assert.ok(content.includes("DesktopIdePicker"));
+      assert.ok(content.includes("Open in {activeConnectedIde.name}"));
+      assert.ok(content.includes("bg-[var(--status-success)]"));
 
       // Supports taskId parameter
       assert.ok(content.includes("taskId?: string | null;"));
@@ -317,8 +313,9 @@ describe("WorkSpace Extension Desktop Deep-Linking & Promotion Contract", () => 
         buttonContent.includes("useLaptopInstalledIdes"),
         "OpenInIdeButton must import useLaptopInstalledIdes",
       );
+      const pickerContent = fs.readFileSync(path.resolve(process.cwd(), "src/components/projects/v2/files-tab/DesktopIdePicker.tsx"), "utf-8");
       assert.ok(
-        buttonContent.includes("Installed on Your"),
+        pickerContent.includes("Installed on your"),
         "OpenInIdeButton must render 'Installed on Your' section when detected",
       );
     });

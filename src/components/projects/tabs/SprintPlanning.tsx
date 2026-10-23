@@ -4,7 +4,7 @@ import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, Plus } from "lucide-react";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 
 import { SprintHeader } from "@/components/projects/tabs/sprint/SprintHeader";
 import { SprintLeftRail } from "@/components/projects/tabs/sprint/SprintLeftRail";
@@ -276,7 +276,7 @@ export default function SprintPlanning({
       } catch (error) {
         const message = error instanceof Error ? error.message : "The Sprint could not be updated";
         setLifecycleError(message);
-        toast.error(message);
+        toast.error(feedbackError(message, "Action couldn’t finish"));
         return false;
       } finally {
         setIsMutatingLifecycle(false);

@@ -193,17 +193,23 @@ export function PresenceBadge({
       element.style.transition = "none";
       element.style.transform = `rotate(${pins.current[index] ?? 0}deg)`;
     });
-    const frame = requestAnimationFrame(() => requestAnimationFrame(() => {
-      elements.forEach((element, index) => {
-        if (!element) return;
-        const angle = pins.current[index] ?? 0;
-        const turned = ((angle % 360) + 360) % 360;
-        const target = index % 2 ? angle - turned : angle + (turned === 0 ? 0 : 360 - turned);
-        element.style.transition = `transform ${SETTLE_MS}ms cubic-bezier(.2,.7,.2,1)`;
-        element.style.transform = `rotate(${target}deg)`;
+    let innerFrame: number | null = null;
+    const outerFrame = requestAnimationFrame(() => {
+      innerFrame = requestAnimationFrame(() => {
+        elements.forEach((element, index) => {
+          if (!element) return;
+          const angle = pins.current[index] ?? 0;
+          const turned = ((angle % 360) + 360) % 360;
+          const target = index % 2 ? angle - turned : angle + (turned === 0 ? 0 : 360 - turned);
+          element.style.transition = `transform ${SETTLE_MS}ms cubic-bezier(.2,.7,.2,1)`;
+          element.style.transform = `rotate(${target}deg)`;
+        });
       });
-    }));
-    return () => cancelAnimationFrame(frame);
+    });
+    return () => {
+      cancelAnimationFrame(outerFrame);
+      if (innerFrame !== null) cancelAnimationFrame(innerFrame);
+    };
   }, [phase]);
   useEffect(() => {
     if (phase !== "rest") return;
@@ -285,7 +291,7 @@ export function PresenceBadge({
                 className="nb-presence-ring"
                 data-reverse={index % 2 ? "" : undefined}
                 mask={outer && dotted && fraction !== null ? `url(#${maskId})` : undefined}
-                style={{ ...vars({ "--order": ringOrder(index, spin.dir), "--i": index }), transform: `rotate(${spin.angle}deg)` }}
+                style={{ ...vars({ "--order": ringOrder(index, spin.dir), "--i": index, "--dir": spin.dir }), transform: `rotate(${spin.angle}deg)` }}
               >
                 <circle className="nb-presence-track" cx="645" cy="710" r={radius} fill="none" strokeWidth={ring.w} style={vars({ "--w": `${ring.w}px` })} />
                 <g className="nb-presence-spin" ref={(element) => { spinRefs.current[index] = element; }}>

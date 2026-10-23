@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 
 import { refreshCard } from "@/app/actions/chat/messages";
 import { buttonVariants } from "@/components/ui/button";
@@ -36,7 +36,7 @@ export function useCardAction(kind: string, refId: string) {
     setBusy(true);
     try {
       const result = await action();
-      if (!result.success) toast.error(result.error || "That didn't work. Try again.");
+      if (!result.success) toast.error(feedbackError(result.error || "That didn't work. Try again.", "That didn't work. Try again."));
       else toast.success(done, toastOptions);
     } finally {
       setBusy(false);

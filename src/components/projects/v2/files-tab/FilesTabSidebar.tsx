@@ -3,7 +3,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 
 import React, {
   useCallback,
@@ -76,7 +76,7 @@ function showFilesToast(
   type: "success" | "error" | "info" | "warning" = "info",
 ) {
   if (type === "success") toast.success(message);
-  else if (type === "error") toast.error(message);
+  else if (type === "error") toast.error(feedbackError(message, "Action couldn’t finish"));
   else if (type === "warning") toast.warning(message);
   else toast.info(message);
 }
@@ -801,7 +801,7 @@ export function FilesTabSidebar({
                 {canEdit && contextMenuState.node.type === "folder" && (
                   <>
                     <DropdownMenuItem
-                      onClick={() =>
+                      onSelect={() =>
                         openCreateInFolder(contextMenuState.node!.id, "file")
                       }
                     >
@@ -809,7 +809,7 @@ export function FilesTabSidebar({
                       New file
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      onClick={() =>
+                      onSelect={() =>
                         openCreateInFolder(contextMenuState.node!.id, "folder")
                       }
                     >
@@ -817,7 +817,7 @@ export function FilesTabSidebar({
                       New folder
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      onClick={() =>
+                      onSelect={() =>
                         handleUploadToFolder(contextMenuState.node!.id)
                       }
                     >
@@ -825,7 +825,7 @@ export function FilesTabSidebar({
                       Upload file
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      onClick={() =>
+                      onSelect={() =>
                         openFolderUpload(contextMenuState.node!.id)
                       }
                     >
@@ -837,24 +837,24 @@ export function FilesTabSidebar({
                 {canEdit && (
                   <>
                     <DropdownMenuItem
-                      onClick={() => openRename(contextMenuState.node!)}
+                      onSelect={() => openRename(contextMenuState.node!)}
                     >
                       <Pencil className="w-4 h-4 mr-2" />
-                      Rename
+                      Rename…
                     </DropdownMenuItem>
                     {canManageFiles ? (
                       <DropdownMenuItem
-                        onClick={() =>
+                        onSelect={() =>
                           handleMoveFromMenu(contextMenuState.node!)
                         }
                       >
                         <FolderInput className="w-4 h-4 mr-2" />
-                        Move
+                        Move…
                       </DropdownMenuItem>
                     ) : null}
                     <DropdownMenuItem
                       className="text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"
-                      onClick={() =>
+                      onSelect={() =>
                         handleDeleteFromMenu(contextMenuState.node!)
                       }
                     >

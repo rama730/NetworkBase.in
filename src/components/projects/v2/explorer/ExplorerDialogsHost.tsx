@@ -567,7 +567,7 @@ export function CreateDialog({
     >
       {createDialog.open ? (
         <DialogContent
-          className="sm:max-w-[460px] rounded-[12px] p-6 shadow-2xl"
+          className="z-[301] sm:max-w-[460px] rounded-[12px] p-6 shadow-2xl"
           overlayClassName="z-[300] bg-transparent backdrop-blur-none"
         >
           <DialogHeader>
@@ -640,7 +640,7 @@ export function RenameDialog({
     >
       {renameState.nodeId ? (
         <DialogContent
-          className="sm:max-w-[460px] rounded-[12px] p-6 shadow-2xl"
+          className="z-[301] sm:max-w-[460px] rounded-[12px] p-6 shadow-2xl"
           overlayClassName="z-[300] bg-transparent backdrop-blur-none"
           onCloseAutoFocus={(e) => {
             e.preventDefault();
@@ -720,7 +720,7 @@ export function DeleteDialog({
       }
     >
       <DialogContent
-        className="sm:max-w-[460px] rounded-[12px] p-6 shadow-2xl"
+        className="z-[301] sm:max-w-[460px] rounded-[12px] p-6 shadow-2xl"
         overlayClassName="z-[300] bg-transparent backdrop-blur-none"
         onCloseAutoFocus={(e) => {
           e.preventDefault();

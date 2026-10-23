@@ -47,7 +47,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { moveTaskToWorkflowColumnAction } from "@/app/actions/task";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 import { patchProjectTaskCaches } from "@/lib/projects/task-cache";
 import { taskSurfaceVersionMs } from "@/lib/projects/task-presentation";
 import {
@@ -774,7 +774,7 @@ export default function KanbanBoard({
         void queryClient.invalidateQueries({
           queryKey: queryKeys.project.detail.tasksRoot(projectId),
         });
-        toast.error("Failed to move task: " + result.error);
+        toast.error(feedbackError("Failed to move task: " + result.error, "Failed to move task: "));
         return;
       }
       syncTaskCompletionPolicy(queryClient, projectId, result);
@@ -809,7 +809,7 @@ export default function KanbanBoard({
         queryKey: queryKeys.project.detail.tasksRoot(projectId),
       });
       toast.error(
-        error instanceof Error ? error.message : "Failed to move task",
+        feedbackError(error instanceof Error ? error.message : "Failed to move task", "Failed to move task"),
       );
     } finally {
       taskMovePendingRef.current = false;

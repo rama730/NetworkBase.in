@@ -309,11 +309,11 @@ export async function saveProfileContributionsAction(
         }));
         await tx.execute(sql`
           UPDATE profile_project_contributions AS p
-          SET skills = v.skills
+          SET skills = COALESCE(v.skills_json, '[]'::jsonb)
           FROM (
             SELECT 
               u.id::uuid AS id, 
-              ARRAY(SELECT jsonb_array_elements_text(u.skills_json)) AS skills
+              u.skills_json::jsonb AS skills_json
             FROM jsonb_to_recordset(${JSON.stringify(updateEntries.map(u => ({ id: u.id, skills_json: u.skills })))}::jsonb) 
               AS u(id uuid, skills_json jsonb)
           ) AS v

@@ -17,7 +17,7 @@ import {
     Users,
     X,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 import { useLinkPreview } from "@/hooks/useLinkPreview";
 import { MultiAttachmentPicker } from "@/components/projects/v2/files-tab/picker/MultiAttachmentPicker";
 
@@ -48,6 +48,7 @@ import { get as idbGet, set as idbSet, del as idbDel } from "idb-keyval";
 
 import { ProjectUpdateMediaFrame, isProjectUpdateVideoMedia } from "./ProjectUpdateMediaFrame";
 import { ProjectUpdateRichTextEditor } from "./ProjectUpdateRichTextEditor";
+import { ComposerReferenceOptions } from "./ComposerReferenceOptions";
 
 const EMPTY_REFS: ProjectUpdateEntityRefs = {};
 const EMPTY_CONTEXT_OPTIONS: Record<ProjectUpdateContextKind, ProjectUpdateContextOption[]> = {
@@ -74,7 +75,7 @@ function isProjectContextPanel(panel: ComposerPanel): panel is ProjectUpdateCont
     return panel === "task" || panel === "sprint" || panel === "file";
 }
 
-function refKeyForContextKind(kind: ProjectUpdateContextKind): keyof ProjectUpdateEntityRefs {
+function refKeyForContextKind(kind: ProjectUpdateContextKind): "taskId" | "sprintId" | "fileId" {
     if (kind === "task") return "taskId";
     if (kind === "sprint") return "sprintId";
     return "fileId";
@@ -744,67 +745,19 @@ export function ProjectUpdateComposer({
             </div>
 
             {activeContextKind ? (
-                <>
-                    <input
-                        value={contextQuery}
-                        onChange={(event) => setContextQuery(event.target.value)}
-                        placeholder={`Find ${activeContextKind}`}
-                        className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] outline-none transition focus:border-foreground/30 placeholder:text-muted-foreground"
-                    />
-                    <div className="mt-3 grid gap-2">
-                        {contextOptionsQuery.isLoading ? (
-                            <div className="h-10 animate-none rounded-[5px] bg-muted/40" />
-                        ) : activeContextOptions.length === 0 ? (
-                            <p className="rounded-[5px] bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">No matching project context.</p>
-                        ) : activeContextOptions.map((option) => {
-                            const isSelected = entityRefs[refKeyForContextKind(option.kind)] === option.id;
-                            const status = option.description?.toLowerCase();
-                            const isDone = status === "done" || status === "completed";
-                            const isInProgress = status === "in_progress" || status === "in progress";
-
-                            return (
-                                <button
-                                    key={option.id}
-                                    type="button"
-                                    onClick={() => selectContext(option)}
-                                    className={cn(
-                                        "group flex items-center justify-between gap-3 min-w-0 rounded-[5px] border px-3 py-2 text-left transition",
-                                        isSelected
-                                            ? "border-primary/40 bg-primary/5 text-foreground"
-                                            : "border-border bg-card hover:border-foreground/20 hover:bg-muted/30",
-                                    )}
-                                >
-                                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                                        {option.kind === "task" ? (
-                                            <ListTodo className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
-                                        ) : option.kind === "sprint" ? (
-                                            <Timer className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
-                                        ) : (
-                                            <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
-                                        )}
-                                        <span className="truncate text-[13px] font-medium text-foreground">{option.label}</span>
-                                    </div>
-                                    {option.kind === "task" && option.description ? (
-                                        <span className={cn(
-                                            "shrink-0 inline-flex h-5 items-center rounded-[3px] border px-[6px] font-mono text-[10px] max-md:text-[11px] font-medium uppercase tracking-[0.09em] leading-none",
-                                            isInProgress
-                                                ? "border-amber-500/20 bg-amber-500/10 text-amber-600"
-                                                : isDone
-                                                ? "border-primary/20 bg-primary/10 text-primary"
-                                                : "border-border bg-muted/60 text-muted-foreground"
-                                        )}>
-                                            {option.description.replace(/_/g, " ")}
-                                        </span>
-                                    ) : option.description ? (
-                                        <span className="shrink-0 font-mono text-[11px] text-muted-foreground truncate max-w-[140px]">
-                                            {option.description}
-                                        </span>
-                                    ) : null}
-                                </button>
-                            );
-                        })}
-                    </div>
-                </>
+                <ComposerReferenceOptions
+                    key={activeContextKind}
+                    query={contextQuery}
+                    onQueryChange={setContextQuery}
+                    placeholder={`Find ${activeContextKind}`}
+                    options={activeContextOptions}
+                    loading={contextOptionsQuery.isLoading}
+                    error={contextOptionsQuery.isError ? "Could not load project context." : null}
+                    onRetry={() => { void contextOptionsQuery.refetch(); }}
+                    onSelect={selectContext}
+                    onClose={() => setActivePanel(null)}
+                    selectedId={entityRefs[refKeyForContextKind(activeContextKind)]}
+                />
             ) : (
                 <div className="grid gap-2.5">
                     <div>

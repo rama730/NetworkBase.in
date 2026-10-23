@@ -12,6 +12,7 @@ import {
   githubSyncSnapshotAssets,
   importJobs,
   profiles,
+  profileContributionMediaAssets,
   projectNodes,
   projectUpdateDraftMediaAssets,
   projectUpdateMediaAssets,
@@ -41,6 +42,10 @@ export function hasNoLiveReference() {
            AND ${projects.coverImageAssetId} IS NULL
            AND ${projects.coverImage} LIKE ('%' || ${storageAssets.storageKey} || '%')
          )
+    )`,
+    sql`NOT EXISTS (
+      SELECT 1 FROM ${profileContributionMediaAssets}
+      WHERE ${profileContributionMediaAssets.assetId} = ${storageAssets.id}
     )`,
     sql`NOT EXISTS (
       SELECT 1 FROM ${projectNodes}

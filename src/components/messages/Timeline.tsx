@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { X } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 
 import { MessageRow } from "@/components/messages/MessageRow";
 import { Button } from "@/components/ui/button";
@@ -107,7 +107,7 @@ function DayLabel({ label, onPick }: { label: string; onPick: (date: string) => 
           type="button"
           onClick={open}
           aria-label={`${label}. Jump to a date`}
-          className="rounded-full border border-border bg-card px-2.5 py-0.5 font-mono text-[12px] text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="nb-touch-target pointer-coarse:min-h-[44px] pointer-coarse:px-3 inline-flex items-center justify-center rounded-[4px] border border-border bg-card px-2.5 py-0.5 font-mono text-[12px] text-muted-foreground hover:bg-muted hover:text-foreground"
           title="Jump to a date"
         >
           {label}
@@ -125,7 +125,7 @@ function DayLabel({ label, onPick }: { label: string; onPick: (date: string) => 
           }}
           onBlur={() => setTyping(false)}
           className={typing
-            ? "absolute left-1/2 top-full z-20 mt-1 h-9 -translate-x-1/2 rounded-md border border-input bg-card px-2 text-[13px] shadow-md"
+            ? "absolute left-1/2 top-full z-20 mt-1 h-9 -translate-x-1/2 rounded-[4px] border border-input bg-card px-2 text-base sm:text-[13px] shadow-md"
             : "pointer-events-none absolute inset-0 opacity-0"}
         />
       </span>
@@ -342,7 +342,7 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
     requestAnimationFrame(() => requestAnimationFrame(() => {
       row.closest("[role=log]")?.querySelector<HTMLElement>(`[data-message-row][data-seq="${target.message.seq}"]`)?.focus({ preventScroll: true });
     }));
-  }, [items]);
+  }, [items, firstItemIndex]);
 
   const renderItem = useCallback((_index: number, item: TimelineItem) => {
     if (item.type === "day") return <DayLabel label={item.label} onPick={pickDate} />;

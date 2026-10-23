@@ -7,7 +7,7 @@ import { History, RotateCcw, Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 
 import { SkillIcon } from "@/components/skills";
 import { AppScrollArea } from "@/components/ui/AppScrollArea";

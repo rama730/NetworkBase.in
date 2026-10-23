@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 
 import { getOrCreateDm } from "@/app/actions/chat/members";
 import { Button } from "@/components/ui/button";

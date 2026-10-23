@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Smile } from "lucide-react";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 
 import { clearProjectStatus, setProjectStatus } from "@/app/actions/presence";
 import { EmojiChoice } from "@/components/presence/EmojiChoice";
@@ -47,7 +47,7 @@ export function ProjectStatusControl({ projectId, canManage }: { projectId: stri
   const save = async () => {
     if (!emoji && !text.trim()) return void toast.error("Add an emoji or some text.");
     const result = await setProjectStatus({ projectId, emoji, text: text.trim() || null, expiresAt: until ? new Date(until).toISOString() : null });
-    if (!result.success) return void toast.error(result.error === "forbidden" ? "Only owners and admins can set the project status." : "Couldn't set the project status. Check the end time.");
+    if (!result.success) return void toast.error(feedbackError(result.error === "forbidden" ? "Only owners and admins can set the project status." : "Couldn't set the project status. Check the end time.", "Couldn't set the project status. Check the end time."));
     await refresh();
     setOpen(false);
     toast.success("Project status updated");

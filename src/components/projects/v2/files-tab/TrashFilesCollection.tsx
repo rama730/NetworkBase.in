@@ -11,7 +11,7 @@ import {
   Clock,
   Info,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 import { useDebounce } from "use-debounce";
 import {
   getTrashPage,
@@ -242,7 +242,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
       reconcile();
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Could not restore file",
+        feedbackError(error instanceof Error ? error.message : "Could not restore file", "Could not restore file"),
       );
     } finally {
       setBusy(null);
@@ -261,7 +261,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
       reconcile();
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Batch restoration failed",
+        feedbackError(error instanceof Error ? error.message : "Batch restoration failed", "Batch restoration failed"),
       );
     } finally {
       setBatchOperating(false);
@@ -275,7 +275,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
       setDeletion({ id, ...(await getPermanentDeleteImpact(projectId, id)) });
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Could not review deletion",
+        feedbackError(error instanceof Error ? error.message : "Could not review deletion", "Could not review deletion"),
       );
     } finally {
       setBusy(null);
@@ -310,7 +310,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
       setDeletion(null);
       reconcile();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Deletion failed");
+      toast.error(feedbackError(error instanceof Error ? error.message : "Deletion failed", "Deletion failed"));
     } finally {
       setBusy(null);
     }
@@ -323,7 +323,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
       const impact = await getBulkPermanentDeleteImpact(projectId, scope === "all" ? "all" : Array.from(selectedIds));
       setBulk((current) => (current?.scope === scope ? { scope, impact } : current));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not review deletion");
+      toast.error(feedbackError(error instanceof Error ? error.message : "Could not review deletion", "Could not review deletion"));
       setBulk(null);
     }
   }
@@ -344,13 +344,13 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
         toast.warning(`${plural(result.pendingIds.length)} pending storage cleanup; they stay in Trash and retry automatically.`);
       }
       if (result.failed.length > 0) {
-        toast.error(`${plural(result.failed.length)} could not be deleted: ${result.failed[0]!.error}`);
+        toast.error(feedbackError(`${plural(result.failed.length)} could not be deleted: ${result.failed[0]!.error}`, "Action couldn’t finish"));
       }
       setBulk(null);
       setSelectedIds(new Set());
       reconcile();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Deletion failed");
+      toast.error(feedbackError(error instanceof Error ? error.message : "Deletion failed", "Deletion failed"));
     } finally {
       setBulkDeleting(false);
     }

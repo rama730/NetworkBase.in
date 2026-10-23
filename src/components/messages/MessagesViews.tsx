@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlarmClock, AtSign, BellOff, Bookmark, CalendarClock, Check, CheckCheck, ChevronDown, Clock, Hash, Inbox, MailOpen, MoreHorizontal, MessageSquareText, Paperclip, Pencil, Plus, Search, SmilePlus, Trash2, X, type LucideIcon } from "lucide-react";
-import { toast } from "sonner";
+import { toast, feedbackDate } from "@/lib/feedback";
 
 import { listInbox, listThreads, markInboxRead, markInboxUnread, type InboxFilter, type InboxItem, type ThreadItem } from "@/app/actions/chat/activity";
 import { listThread, setThreadFollow } from "@/app/actions/chat/messages";
@@ -754,7 +754,7 @@ export function SavedView() {
     const label = remindAt ? formatChatTime(remindAt, "at") : null;
     if (clearReminder) return void toast.success("Reminder cleared");
     // The same toasts as saving from a message (useSavedSeqs): success, with Undo on removal.
-    toast.success(on ? (label ? `Reminder set for ${label}` : "Saved") : "Removed from Saved", on ? undefined : {
+    toast.success(on ? (label ? "Reminder set" : "Saved") : "Removed from Saved", on ? (remindAt ? { description: feedbackDate(remindAt) } : undefined) : {
       // Undo puts it back as it was, reminder included.
       action: { label: "Undo", onClick: () => void act(item, true, item.remind_at && !item.reminded_at ? new Date(item.remind_at) : null) },
     });
@@ -905,7 +905,7 @@ export function DraftsView() {
     const result = await rescheduleScheduled({ id, sendAt: at.toISOString() });
     refreshScheduled();
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
-    toast.success(`Rescheduled for ${formatChatTime(at, "at")}`);
+    toast.success("Message rescheduled", { description: feedbackDate(at) });
   };
   const nothingScheduled = scheduled.data && !scheduled.data.length;
   // Decided from loaded data only, so the section never flashes a skeleton and then disappears.

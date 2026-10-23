@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useId, useState } from "react";
 import {
     Plus,
     X,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader";
@@ -72,23 +72,33 @@ export function TextField({
     onChange,
     placeholder,
     description,
+    id,
+    error,
 }: {
     label: string;
     value: string;
     onChange: (value: string) => void;
     placeholder?: string;
     description?: string;
+    id?: string;
+    error?: string;
 }) {
+    const generatedId = useId();
+    const fieldId = id ?? generatedId;
     return (
         <label className="space-y-1.5 block">
             <span className="nb-ui-label text-foreground">{label}</span>
             {description ? <span className="nb-compact -mt-0.5 block text-muted-foreground">{description}</span> : null}
             <input
+                id={fieldId}
+                aria-invalid={Boolean(error)}
+                aria-describedby={error ? `${fieldId}-error` : undefined}
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
                 placeholder={placeholder}
-                className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border aria-invalid:border-destructive bg-card px-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
+            {error && <span id={`${fieldId}-error`} className="block text-[12px] text-destructive">{error}</span>}
         </label>
     );
 }

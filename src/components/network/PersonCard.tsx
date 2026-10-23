@@ -8,7 +8,7 @@ import type { SuggestedProfile } from "@/app/actions/connections";
 import { PersonCardContent } from "./PersonCardContent";
 import { profileHref } from "@/lib/routing/identifiers";
 import { useConnectionMutations } from "@/hooks/useConnections";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 import { boundPersonCardItems } from "@/lib/network/person-card-bounds";
 import { personCardName } from "@/lib/network/person-card";
 import {

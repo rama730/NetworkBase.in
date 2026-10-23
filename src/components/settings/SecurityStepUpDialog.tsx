@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 
 type SecurityStepUpMethod = "totp" | "recovery_code" | "password";
 
@@ -86,7 +86,7 @@ export default function SecurityStepUpDialog({
       await onVerified();
       onOpenChange(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to verify this device");
+      toast.error(feedbackError(error instanceof Error ? error.message : "Failed to verify this device", "Failed to verify this device"));
     } finally {
       setSubmitting(false);
     }

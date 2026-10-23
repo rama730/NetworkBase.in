@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 
 import { archiveChannel, joinChannel, leaveChannel, unarchiveChannel } from "@/app/actions/chat/channels";
 import { setMemberState } from "@/app/actions/chat/members";

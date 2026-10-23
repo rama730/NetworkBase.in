@@ -1,5 +1,7 @@
 'use client';
 
+import { toast } from '@/lib/feedback';
+
 import { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { User, Session } from '@supabase/supabase-js';
@@ -151,6 +153,7 @@ export function AuthProvider({
                         });
                     });
                 } else if (event === 'SIGNED_OUT') {
+                    toast.clear();
                     browserSessionBootstrapPendingRef.current = false;
                     syncBrowserSessionToServer(null).catch((error) => {
                         logger.warn('auth.session.clear_failed', {
@@ -299,6 +302,7 @@ export function AuthProvider({
 
     // --- Actions ---
     const signOut = useCallback(async () => {
+        toast.clear();
         const supabase = createClient();
 
         // The authenticated delete must run before Auth cookies/session disappear.

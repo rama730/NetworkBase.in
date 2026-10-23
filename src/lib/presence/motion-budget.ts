@@ -14,4 +14,4 @@ export function createMotionBudget(max: number, holdMs = 1800, schedule: (fn: ()
   };
 }
 
-export const motionBudget = createMotionBudget(3);
+export const motionBudget = createMotionBudget(16, 900);

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 import AccountDeletionWizard from "@/components/settings/AccountDeletionWizard";
 import { Button } from "@/components/ui/button";
 import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";

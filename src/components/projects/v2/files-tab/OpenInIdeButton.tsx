@@ -1,23 +1,14 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import {
-  ChevronDown,
-  Check,
-  ExternalLink,
-  Laptop,
-  Plus,
-  KeyRound,
-  Sparkles,
-  ShoppingBag,
-} from "lucide-react";
-
+import * as Dropdown from "@radix-ui/react-dropdown-menu";
+import { ChevronDown, ExternalLink, Laptop, KeyRound } from "lucide-react";
 import {
   SUPPORTED_IDES,
-  SupportedIde,
-  IdeDefinition,
+  type SupportedIde,
+  type IdeDefinition,
   buildIdeLaunchUri,
   buildIdeMarketplaceUri,
   dispatchIdeProtocol,
@@ -28,14 +19,6 @@ import {
 import { useExtensionSessionsData } from "@/hooks/useSettingsQueries";
 import { useLaptopInstalledIdes } from "@/hooks/useLaptopInstalledIdes";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -44,464 +27,285 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { DesktopIdePicker } from "./DesktopIdePicker";
+import { IdeProjectPicker, type IdeProject } from "./IdeProjectPicker";
 import type { CurrentLocation } from "./navigation";
-import type { ExtensionSessionData } from "@/types/settingsTypes";
 
 interface OpenInIdeButtonProps {
-  projectId: string;
+  /** My Work asks which project to open when there is no project context. */
+  projectId?: string;
   projectSlug?: string;
   location?: CurrentLocation | null;
   taskId?: string | null;
   className?: string;
 }
 
+const controlClass =
+  "inline-flex h-full min-w-0 items-center justify-center gap-[7px] whitespace-nowrap px-2.5 text-[13px] font-medium leading-[1.2] transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:cursor-wait disabled:opacity-60";
+
 export function OpenInIdeButton({
   projectId,
   projectSlug,
   location,
   taskId,
-  className = "",
+  className,
 }: OpenInIdeButtonProps): React.JSX.Element {
-  const { data: sessionData } = useExtensionSessionsData();
-  const { installedList, otherList, hasDetectedInstalled, platform } = useLaptopInstalledIdes();
+  const sessions = useExtensionSessionsData();
+  const {
+    installedList,
+    platform,
+    isLoading: detectingEditors,
+  } = useLaptopInstalledIdes();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [connectAnother, setConnectAnother] = useState(false);
   const [fallbackOpen, setFallbackOpen] = useState(false);
-  const [fallbackIde, setFallbackIde] = useState<IdeDefinition>(SUPPORTED_IDES.cursor);
-  const [connectMenuOpen, setConnectMenuOpen] = useState(false);
+  const [fallbackIde, setFallbackIde] = useState<IdeDefinition>(
+    SUPPORTED_IDES.cursor,
+  );
+  const [preferred, setPreferred] = useState(getPreferredIde);
+  const [projectPickerIde, setProjectPickerIde] = useState<SupportedIde | null>(
+    null,
+  );
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
-
-  // Filter active authenticated sessions
-  const activeSessions = useMemo(() => {
-    return (sessionData?.sessions || []).filter(
-      (s) => s.clientVersion !== "pending" && (s.editorPlatform || s.editorName),
-    );
-  }, [sessionData?.sessions]);
-
-  // Map to connected IDE definitions (deduplicated)
   const connectedIdes = useMemo(() => {
-    const seen = new Set<string>();
-    const list: Array<{ ide: IdeDefinition; session: ExtensionSessionData }> = [];
-    for (const session of activeSessions) {
-      const ideKey = resolveIdeFromSession(session);
-      const def = SUPPORTED_IDES[ideKey];
-      if (def && !seen.has(ideKey)) {
-        seen.add(ideKey);
-        list.push({ ide: def, session });
-      }
-    }
-    return list;
-  }, [activeSessions]);
+    const seen = new Set<SupportedIde>();
+    return (sessions.data?.sessions ?? []).flatMap((session) => {
+      if (
+        session.clientVersion === "pending" ||
+        !(session.editorPlatform || session.editorName)
+      )
+        return [];
+      const id = resolveIdeFromSession(session);
+      const ide = SUPPORTED_IDES[id];
+      if (!ide || seen.has(id)) return [];
+      seen.add(id);
+      return [{ ide, session }];
+    });
+  }, [sessions.data?.sessions]);
+  const activeConnectedIde =
+    connectedIdes.find(({ ide }) => ide.id === preferred)?.ide ??
+    connectedIdes[0]?.ide;
+  const hasConnected = Boolean(activeConnectedIde);
 
-  const hasConnected = connectedIdes.length > 0;
-
-  // Active preferred connected IDE
-  const activeConnectedIde = useMemo(() => {
-    if (!hasConnected) return null;
-    const preferred = getPreferredIde();
-    const found = connectedIdes.find((c) => c.ide.id === preferred);
-    return found ? found.ide : (connectedIdes[0]?.ide ?? SUPPORTED_IDES.cursor);
-  }, [hasConnected, connectedIdes]);
-
-  // Performs actual protocol dispatch
-  const executeDispatch = (ideId: SupportedIde, action: "workspace" | "marketplace") => {
-    const def = SUPPORTED_IDES[ideId] || SUPPORTED_IDES.cursor;
-    setFallbackIde(def);
+  const executeDispatch = (
+    ideId: SupportedIde,
+    action: "workspace" | "marketplace",
+    project?: IdeProject,
+  ) => {
+    setFallbackIde(SUPPORTED_IDES[ideId]);
     setPreferredIde(ideId);
-
-    if (action === "workspace") {
-      const isFile = location?.type === "file";
-      const fileId = isFile ? location.node.id : undefined;
-      const filePath = isFile ? location.node.path : undefined;
-
-      const uri = buildIdeLaunchUri({
-        ide: ideId,
-        projectId,
-        projectSlug,
-        fileId,
-        filePath,
-        taskId: taskId || undefined,
-      });
-
-      dispatchIdeProtocol(uri, () => {
-        setFallbackOpen(true);
-      });
-    } else {
-      const marketplaceUri = buildIdeMarketplaceUri(ideId);
-
-      dispatchIdeProtocol(marketplaceUri, () => {
-        setFallbackOpen(true);
-      });
+    setPreferred(ideId);
+    setFallbackOpen(false);
+    if (action === "workspace" && !projectId && !project) {
+      setPickerOpen(false);
+      setProjectPickerIde(ideId);
+      return;
     }
+    const file = location?.type === "file" ? location.node : null;
+    const uri =
+      action === "marketplace"
+        ? buildIdeMarketplaceUri(ideId)
+        : buildIdeLaunchUri({
+            ide: ideId,
+            projectId: project?.id ?? projectId!,
+            projectSlug: project?.slug ?? projectSlug,
+            fileId: file?.id,
+            filePath: file?.path,
+            taskId: taskId || undefined,
+          });
+    // Preserve the click gesture for the browser's native protocol prompt.
+    dispatchIdeProtocol(uri, () => {
+      if (mounted.current) setFallbackOpen(true);
+    });
+    setPickerOpen(false);
+    setProjectPickerIde(null);
   };
-
-  // The browser shows its own "open this app?" prompt; there is nothing to imitate or pre-announce.
-  const initiateLaunch = (ideId: SupportedIde, action: "workspace" | "marketplace") => executeDispatch(ideId, action);
-
-  const platformLabel = platform === "darwin" ? "Mac" : platform === "win32" ? "PC" : "Laptop";
+  const platformLabel =
+    platform === "darwin" ? "Mac" : platform === "win32" ? "PC" : "computer";
 
   return (
     <>
-      <div
-        data-testid="open-in-ide-tool"
-        className={`inline-flex shrink-0 items-center rounded-[6px] border border-border bg-background shadow-none ${className}`}
+      <Dropdown.Root
+        modal
+        open={pickerOpen}
+        onOpenChange={(open) => {
+          setPickerOpen(open);
+          if (open) setConnectAnother(false);
+        }}
       >
-        {/* CASE A: No extensions connected yet -> Show Connect Desktop IDE with editor picker */}
-        {!hasConnected ? (
-          <DropdownMenu open={connectMenuOpen} onOpenChange={setConnectMenuOpen}>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                title="Connect desktop editor"
-                aria-label="Connect desktop editor"
-                className="flex min-h-9 items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#D14E24] rounded-[6px]"
-              >
-                <Laptop className="size-3.5 shrink-0 text-[#2563C9]" />
-                <span>Connect Desktop IDE</span>
-                <ChevronDown className="size-3 text-muted-foreground ml-0.5" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64 max-h-[380px] overflow-y-auto">
-              {hasDetectedInstalled ? (
-                <>
-                  <DropdownMenuLabel className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                    <span>Installed on Your {platformLabel}</span>
-                    <span className="rounded-[4px] bg-emerald-100 dark:bg-emerald-950/80 px-1.5 py-0.5 text-[11px] font-medium lowercase text-emerald-700 dark:text-emerald-300">
-                      detected
-                    </span>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {installedList.map((ide) => (
-                    <DropdownMenuItem
-                      key={ide.id}
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        setConnectMenuOpen(false);
-                        setTimeout(() => initiateLaunch(ide.id, "marketplace"), 50);
-                      }}
-                      className="flex items-center justify-between gap-2 cursor-pointer text-xs py-2 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Image
-                          src={ide.icon}
-                          alt=""
-                          width={16}
-                          height={16}
-                          unoptimized
-                          className="size-4 shrink-0 object-contain"
-                        />
-                        <div className="flex flex-col min-w-0">
-                          <span className="font-medium text-foreground truncate">
-                            {ide.name}
-                          </span>
-                          <span className="text-[11px] text-muted-foreground truncate">
-                            {ide.description}
-                          </span>
-                        </div>
-                      </div>
-                      <span className="rounded-[4px] bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60 shrink-0">
-                        Installed
-                      </span>
-                    </DropdownMenuItem>
-                  ))}
-
-                  {otherList.length > 0 && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuLabel className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                        Other Supported Editors
-                      </DropdownMenuLabel>
-                      {otherList.map((ide) => (
-                        <DropdownMenuItem
-                          key={ide.id}
-                          onSelect={(e) => {
-                            e.preventDefault();
-                            setConnectMenuOpen(false);
-                            setTimeout(() => initiateLaunch(ide.id, "marketplace"), 50);
-                          }}
-                          className="flex items-center justify-between gap-2 cursor-pointer text-xs py-2"
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <Image
-                              src={ide.icon}
-                              alt=""
-                              width={16}
-                              height={16}
-                              unoptimized
-                              className="size-4 shrink-0 object-contain"
-                            />
-                            <div className="flex flex-col min-w-0">
-                              <span className="font-medium text-foreground truncate">
-                                {ide.name}
-                              </span>
-                              <span className="text-[11px] text-muted-foreground truncate">
-                                {ide.description}
-                              </span>
-                            </div>
-                          </div>
-                          <ShoppingBag className="size-3 text-muted-foreground shrink-0" />
-                        </DropdownMenuItem>
-                      ))}
-                    </>
-                  )}
-                </>
-              ) : (
-                <>
-                  <DropdownMenuLabel className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                    Choose Laptop Editor
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {(Object.keys(SUPPORTED_IDES) as SupportedIde[]).map((id) => {
-                    const ide = SUPPORTED_IDES[id];
-                    return (
-                      <DropdownMenuItem
-                        key={id}
-                        onSelect={(e) => {
-                          e.preventDefault();
-                          setConnectMenuOpen(false);
-                          setTimeout(() => initiateLaunch(id, "marketplace"), 50);
-                        }}
-                        className="flex items-center justify-between gap-2 cursor-pointer text-xs py-2"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <Image
-                            src={ide.icon}
-                            alt=""
-                            width={16}
-                            height={16}
-                            unoptimized
-                            className="size-4 shrink-0 object-contain"
-                          />
-                          <div className="flex flex-col min-w-0">
-                            <span className="font-medium text-foreground truncate">
-                              {ide.name}
-                            </span>
-                            <span className="text-[11px] text-muted-foreground truncate">
-                              {ide.description}
-                            </span>
-                          </div>
-                        </div>
-                        <ShoppingBag className="size-3 text-muted-foreground shrink-0" />
-                      </DropdownMenuItem>
-                    );
-                  })}
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : connectedIdes.length === 1 && connectedIdes[0] ? (
-          /* CASE B: Exactly 1 extension connected -> Clean 1-click button with ONLY connected IDE */
-          <button
-            type="button"
-            onClick={() => connectedIdes[0] && initiateLaunch(connectedIdes[0].ide.id, "workspace")}
-            title={`Open in ${connectedIdes[0].ide.name} (Connected)`}
-            aria-label={`Open in ${connectedIdes[0].ide.name}`}
-            className="flex min-h-9 items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#D14E24] rounded-[6px]"
-          >
-            <Image
-              src={connectedIdes[0].ide.icon}
-              alt=""
-              width={14}
-              height={14}
-              unoptimized
-              className="size-3.5 shrink-0 object-contain"
-            />
-            <span className="truncate">Open in {connectedIdes[0].ide.name}</span>
-            <span
-              className="size-2 shrink-0 rounded-[2px] bg-emerald-500 ring-1 ring-emerald-500/20"
-              title="Connected"
-            />
-          </button>
-        ) : (
-          /* CASE C: Multiple extensions connected -> Dropdown shows ONLY connected IDEs */
-          <>
+        <div
+          data-testid="open-in-ide-tool"
+          className={cn(
+            "inline-flex h-[var(--ui-control-height)] shrink-0 items-stretch rounded-md border border-border bg-card text-foreground",
+            className,
+          )}
+        >
+          {activeConnectedIde && (
             <button
               type="button"
-              onClick={() => activeConnectedIde && initiateLaunch(activeConnectedIde.id, "workspace")}
-              title={`Open in ${activeConnectedIde?.name || "IDE"} (Connected)`}
-              aria-label={`Open in ${activeConnectedIde?.name || "IDE"}`}
-              className="flex min-h-9 items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#D14E24] rounded-l-[6px]"
+              className={cn(controlClass, "rounded-l-[5px]")}
+              onClick={() =>
+                executeDispatch(activeConnectedIde.id, "workspace")
+              }
+              aria-label={`Open in ${activeConnectedIde.name}`}
+              title={`Open in ${activeConnectedIde.name} (Connected)`}
             >
-              {activeConnectedIde && (
-                <Image
-                  src={activeConnectedIde.icon}
-                  alt=""
-                  width={14}
-                  height={14}
-                  unoptimized
-                  className="size-3.5 shrink-0 object-contain"
-                />
-              )}
-              <span className="truncate">Open in {activeConnectedIde?.name}</span>
+              <Image
+                src={activeConnectedIde.icon}
+                alt=""
+                width={16}
+                height={16}
+                unoptimized
+                className="size-4 shrink-0 object-contain"
+              />
+              <span className="truncate">Open in {activeConnectedIde.name}</span>
               <span
-                className="size-2 shrink-0 rounded-[2px] bg-emerald-500 ring-1 ring-emerald-500/20"
-                title="Connected"
+                aria-label="Connected"
+                className="ml-0.5 size-1.5 shrink-0 rounded-[50%] bg-[var(--status-success)]"
               />
             </button>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  aria-label="Choose connected editor"
-                  className="flex min-h-9 w-6 items-center justify-center border-l border-border px-1 hover:bg-muted rounded-r-[6px]"
-                >
-                  <ChevronDown className="size-3 text-muted-foreground" aria-hidden="true" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Connected Editors
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {connectedIdes.map(({ ide, session }) => {
-                  const isSelected = ide.id === activeConnectedIde?.id;
-                  const platform = session.editorPlatform
-                    ? session.editorPlatform === "darwin"
-                      ? "macOS"
-                      : session.editorPlatform === "win32"
-                        ? "Windows"
-                        : "Linux"
-                    : "Connected";
-
-                  return (
-                    <DropdownMenuItem
-                      key={ide.id}
-                      onClick={() => initiateLaunch(ide.id, "workspace")}
-                      className="flex items-center justify-between gap-2 cursor-pointer text-xs"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Image
-                          src={ide.icon}
-                          alt=""
-                          width={16}
-                          height={16}
-                          unoptimized
-                          className="size-4 shrink-0 object-contain"
-                        />
-                        <div className="flex flex-col min-w-0">
-                          <span className="font-medium text-foreground truncate">
-                            {ide.name}
-                          </span>
-                          <span className="text-[11px] text-muted-foreground truncate">
-                            {platform}
-                          </span>
-                        </div>
-                      </div>
-                      {isSelected && <Check className="size-3.5 text-[#2563C9] shrink-0" />}
-                    </DropdownMenuItem>
-                  );
-                })}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => setConnectMenuOpen(true)}
-                  className="flex items-center gap-1.5 text-xs text-[#2563C9] cursor-pointer"
-                >
-                  <Plus className="size-3.5" />
-                  <span>Connect another editor</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </>
-        )}
-      </div>
-
-      {/* Connect Another Editor Dialog when already connected */}
-      <Dialog open={connectMenuOpen && hasConnected} onOpenChange={setConnectMenuOpen}>
-        <DialogContent className="sm:max-w-md bg-card border-border">
-          <DialogHeader>
-            <DialogTitle className="text-base font-semibold">
-              Connect Another Desktop Editor
-            </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground">
-              Choose an editor to install the NetworkBase WorkSpace extension and link your workspace.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-1 max-h-[340px] overflow-y-auto py-2">
-            {(Object.keys(SUPPORTED_IDES) as SupportedIde[]).map((id) => {
-              const ide = SUPPORTED_IDES[id];
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => {
-                    setConnectMenuOpen(false);
-                    setTimeout(() => initiateLaunch(id, "marketplace"), 50);
-                  }}
-                  className="flex w-full items-center justify-between gap-2.5 rounded-[6px] p-2 hover:bg-muted text-left transition-colors"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <Image
-                      src={ide.icon}
-                      alt=""
-                      width={20}
-                      height={20}
-                      unoptimized
-                      className="size-5 shrink-0 object-contain"
-                    />
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-xs font-medium text-foreground truncate">
-                        {ide.name}
-                      </span>
-                      <span className="text-[11px] text-muted-foreground truncate">
-                        {ide.description}
-                      </span>
-                    </div>
-                  </div>
-                  <ShoppingBag className="size-3.5 text-muted-foreground shrink-0" />
-                </button>
-              );
-            })}
-          </div>
-        </DialogContent>
-      </Dialog>
+          )}
+          <Dropdown.Trigger asChild>
+            <button
+              type="button"
+              aria-haspopup="dialog"
+              aria-label={
+                hasConnected ? "Choose desktop editor" : "Connect desktop IDE"
+              }
+              title={
+                hasConnected
+                  ? "Choose desktop editor"
+                  : "Connect your desktop editor"
+              }
+              className={cn(
+                controlClass,
+                "data-[state=open]:bg-muted",
+                hasConnected
+                  ? "w-7 shrink-0 rounded-r-[5px] border-l border-border px-0 pointer-coarse:w-11"
+                  : "rounded-[5px]",
+              )}
+            >
+              {!hasConnected && (
+                <>
+                  <Laptop
+                    aria-hidden="true"
+                    className="size-4 shrink-0 text-primary"
+                  />
+                  <span>Desktop IDE</span>
+                </>
+              )}
+              <ChevronDown
+                aria-hidden="true"
+                className={cn(
+                  "size-3.5 shrink-0 text-muted-foreground",
+                  !hasConnected && "ml-0.5",
+                )}
+              />
+            </button>
+          </Dropdown.Trigger>
+        </div>
+        <Dropdown.Portal>
+          {/* Drawers sit at 201 and the nested mobile IDE sheet at 221. */}
+          <Dropdown.Content
+            ref={pickerRef}
+            role="dialog"
+            aria-labelledby={undefined}
+            onFocusCapture={(event) => {
+              // Dropdown's focus scope enters through its content container.
+              if (event.target === event.currentTarget) {
+                pickerRef.current?.querySelector("input")?.focus();
+              }
+            }}
+            align="end"
+            sideOffset={7}
+            collisionPadding={12}
+            className="z-[240] w-[304px] max-w-[calc(100vw-24px)] overflow-hidden rounded-lg border border-border bg-popover p-0 text-popover-foreground shadow-md outline-none"
+            aria-label="Desktop editor picker"
+          >
+            <DesktopIdePicker
+              connectedIdes={connectedIdes}
+              preferredIde={activeConnectedIde?.id}
+              connecting={!hasConnected || connectAnother}
+              installedList={installedList}
+              platformLabel={platformLabel}
+              detectingEditors={detectingEditors}
+              loadingConnections={sessions.isPending}
+              connectionsError={sessions.isError}
+              onRetry={() => {
+                void sessions.refetch();
+              }}
+              onSelect={(ide, connected) =>
+                executeDispatch(ide.id, connected ? "workspace" : "marketplace")
+              }
+              onConnectAnother={() => setConnectAnother(true)}
+              onSetupHelp={() => {
+                setFallbackIde(activeConnectedIde ?? SUPPORTED_IDES[preferred]);
+                setPickerOpen(false);
+                setFallbackOpen(true);
+              }}
+            />
+          </Dropdown.Content>
+        </Dropdown.Portal>
+      </Dropdown.Root>
+      <IdeProjectPicker
+        open={projectPickerIde !== null}
+        onOpenChange={(open) => {
+          if (!open) setProjectPickerIde(null);
+        }}
+        editorName={
+          projectPickerIde
+            ? SUPPORTED_IDES[projectPickerIde].name
+            : "your editor"
+        }
+        onSelect={(project) => {
+          if (projectPickerIde)
+            executeDispatch(projectPickerIde, "workspace", project);
+        }}
+      />
 
       {/* Fallback Setup Modal */}
       <Dialog open={fallbackOpen} onOpenChange={setFallbackOpen}>
-        <DialogContent className="sm:max-w-md bg-card border-border">
-          <DialogHeader>
-            <div className="flex items-center gap-2.5 mb-1">
-              <div className="flex size-9 items-center justify-center rounded-[8px] bg-[#FCF0EA] dark:bg-[#D14E24]/20 text-[#D14E24]">
-                <Image
-                  src={fallbackIde.icon}
-                  alt=""
-                  width={20}
-                  height={20}
-                  unoptimized
-                  className="size-5 object-contain"
-                />
-              </div>
-              <DialogTitle className="text-base font-semibold">
-                Install Extension in {fallbackIde.name}
-              </DialogTitle>
-            </div>
-            <DialogDescription className="text-xs text-muted-foreground">
-              If nothing opened, install the NetworkBase WorkSpace extension in {fallbackIde.name}, then try again.
+        <DialogContent
+          overlayClassName="z-[250]"
+          className="z-[251] sm:max-w-[400px]"
+        >
+          <DialogHeader className="text-left">
+            <Image
+              src={fallbackIde.icon}
+              alt=""
+              width={32}
+              height={32}
+              unoptimized
+              className="mb-1 size-8 object-contain"
+            />
+            <DialogTitle>Connect {fallbackIde.name}</DialogTitle>
+            <DialogDescription className="text-[13px] leading-relaxed">
+              If nothing opened, install the NetworkBase WorkSpace extension in{" "}
+              {fallbackIde.name}, then try again.
             </DialogDescription>
           </DialogHeader>
+          <ol className="list-inside list-decimal space-y-2 text-[13px] leading-relaxed text-muted-foreground">
+            <li>
+              Find{" "}
+              <strong className="font-medium text-foreground">
+                NetworkBase Workspace
+              </strong>{" "}
+              in your editor&apos;s extensions.
+            </li>
+            <li>Install the extension and sign in to NetworkBase.</li>
+            <li>Open your project or task in your connected editor.</li>
+          </ol>
 
-          <div className="space-y-3 py-2 text-xs">
-            <div className="rounded-[8px] border border-border bg-muted/40 p-3 space-y-2">
-              <div className="font-medium text-foreground flex items-center gap-1.5">
-                <Sparkles className="size-3.5 text-[#D14E24]" />
-                NetworkBase Virtual Workspace
-              </div>
-              <p className="text-muted-foreground leading-relaxed">
-                Edit files directly with live cloud sync, zero clone overhead, and seamless task tracking in your editor.
-              </p>
-            </div>
-
-            <div className="space-y-2 pt-1">
-              <p className="font-medium text-foreground">
-                Quick Setup:
-              </p>
-              <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground">
-                <li>Search for <code className="rounded-[4px] bg-muted px-1 py-0.5 text-foreground font-mono text-[11px]">NetworkBase Workspace</code> in your editor extensions.</li>
-                <li>Click <strong>Install</strong>.</li>
-                <li>Once installed, click <strong>Open in {fallbackIde.name}</strong> to connect automatically.</li>
-              </ol>
-            </div>
-          </div>
-
-          <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
+          <DialogFooter className="flex-col gap-2 pt-2 sm:flex-col">
             <Button
               variant="outline"
               size="sm"
@@ -521,6 +325,13 @@ export function OpenInIdeButton({
               <ExternalLink className="size-3.5" />
               Open Marketplace in {fallbackIde.name}
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => executeDispatch(fallbackIde.id, "workspace")}
+            >
+              Try opening {fallbackIde.name}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -534,12 +345,21 @@ export function OpenInIdeSheet({
   onOpenChange,
   layered = false,
   ...buttonProps
-}: OpenInIdeButtonProps & { open: boolean; onOpenChange: (open: boolean) => void; layered?: boolean }) {
+}: OpenInIdeButtonProps & {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  layered?: boolean;
+}) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent overlayClassName={layered ? "z-[220]" : undefined} className={layered ? "z-[221] md:hidden" : "md:hidden"}>
+      <DialogContent
+        overlayClassName={layered ? "z-[220]" : undefined}
+        className={layered ? "z-[221] md:hidden" : "md:hidden"}
+      >
         <DialogTitle className="nb-card-title">Connect desktop IDE</DialogTitle>
-        <DialogDescription className="nb-compact text-muted-foreground">Open this work in your desktop editor.</DialogDescription>
+        <DialogDescription className="nb-compact text-muted-foreground">
+          Open this work in your desktop editor.
+        </DialogDescription>
         <OpenInIdeButton {...buttonProps} />
       </DialogContent>
     </Dialog>

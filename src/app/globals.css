@@ -956,12 +956,18 @@ svg.lucide { stroke-width:1.75; }
 .nb-presence-svg circle { stroke-width:calc(var(--w) * var(--presence-weight)); transition:stroke .98s ease, stroke-width .98s ease, r .7s ease, stroke-dasharray .6s ease; }
 .nb-presence-track { stroke:var(--presence-track); }
 .nb-presence-arc { stroke:var(--presence-arc); stroke-dasharray:360 0; }
-.nb-presence-ring { transform-box:fill-box; transform-origin:50% 50%; transition:transform .98s cubic-bezier(.45,.05,.2,1) calc(.17s + var(--order, 0) * .09s), opacity .6s ease; }
+.nb-presence-ring { transform-box:view-box; transform-origin:645px 710px; will-change:transform; transition:transform .98s cubic-bezier(.45,.05,.2,1) calc(.17s + var(--order, 0) * .09s), opacity .6s ease; }
 /* One change: each ring shrinks to its arcs (0-16%), turns while the hue fades (12-80%), then grows back to a full ring (84-100%). Two copies of the keyframes alternate so every change restarts the animation. */
 .nb-presence-badge[data-cycle="a"] .nb-presence-arc { animation:nb-presence-arc-a 1.44s ease-in-out calc(var(--order, 0) * .09s) both; }
 .nb-presence-badge[data-cycle="b"] .nb-presence-arc { animation:nb-presence-arc-b 1.44s ease-in-out calc(var(--order, 0) * .09s) both; }
+.nb-presence-badge[data-cycle="a"] .nb-presence-spin { animation:nb-presence-spin-cycle-a 1.44s cubic-bezier(.45,.05,.2,1) calc(var(--order, 0) * .09s) both; }
+.nb-presence-badge[data-cycle="b"] .nb-presence-spin { animation:nb-presence-spin-cycle-b 1.44s cubic-bezier(.45,.05,.2,1) calc(var(--order, 0) * .09s) both; }
+.nb-presence-badge[data-cycle="a"] .nb-presence-ring[data-reverse] .nb-presence-spin,
+.nb-presence-badge[data-cycle="b"] .nb-presence-ring[data-reverse] .nb-presence-spin { animation-direction:reverse; }
 @keyframes nb-presence-arc-a { 0%, 12% { stroke:var(--presence-from); } 16%, 84% { stroke-dasharray:var(--arc-len) var(--arc-gap); } 80%, 100% { stroke:var(--presence-arc); } }
 @keyframes nb-presence-arc-b { 0%, 12% { stroke:var(--presence-from); } 16%, 84% { stroke-dasharray:var(--arc-len) var(--arc-gap); } 80%, 100% { stroke:var(--presence-arc); } }
+@keyframes nb-presence-spin-cycle-a { 0% { transform:rotate(0deg); } 100% { transform:rotate(calc(var(--dir, 1) * 360deg)); } }
+@keyframes nb-presence-spin-cycle-b { 0% { transform:rotate(0deg); } 100% { transform:rotate(calc(var(--dir, 1) * 360deg)); } }
 .nb-presence-badge[data-cycle="a"] { animation:nb-presence-pop-a .22s ease-in-out 1.5s both; }
 .nb-presence-badge[data-cycle="b"] { animation:nb-presence-pop-b .22s ease-in-out 1.5s both; }
 @keyframes nb-presence-pop-a { 0%, 100% { transform:scale(1); } 50% { transform:scale(1.16); } }
@@ -1291,3 +1297,33 @@ html[data-reduce-motion="true"] .nb-typing-dots > span { animation: none; opacit
 .nb-person-action-skeleton { height:34px; }
 .nb-person-skill-strip { overflow:hidden; }
 @media(pointer:coarse) { .nb-person-card-host[data-variant=rail] .nb-person-action-skeleton { height:44px; } @container person-card (max-width:429px) { .nb-person-action-skeleton { height:44px; } } }
+
+/* Contribution stories share the open Edit profile section grammar. */
+.nb-contribution-story { content-visibility: auto; contain-intrinsic-size: 0 160px; }
+.nb-contribution-story .nb-contribution-markdown { line-height:1.55; text-wrap:pretty; }
+.nb-contribution-workspace { container-type:inline-size; min-width:0; }
+.nb-story-section { border-bottom:1px solid var(--border); padding-bottom:24px; margin-bottom:32px; scroll-margin-top:24px; }
+.nb-story-field { display:flex; min-width:0; flex-direction:column; gap:8px; font-size:13px; font-weight:500; }
+.nb-story-field small { font-size:13px; font-weight:400; color:var(--muted-foreground); }
+.nb-story-input { display:block; width:100%; min-width:0; height:var(--ui-control-height); padding:8px var(--ui-control-px); border:1px solid var(--input); border-radius:4px; background:var(--card); color:var(--foreground); font-size:13px; }
+@media (pointer:coarse) { .nb-story-input { font-size:16px; min-height:44px; } }
+textarea.nb-story-input { height:auto; min-height:96px; resize:vertical; line-height:1.6; }
+.nb-story-input:focus-visible { outline:2px solid var(--primary); outline-offset:2px; }
+.nb-story-input[aria-invalid="true"] { border-color:var(--destructive); outline:2px solid var(--destructive); outline-offset:2px; }
+.nb-story-input:disabled { opacity:.5; }
+.nb-story-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.nb-story-check { display:flex; align-items:flex-start; gap:8px; font-size:13px; line-height:1.5; margin-top:12px; }
+.nb-story-check input { margin-top:3px; accent-color:var(--primary); }
+.nb-story-position { display:grid; grid-template-columns:176px minmax(0,1fr); gap:24px; }
+.nb-story-current { border-radius:4px; background:var(--status-success-soft); color:var(--status-success); padding:2px 7px; font-size:11px; }
+.nb-contribution-rich .tiptap p + p,.nb-contribution-markdown p + p { margin-top:12px; }
+.nb-contribution-rich .tiptap ul,.nb-contribution-markdown ul { list-style:disc; padding-left:24px; margin-block:12px; }
+.nb-contribution-rich .tiptap ol,.nb-contribution-markdown ol { list-style:decimal; padding-left:24px; margin-block:12px; }
+.nb-contribution-markdown { font-size:15px; line-height:1.65; overflow-wrap:anywhere; }
+.nb-story-reveal { position:relative; max-height:192px; overflow:hidden; transition:max-height 360ms ease; }
+.nb-story-reveal:not(.is-expanded) .nb-contribution-markdown { max-height:76px; overflow:hidden; }
+.nb-story-reveal:not(.is-expanded)::after { content:''; position:absolute; inset:80px 0 0; pointer-events:none; background:linear-gradient(transparent,var(--card)); }
+.nb-story-reveal.is-expanded { max-height:12000px; }
+@container (max-width:620px) { .nb-story-position { grid-template-columns:minmax(0,1fr); gap:8px; } }
+@container (max-width:440px) { .nb-story-fields { grid-template-columns:minmax(0,1fr); } }
+@media (prefers-reduced-motion:reduce) { .nb-story-reveal { transition:none; } }

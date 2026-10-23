@@ -113,7 +113,7 @@ test('profile surfaces use the shared typography roles', () => {
   assert.match(projects, /nb-section-title/)
   assert.match(projects, /nb-compact/)
   assert.match(contributions, /nb-card-title|nb-body/)
-  assert.match(contributions, /nb-meta/)
+  assert.match(contributions + read('src/components/profile/ContributionStoryView.tsx'), /nb-meta/)
   assert.match(editor, /nb-section-title/)
   assert.match(editor, /nb-card-title/)
   assert.match(editor, /nb-ui-label/)

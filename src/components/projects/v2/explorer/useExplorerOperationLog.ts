@@ -1,6 +1,6 @@
 "use client";
 
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 import { useCallback } from "react";
 import type { ExplorerOperation } from "./explorerTypes";
 import { getErrorMessage } from "./explorerTypes";
@@ -14,22 +14,22 @@ export function useExplorerOperationLog() {
     const undo = async () => {
       if (running || completed) return;
       running = true;
-      const id = toast.loading("Undoing change…");
+      const id = toast.loading("Undoing change…", { id: feedbackId });
       try {
         await operation.undo!.run();
         completed = true;
         toast.success("Change undone", { id });
       } catch (error) {
-        toast.error(`Undo failed: ${getErrorMessage(error, "Try again")}`, {
-          id, action: { label: "Retry", onClick: () => { void undo(); } },
+        toast.error("Couldn’t undo that change", {
+          id, description: "Change still applies.", action: { label: "Retry undo", onClick: () => undo() },
         });
       } finally {
         running = false;
       }
     };
-    toast.success(operation.label, {
+    const feedbackId = toast(operation.label, {
       duration: 10000,
-      action: { label: operation.undo.label, onClick: () => { void undo(); } },
+      action: { label: operation.undo.label, onClick: () => undo() },
     });
   }, []);
   return { recordOperation };

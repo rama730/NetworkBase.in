@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import type { ProjectNode } from "@/lib/db/schema";
 import { formatBytes } from "../../files-tab/folder/format";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 
 interface BinaryInspectorDriverProps {
   node: ProjectNode;

@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useContext } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
 import { useExplorerMutations } from "../../explorer/useExplorerMutations";
 import { useExplorerOperationLog } from "../../explorer/useExplorerOperationLog";

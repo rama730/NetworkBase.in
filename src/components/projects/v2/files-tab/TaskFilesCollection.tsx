@@ -7,7 +7,7 @@ import { unlinkNodeFromTask, linkNodeToTask, updateTaskNodeLink } from "@/app/ac
 import { extractLabel, composeAnnotation } from "@/lib/projects/task-file-label";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { FolderListRowNode } from "./folder/FolderListRow";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 import {
   getTaskFileGroups,
   type TaskCollectionEntry,
@@ -384,7 +384,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
         }),
       );
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to upload file to task");
+      toast.error(feedbackError(err instanceof Error ? err.message : "Failed to upload file to task", "Failed to upload file to task"));
     } finally {
       setIsProcessingUpload(false);
       setPendingUploadFiles(null);
@@ -463,7 +463,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
           }),
         );
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Failed to update label");
+        toast.error(feedbackError(err instanceof Error ? err.message : "Failed to update label", "Failed to update label"));
         void queryClient.invalidateQueries({
           queryKey: ["files-task-collections", projectId],
         });
@@ -1032,9 +1032,9 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
             );
           } catch (error) {
             toast.error(
-              error instanceof Error
+              feedbackError(error instanceof Error
                 ? error.message
-                : "Could not remove this task link",
+                : "Could not remove this task link", "Could not remove this task link"),
             );
           } finally {
             setUnlinking(false);

@@ -3,7 +3,7 @@
 import { Suspense, useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { toast, feedbackError } from "@/lib/feedback";
 import { Loader2, Lock } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { createClient } from '@/lib/supabase/client';
@@ -382,11 +382,11 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                 refreshProjectData();
                 await refreshApplicationStatus();
             } else {
-                toast.error(res.error || (action === 'accept' ? 'Failed to accept invitation' : 'Failed to decline invitation'));
+                toast.error(feedbackError(res.error || (action === 'accept' ? 'Failed to accept invitation' : 'Failed to decline invitation'), "Failed to decline invitation"));
             }
         } catch (error) {
             console.error(`Error ${action === 'accept' ? 'accepting' : 'declining'} invitation:`, error);
-            toast.error(error instanceof Error ? error.message : action === 'accept' ? 'Failed to accept invitation' : 'Failed to decline invitation');
+            toast.error(feedbackError(error instanceof Error ? error.message : action === 'accept' ? 'Failed to accept invitation' : 'Failed to decline invitation', "Failed to decline invitation"));
         } finally {
             setInvitationLoading(false);
         }
@@ -798,7 +798,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
             setIsFollowing(!newIsFollowing);
             setFollowersCount(Math.max(0, baselineFollowersCount));
             const message = error instanceof Error ? error.message : 'Failed to update follow status';
-            toast.error(message);
+            toast.error(feedbackError(message, "Action couldn’t finish"));
             logger.metric('project.detail.follow.result', {
                 projectId: project.id,
                 userId: currentUserId,
@@ -907,7 +907,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                 return;
             }
             if (applicationLoad !== 'ready') {
-                toast.error(applicationLoad === 'error' ? 'Could not check your application. Try again.' : 'Checking your application…');
+                toast.error(feedbackError(applicationLoad === 'error' ? 'Could not check your application. Try again.' : 'Checking your application…', "Checking your application…"));
                 return;
             }
             if (applicationStatus.status === 'pending') {
@@ -1005,15 +1005,15 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                         return true;
                     }
 
-                    toast.error(retryResult.error || 'Failed to update stage after sync');
+                    toast.error(feedbackError(retryResult.error || 'Failed to update stage after sync', "Failed to update stage after sync"));
                     return false;
                 }
 
-                toast.error(result.error || 'Failed to update stage');
+                toast.error(feedbackError(result.error || 'Failed to update stage', "Failed to update stage"));
                 return false;
             } catch (error) {
                 if (!isMountedRef.current || requestId !== stageRequestRef.current) return false;
-                toast.error(error instanceof Error ? error.message : 'Failed to update project stage');
+                toast.error(feedbackError(error instanceof Error ? error.message : 'Failed to update project stage', "Failed to update project stage"));
                 return false;
             } finally {
                 if (isMountedRef.current && requestId === stageRequestRef.current) {
@@ -1030,7 +1030,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
             return;
         }
         if (!isOwner) {
-            toast.error(delta > 0 ? 'Only the project owner can advance the stage' : 'Only the project owner can revert the stage');
+            toast.error(feedbackError(delta > 0 ? 'Only the project owner can advance the stage' : 'Only the project owner can revert the stage', "Only the project owner can revert the stage"));
             return;
         }
 

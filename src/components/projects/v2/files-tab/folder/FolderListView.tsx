@@ -16,7 +16,7 @@
 
 import dynamic from "next/dynamic";
 import { extOf } from "@/components/projects/v2/utils/fileKind";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 
 import * as React from "react";
 import {
@@ -115,7 +115,7 @@ const EMPTY_FOLDER_PAGE = Object.freeze({
 
 function showFilesToast(message: string, type: "success" | "error" | "info" | "warning" = "info") {
   if (type === "success") toast.success(message);
-  else if (type === "error") toast.error(message);
+  else if (type === "error") toast.error(feedbackError(message, "Action couldn’t finish"));
   else if (type === "warning") toast.warning(message);
   else toast.info(message);
 }
@@ -322,7 +322,7 @@ export function FolderListView({
       await loadFolderContent(folderId, "append");
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Could not load more files",
+        feedbackError(error instanceof Error ? error.message : "Could not load more files", "Could not load more files"),
       );
     } finally {
       setIsLoadingMore(false);
@@ -478,7 +478,7 @@ export function FolderListView({
         setAttachTaskNode(null);
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to attach file to task";
-        toast.error(msg);
+        toast.error(feedbackError(msg, "Action couldn’t finish"));
       } finally {
         setIsAttachingTask(false);
       }
@@ -551,7 +551,7 @@ export function FolderListView({
             newVersion: result.version.version,
           });
         } else {
-          toast.error(result.error || "Failed to save revision");
+          toast.error(feedbackError(result.error || "Failed to save revision", "Failed to save revision"));
         }
       } catch {
         toast.error("Failed to save revision");
@@ -642,14 +642,14 @@ export function FolderListView({
           isFolder: rawFiles.some((f) => f.webkitRelativePath?.includes("/")),
         });
         if (!validation.valid) {
-          if (validation.error) toast.error(validation.error);
+          if (validation.error) toast.error(feedbackError(validation.error, "Action couldn’t finish"));
           return;
         }
 
         setTargetDropFolderId(folderId);
         setPendingUploadFiles(validation.files);
       }).catch((error) => {
-        toast.error(error instanceof Error ? error.message : "Could not read dropped folder");
+        toast.error(feedbackError(error instanceof Error ? error.message : "Could not read dropped folder", "Could not read dropped folder"));
       });
     };
 
@@ -662,7 +662,7 @@ export function FolderListView({
         isFolder: files.some((f) => f.webkitRelativePath?.includes("/")),
       });
       if (!validation.valid) {
-        if (validation.error) toast.error(validation.error);
+        if (validation.error) toast.error(feedbackError(validation.error, "Action couldn’t finish"));
         return;
       }
       setTargetDropFolderId(targetFolderId);
@@ -694,7 +694,7 @@ export function FolderListView({
           upsertNodes(projectId, [saveRes.node]);
           await loadFolderContent(folderId, "refresh");
         } catch (err) {
-          toast.error((err as Error).message || "Failed to save new version");
+          toast.error(feedbackError((err as Error).message || "Failed to save new version", "Failed to save new version"));
         } finally {
           setIsProcessingDrop(false);
           setPendingUploadFiles(null);
@@ -735,7 +735,7 @@ export function FolderListView({
           }
         })
         .catch((err) => {
-          toast.error((err as Error).message || "Failed to upload files");
+          toast.error(feedbackError((err as Error).message || "Failed to upload files", "Failed to upload files"));
         });
     },
     [pendingUploadFiles, projectId, folderId, targetDropFolderId, uploadFilesDirectly, upsertNodes, loadFolderContent, resetDragState],
@@ -751,7 +751,7 @@ export function FolderListView({
       const rawFiles = Array.from(input.files || []);
       const validation = validateUploadSelection(rawFiles, { isFolder: false });
       if (!validation.valid) {
-        if (validation.error) toast.error(validation.error);
+        if (validation.error) toast.error(feedbackError(validation.error, "Action couldn’t finish"));
         return;
       }
       setTargetDropFolderId(folderId);
@@ -770,7 +770,7 @@ export function FolderListView({
       const rawFiles = Array.from(input.files || []);
       const validation = validateUploadSelection(rawFiles, { isFolder: true });
       if (!validation.valid) {
-        if (validation.error) toast.error(validation.error);
+        if (validation.error) toast.error(feedbackError(validation.error, "Action couldn’t finish"));
         return;
       }
       setTargetDropFolderId(folderId);
@@ -826,7 +826,7 @@ export function FolderListView({
 
   const downloadNode = React.useCallback(async (node: FolderListRowNode) => {
     try { const result = await getFilePreviewUrl(projectId, node.id, true); const anchor = document.createElement("a"); anchor.href = result.url; anchor.download = node.name; anchor.rel = "noopener noreferrer"; anchor.click(); }
-    catch (error) { toast.error(error instanceof Error ? error.message : "Download failed"); }
+    catch (error) { toast.error(feedbackError(error instanceof Error ? error.message : "Download failed", "Download failed")); }
   }, [projectId]);
 
   const copyLink = React.useCallback(async (node: FolderListRowNode) => {
@@ -842,7 +842,7 @@ export function FolderListView({
   const renderMenu = React.useCallback((menuNode: FolderListRowNode) => <>          {menuNode ? (
             <>
               <DropdownMenuItem
-                onClick={() => {
+                onSelect={() => {
                   if (menuNode)
                     handleOpenFromMenu(menuNode);
                 }}
@@ -851,7 +851,7 @@ export function FolderListView({
                 Open
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => {
+                onSelect={() => {
                   if (menuNode)
                     toggleFavorite(projectId, menuNode.id);
                 }}
@@ -875,14 +875,9 @@ export function FolderListView({
                     <Info className="mr-2 size-4" />
                     Details
                   </DropdownMenuItem>
-                  {canEdit && (
+                  {canEdit && isTextFile(menuNode) && (
                     <DropdownMenuItem
-                      onSelect={() => {
-                        if (!isTextFile(menuNode)) {
-                          toast.info("This file format cannot be edited inline. Previewing file instead.");
-                        }
-                        handleOpenFromMenu(menuNode);
-                      }}
+                      onSelect={() => handleOpenFromMenu(menuNode)}
                     >
                       <Pencil className="mr-2 size-4" />
                       Edit
@@ -910,7 +905,7 @@ export function FolderListView({
                     </DropdownMenuItem>
                   )}
                   {canEdit && !isInternalTaskWorkingFilesNode(menuNode) && (
-                    <DropdownMenuItem onClick={() => openRename(menuNode)}>
+                    <DropdownMenuItem onSelect={() => openRename(menuNode)}>
                       <Pencil className="mr-2 size-4" />
                       Rename it
                     </DropdownMenuItem>
@@ -928,7 +923,7 @@ export function FolderListView({
               {canEdit && !isInternalTaskWorkingFilesNode(menuNode) && menuNode.type === "folder" && (
                 <>
                   <DropdownMenuItem
-                    onClick={() =>
+                    onSelect={() =>
                       openCreateInFolder(menuNode!.id, "file")
                     }
                   >
@@ -936,7 +931,7 @@ export function FolderListView({
                     New file
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() =>
+                    onSelect={() =>
                       openCreateInFolder(menuNode!.id, "folder")
                     }
                   >
@@ -944,7 +939,7 @@ export function FolderListView({
                     New folder
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() =>
+                    onSelect={() =>
                       handleUploadToFolder(menuNode!.id)
                     }
                   >
@@ -952,7 +947,7 @@ export function FolderListView({
                     Upload file
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() =>
+                    onSelect={() =>
                       openFolderUpload(menuNode!.id)
                     }
                   >
@@ -967,23 +962,23 @@ export function FolderListView({
                 <>
                   {menuNode.type === "folder" && (
                     <DropdownMenuItem
-                      onClick={() => openRename(menuNode!)}
+                      onSelect={() => openRename(menuNode!)}
                     >
                       <Pencil className="w-4 h-4 mr-2" />
-                      Rename
+                      Rename…
                     </DropdownMenuItem>
                   )}
                   {canManageFiles ? (
                     <DropdownMenuItem
-                      onClick={() => handleMoveFromMenu(menuNode!)}
+                      onSelect={() => handleMoveFromMenu(menuNode!)}
                     >
                       <FolderInput className="w-4 h-4 mr-2" />
-                      Move
+                      Move…
                     </DropdownMenuItem>
                   ) : null}
                   <DropdownMenuItem
                     className="text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"
-                    onClick={() =>
+                    onSelect={() =>
                       handleDeleteFromMenu(menuNode!)
                     }
                   >

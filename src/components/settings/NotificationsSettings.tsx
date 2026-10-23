@@ -6,7 +6,7 @@ import { resumeNotifications } from "@/app/actions/presence";
 import { useMyPresenceSettings } from "@/components/presence/useMyPresence";
 import { queryKeys } from "@/lib/query-keys";
 import { Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { toast, feedbackError } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader";
 import { SettingsRow } from "@/components/settings/ui/SettingsRow";
@@ -94,7 +94,7 @@ export default function NotificationsPage({ embedded = false }: { embedded?: boo
       const permission = await requestBrowserNotificationPermission();
       setPermissionState(permission);
       if (permission !== "granted") {
-        toast.error(permission === "denied" ? "Browser notifications are blocked in browser settings." : "Browser notifications are unavailable here.");
+        toast.error(feedbackError(permission === "denied" ? "Browser notifications are blocked in browser settings." : "Browser notifications are unavailable here.", "Browser notifications are unavailable here."));
         return;
       }
     }
@@ -117,7 +117,7 @@ export default function NotificationsPage({ embedded = false }: { embedded?: boo
       const result = await subscribeWebPush();
       if (!result.ok) {
         const messages: Record<string, string> = { permission_denied: "Push permission was denied in your browser.", missing_vapid_key: "Push is not configured yet. Contact support." };
-        toast.error(messages[result.reason] || "Couldn't enable push notifications.");
+        toast.error(feedbackError(messages[result.reason] || "Couldn't enable push notifications.", "Couldn't enable push notifications."));
         setPushStatus(await getCurrentPushStatus());
         return;
       }

@@ -254,6 +254,7 @@ export const queryKeys = {
   },
   workspace: {
     root: () => ["workspace"] as const,
+    ideProjects: (userId: string | null) => ["workspace", "ide-projects", userId] as const,
     summary: () => ["workspace", "summary"] as const,
     members: () => ["workspace", "members"] as const,
     sprints: () => ["workspace", "sprints"] as const,

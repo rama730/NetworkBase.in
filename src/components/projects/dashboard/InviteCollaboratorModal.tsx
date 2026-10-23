@@ -7,7 +7,7 @@ import { queryKeys } from "@/lib/query-keys";
 import { AlertCircle, Briefcase, Check, Loader2, Search, Users } from "lucide-react";
 import { usePlainContentHeadings } from "@/components/projects/PlainContentHeadings";
 import { del, get, set } from "idb-keyval";
-import { toast } from "sonner";
+import { toast } from "@/lib/feedback";
 import { Virtuoso } from "react-virtuoso";
 
 import { applyToRoleAction, editPendingApplicationAction, getProjectInviteOptionsAction } from "@/app/actions/applications";

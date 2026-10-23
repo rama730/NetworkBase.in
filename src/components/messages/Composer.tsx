@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { EditorContent, type Editor } from "@tiptap/react";
 import { EditorState } from "@tiptap/pm/state";
 import { ALargeSmall, BarChart3, Camera, ChevronDown, Code2, FileText, Hash, Image as ImageIcon, Paperclip, Plus, SendHorizontal, Slash, Smile, SquareCheck, X } from "lucide-react";
-import { toast } from "sonner";
+import { toast, feedbackError, feedbackDate } from "@/lib/feedback";
 
 import { scheduleMessage } from "@/app/actions/chat/later";
 import { createTaskFromMessage, sendMessage } from "@/app/actions/chat/messages";
@@ -522,7 +522,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     for (const file of picked.slice(0, Math.max(room, 0))) {
       const problem = fileProblem(file, DEFAULT_ATTACHMENT_UPLOAD_MAX_FILE_BYTES);
       if (problem) {
-        toast.error(problem);
+        toast.error(feedbackError(problem, "Action couldn’t finish"));
         continue;
       }
       const id = crypto.randomUUID();
@@ -622,7 +622,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
     clear();
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.scheduled() });
-    toast.success(`Scheduled for ${formatChatTime(at, "at")}`, {
+    toast.success("Message scheduled", { description: feedbackDate(at),
       action: { label: "View", onClick: () => router.push("/messages/drafts") },
     });
   };
@@ -724,7 +724,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
         load(draft);
         writeDraft(draftKey, draft);
       }
-      toast.error(`${chatErrorMessage(result.error)} Your message is back in the box.`);
+      toast.error(feedbackError(`${chatErrorMessage(result.error)} Your message is back in the box.`, "Action couldn’t finish"));
       return;
     }
     if (threadKey) putInThread((replies) => replies.map((m) => (m.client_message_id === clientId ? keepLocalPreviews(result.message, m) : m)));

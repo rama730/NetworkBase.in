@@ -3,7 +3,7 @@
 import { useInfiniteQuery, useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
+import { toast, feedbackDate } from "@/lib/feedback";
 
 import { getCanvas } from "@/app/actions/chat/canvas";
 import { getChannel, listChannelTabs, listMembers } from "@/app/actions/chat/channels";
@@ -370,7 +370,7 @@ export function useSavedSeqs(channelId: string, enabled: boolean) {
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.saved() });
     const viewSaved = { label: "View saved", onClick: () => router.push("/messages/saved") };
     if (!on) toast.success("Removed from Saved", { action: { label: "Undo", onClick: () => void save(seq, true) } });
-    else if (remindAt) toast.success(`Reminder set for ${formatChatTime(remindAt, "at")}`, { action: viewSaved });
+    else if (remindAt) toast.success("Reminder set", { description: feedbackDate(remindAt), action: viewSaved });
     else toast.success("Saved", { action: viewSaved });
   }, [channelId, key, queryClient, router]);
   // Stable identity: the conversation context depends on it, and every row reads that (REND-01).

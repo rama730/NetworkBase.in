@@ -1,7 +1,7 @@
 import type { NetworkPersonFilters } from '@/lib/network/browse-query';
 import type { PersonCardDetails } from '@/lib/network/person-card';
 import { useEffect, useRef, useCallback, useMemo } from 'react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/feedback';
 import {
     InfiniteData,
     QueryKey,

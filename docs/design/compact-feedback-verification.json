@@ -1,0 +1,40 @@
+{
+  "date": "2026-10-22",
+  "approvedConcept": "04",
+  "productionBuild": "passed",
+  "typecheck": "passed",
+  "focusedLint": "passed",
+  "unitTests": {
+    "total": 2631,
+    "passed": 2630,
+    "failed": 1,
+    "remainingFailure": "Sibling VS Code extension lease contract: await this.acquireLock(uri, true)"
+  },
+  "browser": {
+    "renderer": "actual React components in isolated harness",
+    "curatedDesktopScenarios": 255,
+    "curatedMobileScenarios": 255,
+    "desktopWidthPx": 200,
+    "fileLimitCardHeightPx": 72,
+    "minimumConfirmationHeightPx": 40,
+    "mobileWidthPx": 224,
+    "touchMinimumPx": 44,
+    "bottomControlClearancePx": 16,
+    "modalOwners": 1,
+    "reducedMotion": "fade only; spinner disabled",
+    "checked": [
+      "queue selection and recovery",
+      "collapsed navigation",
+      "manual clipboard selection",
+      "Undo/commit",
+      "F8/Escape",
+      "text overflow",
+      "mobile targets"
+    ]
+  },
+  "boundaries": [
+    "Signed-in backend mutations were not executed; local app redirected to login.",
+    "Existing Timeline and ImageViewerDriver lint errors reproduce at unchanged HEAD.",
+    "No database changes or deployment."
+  ]
+}
