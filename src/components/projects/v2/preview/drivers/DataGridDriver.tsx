@@ -113,7 +113,7 @@ export function DataGridDriver({
     }
 
     return result;
-  }, [currentSheet.rows, deferredSearch, sortColumnIndex, sortDirection]);
+  }, [cleanedRows, deferredSearch, sortColumnIndex, sortDirection]);
 
   const handleHeaderClick = React.useCallback(
     (index: number) => {
@@ -164,7 +164,7 @@ export function DataGridDriver({
 
   const fixedHeaderContent = React.useCallback(() => (
     <tr className="bg-muted border-b border-border text-left shadow-xs">
-      <th className="w-12 border-b border-r border-border p-2 text-center font-mono text-[10px] font-semibold text-muted-foreground select-none">
+      <th className="sticky left-0 z-20 w-12 border-b border-r border-border bg-muted p-2 text-center font-mono text-[10px] font-semibold text-muted-foreground select-none">
         #
       </th>
       {currentSheet.headers.map((header, idx) => (
@@ -192,7 +192,7 @@ export function DataGridDriver({
 
   const itemContent = React.useCallback((rowIndex: number, row: string[]) => (
     <>
-      <td className="w-12 border-b border-r border-border bg-muted/20 p-2 text-center font-mono text-[10px] text-muted-foreground select-none">
+      <td className="sticky left-0 z-10 w-12 border-b border-r border-border bg-muted/95 backdrop-blur-xs p-2 text-center font-mono text-[10px] text-muted-foreground select-none">
         {rowIndex + 1}
       </td>
       {row.map((cell, colIndex) => {
@@ -307,7 +307,8 @@ export function DataGridDriver({
             className="app-scroll h-full w-full"
             data={filteredRows}
             components={virtuosoComponents}
-            overscan={400}
+            overscan={200}
+            fixedItemHeight={37}
             defaultItemHeight={37}
             fixedHeaderContent={fixedHeaderContent}
             itemContent={itemContent}

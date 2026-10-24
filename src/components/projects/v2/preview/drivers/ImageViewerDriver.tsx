@@ -36,14 +36,22 @@ export function ImageViewerDriver({
   const [position, setPosition] = React.useState({ x: 0, y: 0 });
   const [rotation, setRotation] = React.useState(0);
   const [isDragging, setIsDragging] = React.useState(false);
-  const [showCheckerboard, setShowCheckerboard] = React.useState(true);
+  const [backdropMode, setBackdropMode] = React.useState<"checkerboard" | "dark" | "white" | "gray">("checkerboard");
   const [imageError, setImageError] = React.useState(false);
   const [svgSource, setSvgSource] = React.useState<string | null>(null);
   const [viewMode, setViewMode] = React.useState<"render" | "code">("render");
   const [copied, setCopied] = React.useState(false);
 
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const imageStageRef = React.useRef<HTMLDivElement>(null);
   const dragStart = React.useRef({ x: 0, y: 0 });
+  const positionRef = React.useRef({ x: 0, y: 0 });
+  const rafIdRef = React.useRef<number | null>(null);
+
+  // Sync position ref when state changes
+  React.useEffect(() => {
+    positionRef.current = position;
+  }, [position]);
 
   // Fetch SVG text if it is an SVG file to support viewing source
   React.useEffect(() => {
@@ -85,16 +93,29 @@ export function ImageViewerDriver({
     setPosition({ x: 0, y: 0 });
   }, []);
 
-  // Trackpad pinch-to-zoom (Safari gesture events & Chrome ctrl+wheel)
+  // Trackpad pinch-to-zoom & wheel zoom with focal cursor anchor
   React.useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
     const onWheel = (e: WheelEvent) => {
-      if (e.ctrlKey || e.metaKey) {
+      if (e.ctrlKey || e.metaKey || e.altKey) {
         e.preventDefault();
-        const factor = e.deltaY < 0 ? 1.1 : 0.9;
-        setScale((s) => Math.min(Math.max(Number((s * factor).toFixed(2)), 0.1), 8));
+        const rect = el.getBoundingClientRect();
+        const cursorX = e.clientX - rect.left - rect.width / 2;
+        const cursorY = e.clientY - rect.top - rect.height / 2;
+        const factor = e.deltaY < 0 ? 1.15 : 0.85;
+
+        setScale((prevScale) => {
+          const newScale = Math.min(Math.max(Number((prevScale * factor).toFixed(2)), 0.1), 16);
+          // Focal zoom math: preserve the image point under the cursor
+          positionRef.current = {
+            x: cursorX - (cursorX - positionRef.current.x) * (newScale / prevScale),
+            y: cursorY - (cursorY - positionRef.current.y) * (newScale / prevScale),
+          };
+          setPosition({ ...positionRef.current });
+          return newScale;
+        });
       }
     };
 
@@ -103,7 +124,7 @@ export function ImageViewerDriver({
     const onGestureChange = (e: any) => {
       e.preventDefault();
       if (typeof e.scale === "number") {
-        setScale((s) => Math.min(Math.max(Number((s * e.scale).toFixed(2)), 0.1), 8));
+        setScale((s) => Math.min(Math.max(Number((s * e.scale).toFixed(2)), 0.1), 16));
       }
     };
 
@@ -118,29 +139,48 @@ export function ImageViewerDriver({
     };
   }, []);
 
+  const updateStageTransform = React.useCallback(() => {
+    if (imageStageRef.current) {
+      imageStageRef.current.style.transform = `translate3d(${positionRef.current.x}px, ${positionRef.current.y}px, 0) scale(${scale}) rotate(${rotation}deg)`;
+    }
+  }, [scale, rotation]);
+
   const handleMouseDown = React.useCallback(
     (e: React.MouseEvent) => {
       if (e.button !== 0) return;
       setIsDragging(true);
-      dragStart.current = { x: e.clientX - position.x, y: e.clientY - position.y };
+      dragStart.current = { x: e.clientX - positionRef.current.x, y: e.clientY - positionRef.current.y };
     },
-    [position],
+    [],
   );
 
   const handleMouseMove = React.useCallback(
     (e: React.MouseEvent) => {
       if (!isDragging) return;
-      setPosition({
+      positionRef.current = {
         x: e.clientX - dragStart.current.x,
         y: e.clientY - dragStart.current.y,
-      });
+      };
+      if (!rafIdRef.current) {
+        rafIdRef.current = requestAnimationFrame(() => {
+          rafIdRef.current = null;
+          updateStageTransform();
+        });
+      }
     },
-    [isDragging],
+    [isDragging, updateStageTransform],
   );
 
   const handleMouseUp = React.useCallback(() => {
-    setIsDragging(false);
-  }, []);
+    if (isDragging) {
+      setIsDragging(false);
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+      setPosition({ ...positionRef.current });
+    }
+  }, [isDragging]);
 
   const handleDoubleClick = React.useCallback(() => {
     if (scale !== 1) {
@@ -260,10 +300,17 @@ export function ImageViewerDriver({
             </Button>
             <Button
               size="sm"
-              variant={showCheckerboard ? "secondary" : "ghost"}
-              onClick={() => setShowCheckerboard((v) => !v)}
+              variant="ghost"
+              onClick={() => {
+                setBackdropMode((prev) => {
+                  if (prev === "checkerboard") return "dark";
+                  if (prev === "dark") return "white";
+                  if (prev === "white") return "gray";
+                  return "checkerboard";
+                });
+              }}
               className="h-7 w-7 p-0"
-              title="Toggle transparency background"
+              title={`Backdrop Mode: ${backdropMode} (Click to cycle)`}
             >
               <Grid className="h-3.5 w-3.5" />
             </Button>
@@ -293,7 +340,7 @@ export function ImageViewerDriver({
         </Button>
       </div>
 
-      {/* Main Canvas View */}
+      {/* Main Canvas View with GPU-accelerated translate3d */}
       {viewMode === "render" ? (
         <div
           ref={containerRef}
@@ -304,12 +351,14 @@ export function ImageViewerDriver({
           onDoubleClick={handleDoubleClick}
           className={cn(
             "relative flex-1 cursor-grab overflow-hidden active:cursor-grabbing",
-            showCheckerboard
-              ? "bg-[linear-gradient(45deg,#f0f0f0_25%,transparent_25%),linear-gradient(-45deg,#f0f0f0_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f0f0f0_75%),linear-gradient(-45deg,transparent_75%,#f0f0f0_75%)] bg-[size:20px_20px] bg-[position:0_0,0_10px,10px_-10px,-10px_0px] dark:bg-[linear-gradient(45deg,#1f1f1f_25%,transparent_25%),linear-gradient(-45deg,#1f1f1f_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#1f1f1f_75%),linear-gradient(-45deg,transparent_75%,#1f1f1f_75%)]"
-              : "bg-muted/20",
+            backdropMode === "checkerboard" && "bg-[linear-gradient(45deg,#f0f0f0_25%,transparent_25%),linear-gradient(-45deg,#f0f0f0_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f0f0f0_75%),linear-gradient(-45deg,transparent_75%,#f0f0f0_75%)] bg-[size:20px_20px] bg-[position:0_0,0_10px,10px_-10px,-10px_0px] dark:bg-[linear-gradient(45deg,#1f1f1f_25%,transparent_25%),linear-gradient(-45deg,#1f1f1f_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#1f1f1f_75%),linear-gradient(-45deg,transparent_75%,#1f1f1f_75%)]",
+            backdropMode === "dark" && "bg-[#111111]",
+            backdropMode === "white" && "bg-[#ffffff]",
+            backdropMode === "gray" && "bg-[#7f7f7f]",
           )}
         >
           <div
+            ref={imageStageRef}
             className="flex h-full w-full items-center justify-center p-6 select-none"
             style={{
               transform: `translate3d(${position.x}px, ${position.y}px, 0) scale(${scale}) rotate(${rotation}deg)`,
