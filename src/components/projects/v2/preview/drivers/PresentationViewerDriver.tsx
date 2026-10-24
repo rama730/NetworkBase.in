@@ -35,6 +35,7 @@ interface SlideBox {
   top: number;  // percentage (0-100)
   width: number; // percentage (0-100)
   height: number; // percentage (0-100)
+  rotation?: number; // degrees
 }
 
 interface SlideElement {
@@ -73,7 +74,9 @@ function parseXfrm(container: Element, slideWidthEmu: number, slideHeightEmu: nu
   const top = Math.max(0, Math.min(100, (y / slideHeightEmu) * 100));
   const width = Math.max(2, Math.min(100 - left, (cx / slideWidthEmu) * 100));
   const height = Math.max(2, Math.min(100 - top, (cy / slideHeightEmu) * 100));
-  return { left, top, width, height };
+  const rotStr = xfrm.getAttribute("rot");
+  const rotation = rotStr ? Math.round(parseInt(rotStr, 10) / 60000) : undefined;
+  return { left, top, width, height, rotation };
 }
 
 export function PresentationViewerDriver({
@@ -328,101 +331,120 @@ export function PresentationViewerDriver({
           }
 
           // Extract EMU percentage-positioned slide elements for high-fidelity canvas layout
+          // Traverse <p:spTree> children sequentially to preserve natural document visual z-order
           const elements: SlideElement[] = [];
+          const spTree = doc.getElementsByTagName("p:spTree")[0];
+          const rawChildren = spTree ? Array.from(spTree.children) : [];
+          const shapeNodes = rawChildren.length > 0
+            ? rawChildren
+            : [...Array.from(doc.getElementsByTagName("p:sp")), ...Array.from(doc.getElementsByTagName("p:pic")), ...Array.from(doc.getElementsByTagName("p:graphicFrame"))];
 
-          // 1. Shapes / Text boxes (<p:sp>)
-          const spNodes = doc.getElementsByTagName("p:sp");
-          for (let sIdx = 0; sIdx < spNodes.length; sIdx++) {
-            const sp = spNodes[sIdx];
-            if (!sp) continue;
-            const box = parseXfrm(sp, slideWidthEmu, slideHeightEmu);
-            const pNodes = sp.getElementsByTagName("a:p");
-            const spTexts: string[] = [];
-            for (let pIdx = 0; pIdx < pNodes.length; pIdx++) {
-              const p = pNodes[pIdx];
-              if (!p) continue;
-              const tNodes = p.getElementsByTagName("a:t");
-              let line = "";
-              for (let t = 0; t < tNodes.length; t++) {
-                line += tNodes[t]?.textContent || "";
-              }
-              line = line.trim();
-              if (line) spTexts.push(line);
-            }
-            if (spTexts.length > 0 && box) {
-              const isTitle = sIdx === 0 || box.top < 25;
-              elements.push({
-                id: `sp-${sIdx}`,
-                type: "text",
-                box,
-                texts: spTexts,
-                isTitle,
-              });
-            }
-          }
-
-          // 2. Picture shapes (<p:pic>)
-          const picNodes = doc.getElementsByTagName("p:pic");
-          for (let picIdx = 0; picIdx < picNodes.length; picIdx++) {
-            const pic = picNodes[picIdx];
-            if (!pic) continue;
-            const box = parseXfrm(pic, slideWidthEmu, slideHeightEmu);
-            const blip = pic.getElementsByTagName("a:blip")[0];
-            const rEmbed = blip?.getAttribute("r:embed") || "";
-            const imgUrl = relImageMap.get(rEmbed) || imageUrls[picIdx];
-            if (box && imgUrl) {
-              elements.push({
-                id: `pic-${picIdx}`,
-                type: "image",
-                box,
-                imageUrl: imgUrl,
-              });
-            }
-          }
-
-          // 3. Graphic frames / Tables (<p:graphicFrame>)
-          const gfNodes = doc.getElementsByTagName("p:graphicFrame");
-          for (let gfIdx = 0; gfIdx < gfNodes.length; gfIdx++) {
-            const gf = gfNodes[gfIdx];
-            if (!gf) continue;
-            const box = parseXfrm(gf, slideWidthEmu, slideHeightEmu);
-            const tbl = gf.getElementsByTagName("a:tbl")[0];
-            if (tbl && box) {
-              const rows: string[][] = [];
-              const trNodes = tbl.getElementsByTagName("a:tr");
-              for (let rIdx = 0; rIdx < trNodes.length; rIdx++) {
-                const tr = trNodes[rIdx];
-                if (!tr) continue;
-                const rowCells: string[] = [];
-                const tcNodes = tr.getElementsByTagName("a:tc");
-                for (let cIdx = 0; cIdx < tcNodes.length; cIdx++) {
-                  const tc = tcNodes[cIdx];
-                  const tNodes = tc ? tc.getElementsByTagName("a:t") : [];
-                  let cellText = "";
-                  for (let t = 0; t < tNodes.length; t++) {
-                    cellText += tNodes[t]?.textContent || "";
-                  }
-                  rowCells.push(cellText.trim());
+          let elementCounter = 0;
+          for (const sNode of shapeNodes) {
+            const tagName = sNode.nodeName;
+            if (tagName === "p:sp") {
+              const box = parseXfrm(sNode, slideWidthEmu, slideHeightEmu);
+              const pNodes = sNode.getElementsByTagName("a:p");
+              const spTexts: string[] = [];
+              for (let pIdx = 0; pIdx < pNodes.length; pIdx++) {
+                const p = pNodes[pIdx];
+                if (!p) continue;
+                const pPr = p.getElementsByTagName("a:pPr")[0];
+                const lvlAttr = pPr?.getAttribute("lvl");
+                const lvl = lvlAttr ? parseInt(lvlAttr, 10) : 0;
+                const bulletPrefix = lvl > 0 ? "  ".repeat(lvl) + "• " : "";
+                const tNodes = p.getElementsByTagName("a:t");
+                let line = "";
+                for (let t = 0; t < tNodes.length; t++) {
+                  line += tNodes[t]?.textContent || "";
                 }
-                if (rowCells.some((c) => c !== "")) {
-                  rows.push(rowCells);
-                }
+                line = line.trim();
+                if (line) spTexts.push(bulletPrefix + line);
               }
-              if (rows.length > 0) {
+              if (spTexts.length > 0 && box) {
                 elements.push({
-                  id: `tbl-${gfIdx}`,
-                  type: "table",
+                  id: `el-${elementCounter++}`,
+                  type: "text",
                   box,
-                  table: rows,
+                  texts: spTexts,
+                  isTitle: elementCounter === 1 || box.top < 25,
                 });
               }
+            } else if (tagName === "p:pic") {
+              const box = parseXfrm(sNode, slideWidthEmu, slideHeightEmu);
+              const blip = sNode.getElementsByTagName("a:blip")[0];
+              const rEmbed = blip?.getAttribute("r:embed") || "";
+              const imgUrl = relImageMap.get(rEmbed) || imageUrls[elements.filter((e) => e.type === "image").length];
+              if (box && imgUrl) {
+                elements.push({
+                  id: `el-${elementCounter++}`,
+                  type: "image",
+                  box,
+                  imageUrl: imgUrl,
+                });
+              }
+            } else if (tagName === "p:graphicFrame") {
+              const box = parseXfrm(sNode, slideWidthEmu, slideHeightEmu);
+              const tbl = sNode.getElementsByTagName("a:tbl")[0];
+              if (tbl && box) {
+                const rows: string[][] = [];
+                const trNodes = tbl.getElementsByTagName("a:tr");
+                for (let rIdx = 0; rIdx < trNodes.length; rIdx++) {
+                  const tr = trNodes[rIdx];
+                  if (!tr) continue;
+                  const rowCells: string[] = [];
+                  const tcNodes = tr.getElementsByTagName("a:tc");
+                  for (let cIdx = 0; cIdx < tcNodes.length; cIdx++) {
+                    const tc = tcNodes[cIdx];
+                    const tNodes = tc ? tc.getElementsByTagName("a:t") : [];
+                    let cellText = "";
+                    for (let t = 0; t < tNodes.length; t++) {
+                      cellText += tNodes[t]?.textContent || "";
+                    }
+                    rowCells.push(cellText.trim());
+                  }
+                  if (rowCells.some((c) => c !== "")) {
+                    rows.push(rowCells);
+                  }
+                }
+                if (rows.length > 0) {
+                  elements.push({
+                    id: `el-${elementCounter++}`,
+                    type: "table",
+                    box,
+                    table: rows,
+                  });
+                }
+              }
             }
+          }
+
+          // Extract speaker notes if available
+          let notesText: string | undefined = undefined;
+          const notesPath = `ppt/notesSlides/notesSlide${i + 1}.xml`;
+          if (unzipped[notesPath]) {
+            try {
+              const notesXml = fflate.strFromU8(unzipped[notesPath]);
+              const notesDoc = parser.parseFromString(notesXml, "application/xml");
+              const notesTNodes = notesDoc.getElementsByTagName("a:t");
+              const notesParts: string[] = [];
+              for (let nt = 0; nt < notesTNodes.length; nt++) {
+                const t = (notesTNodes[nt]?.textContent || "").trim();
+                if (t && !t.startsWith("Slide ") && t !== String(i + 1)) {
+                  notesParts.push(t);
+                }
+              }
+              if (notesParts.length > 0) {
+                notesText = notesParts.join(" ");
+              }
+            } catch {}
           }
 
           parsedSlides.push({
             index: i + 1,
             title,
             texts,
+            notes: notesText,
             imageUrls,
             tables,
             elements,
@@ -479,6 +501,11 @@ export function PresentationViewerDriver({
         target &&
         (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) || target.isContentEditable)
       ) {
+        return;
+      }
+
+      // Do not hijack browser shortcuts (e.g. Cmd+F, Ctrl+F, Cmd+G, Ctrl+B)
+      if (e.ctrlKey || e.metaKey || e.altKey) {
         return;
       }
 
@@ -826,6 +853,8 @@ export function PresentationViewerDriver({
                           top: `${el.box.top}%`,
                           width: `${el.box.width}%`,
                           height: `${el.box.height}%`,
+                          transform: el.box.rotation ? `rotate(${el.box.rotation}deg)` : undefined,
+                          transformOrigin: "center center",
                         }}
                       >
                         <img src={el.imageUrl} alt="" className="w-full h-full object-contain" />
@@ -842,6 +871,8 @@ export function PresentationViewerDriver({
                           top: `${el.box.top}%`,
                           width: `${el.box.width}%`,
                           height: `${el.box.height}%`,
+                          transform: el.box.rotation ? `rotate(${el.box.rotation}deg)` : undefined,
+                          transformOrigin: "center center",
                         }}
                       >
                         <table className="w-full border-collapse text-left text-[11px]">
@@ -870,6 +901,8 @@ export function PresentationViewerDriver({
                           top: `${el.box.top}%`,
                           width: `${el.box.width}%`,
                           height: `${el.box.height}%`,
+                          transform: el.box.rotation ? `rotate(${el.box.rotation}deg)` : undefined,
+                          transformOrigin: "center center",
                         }}
                       >
                         {el.texts.map((para, pIdx) => (

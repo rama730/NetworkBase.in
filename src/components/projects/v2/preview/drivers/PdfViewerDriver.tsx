@@ -38,7 +38,7 @@ export function PdfViewerDriver({
   signedUrl,
   projectId,
 }: PdfViewerDriverProps): React.JSX.Element {
-  const [viewMode, setViewMode] = React.useState<"native" | "canvas">("native");
+  const [viewMode, setViewMode] = React.useState<"native" | "canvas">("canvas");
   const [loadError, setLoadError] = React.useState(false);
   const [isRetrying, setIsRetrying] = React.useState(false);
 
@@ -93,16 +93,20 @@ export function PdfViewerDriver({
     async function loadPdfDocument() {
       try {
         const pdfjs = await import("pdfjs-dist");
+        if (typeof window !== "undefined" && pdfjs.GlobalWorkerOptions && !pdfjs.GlobalWorkerOptions.workerSrc) {
+          pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+        }
         const getDocument = pdfjs.getDocument || (pdfjs as any).default?.getDocument;
 
         // HTTP 206 partial range streaming (sub-200ms page 1 render on 100MB+ files)
+        const streamTargetUrl = signedUrl || previewUrl;
         const loadingTask = getDocument({
-          url: previewUrl,
+          url: streamTargetUrl,
           rangeChunkSize: 65536,
           disableAutoFetch: false,
           disableStream: false,
           isEvalSupported: false,
-          withCredentials: true,
+          withCredentials: !signedUrl,
         });
 
         const doc = await loadingTask.promise;
@@ -221,6 +225,7 @@ export function PdfViewerDriver({
         // Render text layer for text selection & copy
         if (!cancelled && textLayerRef.current) {
           textLayerRef.current.innerHTML = "";
+          textLayerRef.current.style.setProperty("--scale-factor", String(viewport.scale));
           try {
             const pdfjs = await import("pdfjs-dist");
             const renderTextLayer = pdfjs.renderTextLayer || (pdfjs as any).default?.renderTextLayer;
@@ -266,16 +271,21 @@ export function PdfViewerDriver({
           // ignore
         }
       }
-      // Reclaim GPU memory on unmount
-      if (canvasRef.current) {
-        canvasRef.current.width = 0;
-        canvasRef.current.height = 0;
-      }
       if (textLayerRef.current) {
         textLayerRef.current.innerHTML = "";
       }
     };
   }, [viewMode, pdfDoc, pageNumber, zoom]);
+
+  // Reclaim GPU memory on unmount
+  React.useEffect(() => {
+    return () => {
+      if (canvasRef.current) {
+        canvasRef.current.width = 0;
+        canvasRef.current.height = 0;
+      }
+    };
+  }, []);
 
   const handlePrevPage = React.useCallback(() => {
     setPageNumber((p) => Math.max(1, p - 1));
@@ -521,7 +531,7 @@ export function PdfViewerDriver({
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center my-auto">
-                <div className="relative rounded-md border border-border/70 bg-background shadow-lg overflow-hidden transition-transform duration-150">
+                <div className="relative rounded-md border border-border/70 bg-white shadow-[0_4px_24px_-2px_rgba(0,0,0,0.35)] overflow-hidden transition-transform duration-150">
                   <canvas
                     ref={canvasRef}
                     role="img"

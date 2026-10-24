@@ -57,6 +57,60 @@ interface UniversalPreviewEngineProps {
   onRetry?: () => void;
 }
 
+interface DriverErrorBoundaryProps {
+  children: React.ReactNode;
+  onRetry?: () => void;
+  fileName: string;
+}
+
+interface DriverErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class DriverErrorBoundary extends React.Component<DriverErrorBoundaryProps, DriverErrorBoundaryState> {
+  constructor(props: DriverErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): DriverErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    logger.error("Preview driver crashed", {
+      error: error.message,
+      componentStack: errorInfo.componentStack,
+    });
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
+          <AlertTriangle className="h-8 w-8 text-amber-500" />
+          <p className="text-sm font-semibold text-foreground">Preview Encountered an Error</p>
+          <p className="max-w-md text-xs text-muted-foreground">{this.state.error?.message || "An unexpected error occurred while rendering the preview."}</p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              this.setState({ hasError: false, error: null });
+              this.props.onRetry?.();
+            }}
+            className="mt-2"
+          >
+            <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+            Reload Preview
+          </Button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function UniversalPreviewEngine({
   node,
   signedUrl,
@@ -105,42 +159,54 @@ export default function UniversalPreviewEngine({
 
   // If PDF, we can render via server preview route when projectId is present or when signedUrl resolves
   if (previewType === "pdf") {
-    return <PdfViewerDriver node={node} signedUrl={signedUrl} projectId={projectId} />;
+    return (
+      <DriverErrorBoundary fileName={node.name} onRetry={onRetry}>
+        <PdfViewerDriver node={node} signedUrl={signedUrl} projectId={projectId} />
+      </DriverErrorBoundary>
+    );
   }
 
   if (!signedUrl) {
     return <PreviewSkeleton />;
   }
 
-  switch (previewType) {
-    case "image":
-      return <ImageViewerDriver node={node} signedUrl={signedUrl} />;
+  const renderDriverContent = () => {
+    switch (previewType) {
+      case "image":
+        return <ImageViewerDriver node={node} signedUrl={signedUrl} />;
 
-    case "video":
-      return <MediaViewerDriver node={node} signedUrl={signedUrl} type="video" />;
+      case "video":
+        return <MediaViewerDriver node={node} signedUrl={signedUrl} type="video" />;
 
-    case "audio":
-      return <MediaViewerDriver node={node} signedUrl={signedUrl} type="audio" />;
+      case "audio":
+        return <MediaViewerDriver node={node} signedUrl={signedUrl} type="audio" />;
 
-    case "docx":
-    case "doc_legacy":
-    case "rtf":
-    case "odt":
-      return <DocxViewerDriver node={node} signedUrl={signedUrl} />;
+      case "docx":
+      case "doc_legacy":
+      case "rtf":
+      case "odt":
+        return <DocxViewerDriver node={node} signedUrl={signedUrl} />;
 
-    case "sheet":
-      return <SheetViewerDriver node={node} signedUrl={signedUrl} />;
+      case "sheet":
+        return <SheetViewerDriver node={node} signedUrl={signedUrl} />;
 
-    case "presentation":
-      return <PresentationViewerDriver node={node} signedUrl={signedUrl} />;
+      case "presentation":
+        return <PresentationViewerDriver node={node} signedUrl={signedUrl} />;
 
-    case "archive":
-      return <ArchiveViewerDriver node={node} signedUrl={signedUrl} />;
+      case "archive":
+        return <ArchiveViewerDriver node={node} signedUrl={signedUrl} />;
 
-    case "binary":
-    default:
-      return <BinaryInspectorDriver node={node} signedUrl={signedUrl} />;
-  }
+      case "binary":
+      default:
+        return <BinaryInspectorDriver node={node} signedUrl={signedUrl} />;
+    }
+  };
+
+  return (
+    <DriverErrorBoundary fileName={node.name} onRetry={onRetry}>
+      {renderDriverContent()}
+    </DriverErrorBoundary>
+  );
 }
 
 function PreviewSkeleton(): React.JSX.Element {

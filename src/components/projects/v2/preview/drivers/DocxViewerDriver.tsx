@@ -101,7 +101,7 @@ export function DocxViewerDriver({
         ignoreHeight: viewMode === "fluid",
         experimental: false,
         trimXmlDeclaration: true,
-        useBase64URL: true,
+        useBase64URL: false,
       });
 
       // Post-rendering Security Sanitization Pass
@@ -313,9 +313,10 @@ export function DocxViewerDriver({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handlePrint]);
 
-  // In-document text search & highlight
-  const handleSearch = React.useCallback((query: string) => {
-    setSearchQuery(query);
+  const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // In-document text search & highlight with debouncing and multi-occurrence support
+  const executeHighlight = React.useCallback((query: string) => {
     const container = containerRef.current;
     if (!container) return;
 
@@ -347,28 +348,42 @@ export function DocxViewerDriver({
     for (const textNode of textNodes) {
       const text = textNode.nodeValue || "";
       const lower = text.toLowerCase();
-      const idx = lower.indexOf(lowerQuery);
-      if (idx >= 0 && textNode.parentNode) {
-        matches++;
-        const before = text.slice(0, idx);
-        const match = text.slice(idx, idx + query.length);
-        const after = text.slice(idx + query.length);
-
-        const mark = document.createElement("mark");
-        mark.setAttribute("data-docx-search", "true");
-        mark.className = "rounded-xs bg-amber-300 dark:bg-amber-600/70 text-foreground px-0.5";
-        mark.textContent = match;
-
+      let matchIdx = lower.indexOf(lowerQuery);
+      if (matchIdx >= 0 && textNode.parentNode) {
         const fragment = document.createDocumentFragment();
-        if (before) fragment.appendChild(document.createTextNode(before));
-        fragment.appendChild(mark);
-        if (after) fragment.appendChild(document.createTextNode(after));
-
+        let lastIdx = 0;
+        while (matchIdx !== -1) {
+          matches++;
+          if (matchIdx > lastIdx) {
+            fragment.appendChild(document.createTextNode(text.slice(lastIdx, matchIdx)));
+          }
+          const mark = document.createElement("mark");
+          mark.setAttribute("data-docx-search", "true");
+          mark.className = "rounded-xs bg-amber-300 dark:bg-amber-600/70 text-foreground px-0.5";
+          mark.textContent = text.slice(matchIdx, matchIdx + query.length);
+          fragment.appendChild(mark);
+          lastIdx = matchIdx + query.length;
+          matchIdx = lower.indexOf(lowerQuery, lastIdx);
+        }
+        if (lastIdx < text.length) {
+          fragment.appendChild(document.createTextNode(text.slice(lastIdx)));
+        }
         textNode.parentNode.replaceChild(fragment, textNode);
       }
     }
     setSearchMatchCount(matches);
   }, []);
+
+  const handleSearch = React.useCallback(
+    (query: string) => {
+      setSearchQuery(query);
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+      searchTimeoutRef.current = setTimeout(() => {
+        executeHighlight(query);
+      }, 150);
+    },
+    [executeHighlight],
+  );
 
   // Legacy Document View (.doc, .rtf, .odt)
   if (isLegacy) {
@@ -612,9 +627,9 @@ export function DocxViewerDriver({
         )}
 
         {/* Main Document Scroll Viewport */}
-        <div className="flex-1 overflow-auto p-4 sm:p-8 flex justify-center">
+        <div className="flex-1 overflow-auto p-4 sm:p-8 flex">
         {loading && (
-          <div className="w-full max-w-3xl space-y-4 p-8 bg-card rounded-xl border border-border/60 shadow-xs animate-pulse">
+          <div className="w-full max-w-3xl m-auto space-y-4 p-8 bg-card rounded-xl border border-border/60 shadow-xs animate-pulse">
             <Skeleton className="h-7 w-2/3 rounded-md mb-6" />
             <Skeleton className="h-4 w-full rounded-[3px]" />
             <Skeleton className="h-4 w-11/12 rounded-[3px]" />
@@ -652,9 +667,9 @@ export function DocxViewerDriver({
             display: loading || error ? "none" : "block",
           }}
           className={cn(
-            "docx-preview-content transition-transform duration-100",
+            "docx-preview-content transition-transform duration-100 m-auto",
             viewMode === "fluid" ? "w-full max-w-4xl" : "",
-            isTwoPageSpread && viewMode === "paginated" ? "docx-two-page-spread max-w-7xl" : "",
+            isTwoPageSpread && viewMode === "paginated" ? "docx-two-page-spread w-full max-w-none" : "",
           )}
         />
         </div>

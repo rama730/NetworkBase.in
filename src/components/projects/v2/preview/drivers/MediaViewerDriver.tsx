@@ -134,6 +134,7 @@ export function MediaViewerDriver({
     let active = true;
 
     async function extractRmsWaveform() {
+      let audioCtx: AudioContext | null = null;
       try {
         const res = await fetch(signedUrl, { headers: { Range: "bytes=0-1048576" } });
         if (!res.ok && res.status !== 206) return;
@@ -142,10 +143,9 @@ export function MediaViewerDriver({
 
         const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         if (!AudioCtx) return;
-        const audioCtx = new AudioCtx();
+        audioCtx = new AudioCtx();
         const decoded = await audioCtx.decodeAudioData(arrayBuffer);
         if (!active) {
-          audioCtx.close().catch(() => {});
           return;
         }
 
@@ -170,9 +170,10 @@ export function MediaViewerDriver({
         if (active) {
           setRealWaveform(bins);
         }
-        audioCtx.close().catch(() => {});
       } catch {
         // Fall back gracefully to default waveform pattern
+      } finally {
+        audioCtx?.close().catch(() => {});
       }
     }
 
@@ -237,6 +238,10 @@ export function MediaViewerDriver({
   // Hardware Video Decoder Lifecycle & Decoder Sync
   React.useEffect(() => {
     setError(false);
+    setCurrentTime(0);
+    setDuration(0);
+    setBufferedPercent(0);
+    setBufferedSegments([]);
     const el = mediaRef.current;
     if (el) {
       // Guard against React StrictMode DOM node mutation: ensure src is attached and loaded

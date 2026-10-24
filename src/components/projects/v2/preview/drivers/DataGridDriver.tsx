@@ -76,6 +76,12 @@ export function DataGridDriver({
     startWidth: number;
   } | null>(null);
 
+  // Reset custom column widths and selection on sheet switch
+  React.useEffect(() => {
+    setColWidths({});
+    setSelectedCell(null);
+  }, [activeSheetIndex]);
+
   const startResize = React.useCallback(
     (colIndex: number, e: React.MouseEvent) => {
       e.stopPropagation();
@@ -214,6 +220,13 @@ export function DataGridDriver({
   // Keyboard shortcut: Cmd/Ctrl + C copies the selected cell; Shift + Cmd/Ctrl + C copies whole table as TSV
   const handleKeyDown = React.useCallback(
     (e: React.KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) || target.isContentEditable)
+      ) {
+        return;
+      }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "c") {
         if (e.shiftKey) {
           e.preventDefault();
@@ -254,7 +267,7 @@ export function DataGridDriver({
       <th
         role="columnheader"
         aria-label="Row Number"
-        className="sticky left-0 z-20 w-12 border-b border-r border-border bg-muted p-2 text-center font-mono text-[10px] font-semibold text-muted-foreground select-none"
+        className="sticky left-0 z-40 w-12 border-b border-r border-border bg-muted p-2 text-center font-mono text-[10px] font-semibold text-muted-foreground select-none"
       >
         #
       </th>
@@ -330,7 +343,9 @@ export function DataGridDriver({
             title="Click to select · Double-click or Cmd+C to copy"
           >
             <div className="flex items-center justify-between gap-2 overflow-hidden">
-              <span className="truncate">{cell}</span>
+              <span className={cn("truncate", !isNaN(Number(cell.trim())) && cell.trim() !== "" ? "font-mono text-right" : "")}>
+                {cell}
+              </span>
               <button
                 type="button"
                 onClick={(e) => {
