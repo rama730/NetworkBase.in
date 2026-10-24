@@ -11,6 +11,7 @@ import {
   Check,
   Download,
   Table as TableIcon,
+  ClipboardList,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,8 @@ const TableComponent = React.forwardRef<HTMLTableElement, React.ComponentPropsWi
   ({ style, className, ...props }, ref) => (
     <table
       ref={ref}
+      role="grid"
+      aria-label="Spreadsheet data table"
       {...props}
       style={{ ...style, tableLayout: "fixed", width: "100%" }}
       className={cn("w-full border-collapse border-spacing-0", className)}
@@ -45,6 +48,7 @@ const TableRowComponent = React.forwardRef<HTMLTableRowElement, React.ComponentP
   ({ className, ...props }, ref) => (
     <tr
       ref={ref}
+      role="row"
       {...props}
       className={cn("hover:bg-muted/30 transition-colors", className)}
     />
@@ -143,15 +147,32 @@ export function DataGridDriver({
     }
   }, []);
 
-  // Keyboard shortcut: Cmd/Ctrl + C copies the selected cell
+  const copyTableAsTsv = React.useCallback(async () => {
+    try {
+      const headerLine = currentSheet.headers.join("\t");
+      const dataLines = filteredRows.map((r) => r.join("\t")).join("\n");
+      const tsv = `${headerLine}\n${dataLines}`;
+      await navigator.clipboard.writeText(tsv);
+      toast.success(`Copied ${filteredRows.length} rows to clipboard (TSV format)`);
+    } catch {
+      toast.error("Failed to copy table data");
+    }
+  }, [currentSheet.headers, filteredRows]);
+
+  // Keyboard shortcut: Cmd/Ctrl + C copies the selected cell; Shift + Cmd/Ctrl + C copies whole table as TSV
   const handleKeyDown = React.useCallback(
     (e: React.KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "c" && selectedCell) {
-        e.preventDefault();
-        copyCell(selectedCell.val, selectedCell.coord);
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "c") {
+        if (e.shiftKey) {
+          e.preventDefault();
+          copyTableAsTsv();
+        } else if (selectedCell) {
+          e.preventDefault();
+          copyCell(selectedCell.val, selectedCell.coord);
+        }
       }
     },
-    [copyCell, selectedCell],
+    [copyCell, copyTableAsTsv, selectedCell],
   );
 
   const virtuosoComponents = React.useMemo(
@@ -162,14 +183,40 @@ export function DataGridDriver({
     [],
   );
 
+  const selectedInfo = React.useMemo(() => {
+    if (!selectedCell) return null;
+    const [rStr, cStr] = selectedCell.coord.split("-");
+    const r = parseInt(rStr ?? "0", 10);
+    const c = parseInt(cStr ?? "0", 10);
+    const colName = currentSheet.headers[c] || `Col ${c + 1}`;
+    return {
+      row: r + 1,
+      col: c + 1,
+      colName,
+      val: selectedCell.val,
+    };
+  }, [selectedCell, currentSheet.headers]);
+
   const fixedHeaderContent = React.useCallback(() => (
-    <tr className="bg-muted border-b border-border text-left shadow-xs">
-      <th className="sticky left-0 z-20 w-12 border-b border-r border-border bg-muted p-2 text-center font-mono text-[10px] font-semibold text-muted-foreground select-none">
+    <tr role="row" className="bg-muted border-b border-border text-left shadow-xs">
+      <th
+        role="columnheader"
+        aria-label="Row Number"
+        className="sticky left-0 z-20 w-12 border-b border-r border-border bg-muted p-2 text-center font-mono text-[10px] font-semibold text-muted-foreground select-none"
+      >
         #
       </th>
       {currentSheet.headers.map((header, idx) => (
         <th
           key={idx}
+          role="columnheader"
+          aria-sort={
+            sortColumnIndex === idx
+              ? sortDirection === "asc"
+                ? "ascending"
+                : "descending"
+              : "none"
+          }
           onClick={() => handleHeaderClick(idx)}
           className="min-w-36 border-b border-r border-border p-2 text-xs font-semibold text-foreground select-none cursor-pointer hover:bg-muted/80 transition-colors"
         >
@@ -192,7 +239,10 @@ export function DataGridDriver({
 
   const itemContent = React.useCallback((rowIndex: number, row: string[]) => (
     <>
-      <td className="sticky left-0 z-10 w-12 border-b border-r border-border bg-muted/95 backdrop-blur-xs p-2 text-center font-mono text-[10px] text-muted-foreground select-none">
+      <td
+        role="gridcell"
+        className="sticky left-0 z-10 w-12 border-b border-r border-border bg-muted/95 backdrop-blur-xs p-2 text-center font-mono text-[10px] text-muted-foreground select-none"
+      >
         {rowIndex + 1}
       </td>
       {row.map((cell, colIndex) => {
@@ -202,6 +252,8 @@ export function DataGridDriver({
         return (
           <td
             key={colIndex}
+            role="gridcell"
+            aria-selected={isSelected}
             onClick={() => setSelectedCell({ coord, val: cell })}
             onDoubleClick={() => copyCell(cell, coord)}
             className={cn(
@@ -275,6 +327,17 @@ export function DataGridDriver({
             )}
           </div>
 
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={copyTableAsTsv}
+            className="h-7 px-2.5 text-xs"
+            title="Copy entire filtered table to clipboard as TSV (Shift+Cmd+C)"
+          >
+            <ClipboardList className="mr-1 h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Copy TSV</span>
+          </Button>
+
           {signedUrl && (
             <Button asChild size="sm" variant="outline" className="h-7 px-2.5 text-xs">
               <a href={signedUrl} download={fileName} title="Download file">
@@ -345,6 +408,35 @@ export function DataGridDriver({
           ))}
         </div>
       )}
+
+      {/* Enterprise Status Bar Footer */}
+      <div className="flex h-7 shrink-0 items-center justify-between border-t border-border bg-card/80 px-3 text-[11px] text-muted-foreground select-none">
+        <div className="flex items-center gap-3 overflow-hidden">
+          <span className="flex items-center gap-1 font-medium text-foreground">
+            <TableIcon className="h-3 w-3 text-primary" />
+            {currentSheet.name}
+          </span>
+          <span>•</span>
+          <span>
+            {filteredRows.length.toLocaleString()} of {cleanedRows.length.toLocaleString()} rows
+            {searchQuery && " (filtered)"}
+          </span>
+          <span>•</span>
+          <span>{currentSheet.headers.length} columns</span>
+        </div>
+
+        <div className="flex items-center gap-3 shrink-0">
+          {selectedInfo ? (
+            <span className="font-mono text-[10px] text-foreground bg-muted/60 px-1.5 py-0.5 rounded-[3px] border border-border/50">
+              Row {selectedInfo.row}, {selectedInfo.colName}
+            </span>
+          ) : (
+            <span className="text-[10px] text-muted-foreground/80 hidden sm:inline">
+              Click cell to select · Cmd+C copy
+            </span>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -43,7 +43,9 @@ export function PdfViewerDriver({
   const [canvasError, setCanvasError] = React.useState<string | null>(null);
 
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
+  const textLayerRef = React.useRef<HTMLDivElement | null>(null);
   const renderTaskRef = React.useRef<any>(null);
+  const textTaskRef = React.useRef<any>(null);
 
   // Inline streaming preview route
   const previewUrl = React.useMemo(() => {
@@ -165,6 +167,29 @@ export function PdfViewerDriver({
         renderTaskRef.current = renderTask;
 
         await renderTask.promise;
+
+        // Render text layer for text selection & copy
+        if (!cancelled && textLayerRef.current) {
+          textLayerRef.current.innerHTML = "";
+          try {
+            const pdfjs = await import("pdfjs-dist");
+            const renderTextLayer = pdfjs.renderTextLayer || (pdfjs as any).default?.renderTextLayer;
+            if (typeof renderTextLayer === "function") {
+              const textContent = await page.getTextContent();
+              if (!cancelled && textLayerRef.current) {
+                const textTask = renderTextLayer({
+                  textContentSource: textContent,
+                  container: textLayerRef.current,
+                  viewport,
+                });
+                textTaskRef.current = textTask;
+                await textTask.promise;
+              }
+            }
+          } catch {
+            // Text layer failure shouldn't break canvas rendering
+          }
+        }
       } catch (err: any) {
         if (err?.name === "RenderingCancelledException") {
           return;
@@ -184,10 +209,20 @@ export function PdfViewerDriver({
           // ignore
         }
       }
+      if (textTaskRef.current) {
+        try {
+          textTaskRef.current.cancel();
+        } catch {
+          // ignore
+        }
+      }
       // Reclaim GPU memory on unmount
       if (canvasRef.current) {
         canvasRef.current.width = 0;
         canvasRef.current.height = 0;
+      }
+      if (textLayerRef.current) {
+        textLayerRef.current.innerHTML = "";
       }
     };
   }, [viewMode, pdfDoc, pageNumber, zoom]);
@@ -372,12 +407,40 @@ export function PdfViewerDriver({
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center my-auto">
-                <canvas
-                  ref={canvasRef}
-                  role="img"
-                  aria-label={`PDF document page ${pageNumber} of ${numPages}`}
-                  className="rounded-md border border-border/70 bg-background shadow-lg transition-transform duration-150"
-                />
+                <div className="relative rounded-md border border-border/70 bg-background shadow-lg overflow-hidden transition-transform duration-150">
+                  <canvas
+                    ref={canvasRef}
+                    role="img"
+                    aria-label={`PDF document page ${pageNumber} of ${numPages}`}
+                    className="block"
+                  />
+                  <div
+                    ref={textLayerRef}
+                    className="pdf-text-layer absolute inset-0 pointer-events-auto select-text overflow-hidden"
+                  />
+                </div>
+                <style>{`
+                  .pdf-text-layer {
+                    position: absolute;
+                    left: 0;
+                    top: 0;
+                    right: 0;
+                    bottom: 0;
+                    overflow: hidden;
+                    line-height: 1;
+                    user-select: text;
+                  }
+                  .pdf-text-layer span {
+                    color: transparent;
+                    position: absolute;
+                    white-space: pre;
+                    cursor: text;
+                    transform-origin: 0% 0%;
+                  }
+                  .pdf-text-layer span::selection {
+                    background: rgba(59, 130, 246, 0.35);
+                  }
+                `}</style>
               </div>
             )}
           </div>
