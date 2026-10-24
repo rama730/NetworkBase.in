@@ -67,7 +67,7 @@ export function DocxViewerDriver({
       }
 
       await docx.renderAsync(buffer, containerRef.current, undefined, {
-        inWrapper: true,
+        inWrapper: viewMode === "paginated",
         breakPages: viewMode === "paginated",
         ignoreWidth: viewMode === "fluid",
         ignoreHeight: viewMode === "fluid",
@@ -530,7 +530,7 @@ export function DocxViewerDriver({
           }}
           className={cn(
             "docx-preview-content transition-transform duration-100",
-            viewMode === "fluid" ? "w-full max-w-4xl is-fluid" : ""
+            viewMode === "fluid" ? "w-full max-w-4xl" : ""
           )}
         />
       </div>
@@ -554,14 +554,6 @@ export function DocxViewerDriver({
               box-shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.08) !important;
               border-radius: 2px;
               box-sizing: border-box;
-            }
-            .docx-preview-content.is-fluid section.docx,
-            .docx-preview-content.is-fluid .docx-wrapper > section.docx {
-              width: 100% !important;
-              max-width: 860px !important;
-              min-height: 800px;
-              padding: 48px 64px !important;
-              margin: 0 auto !important;
             }
             .docx-preview-content mark[data-docx-search] {
               background-color: #fde047 !important;
