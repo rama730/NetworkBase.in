@@ -25,6 +25,7 @@ const WORKSPACE_NOTIFICATION_KINDS = new Set([
   "application_received",
   "application_decision",
   "project_application_activity",
+  "project_member_joined",
 ]);
 
 type WorkspaceInvalidationDomain = "connections" | "requests" | "tasks";
@@ -32,7 +33,7 @@ type WorkspaceInvalidationDomain = "connections" | "requests" | "tasks";
 function workspaceInvalidationDomains(kind: string): WorkspaceInvalidationDomain[] {
   if (kind.startsWith("connection_request_")) return ["connections", "requests"];
   if (kind.startsWith("task_")) return ["tasks"];
-  if (kind.startsWith("workflow_") || kind.startsWith("application_") || kind === "project_application_activity") return ["requests"];
+  if (kind.startsWith("workflow_") || kind.startsWith("application_") || kind === "project_application_activity" || kind === "project_member_joined") return ["requests"];
   return [];
 }
 
@@ -117,6 +118,8 @@ export function NetworkNotificationsProvider({ children, enabled = true }: { chi
           void queryClient.invalidateQueries({ queryKey: queryKeys.workspace.sentProjectInvitationsRoot(), refetchType: "active" });
           // The Network page's own list (open and decided applications) follows too.
           void queryClient.invalidateQueries({ queryKey: queryKeys.connections.pending(), refetchType: "active" });
+          // Live sidebar invalidation so the applicant sees the newly joined project immediately!
+          void queryClient.invalidateQueries({ queryKey: queryKeys.profile.sidebarProjects(user.id), refetchType: "active" });
         }
       }, 150);
     });

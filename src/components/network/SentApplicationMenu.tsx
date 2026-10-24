@@ -31,7 +31,11 @@ export function SentApplicationMenu({ status, reasonCode = null, name, projectHr
         <button ref={trigger} className="nb-person-control" aria-label={`${labelFor(status, reasonCode)}: options for your application to ${name}`}>{labelFor(status, reasonCode)}<ChevronDown className="size-3" aria-hidden="true" /></button>
     </DropdownMenuTrigger><DropdownMenuContent align="end">
         {channelId ? <DropdownMenuItem asChild><Link href={conversationHref(channelId)}>Open conversation</Link></DropdownMenuItem> : null}
-        <DropdownMenuItem asChild><Link href={projectHref}>View project</Link></DropdownMenuItem>
+        <DropdownMenuItem asChild>
+            <Link href={status === "accepted" ? `${projectHref}${projectHref.includes("?") ? "&" : "?"}source=application_accepted` : projectHref}>
+                View project
+            </Link>
+        </DropdownMenuItem>
         {status === "pending" ? <DropdownMenuItem onSelect={() => onWithdraw(trigger.current)}>Withdraw application</DropdownMenuItem> : null}
     </DropdownMenuContent></DropdownMenu>;
 }

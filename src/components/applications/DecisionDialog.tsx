@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ export function DecisionForm({
     roleTitle,
     onCancel,
     onConfirm,
+    onBusyChange,
 }: {
     mode: "accept" | "decline";
     applicantName: string;
@@ -38,20 +39,32 @@ export function DecisionForm({
     onCancel: () => void;
     /** Resolves to an error message to show in the form, or null once the decision was saved. */
     onConfirm: (input: DecisionInput) => Promise<string | null>;
+    onBusyChange?: (busy: boolean) => void;
 }) {
     const [reason, setReason] = useState<ApplicationDecisionReasonCode>(mode === "decline" ? "skills_mismatch" : "other");
     const [note, setNote] = useState("");
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const isSubmittingRef = useRef(false);
+
+    const updateBusy = (nextBusy: boolean) => {
+        setBusy(nextBusy);
+        onBusyChange?.(nextBusy);
+    };
 
     const confirm = async () => {
-        setBusy(true);
+        if (isSubmittingRef.current || busy) return;
+        isSubmittingRef.current = true;
+        updateBusy(true);
         setError(null);
         try {
             const failure = await onConfirm({ reason, note: note.trim() });
             if (failure) setError(failure);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "The decision could not be saved. Try again.");
         } finally {
-            setBusy(false);
+            isSubmittingRef.current = false;
+            updateBusy(false);
         }
     };
 
@@ -135,8 +148,9 @@ export function DecisionDialog({
     returnFocusTo?: HTMLElement | null;
 }) {
     const phone = useMediaQuery("(max-width: 639px)");
+    const [isBusy, setIsBusy] = useState(false);
     return (
-        <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+        <Dialog open={open} onOpenChange={(next) => { if (!next && !isBusy) onClose(); }}>
             <DialogContent
                 presentation={phone ? "bottom-sheet" : "center"}
                 className={phone ? "p-4" : "sm:max-w-[460px]"}
@@ -146,7 +160,7 @@ export function DecisionDialog({
                     returnFocusTo.focus();
                 }}
             >
-                <DecisionForm mode={mode} applicantName={applicantName} roleTitle={roleTitle} onCancel={onClose} onConfirm={onConfirm} />
+                <DecisionForm mode={mode} applicantName={applicantName} roleTitle={roleTitle} onCancel={onClose} onConfirm={onConfirm} onBusyChange={setIsBusy} />
             </DialogContent>
         </Dialog>
     );

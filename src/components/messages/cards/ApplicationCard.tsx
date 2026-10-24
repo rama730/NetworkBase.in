@@ -53,25 +53,29 @@ export function ApplicationActions({ view, layout = "card" }: { view: Applicatio
   const reopen = reopenState(view, now);
 
   const decide = (mode: "accept" | "decline") => async ({ reason, note }: DecisionInput) => {
-    const result = mode === "accept"
-      ? await acceptApplicationAction(view.id, note || undefined)
-      : await rejectApplicationAction(view.id, note || undefined, reason);
-    if (!result.success) return result.error || "The decision could not be saved. Try again.";
-    setDialog(null);
-    refresh();
-    if (mode === "accept") toast.success(`${name} accepted`);
-    else {
-      toast.success(`${name} declined`, {
-        action: {
-          label: "Undo",
-          onClick: () => void reopenApplicationAction(view.id).then((undone) => {
-            refresh();
-            if (!undone.success) toast.error(feedbackError(undone.error || "Could not undo", "Could not undo"));
-          }),
-        },
-      });
+    try {
+      const result = mode === "accept"
+        ? await acceptApplicationAction(view.id, note || undefined)
+        : await rejectApplicationAction(view.id, note || undefined, reason);
+      if (!result.success) return result.error || "The decision could not be saved. Try again.";
+      setDialog(null);
+      refresh();
+      if (mode === "accept") toast.success(`${name} accepted`);
+      else {
+        toast.success(`${name} declined`, {
+          action: {
+            label: "Undo",
+            onClick: () => void reopenApplicationAction(view.id).then((undone) => {
+              refresh();
+              if (!undone.success) toast.error(feedbackError(undone.error || "Could not undo", "Could not undo"));
+            }),
+          },
+        });
+      }
+      return null;
+    } catch (error) {
+      return error instanceof Error ? error.message : "The decision could not be saved. Try again.";
     }
-    return null;
   };
 
   const buttons = (
