@@ -16,7 +16,9 @@ export async function selectMessages(viewerId: string, channelId: string, filter
            m.reply_count, m.last_reply_seq::int AS last_reply_seq, m.last_reply_at, m.edited_at, m.deleted_at, m.link_preview_hidden,
            m.created_at, m.client_message_id,
            CASE WHEN pr.id IS NULL THEN NULL ELSE jsonb_build_object(
-             'id', pr.id, 'username', pr.username, 'full_name', pr.full_name, 'avatar_url', pr.avatar_url
+             'id', pr.id, 'username', pr.username, 'full_name', pr.full_name, 'avatar_url', pr.avatar_url,
+             'project_membership_role', pm.role,
+             'project_role_title', coalesce(ra.accepted_role_title, pr.headline)
            ) END AS author,
            coalesce((
              SELECT jsonb_agg(jsonb_build_object('idx', a.idx, 'asset_id', a.asset_id, 'name', a.name, 'mime', a.mime,
@@ -35,7 +37,10 @@ export async function selectMessages(viewerId: string, channelId: string, filter
               FROM chat_message_cards c WHERE c.channel_id = m.channel_id AND c.message_seq = m.channel_seq) AS card,
            EXISTS (SELECT 1 FROM chat_pins p WHERE p.channel_id = m.channel_id AND p.message_seq = m.channel_seq) AS pinned
     FROM chat_messages m
+    JOIN chat_channels ch ON ch.id = m.channel_id
     LEFT JOIN profiles pr ON pr.id = m.author_id
+    LEFT JOIN project_members pm ON pm.project_id = ch.project_id AND pm.user_id = m.author_id
+    LEFT JOIN role_applications ra ON ra.project_id = ch.project_id AND ra.applicant_id = m.author_id AND ra.status = 'accepted'
     WHERE m.channel_id = ${channelId}::uuid
       AND (
         app_private.chat_is_member(${channelId}::uuid, ${viewerId}::uuid)

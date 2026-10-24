@@ -3,7 +3,7 @@
 import { readPersonCardDetails } from '@/lib/network/person-card-read';
 import type { PersonCardDetails } from '@/lib/network/person-card';
 import { logger } from '@/lib/logger';
-import { announceApplicationChange, announceApplicationChannel, ensureApplicationChannel, postApplicationUpdate } from '@/lib/messaging/integrations';
+import { announceApplicationChange, announceApplicationChannel, ensureApplicationChannel, postApplicationUpdate, postMemberJoined } from '@/lib/messaging/integrations';
 import { db } from '@/lib/db';
 import {
     roleApplications,
@@ -1174,6 +1174,7 @@ export async function acceptApplicationAction(
 
                 await ensureAcceptedConnectionInternal(tx, user.id, application.applicantId);
                 const channelId = await applicationThread(tx, applicationId, user.id, 'accepted this application', message);
+                await postMemberJoined(tx, application.projectId, application.applicantId);
                 return { ...lifecycle, channelId };
             });
 
