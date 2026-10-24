@@ -5,12 +5,18 @@ import {
   ExternalLink,
   Download,
   AlertTriangle,
-  FileText,
   RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  Layers,
+  FileText,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ProjectNode } from "@/lib/db/schema";
-import { formatBytes } from "../../files-tab/folder/format";
 
 interface PdfViewerDriverProps {
   node: ProjectNode;
@@ -23,10 +29,22 @@ export function PdfViewerDriver({
   signedUrl,
   projectId,
 }: PdfViewerDriverProps): React.JSX.Element {
+  const [viewMode, setViewMode] = React.useState<"native" | "canvas">("native");
   const [loadError, setLoadError] = React.useState(false);
   const [isRetrying, setIsRetrying] = React.useState(false);
 
-  // Use the inline streaming preview route which sets inline disposition and byte range headers
+  // Canvas Mode state
+  const [pdfDoc, setPdfDoc] = React.useState<any>(null);
+  const [pageNumber, setPageNumber] = React.useState(1);
+  const [numPages, setNumPages] = React.useState(0);
+  const [zoom, setZoom] = React.useState(1.2);
+  const [isCanvasLoading, setIsCanvasLoading] = React.useState(false);
+  const [canvasError, setCanvasError] = React.useState<string | null>(null);
+
+  const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
+  const renderTaskRef = React.useRef<any>(null);
+
+  // Inline streaming preview route
   const previewUrl = React.useMemo(() => {
     const pId = encodeURIComponent(node.projectId || projectId);
     const nId = encodeURIComponent(node.id);
@@ -41,13 +59,239 @@ export function PdfViewerDriver({
   const handleRetry = React.useCallback(() => {
     setIsRetrying(true);
     setLoadError(false);
+    setCanvasError(null);
     setTimeout(() => setIsRetrying(false), 500);
+  }, []);
+
+  // When native iframe fails, auto-fallback to client-side canvas
+  const handleIframeError = React.useCallback(() => {
+    setViewMode("canvas");
+  }, []);
+
+  // Load PDF.js document when in canvas mode
+  React.useEffect(() => {
+    if (viewMode !== "canvas") return;
+
+    let cancelled = false;
+    setIsCanvasLoading(true);
+    setCanvasError(null);
+
+    async function loadPdfDocument() {
+      try {
+        const pdfjs = await import("pdfjs-dist");
+        // Ensure fake worker runs smoothly without external network script requests
+        const getDocument = pdfjs.getDocument || (pdfjs as any).default?.getDocument;
+
+        const res = await fetch(previewUrl, { credentials: "same-origin" });
+        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+        const buffer = await res.arrayBuffer();
+
+        if (cancelled) return;
+
+        const loadingTask = getDocument({
+          data: new Uint8Array(buffer),
+          isEvalSupported: false,
+        });
+
+        const doc = await loadingTask.promise;
+        if (cancelled) return;
+
+        setPdfDoc(doc);
+        setNumPages(doc.numPages);
+        setPageNumber(1);
+        setIsCanvasLoading(false);
+      } catch (err: any) {
+        if (cancelled) return;
+        setIsCanvasLoading(false);
+        setCanvasError(err?.message || "Failed to parse PDF document");
+      }
+    }
+
+    loadPdfDocument();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [viewMode, previewUrl]);
+
+  // Render current page onto canvas
+  React.useEffect(() => {
+    if (viewMode !== "canvas" || !pdfDoc || !canvasRef.current) return;
+
+    let cancelled = false;
+
+    // Cancel any in-flight page render task
+    if (renderTaskRef.current) {
+      try {
+        renderTaskRef.current.cancel();
+      } catch {
+        // Ignore cancel errors
+      }
+    }
+
+    async function renderPage() {
+      try {
+        const page = await pdfDoc.getPage(pageNumber);
+        if (cancelled || !canvasRef.current) return;
+
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+
+        const viewport = page.getViewport({ scale: zoom });
+
+        // High-DPI support
+        const pixelRatio = window.devicePixelRatio || 1;
+        canvas.width = Math.floor(viewport.width * pixelRatio);
+        canvas.height = Math.floor(viewport.height * pixelRatio);
+        canvas.style.width = `${Math.floor(viewport.width)}px`;
+        canvas.style.height = `${Math.floor(viewport.height)}px`;
+
+        ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+
+        const renderContext = {
+          canvasContext: ctx,
+          viewport,
+        };
+
+        const renderTask = page.render(renderContext);
+        renderTaskRef.current = renderTask;
+
+        await renderTask.promise;
+      } catch (err: any) {
+        if (err?.name === "RenderingCancelledException") {
+          return;
+        }
+        console.error("PDF page render error:", err);
+      }
+    }
+
+    renderPage();
+
+    return () => {
+      cancelled = true;
+      if (renderTaskRef.current) {
+        try {
+          renderTaskRef.current.cancel();
+        } catch {
+          // ignore
+        }
+      }
+      // Reclaim GPU memory on unmount
+      if (canvasRef.current) {
+        canvasRef.current.width = 0;
+        canvasRef.current.height = 0;
+      }
+    };
+  }, [viewMode, pdfDoc, pageNumber, zoom]);
+
+  const handlePrevPage = React.useCallback(() => {
+    setPageNumber((p) => Math.max(1, p - 1));
+  }, []);
+
+  const handleNextPage = React.useCallback(() => {
+    setPageNumber((p) => Math.min(numPages, p + 1));
+  }, [numPages]);
+
+  const handleZoomIn = React.useCallback(() => {
+    setZoom((z) => Math.min(2.5, +(z + 0.2).toFixed(1)));
+  }, []);
+
+  const handleZoomOut = React.useCallback(() => {
+    setZoom((z) => Math.max(0.5, +(z - 0.2).toFixed(1)));
+  }, []);
+
+  const handleResetZoom = React.useCallback(() => {
+    setZoom(1.2);
   }, []);
 
   return (
     <div className="relative flex h-full w-full flex-col bg-muted/10 overflow-hidden">
-      {/* Floating Action Pill — No extra horizontal navbar */}
+      {/* Floating Action Pill Toolbar */}
       <div className="absolute right-4 top-4 z-20 flex items-center gap-1.5 rounded-lg border border-border/80 bg-background/90 px-2 py-1 shadow-md backdrop-blur-md">
+        {/* Canvas Mode Controls */}
+        {viewMode === "canvas" && numPages > 0 && (
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handlePrevPage}
+              disabled={pageNumber <= 1}
+              className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+              title="Previous Page"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-xs font-mono text-muted-foreground px-1 select-none">
+              {pageNumber} / {numPages}
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleNextPage}
+              disabled={pageNumber >= numPages}
+              className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+              title="Next Page"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+
+            <div className="h-4 w-px bg-border/60 mx-1" />
+
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleZoomOut}
+              disabled={zoom <= 0.6}
+              className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+              title="Zoom Out"
+            >
+              <ZoomOut className="h-3.5 w-3.5" />
+            </Button>
+            <button
+              type="button"
+              onClick={handleResetZoom}
+              className="text-xs font-mono text-muted-foreground hover:text-foreground px-1 select-none"
+              title="Reset Zoom"
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleZoomIn}
+              disabled={zoom >= 2.4}
+              className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+              title="Zoom In"
+            >
+              <ZoomIn className="h-3.5 w-3.5" />
+            </Button>
+
+            <div className="h-4 w-px bg-border/60 mx-1" />
+          </>
+        )}
+
+        {/* View Mode Switcher */}
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => setViewMode((m) => (m === "native" ? "canvas" : "native"))}
+          className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+          title={viewMode === "native" ? "Switch to Client-Side Canvas Viewer" : "Switch to Browser Native Viewer"}
+        >
+          {viewMode === "native" ? (
+            <>
+              <Layers className="mr-1 h-3.5 w-3.5 text-primary" />
+              Canvas
+            </>
+          ) : (
+            <>
+              <FileText className="mr-1 h-3.5 w-3.5 text-primary" />
+              Browser
+            </>
+          )}
+        </Button>
+
         <Button
           size="sm"
           variant="ghost"
@@ -73,25 +317,76 @@ export function PdfViewerDriver({
         </Button>
       </div>
 
-      {/* Embedded PDF Viewer */}
+      {/* Main PDF Viewer Surface */}
       <div className="relative flex-1 overflow-hidden bg-muted/20">
-        {loadError ? (
+        {viewMode === "native" && !loadError ? (
+          <iframe
+            title={node.name}
+            src={previewUrl}
+            className="h-full w-full border-0"
+            onError={handleIframeError}
+          />
+        ) : viewMode === "canvas" ? (
+          <div className="h-full w-full overflow-auto flex items-center justify-center p-6">
+            {isCanvasLoading ? (
+              <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-xs">Rendering PDF via client canvas...</p>
+              </div>
+            ) : canvasError ? (
+              <div className="flex flex-col items-center justify-center gap-3 p-8 text-center">
+                <AlertTriangle className="h-8 w-8 text-amber-500" />
+                <p className="text-sm font-medium text-foreground">
+                  Could not parse PDF in browser canvas
+                </p>
+                <p className="max-w-md text-xs text-muted-foreground">
+                  {canvasError}. You can open the file in a new browser tab or download it directly.
+                </p>
+                <div className="flex items-center gap-2 pt-2">
+                  <Button asChild size="sm" variant="default">
+                    <a href={signedUrl || previewUrl} target="_blank" rel="noreferrer">
+                      <ExternalLink className="mr-1.5 h-4 w-4" />
+                      Open in new tab
+                    </a>
+                  </Button>
+                  <Button asChild size="sm" variant="outline">
+                    <a href={downloadUrl} download={node.name}>
+                      <Download className="mr-1.5 h-4 w-4" />
+                      Download
+                    </a>
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center my-auto">
+                <canvas
+                  ref={canvasRef}
+                  className="rounded-md border border-border/70 bg-background shadow-lg transition-transform duration-150"
+                />
+              </div>
+            )}
+          </div>
+        ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
             <AlertTriangle className="h-8 w-8 text-amber-500" />
             <p className="text-sm font-medium text-foreground">
               Browser blocked inline PDF rendering
             </p>
             <p className="max-w-md text-xs text-muted-foreground">
-              Some browser privacy settings prevent embedded PDF rendering. You can open the PDF in a new tab or download it directly.
+              Some browser privacy settings prevent embedded PDF rendering. You can switch to the canvas viewer, open in a new tab, or download.
             </p>
             <div className="flex items-center gap-2 pt-2">
-              <Button asChild size="sm" variant="default">
+              <Button size="sm" variant="default" onClick={() => setViewMode("canvas")}>
+                <Layers className="mr-1.5 h-4 w-4" />
+                Try Canvas Viewer
+              </Button>
+              <Button asChild size="sm" variant="outline">
                 <a href={signedUrl || previewUrl} target="_blank" rel="noreferrer">
                   <ExternalLink className="mr-1.5 h-4 w-4" />
                   Open in new tab
                 </a>
               </Button>
-              <Button asChild size="sm" variant="outline">
+              <Button asChild size="sm" variant="ghost">
                 <a href={downloadUrl} download={node.name}>
                   <Download className="mr-1.5 h-4 w-4" />
                   Download
@@ -99,13 +394,6 @@ export function PdfViewerDriver({
               </Button>
             </div>
           </div>
-        ) : (
-          <iframe
-            title={node.name}
-            src={previewUrl}
-            className="h-full w-full border-0"
-            onError={() => setLoadError(true)}
-          />
         )}
       </div>
     </div>

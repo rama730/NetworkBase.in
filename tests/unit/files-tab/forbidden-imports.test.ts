@@ -111,7 +111,14 @@ interface ForbiddenFileTarget {
   requirements: string;
 }
 
-type ForbiddenTarget = ForbiddenPrefixTarget | ForbiddenFileTarget;
+interface ForbiddenPackageTarget {
+  kind: "package";
+  label: string;
+  packageName: string;
+  requirements: string;
+}
+
+type ForbiddenTarget = ForbiddenPrefixTarget | ForbiddenFileTarget | ForbiddenPackageTarget;
 
 const FORBIDDEN_TARGETS: ForbiddenTarget[] = [
   {
@@ -120,14 +127,44 @@ const FORBIDDEN_TARGETS: ForbiddenTarget[] = [
     prefix: "src/lib/runner/",
     requirements: "Req 15.3, 16.1",
   },
+  {
+    kind: "package",
+    label: "docx-preview (heavy preview library, must remain dynamically imported)",
+    packageName: "docx-preview",
+    requirements: "Office Preview Audit §4.1",
+  },
+  {
+    kind: "package",
+    label: "xlsx (heavy spreadsheet library, must remain dynamically imported)",
+    packageName: "xlsx",
+    requirements: "Office Preview Audit §4.1",
+  },
+  {
+    kind: "package",
+    label: "pdfjs-dist (heavy PDF canvas library, must remain dynamically imported)",
+    packageName: "pdfjs-dist",
+    requirements: "Office Preview Audit §4.1",
+  },
+  {
+    kind: "package",
+    label: "fflate (decompression engine, must remain dynamically imported in drivers/workers)",
+    packageName: "fflate",
+    requirements: "Office Preview Audit §4.1",
+  },
 ];
 
 function matchesForbidden(
-  relPath: string,
+  relPathOrPkg: string,
   target: ForbiddenTarget,
 ): boolean {
-  if (target.kind === "prefix") return relPath.startsWith(target.prefix);
-  return relPath === target.path;
+  if (target.kind === "prefix") return relPathOrPkg.startsWith(target.prefix);
+  if (target.kind === "package") {
+    return (
+      relPathOrPkg === target.packageName ||
+      relPathOrPkg.startsWith(target.packageName + "/")
+    );
+  }
+  return relPathOrPkg === target.path;
 }
 
 // ---------------------------------------------------------------------------
@@ -286,12 +323,18 @@ interface WalkResult {
    * the graph under-report.
    */
   unresolved: Array<{ from: string; specifier: string }>;
+  /**
+   * Package imports encountered during the walk. Used to verify forbidden
+   * npm package boundaries (e.g. heavy preview engines).
+   */
+  packageImports: Array<{ from: string; specifier: string }>;
 }
 
 function walkStaticImportGraph(entryRel: string): WalkResult {
   const reachable = new Set<string>();
   const parents = new Map<string, string | null>();
   const unresolved: Array<{ from: string; specifier: string }> = [];
+  const packageImports: Array<{ from: string; specifier: string }> = [];
 
   const entryAbs = path.join(REPO_ROOT, entryRel);
   const queue: string[] = [entryRel];
@@ -324,6 +367,8 @@ function walkStaticImportGraph(entryRel: string): WalkResult {
           spec.startsWith("@/")
         ) {
           unresolved.push({ from: currentRel, specifier: spec });
+        } else {
+          packageImports.push({ from: currentRel, specifier: spec });
         }
         continue;
       }
@@ -334,7 +379,7 @@ function walkStaticImportGraph(entryRel: string): WalkResult {
     }
   }
 
-  return { reachable, parents, unresolved };
+  return { reachable, parents, unresolved, packageImports };
 }
 
 /** Reconstruct the shortest import chain from the entry to `target`. */
@@ -368,12 +413,23 @@ function buildReport(walk: WalkResult) {
 
   for (const target of FORBIDDEN_TARGETS) {
     const matches: Array<{ file: string; chain: string[] }> = [];
-    for (const reachedFile of walk.reachable) {
-      if (matchesForbidden(reachedFile, target)) {
-        matches.push({
-          file: reachedFile,
-          chain: chainFromParents(reachedFile, walk.parents),
-        });
+    if (target.kind === "package") {
+      for (const pkg of walk.packageImports) {
+        if (matchesForbidden(pkg.specifier, target)) {
+          matches.push({
+            file: pkg.specifier,
+            chain: [...chainFromParents(pkg.from, walk.parents), pkg.specifier],
+          });
+        }
+      }
+    } else {
+      for (const reachedFile of walk.reachable) {
+        if (matchesForbidden(reachedFile, target)) {
+          matches.push({
+            file: reachedFile,
+            chain: chainFromParents(reachedFile, walk.parents),
+          });
+        }
       }
     }
     if (matches.length > 0) {
