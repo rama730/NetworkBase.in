@@ -10,7 +10,7 @@ import {
 
 const read = (path: string) => readFileSync(path, 'utf8');
 
-test('profile header uses OpenToCollaborateBadge with brand square and hover popover', () => {
+test('profile header uses OpenToCollaborateBadge with brand square without duplicate hover popover', () => {
     const header = read('src/components/profile/v2/ProfileHeader.tsx');
     const badge = read('src/components/profile/OpenToCollaborateBadge.tsx');
     const css = read('src/app/globals.css');
@@ -19,11 +19,14 @@ test('profile header uses OpenToCollaborateBadge with brand square and hover pop
     assert.match(header, /<OpenToCollaborateBadge/);
     assert.doesNotMatch(header, /<span className="size-1\.5 rounded-full bg-current"/);
 
+    // Profile page suppresses redundant hover popover because Role Preferences card is already visible on the page
+    assert.match(badge, /isInteractive\s*=\s*interactive\s*!==\s*undefined\s*\?\s*interactive\s*:\s*variant\s*!==\s*'profile-header'/);
+
     // CSS defines brand square with 1px border-radius
     assert.match(css, /\.nb-person-collaboration::before\s*\{[^}]*width:\s*4px;\s*height:\s*4px;\s*border-radius:\s*1px;/);
-    assert.match(css, /\.nb-person-collaboration-interactive\[data-variant="profile-header"\]::before\s*\{[^}]*width:\s*4\.5px;\s*height:\s*4\.5px;\s*border-radius:\s*1px;/);
+    assert.match(css, /\.nb-person-collaboration\[data-variant="profile-header"\]::before[^{]*\{[^}]*width:\s*4\.5px;\s*height:\s*4\.5px;\s*border-radius:\s*1px;/);
 
-    // Popover contains collaboration preferences structure
+    // Popover contains collaboration preferences structure for cards
     assert.match(badge, /Collaboration Preferences/);
     assert.match(badge, /Popover\.Root/);
     assert.match(badge, /Popover\.Trigger/);
