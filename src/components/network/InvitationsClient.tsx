@@ -437,7 +437,7 @@ export default function InvitationsClient({
                         },
                     },
                 });
-            await refreshInvitationSurfaces();
+            void refreshInvitationSurfaces();
             return null;
         } finally {
             setProcessingApplication(null);

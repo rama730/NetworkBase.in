@@ -49,31 +49,31 @@ export function ProjectOnboardingModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800">
+            <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden bg-card border-border text-foreground">
                 <div className="h-1 bg-primary" />
                 
                 <div className="p-6">
                     <DialogHeader>
-                        <div className="mx-auto w-12 h-12 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mb-4">
-                            <Rocket className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                        <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                            <Rocket className="w-6 h-6 text-primary" />
                         </div>
-                        <DialogTitle className="text-center text-xl font-semibold">
+                        <DialogTitle className="text-center text-xl font-semibold text-foreground">
                             Welcome to the Team!
                         </DialogTitle>
-                        <DialogDescription className="text-center text-zinc-500 dark:text-zinc-400 mt-2">
-                            You are now an official member of <span className="font-semibold text-zinc-900 dark:text-zinc-100">{projectTitle}</span>
-                            {roleTitle && <span> as a <span className="font-semibold text-indigo-600 dark:text-indigo-400">{roleTitle}</span></span>}.
+                        <DialogDescription className="text-center text-muted-foreground mt-2">
+                            You are now an official member of <span className="font-semibold text-foreground">{projectTitle}</span>
+                            {roleTitle && <span> as a <span className="font-semibold text-primary">{roleTitle}</span></span>}.
                         </DialogDescription>
                     </DialogHeader>
 
                     <div className="mt-8 space-y-4">
-                        <div className="p-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border border-zinc-100 dark:border-zinc-800 flex gap-3">
+                        <div className="p-4 bg-muted/30 rounded-lg border border-border flex gap-3">
                             <div className="mt-1">
                                 <CheckCircle2 className="w-5 h-5 text-emerald-500" />
                             </div>
                             <div>
-                                <h4 className="font-medium text-sm text-zinc-900 dark:text-zinc-100">Access Granted</h4>
-                                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                                <h4 className="font-medium text-sm text-foreground">Access Granted</h4>
+                                <p className="text-xs text-muted-foreground mt-1">
                                     You can now view internal documents, tasks, and sprint boards.
                                 </p>
                             </div>
@@ -82,31 +82,31 @@ export function ProjectOnboardingModal({
                         <div className="grid grid-cols-2 gap-3">
                             <button 
                                 onClick={onViewTasks}
-                                className="p-4 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 rounded-lg transition-[color,background-color,border-color,box-shadow,opacity,transform] hover:scale-[1.02] text-left group"
+                                className="p-4 bg-card hover:bg-muted/40 border border-border rounded-lg transition-[color,background-color,border-color,box-shadow,opacity,transform] hover:scale-[1.02] text-left group"
                             >
-                                <div className="w-8 h-8 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center justify-center mb-3 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 transition-colors">
-                                    <CheckCircle2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mb-3 group-hover:bg-primary/20 transition-colors">
+                                    <CheckCircle2 className="w-4 h-4 text-primary" />
                                 </div>
-                                <span className="font-semibold text-sm block">My Tasks</span>
-                                <span className="text-xs text-zinc-500">View your assignments</span>
+                                <span className="font-semibold text-sm text-foreground block">My Tasks</span>
+                                <span className="text-xs text-muted-foreground">View your assignments</span>
                             </button>
 
                             <button 
                                 onClick={onViewDocs}
-                                className="p-4 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 rounded-lg transition-[color,background-color,border-color,box-shadow,opacity,transform] hover:scale-[1.02] text-left group"
+                                className="p-4 bg-card hover:bg-muted/40 border border-border rounded-lg transition-[color,background-color,border-color,box-shadow,opacity,transform] hover:scale-[1.02] text-left group"
                             >
-                                <div className="w-8 h-8 bg-amber-50 dark:bg-amber-900/20 rounded-lg flex items-center justify-center mb-3 group-hover:bg-amber-100 dark:group-hover:bg-amber-900/30 transition-colors">
-                                    <FileText className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                                <div className="w-8 h-8 bg-amber-500/10 rounded-lg flex items-center justify-center mb-3 group-hover:bg-amber-500/20 transition-colors">
+                                    <FileText className="w-4 h-4 text-amber-500" />
                                 </div>
-                                <span className="font-semibold text-sm block">Read Docs</span>
-                                <span className="text-xs text-zinc-500">Get up to speed</span>
+                                <span className="font-semibold text-sm text-foreground block">Read Docs</span>
+                                <span className="text-xs text-muted-foreground">Get up to speed</span>
                             </button>
                         </div>
                     </div>
                 </div>
 
-                <DialogFooter className="p-4 bg-zinc-50 dark:bg-zinc-900/50 border-t border-zinc-100 dark:border-zinc-800 sm:justify-center">
-                    <Button onClick={onClose} variant="ghost" size="sm" className="text-zinc-500">
+                <DialogFooter className="p-4 bg-muted/20 border-t border-border sm:justify-center">
+                    <Button onClick={onClose} variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
                         Dismiss
                     </Button>
                 </DialogFooter>

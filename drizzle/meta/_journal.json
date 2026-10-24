@@ -1646,6 +1646,13 @@
       "when": 1792454404000,
       "tag": "0237_profile_contribution_stories",
       "breakpoints": true
+    },
+    {
+      "idx": 235,
+      "version": "7",
+      "when": 1792454405000,
+      "tag": "0238_application_acceptance_security_hardening",
+      "breakpoints": true
     }
   ]
 }

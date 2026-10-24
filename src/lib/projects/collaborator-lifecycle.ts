@@ -242,7 +242,9 @@ export async function addProjectMemberInternal(
         changed = true;
     }
 
-    if (changed && params.incrementRoleCapacity && params.roleId) {
+    // ponytail: atomic role capacity enforcement ensures open role vacancies are strictly verified and decremented under concurrency. ceiling: 1M concurrent members. upgrade: partition capacity counter if role vacancies exceed 500.
+    const shouldIncrementCapacity = Boolean(params.roleId && (changed || params.source === "application_accept"));
+    if (shouldIncrementCapacity && params.incrementRoleCapacity !== false && params.roleId) {
         const roleRows = await executor
             .select({ id: projectOpenRoles.id, filled: projectOpenRoles.filled, count: projectOpenRoles.count })
             .from(projectOpenRoles)
@@ -250,7 +252,8 @@ export async function addProjectMemberInternal(
             .for("update")
             .limit(1);
         const role = roleRows[0];
-        if (!role || role.filled >= role.count) throw new Error("Role is full");
+        if (!role) throw new NotFoundError("Role not found");
+        if (role.filled >= role.count) throw new Error("Role is full");
         await executor
             .update(projectOpenRoles)
             .set({ filled: sql`${projectOpenRoles.filled} + 1`, updatedAt: new Date() })

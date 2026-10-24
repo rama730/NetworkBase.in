@@ -1164,7 +1164,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                     isOpen={isOnboardingOpen}
                     onClose={() => setIsOnboardingOpen(false)}
                     projectTitle={project.title}
-                    roleTitle={applicationStatus.status === 'accepted' && applicationStatus.roleTitle ? applicationStatus.roleTitle : currentProjectRole ? PROJECT_MEMBER_ROLE_LABELS[currentProjectRole] : undefined}
+                    roleTitle={applicationStatus.status === 'accepted' && applicationStatus.roleTitle ? applicationStatus.roleTitle : undefined}
                     onViewTasks={() => {
                         setIsOnboardingOpen(false);
                         handleTabChange('tasks');

@@ -126,12 +126,13 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
 
     /** Accepting offers a welcome note first; an error comes back to the dialog. */
     const acceptApp = async (app: WorkspaceRequest, { note }: DecisionInput) => {
+        removeOptimistically(app.id);
         try {
             unwrap(await acceptApplicationAction(app.id, note || undefined));
         } catch (failure) {
+            invalidate();
             return errorMessage(failure);
         }
-        removeOptimistically(app.id);
         toast.success(`${personCardName(app.applicant ?? {})} accepted`);
         invalidate();
         return null;
@@ -139,12 +140,13 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
 
     /** Declining asks for a reason first; an error comes back to the dialog, a success offers Undo. */
     const declineApp = async (app: WorkspaceRequest, { reason, note }: DecisionInput) => {
+        removeOptimistically(app.id);
         try {
             unwrap(await rejectApplicationAction(app.id, note || undefined, reason));
         } catch (failure) {
+            invalidate();
             return errorMessage(failure);
         }
-        removeOptimistically(app.id);
         toast.success("Declined", {
             action: {
                 label: "Undo",
