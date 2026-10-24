@@ -69,6 +69,43 @@ export function DataGridDriver({
   const [sortDirection, setSortDirection] = React.useState<"asc" | "desc">("asc");
   const [copiedCell, setCopiedCell] = React.useState<string | null>(null);
   const [selectedCell, setSelectedCell] = React.useState<{ coord: string; val: string } | null>(null);
+  const [colWidths, setColWidths] = React.useState<Record<number, number>>({});
+  const [resizingCol, setResizingCol] = React.useState<{
+    colIndex: number;
+    startX: number;
+    startWidth: number;
+  } | null>(null);
+
+  const startResize = React.useCallback(
+    (colIndex: number, e: React.MouseEvent) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const currentWidth = colWidths[colIndex] || 150;
+      setResizingCol({ colIndex, startX: e.clientX, startWidth: currentWidth });
+    },
+    [colWidths],
+  );
+
+  React.useEffect(() => {
+    if (!resizingCol) return;
+
+    const onMouseMove = (e: MouseEvent) => {
+      const delta = e.clientX - resizingCol.startX;
+      const nextWidth = Math.max(70, Math.min(600, resizingCol.startWidth + delta));
+      setColWidths((prev) => ({ ...prev, [resizingCol.colIndex]: nextWidth }));
+    };
+
+    const onMouseUp = () => {
+      setResizingCol(null);
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [resizingCol]);
 
   const currentSheet = sheets[activeSheetIndex] || {
     name: "Sheet1",
@@ -89,6 +126,21 @@ export function DataGridDriver({
     }
     return lastIdx >= 0 ? raw.slice(0, lastIdx + 1) : [];
   }, [currentSheet.rows]);
+
+  const autoFitCol = React.useCallback(
+    (colIndex: number, e: React.MouseEvent) => {
+      e.stopPropagation();
+      const headerLen = (currentSheet.headers[colIndex] || "").length;
+      let maxLen = headerLen;
+      for (let r = 0; r < Math.min(60, cleanedRows.length); r++) {
+        const cellLen = (cleanedRows[r]?.[colIndex] || "").length;
+        if (cellLen > maxLen) maxLen = cellLen;
+      }
+      const computedWidth = Math.max(90, Math.min(450, maxLen * 8.5 + 36));
+      setColWidths((prev) => ({ ...prev, [colIndex]: computedWidth }));
+    },
+    [cleanedRows, currentSheet.headers],
+  );
 
   // Filter rows based on search with deferred value to prevent main-thread freezing
   const filteredRows = React.useMemo(() => {
@@ -206,36 +258,48 @@ export function DataGridDriver({
       >
         #
       </th>
-      {currentSheet.headers.map((header, idx) => (
-        <th
-          key={idx}
-          role="columnheader"
-          aria-sort={
-            sortColumnIndex === idx
-              ? sortDirection === "asc"
-                ? "ascending"
-                : "descending"
-              : "none"
-          }
-          onClick={() => handleHeaderClick(idx)}
-          className="min-w-36 border-b border-r border-border p-2 text-xs font-semibold text-foreground select-none cursor-pointer hover:bg-muted/80 transition-colors"
-        >
-          <div className="flex items-center justify-between gap-1.5">
-            <span className="truncate">{header}</span>
-            {sortColumnIndex === idx ? (
-              sortDirection === "asc" ? (
-                <ArrowUp className="h-3.5 w-3.5 shrink-0 text-primary" />
+      {currentSheet.headers.map((header, idx) => {
+        const width = colWidths[idx] || 150;
+        return (
+          <th
+            key={idx}
+            role="columnheader"
+            aria-sort={
+              sortColumnIndex === idx
+                ? sortDirection === "asc"
+                  ? "ascending"
+                  : "descending"
+                : "none"
+            }
+            onClick={() => handleHeaderClick(idx)}
+            style={{ width, minWidth: width, maxWidth: width }}
+            className="relative border-b border-r border-border p-2 text-xs font-semibold text-foreground select-none cursor-pointer hover:bg-muted/80 transition-colors"
+          >
+            <div className="flex items-center justify-between gap-1.5 pr-2 overflow-hidden">
+              <span className="truncate">{header}</span>
+              {sortColumnIndex === idx ? (
+                sortDirection === "asc" ? (
+                  <ArrowUp className="h-3.5 w-3.5 shrink-0 text-primary" />
+                ) : (
+                  <ArrowDown className="h-3.5 w-3.5 shrink-0 text-primary" />
+                )
               ) : (
-                <ArrowDown className="h-3.5 w-3.5 shrink-0 text-primary" />
-              )
-            ) : (
-              <ArrowUpDown className="h-3 w-3 shrink-0 opacity-20 hover:opacity-100" />
-            )}
-          </div>
-        </th>
-      ))}
+                <ArrowUpDown className="h-3 w-3 shrink-0 opacity-20 hover:opacity-100" />
+              )}
+            </div>
+            {/* Draggable Column Divider with Auto-fit Double Click */}
+            <div
+              onMouseDown={(e) => startResize(idx, e)}
+              onDoubleClick={(e) => autoFitCol(idx, e)}
+              onClick={(e) => e.stopPropagation()}
+              className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-primary/50 transition-colors z-30"
+              title="Drag to resize column · Double-click to auto-fit"
+            />
+          </th>
+        );
+      })}
     </tr>
-  ), [currentSheet.headers, handleHeaderClick, sortColumnIndex, sortDirection]);
+  ), [autoFitCol, colWidths, currentSheet.headers, handleHeaderClick, sortColumnIndex, sortDirection, startResize]);
 
   const itemContent = React.useCallback((rowIndex: number, row: string[]) => (
     <>
@@ -249,6 +313,7 @@ export function DataGridDriver({
         const coord = `${rowIndex}-${colIndex}`;
         const isCopied = copiedCell === coord;
         const isSelected = selectedCell?.coord === coord;
+        const width = colWidths[colIndex] || 150;
         return (
           <td
             key={colIndex}
@@ -256,6 +321,7 @@ export function DataGridDriver({
             aria-selected={isSelected}
             onClick={() => setSelectedCell({ coord, val: cell })}
             onDoubleClick={() => copyCell(cell, coord)}
+            style={{ width, minWidth: width, maxWidth: width }}
             className={cn(
               "group border-b border-r border-border p-2 text-xs text-foreground/90 select-text cursor-cell truncate",
               isSelected ? "bg-primary/10 ring-1 ring-inset ring-primary" : "",
@@ -285,7 +351,7 @@ export function DataGridDriver({
         );
       })}
     </>
-  ), [copiedCell, copyCell, selectedCell]);
+  ), [colWidths, copiedCell, copyCell, selectedCell]);
 
   return (
     <div

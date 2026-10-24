@@ -16,6 +16,7 @@ import {
   ZoomIn,
   ZoomOut,
   LayoutGrid,
+  Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -29,6 +30,23 @@ interface PresentationViewerDriverProps {
   signedUrl: string;
 }
 
+interface SlideBox {
+  left: number; // percentage (0-100)
+  top: number;  // percentage (0-100)
+  width: number; // percentage (0-100)
+  height: number; // percentage (0-100)
+}
+
+interface SlideElement {
+  id: string;
+  type: "text" | "image" | "table";
+  box: SlideBox;
+  texts?: string[];
+  imageUrl?: string;
+  table?: string[][];
+  isTitle?: boolean;
+}
+
 interface SlideData {
   index: number;
   title: string;
@@ -36,6 +54,26 @@ interface SlideData {
   notes?: string;
   imageUrls: string[];
   tables?: string[][][];
+  elements?: SlideElement[];
+}
+
+function parseXfrm(container: Element, slideWidthEmu: number, slideHeightEmu: number): SlideBox | undefined {
+  const xfrms = container.getElementsByTagName("a:xfrm");
+  const xfrm = xfrms.length > 0 ? xfrms[0] : container.getElementsByTagName("p:xfrm")[0];
+  if (!xfrm) return undefined;
+  const off = xfrm.getElementsByTagName("a:off")[0];
+  const ext = xfrm.getElementsByTagName("a:ext")[0];
+  if (!off || !ext) return undefined;
+  const x = parseInt(off.getAttribute("x") || "0", 10);
+  const y = parseInt(off.getAttribute("y") || "0", 10);
+  const cx = parseInt(ext.getAttribute("cx") || "0", 10);
+  const cy = parseInt(ext.getAttribute("cy") || "0", 10);
+  if (cx <= 0 || cy <= 0 || slideWidthEmu <= 0 || slideHeightEmu <= 0) return undefined;
+  const left = Math.max(0, Math.min(100, (x / slideWidthEmu) * 100));
+  const top = Math.max(0, Math.min(100, (y / slideHeightEmu) * 100));
+  const width = Math.max(2, Math.min(100 - left, (cx / slideWidthEmu) * 100));
+  const height = Math.max(2, Math.min(100 - top, (cy / slideHeightEmu) * 100));
+  return { left, top, width, height };
 }
 
 export function PresentationViewerDriver({
@@ -55,6 +93,7 @@ export function PresentationViewerDriver({
   const [showNotes, setShowNotes] = React.useState(false);
   const [showThumbnails, setShowThumbnails] = React.useState(true);
   const [showGrid, setShowGrid] = React.useState(false);
+  const [layoutMode, setLayoutMode] = React.useState<"canvas" | "flow">("canvas");
   const [blankScreen, setBlankScreen] = React.useState<"none" | "black" | "white">("none");
   const [isLegacy, setIsLegacy] = React.useState(false);
 
@@ -116,7 +155,9 @@ export function PresentationViewerDriver({
           return;
         }
 
-        // 1. Determine aspect ratio from ppt/presentation.xml
+        // 1. Determine aspect ratio and dimensions from ppt/presentation.xml
+        let slideWidthEmu = 9144000;
+        let slideHeightEmu = 5143500;
         const presEntry = unzipped["ppt/presentation.xml"];
         if (presEntry) {
           const decoder = new TextDecoder("utf-8");
@@ -128,6 +169,8 @@ export function PresentationViewerDriver({
             const cx = parseInt(sldSz.getAttribute("cx") || "0", 10);
             const cy = parseInt(sldSz.getAttribute("cy") || "1", 10);
             if (cx > 0 && cy > 0) {
+              slideWidthEmu = cx;
+              slideHeightEmu = cy;
               const ratio = cx / cy;
               setAspectRatio(Math.abs(ratio - 16 / 9) < Math.abs(ratio - 4 / 3) ? "16/9" : "4/3");
             }
@@ -224,6 +267,7 @@ export function PresentationViewerDriver({
           const slideRelPath = path.replace("ppt/slides/", "ppt/slides/_rels/") + ".rels";
           const slideRelBytes = unzipped[slideRelPath];
           const imageUrls: string[] = [];
+          const relImageMap = new Map<string, string>();
 
           if (slideRelBytes) {
             const relXml = decoder.decode(slideRelBytes);
@@ -231,6 +275,7 @@ export function PresentationViewerDriver({
             const relNodes = relDoc.getElementsByTagName("Relationship");
             for (let r = 0; r < relNodes.length; r++) {
               const rel = relNodes[r];
+              const rId = rel?.getAttribute("Id") || "";
               const target = rel?.getAttribute("Target");
               const type = rel?.getAttribute("Type") || "";
               if (target && type.includes("image")) {
@@ -243,6 +288,9 @@ export function PresentationViewerDriver({
                   const blobUrl = URL.createObjectURL(blob);
                   blobUrlsRef.current.add(blobUrl);
                   imageUrls.push(blobUrl);
+                  if (rId) {
+                    relImageMap.set(rId, blobUrl);
+                  }
                 }
               }
             }
@@ -279,12 +327,105 @@ export function PresentationViewerDriver({
             }
           }
 
+          // Extract EMU percentage-positioned slide elements for high-fidelity canvas layout
+          const elements: SlideElement[] = [];
+
+          // 1. Shapes / Text boxes (<p:sp>)
+          const spNodes = doc.getElementsByTagName("p:sp");
+          for (let sIdx = 0; sIdx < spNodes.length; sIdx++) {
+            const sp = spNodes[sIdx];
+            if (!sp) continue;
+            const box = parseXfrm(sp, slideWidthEmu, slideHeightEmu);
+            const pNodes = sp.getElementsByTagName("a:p");
+            const spTexts: string[] = [];
+            for (let pIdx = 0; pIdx < pNodes.length; pIdx++) {
+              const p = pNodes[pIdx];
+              if (!p) continue;
+              const tNodes = p.getElementsByTagName("a:t");
+              let line = "";
+              for (let t = 0; t < tNodes.length; t++) {
+                line += tNodes[t]?.textContent || "";
+              }
+              line = line.trim();
+              if (line) spTexts.push(line);
+            }
+            if (spTexts.length > 0 && box) {
+              const isTitle = sIdx === 0 || box.top < 25;
+              elements.push({
+                id: `sp-${sIdx}`,
+                type: "text",
+                box,
+                texts: spTexts,
+                isTitle,
+              });
+            }
+          }
+
+          // 2. Picture shapes (<p:pic>)
+          const picNodes = doc.getElementsByTagName("p:pic");
+          for (let picIdx = 0; picIdx < picNodes.length; picIdx++) {
+            const pic = picNodes[picIdx];
+            if (!pic) continue;
+            const box = parseXfrm(pic, slideWidthEmu, slideHeightEmu);
+            const blip = pic.getElementsByTagName("a:blip")[0];
+            const rEmbed = blip?.getAttribute("r:embed") || "";
+            const imgUrl = relImageMap.get(rEmbed) || imageUrls[picIdx];
+            if (box && imgUrl) {
+              elements.push({
+                id: `pic-${picIdx}`,
+                type: "image",
+                box,
+                imageUrl: imgUrl,
+              });
+            }
+          }
+
+          // 3. Graphic frames / Tables (<p:graphicFrame>)
+          const gfNodes = doc.getElementsByTagName("p:graphicFrame");
+          for (let gfIdx = 0; gfIdx < gfNodes.length; gfIdx++) {
+            const gf = gfNodes[gfIdx];
+            if (!gf) continue;
+            const box = parseXfrm(gf, slideWidthEmu, slideHeightEmu);
+            const tbl = gf.getElementsByTagName("a:tbl")[0];
+            if (tbl && box) {
+              const rows: string[][] = [];
+              const trNodes = tbl.getElementsByTagName("a:tr");
+              for (let rIdx = 0; rIdx < trNodes.length; rIdx++) {
+                const tr = trNodes[rIdx];
+                if (!tr) continue;
+                const rowCells: string[] = [];
+                const tcNodes = tr.getElementsByTagName("a:tc");
+                for (let cIdx = 0; cIdx < tcNodes.length; cIdx++) {
+                  const tc = tcNodes[cIdx];
+                  const tNodes = tc ? tc.getElementsByTagName("a:t") : [];
+                  let cellText = "";
+                  for (let t = 0; t < tNodes.length; t++) {
+                    cellText += tNodes[t]?.textContent || "";
+                  }
+                  rowCells.push(cellText.trim());
+                }
+                if (rowCells.some((c) => c !== "")) {
+                  rows.push(rowCells);
+                }
+              }
+              if (rows.length > 0) {
+                elements.push({
+                  id: `tbl-${gfIdx}`,
+                  type: "table",
+                  box,
+                  table: rows,
+                });
+              }
+            }
+          }
+
           parsedSlides.push({
             index: i + 1,
             title,
             texts,
             imageUrls,
             tables,
+            elements,
           });
         }
 
@@ -548,6 +689,17 @@ export function PresentationViewerDriver({
 
             <Button
               size="sm"
+              variant={layoutMode === "canvas" ? "secondary" : "ghost"}
+              onClick={() => setLayoutMode((m) => (m === "canvas" ? "flow" : "canvas"))}
+              className="h-7 px-2 text-xs"
+              title="Toggle Canvas Layout (EMU Positioned) vs Flow View"
+            >
+              <Layers className="mr-1 h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{layoutMode === "canvas" ? "Layout" : "Flow"}</span>
+            </Button>
+
+            <Button
+              size="sm"
               variant={showNotes ? "secondary" : "ghost"}
               onClick={() => setShowNotes((prev) => !prev)}
               className="h-7 px-2 text-xs"
@@ -660,8 +812,86 @@ export function PresentationViewerDriver({
                 : "w-full max-w-5xl rounded-xl border border-border bg-card shadow-lg overflow-hidden",
             )}
           >
-            {/* Composite Slide Rendering: Show BOTH image and text when both exist */}
-            {currentSlide.imageUrls.length > 0 && currentSlide.texts.length > 0 ? (
+            {/* High-Fidelity Canvas Layout Mode (EMU Coordinate Percentages) */}
+            {layoutMode === "canvas" && currentSlide.elements && currentSlide.elements.length > 0 ? (
+              <div className="relative h-full w-full overflow-hidden p-3 select-text bg-background">
+                {currentSlide.elements.map((el) => {
+                  if (el.type === "image" && el.imageUrl) {
+                    return (
+                      <div
+                        key={el.id}
+                        className="absolute overflow-hidden pointer-events-none select-none flex items-center justify-center"
+                        style={{
+                          left: `${el.box.left}%`,
+                          top: `${el.box.top}%`,
+                          width: `${el.box.width}%`,
+                          height: `${el.box.height}%`,
+                        }}
+                      >
+                        <img src={el.imageUrl} alt="" className="w-full h-full object-contain" />
+                      </div>
+                    );
+                  }
+                  if (el.type === "table" && el.table) {
+                    return (
+                      <div
+                        key={el.id}
+                        className="absolute overflow-auto rounded border border-border/60 bg-card/95 shadow-2xs p-1"
+                        style={{
+                          left: `${el.box.left}%`,
+                          top: `${el.box.top}%`,
+                          width: `${el.box.width}%`,
+                          height: `${el.box.height}%`,
+                        }}
+                      >
+                        <table className="w-full border-collapse text-left text-[11px]">
+                          <tbody>
+                            {el.table.map((row, rIdx) => (
+                              <tr key={rIdx} className={cn("border-b border-border/40 last:border-b-0", rIdx === 0 && "bg-muted/50 font-semibold")}>
+                                {row.map((cell, cIdx) => (
+                                  <td key={cIdx} className="border-r border-border/30 last:border-r-0 p-1 text-foreground/90">
+                                    {cell}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  }
+                  if (el.type === "text" && el.texts) {
+                    return (
+                      <div
+                        key={el.id}
+                        className="absolute overflow-hidden p-1 flex flex-col justify-start"
+                        style={{
+                          left: `${el.box.left}%`,
+                          top: `${el.box.top}%`,
+                          width: `${el.box.width}%`,
+                          height: `${el.box.height}%`,
+                        }}
+                      >
+                        {el.texts.map((para, pIdx) => (
+                          <p
+                            key={pIdx}
+                            className={cn(
+                              "text-foreground/90 leading-snug",
+                              el.isTitle && pIdx === 0
+                                ? "text-base sm:text-lg md:text-xl font-bold tracking-tight text-foreground mb-1"
+                                : "text-xs sm:text-sm",
+                            )}
+                          >
+                            {para}
+                          </p>
+                        ))}
+                      </div>
+                    );
+                  }
+                  return null;
+                })}
+              </div>
+            ) : currentSlide.imageUrls.length > 0 && currentSlide.texts.length > 0 ? (
               <div className="flex flex-col h-full w-full p-6 sm:p-8 overflow-hidden">
                 {!currentSlide.title.startsWith("Slide ") && (
                   <div className="border-b border-border/40 pb-3 shrink-0">
