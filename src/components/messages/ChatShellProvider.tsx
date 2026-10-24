@@ -110,6 +110,9 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
 
   const applyRead = useCallback((channelId: string, seq: number) => {
     queryClient.setQueryData<Snapshot>(key, (prev) => (prev ? { ...prev, data: applyReadMoved(prev.data, channelId, seq) } : prev));
+    queryClient.setQueryData<any>(queryKeys.chat.channel(channelId), (prev: any) =>
+      prev && seq > (prev.last_read_seq ?? 0) ? { ...prev, last_read_seq: seq, mention_count: 0 } : prev
+    );
   }, [key, queryClient]);
 
   const pollDelta = useCallback(async () => {
@@ -202,6 +205,9 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
           // Reads carry the fresh Inbox counts, so the badge, the Inbox row and the tab title drop together.
           const moved = applyReadMoved(current.data, payload.channel_id, payload.seq);
           queryClient.setQueryData<Snapshot>(key, { ...current, data: applyInboxCounts(moved, payload as InboxCounts) });
+          queryClient.setQueryData<any>(queryKeys.chat.channel(payload.channel_id), (prev: any) =>
+            prev && (payload.seq as number) > (prev.last_read_seq ?? 0) ? { ...prev, last_read_seq: payload.seq, mention_count: 0 } : prev
+          );
         } else if (event === "inbox.count") {
           let data = applyInboxCounts(current.data, payload as InboxCounts);
           if (typeof payload.channel_id === "string" && typeof payload.mention_count === "number") {

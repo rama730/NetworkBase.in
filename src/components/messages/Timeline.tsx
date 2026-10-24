@@ -306,6 +306,7 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
   useEffect(() => {
     if (sentTick === lastSentTick.current) return;
     lastSentTick.current = sentTick;
+    setBannerOpen(false);
     const frame = requestAnimationFrame(() => virtuoso.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "smooth" }));
     return () => cancelAnimationFrame(frame);
   }, [sentTick]);
@@ -406,16 +407,25 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
         startReached={() => {
           if (hasOlder && !loadingOlder) loadOlder();
         }}
-        rangeChanged={({ startIndex }) => {
+        rangeChanged={({ startIndex, endIndex }) => {
           const local = startIndex - firstItemIndex;
           for (let i = Math.min(local, items.length - 1); i >= 0; i -= 1) {
             const item = items[i];
             if (item?.type === "day") {
               setTopDay(i === local ? null : item.label);
-              return;
+              break;
             }
           }
-          setTopDay(null);
+          if (local <= 0) setTopDay(null);
+
+          const endLocal = endIndex - firstItemIndex;
+          for (let i = Math.min(endLocal, items.length - 1); i >= Math.max(0, local); i -= 1) {
+            const item = items[i];
+            if (item?.type === "message" && item.message.seq > 0) {
+              onSeen(item.message.seq);
+              break;
+            }
+          }
         }}
         components={COMPONENTS}
       />
