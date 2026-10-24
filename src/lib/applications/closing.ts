@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, notInArray, sql } from 'drizzle-orm';
 
 import { applicationEvents, roleApplications } from '@/lib/db/schema';
 import { postApplicationUpdate } from '@/lib/messaging/integrations';
@@ -28,6 +28,8 @@ export async function closePendingApplications(
         reason: ClosingReason;
         /** Only applications for these roles. */
         roleIds?: string[];
+        /** Application IDs to exclude from closing (e.g. the one being accepted right now). */
+        excludeApplicationIds?: string[];
         /** Only applications for roles that have no spots left (their count was lowered to what is filled). */
         filledRolesOnly?: boolean;
         source: string;
@@ -43,6 +45,9 @@ export async function closePendingApplications(
             eq(roleApplications.projectId, params.projectId),
             eq(roleApplications.status, 'pending'),
             params.roleIds ? inArray(roleApplications.roleId, params.roleIds) : undefined,
+            params.excludeApplicationIds && params.excludeApplicationIds.length > 0
+                ? notInArray(roleApplications.id, params.excludeApplicationIds)
+                : undefined,
             params.filledRolesOnly
                 ? sql`${roleApplications.roleId} IN (SELECT r.id FROM project_open_roles r WHERE r.project_id = ${params.projectId}::uuid AND r.filled >= r.count)`
                 : undefined,

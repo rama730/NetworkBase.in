@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 
 import { ForbiddenError, NotFoundError } from "@/lib/errors/domain";
 import { db } from "@/lib/db";
@@ -268,7 +268,9 @@ export async function addProjectMemberInternal(
                     .where(and(
                         eq(roleApplications.projectId, params.projectId),
                         eq(roleApplications.roleId, params.roleId),
-                        eq(roleApplications.status, 'pending')
+                        eq(roleApplications.status, 'pending'),
+                        params.applicationId ? ne(roleApplications.id, params.applicationId) : undefined,
+                        params.userId ? ne(roleApplications.applicantId, params.userId) : undefined,
                     )),
                 executor
                     .select({ assigneeUserId: projectInvitations.candidateId })
@@ -293,6 +295,7 @@ export async function addProjectMemberInternal(
                 reason: 'role_filled',
                 roleIds: [params.roleId],
                 source: params.source,
+                excludeApplicationIds: params.applicationId ? [params.applicationId] : undefined,
             });
             closedApplications = closed.map((application) => ({ ...application, roleId: params.roleId as string }));
 

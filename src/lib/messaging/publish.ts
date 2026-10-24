@@ -48,16 +48,24 @@ export function publishUserEvents(userId: string, events: { event: string; paylo
  */
 export function publishChannelActivity(channelId: string, actorId: string | null) {
   after(async () => {
-    const [state] = await chatRows<{ last_seq: string; members: string[] }>(sql`
+    const [state] = await chatRows<{ last_seq: string | number; members: string[] | string | null }>(sql`
       SELECT c.last_seq,
-             (SELECT coalesce(array_agg(m.user_id), '{}') FROM chat_channel_members m WHERE m.channel_id = c.id) AS members
+             (SELECT coalesce(jsonb_agg(m.user_id), '[]'::jsonb) FROM chat_channel_members m WHERE m.channel_id = c.id) AS members
       FROM chat_channels c WHERE c.id = ${channelId}::uuid
     `);
     if (!state) return;
     const seq = Number(state.last_seq);
+    const rawMembers = state.members;
+    const members: string[] = Array.isArray(rawMembers)
+      ? rawMembers
+      : typeof rawMembers === "string"
+      ? rawMembers.startsWith("[")
+        ? JSON.parse(rawMembers)
+        : rawMembers.replace(/^\{|\}$/g, "").split(",").filter(Boolean)
+      : [];
     await broadcast([
       { topic: channelTopic(channelId), event: "message.system", payload: { seq } },
-      ...state.members.filter((userId) => userId !== actorId).map((userId) => ({
+      ...members.filter((userId) => userId !== actorId).map((userId) => ({
         topic: userTopic(userId),
         event: "hint",
         payload: { channel_id: channelId, seq, mention: false, thread_root_seq: null, follows: false },
