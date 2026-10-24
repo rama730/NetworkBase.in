@@ -578,6 +578,8 @@ export function DocxViewerDriver({
               box-shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.08) !important;
               border-radius: 2px;
               box-sizing: border-box;
+              content-visibility: auto;
+              contain-intrinsic-size: 816px 1056px;
             }
             .docx-preview-content mark[data-docx-search] {
               background-color: #fde047 !important;
