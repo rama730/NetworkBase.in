@@ -29,6 +29,29 @@ interface DataGridDriverProps {
   signedUrl?: string;
 }
 
+const TableComponent = React.forwardRef<HTMLTableElement, React.ComponentPropsWithoutRef<"table">>(
+  ({ style, className, ...props }, ref) => (
+    <table
+      ref={ref}
+      {...props}
+      style={{ ...style, tableLayout: "fixed", width: "100%" }}
+      className={cn("w-full border-collapse border-spacing-0", className)}
+    />
+  ),
+);
+TableComponent.displayName = "TableComponent";
+
+const TableRowComponent = React.forwardRef<HTMLTableRowElement, React.ComponentPropsWithoutRef<"tr">>(
+  ({ className, ...props }, ref) => (
+    <tr
+      ref={ref}
+      {...props}
+      className={cn("hover:bg-muted/30 transition-colors", className)}
+    />
+  ),
+);
+TableRowComponent.displayName = "TableRowComponent";
+
 export function DataGridDriver({
   fileName,
   sheets,
@@ -131,6 +154,87 @@ export function DataGridDriver({
     [copyCell, selectedCell],
   );
 
+  const virtuosoComponents = React.useMemo(
+    () => ({
+      Table: TableComponent,
+      TableRow: TableRowComponent,
+    }),
+    [],
+  );
+
+  const fixedHeaderContent = React.useCallback(() => (
+    <tr className="bg-muted border-b border-border text-left shadow-xs">
+      <th className="w-12 border-b border-r border-border p-2 text-center font-mono text-[10px] font-semibold text-muted-foreground select-none">
+        #
+      </th>
+      {currentSheet.headers.map((header, idx) => (
+        <th
+          key={idx}
+          onClick={() => handleHeaderClick(idx)}
+          className="min-w-36 border-b border-r border-border p-2 text-xs font-semibold text-foreground select-none cursor-pointer hover:bg-muted/80 transition-colors"
+        >
+          <div className="flex items-center justify-between gap-1.5">
+            <span className="truncate">{header}</span>
+            {sortColumnIndex === idx ? (
+              sortDirection === "asc" ? (
+                <ArrowUp className="h-3.5 w-3.5 shrink-0 text-primary" />
+              ) : (
+                <ArrowDown className="h-3.5 w-3.5 shrink-0 text-primary" />
+              )
+            ) : (
+              <ArrowUpDown className="h-3 w-3 shrink-0 opacity-20 hover:opacity-100" />
+            )}
+          </div>
+        </th>
+      ))}
+    </tr>
+  ), [currentSheet.headers, handleHeaderClick, sortColumnIndex, sortDirection]);
+
+  const itemContent = React.useCallback((rowIndex: number, row: string[]) => (
+    <>
+      <td className="w-12 border-b border-r border-border bg-muted/20 p-2 text-center font-mono text-[10px] text-muted-foreground select-none">
+        {rowIndex + 1}
+      </td>
+      {row.map((cell, colIndex) => {
+        const coord = `${rowIndex}-${colIndex}`;
+        const isCopied = copiedCell === coord;
+        const isSelected = selectedCell?.coord === coord;
+        return (
+          <td
+            key={colIndex}
+            onClick={() => setSelectedCell({ coord, val: cell })}
+            onDoubleClick={() => copyCell(cell, coord)}
+            className={cn(
+              "group border-b border-r border-border p-2 text-xs text-foreground/90 select-text cursor-cell truncate",
+              isSelected ? "bg-primary/10 ring-1 ring-inset ring-primary" : "",
+              isCopied && "bg-emerald-500/10",
+            )}
+            title="Click to select · Double-click or Cmd+C to copy"
+          >
+            <div className="flex items-center justify-between gap-2 overflow-hidden">
+              <span className="truncate">{cell}</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  copyCell(cell, coord);
+                }}
+                className="opacity-0 group-hover:opacity-60 hover:opacity-100 transition-opacity p-0.5 rounded-[3px] hover:bg-muted shrink-0"
+                title="Copy cell"
+              >
+                {isCopied ? (
+                  <Check className="h-3 w-3 text-emerald-500" />
+                ) : (
+                  <Copy className="h-3 w-3 text-muted-foreground" />
+                )}
+              </button>
+            </div>
+          </td>
+        );
+      })}
+    </>
+  ), [copiedCell, copyCell, selectedCell]);
+
   return (
     <div
       onKeyDown={handleKeyDown}
@@ -202,77 +306,11 @@ export function DataGridDriver({
           <TableVirtuoso
             className="app-scroll h-full w-full"
             data={filteredRows}
-            fixedHeaderContent={() => (
-              <tr className="bg-muted/90 text-left backdrop-blur-md">
-                <th className="w-12 border-b border-r border-border p-2 text-center font-mono text-[10px] font-semibold text-muted-foreground select-none">
-                  #
-                </th>
-                {currentSheet.headers.map((header, idx) => (
-                  <th
-                    key={idx}
-                    onClick={() => handleHeaderClick(idx)}
-                    className="min-w-32 border-b border-r border-border p-2 text-xs font-semibold text-foreground select-none cursor-pointer hover:bg-muted transition-colors"
-                  >
-                    <div className="flex items-center justify-between gap-1.5">
-                      <span className="truncate">{header}</span>
-                      {sortColumnIndex === idx ? (
-                        sortDirection === "asc" ? (
-                          <ArrowUp className="h-3.5 w-3.5 shrink-0 text-primary" />
-                        ) : (
-                          <ArrowDown className="h-3.5 w-3.5 shrink-0 text-primary" />
-                        )
-                      ) : (
-                        <ArrowUpDown className="h-3 w-3 shrink-0 opacity-20 hover:opacity-100" />
-                      )}
-                    </div>
-                  </th>
-                ))}
-              </tr>
-            )}
-            itemContent={(rowIndex, row) => (
-              <>
-                <td className="w-12 border-b border-r border-border bg-muted/20 p-2 text-center font-mono text-[10px] text-muted-foreground select-none">
-                  {rowIndex + 1}
-                </td>
-                {row.map((cell, colIndex) => {
-                  const coord = `${rowIndex}-${colIndex}`;
-                  const isCopied = copiedCell === coord;
-                  const isSelected = selectedCell?.coord === coord;
-                  return (
-                    <td
-                      key={colIndex}
-                      onClick={() => setSelectedCell({ coord, val: cell })}
-                      onDoubleClick={() => copyCell(cell, coord)}
-                      className={cn(
-                        "group border-b border-r border-border p-2 text-xs text-foreground/90 transition-colors select-text cursor-cell",
-                        isSelected ? "bg-primary/10 ring-1 ring-inset ring-primary" : "hover:bg-muted/30",
-                        isCopied && "bg-emerald-500/10",
-                      )}
-                      title="Click to select · Double-click or Cmd+C to copy"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="truncate">{cell}</span>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            copyCell(cell, coord);
-                          }}
-                          className="opacity-0 group-hover:opacity-60 hover:opacity-100 transition-opacity p-0.5 rounded-[3px] hover:bg-muted"
-                          title="Copy cell"
-                        >
-                          {isCopied ? (
-                            <Check className="h-3 w-3 text-emerald-500" />
-                          ) : (
-                            <Copy className="h-3 w-3 text-muted-foreground" />
-                          )}
-                        </button>
-                      </div>
-                    </td>
-                  );
-                })}
-              </>
-            )}
+            components={virtuosoComponents}
+            overscan={400}
+            defaultItemHeight={37}
+            fixedHeaderContent={fixedHeaderContent}
+            itemContent={itemContent}
           />
         )}
       </div>
