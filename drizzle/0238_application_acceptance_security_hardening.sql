@@ -8,8 +8,8 @@ DROP POLICY IF EXISTS "Applicants can edit their own pending applications" ON pu
 
 CREATE POLICY "Project admins can update applications"
 ON public.role_applications FOR UPDATE
-USING (public.nb_project_can_admin(project_id))
-WITH CHECK (public.nb_project_can_admin(project_id));
+USING (app_private.nb_project_can_admin(project_id))
+WITH CHECK (app_private.nb_project_can_admin(project_id));
 
 CREATE POLICY "Applicants can edit their own pending applications"
 ON public.role_applications FOR UPDATE
