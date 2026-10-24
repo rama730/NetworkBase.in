@@ -45,6 +45,34 @@ test("compiled contribution utilities keep links before the date, show field err
     });
   });
   assert.equal(invalidBorder, "var(--destructive)");
+  let fade = "",
+    fadeInset = "",
+    reducedMotion = false;
+  result.root.walkRules(
+    ".nb-story-preview-block[data-clipped]::after",
+    (rule) => {
+      rule.walkDecls("background", (decl) => {
+        fade = decl.value;
+      });
+      rule.walkDecls("inset", (decl) => {
+        fadeInset = decl.value;
+      });
+    },
+  );
+  assert.match(fade, /linear-gradient\(transparent,\s*var\(--card\)\)/);
+  assert.equal(fadeInset, "auto 0 0");
+  result.root.walkAtRules("media", (rule) => {
+    if (rule.params.includes("prefers-reduced-motion")) {
+      rule.walkRules(".nb-story-reveal.is-expanded", (nested) => {
+        nested.walkDecls("animation", (decl) => {
+          if (decl.value === "none") reducedMotion = true;
+        });
+      });
+    }
+  });
+  assert.ok(reducedMotion, "Expanded content respects reduced motion");
+  assert.equal(declarations("nb-story-reveal")["max-height"], undefined);
+  assert.equal(declarations("nb-story-reveal")["transition"], undefined);
   result.root.walkRules((rule) => {
     assert.doesNotMatch(
       rule.selector,

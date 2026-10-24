@@ -51,7 +51,7 @@ test("contribution markdown escapes HTML, omits embedded image URLs and uses aut
   assert.match(hidden, /Unavailable person/);
   assert.doesNotMatch(hidden, /href=/);
 });
-test("visitor contribution has a single reveal for the story, images and role history with identity links at its heading", () => {
+test("visitor SSR keeps the complete story readable before measurement with identity links at its heading", () => {
   const id = randomUUID(),
     roleId = randomUUID(),
     assetId = randomUUID();
@@ -110,9 +110,10 @@ test("visitor contribution has a single reveal for the story, images and role hi
   const html = renderToStaticMarkup(
     <ContributionStoryView contribution={contribution} />,
   );
-  assert.equal((html.match(/Read contribution/g) || []).length, 1);
-  assert.match(html, /aria-expanded="false"/);
-  assert.match(html, /inert=""/);
+  assert.doesNotMatch(
+    html,
+    /Read contribution|inert=""|max-height:|data-clipped/,
+  );
   assert.match(html, /Mar 2026/);
   assert.doesNotMatch(html, /End date not|Present|ACTIVITY EVIDENCE/);
   assert.ok(
@@ -147,14 +148,11 @@ test("visitor contribution has a single reveal for the story, images and role hi
   assert.doesNotMatch(html, /Position history|<h5/);
   assert.equal((html.match(/>Engineer</g) ?? []).length, 1);
   assert.match(html, /Work done/);
-  assert.ok(
-    html.indexOf("Workspace navigation") < html.indexOf("Read contribution"),
-  );
+  assert.match(html, /Workspace navigation/);
   const expanded = renderToStaticMarkup(
     <ContributionStoryView contribution={contribution} expandedByDefault />,
   );
-  assert.match(expanded, /Show less/);
-  assert.match(expanded, /aria-expanded="true"/);
+  assert.doesNotMatch(expanded, /max-height:|data-clipped/);
   assert.doesNotMatch(expanded, /inert=""/);
   const caption = expanded.match(
     /<figcaption[^>]*>([\s\S]*?)<\/figcaption>/,
