@@ -75,12 +75,50 @@ function TimelineHeader({ context }: { context?: TimelineContext }) {
   }
   return <div className="py-3 text-center text-[12px] text-muted-foreground">{context.loadingOlder ? "Loading earlier messages…" : ""}</div>;
 }
-// Room for the floating typing indicator only while someone types; otherwise the gap closes.
+// Room for the floating typing indicator only while someone types; otherwise the gap rests at h-6 (24px)
+// so the bottom message, reactions, and preview cards never touch the composer border.
 // Growing is instant (a smooth scroll follows); shrinking glides, so nothing jumps.
 function TimelineFooter({ context }: { context?: TimelineContext }) {
-  return <div className={context?.typing ? "h-6" : "h-2 transition-[height] duration-[180ms] ease-out motion-reduce:transition-none"} />;
+  return <div className={context?.typing ? "h-10" : "h-6 transition-[height] duration-[180ms] ease-out motion-reduce:transition-none"} />;
 }
 const COMPONENTS = { Header: TimelineHeader, Footer: TimelineFooter };
+
+/**
+ * Observes the bottom-most timeline item's rendered height (reactions added,
+ * link previews / cards rendered, images loaded, edits expanded).
+ * When height expands and the user is at the bottom, notifies Timeline to follow.
+ */
+export function LastItemTracker({
+  children,
+  onHeightIncrease,
+}: {
+  children: React.ReactNode;
+  onHeightIncrease: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const prevHeight = useRef(0);
+  const onIncrease = useRef(onHeightIncrease);
+  onIncrease.current = onHeightIncrease;
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    prevHeight.current = el.offsetHeight;
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (!entry) return;
+      const height = Math.ceil(entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height);
+      if (prevHeight.current > 0 && height > prevHeight.current) {
+        onIncrease.current();
+      }
+      prevHeight.current = height;
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return <div ref={ref} className="min-w-0">{children}</div>;
+}
 
 /**
  * A day separator; its button opens the date picker to jump to another day (keyboard too).
@@ -185,6 +223,47 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
     for (let i = messages.length - 1; i >= 0; i -= 1) if (messages[i]!.seq > 0) return messages[i]!.seq;
     return 0;
   }, [messages]);
+
+  const atBottomRef = useRef(atBottom);
+  atBottomRef.current = atBottom;
+
+  const onLastItemHeightIncrease = useCallback(() => {
+    if (atBottomRef.current) {
+      requestAnimationFrame(() => {
+        virtuoso.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "smooth" });
+      });
+    }
+  }, []);
+
+  const latestMessage = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      if (messages[i]!.seq > 0) return messages[i]!;
+    }
+    return null;
+  }, [messages]);
+
+  const latestContentSignature = useMemo(() => {
+    if (!latestMessage) return "";
+    const reactions = latestMessage.reactions?.map((r) => `${r.emoji}:${r.count}`).join(",") ?? "";
+    const attachments = latestMessage.attachments?.map((a) => a.asset_id).join(",") ?? "";
+    const previewHidden = latestMessage.link_preview_hidden ? 1 : 0;
+    const cardKind = latestMessage.card?.kind ?? "";
+    return `${latestMessage.client_message_id ?? ""}:${latestMessage.seq}:${reactions}:${attachments}:${previewHidden}:${cardKind}:${latestMessage.body.length}:${latestMessage.edited_at ?? ""}`;
+  }, [latestMessage]);
+
+  const lastContentSig = useRef(latestContentSignature);
+  useEffect(() => {
+    if (lastContentSig.current === latestContentSignature) return;
+    lastContentSig.current = latestContentSignature;
+    if (!atBottomRef.current) return;
+    const frame1 = requestAnimationFrame(() => {
+      const frame2 = requestAnimationFrame(() => {
+        virtuoso.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "smooth" });
+      });
+      return () => cancelAnimationFrame(frame2);
+    });
+    return () => cancelAnimationFrame(frame1);
+  }, [latestContentSignature]);
 
   useEffect(() => {
     if (lastReadSeq >= newestSeq && newestSeq > 0) {
@@ -352,6 +431,13 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
     }));
   }, [items, firstItemIndex]);
 
+  const lastItemKey = useMemo(() => {
+    for (let i = items.length - 1; i >= 0; i -= 1) {
+      if (items[i]!.type === "message") return items[i]!.key;
+    }
+    return null;
+  }, [items]);
+
   const renderItem = useCallback((_index: number, item: TimelineItem) => {
     if (item.type === "day") return <DayLabel label={item.label} onPick={pickDate} />;
     if (item.type === "new") {
@@ -362,8 +448,12 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
         </div>
       );
     }
-    return <MessageRow message={item.message} grouped={item.grouped} others={item.others} highlighted={highlight === item.message.seq} tabStop={tabSeq === item.message.seq} />;
-  }, [highlight, pickDate, tabSeq]);
+    const row = <MessageRow message={item.message} grouped={item.grouped} others={item.others} highlighted={highlight === item.message.seq} tabStop={tabSeq === item.message.seq} />;
+    if (item.key === lastItemKey) {
+      return <LastItemTracker onHeightIncrease={onLastItemHeightIncrease}>{row}</LastItemTracker>;
+    }
+    return row;
+  }, [highlight, lastItemKey, onLastItemHeightIncrease, pickDate, tabSeq]);
 
   return (
     <>

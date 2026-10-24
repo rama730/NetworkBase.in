@@ -21,6 +21,7 @@ import { markThreadRead } from "@/app/actions/chat/read";
 import { ConversationContext, type ConversationContextValue } from "@/components/messages/conversation-context";
 import { MessageRow } from "@/components/messages/MessageRow";
 import { MessageHistory } from "@/components/messages/MessageHistory";
+import { LastItemTracker } from "@/components/messages/Timeline";
 import { DropOverlay, draftKeyOf, dropFilesTo, useFileDrop } from "@/components/messages/useFileDrop";
 import { seedCards, useChannelDetails, useChannelMembers, useSavedSeqs, useTyping } from "@/components/messages/useConversation";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
@@ -46,8 +47,9 @@ const Composer = dynamic(() => import("@/components/messages/Composer").then((m)
 const ShareDialog = dynamic(() => import("@/components/messages/parts/ShareDialog").then((m) => m.ShareDialog), { ssr: false });
 
 // Stable identity so Virtuoso never remounts the footer (VIRT-01). Room for the
-// floating typing indicator only while someone types; otherwise the gap closes.
-const THREAD_COMPONENTS = { Footer: ({ context }: { context?: { typing: boolean } }) => <div className={context?.typing ? "h-6" : "h-2 transition-[height] duration-[180ms] ease-out motion-reduce:transition-none"} /> };
+// floating typing indicator only while someone types; otherwise the gap rests at h-6 (24px)
+// so the bottom reply, reactions, and preview cards never touch the composer border.
+const THREAD_COMPONENTS = { Footer: ({ context }: { context?: { typing: boolean } }) => <div className={context?.typing ? "h-10" : "h-6 transition-[height] duration-[180ms] ease-out motion-reduce:transition-none"} /> };
 
 /** Replies loading: rows in the shared shimmer (no pulse). */
 function RepliesSkeleton() {
@@ -318,6 +320,22 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
     return list;
   }, [dividerSeq, loadingReplies, meId, thread.data]);
 
+  const lastReplyKey = useMemo(() => {
+    for (let i = rows.length - 1; i >= 0; i -= 1) {
+      const row = rows[i]!;
+      if (row.type === "reply") return `${row.type}:${row.message.client_message_id ?? row.message.seq}`;
+    }
+    return null;
+  }, [rows]);
+
+  const onLastReplyHeightIncrease = useCallback(() => {
+    if (atBottom.current) {
+      requestAnimationFrame(() => {
+        list.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "smooth" });
+      });
+    }
+  }, []);
+
   // ↑/↓ walk the replies like the timeline (roving tabindex); Tab lands on the latest one.
   const replySeqs = useMemo(() => rows.flatMap((row) => (row.type === "reply" || row.type === "root") && row.message.kind !== "system" ? [row.message.seq] : []), [rows]);
   const rowTab = tabSeq ?? replySeqs.at(-1) ?? null;
@@ -501,7 +519,12 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
                     </div>
                   );
                 }
-                return <MessageRow message={row.message} grouped={row.grouped} highlighted={highlight === row.message.seq} tabStop={rowTab === row.message.seq} />;
+                const itemKey = `${row.type}:${row.message.client_message_id ?? row.message.seq}`;
+                const rowItem = <MessageRow message={row.message} grouped={row.grouped} highlighted={highlight === row.message.seq} tabStop={rowTab === row.message.seq} />;
+                if (itemKey === lastReplyKey) {
+                  return <LastItemTracker onHeightIncrease={onLastReplyHeightIncrease}>{rowItem}</LastItemTracker>;
+                }
+                return rowItem;
               }}
               components={THREAD_COMPONENTS}
             />
