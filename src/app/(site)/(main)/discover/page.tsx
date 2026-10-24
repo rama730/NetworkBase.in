@@ -52,7 +52,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams?: Se
                 nextCursor: initialFeedPage.nextCursor || undefined,
                 hasMore: Boolean(initialFeedPage.nextCursor),
                 // When this page was read: a later visit can't treat it as fresh.
-                renderedAt: Date.now(),
+                renderedAt: initialFeedPage.readTimestamp ?? 0,
             };
         } catch (error) {
             // The feed loads in the browser instead (with its own error and Retry).

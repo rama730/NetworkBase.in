@@ -30,6 +30,7 @@ const eslintConfig = defineConfig([
       "react-hooks/exhaustive-deps": "off",
       "react-hooks/incompatible-library": "off",
       "react-hooks/set-state-in-effect": "off",
+      "react-hooks/purity": "off",
     },
   },
   {

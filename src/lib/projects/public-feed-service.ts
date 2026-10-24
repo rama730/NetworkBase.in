@@ -55,6 +55,7 @@ export type PublicProjectsFeedPage = {
     nextCursor: string | null
     source: 'redis' | 'redis-stale' | 'database'
     cacheState: 'fresh' | 'stale' | 'miss'
+    readTimestamp?: number
 }
 
 /**
@@ -322,12 +323,14 @@ export async function getPublicProjectsFeedPage(limit: number, cursor: PublicPro
     )
     const cached = await readPublicProjectsFeedCache(normalizedLimit, cursor)
 
+    const readTimestamp = Date.now()
     if (cached.fresh) {
         return {
             projects: cached.fresh.value.projects,
             nextCursor: cached.fresh.value.nextCursor,
             source: 'redis',
             cacheState: 'fresh',
+            readTimestamp,
         }
     }
 
@@ -337,6 +340,7 @@ export async function getPublicProjectsFeedPage(limit: number, cursor: PublicPro
             ...payload,
             source: 'database',
             cacheState: 'miss',
+            readTimestamp,
         }
     } catch (error) {
         if (cached.stale) {
@@ -345,6 +349,7 @@ export async function getPublicProjectsFeedPage(limit: number, cursor: PublicPro
                 nextCursor: cached.stale.value.nextCursor,
                 source: 'redis-stale',
                 cacheState: 'stale',
+                readTimestamp,
             }
         }
         throw error

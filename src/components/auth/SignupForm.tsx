@@ -41,13 +41,13 @@ function GoogleIcon({ className = 'w-4 h-4' }: { className?: string }) {
     )
 }
 
-export function SignupForm({ redirect, invite, ref, project }: { redirect: string | null; invite: string | null; ref: string | null; project: string | null }) {
+export function SignupForm({ redirect, invite, referral, project }: { redirect: string | null; invite: string | null; referral?: string | null; project: string | null }) {
     const router = useRouter()
     const signInWithGoogle = (nextPath?: string | null) => startOAuthSignIn('google', nextPath)
     const signInWithGitHub = (nextPath?: string | null) => startOAuthSignIn('github', nextPath)
     const redirectPath = resolveAuthRedirectPath(redirect)
     const loginHref = buildAuthPageHref('/login', redirectPath)
-    const inviteParam = invite || ref || project
+    const inviteParam = invite || referral || project
     const oneTapNextPath = inviteParam
         ? `${redirectPath}${redirectPath.includes('?') ? '&' : '?'}invite=${encodeURIComponent(inviteParam)}`
         : redirectPath

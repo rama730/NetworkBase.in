@@ -15,5 +15,5 @@ function first(value: string | string[] | undefined) {
 
 export default async function SignupPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
     const params = await searchParams
-    return <SignupForm redirect={first(params.redirect)} invite={first(params.invite)} ref={first(params.ref)} project={first(params.project)} />
+    return <SignupForm redirect={first(params.redirect)} invite={first(params.invite)} referral={first(params.ref)} project={first(params.project)} />
 }
