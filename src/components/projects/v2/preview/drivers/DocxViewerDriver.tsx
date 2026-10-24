@@ -282,7 +282,7 @@ export function DocxViewerDriver({
       setTimeout(triggerAndCleanup, 150);
     } else {
       let pending = images.length;
-      let timer: NodeJS.Timeout | null = setTimeout(triggerAndCleanup, 2000);
+      const timer = setTimeout(triggerAndCleanup, 2000);
       const onDone = () => {
         pending--;
         if (pending <= 0) {

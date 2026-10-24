@@ -143,10 +143,15 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   webpack(config, { dev, isServer }) {
     config.resolve = config.resolve ?? {};
+    config.resolve.alias = {
+      ...(config.resolve.alias ?? {}),
+      canvas: false,
+    };
     if (!isServer) {
       config.resolve.fallback = {
         ...(config.resolve.fallback ?? {}),
         crypto: false,
+        canvas: false,
       };
     }
     if (dev) {
