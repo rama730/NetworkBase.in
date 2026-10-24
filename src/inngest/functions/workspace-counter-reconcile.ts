@@ -96,15 +96,16 @@ export const reconcileWorkspaceProfileCounters = inngest.createFunction(
                         UNION ALL
                         SELECT addressee_id AS user_id FROM connections WHERE status = 'accepted'
                     ) c
-                    JOIN profiles p ON p.id = c.user_id AND p.deleted_at IS NULL
                     GROUP BY c.user_id
                 )
                 UPDATE profiles profile
                 SET connections_count = COALESCE(ac.actual_connections_count, 0),
                     updated_at = NOW()
-                FROM accepted_counts ac
-                WHERE profile.id = ac.user_id
-                  AND profile.connections_count IS DISTINCT FROM ac.actual_connections_count
+                FROM profiles p
+                LEFT JOIN accepted_counts ac ON ac.user_id = p.id
+                WHERE profile.id = p.id
+                  AND profile.deleted_at IS NULL
+                  AND profile.connections_count IS DISTINCT FROM COALESCE(ac.actual_connections_count, 0)
             `)
         })
 

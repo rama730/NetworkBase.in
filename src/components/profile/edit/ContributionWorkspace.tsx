@@ -31,7 +31,6 @@ import {
   Eye,
   EyeOff,
   Pin,
-  Search,
   Upload,
   Trash2,
   ImagePlus,
@@ -45,6 +44,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { scrollContributionEditorTarget } from "@/lib/profile/contribution-editor-scroll";
 import { Button } from "@/components/ui/button";
+import { SearchField } from "@/components/ui/SearchField";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 import {
   Dialog,
@@ -1012,45 +1019,45 @@ export function ContributionWorkspace({
       )}
       {!active || !d ? (
         <>
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h2 className="nb-section-title">Project contributions</h2>
-              <p className="nb-compact mt-1 text-muted-foreground">
+          <div className="mb-5 flex min-w-0 flex-col gap-4">
+            <div className="min-w-0">
+              <h1 className="nb-page-title text-balance">Project contributions</h1>
+              <p className="nb-body mt-1 text-pretty text-muted-foreground">
                 Tell the story behind your work. Choose what appears on your
                 profile.
               </p>
             </div>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => void addExternal()}
-            >
-              <Plus className="size-4" />
-              Add external project
-            </Button>
-          </div>
-          <div className="mb-5 flex flex-wrap gap-3">
-            <label className="nb-compact flex min-w-0 flex-1 items-center gap-2">
-              <Search className="size-4" />
-              <input
-                aria-label="Search contributions"
-                placeholder="Search contributions…"
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <Select value={filter} onValueChange={setFilter}>
+                <SelectTrigger
+                  aria-label="Filter contributions"
+                  className="w-auto min-w-[136px] bg-card pointer-coarse:h-11"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All contributions</SelectItem>
+                  <SelectItem value="public">Public</SelectItem>
+                  <SelectItem value="private">Private</SelectItem>
+                </SelectContent>
+              </Select>
+              <SearchField
+                label="Search contributions"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="nb-story-input"
+                onChange={setSearch}
+                pageSearch
+                className="flex-1 basis-40 sm:w-64 sm:flex-none sm:basis-auto"
               />
-            </label>
-            <select
-              aria-label="Filter contributions"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="nb-story-input w-auto"
-            >
-              <option value="all">All contributions</option>
-              <option value="public">Public</option>
-              <option value="private">Private</option>
-            </select>
+              <Button
+                type="button"
+                variant="outline"
+                className="bg-card max-sm:w-full pointer-coarse:h-11"
+                onClick={() => void addExternal()}
+              >
+                <Plus className="size-4" aria-hidden="true" />
+                Add external project
+              </Button>
+            </div>
           </div>
           <div className="divide-y divide-border">
             {filtered.map((r) => {
@@ -1163,11 +1170,11 @@ export function ContributionWorkspace({
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div className="min-w-0 flex-1 space-y-1.5">
                 <div className="flex flex-wrap items-center gap-2.5">
-                  <h2 className="nb-section-title text-foreground">
+                  <h1 className="nb-section-title text-foreground">
                     {active.projectId
                       ? active.projectTitle
                       : d.title || "Untitled external project"}
-                  </h2>
+                  </h1>
                   <span className="inline-flex items-center gap-1 rounded-[4px] border border-border bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
                     {active.projectId ? (
                       <>
