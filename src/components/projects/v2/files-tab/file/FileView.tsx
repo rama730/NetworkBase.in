@@ -708,8 +708,8 @@ export function FileView({
                 currentVersion={node.currentVersion ?? 1}
                 isDeleted={node.deletedAt != null}
                 uploaderNames={undefined}
-                isTextKind={textLike}
-                onCompareClick={textLike ? (version, target) => {
+                isTextKind={textLike || kind === "image"}
+                onCompareClick={(textLike || kind === "image") ? (version, target) => {
                   if (!confirmFileNavigation(projectId)) return;
                   leaveEditMode("view");
                   setCompareTarget({

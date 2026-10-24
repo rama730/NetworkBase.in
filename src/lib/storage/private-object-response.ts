@@ -63,7 +63,7 @@ export function safeContentDisposition(filename: string, disposition: "inline" |
 
 // Only types a browser renders without running script may be served inline from the app origin.
 // Everything else (HTML, XML, SVG, unknown) downloads as opaque bytes so uploads can never execute here.
-const INLINE_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp", "image/avif", "image/bmp"]);
+const INLINE_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp", "image/avif", "image/bmp", "image/svg+xml"]);
 
 export function inlineSafeMimeType(mimeType: string | null | undefined): string | null {
   const base = mimeType?.split(";")[0]?.trim().toLowerCase() ?? "";

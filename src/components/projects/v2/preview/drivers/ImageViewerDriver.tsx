@@ -35,8 +35,11 @@ export function ImageViewerDriver({
   const [scale, setScale] = React.useState(1);
   const [position, setPosition] = React.useState({ x: 0, y: 0 });
   const [rotation, setRotation] = React.useState(0);
+  const [flipH, setFlipH] = React.useState(false);
+  const [flipV, setFlipV] = React.useState(false);
+  const [pixelated, setPixelated] = React.useState(false);
   const [isDragging, setIsDragging] = React.useState(false);
-  const [backdropMode, setBackdropMode] = React.useState<"checkerboard" | "dark" | "white" | "gray">("checkerboard");
+  const [backdropMode, setBackdropMode] = React.useState<"light-grid" | "dark-grid" | "white" | "black" | "gray">("light-grid");
   const [imageError, setImageError] = React.useState(false);
   const [svgSource, setSvgSource] = React.useState<string | null>(null);
   const [viewMode, setViewMode] = React.useState<"render" | "code">("render");
@@ -84,14 +87,44 @@ export function ImageViewerDriver({
     setRotation(0);
   }, []);
 
+  // Cancel RAF on unmount
+  React.useEffect(() => {
+    return () => {
+      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+    };
+  }, []);
+
   const handleRotate = React.useCallback(() => {
     setRotation((r) => (r + 90) % 360);
+  }, []);
+
+  const handleFlipH = React.useCallback(() => {
+    setFlipH((f) => !f);
+  }, []);
+
+  const handleFlipV = React.useCallback(() => {
+    setFlipV((f) => !f);
   }, []);
 
   const handleActualSize = React.useCallback(() => {
     setScale(1);
     setPosition({ x: 0, y: 0 });
   }, []);
+
+  const handleCopyImage = React.useCallback(async () => {
+    try {
+      const res = await fetch(signedUrl);
+      const blob = await res.blob();
+      if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+        await navigator.clipboard.write([new ClipboardItem({ [blob.type || "image/png"]: blob })]);
+        setCopied(true);
+        toast.success("Copied image to clipboard");
+        setTimeout(() => setCopied(false), 2000);
+      }
+    } catch {
+      toast.error("Failed to copy image");
+    }
+  }, [signedUrl]);
 
   // Trackpad pinch-to-zoom & wheel zoom with focal cursor anchor
   React.useEffect(() => {
@@ -141,9 +174,9 @@ export function ImageViewerDriver({
 
   const updateStageTransform = React.useCallback(() => {
     if (imageStageRef.current) {
-      imageStageRef.current.style.transform = `translate3d(${positionRef.current.x}px, ${positionRef.current.y}px, 0) scale(${scale}) rotate(${rotation}deg)`;
+      imageStageRef.current.style.transform = `translate3d(${positionRef.current.x}px, ${positionRef.current.y}px, 0) scale(${scale}) scaleX(${flipH ? -1 : 1}) scaleY(${flipV ? -1 : 1}) rotate(${rotation}deg)`;
     }
-  }, [scale, rotation]);
+  }, [scale, rotation, flipH, flipV]);
 
   const handleMouseDown = React.useCallback(
     (e: React.MouseEvent) => {
@@ -294,25 +327,63 @@ export function ImageViewerDriver({
               variant="ghost"
               onClick={handleRotate}
               className="h-7 w-7 p-0"
-              title="Rotate 90°"
+              title="Rotate 90° CW"
             >
               <RotateCw className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              size="sm"
+              variant={flipH ? "secondary" : "ghost"}
+              onClick={handleFlipH}
+              className="h-7 px-1.5 text-xs font-mono"
+              title="Flip Horizontal"
+            >
+              Flip H
+            </Button>
+            <Button
+              size="sm"
+              variant={flipV ? "secondary" : "ghost"}
+              onClick={handleFlipV}
+              className="h-7 px-1.5 text-xs font-mono"
+              title="Flip Vertical"
+            >
+              Flip V
+            </Button>
+            <Button
+              size="sm"
+              variant={pixelated ? "secondary" : "ghost"}
+              onClick={() => setPixelated((p) => !p)}
+              className="h-7 px-1.5 text-xs font-mono"
+              title="Toggle Pixelated Upscaling (Crisp Edges)"
+            >
+              1:1 Crisp
             </Button>
             <Button
               size="sm"
               variant="ghost"
               onClick={() => {
                 setBackdropMode((prev) => {
-                  if (prev === "checkerboard") return "dark";
-                  if (prev === "dark") return "white";
-                  if (prev === "white") return "gray";
-                  return "checkerboard";
+                  if (prev === "light-grid") return "dark-grid";
+                  if (prev === "dark-grid") return "white";
+                  if (prev === "white") return "black";
+                  if (prev === "black") return "gray";
+                  return "light-grid";
                 });
               }}
               className="h-7 w-7 p-0"
               title={`Backdrop Mode: ${backdropMode} (Click to cycle)`}
             >
               <Grid className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleCopyImage}
+              className="h-7 px-2 text-xs"
+              title="Copy image to clipboard"
+            >
+              {copied ? <Check className="mr-1 h-3.5 w-3.5 text-emerald-500" /> : <Copy className="mr-1 h-3.5 w-3.5" />}
+              {copied ? "Copied" : "Copy"}
             </Button>
           </>
         ) : (
@@ -351,8 +422,9 @@ export function ImageViewerDriver({
           onDoubleClick={handleDoubleClick}
           className={cn(
             "relative flex-1 cursor-grab overflow-hidden active:cursor-grabbing",
-            backdropMode === "checkerboard" && "bg-[linear-gradient(45deg,#f0f0f0_25%,transparent_25%),linear-gradient(-45deg,#f0f0f0_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f0f0f0_75%),linear-gradient(-45deg,transparent_75%,#f0f0f0_75%)] bg-[size:20px_20px] bg-[position:0_0,0_10px,10px_-10px,-10px_0px] dark:bg-[linear-gradient(45deg,#1f1f1f_25%,transparent_25%),linear-gradient(-45deg,#1f1f1f_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#1f1f1f_75%),linear-gradient(-45deg,transparent_75%,#1f1f1f_75%)]",
-            backdropMode === "dark" && "bg-[#111111]",
+            backdropMode === "light-grid" && "bg-[linear-gradient(45deg,#e5e5e5_25%,transparent_25%),linear-gradient(-45deg,#e5e5e5_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#e5e5e5_75%),linear-gradient(-45deg,transparent_75%,#e5e5e5_75%)] bg-[size:20px_20px] bg-[position:0_0,0_10px,10px_-10px,-10px_0px] bg-[#ffffff]",
+            backdropMode === "dark-grid" && "bg-[linear-gradient(45deg,#262626_25%,transparent_25%),linear-gradient(-45deg,#262626_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#262626_75%),linear-gradient(-45deg,transparent_75%,#262626_75%)] bg-[size:20px_20px] bg-[position:0_0,0_10px,10px_-10px,-10px_0px] bg-[#121212]",
+            backdropMode === "black" && "bg-[#000000]",
             backdropMode === "white" && "bg-[#ffffff]",
             backdropMode === "gray" && "bg-[#7f7f7f]",
           )}
@@ -361,7 +433,7 @@ export function ImageViewerDriver({
             ref={imageStageRef}
             className="flex h-full w-full items-center justify-center p-6 select-none"
             style={{
-              transform: `translate3d(${position.x}px, ${position.y}px, 0) scale(${scale}) rotate(${rotation}deg)`,
+              transform: `translate3d(${position.x}px, ${position.y}px, 0) scale(${scale}) scaleX(${flipH ? -1 : 1}) scaleY(${flipV ? -1 : 1}) rotate(${rotation}deg)`,
               transformOrigin: "center center",
               transition: isDragging ? "none" : "transform 100ms ease-out",
             }}
@@ -374,6 +446,9 @@ export function ImageViewerDriver({
               draggable={false}
               onError={() => setImageError(true)}
               className="max-h-[85vh] max-w-[85vw] object-contain shadow-sm pointer-events-none"
+              style={{
+                imageRendering: pixelated ? "pixelated" : "auto",
+              }}
             />
           </div>
         </div>

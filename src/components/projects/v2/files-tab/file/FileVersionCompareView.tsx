@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { X, ArrowRight, Loader2, Columns2, SlidersHorizontal, Image as ImageIcon } from "lucide-react";
+import { X, ArrowRight, Loader2, Columns2, SlidersHorizontal, Image as ImageIcon, GitCompare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getFileVersionContentAction } from "@/app/actions/files/versions";
 
@@ -37,15 +37,15 @@ export function FileVersionCompareView({
     () => /\.(png|jpe?g|webp|gif|svg|avif|bmp|ico)$/i.test(fileName),
     [fileName],
   );
-  const [imageMode, setImageMode] = React.useState<"split" | "side-by-side">("split");
+  const [imageMode, setImageMode] = React.useState<"split" | "side-by-side" | "difference">("split");
   const [splitPercent, setSplitPercent] = React.useState(50);
 
   const baseImgUrl = React.useMemo(
-    () => `/api/v1/projects/${encodeURIComponent(projectId)}/files/${encodeURIComponent(nodeId)}/preview?v=${baseVersion}`,
+    () => `/api/v1/projects/${encodeURIComponent(projectId)}/files/${encodeURIComponent(nodeId)}/preview?revision=${encodeURIComponent(String(baseVersion))}&v=${encodeURIComponent(String(baseVersion))}`,
     [projectId, nodeId, baseVersion],
   );
   const targetImgUrl = React.useMemo(
-    () => `/api/v1/projects/${encodeURIComponent(projectId)}/files/${encodeURIComponent(nodeId)}/preview?v=${targetVersion}`,
+    () => `/api/v1/projects/${encodeURIComponent(projectId)}/files/${encodeURIComponent(nodeId)}/preview?revision=${encodeURIComponent(String(targetVersion))}&v=${encodeURIComponent(String(targetVersion))}`,
     [projectId, nodeId, targetVersion],
   );
 
@@ -280,6 +280,19 @@ export function FileVersionCompareView({
                 <Columns2 className="h-3 w-3" />
                 <span>Side-by-Side</span>
               </button>
+              <button
+                type="button"
+                onClick={() => setImageMode("difference")}
+                className={cn(
+                  "flex items-center gap-1.5 px-2 py-1 text-xs rounded-[4px] font-medium transition-colors",
+                  imageMode === "difference"
+                    ? "bg-background text-foreground shadow-2xs"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <GitCompare className="h-3 w-3" />
+                <span>Difference</span>
+              </button>
             </div>
           ) : (
             <div className="flex items-center gap-3 font-mono text-[11px] font-medium">
@@ -349,6 +362,25 @@ export function FileVersionCompareView({
                 title="Drag to compare versions"
               />
               <span className="text-[11px] font-mono font-semibold text-primary">v{targetVersion}</span>
+            </div>
+          </div>
+        ) : imageMode === "difference" ? (
+          /* Difference Blend View */
+          <div className="relative flex-1 min-h-0 w-full overflow-hidden flex flex-col items-center justify-center p-6 bg-black">
+            <span className="mb-2 text-xs font-mono font-semibold bg-white/10 px-2.5 py-0.5 rounded border border-white/20 text-white shadow-2xs">
+              Difference Map: v{baseVersion} vs v{targetVersion} (identical pixels = black, changes = highlighted)
+            </span>
+            <div className="relative max-h-[70vh] max-w-full overflow-hidden rounded-md border border-white/20 shadow-lg select-none">
+              <img
+                src={targetImgUrl}
+                alt={`Version ${targetVersion}`}
+                className="max-h-[70vh] max-w-full object-contain block"
+              />
+              <img
+                src={baseImgUrl}
+                alt={`Version ${baseVersion}`}
+                className="absolute inset-0 max-h-[70vh] max-w-full object-contain block mix-blend-difference"
+              />
             </div>
           </div>
         ) : (
