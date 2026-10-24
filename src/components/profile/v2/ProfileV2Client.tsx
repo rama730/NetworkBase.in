@@ -16,6 +16,7 @@ import type { ConnectionState } from './types';
 import { logger } from '@/lib/logger';
 import { applyOptimisticUpdate as applyProfileOptimisticUpdate } from '@/lib/profile/normalization';
 import { queryKeys } from '@/lib/query-keys';
+import { useRealtime } from '@/components/providers/RealtimeProvider';
 
 // Keep the first content card synchronous. The action-heavy header and secondary
 // rail cards remain server-rendered, but live in separate client chunks so every
@@ -132,6 +133,7 @@ export function ProfileV2Client({
 }: ProfileClientProps) {
     const { user: authUser } = useAuth()
     const viewerUser = authUser ?? currentUser
+    const { subscribeUserNotifications } = useRealtime()
     const router = useRouter()
     const pathname = usePathname()
     const searchParams = useSearchParams()
@@ -348,6 +350,29 @@ export function ProfileV2Client({
         await queryClient.invalidateQueries({ queryKey: queryKeys.profile.root() });
         router.refresh();
     }, [isOwner, profile?.id, queryClient, router, viewerUser]);
+
+    useEffect(() => {
+        if (!viewerUser?.id || isOwner || !profile?.id) return;
+        const unsubscribe = subscribeUserNotifications((event) => {
+            if (event.kind === 'connection') {
+                const payload = (event.payload?.new ?? event.payload?.old) as Record<string, unknown> | undefined;
+                const reqId = payload?.requester_id;
+                const addrId = payload?.addressee_id;
+                if (reqId === profile.id || addrId === profile.id) {
+                    void refreshViewerOverlay();
+                }
+            } else if (event.kind === 'notification') {
+                const payload = (event.payload?.new ?? event.payload?.old) as Record<string, unknown> | undefined;
+                const kind = typeof payload?.kind === 'string' ? payload.kind : '';
+                if (kind.startsWith('connection_')) {
+                    void refreshViewerOverlay();
+                }
+            }
+        });
+        return () => {
+            unsubscribe();
+        };
+    }, [isOwner, profile?.id, refreshViewerOverlay, subscribeUserNotifications, viewerUser?.id]);
 
     const handleConnectPrimary = async () => {
         if (!profile) return;

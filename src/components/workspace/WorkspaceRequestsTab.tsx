@@ -88,7 +88,7 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
     // never fetches the sent queue that is only useful in the full Requests
     // page, eliminating one request and unrelated loading/error state.
     const connectionsQuery = usePendingRequests(20, isWorkspaceOpen && isActive, { includeSent: false });
-    const { acceptRequest, rejectRequest } = useConnectionMutations();
+    const { acceptRequest, rejectRequest, undoRejectRequest } = useConnectionMutations();
 
     const incomingApplications = useMemo<WorkspaceRequest[]>(
         () => (data?.applications ?? []) as WorkspaceRequest[],
@@ -182,7 +182,22 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
                 toast.success("Connection request accepted");
             } else {
                 await rejectRequest.mutateAsync({ id: requestId });
-                toast.success("Connection request rejected");
+                toast.success("Connection request declined", {
+                    action: {
+                        label: "Undo",
+                        onClick: () => {
+                            void undoRejectRequest
+                                .mutateAsync(requestId)
+                                .then(() => {
+                                    toast.success("Decline undone");
+                                    invalidate();
+                                })
+                                .catch(() => {
+                                    toast.error("Could not undo");
+                                });
+                        },
+                    },
+                });
             }
             invalidate();
         } catch (connectionError) {

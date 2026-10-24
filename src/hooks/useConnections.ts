@@ -250,6 +250,25 @@ function updatePendingRequestQueries(
     );
 }
 
+function updateInvitationBrowseQueries<T extends { id: string }>(
+    queryClient: ReturnType<typeof useQueryClient>,
+    updater: (items: T[]) => T[],
+) {
+    queryClient.setQueriesData<InfiniteData<{ items: T[] }>>(
+        { queryKey: ['connections', 'pending', 'browse'] },
+        (prev) => {
+            if (!prev) return prev;
+            return {
+                ...prev,
+                pages: prev.pages.map((page) => ({
+                    ...page,
+                    items: updater(page.items),
+                })),
+            };
+        },
+    );
+}
+
 function patchDiscoverAndSuggestionStatus(
     queryClient: ReturnType<typeof useQueryClient>,
     input: {
@@ -290,6 +309,17 @@ function patchDiscoverAndSuggestionStatus(
             : item,
     ));
 
+    queryClient.setQueriesData<Array<{
+        kind: string;
+        userId?: string;
+        connectionStatus?: DiscoverConnectionItem['connectionStatus'];
+        canConnect?: boolean;
+    }>>({ queryKey: queryKeys.globalSearch.previewsRoot() }, (items) => items?.map((item) =>
+        item.kind === 'profile' && item.userId && userIds.has(item.userId)
+            ? { ...item, connectionStatus: input.status, canConnect: input.canConnect }
+            : item,
+    ));
+
 }
 
 function invalidateConnectionsScoped(queryClient: ReturnType<typeof useQueryClient>) {
@@ -298,6 +328,8 @@ function invalidateConnectionsScoped(queryClient: ReturnType<typeof useQueryClie
     void queryClient.invalidateQueries({ queryKey: ['connections', 'feed', 'requests_incoming'] });
     void queryClient.invalidateQueries({ queryKey: ['connections', 'feed', 'requests_sent'] });
     void queryClient.invalidateQueries({ queryKey: ['connections', 'pending-requests'] });
+    void queryClient.invalidateQueries({ queryKey: ['connections', 'pending', 'browse'] });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.connections.root() });
     void queryClient.invalidateQueries({ queryKey: queryKeys.connections.pending() });
     void queryClient.invalidateQueries({ queryKey: ['connections', 'request-history'] });
     void queryClient.invalidateQueries({ queryKey: ['connections', 'stats'] });
@@ -609,6 +641,7 @@ export function useConnectionMutations() {
         },
         onMutate: async (id) => {
             await cancelConnectionsScoped(queryClient);
+            updateInvitationBrowseQueries(queryClient, (items) => items.filter((item) => item.id !== id));
             let targetUserId: string | undefined;
             updatePendingRequestQueries(queryClient, (prev) => {
                 const request = prev.sent.find((item) => item.id === id || item.addresseeId === id);
@@ -655,6 +688,7 @@ export function useConnectionMutations() {
         },
         onMutate: async (id) => {
             await cancelConnectionsScoped(queryClient);
+            updateInvitationBrowseQueries(queryClient, (items) => items.filter((item) => item.id !== id));
 
             // Find the pending request to get user details for network insert
             let acceptedConnection: NetworkConnectionItem | null = null;
@@ -728,6 +762,7 @@ export function useConnectionMutations() {
         },
         onMutate: async ({ id }) => {
             await cancelConnectionsScoped(queryClient);
+            updateInvitationBrowseQueries(queryClient, (items) => items.filter((item) => item.id !== id));
             updatePendingRequestQueries(queryClient, (prev) => ({
                 ...prev,
                 incoming: prev.incoming.filter((item) => item.id !== id),

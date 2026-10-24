@@ -32,6 +32,7 @@ export type ActiveResourceType =
 export type UserNotificationEvent =
     | { kind: 'profile'; payload: DbRealtimePayload }
     | { kind: 'notification'; payload: DbRealtimePayload }
+    | { kind: 'connection'; payload: DbRealtimePayload }
 
 export function isRealtimeTerminalStatus(status: REALTIME_SUBSCRIBE_STATES) {
     return (
@@ -142,6 +143,24 @@ export function subscribeUserNotifications(params: {
                 table: 'user_notifications',
                 filter: `user_id=eq.${userId}`,
                 handler: (payload) => onEvent({ kind: 'notification', payload }),
+            },
+            {
+                // ponytail: real-time CDC for connections received by user
+                // ceiling: 1M connections CDC
+                // upgrade: move to dedicated user channel if fanout exceeds quota
+                event: '*',
+                table: 'connections',
+                filter: `addressee_id=eq.${userId}`,
+                handler: (payload) => onEvent({ kind: 'connection', payload }),
+            },
+            {
+                // ponytail: real-time CDC for connections sent by user
+                // ceiling: 1M connections CDC
+                // upgrade: move to dedicated user channel if fanout exceeds quota
+                event: '*',
+                table: 'connections',
+                filter: `requester_id=eq.${userId}`,
+                handler: (payload) => onEvent({ kind: 'connection', payload }),
             },
         ],
         onStatus,
