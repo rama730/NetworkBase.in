@@ -38,6 +38,11 @@ const ArchiveViewerDriver = dynamic(
   { ssr: false, loading: () => <PreviewSkeleton /> },
 );
 
+const PresentationViewerDriver = dynamic(
+  () => import("./drivers/PresentationViewerDriver").then((m) => m.PresentationViewerDriver),
+  { ssr: false, loading: () => <PreviewSkeleton /> },
+);
+
 const BinaryInspectorDriver = dynamic(
   () => import("./drivers/BinaryInspectorDriver").then((m) => m.BinaryInspectorDriver),
   { ssr: false, loading: () => <PreviewSkeleton /> },
@@ -99,10 +104,16 @@ export default function UniversalPreviewEngine({
       return <MediaViewerDriver node={node} signedUrl={signedUrl} type="audio" />;
 
     case "docx":
+    case "doc_legacy":
+    case "rtf":
+    case "odt":
       return <DocxViewerDriver node={node} signedUrl={signedUrl} />;
 
     case "sheet":
       return <SheetViewerDriver node={node} signedUrl={signedUrl} />;
+
+    case "presentation":
+      return <PresentationViewerDriver node={node} signedUrl={signedUrl} />;
 
     case "archive":
       return <ArchiveViewerDriver node={node} signedUrl={signedUrl} />;
