@@ -17,6 +17,7 @@ import { StatusInline } from '@/components/presence/StatusInline'
 import { usePresenceUi } from '@/components/presence/presence-ui-store'
 import { usePersonPresence } from '@/components/presence/usePresence'
 import { resolveProfileActionState } from './profile-action-state'
+import { OpenToCollaborateBadge } from '@/components/profile/OpenToCollaborateBadge'
 
 /** Owner status lives with profile actions; visitors see status beside identity. */
 function PresenceChips({ userId, lastActiveAt, isOwner, className }: { userId: string | null; lastActiveAt?: string | null; isOwner: boolean; className?: string }) {
@@ -224,10 +225,16 @@ export function ProfileHeader({
                                 </span>
                             ) : null}
                             {isOpenToCollaborate ? (
-                                <span className="nb-status" data-status="completed">
-                                    <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
-                                    Open to collaborate
-                                </span>
+                                <OpenToCollaborateBadge
+                                    openToCollaborate={isOpenToCollaborate}
+                                    openTo={vm.openTo}
+                                    customRoles={vm.openToCustomRoles}
+                                    categories={vm.preferredCategories}
+                                    experienceLevel={vm.experienceLevel}
+                                    hoursPerWeek={vm.hoursPerWeek}
+                                    variant="profile-header"
+                                    isOwner={isOwner}
+                                />
                             ) : null}
                             {!isOwner && !lockedShell ? <PresenceChips userId={profile?.id ?? null} lastActiveAt={vm.lastActiveAt} isOwner={false} /> : null}
                         </div>
