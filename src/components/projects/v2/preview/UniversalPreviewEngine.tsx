@@ -68,11 +68,6 @@ export default function UniversalPreviewEngine({
     [node],
   );
 
-  // If PDF, we can render via server preview route even before signedUrl resolves
-  if (previewType === "pdf") {
-    return <PdfViewerDriver node={node} signedUrl={signedUrl} projectId={projectId} />;
-  }
-
   if (signedUrlError) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
@@ -87,6 +82,11 @@ export default function UniversalPreviewEngine({
         )}
       </div>
     );
+  }
+
+  // If PDF, we can render via server preview route when projectId is present or when signedUrl resolves
+  if (previewType === "pdf") {
+    return <PdfViewerDriver node={node} signedUrl={signedUrl} projectId={projectId} />;
   }
 
   if (!signedUrl) {

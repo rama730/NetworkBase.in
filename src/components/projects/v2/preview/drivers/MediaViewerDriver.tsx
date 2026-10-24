@@ -113,6 +113,7 @@ export function MediaViewerDriver({
   const [currentTime, setCurrentTime] = React.useState(0);
   const [duration, setDuration] = React.useState(0);
   const [bufferedPercent, setBufferedPercent] = React.useState(0);
+  const [bufferedSegments, setBufferedSegments] = React.useState<{ startPercent: number; widthPercent: number }[]>([]);
   const [speed, setSpeed] = React.useState(1);
   const [isLooping, setIsLooping] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
@@ -177,11 +178,46 @@ export function MediaViewerDriver({
   // Robust effective duration derived from duration state
   const effectiveDuration = isFinite(duration) && duration > 0 ? duration : 0;
 
-  // Reset error & sync duration when signedUrl changes
+  // Hardware Video Decoder Cleanup Destructor: flush GPU VRAM and release hardware decode contexts
   React.useEffect(() => {
     setError(false);
     syncDuration(mediaRef.current);
+    const el = mediaRef.current;
+    return () => {
+      if (el) {
+        el.pause();
+        el.removeAttribute("src"); // Abort background range streams immediately
+        el.load(); // Force GPU process to reclaim hardware video decoder context
+      }
+      if (hideControlsTimer.current) clearTimeout(hideControlsTimer.current);
+      if (gestureToastTimer.current) clearTimeout(gestureToastTimer.current);
+      if (rippleTimer.current) clearTimeout(rippleTimer.current);
+      if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
+    };
   }, [signedUrl, syncDuration]);
+
+  // Background tab decoding suspension via Visibility API
+  React.useEffect(() => {
+    const wasPlayingRef = { current: false };
+    const handleVisibilityChange = () => {
+      const el = mediaRef.current;
+      if (!el || type !== "video") return;
+
+      if (document.hidden) {
+        if (!el.paused) {
+          wasPlayingRef.current = true;
+          el.pause();
+          setIsPlaying(false);
+        }
+      } else if (wasPlayingRef.current) {
+        wasPlayingRef.current = false;
+        el.play().then(() => setIsPlaying(true)).catch(() => {});
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [type]);
 
   // Handle URL deep linking (#t=00:08 or ?t=8)
   React.useEffect(() => {
@@ -203,7 +239,7 @@ export function MediaViewerDriver({
     return () => window.removeEventListener("hashchange", parseHashTimestamp);
   }, []);
 
-  // Update buffer progress
+  // Update buffer progress with multi-segment buffer support
   const updateBuffer = React.useCallback(() => {
     const el = mediaRef.current;
     if (!el || el.buffered.length === 0) return;
@@ -212,6 +248,19 @@ export function MediaViewerDriver({
     try {
       const end = el.buffered.end(el.buffered.length - 1);
       setBufferedPercent(Math.min(100, Math.max(0, (end / dur) * 100)));
+
+      const segments: { startPercent: number; widthPercent: number }[] = [];
+      for (let i = 0; i < el.buffered.length; i++) {
+        const segStart = Math.max(0, el.buffered.start(i));
+        const segEnd = Math.min(dur, el.buffered.end(i));
+        if (segEnd > segStart) {
+          segments.push({
+            startPercent: (segStart / dur) * 100,
+            widthPercent: ((segEnd - segStart) / dur) * 100,
+          });
+        }
+      }
+      setBufferedSegments(segments);
     } catch {}
   }, [duration]);
 
@@ -289,7 +338,7 @@ export function MediaViewerDriver({
     [triggerRipple],
   );
 
-  // Instant Frame Snapshot Capture
+  // Instant Frame Snapshot Capture (Display P3 Wide Gamut & Safari-Safe Synchronous Gesture)
   const captureFrame = React.useCallback(async () => {
     const video = mediaRef.current;
     if (!video || !(video instanceof HTMLVideoElement) || !video.videoWidth) return;
@@ -298,31 +347,39 @@ export function MediaViewerDriver({
       const canvas = document.createElement("canvas");
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      const ctx = canvas.getContext("2d");
+      const ctx = canvas.getContext("2d", { colorSpace: "display-p3" });
       if (!ctx) return;
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      canvas.toBlob(async (blob) => {
-        if (!blob) return;
-        try {
-          if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
-            await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-            setSnapshotStatus("copied");
-            setTimeout(() => setSnapshotStatus("idle"), 2200);
-            return;
-          }
-        } catch {}
+      // Safari-safe: pass blob promise directly into ClipboardItem synchronously within user gesture
+      const blobPromise = new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error("Frame snapshot blob failed"));
+        }, "image/png");
+      });
 
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        const timeTag = formatTime(video.currentTime).replace(":", "-");
-        a.download = `${node.name.replace(/\.[^/.]+$/, "")}-frame-${timeTag}.png`;
-        a.click();
-        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-        setSnapshotStatus("copied");
-        setTimeout(() => setSnapshotStatus("idle"), 2200);
-      }, "image/png");
+      if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ "image/png": blobPromise })]);
+          setSnapshotStatus("copied");
+          setTimeout(() => setSnapshotStatus("idle"), 2200);
+          return;
+        } catch {
+          // Fall through to download if clipboard write is disallowed
+        }
+      }
+
+      const blob = await blobPromise;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const timeTag = formatTime(video.currentTime).replace(":", "-");
+      a.download = `${node.name.replace(/\.[^/.]+$/, "")}-frame-${timeTag}.png`;
+      a.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setSnapshotStatus("copied");
+      setTimeout(() => setSnapshotStatus("idle"), 2200);
     } catch (err) {
       console.warn("Failed to capture snapshot:", err);
       setSnapshotStatus("idle");
@@ -736,16 +793,21 @@ export function MediaViewerDriver({
     }
   };
 
-  // Scrubber interactive seek & drag
+  // Scrubber interactive seek & drag with fastSeek keyframe support
   const seekAtClientX = React.useCallback(
-    (clientX: number) => {
+    (clientX: number, isFinal: boolean = true) => {
       const el = mediaRef.current;
       if (!progressBarRef.current || !el || effectiveDuration <= 0) return;
       const rect = progressBarRef.current.getBoundingClientRect();
       const clickX = clientX - rect.left;
       const percent = Math.max(0, Math.min(1, clickX / rect.width));
       const target = percent * effectiveDuration;
-      el.currentTime = target;
+
+      if (!isFinal && "fastSeek" in el && typeof (el as unknown as { fastSeek: (t: number) => void }).fastSeek === "function") {
+        (el as unknown as { fastSeek: (t: number) => void }).fastSeek(target);
+      } else {
+        el.currentTime = target;
+      }
       setCurrentTime(target);
     },
     [effectiveDuration],
@@ -753,16 +815,31 @@ export function MediaViewerDriver({
 
   const handleScrubberMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     isDraggingScrubberRef.current = true;
-    seekAtClientX(e.clientX);
+    seekAtClientX(e.clientX, false);
+
+    let pendingClientX: number | null = null;
+    let rafSeekId: number | null = null;
 
     const onMouseMoveDoc = (me: MouseEvent) => {
-      if (isDraggingScrubberRef.current) {
-        seekAtClientX(me.clientX);
+      if (!isDraggingScrubberRef.current) return;
+      pendingClientX = me.clientX;
+      if (!rafSeekId) {
+        rafSeekId = requestAnimationFrame(() => {
+          rafSeekId = null;
+          if (pendingClientX !== null) {
+            seekAtClientX(pendingClientX, false);
+          }
+        });
       }
     };
 
-    const onMouseUpDoc = () => {
+    const onMouseUpDoc = (me: MouseEvent) => {
       isDraggingScrubberRef.current = false;
+      if (rafSeekId) {
+        cancelAnimationFrame(rafSeekId);
+        rafSeekId = null;
+      }
+      seekAtClientX(me.clientX, true);
       window.removeEventListener("mousemove", onMouseMoveDoc);
       window.removeEventListener("mouseup", onMouseUpDoc);
     };
@@ -1178,11 +1255,21 @@ export function MediaViewerDriver({
                     ))}
                   </div>
 
-                  {/* Buffered Progress */}
-                  <div
-                    className="absolute left-0 top-0 h-full rounded-[4px] bg-white/30 transition-all duration-150"
-                    style={{ width: `${bufferedPercent}%` }}
-                  />
+                  {/* Buffered Progress (Multi-Segment Support) */}
+                  {bufferedSegments.length > 0 ? (
+                    bufferedSegments.map((seg, idx) => (
+                      <div
+                        key={idx}
+                        className="absolute top-0 h-full rounded-[4px] bg-white/30 transition-all duration-150 pointer-events-none"
+                        style={{ left: `${seg.startPercent}%`, width: `${seg.widthPercent}%` }}
+                      />
+                    ))
+                  ) : (
+                    <div
+                      className="absolute left-0 top-0 h-full rounded-[4px] bg-white/30 transition-all duration-150"
+                      style={{ width: `${bufferedPercent}%` }}
+                    />
+                  )}
 
                   {/* A-B Loop Highlight Region */}
                   {effectiveDuration > 0 && abLoop.a !== null && abLoop.b !== null && (

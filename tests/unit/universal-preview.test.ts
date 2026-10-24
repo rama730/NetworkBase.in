@@ -39,6 +39,8 @@ test("resolvePreviewType accurately classifies all multimedia and document forma
   assert.equal(resolvePreviewType(mockNode("demo.mp4", "video/mp4")), "video");
   assert.equal(resolvePreviewType(mockNode("screen.mov")), "video");
   assert.equal(resolvePreviewType(mockNode("clip.webm")), "video");
+  assert.equal(resolvePreviewType(mockNode("movie.mkv")), "video");
+  assert.equal(resolvePreviewType(mockNode("recording.avi")), "video");
 
   // Audio
   assert.equal(resolvePreviewType(mockNode("track.mp3", "audio/mpeg")), "audio");
