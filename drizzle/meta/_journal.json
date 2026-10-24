@@ -1653,6 +1653,13 @@
       "when": 1792454405000,
       "tag": "0238_application_acceptance_security_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 236,
+      "version": "7",
+      "when": 1792454406000,
+      "tag": "0239_connections_security_and_indexes",
+      "breakpoints": true
     }
   ]
 }

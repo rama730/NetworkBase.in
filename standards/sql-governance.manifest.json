@@ -239,7 +239,8 @@
     "drizzle/0235_onboarding_integrity.sql",
     "drizzle/0236_storage_media_contracts.sql",
     "drizzle/0237_profile_contribution_stories.sql",
-    "drizzle/0238_application_acceptance_security_hardening.sql"
+    "drizzle/0238_application_acceptance_security_hardening.sql",
+    "drizzle/0239_connections_security_and_indexes.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",

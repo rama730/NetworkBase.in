@@ -3,16 +3,21 @@ import 'server-only';
 import { sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { readableProfileIdentitySql, resolvePrivacyRelationships } from '@/lib/privacy/resolver';
+import type { PrivacyRelationshipState } from '@/lib/privacy/relationship-state';
 import { logger } from '@/lib/logger';
 import { personCardSkills, type PersonCardDetails } from './person-card';
 import { publicPersonSkillsSql, visibleMutualCountSql } from './person-filter-sql';
 
-/** One bounded batch per feed, never a lookup per rendered card. Unknown optional data stays absent. */
-export async function readPersonCardDetails(viewerId: string, inputIds: string[]): Promise<Record<string, PersonCardDetails>> {
+// ponytail: Deduplicate privacy relationship resolution across feed projection and card enrichment. ceiling: 200 cards resolved in 1 batch. upgrade: in-memory memoization map per request context.
+export async function readPersonCardDetails(
+    viewerId: string,
+    inputIds: string[],
+    existingRelationships?: Map<string, PrivacyRelationshipState>,
+): Promise<Record<string, PersonCardDetails>> {
     const ids = [...new Set(inputIds)].filter(id => id !== viewerId).slice(0, 200);
     if (!ids.length) return {};
     try {
-        const relationships = await resolvePrivacyRelationships(viewerId, ids);
+        const relationships = existingRelationships ?? await resolvePrivacyRelationships(viewerId, ids);
         const permitted = ids.filter(id => relationships.get(id)?.canViewProfile);
         const result: Record<string, PersonCardDetails> = Object.fromEntries(ids.map(id => [id, {
             isLockedProfile: !relationships.get(id)?.canViewProfile,

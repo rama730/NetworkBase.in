@@ -8,47 +8,25 @@ export async function revalidateConnectionsPaths() {
     revalidatePath('/messages');
 }
 
-async function invalidateDiscoverCacheForUser(userId: string) {
-    const redisClient = redis;
-    if (!redisClient) return;
-    try {
-        const patterns = [
-            `discover:profile:${userId}:*`,
-            `connections:inbox_cache:${userId}:*`,
-        ];
-
-        for (const pattern of patterns) {
-            let cursor = '0';
-            do {
-                const [nextCursor, keys] = await redisClient.scan(cursor, {
-                    match: pattern,
-                    count: 100,
-                });
-                cursor = nextCursor;
-
-                for (let index = 0; index < keys.length; index += 100) {
-                    const batch = keys.slice(index, index + 100);
-                    if (batch.length > 0) {
-                        await Promise.all(batch.map((key) => redisClient.unlink(key)));
-                    }
-                }
-            } while (cursor !== '0');
-        }
-    } catch (error) {
-        console.error('Failed to invalidate discover and inbox cache:', error);
-    }
-}
-
+// ponytail: Replace keyspace SCAN loop with atomic per-user revision bump for discover and inbox caches. ceiling: Constant 1-hop Redis INCR vs O(keyspace) blocking SCAN. upgrade: TTL-based natural expiry.
 export async function invalidateDiscoverCacheForUsers(userIds: Iterable<string | null | undefined>) {
     const uniqueUserIds = Array.from(
         new Set(
             Array.from(userIds).filter((userId): userId is string => typeof userId === 'string' && userId.length > 0),
         ),
     );
-    if (uniqueUserIds.length === 0) return;
-    await Promise.allSettled(uniqueUserIds.map((userId) => invalidateDiscoverCacheForUser(userId))).catch(console.error);
-    // One revision invalidates previews across viewers; old entries expire normally.
-    await redis?.incr('search:preview:people:revision').catch(() => undefined);
+    if (!redis || uniqueUserIds.length === 0) return;
+    try {
+        const pipeline = redis.pipeline();
+        for (const userId of uniqueUserIds) {
+            pipeline.incr(`user:${userId}:discover_revision`);
+            pipeline.incr(`user:${userId}:inbox_revision`);
+        }
+        pipeline.incr('search:preview:people:revision');
+        await pipeline.exec();
+    } catch (err) {
+        // non-blocking best-effort cache revision bump
+    }
 }
 
 export async function applyConnectionPairsToRedis(

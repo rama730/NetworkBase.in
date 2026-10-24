@@ -84,6 +84,30 @@ export const reconcileWorkspaceProfileCounters = inngest.createFunction(
             `)
         })
 
+        await step.run('reconcile-connections-count', async () => {
+            // ponytail: nightly reconciliation heals drift between denormalized profiles.connections_count and authoritative connections table. ceiling: 1M profiles. upgrade: batch with keyset cursor pagination if profiles > 5M.
+            await db.execute(sql`
+                WITH accepted_counts AS (
+                    SELECT
+                        c.user_id,
+                        COUNT(*)::int AS actual_connections_count
+                    FROM (
+                        SELECT requester_id AS user_id FROM connections WHERE status = 'accepted'
+                        UNION ALL
+                        SELECT addressee_id AS user_id FROM connections WHERE status = 'accepted'
+                    ) c
+                    JOIN profiles p ON p.id = c.user_id AND p.deleted_at IS NULL
+                    GROUP BY c.user_id
+                )
+                UPDATE profiles profile
+                SET connections_count = COALESCE(ac.actual_connections_count, 0),
+                    updated_at = NOW()
+                FROM accepted_counts ac
+                WHERE profile.id = ac.user_id
+                  AND profile.connections_count IS DISTINCT FROM ac.actual_connections_count
+            `)
+        })
+
         return {
             reconciledAt: now.toISOString(),
         }

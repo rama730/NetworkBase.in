@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Ban, ChevronDown, Lock, MapPin, Link2, Pencil, MessageSquare, Share2, Smile, UserPlus, UserCheck, UserMinus, Clock, Users } from 'lucide-react'
+import { Ban, ChevronDown, Lock, MapPin, Link2, Pencil, MessageSquare, Share2, Smile, UserPlus, UserCheck, UserMinus, Clock, Users, Loader2 } from 'lucide-react'
 import { buildPrivacyPresentation } from '@/lib/privacy/presentation'
 import type { ConnectionState, ProfilePrivacyRelationship, ProfileStats } from './types'
 import { normalizeProfile } from '@/lib/utils/normalize-profile'
@@ -341,23 +341,21 @@ export function ProfileHeader({
                                 </button>
                             ) : null}
                         </>
-                    ) : isLoadingConnection ? (
-                        <div aria-hidden="true" className="nb-skeleton h-10 w-28 rounded-[3px] border border-border/40" />
                     ) : (
                         <>
                         <div className="flex flex-wrap items-center gap-2">
                             {!lockedShell && onShare ? <Button onClick={event => onShare(event.currentTarget)} variant="outline" aria-label="Share profile"><Share2 className="size-4" />Share</Button> : null}
-                            {!isAuthenticated && !privacyRelationship.blockedByTarget ? <Button onClick={onConnectPrimary}>Sign in to connect</Button> : null}
+                            {!isAuthenticated && !privacyRelationship.blockedByTarget ? <Button onClick={onConnectPrimary} disabled={isLoadingConnection}>Sign in to connect</Button> : null}
                             {showRelationshipAction ? (
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                         <Button
                                             variant={relationshipControlVariant}
-                                            disabled={!isAuthenticated}
+                                            disabled={!isAuthenticated || isLoadingConnection}
                                             aria-label={`${relationshipControlLabel} options`}
                                             className="gap-1.5"
                                         >
-                                            {connectIcon}
+                                            {isLoadingConnection ? <Loader2 className="size-4 animate-spin" /> : connectIcon}
                                             {relationshipControlLabel}
                                             <ChevronDown className="size-4 opacity-70" />
                                         </Button>

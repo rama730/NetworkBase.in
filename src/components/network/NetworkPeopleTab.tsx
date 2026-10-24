@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Users } from "lucide-react";
 import { toast } from "@/lib/feedback";
+import { cn } from "@/lib/utils";
 
 import PersonCard, { PersonCardGrid } from "@/components/network/PersonCard";
 import { PersonCardSkeleton } from "@/components/network/PersonCardSkeleton";
@@ -114,7 +115,7 @@ export default function NetworkPeopleTab({
         [initialUser?.id, router, sendRequest],
     );
 
-    const showSkeleton = isInitialLoading || showThresholdSkeleton || (profiles.length === 0 && isQueryTransition);
+    const showSkeleton = isInitialLoading || (profiles.length === 0 && (showThresholdSkeleton || isQueryTransition));
 
     if (showSkeleton) {
         return (
@@ -173,22 +174,24 @@ export default function NetworkPeopleTab({
     }
 
     return (
-        <PersonCardGrid
-            items={profiles}
-            getKey={(profile) => profile.id}
-            hasNextPage={Boolean(hasNextPage)}
-            isFetchingNextPage={isFetchingNextPage}
-            isFetchNextPageError={isFetchNextPageError}
-            fetchNextPage={fetchNextPage}
-            loadingLabel="Loading more suggestions"
-            renderItem={(profile, index) => (
-                <PersonCard
-                    profile={profile}
-                    onConnect={handleConnect}
-                    priority={index < 6}
-                    viewerSkills={viewerSkills}
-                />
-            )}
-        />
+        <div className={cn("transition-opacity duration-150", isQueryTransition && profiles.length > 0 && "opacity-80")}>
+            <PersonCardGrid
+                items={profiles}
+                getKey={(profile) => profile.id}
+                hasNextPage={Boolean(hasNextPage)}
+                isFetchingNextPage={isFetchingNextPage}
+                isFetchNextPageError={isFetchNextPageError}
+                fetchNextPage={fetchNextPage}
+                loadingLabel="Loading more suggestions"
+                renderItem={(profile, index) => (
+                    <PersonCard
+                        profile={profile}
+                        onConnect={handleConnect}
+                        priority={index < 6}
+                        viewerSkills={viewerSkills}
+                    />
+                )}
+            />
+        </div>
     );
 }

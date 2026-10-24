@@ -219,18 +219,22 @@ export default function InvitationsClient({
 
     async function acceptConnection(id: string, name: string) {
         try {
-            await toast
-                .promise(acceptRequest.mutateAsync(id), {
-                    loading: "Accepting invitation...",
-                    success: `You’re now connected with ${name}`,
-                    error: (error) =>
-                        error instanceof Error
-                            ? error.message
-                            : "Failed to accept invitation",
-                })
-                .unwrap();
+            await acceptRequest.mutateAsync(id);
+            try {
+                const confetti = (await import("canvas-confetti")).default;
+                confetti({
+                    particleCount: 40,
+                    spread: 60,
+                    origin: { y: 0.8 },
+                    disableForReducedMotion: true,
+                });
+            } catch {
+                // Ignore reduced motion or dynamic import errors
+            }
+            toast.success(`You’re now connected with ${name}`);
             return true;
-        } catch {
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Failed to accept invitation");
             return false; // Preserve the review dialog on failure.
         } finally {
             void refreshInvitationSurfaces();
@@ -239,18 +243,8 @@ export default function InvitationsClient({
 
     async function declineConnection(id: string) {
         try {
-            await toast
-                .promise(rejectRequest.mutateAsync({ id }), {
-                    loading: "Declining invitation...",
-                    success: "Invitation declined",
-                    error: (error) =>
-                        error instanceof Error
-                            ? error.message
-                            : "Failed to decline invitation",
-                })
-                .unwrap();
-
-            toast.info("Invitation declined", {
+            await rejectRequest.mutateAsync({ id });
+            toast.success("Invitation declined", {
                 action: {
                     label: "Undo",
                     onClick: () => {
@@ -267,7 +261,8 @@ export default function InvitationsClient({
                 },
             });
             return true;
-        } catch {
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Failed to decline invitation");
             return false; // Preserve the review dialog on failure.
         } finally {
             void refreshInvitationSurfaces();
