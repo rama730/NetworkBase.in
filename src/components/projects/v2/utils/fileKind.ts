@@ -125,7 +125,7 @@ export function isAssetLike(node: Pick<ProjectNode, "type" | "name" | "mimeType"
 
   // If unknown mime but has an obviously-previewable extension, treat as asset.
   const ext = extOf(node.name);
-  if (["png", "jpg", "jpeg", "gif", "webp", "svg", "mp4", "mov", "webm", "mp3", "wav", "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "ppsx", "potx", "odp", "odt", "rtf"].includes(ext)) {
+  if (["png", "jpg", "jpeg", "gif", "webp", "svg", "mp4", "mov", "webm", "mkv", "avi", "m4v", "flv", "ogv", "mp3", "wav", "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "ppsx", "potx", "odp", "odt", "rtf"].includes(ext)) {
     return true;
   }
 
@@ -145,7 +145,7 @@ export function fileKind(node: Pick<ProjectNode, "type" | "name" | "mimeType">):
 
   const ext = extOf(node.name);
   if (["png", "jpg", "jpeg", "gif", "webp", "svg", "avif", "bmp", "ico"].includes(ext)) return "image";
-  if (["mp4", "mov", "webm", "m4v", "ogv"].includes(ext)) return "video";
+  if (["mp4", "mov", "webm", "m4v", "ogv", "mkv", "avi", "flv"].includes(ext)) return "video";
   if (["mp3", "wav", "ogg", "m4a", "aac", "flac"].includes(ext)) return "audio";
   if (ext === "pdf") return "pdf";
   if (DOC_MIMES.has(mime) || DOC_MIME_PREFIXES.some((p) => mime.startsWith(p))) return "doc";
@@ -188,7 +188,7 @@ export function resolvePreviewType(
     return "image";
   }
 
-  if (["mp4", "mov", "webm", "m4v", "ogv"].includes(ext) || mime.startsWith("video/")) {
+  if (["mp4", "mov", "webm", "m4v", "ogv", "mkv", "avi", "flv"].includes(ext) || mime.startsWith("video/")) {
     return "video";
   }
 

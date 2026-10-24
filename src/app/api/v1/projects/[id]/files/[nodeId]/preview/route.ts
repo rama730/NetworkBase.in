@@ -15,8 +15,19 @@ export const dynamic = "force-dynamic";
 
 const noStore = (body: string, status: number) => new Response(body, { status, headers: { "Cache-Control": "private, no-store" } });
 
-// In-memory cache for generated signed storage URLs to eliminate redundant Supabase Storage API calls
+// In-memory LRU cache for generated signed storage URLs to eliminate redundant Supabase Storage API calls
+const MAX_SIGNED_URL_CACHE_SIZE = 5000;
 const mediaSignedUrlCache = new Map<string, { url: string; expiresAt: number }>();
+
+function setCachedSignedUrl(key: string, value: { url: string; expiresAt: number }) {
+  if (mediaSignedUrlCache.size >= MAX_SIGNED_URL_CACHE_SIZE) {
+    const oldestKey = mediaSignedUrlCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      mediaSignedUrlCache.delete(oldestKey);
+    }
+  }
+  mediaSignedUrlCache.set(key, value);
+}
 
 async function getOrGenerateSignedUrl(
   admin: Awaited<ReturnType<typeof createAdminClient>>,
@@ -28,11 +39,14 @@ async function getOrGenerateSignedUrl(
   const cached = mediaSignedUrlCache.get(storageKey);
   // Keep a 5-minute safety margin; if more than 5 minutes of validity remains, reuse the cached signed URL
   if (cached && cached.expiresAt > now + 300_000) {
+    // Refresh LRU position
+    mediaSignedUrlCache.delete(storageKey);
+    mediaSignedUrlCache.set(storageKey, cached);
     return cached.url;
   }
   const { data, error } = await admin.storage.from(bucket).createSignedUrl(storageKey, ttlSeconds);
   if (error || !data?.signedUrl) return null;
-  mediaSignedUrlCache.set(storageKey, { url: data.signedUrl, expiresAt: now + ttlSeconds * 1000 });
+  setCachedSignedUrl(storageKey, { url: data.signedUrl, expiresAt: now + ttlSeconds * 1000 });
   return data.signedUrl;
 }
 
@@ -148,7 +162,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 
   const etag = `"${nodeId}-${revisionIdentity}"`;
-  const isMediaStream = (asset.mimeType?.startsWith("video/") || asset.mimeType?.startsWith("audio/")) && request.nextUrl.searchParams.get("download") !== "1";
+  const fileExt = (node.name.split(".").pop() || "").toLowerCase();
+  const MEDIA_EXTS = new Set(["mp4", "mov", "webm", "mkv", "avi", "m4v", "flv", "ogv", "mp3", "wav", "m4a", "aac", "flac", "ogg"]);
+  const isMediaStream = (asset.mimeType?.startsWith("video/") || asset.mimeType?.startsWith("audio/") || MEDIA_EXTS.has(fileExt)) && request.nextUrl.searchParams.get("download") !== "1";
 
   const admin = await createAdminClient();
   const directSignedUrl = await getOrGenerateSignedUrl(admin, "project-files", target.s3Key, isMediaStream ? 7200 : 1800);
@@ -179,6 +195,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     filename: node.name,
     disposition: request.nextUrl.searchParams.get("download") === "1" ? "attachment" : "inline",
     etag,
+    cacheControl: "private, max-age=3600, stale-while-revalidate=86400",
   });
 }
 

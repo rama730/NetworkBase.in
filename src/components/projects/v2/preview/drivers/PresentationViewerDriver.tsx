@@ -270,12 +270,24 @@ export function PresentationViewerDriver({
 
     return () => {
       active = false;
+      for (const url of blobUrlsRef.current) {
+        URL.revokeObjectURL(url);
+      }
+      blobUrlsRef.current.clear();
     };
   }, [signedUrl]);
 
-  // Keyboard navigation shortcuts
+  // Keyboard navigation shortcuts with input focus protection
   const handleKeyDown = React.useCallback(
     (e: React.KeyboardEvent | KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) || target.isContentEditable)
+      ) {
+        return;
+      }
+
       if (e.key === "ArrowRight" || e.key === "PageDown" || e.key === " ") {
         e.preventDefault();
         setCurrentSlideIndex((prev) => Math.min(slides.length - 1, prev + 1));
@@ -580,7 +592,34 @@ export function PresentationViewerDriver({
                 : "w-full max-w-5xl rounded-xl border border-border bg-card shadow-lg overflow-hidden",
             )}
           >
-            {currentSlide.imageUrls.length > 0 ? (
+            {/* Composite Slide Rendering: Show BOTH image and text when both exist */}
+            {currentSlide.imageUrls.length > 0 && currentSlide.texts.length > 0 ? (
+              <div className="flex flex-col h-full w-full p-6 sm:p-8 overflow-hidden">
+                {!currentSlide.title.startsWith("Slide ") && (
+                  <div className="border-b border-border/40 pb-3 shrink-0">
+                    <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground truncate">
+                      {currentSlide.title}
+                    </h2>
+                  </div>
+                )}
+                <div className="flex-1 min-h-0 my-4 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                  <div className="h-full w-full flex items-center justify-center p-2 rounded-lg bg-muted/20 border border-border/30 overflow-hidden">
+                    <img
+                      src={currentSlide.imageUrls[0]}
+                      alt={currentSlide.title}
+                      className="max-h-full max-w-full object-contain select-none shadow-xs rounded-[4px]"
+                    />
+                  </div>
+                  <div className="flex flex-col space-y-3 overflow-y-auto app-scroll pr-2">
+                    {currentSlide.texts.map((para, pIdx) => (
+                      <p key={pIdx} className="text-sm sm:text-base leading-relaxed text-foreground/90">
+                        {para}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : currentSlide.imageUrls.length > 0 ? (
               <div
                 className={cn(
                   "relative h-full w-full flex items-center justify-center",

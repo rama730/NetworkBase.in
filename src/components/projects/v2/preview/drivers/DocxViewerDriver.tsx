@@ -32,6 +32,8 @@ export function DocxViewerDriver({
   signedUrl,
 }: DocxViewerDriverProps): React.JSX.Element {
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const bufferCacheRef = React.useRef<{ url: string; buffer: ArrayBuffer } | null>(null);
+  const abortControllerRef = React.useRef<AbortController | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [viewMode, setViewMode] = React.useState<"paginated" | "fluid">("paginated");
@@ -43,7 +45,7 @@ export function DocxViewerDriver({
   const ext = React.useMemo(() => extOf(node.name), [node.name]);
   const isLegacy = ext === "doc" || ext === "rtf" || ext === "odt";
 
-  // Render modern .docx file via docx-preview
+  // Render modern .docx file via docx-preview with in-memory buffer caching
   const renderDocx = React.useCallback(async () => {
     if (isLegacy) {
       setLoading(false);
@@ -56,19 +58,33 @@ export function DocxViewerDriver({
     containerRef.current.innerHTML = "";
 
     try {
-      const res = await fetch(signedUrl);
-      if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to download document`);
+      let buffer: ArrayBuffer;
+      if (bufferCacheRef.current && bufferCacheRef.current.url === signedUrl) {
+        buffer = bufferCacheRef.current.buffer;
+      } else {
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
 
-      const buffer = await res.arrayBuffer();
+        const res = await fetch(signedUrl, { signal: controller.signal });
+        if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to download document`);
 
-      // Decompression safety guard: max 60 MB buffer
-      if (buffer.byteLength > 60 * 1024 * 1024) {
-        throw new Error("File exceeds client-side preview safety limit (60 MB). Please download to view.");
+        buffer = await res.arrayBuffer();
+
+        // Decompression safety guard: max 60 MB buffer
+        if (buffer.byteLength > 60 * 1024 * 1024) {
+          throw new Error("File exceeds client-side preview safety limit (60 MB). Please download to view.");
+        }
+
+        bufferCacheRef.current = { url: signedUrl, buffer };
       }
 
       await docx.renderAsync(buffer, containerRef.current, undefined, {
         inWrapper: viewMode === "paginated",
         breakPages: viewMode === "paginated",
+        ignoreLastRenderedPageBreak: false,
         ignoreWidth: viewMode === "fluid",
         ignoreHeight: viewMode === "fluid",
         experimental: false,
@@ -93,6 +109,9 @@ export function DocxViewerDriver({
 
       setLoading(false);
     } catch (err: unknown) {
+      if (err instanceof Error && err.name === "AbortError") {
+        return;
+      }
       const msg = err instanceof Error ? err.message : "Failed to parse Word document.";
       setError(msg);
       setLoading(false);
@@ -101,6 +120,11 @@ export function DocxViewerDriver({
 
   React.useEffect(() => {
     renderDocx();
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [renderDocx]);
 
   const handlePrint = React.useCallback(() => {

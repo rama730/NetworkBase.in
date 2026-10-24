@@ -134,6 +134,50 @@ function parseXlsxInWorker(buffer: ArrayBuffer): { sheets: SheetData[]; isLegacy
     }
   }
 
+  // 1.5. Styles parsing for precise OpenXML date resolution
+  const BUILTIN_DATE_NUM_FMT_IDS = new Set([
+    14, 15, 16, 17, 18, 19, 20, 21, 22, 27, 30, 36, 45, 46, 47,
+    50, 51, 52, 53, 54, 55, 56, 57, 58
+  ]);
+  const dateStyleIndices: boolean[] = [];
+  const stylesEntry = unzipped["xl/styles.xml"];
+  if (stylesEntry) {
+    const stylesXml = new TextDecoder("utf-8").decode(stylesEntry);
+    const customDateFmts = new Set<number>();
+    const numFmtRe = /<numFmt\b([^>]*)\/?>/gi;
+    let nfMatch: RegExpExecArray | null;
+    while ((nfMatch = numFmtRe.exec(stylesXml)) !== null) {
+      const tag = nfMatch[1] || "";
+      const idStr = extractXmlAttribute(tag, "numFmtId");
+      const code = extractXmlAttribute(tag, "formatCode") || "";
+      if (idStr) {
+        const id = parseInt(idStr, 10);
+        const cleanCode = code.replace(/\[[^\]]*\]/g, ""); // strip [Red], [$-409], etc.
+        if (/[ymdhs]/i.test(cleanCode)) {
+          customDateFmts.add(id);
+        }
+      }
+    }
+
+    const cellXfsMatch = stylesXml.match(/<cellXfs\b[^>]*>([\s\S]*?)<\/cellXfs>/i);
+    if (cellXfsMatch && cellXfsMatch[1]) {
+      const xfsContent = cellXfsMatch[1];
+      const xfRe = /<xf\b([^>]*)\/?>/gi;
+      let xfMatch: RegExpExecArray | null;
+      while ((xfMatch = xfRe.exec(xfsContent)) !== null) {
+        const tag = xfMatch[1] || "";
+        const numFmtIdStr = extractXmlAttribute(tag, "numFmtId");
+        if (numFmtIdStr) {
+          const numFmtId = parseInt(numFmtIdStr, 10);
+          const isDate = BUILTIN_DATE_NUM_FMT_IDS.has(numFmtId) || customDateFmts.has(numFmtId);
+          dateStyleIndices.push(isDate);
+        } else {
+          dateStyleIndices.push(false);
+        }
+      }
+    }
+  }
+
   // 2. Workbook Relationships
   const relsMap = new Map<string, string>();
   const relsEntry = unzipped["xl/_rels/workbook.xml.rels"];
@@ -215,6 +259,9 @@ function parseXlsxInWorker(buffer: ArrayBuffer): { sheets: SheetData[]; isLegacy
 
         const cellRef = extractXmlAttribute(openTag, "r") || "";
         const cellType = extractXmlAttribute(openTag, "t");
+        const styleAttr = extractXmlAttribute(openTag, "s");
+        const styleIdx = styleAttr ? parseInt(styleAttr, 10) : -1;
+        const isDateStyle = styleIdx >= 0 && dateStyleIndices[styleIdx] === true;
 
         let cellValue = "";
         if (cellType === "s" && rawVal !== undefined) {
@@ -229,9 +276,11 @@ function parseXlsxInWorker(buffer: ArrayBuffer): { sheets: SheetData[]; isLegacy
           cellValue = rawVal === "1" ? "TRUE" : "FALSE";
         } else if (rawVal !== undefined) {
           cellValue = rawVal;
-          const num = parseFloat(cellValue);
-          if (num > 30000 && num < 60000 && Number.isInteger(num)) {
-            cellValue = formatExcelDate(num);
+          if (isDateStyle) {
+            const num = parseFloat(cellValue);
+            if (!isNaN(num) && isFinite(num)) {
+              cellValue = formatExcelDate(num);
+            }
           }
         }
 
