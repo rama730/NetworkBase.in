@@ -26,7 +26,8 @@ async function getOrGenerateSignedUrl(
 ): Promise<string | null> {
   const now = Date.now();
   const cached = mediaSignedUrlCache.get(storageKey);
-  if (cached && cached.expiresAt > now + 60_000) {
+  // Keep a 5-minute safety margin; if more than 5 minutes of validity remains, reuse the cached signed URL
+  if (cached && cached.expiresAt > now + 300_000) {
     return cached.url;
   }
   const { data, error } = await admin.storage.from(bucket).createSignedUrl(storageKey, ttlSeconds);
@@ -150,7 +151,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const isMediaStream = (asset.mimeType?.startsWith("video/") || asset.mimeType?.startsWith("audio/")) && request.nextUrl.searchParams.get("download") !== "1";
 
   const admin = await createAdminClient();
-  const directSignedUrl = await getOrGenerateSignedUrl(admin, "project-files", target.s3Key, isMediaStream ? 7200 : 60);
+  const directSignedUrl = await getOrGenerateSignedUrl(admin, "project-files", target.s3Key, isMediaStream ? 7200 : 1800);
   if (!directSignedUrl) {
     return noStore("Failed to prepare file preview", 502);
   }

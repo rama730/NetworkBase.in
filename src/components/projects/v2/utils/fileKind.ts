@@ -125,7 +125,7 @@ export function isAssetLike(node: Pick<ProjectNode, "type" | "name" | "mimeType"
 
   // If unknown mime but has an obviously-previewable extension, treat as asset.
   const ext = extOf(node.name);
-  if (["png", "jpg", "jpeg", "gif", "webp", "svg", "mp4", "mov", "webm", "mp3", "wav", "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx"].includes(ext)) {
+  if (["png", "jpg", "jpeg", "gif", "webp", "svg", "mp4", "mov", "webm", "mp3", "wav", "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "ppsx", "potx", "odp", "odt", "rtf"].includes(ext)) {
     return true;
   }
 
@@ -149,7 +149,7 @@ export function fileKind(node: Pick<ProjectNode, "type" | "name" | "mimeType">):
   if (["mp3", "wav", "ogg", "m4a", "aac", "flac"].includes(ext)) return "audio";
   if (ext === "pdf") return "pdf";
   if (DOC_MIMES.has(mime) || DOC_MIME_PREFIXES.some((p) => mime.startsWith(p))) return "doc";
-  if (["doc", "docx", "xls", "xlsx", "ppt", "pptx"].includes(ext)) return "doc";
+  if (["doc", "docx", "xls", "xlsx", "ppt", "pptx", "ppsx", "potx", "odp", "odt", "rtf"].includes(ext)) return "doc";
 
   return "binary";
 }
@@ -160,7 +160,11 @@ export type UniversalPreviewType =
   | "audio"
   | "pdf"
   | "docx"
+  | "doc_legacy"
+  | "rtf"
+  | "odt"
   | "sheet"
+  | "presentation"
   | "archive"
   | "markdown"
   | "text"
@@ -192,11 +196,35 @@ export function resolvePreviewType(
     return "audio";
   }
 
+  // Presentations (.pptx, .ppt, .odp, .ppsx, .potx)
+  if (
+    ["pptx", "ppt", "odp", "ppsx", "potx"].includes(ext) ||
+    mime.includes("presentation") ||
+    mime.includes("powerpoint")
+  ) {
+    return "presentation";
+  }
+
   if (
     ext === "docx" ||
     mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
   ) {
     return "docx";
+  }
+
+  // Legacy Word binary formats (.doc)
+  if (ext === "doc" || mime === "application/msword") {
+    return "doc_legacy";
+  }
+
+  // Rich Text Format (.rtf)
+  if (ext === "rtf" || mime === "application/rtf" || mime === "text/rtf") {
+    return "rtf";
+  }
+
+  // OpenDocument Text (.odt)
+  if (ext === "odt" || mime === "application/vnd.oasis.opendocument.text") {
+    return "odt";
   }
 
   if (

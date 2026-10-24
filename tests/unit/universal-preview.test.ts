@@ -49,12 +49,22 @@ test("resolvePreviewType accurately classifies all multimedia and document forma
   // Documents
   assert.equal(resolvePreviewType(mockNode("contract.pdf", "application/pdf")), "pdf");
   assert.equal(resolvePreviewType(mockNode("specification.docx")), "docx");
+  assert.equal(resolvePreviewType(mockNode("legacy-doc.doc", "application/msword")), "doc_legacy");
+  assert.equal(resolvePreviewType(mockNode("formatted.rtf", "application/rtf")), "rtf");
+  assert.equal(resolvePreviewType(mockNode("open-doc.odt")), "odt");
+
+  // Presentations
+  assert.equal(resolvePreviewType(mockNode("pitch-deck.pptx")), "presentation");
+  assert.equal(resolvePreviewType(mockNode("legacy-slides.ppt")), "presentation");
+  assert.equal(resolvePreviewType(mockNode("open-slides.odp")), "presentation");
+  assert.equal(resolvePreviewType(mockNode("slideshow.ppsx")), "presentation");
 
   // Spreadsheets and Tabular data
   assert.equal(resolvePreviewType(mockNode("financials.xlsx")), "sheet");
   assert.equal(resolvePreviewType(mockNode("budget.xls")), "sheet");
   assert.equal(resolvePreviewType(mockNode("customers.csv")), "sheet");
   assert.equal(resolvePreviewType(mockNode("metrics.tsv")), "sheet");
+  assert.equal(resolvePreviewType(mockNode("open-sheet.ods")), "sheet");
 
   // Archives
   assert.equal(resolvePreviewType(mockNode("release-bundle.zip")), "archive");

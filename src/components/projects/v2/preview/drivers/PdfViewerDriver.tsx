@@ -74,7 +74,7 @@ export function PdfViewerDriver({
       </div>
 
       {/* Embedded PDF Viewer */}
-      <div className="relative flex-1 overflow-hidden bg-zinc-100 dark:bg-zinc-900">
+      <div className="relative flex-1 overflow-hidden bg-muted/20">
         {loadError ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
             <AlertTriangle className="h-8 w-8 text-amber-500" />
@@ -100,31 +100,12 @@ export function PdfViewerDriver({
             </div>
           </div>
         ) : (
-          <object
-            data={previewUrl}
-            type="application/pdf"
+          <iframe
+            title={node.name}
+            src={previewUrl}
             className="h-full w-full border-0"
             onError={() => setLoadError(true)}
-          >
-            {/* Fallback iframe for Safari WebKit */}
-            <iframe
-              title={node.name}
-              src={previewUrl}
-              className="h-full w-full border-0"
-              onError={() => setLoadError(true)}
-            >
-              <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
-                <FileText className="h-8 w-8 text-muted-foreground" />
-                <p className="text-sm font-medium">Inline preview not supported by this browser</p>
-                <Button asChild size="sm" variant="outline">
-                  <a href={signedUrl || previewUrl} target="_blank" rel="noreferrer">
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    Open PDF
-                  </a>
-                </Button>
-              </div>
-            </iframe>
-          </object>
+          />
         )}
       </div>
     </div>

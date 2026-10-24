@@ -1,16 +1,29 @@
 "use client";
 
 import * as React from "react";
-import { Loader2, AlertTriangle, Download } from "lucide-react";
+import { Loader2, AlertTriangle, Download, ExternalLink, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ProjectNode } from "@/lib/db/schema";
 import { extOf } from "../../utils/fileKind";
+import { formatBytes } from "../../files-tab/folder/format";
 import { DataGridDriver, type SheetData } from "./DataGridDriver";
 import * as fflate from "fflate";
 
 interface SheetViewerDriverProps {
   node: ProjectNode;
   signedUrl: string;
+}
+
+/** Converts an Excel column reference (e.g. 'A', 'D', 'AA') to 0-based index */
+function colRefToIndex(cellRef: string): number {
+  const match = cellRef.match(/^[A-Z]+/i);
+  if (!match) return -1;
+  const letters = match[0].toUpperCase();
+  let col = 0;
+  for (let i = 0; i < letters.length; i++) {
+    col = col * 26 + (letters.charCodeAt(i) - 64);
+  }
+  return col - 1;
 }
 
 export function SheetViewerDriver({
@@ -20,6 +33,7 @@ export function SheetViewerDriver({
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [sheets, setSheets] = React.useState<SheetData[]>([]);
+  const [isLegacy, setIsLegacy] = React.useState(false);
 
   const ext = React.useMemo(() => extOf(node.name), [node.name]);
 
@@ -27,12 +41,14 @@ export function SheetViewerDriver({
     let active = true;
     setLoading(true);
     setError(null);
+    setIsLegacy(false);
 
     async function loadSpreadsheet() {
       try {
         const res = await fetch(signedUrl);
         if (!res.ok) throw new Error("Failed to fetch spreadsheet file");
 
+        // CSV / TSV text parsing
         if (ext === "csv" || ext === "tsv") {
           const text = await res.text();
           const delimiter = ext === "tsv" ? "\t" : ",";
@@ -44,13 +60,35 @@ export function SheetViewerDriver({
           return;
         }
 
-        // XLSX workbook parsing via fflate
         const buffer = await res.arrayBuffer();
+
+        // Safety limit: 60 MB buffer
+        if (buffer.byteLength > 60 * 1024 * 1024) {
+          throw new Error("File exceeds client-side preview safety limit (60 MB). Please download to view.");
+        }
+
+        // Check for legacy Excel 97-2003 OLE2 binary header (0xD0 0xCF 0x11 0xE0)
+        const uint8 = new Uint8Array(buffer);
+        if (
+          uint8.length >= 4 &&
+          uint8[0] === 0xd0 &&
+          uint8[1] === 0xcf &&
+          uint8[2] === 0x11 &&
+          uint8[3] === 0xe0
+        ) {
+          if (active) {
+            setIsLegacy(true);
+            setLoading(false);
+          }
+          return;
+        }
+
+        // XLSX workbook parsing via fflate
         let unzipped: fflate.Unzipped | null = null;
         try {
-          unzipped = fflate.unzipSync(new Uint8Array(buffer));
+          unzipped = fflate.unzipSync(uint8);
         } catch {
-          // If unzip fails, check if the file is plain text (like an unencoded CSV or mocked string)
+          // If unzip fails, check if the file is plain text (like an unencoded CSV with .xlsx extension)
           const textDecoder = new TextDecoder("utf-8");
           const text = textDecoder.decode(buffer);
           if (/^[\x20-\x7E\s\r\n\t]+$/.test(text.slice(0, 1024))) {
@@ -61,7 +99,12 @@ export function SheetViewerDriver({
             }
             return;
           }
-          throw new Error("This file is not a valid XLSX workbook (invalid zip data or legacy .xls binary).");
+
+          if (active) {
+            setIsLegacy(true);
+            setLoading(false);
+          }
+          return;
         }
 
         // 1. Parse shared strings if present
@@ -86,8 +129,28 @@ export function SheetViewerDriver({
           }
         }
 
-        // 2. Parse workbook sheet names
-        const workbookSheets: { name: string; sheetId: string }[] = [];
+        // 2. Parse workbook relationship mapping (rId -> physical sheet path)
+        const relsMap = new Map<string, string>();
+        const relsEntry = unzipped["xl/_rels/workbook.xml.rels"];
+        if (relsEntry) {
+          const decoder = new TextDecoder("utf-8");
+          const xml = decoder.decode(relsEntry);
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(xml, "application/xml");
+          const relNodes = doc.getElementsByTagName("Relationship");
+          for (let i = 0; i < relNodes.length; i++) {
+            const rel = relNodes[i];
+            const id = rel?.getAttribute("Id");
+            const target = rel?.getAttribute("Target");
+            if (id && target) {
+              const fullPath = target.startsWith("xl/") ? target : `xl/${target}`;
+              relsMap.set(id, fullPath.replace(/\\/g, "/"));
+            }
+          }
+        }
+
+        // 3. Parse workbook sheet definitions
+        const workbookSheets: { name: string; path: string }[] = [];
         const wbEntry = unzipped["xl/workbook.xml"];
         if (wbEntry) {
           const decoder = new TextDecoder("utf-8");
@@ -98,20 +161,27 @@ export function SheetViewerDriver({
           for (let i = 0; i < sheetNodes.length; i++) {
             const s = sheetNodes[i];
             const name = s?.getAttribute("name") || `Sheet${i + 1}`;
-            workbookSheets.push({ name, sheetId: `${i + 1}` });
+            const rId = s?.getAttribute("r:id") || s?.getAttribute("id") || "";
+            const resolvedPath = relsMap.get(rId) || `xl/worksheets/sheet${i + 1}.xml`;
+            workbookSheets.push({ name, path: resolvedPath });
           }
         }
 
         if (workbookSheets.length === 0) {
-          workbookSheets.push({ name: "Sheet1", sheetId: "1" });
+          // Fallback: search for any sheet XML files in zip
+          for (const key of Object.keys(unzipped)) {
+            if (/^xl\/worksheets\/sheet\d+\.xml$/i.test(key)) {
+              workbookSheets.push({ name: `Sheet ${workbookSheets.length + 1}`, path: key });
+            }
+          }
         }
 
-        // 3. Parse each sheet
+        // 4. Parse rows & cells for each sheet with coordinate-based column mapping
         const parsedSheets: SheetData[] = [];
         for (let sIdx = 0; sIdx < workbookSheets.length; sIdx++) {
           const wsInfo = workbookSheets[sIdx];
           if (!wsInfo) continue;
-          const sheetFile = unzipped[`xl/worksheets/sheet${sIdx + 1}.xml`] || unzipped[`xl/worksheets/sheet1.xml`];
+          const sheetFile = unzipped[wsInfo.path] || unzipped[`xl/worksheets/sheet${sIdx + 1}.xml`];
           if (!sheetFile) continue;
 
           const decoder = new TextDecoder("utf-8");
@@ -131,17 +201,47 @@ export function SheetViewerDriver({
             for (let c = 0; c < cellElements.length; c++) {
               const cell = cellElements[c];
               if (!cell) continue;
+
+              const cellRef = cell.getAttribute("r") || "";
+              const colIdx = colRefToIndex(cellRef);
               const type = cell.getAttribute("t");
               const valEl = cell.getElementsByTagName("v")[0];
               const rawVal = valEl?.textContent || "";
 
               let finalVal = rawVal;
+
+              // Shared string
               if (type === "s") {
                 const sIndex = parseInt(rawVal, 10);
                 finalVal = !isNaN(sIndex) && sharedStrings[sIndex] !== undefined ? sharedStrings[sIndex]! : rawVal;
               }
-              rowValues.push(finalVal);
+              // Inline string (<is><t>)
+              else if (type === "inlineStr") {
+                const isEl = cell.getElementsByTagName("is")[0];
+                const tEls = isEl?.getElementsByTagName("t");
+                if (tEls) {
+                  let str = "";
+                  for (let t = 0; t < tEls.length; t++) str += tEls[t]?.textContent || "";
+                  finalVal = str;
+                }
+              }
+              // Boolean
+              else if (type === "b") {
+                finalVal = rawVal === "1" ? "TRUE" : "FALSE";
+              }
+              // Error
+              else if (type === "e") {
+                finalVal = rawVal || "#ERROR";
+              }
+
+              // Place at exact column index (no sparse shifting)
+              const targetCol = colIdx >= 0 ? colIdx : rowValues.length;
+              while (rowValues.length < targetCol) {
+                rowValues.push("");
+              }
+              rowValues[targetCol] = finalVal;
             }
+
             if (rowValues.some((v) => v.trim() !== "")) {
               allRows.push(rowValues);
             }
@@ -175,9 +275,10 @@ export function SheetViewerDriver({
           setSheets(parsedSheets);
           setLoading(false);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (active) {
-          setError(err?.message || "Failed to parse spreadsheet");
+          const msg = err instanceof Error ? err.message : "Failed to parse spreadsheet";
+          setError(msg);
           setLoading(false);
         }
       }
@@ -195,6 +296,56 @@ export function SheetViewerDriver({
       <div className="flex h-64 flex-col items-center justify-center gap-3">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         <p className="text-xs text-muted-foreground">Parsing spreadsheet data...</p>
+      </div>
+    );
+  }
+
+  // Graceful card for legacy .xls binary format
+  if (isLegacy) {
+    const officeViewerUrl = `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(signedUrl)}`;
+    const googleViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(signedUrl)}&embedded=true`;
+
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-muted/10 p-6">
+        <div className="flex max-w-md flex-col items-center rounded-2xl border border-border bg-card p-8 text-center shadow-sm">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20">
+            <FileSpreadsheet className="h-8 w-8" />
+          </div>
+
+          <h3 className="max-w-sm truncate text-base font-semibold text-card-foreground" title={node.name}>
+            {node.name}
+          </h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Excel 97-2003 Workbook (.xls) • {formatBytes(node.size)}
+          </p>
+
+          <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+            This workbook uses the legacy binary format. You can download the file or open it in web spreadsheet viewers.
+          </p>
+
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-2.5">
+            <Button asChild size="sm" className="h-9 px-4 text-xs font-medium">
+              <a href={signedUrl} download={node.name}>
+                <Download className="mr-1.5 h-3.5 w-3.5" />
+                Download Spreadsheet
+              </a>
+            </Button>
+
+            <Button asChild variant="outline" size="sm" className="h-9 px-3 text-xs">
+              <a href={officeViewerUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                Excel Online
+              </a>
+            </Button>
+
+            <Button asChild variant="outline" size="sm" className="h-9 px-3 text-xs">
+              <a href={googleViewerUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                Google Sheets
+              </a>
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }
