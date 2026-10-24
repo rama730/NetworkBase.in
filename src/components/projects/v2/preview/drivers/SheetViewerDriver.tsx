@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { Loader2, AlertTriangle, Download, ExternalLink, FileSpreadsheet } from "lucide-react";
+import { AlertTriangle, Download, ExternalLink, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { ProjectNode } from "@/lib/db/schema";
 import { extOf } from "../../utils/fileKind";
 import { formatBytes } from "../../files-tab/folder/format";
@@ -355,12 +356,7 @@ export function SheetViewerDriver({
   }, [ext, signedUrl]);
 
   if (loading) {
-    return (
-      <div className="flex h-64 flex-col items-center justify-center gap-3">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <p className="text-xs text-muted-foreground">Parsing spreadsheet data...</p>
-      </div>
-    );
+    return <SheetSkeleton />;
   }
 
   // Graceful card for legacy .xls binary format
@@ -494,4 +490,37 @@ function parseDelimitedText(
   });
 
   return { headers, rows };
+}
+
+function SheetSkeleton(): React.JSX.Element {
+  return (
+    <div
+      role="status"
+      aria-busy="true"
+      aria-label="Loading spreadsheet"
+      className="flex h-full w-full flex-col bg-background p-4 gap-3 animate-pulse select-none"
+    >
+      <div className="flex items-center justify-between border-b border-border/40 pb-3">
+        <Skeleton className="h-5 w-48 rounded-[3px]" />
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-8 w-24 rounded-md" />
+          <Skeleton className="h-8 w-24 rounded-md" />
+        </div>
+      </div>
+      <div className="flex-1 rounded-md border border-border/60 p-3 space-y-2.5 overflow-hidden">
+        <div className="grid grid-cols-6 gap-2 border-b border-border/40 pb-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-4 w-full rounded-[3px]" />
+          ))}
+        </div>
+        {Array.from({ length: 12 }).map((_, r) => (
+          <div key={r} className="grid grid-cols-6 gap-2 py-1">
+            {Array.from({ length: 6 }).map((_, c) => (
+              <Skeleton key={c} className="h-3.5 w-full rounded-[3px]" />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }

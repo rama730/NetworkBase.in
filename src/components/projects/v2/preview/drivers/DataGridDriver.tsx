@@ -49,9 +49,23 @@ export function DataGridDriver({
     rows: [],
   };
 
+  // Strip trailing completely empty rows so sheet only displays meaningful records
+  const cleanedRows = React.useMemo(() => {
+    const raw = currentSheet.rows;
+    let lastIdx = raw.length - 1;
+    while (lastIdx >= 0) {
+      const row = raw[lastIdx];
+      if (row && row.some((c) => c && c.trim() !== "")) {
+        break;
+      }
+      lastIdx--;
+    }
+    return lastIdx >= 0 ? raw.slice(0, lastIdx + 1) : [];
+  }, [currentSheet.rows]);
+
   // Filter rows based on search with deferred value to prevent main-thread freezing
   const filteredRows = React.useMemo(() => {
-    let result = currentSheet.rows;
+    let result = cleanedRows;
     if (deferredSearch.trim()) {
       const q = deferredSearch.toLowerCase();
       result = result.filter((row) =>

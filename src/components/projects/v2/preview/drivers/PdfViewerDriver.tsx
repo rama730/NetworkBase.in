@@ -16,6 +16,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { ProjectNode } from "@/lib/db/schema";
 
 interface PdfViewerDriverProps {
@@ -329,9 +330,15 @@ export function PdfViewerDriver({
         ) : viewMode === "canvas" ? (
           <div className="h-full w-full overflow-auto flex items-center justify-center p-6">
             {isCanvasLoading ? (
-              <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="text-xs">Rendering PDF via client canvas...</p>
+              <div className="w-full max-w-2xl space-y-4 p-8 bg-card rounded-xl border border-border/60 shadow-xs animate-pulse">
+                <Skeleton className="h-6 w-1/3 rounded-md mb-4" />
+                <Skeleton className="h-4 w-full rounded-[3px]" />
+                <Skeleton className="h-4 w-11/12 rounded-[3px]" />
+                <Skeleton className="h-4 w-4/5 rounded-[3px]" />
+                <div className="pt-4 space-y-3">
+                  <Skeleton className="h-4 w-full rounded-[3px]" />
+                  <Skeleton className="h-4 w-3/4 rounded-[3px]" />
+                </div>
               </div>
             ) : canvasError ? (
               <div className="flex flex-col items-center justify-center gap-3 p-8 text-center">

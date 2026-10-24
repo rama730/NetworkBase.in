@@ -72,7 +72,9 @@ function parseDelimitedText(text: string, delimiter: string): { headers: string[
       }
     }
     cells.push(cur.trim());
-    parsedRows.push(cells);
+    if (cells.some((c) => c !== "")) {
+      parsedRows.push(cells);
+    }
   }
 
   const firstRow = parsedRows[0] || [];
@@ -108,18 +110,20 @@ function parseXlsxInWorker(buffer: ArrayBuffer): { sheets: SheetData[]; isLegacy
     return { sheets: [], isLegacy: true };
   }
 
-  // 1. Shared Strings parsing
+  // 1. Shared Strings parsing (optimized forward scan)
   const sharedStrings: string[] = [];
   const sharedEntry = unzipped["xl/sharedStrings.xml"];
   if (sharedEntry) {
     const xml = new TextDecoder("utf-8").decode(sharedEntry);
-    const siMatches = xml.match(/<si[\s\S]*?<\/si>/gi) || [];
-    for (const si of siMatches) {
+    const siRe = /<si\b[^>]*>([\s\S]*?)<\/si>/gi;
+    let siMatch: RegExpExecArray | null;
+    while ((siMatch = siRe.exec(xml)) !== null) {
+      const siContent = siMatch[1] || "";
+      const tRe = /<t\b[^>]*>([\s\S]*?)<\/t>/gi;
       let fullText = "";
-      const tMatches = si.match(/<t[\s\S]*?>([\s\S]*?)<\/t>/gi) || [];
-      for (const t of tMatches) {
-        const textVal = t.replace(/<[\s\S]*?>/g, "");
-        fullText += textVal
+      let tMatch: RegExpExecArray | null;
+      while ((tMatch = tRe.exec(siContent)) !== null) {
+        fullText += (tMatch[1] || "")
           .replace(/&amp;/g, "&")
           .replace(/&lt;/g, "<")
           .replace(/&gt;/g, ">")
@@ -135,10 +139,12 @@ function parseXlsxInWorker(buffer: ArrayBuffer): { sheets: SheetData[]; isLegacy
   const relsEntry = unzipped["xl/_rels/workbook.xml.rels"];
   if (relsEntry) {
     const xml = new TextDecoder("utf-8").decode(relsEntry);
-    const relMatches = xml.match(/<Relationship[\s\S]*?\/>/gi) || [];
-    for (const rel of relMatches) {
-      const id = extractXmlAttribute(rel, "Id");
-      const target = extractXmlAttribute(rel, "Target");
+    const relRe = /<Relationship\b([^>]*)\/>/gi;
+    let relMatch: RegExpExecArray | null;
+    while ((relMatch = relRe.exec(xml)) !== null) {
+      const tag = relMatch[1] || "";
+      const id = extractXmlAttribute(tag, "Id");
+      const target = extractXmlAttribute(tag, "Target");
       if (id && target) {
         const fullPath = target.startsWith("xl/") ? target : `xl/${target}`;
         relsMap.set(id, fullPath.replace(/\\/g, "/"));
@@ -151,14 +157,17 @@ function parseXlsxInWorker(buffer: ArrayBuffer): { sheets: SheetData[]; isLegacy
   const wbEntry = unzipped["xl/workbook.xml"];
   if (wbEntry) {
     const xml = new TextDecoder("utf-8").decode(wbEntry);
-    const sheetMatches = xml.match(/<sheet[\s\S]*?\/>/gi) || [];
-    for (let idx = 0; idx < sheetMatches.length; idx++) {
-      const sheetTag = sheetMatches[idx]!;
-      const name = extractXmlAttribute(sheetTag, "name") || `Sheet ${idx + 1}`;
+    const sheetRe = /<sheet\b([^>]*)\/>/gi;
+    let sheetMatch: RegExpExecArray | null;
+    let idx = 0;
+    while ((sheetMatch = sheetRe.exec(xml)) !== null) {
+      idx++;
+      const tag = sheetMatch[1] || "";
+      const name = extractXmlAttribute(tag, "name") || `Sheet ${idx}`;
       const rId =
-        extractXmlAttribute(sheetTag, "r:id") ||
-        extractXmlAttribute(sheetTag, "id");
-      const path = (rId && relsMap.get(rId)) || `xl/worksheets/sheet${idx + 1}.xml`;
+        extractXmlAttribute(tag, "r:id") ||
+        extractXmlAttribute(tag, "id");
+      const path = (rId && relsMap.get(rId)) || `xl/worksheets/sheet${idx}.xml`;
       workbookSheets.push({ name, path });
     }
   }
@@ -173,46 +182,61 @@ function parseXlsxInWorker(buffer: ArrayBuffer): { sheets: SheetData[]; isLegacy
     });
   }
 
-  // 4. Parse Worksheets
+  // 4. Parse Worksheets with Fast Streaming Scanner & Empty Row Pruning
   const parsedSheets: SheetData[] = [];
   for (const sheetDef of workbookSheets) {
     const sheetBytes = unzipped[sheetDef.path];
     if (!sheetBytes) continue;
 
     const xml = new TextDecoder("utf-8").decode(sheetBytes);
-    const rowMatches = xml.match(/<row[\s\S]*?<\/row>/gi) || [];
     const matrix: string[][] = [];
     let maxCols = 0;
 
-    for (let rIdx = 0; rIdx < Math.min(rowMatches.length, 5000); rIdx++) {
-      const rowXml = rowMatches[rIdx]!;
-      const cellMatches = rowXml.match(/<c[\s\S]*?<\/c>|<c[\s\S]*?\/>/gi) || [];
-      const rowValues: string[] = [];
+    // Single-pass forward regex scanner on rows
+    const rowRe = /<row\b[^>]*>([\s\S]*?)<\/row>|<row\b[^>]*\/>/gi;
+    let rowMatch: RegExpExecArray | null;
 
-      for (const cellXml of cellMatches) {
-        const cellRef = extractXmlAttribute(cellXml, "r");
-        const cellType = extractXmlAttribute(cellXml, "t");
+    while ((rowMatch = rowRe.exec(xml)) !== null) {
+      // Skip empty self-closing row tags (e.g. <row r="172" customFormat="1"/>)
+      const rowContent = rowMatch[1];
+      if (!rowContent || rowContent.trim().length === 0) continue;
+
+      const cellRe = /<c\b([^>]*)>(?:<is>[\s\S]*?<t\b[^>]*>([\s\S]*?)<\/t>[\s\S]*?<\/is>|<v>([\s\S]*?)<\/v>)?[\s\S]*?<\/c>|<c\b([^>]*)\/>/gi;
+      let cellMatch: RegExpExecArray | null;
+      const rowValues: string[] = [];
+      let hasMeaningfulData = false;
+
+      while ((cellMatch = cellRe.exec(rowContent)) !== null) {
+        // Skip self-closing blank cells
+        const openTag = cellMatch[1] || "";
+        const inlineStr = cellMatch[2];
+        const rawVal = cellMatch[3];
+        if (!inlineStr && !rawVal) continue;
+
+        const cellRef = extractXmlAttribute(openTag, "r") || "";
+        const cellType = extractXmlAttribute(openTag, "t");
 
         let cellValue = "";
-        const vMatch = cellXml.match(/<v>([\s\S]*?)<\/v>/i);
-        const isMatch = cellXml.match(/<is>[\s\S]*?<t[\s\S]*?>([\s\S]*?)<\/t>[\s\S]*?<\/is>/i);
-
-        if (cellType === "s" && vMatch && vMatch[1]) {
-          const stringIndex = parseInt(vMatch[1], 10);
+        if (cellType === "s" && rawVal !== undefined) {
+          const stringIndex = parseInt(rawVal, 10);
           cellValue = sharedStrings[stringIndex] || "";
-        } else if (cellType === "inlineStr" && isMatch && isMatch[1]) {
-          cellValue = isMatch[1]
+        } else if (cellType === "inlineStr" && inlineStr !== undefined) {
+          cellValue = inlineStr
             .replace(/&amp;/g, "&")
             .replace(/&lt;/g, "<")
             .replace(/&gt;/g, ">");
-        } else if (cellType === "b" && vMatch && vMatch[1]) {
-          cellValue = vMatch[1] === "1" ? "TRUE" : "FALSE";
-        } else if (vMatch && vMatch[1]) {
-          cellValue = vMatch[1];
+        } else if (cellType === "b" && rawVal !== undefined) {
+          cellValue = rawVal === "1" ? "TRUE" : "FALSE";
+        } else if (rawVal !== undefined) {
+          cellValue = rawVal;
           const num = parseFloat(cellValue);
           if (num > 30000 && num < 60000 && Number.isInteger(num)) {
             cellValue = formatExcelDate(num);
           }
+        }
+
+        if (cellValue.trim() !== "") {
+          hasMeaningfulData = true;
         }
 
         const targetCol = cellRef ? colRefToIndex(cellRef) : rowValues.length;
@@ -226,8 +250,11 @@ function parseXlsxInWorker(buffer: ArrayBuffer): { sheets: SheetData[]; isLegacy
         }
       }
 
-      if (rowValues.length > maxCols) maxCols = rowValues.length;
-      matrix.push(rowValues);
+      // ONLY push row if it contains actual data (eliminates 4,800+ blank formatted rows!)
+      if (hasMeaningfulData && rowValues.some((v) => v && v.trim() !== "")) {
+        if (rowValues.length > maxCols) maxCols = rowValues.length;
+        matrix.push(rowValues);
+      }
     }
 
     if (matrix.length > 0) {

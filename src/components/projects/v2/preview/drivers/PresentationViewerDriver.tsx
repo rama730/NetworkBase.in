@@ -10,12 +10,14 @@ import {
   FileText,
   Download,
   AlertTriangle,
-  Loader2,
   ExternalLink,
   Presentation,
   Sliders,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { ProjectNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 import { formatBytes } from "../../files-tab/folder/format";
@@ -44,7 +46,10 @@ export function PresentationViewerDriver({
   const [slides, setSlides] = React.useState<SlideData[]>([]);
   const [currentSlideIndex, setCurrentSlideIndex] = React.useState(0);
   const [aspectRatio, setAspectRatio] = React.useState<"16/9" | "4/3">("16/9");
+  const [zoom, setZoom] = React.useState<number>(100);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
+  const [isHudVisible, setIsHudVisible] = React.useState(false);
+  const hudTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const [showNotes, setShowNotes] = React.useState(false);
   const [showThumbnails, setShowThumbnails] = React.useState(true);
   const [isLegacy, setIsLegacy] = React.useState(false);
@@ -299,28 +304,54 @@ export function PresentationViewerDriver({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
+  const handleZoomIn = React.useCallback(() => {
+    setZoom((prev) => Math.min(200, prev + 25));
+  }, []);
+
+  const handleZoomOut = React.useCallback(() => {
+    setZoom((prev) => Math.max(50, prev - 25));
+  }, []);
+
+  const handleResetZoom = React.useCallback(() => {
+    setZoom(100);
+  }, []);
+
+  const handleMouseMove = React.useCallback(() => {
+    if (!isFullscreen) return;
+    setIsHudVisible(true);
+    if (hudTimeoutRef.current) clearTimeout(hudTimeoutRef.current);
+    hudTimeoutRef.current = setTimeout(() => {
+      setIsHudVisible(false);
+    }, 2500);
+  }, [isFullscreen]);
+
   const toggleFullscreen = React.useCallback(() => {
     if (!containerRef.current) return;
     if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+      containerRef.current.requestFullscreen().then(() => {
+        setIsFullscreen(true);
+        setIsHudVisible(true);
+      }).catch(() => {});
     } else {
-      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+      document.exitFullscreen().then(() => {
+        setIsFullscreen(false);
+        setIsHudVisible(false);
+      }).catch(() => {});
     }
   }, []);
 
   React.useEffect(() => {
-    const onFsChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    const onFsChange = () => {
+      const isFs = Boolean(document.fullscreenElement);
+      setIsFullscreen(isFs);
+      if (isFs) setIsHudVisible(true);
+    };
     document.addEventListener("fullscreenchange", onFsChange);
     return () => document.removeEventListener("fullscreenchange", onFsChange);
   }, []);
 
   if (loading) {
-    return (
-      <div className="flex h-64 flex-col items-center justify-center gap-3">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <p className="text-xs text-muted-foreground">Parsing presentation slides...</p>
-      </div>
-    );
+    return <PresentationSkeleton />;
   }
 
   // Legacy .ppt binary card
@@ -394,9 +425,10 @@ export function PresentationViewerDriver({
   return (
     <div
       ref={containerRef}
+      onMouseMove={handleMouseMove}
       className={cn(
         "relative flex h-full w-full flex-col bg-background select-none overflow-hidden",
-        isFullscreen && "bg-black text-white p-4",
+        isFullscreen && "fixed inset-0 z-50 bg-black text-white p-0 m-0 w-screen h-screen",
       )}
     >
       {/* Top Slide Header Bar */}
@@ -408,20 +440,42 @@ export function PresentationViewerDriver({
               {node.name}
             </span>
             <span className="text-[11px] text-muted-foreground">
-              · Slide {currentSlideIndex + 1} of {slides.length} ({aspectRatio})
+              · Slide {currentSlideIndex + 1} of {slides.length}
             </span>
           </div>
 
           <div className="flex items-center gap-1.5">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setAspectRatio((prev) => (prev === "16/9" ? "4/3" : "16/9"))}
-              className="h-7 px-2 text-xs font-mono text-muted-foreground hover:text-foreground"
-              title="Toggle Aspect Ratio (16:9 / 4:3)"
-            >
-              {aspectRatio}
-            </Button>
+            {/* Zoom Controls: -, 100%, + */}
+            <div className="flex items-center gap-1 border border-border/60 rounded-md px-1 bg-muted/20">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleZoomOut}
+                disabled={zoom <= 50}
+                className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                title="Zoom Out"
+              >
+                <ZoomOut className="h-3.5 w-3.5" />
+              </Button>
+              <button
+                type="button"
+                onClick={handleResetZoom}
+                className="text-xs font-mono text-foreground hover:text-primary px-1 select-none min-w-[36px] text-center"
+                title="Reset Zoom to 100%"
+              >
+                {zoom}%
+              </button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleZoomIn}
+                disabled={zoom >= 200}
+                className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                title="Zoom In"
+              >
+                <ZoomIn className="h-3.5 w-3.5" />
+              </Button>
+            </div>
 
             <Button
               size="sm"
@@ -450,7 +504,7 @@ export function PresentationViewerDriver({
               variant="ghost"
               onClick={toggleFullscreen}
               className="h-7 px-2 text-xs"
-              title="Fullscreen (F)"
+              title="Fullscreen Presenter (F)"
             >
               {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
               <span className="hidden sm:inline ml-1">{isFullscreen ? "Exit" : "Present"}</span>
@@ -506,23 +560,37 @@ export function PresentationViewerDriver({
           </div>
         )}
 
-        {/* Center Proportional Slide Stage */}
-        <div className="flex flex-1 items-center justify-center p-3 sm:p-6 md:p-8 overflow-auto bg-muted/10">
+        {/* Center Slide Stage */}
+        <div
+          className={cn(
+            "flex flex-1 items-center justify-center overflow-auto",
+            isFullscreen ? "bg-black p-0 h-full w-full" : "p-3 sm:p-6 md:p-8 bg-muted/10",
+          )}
+        >
           <div
             style={{
               aspectRatio: aspectRatio === "16/9" ? "16 / 9" : "4 / 3",
+              transform: `scale(${zoom / 100})`,
+              transformOrigin: "center center",
             }}
             className={cn(
-              "relative flex flex-col items-center justify-center w-full max-w-5xl rounded-xl border border-border bg-card shadow-lg overflow-hidden transition-all",
-              isFullscreen && "border-zinc-800 bg-zinc-950 text-white max-w-7xl",
+              "relative flex items-center justify-center transition-transform duration-150",
+              isFullscreen
+                ? "h-full w-full max-h-screen max-w-screen"
+                : "w-full max-w-5xl rounded-xl border border-border bg-card shadow-lg overflow-hidden",
             )}
           >
             {currentSlide.imageUrls.length > 0 ? (
-              <div className="relative h-full w-full flex items-center justify-center p-2 sm:p-4 bg-background">
+              <div
+                className={cn(
+                  "relative h-full w-full flex items-center justify-center",
+                  isFullscreen ? "p-0" : "p-2 sm:p-4 bg-background",
+                )}
+              >
                 <img
                   src={currentSlide.imageUrls[0]}
                   alt={currentSlide.title}
-                  className="h-full w-full object-contain select-none rounded-lg"
+                  className="h-full w-full object-contain select-none"
                 />
               </div>
             ) : (
@@ -552,7 +620,7 @@ export function PresentationViewerDriver({
         </div>
 
         {/* Speaker Notes / Text Transcript Drawer */}
-        {showNotes && (
+        {showNotes && !isFullscreen && (
           <div className="w-80 shrink-0 border-l border-border bg-card/95 p-4 overflow-y-auto app-scroll flex flex-col gap-3 backdrop-blur-md">
             <div className="flex items-center justify-between border-b border-border/60 pb-2">
               <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
@@ -602,33 +670,134 @@ export function PresentationViewerDriver({
         )}
       </div>
 
-      {/* Floating Bottom Navigation HUD */}
-      <div className="flex h-12 shrink-0 items-center justify-center gap-2 border-t border-border bg-background/95 px-4 backdrop-blur-md">
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={currentSlideIndex === 0}
-          onClick={() => setCurrentSlideIndex((prev) => Math.max(0, prev - 1))}
-          className="h-8 px-2.5 text-xs"
-        >
-          <ChevronLeft className="mr-1 h-3.5 w-3.5" />
-          Previous
-        </Button>
+      {/* Normal View Bottom Navigation HUD */}
+      {!isFullscreen && (
+        <div className="flex h-12 shrink-0 items-center justify-center gap-2 border-t border-border bg-background/95 px-4 backdrop-blur-md">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={currentSlideIndex === 0}
+            onClick={() => setCurrentSlideIndex((prev) => Math.max(0, prev - 1))}
+            className="h-8 px-2.5 text-xs"
+          >
+            <ChevronLeft className="mr-1 h-3.5 w-3.5" />
+            Previous
+          </Button>
 
-        <span className="font-mono text-xs text-muted-foreground px-2">
-          {currentSlideIndex + 1} / {slides.length}
-        </span>
+          <span className="font-mono text-xs text-muted-foreground px-2">
+            {currentSlideIndex + 1} / {slides.length}
+          </span>
 
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={currentSlideIndex === slides.length - 1}
-          onClick={() => setCurrentSlideIndex((prev) => Math.min(slides.length - 1, prev + 1))}
-          className="h-8 px-2.5 text-xs"
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={currentSlideIndex === slides.length - 1}
+            onClick={() => setCurrentSlideIndex((prev) => Math.min(slides.length - 1, prev + 1))}
+            className="h-8 px-2.5 text-xs"
+          >
+            Next
+            <ChevronRight className="ml-1 h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+
+      {/* Fullscreen Auto-Hiding Floating HUD */}
+      {isFullscreen && (
+        <div
+          className={cn(
+            "absolute bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-full border border-white/20 bg-black/85 px-4 py-2 text-white shadow-2xl backdrop-blur-md transition-all duration-300",
+            isHudVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none",
+          )}
+          onMouseEnter={() => {
+            if (hudTimeoutRef.current) clearTimeout(hudTimeoutRef.current);
+            setIsHudVisible(true);
+          }}
         >
-          Next
-          <ChevronRight className="ml-1 h-3.5 w-3.5" />
-        </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={currentSlideIndex === 0}
+            onClick={() => setCurrentSlideIndex((prev) => Math.max(0, prev - 1))}
+            className="h-8 w-8 p-0 text-white hover:bg-white/20 hover:text-white rounded-full"
+            title="Previous Slide"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+
+          <span className="font-mono text-xs font-medium text-white/90 px-2 select-none">
+            {currentSlideIndex + 1} / {slides.length}
+          </span>
+
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={currentSlideIndex === slides.length - 1}
+            onClick={() => setCurrentSlideIndex((prev) => Math.min(slides.length - 1, prev + 1))}
+            className="h-8 w-8 p-0 text-white hover:bg-white/20 hover:text-white rounded-full"
+            title="Next Slide"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+
+          <div className="h-4 w-px bg-white/20 mx-1" />
+
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={toggleFullscreen}
+            className="h-8 px-2.5 text-xs text-white hover:bg-white/20 hover:text-white rounded-full"
+            title="Exit Fullscreen (Esc or F)"
+          >
+            <Minimize2 className="mr-1 h-3.5 w-3.5" />
+            Exit
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PresentationSkeleton(): React.JSX.Element {
+  return (
+    <div
+      role="status"
+      aria-busy="true"
+      aria-label="Loading presentation"
+      className="flex h-full w-full flex-col bg-background animate-pulse select-none"
+    >
+      <div className="flex h-11 shrink-0 items-center justify-between border-b border-border/40 px-4">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-4 w-4 rounded-[3px]" />
+          <Skeleton className="h-4 w-44 rounded-[3px]" />
+        </div>
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-7 w-20 rounded-md" />
+          <Skeleton className="h-7 w-20 rounded-md" />
+        </div>
+      </div>
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        <div className="w-52 shrink-0 border-r border-border/40 p-3 space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <Skeleton className="h-3 w-3 rounded-full" />
+              <Skeleton className="flex-1 aspect-video rounded-md" />
+            </div>
+          ))}
+        </div>
+        <div className="flex flex-1 items-center justify-center p-8">
+          <div className="aspect-video w-full max-w-4xl rounded-xl border border-border/60 bg-card p-8 flex flex-col justify-between shadow-xs">
+            <Skeleton className="h-7 w-1/3 rounded-md" />
+            <div className="space-y-3">
+              <Skeleton className="h-4 w-5/6 rounded-[3px]" />
+              <Skeleton className="h-4 w-3/4 rounded-[3px]" />
+              <Skeleton className="h-4 w-2/3 rounded-[3px]" />
+            </div>
+            <div className="flex justify-between">
+              <Skeleton className="h-3 w-24 rounded-[3px]" />
+              <Skeleton className="h-3 w-12 rounded-[3px]" />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
