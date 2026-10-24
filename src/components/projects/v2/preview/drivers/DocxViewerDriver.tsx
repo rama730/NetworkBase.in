@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { ProjectNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 import { formatBytes } from "../../files-tab/folder/format";
@@ -343,9 +344,20 @@ export function DocxViewerDriver({
       {/* Main Document Scroll Viewport */}
       <div className="flex-1 overflow-auto p-4 sm:p-8 flex justify-center">
         {loading && (
-          <div className="flex flex-col items-center justify-center gap-3">
-            <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
-            <p className="text-xs text-muted-foreground">Rendering Word document...</p>
+          <div className="w-full max-w-3xl space-y-4 p-8 bg-card rounded-xl border border-border/60 shadow-xs animate-pulse">
+            <Skeleton className="h-7 w-2/3 rounded-md mb-6" />
+            <Skeleton className="h-4 w-full rounded-[3px]" />
+            <Skeleton className="h-4 w-11/12 rounded-[3px]" />
+            <Skeleton className="h-4 w-4/5 rounded-[3px]" />
+            <div className="pt-4 space-y-3">
+              <Skeleton className="h-4 w-full rounded-[3px]" />
+              <Skeleton className="h-4 w-5/6 rounded-[3px]" />
+              <Skeleton className="h-4 w-3/4 rounded-[3px]" />
+            </div>
+            <div className="pt-4 space-y-3">
+              <Skeleton className="h-4 w-full rounded-[3px]" />
+              <Skeleton className="h-4 w-4/6 rounded-[3px]" />
+            </div>
           </div>
         )}
 
