@@ -59,6 +59,25 @@ export function announceApplicationChannel(channelId: string, actorId: string) {
 }
 
 /**
+ * Post a lean Slack-style Member Joined notice to the project's default channel (#general).
+ * Notifies active viewers via Realtime.
+ */
+export async function postMemberJoined(
+  executor: Executor,
+  projectId: string,
+  userId: string,
+) {
+  const channelId = await value<string | null>(
+    executor,
+    sql`SELECT app_private.chat_post_member_joined(${projectId}::uuid, ${userId}::uuid) AS value`,
+  );
+  if (channelId) {
+    tell(() => publishChannelActivity(channelId, userId));
+  }
+  return channelId;
+}
+
+/**
  * Post an invitation card into the inviter↔candidate DM. Invitations may open a
  * DM regardless of message privacy (never across a block).
  */

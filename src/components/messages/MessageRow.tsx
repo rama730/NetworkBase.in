@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -41,6 +42,7 @@ import { pollOptions } from "@/lib/messaging/poll";
 import type { ChatAttachmentView, ChatMessageView } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
 import { copyWithToast } from "@/lib/clipboard";
+import { profileHref } from "@/lib/routing/identifiers";
 
 /** The hover bar shows the first few of the shared quick set (recently used first). */
 const HOVER_QUICK_COUNT = 3;
@@ -127,14 +129,77 @@ const APPLICATION_LINE_ICONS: Record<ApplicationLineKind, LucideIcon> = {
   accepted: CheckCircle2, declined: XCircle, withdrew: Undo2, reopened: RotateCcw, applied: Send, edited: Pencil, closed: Lock,
 };
 
-function SystemRow({ message, others }: { message: ChatMessageView; others?: ChatMessageView[] }) {
+function SystemRow({
+  message,
+  others,
+  onToggleReaction,
+}: {
+  message: ChatMessageView;
+  others?: ChatMessageView[];
+  onToggleReaction?: (emoji: string) => void;
+}) {
   const ctx = useConversationContext();
   const lineKind = applicationLineKind(message.body);
   const Icon = (lineKind ? APPLICATION_LINE_ICONS[lineKind] : undefined) ?? SYSTEM_ICONS.find(([pattern]) => pattern.test(message.body))?.[1] ?? Hash;
+  const isJoin = /^joined/.test(message.body);
   const people = [message, ...(others ?? [])].map((m) => personName(m.author));
   const who = people.length === 1 ? people[0] : people.length === 2 ? `${people[0]} and ${people[1]}` : `${people[0]} and ${people.length - 1} others`;
   const body = message.body.startsWith("removed <@") ? `removed ${ctx.nameOf(message.body.slice(10, -1)) ?? "someone"}` : normalizeApplicationLine(message.body);
   const at = (others?.at(-1) ?? message).created_at;
+  const authorRole = message.author?.project_role_title;
+
+  if (isJoin && message.author) {
+    const userHref = profileHref({ id: message.author.id, username: message.author.username });
+    return (
+      <div className="group/sys my-1.5 flex items-start gap-2.5 px-4 py-1 text-[13px] rounded-lg hover:bg-muted/20 transition-colors" data-seq={message.seq}>
+        <span className="flex w-[34px] flex-none justify-center pt-0.5" aria-hidden="true">
+          <UserAvatar identity={message.author} size={24} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5 leading-snug">
+            <Link href={userHref} className="font-semibold text-foreground hover:underline">
+              {who}
+            </Link>
+            {authorRole ? (
+              <span className="inline-flex items-center gap-1 rounded-md border border-border/80 bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-foreground/90">
+                💼 {authorRole}
+              </span>
+            ) : null}
+            <span className="text-muted-foreground">{body}.</span>
+            <span className="nb-meta ml-auto text-[11px]" title={new Date(at).toLocaleString()}>
+              {formatChatTime(at, "clock")}
+            </span>
+          </div>
+
+          <div className="mt-1 flex flex-wrap items-center gap-1">
+            {message.reactions.map((r) => (
+              <ReactionChip
+                key={r.emoji}
+                emoji={r.emoji}
+                count={r.count}
+                me={r.me}
+                seq={message.seq}
+                onToggle={() => onToggleReaction?.(r.emoji)}
+              />
+            ))}
+            {onToggleReaction ? (
+              <button
+                type="button"
+                onClick={() => onToggleReaction("👋")}
+                aria-label={`Wave to ${who}`}
+                title={`Say hello to ${who}`}
+                className="inline-flex h-6 items-center gap-1 rounded-md border border-dashed border-border/80 bg-card/60 px-2 text-[12px] text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors pointer-coarse:h-9"
+              >
+                <span>👋</span>
+                <span className="text-[11px]">Wave</span>
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="my-1 flex items-start gap-2.5 px-4 py-1 text-[13px] text-muted-foreground" data-seq={message.seq} title={people.length > 2 ? people.join(", ") : undefined}>
       {/* The icon sits in the avatar column, so the text lines up with message text. */}
@@ -366,7 +431,16 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     staleTime: 15_000,
   });
 
-  if (message.kind === "system") return <SystemRow message={message} others={others} />;
+  if (message.kind === "system") {
+    if (message.card) {
+      return (
+        <div className="px-4 py-2" data-seq={message.seq}>
+          <MessageCard card={message.card} />
+        </div>
+      );
+    }
+    return <SystemRow message={message} others={others} onToggleReaction={toggleReaction} />;
+  }
 
   const isToolbarOpen = moreOpen || closing || Boolean(pickerAnchor);
   const handleMoreOpenChange = (open: boolean) => {
