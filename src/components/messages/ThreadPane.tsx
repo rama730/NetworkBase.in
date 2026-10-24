@@ -20,6 +20,7 @@ import { listThread, setThreadFollow } from "@/app/actions/chat/messages";
 import { markThreadRead } from "@/app/actions/chat/read";
 import { ConversationContext, type ConversationContextValue } from "@/components/messages/conversation-context";
 import { MessageRow } from "@/components/messages/MessageRow";
+import { MessageHistory } from "@/components/messages/MessageHistory";
 import { DropOverlay, draftKeyOf, dropFilesTo, useFileDrop } from "@/components/messages/useFileDrop";
 import { seedCards, useChannelDetails, useChannelMembers, useSavedSeqs, useTyping } from "@/components/messages/useConversation";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
@@ -414,7 +415,8 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
         {/* Follow and ⋯ live in the drawer's header; without one (the floating window) they get their own row. */}
         {headerSlot ? createPortal(controls, headerSlot) : <div className="flex min-h-11 flex-none items-center justify-end gap-2 border-b border-border px-3">{controls}</div>}
         <p className="sr-only" aria-live="polite">{announce}</p>
-        <div
+        <MessageHistory
+          variant="thread"
           className="relative min-h-0 flex-1"
           role="log"
           aria-live="off"
@@ -431,7 +433,7 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
           {canReply ? <DropOverlay show={drop.dragging} /> : null}
           {thread.isLoading ? <RepliesSkeleton /> : null}
           {thread.isError || (thread.data && !thread.data.root) ? (
-            <div className="space-y-3 p-4">
+            <div className="space-y-3 bg-card p-4">
               {thread.isError
                 ? <ErrorNotice what="This thread" onRetry={() => void thread.refetch()} />
                 : <p role="alert" className="text-center text-[13px] text-muted-foreground">This thread isn&apos;t available. It may have been deleted.</p>}
@@ -466,7 +468,7 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
                   return (
                     <div className="flex items-center gap-3 px-4 py-1" role="separator" aria-label="New replies">
                       <span className="h-px flex-1 bg-primary" />
-                      <span className="nb-micro text-primary">New replies</span>
+                      <span className="nb-micro rounded-sm bg-card px-1 text-primary">New replies</span>
                     </div>
                   );
                 }
@@ -504,7 +506,7 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
               components={THREAD_COMPONENTS}
             />
           ) : null}
-        </div>
+        </MessageHistory>
         {(showLatest || thread.data?.hasNewer) && rows.length ? <LatestBar onClick={() => { if (thread.data?.hasNewer) void loadLatest().catch(() => toast.error("Could not load the latest replies. Try again.")); else { list.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "smooth" }); setUnseen(0); } }} unseen={unseen} label="Jump to latest reply" /> : null}
         {canReply ? (
           <Composer

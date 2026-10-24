@@ -480,7 +480,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
       onFocus={placeBar}
       // Mention: a neutral well (status colours mean status, and the spec has no side bar);
       // a jump target: the accent tint, so the two never look alike.
-      className={`group/msg relative px-4 ${grouped ? "pt-0.5" : "pt-3"} pb-0.5 outline-none hover:bg-muted focus-within:bg-muted [-webkit-touch-callout:none] ${highlighted ? "bg-accent" : mentioned ? "bg-muted" : ""}`}
+      className={`group/msg relative px-4 ${grouped ? "pt-0.5" : "pt-3"} pb-0.5 outline-none hover:bg-muted focus-within:bg-muted [-webkit-touch-callout:none] ${highlighted ? "bg-accent" : mentioned ? "bg-muted" : "nb-message-row-soft"}`}
       onContextMenu={(e) => {
         // Touch: long-press opens our sheet, not the browser's callout.
         if (actions && window.matchMedia("(pointer: coarse)").matches) e.preventDefault();

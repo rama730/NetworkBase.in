@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, X } from "lucide-react";
 
 import { usePanes } from "@/components/messages/usePanes";
+import { ThreadSkeleton } from "@/components/messages/ConversationSkeleton";
 import { useChannelDetails } from "@/components/messages/useConversation";
 import { useAuth } from "@/hooks/useAuth";
 import { channelTitle } from "@/lib/messaging/channel-view";
@@ -14,7 +15,7 @@ import { editingWithText, escapeTaken, rovingTabKey } from "@/components/message
 import { showInConversationHref } from "@/lib/messaging/routes";
 
 // Each pane's code loads when first opened.
-const ThreadPane = dynamic(() => import("@/components/messages/ThreadPane").then((m) => m.ThreadPane), { ssr: false });
+const ThreadPane = dynamic(() => import("@/components/messages/ThreadPane").then((m) => m.ThreadPane), { ssr: false, loading: () => <ThreadSkeleton /> });
 const VIEWS = ["thread", "details"] as const;
 const DetailsPane = dynamic(() => import("@/components/messages/DetailsPane").then((m) => m.DetailsPane), { ssr: false });
 

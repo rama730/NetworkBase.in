@@ -31,6 +31,7 @@ Source of truth for decisions and numbers: `docs/plans/messaging-slack-rebuild-r
 
 ## Client
 
+- Message histories use the shared original drafting-grid canvas in `MessageHistory`; conversations, threads, loading states, and the floating window inherit it without adding a scroller. Grid strength follows each history's actual width while keeping 24px cells. See [message background design](../design/message-background.md) for theme, accessibility, placement, and verification details.
 - `ChatShellProvider` (bootstrap, poll, user topic, badge) wraps the app; the sidebar badge and launcher read it.
 - `/messages*` keeps the app navigation; a 260px chat sidebar sits beside it at 1024px+: the project switcher (a project, or All projects grouped by project), Search (⌘K), an Unreads filter, Inbox · Saved · Drafts & scheduled, Starred, Channels, Direct messages, My applications. Rows have a hover ⋯ (mark read, mute, star, copy link, close/leave). Collapsed sections follow the account (auth `user_metadata.chat_sections`).
 - Routes: `/messages/inbox` (All · Mentions · Threads · Reactions), `/messages/saved`, `/messages/drafts`, `/messages/search`. Thread and Details are query params on the conversation (`?thread=<seq>&details=about|members`, `src/lib/messaging/routes.ts`), shown in one drawer (tabs when both are open); the old `/activity`, `/threads`, `/<id>/thread/<seq>` and `/<id>/details` URLs redirect in `next.config.ts`. Below 1024px the drawer is full screen with Back.
