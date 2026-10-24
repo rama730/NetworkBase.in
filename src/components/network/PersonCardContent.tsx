@@ -14,6 +14,7 @@ import { SkillIcon } from '@/components/skills/SkillIcon';
 import { resolveClientSkill, useSkillCatalog } from '@/lib/skills/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { PersonPresenceDot } from './PersonPresenceDot';
+import { OpenToCollaborateBadge } from '@/components/profile/OpenToCollaborateBadge';
 
 export function PersonCardLayout({ avatar, head, headline, location, meta = [], body, aside, className = '', variant = 'network' }: {
     avatar: ReactNode; head: ReactNode; headline?: ReactNode; location?: ReactNode;
@@ -165,7 +166,17 @@ export function PersonCardContent({ person: input, action, variant = 'network', 
         avatar={<div className="relative"><Link href={href} tabIndex={-1} aria-hidden="true"><UserAvatar identity={person} size={48} priority={priority} /></Link>
             {!locked && person.id ? <PersonPresenceDot userId={person.id} lastActiveAt={person.lastActiveAt} /> : null}</div>}
         head={<h3 className="nb-person-name-line"><Link href={href} className="nb-person-name" title={name} dir="auto">{name}</Link>
-            {person.openToCollaborate === true ? <span className="nb-person-collaboration">Open to collaborate</span> : null}</h3>}
+            {person.openToCollaborate === true ? (
+                <OpenToCollaborateBadge
+                    openToCollaborate={person.openToCollaborate}
+                    openTo={person.openTo}
+                    customRoles={person.openToCustomRoles}
+                    categories={person.preferredCategories}
+                    experienceLevel={person.experienceLevel}
+                    hoursPerWeek={person.hoursPerWeek}
+                    variant="badge"
+                />
+            ) : null}</h3>}
         headline={subtitle.text ? <Link className={subtitle.kind === 'headline' ? 'nb-compact' : 'nb-meta'} href={subtitle.kind === 'portfolio' ? `${href}?tab=portfolio` : href} title={subtitle.text} dir="auto">
             {subtitle.kind === 'location' ? <Location value={subtitle.text} /> : subtitle.text}</Link> : null}
         location={!locked && ((person.location?.trim() && subtitle.kind !== 'location') || context || (portfolio && subtitle.kind !== 'portfolio')) ? <>

@@ -24,9 +24,23 @@ export async function readPersonCardDetails(
             isUnavailable: !relationships.has(id) || relationships.get(id)?.blockedByViewer || relationships.get(id)?.blockedByTarget,
         }]));
         if (!permitted.length) return result;
-        const rows = await db.execute<{ id: string; open: boolean; location: string | null; headline: string | null; skills: string[]; portfolio: PersonCardDetails['portfolio']; mutual: number }>(sql`
+        const rows = await db.execute<{
+            id: string;
+            open: boolean;
+            location: string | null;
+            headline: string | null;
+            skills: string[];
+            portfolio: PersonCardDetails['portfolio'];
+            mutual: number;
+            open_to: string[] | null;
+            open_to_custom_roles: string[] | null;
+            preferred_categories: string[] | null;
+            experience_level: string | null;
+            hours_per_week: string | null;
+        }>(sql`
             WITH targets AS (SELECT jsonb_array_elements_text(${JSON.stringify(permitted)}::jsonb)::uuid AS id)
             SELECT profiles.id, profiles.open_to_collaborate AS open, profiles.location, profiles.headline,
+                profiles.open_to, profiles.open_to_custom_roles, profiles.preferred_categories, profiles.experience_level, profiles.hours_per_week,
                 ${publicPersonSkillsSql()} AS skills,
                 (SELECT jsonb_build_object('total', COALESCE(max(public_projects.total), 0), 'projects', COALESCE(jsonb_agg(jsonb_build_object('id', public_projects.id, 'title', public_projects.title, 'slug', public_projects.slug) ORDER BY public_projects.title), '[]'::jsonb),
                     'hasExternal', false)
@@ -41,6 +55,11 @@ export async function readPersonCardDetails(
         for (const row of rows) result[row.id] = {
             openToCollaborate: row.open === true, skills: personCardSkills(row.skills), location: row.location, headline: row.headline,
             portfolio: row.portfolio, mutualConnections: Number(row.mutual), isLockedProfile: false, isUnavailable: false,
+            openTo: Array.isArray(row.open_to) ? row.open_to : null,
+            openToCustomRoles: Array.isArray(row.open_to_custom_roles) ? row.open_to_custom_roles : null,
+            preferredCategories: Array.isArray(row.preferred_categories) ? row.preferred_categories : null,
+            experienceLevel: row.experience_level ?? null,
+            hoursPerWeek: row.hours_per_week ?? null,
         };
         const returned = new Set(rows.map(row => row.id));
         for (const id of permitted) if (!returned.has(id)) result[id] = { isUnavailable: true, isLockedProfile: true };

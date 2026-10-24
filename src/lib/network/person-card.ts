@@ -15,6 +15,11 @@ export type PersonCardDetails = {
     skills?: string[];
     isLockedProfile?: boolean;
     isUnavailable?: boolean;
+    openTo?: string[] | null;
+    openToCustomRoles?: string[] | null;
+    preferredCategories?: string[] | null;
+    experienceLevel?: string | null;
+    hoursPerWeek?: string | null;
 };
 
 export type PersonCardIdentity = PersonCardDetails & {
