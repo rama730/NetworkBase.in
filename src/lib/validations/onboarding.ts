@@ -147,21 +147,21 @@ export function normalizeOnboardingPayload(input: OnboardingPayloadInput): Onboa
  * the browser's crash buffer, so both read the same shape. */
 
 const draftText = (max: number) =>
-    z.unknown().transform((value) => (typeof value === 'string' ? value.trim().slice(0, max) || undefined : undefined))
+    z.unknown().transform((value) => (typeof value === 'string' ? value.trim().slice(0, max) || undefined : undefined)).optional()
 
 const draftEnum = <T extends string>(values: readonly T[]) =>
-    z.unknown().transform((value) => (values.includes(value as T) ? (value as T) : undefined))
+    z.unknown().transform((value) => (values.includes(value as T) ? (value as T) : undefined)).optional()
 
 const draftTags = z.unknown().transform((value) => {
     if (!Array.isArray(value)) return undefined
     const items = value.flatMap((item) => (typeof item === 'string' ? [item.trim().slice(0, L.tagItemMax)] : []))
     return dedupeNormalized(items).slice(0, L.tagMaxItems)
-})
+}).optional()
 
 const draftOpenTo = z.unknown().transform((value) => {
     const roles = getRolePreferences(value).slice(0, L.openToMaxItems)
     return roles.length > 0 ? roles : undefined
-})
+}).optional()
 
 const draftSocialLinks = z.unknown().transform((value) => {
     if (!value || typeof value !== 'object') return undefined
@@ -172,14 +172,14 @@ const draftSocialLinks = z.unknown().transform((value) => {
         if (text) links[key] = text
     }
     return Object.keys(links).length > 0 ? links : undefined
-})
+}).optional()
 
 const draftAvatar = z.unknown().transform((value) =>
     typeof value === 'string' && value.length <= L.avatarUrlMax && isSafeHttpUrl(value) ? value.trim() : undefined,
-)
+).optional()
 
 export const onboardingDraftSchema = z.object({
-    username: z.unknown().transform((value) => (typeof value === 'string' ? normalizeUsername(value).slice(0, 64) || undefined : undefined)),
+    username: z.unknown().transform((value) => (typeof value === 'string' ? normalizeUsername(value).slice(0, 64) || undefined : undefined)).optional(),
     fullName: draftText(L.fullNameMax),
     avatarUrl: draftAvatar,
     headline: draftText(L.headlineMax),
