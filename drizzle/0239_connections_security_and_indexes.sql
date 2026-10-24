@@ -9,6 +9,7 @@ DROP POLICY IF EXISTS connections_update_own ON public.connections;
 REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.connections FROM anon, authenticated;
 
 -- Replace SELECT policy to prevent leaking block attribution to blocked users
+DROP POLICY IF EXISTS connections_select_participant_visible ON public.connections;
 CREATE POLICY connections_select_participant_visible ON public.connections
   FOR SELECT TO authenticated
   USING (

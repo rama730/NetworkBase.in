@@ -202,7 +202,11 @@ export function EditProfileTabs({
         >
             <aside aria-label="Profile edit sections" className="w-full min-h-0 shrink-0 border-b border-border bg-card px-3 py-4 md:w-[var(--nb-sidebar-width)] md:overflow-y-auto md:border-b-0 md:border-r">
                 <div className="mb-3 space-y-3 px-2 pr-3">
-                    <h1 id="profile-editor-title" className="nb-micro">Edit profile</h1>
+                    {section === "experience" ? (
+                        <p id="profile-editor-title" className="nb-micro">Edit profile</p>
+                    ) : (
+                        <h1 id="profile-editor-title" className="nb-micro">Edit profile</h1>
+                    )}
                     <div className="h-px w-full bg-border" aria-hidden="true" />
                 </div>
                 <TabsList aria-label="Profile edit sections" className="flex flex-wrap h-auto min-h-0 w-full bg-transparent p-0 pr-1 border-none gap-1 items-stretch md:flex-col md:flex-nowrap">
