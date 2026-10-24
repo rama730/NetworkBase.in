@@ -14,10 +14,18 @@ import {
   Layers,
   FileText,
   Loader2,
+  Bookmark,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ProjectNode } from "@/lib/db/schema";
+import { cn } from "@/lib/utils";
+
+interface PdfBookmark {
+  title: string;
+  pageNumber?: number;
+  items?: PdfBookmark[];
+}
 
 interface PdfViewerDriverProps {
   node: ProjectNode;
@@ -41,6 +49,8 @@ export function PdfViewerDriver({
   const [zoom, setZoom] = React.useState(1.2);
   const [isCanvasLoading, setIsCanvasLoading] = React.useState(false);
   const [canvasError, setCanvasError] = React.useState<string | null>(null);
+  const [bookmarks, setBookmarks] = React.useState<PdfBookmark[]>([]);
+  const [showBookmarks, setShowBookmarks] = React.useState(false);
 
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
   const textLayerRef = React.useRef<HTMLDivElement | null>(null);
@@ -106,6 +116,46 @@ export function PdfViewerDriver({
         setNumPages(doc.numPages);
         setPageNumber(1);
         setIsCanvasLoading(false);
+
+        // Extract PDF bookmarks/outline tree
+        try {
+          const outline = await doc.getOutline();
+          if (outline && outline.length > 0) {
+            const resolveBookmarks = async (items: any[]): Promise<PdfBookmark[]> => {
+              const res: PdfBookmark[] = [];
+              for (const item of items) {
+                let pNum: number | undefined;
+                try {
+                  if (typeof item.dest === "string") {
+                    const dest = await doc.getDestination(item.dest);
+                    if (dest && dest[0]) {
+                      const pageIndex = await doc.getPageIndex(dest[0]);
+                      pNum = pageIndex + 1;
+                    }
+                  } else if (Array.isArray(item.dest) && item.dest[0]) {
+                    const pageIndex = await doc.getPageIndex(item.dest[0]);
+                    pNum = pageIndex + 1;
+                  }
+                } catch {
+                  // Dest resolution optional
+                }
+                const children = item.items && item.items.length > 0 ? await resolveBookmarks(item.items) : [];
+                res.push({
+                  title: item.title,
+                  pageNumber: pNum,
+                  items: children,
+                });
+              }
+              return res;
+            };
+            const resolved = await resolveBookmarks(outline);
+            if (!cancelled) {
+              setBookmarks(resolved);
+            }
+          }
+        } catch {
+          // Outline parsing is optional
+        }
       } catch (err: any) {
         if (cancelled) return;
         setIsCanvasLoading(false);
@@ -247,6 +297,36 @@ export function PdfViewerDriver({
     setZoom(1.2);
   }, []);
 
+  const renderBookmarkItems = (items: PdfBookmark[], depth: number) => {
+    return items.map((bm, idx) => (
+      <div key={`${depth}-${idx}`} className="flex flex-col">
+        <button
+          type="button"
+          onClick={() => {
+            if (bm.pageNumber) {
+              setPageNumber(bm.pageNumber);
+            }
+          }}
+          disabled={!bm.pageNumber}
+          style={{ paddingLeft: `${depth * 12 + 6}px` }}
+          className={cn(
+            "text-left text-xs truncate py-1 pr-1.5 rounded-[4px] hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer",
+            bm.pageNumber === pageNumber && "bg-primary/10 text-primary font-semibold",
+          )}
+          title={bm.title}
+        >
+          <span>{bm.title}</span>
+          {bm.pageNumber && (
+            <span className="ml-1 text-[10px] text-muted-foreground/60 font-mono">
+              (p.{bm.pageNumber})
+            </span>
+          )}
+        </button>
+        {bm.items && bm.items.length > 0 && renderBookmarkItems(bm.items, depth + 1)}
+      </div>
+    ));
+  };
+
   return (
     <div className="relative flex h-full w-full flex-col bg-muted/10 overflow-hidden">
       {/* Floating Action Pill Toolbar */}
@@ -309,6 +389,20 @@ export function PdfViewerDriver({
               <ZoomIn className="h-3.5 w-3.5" />
             </Button>
 
+            {bookmarks.length > 0 && (
+              <Button
+                size="sm"
+                variant={showBookmarks ? "secondary" : "ghost"}
+                onClick={() => setShowBookmarks((v) => !v)}
+                className="h-7 px-2 text-xs"
+                title="Toggle Bookmarks / Table of Contents"
+              >
+                <Bookmark className="mr-1 h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Bookmarks</span>
+                <span className="ml-1 text-[10px] text-muted-foreground">({bookmarks.length})</span>
+              </Button>
+            )}
+
             <div className="h-4 w-px bg-border/60 mx-1" />
           </>
         )}
@@ -360,7 +454,27 @@ export function PdfViewerDriver({
       </div>
 
       {/* Main PDF Viewer Surface */}
-      <div className="relative flex-1 overflow-hidden bg-muted/20">
+      <div className="relative flex flex-1 min-h-0 overflow-hidden bg-muted/20">
+        {/* Bookmarks Sidebar */}
+        {viewMode === "canvas" && showBookmarks && bookmarks.length > 0 && (
+          <div className="w-64 shrink-0 border-r border-border bg-card/85 backdrop-blur-md p-3 overflow-y-auto app-scroll flex flex-col gap-1 select-none z-10 shadow-sm">
+            <div className="flex items-center justify-between pb-2 mb-1 border-b border-border/60">
+              <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <Bookmark className="h-3.5 w-3.5 text-primary" />
+                Bookmarks
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowBookmarks(false)}
+                className="text-xs text-muted-foreground hover:text-foreground p-0.5 rounded-[3px]"
+              >
+                ✕
+              </button>
+            </div>
+            {renderBookmarkItems(bookmarks, 0)}
+          </div>
+        )}
+
         {viewMode === "native" && !loadError ? (
           <iframe
             title={node.name}

@@ -14,6 +14,7 @@ import {
   RefreshCw,
   ExternalLink,
   ListTree,
+  BookOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +39,7 @@ export function DocxViewerDriver({
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [viewMode, setViewMode] = React.useState<"paginated" | "fluid">("paginated");
+  const [isTwoPageSpread, setIsTwoPageSpread] = React.useState(false);
   const [zoom, setZoom] = React.useState<number>(100);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [showSearch, setShowSearch] = React.useState(false);
@@ -455,6 +457,19 @@ export function DocxViewerDriver({
               Fluid
             </button>
           </div>
+
+          {viewMode === "paginated" && (
+            <Button
+              size="sm"
+              variant={isTwoPageSpread ? "secondary" : "ghost"}
+              onClick={() => setIsTwoPageSpread((v) => !v)}
+              className="h-7 px-2 text-xs ml-1"
+              title="Toggle Two-Page Book Spread (Facing Pages)"
+            >
+              <BookOpen className="mr-1 h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{isTwoPageSpread ? "2-Page" : "1-Page"}</span>
+            </Button>
+          )}
         </div>
 
         {/* Zoom & Action Controls */}
@@ -638,7 +653,8 @@ export function DocxViewerDriver({
           }}
           className={cn(
             "docx-preview-content transition-transform duration-100",
-            viewMode === "fluid" ? "w-full max-w-4xl" : ""
+            viewMode === "fluid" ? "w-full max-w-4xl" : "",
+            isTwoPageSpread && viewMode === "paginated" ? "docx-two-page-spread max-w-7xl" : "",
           )}
         />
         </div>
@@ -655,6 +671,13 @@ export function DocxViewerDriver({
               flex-direction: column !important;
               align-items: center !important;
               gap: 24px;
+            }
+            .docx-two-page-spread .docx-wrapper {
+              display: flex !important;
+              flex-direction: row !important;
+              flex-wrap: wrap !important;
+              justify-content: center !important;
+              gap: 24px !important;
             }
             .docx-preview-content section.docx,
             .docx-preview-content .docx-wrapper > section.docx {
