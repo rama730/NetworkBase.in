@@ -185,6 +185,12 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
     for (let i = messages.length - 1; i >= 0; i -= 1) if (messages[i]!.seq > 0) return messages[i]!.seq;
     return 0;
   }, [messages]);
+
+  useEffect(() => {
+    if (lastReadSeq >= newestSeq && newestSeq > 0) {
+      setBannerOpen(false);
+    }
+  }, [lastReadSeq, newestSeq]);
   // "N new" counts only messages newer than what was there (older pages load at the top) and not your own.
   const lastNewest = useRef(newestSeq);
   useEffect(() => {

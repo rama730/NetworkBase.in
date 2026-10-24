@@ -49,7 +49,8 @@ test('Timeline rangeChanged observes visible messages and sentTick dismisses ban
     assert.match(timeline, /rangeChanged=\{\(\{ startIndex, endIndex \}\)/);
     assert.match(timeline, /onSeen\(item\.message\.seq\)/);
 
-    // Sending a message dismisses the unread banner immediately
+    // Sending a message or advancing lastReadSeq dismisses the unread banner immediately
     assert.match(timeline, /if \(sentTick === lastSentTick\.current\) return;/);
     assert.match(timeline, /setBannerOpen\(false\);/);
+    assert.match(timeline, /if \(lastReadSeq >= newestSeq && newestSeq > 0\)\s*\{\s*setBannerOpen\(false\);\s*\}/);
 });
