@@ -244,19 +244,45 @@ export function useChannelMessages(channelId: string, options: { around?: number
 
   const readTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const readSent = useRef(0);
+  const pendingSeq = useRef(0);
+
+  const flushRead = useCallback((seqToFlush?: number) => {
+    const seq = seqToFlush ?? pendingSeq.current;
+    if (seq <= readSent.current || seq <= 0) return;
+    if (readTimer.current) {
+      clearTimeout(readTimer.current);
+      readTimer.current = null;
+    }
+    readSent.current = seq;
+    applyRead(channelId, seq);
+    void markRead({ channelId, seq });
+  }, [applyRead, channelId]);
+
   const markSeen = useCallback((seq: number) => {
     if (seq <= readSent.current || seq <= 0) return;
+    pendingSeq.current = Math.max(pendingSeq.current, seq);
     if (readTimer.current) clearTimeout(readTimer.current);
     readTimer.current = setTimeout(() => {
-      if (document.visibilityState !== "visible" || seq <= readSent.current) return;
-      readSent.current = seq;
-      applyRead(channelId, seq);
-      void markRead({ channelId, seq });
-    }, CHAT_READ_DEBOUNCE_MS);
-  }, [applyRead, channelId]);
-  useEffect(() => () => {
-    if (readTimer.current) clearTimeout(readTimer.current);
-  }, []);
+      readTimer.current = null;
+      if (document.visibilityState !== "visible") return;
+      flushRead(seq);
+    }, 1_000);
+  }, [flushRead]);
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden" && pendingSeq.current > readSent.current) {
+        flushRead();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      if (pendingSeq.current > readSent.current) {
+        flushRead();
+      }
+    };
+  }, [flushRead]);
 
   const messages = useMemo(() => query.data ? [...query.data.pages].reverse().flat() : [], [query.data]);
 
@@ -269,7 +295,7 @@ export function useChannelMessages(channelId: string, options: { around?: number
     if (stored.length) update((pages) => stored.reduce((acc, message) => upsertMessage(acc, message), pages));
   }, [channelId, meId, query.isSuccess, update]);
 
-  return { query, messages, status, markSeen, reloadLatest };
+  return { query, messages, status, markSeen, flushRead, reloadLatest };
 }
 
 /**

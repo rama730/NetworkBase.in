@@ -278,7 +278,34 @@ export function ConversationView({ channelId, around = null, surface = "page", o
   useDocumentTitlePrefix(surface === "page" && meId && channel && !details.isError ? (isSelfDm(channel, meId) ? "Notes to self" : channel.name ? `#${channel.name}` : channelTitle(channel, meId)) : null);
   // Bumped on each send, so the timeline follows your message down even if you were reading older ones.
   const [sentTick, setSentTick] = useState(0);
-  const onSent = useCallback(() => setSentTick((tick) => tick + 1), []);
+
+  const newestLoadedSeq = useMemo(() => {
+    for (let i = conversation.messages.length - 1; i >= 0; i -= 1) {
+      if (conversation.messages[i]!.seq > 0) return conversation.messages[i]!.seq;
+    }
+    return 0;
+  }, [conversation.messages]);
+
+  const shellChannel = useMemo(
+    () => shell.data?.channels.find((c) => c.id === channelId),
+    [channelId, shell.data?.channels],
+  );
+
+  const effectiveLastReadSeq = isMember
+    ? Math.max(channel?.last_read_seq ?? 0, shellChannel?.last_read_seq ?? 0)
+    : (channel?.last_seq ?? 0);
+
+  const onSent = useCallback(() => {
+    setSentTick((tick) => tick + 1);
+    const target = Math.max(channel?.last_seq ?? 0, newestLoadedSeq);
+    if (target > 0) {
+      shell.applyRead(channelId, target);
+      queryClient.setQueryData<any>(queryKeys.chat.channel(channelId), (prev: any) =>
+        prev ? { ...prev, last_read_seq: Math.max(prev.last_read_seq ?? 0, target), mention_count: 0 } : prev
+      );
+      conversation.flushRead(target);
+    }
+  }, [channel?.last_seq, channelId, conversation, newestLoadedSeq, queryClient, shell]);
   // Files dropped on the timeline go to this conversation's composer.
   const drop = useFileDrop((files) => dropFilesTo(draftKeyOf(channelId, null), files));
 
@@ -441,11 +468,18 @@ export function ConversationView({ channelId, around = null, surface = "page", o
     }
   }, [conversation.messages, meId]);
 
-  const hasUnread = Boolean(channel && channel.last_seq > channel.last_read_seq);
+  const hasUnread = Boolean(
+    channel && (channel.last_seq > effectiveLastReadSeq || newestLoadedSeq > effectiveLastReadSeq),
+  );
   const markAllRead = async (announce = false) => {
-    if (!channel?.last_seq || !hasUnread) return;
-    shell.applyRead(channelId, channel.last_seq);
-    const result = await markRead({ channelId, seq: channel.last_seq });
+    const target = Math.max(channel?.last_seq ?? 0, newestLoadedSeq);
+    if (target <= 0) return;
+    shell.applyRead(channelId, target);
+    queryClient.setQueryData<any>(queryKeys.chat.channel(channelId), (prev: any) =>
+      prev ? { ...prev, last_read_seq: Math.max(prev.last_read_seq ?? 0, target), mention_count: 0 } : prev
+    );
+    conversation.flushRead(target);
+    const result = await markRead({ channelId, seq: target });
     if (!result.success) {
       shell.refresh();
       return void toast.error(chatErrorMessage(result.error));
@@ -769,7 +803,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
               <Timeline
                 key={`${channelId}:${timeline.epoch}`}
                 messages={conversation.messages}
-                lastReadSeq={isMember ? channel.last_read_seq : channel.last_seq}
+                lastReadSeq={effectiveLastReadSeq}
                 meId={meId}
                 hasOlder={Boolean(conversation.query.hasNextPage)}
                 loadingOlder={conversation.query.isFetchingNextPage}
