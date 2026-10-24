@@ -86,7 +86,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
       if (!directSignedUrl) return noStore("Failed to prepare file preview", 502);
 
       const etag = `"${verified.nodeId}-v${verified.version}"`;
-      if (isMedia) {
+      // Direct S3 / CDN redirect when explicitly requested via ?redirect=1 or ?cdn=1.
+      // Standard preview playback streams directly via streamPrivateObject (HTTP 206 Partial Content)
+      // preventing 302 cross-origin redirect CORS barriers and terminal redirect logs.
+      if (isMedia && (request.nextUrl.searchParams.get("redirect") === "1" || request.nextUrl.searchParams.get("cdn") === "1")) {
         return new Response(null, {
           status: 302,
           headers: {
@@ -216,9 +219,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 
   // Strategy A (Direct-to-CDN Streaming for Video & Audio):
-  // Direct S3 / CDN redirect allows the client browser media engine to stream directly from storage
-  // over native HTTP 206, eliminating Node.js reverse-proxy bottlenecks and cutting latency from ~2.8s to sub-100ms.
-  if (isMediaStream) {
+  // Direct S3 / CDN 302 redirect is available via ?redirect=1 or ?cdn=1 for explicit CDN offload.
+  // By default, media streams directly through streamPrivateObject (HTTP 206 Partial Content / 200 OK)
+  // preventing 302 cross-origin redirect CORS barriers and terminal 302 logs while keeping streaming fast.
+  if (isMediaStream && (request.nextUrl.searchParams.get("redirect") === "1" || request.nextUrl.searchParams.get("cdn") === "1")) {
     return new Response(null, {
       status: 302,
       headers: {

@@ -234,16 +234,21 @@ export function MediaViewerDriver({
   // Robust effective duration derived from duration state
   const effectiveDuration = isFinite(duration) && duration > 0 ? duration : 0;
 
-  // Hardware Video Decoder Cleanup Destructor: flush GPU VRAM and release hardware decode contexts
+  // Hardware Video Decoder Lifecycle & Decoder Sync
   React.useEffect(() => {
     setError(false);
-    syncDuration(mediaRef.current);
     const el = mediaRef.current;
+    if (el) {
+      // Guard against React StrictMode DOM node mutation: ensure src is attached and loaded
+      if (signedUrl && (!el.getAttribute("src") || el.getAttribute("src") !== signedUrl)) {
+        el.setAttribute("src", signedUrl);
+        el.load();
+      }
+      syncDuration(el);
+    }
     return () => {
       if (el) {
         el.pause();
-        el.removeAttribute("src"); // Abort background range streams immediately
-        el.load(); // Force GPU process to reclaim hardware video decoder context
       }
       if (hideControlsTimer.current) clearTimeout(hideControlsTimer.current);
       if (gestureToastTimer.current) clearTimeout(gestureToastTimer.current);
@@ -251,6 +256,18 @@ export function MediaViewerDriver({
       if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
     };
   }, [signedUrl, syncDuration]);
+
+  // Hardware Video Decoder Cleanup Destructor: flush GPU VRAM and release hardware decode contexts on true unmount
+  React.useEffect(() => {
+    return () => {
+      const el = mediaRef.current;
+      if (el) {
+        el.pause();
+        el.removeAttribute("src"); // Abort background range streams immediately
+        el.load(); // Force GPU process to reclaim hardware video decoder context
+      }
+    };
+  }, []);
 
   // Background tab decoding suspension via Visibility API
   React.useEffect(() => {
@@ -1007,6 +1024,8 @@ export function MediaViewerDriver({
               loop={isLooping && !abLoop.active}
               preload="auto"
               playsInline
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
               onTimeUpdate={() => {
                 const el = mediaRef.current;
                 if (el) {
@@ -1641,6 +1660,8 @@ export function MediaViewerDriver({
             src={signedUrl}
             loop={isLooping}
             preload="auto"
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
             onTimeUpdate={() => {
               const el = mediaRef.current;
               if (el) {
