@@ -1159,6 +1159,54 @@ svg.lucide { stroke-width:1.75; }
 .nb-chat-list .nb-chat-row-preview { min-height:64px; }
 @media (pointer:coarse) { .nb-chat-row { min-height:44px; } }
 .nb-shell--messages { height:var(--chat-vvh, 100dvh); }
+
+/* Original drafting grid: the history viewport owns decoration, never a second scroller. */
+.nb-message-history {
+  isolation: isolate;
+  background-color: var(--background);
+  background-color: color-mix(in srgb, var(--background) 72%, var(--muted));
+  --message-grid-opacity: .10;
+  --message-grid-thread: 1;
+  --message-grid-width: 1;
+}
+.dark .nb-message-history {
+  background-color: var(--card);
+  background-color: color-mix(in srgb, var(--card) 72%, var(--muted));
+  --message-grid-opacity: .065;
+}
+.nb-message-history[data-message-history="thread"] { --message-grid-thread: .72; }
+.nb-message-history::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-color: var(--muted-foreground);
+  opacity: calc(var(--message-grid-opacity) * var(--message-grid-thread) * var(--message-grid-width));
+  -webkit-mask-image: url('/patterns/message-grid.svg');
+  mask-image: url('/patterns/message-grid.svg');
+  -webkit-mask-size: 24px 24px;
+  mask-size: 24px 24px;
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  -webkit-mask-position: var(--message-grid-x, 0px) var(--message-grid-y, 0px);
+  mask-position: var(--message-grid-x, 0px) var(--message-grid-y, 0px);
+}
+/* Preserve opaque mention/jump states; only ordinary rows use the softer hover. */
+.nb-message-history .nb-message-row-soft:is(:hover, :focus-within) {
+  background-color: var(--muted);
+  background-color: color-mix(in srgb, var(--muted) 55%, transparent);
+}
+@supports not ((mask-image: url('/patterns/message-grid.svg')) or (-webkit-mask-image: url('/patterns/message-grid.svg'))) {
+  .nb-message-history::before { display: none; }
+}
+@media (forced-colors: active) {
+  .nb-message-history, .dark .nb-message-history { background: Canvas; }
+  .nb-message-history::before { display: none; }
+}
+@media print {
+  .nb-message-history::before { display: none; }
+}
 .nb-chat-swipe { position:relative; overflow:hidden; border-radius:5px; }
 .nb-chat-swipe-actions { position:absolute; inset:0 0 0 auto; display:flex; }
 .nb-chat-swipe-actions > button { width:72px; font-size:13px; font-weight:500; }

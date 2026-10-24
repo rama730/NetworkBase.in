@@ -6,6 +6,7 @@ import { X } from "lucide-react";
 import { toast } from "@/lib/feedback";
 
 import { MessageRow } from "@/components/messages/MessageRow";
+import { MessageHistory } from "@/components/messages/MessageHistory";
 import { Button } from "@/components/ui/button";
 import { LatestBar } from "@/components/messages/parts/LatestBar";
 import { formatChatTime } from "@/lib/messaging/channel-view";
@@ -67,7 +68,7 @@ function TimelineHeader({ context }: { context?: TimelineContext }) {
   if (!context.hasOlder) return <>{context.intro}</>;
   if (context.olderError && !context.loadingOlder) {
     return (
-      <div role="alert" className="py-3 text-center text-[12px] text-muted-foreground">
+      <div role="alert" className="bg-card py-3 text-center text-[12px] text-muted-foreground">
         Earlier messages couldn&apos;t load. <Button type="button" variant="outline" size="sm" onClick={context.loadOlder} className="ml-2">Retry</Button>
       </div>
     );
@@ -350,7 +351,7 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
       return (
         <div className="flex items-center gap-3 px-4 py-1" role="separator" aria-label="New messages">
           <span className="h-px flex-1 bg-primary" />
-          <span className="nb-micro text-primary">New messages</span>
+          <span className="nb-micro rounded-sm bg-card px-1 text-primary">New messages</span>
         </div>
       );
     }
@@ -359,7 +360,7 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
 
   return (
     <>
-    <div
+    <MessageHistory
       className="relative min-h-0 flex-1"
       role="log"
       aria-live="off"
@@ -419,7 +420,7 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
         components={COMPONENTS}
       />
       <p className="sr-only" aria-live="polite">{announcement}</p>
-    </div>
+    </MessageHistory>
     {!atBottom || behindLatest ? <LatestBar onClick={toLatest} unseen={unseen} label="Jump to latest" /> : null}
     </>
   );

@@ -1,10 +1,11 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { MessageHistory } from "@/components/messages/MessageHistory";
 
 /** Message rows loading, anchored to the bottom like the real timeline (shared shimmer, no pulse). */
-export function TimelineSkeleton() {
+export function TimelineSkeleton({ variant = "conversation" }: { variant?: "conversation" | "thread" } = {}) {
   return (
-    <div role="status" className="flex flex-1 flex-col justify-end gap-5 overflow-hidden p-4">
-      <span className="sr-only">Loading messages…</span>
+    <MessageHistory variant={variant} role="status" className="flex flex-col justify-end gap-5 overflow-hidden p-4">
+      <span className="sr-only">{variant === "thread" ? "Loading replies…" : "Loading messages…"}</span>
       {[64, 80, 48, 72, 56].map((width, row) => (
         <div key={row} className="flex gap-2.5">
           <Skeleton className="size-[34px] flex-none rounded-md" />
@@ -14,8 +15,17 @@ export function TimelineSkeleton() {
           </div>
         </div>
       ))}
-    </div>
+    </MessageHistory>
   );
+}
+
+function ComposerSkeleton() {
+  return <div className="nb-message-composer border-t border-border bg-card px-3 pt-2 sm:px-4"><Skeleton className="h-[86px] rounded-md" /></div>;
+}
+
+/** The drawer already owns its header while the thread's code downloads. */
+export function ThreadSkeleton() {
+  return <div className="flex h-full min-h-0 flex-col bg-card"><TimelineSkeleton variant="thread" /><ComposerSkeleton /></div>;
 }
 
 /**
@@ -36,9 +46,7 @@ export function ConversationSkeleton({ header, tabs = true }: { header?: React.R
         </div>
       ) : null}
       <TimelineSkeleton />
-      <div className="nb-message-composer border-t border-border px-3 pt-2 sm:px-4">
-        <Skeleton className="h-[86px] rounded-md" />
-      </div>
+      <ComposerSkeleton />
     </div>
   );
 }
