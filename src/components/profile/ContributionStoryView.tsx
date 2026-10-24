@@ -29,6 +29,11 @@ import { Button } from "@/components/ui/button";
 import { SkillChip } from "@/components/skills/SkillChip";
 import { isSafeHttpUrl } from "@/lib/security/urls";
 import { cn } from "@/lib/utils";
+import {
+  contributionPreviewLayout,
+  contributionPreviewText,
+  restoreContributionPreviewPosition,
+} from "@/lib/profile/contribution-preview";
 import type { ProfileCollaborationContribution } from "@/lib/profile/collaboration";
 import {
   storyFromContribution,
@@ -198,8 +203,10 @@ export function ContributionStoryView({
   const [expanded, setExpanded] = useState(expandedByDefault),
     [imageIndex, setImageIndex] = useState<number | null>(null);
   const reveal = useRef<HTMLButtonElement>(null);
-  const body = useRef<HTMLDivElement>(null),
-    [revealHeight, setRevealHeight] = useState(192);
+  const [openedByReader, setOpenedByReader] = useState(false);
+  const article = useRef<HTMLElement>(null);
+  const summaryBody = useRef<HTMLDivElement>(null);
+  const detailsBody = useRef<HTMLDivElement>(null);
   const images = [...story.images].sort(
     (a, b) => Number(b.id === story.coverId) - Number(a.id === story.coverId),
   );
@@ -213,27 +220,91 @@ export function ContributionStoryView({
     ...(contribution.projectIdentityLinks ?? []),
     ...story.links,
   ].filter((link) => isSafeHttpUrl(link.url));
+  const hasSummary = Boolean(story.summary.trim() || singlePositionDescription);
+  const hasDetails =
+    images.length > 0 || positions.length > 1 || story.skills.length > 0;
+  const [preview, setPreview] = useState(() => ({
+    ...contributionPreviewLayout({
+      summaryHeight: 0,
+      lineHeight: 23.25,
+      detailsHeight: images.length ? 176 : 0,
+      hasMedia: images.length > 0,
+    }),
+    summaryText: "",
+    detailsText: "",
+    measured: false,
+  }));
   const hasExtra =
-    story.summary.length > 220 ||
-    story.summary.split("\n").length > 5 ||
-    images.length > 0 ||
-    positions.length > 1 ||
-    Boolean(singlePositionDescription) ||
-    story.skills.length > 0;
+    preview.measured && (preview.summaryClipped || preview.detailsClipped);
+  const summaryClipped =
+    !expanded && preview.measured && preview.summaryClipped;
+  const detailsClipped =
+    !expanded && preview.measured && preview.detailsClipped;
+  // Keep the reader's collapse control after a wider viewport makes everything fit.
+  const showReveal = hasExtra || (expanded && openedByReader);
   const publicRefs = refs ?? contribution.resolvedReferences ?? [];
   useLayoutEffect(() => {
-    const element = body.current;
+    const element = article.current;
     if (!element) return;
-    setRevealHeight(expanded || !hasExtra ? element.scrollHeight : 192);
-    const observer = new ResizeObserver(() =>
-      setRevealHeight(expanded || !hasExtra ? element.scrollHeight : 192),
-    );
+    const measure = () => {
+      // content-visibility can defer offscreen stories; observe again once laid out.
+      if (!element.getBoundingClientRect().width) return;
+      const summary = summaryBody.current;
+      const details = detailsBody.current;
+      const markdown = summary?.querySelector<HTMLElement>(
+        ".nb-contribution-markdown",
+      );
+      const lineHeight =
+        parseFloat(
+          getComputedStyle(markdown ?? summary ?? element).lineHeight,
+        ) || 23.25;
+      const layout = contributionPreviewLayout({
+        summaryHeight: summary?.scrollHeight ?? 0,
+        lineHeight,
+        detailsHeight: details?.scrollHeight ?? 0,
+        hasMedia: images.length > 0,
+      });
+      const next = {
+        ...layout,
+        measured: true,
+        summaryText: layout.summaryClipped
+          ? contributionPreviewText(summary, layout.summaryLimit - lineHeight)
+          : "",
+        detailsText: layout.detailsClipped
+          ? contributionPreviewText(details, layout.detailsLimit - 32)
+          : "",
+      };
+      setPreview((previous) =>
+        JSON.stringify(previous) === JSON.stringify(next) ? previous : next,
+      );
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
     observer.observe(element);
-    return () => observer.disconnect();
-  }, [expanded, story, hasExtra]);
+    if (summaryBody.current) observer.observe(summaryBody.current);
+    if (detailsBody.current) observer.observe(detailsBody.current);
+    window.addEventListener("resize", measure);
+    element.addEventListener("contentvisibilityautostatechange", measure);
+    document.fonts?.addEventListener("loadingdone", measure);
+    // Font metrics and image loading can change wrapping after the first measurement.
+    let disposed = false;
+    void document.fonts?.ready.then(() => {
+      if (!disposed) measure();
+    });
+    return () => {
+      disposed = true;
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+      element.removeEventListener("contentvisibilityautostatechange", measure);
+      document.fonts?.removeEventListener("loadingdone", measure);
+    };
+  }, [story, images.length, refs, contribution.resolvedReferences]);
+  const mediaKey = images
+    .map((image) => `${image.id}:${image.assetId}`)
+    .join("|");
   useEffect(() => {
     setImageIndex(null);
-  }, [contribution.presentation?.images]);
+  }, [mediaKey]);
   const gallery = (
     <div className="grid grid-cols-2 gap-3 max-[420px]:grid-cols-1">
       {images.map((image, index) => (
@@ -251,7 +322,7 @@ export function ContributionStoryView({
               className="h-44 w-full object-contain"
             />
           </button>
-          {expanded && (image.caption.trim() || image.alt.trim()) && (
+          {(image.caption.trim() || image.alt.trim()) && (
             <figcaption className="mt-2 space-y-1">
               <ContributionImageDescription image={image} />
             </figcaption>
@@ -261,7 +332,11 @@ export function ContributionStoryView({
     </div>
   );
   return (
-    <article className="nb-contribution-story min-w-0 py-5">
+    <article
+      ref={article}
+      tabIndex={-1}
+      className="nb-contribution-story min-w-0 py-5"
+    >
       <header className="nb-story-heading mb-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4">
         <div className="nb-story-identity flex min-w-0 flex-nowrap items-baseline gap-2">
           <h3 className="nb-card-title flex min-w-0 items-center gap-2">
@@ -319,62 +394,117 @@ export function ContributionStoryView({
       </header>
       <div
         id={`contribution-story-${contribution.id}`}
-        style={{ maxHeight: expanded || !hasExtra ? revealHeight : 192 }}
-        className={`nb-story-reveal ${expanded || !hasExtra ? "is-expanded" : ""}`}
-        inert={!expanded && hasExtra ? true : undefined}
+        className={`nb-story-reveal ${expanded ? "is-expanded" : ""}`}
       >
-        <div ref={body}>
-          <ContributionMarkdown
-            summary={story.summary}
-            references={publicRefs}
-          />
-          {singlePositionDescription && (
-            <p className="nb-compact mt-3 whitespace-pre-wrap text-muted-foreground">
-              {singlePositionDescription}
-            </p>
-          )}
-          {images.length > 0 && <div className="mt-4">{gallery}</div>}
-          {positions.length > 1 && (
-            <section className="mt-4" aria-label="Position history">
-              <h4 className="nb-body mb-1 font-semibold text-balance">
-                Position history
-              </h4>
-              <div className="divide-y divide-border">
-                {positions.map((p) => (
-                  <div key={p.id} className="py-2.5">
-                    <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <h5 className="nb-body min-w-0 break-words font-semibold text-balance flex items-center gap-1.5">
-                        {p.title}
-                        {p.recordedStageId && (
-                          <span title="Platform verified role" className="inline-flex items-center text-blue-500">
-                            <ShieldCheck className="size-3.5" aria-label="Verified position" />
-                          </span>
-                        )}
-                      </h5>
-                      <span className="nb-meta tabular-nums text-muted-foreground">
-                        {storyPeriod(p)}
-                      </span>
-                    </div>
-                    {p.description && (
-                      <p className="nb-compact mt-1 text-muted-foreground whitespace-pre-wrap">
-                        {p.description}
-                      </p>
-                    )}
-                  </div>
-                ))}
+        {hasSummary && (
+          <>
+            <div
+              className="nb-story-preview-block"
+              data-clipped={summaryClipped || undefined}
+              style={{
+                maxHeight:
+                  expanded || !preview.measured
+                    ? undefined
+                    : preview.summaryLimit,
+              }}
+              inert={summaryClipped || undefined}
+              aria-hidden={summaryClipped || undefined}
+            >
+              <div ref={summaryBody} className="flow-root">
+                <ContributionMarkdown
+                  summary={story.summary}
+                  references={publicRefs}
+                />
+                {singlePositionDescription && (
+                  <p className="nb-compact mt-3 whitespace-pre-wrap text-muted-foreground">
+                    {singlePositionDescription}
+                  </p>
+                )}
               </div>
-            </section>
-          )}
-          {story.skills.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-1.5" aria-label="Demonstrated skills">
-              {Array.from(new Set(story.skills)).map((s) => (
-                <SkillChip key={s} skill={s} size="sm" />
-              ))}
             </div>
-          )}
-        </div>
+            {summaryClipped && preview.summaryText && (
+              <p className="sr-only">{preview.summaryText}…</p>
+            )}
+          </>
+        )}
+        {hasDetails && (
+          <>
+            <div
+              className={cn("nb-story-preview-block", hasSummary && "mt-3")}
+              data-clipped={detailsClipped || undefined}
+              style={{
+                maxHeight:
+                  expanded || !preview.measured
+                    ? undefined
+                    : preview.detailsLimit,
+              }}
+              inert={detailsClipped || undefined}
+              aria-hidden={detailsClipped || undefined}
+            >
+              <div ref={detailsBody} className="flow-root">
+                {images.length > 0 && gallery}
+                {positions.length > 1 && (
+                  <section
+                    className={images.length ? "mt-4" : undefined}
+                    aria-label="Position history"
+                  >
+                    <h4 className="nb-body mb-1 font-semibold text-balance">
+                      Position history
+                    </h4>
+                    <div className="divide-y divide-border">
+                      {positions.map((p) => (
+                        <div key={p.id} className="py-2.5">
+                          <div className="flex flex-wrap items-baseline justify-between gap-2">
+                            <h5 className="nb-body min-w-0 break-words font-semibold text-balance flex items-center gap-1.5">
+                              {p.title}
+                              {p.recordedStageId && (
+                                <span
+                                  title="Platform verified role"
+                                  className="inline-flex items-center text-blue-500"
+                                >
+                                  <ShieldCheck
+                                    className="size-3.5"
+                                    aria-label="Verified position"
+                                  />
+                                </span>
+                              )}
+                            </h5>
+                            <span className="nb-meta tabular-nums text-muted-foreground">
+                              {storyPeriod(p)}
+                            </span>
+                          </div>
+                          {p.description && (
+                            <p className="nb-compact mt-1 text-muted-foreground whitespace-pre-wrap">
+                              {p.description}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+                {story.skills.length > 0 && (
+                  <div
+                    className={cn(
+                      "flex flex-wrap gap-1.5",
+                      (images.length > 0 || positions.length > 1) && "mt-3",
+                    )}
+                    aria-label="Demonstrated skills"
+                  >
+                    {Array.from(new Set(story.skills)).map((s) => (
+                      <SkillChip key={s} skill={s} size="sm" />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            {detailsClipped && preview.detailsText && (
+              <p className="sr-only">{preview.detailsText}…</p>
+            )}
+          </>
+        )}
       </div>
-      {hasExtra && (
+      {showReveal && (
         <button
           type="button"
           ref={reveal}
@@ -382,8 +512,15 @@ export function ContributionStoryView({
           aria-controls={`contribution-story-${contribution.id}`}
           className="nb-touch-target mt-2 inline-flex items-center gap-1 nb-ui-label text-primary"
           onClick={() => {
+            if (!expanded) setOpenedByReader(true);
             setExpanded((v) => !v);
-            if (expanded) requestAnimationFrame(() => reveal.current?.focus());
+            if (expanded)
+              requestAnimationFrame(() =>
+                restoreContributionPreviewPosition(
+                  article.current,
+                  reveal.current,
+                ),
+              );
           }}
         >
           {expanded ? "Show less" : "Read contribution"}
