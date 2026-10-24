@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { X, ArrowRight, Loader2 } from "lucide-react";
+import { X, ArrowRight, Loader2, Columns2, SlidersHorizontal, Image as ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getFileVersionContentAction } from "@/app/actions/files/versions";
 
@@ -33,7 +33,28 @@ export function FileVersionCompareView({
   const [leftLines, setLeftLines] = React.useState<AlignedLine[]>([]);
   const [rightLines, setRightLines] = React.useState<AlignedLine[]>([]);
 
+  const isImage = React.useMemo(
+    () => /\.(png|jpe?g|webp|gif|svg|avif|bmp|ico)$/i.test(fileName),
+    [fileName],
+  );
+  const [imageMode, setImageMode] = React.useState<"split" | "side-by-side">("split");
+  const [splitPercent, setSplitPercent] = React.useState(50);
+
+  const baseImgUrl = React.useMemo(
+    () => `/api/v1/projects/${encodeURIComponent(projectId)}/files/${encodeURIComponent(nodeId)}/preview?v=${baseVersion}`,
+    [projectId, nodeId, baseVersion],
+  );
+  const targetImgUrl = React.useMemo(
+    () => `/api/v1/projects/${encodeURIComponent(projectId)}/files/${encodeURIComponent(nodeId)}/preview?v=${targetVersion}`,
+    [projectId, nodeId, targetVersion],
+  );
+
   React.useEffect(() => {
+    if (isImage) {
+      setLoading(false);
+      return;
+    }
+
     let active = true;
     setLoading(true);
     setError(null);
@@ -170,7 +191,7 @@ export function FileVersionCompareView({
     return () => {
       active = false;
     };
-  }, [projectId, nodeId, baseVersion, targetVersion]);
+  }, [projectId, nodeId, baseVersion, targetVersion, isImage]);
 
   // Synchronized scroll handlers
   const leftScrollRef = React.useRef<HTMLDivElement>(null);
@@ -231,14 +252,45 @@ export function FileVersionCompareView({
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-3 font-mono text-[11px] font-medium">
-            <span className="flex items-center gap-1.5 text-red-700 dark:text-red-400">
-              <span className="inline-flex size-3.5 items-center justify-center rounded-[2px] bg-red-100 dark:bg-red-950/50 text-[10px] font-bold text-red-600 border border-red-200 dark:border-red-900">−</span> Removed
-            </span>
-            <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
-              <span className="inline-flex size-3.5 items-center justify-center rounded-[2px] bg-emerald-100 dark:bg-emerald-950/50 text-[10px] font-bold text-emerald-600 border border-emerald-200 dark:border-emerald-900">+</span> Added
-            </span>
-          </div>
+          {isImage ? (
+            <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-[5px] border border-border/60">
+              <button
+                type="button"
+                onClick={() => setImageMode("split")}
+                className={cn(
+                  "flex items-center gap-1.5 px-2 py-1 text-xs rounded-[4px] font-medium transition-colors",
+                  imageMode === "split"
+                    ? "bg-background text-foreground shadow-2xs"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <SlidersHorizontal className="h-3 w-3" />
+                <span>Split Slider</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setImageMode("side-by-side")}
+                className={cn(
+                  "flex items-center gap-1.5 px-2 py-1 text-xs rounded-[4px] font-medium transition-colors",
+                  imageMode === "side-by-side"
+                    ? "bg-background text-foreground shadow-2xs"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <Columns2 className="h-3 w-3" />
+                <span>Side-by-Side</span>
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 font-mono text-[11px] font-medium">
+              <span className="flex items-center gap-1.5 text-red-700 dark:text-red-400">
+                <span className="inline-flex size-3.5 items-center justify-center rounded-[2px] bg-red-100 dark:bg-red-950/50 text-[10px] font-bold text-red-600 border border-red-200 dark:border-red-900">−</span> Removed
+              </span>
+              <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
+                <span className="inline-flex size-3.5 items-center justify-center rounded-[2px] bg-emerald-100 dark:bg-emerald-950/50 text-[10px] font-bold text-emerald-600 border border-emerald-200 dark:border-emerald-900">+</span> Added
+              </span>
+            </div>
+          )}
 
           <button
             type="button"
@@ -251,8 +303,82 @@ export function FileVersionCompareView({
         </div>
       </div>
 
-      {/* Aligned Columns Grid */}
-      <div className="flex flex-col md:flex-row flex-1 min-h-0 divide-y md:divide-y-0 md:divide-x divide-border overflow-hidden">
+      {isImage ? (
+        imageMode === "split" ? (
+          /* Split Swipe Slider View */
+          <div className="relative flex-1 min-h-0 w-full overflow-hidden flex items-center justify-center p-6 bg-[repeating-conic-gradient(#80808018_0%_25%,transparent_0%_50%)] bg-[size:16px_16px]">
+            <div className="relative max-h-full max-w-full overflow-hidden rounded-md border border-border/80 shadow-lg select-none">
+              {/* Target image (vTarget) - Base Layer */}
+              <img
+                src={targetImgUrl}
+                alt={`Version ${targetVersion}`}
+                className="max-h-[70vh] max-w-full object-contain block"
+              />
+              {/* Base image (vBase) - Clipped Overlay */}
+              <div
+                className="absolute inset-0 overflow-hidden"
+                style={{ clipPath: `inset(0 ${100 - splitPercent}% 0 0)` }}
+              >
+                <img
+                  src={baseImgUrl}
+                  alt={`Version ${baseVersion}`}
+                  className="max-h-[70vh] max-w-full object-contain block"
+                />
+              </div>
+              {/* Interactive Divider Line */}
+              <div
+                className="absolute top-0 bottom-0 w-0.5 bg-primary pointer-events-none shadow-sm"
+                style={{ left: `${splitPercent}%` }}
+              >
+                <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-6 w-6 rounded-[4px] bg-primary text-primary-foreground flex items-center justify-center shadow-md text-[10px] font-bold">
+                  ↔
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Slider Control Pill */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-background/90 border border-border px-4 py-1.5 rounded-lg shadow-md backdrop-blur-md">
+              <span className="text-[11px] font-mono font-semibold text-muted-foreground">v{baseVersion}</span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={splitPercent}
+                onChange={(e) => setSplitPercent(Number(e.target.value))}
+                className="w-48 h-1.5 cursor-ew-resize accent-primary"
+                title="Drag to compare versions"
+              />
+              <span className="text-[11px] font-mono font-semibold text-primary">v{targetVersion}</span>
+            </div>
+          </div>
+        ) : (
+          /* Side-by-Side Image Comparison View */
+          <div className="flex flex-col md:flex-row flex-1 min-h-0 divide-y md:divide-y-0 md:divide-x divide-border overflow-hidden">
+            <div className="flex-1 flex flex-col items-center justify-center p-6 bg-[repeating-conic-gradient(#80808018_0%_25%,transparent_0%_50%)] bg-[size:16px_16px] overflow-auto">
+              <span className="mb-2 text-xs font-mono font-semibold bg-background/90 px-2.5 py-0.5 rounded border border-border text-muted-foreground shadow-2xs">
+                v{baseVersion} (Base)
+              </span>
+              <img
+                src={baseImgUrl}
+                alt={`Version ${baseVersion}`}
+                className="max-h-[65vh] max-w-full object-contain rounded border border-border/60 shadow-md"
+              />
+            </div>
+            <div className="flex-1 flex flex-col items-center justify-center p-6 bg-[repeating-conic-gradient(#80808018_0%_25%,transparent_0%_50%)] bg-[size:16px_16px] overflow-auto">
+              <span className="mb-2 text-xs font-mono font-semibold bg-background/90 px-2.5 py-0.5 rounded border border-primary/40 text-primary shadow-2xs">
+                v{targetVersion} (Target)
+              </span>
+              <img
+                src={targetImgUrl}
+                alt={`Version ${targetVersion}`}
+                className="max-h-[65vh] max-w-full object-contain rounded border border-border/60 shadow-md"
+              />
+            </div>
+          </div>
+        )
+      ) : (
+        /* Aligned Columns Grid for Text / Code Files */
+        <div className="flex flex-col md:flex-row flex-1 min-h-0 divide-y md:divide-y-0 md:divide-x divide-border overflow-hidden">
         {/* Left Column (Base Content - vBase) */}
         <div
           ref={leftScrollRef}
@@ -321,6 +447,7 @@ export function FileVersionCompareView({
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

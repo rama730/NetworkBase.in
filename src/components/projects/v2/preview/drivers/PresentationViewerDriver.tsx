@@ -15,6 +15,7 @@ import {
   Sliders,
   ZoomIn,
   ZoomOut,
+  LayoutGrid,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,6 +35,7 @@ interface SlideData {
   texts: string[];
   notes?: string;
   imageUrls: string[];
+  tables?: string[][][];
 }
 
 export function PresentationViewerDriver({
@@ -52,6 +54,8 @@ export function PresentationViewerDriver({
   const hudTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const [showNotes, setShowNotes] = React.useState(false);
   const [showThumbnails, setShowThumbnails] = React.useState(true);
+  const [showGrid, setShowGrid] = React.useState(false);
+  const [blankScreen, setBlankScreen] = React.useState<"none" | "black" | "white">("none");
   const [isLegacy, setIsLegacy] = React.useState(false);
 
   const ext = React.useMemo(() => extOf(node.name), [node.name]);
@@ -244,11 +248,43 @@ export function PresentationViewerDriver({
             }
           }
 
+          // Extract structured tables from slide
+          const tables: string[][][] = [];
+          const tableNodes = doc.getElementsByTagName("a:tbl");
+          for (let tblIdx = 0; tblIdx < tableNodes.length; tblIdx++) {
+            const tblNode = tableNodes[tblIdx];
+            if (!tblNode) continue;
+            const rows: string[][] = [];
+            const trNodes = tblNode.getElementsByTagName("a:tr");
+            for (let rIdx = 0; rIdx < trNodes.length; rIdx++) {
+              const trNode = trNodes[rIdx];
+              if (!trNode) continue;
+              const rowCells: string[] = [];
+              const tcNodes = trNode.getElementsByTagName("a:tc");
+              for (let cIdx = 0; cIdx < tcNodes.length; cIdx++) {
+                const tcNode = tcNodes[cIdx];
+                const textNodes = tcNode ? tcNode.getElementsByTagName("a:t") : [];
+                let cellText = "";
+                for (let t = 0; t < textNodes.length; t++) {
+                  cellText += textNodes[t]?.textContent || "";
+                }
+                rowCells.push(cellText.trim());
+              }
+              if (rowCells.some((c) => c !== "")) {
+                rows.push(rowCells);
+              }
+            }
+            if (rows.length > 0) {
+              tables.push(rows);
+            }
+          }
+
           parsedSlides.push({
             index: i + 1,
             title,
             texts,
             imageUrls,
+            tables,
           });
         }
 
@@ -277,6 +313,23 @@ export function PresentationViewerDriver({
     };
   }, [signedUrl]);
 
+
+
+  const toggleFullscreen = React.useCallback(() => {
+    if (!containerRef.current) return;
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen().then(() => {
+        setIsFullscreen(true);
+        setIsHudVisible(true);
+      }).catch(() => {});
+    } else {
+      document.exitFullscreen().then(() => {
+        setIsFullscreen(false);
+        setIsHudVisible(false);
+      }).catch(() => {});
+    }
+  }, []);
+
   // Keyboard navigation shortcuts with input focus protection
   const handleKeyDown = React.useCallback(
     (e: React.KeyboardEvent | KeyboardEvent) => {
@@ -288,7 +341,24 @@ export function PresentationViewerDriver({
         return;
       }
 
-      if (e.key === "ArrowRight" || e.key === "PageDown" || e.key === " ") {
+      if (blankScreen !== "none") {
+        setBlankScreen("none");
+        return;
+      }
+
+      if (e.key === "b" || e.key === "B") {
+        e.preventDefault();
+        setBlankScreen((prev) => (prev === "black" ? "none" : "black"));
+      } else if (e.key === "w" || e.key === "W") {
+        e.preventDefault();
+        setBlankScreen((prev) => (prev === "white" ? "none" : "white"));
+      } else if (e.key === "g" || e.key === "G") {
+        e.preventDefault();
+        setShowGrid((prev) => !prev);
+      } else if (e.key === "Escape" && showGrid) {
+        e.preventDefault();
+        setShowGrid(false);
+      } else if (e.key === "ArrowRight" || e.key === "PageDown" || e.key === " ") {
         e.preventDefault();
         setCurrentSlideIndex((prev) => Math.min(slides.length - 1, prev + 1));
       } else if (e.key === "ArrowLeft" || e.key === "PageUp") {
@@ -308,7 +378,7 @@ export function PresentationViewerDriver({
         setShowNotes((prev) => !prev);
       }
     },
-    [slides.length],
+    [blankScreen, showGrid, slides.length, toggleFullscreen],
   );
 
   React.useEffect(() => {
@@ -337,20 +407,7 @@ export function PresentationViewerDriver({
     }, 2500);
   }, [isFullscreen]);
 
-  const toggleFullscreen = React.useCallback(() => {
-    if (!containerRef.current) return;
-    if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen().then(() => {
-        setIsFullscreen(true);
-        setIsHudVisible(true);
-      }).catch(() => {});
-    } else {
-      document.exitFullscreen().then(() => {
-        setIsFullscreen(false);
-        setIsHudVisible(false);
-      }).catch(() => {});
-    }
-  }, []);
+
 
   React.useEffect(() => {
     const onFsChange = () => {
@@ -502,13 +559,24 @@ export function PresentationViewerDriver({
 
             <Button
               size="sm"
-              variant="ghost"
+              variant={showThumbnails ? "secondary" : "ghost"}
               onClick={() => setShowThumbnails((prev) => !prev)}
               className="h-7 px-2 text-xs"
               title="Toggle Thumbnails"
             >
               <Sliders className="mr-1 h-3.5 w-3.5" />
               <span className="hidden sm:inline">Thumbnails</span>
+            </Button>
+
+            <Button
+              size="sm"
+              variant={showGrid ? "secondary" : "ghost"}
+              onClick={() => setShowGrid((prev) => !prev)}
+              className="h-7 px-2 text-xs"
+              title="Slide Overview Grid (G)"
+            >
+              <LayoutGrid className="mr-1 h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Grid</span>
             </Button>
 
             <Button
@@ -616,6 +684,27 @@ export function PresentationViewerDriver({
                         {para}
                       </p>
                     ))}
+                    {currentSlide.tables && currentSlide.tables.length > 0 && (
+                      <div className="space-y-4 pt-2">
+                        {currentSlide.tables.map((table, tIdx) => (
+                          <div key={tIdx} className="overflow-x-auto rounded-lg border border-border/60 bg-muted/20">
+                            <table className="w-full border-collapse text-left text-xs">
+                              <tbody>
+                                {table.map((row, rIdx) => (
+                                  <tr key={rIdx} className={cn("border-b border-border/40 last:border-b-0", rIdx === 0 && "bg-muted/40 font-semibold")}>
+                                    {row.map((cell, cIdx) => (
+                                      <td key={cIdx} className="border-r border-border/30 last:border-r-0 p-2 text-foreground/90">
+                                        {cell}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -647,7 +736,28 @@ export function PresentationViewerDriver({
                       {para}
                     </p>
                   ))}
-                  {currentSlide.texts.length === 0 && (
+                  {currentSlide.tables && currentSlide.tables.length > 0 && (
+                    <div className="space-y-4 pt-2">
+                      {currentSlide.tables.map((table, tIdx) => (
+                        <div key={tIdx} className="overflow-x-auto rounded-lg border border-border/60 bg-muted/20">
+                          <table className="w-full border-collapse text-left text-xs">
+                            <tbody>
+                              {table.map((row, rIdx) => (
+                                <tr key={rIdx} className={cn("border-b border-border/40 last:border-b-0", rIdx === 0 && "bg-muted/40 font-semibold")}>
+                                  {row.map((cell, cIdx) => (
+                                    <td key={cIdx} className="border-r border-border/30 last:border-r-0 p-2 text-foreground/90">
+                                      {cell}
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {currentSlide.texts.length === 0 && (!currentSlide.tables || currentSlide.tables.length === 0) && (
                     <div className="flex h-full items-center justify-center text-xs text-muted-foreground italic">
                       (Slide contains vector graphics or background design)
                     </div>
@@ -655,6 +765,11 @@ export function PresentationViewerDriver({
                 </div>
               </div>
             )}
+
+            {/* Screen-reader live region for slide announcements */}
+            <div className="sr-only" aria-live="polite" aria-atomic="true">
+              Slide {currentSlideIndex + 1} of {slides.length}: {currentSlide.title}
+            </div>
           </div>
         </div>
 
@@ -790,6 +905,73 @@ export function PresentationViewerDriver({
             <Minimize2 className="mr-1 h-3.5 w-3.5" />
             Exit
           </Button>
+        </div>
+      )}
+
+      {/* Presenter Blackout / Whiteout Mode (B / W keys) */}
+      {blankScreen !== "none" && (
+        <div
+          onClick={() => setBlankScreen("none")}
+          className={cn(
+            "absolute inset-0 z-50 flex items-center justify-center cursor-pointer transition-colors duration-200 select-none",
+            blankScreen === "black" ? "bg-black text-neutral-600" : "bg-white text-neutral-400",
+          )}
+          title="Click to resume presentation"
+        >
+          <span className="text-xs opacity-60">
+            Press any key or click to resume
+          </span>
+        </div>
+      )}
+
+      {/* Slide Overview Grid Overlay (G key) */}
+      {showGrid && (
+        <div className="absolute inset-0 z-40 bg-background/95 backdrop-blur-md p-6 overflow-y-auto app-scroll flex flex-col">
+          <div className="flex items-center justify-between pb-4 border-b border-border">
+            <span className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <LayoutGrid className="h-4 w-4 text-primary" />
+              Slide Overview ({slides.length} slides)
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowGrid(false)}
+              className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded-[3px] border border-border/60 hover:bg-muted"
+            >
+              Close (Esc / G)
+            </button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 pt-4">
+            {slides.map((s, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => {
+                  setCurrentSlideIndex(idx);
+                  setShowGrid(false);
+                }}
+                className={cn(
+                  "group text-left rounded-lg border p-2 transition-all hover:scale-[1.02] flex flex-col gap-1.5 focus:outline-none focus:ring-2 focus:ring-primary",
+                  idx === currentSlideIndex
+                    ? "border-primary bg-primary/10 shadow-xs"
+                    : "border-border/70 bg-card hover:border-primary/50",
+                )}
+              >
+                <div className="aspect-video w-full rounded bg-muted/40 border border-border/40 overflow-hidden flex items-center justify-center p-2">
+                  {s.imageUrls[0] ? (
+                    <img src={s.imageUrls[0]} alt="" className="h-full w-full object-contain" />
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground line-clamp-3">
+                      {s.texts[0] || "(Blank Slide)"}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between text-[11px] w-full">
+                  <span className="font-semibold text-foreground">Slide {s.index}</span>
+                  <span className="text-muted-foreground truncate max-w-[100px]">{s.title}</span>
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>

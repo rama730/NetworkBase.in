@@ -7,6 +7,7 @@ import { resolvePreviewType, type UniversalPreviewType } from "../utils/fileKind
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { logger } from "@/lib/logger";
 
 const ImageViewerDriver = dynamic(
   () => import("./drivers/ImageViewerDriver").then((m) => m.ImageViewerDriver),
@@ -67,6 +68,24 @@ export default function UniversalPreviewEngine({
     () => resolvePreviewType(node),
     [node],
   );
+
+  React.useEffect(() => {
+    logger.metric("preview.opened", {
+      previewType,
+      nodeId: node.id,
+      projectId,
+    });
+  }, [previewType, node.id, projectId]);
+
+  React.useEffect(() => {
+    if (signedUrlError) {
+      logger.error("Preview signed URL failed to resolve", {
+        nodeId: node.id,
+        projectId,
+        error: signedUrlError,
+      });
+    }
+  }, [signedUrlError, node.id, projectId]);
 
   if (signedUrlError) {
     return (
