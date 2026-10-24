@@ -416,6 +416,27 @@ export function PresentationViewerDriver({
             <Button
               size="sm"
               variant="ghost"
+              onClick={() => setAspectRatio((prev) => (prev === "16/9" ? "4/3" : "16/9"))}
+              className="h-7 px-2 text-xs font-mono text-muted-foreground hover:text-foreground"
+              title="Toggle Aspect Ratio (16:9 / 4:3)"
+            >
+              {aspectRatio}
+            </Button>
+
+            <Button
+              size="sm"
+              variant={showNotes ? "secondary" : "ghost"}
+              onClick={() => setShowNotes((prev) => !prev)}
+              className="h-7 px-2 text-xs"
+              title="Toggle Slide Notes & Text Transcript (N)"
+            >
+              <FileText className="mr-1 h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Notes</span>
+            </Button>
+
+            <Button
+              size="sm"
+              variant="ghost"
               onClick={() => setShowThumbnails((prev) => !prev)}
               className="h-7 px-2 text-xs"
               title="Toggle Thumbnails"
@@ -445,93 +466,140 @@ export function PresentationViewerDriver({
         </div>
       )}
 
-      {/* Main Slide Stage + Left Thumbnails */}
+      {/* Main Slide Stage + Left Thumbnails + Notes Drawer */}
       <div className="flex flex-1 min-h-0 overflow-hidden relative">
         {/* Left Thumbnails Strip */}
         {showThumbnails && !isFullscreen && (
-          <div className="w-48 shrink-0 border-r border-border bg-muted/20 p-2 overflow-y-auto app-scroll flex flex-col gap-2">
+          <div className="w-52 shrink-0 border-r border-border bg-muted/20 p-2.5 overflow-y-auto app-scroll flex flex-col gap-2.5">
             {slides.map((slide, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => setCurrentSlideIndex(idx)}
-                className={cn(
-                  "flex flex-col gap-1 rounded-md border p-1.5 text-left transition-all",
-                  currentSlideIndex === idx
-                    ? "border-primary bg-primary/10 ring-1 ring-primary shadow-xs"
-                    : "border-border/60 bg-card hover:border-border hover:bg-muted/50",
-                )}
-              >
-                <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono">
-                  <span>#{slide.index}</span>
-                  <span className="truncate max-w-[100px]">{slide.title}</span>
-                </div>
-                <div className="aspect-video w-full rounded-[3px] bg-muted flex items-center justify-center overflow-hidden border border-border/40 p-1">
-                  {slide.imageUrls.length > 0 ? (
-                    <img src={slide.imageUrls[0]} alt="" className="h-full w-full object-contain" />
-                  ) : (
-                    <span className="text-[9px] text-muted-foreground text-center line-clamp-2 px-1">
-                      {slide.texts[0] || "Slide"}
-                    </span>
+              <div key={idx} className="flex items-center gap-2">
+                <span className="text-xs font-mono text-muted-foreground w-4 text-right shrink-0 select-none">
+                  {idx + 1}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setCurrentSlideIndex(idx)}
+                  className={cn(
+                    "flex-1 aspect-video rounded-md border overflow-hidden transition-all bg-card p-0.5 relative group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                    currentSlideIndex === idx
+                      ? "border-primary ring-2 ring-primary/80 shadow-xs"
+                      : "border-border/60 hover:border-border hover:bg-muted/50",
                   )}
-                </div>
-              </button>
+                  title={`Slide ${idx + 1}`}
+                >
+                  {slide.imageUrls.length > 0 ? (
+                    <img
+                      src={slide.imageUrls[0]}
+                      alt={`Slide ${idx + 1}`}
+                      className="h-full w-full object-contain rounded-[3px] bg-background"
+                    />
+                  ) : (
+                    <div className="h-full w-full rounded-[3px] bg-muted/30 flex items-center justify-center p-2 text-center">
+                      <span className="text-[10px] font-medium text-foreground line-clamp-2">
+                        {slide.title.startsWith("Slide ") ? `Slide ${idx + 1}` : slide.title}
+                      </span>
+                    </div>
+                  )}
+                </button>
+              </div>
             ))}
           </div>
         )}
 
         {/* Center Proportional Slide Stage */}
-        <div className="flex flex-1 items-center justify-center p-4 sm:p-8 overflow-auto bg-muted/10">
+        <div className="flex flex-1 items-center justify-center p-3 sm:p-6 md:p-8 overflow-auto bg-muted/10">
           <div
             style={{
               aspectRatio: aspectRatio === "16/9" ? "16 / 9" : "4 / 3",
             }}
             className={cn(
-              "relative flex flex-col justify-between w-full max-w-5xl rounded-xl border border-border bg-card p-8 sm:p-12 shadow-md overflow-hidden transition-all",
+              "relative flex flex-col items-center justify-center w-full max-w-5xl rounded-xl border border-border bg-card shadow-lg overflow-hidden transition-all",
               isFullscreen && "border-zinc-800 bg-zinc-950 text-white max-w-7xl",
             )}
           >
-            {/* Slide Title */}
-            <div className="border-b border-border/40 pb-4">
-              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground truncate">
-                {currentSlide.title}
-              </h2>
-            </div>
-
-            {/* Slide Body Elements */}
-            <div className="flex-1 my-6 flex flex-col sm:flex-row gap-6 overflow-hidden">
-              <div className="flex-1 space-y-3 overflow-y-auto app-scroll pr-2">
-                {currentSlide.texts.slice(1).map((para, pIdx) => (
-                  <p key={pIdx} className="text-sm sm:text-base leading-relaxed text-foreground/90">
-                    {para}
-                  </p>
-                ))}
-                {currentSlide.texts.length <= 1 && currentSlide.imageUrls.length === 0 && (
-                  <div className="flex h-full items-center justify-center text-xs text-muted-foreground italic">
-                    (Slide contains title only or custom vector shapes)
+            {currentSlide.imageUrls.length > 0 ? (
+              <div className="relative h-full w-full flex items-center justify-center p-2 sm:p-4 bg-background">
+                <img
+                  src={currentSlide.imageUrls[0]}
+                  alt={currentSlide.title}
+                  className="h-full w-full object-contain select-none rounded-lg"
+                />
+              </div>
+            ) : (
+              <div className="flex flex-col justify-between h-full w-full p-8 sm:p-12">
+                {!currentSlide.title.startsWith("Slide ") && (
+                  <div className="border-b border-border/40 pb-4">
+                    <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground truncate">
+                      {currentSlide.title}
+                    </h2>
                   </div>
                 )}
-              </div>
-
-              {/* Embedded Media / Slide Images */}
-              {currentSlide.imageUrls.length > 0 && (
-                <div className="sm:w-1/2 flex items-center justify-center p-2 rounded-lg bg-muted/20 border border-border/40 overflow-hidden">
-                  <img
-                    src={currentSlide.imageUrls[0]}
-                    alt="Slide asset"
-                    className="max-h-64 sm:max-h-80 w-auto object-contain rounded-md"
-                  />
+                <div className="flex-1 my-6 space-y-3 overflow-y-auto app-scroll pr-2">
+                  {currentSlide.texts.map((para, pIdx) => (
+                    <p key={pIdx} className="text-sm sm:text-base leading-relaxed text-foreground/90">
+                      {para}
+                    </p>
+                  ))}
+                  {currentSlide.texts.length === 0 && (
+                    <div className="flex h-full items-center justify-center text-xs text-muted-foreground italic">
+                      (Slide contains vector graphics or background design)
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-
-            {/* Slide Number Watermark */}
-            <div className="flex items-center justify-between text-xs text-muted-foreground pt-4 border-t border-border/40 font-mono">
-              <span>{node.name}</span>
-              <span>{currentSlide.index} / {slides.length}</span>
-            </div>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Speaker Notes / Text Transcript Drawer */}
+        {showNotes && (
+          <div className="w-80 shrink-0 border-l border-border bg-card/95 p-4 overflow-y-auto app-scroll flex flex-col gap-3 backdrop-blur-md">
+            <div className="flex items-center justify-between border-b border-border/60 pb-2">
+              <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <FileText className="h-3.5 w-3.5 text-primary" />
+                Slide {currentSlideIndex + 1} Notes & Transcript
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setShowNotes(false)}
+                className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+              >
+                ✕
+              </Button>
+            </div>
+
+            {currentSlide.notes && (
+              <div className="space-y-1">
+                <span className="text-[11px] font-semibold text-primary uppercase tracking-wider">
+                  Speaker Notes
+                </span>
+                <p className="text-xs text-foreground/90 leading-relaxed whitespace-pre-wrap rounded-md bg-muted/30 p-2.5 border border-border/40">
+                  {currentSlide.notes}
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-1.5 flex-1">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                Extracted Text
+              </span>
+              {currentSlide.texts.length > 0 ? (
+                <div className="space-y-2 text-xs text-muted-foreground leading-relaxed">
+                  {currentSlide.texts.map((t, idx) => (
+                    <p key={idx} className="rounded-md bg-muted/20 p-2 border border-border/30">
+                      {t}
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">
+                  No separate text runs found in slide XML.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Floating Bottom Navigation HUD */}
