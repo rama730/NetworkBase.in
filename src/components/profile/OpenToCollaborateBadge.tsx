@@ -20,6 +20,7 @@ export interface OpenToCollaborateBadgeProps {
     variant?: 'badge' | 'profile-header';
     isOwner?: boolean;
     className?: string;
+    interactive?: boolean;
 }
 
 export function OpenToCollaborateBadge({
@@ -32,11 +33,28 @@ export function OpenToCollaborateBadge({
     variant = 'profile-header',
     isOwner = false,
     className,
+    interactive,
 }: OpenToCollaborateBadgeProps) {
+    const isInteractive = interactive !== undefined ? interactive : variant !== 'profile-header';
     const [open, setOpen] = useState(false);
     const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     if (!openToCollaborate) return null;
+
+    if (!isInteractive) {
+        return (
+            <span
+                data-variant={variant}
+                className={cn(
+                    'nb-person-collaboration',
+                    variant === 'profile-header' && 'nb-person-collaboration--profile',
+                    className
+                )}
+            >
+                <span>Open to collaborate</span>
+            </span>
+        );
+    }
 
     const schedule = (next: boolean, delay: number) => {
         if (timer.current) clearTimeout(timer.current);
