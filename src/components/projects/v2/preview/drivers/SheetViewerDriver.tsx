@@ -26,6 +26,55 @@ function colRefToIndex(cellRef: string): number {
   return col - 1;
 }
 
+/** Offloads heavy decompression and XML parsing to a background Web Worker */
+async function parseWithWorker(
+  buffer: ArrayBuffer,
+): Promise<{ sheets: SheetData[]; isLegacy?: boolean } | null> {
+  if (typeof window === "undefined" || typeof Worker === "undefined") {
+    return null;
+  }
+  return new Promise((resolve) => {
+    try {
+      const worker = new Worker(
+        new URL("../workers/document-parser.worker.ts", import.meta.url)
+      );
+      const id = Math.random().toString(36).slice(2);
+      const timer = setTimeout(() => {
+        try {
+          worker.terminate();
+        } catch {}
+        resolve(null);
+      }, 15000);
+
+      worker.onmessage = (e: MessageEvent<any>) => {
+        if (e.data?.id === id) {
+          clearTimeout(timer);
+          try {
+            worker.terminate();
+          } catch {}
+          if (e.data.success) {
+            resolve({ sheets: e.data.sheets, isLegacy: e.data.isLegacy });
+          } else {
+            resolve(null);
+          }
+        }
+      };
+
+      worker.onerror = () => {
+        clearTimeout(timer);
+        try {
+          worker.terminate();
+        } catch {}
+        resolve(null);
+      };
+
+      worker.postMessage({ id, type: "xlsx", buffer }, [buffer]);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
 export function SheetViewerDriver({
   node,
   signedUrl,
@@ -83,7 +132,21 @@ export function SheetViewerDriver({
           return;
         }
 
-        // XLSX workbook parsing via fflate
+        // Delegate heavy decompression & parsing to background Web Worker
+        const workerResult = await parseWithWorker(buffer.slice(0));
+        if (workerResult) {
+          if (active) {
+            if (workerResult.isLegacy) {
+              setIsLegacy(true);
+            } else {
+              setSheets(workerResult.sheets);
+            }
+            setLoading(false);
+          }
+          return;
+        }
+
+        // Fallback: in-thread XLSX workbook parsing via fflate
         let unzipped: fflate.Unzipped | null = null;
         try {
           unzipped = fflate.unzipSync(uint8);

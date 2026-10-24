@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-24T09:37:41.808Z",
+  "generatedAt": "2026-10-24T17:12:47.621Z",
   "searchTool": "git-grep",
   "repoRoot": "/Users/chrama/Downloads/nb-s3",
   "notes": "Best-effort audit: `unexpected` counts are logged for Task 13 review but do NOT fail the build while `filesTabV3Enabled` is ramping. Task 13.4 / 13.5 must re-run this audit and confirm zero `unexpected` references before any deletion lands.",
@@ -360,13 +360,13 @@
             },
             {
               "file": "src/components/messages/ConversationView.tsx",
-              "line": 359,
+              "line": 386,
               "text": "  const closeTab = async (item: ChannelTabItem) => {",
               "classification": "likely-collision"
             },
             {
               "file": "src/components/messages/ConversationView.tsx",
-              "line": 722,
+              "line": 756,
               "text": "            onCloseTab={(item) => void closeTab(item)}",
               "classification": "likely-collision"
             },
