@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { Bell, Compass, Plus, Search, Sparkles } from 'lucide-react';
 import { Virtuoso, type Components } from 'react-virtuoso';
@@ -17,6 +18,8 @@ import { useSuggestedPeople } from '@/hooks/useConnections';
 
 import ProjectCard from '@/components/projects/ProjectCard';
 import ProjectCardSkeleton from '@/components/projects/ProjectCardSkeleton';
+import DiscoverUpdateCard from '@/components/discover/DiscoverUpdateCard';
+import DiscoverUpdateCardSkeleton from '@/components/discover/DiscoverUpdateCardSkeleton';
 import DiscoverHeader from '@/components/discover/DiscoverHeader';
 import { DiscoverFiltersPanel } from '@/components/discover/DiscoverFiltersPanel';
 import { DiscoverPeopleRail } from '@/components/discover/DiscoverPeopleRail';
@@ -26,13 +29,25 @@ import { AppScrollArea } from '@/components/ui/AppScrollArea';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorNotice } from '@/components/ui/ErrorNotice';
+import { ComponentErrorBoundary } from '@/components/ui/ComponentErrorBoundary';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { FILTER_VIEWS, SORT_OPTIONS } from '@/constants/discover';
 import { ROUTES } from '@/constants/routes';
 import { DISCOVER_RAIL_FILTERS, DISCOVER_RAIL_PEOPLE_LIMIT, type DiscoverQuery } from '@/lib/discover/query';
-import type { User, Project } from '@/types/discover';
+import type { User, Project, DiscoverFeedItem, DiscoverUpdatesPage, DiscoverUpdateView } from '@/types/discover';
 import { queryKeys } from '@/lib/query-keys';
 import type { ConnectionFeedPage, DiscoverConnectionItem } from '@/hooks/useConnections';
 import { toDiscoverUser } from '@/lib/view-models/discover-user';
+import { feedItemKey, interleaveProjectsAndUpdates } from '@/lib/discover/feed-interleaving';
+import { useDiscoverUpdates } from '@/hooks/discover/useDiscoverUpdates';
+import { useDiscoverUpdateThread } from '@/hooks/discover/useDiscoverUpdateThread';
+import { useHiddenUpdates } from '@/hooks/discover/useHiddenUpdates';
+
+// The thread (comments, composer) loads only when someone opens one.
+const DiscoverUpdateThread = dynamic(
+    () => import('@/components/discover/DiscoverUpdateThread').then((mod) => mod.DiscoverUpdateThread),
+    { ssr: false, loading: () => <p role="status" className="nb-meta">Loading thread…</p> },
+);
 
 interface DiscoverClientProps {
     returnUserData: User | null;
@@ -42,11 +57,24 @@ interface DiscoverClientProps {
         hasMore?: boolean;
         renderedAt?: number;
     } | null;
+    initialUpdates?: DiscoverUpdatesPage | null;
+    /** The update a `?updateId=` link points at, read on the server with the feed's own visibility rules. */
+    initialUpdate?: DiscoverUpdateView | null;
+    initialUpdateId?: string | null;
     initialPeopleSuggestions?: ConnectionFeedPage<DiscoverConnectionItem>;
 }
 
 type FeedPage = { projects: Project[]; nextCursor?: string; hasMore: boolean };
-type FeedContext = { loadingMore: boolean; hasMore: boolean; failed: boolean; stale: boolean; ranked: boolean; retry: () => void; restart: () => void; count: number };
+type FeedContext = {
+    loadingMore: boolean;
+    hasMore: boolean;
+    failed: boolean;
+    stale: boolean;
+    ranked: boolean;
+    retry: () => void;
+    restart: () => void;
+    count: number;
+};
 
 const VIRTUOSO_CONTAINER_STYLE = { width: "100%" } as const;
 const VIRTUOSO_INCREASE_VIEWPORT_BY = { top: 1200, bottom: 800 } as const;
@@ -54,7 +82,8 @@ const VIRTUOSO_INCREASE_VIEWPORT_BY = { top: 1200, bottom: 800 } as const;
 // ponytail: the 6 first-paint cards remount once when Virtuoso takes over; mount Virtuoso at first render if that ever shows.
 const FIRST_PAINT_ITEMS = 6;
 const SCROLL_KEY = 'discover-scroll:';
-const computeProjectItemKey = (_: number, project: Project) => project.id;
+
+const computeFeedItemKey = (_: number, item: DiscoverFeedItem) => feedItemKey(item);
 
 // Back/Forward (a history traverse) restores where you were; any other arrival starts at the top.
 let lastTraverseAt = 0;
@@ -66,7 +95,7 @@ const cameBackByHistory = () => {
 };
 
 /** The end of the feed: loading, the end, or a way on when a page failed. */
-const FeedFooter: Components<Project, FeedContext>['Footer'] = ({ context }) => {
+const FeedFooter: Components<DiscoverFeedItem, FeedContext>['Footer'] = ({ context }) => {
     if (!context || context.count === 0) return null;
     return (
         <div className="flex min-h-12 items-center justify-center gap-3 pb-8 pt-2">
@@ -77,14 +106,14 @@ const FeedFooter: Components<Project, FeedContext>['Footer'] = ({ context }) => 
                 </>
             ) : context.failed ? (
                 <>
-                    <span role="status" className="nb-meta">More projects didn&apos;t load.</span>
+                    <span role="status" className="nb-meta">More didn&apos;t load.</span>
                     <Button type="button" variant="outline" size="sm" onClick={context.retry} className="pointer-coarse:h-11">Retry</Button>
                 </>
             ) : context.loadingMore ? (
                 <span role="status" className="nb-meta">Loading more…</span>
             ) : !context.hasMore ? (
                 // Trending and For you are a ranked top list, not every project.
-                <span role="status" className="nb-meta">{context.ranked ? "That's the top of this list for now." : "You've seen every project here."}</span>
+                <span role="status" className="nb-meta">{context.ranked ? "That's the top of this list for now." : "You've seen everything here."}</span>
             ) : null}
         </div>
     );
@@ -94,13 +123,22 @@ const virtuosoComponents = { Footer: FeedFooter };
 function FeedSkeleton() {
     return (
         <div role="status" className="flex flex-col gap-4">
-            <span className="sr-only">Loading projects…</span>
-            {[1, 2, 3, 4].map((item) => <ProjectCardSkeleton key={item} />)}
+            <span className="sr-only">Loading the feed…</span>
+            {[1, 2, 3].map((item) => <ProjectCardSkeleton key={item} />)}
+            <DiscoverUpdateCardSkeleton />
+            <ProjectCardSkeleton />
         </div>
     );
 }
 
-export default function DiscoverClient({ returnUserData, initialProjectsPage, initialPeopleSuggestions }: DiscoverClientProps) {
+export default function DiscoverClient({
+    returnUserData,
+    initialProjectsPage,
+    initialUpdates,
+    initialUpdate,
+    initialUpdateId,
+    initialPeopleSuggestions,
+}: DiscoverClientProps) {
     const queryClient = useQueryClient();
     const { user } = useAuth();
     const currentUser = useMemo(() => toDiscoverUser(user, returnUserData), [user, returnUserData]);
@@ -115,12 +153,9 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
     // One history entry per visit to the Filters drawer: its first change pushes, the rest replace.
     const drawerPushed = useRef(false);
 
-    // ---- The rail: shown only at 1200px+ and only with something in it (people).
     const wide = useMediaQuery('(min-width: 1200px)');
     const suggestions = useSuggestedPeople(DISCOVER_RAIL_PEOPLE_LIMIT, undefined, DISCOVER_RAIL_FILTERS, initialPeopleSuggestions, false, true);
     const hasPeople = Boolean(viewerId) && (suggestions.isLoading || (suggestions.data?.pages[0]?.items.length ?? 0) > 0 || suggestions.isError);
-    // Before hydration knows the width, CSS decides (the rail column is hidden below 1200px).
-    const showRail = wide !== false && hasPeople;
 
     const filters = useMemo(() => ({
         status,
@@ -163,10 +198,35 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
         const seen = new Set<string>();
         return (data?.pages ?? []).flatMap((page) => page.projects).filter((project) => !seen.has(project.id) && Boolean(seen.add(project.id)));
     }, [data]);
+
     const visibleProjects = useMemo(
         () => (hideOpened ? allProjects.filter((project) => !hiddenIds.has(project.id)) : allProjects),
         [allProjects, hideOpened, hiddenIds],
     );
+
+    // Update cards: paged next to the projects, kept a little ahead of how far they have loaded.
+    const { updates } = useDiscoverUpdates({
+        viewerId,
+        filters,
+        view,
+        isDefault,
+        loadedProjects: allProjects.length,
+        initialPage: initialUpdates,
+    });
+    const { hidden: hiddenUpdates, hide: hideUpdate } = useHiddenUpdates();
+    // "Hide opened" hides an update along with the project it belongs to.
+    const shownUpdates = useMemo(
+        () => updates.filter((update) => !hiddenUpdates.has(update.id) && !(hideOpened && hiddenIds.has(update.projectId))),
+        [hiddenIds, hiddenUpdates, hideOpened, updates],
+    );
+    const feedItems = useMemo<DiscoverFeedItem[]>(() => interleaveProjectsAndUpdates(visibleProjects, shownUpdates), [visibleProjects, shownUpdates]);
+
+    const updatesQueryKey = queryKeys.discover.pulse(viewerId, view, filters);
+    const thread = useDiscoverUpdateThread({ viewerId, loaded: updates, initialUpdateId, initialUpdate });
+    // Signed-out viewers have no people to suggest, but keep the rail column anyway when updates are showing, so
+    // opening a thread doesn't squeeze the feed from under the cursor.
+    const showRail = wide !== false && (hasPeople || Boolean(thread.selectedId) || shownUpdates.length > 0);
+
     const pageIds = useMemo(() => (data?.pages ?? []).map((page) => page.projects.map((project) => project.id)), [data]);
     const followed = useUserFollowedProjects(viewerId, pageIds);
     const myApplications = useMyApplicationStates(viewerId, pageIds);
@@ -192,7 +252,18 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
                     })),
                 }));
             }
+            if (coverImage !== undefined) {
+                // Update cards carry the project's cover too.
+                queryClient.setQueriesData<any>({ queryKey: queryKeys.discover.pulseRoot() }, (old: InfiniteData<DiscoverUpdatesPage> | undefined) => old && Array.isArray(old.pages) && ({
+                    ...old,
+                    pages: old.pages.map((page) => ({
+                        ...page,
+                        updates: page.updates.map((update) => (update.projectId === targetId || update.projectSlug === targetId ? { ...update, projectCoverImage: coverImage } : update)),
+                    })),
+                }));
+            }
             void queryClient.invalidateQueries({ queryKey: queryKeys.discover.projectsSimpleRoot(), refetchType: 'none' });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.discover.pulseRoot(), refetchType: 'none' });
         };
         const onEvent = (event: Event) => patchCover((event as CustomEvent<{ projectId?: string; update?: { coverImage?: string | null } }>).detail);
         window.addEventListener("nb-project-updated", onEvent);
@@ -214,6 +285,7 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
     const scrollContainerRef = useCallback((node: HTMLDivElement | null) => setScrollContainer((prev) => (prev === node ? prev : node)), []);
     const feedKey = JSON.stringify([view, filters, hideOpened]);
     const lastFeedKey = useRef<string | null>(null);
+
     useEffect(() => {
         if (!scrollContainer) return;
         const storageKey = `${SCROLL_KEY}${window.location.search}`;
@@ -248,6 +320,15 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
         };
     }, [feedKey, scrollContainer]);
 
+    // A new scope or filter starts a different list: the open thread belongs to the old one.
+    const resetThread = thread.reset;
+    const threadFeedKey = useRef(feedKey);
+    useEffect(() => {
+        if (threadFeedKey.current === feedKey) return;
+        threadFeedKey.current = feedKey;
+        resetThread();
+    }, [feedKey, resetThread]);
+
     const handleEndReached = useCallback(() => {
         if (hasNextPage && !isFetchingNextPage && !isFetchNextPageError) void fetchNextPage();
     }, [hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage]);
@@ -267,22 +348,44 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
         ranked: view === FILTER_VIEWS.TRENDING || view === FILTER_VIEWS.RECOMMENDATIONS,
         retry: () => void fetchNextPage(),
         restart: restartFeed,
-        count: visibleProjects.length,
-    }), [fetchNextPage, hasNextPage, isFetchNextPageError, isFetchingNextPage, restartFeed, staleFeed, view, visibleProjects.length]);
+        count: feedItems.length,
+    }), [fetchNextPage, hasNextPage, isFetchNextPageError, isFetchingNextPage, restartFeed, staleFeed, view, feedItems.length]);
 
     const following = view === FILTER_VIEWS.FOLLOWING;
-    const renderProjectItem = useCallback((_: number, project: Project) => (
-        <div className="pb-4">
-            <ProjectCard
-                project={project}
-                // In Following every card is followed; no flash of "not following" while that loads.
-                isFollowing={following || followed.has(project.id)}
-                followersCount={project.followersCount}
-                applicationChip={myApplications.get(project.id)}
-                onOpenProject={markSeen}
-            />
-        </div>
-    ), [followed, following, markSeen, myApplications]);
+
+    // A project card or an update card.
+    const renderFeedItem = useCallback((_: number, item: DiscoverFeedItem) => {
+        if (item.kind === 'update') {
+            return (
+                <div className="pb-4">
+                    {/* One card that throws must not take the whole list down with it. */}
+                    <ComponentErrorBoundary fallbackMessage="This update couldn't be shown.">
+                        <DiscoverUpdateCard
+                            update={item.data}
+                            viewerId={viewerId}
+                            onOpen={thread.open}
+                            onHide={hideUpdate}
+                            onVisitProject={markSeen}
+                        />
+                    </ComponentErrorBoundary>
+                </div>
+            );
+        }
+
+        const project = item.data;
+        return (
+            <div className="pb-4">
+                <ProjectCard
+                    project={project}
+                    // In Following every card is followed; no flash of "not following" while that loads.
+                    isFollowing={following || followed.has(project.id)}
+                    followersCount={project.followersCount}
+                    applicationChip={myApplications.get(project.id)}
+                    onOpenProject={markSeen}
+                />
+            </div>
+        );
+    }, [followed, following, hideUpdate, markSeen, myApplications, thread.open, viewerId]);
 
     // Clearing moves focus to the feed's heading, so it never drops to the page body.
     const focusFeed = useCallback(() => requestAnimationFrame(() => feedHeading.current?.focus()), []);
@@ -293,15 +396,16 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
 
     // Said once results settle after a search, scope or filter change: "12 projects", "No projects match".
     const settled = !isFetching && !isPlaceholderData && !error;
+    const plus = hasNextPage ? '+' : '';
     const announcement = settled && (!isDefault || hideOpened)
-        ? visibleProjects.length
-            ? `${visibleProjects.length}${hasNextPage ? '+' : ''} ${visibleProjects.length === 1 && !hasNextPage ? 'project' : 'projects'}`
+        ? feedItems.length
+            ? `${visibleProjects.length}${plus} ${visibleProjects.length === 1 && !hasNextPage ? 'project' : 'projects'}${shownUpdates.length ? ` and ${shownUpdates.length}${plus} ${shownUpdates.length === 1 && !hasNextPage ? 'update' : 'updates'}` : ''}`
             : 'No projects match'
         : '';
 
     const emptyState = (() => {
         if (q || activeFilters) {
-            return <EmptyState icon={Search} title="No projects match" description="Try other words or fewer filters." action={<Button type="button" variant="outline" onClick={clearAll}>{q ? 'Clear search and filters' : 'Clear filters'}</Button>} />;
+            return <EmptyState icon={Search} title="Nothing matches" description="Try other words or fewer filters." action={<Button type="button" variant="outline" onClick={clearAll}>{q ? 'Clear search and filters' : 'Clear filters'}</Button>} />;
         }
         if (view === FILTER_VIEWS.FOLLOWING) {
             return <EmptyState icon={Bell} title="Projects you follow show up here" description="Follow a project to get its updates in this view." action={<Button type="button" variant="outline" onClick={() => { updateUrlFilters({ view: FILTER_VIEWS.ALL }); focusFeed(); }}>Browse all projects</Button>} />;
@@ -314,6 +418,7 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
 
     const firstPageError = error && visibleProjects.length === 0;
     const showSkeleton = (isLoading && !data) || showThresholdSkeleton || (visibleProjects.length === 0 && isQueryTransition);
+
     const feed = showSkeleton ? (
         <FeedSkeleton />
     ) : firstPageError ? (
@@ -326,7 +431,7 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
                 onRetry={() => void refetch()}
             />
         )
-    ) : visibleProjects.length === 0 ? (
+    ) : feedItems.length === 0 ? (
         emptyState
     ) : (
         <div aria-busy={isQueryTransition || undefined}>
@@ -334,17 +439,19 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
                 <Virtuoso
                     customScrollParent={scrollContainer}
                     style={VIRTUOSO_CONTAINER_STYLE}
-                    data={visibleProjects}
+                    data={feedItems}
                     context={feedContext}
-                    computeItemKey={computeProjectItemKey}
-                    initialItemCount={Math.min(FIRST_PAINT_ITEMS, visibleProjects.length)}
+                    computeItemKey={computeFeedItemKey}
+                    initialItemCount={Math.min(FIRST_PAINT_ITEMS, feedItems.length)}
                     increaseViewportBy={VIRTUOSO_INCREASE_VIEWPORT_BY}
                     endReached={handleEndReached}
                     components={virtuosoComponents}
-                    itemContent={renderProjectItem}
+                    itemContent={renderFeedItem}
                 />
             ) : (
-                visibleProjects.slice(0, FIRST_PAINT_ITEMS).map((project, index) => <div key={project.id}>{renderProjectItem(index, project)}</div>)
+                feedItems.slice(0, FIRST_PAINT_ITEMS).map((item, index) => (
+                    <div key={computeFeedItemKey(index, item)}>{renderFeedItem(index, item)}</div>
+                ))
             )}
         </div>
     );
@@ -383,19 +490,63 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
                                 people={people}
                             />
                         </div>
-                        <h2 ref={feedHeading} id="discover-feed" tabIndex={-1} className="sr-only">Projects</h2>
+                        <h2 ref={feedHeading} id="discover-feed" tabIndex={-1} className="sr-only">Projects and updates</h2>
                         {feed}
                         {/* With no rail beside the feed, the legal links close the page instead. */}
                         {showRail ? null : <div className="pt-6">{legal}</div>}
                     </div>
+
                     {showRail ? (
-                        <DiscoverRail scrollContainer={scrollContainer}>
-                            {hasPeople ? <DiscoverPeopleRail initialPage={initialPeopleSuggestions} variant="desktop" /> : null}
-                            <div className="pt-2">{legal}</div>
+                        <DiscoverRail scrollContainer={scrollContainer} label={thread.selectedId ? 'Update thread' : undefined}>
+                            {thread.selected ? (
+                                <div className="animate-in fade-in slide-in-from-right-2 duration-180">
+                                    <DiscoverUpdateThread
+                                        key={thread.selected.id}
+                                        update={thread.selected}
+                                        viewerId={viewerId}
+                                        currentUserName={currentUser?.fullName}
+                                        currentUserAvatarUrl={currentUser?.avatarUrl}
+                                        updatesQueryKey={updatesQueryKey}
+                                        onClose={thread.close}
+                                    />
+                                </div>
+                            ) : thread.loading ? (
+                                <p role="status" className="nb-meta">Loading update…</p>
+                            ) : (
+                                <>
+                                    {hasPeople ? <DiscoverPeopleRail initialPage={initialPeopleSuggestions} variant="desktop" /> : null}
+                                    <div className="pt-2">{legal}</div>
+                                </>
+                            )}
                         </DiscoverRail>
                     ) : null}
                 </div>
             </div>
+
+            {/* Below 1200px the thread opens in a drawer. */}
+            <Dialog
+                open={Boolean(thread.selected && wide === false)}
+                onOpenChange={(open) => {
+                    if (!open) thread.close();
+                }}
+            >
+                <DialogContent presentation="right-drawer" showCloseButton={false} className="w-full max-w-lg overflow-y-auto p-4">
+                    <DialogTitle className="sr-only">Update thread</DialogTitle>
+                    <DialogDescription className="sr-only">An update and its comments.</DialogDescription>
+                    {thread.selected ? (
+                        <DiscoverUpdateThread
+                            key={thread.selected.id}
+                            update={thread.selected}
+                            viewerId={viewerId}
+                            currentUserName={currentUser?.fullName}
+                            currentUserAvatarUrl={currentUser?.avatarUrl}
+                            updatesQueryKey={updatesQueryKey}
+                            onClose={thread.close}
+                        />
+                    ) : null}
+                </DialogContent>
+            </Dialog>
+
             <DiscoverFiltersPanel
                 open={filtersOpen}
                 onOpenChange={(open) => {

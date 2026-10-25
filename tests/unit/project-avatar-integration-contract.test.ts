@@ -268,9 +268,10 @@ test("Discovery feed smooth scrolling & Virtuoso stability contract", () => {
 
     // 3. DiscoverClient provides stable memoized Virtuoso props (no inline component remounting)
     assert.match(hubClientSource, /const VIRTUOSO_CONTAINER_STYLE = \{ width: "100%" \} as const;/);
-    assert.match(hubClientSource, /const computeProjectItemKey = \(_: number, project: Project\) => project\.id;/);
+    // Keys are namespaced per kind (project / update), so an id can never collide across the two.
+    assert.match(hubClientSource, /const computeFeedItemKey = \(_: number, item: DiscoverFeedItem\) => feedItemKey\(item\);/);
     assert.match(hubClientSource, /components=\{virtuosoComponents\}/);
-    assert.match(hubClientSource, /itemContent=\{renderProjectItem\}/);
+    assert.match(hubClientSource, /itemContent=\{renderFeedItem\}/);
 
     // 4. ProjectPresenceDot shares activity channel to avoid channel churn during fast scrolling
     assert.match(avatarSource, /let sharedPresenceChannel: BroadcastChannel \| null = null;/);

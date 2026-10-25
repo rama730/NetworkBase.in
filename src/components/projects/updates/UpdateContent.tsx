@@ -12,6 +12,9 @@ import {
 import { type ProjectUpdateMediaItem } from "@/lib/projects/updates";
 import { cn } from "@/lib/utils";
 import { splitMarkdownByInlineReferences } from "@/lib/projects/doc-blocks";
+import { isSafeHttpUrl } from "@/lib/security/urls";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 type UpdateReferenceLinkKind = "task" | "sprint" | "file";
 
@@ -105,6 +108,13 @@ function ReferenceLink({
   );
 }
 
+const REFERENCE_HREF = /^#nb-update-ref-(\d+)$/;
+
+/**
+ * An update's text as the author wrote it: Markdown (bold, lists, links, code), with inline `#task`-style
+ * references still resolving through their access check. Raw HTML and images are dropped, and only safe web
+ * links are clickable, the same rules as profile stories.
+ */
 export function ProjectUpdateContent({
   content,
   projectId,
@@ -117,19 +127,52 @@ export function ProjectUpdateContent({
   className?: string;
 }) {
   if (!content.trim()) return null;
+  // References become placeholder links in one Markdown pass, so paragraphs and lists stay whole around them.
+  const references: Array<{ kind: string; id: string; label: string }> = [];
+  const markdown = splitMarkdownByInlineReferences(content)
+    .map((segment) => {
+      if (segment.kind === "markdown") return segment.content;
+      references.push(segment.reference);
+      return `[${segment.reference.label.replace(/[\[\]\\*_`<>]/g, "")}](#nb-update-ref-${references.length - 1})`;
+    })
+    .join("");
+
   return (
     <div className={className}>
-      {splitMarkdownByInlineReferences(content).map((segment, i) => {
-        if (segment.kind === "markdown") return <span key={i}>{segment.content}</span>;
-        return (
-          <ReferenceLink
-            key={i}
-            reference={segment.reference}
-            projectId={projectId}
-            projectSlug={projectSlug}
-          />
-        );
-      })}
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        skipHtml
+        components={{
+          img: () => null,
+          a: ({ href, children }) => {
+            const match = REFERENCE_HREF.exec(href ?? "");
+            const reference = match ? references[Number(match[1])] : null;
+            if (reference) {
+              return <ReferenceLink reference={reference} projectId={projectId} projectSlug={projectSlug} />;
+            }
+            if (!href || !isSafeHttpUrl(href)) return <span>{children}</span>;
+            return (
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(event) => event.stopPropagation()}
+                className="text-primary underline underline-offset-2 break-words"
+              >
+                {children}
+              </a>
+            );
+          },
+          ul: ({ children }) => <ul className="list-disc pl-5">{children}</ul>,
+          ol: ({ children }) => <ol className="list-decimal pl-5">{children}</ol>,
+          code: ({ children }) => <code className="rounded-[3px] bg-muted px-1 py-px font-mono text-[0.9em]">{children}</code>,
+          h1: ({ children }) => <p className="font-semibold">{children}</p>,
+          h2: ({ children }) => <p className="font-semibold">{children}</p>,
+          h3: ({ children }) => <p className="font-semibold">{children}</p>,
+        }}
+      >
+        {markdown}
+      </ReactMarkdown>
     </div>
   );
 }

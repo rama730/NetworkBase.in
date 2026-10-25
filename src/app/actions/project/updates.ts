@@ -1,5 +1,6 @@
 "use server";
 
+import { readProjectRoleTitles, roleTitleKey } from "@/lib/projects/update-roles";
 import { randomUUID } from "node:crypto";
 import { alias } from "drizzle-orm/pg-core";
 import {
@@ -441,103 +442,14 @@ function normalizeMetadata(value: unknown): Record<string, unknown> {
         : {};
 }
 
-function pickSpecificRoleTitle(value: unknown) {
-    const roleTitle = sanitizeProjectUpdateRoleTitle(value);
-    return roleTitle && !isGenericProjectUpdateRoleTitle(roleTitle) ? roleTitle : null;
-}
-
-function setRoleTitleIfEmpty(map: Map<string, string>, userId: string | null, value: unknown) {
-    if (!userId || map.has(userId)) return;
-    const roleTitle = pickSpecificRoleTitle(value);
-    if (roleTitle) map.set(userId, roleTitle);
-}
-
 async function readProjectRoleTitleMap(projectId: string, userIds: Array<string | null | undefined>) {
-    const ids = Array.from(new Set(userIds.filter((id): id is string => typeof id === "string" && id.length > 0)));
-    const roleTitles = new Map<string, string>();
-    if (ids.length === 0) return roleTitles;
-
-    const [stageRows, contributionRows, profileRows, projectRows] = await Promise.all([
-        db.select({
-            userId: profileProjectContributionStages.profileId,
-            roleTitle: profileProjectContributionStages.roleTitle,
-        })
-        .from(profileProjectContributionStages)
-        .innerJoin(
-            profileProjectContributions,
-            eq(profileProjectContributions.id, profileProjectContributionStages.contributionId),
-        )
-        .where(and(
-            eq(profileProjectContributionStages.projectId, projectId),
-            inArray(profileProjectContributionStages.profileId, ids),
-            isNull(profileProjectContributionStages.deletedAt),
-            isNull(profileProjectContributionStages.endedAt),
-            isNull(profileProjectContributions.deletedAt),
-            isNull(profileProjectContributions.endedAt),
-            eq(profileProjectContributions.visibility, "public"),
-        ))
-        .orderBy(
-            sql`${profileProjectContributionStages.verifiedAt} DESC NULLS LAST`,
-            sql`${profileProjectContributionStages.startedAt} DESC NULLS LAST`,
-            desc(profileProjectContributionStages.updatedAt),
-        ),
-
-        db.select({
-            userId: profileProjectContributions.profileId,
-            roleTitle: profileProjectContributions.roleTitle,
-        })
-        .from(profileProjectContributions)
-        .where(and(
-            eq(profileProjectContributions.projectId, projectId),
-            inArray(profileProjectContributions.profileId, ids),
-            isNull(profileProjectContributions.deletedAt),
-            isNull(profileProjectContributions.endedAt),
-            eq(profileProjectContributions.visibility, "public"),
-        ))
-        .orderBy(
-            sql`${profileProjectContributions.verifiedAt} DESC NULLS LAST`,
-            desc(profileProjectContributions.updatedAt),
-        ),
-
-        db.select({
-            userId: profiles.id,
-            roleTitle: profiles.headline,
-        })
-        .from(profiles)
-        .where(inArray(profiles.id, ids)),
-
-        db.select({
-            ownerId: projects.ownerId,
-            leadFocus: sql<string | null>`${projects.importSource}->'metadata'->>'leadFocus'`,
-        })
-        .from(projects)
-        .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
-        .limit(1)
-    ]);
-
-    const projectRow = projectRows[0];
-
-    // Priority 1: Active Contribution Stages
-    for (const row of stageRows) {
-        setRoleTitleIfEmpty(roleTitles, row.userId, row.roleTitle);
+    const titles = await readProjectRoleTitles(userIds.map((userId) => ({ projectId, userId })));
+    const byUser = new Map<string, string>();
+    for (const userId of userIds) {
+        const title = userId ? titles.get(roleTitleKey(projectId, userId)) : null;
+        if (userId && title) byUser.set(userId, title);
     }
-
-    // Priority 2: Active Contributions
-    for (const row of contributionRows) {
-        setRoleTitleIfEmpty(roleTitles, row.userId, row.roleTitle);
-    }
-
-    // Priority 3: Project Owner's Lead Focus (resolves mismatch with TeamCard)
-    if (projectRow?.ownerId && ids.includes(projectRow.ownerId)) {
-        setRoleTitleIfEmpty(roleTitles, projectRow.ownerId, projectRow.leadFocus);
-    }
-
-    // Priority 4: Global Profile Headline (Lowest priority)
-    for (const row of profileRows) {
-        setRoleTitleIfEmpty(roleTitles, row.userId, row.roleTitle);
-    }
-
-    return roleTitles;
+    return byUser;
 }
 
 async function hydrateUpdateRowsWithRoleTitles<T extends { authorId: string | null }>(
@@ -1824,6 +1736,9 @@ export async function toggleProjectUpdateLikeAction(projectId: string, updateId:
     try {
         const viewer = await getViewerAuthContext();
         if (!viewer.userId) return { success: false as const, error: "Please log in to like updates." };
+        // Each toggle is several statements; a tap loop shouldn't be able to hammer them.
+        const rate = await consumeRateLimit(`project-update:like:${viewer.userId}`, 120, 60);
+        if (!rate.allowed) return { success: false as const, error: "Too many likes. Please wait a moment and try again." };
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
         if (!access.canRead || !access.project) return { success: false as const, error: "Project update unavailable." };
         const [update] = await db

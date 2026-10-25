@@ -19,7 +19,8 @@ import {
     Trash2,
 } from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
-import { deleteProjectUpdateAction, editProjectUpdateAction, toggleProjectUpdateLikeAction, toggleProjectUpdatePinAction, type ProjectUpdateView } from "@/app/actions/project/updates";
+import { useToggleUpdateLike } from "@/hooks/useToggleUpdateLike";
+import { deleteProjectUpdateAction, editProjectUpdateAction, toggleProjectUpdatePinAction, type ProjectUpdateView } from "@/app/actions/project/updates";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -66,57 +67,7 @@ function UpdateCard({
     draft.trim() || updateContextItems(update).length > 0 || update.media.length > 0,
   );
 
-  const likeMutation = useMutation({
-    mutationFn: async () => {
-      const result = await toggleProjectUpdateLikeAction(projectId, update.id);
-      if (!result.success)
-        throw new Error(result.error || "Failed to update like");
-      return result;
-    },
-    onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: updatesQueryKey });
-      const previous =
-        queryClient.getQueryData<InfiniteData<UpdatesPage>>(updatesQueryKey);
-      queryClient.setQueryData(
-        updatesQueryKey,
-        (existing: InfiniteData<UpdatesPage> | undefined) =>
-          updatePages(existing, (item) =>
-            item.id === update.id
-              ? {
-                  ...item,
-                  likedByViewer: !item.likedByViewer,
-                  likeCount: item.likedByViewer
-                    ? Math.max(0, item.likeCount - 1)
-                    : item.likeCount + 1,
-                }
-              : item,
-          ),
-      );
-      return { previous };
-    },
-    onError: (error, _vars, context) => {
-      if (context?.previous)
-        queryClient.setQueryData(updatesQueryKey, context.previous);
-      toast.error(
-        feedbackError(error instanceof Error ? error.message : "Failed to update like", "Failed to update like"),
-      );
-    },
-    onSuccess: (result) => {
-      queryClient.setQueryData(
-        updatesQueryKey,
-        (existing: InfiniteData<UpdatesPage> | undefined) =>
-          updatePages(existing, (item) =>
-            item.id === update.id
-              ? {
-                  ...item,
-                  likedByViewer: result.liked,
-                  likeCount: result.likeCount,
-                }
-              : item,
-          ),
-      );
-    },
-  });
+  const like = useToggleUpdateLike(projectId, update.id);
 
   const editMutation = useMutation({
     mutationFn: async () => {
@@ -373,7 +324,7 @@ function UpdateCard({
                 type="button"
                 onClick={() =>
                   currentUserId
-                    ? likeMutation.mutate()
+                    ? like.toggle()
                     : toast.error("Please log in to like updates")
                 }
                 className={cn(

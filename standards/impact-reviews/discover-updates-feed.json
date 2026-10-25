@@ -1,0 +1,54 @@
+{
+  "id": "impact-2026-10-26-discover-updates-feed",
+  "title": "Project update cards in the Discover feed",
+  "summary": "Adds paged, filtered project-update cards to the Discover feed and an in-place thread, read through two rate-limited GET routes that apply the project page's own visibility rules (project visibility and status, hidden Updates tab, blocks, private-author masking). Adds a feed index on project_updates and keeps e2e fixture accounts out of the People rail.",
+  "riskLevel": "high",
+  "runtimePlanes": [
+    "request",
+    "database"
+  ],
+  "routeClasses": [
+    "active_surface"
+  ],
+  "dataSourcesChanged": [
+    "project_updates",
+    "project_update_comments",
+    "project_update_likes"
+  ],
+  "canonicalLogicDomains": [
+    "profile_display"
+  ],
+  "concurrencyRisk": "Low. Reads are keyset-paged and uncached per viewer, so like state cannot leak between viewers. The like and comment caches are patched optimistically and reconciled with the server's answer; a failure restores the exact earlier cache state.",
+  "observability": {
+    "metrics": [],
+    "logs": [
+      "discover_updates.read_failed",
+      "discover_updates.single_read_failed"
+    ],
+    "alerts": []
+  },
+  "rollback": {
+    "strategy": "Remove the update branch from DiscoverClient (feed items become projects only) and delete the /api/v1/discover/updates routes. The index in 0242 is additive and can stay or be dropped with DROP INDEX CONCURRENTLY project_updates_discover_feed_idx.",
+    "validation": [
+      "npm run typecheck",
+      "npm run test:unit",
+      "npm run check:impact-review"
+    ]
+  },
+  "evidence": {
+    "commands": [
+      "npm run typecheck",
+      "npx tsx --test tests/unit/discover-update-ui.test.ts tests/unit/discover-updates-interleaving.test.ts",
+      "npm run test:db -- tests/db/discover-updates.test.ts"
+    ],
+    "reports": []
+  },
+  "paths": [
+    "src/app/api/v1/discover/updates",
+    "src/app/actions/project/updates.ts",
+    "src/app/actions/connections.ts",
+    "drizzle/0242_discover_updates_feed_index.sql",
+    "standards/impact-reviews/discover-updates-feed.json",
+    "tests/db/discover-updates.test.ts"
+  ]
+}
