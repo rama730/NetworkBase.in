@@ -5,24 +5,15 @@ import { Globe, Loader2, MapPin } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import ChipSelector from '@/components/onboarding/ChipSelector'
+import { GenderChoice } from '@/components/profile/GenderChoice'
 import { urlFieldError } from '@/lib/onboarding/block-reason'
 import {
-  ONBOARDING_GENDER_VALUES,
   ONBOARDING_SOCIAL_KEYS,
-  type OnboardingGenderIdentity,
   type OnboardingSocialLinkKey,
 } from '@/lib/onboarding/contracts'
 import type { OnboardingData } from '@/lib/onboarding/form-data'
 import { PROFILE_FIELD_LIMITS as LIMITS } from '@/lib/validations/profile-fields'
 import { EXPERIENCE_LEVEL_OPTIONS, ROLE_PREFERENCE_OPTIONS, WEEKLY_CAPACITY_OPTIONS } from '@/lib/profile/role-preferences'
-
-const GENDER_LABELS: Record<OnboardingGenderIdentity, string> = {
-  male: 'Male',
-  female: 'Female',
-  non_binary: 'Non-binary',
-  other: 'Other',
-  prefer_not_to_say: 'Prefer not to say',
-}
 
 const SOCIAL_FIELDS: Record<OnboardingSocialLinkKey, { label: string; placeholder: string }> = {
   github: { label: 'GitHub', placeholder: 'github.com/' },
@@ -237,43 +228,7 @@ export default function Step2Details({
 
       <section aria-labelledby="onb-about" className="flex flex-col gap-6">
         <SectionHeading id="onb-about" kicker="About you" title="How you identify" description="Optional, and you can change it from your profile later." />
-        <fieldset className="onb-field">
-          <legend className="onb-field-label">Gender</legend>
-          <p id="gender-hint" className="onb-field-hint">Choose “Prefer not to say” or leave this blank.</p>
-          <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-describedby="gender-hint">
-            {ONBOARDING_GENDER_VALUES.map((value) => (
-              <label
-                key={value}
-                className={cn(
-                  'inline-flex min-h-11 cursor-pointer select-none items-center rounded-full border px-4 text-[13px] font-medium leading-none transition-colors',
-                  'has-[:focus-visible]:underline has-[:focus-visible]:decoration-2 has-[:focus-visible]:underline-offset-4',
-                  data.genderIdentity === value
-                    ? 'border-foreground bg-foreground text-background'
-                    : 'border-border bg-card text-foreground hover:border-foreground/40 hover:bg-muted',
-                )}
-              >
-                <input
-                  type="radio"
-                  name="genderIdentity"
-                  value={value}
-                  checked={data.genderIdentity === value}
-                  onChange={() => onChange({ genderIdentity: value })}
-                  className="sr-only"
-                />
-                {GENDER_LABELS[value]}
-              </label>
-            ))}
-            {data.genderIdentity ? (
-              <button
-                type="button"
-                onClick={() => onChange({ genderIdentity: '' })}
-                className="onb-focusable onb-link min-h-11 rounded px-2 text-[13px] text-muted-foreground hover:text-foreground"
-              >
-                Clear
-              </button>
-            ) : null}
-          </div>
-        </fieldset>
+        <GenderChoice value={data.genderIdentity} onChange={(genderIdentity) => onChange({ genderIdentity })} />
         <div className="onb-field">
           <label htmlFor="pronouns" className="onb-field-label">Pronouns</label>
           <Input

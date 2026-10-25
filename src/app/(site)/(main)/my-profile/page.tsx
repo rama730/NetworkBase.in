@@ -4,6 +4,7 @@ import { cache, Suspense } from 'react'
 import { getProfileDetails } from '@/lib/data/profile'
 import { ProfileV2Client } from '@/components/profile/v2/ProfileV2Client'
 import { getViewerAuthContext } from '@/lib/server/viewer-context'
+import { hasCompletedOnboarding } from '@/lib/onboarding/completion'
 import { buildRouteMetadata } from '@/lib/metadata/route-metadata'
 import { logger } from '@/lib/logger'
 import { buildOwnerProfileTitle, buildProfileMetadataDescription } from '@/lib/profile/display'
@@ -85,7 +86,7 @@ async function ResolvedProfile() {
         content = fallbackContent
     }
 
-    if (profileData && (profileData.privacyStatus === 'not_found' || !profileData.profile?.username)) {
+    if (profileData && (profileData.privacyStatus === 'not_found' || !(await hasCompletedOnboarding(user)))) {
         redirect('/onboarding')
     }
 

@@ -48,9 +48,12 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
     const redirectPath = resolveAuthRedirectPath(redirect)
     const loginHref = buildAuthPageHref('/login', redirectPath)
     const inviteParam = invite || referral || project
-    const oneTapNextPath = inviteParam
+    const afterSignupPath = inviteParam
         ? `${redirectPath}${redirectPath.includes('?') ? '&' : '?'}invite=${encodeURIComponent(inviteParam)}`
         : redirectPath
+    // One Tap skips the OAuth callback, so it is sent through the same agreement step first. Someone who has
+    // already agreed passes straight through it.
+    const oneTapNextPath = `/legal/accept?context=oauth_signup&next=${encodeURIComponent(afterSignupPath)}`
 
     const [fullName, setFullName] = useState('')
     const [email, setEmail] = useState('')

@@ -2,6 +2,7 @@ import { redirect, notFound } from 'next/navigation';
 import { EditProfileEditor } from '@/components/profile/edit/EditProfileEditor';
 import { getProfileDetails } from '@/lib/data/profile';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
+import { hasCompletedOnboarding } from '@/lib/onboarding/completion';
 import { buildRouteMetadata } from '@/lib/metadata/route-metadata';
 import { buildAuthPageHref } from '@/lib/auth/redirects';
 import { parseProfileEditSection, profileEditHref } from '@/lib/profile/edit-route';
@@ -23,7 +24,7 @@ export default async function EditProfilePage({ searchParams }: {
     if (!user) redirect(buildAuthPageHref('/login', currentHref));
 
     const data = await getProfileDetails(undefined, { viewerUser: user, recordViewEvent: false });
-    if (!data.profile || !data.profile.username) redirect(`/onboarding?next=${encodeURIComponent(currentHref)}`);
+    if (!data.profile || !(await hasCompletedOnboarding(user))) redirect(`/onboarding?next=${encodeURIComponent(currentHref)}`);
     if (!data.isOwner || data.profile.id !== user.id) notFound();
 
     return <EditProfileEditor key={data.profile.id} profile={data.profile}

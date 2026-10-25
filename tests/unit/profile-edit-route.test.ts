@@ -11,11 +11,12 @@ test('profile edit destinations allow only existing sections and a fixed profile
 });
 
 test('the actual editor route authenticates before reads and only renders the current owner',async()=>{
-    const id='11111111-1111-4111-8111-111111111111';const fixture={user:null as null|{id:string},reads:0,options:null as unknown,data:{isOwner:true,profile:{id,username:'builder'},collaborationSummary:{contributions:[]}}};
+    const id='11111111-1111-4111-8111-111111111111';const fixture={user:null as null|{id:string},completed:true,reads:0,options:null as unknown,data:{isOwner:true,profile:{id,username:'builder'},collaborationSummary:{contributions:[]}}};
     (globalThis as any).__profileEditRoute=fixture;
     const mocks:Record<string,string>={
         'next/navigation':`export const redirect=p=>{throw new Error('redirect:'+p)};export const notFound=()=>{throw new Error('not-found')};`,
         '@/lib/server/viewer-context':`export const getViewerAuthContext=async()=>({user:globalThis.__profileEditRoute.user});`,
+        '@/lib/onboarding/completion':`export const hasCompletedOnboarding=async()=>globalThis.__profileEditRoute.completed;`,
         '@/lib/data/profile':`export const getProfileDetails=async(_id,options)=>{const f=globalThis.__profileEditRoute;f.reads++;f.options=options;return f.data;};`,
         '@/components/profile/edit/EditProfileEditor':`export function EditProfileEditor(){return null;}`,
     };
@@ -26,6 +27,6 @@ test('the actual editor route authenticates before reads and only renders the cu
         await assert.rejects(compiled.exports.default(props),/redirect:\/login/);assert.equal(fixture.reads,0);
         fixture.user={id};const element=await compiled.exports.default(props);assert.equal(element.props.initialSection,'opportunity');assert.equal(element.props.profile.id,id);assert.deepEqual(fixture.options,{viewerUser:{id},recordViewEvent:false});assert.equal(compiled.exports.metadata.robots.index,false);
         fixture.data.isOwner=false;await assert.rejects(compiled.exports.default(props),/not-found/);fixture.data.isOwner=true;fixture.data.profile={id:'other-user',username:'other'};await assert.rejects(compiled.exports.default(props),/not-found/);
-        fixture.data.profile={id,username:''};await assert.rejects(compiled.exports.default(props),/redirect:\/onboarding/);
+        fixture.data.profile={id,username:'builder'};fixture.completed=false;await assert.rejects(compiled.exports.default(props),/redirect:\/onboarding/);
     }finally{delete(globalThis as any).__profileEditRoute;}
 });

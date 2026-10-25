@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { LEGAL_VERSIONS } from "@/lib/legal/versions";
 import { normalizeAuthNextPath } from "@/lib/auth/redirects";
@@ -13,6 +13,24 @@ export default function LegalAcceptancePage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isOAuthSignup = searchParams.get("context") === "oauth_signup";
+  // Arriving here is only a request to accept: someone who already has has nothing to do, so they go straight on.
+  const [checking, setChecking] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/v1/legal/acceptance", { cache: "no-store", credentials: "include" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload) => {
+        if (cancelled) return;
+        if (payload?.data?.current === true) router.replace(normalizeAuthNextPath(searchParams.get("next")));
+        else setChecking(false);
+      })
+      .catch(() => {
+        if (!cancelled) setChecking(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [router, searchParams]);
 
   async function continueToNetworkBase() {
     if (!confirmed) return;
@@ -35,6 +53,15 @@ export default function LegalAcceptancePage() {
       setError(cause instanceof Error ? cause.message : "Could not record acceptance");
       setSubmitting(false);
     }
+  }
+
+  if (checking) {
+    return (
+      <main className="flex min-h-screen items-center justify-center" aria-busy="true">
+        <span className="sr-only">Checking your agreement.</span>
+        <Loader2 className="h-6 w-6 animate-spin text-zinc-500" aria-hidden="true" />
+      </main>
+    );
   }
 
   return (

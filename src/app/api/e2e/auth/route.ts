@@ -19,13 +19,6 @@ function clearLegacyFallbackCookies(cookieStore: Awaited<ReturnType<typeof cooki
     secure: process.env.NODE_ENV === "production",
     maxAge: 0,
   });
-  cookieStore.set("x-onboarded", "", {
-    path: "/",
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 0,
-  });
 }
 
 async function createE2EAuthClient() {
