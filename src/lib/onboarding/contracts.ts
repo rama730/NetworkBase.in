@@ -31,3 +31,11 @@ export const MESSAGE_PRIVACY_CHOICES: ReadonlyArray<{ value: OnboardingMessagePr
     { value: 'everyone', label: 'Everyone', description: 'Anyone who is not blocked can start a conversation.' },
     { value: 'connections', label: 'Connections only', description: 'Only accepted connections can start a conversation.' },
 ]
+
+export const GENDER_LABELS: Record<OnboardingGenderIdentity, string> = {
+    male: 'Male',
+    female: 'Female',
+    non_binary: 'Non-binary',
+    other: 'Other',
+    prefer_not_to_say: 'Prefer not to say',
+}

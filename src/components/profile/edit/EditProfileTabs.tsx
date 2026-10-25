@@ -31,12 +31,17 @@ import { Input } from "@/components/ui/input";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ChipSelector from "@/components/onboarding/ChipSelector";
+import { GenderChoice } from "@/components/profile/GenderChoice";
+import { INTEREST_OPTIONS } from "@/lib/profile/interests";
+import type { OnboardingGenderIdentity } from "@/lib/onboarding/contracts";
 import { cn } from "@/lib/utils";
 import { sanitizeUsernameInput } from "@/lib/validations/username";
 import { useUsernameAvailability } from "@/hooks/useUsernameAvailability";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { profileSharePath, shareOrigin } from "@/lib/sharing/presentation";
 import { PROFILE_LIMITS } from "@/lib/validations/profile";
+import { PROFILE_FIELD_LIMITS } from "@/lib/validations/profile-fields";
 import { uploadToSupabaseSignedUrl } from "@/lib/upload/supabase-signed-upload-client";
 import { compressAvatarOffMainThread } from "@/lib/services/avatar-worker-client";
 import { publicAvatarVariantUrl } from "@/lib/profile/avatar-variants";
@@ -515,6 +520,32 @@ export function EditProfileTabs({
                                 </div>
                             </div>
                         </div>
+                        {/* Optional personal details. Only the owner is ever sent these. */}
+                        <div className="space-y-4">
+                            <div>
+                                <h3 className="nb-card-title text-foreground">How you identify</h3>
+                                <p className="nb-compact mt-0.5 text-muted-foreground">
+                                    Optional. Only you can see these; they are not shown on your profile.
+                                </p>
+                            </div>
+                            <GenderChoice
+                                name="profileGenderIdentity"
+                                value={(profile.genderIdentity ?? "") as OnboardingGenderIdentity | ""}
+                                onChange={(value) => updateForm("genderIdentity", value)}
+                            />
+                            <div className="space-y-2">
+                                <label htmlFor="profile-pronouns" className="nb-ui-label text-foreground">Pronouns</label>
+                                <Input
+                                    id="profile-pronouns"
+                                    name="pronouns"
+                                    maxLength={PROFILE_FIELD_LIMITS.pronounsMax}
+                                    value={profile.pronouns ?? ""}
+                                    onChange={(e) => updateForm("pronouns", e.target.value)}
+                                    placeholder="e.g. they/them"
+                                    className="mt-2"
+                                />
+                            </div>
+                        </div>
                     </TabsContent>
 
                     <TabsContent value="experience" forceMount hidden={section !== "experience"} className="mt-0">
@@ -528,6 +559,10 @@ export function EditProfileTabs({
                         <SkillsEditor
                             skills={profile.skills ?? []}
                             onChange={(skills) => updateForm("skills", skills)}
+                        />
+                        <InterestsEditor
+                            interests={profile.interests ?? []}
+                            onChange={(interests) => updateForm("interests", interests)}
                         />
                     </TabsContent>
 
@@ -550,6 +585,31 @@ export function EditProfileTabs({
             {section !== "experience" || showContributionExitPrompt ? actions : null}
             </div>
         </Tabs>
+    );
+}
+
+function InterestsEditor({ interests, onChange }: { interests: string[]; onChange: (interests: string[]) => void }) {
+    // An interest saved earlier that is not in the suggested list stays visible and removable.
+    const known = new Set(INTEREST_OPTIONS.map((option) => option.value));
+    const options = [...INTEREST_OPTIONS, ...interests.filter((value) => !known.has(value)).map((value) => ({ value, label: value }))];
+    const toggle = (value: string) => {
+        if (interests.includes(value)) return onChange(interests.filter((item) => item !== value));
+        if (interests.length >= PROFILE_FIELD_LIMITS.tagMaxItems) {
+            toast.error(`You can add up to ${PROFILE_FIELD_LIMITS.tagMaxItems} interests.`);
+            return;
+        }
+        onChange([...interests, value]);
+    };
+    return (
+        <section aria-labelledby="profile-interests-heading" className="space-y-3">
+            <div>
+                <h3 id="profile-interests-heading" className="nb-card-title text-foreground">Interests</h3>
+                <p className="nb-compact mt-0.5 max-w-[64ch] text-muted-foreground">
+                    Optional topics that help refine project and collaborator recommendations.
+                </p>
+            </div>
+            <ChipSelector options={options} selected={new Set(interests)} onToggle={toggle} labelledBy="profile-interests-heading" maxVisible={options.length} />
+        </section>
     );
 }
 
@@ -712,62 +772,36 @@ function RolePreferencesEditor({ profile, onChange }: { profile: any; onChange: 
 
             <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                    <p className="nb-ui-label text-foreground">Role types</p>
+                    <p id="role-types-label" className="nb-ui-label text-foreground">Role types</p>
                     {selectedRoles.size > 0 && (
                         <span className="nb-micro text-muted-foreground">{selectedRoles.size} selected</span>
                     )}
                 </div>
-                <div className="flex flex-wrap gap-2" role="group" aria-label="Role types">
-                    {ROLE_PREFERENCE_OPTIONS.map((option) => {
-                        const selected = selectedRoles.has(option.value)
-                        return (
-                            <button
-                                key={option.value}
-                                type="button"
-                                aria-pressed={selected}
-                                onClick={() => toggleRole(option.value)}
-                                className={cn(
-                                    "nb-ui-label nb-touch-target min-h-[var(--ui-control-height-sm)] rounded-[3px] border px-3 py-1 transition-colors focus-visible:brightness-95",
-                                    selected
-                                        ? "border-foreground bg-foreground text-background font-medium"
-                                        : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
-                                )}
-                            >
-                                {option.label}
-                            </button>
-                        )
-                    })}
-                </div>
+                <ChipSelector
+                    options={[...ROLE_PREFERENCE_OPTIONS]}
+                    selected={selectedRoles as Set<string>}
+                    onToggle={toggleRole}
+                    labelledBy="role-types-label"
+                    maxVisible={ROLE_PREFERENCE_OPTIONS.length}
+                    showCount={false}
+                />
             </div>
 
             <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                    <p className="nb-ui-label text-foreground">Categories</p>
+                    <p id="categories-label" className="nb-ui-label text-foreground">Categories</p>
                     {categories.length > 0 && (
                         <span className="nb-micro text-muted-foreground">{categories.length}/{PROFILE_LIMITS.listMaxItems} selected</span>
                     )}
                 </div>
-                <div className="flex flex-wrap gap-2" role="group" aria-label="Designated categories">
-                    {DESIGNATED_CATEGORIES.map((category) => {
-                        const selected = categories.some((c: string) => c.toLowerCase() === category.toLowerCase());
-                        return (
-                            <button
-                                key={category}
-                                type="button"
-                                aria-pressed={selected}
-                                onClick={() => toggleCategory(category)}
-                                className={cn(
-                                    "nb-ui-label nb-touch-target min-h-[var(--ui-control-height-sm)] rounded-[3px] border px-3 py-1 transition-colors focus-visible:brightness-95",
-                                    selected
-                                        ? "border-foreground bg-foreground text-background font-medium"
-                                        : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
-                                )}
-                            >
-                                {category}
-                            </button>
-                        );
-                    })}
-                </div>
+                <ChipSelector
+                    options={DESIGNATED_CATEGORIES.map((category) => ({ value: category, label: category }))}
+                    selected={new Set<string>(DESIGNATED_CATEGORIES.filter((category) => categories.some((c: string) => c.toLowerCase() === category.toLowerCase())))}
+                    onToggle={toggleCategory}
+                    labelledBy="categories-label"
+                    maxVisible={DESIGNATED_CATEGORIES.length}
+                    showCount={false}
+                />
 
                 <div className="pt-1">
                     <div className="flex gap-2">

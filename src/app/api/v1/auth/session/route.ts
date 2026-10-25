@@ -23,7 +23,7 @@ function expireBrowserSessionCookies(
   cookieNames: string[],
 ) {
   for (const name of cookieNames) {
-    if (!isBrowserAuthCookie(name) && !name.startsWith("onboarding_complete_")) continue;
+    if (!isBrowserAuthCookie(name)) continue;
     response.cookies.set(name, "", {
       httpOnly: true,
       sameSite: "lax",

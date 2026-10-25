@@ -16,9 +16,11 @@ interface ChipSelectorProps {
   /** Names the group for assistive tech: the id of the label that describes it. */
   labelledBy: string
   maxVisible?: number
+  /** Show the "N selected" line. Off where the page already shows a count; screen readers still get it. */
+  showCount?: boolean
 }
 
-export default function ChipSelector({ options, selected, onToggle, labelledBy, maxVisible = 12 }: ChipSelectorProps) {
+export default function ChipSelector({ options, selected, onToggle, labelledBy, maxVisible = 12, showCount = true }: ChipSelectorProps) {
   const [expanded, setExpanded] = useState(false)
 
   const shouldCollapse = options.length > maxVisible
@@ -73,7 +75,7 @@ export default function ChipSelector({ options, selected, onToggle, labelledBy, 
       ) : null}
 
       {/* Always mounted, so a change is announced. */}
-      <p className="onb-field-hint" role="status" aria-live="polite">
+      <p className={showCount ? "onb-field-hint" : "sr-only"} role="status" aria-live="polite">
         {selected.size > 0 ? `${selected.size} selected` : ''}
       </p>
     </div>

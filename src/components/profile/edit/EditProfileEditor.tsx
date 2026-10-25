@@ -66,6 +66,8 @@ function formFieldsChanged(current: Record<string, unknown> | null, base: Record
         "bannerUrl",
         "experienceLevel",
         "hoursPerWeek",
+        "genderIdentity",
+        "pronouns",
     ];
     for (const key of trackedKeys) {
         const curVal = (current[key] ?? "").toString().trim();
@@ -73,7 +75,7 @@ function formFieldsChanged(current: Record<string, unknown> | null, base: Record
         if (curVal !== baseVal) return true;
     }
 
-    const arrayKeys = ["skills", "openTo", "openToCustomRoles", "preferredCategories"];
+    const arrayKeys = ["skills", "interests", "openTo", "openToCustomRoles", "preferredCategories"];
     for (const key of arrayKeys) {
         const curArr = Array.isArray(current[key]) ? current[key] : [];
         const baseArr = Array.isArray(base[key]) ? base[key] : [];
