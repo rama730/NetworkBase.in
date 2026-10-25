@@ -10,6 +10,7 @@ import { readSharedConnections } from '@/lib/connections/shared';
 import { DISCOVER_RAIL_CARD_COUNT } from '@/lib/discover/query';
 import { isLooseUuid } from '@/lib/validations/uuid';
 import { z } from 'zod';
+import { notFixtureAccountSql } from '@/lib/accounts/fixture-accounts';
 import { connectionSuggestionDismissals, connectionSuggestions, connections, profiles, projects, roleApplications } from '@/lib/db/schema';
 import { countPendingInvitationsForCandidate } from '@/lib/projects/project-invitations';
 import { getAuthUser } from '@/lib/supabase/auth-user';
@@ -1066,6 +1067,7 @@ async function getConnectionsFeedImpl(
         eq(connectionSuggestions.userId, user.id),
         eq(profiles.onboardingStatus, 'completed'),
         isNull(profiles.deletedAt),
+        notFixtureAccountSql(profiles.email),
         sql`NOT EXISTS (
             SELECT 1 FROM ${connectionSuggestionDismissals}
             WHERE ${connectionSuggestionDismissals.userId} = ${user.id}
