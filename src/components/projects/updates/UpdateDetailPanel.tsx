@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import {
     Heart,
@@ -10,9 +10,10 @@ import {
 import { type ProjectUpdateView } from "@/app/actions/project/updates";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { cn } from "@/lib/utils";
-import { updateAuthorName, updateRelativeTime } from '@/components/projects/updates/update-helpers';
+import { UpdateTime, updateAuthorName } from '@/components/projects/updates/update-helpers';
 import { ProjectUpdateContent, UpdateContextAndMedia } from '@/components/projects/updates/UpdateContent';
 import { UpdateComments } from '@/components/projects/updates/UpdateComments';
+import { useToggleUpdateLike } from '@/hooks/useToggleUpdateLike';
 
 export function UpdateDetailPanel({
   projectId,
@@ -25,6 +26,7 @@ export function UpdateDetailPanel({
   currentUserAvatarUrl,
   highlightedCommentId,
   className,
+  autoFocus = false,
 }: {
   projectId: string;
   projectSlug?: string | null;
@@ -36,37 +38,48 @@ export function UpdateDetailPanel({
   currentUserAvatarUrl?: string | null;
   highlightedCommentId?: string | null;
   className?: string;
+  /** Move focus to the panel when it opens (the Discover thread does; the project tab keeps its own focus). */
+  autoFocus?: boolean;
 }) {
+  const sectionRef = useRef<HTMLElement>(null);
+  const headingRef = useRef<HTMLParagraphElement>(null);
+  const like = useToggleUpdateLike(projectId, update?.id ?? "");
+  const hasUpdate = Boolean(update);
+
   useEffect(() => {
-    if (!update) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose, update]);
+    if (autoFocus && hasUpdate) headingRef.current?.focus({ preventScroll: true });
+  }, [autoFocus, hasUpdate, update?.id]);
+
+  // Escape closes the thread only when focus is inside it: not from the search box, the filters drawer or the
+  // media viewer, and not out from under a half-written comment.
+  const closeOnEscape = (event: React.KeyboardEvent<HTMLElement>) => {
+    if (event.key !== "Escape" || event.defaultPrevented) return;
+    const target = event.target as Element;
+    const dialog = target.closest('[role="dialog"]');
+    if (dialog && sectionRef.current && !dialog.contains(sectionRef.current)) return;
+    if ((target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement) && target.value.trim()) return;
+    onClose();
+  };
 
   if (!update) return null;
   const isDeleted = Boolean(update.deletedAt);
 
   return (
-    <section className={cn("w-full min-w-0 bg-transparent", className)}>
+    <section ref={sectionRef} onKeyDown={closeOnEscape} aria-label="Update thread" className={cn("w-full min-w-0 bg-transparent", className)}>
       <div className="sticky top-0 z-20 flex items-center justify-between border-b border-border bg-background/95 pb-3 backdrop-blur-sm">
         <div>
-          <p className="nb-ui-label text-foreground">
+          <p ref={headingRef} tabIndex={-1} className="nb-ui-label text-foreground outline-none">
             Threads
           </p>
-          <p className="font-mono text-[11px] text-muted-foreground">
-            {updateRelativeTime(update.createdAt)}
-          </p>
+          <UpdateTime date={update.createdAt} className="font-mono text-[11px] text-muted-foreground" />
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="nb-touch-target flex h-7 w-7 items-center justify-center rounded-[5px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          aria-label="Close detail"
+          className="flex size-11 items-center justify-center rounded-[5px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          aria-label="Close thread"
         >
-          <X className="h-4 w-4" />
+          <X className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
       <div className="py-4 pr-1">
@@ -127,14 +140,32 @@ export function UpdateDetailPanel({
               ) : null}
 
               {!isDeleted ? (
-                <div className="mt-2.5 flex items-center gap-4 font-mono text-xs text-muted-foreground">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Heart className="h-3.5 w-3.5" />
-                    {update.likeCount}
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <MessageCircle className="h-3.5 w-3.5" />
+                <div className="mt-2.5 flex items-center gap-2 font-mono text-xs text-muted-foreground">
+                  {currentUserId ? (
+                    <button
+                      type="button"
+                      onClick={like.toggle}
+                      aria-pressed={update.likedByViewer}
+                      aria-label={`${update.likedByViewer ? "Unlike" : "Like"} this update, ${update.likeCount} ${update.likeCount === 1 ? "like" : "likes"}`}
+                      className={cn(
+                        "inline-flex min-h-11 items-center gap-1.5 rounded-[5px] px-2.5 transition-colors hover:bg-muted",
+                        update.likedByViewer && "font-medium text-[var(--status-danger)]",
+                      )}
+                    >
+                      <Heart className={cn("h-3.5 w-3.5", update.likedByViewer && "fill-current")} aria-hidden="true" />
+                      <span aria-hidden="true">{update.likeCount}</span>
+                    </button>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-2.5">
+                      <Heart className="h-3.5 w-3.5" aria-hidden="true" />
+                      {update.likeCount}
+                      <span className="sr-only">likes</span>
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-1.5 px-2.5">
+                    <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
                     {update.commentCount}
+                    <span className="sr-only">comments</span>
                   </span>
                 </div>
               ) : null}

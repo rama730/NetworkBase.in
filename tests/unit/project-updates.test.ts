@@ -509,7 +509,7 @@ test("updates feed and detail render context references and actual images", () =
     assert.match(detailSource, /border-b border-border pb-4/);
     assert.match(detailSource, /size=\{34\}/);
     assert.match(detailSource, /mt-1 whitespace-pre-wrap break-words text-\[15px\] leading-relaxed/);
-    assert.match(detailSource, /mt-2\.5 flex items-center gap-4 font-mono text-xs text-muted-foreground/);
+    assert.match(detailSource, /mt-2\.5 flex items-center gap-2 font-mono text-xs text-muted-foreground/);
     assert.equal(cardSource.includes("Object.entries(update.context"), false);
     assert.equal(cardSource.includes("Object.values(update.context"), false);
 });

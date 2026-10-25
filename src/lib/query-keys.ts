@@ -25,6 +25,14 @@ export const queryKeys = {
     /** Where the viewer's own applications and invitations stand on the projects shown (a card chip). */
     myApplications: (userId: string | null | undefined) =>
       ["discover", "my-applications", asNullable(userId)] as const,
+    /** Every Discover update feed (all views and filters): for patches that apply to whichever is loaded. */
+    pulseRoot: () => ["discover", "pulse"] as const,
+    /** The update cards mixed into the feed: pages of `DiscoverUpdatesPage`. */
+    pulse: (viewerId: string | null, view: FilterView, filters: DiscoverFilters) =>
+      ["discover", "pulse", asNullable(viewerId), view, filters] as const,
+    /** One update opened from a link, when it isn't in a loaded page. */
+    singleUpdate: (viewerId: string | null, updateId: string) =>
+      ["discover", "update", asNullable(viewerId), updateId] as const,
   },
   /** Presence and status (people and projects). */
   presence: {

@@ -222,7 +222,7 @@ export function composeProjectUpdateRoleLabel(input: {
     const normalizedMembership = membershipRoleLabel.toLowerCase();
     const normalizedTitle = roleTitle.toLowerCase();
     if (normalizedTitle.includes(normalizedMembership)) return roleTitle;
-    if (normalizedMembership === "lead" || normalizedMembership === "co-lead") {
+    if (normalizedMembership === "lead" || normalizedMembership === "co-lead" || normalizedMembership === "co-leader") {
         return `${membershipRoleLabel} ${roleTitle}`;
     }
     return roleTitle;

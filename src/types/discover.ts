@@ -1,3 +1,4 @@
+import type { ProjectUpdateType } from "@/lib/projects/updates";
 // Hub Types - Adapted to work with existing Drizzle schema
 import type { SocialLinkStorage } from "@/lib/profile/normalization";
 
@@ -103,6 +104,14 @@ export interface Project {
   // Relations
   ownerId?: string;
   owner?: ProjectProfile | null;
+  organizationId?: string | null;
+  teamId?: string | null;
+  organization?: {
+    id: string;
+    name: string;
+    slug: string;
+    avatarUrl?: string | null;
+  } | null;
   collaborators?: ProjectCollaborator[];
   openRoles?: OpenRole[];
   /** Open seats across the project's roles (feeds send this instead of the roles). */
@@ -124,3 +133,63 @@ export interface DiscoverFilters {
   sort: string;
   search?: string;
 }
+
+/** Everything the browser gets about an author. A masked author (private, deleted) carries no identity at all. */
+export interface DiscoverUpdateAuthor {
+  id: string;
+  fullName: string | null;
+  username: string | null;
+  avatarUrl: string | null;
+  roleLabel: string | null;
+  masked: boolean;
+}
+
+/** An attachment as the card shows it. The storage bucket, key and asset id stay on the server. */
+export interface DiscoverUpdateMedia {
+  type: "image" | "file" | "link";
+  url: string | null;
+  label: string | null;
+  altText: string | null;
+  mimeType: string | null;
+  size: number | null;
+  width: number | null;
+  height: number | null;
+}
+
+/**
+ * A project update as the Discover feed sends it. Deliberately smaller than the project page's view: no
+ * metadata, no linked task/sprint/file ids, no constants.
+ */
+export interface DiscoverUpdateView {
+  id: string;
+  projectId: string;
+  projectName: string;
+  projectSlug: string | null;
+  projectCoverImage: string | null;
+  author: DiscoverUpdateAuthor | null;
+  content: string;
+  updateType: ProjectUpdateType | null;
+  media: DiscoverUpdateMedia[];
+  isPinned: boolean;
+  likeCount: number;
+  commentCount: number;
+  likedByViewer: boolean;
+  replyPolicy: "logged_in" | "members";
+  canComment: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+  editedAt: string | null;
+  createdAt: string;
+}
+
+export interface DiscoverUpdatesPage {
+  updates: DiscoverUpdateView[];
+  /** Pass back to read the next page; null when there is no more. */
+  nextCursor: string | null;
+}
+
+export type DiscoverFeedItem =
+  | { kind: "project"; data: Project }
+  | { kind: "update"; data: DiscoverUpdateView };
+
+export type DiscoverProjectUpdate = DiscoverUpdateView;

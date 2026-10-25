@@ -298,7 +298,16 @@ const buildRecommendationRelevanceExpr = (terms: string[]) => {
     return sql<number>`(${sql.join(clauses, sql` + `)})`;
 };
 
-const buildBaseConditions = (
+/** One condition per search word, each matched against a project's title, description, skills, tags and category. */
+export const buildSearchConditions = (search: string | undefined): SQL<unknown>[] => {
+    if (!search) return [];
+    const normalizedSearchTerms = dedupeTerms(tokenizeSearchQuery(search), MAX_SEARCH_TOKENS);
+    const fallback = normalizeTerm(search);
+    return buildTermMatchConditions(normalizedSearchTerms.length > 0 ? normalizedSearchTerms : fallback ? [fallback] : []);
+};
+
+/** Which projects Discover may show this viewer, and the status, type, skill and Following filters. Shared by the card feed and the update feed. */
+export const buildBaseConditions = (
     filters: DiscoverFilters,
     view: FilterView,
     viewerId: string | null,
@@ -341,16 +350,7 @@ const buildBaseConditions = (
         conditions.push(eq(projects.category, filters.type));
     }
 
-    if (filters.search) {
-        const normalizedSearchTerms = dedupeTerms(tokenizeSearchQuery(filters.search), MAX_SEARCH_TOKENS);
-        const fallback = normalizeTerm(filters.search);
-        const searchConditions = buildTermMatchConditions(
-            normalizedSearchTerms.length > 0 ? normalizedSearchTerms : fallback ? [fallback] : [],
-        );
-        if (searchConditions.length > 0) {
-            conditions.push(...searchConditions);
-        }
-    }
+    conditions.push(...buildSearchConditions(filters.search));
 
     // Skills match by identity, not substring ("java" isn't "javascript"; "C" and "R" count):
     // the catalog key, the skill's own name, or one of its aliases.

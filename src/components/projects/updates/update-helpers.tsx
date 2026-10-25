@@ -1,6 +1,7 @@
 'use client';
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { type InfiniteData } from "@tanstack/react-query";
 import { type ProjectUpdateCommentView, type ProjectUpdateMovementSummary, type ProjectUpdateView } from "@/app/actions/project/updates";
 
@@ -41,19 +42,41 @@ export function updateRelativeTime(date: string, style: keyof typeof UPDATE_RELA
   if (delta < 60 * 1000) return "Just now";
 
   for (const [unit, unitMs] of UPDATE_RELATIVE_TIME_UNITS) {
-    if (delta >= unitMs) {
-      return UPDATE_RELATIVE_TIME_FORMATTERS[style].format(
-        Math.round(elapsed / unitMs),
-        unit,
-      );
-    }
+    if (delta < unitMs) continue;
+    // 11.6 months rounds to 12: that is a year, not "12 mo".
+    if (unit === "month" && Math.round(delta / unitMs) >= 12) continue;
+    return UPDATE_RELATIVE_TIME_FORMATTERS[style].format(Math.round(elapsed / unitMs), unit);
   }
+  // Under a minute is handled above, so this is only reached by a unit gap that cannot occur.
+  return "";
+}
 
-  return value.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    ...(value.getFullYear() === new Date(now).getFullYear() ? {} : { year: "numeric" }),
-  });
+/** Same on the server and the first client render (fixed locale and zone); the relative text follows after mount. */
+function updateAbsoluteDate(date: string) {
+  const value = new Date(date);
+  if (!Number.isFinite(value.getTime())) return "";
+  return value.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
+
+/**
+ * A `<time>` element. Server-rendered cards must not read the clock or the browser locale while rendering
+ * (they would differ from the client's first render), so the absolute date is printed first and the relative
+ * text replaces it once mounted. The full date and time stay in the tooltip.
+ */
+export function UpdateTime({ date, className, style = "narrow" }: { date: string; className?: string; style?: keyof typeof UPDATE_RELATIVE_TIME_FORMATTERS }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const full = new Date(date);
+  return (
+    <time
+      dateTime={date}
+      title={Number.isFinite(full.getTime()) ? full.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }) + " UTC" : undefined}
+      className={className}
+      suppressHydrationWarning
+    >
+      {mounted ? updateRelativeTime(date, style) : updateAbsoluteDate(date)}
+    </time>
+  );
 }
 
 export function updateAuthorName(update: ProjectUpdateView) {
@@ -134,7 +157,8 @@ export function replaceUpdate(
   oldId: string,
   next: ProjectUpdateView,
 ): InfiniteData<UpdatesPage> {
-  if (!existing) return existing!;
+  // A cache that isn't a set of pages (empty, or another shape) has nothing to patch.
+  if (!existing || !Array.isArray(existing.pages)) return existing!;
   return {
     ...existing,
     pages: existing.pages.map((page) => ({
@@ -165,10 +189,8 @@ export function updatePages(
   if (!existing) return existing!;
   return {
     ...existing,
-    pages: existing.pages.map((page) => ({
-      ...page,
-      updates: page.updates.map(transform),
-    })),
+    // Other caches share the key prefix (comment pages, context options): only pages of updates are patched.
+    pages: existing.pages.map((page) => (Array.isArray(page.updates) ? { ...page, updates: page.updates.map(transform) } : page)),
   };
 }
 
