@@ -37,14 +37,15 @@ const Phase5Review = dynamic(() => import('./phases/Phase5Review'), { loading: P
 
 interface Props {
     onClose: () => void;
-    onSuccess?: (projectId: string) => void;
+    onSuccess?: (projectId: string, organization?: { title: string; joinCode: string }) => void;
     initialSource?: 'scratch' | 'github' | 'upload' | null;
     onSourceChange?: (source: 'scratch' | 'github' | 'upload' | null) => void;
     githubOAuthResume?: CreateProjectGithubOAuthResume | null;
     onGithubOAuthResumeRestored?: (resumeId: string) => void;
+    organizationsEnabled?: boolean;
 }
 
-export default function CreateProjectWizard({ onClose, onSuccess, initialSource = null, onSourceChange, githubOAuthResume = null, onGithubOAuthResumeRestored }: Props) {
+export default function CreateProjectWizard({ onClose, onSuccess, initialSource = null, onSourceChange, githubOAuthResume = null, onGithubOAuthResumeRestored, organizationsEnabled = false }: Props) {
     const {
         phase, methods, wizardContext, isSubmitting, isSavingDraft, phase2ValidationAttempted, phase3ValidationAttempted, phase4ValidationAttempted,
         phase4LinkComposerPending, setPhase4LinkComposerPending, isPhaseTransitioning, isReviewReady, setIsReviewReady,
@@ -291,6 +292,7 @@ export default function CreateProjectWizard({ onClose, onSuccess, initialSource 
                                                 initialSource={isResumingGithubOAuth ? 'github' : initialSource}
                                                 onSourceChange={onSourceChange}
                                                 isResumingGithubOAuth={isResumingGithubOAuth}
+                                                organizationsEnabled={organizationsEnabled}
                                             />
                                         )}
                                         {phase === 2 && <Phase2Information showValidationSummary={phase2ValidationAttempted} />}

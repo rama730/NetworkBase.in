@@ -1,3 +1,4 @@
+import { OrgInformationFields } from '@/components/organizations/OrgWizardFields';
 import { type ReactNode, useState } from 'react';
 import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import { Plus, X } from 'lucide-react';
@@ -59,6 +60,7 @@ function SectionHeading({ eyebrow, title, description, id }: { eyebrow: string; 
 
 export default function Phase2Information({ showValidationSummary = false }: Phase2InformationProps) {
     const { register, setValue, watch, control, formState: { errors } } = useFormContext<CreateProjectInput>();
+    const isOrganization = Boolean(watch('organization'));
     const [tagInput, setTagInput] = useState('');
     const [tagError, setTagError] = useState('');
 
@@ -210,6 +212,8 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                         <p id="create-project-title-help" className="mt-1.5 text-[13px] leading-[1.5] text-muted-foreground">Use a clear, specific name that collaborators can recognize.</p>
                         <FieldError id="create-project-title-error" message={errors.title?.message} />
                     </div>
+
+                    {isOrganization ? <OrgInformationFields /> : null}
 
                     <div>
                         <div className="flex items-end justify-between gap-3">

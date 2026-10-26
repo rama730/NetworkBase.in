@@ -206,7 +206,7 @@ export async function addProjectMemberInternal(
         userId: string;
         role?: Exclude<ProjectMemberRole, "owner">;
         actorId: string;
-        source: "application_accept" | "project_invite" | "manual" | "ownership_transfer";
+        source: "application_accept" | "project_invite" | "manual" | "ownership_transfer" | "join_code" | "email_invite";
         applicationId?: string | null;
         roleId?: string | null;
         incrementRoleCapacity?: boolean;

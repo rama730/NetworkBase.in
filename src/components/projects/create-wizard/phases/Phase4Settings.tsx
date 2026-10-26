@@ -1,5 +1,6 @@
 'use client';
 
+import { OrgSettingsFields } from '@/components/organizations/OrgWizardFields';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { Bell, Check, ChevronDown, FileText, Folder, Globe, ImageIcon, ImagePlus, Info, Link2, Lock, Users, Workflow, X } from 'lucide-react';
@@ -106,6 +107,7 @@ function ChoiceChip({ selected, onClick, children }: { selected: boolean; onClic
 
 export default function Phase4Settings({ showValidationSummary = false, linkComposerPending = false, onLinkComposerPending, projectImage, onProjectImageChange }: Phase4SettingsProps) {
     const { control, setValue, formState: { errors } } = useFormContext<CreateProjectInput>();
+    const isOrganization = Boolean(useWatch({ control, name: 'organization' }));
     const [
         visibilityValue, publicTabsValue, externalLinksValue, readme, docEditPolicy, lifecycleStagesValue,
         memberUpdatesEnabled, memberFileUploadDefault, notificationRowsValue,
@@ -258,6 +260,11 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     <h2 className="nb-section-title mt-1 text-foreground">Set up how the project launches</h2>
                     <p className="nb-compact mt-1.5 text-muted-foreground">Every choice has a sensible default and can be changed later in Project settings.</p>
                 </div>
+                {isOrganization ? (
+                    <section aria-label="Organization projects" className="border-t border-border pt-6">
+                        <OrgSettingsFields />
+                    </section>
+                ) : null}
 
                 {showValidationSummary && validationMessages.length > 0 ? (
                     <div role="alert" aria-live="assertive" className="border-l-2 border-destructive bg-[var(--status-danger-soft)] px-4 py-3 text-[13px] leading-[1.5] text-foreground">

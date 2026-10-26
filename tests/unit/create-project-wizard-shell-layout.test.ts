@@ -45,7 +45,7 @@ test("create-project is a normal page inside the app shell: no modal, one 1000px
   assert.match(chat, /NO_WINDOW_PREFIXES = \["\/messages", "\/projects\/new", "\/my-profile\/edit"\]/);
   // Browser Back keeps work: unsaved changes are saved as a draft on unmount unless the user chose to leave.
   assert.match(hook, /if \(hasUnsavedRef\.current && !skipDraftOnUnmountRef\.current\) void saveDraftRef\.current\(true\)/);
-  assert.match(hook, /if \(createdProjectId && onSuccess\) onSuccess\(createdProjectId\);\s*else onClose\(\);/);
+  assert.match(hook, /if \(createdProjectId && onSuccess\) onSuccess\(createdProjectId, createdOrganization\);\s*else onClose\(\);/);
 });
 
 test("create-project page refinements: no Esc close, clickable finished steps, current-page button, quiet saving, draft choice first, one mobile header row", async () => {

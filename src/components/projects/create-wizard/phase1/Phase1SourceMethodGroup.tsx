@@ -1,12 +1,14 @@
 "use client";
 
-import { Code2, FolderUp, Github, type LucideIcon } from "lucide-react";
+import { Building2, Code2, FolderUp, Github, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type ProjectSourceType = "scratch" | "github" | "upload";
+/** The cards: the three project sources, plus Organization when organizations are on. */
+export type StartingPoint = ProjectSourceType | "organization";
 
 const SOURCE_OPTIONS: Array<{
-  type: ProjectSourceType;
+  type: StartingPoint;
   title: string;
   description: string;
   icon: LucideIcon;
@@ -29,14 +31,22 @@ const SOURCE_OPTIONS: Array<{
     description: "Inspect a local project folder before creating the project.",
     icon: FolderUp,
   },
+  {
+    type: "organization",
+    title: "Organization",
+    description: "A class, company or club that holds people and their projects.",
+    icon: Building2,
+  },
 ];
 
 export function Phase1SourceMethodGroup({
   value,
   onChange,
+  showOrganization = false,
 }: {
-  value: ProjectSourceType;
-  onChange: (value: ProjectSourceType) => void;
+  value: StartingPoint;
+  onChange: (value: StartingPoint) => void;
+  showOrganization?: boolean;
 }) {
   return (
     <fieldset
@@ -53,8 +63,8 @@ export function Phase1SourceMethodGroup({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {SOURCE_OPTIONS.map((option) => {
+      <div className={cn("grid grid-cols-1 gap-3 md:gap-4 md:grid-cols-2", showOrganization ? "xl:grid-cols-4" : "lg:grid-cols-3")}>
+        {SOURCE_OPTIONS.filter((option) => showOrganization || option.type !== "organization").map((option) => {
           const Icon = option.icon;
           const selected = value === option.type;
 

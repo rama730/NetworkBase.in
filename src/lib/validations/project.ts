@@ -1,3 +1,4 @@
+import { ORG_TYPES } from '@/lib/organizations/config';
 import { z } from 'zod';
 import { isValidGithubBranchName, normalizeGithubRepoUrl } from '@/lib/github/repo-validation';
 import { validateProjectSocialLinks } from '@/lib/projects/social-links';
@@ -155,7 +156,22 @@ export const createProjectSchema = z.object({
     }).optional(),
     slug: z.string().optional(),
     project_id: z.string().optional(),
+    // Present only when creating an organization (report §6); the server checks the feature flag.
+    organization: z.object({
+        org_type: z.enum(ORG_TYPES),
+        handle: z.string().trim().max(60),
+        term_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal('')),
+        term_end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal('')),
+        creator_title: z.string().trim().max(60).optional(),
+        join_mode: z.enum(['instant', 'approval']).default('instant'),
+        child_creation: z.enum(['members', 'admins']).default('members'),
+        outside_people: z.boolean().default(false),
+    }).optional(),
 }).superRefine((val, ctx) => {
+    const term = val.organization;
+    if (term?.term_start && term.term_end && term.term_end < term.term_start) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['organization', 'term_end'], message: 'The term must end after it starts.' });
+    }
     const roleTitles = new Set<string>();
     for (let index = 0; index < (val.roles || []).length; index += 1) {
         const title = val.roles?.[index]?.role.trim().toLocaleLowerCase();

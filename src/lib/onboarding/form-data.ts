@@ -28,6 +28,8 @@ export interface OnboardingData {
   genderIdentity: OnboardingGenderIdentity | ''
   pronouns: string
   visibility: OnboardingVisibility
+  /** Set when the person arrived from /join/CODE; the org is joined when setup finishes. */
+  pendingJoinCode: string
 }
 
 export const EMPTY_ONBOARDING_DATA: OnboardingData = {
@@ -48,6 +50,7 @@ export const EMPTY_ONBOARDING_DATA: OnboardingData = {
   genderIdentity: '',
   pronouns: '',
   visibility: 'public',
+  pendingJoinCode: '',
 }
 
 /** Lays a parsed draft over the form. A field the draft does not have keeps its current value. */

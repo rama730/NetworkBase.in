@@ -38,6 +38,10 @@ import { getTrustedHeadersIp } from "@/lib/security/request-ip";
 import { headers } from "next/headers";
 import { buildJourneyCompletionDates, normalizeJourneyCompletionDates } from "@/lib/projects/journey-completion";
 import { isLooseUuid } from "@/lib/validations/uuid";
+import { defaultOrgRoleNames, organizationsEnabled, ORG_LIMITS } from "@/lib/organizations/config";
+import { validateOrgHandle } from "@/lib/organizations/handle";
+import { isOrgHandleAvailable } from "@/lib/organizations/join";
+import { generateJoinCode } from "@/lib/organizations/join-rules";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { closePendingApplications, type ClosedApplication, type ClosingReason } from "@/lib/applications/closing";
 import { notifyClosedApplications } from "@/lib/applications/notifications";
@@ -136,6 +140,8 @@ interface CreateProjectResult {
     id: string;
     title: string;
     slug?: string;
+    /** Organizations only: the code shown on the success screen. */
+    joinCode?: string | null;
   };
   error?: string;
 }
@@ -558,12 +564,8 @@ export async function createProjectAction(
     }
 
     // Runtime input validation via Zod schema
-    const parseResult = createProjectSchema
-      .extend({
-        slug: z.string().optional(),
-        project_id: z.string().optional(),
-      })
-      .safeParse(rawInput);
+    // slug and project_id are already in the schema; zod 4 refuses .extend() over keys of a refined schema.
+    const parseResult = createProjectSchema.safeParse(rawInput);
 
     if (!parseResult.success) {
       if (acquiredLock && redis) await redis.del(lockKey).catch(() => undefined);
@@ -574,6 +576,24 @@ export async function createProjectAction(
     }
 
     const input = parseResult.data;
+
+    // Organizations: the handle is the address, exact or refused; never suffixed like a project slug.
+    const organization = input.organization;
+    let orgHandle: string | null = null;
+    if (organization) {
+      const refuse = (error: string) => ({ success: false, error });
+      if (!organizationsEnabled()) return refuse("Organizations are not available yet.");
+      const checked = validateOrgHandle(organization.handle);
+      if (!checked.ok) return refuse(checked.reason === "reserved" ? "That handle is reserved." : "Choose a handle of 3–40 letters, numbers or single dashes.");
+      if (!(await isOrgHandleAvailable(checked.handle))) return refuse(`@${checked.handle} is taken.`);
+      const [owned] = await db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(projects)
+        .where(and(eq(projects.ownerId, user.id), eq(projects.kind, "organization"), isNull(projects.deletedAt)));
+      if ((owned?.n ?? 0) >= ORG_LIMITS.orgsOwnedPerUser) return refuse(`You can own up to ${ORG_LIMITS.orgsOwnedPerUser} organizations.`);
+      orgHandle = checked.handle;
+    }
+    let joinCode = organization ? generateJoinCode() : null;
 
     const {
       data: { session },
@@ -687,7 +707,7 @@ export async function createProjectAction(
     const openRoles = (input.roles || []).filter((role) => role.role.trim().length > 0);
     const lookingForCollaborators = openRoles.length > 0;
 
-    let requestedSlug = (input.slug || "").trim().toLowerCase();
+    let requestedSlug = orgHandle ?? (input.slug || "").trim().toLowerCase();
     if (requestedSlug && (isReservedProjectSlug(requestedSlug) || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(requestedSlug))) {
       requestedSlug = "";
     }
@@ -774,6 +794,24 @@ export async function createProjectAction(
             normalizedImportSourceWithLeadFocus?.type === "github"
               ? normalizedImportSourceWithLeadFocus.branch || "main"
               : "main",
+          ...(organization
+            ? {
+                kind: "organization" as const,
+                orgType: organization.org_type,
+                orgSettings: {
+                  version: 1,
+                  joinMode: organization.join_mode,
+                  childCreation: organization.child_creation,
+                  outsidePeople: organization.outside_people,
+                  roleNames: defaultOrgRoleNames(organization.org_type),
+                },
+                termStart: organization.term_start || null,
+                termEnd: organization.term_end || null,
+                joinCode,
+                // Education reviews assignments by default (report §21.5).
+                taskReviewRequired: organization.org_type === "education",
+              }
+            : {}),
         };
 
         // Project, owner membership, and the project's #general are created together.
@@ -791,6 +829,7 @@ export async function createProjectAction(
             projectId: newProject.id,
             userId: user.id,
             role: "owner",
+            title: organization?.creator_title || null,
           });
           await syncProjectChat(tx, newProject.id, null, "ensure_default");
           await upsertProfileProjectContributionFromMembership(tx, {
@@ -932,6 +971,7 @@ export async function createProjectAction(
             id: result.id,
             title: result.title,
             slug: result.slug || result.id,
+            joinCode: result.joinCode,
           },
         };
       } catch (error: any) {
@@ -943,7 +983,14 @@ export async function createProjectAction(
             String(dbError.message || "") +
             String(dbError.detail || "") +
             String(dbError.constraint_name || "");
+          if (errorMsg.includes("join_code")) {
+            attempts++;
+            joinCode = generateJoinCode();
+            continue;
+          }
           if (errorMsg.includes("slug")) {
+            // An org's handle was free a moment ago; someone else just took it.
+            if (orgHandle) return { success: false, error: `@${orgHandle} is taken.` };
             attempts++;
             const suffix = Math.random().toString(36).substring(2, 6);
             finalSlug = `${generateSlugBase(input.title) || "project"}-${suffix}`;
