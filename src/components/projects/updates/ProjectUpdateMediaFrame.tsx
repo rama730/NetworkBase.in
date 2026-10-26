@@ -215,7 +215,8 @@ export function ProjectUpdateMediaViewer({
                         ) : null}
                     </div>
                     <div className="flex min-h-0 flex-1 items-center justify-center bg-muted/20 p-3">
-                        {isVideo ? (
+                        {/* While the dialog closes the item is already gone: an empty src would re-request the page. */}
+                        {!src ? null : isVideo ? (
                             <video
                                 className="max-h-[78vh] max-w-full rounded-[6px] object-contain"
                                 controls
