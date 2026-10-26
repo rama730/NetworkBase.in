@@ -173,17 +173,17 @@ test("Following shows only followed projects, and nothing for a signed-out viewe
   assert.deepEqual(await texts(null, { view: "following" }), []);
 });
 
-test("pages follow a cursor without repeats, and one project fills one slot per page", async () => {
-  // Five different teams, plus one busy team: authors differ so only the per-project rule is in play.
-  const authors = await Promise.all([1, 2, 3, 4, 5, 6].map(() => person()));
-  const projects = await Promise.all(authors.map((author) => project(author)));
+test("pages follow a cursor newest first, with no repeats and no update lost", async () => {
+  // One busy team and one author: every update still appears, in order, across pages.
+  const author = await person();
+  const busy = await project(author);
+  const other = await project(await person());
   const base = Date.parse("2026-01-01T00:00:00Z");
-  for (const [index, projectId] of projects.slice(0, 5).entries()) {
-    await post(projectId, authors[index]!, `p${index}`, { at: new Date(base - index * 60_000).toISOString() });
+  const expected: string[] = [];
+  for (let index = 0; index < 7; index += 1) {
+    expected.push(`u${index}`);
+    await post(index % 3 === 0 ? other : busy, author, `u${index}`, { at: new Date(base - index * 60_000).toISOString() });
   }
-  const noisyOwner = authors[5]!;
-  await post(projects[5]!, noisyOwner, "noisy newest", { at: new Date(base + 60_000).toISOString() });
-  await post(projects[5]!, noisyOwner, "noisy older", { at: new Date(base + 30_000).toISOString() });
 
   const seen: string[] = [];
   let cursor: string | null = null;
@@ -193,17 +193,7 @@ test("pages follow a cursor without repeats, and one project fills one slot per 
     cursor = result.nextCursor;
     if (!cursor) break;
   }
-  assert.equal(new Set(seen).size, seen.length, "no update twice");
-  assert.deepEqual(seen.filter((text) => text.startsWith("p")), ["p0", "p1", "p2", "p3", "p4"], `newest first, nothing skipped (got ${JSON.stringify(seen)})`);
-  assert.ok(seen.includes("noisy newest"));
-  assert.ok(!seen.includes("noisy older"), "the same project does not take a second slot in one page");
-});
-
-test("one author takes at most two slots in a page", async () => {
-  const author = await person();
-  const projects = await Promise.all([1, 2, 3, 4].map(() => project(author)));
-  for (const [index, projectId] of projects.entries()) await post(projectId, author, `a${index}`, { at: new Date(Date.parse("2026-01-01T00:00:00Z") - index * 1000).toISOString() });
-  assert.deepEqual(await texts(null, { limit: 12 }), ["a0", "a1"]);
+  assert.deepEqual(seen, expected);
 });
 
 test("likedByViewer is the viewer's, and a bad cursor is refused", async () => {

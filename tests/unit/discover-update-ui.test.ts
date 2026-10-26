@@ -53,10 +53,12 @@ const render = (value: DiscoverUpdateView) => renderToStaticMarkup(
         createElement(DiscoverUpdateCard, { update: value, viewerId: "viewer", onOpen: () => {}, onHide: () => {}, onVisitProject: () => {} })),
 );
 
-test("an update card leads with its author and carries the Update label", () => {
+test("an update card leads with its author and names its project in the footer", () => {
     const html = render(update());
-    assert.match(html, /Update/);
-    assert.ok(html.indexOf("Asha Rao") < html.indexOf("DeepScope AI"), "author comes before the project chip");
+    assert.doesNotMatch(html, />Update</, "no Update badge");
+    assert.ok(html.indexOf("Asha Rao") < html.indexOf("DeepScope AI"), "author comes before the project name");
+    assert.match(html, /href="\/projects\/deepscope-ai"/);
+    assert.doesNotMatch(html, /<img/, "a project without a cover shows no placeholder picture");
     assert.match(html, /Lead Frontend Developer/);
     assert.match(html, /<time[^>]*dateTime="2026-10-01T10:00:00.000Z"/);
 });
