@@ -1,5 +1,8 @@
 'use server'
 
+import { organizationsEnabled } from '@/lib/organizations/config'
+import { acceptOrgEmailInvites, joinOrgByCode } from '@/lib/organizations/join'
+import { normalizeJoinCode, type OrgJoinOutcome } from '@/lib/organizations/join-rules'
 import { after } from 'next/server'
 import { headers } from 'next/headers'
 import { and, eq, sql } from 'drizzle-orm'
@@ -161,9 +164,11 @@ function profileValues(params: { userEmail: string; payload: OnboardingPayload; 
     }
 }
 
+export type OnboardingOrgJoin = { title: string; slug: string | null; outcome: OrgJoinOutcome }
+
 export async function completeOnboarding(
-    data: OnboardingPayloadInput & { telemetry?: OnboardingEventInput[] },
-): Promise<{ success: boolean; error?: string; errorDetails?: OnboardingError }> {
+    data: OnboardingPayloadInput & { telemetry?: OnboardingEventInput[]; pendingJoinCode?: string },
+): Promise<{ success: boolean; error?: string; errorDetails?: OnboardingError; joined?: OnboardingOrgJoin | null }> {
     const telemetry = sanitizeOnboardingTelemetryBatch(data.telemetry)
     let userId: string | null = null
 
@@ -287,17 +292,36 @@ export async function completeOnboarding(
             profile: { username: payload.username, fullName: payload.fullName, avatarUrl },
         })
 
+        const joined = await joinOrgsAfterOnboarding(user.id, userEmail, data.pendingJoinCode)
+
         afterResponse(async () => {
             await wakeEmailWorker()
             if (outcome.previousAvatarUrl && outcome.previousAvatarUrl !== avatarUrl) {
                 await enqueueSupersededProfileImages(user.id, [outcome.previousAvatarUrl])
             }
         })
-        return finish({ success: true as const }, { claimSynced })
+        return finish({ success: true as const, joined }, { claimSynced })
     } catch (error) {
         console.error('Error completing onboarding:', error)
         const details = mapOnboardingPersistenceError(error)
         return finish(failed(details), { reason: details.code })
+    }
+}
+
+/**
+ * After setup: matching email invites are accepted, then the code from /join/CODE joins or sends a request,
+ * with no extra click (decisions 133, 134). Never fails the onboarding itself.
+ */
+async function joinOrgsAfterOnboarding(userId: string, email: string, rawCode: string | undefined): Promise<OnboardingOrgJoin | null> {
+    if (!organizationsEnabled()) return null
+    try {
+        await acceptOrgEmailInvites(userId, email)
+        const code = rawCode ? normalizeJoinCode(rawCode) : null
+        const result = code ? await joinOrgByCode(userId, code) : null
+        return result ? { title: result.org.title, slug: result.org.slug, outcome: result.outcome } : null
+    } catch (error) {
+        console.error('Joining an organization after onboarding failed:', error)
+        return null
     }
 }
 

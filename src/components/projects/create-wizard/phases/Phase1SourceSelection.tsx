@@ -23,7 +23,10 @@ import { areSealedImportTokensEqual, getSealedImportTokenFingerprint } from '@/l
 import { SkillList } from '@/components/skills/SkillList';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Phase1SourceMethodGroup, type ProjectSourceType } from '@/components/projects/create-wizard/phase1/Phase1SourceMethodGroup';
+import { Phase1SourceMethodGroup, type ProjectSourceType, type StartingPoint } from '@/components/projects/create-wizard/phase1/Phase1SourceMethodGroup';
+import { ORG_TYPES, type OrgType } from '@/lib/organizations/config';
+import { cn } from '@/lib/utils';
+import Link from 'next/link';
 import { buildUploadManifest, type UploadManifest } from '@/components/projects/create-wizard/phase1/upload-manifest';
 import { clearGithubOAuthResume, getCreateProjectReturnPath, saveGithubOAuthResume } from '@/components/projects/create-wizard/github-oauth-resume';
 import { isGithubAccessRefreshError } from '@/components/projects/create-wizard/phase1/github-access';
@@ -67,6 +70,7 @@ export default function Phase1SourceSelection({
     initialSource = null,
     onSourceChange,
     isResumingGithubOAuth = false,
+    organizationsEnabled = false,
 }: {
     uploadFiles: FileList | null;
     setUploadFiles: (files: FileList | null) => void;
@@ -83,6 +87,7 @@ export default function Phase1SourceSelection({
     initialSource?: SourceType | null;
     onSourceChange?: (source: SourceType | null) => void;
     isResumingGithubOAuth?: boolean;
+    organizationsEnabled?: boolean;
 }) {
     const { getValues, setValue, watch } = useFormContext<CreateProjectInput>();
     const importSourceType = watch('import_source.type') as SourceType | undefined;
@@ -165,6 +170,8 @@ export default function Phase1SourceSelection({
     });
 
     const selectedSource: SourceType = activeSourceView ?? importSourceType ?? 'scratch';
+    // An organization is an empty project underneath (import_source stays scratch); this marks the choice.
+    const organization = watch('organization');
 
     useEffect(() => {
         onSourceChange?.(activeSourceView);
@@ -404,6 +411,70 @@ export default function Phase1SourceSelection({
             setRepoPickerOpen(false);
         }
     };
+
+    const handleSelectStartingPoint = (type: StartingPoint) => {
+        if (type === 'organization') {
+            handleSelectSource('scratch');
+            if (!getValues('organization')) {
+                setValue('organization', { org_type: 'education', handle: '', join_mode: 'instant', child_creation: 'members', outside_people: false }, { shouldDirty: true });
+                // Org defaults (report §6 Phase 4, §21.5): member uploads to the org tree off; students don't post updates.
+                setValue('member_file_upload_default', false, { shouldDirty: true });
+                setValue('member_updates_enabled', false, { shouldDirty: true });
+            }
+            return;
+        }
+        if (getValues('organization')) {
+            setValue('organization', undefined, { shouldDirty: true });
+            setValue('member_file_upload_default', true, { shouldDirty: true });
+            setValue('member_updates_enabled', true, { shouldDirty: true });
+        }
+        handleSelectSource(type);
+    };
+
+    const ORG_TYPE_COPY: Record<OrgType, { label: string; hint: string }> = {
+        education: { label: 'Education', hint: 'A class, batch or semester' },
+        company: { label: 'Company', hint: 'A team, department or region' },
+        community: { label: 'Community', hint: 'An open group with shared projects' },
+        research: { label: 'Research', hint: 'A lab or research group' },
+        club: { label: 'Club', hint: 'A student or hobby club' },
+    };
+
+    const renderOrganizationView = () => (
+        <section className="border-t border-border pt-6" data-testid="create-project-source-view-organization" aria-labelledby="org-type-heading">
+            <fieldset>
+                <legend id="org-type-heading" className="nb-section-title text-foreground">What kind of organization?</legend>
+                <p className="nb-compact mt-1 text-muted-foreground">Sets role names and defaults. You can change everything later in Settings.</p>
+                <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {ORG_TYPES.map((type) => (
+                        <label
+                            key={type}
+                            className={cn(
+                                'flex cursor-pointer flex-col rounded-lg border p-3 transition-colors',
+                                organization?.org_type === type ? 'border-primary bg-secondary' : 'border-border bg-card hover:bg-muted/60',
+                            )}
+                        >
+                            <input
+                                type="radio"
+                                name="create-org-type"
+                                value={type}
+                                checked={organization?.org_type === type}
+                                onChange={() => {
+                                    setValue('organization.org_type', type, { shouldDirty: true });
+                                    setValue('member_updates_enabled', type !== 'education', { shouldDirty: true });
+                                }}
+                                className="sr-only"
+                            />
+                            <span className="nb-card-title text-foreground">{ORG_TYPE_COPY[type].label}</span>
+                            <span className="nb-compact text-muted-foreground">{ORG_TYPE_COPY[type].hint}</span>
+                        </label>
+                    ))}
+                </div>
+            </fieldset>
+            <p className="nb-compact mt-5 text-muted-foreground">
+                Have a code? <Link href="/join" className="font-medium text-foreground underline underline-offset-4">Join an organization</Link>
+            </p>
+        </section>
+    );
 
     const loadRepositories = useCallback(async (reset: boolean, cursorOverride?: string | null) => {
         if (!hasGithubRepoAccess) return;
@@ -1556,7 +1627,9 @@ export default function Phase1SourceSelection({
         </div>
     );
 
-    const sourcePanel = activeSourceView === 'github'
+    const sourcePanel = organization
+        ? renderOrganizationView()
+        : activeSourceView === 'github'
         ? renderGithubView()
         : activeSourceView === 'upload'
             ? renderUploadView()
@@ -1564,7 +1637,11 @@ export default function Phase1SourceSelection({
 
     return (
         <div className="min-w-0 w-full space-y-8 pb-6">
-            <Phase1SourceMethodGroup value={selectedSource} onChange={handleSelectSource} />
+            <Phase1SourceMethodGroup
+                value={organization ? 'organization' : selectedSource}
+                onChange={handleSelectStartingPoint}
+                showOrganization={organizationsEnabled || Boolean(organization)}
+            />
             <section
                 id={`create-project-source-panel-${activeSourceView}`}
                 aria-label={`${activeSourceView} project source settings`}

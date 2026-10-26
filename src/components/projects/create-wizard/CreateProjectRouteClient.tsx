@@ -1,5 +1,6 @@
 'use client'
 
+import { OrganizationCreatedScreen } from '@/components/organizations/OrganizationCreatedScreen'
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
@@ -19,6 +20,7 @@ import {
 
 interface CreateProjectRouteClientProps {
     initialSource?: CreateProjectSource | null
+    organizationsEnabled?: boolean
 }
 
 type Handoff = { source: CreateProjectSource | null; resume: CreateProjectGithubOAuthResume | null }
@@ -26,11 +28,14 @@ type Handoff = { source: CreateProjectSource | null; resume: CreateProjectGithub
 /** The only home of the create-project wizard: the /projects/new page (spec §18). */
 export function CreateProjectRouteClient({
     initialSource = null,
+    organizationsEnabled = false,
 }: CreateProjectRouteClientProps) {
     const router = useRouter()
     const queryClient = useQueryClient()
     // The wizard mounts once, with restored values, so it waits for the GitHub hand-off to be read.
     const [handoff, setHandoff] = useState<Handoff | null>(null)
+    // A new org shows its join code once before going to it (report §6, After creation).
+    const [createdOrg, setCreatedOrg] = useState<{ projectId: string; title: string; joinCode: string } | null>(null)
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search)
@@ -64,11 +69,12 @@ export function CreateProjectRouteClient({
         router.replace(readCreateProjectReturnPath() ?? '/discover')
     }, [router])
 
-    const handleSuccess = useCallback((projectId: string) => {
+    const handleSuccess = useCallback((projectId: string, organization?: { title: string; joinCode: string }) => {
         void queryClient.invalidateQueries({ queryKey: queryKeys.discover.projectsSimpleRoot() })
         void queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.discoverRoot() })
         void queryClient.invalidateQueries({ queryKey: queryKeys.profile.root() })
         clearCreateProjectReturnPath()
+        if (organization) return setCreatedOrg({ projectId, ...organization })
         // Replace so Back from the new project does not reopen the wizard.
         router.replace(`/projects/${projectId}`)
     }, [queryClient, router])
@@ -87,6 +93,9 @@ export function CreateProjectRouteClient({
         window.history.replaceState(window.history.state, '', url.pathname + url.search)
     }, [])
 
+    if (createdOrg) {
+        return <OrganizationCreatedScreen {...createdOrg} onContinue={() => router.replace(`/projects/${createdOrg.projectId}`)} />
+    }
     if (!handoff) return <CreateProjectShellSkeleton />
 
     return (
@@ -97,6 +106,7 @@ export function CreateProjectRouteClient({
             onSourceChange={handleSourceChange}
             githubOAuthResume={handoff.resume}
             onGithubOAuthResumeRestored={handleResumeRestored}
+            organizationsEnabled={organizationsEnabled}
         />
     )
 }

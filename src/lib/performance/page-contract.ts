@@ -166,6 +166,22 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     bootstrapReadModel: "static",
     maxInitialPayloadKb: 220,
   }),
+  "/join": buildPublicContract("/join", "src/app/(site)/(auth)/join/page.tsx", {
+    renderingMode: "dynamic",
+    cacheTtlSeconds: 60,
+    invalidationOwner: "none",
+    hydrationBoundary: "minimal",
+    bootstrapReadModel: "static",
+    maxInitialPayloadKb: 220,
+  }),
+  "/join/[code]": buildPublicContract("/join/[code]", "src/app/(site)/(auth)/join/[code]/page.tsx", {
+    renderingMode: "dynamic",
+    cacheTtlSeconds: 0,
+    invalidationOwner: "none",
+    hydrationBoundary: "minimal",
+    bootstrapReadModel: "static",
+    maxInitialPayloadKb: 220,
+  }),
   "/forgot-password": buildPublicContract("/forgot-password", "src/app/(site)/(auth)/forgot-password/page.tsx", {
     renderingMode: "dynamic",
     cacheTtlSeconds: 30,

@@ -34,3 +34,13 @@ export const ORG_LIMITS = {
   handleRenameDays: 7,
   handleHoldDays: 90,
 } as const;
+
+export const ORG_TYPES = ["education", "company", "community", "research", "club"] as const;
+export type OrgType = (typeof ORG_TYPES)[number];
+
+/** Default role names by org type (report §5, §21.5): owner / admin / member / viewer (Guest). Editable in Settings. */
+export function defaultOrgRoleNames(type: OrgType) {
+  if (type === "education") return { owner: "Teacher", admin: "TA", member: "Student", viewer: "Guest" };
+  if (type === "company") return { owner: "Owner", admin: "Manager", member: "Member", viewer: "Guest" };
+  return { owner: "Owner", admin: "Admin", member: "Member", viewer: "Guest" };
+}

@@ -232,6 +232,16 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                 <ReviewRow label="Project title">
                     <p className="nb-body font-medium text-foreground">{formData.title || 'Untitled project'}</p>
                 </ReviewRow>
+                {formData.organization ? (
+                    <ReviewRow label="Organization">
+                        <p className="nb-body text-foreground">@{formData.organization.handle} · {formData.organization.org_type}</p>
+                        <p className="nb-compact mt-1 text-muted-foreground">
+                            {formData.organization.join_mode === 'approval' ? 'Joining needs approval' : 'Anyone with the code joins'} ·{' '}
+                            {formData.organization.child_creation === 'admins' ? 'Admins create projects' : 'All members create projects'}
+                            {formData.organization.term_start || formData.organization.term_end ? ` · Term ${formData.organization.term_start || '…'} to ${formData.organization.term_end || '…'}` : ''}
+                        </p>
+                    </ReviewRow>
+                ) : null}
                 <ReviewRow label="Category">
                     <p className="nb-body text-foreground">{projectTypeLabel}</p>
                     {projectType?.description ? <p className="nb-compact mt-1 text-muted-foreground">{projectType.description}</p> : null}

@@ -1,3 +1,4 @@
+import { normalizeJoinCode } from '@/lib/organizations/join-rules'
 import { z } from 'zod'
 import {
     ONBOARDING_EXPERIENCE_LEVEL_VALUES,
@@ -196,6 +197,8 @@ export const onboardingDraftSchema = z.object({
     genderIdentity: draftEnum(ONBOARDING_GENDER_VALUES),
     pronouns: draftText(L.pronounsMax),
     visibility: draftEnum(ONBOARDING_VISIBILITY_VALUES),
+    // An org join code from /join/CODE, kept with the draft so the join survives a closed tab or another device (decision 132).
+    pendingJoinCode: z.unknown().transform((value) => (typeof value === 'string' ? normalizeJoinCode(value) ?? undefined : undefined)).optional(),
 })
 
 export type OnboardingDraft = z.output<typeof onboardingDraftSchema>

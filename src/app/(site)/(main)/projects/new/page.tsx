@@ -4,6 +4,7 @@ import { CreateProjectRouteClient } from '@/components/projects/create-wizard/Cr
 import { buildRouteMetadata } from '@/lib/metadata/route-metadata'
 import { getViewerAuthContext } from '@/lib/server/viewer-context'
 import { buildAuthPageHref } from '@/lib/auth/redirects'
+import { organizationsEnabled } from '@/lib/organizations/config'
 
 const VALID_CREATE_PROJECT_SOURCES = new Set(['scratch', 'github', 'upload'] as const)
 
@@ -38,7 +39,7 @@ export default async function NewProjectPage({
     // A normal page in the app shell: fills the main content area; the wizard body is the only scroller.
     return (
         <div data-scroll-root="route" className="h-full min-h-0">
-            <CreateProjectRouteClient initialSource={initialSource} />
+            <CreateProjectRouteClient initialSource={initialSource} organizationsEnabled={organizationsEnabled()} />
         </div>
     )
 }

@@ -37,7 +37,8 @@ test("phase 1 keeps one named radio source selector and a flat accessible reposi
   assert.match(selector, /name="create-project-source"/);
   assert.match(selector, /Choose a starting point/);
   assert.match(selector, /border-primary bg-secondary/);
-  assert.match(selector, /md:grid-cols-2 lg:grid-cols-3/);
+  // Three cards in a row; four when the Organization card shows.
+  assert.match(selector, /md:grid-cols-2", showOrganization \? "xl:grid-cols-4" : "lg:grid-cols-3"/);
   // Tiles size to their content (compact rows on phones), no fixed minimum height.
   assert.doesNotMatch(selector, /min-h-44/);
   assert.match(selector, /p-4 text-left md:p-6/);

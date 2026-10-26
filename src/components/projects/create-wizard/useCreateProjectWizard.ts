@@ -8,6 +8,7 @@ import { DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY } from '@/lib/projects/settings-p
 import { toast, feedbackError } from "@/lib/feedback";
 import { TOTAL_PHASES, WizardPhaseId } from '@/constants/project-wizard';
 import { createProjectAction } from '@/app/actions/project';
+import { checkOrgHandleAction } from '@/app/actions/organizations';
 import { parseGithubRepo } from '@/lib/github/repo-preview';
 import { fetchGithubImportPreviewFolder, fetchGithubImportPreviewRoot } from '@/lib/github/import-client';
 import { shouldIgnorePath } from '@/lib/import/import-filters';
@@ -27,7 +28,7 @@ export interface WizardContextType {
 
 interface UseCreateProjectWizardProps {
     onClose: () => void;
-    onSuccess?: (projectId: string) => void;
+    onSuccess?: (projectId: string, organization?: { title: string; joinCode: string }) => void;
     initialValues?: CreateProjectInput;
     initialPhase?: WizardPhaseId;
 }
@@ -558,6 +559,18 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                 }
                 setPhase2ValidationAttempted(true);
                 isValid = await trigger(fieldsToValidate, { shouldFocus: true });
+                const organization = getValues('organization');
+                if (isValid && organization) {
+                    const handle = await checkOrgHandleAction(organization.handle || '');
+                    if (!handle.available) {
+                        toast.error(handle.message);
+                        document.getElementById('create-org-handle')?.focus();
+                        isValid = false;
+                    } else {
+                        setValue('organization.handle', handle.handle ?? '', { shouldDirty: true });
+                        isValid = await trigger(['organization'], { shouldFocus: true });
+                    }
+                }
                 if (isValid) setPhase2ValidationAttempted(false);
             } else if (phase === 3) {
                 setPhase3ValidationAttempted(true);
@@ -594,7 +607,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                 releaseTransition();
             }
         }
-    }, [phase, trigger, getValues, githubPreview.repoUrl, githubPreview.status, isSubmitting, phase4LinkComposerPending, uploadFiles]);
+    }, [phase, trigger, getValues, setValue, githubPreview.repoUrl, githubPreview.status, isSubmitting, phase4LinkComposerPending, uploadFiles]);
 
     const handleBack = useCallback(() => {
         if (isSubmitting || phaseTransitionRef.current) return;
@@ -628,6 +641,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
             toast.warning('Project created', { id: creationToastId, description: creationWarnings.join(' ') });
         };
         let createdProjectId: string | null = null;
+        let createdOrganization: { title: string; joinCode: string } | undefined;
         let uploadSessionContext: { sessionId?: string; manifestHash?: string } | null = null;
         const resolvedRoles = (data.roles || []).filter((role) => (role.role || '').trim().length > 0);
         const readmeIntent = data.readme ?? {
@@ -712,6 +726,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
 
             if (!result.success || !result.project) throw new Error(result.error || 'Creation failed');
             createdProjectId = result.project.id;
+            if (result.project.joinCode) createdOrganization = { title: result.project.title, joinCode: result.project.joinCode };
 
             // Upload flow (Folder Upload import)
             if (importType === 'upload') {
@@ -929,7 +944,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
             await draftStore.clear(userId);
             skipDraftOnUnmountRef.current = true;
             // Success navigates to the new project; closing as well would navigate away from it.
-            if (createdProjectId && onSuccess) onSuccess(createdProjectId);
+            if (createdProjectId && onSuccess) onSuccess(createdProjectId, createdOrganization);
             else onClose();
         } catch (error: any) {
             // If upload import failed after project creation, mark syncStatus=failed so Files tab can show retry UI.

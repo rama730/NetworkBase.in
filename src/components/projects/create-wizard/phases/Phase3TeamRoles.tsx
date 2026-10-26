@@ -1,5 +1,6 @@
 'use client';
 
+import { OrgPeopleFields } from '@/components/organizations/OrgWizardFields';
 import { type ReactNode, useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { CreateProjectInput, type OpenRoleInput } from '@/lib/validations/project';
@@ -92,6 +93,18 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
             role_type: 'lead', title, time_commitment: creatorRole?.time_commitment,
         }, { shouldDirty: true, shouldValidate: true });
     };
+
+    if (watch('organization')) {
+        return (
+            <div className="min-w-0 w-full space-y-8 pb-6">
+                <div className="max-w-[65ch]">
+                    <p className="nb-micro text-primary">Phase 3 · people</p>
+                    <h2 className="nb-section-title mt-1 text-foreground">People and joining</h2>
+                </div>
+                <OrgPeopleFields />
+            </div>
+        );
+    }
 
     return (
         <div className="min-w-0 w-full space-y-8 pb-6">

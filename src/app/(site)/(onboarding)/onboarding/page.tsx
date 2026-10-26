@@ -13,6 +13,8 @@ import Step3Skills from '@/components/onboarding/steps/Step3Skills'
 import { Step4Privacy, type ReviewSummaryItem } from '@/components/onboarding/steps/Step4Privacy'
 import { useOnboardingBootstrap } from '@/components/onboarding/OnboardingBootstrapProvider'
 import { commitOnboardingStep, completeOnboarding } from '@/app/actions/onboarding'
+import { getJoinPreviewAction } from '@/app/actions/organizations'
+import { normalizeJoinCode } from '@/lib/organizations/join-rules'
 import { createProfileImageUploadUrlAction, finalizeProfileImageUploadAction } from '@/app/actions/profile'
 import { useAuth } from '@/hooks/use-auth'
 import { blockReason, type UsernameCheck } from '@/lib/onboarding/block-reason'
@@ -108,6 +110,8 @@ export default function OnboardingPage() {
     const [continuePath, setContinuePath] = useState('/discover')
     const [error, setError] = useState<string | null>(null)
     const [commitFailed, setCommitFailed] = useState(false)
+    // The org from /join/CODE: named in a banner during setup and on the finish button after it (report §29.1).
+    const [joinOrgTitle, setJoinOrgTitle] = useState<string | null>(null)
     const [conflictNotice, setConflictNotice] = useState(false)
     const [showErrors, setShowErrors] = useState(false)
     const [returnToReview, setReturnToReview] = useState(false)
@@ -137,8 +141,21 @@ export default function OnboardingPage() {
             setCompletedThrough(local.completedThrough)
             setData((current) => applyDraft(current, local.draft))
         }
+        const joinCode = normalizeJoinCode(resolveReturnPath().match(/^\/join\/([^/?#]+)/)?.[1] ?? '')
+        if (joinCode) setData((current) => (current.pendingJoinCode ? current : { ...current, pendingJoinCode: joinCode }))
         setReady(true)
     }, [])
+
+    useEffect(() => {
+        if (!data.pendingJoinCode) return
+        let cancelled = false
+        void getJoinPreviewAction(data.pendingJoinCode).then((result) => {
+            if (!cancelled) setJoinOrgTitle(result.success ? result.preview.title : null)
+        })
+        return () => {
+            cancelled = true
+        }
+    }, [data.pendingJoinCode])
 
     useEffect(() => {
         if (!ready || finished) return
@@ -350,7 +367,15 @@ export default function OnboardingPage() {
             } catch {
                 // nothing to clean up if storage is unavailable
             }
-            setContinuePath(resolveReturnPath())
+            if (result.joined) {
+                setJoinOrgTitle(result.joined.title)
+                // Members go to the org; a request (or a refusal) is shown on the join page.
+                const member = result.joined.outcome === 'joined' || result.joined.outcome === 'already_member'
+                setContinuePath(member ? `/projects/${result.joined.slug ?? ''}` : `/join/${data.pendingJoinCode}`)
+            } else {
+                setJoinOrgTitle(null)
+                setContinuePath(resolveReturnPath())
+            }
             setCompletedThrough(TOTAL_STEPS)
             setFinished(true)
         } catch (submitError) {
@@ -384,7 +409,7 @@ export default function OnboardingPage() {
                     avatarUrl={data.avatarUrl}
                     skills={data.skills}
                     visibility={data.visibility}
-                    continueLabel={continuePath === '/discover' ? 'Go to Discover' : 'Continue'}
+                    continueLabel={joinOrgTitle ? `Continue to ${joinOrgTitle}` : continuePath === '/discover' ? 'Go to Discover' : 'Continue'}
                     onContinue={() => window.location.assign(continuePath)}
                 />
             </OnboardingLayout>
@@ -440,6 +465,12 @@ export default function OnboardingPage() {
             >
                 <div key={step} className="onb-step-enter">
                     <StepHeader title={config.title} subtitle={config.subtitle} step={step} totalSteps={TOTAL_STEPS} />
+
+                    {joinOrgTitle ? (
+                        <p role="status" className="mb-6 rounded-md border border-border bg-muted px-3 py-2 text-[13px] text-foreground">
+                            You&apos;ll join {joinOrgTitle} after setup.
+                        </p>
+                    ) : null}
 
                     {conflictNotice ? (
                         <p role="status" className="mb-6 rounded-md border border-border bg-muted px-3 py-2 text-[13px] text-foreground">
