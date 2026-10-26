@@ -115,6 +115,9 @@ export interface Project {
   // Timestamps
   createdAt?: string;
   updatedAt?: string | null;
+
+  /** Organizations only: header, About and Settings data (null or absent for other projects). */
+  organization?: import("@/lib/organizations/detail").OrgDetail | null;
 }
 
 // Filter types

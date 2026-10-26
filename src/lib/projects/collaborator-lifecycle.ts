@@ -574,13 +574,16 @@ export async function removeProjectMemberInternal(
         targetUserId: string;
         mode: "preserve_history" | "unassign_active_tasks" | "reassign_active_tasks";
         reassignToUserId?: string | null;
+        /** Leaving: the person removes themself. Only org leave uses it; the owner never leaves this way. */
+        allowSelf?: boolean;
     },
 ): Promise<ProjectCollaboratorLifecycleResult & { assignmentNotifications: EnqueueProjectNotificationEventInput[] }> {
     const project = await readProjectForUpdate(executor, params.projectId);
     if (!project) throw new NotFoundError("Project not found");
     const actorRole = await readMembershipRole(executor, params.projectId, params.actorId, project.ownerId, true);
     const previousRole = await readMembershipRole(executor, params.projectId, params.targetUserId, project.ownerId, true);
-    if (!canProjectRoleManageTarget({ actorRole, targetRole: previousRole })) {
+    const isLeaving = params.allowSelf === true && params.actorId === params.targetUserId && previousRole !== null && previousRole !== "owner";
+    if (!isLeaving && !canProjectRoleManageTarget({ actorRole, targetRole: previousRole })) {
         throw new ForbiddenError("You do not have permission to remove this collaborator");
     }
     const target = await readProfileSnapshot(executor, params.targetUserId);

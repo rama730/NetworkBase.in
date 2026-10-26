@@ -58,7 +58,7 @@ test("project detail keeps identity and team in the header while the dashboard s
   assert.match(layout, /tabList\.scrollTo\(\{ left: Math\.max\(0, centeredLeft\), behavior: "smooth" \}\)/);
   assert.match(layout, /nb-page-title/);
   assert.match(layout, /nb-touch-target/);
-  assert.match(client, /onInvite=\{\(\) => setIsInviteModalOpen\(true\)\}/);
+  assert.match(client, /onInvite=\{\(\) => \(isOrganization \? setIsOrgInviteOpen\(true\) : setIsInviteModalOpen\(true\)\)\}/);
   assert.match(client, /canInvite=\{canManageProjectSettings\}/);
   assert.match(stats, /followersCount/);
   assert.match(stats, /font-mono tabular-nums/);

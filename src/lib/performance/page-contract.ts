@@ -252,6 +252,14 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     bootstrapReadModel: "server_query",
     maxInitialPayloadKb: 300,
   }),
+  "/org/[slug]": buildPublicContract("/org/[slug]", "src/app/(site)/(main)/org/[slug]/page.tsx", {
+    renderingMode: "dynamic",
+    cacheTtlSeconds: 60,
+    invalidationOwner: "server-action",
+    hydrationBoundary: "standard",
+    bootstrapReadModel: "server_query",
+    maxInitialPayloadKb: 300,
+  }),
   "/projects/new": buildUserShellContract("/projects/new", "src/app/(site)/(main)/projects/new/page.tsx", {
     renderingMode: "dynamic",
     cacheStrategy: "none",

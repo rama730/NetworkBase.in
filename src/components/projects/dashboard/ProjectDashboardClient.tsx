@@ -36,6 +36,9 @@ import {
 
 import { DashboardTab, DocTab, UpdatesTab, TasksTab, FilesTab, SprintPlanning, ProjectSettingsTab } from '@/components/projects/dashboard/ProjectTabsRegistry';
 import { SkeletonSprints } from '@/components/projects/skeletons/SkeletonSprints';
+import { OrgAboutTab } from '@/components/organizations/OrgAboutTab';
+import { OrgIdentityLine, OrgInviteDialog, OrgVisitorActions } from '@/components/organizations/OrgHeaderParts';
+import { isProjectPubliclyReadableVisibility } from '@/lib/projects/project-visibility';
 import { confirmFileNavigation } from '@/lib/files/unsaved-navigation';
 import { useFilesWorkspaceStore } from '@/stores/filesWorkspaceStore';
 
@@ -253,7 +256,10 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
     );
 
     // Active tab from URL or default
-    const canonicalProjectHref = useMemo(() => `/projects/${project.slug || project.id}`, [project.id, project.slug]);
+    // Organizations live at /org/<handle> (report §24); their header, tabs and settings differ (report §18, §21).
+    const organization = project.organization ?? null;
+    const isOrganization = Boolean(organization);
+    const canonicalProjectHref = useMemo(() => `${isOrganization ? '/org' : '/projects'}/${project.slug || project.id}`, [isOrganization, project.id, project.slug]);
     const publicTabVisibility = useMemo(() => normalizeProjectPublicTabVisibility(project.publicTabVisibility ?? project.public_tab_visibility), [project]);
     const isOwnerOrMember = isOwner || isMember;
     const resolvedActiveTab = resolveAllowedProjectTab({
@@ -261,6 +267,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
         isOwnerOrMember,
         canManageSettings: isOwner,
         publicTabVisibility,
+        isOrganization,
     });
 
     const [activeTab, setActiveTab] = useState(() => resolvedActiveTab);
@@ -289,6 +296,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+    const [isOrgInviteOpen, setIsOrgInviteOpen] = useState(false);
     const [preselectedRoleId, setPreselectedRoleId] = useState<string | undefined>(undefined);
     const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
     const [isStageUpdating, setIsStageUpdating] = useState(false);
@@ -588,6 +596,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                     isOwnerOrMember,
                     canManageSettings: canManageProjectSettings,
                     publicTabVisibility,
+                    isOrganization,
                 })
             ) {
                 toast.error('That project tab is not visible for your current access.');
@@ -644,13 +653,15 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
             isOwnerOrMember,
             canManageSettings: canManageProjectSettings,
             publicTabVisibility,
+            isOrganization,
         });
         if (allowedTab === null) {
             return;
         }
         let changed = false;
 
-        if (allowedTab === 'dashboard') {
+        // The landing tab (About for org visitors, Dashboard otherwise) needs no ?tab=.
+        if (allowedTab === (isOrganization && !isOwnerOrMember ? 'about' : 'dashboard')) {
             changed = deleteParam(nextParams, 'tab') || changed;
         } else {
             const encodedTab = projectDetailTabQueryParam(allowedTab);
@@ -697,6 +708,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
             isOwnerOrMember,
             canManageSettings: canManageProjectSettings,
             publicTabVisibility,
+            isOrganization,
         });
         setActiveTab((prev) => (prev === nextTab ? prev : nextTab));
     }, [
@@ -1088,7 +1100,12 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
     return (
         <PlainContentHeadings>
         {shareOpen ? <ResourceShareDialog kind="project" path={canonicalProjectHref} returnFocusElement={shareTrigger.current} onClose={() => setShareOpen(false)} /> : null}
-        <ProjectLayout project={projectWithLiveStats} isOwner={isOwner} canManageSettings={canManageProjectSettings} isOwnerOrMember={isOwnerOrMember} publicTabVisibility={publicTabVisibility} activeTab={activeTab ?? ''} onTabChange={handleTabChange} followersCount={followersCount} viewCount={viewCount} filesSyncBadge={filesSyncBadge} isFollowing={isFollowing} onFollow={handleFollow} followLoading={followLoading} onShare={handleShare} onInvite={() => setIsInviteModalOpen(true)} canInvite={canManageProjectSettings} onTabHover={handleTabHover} members={allMembers} loadingMembers={loadingMembers} stageLabel={lifecycleStageNames[optimisticStageIndex] ?? null} stageIndex={optimisticStageIndex} stageCount={lifecycleStageNames.length} applicationLabel={applicationHeaderLabel} openRolesCount={rolesWithFilled.filter((role: any) => (role?.count || 0) - (role?.filled || 0) > 0).length}>
+        <ProjectLayout project={projectWithLiveStats} isOwner={isOwner} canManageSettings={canManageProjectSettings} isOwnerOrMember={isOwnerOrMember} publicTabVisibility={publicTabVisibility} activeTab={activeTab ?? ''} onTabChange={handleTabChange} followersCount={followersCount} viewCount={viewCount} filesSyncBadge={filesSyncBadge} isFollowing={isFollowing} onFollow={handleFollow} followLoading={followLoading} onShare={handleShare} onInvite={() => (isOrganization ? setIsOrgInviteOpen(true) : setIsInviteModalOpen(true))} canInvite={canManageProjectSettings}
+            isOrganization={isOrganization}
+            identityExtra={organization ? <OrgIdentityLine handle={project.slug ?? null} organization={organization} memberRole={isOwner ? 'owner' : (currentProjectRole as 'admin' | 'member' | 'viewer' | null) ?? null} archived={project.status === 'archived'} /> : null}
+            metadataExtra={organization?.childProjectCount ? <span className="nb-compact text-muted-foreground">· {organization.childProjectCount} {organization.childProjectCount === 1 ? 'project' : 'projects'}</span> : null}
+            actionsStart={organization && !isOwnerOrMember && isProjectPubliclyReadableVisibility(project.visibility) && project.status !== 'archived' ? <OrgVisitorActions orgId={project.id} href={canonicalProjectHref} joinMode={organization.joinMode} requestPending={organization.viewerRequestPending} loggedIn={Boolean(currentUserId)} /> : null}
+            showFollow={!organization || (!isOwnerOrMember && isProjectPubliclyReadableVisibility(project.visibility))} onTabHover={handleTabHover} members={allMembers} loadingMembers={loadingMembers} stageLabel={lifecycleStageNames[optimisticStageIndex] ?? null} stageIndex={optimisticStageIndex} stageCount={lifecycleStageNames.length} applicationLabel={applicationHeaderLabel} openRolesCount={rolesWithFilled.filter((role: any) => (role?.count || 0) - (role?.filled || 0) > 0).length}>
             {!activeTab && (
                 <div className="w-full h-full min-h-[40vh] flex items-center justify-center p-8">
                     <div className="nb-empty-state max-w-md text-center py-12" role="status">
@@ -1105,6 +1122,14 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Dashboard">
                         <DashboardTab project={projectWithLiveStats} isCreator={isOwner} isCollaborator={isMember} rolesWithFilled={rolesWithFilled} onEdit={handleEdit} onAdvanceStage={handleAdvanceStage} onRedoStage={handleRegressStage} onApplyToRole={handleApplyToRole} lifecycleStages={lifecycleStages} currentStageIndex={optimisticStageIndex} applicationStatus={applicationStatus} onAcceptInvitation={() => void handleInvitation('accept')} onDeclineInvitation={() => void handleInvitation('decline')} invitationLoading={invitationLoading} application={applicationControls} pendingApplications={pendingApplicationsForReviewer} />
+                    </TabErrorBoundary>
+                </div>
+            )}
+
+            {isOrganization && activeTab === 'about' && (
+                <div className="w-full h-full min-h-0">
+                    <TabErrorBoundary tabName="About">
+                        <OrgAboutTab project={projectWithLiveStats} isCreator={isOwner} onEdit={handleEdit} />
                     </TabErrorBoundary>
                 </div>
             )}
@@ -1151,13 +1176,17 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                 </div>
             )}
 
-            {canManageProjectSettings && activeTab === 'settings' && (
+            {(canManageProjectSettings || (isOrganization && isOwnerOrMember)) && activeTab === 'settings' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Settings">
                         <ProjectSettingsTab projectId={project.id} project={projectWithLiveStats} onProjectUpdated={handleProjectSettingsUpdated} isProjectOwner={isOwner} actorRole={currentProjectRole} members={allMembers} loadingMembers={loadingMembers} />
                     </TabErrorBoundary>
                 </div>
             )}
+
+            {organization && canManageProjectSettings ? (
+                <OrgInviteDialog orgId={project.id} title={project.title} joinCode={organization.joinCode} open={isOrgInviteOpen} onOpenChange={setIsOrgInviteOpen} />
+            ) : null}
 
             {isOnboardingOpen ? (
                 <ProjectOnboardingModal

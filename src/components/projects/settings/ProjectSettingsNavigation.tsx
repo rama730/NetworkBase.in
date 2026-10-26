@@ -3,6 +3,12 @@
 import {
   AlertTriangle,
   Bell,
+  Building2,
+  CircleUser,
+  KeyRound,
+  LogOut,
+  ShieldCheck,
+  FolderTree,
   ChevronDown,
   FileText,
   Folder,
@@ -36,6 +42,12 @@ const icons = {
   "privacy-policies": Scale,
   "privacy-terms": Scale,
   danger: AlertTriangle,
+  "you-membership": CircleUser,
+  "you-leave": LogOut,
+  "org-profile": Building2,
+  "org-access": KeyRound,
+  "org-people": ShieldCheck,
+  "org-projects": FolderTree,
 };
 
 export function ProjectSettingsNavigation({

@@ -1,5 +1,7 @@
 "use client";
 
+import { OrgAccessSection, OrgLeaveSection, OrgMembershipSection, OrgPeopleSection, OrgProfileSection, OrgProjectsSection } from "@/components/organizations/OrgSettingsSections";
+import { ORG_SECTION_DEFS, orgSettingsSectionIds, type OrgMemberRole, type OrgSettingsSectionId } from "@/lib/organizations/settings";
 import { useRoleApplicationCounts } from "@/hooks/useRoleApplicationCounts";
 import { TaskCompletionSettings } from "@/components/projects/settings/TaskCompletionSettings";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -202,8 +204,18 @@ function ProjectSettingsContent({
     const [readmeLoaded, setReadmeLoaded] = useState(false);
     const actorProjectRole = isProjectOwner ? "owner" : actorRole ?? "member";
     const canManageSettings = isProjectOwner || actorProjectRole === "admin";
+    const organization = project?.organization ?? null;
+    const orgRole = (isProjectOwner ? "owner" : actorProjectRole) as OrgMemberRole;
     const sections = useMemo(() => {
         const visible = getVisibleProjectSettingsSections();
+        if (organization) {
+            // Report §21.4: You sections for everyone, org sections for admins, owner extras for the owner.
+            return orgSettingsSectionIds(orgRole).flatMap((id) => {
+                const orgDef = ORG_SECTION_DEFS[id as OrgSettingsSectionId];
+                const def = orgDef ? { id, ...orgDef } : visible.find((section) => section.id === id);
+                return def ? [def] : [];
+            });
+        }
         if (isProjectOwner) return visible;
         if (actorProjectRole === "admin") {
             const adminSections: ProjectSettingsSectionId[] = [
@@ -222,7 +234,7 @@ function ProjectSettingsContent({
             return visible.filter((section) => adminSections.includes(section.id));
         }
         return visible.filter((section) => section.id === "collaborators" || section.id === "privacy-policies" || section.id === "privacy-terms");
-    }, [actorProjectRole, isProjectOwner]);
+    }, [actorProjectRole, isProjectOwner, organization, orgRole]);
     const { activeSection, navigate: handleNavigateSection } = useProjectSettingsNavigation(sections);
     const [savingAccess, setSavingAccess] = useState(false);
     const [savingRoles, setSavingRoles] = useState(false);
@@ -1348,6 +1360,8 @@ function ProjectSettingsContent({
         <div className="grid w-full min-w-0 grid-cols-1 bg-card xl:grid-cols-[var(--nb-sidebar-width)_minmax(0,1fr)]">
             <ProjectSettingsNavigation sections={sections} activeSection={activeSection} onNavigate={handleNavigateSection} />
             <main data-project-settings-document className="mx-auto min-w-0 w-full max-w-4xl space-y-12 p-4 md:p-[calc(var(--ui-panel-padding)+4px)] [&>[data-project-settings-section]]:border-b [&>[data-project-settings-section]]:border-border [&>[data-project-settings-section]]:pb-8 [&>[data-project-settings-section]:last-child]:border-b-0">
+                {organization && sections.some((s) => s.id === "you-membership") && <OrgMembershipSection orgId={projectId} organization={organization} role={orgRole} />}
+                {organization && sections.some((s) => s.id === "you-leave") && <OrgLeaveSection orgId={projectId} organization={organization} role={orgRole} title={project?.title ?? "this organization"} />}
                 {sections.some((s) => s.id === "general") && (
                     <GeneralSettingsSection
                         projectId={projectId}
@@ -1358,6 +1372,7 @@ function ProjectSettingsContent({
                         onProjectTitleChange={setProjectTitle}
                     />
                 )}
+                {organization && sections.some((s) => s.id === "org-profile") && <OrgProfileSection orgId={projectId} organization={organization} role={orgRole} handle={project?.slug ?? null} />}
                 {sections.some((s) => s.id === "links") && (
                     <section id="project-settings-links" data-project-settings-section className="space-y-6">
                         <div className="space-y-6">
@@ -1458,6 +1473,9 @@ function ProjectSettingsContent({
                         </div>
                     </section>
                 )}
+                {organization && sections.some((s) => s.id === "org-access") && <OrgAccessSection orgId={projectId} organization={organization} role={orgRole} maxMembers={project?.maxCollaborators ?? null} />}
+                {organization && sections.some((s) => s.id === "org-people") && <OrgPeopleSection orgId={projectId} organization={organization} role={orgRole} />}
+                {organization && sections.some((s) => s.id === "org-projects") && <OrgProjectsSection orgId={projectId} organization={organization} role={orgRole} />}
                 {sections.some((s) => s.id === "collaborators") && (
                     <section id="project-settings-collaborators" data-project-settings-section className="space-y-6">
                         <div className="space-y-6">

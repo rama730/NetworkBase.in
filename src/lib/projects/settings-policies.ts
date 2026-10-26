@@ -19,7 +19,14 @@ export type ProjectSettingsSectionId =
   | "notifications"
   | "privacy-policies"
   | "privacy-terms"
-  | "danger";
+  | "danger"
+  // Organizations only (report §21.2–21.3).
+  | "you-membership"
+  | "you-leave"
+  | "org-profile"
+  | "org-access"
+  | "org-people"
+  | "org-projects";
 
 type ProjectSettingsSectionDefinition = {
   id: ProjectSettingsSectionId;
@@ -336,12 +343,22 @@ export function areProjectPublicTabVisibilitiesEqual(
   ).every((tabId) => normalizedLeft[tabId] === normalizedRight[tabId]);
 }
 
+/**
+ * Organizations (report §18.3): About is theirs alone and open to everyone who can read the org; Dashboard,
+ * Tasks and Settings ("You" sections for members and guests) are for people in the org; visitors get the
+ * public tabs.
+ */
 export function isProjectTabVisibleToViewer(input: {
   tabId: string;
   isOwnerOrMember: boolean;
   canManageSettings?: boolean;
   publicTabVisibility?: unknown;
+  isOrganization?: boolean;
 }) {
+  if (input.isOrganization) {
+    if (input.tabId === "about") return true;
+    if (input.tabId === "dashboard" || input.tabId === "tasks" || input.tabId === "settings") return input.isOwnerOrMember;
+  }
   if (input.tabId === "settings") return Boolean(input.canManageSettings);
   if (!(input.tabId in DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY)) return false;
   if (input.isOwnerOrMember) return true;
@@ -355,16 +372,19 @@ export function resolveAllowedProjectTab(input: {
   isOwnerOrMember: boolean;
   canManageSettings?: boolean;
   publicTabVisibility?: unknown;
+  isOrganization?: boolean;
 }): string | null {
-  const requestedTab = input.requestedTab?.trim() || "dashboard";
+  // Org visitors land on About; everyone else on Dashboard.
+  const landingTab = input.isOrganization && !input.isOwnerOrMember ? "about" : "dashboard";
+  const requestedTab = input.requestedTab?.trim() || landingTab;
   if (requestedTab === "privacy") {
-    return input.canManageSettings ? "settings" : (isProjectTabVisibleToViewer({ ...input, tabId: "dashboard" }) ? "dashboard" : null);
+    const canOpenSettings = isProjectTabVisibleToViewer({ ...input, tabId: "settings" });
+    return canOpenSettings ? "settings" : (isProjectTabVisibleToViewer({ ...input, tabId: landingTab }) ? landingTab : null);
   }
-  const isKnownTab = requestedTab === "settings" || requestedTab in DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY;
-  if (isKnownTab) {
-    return isProjectTabVisibleToViewer({ ...input, tabId: requestedTab }) ? requestedTab : null;
-  }
-  return isProjectTabVisibleToViewer({ ...input, tabId: "dashboard" }) ? "dashboard" : null;
+  const isKnownTab = requestedTab === "settings" || requestedTab in DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY || (input.isOrganization && requestedTab === "about");
+  if (isKnownTab && isProjectTabVisibleToViewer({ ...input, tabId: requestedTab })) return requestedTab;
+  if (isKnownTab && !input.isOrganization) return null;
+  return isProjectTabVisibleToViewer({ ...input, tabId: landingTab }) ? landingTab : null;
 }
 
 export function isAssignableProjectMember(role: unknown) {
