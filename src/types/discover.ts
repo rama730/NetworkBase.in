@@ -104,14 +104,6 @@ export interface Project {
   // Relations
   ownerId?: string;
   owner?: ProjectProfile | null;
-  organizationId?: string | null;
-  teamId?: string | null;
-  organization?: {
-    id: string;
-    name: string;
-    slug: string;
-    avatarUrl?: string | null;
-  } | null;
   collaborators?: ProjectCollaborator[];
   openRoles?: OpenRole[];
   /** Open seats across the project's roles (feeds send this instead of the roles). */
