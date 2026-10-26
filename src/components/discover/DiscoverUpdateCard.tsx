@@ -40,7 +40,8 @@ function mediaAlt(item: DiscoverUpdateMedia, author: string) {
 
 function MediaTile({ item, alt, single, onOpen }: { item: DiscoverUpdateMedia; alt: string; single: boolean; onOpen: () => void }) {
     const [failed, setFailed] = useState(false);
-    const ratio = single && item.width && item.height ? `${item.width} / ${item.height}` : single ? "16 / 9" : "4 / 3";
+    // Compact, like the thread panel: the picture opens full size on click.
+    const ratio = single && item.width && item.height ? `${item.width} / ${item.height}` : "4 / 3";
     return (
         <button
             type="button"
@@ -48,7 +49,7 @@ function MediaTile({ item, alt, single, onOpen }: { item: DiscoverUpdateMedia; a
             aria-label={`Open image: ${alt}`}
             className={cn(
                 "relative block min-h-11 w-full overflow-hidden rounded-[8px] border border-border bg-muted/30 text-left transition hover:border-foreground/25 focus-visible:border-foreground",
-                single && "max-h-[360px]",
+                single && "max-h-[260px]",
             )}
             style={{ aspectRatio: ratio }}
         >
@@ -72,7 +73,7 @@ function UpdateMedia({ media, author }: { media: DiscoverUpdateMedia[]; author: 
     return (
         <div className="mt-3 space-y-2">
             {images.length > 0 ? (
-                <div className={cn("grid gap-2", images.length > 1 && "grid-cols-2")}>
+                <div className={cn("grid max-w-[360px] gap-2", images.length > 1 && "grid-cols-2")}>
                     {images.map((item, index) => (
                         <MediaTile key={`${item.url}-${index}`} item={item} alt={mediaAlt(item, author)} single={images.length === 1} onOpen={() => setViewed(item)} />
                     ))}
