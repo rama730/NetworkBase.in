@@ -17,6 +17,7 @@ import {
   unique,
   customType,
   doublePrecision,
+  date,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
@@ -755,9 +756,27 @@ export const projects = pgTable(
       .$type<import("@/lib/profile/normalization").ProjectLinkMetadataRecord>()
       .default({})
       .notNull(),
+    // "org" = Org only: readable by people in the parent org (0241).
     visibility: text("visibility", {
-      enum: ["public", "private", "unlisted"],
+      enum: ["public", "private", "unlisted", "org"],
     }).default("public"),
+    // Organizations (0241): an org is a project with kind "organization"; children point to it with parentId.
+    kind: text("kind", { enum: ["project", "organization"] }).default("project").notNull(),
+    parentId: uuid("parent_id").references((): AnyPgColumn => projects.id, { onDelete: "set null" }),
+    orgType: text("org_type", { enum: ["education", "company", "community", "research", "club"] }),
+    orgSettings: jsonb("org_settings").$type<Record<string, unknown>>().default({}).notNull(),
+    termStart: date("term_start"),
+    termEnd: date("term_end"),
+    timeZone: text("time_zone"),
+    welcomeNote: text("welcome_note"),
+    joinCode: text("join_code"),
+    joinCodeEnabled: boolean("join_code_enabled").default(true).notNull(),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    verifiedBy: uuid("verified_by").references((): AnyPgColumn => profiles.id, { onDelete: "set null" }),
+    verificationDomain: text("verification_domain"),
+    suspendedAt: timestamp("suspended_at", { withTimezone: true }),
+    suspendReason: text("suspend_reason"),
+    deletionScheduledAt: timestamp("deletion_scheduled_at", { withTimezone: true }),
     // Project status (0184), set by owners and admins.
     statusEmoji: text("status_emoji"),
     statusText: text("status_text"),
@@ -910,6 +929,12 @@ export const projects = pgTable(
     ownerDeletedAtViewCountIdx: index(
       "projects_owner_deleted_view_count_idx",
     ).on(t.ownerId, t.deletedAt, t.viewCount),
+    parentIdx: index("projects_parent_idx").on(t.parentId).where(sql`${t.parentId} IS NOT NULL`),
+    joinCodeUnique: uniqueIndex("projects_join_code_unique").on(t.joinCode).where(sql`${t.joinCode} IS NOT NULL`),
+    kindCheck: check("projects_kind_check", sql`${t.kind} IN ('project', 'organization')`),
+    orgHasNoParent: check("projects_org_has_no_parent", sql`${t.kind} = 'project' OR ${t.parentId} IS NULL`),
+    orgTypeCheck: check("projects_org_type_check", sql`${t.orgType} IS NULL OR ${t.orgType} IN ('education', 'company', 'community', 'research', 'club')`),
+    termCheck: check("projects_term_check", sql`${t.termEnd} IS NULL OR ${t.termStart} IS NULL OR ${t.termEnd} >= ${t.termStart}`),
   }),
 );
 
@@ -941,8 +966,15 @@ export const projectMembers = pgTable(
     joinedAt: timestamp("joined_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
+    // Organizations (0241)
+    title: text("title"),
+    showOnProfile: boolean("show_on_profile").default(true).notNull(),
+    lastSeenUpdatesAt: timestamp("last_seen_updates_at", { withTimezone: true }),
+    unitId: uuid("unit_id").references((): AnyPgColumn => projectOpenRoles.id, { onDelete: "set null" }),
   },
   (t) => ({
+    unitIdx: index("project_members_unit_idx").on(t.unitId).where(sql`${t.unitId} IS NOT NULL`),
+    titleLength: check("project_members_title_length", sql`${t.title} IS NULL OR char_length(${t.title}) <= 60`),
     projectUserUnique: uniqueIndex("project_members_project_user_unique").on(
       t.projectId,
       t.userId,
@@ -958,6 +990,62 @@ export const projectMembers = pgTable(
       t.projectId,
       t.fileUploadEnabled,
     ),
+  }),
+);
+
+// ============================================================================
+// ORGANIZATIONS (0241): server-only tables, no browser grants.
+// ============================================================================
+export const orgJoinBlocks = pgTable(
+  "org_join_blocks",
+  {
+    orgId: uuid("org_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    blockedBy: uuid("blocked_by").references(() => profiles.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.orgId, t.userId] }),
+    userIdx: index("org_join_blocks_user_idx").on(t.userId),
+  }),
+);
+
+/** Invites for people without an account yet, matched by email at sign-up. */
+export const orgEmailInvites = pgTable(
+  "org_email_invites",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    role: text("role", { enum: ["admin", "member", "viewer"] }).default("member").notNull(),
+    title: text("title"),
+    childProjectId: uuid("child_project_id").references(() => projects.id, { onDelete: "set null" }),
+    unitId: uuid("unit_id").references(() => projectOpenRoles.id, { onDelete: "set null" }),
+    invitedBy: uuid("invited_by").references(() => profiles.id, { onDelete: "set null" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    openUnique: uniqueIndex("org_email_invites_open_unique").on(t.orgId, t.email).where(sql`${t.acceptedAt} IS NULL`),
+    emailIdx: index("org_email_invites_email_idx").on(t.email).where(sql`${t.acceptedAt} IS NULL`),
+    emailCheck: check("org_email_invites_email_check", sql`${t.email} = lower(${t.email}) AND char_length(${t.email}) <= 320`),
+    roleCheck: check("org_email_invites_role_check", sql`${t.role} IN ('admin', 'member', 'viewer')`),
+    titleCheck: check("org_email_invites_title_check", sql`${t.title} IS NULL OR char_length(${t.title}) <= 60`),
+  }),
+);
+
+/** Old org handles stay taken (and redirect) until heldUntil, 90 days after a rename. */
+export const orgHandleHolds = pgTable(
+  "org_handle_holds",
+  {
+    handle: text("handle").primaryKey(),
+    orgId: uuid("org_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+    heldUntil: timestamp("held_until", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    orgIdx: index("org_handle_holds_org_idx").on(t.orgId),
   }),
 );
 
