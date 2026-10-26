@@ -31,9 +31,6 @@ export class InvalidDiscoverUpdatesCursorError extends Error {
 }
 
 const MAX_PAGE = 12;
-// Rows read per page: room to skip a project's second update or an author's third without a second round trip.
-const SCAN_FACTOR = 3;
-const PER_AUTHOR_PER_PAGE = 2;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TIMESTAMP = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}(:?\d{2})?)?$/;
 
@@ -212,8 +209,9 @@ async function hydrate(rows: Row[], viewerId: string | null): Promise<DiscoverUp
 
 /**
  * One page of public project updates for the Discover feed, newest first. It shows only what the project page
- * would show the same viewer, follows the card feed's filters, and takes at most one update per project and
- * two per author so one busy team can't fill a page. A failure throws: "no updates" and "couldn't read" differ.
+ * would show the same viewer and follows the card feed's filters. Spacing between a project's card and its
+ * updates is the feed's job (see feed-interleaving), not the query's: skipping rows here would lose them for good.
+ * A failure throws: "no updates" and "couldn't read" differ.
  */
 export async function getDiscoverUpdatesPage(options: DiscoverUpdatesQueryOptions = {}): Promise<DiscoverUpdatesPage> {
     const { filters = DEFAULT_FILTERS, view = FILTER_VIEWS.ALL, cursor = null } = options;
@@ -230,30 +228,16 @@ export async function getDiscoverUpdatesPage(options: DiscoverUpdatesQueryOption
         conditions.push(sql<boolean>`(${projectUpdates.createdAt}, ${projectUpdates.id}) < (${after.at}::timestamptz, ${after.id}::uuid)`);
     }
 
-    const scan = limit * SCAN_FACTOR;
+    // One row past the page says whether there is more, and where the next page starts.
     const rows = await selectUpdateRows(viewerId)
         .where(and(...conditions))
         .orderBy(desc(projectUpdates.createdAt), desc(projectUpdates.id))
-        .limit(scan);
-
-    const taken: Row[] = [];
-    const projectsSeen = new Set<string>();
-    const authorCounts = new Map<string, number>();
-    let lastScanned: Row | undefined;
-    for (const row of rows) {
-        lastScanned = row;
-        const authorKey = row.authorId ?? "";
-        if (projectsSeen.has(row.projectId) || (authorCounts.get(authorKey) ?? 0) >= PER_AUTHOR_PER_PAGE) continue;
-        projectsSeen.add(row.projectId);
-        authorCounts.set(authorKey, (authorCounts.get(authorKey) ?? 0) + 1);
-        taken.push(row);
-        if (taken.length === limit) break;
-    }
-    // More to read if this page filled, or the scan ran the whole window without filling it.
-    const more = taken.length === limit || rows.length === scan;
+        .limit(limit + 1);
+    const page = rows.slice(0, limit);
+    const last = page[page.length - 1];
     return {
-        updates: await hydrate(taken, viewerId),
-        nextCursor: more && lastScanned ? encodeCursor({ at: lastScanned.cursorAt, id: lastScanned.id }) : null,
+        updates: await hydrate(page, viewerId),
+        nextCursor: rows.length > limit && last ? encodeCursor({ at: last.cursorAt, id: last.id }) : null,
     };
 }
 

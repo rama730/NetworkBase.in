@@ -31,8 +31,6 @@ export interface DiscoverUpdateCardProps {
 const CLAMP_AT = 280;
 const SHOW_MORE_LINES = 6;
 
-const typeLabel = (type: DiscoverUpdateView["updateType"]) => (type ? type.replace(/_/g, " ") : null);
-
 /** An author-written description, or a plain one: the stored default is the file name, which says nothing. */
 function mediaAlt(item: DiscoverUpdateMedia, author: string) {
     const alt = item.altText?.trim();
@@ -49,7 +47,7 @@ function MediaTile({ item, alt, single, onOpen }: { item: DiscoverUpdateMedia; a
             onClick={onOpen}
             aria-label={`Open image: ${alt}`}
             className={cn(
-                "block min-h-11 w-full overflow-hidden rounded-[8px] border border-border bg-muted/30 text-left transition hover:border-foreground/25 focus-visible:border-foreground",
+                "relative block min-h-11 w-full overflow-hidden rounded-[8px] border border-border bg-muted/30 text-left transition hover:border-foreground/25 focus-visible:border-foreground",
                 single && "max-h-[360px]",
             )}
             style={{ aspectRatio: ratio }}
@@ -99,24 +97,19 @@ function UpdateMedia({ media, author }: { media: DiscoverUpdateMedia[]; author: 
     );
 }
 
-function ProjectChip({ update, onVisit }: { update: DiscoverUpdateView; onVisit: () => void }) {
+/** The project's name (and its picture, when it has one: no placeholder otherwise, like the project cards). */
+function ProjectLink({ update, onVisit }: { update: DiscoverUpdateView; onVisit: () => void }) {
     const [coverFailed, setCoverFailed] = useState(false);
     const href = `/projects/${encodeURIComponent(update.projectSlug || update.projectId)}`;
     return (
         <Link
             href={href}
             onClick={onVisit}
-            className="inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-[5px] pr-1 text-xs text-muted-foreground hover:text-foreground focus-visible:underline"
+            className="inline-flex min-h-11 min-w-0 max-w-full items-center gap-1.5 rounded-[5px] px-2.5 text-xs text-muted-foreground hover:text-foreground focus-visible:underline"
         >
-            <span aria-hidden="true">in</span>
             {update.projectCoverImage && !coverFailed ? (
-                 
                 <img src={update.projectCoverImage} alt="" width={20} height={20} loading="lazy" onError={() => setCoverFailed(true)} className="size-5 shrink-0 rounded-[4px] object-cover" />
-            ) : (
-                <span aria-hidden="true" className="flex size-5 shrink-0 items-center justify-center rounded-[4px] bg-muted font-mono text-[10px] font-semibold text-foreground">
-                    {update.projectName.slice(0, 1).toUpperCase()}
-                </span>
-            )}
+            ) : null}
             <span className="min-w-0 truncate font-medium text-foreground">{update.projectName}</span>
         </Link>
     );
@@ -129,7 +122,6 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
     const masked = !author || author.masked;
     const authorName = masked ? "Private member" : author.fullName || author.username || "Member";
     const canExpand = update.content.length > CLAMP_AT || update.content.split("\n").length > SHOW_MORE_LINES;
-    const type = typeLabel(update.updateType);
     const projectHref = `/projects/${encodeURIComponent(update.projectSlug || update.projectId)}`;
     const directHref = `${projectHref}?tab=updates&updateId=${encodeURIComponent(update.id)}`;
     const titleId = `discover-update-${update.id}-title`;
@@ -156,19 +148,7 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
                 onOpen(update.id, event.currentTarget);
             }}
         >
-            <div className="flex items-center justify-between gap-3 font-mono text-[11px] uppercase tracking-[.09em] text-muted-foreground">
-                <span className="flex min-w-0 items-center gap-2">
-                    <span className="font-semibold text-primary">Update</span>
-                    {type ? <span className="truncate">· {type}</span> : null}
-                    {update.isPinned ? <span className="inline-flex items-center gap-1"><Pin className="h-3 w-3" aria-hidden="true" />Pinned</span> : null}
-                </span>
-                <span className="flex shrink-0 items-center gap-2 normal-case tracking-normal">
-                    {update.editedAt ? <span>Edited</span> : null}
-                    <UpdateTime date={update.createdAt} />
-                </span>
-            </div>
-
-            <div className="mt-3 flex items-center gap-3">
+            <div className="flex items-start gap-3">
                 {!masked && author.username ? (
                     <Link href={`/u/${author.username}`} className="shrink-0 rounded-[6px] focus-visible:opacity-80" aria-label={`${authorName}'s profile`}>
                         <UserAvatar identity={{ fullName: authorName, username: author.username, avatarUrl: author.avatarUrl }} size={40} className="rounded-[6px]" />
@@ -176,7 +156,7 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
                 ) : (
                     <UserAvatar identity={{ fullName: authorName, username: null, avatarUrl: null }} size={40} className="shrink-0 rounded-[6px]" />
                 )}
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 self-center">
                     <h3 id={titleId} className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-[15px] font-semibold leading-tight text-foreground">
                         {!masked && author.username ? (
                             <Link href={`/u/${author.username}`} className="truncate hover:underline focus-visible:underline">{authorName}</Link>
@@ -185,8 +165,12 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
                         )}
                         {!masked && author.roleLabel ? <span className="font-mono text-[11px] font-normal text-muted-foreground">{author.roleLabel}</span> : null}
                     </h3>
-                    <ProjectChip update={update} onVisit={() => onVisitProject(update.projectId)} />
                 </div>
+                <span className="flex shrink-0 items-center gap-2 font-mono text-[11px] text-muted-foreground">
+                    {update.isPinned ? <span className="inline-flex items-center gap-1"><Pin className="h-3 w-3" aria-hidden="true" />Pinned</span> : null}
+                    {update.editedAt ? <span>Edited</span> : null}
+                    <UpdateTime date={update.createdAt} />
+                </span>
             </div>
 
             {update.content.trim() ? (
@@ -252,14 +236,8 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
                     <span className="sr-only" role="status" aria-live="polite">{update.likedByViewer ? "Liked" : ""}</span>
                 </div>
 
-                <div className="flex items-center gap-1">
-                    <Link
-                        href={directHref}
-                        onClick={() => onVisitProject(update.projectId)}
-                        className="inline-flex min-h-11 items-center rounded-[5px] px-2.5 font-mono text-xs text-muted-foreground hover:text-foreground focus-visible:underline"
-                    >
-                        View in project
-                    </Link>
+                <div className="flex min-w-0 items-center gap-1">
+                    <ProjectLink update={update} onVisit={() => onVisitProject(update.projectId)} />
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <button
@@ -273,7 +251,7 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
                         <DropdownMenuContent align="end">
                             <DropdownMenuItem onSelect={() => void copyLink()}>Copy link</DropdownMenuItem>
                             <DropdownMenuItem asChild>
-                                <Link href={projectHref} onClick={() => onVisitProject(update.projectId)}>Open project</Link>
+                                <Link href={directHref} onClick={() => onVisitProject(update.projectId)}>View in project</Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => onHide(update.id)}>Hide update</DropdownMenuItem>
                         </DropdownMenuContent>
