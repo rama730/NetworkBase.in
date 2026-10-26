@@ -236,6 +236,7 @@ export async function resolveProjectDetailTarget(
           ownerAvatarUrl: ownerProfiles.avatarUrl,
           title: projects.title,
           slug: projects.slug,
+          kind: projects.kind,
           description: projects.description,
           shortDescription: projects.shortDescription,
           problemStatement: projects.problemStatement,

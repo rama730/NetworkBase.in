@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, count, eq, gt, isNull, sql } from "drizzle-orm";
+import { and, count, eq, gt, inArray, isNull, sql, type SQL } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import {
@@ -69,13 +69,22 @@ export async function viewerOrgStatus(orgId: string, ownerId: string, userId: st
 }
 
 /**
- * Joins or asks to join an org with its code (report §6.1, §29.1). The org row is locked first, so the
+ * Joins or asks to join an org (report §6.1, §29.1). The org row is locked first, so the
  * member count, Max members and block list are read and acted on together. Requests reuse role_applications
  * with no role. Callers check the code exists and rate-limit; this is shared with onboarding completion.
  */
-export async function joinOrgByCode(
+export function joinOrgByCode(userId: string, code: string, note?: string | null) {
+  return joinOrg(userId, and(eq(projects.joinCode, code), eq(projects.joinCodeEnabled, true))!, note);
+}
+
+/** Public orgs can also be joined from their page without the code (report §6.1). */
+export function joinPublicOrg(userId: string, orgId: string, note?: string | null) {
+  return joinOrg(userId, and(eq(projects.id, orgId), inArray(projects.visibility, ["public", "unlisted"]))!, note);
+}
+
+async function joinOrg(
   userId: string,
-  code: string,
+  where: SQL,
   note?: string | null,
 ): Promise<{ outcome: OrgJoinOutcome; org: OrgSummary } | null> {
   return db.transaction(async (tx) => {
@@ -92,12 +101,7 @@ export async function joinOrgByCode(
         maxCollaborators: projects.maxCollaborators,
       })
       .from(projects)
-      .where(and(
-        eq(projects.joinCode, code),
-        eq(projects.joinCodeEnabled, true),
-        eq(projects.kind, "organization"),
-        isNull(projects.deletedAt),
-      ))
+      .where(and(where, eq(projects.kind, "organization"), isNull(projects.deletedAt)))
       .for("update")
       .limit(1);
     if (!org) return null;

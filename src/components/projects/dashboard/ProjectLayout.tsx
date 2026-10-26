@@ -5,7 +5,7 @@ import Link from "next/link";
 import { formatDistanceToNow } from "@/lib/utils/date";
 import {
     LayoutDashboard, ListTodo, FolderOpen, BookOpenText,
-    Settings, Share2, UserPlus, UserCheck, IterationCcw, Loader2, Newspaper, Camera, MoreHorizontal
+    Settings, Share2, UserPlus, UserCheck, IterationCcw, Loader2, Newspaper, Camera, MoreHorizontal, Info
 } from "lucide-react";
 import {
     DropdownMenu,
@@ -61,10 +61,17 @@ interface ProjectLayoutProps {
     openRolesCount?: number;
     /** The visitor's own application ("Application pending"), shown on the same mobile link. */
     applicationLabel?: string | null;
+    /** Organizations (report §18): About tab, Settings for everyone in the org, and the org header parts. */
+    isOrganization?: boolean;
+    identityExtra?: React.ReactNode;
+    metadataExtra?: React.ReactNode;
+    actionsStart?: React.ReactNode;
+    showFollow?: boolean;
 }
 
 const TABS = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { id: "about", label: "About", icon: Info },
     { id: "readme", label: "Docs", icon: BookOpenText },
     { id: "updates", label: "Updates", icon: Newspaper },
     { id: "sprints", label: "Sprints", icon: IterationCcw },
@@ -107,6 +114,11 @@ export default function ProjectLayout({
     stageCount = 0,
     openRolesCount = 0,
     applicationLabel = null,
+    isOrganization = false,
+    identityExtra = null,
+    metadataExtra = null,
+    actionsStart = null,
+    showFollow = true,
 }: ProjectLayoutProps) {
     const [summaryExpanded, setSummaryExpanded] = useState(false);
     const [projectTabsHeight, setProjectTabsHeight] = useState(0);
@@ -181,15 +193,16 @@ export default function ProjectLayout({
     const canSeeMemberTabs = isOwnerOrMember ?? isOwner;
     const visibleTabs = useMemo(
         () => TABS.filter((tab) => {
-            if (tab.ownerOnly && !(canManageSettings ?? isOwner)) return false;
+            if (tab.ownerOnly && !(canManageSettings ?? isOwner) && !isOrganization) return false;
             return isProjectTabVisibleToViewer({
                 tabId: tab.id,
                 isOwnerOrMember: canSeeMemberTabs,
                 canManageSettings: canManageSettings ?? isOwner,
                 publicTabVisibility: normalizedPublicTabs,
+                isOrganization,
             });
         }),
-        [canManageSettings, canSeeMemberTabs, isOwner, normalizedPublicTabs],
+        [canManageSettings, canSeeMemberTabs, isOrganization, isOwner, normalizedPublicTabs],
     );
     useEffect(() => {
         const tabList = tabListRef.current;
@@ -256,6 +269,7 @@ export default function ProjectLayout({
                             const projectIdentityMetadata = (
                                 <div className="flex min-h-[34px] flex-wrap items-center gap-x-2 gap-y-1.5">
                                     <ProjectTeamAvatars project={project} members={members} loading={loadingMembers} />
+                                    {metadataExtra}
                                     {hasProjectLinks && (
                                         <>
                                             <div className="mx-0.5 h-4 w-px bg-border shrink-0" aria-hidden="true" />
@@ -300,6 +314,7 @@ export default function ProjectLayout({
                                             <h1 className="nb-page-title min-w-0 break-words text-foreground">
                                                 {project?.title}
                                             </h1>
+                                            {identityExtra}
                                             {project?.id ? <ProjectStatusControl projectId={project.id} canManage={Boolean(canManageSettings ?? isOwner)} /> : null}
                                             {project.shortDescription && (
                                                 <p className={cn("nb-body mt-1 max-w-[64ch] text-muted-foreground", !summaryExpanded && "max-md:line-clamp-3")}>
@@ -335,6 +350,7 @@ export default function ProjectLayout({
                                             </Link>
                                         )}
                                     </div>
+                                    {identityExtra}
                                     {project?.id ? <ProjectStatusControl projectId={project.id} canManage={Boolean(canManageSettings ?? isOwner)} /> : null}
                                     {project.shortDescription && <p className={cn("nb-body max-w-[64ch] text-muted-foreground", !summaryExpanded && "max-md:line-clamp-3")}>{project.shortDescription}</p>}
                                     {summaryToggle}
@@ -351,6 +367,7 @@ export default function ProjectLayout({
                                 className="max-md:basis-full"
                             />
 
+                            {actionsStart}
                             {canInvite && onInvite ? (
                                 <button
                                     type="button"
@@ -365,6 +382,7 @@ export default function ProjectLayout({
                             ) : null}
                             
                             {/* Follow */}
+                            {showFollow ? (
                             <button
                                 type="button"
                                 onClick={onFollow}
@@ -387,6 +405,7 @@ export default function ProjectLayout({
                                 )}
                                 <span className="inline-block">{isFollowing ? "Following" : "Follow"}</span>
                             </button>
+                            ) : null}
 
                             <div className="mx-1 h-4 w-px bg-border max-md:hidden" />
 
@@ -423,10 +442,12 @@ export default function ProjectLayout({
                                     </button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-48">
-                                    <DropdownMenuItem onSelect={() => onFollow?.()} disabled={followLoading}>
-                                        {isFollowing ? <UserCheck className="size-4" aria-hidden="true" /> : <UserPlus className="size-4" aria-hidden="true" />}
-                                        {isFollowing ? "Unfollow project" : "Follow project"}
-                                    </DropdownMenuItem>
+                                    {showFollow ? (
+                                        <DropdownMenuItem onSelect={() => onFollow?.()} disabled={followLoading}>
+                                            {isFollowing ? <UserCheck className="size-4" aria-hidden="true" /> : <UserPlus className="size-4" aria-hidden="true" />}
+                                            {isFollowing ? "Unfollow project" : "Follow project"}
+                                        </DropdownMenuItem>
+                                    ) : null}
                                     {canInvite && onInvite ? (
                                         <DropdownMenuItem onSelect={onInvite}>
                                             <UserPlus className="size-4" aria-hidden="true" />

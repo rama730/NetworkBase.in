@@ -7,9 +7,19 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
 import { getTrustedHeadersIp } from '@/lib/security/request-ip';
+import { z } from 'zod';
 import { organizationsEnabled, ORG_LIMITS } from '@/lib/organizations/config';
 import { validateOrgHandle } from '@/lib/organizations/handle';
-import { countOrgMembers, findOrgByJoinCode, isOrgHandleAvailable, joinOrgByCode, viewerOrgStatus } from '@/lib/organizations/join';
+import { and, eq, isNull, sql } from 'drizzle-orm';
+
+import { db } from '@/lib/db';
+import { orgHandleHolds, profiles, projectMembers, projects, roleApplications, applicationEvents } from '@/lib/db/schema';
+import { getProjectAccessById } from '@/lib/data/project-access';
+import { removeProjectMemberInternal } from '@/lib/projects/collaborator-lifecycle';
+import { orgGrant, type OrgRole } from '@/lib/organizations/permissions';
+import { ORG_SECTION_OWNER_ONLY, ORG_SETTINGS_PATCH, type OrgSettingsSection } from '@/lib/organizations/settings';
+import { generateJoinCode } from '@/lib/organizations/join-rules';
+import { countOrgMembers, findOrgByJoinCode, isOrgHandleAvailable, joinOrgByCode, joinPublicOrg, viewerOrgStatus } from '@/lib/organizations/join';
 import { normalizeJoinCode, ORG_JOIN_MESSAGES, type OrgJoinMode, type OrgJoinOutcome } from '@/lib/organizations/join-rules';
 import { isProjectPubliclyReadableVisibility } from '@/lib/projects/project-visibility';
 
@@ -103,4 +113,191 @@ export async function checkOrgHandleAction(raw: string): Promise<{ available: bo
     }
     const available = await isOrgHandleAvailable(checked.handle);
     return { available, handle: checked.handle, message: available ? `@${checked.handle} is available.` : `@${checked.handle} is taken.` };
+}
+
+type OrgViewer = { userId: string; role: OrgRole; slug: string | null };
+
+/** The signed-in viewer and their role in this org ("guest" for viewers); null outside it or when it isn't an org. */
+async function orgViewer(orgId: string): Promise<OrgViewer | null> {
+    if (!organizationsEnabled()) return null;
+    const userId = await viewerId();
+    if (!userId) return null;
+    const access = await getProjectAccessById(orgId, userId);
+    if (access.project?.kind !== 'organization') return null;
+    const role: OrgRole = access.isOwner ? 'owner' : access.memberRole === 'admin' ? 'admin' : access.memberRole === 'member' ? 'member' : access.memberRole === 'viewer' ? 'guest' : 'visitor';
+    return { userId, role, slug: access.project.slug ?? null };
+}
+
+const DENIED: Failure = { success: false, error: "You don't have permission to change this." };
+
+function revalidateOrg(slug: string | null, orgId: string) {
+    revalidatePath(`/org/${slug ?? orgId}`);
+    revalidatePath(`/projects/${slug ?? orgId}`);
+}
+
+/**
+ * Saves one org settings section (report §21.2). Owners and admins save every section except role names,
+ * which are the owner's; the section footer records who changed it last.
+ */
+export async function updateOrgSettingsAction(orgId: string, section: OrgSettingsSection, patch: unknown): Promise<{ success: true } | Failure> {
+    const viewer = await orgViewer(orgId);
+    if (!viewer || !(section in ORG_SETTINGS_PATCH)) return DENIED;
+    const allowed = ORG_SECTION_OWNER_ONLY[section] ? orgGrant(viewer.role, 'edit_identity') === 'yes' : orgGrant(viewer.role, 'manage_joining') === 'yes';
+    if (!allowed) return DENIED;
+    const parsed = ORG_SETTINGS_PATCH[section].safeParse(patch);
+    if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? 'Check the values and try again.' };
+    const value = parsed.data as Record<string, unknown>;
+
+    const [actor] = await db.select({ fullName: profiles.fullName }).from(profiles).where(eq(profiles.id, viewer.userId)).limit(1);
+    const settingsPatch: Record<string, unknown> = {
+        changes: { [section]: { by: viewer.userId, byName: actor?.fullName ?? null, at: new Date().toISOString() } },
+    };
+    const columns: Partial<typeof projects.$inferInsert> = {};
+    if (section === 'profile') {
+        if ('org_type' in value) columns.orgType = value.org_type as typeof columns.orgType;
+        if ('term_start' in value) columns.termStart = (value.term_start as string) || null;
+        if ('term_end' in value) columns.termEnd = (value.term_end as string) || null;
+        if ('time_zone' in value) columns.timeZone = (value.time_zone as string) || null;
+        if ('welcome_note' in value) columns.welcomeNote = (value.welcome_note as string) || null;
+    } else if (section === 'access') {
+        if ('join_mode' in value) settingsPatch.joinMode = value.join_mode;
+        if ('join_code_enabled' in value) columns.joinCodeEnabled = value.join_code_enabled as boolean;
+        if ('max_members' in value) columns.maxCollaborators = value.max_members == null ? null : String(value.max_members);
+    } else if (section === 'people') {
+        settingsPatch.roleNames = value.role_names;
+    } else {
+        if ('child_creation' in value) settingsPatch.childCreation = value.child_creation;
+        if ('outside_people' in value) settingsPatch.outsidePeople = value.outside_people;
+    }
+
+    try {
+        // jsonb || merges top-level keys; "changes" is merged one level deeper so other sections keep their footer.
+        await db.update(projects).set({
+            ...columns,
+            orgSettings: sql`${projects.orgSettings} || ${JSON.stringify({ ...settingsPatch, changes: undefined })}::jsonb
+                || jsonb_build_object('changes', coalesce(${projects.orgSettings}->'changes', '{}'::jsonb) || ${JSON.stringify(settingsPatch.changes)}::jsonb)`,
+            updatedAt: new Date(),
+        }).where(and(eq(projects.id, orgId), isNull(projects.deletedAt)));
+    } catch {
+        return { success: false, error: 'Check the term dates: the term must end after it starts.' };
+    }
+    revalidateOrg(viewer.slug, orgId);
+    return { success: true };
+}
+
+/** A new code replaces the old one at once; the old code stops working (report §6.1). */
+export async function regenerateJoinCodeAction(orgId: string): Promise<{ success: true; joinCode: string } | Failure> {
+    const viewer = await orgViewer(orgId);
+    if (!viewer || orgGrant(viewer.role, 'manage_joining') !== 'yes') return DENIED;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+        const joinCode = generateJoinCode();
+        try {
+            await db.update(projects).set({ joinCode, updatedAt: new Date() }).where(eq(projects.id, orgId));
+            revalidateOrg(viewer.slug, orgId);
+            return { success: true, joinCode };
+        } catch {
+            // ponytail: a collision with another org's code just retries; 32^6 codes make five tries plenty.
+        }
+    }
+    return { success: false, error: 'Could not make a new code. Try again.' };
+}
+
+/** Owner only, at most once every 7 days; the old handle redirects and stays taken for 90 days (report §30.2). */
+export async function renameOrgHandleAction(orgId: string, raw: string): Promise<{ success: true; handle: string } | Failure> {
+    const viewer = await orgViewer(orgId);
+    if (!viewer || orgGrant(viewer.role, 'edit_identity') !== 'yes') return DENIED;
+    const checked = validateOrgHandle(raw);
+    if (!checked.ok) return { success: false, error: checked.reason === 'reserved' ? 'That handle is reserved.' : 'Use 3–40 letters, numbers or single dashes.' };
+    const handle = checked.handle;
+
+    return db.transaction(async (tx) => {
+        const [org] = await tx.select({ slug: projects.slug, orgSettings: projects.orgSettings }).from(projects).where(eq(projects.id, orgId)).for('update').limit(1);
+        if (!org) return DENIED;
+        if (org.slug === handle) return { success: true as const, handle };
+        const changedAt = (org.orgSettings as { handleChangedAt?: string })?.handleChangedAt;
+        if (changedAt && Date.now() - new Date(changedAt).getTime() < ORG_LIMITS.handleRenameDays * 24 * 3600 * 1000) {
+            return { success: false as const, error: `You can change the handle once every ${ORG_LIMITS.handleRenameDays} days.` };
+        }
+        // Taking back this org's own held handle is fine; anyone else's address or hold is not.
+        const [ownHold] = await tx.select({ handle: orgHandleHolds.handle }).from(orgHandleHolds)
+            .where(and(eq(orgHandleHolds.handle, handle), eq(orgHandleHolds.orgId, orgId))).limit(1);
+        if (ownHold) await tx.delete(orgHandleHolds).where(eq(orgHandleHolds.handle, handle));
+        else if (!(await isOrgHandleAvailable(handle))) return { success: false as const, error: `@${handle} is taken.` };
+
+        await tx.update(projects).set({
+            slug: handle,
+            orgSettings: sql`${projects.orgSettings} || ${JSON.stringify({ handleChangedAt: new Date().toISOString() })}::jsonb`,
+            updatedAt: new Date(),
+        }).where(eq(projects.id, orgId));
+        if (org.slug) {
+            const heldUntil = new Date(Date.now() + ORG_LIMITS.handleHoldDays * 24 * 3600 * 1000);
+            await tx.insert(orgHandleHolds).values({ handle: org.slug, orgId, heldUntil })
+                .onConflictDoUpdate({ target: orgHandleHolds.handle, set: { orgId, heldUntil } });
+        }
+        revalidateOrg(org.slug, orgId);
+        return { success: true as const, handle };
+    }).catch(() => ({ success: false as const, error: `@${handle} is taken.` }));
+}
+
+/** Join or request from a public org's page, without the code. */
+export async function joinPublicOrgAction(
+    orgId: string,
+    note?: string | null,
+): Promise<{ success: true; outcome: OrgJoinOutcome } | Failure> {
+    if (!organizationsEnabled()) return NO_MATCH;
+    const userId = await viewerId();
+    if (!userId) return { success: false, error: 'Log in to join an organization.' };
+    if (!(await allowLookup(userId))) return TOO_MANY;
+    const result = await joinPublicOrg(userId, orgId, note);
+    if (!result) return { success: false, error: 'This organization can be joined only with its code.' };
+    const { outcome, org } = result;
+    if (outcome === 'blocked' || outcome === 'full' || outcome === 'unavailable' || outcome === 'cooldown') {
+        return { success: false, error: ORG_JOIN_MESSAGES[outcome] };
+    }
+    revalidateOrg(org.slug, org.id);
+    return { success: true, outcome };
+}
+
+/** Withdraws the viewer's pending join request; withdrawing is not a decline, so there is no cool-down. */
+export async function cancelJoinRequestAction(orgId: string): Promise<{ success: true } | Failure> {
+    if (!organizationsEnabled()) return DENIED;
+    const userId = await viewerId();
+    if (!userId) return DENIED;
+    const now = new Date();
+    const withdrawn = await db.update(roleApplications)
+        .set({ status: 'withdrawn', decisionAt: now, decisionBy: userId, updatedAt: now })
+        .where(and(eq(roleApplications.projectId, orgId), eq(roleApplications.applicantId, userId), eq(roleApplications.status, 'pending'), isNull(roleApplications.roleId)))
+        .returning({ id: roleApplications.id });
+    for (const row of withdrawn) {
+        await db.insert(applicationEvents).values({ applicationId: row.id, actorId: userId, kind: 'withdrawn', fromStatus: 'pending', toStatus: 'withdrawn', metadata: { source: 'org_join_request' } });
+    }
+    if (withdrawn.length === 0) return { success: false, error: 'There is no pending request to cancel.' };
+    revalidatePath(`/projects/${orgId}`);
+    return { success: true };
+}
+
+const myMembershipSchema = z.object({ title: z.string().trim().max(60).nullable().optional(), show_on_profile: z.boolean().optional() }).strict();
+
+/** "My membership" (report §21.3): everyone edits their own title and whether the org shows on their profile. */
+export async function updateMyOrgMembershipAction(orgId: string, patch: unknown): Promise<{ success: true } | Failure> {
+    const viewer = await orgViewer(orgId);
+    if (!viewer || viewer.role === 'visitor') return DENIED;
+    const parsed = myMembershipSchema.safeParse(patch);
+    if (!parsed.success) return { success: false, error: 'Titles are up to 60 characters.' };
+    await db.update(projectMembers).set({
+        ...('title' in parsed.data ? { title: parsed.data.title || null } : {}),
+        ...('show_on_profile' in parsed.data ? { showOnProfile: parsed.data.show_on_profile } : {}),
+    }).where(and(eq(projectMembers.projectId, orgId), eq(projectMembers.userId, viewer.userId)));
+    revalidateOrg(viewer.slug, orgId);
+    return { success: true };
+}
+
+/** "Leave organization" (report §21.3). The owner transfers ownership first; child projects follow in P4. */
+export async function leaveOrgAction(orgId: string): Promise<{ success: true } | Failure> {
+    const viewer = await orgViewer(orgId);
+    if (!viewer || viewer.role === 'visitor') return DENIED;
+    if (orgGrant(viewer.role, 'leave') !== 'yes') return { success: false, error: 'Transfer ownership before you leave.' };
+    await db.transaction((tx) => removeProjectMemberInternal(tx, { projectId: orgId, actorId: viewer.userId, targetUserId: viewer.userId, mode: 'unassign_active_tasks', allowSelf: true }));
+    revalidateOrg(viewer.slug, orgId);
+    return { success: true };
 }

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 const read = (path: string) => readFileSync(path, "utf8");
-const PAGE = "src/app/(site)/(main)/projects/[slug]/page.tsx";
+const PAGE = "src/app/(site)/(main)/projects/[slug]/project-route.tsx";
 const PDC = "src/components/projects/dashboard/ProjectDashboardClient.tsx";
 
 test("the viewer's role comes from the server capabilities, not the first members page", () => {

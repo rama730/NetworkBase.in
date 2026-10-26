@@ -231,7 +231,7 @@ test("project update notifications avoid duplicate body and secondary text", () 
 });
 
 test("updates tab loads feed data once from the client-owned query path", () => {
-    const pageSource = readFileSync(path.join(process.cwd(), "src/app/(site)/(main)/projects/[slug]/page.tsx"), "utf8");
+    const pageSource = readFileSync(path.join(process.cwd(), "src/app/(site)/(main)/projects/[slug]/project-route.tsx"), "utf8");
     const actionSource = readFileSync(path.join(process.cwd(), "src/app/actions/project/updates.ts"), "utf8");
 
     assert.equal(pageSource.includes("readProjectUpdatesAction"), false);

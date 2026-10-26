@@ -9,7 +9,7 @@ const CSP_NONCE_HEADER = "x-nonce";
 const ROUTE_METRIC_HEADER = "x-route-metric";
 const REQUEST_TARGET_HEADER = "x-networkbase-request-target";
 const CSRF_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 12;
-const AUTH_PROTECTED_PREFIXES = ["/discover", "/settings", "/messages", "/my-profile", "/network", "/workspace", "/u/", "/projects", "/admin", "/authorize"];
+const AUTH_PROTECTED_PREFIXES = ["/discover", "/settings", "/messages", "/my-profile", "/network", "/workspace", "/u/", "/projects", "/org/", "/admin", "/authorize"];
 const AUTH_PROTECTED_EXACT = new Set(["/", "/login", "/signup", "/verify-email"]);
 
 function toBase64Url(buffer: ArrayBuffer) {

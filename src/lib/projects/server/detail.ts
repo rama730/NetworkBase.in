@@ -1,3 +1,4 @@
+import { readOrgDetail, type OrgDetail } from "@/lib/organizations/detail";
 import "server-only";
 
 import { z } from "zod";
@@ -173,6 +174,8 @@ const projectDetailProjectSchema = z.object({
   isMember: z.boolean(),
   memberRole: projectDetailMemberRoleSchema.nullable(),
   guidance: projectDetailGuidanceSchema.nullable(),
+  /** Organizations only (report §18.9); null for every other project. */
+  organization: z.custom<OrgDetail>().nullable(),
 });
 
 
@@ -710,9 +713,14 @@ async function readProjectDetailShellForActor(input: {
           Object.entries(project.externalLinkMetadata ?? {}).filter(([id]) => id === "github-integration" || visibleExternalLinkIds.has(id)),
         );
 
+        const isOrganization = project.kind === "organization";
+        const organization = isOrganization
+          ? await readOrgDetail(project.id, { userId: actorUserId, isAdmin: isOwner || memberRole === "admin", isInOrg: isOwner || isMember })
+          : null;
         // A hidden Dashboard hides its data too: visitors get no roles, team or overview text.
+        // An org's overview is its About tab, which every reader sees.
         const hidesDashboard =
-          !isOwner && !isMember &&
+          !isOrganization && !isOwner && !isMember &&
           !normalizeProjectPublicTabVisibility(project.publicTabVisibility).dashboard;
         const readModel = {
           id: project.id,
@@ -794,6 +802,7 @@ async function readProjectDetailShellForActor(input: {
           isMember,
           memberRole: isOwner ? "owner" : memberRole,
           guidance: shell.guidance ?? null,
+          organization,
         };
 
         const output = {
