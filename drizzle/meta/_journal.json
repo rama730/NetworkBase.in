@@ -1667,6 +1667,13 @@
       "when": 1792454407000,
       "tag": "0240_member_welcome_card_and_channel_joins",
       "breakpoints": true
+    },
+    {
+      "idx": 238,
+      "version": "7",
+      "when": 1792454408000,
+      "tag": "0241_organizations_core",
+      "breakpoints": true
     }
   ]
 }

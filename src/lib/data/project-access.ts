@@ -8,17 +8,22 @@ import {
 } from "@/lib/projects/project-visibility";
 import { isProjectTabVisibleToViewer, type ProjectPublicTabId } from "@/lib/projects/settings-policies";
 import { and, eq, isNull, inArray, or, sql, type SQL } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 // `projects.visibility` has a database default but is not declared NOT NULL,
 // so DB-selected values must remain nullable-safe and fail closed downstream.
 type Visibility = ProjectVisibilityInput | null | undefined;
 type Status = "draft" | "active" | "completed" | "archived" | string | null | undefined;
 type MemberRole = "owner" | "admin" | "member" | "viewer" | null;
+/** The viewer's role in a child project's parent org: the org owner is "owner", a guest is "viewer". */
+type ParentOrgRole = MemberRole;
 
 export type ProjectAccess = {
     project: {
         id: string;
         ownerId: string;
+        kind: "project" | "organization";
+        parentId: string | null;
         visibility: Visibility;
         status: Status;
         slug?: string | null;
@@ -31,24 +36,36 @@ export type ProjectAccess = {
     isMember: boolean;
     memberRole: MemberRole;
     member: { role: MemberRole; fileUploadEnabled: boolean | null } | null;
+    parentOrgRole: ParentOrgRole;
+    /** Org owners and admins act as project admins in every child project (report §29.4). */
+    isInheritedAdmin: boolean;
     canRead: boolean;
     canWrite: boolean;
 };
 
+/**
+ * Mirrors app_private.nb_project_can_read (0241). `parentOrgRole` is the viewer's role in the parent org;
+ * callers that don't load it fail closed for Org only projects and inherited admins.
+ */
 export function computeProjectReadAccess(
     visibility: Visibility,
     status: Status,
     isOwner: boolean,
     isMember: boolean,
+    parentOrgRole: ParentOrgRole = null,
 ): boolean {
-    if (Boolean(isOwner) || Boolean(isMember)) return true;
+    if (Boolean(isOwner) || Boolean(isMember) || isInheritedAdminRole(parentOrgRole)) return true;
 
     const normalizedStatus = typeof status === "string" && status.trim().length > 0 ? status : "draft";
-    const isPublic = isProjectPubliclyReadableVisibility(visibility);
     const isDraft = normalizedStatus === "draft";
 
     if (isDraft) return false;
-    return Boolean(isPublic);
+    if (visibility === "org") return parentOrgRole !== null;
+    return isProjectPubliclyReadableVisibility(visibility);
+}
+
+function isInheritedAdminRole(parentOrgRole: ParentOrgRole) {
+    return parentOrgRole === "owner" || parentOrgRole === "admin";
 }
 
 /**
@@ -61,7 +78,7 @@ export function canReadProjectTab(access: ProjectAccess, tab: ProjectPublicTabId
     if (!access.project || !access.canRead) return false;
     return isProjectTabVisibleToViewer({
         tabId: tab,
-        isOwnerOrMember: access.isOwner || access.isMember,
+        isOwnerOrMember: access.isOwner || access.isMember || access.isInheritedAdmin,
         publicTabVisibility: access.project.publicTabVisibility,
     });
 }
@@ -86,15 +103,24 @@ export function computeProjectWriteAccess(isOwner: boolean, memberRole: MemberRo
     return memberRole !== "viewer";
 }
 
-async function getProjectAccess(where: SQL<unknown>, userId: string | null): Promise<ProjectAccess> {
+const parentOrg = alias(projects, "parent_org");
+const parentOrgMember = alias(projectMembers, "parent_org_member");
+
+/** One query for the project, the viewer's membership, and the viewer's role in its parent org. */
+function selectAccessRows(where: SQL<unknown>, userId: string | null) {
     const memberJoinCondition = userId
         ? and(eq(projectMembers.projectId, projects.id), eq(projectMembers.userId, userId))
         : sql`FALSE`;
+    const parentMemberJoinCondition = userId
+        ? and(eq(parentOrgMember.projectId, parentOrg.id), eq(parentOrgMember.userId, userId))
+        : sql`FALSE`;
 
-    const [row] = await db
+    return db
         .select({
             id: projects.id,
             ownerId: projects.ownerId,
+            kind: projects.kind,
+            parentId: projects.parentId,
             visibility: projects.visibility,
             status: projects.status,
             slug: projects.slug,
@@ -104,47 +130,29 @@ async function getProjectAccess(where: SQL<unknown>, userId: string | null): Pro
             githubLastCommitSha: projects.githubLastCommitSha,
             memberRole: projectMembers.role,
             fileUploadEnabled: projectMembers.fileUploadEnabled,
+            parentOrgOwnerId: parentOrg.ownerId,
+            parentOrgMemberRole: parentOrgMember.role,
         })
         .from(projects)
         .leftJoin(projectMembers, memberJoinCondition)
-        .where(and(where, isNull(projects.deletedAt)))
-        .limit(1);
+        .leftJoin(parentOrg, and(eq(parentOrg.id, projects.parentId), eq(parentOrg.kind, "organization"), isNull(parentOrg.deletedAt)))
+        .leftJoin(parentOrgMember, parentMemberJoinCondition)
+        .where(and(where, isNull(projects.deletedAt)));
+}
 
-    if (!row) {
-        return {
-            project: null,
-            isOwner: false,
-            isMember: false,
-            memberRole: null,
-            member: null,
-            canRead: false,
-            canWrite: false,
-        };
-    }
-
+function toProjectAccess(row: Awaited<ReturnType<typeof selectAccessRows>>[number], userId: string | null): ProjectAccess {
     const isOwner = Boolean(userId && row.ownerId === userId);
-    let isMember = false;
-    let memberRole: MemberRole = null;
-    let member: ProjectAccess["member"] = null;
-
-    if (userId && !isOwner) {
-        if (row.memberRole) {
-            isMember = true;
-            memberRole = (row.memberRole as MemberRole) || "member";
-            member = {
-                role: memberRole,
-                fileUploadEnabled: row.fileUploadEnabled,
-            };
-        }
-    }
-
-    const canRead = computeProjectReadAccess(row.visibility, row.status, isOwner, isMember);
-    const canWrite = computeProjectWriteAccess(isOwner, memberRole);
+    const isMember = Boolean(userId && !isOwner && row.memberRole);
+    const memberRole: MemberRole = isMember ? ((row.memberRole as MemberRole) || "member") : null;
+    const parentOrgRole: ParentOrgRole = userId && row.parentOrgOwnerId === userId ? "owner" : (row.parentOrgMemberRole ?? null);
+    const isInheritedAdmin = isInheritedAdminRole(parentOrgRole);
 
     return {
         project: {
             id: row.id,
             ownerId: row.ownerId,
+            kind: row.kind,
+            parentId: row.parentId,
             visibility: row.visibility,
             status: row.status,
             slug: row.slug,
@@ -156,10 +164,30 @@ async function getProjectAccess(where: SQL<unknown>, userId: string | null): Pro
         isOwner,
         isMember,
         memberRole,
-        member,
-        canRead,
-        canWrite,
+        member: isMember ? { role: memberRole, fileUploadEnabled: row.fileUploadEnabled } : null,
+        parentOrgRole,
+        isInheritedAdmin,
+        canRead: computeProjectReadAccess(row.visibility, row.status, isOwner, isMember, parentOrgRole),
+        canWrite: computeProjectWriteAccess(isOwner, memberRole) || isInheritedAdmin,
     };
+}
+
+async function getProjectAccess(where: SQL<unknown>, userId: string | null): Promise<ProjectAccess> {
+    const [row] = await selectAccessRows(where, userId).limit(1);
+    if (!row) {
+        return {
+            project: null,
+            isOwner: false,
+            isMember: false,
+            memberRole: null,
+            member: null,
+            parentOrgRole: null,
+            isInheritedAdmin: false,
+            canRead: false,
+            canWrite: false,
+        };
+    }
+    return toProjectAccess(row, userId);
 }
 
 export const getProjectAccessById = cache(
@@ -178,57 +206,6 @@ export const getProjectAccessByIdentifier = cache(
 
 export async function getProjectAccessByIds(projectIds: string[], userId: string | null): Promise<Record<string, ProjectAccess>> {
     if (projectIds.length === 0) return {};
-    
-    const memberJoinCondition = userId
-        ? and(eq(projectMembers.projectId, projects.id), eq(projectMembers.userId, userId))
-        : sql`FALSE`;
-
-    const rows = await db
-        .select({
-            id: projects.id,
-            ownerId: projects.ownerId,
-            visibility: projects.visibility,
-            status: projects.status,
-            slug: projects.slug,
-            publicTabVisibility: projects.publicTabVisibility,
-            importSource: projects.importSource,
-            syncStatus: projects.syncStatus,
-            githubLastCommitSha: projects.githubLastCommitSha,
-            memberRole: projectMembers.role,
-            fileUploadEnabled: projectMembers.fileUploadEnabled,
-        })
-        .from(projects)
-        .leftJoin(projectMembers, memberJoinCondition)
-        .where(and(inArray(projects.id, projectIds), isNull(projects.deletedAt)));
-
-    const result: Record<string, ProjectAccess> = {};
-    for (const row of rows) {
-        const isOwner = Boolean(userId && row.ownerId === userId);
-        const isMember = Boolean(userId && !isOwner && row.memberRole);
-        const memberRole: MemberRole = isMember ? ((row.memberRole as MemberRole) || "member") : null;
-        const memberFileUploadEnabled = isMember ? row.fileUploadEnabled : null;
-
-        const project = {
-            id: row.id,
-            ownerId: row.ownerId,
-            visibility: row.visibility,
-            status: row.status,
-            slug: row.slug,
-            publicTabVisibility: row.publicTabVisibility,
-            importSource: row.importSource,
-            syncStatus: row.syncStatus,
-            githubLastCommitSha: row.githubLastCommitSha,
-        };
-
-        result[row.id] = {
-            project,
-            isOwner,
-            isMember,
-            memberRole,
-            member: isMember ? { role: memberRole, fileUploadEnabled: memberFileUploadEnabled } : null,
-            canRead: computeProjectReadAccess(project.visibility, project.status, isOwner, isMember),
-            canWrite: computeProjectWriteAccess(isOwner, memberRole),
-        };
-    }
-    return result;
+    const rows = await selectAccessRows(inArray(projects.id, projectIds), userId);
+    return Object.fromEntries(rows.map((row) => [row.id, toProjectAccess(row, userId)]));
 }
