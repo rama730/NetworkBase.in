@@ -45,7 +45,6 @@ const NON_TRANSACTIONAL_MIGRATIONS = new Set([
   "0195_discover_feed_indexes",
   "0211_discover_index_hygiene",
   "0217_project_update_single_pin",
-  "0242_discover_updates_feed_index",
 ]);
 
 if (!DATABASE_URL && !DRY_RUN) {
