@@ -19,6 +19,7 @@ import {
     type OrgMembersData,
 } from '@/app/actions/org-members'
 import { regenerateJoinCodeAction } from '@/app/actions/organizations'
+import { revokeOrgVerificationAction, verifyOrgContributionsAction } from '@/app/actions/org-profile'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -183,6 +184,8 @@ function BulkBar({ orgId, data, ids, pending, run, onClear }: { orgId: string; d
                     <Button type="button" size="sm" disabled={pending} onClick={() => run(() => addMembersToChildAction(orgId, childId, ids, unitId || null), 'Added to the project')}>Add</Button>
                 </>
             ) : null}
+            {/* End-of-term verification (report §20.6, §24.5): role and dates, never the story text. */}
+            <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => verifyOrgContributionsAction(orgId, ids), 'Contributions verified')}>Verify contributions</Button>
             <label className="ml-auto flex items-center gap-1.5 text-[12px]"><input type="checkbox" checked={block} onChange={(e) => setBlock(e.target.checked)} /> Block from rejoining</label>
             <Button type="button" size="sm" variant="destructive" disabled={pending} onClick={() => {
                 if (window.confirm(`Remove ${ids.length} ${ids.length === 1 ? 'person' : 'people'}? They leave every project here; handed-in work stays.`)) run(() => removeMembersAction(orgId, ids, { block }), 'Removed')
@@ -296,6 +299,16 @@ function MemberDrawer({ orgId, row, data, label, pending, run }: { orgId: string
                         ))}
                     </ul>
                 )}
+            </section>
+            <section className="space-y-1.5">
+                <h4 className="font-semibold">Profile credit</h4>
+                <div className="flex flex-wrap gap-1.5">
+                    <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => verifyOrgContributionsAction(orgId, [row.userId]), 'Contribution verified')}>Verify contribution</Button>
+                    <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => {
+                        const reason = window.prompt('Why remove the verification? They will see this.')
+                        if (reason) run(() => revokeOrgVerificationAction(orgId, row.userId, reason), 'Verification removed')
+                    }}>Revoke</Button>
+                </div>
             </section>
             <section className="space-y-1">
                 <h4 className="font-semibold">Projects &amp; units</h4>

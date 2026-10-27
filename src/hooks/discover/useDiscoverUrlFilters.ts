@@ -48,6 +48,7 @@ export function useDiscoverUrlFilters() {
             type: PROJECT_TYPE.ALL,
             tech: [],
             hideOpened: false,
+            org: '',
         });
     }, [updateUrlFilters]);
 

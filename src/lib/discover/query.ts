@@ -25,7 +25,12 @@ export type DiscoverQuery = {
     sort: SortOption;
     tech: string[];
     hideOpened: boolean;
+    /** Show: Everything · Projects · Organizations · Updates; org: one org's @handle (report §24.3). */
+    show: 'all' | 'projects' | 'organizations' | 'updates';
+    org: string;
 };
+
+const SHOWS = ['all', 'projects', 'organizations', 'updates'] as const;
 
 const VIEWS: readonly string[] = [FILTER_VIEWS.ALL, FILTER_VIEWS.TRENDING, FILTER_VIEWS.RECOMMENDATIONS, FILTER_VIEWS.FOLLOWING];
 // Discover never lists drafts, so "Idea" isn't a filter here.
@@ -47,6 +52,8 @@ export function parseDiscoverQuery(get: (key: string) => string | null | undefin
         sort: pick(read('sort'), DISCOVER_SORTS, SORT_OPTIONS.NEWEST),
         tech: Array.from(new Set((read('tech') ?? '').split(',').map((value) => value.trim()).filter(Boolean))).slice(0, 8),
         hideOpened: read('hideOpened') === 'true',
+        show: pick(read('show'), SHOWS, 'all'),
+        org: /^[a-z0-9-]{1,40}$/.test(read('org') ?? '') ? read('org')! : '',
     };
 }
 
@@ -57,7 +64,9 @@ export function isDefaultDiscoverQuery(query: DiscoverQuery): boolean {
         && query.type === PROJECT_TYPE.ALL
         && query.sort === SORT_OPTIONS.NEWEST
         && query.tech.length === 0
-        && !query.q;
+        && !query.q
+        && query.show === 'all'
+        && !query.org;
 }
 
 /** The filters shown as tags (status, type, skills, hide opened): the Filters button's count. */
@@ -65,5 +74,6 @@ export function activeFilterCount(query: DiscoverQuery): number {
     return (query.status !== PROJECT_STATUS.ALL ? 1 : 0)
         + (query.type !== PROJECT_TYPE.ALL ? 1 : 0)
         + query.tech.length
-        + (query.hideOpened ? 1 : 0);
+        + (query.hideOpened ? 1 : 0)
+        + (query.org ? 1 : 0);
 }

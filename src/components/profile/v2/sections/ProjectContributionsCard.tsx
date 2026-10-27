@@ -4,6 +4,17 @@ import { EyeOff, FolderGit2, Pencil, Plus } from "lucide-react";
 import { Card } from "./Card";
 import type { ProfileCollaborationContribution } from "@/lib/profile/collaboration";
 import { ContributionStoryView } from "@/components/profile/ContributionStoryView";
+import { nestContributions } from "@/lib/organizations/profile-rules";
+
+/** Org context above an entry (report §24.5, §24.6): Verified by <org>, the child's org, org-only, revocation. */
+function OrgEntryLine({ c, isOwner, nested }: { c: ProfileCollaborationContribution; isOwner: boolean; nested?: boolean }) {
+  const parts: string[] = [];
+  if (c.projectKind === "organization") parts.push(c.orgVerified ? `✓ Verified by ${c.projectTitle}` : "Organization");
+  else if (c.parentOrg && !nested) parts.push(`Project of ${c.parentOrg.title}`);
+  if (c.orgOnly && c.parentOrg && !c.projectHref) parts.push(`Visible to ${c.parentOrg.title} members`);
+  if (isOwner && c.verificationRevokedReason) parts.push(`Verification removed: ${c.verificationRevokedReason}`);
+  return parts.length ? <p className="nb-compact pt-4 text-muted-foreground">{parts.join(" · ")}</p> : null;
+}
 
 interface ProjectContributionsCardProps {
   contributions: ProfileCollaborationContribution[];
@@ -90,7 +101,8 @@ export function ProjectContributionsCard({
       <div className="px-5 max-md:px-4">
         {visible.length ? (
           <div className="divide-y divide-border">
-            {visible.map((c, index) => (
+            {/* Child project entries sit under their org's entry (report §24.5). */}
+            {nestContributions(visible).map((c, index) => (
               <div
                 key={c.id + ":" + JSON.stringify(c.presentation)}
                 className={!showAll && index >= 2 ? "max-md:hidden" : ""}
@@ -104,10 +116,21 @@ export function ProjectContributionsCard({
                     Private · only you can see this contribution
                   </p>
                 )}
+                <OrgEntryLine c={c} isOwner={isOwner} />
                 <ContributionStoryView
                   contribution={{ ...c, draftStory: null }}
                   onProjectIntent={onProjectIntent}
                 />
+                {c.children.length ? (
+                  <div className="mb-4 ml-4 border-l border-border pl-4" aria-label={`Projects in ${c.projectTitle}`}>
+                    {c.children.map((child) => (
+                      <div key={child.id}>
+                        <OrgEntryLine c={child} isOwner={isOwner} nested />
+                        <ContributionStoryView contribution={{ ...child, draftStory: null }} onProjectIntent={onProjectIntent} />
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             ))}
             {!showAll && visible.length > 2 && (

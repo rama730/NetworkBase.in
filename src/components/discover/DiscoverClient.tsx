@@ -39,6 +39,7 @@ import { queryKeys } from '@/lib/query-keys';
 import type { ConnectionFeedPage, DiscoverConnectionItem } from '@/hooks/useConnections';
 import { toDiscoverUser } from '@/lib/view-models/discover-user';
 import { feedItemKey, interleaveProjectsAndUpdates } from '@/lib/discover/feed-interleaving';
+import { showKeeps } from '@/lib/organizations/profile-rules';
 import { useDiscoverUpdates } from '@/hooks/discover/useDiscoverUpdates';
 import { useDiscoverUpdateThread } from '@/hooks/discover/useDiscoverUpdateThread';
 import { useHiddenUpdates } from '@/hooks/discover/useHiddenUpdates';
@@ -145,7 +146,7 @@ export default function DiscoverClient({
     const viewerId = currentUser?.id ?? null;
 
     const { urlFilters, updateUrlFilters, clearFilters, activeFilters, isDefault } = useDiscoverUrlFilters();
-    const { view, q, status, type, sort, tech, hideOpened } = urlFilters;
+    const { view, q, status, type, sort, tech, hideOpened, show, org } = urlFilters;
     const { hiddenIds, markSeen } = useDiscoverSessionSeen();
     const [filtersOpen, setFiltersOpen] = useState(false);
     const filtersButton = useRef<HTMLButtonElement>(null);
@@ -163,7 +164,11 @@ export default function DiscoverClient({
         tech,
         sort: view === FILTER_VIEWS.TRENDING ? SORT_OPTIONS.TRENDING : sort,
         search: q || undefined,
-    }), [q, sort, status, tech, type, view]);
+        ...(show !== 'all' ? { show } : {}),
+        ...(org ? { org } : {}),
+    }), [org, q, show, sort, status, tech, type, view]);
+    // Show filter (report §24.3): cards by kind on the server; update cards only for Everything and Updates.
+    const keeps = showKeeps(show);
 
     const {
         data,
@@ -200,8 +205,8 @@ export default function DiscoverClient({
     }, [data]);
 
     const visibleProjects = useMemo(
-        () => (hideOpened ? allProjects.filter((project) => !hiddenIds.has(project.id)) : allProjects),
-        [allProjects, hideOpened, hiddenIds],
+        () => (!keeps.cards ? [] : hideOpened ? allProjects.filter((project) => !hiddenIds.has(project.id)) : allProjects),
+        [allProjects, hideOpened, hiddenIds, keeps.cards],
     );
 
     // Update cards: paged next to the projects, kept a little ahead of how far they have loaded.
@@ -216,8 +221,8 @@ export default function DiscoverClient({
     const { hidden: hiddenUpdates, hide: hideUpdate } = useHiddenUpdates();
     // "Hide opened" hides an update along with the project it belongs to.
     const shownUpdates = useMemo(
-        () => updates.filter((update) => !hiddenUpdates.has(update.id) && !(hideOpened && hiddenIds.has(update.projectId))),
-        [hiddenIds, hiddenUpdates, hideOpened, updates],
+        () => (keeps.updates ? updates : []).filter((update) => !hiddenUpdates.has(update.id) && !(hideOpened && hiddenIds.has(update.projectId))),
+        [hiddenIds, hiddenUpdates, hideOpened, keeps.updates, updates],
     );
     const feedItems = useMemo<DiscoverFeedItem[]>(() => interleaveProjectsAndUpdates(visibleProjects, shownUpdates), [visibleProjects, shownUpdates]);
 

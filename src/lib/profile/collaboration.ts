@@ -35,6 +35,9 @@ export type ProfileCollaborationMemberPreview = {
 };
 
 export type ProfileCollaborationProject = {
+  /** Organizations group first on Portfolio; child cards carry their org line (report §24.4). */
+  kind?: "project" | "organization";
+  cardOrg?: { title: string; slug: string | null } | null;
   id: string;
   ownerId: string;
   title: string;
@@ -116,6 +119,12 @@ export type ProfileCollaborationContribution = {
   roleKind?: string;
   roleStages?: ProfileCollaborationRoleStage[];
   visibility?: "public" | "private";
+  /** Organizations (report §24.5): org entries, the child's org for nesting, "Verified by <org>", org-only children. */
+  projectKind?: string | null;
+  parentOrg?: { id: string; title: string; slug: string | null } | null;
+  orgVerified?: boolean;
+  orgOnly?: boolean;
+  verificationRevokedReason?: string | null;
 };
 
 export type ProfileCollaborationSummary = {
@@ -140,6 +149,9 @@ export type ProfileInviteProjectOption = {
 };
 
 type ProfileProjectRow = {
+  kind?: string | null;
+  parent_org_title?: string | null;
+  parent_org_slug?: string | null;
   contribution_id: string | null;
   project_id: string;
   owner_id: string;
@@ -176,6 +188,13 @@ type ProfileProjectRow = {
 };
 
 type ProfileContributionRow = {
+  project_kind?: string | null;
+  parent_org_id?: string | null;
+  parent_org_title?: string | null;
+  parent_org_slug?: string | null;
+  org_verified?: boolean | null;
+  project_link_hidden?: boolean | null;
+  verification_revoked_reason?: string | null;
   project_github_repo_url: string | null;
   project_external_links: unknown;
   recorded_joined_at: Date | string | null;
@@ -365,6 +384,8 @@ function projectFromRow(row: ProfileProjectRow): ProfileCollaborationProject {
   const href = buildProjectHref({ id: row.project_id, slug: row.slug });
   const roleKind = trimDisplayText(row.user_role) || "contributor";
   return {
+    kind: row.kind === "organization" ? "organization" : "project",
+    cardOrg: row.parent_org_title ? { title: row.parent_org_title, slug: row.parent_org_slug ?? null } : null,
     id: row.project_id,
     ownerId: row.owner_id,
     title,
@@ -446,9 +467,11 @@ function contributionFromRow(row: ProfileContributionRow): ProfileCollaborationC
   const projectTitle = row.project_id
     ? normalizeProjectTitle(row.project_title)
     : trimDisplayText(row.project_title_override) || "External project";
-  const projectHref = row.project_id
-    ? buildProjectHref({ id: row.project_id, slug: row.project_slug })
-    : trimOptionalDisplayText(row.project_url);
+  const projectHref = row.project_link_hidden
+    ? null
+    : row.project_id
+      ? buildProjectHref({ id: row.project_id, slug: row.project_slug })
+      : trimOptionalDisplayText(row.project_url);
   const publicProjectLinks=filterProjectLinksForAudience(row.project_external_links,false);
   const website=publicProjectLinks.find(link=>link.purpose==='live-product'||link.platform==='website');
   const repository=publicProjectLinks.find(link=>link.purpose==='source-code');
@@ -489,6 +512,11 @@ function contributionFromRow(row: ProfileContributionRow): ProfileCollaborationC
     roleKind: trimDisplayText(row.role_kind) || "contributor",
     roleStages: normalizedStages,
     visibility,
+    projectKind: row.project_kind ?? null,
+    parentOrg: row.parent_org_id ? { id: row.parent_org_id, title: row.parent_org_title ?? "Organization", slug: row.parent_org_slug ?? null } : null,
+    orgVerified: Boolean(row.org_verified),
+    orgOnly: row.project_visibility === "org",
+    verificationRevokedReason: row.verification_revoked_reason ?? null,
   };
 }
 
@@ -534,6 +562,9 @@ async function queryProfileProjectRows(profileId: string, options: {
         p.github_repo_url,
         p.external_links,
         p.open_roles_count,
+        p.kind,
+        parent_org.title AS parent_org_title,
+        parent_org.slug AS parent_org_slug,
         CASE
           WHEN p.owner_id = ${profileId} THEN 'owner'
           ELSE COALESCE(pm_self.role, pc.role_kind, 'contributor')
@@ -551,6 +582,9 @@ async function queryProfileProjectRows(profileId: string, options: {
         count(*) OVER()::int AS total_count
       FROM user_project_candidates upc
       INNER JOIN ${projects} p ON p.id = upc.id
+      LEFT JOIN ${projects} parent_org
+        ON parent_org.id = p.parent_id AND parent_org.kind = 'organization' AND parent_org.deleted_at IS NULL
+       AND parent_org.visibility IN ('public', 'unlisted')
       LEFT JOIN project_members pm_self
         ON pm_self.project_id = p.id
        AND pm_self.user_id = ${profileId}
@@ -576,6 +610,11 @@ async function queryProfileProjectRows(profileId: string, options: {
       ) ra ON true
       WHERE p.deleted_at IS NULL
         AND (${visibilitySql})
+        AND (${includePrivate ? sql`TRUE` : sql`NOT EXISTS (
+          SELECT 1 FROM project_members show_pref
+          WHERE show_pref.user_id = ${profileId}::uuid AND show_pref.show_on_profile = false
+            AND show_pref.project_id = COALESCE(CASE WHEN p.kind = 'organization' THEN p.id END, p.parent_id)
+        )`})
         AND (${includePrivate ? sql`TRUE` : sql`COALESCE(pc.visibility, 'public') = 'public'`})
       ORDER BY p.created_at DESC, p.updated_at DESC, p.id DESC
       LIMIT ${limit} OFFSET ${offset}
@@ -684,6 +723,18 @@ async function queryProfileContributionRows(profileId: string, options: {
       contribution.source,
       contribution.verified_at,
       contribution.visibility,
+      project.kind AS project_kind,
+      parent_org.id AS parent_org_id,
+      parent_org.title AS parent_org_title,
+      parent_org.slug AS parent_org_slug,
+      contribution.verification_revoked_reason,
+      -- "Verified by <org>": an org owner or admin verified someone else's org entry (report §24.5).
+      (project.kind = 'organization' AND contribution.verified_at IS NOT NULL AND contribution.verified_by IS NOT NULL
+        AND contribution.verified_by <> contribution.profile_id
+        AND (contribution.verified_by = project.owner_id OR EXISTS (
+          SELECT 1 FROM project_members verifier WHERE verifier.project_id = project.id AND verifier.user_id = contribution.verified_by AND verifier.role = 'admin'
+        ))) AS org_verified,
+      ${includePrivate ? sql`false` : sql`(project.visibility = 'org')`} AS project_link_hidden,
       COALESCE(stages.role_stages, '[]'::jsonb) AS role_stages,
       count(*) OVER()::int AS total_count
     FROM ${profileProjectContributions} contribution
@@ -693,6 +744,10 @@ async function queryProfileContributionRows(profileId: string, options: {
     LEFT JOIN project_members member
       ON member.project_id = contribution.project_id
      AND member.user_id = ${profileId}
+    LEFT JOIN ${projects} parent_org
+      ON parent_org.id = project.parent_id
+     AND parent_org.kind = 'organization'
+     AND parent_org.deleted_at IS NULL
     LEFT JOIN LATERAL (
       SELECT accepted_role_title
       FROM ${roleApplications}
@@ -746,7 +801,14 @@ async function queryProfileContributionRows(profileId: string, options: {
         contribution.project_id IS NULL
         OR (
           project.id IS NOT NULL
-          AND (${includePrivate ? sql`TRUE` : sql`project.visibility IN ('public', 'unlisted') AND project.status <> 'draft'`})
+          AND (${includePrivate ? sql`TRUE` : sql`project.status <> 'draft' AND (project.visibility IN ('public', 'unlisted')
+            -- Org only child projects: the member's own story, no link, when the org is public (report §24.6).
+            OR (project.visibility = 'org' AND parent_org.visibility IN ('public', 'unlisted')))
+            AND NOT EXISTS (
+          SELECT 1 FROM project_members show_pref
+          WHERE show_pref.user_id = ${profileId}::uuid AND show_pref.show_on_profile = false
+            AND show_pref.project_id = COALESCE(CASE WHEN project.kind = 'organization' THEN project.id END, project.parent_id)
+        )`})
         )
       )
     ORDER BY contribution.featured DESC,

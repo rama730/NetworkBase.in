@@ -29,6 +29,8 @@ function toDiscoveryProject(project: ProfileCollaborationProject): Project {
         : "active";
 
     return {
+        kind: project.kind,
+        cardOrg: project.cardOrg ?? null,
         id: project.id,
         ownerId: project.ownerId,
         title: project.title,
@@ -80,8 +82,12 @@ export function ProjectsGridCard({ projects, title = "Projects", description, is
                 {[1,2,3,4].map(key => <ProjectCardSkeleton key={key} />)}
             </div>
         ) : projects.length ? (
+            // Organizations first, then projects (report §24.4).
+            [projects.filter((p) => p.kind === "organization"), projects.filter((p) => p.kind !== "organization")].filter((group) => group.length).map((group, groupIndex, groups) => (
+            <div key={groupIndex} className="space-y-2">
+            {groups.length > 1 ? <h3 className="nb-ui-label text-muted-foreground">{group[0]?.kind === "organization" ? "Organizations" : "Projects"}</h3> : null}
             <div className="nb-portfolio-grid flex flex-col gap-4 w-full">
-                {projects.map(project => {
+                {group.map(project => {
                     const cardProject = toDiscoveryProject(project);
                     const href = project.href || project.url;
                     return (
@@ -103,6 +109,8 @@ export function ProjectsGridCard({ projects, title = "Projects", description, is
                     );
                 })}
             </div>
+            </div>
+            ))
         ) : (
             <EmptyState
                 icon={FolderKanban}

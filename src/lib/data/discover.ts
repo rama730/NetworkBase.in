@@ -14,6 +14,7 @@ import { resolvePrivacyRelationships } from '@/lib/privacy/resolver';
 import { getProjectMemberRoleLabel } from '@/lib/projects/settings-policies';
 import { filterProjectLinksForAudience } from '@/lib/projects/social-links';
 import { DiscoverFilters, Project } from '@/types/discover';
+import { showKeeps } from '@/lib/organizations/profile-rules';
 import { countCanonicalSkillMatches } from '@/lib/skills/matching';
 import { containsLikePattern, escapeLikePattern, normalizeSearchQuery, tokenizeSearchQuery } from '@/lib/search/query';
 
@@ -76,6 +77,9 @@ type RawProjectRow = {
     leadFocus: string | null;
     externalLinks: import('@/lib/profile/normalization').SocialLinkStorage | null;
     githubRepoUrl: string | null;
+    kind: 'project' | 'organization';
+    orgType: string | null;
+    parentId: string | null;
     createdAt: Date;
     /** created_at as text with microseconds, for cursors. */
     cursorAt: string;
@@ -238,6 +242,8 @@ const buildTermMatchConditions = (terms: string[]) => terms.map((term) => {
             sql<boolean>`EXISTS (SELECT 1 FROM project_skills ps JOIN skills s ON ps.skill_id = s.id WHERE ps.project_id = ${projects.id} AND s.name ILIKE ${pattern})`,
             sql<boolean>`EXISTS (SELECT 1 FROM project_tags pt JOIN tags t ON pt.tag_id = t.id WHERE pt.project_id = ${projects.id} AND t.name ILIKE ${pattern})`,
             sql<boolean>`lower(coalesce(${projects.category}, '')) LIKE ${pattern}`,
+            // An org's @handle (report §24.3).
+            ilike(projects.slug, pattern),
         )!;
     });
 
@@ -318,7 +324,19 @@ export const buildBaseConditions = (
         sql<boolean>`${projects.deletedAt} IS NULL AND ${projects.visibility} IN ('public', 'unlisted') AND ${projects.status} <> 'draft'`,
         // A deleted account's projects leave Discover with it.
         sql<boolean>`EXISTS (SELECT 1 FROM ${profiles} owner WHERE owner.id = ${projects.ownerId} AND owner.deleted_at IS NULL)`,
+        // Decision 160: a new org reaches Discover after 3+ members and 7+ days, or once verified (profile-rules.ts).
+        sql<boolean>`(${projects.kind} <> 'organization' OR ${projects.verifiedAt} IS NOT NULL OR (
+            ${projects.createdAt} <= now() - interval '7 days'
+            AND (SELECT count(*) FROM project_members m WHERE m.project_id = ${projects.id}) >= 3
+        ))`,
     ];
+    const show = showKeeps(filters.show ?? 'all');
+    if (show.projectKind) conditions.push(eq(projects.kind, show.projectKind as 'project' | 'organization'));
+    if (filters.org) {
+        // "Show everything from CSE-3A": the org itself and its public child projects.
+        conditions.push(sql<boolean>`(${projects.slug} = ${filters.org} AND ${projects.kind} = 'organization'
+            OR ${projects.parentId} = (SELECT o.id FROM projects o WHERE o.slug = ${filters.org} AND o.kind = 'organization' AND o.deleted_at IS NULL LIMIT 1))`);
+    }
 
     // Neither side of a block sees the other's projects.
     if (viewerId) {
@@ -639,6 +657,9 @@ const projectSelectFields = {
     leadFocus: sql<string | null>`${projects.importSource}->'metadata'->>'leadFocus'`,
     externalLinks: projects.externalLinks,
     githubRepoUrl: projects.githubRepoUrl,
+    kind: projects.kind,
+    orgType: projects.orgType,
+    parentId: projects.parentId,
     createdAt: projects.createdAt,
     cursorAt: cursorAtSql,
     updatedAt: projects.updatedAt,
@@ -788,6 +809,17 @@ const hydrateProjects = async (
             : Promise.resolve([] as Array<{ projectId: string }>),
     ]);
 
+    // Org cards count their projects; child cards name their (public) org (report §24.1, §24.2).
+    const orgIds = rawProjects.filter((project) => project.kind === 'organization').map((project) => project.id);
+    const parentIds = Array.from(new Set(rawProjects.map((project) => project.parentId).filter((id): id is string => Boolean(id))));
+    const [childCounts, parentOrgs] = await Promise.all([
+        orgIds.length ? db.select({ parentId: projects.parentId, n: sql<number>`count(*)::int` }).from(projects)
+            .where(and(inArray(projects.parentId, orgIds), isNull(projects.deletedAt))).groupBy(projects.parentId) : Promise.resolve([]),
+        parentIds.length ? db.select({ id: projects.id, title: projects.title, slug: projects.slug }).from(projects)
+            .where(and(inArray(projects.id, parentIds), eq(projects.kind, 'organization'), isNull(projects.deletedAt), inArray(projects.visibility, ['public', 'unlisted']))) : Promise.resolve([]),
+    ]);
+    const childCountMap = new Map(childCounts.map((row) => [row.parentId, row.n]));
+    const parentOrgMap = new Map(parentOrgs.map((row) => [row.id, { title: row.title, slug: row.slug }]));
     const ownerMap = new Map(owners.map((owner) => [owner.id, owner]));
     // Collaborators show only to people allowed to see them (public, or connected for
     // connections-only), never across a block. One privacy lookup for owners and members together.
@@ -938,6 +970,10 @@ const hydrateProjects = async (
             openRolesCount: openSeats.get(project.id) ?? 0,
             collaboratorsCount: teamSizes.get(project.id) ?? projectMembersRows.length,
             followers: [],
+            kind: project.kind,
+            orgType: project.orgType,
+            childProjectCount: project.kind === 'organization' ? childCountMap.get(project.id) ?? 0 : undefined,
+            cardOrg: project.parentId ? parentOrgMap.get(project.parentId) ?? null : null,
             createdAt: project.createdAt.toISOString(),
             updatedAt: project.updatedAt.toISOString(),
         };

@@ -53,7 +53,17 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
     const visibleLinks = orderedLinks.slice(0, 4);
     // More than 4 links go in a "+N" menu (spec), never silently dropped.
     const moreLinks = orderedLinks.slice(4);
-    const href = `/projects/${project.slug || project.id}`;
+    // Org cards open the org's About tab at /org/<handle> (report §24.1, §24.7).
+    const isOrg = project.kind === "organization";
+    const href = isOrg ? `/org/${project.slug || project.id}` : `/projects/${project.slug || project.id}`;
+    const orgTypeLabel = project.orgType ? project.orgType.charAt(0).toUpperCase() + project.orgType.slice(1) : "Organization";
+    // A child project's org line, its own link above the card link (report §24.2).
+    const orgLine = project.cardOrg ? (
+        <Link href={`/org/${encodeURIComponent(project.cardOrg.slug ?? "")}`} className="relative z-10 -mb-1 inline-flex w-fit items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground hover:underline">
+            <span aria-hidden="true" className="inline-block size-2 rounded-[2px] bg-foreground/60" />{project.cardOrg.title} /
+        </Link>
+    ) : null;
+    const typeChip = isOrg ? <span className="nb-status relative z-10 ml-auto shrink-0" data-status="active">{orgTypeLabel}</span> : null;
     const linkHref = (link: (typeof links)[number]) => `/go/project/${encodeURIComponent(project.id)}/${encodeURIComponent(link.id || link.canonicalKey)}`;
 
     async function toggleFollow() {
@@ -82,11 +92,13 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
 
     const coverUrl = getProjectAvatarUrl(project);
 
-    return <article className="nb-project-card group h-full" data-project-id={project.id} data-testid={`project-card-${project.id}`}>
+    return <article className="nb-project-card group h-full" data-project-id={project.id} data-testid={`project-card-${project.id}`} data-kind={project.kind ?? "project"}>
+        {orgLine}
         {coverUrl ? (
             <div className="flex items-center gap-3">
                 <ProjectAvatar project={project} size="card" />
                 <div className="min-w-0 flex-1">
+                    {typeChip ? <div className="float-right">{typeChip}</div> : null}
                     <h3 className="nb-project-card-title min-w-0">
                         <Link href={href} onClick={(event) => { if (!event.metaKey && !event.ctrlKey && !event.shiftKey) onOpenProject?.(project.id); }} className="after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none">{project.title}</Link>
                     </h3>
@@ -104,6 +116,7 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
                     <h3 className="nb-project-card-title min-w-0">
                         <Link href={href} onClick={(event) => { if (!event.metaKey && !event.ctrlKey && !event.shiftKey) onOpenProject?.(project.id); }} className="after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none">{project.title}</Link>
                     </h3>
+                    {typeChip}
                 </div>
                 {project.shortDescription || project.description ? (
                     <p className={`-mt-[7px] text-sm leading-normal text-muted-foreground line-clamp-2`}>
@@ -125,7 +138,10 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
                     {teamSize > 4 && <span className="flex size-[26px] items-center justify-center rounded-md border-2 border-card bg-secondary font-mono text-[11px]">+{teamSize - 4}</span>}
                 </div>
                 {collaborators.length === 0 && <span className="nb-meta inline-flex items-center gap-1"><Users size={14} aria-hidden="true" />No team yet</span>}
-                {applicationChip ? <span className="nb-status relative z-10" data-status={APPLICATION_CHIP_TONE[applicationChip]} title="Your application on this project">{APPLICATION_CHIP_LABEL[applicationChip]}</span>
+                {isOrg ? <>
+                    {typeof project.childProjectCount === "number" ? <span className="nb-meta">{project.childProjectCount} {project.childProjectCount === 1 ? "project" : "projects"}</span> : null}
+                    {project.slug ? <Link href={`/discover?org=${encodeURIComponent(project.slug)}`} className="nb-meta relative z-10 hover:text-foreground hover:underline" title={`Show everything from ${project.title}`}>Show everything</Link> : null}
+                </> : applicationChip ? <span className="nb-status relative z-10" data-status={APPLICATION_CHIP_TONE[applicationChip]} title="Your application on this project">{APPLICATION_CHIP_LABEL[applicationChip]}</span>
                     : totalOpenRoles > 0 && <span className="nb-meta text-primary">{totalOpenRoles} open {totalOpenRoles === 1 ? "role" : "roles"}</span>}
             </div>
             <div className="relative z-10 flex flex-wrap items-center gap-1">
