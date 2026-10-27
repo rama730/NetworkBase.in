@@ -29,12 +29,13 @@ import {
 
 import {
   buildSprintDeleteImpact,
-  type CreateSprintDraftInput,
+  type SprintEditorSubmission,
   type SprintDeleteImpact,
   type SprintEditorMode,
 } from "@/lib/projects/sprints";
 
 import CreateSprintModal from "@/components/projects/v2/sprints/CreateSprintModal";
+import { ChildSprintLine, LinkedProjectsBlock, PlanSeriesButton, RunningOrgSprintPrompt, SprintMaterials, StartNowButton } from "@/components/organizations/OrgSprintParts";
 import { SprintLifecycleModals } from "@/components/projects/tabs/sprint/SprintLifecycleModals";
 import { SkeletonSprints } from "@/components/projects/skeletons/SkeletonSprints";
 
@@ -53,6 +54,8 @@ export type Sprint = SprintListItem;
 type SprintEditorState = {
   mode: SprintEditorMode;
   sprint: SprintListItem | null;
+  /** "Create linked sprint": the org sprint to start inside (report §15.5). */
+  parentSprintId?: string | null;
 } | null;
 
 export default function SprintPlanning({
@@ -129,6 +132,12 @@ export default function SprintPlanning({
     memberRole: isOwner ? "owner" : isOwnerOrMember ? "member" : "viewer",
   };
   const isEditorOpen = editorState !== null;
+  // Organizations and child projects (report §15): editor options, links and materials.
+  const orgContext = detail?.org ?? null;
+  const editorOrg = orgContext ? { kind: orgContext.kind, orgTitle: orgContext.orgTitle, orgSprints: orgContext.orgSprints } : null;
+  const editingFlags = editorState?.sprint ? orgContext?.sprintFlags[editorState.sprint.id] : undefined;
+  const refreshSprints = () => void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.sprintDetailRoot(projectId) });
+  const canManageSprints = permissions.canCreate;
   const deleteImpact: SprintDeleteImpact | null =
     editorState?.mode === "edit" &&
     editorState.sprint &&
@@ -142,7 +151,7 @@ export default function SprintPlanning({
 
 
   const handleCreateSprint = useCallback(
-    async (data: CreateSprintDraftInput) => {
+    async (data: SprintEditorSubmission) => {
       try {
         const result = await createSprintAction({ ...data, projectId });
         if (!result.success || !result.sprint) {
@@ -171,7 +180,7 @@ export default function SprintPlanning({
   );
 
   const handleUpdateSprint = useCallback(
-    async (data: CreateSprintDraftInput) => {
+    async (data: SprintEditorSubmission) => {
       if (!editorState?.sprint) {
         return { success: false as const, error: "Sprint not found" };
       }
@@ -351,6 +360,8 @@ export default function SprintPlanning({
             ? "Create the first sprint and this space will turn into a clean execution timeline for the work inside it."
             : "No sprints have been planned yet. Sprints created by project leads will appear here."}
         </p>
+        {orgContext ? <RunningOrgSprintPrompt org={orgContext} canCreate={canManageSprints} onCreateLinked={(parentSprintId) => setEditorState({ mode: "create", sprint: null, parentSprintId })} /> : null}
+        {orgContext?.kind === "org" && canManageSprints ? <div className="mb-3"><PlanSeriesButton projectId={projectId} suggestedPrefix="Sprint " onPlanned={refreshSprints} /></div> : null}
         {permissions.canCreate ? (
           <>
             <button
@@ -369,6 +380,8 @@ export default function SprintPlanning({
                 onClose={() => setEditorState(null)}
                 onSubmit={handleCreateSprint}
                 sprintCount={0}
+                org={editorOrg}
+                initialOrgFields={{ parentSprintId: editorState?.parentSprintId ?? null }}
               />
             ) : null}
           </>
@@ -428,6 +441,8 @@ export default function SprintPlanning({
             </div>
           ) : null}
           <div className="flex-1 min-w-0">
+            {orgContext ? <RunningOrgSprintPrompt org={orgContext} canCreate={canManageSprints} onCreateLinked={(parentSprintId) => setEditorState({ mode: "create", sprint: null, parentSprintId })} /> : null}
+            {orgContext?.kind === "org" && canManageSprints ? <div className="mb-3 flex justify-end"><PlanSeriesButton projectId={projectId} suggestedPrefix="Sprint " onPlanned={refreshSprints} /></div> : null}
             {selectedSprint ? (
               <SprintHeader
                 sprint={selectedSprint}
@@ -439,6 +454,14 @@ export default function SprintPlanning({
                 onCancel={() => setActiveModal("cancel")}
               />
             ) : null}
+            {selectedSprint && orgContext ? <ChildSprintLine org={orgContext} /> : null}
+            {selectedSprint?.status === "planning" && permissions.canStart ? (
+              <div className="mb-3"><StartNowButton projectId={projectId} sprintId={selectedSprint.id} onStarted={refreshSprints} /></div>
+            ) : null}
+            {selectedSprint ? (
+              <SprintMaterials projectId={projectId} sprintId={selectedSprint.id} projectSlug={projectSlug} materials={detail.materials ?? []} canManage={canManageSprints} onChanged={refreshSprints} />
+            ) : null}
+            {selectedSprint && orgContext?.kind === "org" ? <LinkedProjectsBlock org={orgContext} /> : null}
             <SprintTimelineContent
               projectSlug={projectSlug}
               projectKey={projectKey}
@@ -471,6 +494,8 @@ export default function SprintPlanning({
           sprint={editorState?.sprint ?? null}
           sprintCount={detail.sprints.length}
           deleteImpact={deleteImpact}
+          org={editorOrg}
+          initialOrgFields={editingFlags ? { autoStart: editingFlags.autoStart, showInChildren: editingFlags.showInChildren, parentSprintId: editingFlags.parentSprintId } : { parentSprintId: editorState?.parentSprintId ?? null }}
         />
       ) : null}
 

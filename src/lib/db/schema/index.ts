@@ -2035,6 +2035,10 @@ export const projectSprints = pgTable(
     completedAt: timestamp("completed_at", { withTimezone: true }),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    // Org sprints (0243): a child project's sprint inside an org sprint; opt out of starting on the date.
+    parentSprintId: uuid("parent_sprint_id").references((): AnyPgColumn => projectSprints.id, { onDelete: "set null" }),
+    autoStart: boolean("auto_start").default(true).notNull(),
+    showInChildren: boolean("show_in_children").default(true).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -2043,6 +2047,7 @@ export const projectSprints = pgTable(
       .notNull(),
   },
   (t) => ({
+    parentIdx: index("project_sprints_parent_idx").on(t.parentSprintId).where(sql`${t.parentSprintId} IS NOT NULL`),
     projectNumberIdx: uniqueIndex("project_sprints_project_number_idx").on(
       t.projectId,
       t.sprintNumber,
@@ -3839,6 +3844,26 @@ export const projectUpdateCommentsRelations = relations(
       references: [profiles.id],
       relationName: "project_update_comment_deleted_by",
     }),
+  }),
+);
+
+/** Org docs and files attached to a sprint (0243). Server-only. */
+export const sprintMaterials = pgTable(
+  "sprint_materials",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sprintId: uuid("sprint_id").notNull().references(() => projectSprints.id, { onDelete: "cascade" }),
+    nodeId: uuid("node_id").references(() => projectNodes.id, { onDelete: "cascade" }),
+    docId: uuid("doc_id").references(() => projectDocs.id, { onDelete: "cascade" }),
+    addedBy: uuid("added_by").references(() => profiles.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    oneTarget: check("sprint_materials_one_target", sql`(${t.nodeId} IS NULL) <> (${t.docId} IS NULL)`),
+    nodeUnique: uniqueIndex("sprint_materials_node_unique").on(t.sprintId, t.nodeId).where(sql`${t.nodeId} IS NOT NULL`),
+    docUnique: uniqueIndex("sprint_materials_doc_unique").on(t.sprintId, t.docId).where(sql`${t.docId} IS NOT NULL`),
+    nodeIdx: index("sprint_materials_node_idx").on(t.nodeId).where(sql`${t.nodeId} IS NOT NULL`),
+    docIdx: index("sprint_materials_doc_idx").on(t.docId).where(sql`${t.docId} IS NOT NULL`),
   }),
 );
 

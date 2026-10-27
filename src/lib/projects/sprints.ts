@@ -120,13 +120,24 @@ export const createSprintDraftSchema = z
     }
   });
 
+// Org sprints (report §15.2, §15.5): start on the date or by hand, show in child projects, a matching
+// sprint per child project, or (in a child project) the org sprint this one sits inside.
+const orgSprintFields = {
+  autoStart: z.boolean().optional(),
+  showInChildren: z.boolean().optional(),
+  createMatching: z.boolean().optional(),
+  parentSprintId: z.string().uuid().nullable().optional(),
+};
+
 export const createSprintSchema = createSprintDraftSchema.extend({
   projectId: z.string().uuid(),
+  ...orgSprintFields,
 });
 
 export const updateSprintSchema = createSprintDraftSchema.extend({
   projectId: z.string().uuid(),
   sprintId: z.string().uuid(),
+  ...orgSprintFields,
 });
 
 export const deleteSprintSchema = z.object({
@@ -201,5 +212,8 @@ export function getSprintDurationSummary(startDate: string, endDate: string) {
 }
 
 export type CreateSprintDraftInput = z.infer<typeof createSprintDraftSchema>;
+/** What the sprint editor sends: the draft plus the org sprint choices (report §15.2, §15.5). */
+export type SprintOrgFields = { autoStart?: boolean; showInChildren?: boolean; createMatching?: boolean; parentSprintId?: string | null };
+export type SprintEditorSubmission = CreateSprintDraftInput & SprintOrgFields;
 export type CreateSprintInput = z.infer<typeof createSprintSchema>;
 export type UpdateSprintInput = z.infer<typeof updateSprintSchema>;

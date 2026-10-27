@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { projectMembers, projects } from "@/lib/db/schema";
 import { capChildVisibility, isAboveCap, type ChildVisibility } from "@/lib/organizations/child-rules";
 import { readOrgRules } from "@/lib/organizations/settings";
+import { unlinkSprints } from "@/lib/organizations/sprints";
 import { isProjectPubliclyReadableVisibility } from "@/lib/projects/project-visibility";
 
 type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -75,8 +76,9 @@ export async function moveIntoOrg(projectId: string, orgId: string, currentVisib
   }).where(eq(projects.id, projectId));
 }
 
-/** Takes a child out of its org: it becomes a Private personal project (report §14.7). */
+/** Takes a child out of its org: it becomes a Private personal project and its sprints unlink (report §14.7, §15.8). */
 export async function detachFromOrg(projectId: string) {
+  await unlinkSprints(db, { childProjectId: projectId });
   await db.update(projects).set({
     parentId: null,
     visibility: "private",

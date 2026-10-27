@@ -1,13 +1,17 @@
+import { assertOrgSprintRules, createMatchingChildSprints, readSprintMaterials, readSprintOrgContext, unlinkSprints } from "@/lib/organizations/sprints";
+import { buildSprintSeries } from "@/lib/organizations/sprint-rules";
+import { readViewerOrgRole } from "@/lib/organizations/detail";
+import { startSprint } from "@/lib/projects/sprint-schedule";
 import "server-only";
 
 import { isMissingRelationError } from "@/lib/db/errors";
 import { db } from "@/lib/db";
-import { sql, and, eq, inArray, desc, isNull, or } from "drizzle-orm";
+import { sql, and, eq, inArray, desc, ilike, isNull, or } from "drizzle-orm";
 import { getProjectAccessById, assertProjectTabReadAccess, type ProjectAccess, canReadProjectTab, ProjectTabForbiddenError } from "@/lib/data/project-access";
 import { createClient } from "@/lib/supabase/server";
 import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
 import { type SprintTaskTimelineEntity, type SprintListItem, buildSprintHealthSummary, type SprintDetailPayload, buildSprintPermissionSet, isSprintReadyToClose } from "@/lib/projects/sprint-detail";
-import { projectSprintEvents, projectSprints, profiles, projectMembers, sprintTaskMemberships, tasks, taskNodeLinks, projectNodes, taskSubtasks, projects } from "@/lib/db/schema";
+import { projectSprintEvents, projectSprints, profiles, projectMembers, sprintTaskMemberships, tasks, taskNodeLinks, projectNodes, taskSubtasks, projects, projectDocs, sprintMaterials } from "@/lib/db/schema";
 import { toDateValue, toIsoString } from "@/lib/utils/date";
 import { z } from "zod";
 import { inferTaskFileRole } from "@/lib/projects/task-file-intelligence";
@@ -933,11 +937,13 @@ async function buildSprintDetailPayload(input: {
     canRead: access.canRead,
     canWrite: access.canWrite,
     isOwner: access.isOwner,
-    isMember: access.isMember,
-    memberRole: access.memberRole,
+    isMember: access.isMember || access.isInheritedAdmin,
+    // Inherited org admins act as project admins on a child project's sprints (report §15.5).
+    memberRole: access.isInheritedAdmin && !access.memberRole ? "admin" : access.memberRole,
   });
 
   const sprints = await readProjectSprintsList(input.projectId, 120);
+  const isSprintInsider = access.isOwner || access.isMember || access.isInheritedAdmin;
   const requestedSprint = input.sprintId?.trim() ?? null;
   const legacyNameMatches = requestedSprint
     ? sprints.filter((sprint) => sprint.name === requestedSprint)
@@ -970,6 +976,8 @@ async function buildSprintDetailPayload(input: {
       rows: [],
       nextCursor: null,
       hasMore: false,
+      org: await readSprintOrgContext(input.projectId, null),
+      materials: [],
     };
   }
 
@@ -982,7 +990,7 @@ async function buildSprintDetailPayload(input: {
     return null;
   }
 
-  const [summary, taskPage] = await Promise.all([
+  const [summary, taskPage, org, materials] = await Promise.all([
     readSprintSummary(selectedSprint.id),
     showTasks ? readSprintTaskActivityPage({
       projectId: input.projectId,
@@ -991,6 +999,9 @@ async function buildSprintDetailPayload(input: {
       cursor: parsedCursor,
       taskReference: input.taskReference,
     }) : Promise.resolve(NO_SPRINT_TASK_PAGE),
+    readSprintOrgContext(input.projectId, selectedSprint.id),
+    // Visitors get sprint names, goals and dates only: no materials or linked projects (report §15.4).
+    isSprintInsider ? readSprintMaterials(selectedSprint.id) : Promise.resolve([]),
   ]);
 
   const rows = buildSprintTimeline({
@@ -1011,6 +1022,8 @@ async function buildSprintDetailPayload(input: {
     rows,
     nextCursor: taskPage.nextCursor,
     hasMore: taskPage.hasMore,
+    org: org && !isSprintInsider ? { ...org, linkedProjects: [], notLinkedCount: 0 } : org,
+    materials,
   };
 }
 
@@ -1237,6 +1250,7 @@ async function readProjectSprintDetailForActor(input: ProjectSprintDetailInput &
       };
     }
 
+    const parentOrgRole = project.parentId ? await readViewerOrgRole(project.parentId, input.actorUserId ?? null) : null;
     const viewerState = resolveProjectDetailViewerState({
       projectId: project.id,
       ownerId: project.ownerId,
@@ -1245,6 +1259,7 @@ async function readProjectSprintDetailForActor(input: ProjectSprintDetailInput &
       actorUserId: input.actorUserId ?? null,
       memberRoleRaw: project.memberRole,
       isFollowed: project.isFollowed,
+      parentOrgRole,
     });
 
     if (!viewerState.canRead) {
@@ -1257,8 +1272,9 @@ async function readProjectSprintDetailForActor(input: ProjectSprintDetailInput &
     if (
       !isProjectTabVisibleToViewer({
         tabId: "sprints",
-        isOwnerOrMember: viewerState.isOwner || viewerState.isMember,
+        isOwnerOrMember: viewerState.isOwner || viewerState.isMember || parentOrgRole === "owner" || parentOrgRole === "admin",
         publicTabVisibility: project.publicTabVisibility,
+        isOrganization: project.kind === "organization",
       })
     ) {
       return {
@@ -1332,6 +1348,7 @@ export async function createSprintAction(data: CreateSprintInput) {
                 WHERE project_id = ${validated.projectId}
             `);
       const sprintNumber = Number(Array.from(numberRows)[0]?.next_number ?? 1);
+      await assertOrgSprintRules(tx, { projectId: validated.projectId, startDate, endDate, parentSprintId: validated.parentSprintId ?? null });
       const [created] = await tx
         .insert(projectSprints)
         .values({
@@ -1344,8 +1361,18 @@ export async function createSprintAction(data: CreateSprintInput) {
           startDate,
           endDate,
           status: "planning",
+          autoStart: validated.autoStart ?? true,
+          showInChildren: validated.showInChildren ?? true,
+          parentSprintId: validated.parentSprintId ?? null,
         })
         .returning({ id: projectSprints.id });
+      if (created && validated.createMatching) {
+        await createMatchingChildSprints(tx, {
+          orgId: validated.projectId,
+          orgSprint: { id: created.id, name: validated.name, goal: validated.goal ?? null, startDate, endDate },
+          actorId: user.id,
+        });
+      }
       if (created) {
         await tx.insert(projectSprintEvents).values({
           projectId: validated.projectId,
@@ -1449,6 +1476,7 @@ export async function updateSprintAction(data: UpdateSprintInput) {
         id: projectSprints.id,
         projectId: projectSprints.projectId,
         status: projectSprints.status,
+        parentSprintId: projectSprints.parentSprintId,
       })
       .from(projectSprints)
       .where(
@@ -1472,6 +1500,9 @@ export async function updateSprintAction(data: UpdateSprintInput) {
 
     const changedAt = new Date();
     const updatedSprintId = await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT id FROM ${projects} WHERE id = ${validated.projectId} FOR UPDATE`);
+      const parentSprintId = validated.parentSprintId === undefined ? existingSprint.parentSprintId : validated.parentSprintId;
+      await assertOrgSprintRules(tx, { projectId: validated.projectId, startDate, endDate, parentSprintId, excludeSprintId: validated.sprintId });
       const [updated] = await tx
         .update(projectSprints)
         .set({
@@ -1480,6 +1511,9 @@ export async function updateSprintAction(data: UpdateSprintInput) {
           description: validated.description ?? null,
           startDate,
           endDate,
+          parentSprintId,
+          ...(validated.autoStart === undefined ? {} : { autoStart: validated.autoStart }),
+          ...(validated.showInChildren === undefined ? {} : { showInChildren: validated.showInChildren }),
           updatedAt: changedAt,
         })
         .where(
@@ -1734,7 +1768,8 @@ type CompleteSprintOptions = {
 async function requireSprintOwner(projectId: string, userId: string) {
   const access = await getProjectAccessById(projectId, userId);
   if (!access.project) throw new Error("Project not found");
-  if (!access.isOwner && access.memberRole !== "admin")
+  // Inherited org admins plan and run a child project's sprints too (report §15.5).
+  if (!access.isOwner && access.memberRole !== "admin" && !access.isInheritedAdmin)
     throw new Error("Only a project owner or admin can manage the Sprint lifecycle");
 }
 
@@ -2027,6 +2062,8 @@ export async function cancelSprintAction(sprintId: string, projectId: string) {
         payload: { returnedTaskCount: taskIds.length },
         createdAt: now,
       });
+      // Linked child sprints become ordinary sprints (report §15.3, Cancel).
+      await unlinkSprints(tx, { orgSprintId: sprintId });
     });
     const sprint = await readLifecycleSprint(projectId, sprintId);
     await revalidateProjectPaths(projectId);
@@ -2052,4 +2089,125 @@ export async function cancelSprintAction(sprintId: string, projectId: string) {
       error: error instanceof Error ? error.message : "Failed to cancel sprint",
     };
   }
+}
+
+
+// --- Org sprints (report §15) ---
+
+/** "Plan a series" on an organization: CO1–CO5 back to back, as planned sprints that never overlap. */
+export async function planSprintSeriesAction(input: { projectId: string; prefix: string; count: number; lengthDays: number; startDate: string }) {
+  try {
+    const user = await getAuthUserOrThrow();
+    await requireSprintOwner(input.projectId, user.id);
+    const prefix = input.prefix.trim().slice(0, 40);
+    if (!prefix) throw new Error("Enter a name prefix, for example CO.");
+    const series = buildSprintSeries({ ...input, prefix });
+    await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT id FROM ${projects} WHERE id = ${input.projectId} FOR UPDATE`);
+      const [project] = await tx.select({ kind: projects.kind }).from(projects).where(eq(projects.id, input.projectId)).limit(1);
+      if (project?.kind !== "organization") throw new Error("Series are planned on an organization.");
+      for (const item of series) {
+        const startDate = parseSprintDateInput(item.startDate);
+        const endDate = parseSprintDateInput(item.endDate);
+        await assertOrgSprintRules(tx, { projectId: input.projectId, startDate, endDate });
+        const [created] = await tx.insert(projectSprints).values({
+          projectId: input.projectId,
+          creatorId: user.id,
+          sprintNumber: sql<number>`(SELECT COALESCE(MAX(sprint_number), 0) + 1 FROM ${projectSprints} WHERE project_id = ${input.projectId})`,
+          name: item.name,
+          startDate,
+          endDate,
+          status: "planning",
+        }).returning({ id: projectSprints.id });
+        await tx.insert(projectSprintEvents).values({
+          projectId: input.projectId,
+          sprintId: created!.id,
+          actorId: user.id,
+          eventType: "created",
+          payload: { name: item.name, status: "planning", source: "series", startDate: startDate.toISOString(), endDate: endDate.toISOString() },
+        });
+      }
+    });
+    await revalidateProjectPaths(input.projectId);
+    return { success: true as const, created: series.length };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Failed to plan the series" };
+  }
+}
+
+/** Starts a planned sprint now, for sprints with "Start automatically" off or started early (report §15.8). */
+export async function startSprintNowAction(sprintId: string, projectId: string) {
+  try {
+    const user = await getAuthUserOrThrow();
+    await requireSprintOwner(projectId, user.id);
+    const started = await startSprint(sprintId, projectId, new Date(), user.id, "manual");
+    if (!started) throw new Error("Only a planned sprint can start, and only when no other sprint is active.");
+    await revalidateProjectPaths(projectId);
+    return { success: true as const };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Failed to start the sprint" };
+  }
+}
+
+/** Attach one of the project's files or docs to a sprint as a material (owners and admins). */
+export async function addSprintMaterialAction(input: { projectId: string; sprintId: string; nodeId?: string; docId?: string }) {
+  try {
+    const user = await getAuthUserOrThrow();
+    await requireSprintOwner(input.projectId, user.id);
+    if (Boolean(input.nodeId) === Boolean(input.docId)) throw new Error("Pick one file or doc.");
+    const [sprint] = await db.select({ id: projectSprints.id }).from(projectSprints)
+      .where(and(eq(projectSprints.id, input.sprintId), eq(projectSprints.projectId, input.projectId))).limit(1);
+    if (!sprint) throw new Error("Sprint not found");
+    const target = input.nodeId
+      ? await db.select({ id: projectNodes.id }).from(projectNodes).where(and(eq(projectNodes.id, input.nodeId), eq(projectNodes.projectId, input.projectId), isNull(projectNodes.deletedAt))).limit(1)
+      : await db.select({ id: projectDocs.id }).from(projectDocs).where(and(eq(projectDocs.id, input.docId!), eq(projectDocs.projectId, input.projectId))).limit(1);
+    if (target.length === 0) throw new Error("That file or doc isn't in this project.");
+    await db.insert(sprintMaterials).values({ sprintId: input.sprintId, nodeId: input.nodeId ?? null, docId: input.docId ?? null, addedBy: user.id }).onConflictDoNothing();
+    await revalidateProjectPaths(input.projectId);
+    return { success: true as const };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Failed to add the material" };
+  }
+}
+
+export async function removeSprintMaterialAction(input: { projectId: string; materialId: string }) {
+  try {
+    const user = await getAuthUserOrThrow();
+    await requireSprintOwner(input.projectId, user.id);
+    await db.delete(sprintMaterials).where(and(
+      eq(sprintMaterials.id, input.materialId),
+      sql`${sprintMaterials.sprintId} IN (SELECT id FROM ${projectSprints} WHERE project_id = ${input.projectId})`,
+    ));
+    await revalidateProjectPaths(input.projectId);
+    return { success: true as const };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Failed to remove the material" };
+  }
+}
+
+/** Files and docs to pick from when adding a material, by name. */
+export async function searchSprintMaterialCandidatesAction(input: { projectId: string; query: string }) {
+  try {
+    const user = await getAuthUserOrThrow();
+    await requireSprintOwner(input.projectId, user.id);
+    const pattern = `%${input.query.trim().slice(0, 80).replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
+    const [files, docs] = await Promise.all([
+      db.select({ id: projectNodes.id, title: projectNodes.name }).from(projectNodes)
+        .where(and(eq(projectNodes.projectId, input.projectId), eq(projectNodes.type, "file"), isNull(projectNodes.deletedAt), isNull(projectNodes.taskId), ilike(projectNodes.name, pattern)))
+        .limit(20),
+      db.select({ id: projectDocs.id, title: projectDocs.filename }).from(projectDocs)
+        .where(and(eq(projectDocs.projectId, input.projectId), ilike(projectDocs.filename, pattern)))
+        .limit(10),
+    ]);
+    return { success: true as const, files, docs };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Search failed", files: [], docs: [] };
+  }
+}
+
+async function getAuthUserOrThrow() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+  return user;
 }

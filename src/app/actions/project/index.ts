@@ -210,6 +210,26 @@ export async function cancelSprintAction(...args: Parameters<typeof sprintsImpl.
   return sprintsImpl.cancelSprintAction(...args);
 }
 
+export async function planSprintSeriesAction(...args: Parameters<typeof sprintsImpl.planSprintSeriesAction>): ReturnType<typeof sprintsImpl.planSprintSeriesAction> {
+  return sprintsImpl.planSprintSeriesAction(...args);
+}
+
+export async function startSprintNowAction(...args: Parameters<typeof sprintsImpl.startSprintNowAction>): ReturnType<typeof sprintsImpl.startSprintNowAction> {
+  return sprintsImpl.startSprintNowAction(...args);
+}
+
+export async function addSprintMaterialAction(...args: Parameters<typeof sprintsImpl.addSprintMaterialAction>): ReturnType<typeof sprintsImpl.addSprintMaterialAction> {
+  return sprintsImpl.addSprintMaterialAction(...args);
+}
+
+export async function removeSprintMaterialAction(...args: Parameters<typeof sprintsImpl.removeSprintMaterialAction>): ReturnType<typeof sprintsImpl.removeSprintMaterialAction> {
+  return sprintsImpl.removeSprintMaterialAction(...args);
+}
+
+export async function searchSprintMaterialCandidatesAction(...args: Parameters<typeof sprintsImpl.searchSprintMaterialCandidatesAction>): ReturnType<typeof sprintsImpl.searchSprintMaterialCandidatesAction> {
+  return sprintsImpl.searchSprintMaterialCandidatesAction(...args);
+}
+
 export async function deleteTaskAction(...args: Parameters<typeof tasksImpl.deleteTaskAction>): ReturnType<typeof tasksImpl.deleteTaskAction> {
   return tasksImpl.deleteTaskAction(...args);
 }

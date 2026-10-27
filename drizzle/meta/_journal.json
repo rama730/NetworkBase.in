@@ -1674,6 +1674,13 @@
       "when": 1792454408000,
       "tag": "0241_organizations_core",
       "breakpoints": true
+    },
+    {
+      "idx": 239,
+      "version": "7",
+      "when": 1792454410000,
+      "tag": "0243_org_sprints",
+      "breakpoints": true
     }
   ]
 }
