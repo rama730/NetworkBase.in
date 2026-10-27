@@ -26,6 +26,8 @@ const hubSearchInputSchema = z.object({
         tech: z.array(z.string().trim().min(1).max(100)).max(20),
         sort: z.enum(Object.values(SORT_OPTIONS) as [string, ...string[]]),
         search: z.string().max(200).optional(),
+        show: z.enum(['all', 'projects', 'organizations', 'updates']).optional(),
+        org: z.string().regex(/^[a-z0-9-]{1,40}$/).optional(),
     }).strict(),
     cursor: z.string().max(1_000).optional(),
     limit: z.number().int().min(1).max(60),

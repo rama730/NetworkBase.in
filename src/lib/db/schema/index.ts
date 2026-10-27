@@ -1247,6 +1247,8 @@ export const profileProjectContributions = pgTable(
     startedAt: timestamp("started_at", { withTimezone: true }),
     endedAt: timestamp("ended_at", { withTimezone: true }),
     verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    /** Org admins revoke a "Verified by <org>" with a reason (0248). */
+    verificationRevokedReason: text("verification_revoked_reason"),
     verifiedBy: uuid("verified_by").references(() => profiles.id, {
       onDelete: "set null",
     }),

@@ -30,6 +30,8 @@ export async function GET(request: Request) {
     tech: query.tech,
     sort: query.view === "trending" ? SORT_OPTIONS.TRENDING : query.sort,
     search: query.q || undefined,
+    ...(query.show !== "all" ? { show: query.show } : {}),
+    ...(query.org ? { org: query.org } : {}),
   };
 
   const result = await fetchDiscoverProjectsAction(filters, params.data.cursor, params.data.limit, query.view, "full");

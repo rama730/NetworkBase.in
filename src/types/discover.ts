@@ -116,6 +116,11 @@ export interface Project {
   createdAt?: string;
   updatedAt?: string | null;
 
+  /** Cards (report §24.1, §24.2): org cards show their type and projects; child cards an org line. */
+  kind?: "project" | "organization";
+  orgType?: string | null;
+  childProjectCount?: number;
+  cardOrg?: { title: string; slug: string | null } | null;
   /** Organizations only: header, About and Settings data (null or absent for other projects). */
   organization?: import("@/lib/organizations/detail").OrgDetail | null;
   /** Child projects only: the parent org as this viewer may see it. */
@@ -132,6 +137,10 @@ export interface DiscoverFilters {
   tech: string[];
   sort: string;
   search?: string;
+  /** Show: Everything · Projects · Organizations · Updates (report §24.3). */
+  show?: "all" | "projects" | "organizations" | "updates";
+  /** An org's @handle: that org and its public child projects (report §24.3). */
+  org?: string;
 }
 
 /** Everything the browser gets about an author. A masked author (private, deleted) carries no identity at all. */

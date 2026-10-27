@@ -38,7 +38,7 @@ export async function GET(request: Request) {
 
   try {
     const page = await getDiscoverUpdatesPage({
-      filters: { status: query.status, type: query.type, tech: query.tech, sort: SORT_OPTIONS.NEWEST, search: query.q || undefined },
+      filters: { status: query.status, type: query.type, tech: query.tech, sort: SORT_OPTIONS.NEWEST, search: query.q || undefined, ...(query.show !== "all" ? { show: query.show } : {}), ...(query.org ? { org: query.org } : {}) },
       view: query.view,
       viewerId: user?.id ?? null,
       limit: params.data.limit,
