@@ -1,6 +1,7 @@
 'use client'
 
 import { OrganizationCreatedScreen } from '@/components/organizations/OrganizationCreatedScreen'
+import type { CreateLocation } from '@/components/organizations/CreateLocation'
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
@@ -21,6 +22,9 @@ import {
 interface CreateProjectRouteClientProps {
     initialSource?: CreateProjectSource | null
     organizationsEnabled?: boolean
+    createLocations?: CreateLocation[]
+    initialOrgId?: string | null
+    locationNotice?: string | null
 }
 
 type Handoff = { source: CreateProjectSource | null; resume: CreateProjectGithubOAuthResume | null }
@@ -29,6 +33,9 @@ type Handoff = { source: CreateProjectSource | null; resume: CreateProjectGithub
 export function CreateProjectRouteClient({
     initialSource = null,
     organizationsEnabled = false,
+    createLocations = [],
+    initialOrgId = null,
+    locationNotice = null,
 }: CreateProjectRouteClientProps) {
     const router = useRouter()
     const queryClient = useQueryClient()
@@ -107,6 +114,9 @@ export function CreateProjectRouteClient({
             githubOAuthResume={handoff.resume}
             onGithubOAuthResumeRestored={handleResumeRestored}
             organizationsEnabled={organizationsEnabled}
+            createLocations={createLocations}
+            initialOrgId={initialOrgId}
+            locationNotice={locationNotice}
         />
     )
 }

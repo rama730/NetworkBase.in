@@ -3,12 +3,12 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
-import { Archive, UserPlus } from 'lucide-react'
+import { Archive, Building2, UserPlus } from 'lucide-react'
 
 import { cancelJoinRequestAction, joinPublicOrgAction, regenerateJoinCodeAction } from '@/app/actions/organizations'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import type { OrgDetail } from '@/lib/organizations/detail'
+import type { OrgDetail, ParentOrgLink } from '@/lib/organizations/detail'
 
 // The organization parts of the project header (report §18.1–18.2, §18.6). ProjectLayout keeps its layout;
 // these fill the identity line, the facts and the visitor's actions.
@@ -140,5 +140,29 @@ export function OrgInviteDialog({ orgId, title, joinCode, open, onOpenChange }: 
                 <p role="status" aria-live="polite" className="min-h-5 text-sm text-muted-foreground">{message}</p>
             </DialogContent>
         </Dialog>
+    )
+}
+
+/** Above a child project's title: the org, linked for people who can open it (report §18.4). */
+export function OrgBreadcrumb({ parentOrg }: { parentOrg: ParentOrgLink }) {
+    const canOpen = Boolean(parentOrg.viewerRole) || parentOrg.isPublic
+    const label = <span className="inline-flex items-center gap-1.5"><Building2 className="size-3.5" aria-hidden="true" />{parentOrg.title} /</span>
+    return (
+        <p className="nb-compact text-muted-foreground" data-testid="child-org-breadcrumb">
+            {canOpen ? <Link href={`/org/${parentOrg.slug ?? parentOrg.id}`} className="hover:text-foreground hover:underline">{label}</Link> : label}
+        </p>
+    )
+}
+
+/** `Org only` / `Private` and, for inherited admins, `<Org> admin` (report §18.4, §18.6). */
+export function ChildOrgChips({ parentOrg, visibility, archived }: { parentOrg: ParentOrgLink; visibility: string | null | undefined; archived: boolean }) {
+    const visibilityChip = visibility === 'org' ? 'Org only' : visibility === 'private' ? 'Private' : null
+    if (!visibilityChip && !parentOrg.viewerIsInheritedAdmin && !archived) return null
+    return (
+        <p className="flex flex-wrap items-center gap-1.5" data-testid="child-org-chips">
+            {visibilityChip ? <span className="nb-status" data-status="draft">{visibilityChip}</span> : null}
+            {parentOrg.viewerIsInheritedAdmin ? <span className="nb-status" data-status="active">{parentOrg.title} admin</span> : null}
+            {archived && parentOrg.archived ? <span className="nb-status" data-status="archived">Archived with {parentOrg.title}</span> : null}
+        </p>
     )
 }

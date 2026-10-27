@@ -136,7 +136,7 @@ async function ResolvedProjectDashboard({
 
     const { project, capabilities } = result.data;
     // With the flag off an org is shown as the project it is underneath.
-    if (!orgsOn) project.organization = null;
+    if (!orgsOn) Object.assign(project, { organization: null, parentOrg: null, pendingMoveIn: null, moveTargets: [] });
 
     // Canonical address: the human-readable slug, under /org for organizations and /projects otherwise.
     const canonicalBase: ProjectRouteBase = project.organization ? '/org' : '/projects';

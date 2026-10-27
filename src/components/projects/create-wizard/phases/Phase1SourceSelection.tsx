@@ -1,5 +1,6 @@
 'use client';
 
+import { useCreateLocation, WherePicker } from '@/components/organizations/CreateLocation';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useFormContext } from 'react-hook-form';
@@ -172,6 +173,7 @@ export default function Phase1SourceSelection({
     const selectedSource: SourceType = activeSourceView ?? importSourceType ?? 'scratch';
     // An organization is an empty project underneath (import_source stays scratch); this marks the choice.
     const organization = watch('organization');
+    const location = useCreateLocation();
 
     useEffect(() => {
         onSourceChange?.(activeSourceView);
@@ -1637,10 +1639,12 @@ export default function Phase1SourceSelection({
 
     return (
         <div className="min-w-0 w-full space-y-8 pb-6">
+            <WherePicker />
             <Phase1SourceMethodGroup
                 value={organization ? 'organization' : selectedSource}
                 onChange={handleSelectStartingPoint}
-                showOrganization={organizationsEnabled || Boolean(organization)}
+                // Orgs cannot nest: no Organization card inside an org (report §14.3).
+                showOrganization={(organizationsEnabled && !location.org) || Boolean(organization)}
             />
             <section
                 id={`create-project-source-panel-${activeSourceView}`}

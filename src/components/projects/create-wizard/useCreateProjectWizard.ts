@@ -727,6 +727,8 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
             if (!result.success || !result.project) throw new Error(result.error || 'Creation failed');
             createdProjectId = result.project.id;
             if (result.project.joinCode) createdOrganization = { title: result.project.title, joinCode: result.project.joinCode };
+            // Things that didn't happen but didn't stop creation, e.g. an invitation refused by privacy rules.
+            for (const notice of result.notices ?? []) warnCreation(notice);
 
             // Upload flow (Folder Upload import)
             if (importType === 'upload') {

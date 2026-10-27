@@ -1,4 +1,4 @@
-import { readOrgDetail, type OrgDetail } from "@/lib/organizations/detail";
+import { readChildOrgLink, readOrgDetail, readViewerOrgRole, type OrgDetail, type ParentOrgLink } from "@/lib/organizations/detail";
 import "server-only";
 
 import { z } from "zod";
@@ -176,6 +176,11 @@ const projectDetailProjectSchema = z.object({
   guidance: projectDetailGuidanceSchema.nullable(),
   /** Organizations only (report §18.9); null for every other project. */
   organization: z.custom<OrgDetail>().nullable(),
+  /** Child projects only (report §18.4, §21.6): the parent org as this viewer may see it. */
+  parentOrg: z.custom<ParentOrgLink>().nullable(),
+  /** A personal project's pending request to move into an org (report §14.7). */
+  pendingMoveIn: z.object({ orgId: z.string(), orgTitle: z.string() }).nullable(),
+  moveTargets: z.array(z.object({ id: z.string(), title: z.string() })),
 });
 
 
@@ -624,6 +629,7 @@ async function readProjectDetailShellForActor(input: {
     return await runInFlightDeduped(
       `project:detail-shell:${project.id}:${actorUserId ?? "anon"}`,
       async () => {
+        const parentOrgRole = project.parentId ? await readViewerOrgRole(project.parentId, actorUserId) : null;
         const viewerState = resolveProjectDetailViewerState({
           projectId: project.id,
           ownerId: project.ownerId,
@@ -632,6 +638,7 @@ async function readProjectDetailShellForActor(input: {
           actorUserId,
           memberRoleRaw: project.memberRole,
           isFollowed: project.isFollowed,
+          parentOrgRole,
         });
 
         const { canRead, canWrite, isOwner, isMember, memberRole, isFollowed } =
@@ -717,6 +724,7 @@ async function readProjectDetailShellForActor(input: {
         const organization = isOrganization
           ? await readOrgDetail(project.id, { userId: actorUserId, isAdmin: isOwner || memberRole === "admin", isInOrg: isOwner || isMember })
           : null;
+        const childOrg = await readChildOrgLink(project, { userId: actorUserId, isLead: isOwner, parentOrgRole });
         // A hidden Dashboard hides its data too: visitors get no roles, team or overview text.
         // An org's overview is its About tab, which every reader sees.
         const hidesDashboard =
@@ -803,6 +811,7 @@ async function readProjectDetailShellForActor(input: {
           memberRole: isOwner ? "owner" : memberRole,
           guidance: shell.guidance ?? null,
           organization,
+          ...childOrg,
         };
 
         const output = {

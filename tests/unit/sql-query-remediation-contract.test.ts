@@ -102,7 +102,7 @@ describe("SQL audit query remediations", () => {
     const updates = read("src/app/actions/project/updates.ts");
     assert.match(projects, /eq\(projects\.updatedAt, project\.updatedAt\)/);
     assert.match(projects, /Project lifecycle changed\. Refresh and retry\./);
-    assert.match(updates, /computeProjectReadAccess\(project\.visibility, project\.status, isOwner, isMember\)/);
+    assert.match(updates, /computeProjectReadAccess\(project\.visibility, project\.status, isOwner, isMember, parentOrgRole\)/);
     assert.doesNotMatch(updates, /getProjectAccessById/);
   });
 

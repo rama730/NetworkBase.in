@@ -64,6 +64,10 @@ interface ProjectLayoutProps {
     /** Organizations (report §18): About tab, Settings for everyone in the org, and the org header parts. */
     isOrganization?: boolean;
     identityExtra?: React.ReactNode;
+    /** Above the title: a child project's org (report §18.4). */
+    breadcrumb?: React.ReactNode;
+    /** Opens Settings for people who don't manage the project, such as inherited org admins. */
+    canOpenSettings?: boolean;
     metadataExtra?: React.ReactNode;
     actionsStart?: React.ReactNode;
     showFollow?: boolean;
@@ -116,6 +120,8 @@ export default function ProjectLayout({
     applicationLabel = null,
     isOrganization = false,
     identityExtra = null,
+    breadcrumb = null,
+    canOpenSettings = false,
     metadataExtra = null,
     actionsStart = null,
     showFollow = true,
@@ -193,16 +199,17 @@ export default function ProjectLayout({
     const canSeeMemberTabs = isOwnerOrMember ?? isOwner;
     const visibleTabs = useMemo(
         () => TABS.filter((tab) => {
-            if (tab.ownerOnly && !(canManageSettings ?? isOwner) && !isOrganization) return false;
+            const settingsAccess = (canManageSettings ?? isOwner) || canOpenSettings;
+            if (tab.ownerOnly && !settingsAccess && !isOrganization) return false;
             return isProjectTabVisibleToViewer({
                 tabId: tab.id,
                 isOwnerOrMember: canSeeMemberTabs,
-                canManageSettings: canManageSettings ?? isOwner,
+                canManageSettings: settingsAccess,
                 publicTabVisibility: normalizedPublicTabs,
                 isOrganization,
             });
         }),
-        [canManageSettings, canSeeMemberTabs, isOrganization, isOwner, normalizedPublicTabs],
+        [canManageSettings, canOpenSettings, canSeeMemberTabs, isOrganization, isOwner, normalizedPublicTabs],
     );
     useEffect(() => {
         const tabList = tabListRef.current;
@@ -311,6 +318,7 @@ export default function ProjectLayout({
                                             className="max-md:size-12 max-md:rounded-[8px]"
                                         />
                                         <div className="min-w-0 pt-0.5 sm:pt-1 max-md:space-y-1.5">
+                                            {breadcrumb}
                                             <h1 className="nb-page-title min-w-0 break-words text-foreground">
                                                 {project?.title}
                                             </h1>
@@ -328,6 +336,7 @@ export default function ProjectLayout({
                                 </div>
                             ) : (
                                 <div className="flex min-w-0 flex-1 flex-col items-start gap-3 max-md:basis-full">
+                                    {breadcrumb}
                                     <div className="flex min-w-0 flex-wrap items-center gap-3">
                                         <h1 className="nb-page-title min-w-0 break-words text-foreground">
                                             {project?.title}

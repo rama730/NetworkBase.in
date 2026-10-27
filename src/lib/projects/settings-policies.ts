@@ -26,7 +26,8 @@ export type ProjectSettingsSectionId =
   | "org-profile"
   | "org-access"
   | "org-people"
-  | "org-projects";
+  | "org-projects"
+  | "child-org";
 
 type ProjectSettingsSectionDefinition = {
   id: ProjectSettingsSectionId;

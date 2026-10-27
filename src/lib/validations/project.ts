@@ -12,6 +12,9 @@ export const openRoleSchema = z.object({
     experienceLevel: z.enum(['any', 'junior', 'mid', 'senior']).default('any'),
     compensationType: z.enum(['unpaid', 'equity', 'paid', 'rev_share']).default('unpaid'),
     compensationDetails: z.string().max(500).optional(),
+    // Child projects only (report §14.4): people placed in this unit. Seats grow to fit them.
+    // ponytail: a unit holds the role box's 10 seats; ORG_LIMITS.membersPerUnit (100) waits for real classes that need it.
+    people: z.array(z.object({ user_id: z.string().uuid(), label: z.string().max(120).optional() })).max(10).optional(),
 });
 
 export type OpenRoleInput = z.infer<typeof openRoleSchema>;
@@ -123,7 +126,9 @@ export const createProjectSchema = z.object({
     status: z.enum(['draft', 'open', 'active', 'completed', 'archived']).default('open'),
     visibility: z.preprocess(
         (value) => value === 'unlisted' ? 'public' : value,
-        z.enum(['public', 'private']).default('public'),
+        // "org" (Org only) is for child projects; the server refuses it elsewhere.
+        // No default here: an unset value means Public for projects and Org only for child projects.
+        z.enum(['public', 'private', 'org']).optional(),
     ),
     tags: z.array(z.string()).default([]),
     technologies_used: z.array(z.string()).default([]),
@@ -156,6 +161,10 @@ export const createProjectSchema = z.object({
     }).optional(),
     slug: z.string().optional(),
     project_id: z.string().optional(),
+    // A child project (report §14): its org, an admin-picked lead, and people outside any unit.
+    parent_org_id: z.string().uuid().optional(),
+    lead_user_id: z.string().uuid().optional(),
+    unassigned_people: z.array(z.object({ user_id: z.string().uuid(), label: z.string().max(120).optional() })).max(100).optional(),
     // Present only when creating an organization (report §6); the server checks the feature flag.
     organization: z.object({
         org_type: z.enum(ORG_TYPES),
@@ -168,6 +177,12 @@ export const createProjectSchema = z.object({
         outside_people: z.boolean().default(false),
     }).optional(),
 }).superRefine((val, ctx) => {
+    if (val.organization && val.parent_org_id) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['parent_org_id'], message: 'Organizations cannot be inside another organization.' });
+    }
+    if (val.visibility === 'org' && !val.parent_org_id) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['visibility'], message: 'Org only is for projects inside an organization.' });
+    }
     const term = val.organization;
     if (term?.term_start && term.term_end && term.term_end < term.term_start) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['organization', 'term_end'], message: 'The term must end after it starts.' });

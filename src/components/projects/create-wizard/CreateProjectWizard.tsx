@@ -1,6 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { CreateLocationProvider, type CreateLocation } from '@/components/organizations/CreateLocation';
+import { capChildVisibility, type VisibilityCap } from '@/lib/organizations/child-rules';
 import { FormProvider, useWatch } from 'react-hook-form';
 import { Save } from 'lucide-react';
 import dynamic from 'next/dynamic';
@@ -43,9 +45,12 @@ interface Props {
     githubOAuthResume?: CreateProjectGithubOAuthResume | null;
     onGithubOAuthResumeRestored?: (resumeId: string) => void;
     organizationsEnabled?: boolean;
+    createLocations?: CreateLocation[];
+    initialOrgId?: string | null;
+    locationNotice?: string | null;
 }
 
-export default function CreateProjectWizard({ onClose, onSuccess, initialSource = null, onSourceChange, githubOAuthResume = null, onGithubOAuthResumeRestored, organizationsEnabled = false }: Props) {
+export default function CreateProjectWizard({ onClose, onSuccess, initialSource = null, onSourceChange, githubOAuthResume = null, onGithubOAuthResumeRestored, organizationsEnabled = false, createLocations = [], initialOrgId = null, locationNotice = null }: Props) {
     const {
         phase, methods, wizardContext, isSubmitting, isSavingDraft, phase2ValidationAttempted, phase3ValidationAttempted, phase4ValidationAttempted,
         phase4LinkComposerPending, setPhase4LinkComposerPending, isPhaseTransitioning, isReviewReady, setIsReviewReady,
@@ -62,6 +67,15 @@ export default function CreateProjectWizard({ onClose, onSuccess, initialSource 
     });
 
     const { handleSubmit } = methods;
+
+    // Opened from an org (?org=): the project starts inside it, Org only, lowered to the org's cap (report §14.1, §14.3).
+    useEffect(() => {
+        const org = createLocations.find((location) => location.id === initialOrgId);
+        if (!org) return;
+        methods.setValue('parent_org_id', org.id);
+        methods.setValue('visibility', capChildVisibility('org', org.visibilityCap as VisibilityCap, org.orgPublic));
+    }, [createLocations, initialOrgId, methods]);
+    const locationState = useMemo(() => ({ locations: createLocations, locked: Boolean(initialOrgId), notice: locationNotice }), [createLocations, initialOrgId, locationNotice]);
     const scrollBodyRef = useRef<HTMLDivElement>(null);
     const headingRef = useRef<HTMLHeadingElement>(null);
     const restoredGithubOAuthResumeRef = useRef<string | null>(null);
@@ -191,6 +205,7 @@ export default function CreateProjectWizard({ onClose, onSuccess, initialSource 
             // A normal page in the app shell (spec §18): fills the main content area; header and footer bands, one scrolling body.
             <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-card motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-150">
                     <FormProvider {...methods}>
+                    <CreateLocationProvider value={locationState}>
                         {/* Header */}
                         <WizardHeader
                             currentPhase={phase}
@@ -323,6 +338,7 @@ export default function CreateProjectWizard({ onClose, onSuccess, initialSource 
                                 nextDisabledReason={phase1NextDisabledReason}
                             />
                         </div>
+                    </CreateLocationProvider>
                     </FormProvider>
 
                 </div>

@@ -1,5 +1,6 @@
 'use client';
 
+import { ChildLeadAndUnassigned, UnitPeople } from '@/components/organizations/ChildTeamFields';
 import { OrgPeopleFields } from '@/components/organizations/OrgWizardFields';
 import { type ReactNode, useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
@@ -355,6 +356,7 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
                                             ) : null}
                                         </div>
                                     </details>
+                                    <UnitPeople index={index} unitName={role.role} />
                                 </li>
                             );
                         })}
@@ -367,6 +369,7 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
                     </ol>
                 )}
             </section>
+            <ChildLeadAndUnassigned />
         </div>
     );
 }

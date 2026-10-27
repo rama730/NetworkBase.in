@@ -42,6 +42,13 @@ import { defaultOrgRoleNames, organizationsEnabled, ORG_LIMITS } from "@/lib/org
 import { validateOrgHandle } from "@/lib/organizations/handle";
 import { isOrgHandleAvailable } from "@/lib/organizations/join";
 import { generateJoinCode } from "@/lib/organizations/join-rules";
+import { capChildVisibility, childCreationBlock } from "@/lib/organizations/child-rules";
+import { readViewerOrgRole } from "@/lib/organizations/detail";
+import { readOrgRules } from "@/lib/organizations/settings";
+import { isProjectPubliclyReadableVisibility } from "@/lib/projects/project-visibility";
+import { addProjectMemberInternal } from "@/lib/projects/collaborator-lifecycle";
+import { createProjectInvitationAction } from "@/app/actions/project/guidance";
+import { createNotification } from "@/lib/notifications/service";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { closePendingApplications, type ClosedApplication, type ClosingReason } from "@/lib/applications/closing";
 import { notifyClosedApplications } from "@/lib/applications/notifications";
@@ -144,6 +151,8 @@ interface CreateProjectResult {
     joinCode?: string | null;
   };
   error?: string;
+  /** Things that didn't happen but didn't stop creation (an invitation refused by privacy rules). */
+  notices?: string[];
 }
 
 
@@ -595,6 +604,47 @@ export async function createProjectAction(
     }
     let joinCode = organization ? generateJoinCode() : null;
 
+    // Child project (report §14): the org's rules decide who creates, who leads, the visibility and who joins.
+    const parentOrgId = input.parent_org_id ?? null;
+    let ownerId = user.id;
+    let child: { orgTitle: string; directAdd: boolean; visibility: "public" | "org" | "private" } | null = null;
+    const unitPeople = (input.roles ?? []).flatMap((role) => (role.people ?? []).map((person) => person.user_id));
+    const unassignedPeople = (input.unassigned_people ?? []).map((person) => person.user_id);
+    if (parentOrgId) {
+      const refuse = (error: string) => ({ success: false, error });
+      if (!organizationsEnabled()) return refuse("Organizations are not available yet.");
+      const [org] = await db
+        .select({ title: projects.title, visibility: projects.visibility, status: projects.status, suspendedAt: projects.suspendedAt, deletionScheduledAt: projects.deletionScheduledAt, orgSettings: projects.orgSettings })
+        .from(projects)
+        .where(and(eq(projects.id, parentOrgId), eq(projects.kind, "organization"), isNull(projects.deletedAt)))
+        .limit(1);
+      if (!org) return refuse("Organization not found.");
+      const rules = readOrgRules(org.orgSettings);
+      const role = await readViewerOrgRole(parentOrgId, user.id);
+      const open = org.status !== "archived" && !org.suspendedAt && !org.deletionScheduledAt;
+      const block = childCreationBlock(role, rules.childCreation, open);
+      if (block) return refuse(block);
+      const isOrgAdmin = role === "owner" || role === "admin";
+      if (input.lead_user_id && input.lead_user_id !== user.id) {
+        if (!isOrgAdmin) return refuse("Only admins pick someone else as lead.");
+        const leadRole = await readViewerOrgRole(parentOrgId, input.lead_user_id);
+        if (!leadRole || leadRole === "viewer") return refuse(`The lead must be a member of ${org.title}.`);
+        ownerId = input.lead_user_id;
+      }
+      // Everyone placed in the team must be in the org (outside people come with the Outside picker later).
+      for (const personId of [...unitPeople, ...unassignedPeople]) {
+        const personRole = await readViewerOrgRole(parentOrgId, personId);
+        if ((!personRole || personRole === "viewer") && !rules.outsidePeople) return refuse(`Everyone in the team must be a member of ${org.title}.`);
+      }
+      // Members send invitations, which need a unit; admins add people directly (decision 8).
+      if (!isOrgAdmin && unassignedPeople.length > 0) return refuse("Put invited people in a unit.");
+      child = {
+        orgTitle: org.title,
+        directAdd: isOrgAdmin,
+        visibility: capChildVisibility(input.visibility === "public" || input.visibility === "private" ? input.visibility : "org", rules.visibilityCap, isProjectPubliclyReadableVisibility(org.visibility)),
+      };
+    }
+
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -700,7 +750,7 @@ export async function createProjectAction(
       normalizedImportSource,
       input.creator_role,
     );
-    const visibility = resolveProjectVisibilityForCreate(input.visibility);
+    const visibility = child ? child.visibility : resolveProjectVisibilityForCreate(input.visibility);
     const externalLinksSplit = splitProjectSocialLinks(input.external_links);
     if ("error" in externalLinksSplit)
       return { success: false, error: externalLinksSplit.error };
@@ -735,7 +785,8 @@ export async function createProjectAction(
         const lifecycleConfiguredAt = new Date().toISOString();
 
         const projectData = {
-          ownerId: user.id,
+          ownerId,
+          parentId: parentOrgId,
           title: input.title,
           slug: finalSlug,
           // Use mutable key variable
@@ -827,13 +878,13 @@ export async function createProjectAction(
 
           await tx.insert(projectMembers).values({
             projectId: newProject.id,
-            userId: user.id,
+            userId: ownerId,
             role: "owner",
             title: organization?.creator_title || null,
           });
           await syncProjectChat(tx, newProject.id, null, "ensure_default");
           await upsertProfileProjectContributionFromMembership(tx, {
-            profileId: user.id,
+            profileId: ownerId,
             projectId: newProject.id,
             verifiedBy: user.id,
             previousRole: null,
@@ -847,9 +898,10 @@ export async function createProjectAction(
             .set({
               projectsCount: sql`GREATEST(0, ${profiles.projectsCount} + 1)`,
             })
-            .where(eq(profiles.id, user.id));
+            .where(eq(profiles.id, ownerId));
 
-          // 5. Insert Open Roles (if any)
+          // 5. Insert Open Roles (if any). For a child project these are its units.
+          let unitIds: string[] = [];
           if (openRoles.length > 0) {
             const insertedRoles = await tx
               .insert(projectOpenRoles)
@@ -857,7 +909,8 @@ export async function createProjectAction(
                 openRoles.map((role) => ({
                   projectId: newProject.id,
                   role: role.role,
-                  count: role.count,
+                  // Seats grow to fit the people placed in the unit (report §14.4).
+                  count: Math.max(role.count, role.people?.length ?? 0),
                   description: role.description || "",
                   skills: role.skills || [],
                 })),
@@ -869,6 +922,19 @@ export async function createProjectAction(
               labels: openRoles[index]?.skills ?? [],
             }));
             await syncRoleSkillsBatch(tx, roleSkillEntries, user.id);
+            unitIds = insertedRoles.map((insertedRole) => insertedRole.id);
+          }
+
+          // Admins add people straight into their unit; the admin stays an inherited admin (decision 8).
+          if (child?.directAdd) {
+            const placements = [
+              ...openRoles.flatMap((role, index) => (role.people ?? []).map((person) => ({ userId: person.user_id, roleId: unitIds[index] ?? null }))),
+              ...unassignedPeople.map((userId) => ({ userId, roleId: null })),
+            ];
+            for (const placement of placements) {
+              if (placement.userId === ownerId) continue;
+              await addProjectMemberInternal(tx, { projectId: newProject.id, userId: placement.userId, role: "member", actorId: user.id, source: "manual", roleId: placement.roleId });
+            }
           }
 
           // 6. Insert Tags and Skills into Junction Tables
@@ -965,6 +1031,36 @@ export async function createProjectAction(
           }
         }
 
+        // Members invite their team: each person gets an invitation to their unit (decision 8).
+        const notices: string[] = [];
+        if (child && !child.directAdd) {
+          const units = await db.select({ id: projectOpenRoles.id, role: projectOpenRoles.role }).from(projectOpenRoles).where(eq(projectOpenRoles.projectId, result.id));
+          for (const role of openRoles) {
+            const unitId = units.find((unit) => unit.role === role.role)?.id;
+            for (const person of role.people ?? []) {
+              if (!unitId || person.user_id === ownerId) continue;
+              const invited = await createProjectInvitationAction({ projectId: result.id, candidateId: person.user_id, kind: "ordinary_role", roleId: unitId });
+              if (!invited.success) notices.push(`${person.label ?? "Someone"} was not invited: ${invited.error}`);
+            }
+          }
+        }
+        // A lead picked by an admin owns the project at once and is told (decision 11).
+        if (ownerId !== user.id) {
+          await createNotification({
+            recipientUserId: ownerId,
+            actorUserId: user.id,
+            kind: "chat_invite",
+            category: "workflows",
+            importance: "important",
+            title: `You lead ${result.title}`,
+            body: child ? `Created in ${child.orgTitle}` : "",
+            href: `/projects/${result.slug || result.id}`,
+            entityRefs: { projectId: result.id, projectSlug: result.slug, targetUserId: ownerId },
+            preview: { contextLabel: result.title, contextKind: "workflow", secondaryText: "Project lead" },
+            dedupeKey: `project-lead:${result.id}:${ownerId}`,
+          }).catch(() => undefined);
+        }
+
         return {
           success: true,
           project: {
@@ -973,6 +1069,7 @@ export async function createProjectAction(
             slug: result.slug || result.id,
             joinCode: result.joinCode,
           },
+          notices,
         };
       } catch (error: any) {
         // Check for Unique Constraint Violation on Slug

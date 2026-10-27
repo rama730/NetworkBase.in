@@ -1,5 +1,6 @@
 'use client';
 
+import { useCreateLocation } from '@/components/organizations/CreateLocation';
 import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { Edit3, Folder, GitBranch, Globe, Lock } from 'lucide-react';
@@ -95,6 +96,10 @@ const sourceCopy = {
 export default function Phase5Review({ goToPhase, onReady, projectImage = null }: Phase5ReviewProps) {
     const { control } = useFormContext<CreateProjectInput>();
     const formData = useWatch({ control }) as CreateProjectInput;
+    const childOrg = useCreateLocation().org;
+    // The team line, report §14.3 Phase 5: "4 added · 3 invited · 1 open seat".
+    const teamCount = (formData.roles ?? []).reduce((n, role) => n + (role.people?.length ?? 0), 0) + (formData.unassigned_people?.length ?? 0);
+    const openSeats = (formData.roles ?? []).reduce((n, role) => n + Math.max(0, (role.count ?? 0) - (role.people?.length ?? 0)), 0);
 
     useEffect(() => {
         onReady();
@@ -232,6 +237,16 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                 <ReviewRow label="Project title">
                     <p className="nb-body font-medium text-foreground">{formData.title || 'Untitled project'}</p>
                 </ReviewRow>
+                {childOrg ? (
+                    <ReviewRow label="Organization">
+                        <p className="nb-body text-foreground">In {childOrg.title}</p>
+                        <p className="nb-compact mt-1 text-muted-foreground">
+                            {teamCount === 0 ? 'No one placed yet' : `${teamCount} ${childOrg.isAdmin ? 'added' : 'invited'}`}
+                            {openSeats > 0 ? ` · ${openSeats} open ${openSeats === 1 ? 'seat' : 'seats'}` : ''}
+                            {formData.lead_user_id ? ' · lead picked by you' : ''}
+                        </p>
+                    </ReviewRow>
+                ) : null}
                 {formData.organization ? (
                     <ReviewRow label="Organization">
                         <p className="nb-body text-foreground">@{formData.organization.handle} · {formData.organization.org_type}</p>
@@ -311,7 +326,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                     <p className="nb-compact text-foreground">{projectImage ? `${projectImage.name} · uploads after creation` : 'Initials until a picture is added.'}</p>
                 </ReviewRow>
                 <ReviewRow label="Visibility" icon={VisibilityIcon}>
-                    <p className="nb-ui-label text-foreground">{formData.visibility === 'private' ? 'Private project' : 'Public project'}</p>
+                    <p className="nb-ui-label text-foreground">{formData.visibility === 'private' ? 'Private project' : formData.visibility === 'org' ? `Org only · members of ${childOrg?.title ?? 'the organization'}` : 'Public project'}</p>
                     <p className="nb-compact mt-1 text-muted-foreground">
                         {formData.visibility === 'private'
                             ? 'Only collaborators can access the project at launch.'

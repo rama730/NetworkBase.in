@@ -1,5 +1,6 @@
 "use client";
 
+import { ChildOrgSection } from "@/components/organizations/ChildOrgSection";
 import { OrgAccessSection, OrgLeaveSection, OrgMembershipSection, OrgPeopleSection, OrgProfileSection, OrgProjectsSection } from "@/components/organizations/OrgSettingsSections";
 import { ORG_SECTION_DEFS, orgSettingsSectionIds, type OrgMemberRole, type OrgSettingsSectionId } from "@/lib/organizations/settings";
 import { useRoleApplicationCounts } from "@/hooks/useRoleApplicationCounts";
@@ -216,7 +217,15 @@ function ProjectSettingsContent({
                 return def ? [def] : [];
             });
         }
-        if (isProjectOwner) return visible;
+        // Settings → Organization (report §21.6): second for the lead, first for admins, alone for inherited org admins.
+        const childOrgSection = { id: "child-org" as const, label: "Organization", description: "The organization this project belongs to, and its rules." };
+        const showsChildOrg = Boolean(project?.parentOrg || project?.pendingMoveIn || project?.moveTargets?.length);
+        if (project?.parentOrg?.viewerIsInheritedAdmin && !isProjectOwner && actorProjectRole !== "admin") return [childOrgSection];
+        if (isProjectOwner) return showsChildOrg ? visible.flatMap((section) => (section.id === "general" ? [section, childOrgSection] : [section])) : visible;
+        if (actorProjectRole === "admin" && project?.parentOrg) {
+            const adminSections: ProjectSettingsSectionId[] = ["links", "access", "collaborators", "roles-applications", "readme", "updates", "tasks-workflow", "files-workspace", "notifications", "privacy-policies", "privacy-terms"];
+            return [childOrgSection, ...visible.filter((section) => adminSections.includes(section.id))];
+        }
         if (actorProjectRole === "admin") {
             const adminSections: ProjectSettingsSectionId[] = [
                 "links",
@@ -234,7 +243,7 @@ function ProjectSettingsContent({
             return visible.filter((section) => adminSections.includes(section.id));
         }
         return visible.filter((section) => section.id === "collaborators" || section.id === "privacy-policies" || section.id === "privacy-terms");
-    }, [actorProjectRole, isProjectOwner, organization, orgRole]);
+    }, [actorProjectRole, isProjectOwner, organization, orgRole, project?.parentOrg, project?.pendingMoveIn, project?.moveTargets?.length]);
     const { activeSection, navigate: handleNavigateSection } = useProjectSettingsNavigation(sections);
     const [savingAccess, setSavingAccess] = useState(false);
     const [savingRoles, setSavingRoles] = useState(false);
@@ -1372,6 +1381,7 @@ function ProjectSettingsContent({
                         onProjectTitleChange={setProjectTitle}
                     />
                 )}
+                {sections.some((s) => s.id === "child-org") && project ? <ChildOrgSection project={project} isLead={isProjectOwner} canManage={canManageSettings} /> : null}
                 {organization && sections.some((s) => s.id === "org-profile") && <OrgProfileSection orgId={projectId} organization={organization} role={orgRole} handle={project?.slug ?? null} />}
                 {sections.some((s) => s.id === "links") && (
                     <section id="project-settings-links" data-project-settings-section className="space-y-6">
@@ -1412,7 +1422,12 @@ function ProjectSettingsContent({
                                                 Control whether this project is discoverable across the platform or restricted to workspace collaborators.
                                             </p>
                                         </div>
-                                        {isProjectOwner ? (
+                                        {project?.parentOrg ? (
+                                            <p className="nb-compact text-muted-foreground">
+                                                Public, Org only or Private, within {project.parentOrg.title}&apos;s rules: change it in{" "}
+                                                <button type="button" className="font-medium text-foreground underline underline-offset-4" onClick={() => handleNavigateSection("child-org")}>Organization</button>.
+                                            </p>
+                                        ) : isProjectOwner ? (
                                             <div role="group" aria-label="Project visibility" className="grid gap-3 sm:grid-cols-2">
                                                 {VISIBILITY_OPTIONS.map((option) => {
                                                     const isSelected = visibility === option.id;
