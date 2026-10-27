@@ -19,6 +19,9 @@ import { removeProjectMemberInternal } from '@/lib/projects/collaborator-lifecyc
 import { orgGrant, type OrgRole } from '@/lib/organizations/permissions';
 import { ORG_SECTION_OWNER_ONLY, ORG_SETTINGS_PATCH, type OrgSettingsSection } from '@/lib/organizations/settings';
 import { generateJoinCode } from '@/lib/organizations/join-rules';
+import { allowedChildVisibilities, type ChildVisibility } from '@/lib/organizations/child-rules';
+import { applyChildVisibilityCap, countChildrenAboveCap, countOutsidePeople, detachFromOrg, moveIntoOrg, readOrgCap } from '@/lib/organizations/children';
+import { listCreateLocations, readViewerOrgRole } from '@/lib/organizations/detail';
 import { countOrgMembers, findOrgByJoinCode, isOrgHandleAvailable, joinOrgByCode, joinPublicOrg, viewerOrgStatus } from '@/lib/organizations/join';
 import { normalizeJoinCode, ORG_JOIN_MESSAGES, type OrgJoinMode, type OrgJoinOutcome } from '@/lib/organizations/join-rules';
 import { isProjectPubliclyReadableVisibility } from '@/lib/projects/project-visibility';
@@ -168,6 +171,7 @@ export async function updateOrgSettingsAction(orgId: string, section: OrgSetting
     } else {
         if ('child_creation' in value) settingsPatch.childCreation = value.child_creation;
         if ('outside_people' in value) settingsPatch.outsidePeople = value.outside_people;
+        if ('visibility_cap' in value) settingsPatch.visibilityCap = value.visibility_cap;
     }
 
     try {
@@ -181,6 +185,8 @@ export async function updateOrgSettingsAction(orgId: string, section: OrgSetting
     } catch {
         return { success: false, error: 'Check the term dates: the term must end after it starts.' };
     }
+    // A tightened cap lowers existing child projects (report §21.7); the preview showed how many.
+    if ('visibility_cap' in value) await applyChildVisibilityCap(orgId);
     revalidateOrg(viewer.slug, orgId);
     return { success: true };
 }
@@ -297,7 +303,200 @@ export async function leaveOrgAction(orgId: string): Promise<{ success: true } |
     const viewer = await orgViewer(orgId);
     if (!viewer || viewer.role === 'visitor') return DENIED;
     if (orgGrant(viewer.role, 'leave') !== 'yes') return { success: false, error: 'Transfer ownership before you leave.' };
-    await db.transaction((tx) => removeProjectMemberInternal(tx, { projectId: orgId, actorId: viewer.userId, targetUserId: viewer.userId, mode: 'unassign_active_tasks', allowSelf: true }));
+    const led = await db.select({ id: projects.id }).from(projects)
+        .where(and(eq(projects.parentId, orgId), eq(projects.ownerId, viewer.userId), isNull(projects.deletedAt)));
+    if (led.length > 0) return { success: false, error: `You lead ${led.length} ${led.length === 1 ? 'project' : 'projects'} here. Transfer or detach ${led.length === 1 ? 'it' : 'them'} first.` };
+    // Leaving the org removes you from its projects too (report §14.4, addition 5).
+    const childMemberships = await db.select({ projectId: projectMembers.projectId }).from(projectMembers)
+        .innerJoin(projects, eq(projects.id, projectMembers.projectId))
+        .where(and(eq(projects.parentId, orgId), eq(projectMembers.userId, viewer.userId), isNull(projects.deletedAt)));
+    await db.transaction(async (tx) => {
+        for (const { projectId } of childMemberships) {
+            await removeProjectMemberInternal(tx, { projectId, actorId: viewer.userId, targetUserId: viewer.userId, mode: 'unassign_active_tasks', allowSelf: true });
+        }
+        await removeProjectMemberInternal(tx, { projectId: orgId, actorId: viewer.userId, targetUserId: viewer.userId, mode: 'unassign_active_tasks', allowSelf: true });
+    });
     revalidateOrg(viewer.slug, orgId);
     return { success: true };
+}
+
+// --- Child projects (report §14.7, §21.6, §29.4) ---
+
+type ChildViewer = {
+    userId: string;
+    project: { id: string; ownerId: string; parentId: string | null; visibility: string | null; slug: string | null; orgSettings: unknown };
+    isLead: boolean;
+    parentRole: Awaited<ReturnType<typeof readViewerOrgRole>>;
+};
+
+async function childViewer(projectId: string): Promise<ChildViewer | null> {
+    if (!organizationsEnabled()) return null;
+    const userId = await viewerId();
+    if (!userId) return null;
+    const [project] = await db.select({ id: projects.id, ownerId: projects.ownerId, parentId: projects.parentId, visibility: projects.visibility, slug: projects.slug, orgSettings: projects.orgSettings, kind: projects.kind })
+        .from(projects).where(and(eq(projects.id, projectId), isNull(projects.deletedAt))).limit(1);
+    if (!project || project.kind !== 'project') return null;
+    return { userId, project, isLead: project.ownerId === userId, parentRole: await readViewerOrgRole(project.parentId, userId) };
+}
+
+const isAdminRole = (role: string | null) => role === 'owner' || role === 'admin';
+const revalidateChild = (project: ChildViewer['project']) => revalidatePath(`/projects/${project.slug ?? project.id}`);
+
+/** The lead asks the org to let the project go; an org admin decides (report §29.4: detach is "request" for the lead). */
+export async function requestDetachAction(projectId: string): Promise<{ success: true } | Failure> {
+    const viewer = await childViewer(projectId);
+    if (!viewer?.project.parentId || !viewer.isLead) return DENIED;
+    await db.update(projects).set({
+        orgSettings: sql`${projects.orgSettings} || ${JSON.stringify({ detachRequest: { by: viewer.userId, at: new Date().toISOString() } })}::jsonb`,
+    }).where(eq(projects.id, projectId));
+    revalidateChild(viewer.project);
+    return { success: true };
+}
+
+export async function cancelDetachRequestAction(projectId: string): Promise<{ success: true } | Failure> {
+    const viewer = await childViewer(projectId);
+    if (!viewer?.project.parentId || !(viewer.isLead || isAdminRole(viewer.parentRole))) return DENIED;
+    await db.update(projects).set({ orgSettings: sql`${projects.orgSettings} - 'detachRequest'` }).where(eq(projects.id, projectId));
+    revalidateChild(viewer.project);
+    return { success: true };
+}
+
+/** Inherited org admins detach at once (approving a request, or on their own): the project becomes Private. */
+export async function detachChildAction(projectId: string): Promise<{ success: true } | Failure> {
+    const viewer = await childViewer(projectId);
+    if (!viewer?.project.parentId || !isAdminRole(viewer.parentRole)) return DENIED;
+    await detachFromOrg(projectId);
+    revalidateChild(viewer.project);
+    return { success: true };
+}
+
+/** Inherited org admins may archive a child project; deleting stays the lead's (decision 145). */
+export async function archiveChildAction(projectId: string): Promise<{ success: true } | Failure> {
+    const viewer = await childViewer(projectId);
+    if (!viewer?.project.parentId || !isAdminRole(viewer.parentRole)) return DENIED;
+    await db.update(projects).set({ status: 'archived', updatedAt: new Date() }).where(eq(projects.id, projectId));
+    revalidateChild(viewer.project);
+    return { success: true };
+}
+
+/** Public / Org only / Private for a child project, never above the org's cap (report §21.6). */
+export async function setChildVisibilityAction(projectId: string, next: ChildVisibility): Promise<{ success: true } | Failure> {
+    const viewer = await childViewer(projectId);
+    if (!viewer?.project.parentId) return DENIED;
+    const [membership] = await db.select({ role: projectMembers.role }).from(projectMembers)
+        .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, viewer.userId))).limit(1);
+    if (!(viewer.isLead || membership?.role === 'admin' || isAdminRole(viewer.parentRole))) return DENIED;
+    const org = await readOrgCap(db, viewer.project.parentId);
+    if (!org || !['public', 'org', 'private'].includes(next)) return DENIED;
+    if (!allowedChildVisibilities(org.cap, org.orgPublic).includes(next)) return { success: false, error: 'The organization does not allow this visibility.' };
+    await db.update(projects).set({ visibility: next, updatedAt: new Date() }).where(eq(projects.id, projectId));
+    revalidateChild(viewer.project);
+    return { success: true };
+}
+
+/**
+ * Moves the lead's personal project into an org they belong to. Org owners and admins move it at once;
+ * members send a request an admin approves. Outside people block the move while the org keeps them out.
+ */
+export async function moveProjectToOrgAction(projectId: string, orgId: string): Promise<{ success: true; outcome: 'moved' | 'requested' } | Failure> {
+    const viewer = await childViewer(projectId);
+    if (!viewer || !viewer.isLead || viewer.project.parentId) return DENIED;
+    const role = await readViewerOrgRole(orgId, viewer.userId);
+    if (!role || role === 'viewer') return { success: false, error: "You're not a member of that organization." };
+    const org = await readOrgCap(db, orgId);
+    if (!org) return DENIED;
+    if (!org.outsidePeople) {
+        const outside = await countOutsidePeople(projectId, orgId);
+        if (outside > 0) return { success: false, error: `${outside} ${outside === 1 ? 'person isn\'t' : 'people aren\'t'} in that organization. Remove them first.` };
+    }
+    if (isAdminRole(role)) {
+        await moveIntoOrg(projectId, orgId, viewer.project.visibility);
+        revalidateChild(viewer.project);
+        return { success: true, outcome: 'moved' };
+    }
+    await db.update(projects).set({
+        orgSettings: sql`${projects.orgSettings} || ${JSON.stringify({ moveInRequest: { orgId, by: viewer.userId, at: new Date().toISOString() } })}::jsonb`,
+    }).where(eq(projects.id, projectId));
+    revalidateChild(viewer.project);
+    return { success: true, outcome: 'requested' };
+}
+
+async function pendingMoveIn(projectId: string) {
+    const [project] = await db.select({ id: projects.id, slug: projects.slug, visibility: projects.visibility, ownerId: projects.ownerId, parentId: projects.parentId, orgSettings: projects.orgSettings })
+        .from(projects).where(and(eq(projects.id, projectId), isNull(projects.deletedAt))).limit(1);
+    const request = (project?.orgSettings as { moveInRequest?: { orgId: string } } | null)?.moveInRequest;
+    return project && request && !project.parentId ? { project, orgId: request.orgId } : null;
+}
+
+/** An org admin approves a move-in request; the outside-people rule is checked again. */
+export async function approveMoveInAction(projectId: string): Promise<{ success: true } | Failure> {
+    const userId = await viewerId();
+    const pending = organizationsEnabled() && userId ? await pendingMoveIn(projectId) : null;
+    if (!pending || !isAdminRole(await readViewerOrgRole(pending.orgId, userId))) return DENIED;
+    const org = await readOrgCap(db, pending.orgId);
+    if (org && !org.outsidePeople && (await countOutsidePeople(projectId, pending.orgId)) > 0) {
+        return { success: false, error: 'This project now has people outside the organization.' };
+    }
+    await moveIntoOrg(projectId, pending.orgId, pending.project.visibility);
+    revalidatePath(`/projects/${pending.project.slug ?? projectId}`);
+    return { success: true };
+}
+
+/** The lead withdraws, or an org admin declines, a move-in request. */
+export async function cancelMoveInAction(projectId: string): Promise<{ success: true } | Failure> {
+    const userId = await viewerId();
+    const pending = organizationsEnabled() && userId ? await pendingMoveIn(projectId) : null;
+    if (!pending || !(pending.project.ownerId === userId || isAdminRole(await readViewerOrgRole(pending.orgId, userId)))) return DENIED;
+    await db.update(projects).set({ orgSettings: sql`${projects.orgSettings} - 'moveInRequest'` }).where(eq(projects.id, projectId));
+    revalidatePath(`/projects/${pending.project.slug ?? projectId}`);
+    return { success: true };
+}
+
+/** Impact preview before tightening the cap: how many child projects would be lowered. */
+export async function previewVisibilityCapAction(orgId: string, cap: 'public' | 'org' | 'private'): Promise<{ success: true; affected: number } | Failure> {
+    const viewer = await orgViewer(orgId);
+    if (!viewer || orgGrant(viewer.role, 'manage_joining') !== 'yes') return DENIED;
+    return { success: true, affected: await countChildrenAboveCap(orgId, cap) };
+}
+
+/** Orgs the viewer can open the create wizard in, with the reason when they can't (report §14.1 E4). */
+export async function listCreateLocationsAction(): Promise<Array<{ id: string; title: string; slug: string | null; block: string | null; visibilityCap: string; orgPublic: boolean; isAdmin: boolean }>> {
+    if (!organizationsEnabled()) return [];
+    const userId = await viewerId();
+    if (!userId) return [];
+    return listCreateLocations(userId);
+}
+
+export type OrgRosterPerson = { userId: string; name: string; username: string | null; avatarUrl: string | null; title: string | null; role: string; projectHint: string | null };
+
+/**
+ * The org roster for the create wizard's people picker (report §14.4): members and admins, searchable by
+ * name, username or title, with one "In <project>" hint each. Guests are left out: they never join teams.
+ */
+export async function listOrgRosterAction(orgId: string, query = ''): Promise<OrgRosterPerson[]> {
+    const viewer = await orgViewer(orgId);
+    if (!viewer || viewer.role === 'visitor' || viewer.role === 'guest') return [];
+    const q = query.trim().slice(0, 80);
+    const pattern = `%${q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
+    const rows = await db.execute<{ user_id: string; full_name: string | null; username: string | null; avatar_url: string | null; title: string | null; role: string; hint: string | null }>(sql`
+        SELECT pm.user_id, p.full_name, p.username, p.avatar_url, pm.title, pm.role,
+               (SELECT c.title FROM ${projects} c JOIN ${projectMembers} cm ON cm.project_id = c.id
+                 WHERE c.parent_id = ${orgId} AND c.deleted_at IS NULL AND cm.user_id = pm.user_id
+                 ORDER BY c.created_at DESC LIMIT 1) AS hint
+        FROM ${projectMembers} pm
+        JOIN ${profiles} p ON p.id = pm.user_id
+        WHERE pm.project_id = ${orgId} AND pm.role IN ('owner', 'admin', 'member')
+          AND (${q} = '' OR p.full_name ILIKE ${pattern} OR p.username ILIKE ${pattern} OR pm.title ILIKE ${pattern})
+        ORDER BY p.full_name NULLS LAST
+        LIMIT 50
+    `);
+    return Array.from(rows).map((row) => ({
+        userId: row.user_id,
+        name: row.full_name || row.username || 'Member',
+        username: row.username,
+        avatarUrl: row.avatar_url,
+        title: row.title,
+        role: row.role,
+        projectHint: row.hint ? `In ${row.hint}` : null,
+    }));
 }

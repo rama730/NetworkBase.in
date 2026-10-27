@@ -228,6 +228,8 @@ export async function addProjectMemberInternal(
             role: nextRole === "owner" ? "member" : nextRole,
             // New members start with the project's upload default (Settings or create step 4).
             fileUploadEnabled: project.memberFileUploadDefault,
+            // Joining through a role box places the person in that unit (report §14.4).
+            unitId: params.roleId ?? null,
         });
         changed = true;
     } else if (

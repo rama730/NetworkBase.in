@@ -58,6 +58,7 @@ import type {
 import { refreshWorkspaceCountersForUsers } from '@/lib/workspace/profile-counters';
 import { addProjectMemberInternal } from '@/lib/projects/collaborator-lifecycle';
 import { computeProjectReadAccess } from '@/lib/data/project-access';
+import { readViewerOrgRole } from '@/lib/organizations/detail';
 import { isUuid } from '@/lib/validations/uuid';
 import { resolvePrivacyRelationship } from '@/lib/privacy/resolver';
 import {
@@ -852,7 +853,7 @@ export async function applyToRoleAction(
             const [project, role, existingMember, existingApp] = await Promise.all([
                 db.query.projects.findFirst({
                     where: eq(projects.id, projectId),
-                    columns: { id: true, ownerId: true, slug: true, title: true, visibility: true, status: true, deletedAt: true }
+                    columns: { id: true, ownerId: true, slug: true, title: true, visibility: true, status: true, deletedAt: true, parentId: true }
                 }),
                 db.query.projectOpenRoles.findFirst({
                     where: and(
@@ -910,11 +911,13 @@ export async function applyToRoleAction(
             if (!sameRolePending && role.filled >= role.count) {
                 return toApplicationFailure(traceId, 'ROLE_FULL', 'This role has no available spots');
             }
+            // Org members apply for open seats in Org only child projects (report §29.4).
             const canReadProject = computeProjectReadAccess(
                 project.visibility,
                 project.status,
                 false,
                 false,
+                project.parentId ? await readViewerOrgRole(project.parentId, user.id) : null,
             );
             if (!canReadProject && (!existingApp || existingApp.status === 'rejected')) {
                 return toApplicationFailure(traceId, 'FORBIDDEN', 'This project is private.');

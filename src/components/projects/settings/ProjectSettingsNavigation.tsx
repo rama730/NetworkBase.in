@@ -48,6 +48,7 @@ const icons = {
   "org-access": KeyRound,
   "org-people": ShieldCheck,
   "org-projects": FolderTree,
+  "child-org": Building2,
 };
 
 export function ProjectSettingsNavigation({

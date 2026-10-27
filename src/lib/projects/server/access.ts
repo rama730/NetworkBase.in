@@ -1,3 +1,4 @@
+import { applyChildVisibilityCap } from "@/lib/organizations/children";
 import "server-only";
 
 import { randomUUID, createHash } from "crypto";
@@ -607,6 +608,16 @@ export async function updateProjectVisibilityAction(
         message: owned.message,
       };
 
+    // A child project's visibility follows its org's cap; it changes in Settings → Organization.
+    const [placement] = await db.select({ parentId: projects.parentId, kind: projects.kind }).from(projects).where(eq(projects.id, projectId)).limit(1);
+    if (placement?.parentId) {
+      return {
+        success: false,
+        errorCode: "INVALID_INPUT",
+        message: "This project is inside an organization. Change its visibility in Settings → Organization.",
+      };
+    }
+
     const previousVisibility = normalizeProjectVisibility(
       owned.project.visibility,
     );
@@ -705,6 +716,9 @@ export async function updateProjectVisibilityAction(
     if (imageMigration?.migrated && imageMigration.previousAssetId) {
       await scheduleAssetDeletionIfUnreferenced(db, [imageMigration.previousAssetId], { lastErrorCode: "LEGACY_COVER_REPLACED" });
     }
+
+    // An org that goes private takes its public child projects to Org only (report §21.7).
+    if (placement?.kind === "organization") await applyChildVisibilityCap(projectId);
 
     await revalidateProjectPaths(projectId);
     await invalidateProjectPublicCaches(projectId);

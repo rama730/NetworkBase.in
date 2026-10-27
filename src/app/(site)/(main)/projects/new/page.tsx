@@ -5,6 +5,7 @@ import { buildRouteMetadata } from '@/lib/metadata/route-metadata'
 import { getViewerAuthContext } from '@/lib/server/viewer-context'
 import { buildAuthPageHref } from '@/lib/auth/redirects'
 import { organizationsEnabled } from '@/lib/organizations/config'
+import { listCreateLocations } from '@/lib/organizations/detail'
 
 const VALID_CREATE_PROJECT_SOURCES = new Set(['scratch', 'github', 'upload'] as const)
 
@@ -36,10 +37,21 @@ export default async function NewProjectPage({
         redirect(buildAuthPageHref('/login', nextTarget))
     }
 
+    // Where the project goes (report §14.1): ?org=<handle> locks it to that org when the person may create
+    // there; otherwise it falls back to Personal with one line saying why.
+    const orgsOn = organizationsEnabled()
+    const locations = orgsOn ? await listCreateLocations(user.id) : []
+    const orgParam = typeof resolvedSearchParams.org === 'string' ? resolvedSearchParams.org.trim().toLowerCase() : ''
+    const requestedOrg = orgParam ? locations.find((location) => location.slug === orgParam) : undefined
+    const initialOrgId = requestedOrg && !requestedOrg.block ? requestedOrg.id : null
+    const locationNotice = orgsOn && orgParam && !initialOrgId
+        ? `${requestedOrg?.block ?? `You're not a member of ${orgParam}.`} This will be a personal project.`
+        : null
+
     // A normal page in the app shell: fills the main content area; the wizard body is the only scroller.
     return (
         <div data-scroll-root="route" className="h-full min-h-0">
-            <CreateProjectRouteClient initialSource={initialSource} organizationsEnabled={organizationsEnabled()} />
+            <CreateProjectRouteClient initialSource={initialSource} organizationsEnabled={orgsOn} createLocations={locations} initialOrgId={initialOrgId} locationNotice={locationNotice} />
         </div>
     )
 }

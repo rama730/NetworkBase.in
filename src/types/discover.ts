@@ -118,6 +118,11 @@ export interface Project {
 
   /** Organizations only: header, About and Settings data (null or absent for other projects). */
   organization?: import("@/lib/organizations/detail").OrgDetail | null;
+  /** Child projects only: the parent org as this viewer may see it. */
+  parentOrg?: import("@/lib/organizations/detail").ParentOrgLink | null;
+  /** The lead's pending request to move this project into an org, and the orgs they could move it into. */
+  pendingMoveIn?: { orgId: string; orgTitle: string } | null;
+  moveTargets?: Array<{ id: string; title: string }>;
 }
 
 // Filter types

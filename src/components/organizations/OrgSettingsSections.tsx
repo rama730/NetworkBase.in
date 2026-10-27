@@ -5,6 +5,7 @@ import { useState, useTransition, type ReactNode } from 'react'
 
 import {
     leaveOrgAction,
+    previewVisibilityCapAction,
     regenerateJoinCodeAction,
     renameOrgHandleAction,
     updateMyOrgMembershipAction,
@@ -313,10 +314,25 @@ export function OrgPeopleSection({ orgId, organization, role }: SectionProps) {
     )
 }
 
+const CAP_OPTIONS = [
+    { value: 'public', label: 'Public allowed', hint: 'Projects choose Public, Org only or Private.' },
+    { value: 'org', label: 'Org only at most', hint: 'Nothing leaves the organization.' },
+    { value: 'private', label: 'Private only', hint: 'Each project is seen by its team and admins only.' },
+] as const
+
 export function OrgProjectsSection({ orgId, organization }: SectionProps) {
     const [childCreation, setChildCreation] = useState(organization.childCreation)
     const [outside, setOutside] = useState(organization.outsidePeople)
+    const [cap, setCap] = useState(organization.visibilityCap)
+    // Impact preview (report §21.1 principle 4): how many projects a tighter cap would lower.
+    const [affected, setAffected] = useState<number | null>(null)
     const { pending, save, status } = useSave()
+    const chooseCap = async (next: typeof cap) => {
+        setCap(next)
+        setAffected(null)
+        const preview = await previewVisibilityCapAction(orgId, next)
+        if (preview.success) setAffected(preview.affected)
+    }
     return (
         <Section id="org-projects">
             <SettingsCard title="Projects" headingLevel={2} description="Who creates projects inside the organization, and who can be added to them." footer={<LastChanged organization={organization} section="projects" />}>
@@ -329,6 +345,19 @@ export function OrgProjectsSection({ orgId, organization }: SectionProps) {
                             <label className="flex items-center gap-2"><input type="radio" name="org-child-creation" checked={childCreation === 'admins'} onChange={() => setChildCreation('admins')} /> Admins only</label>
                         </div>
                     </fieldset>
+                    <fieldset>
+                        <legend className={labelClass}>Visibility cap</legend>
+                        <p className={helpClass}>The most open a project here can be. Tightening it lowers projects above it.</p>
+                        <div className="mt-2 space-y-2 text-sm">
+                            {CAP_OPTIONS.map((option) => (
+                                <label key={option.value} className="flex items-start gap-2">
+                                    <input type="radio" name="org-visibility-cap" checked={cap === option.value} onChange={() => void chooseCap(option.value)} className="mt-1" />
+                                    <span>{option.label}<span className="block text-xs text-muted-foreground">{option.hint}</span></span>
+                                </label>
+                            ))}
+                        </div>
+                        {affected ? <p role="status" className="mt-2 text-sm text-foreground">This will change {affected} {affected === 1 ? 'project' : 'projects'} to {cap === 'private' ? 'Private' : 'Org only'}.</p> : null}
+                    </fieldset>
                     <div className="flex items-start justify-between gap-4">
                         <div>
                             <p className={labelClass}>People outside the organization can be added to its projects</p>
@@ -337,7 +366,7 @@ export function OrgProjectsSection({ orgId, organization }: SectionProps) {
                         <SettingsSwitch checked={outside} onCheckedChange={setOutside} aria-label="People outside the organization can be added to its projects" />
                     </div>
                     <div className="flex items-center gap-3">
-                        <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'projects', { child_creation: childCreation, outside_people: outside }))}>Save</Button>
+                        <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'projects', { child_creation: childCreation, outside_people: outside, ...(cap !== organization.visibilityCap ? { visibility_cap: cap } : {}) }))}>Save</Button>
                         {status}
                     </div>
                 </div>

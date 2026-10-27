@@ -1,9 +1,11 @@
 'use client';
 
+import { useCreateLocation } from '@/components/organizations/CreateLocation';
+import { allowedChildVisibilities, type VisibilityCap } from '@/lib/organizations/child-rules';
 import { OrgSettingsFields } from '@/components/organizations/OrgWizardFields';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
-import { Bell, Check, ChevronDown, FileText, Folder, Globe, ImageIcon, ImagePlus, Info, Link2, Lock, Users, Workflow, X } from 'lucide-react';
+import { Bell, Building2, Check, ChevronDown, FileText, Folder, Globe, ImageIcon, ImagePlus, Info, Link2, Lock, Users, Workflow, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from '@/lib/feedback';
 import { Button } from '@/components/ui/button';
@@ -108,6 +110,7 @@ function ChoiceChip({ selected, onClick, children }: { selected: boolean; onClic
 export default function Phase4Settings({ showValidationSummary = false, linkComposerPending = false, onLinkComposerPending, projectImage, onProjectImageChange }: Phase4SettingsProps) {
     const { control, setValue, formState: { errors } } = useFormContext<CreateProjectInput>();
     const isOrganization = Boolean(useWatch({ control, name: 'organization' }));
+    const childOrg = useCreateLocation().org;
     const [
         visibilityValue, publicTabsValue, externalLinksValue, readme, docEditPolicy, lifecycleStagesValue,
         memberUpdatesEnabled, memberFileUploadDefault, notificationRowsValue,
@@ -310,15 +313,31 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     </div>
                 </LaunchSection>
 
-                <LaunchSection {...sectionProps('access')} title="Choose project visibility" description="Controls who can find the project now, and which tabs outsiders see." summary={visibility === 'private' ? 'Private · collaborators only' : `Public · ${publicTabCount} public ${publicTabCount === 1 ? 'tab' : 'tabs'}`}>
+                <LaunchSection {...sectionProps('access')} title="Choose project visibility" description="Controls who can find the project now, and which tabs outsiders see." summary={visibility === 'private' ? 'Private · collaborators only' : visibility === 'org' ? `Org only · members of ${childOrg?.title ?? 'the organization'}` : `Public · ${publicTabCount} public ${publicTabCount === 1 ? 'tab' : 'tabs'}`}>
                     <fieldset className="border-y border-border" aria-describedby="create-project-visibility-help">
                         <legend className="sr-only">Project visibility</legend>
-                        {([
-                            { id: 'public' as const, label: 'Public', icon: Globe, description: 'Anyone can discover the project and view its public tabs.' },
-                            { id: 'private' as const, label: 'Private', icon: Lock, description: 'Only collaborators can access the project until you make it public.' },
-                        ]).map((option) => {
+                        {(childOrg
+                            ? [
+                                { id: 'public' as const, label: 'Public', icon: Globe, description: 'Anyone can discover the project and view its public tabs.' },
+                                { id: 'org' as const, label: 'Org only', icon: Building2, description: `Every member of ${childOrg.title} can see it.` },
+                                { id: 'private' as const, label: 'Private', icon: Lock, description: `The team and ${childOrg.title} admins.` },
+                            ]
+                            : [
+                                { id: 'public' as const, label: 'Public', icon: Globe, description: 'Anyone can discover the project and view its public tabs.' },
+                                { id: 'private' as const, label: 'Private', icon: Lock, description: 'Only collaborators can access the project until you make it public.' },
+                            ]).map((option) => {
                             const Icon = option.icon;
                             const isSelected = visibility === option.id;
+                            // Choices above the org's cap show as locked rows (report §14.3).
+                            const locked = Boolean(childOrg && !allowedChildVisibilities(childOrg.visibilityCap as VisibilityCap, childOrg.orgPublic).includes(option.id));
+                            if (locked) {
+                                return (
+                                    <div key={option.id} className="flex items-start gap-3 border-b border-border px-4 py-4 text-muted-foreground last:border-b-0" aria-disabled="true">
+                                        <Lock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                                        <span className="min-w-0"><span className="nb-ui-label block">{option.label}</span><span className="nb-compact mt-1 block">Set by {childOrg!.title}</span></span>
+                                    </div>
+                                );
+                            }
                             return (
                                 <label key={option.id} className={`flex cursor-pointer items-start gap-3 border-b border-border px-4 py-4 last:border-b-0 transition-[background-color,border-color] duration-[130ms] focus-within:bg-muted/30 ${isSelected ? 'bg-secondary/60' : 'hover:bg-muted/30'}`}>
                                     <input type="radio" name="project-visibility" value={option.id} checked={isSelected} onChange={() => set('visibility', option.id)} className="sr-only" />
@@ -334,9 +353,9 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                             );
                         })}
                     </fieldset>
-                    {visibility === 'public' ? (
+                    {visibility === 'public' || visibility === 'org' ? (
                         <div className="mt-4">
-                            <p className="nb-ui-label text-foreground">Public tabs</p>
+                            <p className="nb-ui-label text-foreground">{visibility === 'org' ? `Tabs for ${childOrg?.title ?? 'organization'} members outside the team` : 'Public tabs'}</p>
                             <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Public tabs">
                                 {PUBLIC_TAB_ORDER.map((tab) => (
                                     <ChoiceChip key={tab} selected={publicTabs[tab]} onClick={() => set('public_tab_visibility', { ...publicTabs, [tab]: !publicTabs[tab] })}>
@@ -348,7 +367,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     ) : null}
                     <p id="create-project-visibility-help" className="mt-3 max-w-[65ch] text-[13px] leading-[1.5] text-muted-foreground">
                         <span className="font-medium text-foreground">Visible at launch: </span>
-                        {visibility === 'public'
+                        {visibility === 'public' || visibility === 'org'
                             ? PUBLIC_TAB_ORDER.filter((tab) => publicTabs[tab]).map((tab) => PROJECT_PUBLIC_TAB_LABELS[tab]).join(' · ') || 'Project title and card only'
                             : 'Collaborators only. Public-tab choices take effect after you make the project public.'}
                     </p>

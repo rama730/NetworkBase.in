@@ -1,5 +1,6 @@
 "use server";
 
+import { readViewerOrgRole } from "@/lib/organizations/detail";
 import { readProjectRoleTitles, roleTitleKey } from "@/lib/projects/update-roles";
 import { randomUUID } from "node:crypto";
 import { alias } from "drizzle-orm/pg-core";
@@ -735,6 +736,7 @@ async function resolveProjectUpdateAccess(projectId: string, viewerId: string | 
             status: projects.status,
             publicTabVisibility: projects.publicTabVisibility,
             memberUpdatesEnabled: projects.memberUpdatesEnabled,
+            parentId: projects.parentId,
         })
         .from(projects)
         .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
@@ -767,10 +769,13 @@ async function resolveProjectUpdateAccess(projectId: string, viewerId: string | 
         : membership
             ? normalizeProjectMemberRole(membership.role, "member")
             : null;
+    // Org only child projects and inherited org admins (report §29.4).
+    const parentOrgRole = project.parentId && !isOwner && !isMember ? await readViewerOrgRole(project.parentId, viewerId) : null;
+    const isInheritedAdmin = parentOrgRole === "owner" || parentOrgRole === "admin";
     const isOwnerOrMember = isOwner || isMember;
-    const canRead = computeProjectReadAccess(project.visibility, project.status, isOwner, isMember) && isProjectTabVisibleToViewer({
+    const canRead = computeProjectReadAccess(project.visibility, project.status, isOwner, isMember, parentOrgRole) && isProjectTabVisibleToViewer({
         tabId: "updates",
-        isOwnerOrMember,
+        isOwnerOrMember: isOwnerOrMember || isInheritedAdmin,
         canManageSettings: isOwner,
         publicTabVisibility: project.publicTabVisibility,
     });

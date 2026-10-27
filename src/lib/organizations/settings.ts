@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import type { ProjectSettingsSectionId } from "@/lib/projects/settings-policies";
 import { ORG_LIMITS, ORG_TYPES } from "@/lib/organizations/config";
+import type { VisibilityCap } from "@/lib/organizations/child-rules";
 
 export type OrgSettingsSectionId = "you-membership" | "you-leave" | "org-profile" | "org-access" | "org-people" | "org-projects";
 export type OrgMemberRole = "owner" | "admin" | "member" | "viewer";
@@ -67,6 +68,7 @@ export const ORG_SETTINGS_PATCH = {
   projects: z.object({
     child_creation: z.enum(["members", "admins"]).optional(),
     outside_people: z.boolean().optional(),
+    visibility_cap: z.enum(["public", "org", "private"]).optional(),
   }).strict(),
 } as const;
 
@@ -74,3 +76,13 @@ export type OrgSettingsSection = keyof typeof ORG_SETTINGS_PATCH;
 
 /** Who saves which section (report §21.2): role names are the owner's; the rest is owners and admins. */
 export const ORG_SECTION_OWNER_ONLY: Record<OrgSettingsSection, boolean> = { profile: false, access: false, people: true, projects: false };
+
+/** The child-project rules an org enforces (report §21.7), read from org_settings with their defaults. */
+export function readOrgRules(orgSettings: unknown): { childCreation: "members" | "admins"; outsidePeople: boolean; visibilityCap: VisibilityCap } {
+  const s = (orgSettings ?? {}) as { childCreation?: unknown; outsidePeople?: unknown; visibilityCap?: unknown };
+  return {
+    childCreation: s.childCreation === "admins" ? "admins" : "members",
+    outsidePeople: s.outsidePeople === true,
+    visibilityCap: s.visibilityCap === "org" || s.visibilityCap === "private" ? s.visibilityCap : "public",
+  };
+}

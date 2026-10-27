@@ -237,6 +237,8 @@ export async function resolveProjectDetailTarget(
           title: projects.title,
           slug: projects.slug,
           kind: projects.kind,
+          parentId: projects.parentId,
+          orgSettings: projects.orgSettings,
           description: projects.description,
           shortDescription: projects.shortDescription,
           problemStatement: projects.problemStatement,
@@ -327,6 +329,8 @@ export function resolveProjectDetailViewerState(input: {
   actorUserId: string | null;
   memberRoleRaw: string | null;
   isFollowed: boolean;
+  /** The viewer's role in the parent org, for Org only child projects and inherited admins. */
+  parentOrgRole?: "owner" | "admin" | "member" | "viewer" | null;
 }) {
   const {
     ownerId,
@@ -346,6 +350,7 @@ export function resolveProjectDetailViewerState(input: {
     status,
     isOwner,
     isMember,
+    input.parentOrgRole ?? null,
   );
   const canWrite = computeProjectWriteAccess(isOwner, memberRole);
 

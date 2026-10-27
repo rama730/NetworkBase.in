@@ -32,7 +32,7 @@ test("ProjectLayout conditionally renders ProjectAvatar scoped to two lines with
     assert.match(layoutSource, /<\/div>\s*\{projectIdentityMetadata\}/);
 
     // Zero-presence fallback: when no avatar, renders flush without avatar container
-    assert.match(layoutSource, /:\s*\(\s*<div className="flex min-w-0 flex-1 flex-col items-start gap-3[^"]*">\s*<div className="flex min-w-0 flex-wrap items-center gap-3">\s*<h1 className="nb-page-title/);
+    assert.match(layoutSource, /:\s*\(\s*<div className="flex min-w-0 flex-1 flex-col items-start gap-3[^"]*">\s*(?:\{breadcrumb\}\s*)?<div className="flex min-w-0 flex-wrap items-center gap-3">\s*<h1 className="nb-page-title/);
 
     // Line 3: update date removed completely
     assert.doesNotMatch(layoutSource, /data-testid="project-presence-indicator"/);
