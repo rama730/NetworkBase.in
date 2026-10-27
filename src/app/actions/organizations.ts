@@ -22,7 +22,7 @@ import { generateJoinCode } from '@/lib/organizations/join-rules';
 import { allowedChildVisibilities, type ChildVisibility } from '@/lib/organizations/child-rules';
 import { applyChildVisibilityCap, countChildrenAboveCap, countOutsidePeople, detachFromOrg, moveIntoOrg, readOrgCap } from '@/lib/organizations/children';
 import { listCreateLocations, readViewerOrgRole } from '@/lib/organizations/detail';
-import { releaseCopiesOnLeave } from '@/lib/organizations/assignments';
+import { acceptOrgInvite, ledChildProjects, openInvitesFor, removeFromOrg } from '@/lib/organizations/members';
 import { countOrgMembers, findOrgByJoinCode, isOrgHandleAvailable, joinOrgByCode, joinPublicOrg, viewerOrgStatus } from '@/lib/organizations/join';
 import { normalizeJoinCode, ORG_JOIN_MESSAGES, type OrgJoinMode, type OrgJoinOutcome } from '@/lib/organizations/join-rules';
 import { isProjectPubliclyReadableVisibility } from '@/lib/projects/project-visibility';
@@ -91,6 +91,13 @@ export async function joinOrganizationAction(
     if (!userId) return { success: false, error: 'Log in to join an organization.' };
     if (!(await allowLookup(userId))) return TOO_MANY;
     const code = normalizeJoinCode(rawCode);
+    // An invite waiting for this person is accepted instead, with its role (report §20.11).
+    const target = code ? await findOrgByJoinCode(code) : null;
+    const invite = target ? (await openInvitesFor(userId, target.id))[0] : undefined;
+    if (target && invite && (await acceptOrgInvite(userId, invite.id))) {
+        revalidatePath(`/projects/${target.slug ?? target.id}`);
+        return { success: true, outcome: 'joined', org: { id: target.id, title: target.title, slug: target.slug } };
+    }
     const result = code ? await joinOrgByCode(userId, code, note) : null;
     if (!result) return NO_MATCH;
     const { outcome, org } = result;
@@ -305,21 +312,10 @@ export async function leaveOrgAction(orgId: string): Promise<{ success: true } |
     const viewer = await orgViewer(orgId);
     if (!viewer || viewer.role === 'visitor') return DENIED;
     if (orgGrant(viewer.role, 'leave') !== 'yes') return { success: false, error: 'Transfer ownership before you leave.' };
-    const led = await db.select({ id: projects.id }).from(projects)
-        .where(and(eq(projects.parentId, orgId), eq(projects.ownerId, viewer.userId), isNull(projects.deletedAt)));
+    const led = await ledChildProjects(db, orgId, viewer.userId);
     if (led.length > 0) return { success: false, error: `You lead ${led.length} ${led.length === 1 ? 'project' : 'projects'} here. Transfer or detach ${led.length === 1 ? 'it' : 'them'} first.` };
-    // Leaving the org removes you from its projects too (report §14.4, addition 5).
-    const childMemberships = await db.select({ projectId: projectMembers.projectId }).from(projectMembers)
-        .innerJoin(projects, eq(projects.id, projectMembers.projectId))
-        .where(and(eq(projects.parentId, orgId), eq(projectMembers.userId, viewer.userId), isNull(projects.deletedAt)));
-    await db.transaction(async (tx) => {
-        // Their unfinished assignment copies go; handed-in work stays for the admins (report §16.9).
-        await releaseCopiesOnLeave(tx, orgId, viewer.userId);
-        for (const { projectId } of childMemberships) {
-            await removeProjectMemberInternal(tx, { projectId, actorId: viewer.userId, targetUserId: viewer.userId, mode: 'unassign_active_tasks', allowSelf: true });
-        }
-        await removeProjectMemberInternal(tx, { projectId: orgId, actorId: viewer.userId, targetUserId: viewer.userId, mode: 'unassign_active_tasks', allowSelf: true });
-    });
+    // Leaving the org removes you from its projects too (report §14.4, §20.7).
+    await db.transaction((tx) => removeFromOrg(tx, orgId, viewer.userId, viewer.userId));
     revalidateOrg(viewer.slug, orgId);
     return { success: true };
 }

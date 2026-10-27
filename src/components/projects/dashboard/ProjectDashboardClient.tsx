@@ -39,6 +39,8 @@ import { SkeletonSprints } from '@/components/projects/skeletons/SkeletonSprints
 import { OrgAboutTab } from '@/components/organizations/OrgAboutTab';
 import { AssignmentsPanel, GroupCopiesPanel } from '@/components/organizations/AssignmentsPanel';
 import { OrgFilesPanel } from '@/components/organizations/OrgFilesPanel';
+import { OrgMembersTab } from '@/components/organizations/OrgMembersTab';
+import { OrgInviteBanner } from '@/components/organizations/OrgInviteBanner';
 import { ChildOrgChips, OrgBreadcrumb, OrgIdentityLine, OrgInviteDialog, OrgVisitorActions } from '@/components/organizations/OrgHeaderParts';
 import { isProjectPubliclyReadableVisibility } from '@/lib/projects/project-visibility';
 import { confirmFileNavigation } from '@/lib/files/unsaved-navigation';
@@ -1114,7 +1116,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
             breadcrumb={parentOrg ? <OrgBreadcrumb parentOrg={parentOrg} /> : null}
             identityExtra={parentOrg ? <ChildOrgChips parentOrg={parentOrg} visibility={project.visibility} archived={project.status === 'archived'} /> : organization ? <OrgIdentityLine handle={project.slug ?? null} organization={organization} memberRole={isOwner ? 'owner' : (currentProjectRole as 'admin' | 'member' | 'viewer' | null) ?? null} archived={project.status === 'archived'} /> : null}
             metadataExtra={organization?.childProjectCount ? <span className="nb-compact text-muted-foreground">· {organization.childProjectCount} {organization.childProjectCount === 1 ? 'project' : 'projects'}</span> : null}
-            actionsStart={organization && !isOwnerOrMember && isProjectPubliclyReadableVisibility(project.visibility) && project.status !== 'archived' ? <OrgVisitorActions orgId={project.id} href={canonicalProjectHref} joinMode={organization.joinMode} requestPending={organization.viewerRequestPending} loggedIn={Boolean(currentUserId)} /> : null}
+            actionsStart={organization && !isOwnerOrMember ? <>{currentUserId ? <OrgInviteBanner orgId={project.id} /> : null}{isProjectPubliclyReadableVisibility(project.visibility) && project.status !== 'archived' ? <OrgVisitorActions orgId={project.id} href={canonicalProjectHref} joinMode={organization.joinMode} requestPending={organization.viewerRequestPending} loggedIn={Boolean(currentUserId)} /> : null}</> : null}
             showFollow={!organization || (!isOwnerOrMember && isProjectPubliclyReadableVisibility(project.visibility))} onTabHover={handleTabHover} members={allMembers} loadingMembers={loadingMembers} stageLabel={lifecycleStageNames[optimisticStageIndex] ?? null} stageIndex={optimisticStageIndex} stageCount={lifecycleStageNames.length} applicationLabel={applicationHeaderLabel} openRolesCount={rolesWithFilled.filter((role: any) => (role?.count || 0) - (role?.filled || 0) > 0).length}>
             {!activeTab && (
                 <div className="w-full h-full min-h-[40vh] flex items-center justify-center p-8">
@@ -1140,6 +1142,14 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="About">
                         <OrgAboutTab project={projectWithLiveStats} isCreator={isOwner} onEdit={handleEdit} />
+                    </TabErrorBoundary>
+                </div>
+            )}
+
+            {isOrganization && canManageProjectSettings && activeTab === 'members' && (
+                <div className="w-full h-full min-h-0">
+                    <TabErrorBoundary tabName="Members">
+                        <OrgMembersTab orgId={project.id} roleNames={organization?.roleNames} />
                     </TabErrorBoundary>
                 </div>
             )}
