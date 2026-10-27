@@ -5,6 +5,8 @@ import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
 import { githubSyncRuns, profiles, projectMembers, projectNodeEvents, projectNodes, taskActivityEvents, tasks } from "@/lib/db/schema";
 import { getProjectAccessById } from "@/lib/data/project-access";
+import { orgFileAccessSql } from "@/lib/files/internal-helpers";
+import { orgTaskReadFilter } from "@/lib/organizations/assignments";
 import { getViewerIdentityContext } from "@/lib/server/viewer-context";
 import { normalizeProjectPublicTabVisibility } from "@/lib/projects/settings-policies";
 import { activityActorName, describeGithubPush, describeMembershipEvent, isPublishableFileMetadata, newestProjectActivities, recentActivityAudience, type ProjectRecentActivityItem } from "@/lib/projects/recent-activity";
@@ -53,7 +55,9 @@ export async function readProjectRecentActivityAction(projectId: string): Promis
       .innerJoin(tasks, and(eq(tasks.id, taskActivityEvents.taskId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt)))
       .leftJoin(actor, and(eq(actor.id, taskActivityEvents.actorId), isNull(actor.deletedAt)))
       .where(and(eq(taskActivityEvents.projectId, projectId), inArray(taskActivityEvents.eventType, ["status_changed", "review_submitted", "review_approved", "changes_requested"]),
-        sql`${taskActivityEvents.payload}->>'to' IN ('in_progress', 'done')`))
+        sql`${taskActivityEvents.payload}->>'to' IN ('in_progress', 'done')`,
+        // In an organization, members never see other people's assignment copies (report §16, §27.2).
+        orgTaskReadFilter(access, viewer.userId, "review")))
       .orderBy(desc(taskActivityEvents.createdAt), desc(taskActivityEvents.id)).limit(3)
     : Promise.resolve([]);
 
@@ -66,6 +70,8 @@ export async function readProjectRecentActivityAction(projectId: string): Promis
         eq(projectNodes.type, "file"), isNull(projectNodes.deletedAt)))
       .leftJoin(actor, and(eq(actor.id, projectNodeEvents.actorId), isNull(actor.deletedAt)))
       .where(and(eq(projectNodeEvents.projectId, projectId), eq(projectNodeEvents.type, "create_file"),
+        // ...nor Admins-only files (report §23.3).
+        orgFileAccessSql(access),
         isMember ? undefined : sql`coalesce(${projectNodes.metadata}->>'visibility', 'public') = 'public'
           AND coalesce(${projectNodes.metadata}->'privacy'->>'visibility', 'public') = 'public'
           AND coalesce(${projectNodes.metadata}->>'isSystem', 'false') <> 'true'

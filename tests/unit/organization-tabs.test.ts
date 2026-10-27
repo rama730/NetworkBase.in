@@ -52,3 +52,9 @@ test("Members is for org owners and admins only (report §20.8)", () => {
   assert.equal(resolveAllowedProjectTab({ ...managers, requestedTab: "members", canManageSettings: true }), "members");
   assert.equal(resolveAllowedProjectTab({ ...managers, requestedTab: "members", canManageSettings: false }), "dashboard");
 });
+
+test("Projects is for people in the org (report §28.5)", () => {
+  assert.equal(visible("projects", true), true);
+  assert.equal(visible("projects", false), false, "visitors see public projects on About");
+  assert.equal(visible("projects", true, false), false, "not in normal projects");
+});

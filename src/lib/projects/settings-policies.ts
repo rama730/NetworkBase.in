@@ -360,6 +360,8 @@ export function isProjectTabVisibleToViewer(input: {
     if (input.tabId === "about") return true;
     // Members is owners' and admins' alone in v1 (report §20.8).
     if (input.tabId === "members") return Boolean(input.canManageSettings);
+    // Projects is for people in the org; visitors see public projects on About (report §28.5).
+    if (input.tabId === "projects") return input.isOwnerOrMember;
     if (input.tabId === "dashboard" || input.tabId === "tasks" || input.tabId === "settings") return input.isOwnerOrMember;
   }
   if (input.tabId === "settings") return Boolean(input.canManageSettings);
@@ -384,7 +386,7 @@ export function resolveAllowedProjectTab(input: {
     const canOpenSettings = isProjectTabVisibleToViewer({ ...input, tabId: "settings" });
     return canOpenSettings ? "settings" : (isProjectTabVisibleToViewer({ ...input, tabId: landingTab }) ? landingTab : null);
   }
-  const isKnownTab = requestedTab === "settings" || requestedTab in DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY || (input.isOrganization && (requestedTab === "about" || requestedTab === "members"));
+  const isKnownTab = requestedTab === "settings" || requestedTab in DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY || (input.isOrganization && (requestedTab === "about" || requestedTab === "members" || requestedTab === "projects"));
   if (isKnownTab && isProjectTabVisibleToViewer({ ...input, tabId: requestedTab })) return requestedTab;
   if (isKnownTab && !input.isOrganization) return null;
   return isProjectTabVisibleToViewer({ ...input, tabId: landingTab }) ? landingTab : null;

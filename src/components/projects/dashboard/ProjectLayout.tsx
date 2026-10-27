@@ -5,7 +5,7 @@ import Link from "next/link";
 import { formatDistanceToNow } from "@/lib/utils/date";
 import {
     LayoutDashboard, ListTodo, FolderOpen, BookOpenText,
-    Settings, Share2, UserPlus, UserCheck, IterationCcw, Loader2, Newspaper, Camera, MoreHorizontal, Info, Users
+    Settings, Share2, UserPlus, UserCheck, IterationCcw, Loader2, Newspaper, Camera, MoreHorizontal, Info, Users, FolderKanban
 } from "lucide-react";
 import {
     DropdownMenu,
@@ -81,6 +81,7 @@ const TABS = [
     { id: "sprints", label: "Sprints", icon: IterationCcw },
     { id: "tasks", label: "Tasks", icon: ListTodo },
     { id: "files", label: "Files", icon: FolderOpen },
+    { id: "projects", label: "Projects", icon: FolderKanban },
     { id: "members", label: "Members", icon: Users },
     { id: "settings", label: "Settings", icon: Settings, ownerOnly: true },
 ];
