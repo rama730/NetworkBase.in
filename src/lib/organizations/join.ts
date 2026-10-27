@@ -15,6 +15,7 @@ import {
 } from "@/lib/db/schema";
 import { decideOrgJoin, type OrgJoinMode, type OrgJoinOutcome } from "@/lib/organizations/join-rules";
 import { addProjectMemberInternal } from "@/lib/projects/collaborator-lifecycle";
+import { createCopiesForNewMember } from "@/lib/organizations/assignments";
 
 export type OrgSummary = { id: string; title: string; slug: string | null };
 
@@ -131,6 +132,8 @@ async function joinOrg(
     if (outcome === "joined") {
       // Joining by code is always Member (decision 58); a pending request is closed by the join.
       await addProjectMemberInternal(tx, { projectId: org.id, userId, role: "member", actorId: userId, source: "join_code" });
+      // Late joiners get copies of open assignments (report §16.9).
+      await createCopiesForNewMember(tx, org.id, userId);
     } else if (outcome === "requested") {
       const message = note?.trim().slice(0, 500) || null;
       const now = new Date();
@@ -169,6 +172,7 @@ export async function acceptOrgEmailInvites(userId: string, email: string): Prom
         .returning({ id: orgEmailInvites.id });
       if (!claimed) return;
       await addProjectMemberInternal(tx, { projectId: invite.orgId, userId, role: invite.role, actorId: userId, source: "email_invite" });
+      if (invite.role === "member") await createCopiesForNewMember(tx, invite.orgId, userId);
       if (invite.title) {
         await tx.update(projectMembers)
           .set({ title: invite.title })

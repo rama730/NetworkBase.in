@@ -1,3 +1,4 @@
+import { canSeeOrgTask } from "@/lib/organizations/assignments";
 import { requireAuthenticatedUser, jsonSuccess, jsonError, getRequestId } from "@/app/api/v1/_shared";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { db } from "@/lib/db";
@@ -41,6 +42,7 @@ export async function GET(request: Request) {
     // Tasks visibility, linked project files also need Files (AUTH-002).
     const access = await getProjectAccessById(row.projectId, user.id);
     if (!canReadProjectTab(access, "tasks")) return jsonError("Forbidden", 403, "FORBIDDEN");
+    if (!(await canSeeOrgTask(access, user.id, taskId))) return jsonError("Forbidden", 403, "FORBIDDEN");
     const canReadFiles = canReadProjectTab(access, "files");
 
     const fullTask = await db.query.tasks.findFirst({where:eq(tasks.id,taskId)});

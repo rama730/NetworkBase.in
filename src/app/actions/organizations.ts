@@ -22,6 +22,7 @@ import { generateJoinCode } from '@/lib/organizations/join-rules';
 import { allowedChildVisibilities, type ChildVisibility } from '@/lib/organizations/child-rules';
 import { applyChildVisibilityCap, countChildrenAboveCap, countOutsidePeople, detachFromOrg, moveIntoOrg, readOrgCap } from '@/lib/organizations/children';
 import { listCreateLocations, readViewerOrgRole } from '@/lib/organizations/detail';
+import { releaseCopiesOnLeave } from '@/lib/organizations/assignments';
 import { countOrgMembers, findOrgByJoinCode, isOrgHandleAvailable, joinOrgByCode, joinPublicOrg, viewerOrgStatus } from '@/lib/organizations/join';
 import { normalizeJoinCode, ORG_JOIN_MESSAGES, type OrgJoinMode, type OrgJoinOutcome } from '@/lib/organizations/join-rules';
 import { isProjectPubliclyReadableVisibility } from '@/lib/projects/project-visibility';
@@ -311,6 +312,8 @@ export async function leaveOrgAction(orgId: string): Promise<{ success: true } |
         .innerJoin(projects, eq(projects.id, projectMembers.projectId))
         .where(and(eq(projects.parentId, orgId), eq(projectMembers.userId, viewer.userId), isNull(projects.deletedAt)));
     await db.transaction(async (tx) => {
+        // Their unfinished assignment copies go; handed-in work stays for the admins (report §16.9).
+        await releaseCopiesOnLeave(tx, orgId, viewer.userId);
         for (const { projectId } of childMemberships) {
             await removeProjectMemberInternal(tx, { projectId, actorId: viewer.userId, targetUserId: viewer.userId, mode: 'unassign_active_tasks', allowSelf: true });
         }

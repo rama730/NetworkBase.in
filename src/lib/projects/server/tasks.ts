@@ -1,3 +1,4 @@
+import { orgTaskReadFilter } from "@/lib/organizations/assignments";
 import { lockTaskForWrite, transitionTaskTx, afterTaskTransition } from "@/lib/projects/task-transition-service";
 import "server-only";
 
@@ -199,6 +200,8 @@ async function fetchProjectTasksForActor(
                 )
               : undefined,
             pageCursor,
+            // Organizations: members see the masters and their own (or team) copies (decision 19).
+            orgTaskReadFilter(access, actorId, normalizedScope),
             normalizedScope === "review" ? eq(t.reviewStatus, "pending") : undefined,
             normalizedScope === "backlog"
               ? isNull(t.sprintId)
@@ -629,7 +632,7 @@ export async function getProjectTaskDetailAction(
   try {
     const viewerIdentity = await getViewerIdentityContext();
     const actorId = viewerIdentity.user?.id ?? null;
-    await assertProjectTabReadAccess(projectId, actorId, "tasks");
+    const access = await assertProjectTabReadAccess(projectId, actorId, "tasks");
 
     const isUuid = isLooseUuid(taskId);
     let taskWhere;
@@ -666,7 +669,8 @@ export async function getProjectTaskDetailAction(
     }
 
     const task = await db.query.tasks.findFirst({
-      where: taskWhere,
+      // Organizations: another member's copy reads as not found (decision 19).
+      where: and(taskWhere, orgTaskReadFilter(access, actorId, "review")),
       extras: {
         subtaskCount:
           sql<number>`(SELECT count(*)::int FROM task_subtasks WHERE task_subtasks.task_id = ${tasks.id})`.as(

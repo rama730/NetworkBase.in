@@ -66,6 +66,9 @@ export async function lockTaskForWrite(
   currentUpdatedAt: Date;
   projectSlug: string | null;
   projectKey: string | null;
+  /** An assignment copy (0244): its master's submission type, or null for ordinary tasks. */
+  copySubmissionType: string | null;
+  isTeamMember: boolean;
 }> {
   const rows = await tx.execute<{
     id: string;
@@ -89,16 +92,28 @@ export async function lockTaskForWrite(
     deleted_at: Date | string | null;
     task_deleted_at: Date | string | null;
     member_role: string | null;
+    assignment_id: string | null;
+    master_settings: { submissionType?: string; reviewRequired?: boolean } | null;
+    in_team: boolean;
+    master_org_admin: boolean;
   }>(sql`
         SELECT
             t.id, t.project_id, t.assignee_id, t.sprint_id, t.workflow_column_id,
             t.timeline_origin_sprint_id, t.creator_id, t.title, t.task_number,
             t.status, t.review_status, t.review_content_hash, t.updated_at, t.deleted_at AS task_deleted_at,
             p.owner_id, p.slug, p.key, p.deleted_at, p.task_review_required, p.task_completion_policy_version,
-            m.role as member_role
+            m.role as member_role,
+            t.assignment_id,
+            mt.assignment_settings AS master_settings,
+            EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = t.id AND tm.user_id = ${userId}) AS in_team,
+            (mp.owner_id = ${userId} OR EXISTS (
+              SELECT 1 FROM project_members om WHERE om.project_id = mp.id AND om.user_id = ${userId} AND om.role = 'admin'
+            )) AS master_org_admin
         FROM tasks t
         JOIN projects p ON p.id = t.project_id
         LEFT JOIN project_members m ON m.project_id = p.id AND m.user_id = ${userId}
+        LEFT JOIN tasks mt ON mt.id = t.assignment_id
+        LEFT JOIN projects mp ON mp.id = mt.project_id
         WHERE t.id = ${taskId}
         FOR UPDATE OF t, p
     `);
@@ -120,7 +135,11 @@ export async function lockTaskForWrite(
     throw new Error("Forbidden");
   }
   const isOwner = row.owner_id === userId;
-  if (!isOwner) {
+  // Assignment copies are reviewed by the assignment's org (report §16.4, §16.6): its admins act as leaders,
+  // even on a group copy inside a child project they are not members of.
+  const isCopy = Boolean(row.assignment_id);
+  const orgReviewer = isCopy && Boolean(row.master_org_admin);
+  if (!isOwner && !orgReviewer) {
     if (!row.member_role) {
       throw new Error("Forbidden");
     }
@@ -131,11 +150,11 @@ export async function lockTaskForWrite(
   return {
     projectId: row.project_id,
     ownerId: row.owner_id,
-    reviewRequired: row.task_review_required,
+    reviewRequired: isCopy ? row.master_settings?.reviewRequired === true : row.task_review_required,
     policyVersion: row.task_completion_policy_version,
     reviewContentHash: row.review_content_hash,
     isOwner,
-    isLeader: isOwner || (row.member_role ?? "").toLowerCase() === "admin",
+    isLeader: isCopy ? orgReviewer : isOwner || (row.member_role ?? "").toLowerCase() === "admin",
     previousAssigneeId: row.assignee_id ?? null,
     previousSprintId: row.sprint_id ?? null,
     currentWorkflowColumnId: row.workflow_column_id ?? null,
@@ -148,6 +167,8 @@ export async function lockTaskForWrite(
     currentUpdatedAt: row.updated_at instanceof Date ? row.updated_at : new Date(row.updated_at),
     projectSlug: row.slug ?? null,
     projectKey: row.key ?? null,
+    copySubmissionType: isCopy ? row.master_settings?.submissionType ?? "none" : null,
+    isTeamMember: Boolean(row.in_team),
   };
 }
 
@@ -208,10 +229,25 @@ export async function transitionTaskTx(
 
   if (
     !locked.isLeader &&
+    !locked.isTeamMember &&
     locked.previousAssigneeId &&
     locked.previousAssigneeId !== input.userId
   )
     throw new Error("Only the assignee or a project lead can move this task.");
+  // Handing in an assignment copy goes through Submit, which records the link or text (report §16.4);
+  // a file submission needs its file attached to the copy first.
+  if (status === "done" && locked.currentStatus !== "done" && locked.copySubmissionType) {
+    if (locked.copySubmissionType === "link" || locked.copySubmissionType === "text") {
+      throw new Error("Use Submit to hand this in.");
+    }
+    if (locked.copySubmissionType === "file") {
+      const [file] = await tx.execute<{ id: string }>(sql`
+        SELECT id FROM project_nodes WHERE task_id = ${input.taskId} AND deleted_at IS NULL AND type = 'file'
+        UNION ALL SELECT node_id FROM task_node_links WHERE task_id = ${input.taskId}
+        LIMIT 1`);
+      if (!file) throw new Error("Attach your file to this task, then move it to Done.");
+    }
+  }
   if (input.resubmit && locked.reviewStatus !== "pending")
     throw new Error("Task is not pending review. Reload before submitting.");
   let reviewStatus = locked.reviewStatus;

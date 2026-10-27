@@ -2238,6 +2238,14 @@ export const tasks = pgTable(
 
     storyPoints: integer("story_points"),
     dueDate: timestamp("due_date", { withTimezone: true }),
+    // Assignments (0244): masters have kind "assignment"; copies point to theirs with assignmentId.
+    kind: text("kind", { enum: ["task", "assignment"] }).default("task").notNull(),
+    assignmentId: uuid("assignment_id").references((): AnyPgColumn => tasks.id, { onDelete: "cascade" }),
+    assignmentSettings: jsonb("assignment_settings").$type<import("@/lib/organizations/assignment-rules").AssignmentSettings>(),
+    submission: jsonb("submission").$type<import("@/lib/organizations/assignment-rules").AssignmentSubmission>(),
+    excusedAt: timestamp("excused_at", { withTimezone: true }),
+    excusedReason: text("excused_reason"),
+    teamName: text("team_name"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -2248,6 +2256,8 @@ export const tasks = pgTable(
   },
   (t) => ({
     completedByIdx: index("tasks_completed_by_idx").on(t.completedBy),
+    assignmentIdx: index("tasks_assignment_idx").on(t.assignmentId).where(sql`${t.assignmentId} IS NOT NULL`),
+    kindCheck: check("tasks_kind_check", sql`${t.kind} IN ('task', 'assignment')`),
     pendingReviewIdx: index("tasks_pending_review_idx").on(t.projectId).where(sql`${t.reviewStatus} = 'pending' AND ${t.deletedAt} IS NULL`),
     workflowColumnIdx: index("tasks_workflow_column_idx").on(
       t.workflowColumnId,
@@ -3844,6 +3854,21 @@ export const projectUpdateCommentsRelations = relations(
       references: [profiles.id],
       relationName: "project_update_comment_deleted_by",
     }),
+  }),
+);
+
+/** The people on a team copy of an assignment (0244); the copy's assignee is the team lead. Server-only. */
+export const taskTeamMembers = pgTable(
+  "task_team_members",
+  {
+    taskId: uuid("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    isLead: boolean("is_lead").default(false).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.taskId, t.userId] }),
+    userIdx: index("task_team_members_user_idx").on(t.userId),
   }),
 );
 
