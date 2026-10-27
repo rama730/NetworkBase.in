@@ -13,6 +13,7 @@ type OrgSettingsRecord = {
   joinMode?: string;
   childCreation?: string;
   outsidePeople?: boolean;
+  childShare?: boolean;
   roleNames?: Partial<Record<"owner" | "admin" | "member" | "viewer", string>>;
   handleChangedAt?: string;
   changes?: Record<string, { by: string; byName: string | null; at: string }>;
@@ -25,6 +26,8 @@ export type OrgDetail = {
   joinMode: "instant" | "approval";
   childCreation: "members" | "admins";
   outsidePeople: boolean;
+  /** Child projects may share posts up to the org feed (report §17.6). */
+  childShare: boolean;
   visibilityCap: VisibilityCap;
   termStart: string | null;
   termEnd: string | null;
@@ -84,6 +87,7 @@ export async function readOrgDetail(
     joinMode: settings.joinMode === "approval" ? "approval" : "instant",
     childCreation: settings.childCreation === "admins" ? "admins" : "members",
     outsidePeople: settings.outsidePeople === true,
+    childShare: settings.childShare !== false,
     visibilityCap: readOrgRules(settings).visibilityCap,
     termStart: org.termStart,
     termEnd: org.termEnd,

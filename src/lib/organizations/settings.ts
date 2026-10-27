@@ -68,6 +68,7 @@ export const ORG_SETTINGS_PATCH = {
   projects: z.object({
     child_creation: z.enum(["members", "admins"]).optional(),
     outside_people: z.boolean().optional(),
+    child_share: z.boolean().optional(),
     visibility_cap: z.enum(["public", "org", "private"]).optional(),
   }).strict(),
 } as const;

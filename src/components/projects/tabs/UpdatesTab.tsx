@@ -25,6 +25,9 @@ import { cn } from "@/lib/utils";
 import { prependUpdate, realtimeStringField, removeUpdate, replaceUpdate, updatePages, type UpdatesPage } from '@/components/projects/updates/update-helpers';
 import { MemoizedUpdateCard } from '@/components/projects/updates/UpdateCard';
 import { UpdatesRightRail } from '@/components/projects/updates/UpdatesRightRail';
+import { OrgFeedFilters, OrgPinnedLine, OrgUpdateOptions, type OrgPostOptions } from '@/components/organizations/OrgUpdateParts';
+import type { OrgFeedFilter } from '@/lib/organizations/org-updates';
+import { markOrgUpdatesSeenAction } from '@/app/actions/org-updates';
 
 type UpdatesTabProps = {
   projectId: string;
@@ -83,7 +86,14 @@ export default function UpdatesTab({
   initialCommentId,
 }: UpdatesTabProps) {
   const queryClient = useQueryClient();
-  const updatesQueryKey = queryKeys.project.detail.updates(projectId);
+  // Org feeds filter by kind (report §17.5); the plain key stays the prefix so invalidations still reach every filter.
+  const [orgFilter, setOrgFilter] = useState<OrgFeedFilter>("all");
+  const [orgOptions, setOrgOptions] = useState<OrgPostOptions>({});
+  const baseQueryKey = queryKeys.project.detail.updates(projectId);
+  const updatesQueryKey = useMemo(
+    () => (orgFilter === "all" ? baseQueryKey : [...baseQueryKey, orgFilter]),
+    [projectId, orgFilter],
+  );
   const [hiddenUpdateIds, setHiddenUpdateIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -103,6 +113,7 @@ export default function UpdatesTab({
     queryFn: async ({ pageParam }) => {
       const result = await readProjectUpdatesAction(projectId, {
         cursor: pageParam,
+        filter: orgFilter,
       });
       if (!result.success)
         throw new Error(result.error || "Failed to load project updates");
@@ -144,6 +155,24 @@ export default function UpdatesTab({
     });
   }, []);
   const capabilities = updatesQuery.data?.pages[0]?.capabilities;
+  const org = updatesQuery.data?.pages[0]?.org ?? null;
+  // New markers compare against the last visit as it was on arrival; opening the feed then marks it seen.
+  const [seenBefore, setSeenBefore] = useState<string | null | undefined>(undefined);
+  const firstPage = updatesQuery.data?.pages[0];
+  useEffect(() => {
+    if (seenBefore !== undefined || firstPage?.org?.kind !== "org" || !currentUserId) return;
+    setSeenBefore(firstPage.lastSeenAt ?? null);
+    void markOrgUpdatesSeenAction(projectId);
+  }, [currentUserId, firstPage, projectId, seenBefore]);
+  const isNewUpdate = (update: ProjectUpdateView) =>
+    seenBefore !== undefined && update.authorId !== currentUserId && (seenBefore === null || update.createdAt > seenBefore);
+  const postWithOrgOptions = (input: Parameters<typeof createProjectUpdateAction>[1]) => {
+    const orgInput = org?.kind === "org"
+      ? { ...orgOptions, updateType: org.isAdmin ? orgOptions.updateType ?? "announcement" : "discussion" }
+      : orgOptions;
+    createMutation.mutate({ ...input, ...orgInput });
+    setOrgOptions({});
+  };
   const canCreate = Boolean(capabilities?.canCreate ?? canCreateUpdates);
   const canManage = Boolean(capabilities?.canManage ?? canManageUpdates);
 
@@ -358,6 +387,9 @@ export default function UpdatesTab({
         media: input.media ?? [],
         metadata: {},
         isPinned: false,
+        pinnedUntil: null,
+        audience: {},
+        fromProject: null,
         likeCount: 0,
         commentCount: 0,
         likedByViewer: false,
@@ -447,6 +479,7 @@ export default function UpdatesTab({
           onOpenDetail={openDetail}
           currentUserId={currentUserId}
           highlighted={initialUpdateId === update.id}
+          isNew={isNewUpdate(update)}
         />
       )}
     />
@@ -464,6 +497,7 @@ export default function UpdatesTab({
             onOpenDetail={openDetail}
             currentUserId={currentUserId}
             highlighted={initialUpdateId === update.id}
+            isNew={isNewUpdate(update)}
           />
         ))}
       </>
@@ -480,7 +514,7 @@ export default function UpdatesTab({
         <div className="flex items-start justify-between gap-3 px-1 pb-3 pt-2">
           <div>
             <h2 className="nb-section-title text-foreground">
-              Project feed
+              {org?.kind === "org" ? "Organization feed" : "Project feed"}
             </h2>
             <p className="nb-compact text-muted-foreground">
               Progress posts for followers and project visitors.
@@ -495,6 +529,7 @@ export default function UpdatesTab({
           </button>
         </div>
 
+        {isDesktopUpdatesRail === false && canCreate && org ? <OrgUpdateOptions org={org} orgId={projectId} value={orgOptions} onChange={setOrgOptions} /> : null}
         {isDesktopUpdatesRail === false ? (
           <ProjectUpdateComposer
             projectId={projectId}
@@ -505,7 +540,7 @@ export default function UpdatesTab({
             canCreate={canCreate}
             canManage={canManage}
             isPosting={createMutation.isPending}
-            onPost={(input) => createMutation.mutate(input)}
+            onPost={postWithOrgOptions}
           />
         ) : null}
 
@@ -563,6 +598,8 @@ export default function UpdatesTab({
           </>
         ) : null}
 
+        {org?.kind === "org" ? <OrgFeedFilters value={orgFilter} onChange={setOrgFilter} /> : null}
+        {org?.kind === "child" ? <OrgPinnedLine projectId={projectId} /> : null}
         {feed}
 
         {updatesQuery.hasNextPage ? (
@@ -604,6 +641,7 @@ export default function UpdatesTab({
             />
           ) : (
             <div className="space-y-6">
+              {isDesktopUpdatesRail === true && canCreate && org ? <OrgUpdateOptions org={org} orgId={projectId} value={orgOptions} onChange={setOrgOptions} /> : null}
               {isDesktopUpdatesRail === true ? (
                 <ProjectUpdateComposer
                   projectId={projectId}
@@ -614,7 +652,7 @@ export default function UpdatesTab({
                   canCreate={canCreate}
                   canManage={canManage}
                   isPosting={createMutation.isPending}
-                  onPost={(input) => createMutation.mutate(input)}
+                  onPost={postWithOrgOptions}
                 />
               ) : null}
               <UpdatesRightRail

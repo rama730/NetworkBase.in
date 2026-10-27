@@ -323,6 +323,7 @@ const CAP_OPTIONS = [
 export function OrgProjectsSection({ orgId, organization }: SectionProps) {
     const [childCreation, setChildCreation] = useState(organization.childCreation)
     const [outside, setOutside] = useState(organization.outsidePeople)
+    const [childShare, setChildShare] = useState(organization.childShare)
     const [cap, setCap] = useState(organization.visibilityCap)
     // Impact preview (report §21.1 principle 4): how many projects a tighter cap would lower.
     const [affected, setAffected] = useState<number | null>(null)
@@ -365,8 +366,15 @@ export function OrgProjectsSection({ orgId, organization }: SectionProps) {
                         </div>
                         <SettingsSwitch checked={outside} onCheckedChange={setOutside} aria-label="People outside the organization can be added to its projects" />
                     </div>
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <p className={labelClass}>Projects can share updates to the organization</p>
+                            <p className={helpClass}>Shared posts show in the organization&apos;s Updates under From projects. Private projects never share.</p>
+                        </div>
+                        <SettingsSwitch checked={childShare} onCheckedChange={setChildShare} aria-label="Projects can share updates to the organization" />
+                    </div>
                     <div className="flex items-center gap-3">
-                        <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'projects', { child_creation: childCreation, outside_people: outside, ...(cap !== organization.visibilityCap ? { visibility_cap: cap } : {}) }))}>Save</Button>
+                        <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'projects', { child_creation: childCreation, outside_people: outside, child_share: childShare, ...(cap !== organization.visibilityCap ? { visibility_cap: cap } : {}) }))}>Save</Button>
                         {status}
                     </div>
                 </div>
