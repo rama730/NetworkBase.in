@@ -53,6 +53,10 @@ export type ChatProjectSummary = {
   slug: string | null;
   cover_image: string | null;
   role: string;
+  /** Org workspaces (0249): child projects live inside their org's workspace. */
+  kind?: "project" | "organization";
+  parent_id?: string | null;
+  parent_title?: string | null;
 };
 
 export type ChatBootstrap = {
@@ -84,7 +88,7 @@ export type ChatAttachmentView = {
 
 export type ChatReactionView = { emoji: string; count: number; me: boolean };
 
-export type ChatCardKind = "application" | "task" | "invite";
+export type ChatCardKind = "application" | "task" | "invite" | "announcement" | "assignment";
 export type ChatCardRef = { kind: ChatCardKind; ref_id: string };
 
 export type ChatMessageView = {
@@ -189,8 +193,36 @@ export type InviteCardView = {
   can_cancel: boolean;
 };
 
+/** An org announcement shared in #general (report §25.5). */
+export type AnnouncementCardView = {
+  kind: "announcement";
+  id: string;
+  content: string;
+  project_id: string;
+  project_slug: string | null;
+  project_title: string;
+  created_at: string;
+  deleted: boolean;
+};
+
+/** An assignment shared in #general: each viewer sees their own status; admins see counts (report §25.5). */
+export type AssignmentCardView = {
+  kind: "assignment";
+  id: string;
+  title: string;
+  due_date: string | null;
+  project_id: string;
+  project_slug: string | null;
+  project_title: string;
+  deleted: boolean;
+  own: { copy_id: string; state: string; late: boolean } | null;
+  counts: { done: number; submitted: number; total: number } | null;
+};
+
 export type ChatCardView =
   | ApplicationCardView
   | TaskCardView
   | InviteCardView
+  | AnnouncementCardView
+  | AssignmentCardView
   | { kind: ChatCardKind; id: string; restricted: true };

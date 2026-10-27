@@ -26,13 +26,15 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
 import {
   DM_SIDEBAR_LIMIT, attention, channelTitle, channelsByProject, counterpart, formatChatTime, fullTime, isApplicationThread, isDirectLike, isSelfDm, isUnread, needsAttention,
-  projectBadges, projectsByActivity, rowCount, sectionsFor, swipeButtons,
+  projectBadges, projectsByActivity, rowCount, sectionsFor, swipeButtons, workspaceBadges,
 } from "@/lib/messaging/channel-view";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { APPLICATION_STATUS_LABEL, APPLICATION_STATUS_TONE, isDecidedApplication } from "@/lib/messaging/application-status";
 import type { ChatChannelSummary, ChatNotify } from "@/lib/messaging/types";
 import { copyWithToast } from "@/lib/clipboard";
 import { conversationHref } from "@/lib/messaging/routes";
+import { childProjectsOf, workspaceProjects } from "@/lib/organizations/chat-rules";
+import { OrgBrowseProjects } from "@/components/messages/OrgBrowseProjects";
 import { ConversationIcon } from "@/components/messages/ConversationIcon";
 import { useConversationExit } from "@/components/messages/useConversationExit";
 import { useMarkAllRead } from "@/components/messages/useMarkAllRead";
@@ -423,9 +425,10 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
   const router = useRouter();
   // On the Messages page the project lives in the URL (reload keeps it); the floating window has no URL.
   const pick = (id: string | null) => (inPage ? router.push(id ? `/messages/p/${id}` : "/messages") : setProject(id));
-  const projects = projectsByActivity(data);
-  const badges = projectBadges(data);
-  const open = projects.find((project) => project.id === projectId) ?? null;
+  // Orgs and personal projects get a row; child projects live inside their org (report §25.1).
+  const projects = workspaceProjects(projectsByActivity(data));
+  const badges = workspaceBadges(data);
+  const open = projectsByActivity(data).find((project) => project.id === projectId) ?? null;
   const canManage = open?.role === "owner" || open?.role === "admin";
   // Only with a project open: in All projects every project's count is already on screen.
   const otherUnread = open ? projects.reduce((sum, project) => sum + (project.id === open.id ? 0 : badges.get(project.id) ?? 0), 0) : 0;
@@ -455,7 +458,7 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
             {projects.map((project) => (
               <DropdownMenuRadioItem key={project.id} value={project.id} data-testid={`chat-project-${project.id}`}>
                 <span className="relative inline-flex flex-none"><ProjectBadge project={project} size="sm" /><ProjectPresenceBadge projectId={project.id} size={10} className="absolute" style={{ right: -3, bottom: -3 }} /></span>
-                <span className="min-w-0 flex-1 truncate">{project.title}</span>
+                <span className="min-w-0 flex-1 truncate">{project.guestOf ? `${project.guestOf} · Guest` : project.title}</span>
                 <Count value={badges.get(project.id) ?? 0} noun="mentions" />
               </DropdownMenuRadioItem>
             ))}
@@ -759,7 +762,33 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
         >
           {projectRows(open.id, sections.channels.filter(keep))}
         </Section>
-      ) : open ? null : projects.length ? (
+      ) : null}
+      {/* An org workspace: each child project is a channel group under Projects (report §25.1, §25.7). */}
+      {open && open.kind === "organization" ? (
+        <>
+          {childProjectsOf(data.projects ?? [], open.id).map((child) => {
+            const rows = (byProject.get(child.id) ?? []).filter((c) => !c.starred).filter(keep);
+            if (unreadsOnly && !rows.length) return null;
+            return (
+              <Section
+                key={child.id}
+                id={`project:${child.id}`}
+                title={<span className="inline-flex items-center gap-1.5"><ProjectBadge project={child} size="sm" />{child.title}</span>}
+                plainTitle
+                count={rows.reduce((sum, c) => sum + attention(c), 0)}
+                noun="mentions"
+                collapsed={Boolean(collapsed[`project:${child.id}`])}
+                onToggle={toggle}
+                attention={rows.filter(needsAttention).map(row)}
+              >
+                {rows.map(row)}
+              </Section>
+            );
+          })}
+          {(open.role === "owner" || open.role === "admin") && !unreadsOnly ? <OrgBrowseProjects orgId={open.id} onOpen={(channelId) => (onSelect ? onSelect(channelId) : router.push(conversationHref(channelId)))} onJoined={() => void refresh()} /> : null}
+        </>
+      ) : null}
+      {open ? null : projects.length ? (
         projects.map((project) => {
           const all = (byProject.get(project.id) ?? []).filter((c) => !c.starred);
           const rows = all.filter(keep);

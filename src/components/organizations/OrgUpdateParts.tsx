@@ -23,6 +23,7 @@ export type OrgPostOptions = {
     pinnedUntil?: string | null
     commentsOff?: boolean
     shareToOrg?: boolean
+    shareToGeneral?: boolean
 }
 
 const chip = 'inline-flex min-h-8 items-center gap-1.5 rounded-[5px] border border-border px-2.5 text-[12px] text-foreground'
@@ -105,6 +106,12 @@ export function OrgUpdateOptions({ org, orgId, value, onChange }: { org: OrgFeed
                     <input type="checkbox" checked={Boolean(value.commentsOff)} onChange={(e) => onChange({ ...value, commentsOff: e.target.checked })} />
                     Comments off
                 </label>
+                {(value.updateType ?? 'announcement') === 'announcement' ? (
+                    <label className={chip}>
+                        <input type="checkbox" checked={Boolean(value.shareToGeneral)} onChange={(e) => onChange({ ...value, shareToGeneral: e.target.checked })} />
+                        Also share in #general
+                    </label>
+                ) : null}
             </div>
         </fieldset>
     )

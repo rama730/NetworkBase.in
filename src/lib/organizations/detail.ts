@@ -28,6 +28,8 @@ export type OrgDetail = {
   outsidePeople: boolean;
   /** Child projects may share posts up to the org feed (report §17.6). */
   childShare: boolean;
+  /** Chat rules as stored (report §25.4); read with orgChatSettings for type defaults. */
+  chat: { membersCreateChannels?: boolean; generalAdminsOnly?: boolean };
   visibilityCap: VisibilityCap;
   termStart: string | null;
   termEnd: string | null;
@@ -88,6 +90,7 @@ export async function readOrgDetail(
     childCreation: settings.childCreation === "admins" ? "admins" : "members",
     outsidePeople: settings.outsidePeople === true,
     childShare: settings.childShare !== false,
+    chat: { membersCreateChannels: (settings as { membersCreateChannels?: boolean }).membersCreateChannels, generalAdminsOnly: (settings as { generalAdminsOnly?: boolean }).generalAdminsOnly },
     visibilityCap: readOrgRules(settings).visibilityCap,
     termStart: org.termStart,
     termEnd: org.termEnd,

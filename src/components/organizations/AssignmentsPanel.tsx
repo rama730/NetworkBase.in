@@ -112,6 +112,8 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
     const [childIds, setChildIds] = useState<string[]>([])
     const [teamSize, setTeamSize] = useState(3)
     const [steps, setSteps] = useState<string[]>([])
+    // Also share in #general (report §25.5): off by default.
+    const [shareToGeneral, setShareToGeneral] = useState(false)
     const [stepDraft, setStepDraft] = useState('')
     const [roster, setRoster] = useState<OrgRosterPerson[]>([])
     const [options, setOptions] = useState<{ children: Array<{ id: string; title: string }>; sprints: Array<{ id: string; name: string; status: string }> }>({ children: [], sprints: [] })
@@ -144,7 +146,7 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
         const result = await createAssignmentAction({
             projectId: orgId, title, description, dueDate: new Date(dueLocal).toISOString(), sprintId: sprintId || null, publish,
             submissionType, reviewRequired, lateRule, lateUntil: lateRule === 'until' && lateUntilLocal ? new Date(lateUntilLocal).toISOString() : null,
-            target: target(), steps,
+            target: target(), steps, shareToGeneral,
         })
         if (!result.success) return setError(result.error)
         setError(null)
@@ -269,7 +271,8 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
 
                     <p className="text-sm text-muted-foreground" role="status">{preview}</p>
                     {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-                    <div className="flex flex-wrap justify-end gap-2">
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                        <label className="mr-auto flex items-center gap-1.5 text-sm"><input type="checkbox" checked={shareToGeneral} onChange={(e) => setShareToGeneral(e.target.checked)} /> Also share in #general</label>
                         <Button type="button" variant="outline" disabled={pending} onClick={() => save(false)}>Save as draft</Button>
                         <Button type="button" disabled={pending || !title.trim()} onClick={() => save(true)}>Publish</Button>
                     </div>

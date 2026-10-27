@@ -74,7 +74,8 @@ export async function moveIntoOrg(projectId: string, orgId: string, currentVisib
     visibility: capChildVisibility(requested, org.cap, org.orgPublic),
     orgSettings: sql`${projects.orgSettings} - 'moveInRequest'`,
     updatedAt: new Date(),
-  }).where(eq(projects.id, projectId));
+  }).where(eq(projects.id, projectId));  // Its channels move under the org: #general becomes #<handle> (report §25.2).
+  await db.execute(sql`SELECT app_private.chat_reparent_project(${projectId}::uuid)`);
 }
 
 /** Takes a child out of its org: it becomes a Private personal project and its sprints unlink (report §14.7, §15.8). */
@@ -86,7 +87,8 @@ export async function detachFromOrg(projectId: string) {
     visibility: "private",
     orgSettings: sql`${projects.orgSettings} - 'detachRequest'`,
     updatedAt: new Date(),
-  }).where(eq(projects.id, projectId));
+  }).where(eq(projects.id, projectId));  // Its channels become its own workspace again; org admins who opened them leave (report §25.2).
+  await db.execute(sql`SELECT app_private.chat_reparent_project(${projectId}::uuid)`);
 }
 
 export { readOrgCap };

@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/server';
 import { organizationsEnabled } from '@/lib/organizations/config';
 import { canStillSubmit, copyState, type AssignmentSettings, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules';
 import { createCopies, createMasterTask, resolveRecipients } from '@/lib/organizations/assignments';
+import { shareToOrgGeneral } from '@/lib/organizations/org-chat';
 
 // Assignments (report §16, §16.11). Owners and admins create, review and manage; recipients submit.
 
@@ -62,6 +63,8 @@ const createSchema = z.object({
     lateUntil: z.string().datetime({ offset: true }).nullable().optional(),
     target: targetSchema,
     steps: z.array(z.string().trim().min(1).max(200)).max(50),
+    /** Also share in #general (report §25.5), off by default; only when published. */
+    shareToGeneral: z.boolean().optional(),
 });
 
 /** New assignment: a master, and copies when published (report §16.2). Drafts make no copies. */
@@ -98,6 +101,7 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
             return { masterId, copies: recipients.length };
         });
         touch(viewer.slug, data.projectId);
+        if (data.publish && data.shareToGeneral) await shareToOrgGeneral(data.projectId, viewer.userId, { kind: 'assignment', ref_id: result.masterId });
         return { success: true, ...result };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Could not create the assignment.' };

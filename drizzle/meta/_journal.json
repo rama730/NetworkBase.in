@@ -1716,6 +1716,13 @@
       "when": 1792454415000,
       "tag": "0248_org_profile",
       "breakpoints": true
+    },
+    {
+      "idx": 245,
+      "version": "7",
+      "when": 1792454416000,
+      "tag": "0249_org_chat",
+      "breakpoints": true
     }
   ]
 }

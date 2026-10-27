@@ -342,7 +342,7 @@ export async function listFiles(input: { channelId: string }) {
 export async function refreshCard(input: { kind: ChatCardRef["kind"]; refId: string }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
-  if (!isUuid(input?.refId) || !["application", "task", "invite"].includes(input.kind)) return invalidInput;
+  if (!isUuid(input?.refId) || !["application", "task", "invite", "announcement", "assignment"].includes(input.kind)) return invalidInput;
   const cards = await hydrateCards(user.id, [{ kind: input.kind, ref_id: input.refId }]);
   return { success: true as const, card: cards[`${input.kind}:${input.refId}`] };
 }
