@@ -1,4 +1,5 @@
-export type ProjectDocReferenceKind = "roles" | "contributors" | "files" | "tasks" | "sprints";
+/** "projects" is the org Projects block (report §19.5): the org's child projects, live. */
+export type ProjectDocReferenceKind = "roles" | "contributors" | "files" | "tasks" | "sprints" | "projects";
 export type ProjectDocSmartBlockKind = ProjectDocReferenceKind | "unknown";
 
 export type ProjectDocSmartBlock = {
@@ -105,7 +106,7 @@ export function normalizeReadmeReferenceLabel(kind: ProjectDocReferenceKind, val
 }
 
 function normalizeSmartBlockKind(value: string): ProjectDocSmartBlockKind {
-    if (value === "roles" || value === "contributors" || value === "files" || value === "tasks" || value === "sprints") {
+    if (value === "roles" || value === "contributors" || value === "files" || value === "tasks" || value === "sprints" || value === "projects") {
         return value;
     }
     return "unknown";

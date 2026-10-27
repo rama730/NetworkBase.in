@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, FileText, ListTodo, Timer, Users } from "lucide-react";
+import { AlertTriangle, FileText, FolderKanban, ListTodo, Timer, Users } from "lucide-react";
 import Image from "next/image";
 
 import type { ProjectDocReferenceOption, ProjectDocSmartBlockPreview } from "@/lib/projects/doc-blocks";
@@ -13,6 +13,7 @@ const KIND_ICON = {
     files: FileText,
     tasks: ListTodo,
     sprints: Timer,
+    projects: FolderKanban,
     unknown: AlertTriangle,
 } as const;
 

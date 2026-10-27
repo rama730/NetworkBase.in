@@ -245,7 +245,8 @@
     "drizzle/0241_organizations_core.sql",
     "drizzle/0243_org_sprints.sql",
     "drizzle/0244_org_assignments.sql",
-    "drizzle/0245_org_updates.sql"
+    "drizzle/0245_org_updates.sql",
+    "drizzle/0246_org_docs.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",

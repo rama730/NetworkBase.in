@@ -1463,6 +1463,8 @@ export const projectDocs = pgTable(
           | "leaders_only";
         externalImages: boolean;
         projectBlocks: boolean;
+        /** Org docs (report §19): see src/lib/organizations/doc-rules.ts. */
+        org?: Record<string, unknown>;
       }>()
       .default({
         version: 1,
@@ -3880,6 +3882,21 @@ export const taskTeamMembers = pgTable(
   (t) => ({
     pk: primaryKey({ columns: [t.taskId, t.userId] }),
     userIdx: index("task_team_members_user_idx").on(t.userId),
+  }),
+);
+
+/** Who opened which org doc, at which re-read version, for New and Required labels (0246). Server-only. */
+export const docOpens = pgTable(
+  "doc_opens",
+  {
+    docId: uuid("doc_id").notNull().references(() => projectDocs.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    version: integer("version").default(0).notNull(),
+    openedAt: timestamp("opened_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.docId, t.userId] }),
+    userIdx: index("doc_opens_user_idx").on(t.userId),
   }),
 );
 

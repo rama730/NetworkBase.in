@@ -109,10 +109,13 @@ export function ProjectDocViewer({
     project,
     payload,
     docSlug = "readme",
+    inPlaceBanner,
 }: {
     project: Project;
     payload: ProjectDocPublishedPayload;
     docSlug?: string;
+    /** An org doc read inside a child project: this banner instead of the doc rail (report §19.7). */
+    inPlaceBanner?: React.ReactNode;
 }) {
     const normalizedDocSlug = useMemo(() => normalizeProjectDocSlug(docSlug), [docSlug]);
     const rail = useDocRail(project.id, normalizedDocSlug);
@@ -134,6 +137,7 @@ export function ProjectDocViewer({
         project.id,
         previewBlocks,
         previewBlocks.length > 0,
+        normalizedDocSlug,
     );
     const previewByKey = useMemo(() => {
         const map = new Map<string, ProjectDocSmartBlockPreview>();
@@ -260,6 +264,30 @@ export function ProjectDocViewer({
 
     if (!version) return null;
 
+    const renderer = (
+        <ProjectDocRenderer
+            content={version.content}
+            project={project}
+            docSlug={normalizedDocSlug}
+            allowExternalImages={payload.settings.externalImages}
+            allowSmartBlocks={payload.settings.projectBlocks}
+            className="mx-auto max-w-none"
+            onRequestTarget={scrollToTarget}
+            onMediaLoad={handleReadmeMediaLoad}
+            previewByKey={previewByKey}
+            previewsLoading={readmePreviewsQuery.isLoading}
+            viewModel={readmeViewModel}
+        />
+    );
+    if (inPlaceBanner) {
+        return (
+            <div className="relative mx-auto w-full max-w-[1240px] px-0 py-0">
+                {inPlaceBanner}
+                {renderer}
+            </div>
+        );
+    }
+
     return (
         <div className="relative mx-auto w-full max-w-[1240px] px-0 py-0">
             <ProjectDocMobileBar
@@ -270,25 +298,14 @@ export function ProjectDocViewer({
             />
             <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_260px]">
                 <div className="min-w-0">
-                    <ProjectDocRenderer
-                        content={version.content}
-                        project={project}
-                        docSlug={normalizedDocSlug}
-                        allowExternalImages={payload.settings.externalImages}
-                        allowSmartBlocks={payload.settings.projectBlocks}
-                        className="mx-auto max-w-none"
-                        onRequestTarget={scrollToTarget}
-                        onMediaLoad={handleReadmeMediaLoad}
-                        previewByKey={previewByKey}
-                        previewsLoading={readmePreviewsQuery.isLoading}
-                        viewModel={readmeViewModel}
-                    />
+                    {renderer}
                 </div>
                 <ProjectDocRail
                     projectId={project.id}
                     activeSlug={normalizedDocSlug}
                     canEdit={payload.canEdit}
                     rail={rail}
+                    visibility={payload.settings.visibilityOverride}
                 />
             </div>
             {payload.canEdit ? rail.dialogs : null}

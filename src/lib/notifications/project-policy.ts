@@ -721,18 +721,17 @@ export const PROJECT_NOTIFICATION_EVENT_REGISTRY = {
         key: "readme.published",
         group: "readme",
         label: "Doc published",
-        description: "Notify followers and members when a project Doc is published.",
+        description: "Notify members when an admin publishes a Doc with Publish & notify.",
         category: "projects",
         notificationKind: "project_update_activity",
-        defaultEnabled: false,
+        // Org Docs' Publish & notify is the producer (report §19.3): an explicit admin action, members only.
+        defaultEnabled: true,
         defaultImportance: "more",
-        defaultRecipients: ["followers", "members"],
+        defaultRecipients: ["members"],
         allowMemberOverride: true,
         mandatory: false,
         aggregate: "none",
-        // The current Doc surface is a published, read-only viewer. Keep the
-        // dormant publish event out of preferences until a producer exists.
-        visible: false,
+        visible: true,
     }),
     "readme.major_edited": E({
         key: "readme.major_edited",

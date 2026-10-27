@@ -453,7 +453,7 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
     const inlineReferences = readmeModel.references;
     const blocks = isCircularDocReference ? [] : (allowSmartBlocks ? readmeModel.previewBlocks : readmeModel.referencePreviewBlocks);
     const commandTargetMaps = readmeModel.commandTargetMaps;
-    const previewsQuery = useProjectDocSmartBlockPreviews(project.id, blocks, !previewByKey && blocks.length > 0);
+    const previewsQuery = useProjectDocSmartBlockPreviews(project.id, blocks, !previewByKey && blocks.length > 0, normalizedDocSlug);
     const fallbackPreviewByKey = useMemo(() => {
         const map = new Map<string, NonNullable<typeof previewsQuery.data>[number]>();
         for (const preview of previewsQuery.data ?? []) {

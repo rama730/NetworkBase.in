@@ -11,6 +11,7 @@ import { SkeletonDoc } from "@/components/projects/skeletons/SkeletonDoc";
 import { useProjectDoc } from "@/hooks/projects/useProjectDocData";
 import { normalizeProjectDocSlug } from "@/lib/projects/doc";
 import type { Project } from "@/types/discover";
+import { OrgDocBanner, useMarkOrgDocOpened, useOrgDocs } from "@/components/organizations/OrgDocParts";
 
 export default function DocTab({
     projectId,
@@ -21,11 +22,59 @@ export default function DocTab({
 }) {
     const searchParams = useSearchParams();
     const paramDoc = searchParams?.get("doc");
+    // ?from=org: an org doc read in place inside a child project (report §19.7).
+    if (searchParams?.get("from") === "org" && paramDoc) {
+        return <OrgDocInPlace project={project} docSlug={normalizeProjectDocSlug(paramDoc)} />;
+    }
+    return <OwnDocs projectId={projectId} project={project} paramDoc={paramDoc ?? null} />;
+}
+
+function OrgDocInPlace({ project, docSlug }: { project: Project; docSlug: string }) {
+    const orgQuery = useOrgDocs(project.id);
+    const org = orgQuery.data?.mode === "child" ? orgQuery.data : null;
+    if (orgQuery.isLoading) return <SkeletonDoc />;
+    if (!org || !org.docs.some((doc) => doc.slug === docSlug)) {
+        return (
+            <div className="nb-empty-state py-12" role="alert">
+                <BookOpenText className="nb-empty-state-icon" aria-hidden="true" />
+                <p className="nb-card-title mt-4 text-foreground">Doc not visible</p>
+                <p className="nb-compact mt-2 text-muted-foreground">This organization doc is not shared with this project.</p>
+            </div>
+        );
+    }
+    return <OrgDocFrame project={project} orgId={org.orgId} orgTitle={org.orgTitle} orgSlug={org.orgSlug} docSlug={docSlug} />;
+}
+
+function OrgDocFrame({ project, orgId, orgTitle, orgSlug, docSlug }: { project: Project; orgId: string; orgTitle: string; orgSlug: string | null; docSlug: string }) {
+    const query = useProjectDoc(orgId, docSlug);
+    useMarkOrgDocOpened(query.data?.version ? orgId : null, docSlug, project.id);
+    if (query.isLoading) return <SkeletonDoc />;
+    if (!query.data?.version) return null;
+    const projectSlug = project.slug || project.id;
+    return (
+        <ProjectDocViewer
+            key={`${orgId}:${docSlug}:${query.data.version.id}`}
+            project={{ ...project, id: orgId, slug: orgSlug ?? undefined, title: orgTitle }}
+            payload={{ ...query.data, canEdit: false }}
+            docSlug={docSlug}
+            inPlaceBanner={<OrgDocBanner
+                orgTitle={orgTitle}
+                href={`/org/${encodeURIComponent(orgSlug ?? orgId)}?tab=docs&doc=${encodeURIComponent(docSlug)}`}
+                backHref={`/projects/${encodeURIComponent(projectSlug)}?tab=docs`}
+            />}
+        />
+    );
+}
+
+function OwnDocs({ projectId, project, paramDoc }: { projectId: string; project: Project; paramDoc: string | null }) {
     const readmeQuery = useProjectDoc(projectId, paramDoc ? normalizeProjectDocSlug(paramDoc) : null);
     const docSlug = readmeQuery.data?.docSlug ?? "readme";
     const canEdit = readmeQuery.data?.canEdit ?? false;
     const hasDocs = (readmeQuery.data?.docs?.length ?? 0) > 0;
     const [addOpen, setAddOpen] = useState(false);
+    const orgDocs = useOrgDocs(projectId).data;
+    const isOrg = orgDocs?.mode === "org" && orgDocs.signedIn;
+    useMarkOrgDocOpened(isOrg && readmeQuery.data?.version ? projectId : null, docSlug, projectId);
 
     if (readmeQuery.isLoading) return <SkeletonDoc />;
 

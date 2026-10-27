@@ -46,7 +46,8 @@ function setCachedSmartBlock(key: string, preview: ProjectDocSmartBlockPreview) 
     SMART_BLOCK_CACHE.set(key, preview);
 }
 
-export function useProjectDocSmartBlockPreviews(projectId: string, blocks: ProjectDocSmartBlock[], enabled = true) {
+/** `docSlug` is the doc being read: previews follow that doc's visibility, not the README's. */
+export function useProjectDocSmartBlockPreviews(projectId: string, blocks: ProjectDocSmartBlock[], enabled = true, docSlug = "readme") {
     const blockSignature = useMemo(() => {
         const uniqueBlocks = new Map<string, { kind: string; ids: string[] }>();
         blocks.forEach((b) => {
@@ -62,7 +63,7 @@ export function useProjectDocSmartBlockPreviews(projectId: string, blocks: Proje
     }, [blocks]);
 
     return useQuery({
-        queryKey: PROJECT_DOC_SMART_BLOCK_PREVIEWS_QUERY_KEY(projectId, blockSignature),
+        queryKey: PROJECT_DOC_SMART_BLOCK_PREVIEWS_QUERY_KEY(projectId, `${docSlug}|${blockSignature}`),
         queryFn: async () => {
             // Deduplicate blocks before querying to prevent redundant database resolutions
             const uniqueMap = new Map<string, { kind: ProjectDocReferenceKind | "unknown"; ids: string[]; index: number }>();
@@ -93,7 +94,7 @@ export function useProjectDocSmartBlockPreviews(projectId: string, blocks: Proje
                 for (let index = 0; index < missingBlocks.length; index += 20) {
                     chunks.push(missingBlocks.slice(index, index + 20));
                 }
-                const results = await Promise.all(chunks.map((chunk) => readProjectDocSmartBlockPreviewsAction(projectId, chunk)));
+                const results = await Promise.all(chunks.map((chunk) => readProjectDocSmartBlockPreviewsAction(projectId, chunk, docSlug)));
                 for (const result of results) {
                     if (!result.success) throw new Error(result.error);
                     for (const preview of result.previews) {

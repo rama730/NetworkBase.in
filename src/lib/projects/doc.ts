@@ -26,6 +26,8 @@ export type ProjectDocSettings = {
     visibilityOverride: ProjectDocVisibilityOverride;
     externalImages: boolean;
     projectBlocks: boolean;
+    /** Org docs only (report §19): group, Required, Template, Show in child projects, re-read version. */
+    org?: Record<string, unknown>;
 };
 
 export type ProjectDocQualityIssue = {
@@ -109,6 +111,7 @@ export function normalizeProjectDocSettings(value: unknown): ProjectDocSettings 
         visibilityOverride,
         externalImages: typeof source.externalImages === "boolean" ? source.externalImages : DEFAULT_PROJECT_DOC_SETTINGS.externalImages,
         projectBlocks: typeof source.projectBlocks === "boolean" ? source.projectBlocks : DEFAULT_PROJECT_DOC_SETTINGS.projectBlocks,
+        ...(source.org && typeof source.org === "object" ? { org: source.org } : {}),
     };
 }
 
