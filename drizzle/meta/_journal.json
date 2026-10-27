@@ -1681,6 +1681,13 @@
       "when": 1792454410000,
       "tag": "0243_org_sprints",
       "breakpoints": true
+    },
+    {
+      "idx": 240,
+      "version": "7",
+      "when": 1792454411000,
+      "tag": "0244_org_assignments",
+      "breakpoints": true
     }
   ]
 }

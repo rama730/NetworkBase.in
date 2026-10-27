@@ -1,0 +1,419 @@
+'use client'
+
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
+import { ClipboardList, Plus, Shuffle, X } from 'lucide-react'
+
+import {
+    approveAllSubmittedAction,
+    closeAssignmentAction,
+    createAssignmentAction,
+    deleteAssignmentAction,
+    excuseCopyAction,
+    extendCopyAction,
+    listAssignmentsAction,
+    listProjectGroupCopiesAction,
+    publishAssignmentAction,
+    readAssignmentComposerOptionsAction,
+    readAssignmentRosterAction,
+    reviewAssignmentCopyAction,
+    submitAssignmentAction,
+    type AssignmentRow,
+    type GroupCopyRow,
+    type RosterRow,
+} from '@/app/actions/assignments'
+import { listOrgRosterAction, type OrgRosterPerson } from '@/app/actions/organizations'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { splitIntoTeams, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules'
+
+// Assignments in the org Tasks tab (report §16.2–16.5, §16.11) and group copies in a child project (§16.6).
+// The Kanban board below stays as it is: members' own copies appear there through the read rule.
+
+const DUE = new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+const STATE_LABEL: Record<CopyState, string> = {
+    not_started: 'Not started', in_progress: 'In progress', submitted: 'Submitted', returned: 'Returned', done: 'Done', missing: 'Missing', excused: 'Excused',
+}
+const due = (iso: string | null) => (iso ? `due ${DUE.format(new Date(iso))}` : 'no due date')
+const area = 'w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
+const select = 'h-[var(--ui-control-height)] rounded-md border border-input bg-background px-2 text-sm'
+
+function Status({ text, tone = 'draft' }: { text: string; tone?: string }) {
+    return <span className="nb-status" data-status={tone}>{text}</span>
+}
+
+function countsLine(row: AssignmentRow) {
+    const c = row.counts
+    const parts = [`${c.done} of ${c.total} done`]
+    if (c.submitted) parts.push(`${c.submitted} submitted`)
+    if (c.missing) parts.push(`${c.missing} missing`)
+    if (c.excused) parts.push(`${c.excused} excused`)
+    return parts.join(' · ')
+}
+
+/** Submit dialog: a link or text, or a reminder to attach the file to the task (report §16.4). */
+function SubmitDialog({ copyId, submissionType, title, open, onOpenChange, onDone }: { copyId: string; submissionType: string; title: string; open: boolean; onOpenChange: (open: boolean) => void; onDone: () => void }) {
+    const [link, setLink] = useState('')
+    const [text, setText] = useState('')
+    const [error, setError] = useState<string | null>(null)
+    const [pending, startTransition] = useTransition()
+    const submit = () => startTransition(async () => {
+        const result = await submitAssignmentAction(copyId, submissionType === 'link' ? { link } : submissionType === 'text' ? { text } : {})
+        if (!result.success) return setError(result.error)
+        setError(null)
+        onOpenChange(false)
+        onDone()
+    })
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Submit {title}</DialogTitle>
+                    <DialogDescription>{submissionType === 'file' ? 'Attach your file to this task first (Tasks → open the card → Files), then submit.' : 'Hand in your work. You can resubmit until it is reviewed.'}</DialogDescription>
+                </DialogHeader>
+                {submissionType === 'link' ? <Input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://" aria-label="Link to your work" /> : null}
+                {submissionType === 'text' ? <textarea value={text} onChange={(e) => setText(e.target.value)} rows={6} maxLength={10000} className={area} aria-label="Your answer" /> : null}
+                {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+                <Button type="button" disabled={pending} onClick={submit}>Submit</Button>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+type TeamBox = { name: string; people: OrgRosterPerson[]; leadId: string | null }
+
+/** New assignment (report §16.2): who it goes to, submission, late rule, steps; Publish or Save as draft. */
+function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: string; open: boolean; onOpenChange: (open: boolean) => void; onCreated: () => void }) {
+    const [title, setTitle] = useState('')
+    const [description, setDescription] = useState('')
+    const [dueLocal, setDueLocal] = useState('')
+    const [sprintId, setSprintId] = useState('')
+    const [submissionType, setSubmissionType] = useState<'none' | 'file' | 'link' | 'text'>('file')
+    const [reviewRequired, setReviewRequired] = useState(true)
+    const [lateRule, setLateRule] = useState<'none' | 'until' | 'always'>('always')
+    const [lateUntilLocal, setLateUntilLocal] = useState('')
+    const [mode, setMode] = useState<AssignmentTarget['mode']>('everyone')
+    const [people, setPeople] = useState<string[]>([])
+    const [teams, setTeams] = useState<TeamBox[]>([])
+    const [childIds, setChildIds] = useState<string[]>([])
+    const [teamSize, setTeamSize] = useState(3)
+    const [steps, setSteps] = useState<string[]>([])
+    const [stepDraft, setStepDraft] = useState('')
+    const [roster, setRoster] = useState<OrgRosterPerson[]>([])
+    const [options, setOptions] = useState<{ children: Array<{ id: string; title: string }>; sprints: Array<{ id: string; name: string; status: string }> }>({ children: [], sprints: [] })
+    const [error, setError] = useState<string | null>(null)
+    const [pending, startTransition] = useTransition()
+
+    useEffect(() => {
+        if (!open) return
+        void listOrgRosterAction(orgId, '').then(setRoster)
+        void readAssignmentComposerOptionsAction(orgId).then((r) => { if (r.success) setOptions({ children: r.children, sprints: r.sprints }) })
+    }, [open, orgId])
+
+    const placed = new Set(teams.flatMap((t) => t.people.map((p) => p.userId)))
+    const individuals = people.filter((id) => !placed.has(id))
+    const preview = mode === 'everyone' ? 'One copy per member'
+        : mode === 'role' ? 'One copy per admin'
+            : mode === 'people' ? `Creates ${people.length} ${people.length === 1 ? 'copy' : 'copies'}`
+                : mode === 'teams' ? `Creates ${teams.length + individuals.length} copies: ${teams.length} team ${teams.length === 1 ? 'copy' : 'copies'} (${placed.size} people) + ${individuals.length} individual`
+                    : mode === 'each_child' ? `Creates ${options.children.length} copies · one per project lead`
+                        : `Creates ${childIds.length} copies · one per project lead`
+
+    const target = (): AssignmentTarget => mode === 'everyone' ? { mode }
+        : mode === 'role' ? { mode, role: 'admin' }
+            : mode === 'people' ? { mode, userIds: people }
+                : mode === 'teams' ? { mode, teams: teams.map((t) => ({ name: t.name, userIds: t.people.map((p) => p.userId), leadId: t.leadId })), individuals }
+                    : mode === 'each_child' ? { mode } : { mode: 'children', projectIds: childIds }
+
+    const save = (publish: boolean) => startTransition(async () => {
+        if (!dueLocal) return setError('Pick a due date and time.')
+        const result = await createAssignmentAction({
+            projectId: orgId, title, description, dueDate: new Date(dueLocal).toISOString(), sprintId: sprintId || null, publish,
+            submissionType, reviewRequired, lateRule, lateUntil: lateRule === 'until' && lateUntilLocal ? new Date(lateUntilLocal).toISOString() : null,
+            target: target(), steps,
+        })
+        if (!result.success) return setError(result.error)
+        setError(null)
+        onOpenChange(false)
+        onCreated()
+    })
+
+    const autoMake = () => {
+        const pool = roster.filter((p) => people.includes(p.userId))
+        setTeams(splitIntoTeams(pool, teamSize).map((group, i) => ({ name: `Team ${String.fromCharCode(65 + (i % 26))}${i >= 26 ? Math.floor(i / 26) : ''}`, people: group, leadId: group[0]?.userId ?? null })))
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle>New assignment</DialogTitle>
+                    <DialogDescription>Each person (or team, or project) gets their own copy to hand in.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                    <label className="block text-sm font-medium">Title<Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} className="mt-1" placeholder="Lab 1" /></label>
+                    <label className="block text-sm font-medium">Brief<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} maxLength={10000} className={`${area} mt-1`} /></label>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                        <label className="block text-sm font-medium">Due<Input type="datetime-local" value={dueLocal} onChange={(e) => setDueLocal(e.target.value)} className="mt-1" /></label>
+                        <label className="block text-sm font-medium">Sprint
+                            <select value={sprintId} onChange={(e) => setSprintId(e.target.value)} className={`${select} mt-1 w-full`}>
+                                <option value="">No sprint</option>
+                                {options.sprints.map((s) => <option key={s.id} value={s.id}>{s.name}{s.status === 'active' ? ' (running)' : ''}</option>)}
+                            </select>
+                        </label>
+                    </div>
+
+                    <fieldset className="space-y-2">
+                        <legend className="text-sm font-medium">Assign to</legend>
+                        <select value={mode} onChange={(e) => setMode(e.target.value as AssignmentTarget['mode'])} className={select} aria-label="Assign to">
+                            <option value="everyone">Everyone (members)</option>
+                            <option value="role">Admins</option>
+                            <option value="people">Selected people</option>
+                            <option value="teams">Teams</option>
+                            <option value="each_child">Each project in the organization</option>
+                            <option value="children">Selected projects</option>
+                        </select>
+                        {mode === 'people' || mode === 'teams' ? (
+                            <ul className="max-h-48 divide-y divide-border overflow-y-auto rounded-md border border-border" aria-label="People">
+                                {roster.filter((p) => p.role !== 'viewer').map((p) => (
+                                    <li key={p.userId}><label className="flex items-center gap-2 px-3 py-1.5 text-sm">
+                                        <input type="checkbox" checked={people.includes(p.userId)} onChange={(e) => setPeople((cur) => e.target.checked ? [...cur, p.userId] : cur.filter((id) => id !== p.userId))} />
+                                        {p.name}{p.title ? <span className="text-muted-foreground"> · {p.title}</span> : null}
+                                    </label></li>
+                                ))}
+                            </ul>
+                        ) : null}
+                        {mode === 'teams' ? (
+                            <div className="space-y-2">
+                                <div className="flex flex-wrap items-center gap-2 text-sm">
+                                    <Button type="button" size="sm" variant="outline" onClick={() => setTeams((cur) => [...cur, { name: `Team ${String.fromCharCode(65 + cur.length)}`, people: [], leadId: null }])}><Plus className="size-3.5" aria-hidden="true" />Add team</Button>
+                                    <span className="text-muted-foreground">or</span>
+                                    <label className="flex items-center gap-1">Auto-make teams of <Input type="number" min={1} max={100} value={teamSize} onChange={(e) => setTeamSize(Number(e.target.value))} className="w-16" /></label>
+                                    <Button type="button" size="sm" variant="outline" onClick={autoMake} disabled={people.length === 0}><Shuffle className="size-3.5" aria-hidden="true" />Make</Button>
+                                </div>
+                                {teams.map((team, ti) => (
+                                    <div key={ti} className="rounded-md border border-border p-2">
+                                        <div className="flex items-center gap-2">
+                                            <Input value={team.name} onChange={(e) => setTeams((cur) => cur.map((t, i) => (i === ti ? { ...t, name: e.target.value } : t)))} maxLength={60} className="h-8 w-40" aria-label="Team name" />
+                                            <span className="text-xs text-muted-foreground">{team.people.length} people</span>
+                                            <button type="button" aria-label={`Remove ${team.name}`} className="nb-icon-button ml-auto size-7" onClick={() => setTeams((cur) => cur.filter((_, i) => i !== ti))}><X className="size-3.5" aria-hidden="true" /></button>
+                                        </div>
+                                        <div className="mt-2 flex flex-wrap gap-1.5">
+                                            {team.people.map((p) => (
+                                                <button key={p.userId} type="button" title="Make team lead" onClick={() => setTeams((cur) => cur.map((t, i) => (i === ti ? { ...t, leadId: p.userId } : t)))}
+                                                    className="rounded-full border border-border px-2 py-0.5 text-xs">{p.name}{team.leadId === p.userId ? ' ★' : ''}</button>
+                                            ))}
+                                            <select value="" aria-label={`Add to ${team.name}`} className={`${select} h-7 text-xs`} onChange={(e) => {
+                                                const person = roster.find((p) => p.userId === e.target.value)
+                                                if (person) setTeams((cur) => cur.map((t, i) => (i === ti ? { ...t, people: [...t.people, person], leadId: t.leadId ?? person.userId } : t)))
+                                            }}>
+                                                <option value="">+ Add person</option>
+                                                {roster.filter((p) => people.includes(p.userId) && !placed.has(p.userId)).map((p) => <option key={p.userId} value={p.userId}>{p.name}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                ))}
+                                {individuals.length > 0 ? <p className="text-xs text-muted-foreground">Not in a team (own copy): {roster.filter((p) => individuals.includes(p.userId)).map((p) => p.name).join(', ')}</p> : null}
+                            </div>
+                        ) : null}
+                        {mode === 'children' ? (
+                            <ul className="max-h-40 overflow-y-auto rounded-md border border-border" aria-label="Projects">
+                                {options.children.map((c) => (
+                                    <li key={c.id}><label className="flex items-center gap-2 px-3 py-1.5 text-sm">
+                                        <input type="checkbox" checked={childIds.includes(c.id)} onChange={(e) => setChildIds((cur) => e.target.checked ? [...cur, c.id] : cur.filter((id) => id !== c.id))} />{c.title}
+                                    </label></li>
+                                ))}
+                            </ul>
+                        ) : null}
+                    </fieldset>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                        <label className="block text-sm font-medium">Submission
+                            <select value={submissionType} onChange={(e) => setSubmissionType(e.target.value as typeof submissionType)} className={`${select} mt-1 w-full`}>
+                                <option value="file">A file</option><option value="link">A link</option><option value="text">Text</option><option value="none">Nothing (mark done)</option>
+                            </select>
+                        </label>
+                        <label className="block text-sm font-medium">Late submissions
+                            <select value={lateRule} onChange={(e) => setLateRule(e.target.value as typeof lateRule)} className={`${select} mt-1 w-full`}>
+                                <option value="always">Always allowed (labelled Late)</option><option value="until">Allowed until a date</option><option value="none">Not allowed</option>
+                            </select>
+                        </label>
+                    </div>
+                    {lateRule === 'until' ? <label className="block text-sm font-medium">Late work accepted until<Input type="datetime-local" value={lateUntilLocal} onChange={(e) => setLateUntilLocal(e.target.value)} className="mt-1" /></label> : null}
+                    <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={reviewRequired} onChange={(e) => setReviewRequired(e.target.checked)} />Review required (Approve or Return each submission)</label>
+
+                    <div className="space-y-2">
+                        <p className="text-sm font-medium">Steps <span className="font-normal text-muted-foreground">(copied into every copy)</span></p>
+                        <ol className="list-decimal space-y-1 pl-5 text-sm">
+                            {steps.map((step, i) => <li key={i}>{step} <button type="button" className="text-xs text-muted-foreground underline" onClick={() => setSteps((cur) => cur.filter((_, j) => j !== i))}>remove</button></li>)}
+                        </ol>
+                        <div className="flex gap-2">
+                            <Input value={stepDraft} onChange={(e) => setStepDraft(e.target.value)} placeholder="Write tests" maxLength={200} aria-label="New step" />
+                            <Button type="button" variant="outline" onClick={() => { if (stepDraft.trim()) { setSteps((cur) => [...cur, stepDraft.trim()]); setStepDraft('') } }}>Add</Button>
+                        </div>
+                    </div>
+
+                    <p className="text-sm text-muted-foreground" role="status">{preview}</p>
+                    {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+                    <div className="flex flex-wrap justify-end gap-2">
+                        <Button type="button" variant="outline" disabled={pending} onClick={() => save(false)}>Save as draft</Button>
+                        <Button type="button" disabled={pending || !title.trim()} onClick={() => save(true)}>Publish</Button>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+/** One assignment's roster: per person or team, with Approve / Return / Extend / Excuse (report §16.5). */
+function RosterDialog({ row, open, onOpenChange, onChanged }: { row: AssignmentRow; open: boolean; onOpenChange: (open: boolean) => void; onChanged: () => void }) {
+    const [rows, setRows] = useState<RosterRow[]>([])
+    const [error, setError] = useState<string | null>(null)
+    const [pending, startTransition] = useTransition()
+    const load = useCallback(() => void readAssignmentRosterAction(row.masterId).then((r) => { if (r.success) setRows(r.rows) }), [row.masterId])
+    useEffect(() => { if (open) load() }, [open, load])
+    const run = (action: () => Promise<{ success: boolean; error?: string }>) => startTransition(async () => {
+        const result = await action()
+        setError(result.success ? null : result.error ?? 'Something went wrong.')
+        load()
+        onChanged()
+    })
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle>{row.title}</DialogTitle>
+                    <DialogDescription>{due(row.dueDate)} · {countsLine(row)}</DialogDescription>
+                </DialogHeader>
+                {row.counts.submitted > 0 ? <Button type="button" size="sm" disabled={pending} onClick={() => run(() => approveAllSubmittedAction(row.masterId))}>Approve all submitted</Button> : null}
+                <ul className="divide-y divide-border" aria-label="Roster">
+                    {rows.map((r) => {
+                        const submission = r.submission as { link?: string | null; text?: string | null } | null
+                        return (
+                            <li key={r.copyId} className="space-y-1 py-2 text-sm">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className="font-medium">{r.label}</span>
+                                    {r.members.length ? <span className="text-muted-foreground">· {r.members.join(' · ')}</span> : null}
+                                    <Status text={STATE_LABEL[r.state] + (r.late ? ' · Late' : '')} tone={r.state === 'done' ? 'completed' : r.state === 'missing' ? 'archived' : r.state === 'submitted' ? 'active' : 'draft'} />
+                                </div>
+                                {submission?.link ? <a href={submission.link} target="_blank" rel="noreferrer noopener" className="break-all text-primary underline">{submission.link}</a> : null}
+                                {submission?.text ? <p className="whitespace-pre-line rounded-md bg-muted px-2 py-1">{submission.text}</p> : null}
+                                {r.excusedReason ? <p className="text-muted-foreground">Excused: {r.excusedReason}</p> : null}
+                                <div className="flex flex-wrap gap-2">
+                                    {r.state === 'submitted' ? (
+                                        <>
+                                            <Button type="button" size="sm" disabled={pending} onClick={() => run(() => reviewAssignmentCopyAction(r.copyId, 'approve'))}>Approve</Button>
+                                            <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => {
+                                                const reason = window.prompt('What should they change?')
+                                                if (reason) run(() => reviewAssignmentCopyAction(r.copyId, 'return', reason))
+                                            }}>Return</Button>
+                                        </>
+                                    ) : null}
+                                    <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => {
+                                        const value = window.prompt('New due date (YYYY-MM-DD HH:MM)', r.dueDate ? r.dueDate.slice(0, 16).replace('T', ' ') : '')
+                                        if (value) run(() => extendCopyAction(r.copyId, new Date(value.replace(' ', 'T')).toISOString()))
+                                    }}>Extend</Button>
+                                    <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => {
+                                        if (r.state === 'excused') return run(() => excuseCopyAction(r.copyId, null))
+                                        const reason = window.prompt('Why is this person excused?')
+                                        if (reason) run(() => excuseCopyAction(r.copyId, reason))
+                                    }}>{r.state === 'excused' ? 'Un-excuse' : 'Excuse'}</Button>
+                                </div>
+                            </li>
+                        )
+                    })}
+                </ul>
+                {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+/** The org Tasks tab's Assignments view: admins manage, members hand in, guests see counts. */
+export function AssignmentsPanel({ orgId, onBoardChanged }: { orgId: string; onBoardChanged?: () => void }) {
+    const [data, setData] = useState<{ isAdmin: boolean; rows: AssignmentRow[] } | null>(null)
+    const [composing, setComposing] = useState(false)
+    const [roster, setRoster] = useState<AssignmentRow | null>(null)
+    const [submitting, setSubmitting] = useState<AssignmentRow | null>(null)
+    const [error, setError] = useState<string | null>(null)
+    const [pending, startTransition] = useTransition()
+    const load = useCallback(() => void listAssignmentsAction(orgId).then((r) => setData(r.success ? { isAdmin: r.isAdmin, rows: r.rows } : null)), [orgId])
+    useEffect(() => { load() }, [load])
+    const refresh = useCallback(() => { load(); onBoardChanged?.() }, [load, onBoardChanged])
+    const run = (action: () => Promise<{ success: boolean; error?: string }>) => startTransition(async () => {
+        const result = await action()
+        setError(result.success ? null : result.error ?? 'Something went wrong.')
+        refresh()
+    })
+    const rows = useMemo(() => data?.rows ?? [], [data])
+    if (!data || (!data.isAdmin && rows.length === 0)) return null
+
+    return (
+        <section aria-labelledby="org-assignments-heading" className="mb-5 rounded-lg border border-border bg-card p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 id="org-assignments-heading" className="nb-card-title flex items-center gap-2"><ClipboardList className="size-4" aria-hidden="true" />{data.isAdmin ? 'Assignments' : 'My assignments'}</h2>
+                {data.isAdmin ? <Button type="button" size="sm" onClick={() => setComposing(true)}><Plus className="size-3.5" aria-hidden="true" />New assignment</Button> : null}
+            </div>
+            {rows.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">No assignments yet. Give everyone (or teams, or each project) their own copy to hand in.</p> : null}
+            <ul className="mt-3 divide-y divide-border">
+                {rows.map((row) => (
+                    <li key={row.masterId} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm">
+                        <span className="font-medium">{row.title}</span>
+                        <span className="text-muted-foreground">{due(row.dueDate)}{row.teams ? ' · Teams' : ''}</span>
+                        {row.status !== 'open' ? <Status text={row.status === 'draft' ? 'Draft' : 'Closed'} tone={row.status === 'draft' ? 'draft' : 'archived'} /> : null}
+                        {row.mine ? (
+                            <>
+                                <Status text={STATE_LABEL[row.mine.state] + (row.mine.late ? ' · Late' : '')} tone={row.mine.state === 'done' ? 'completed' : row.mine.state === 'missing' ? 'archived' : 'active'} />
+                                {row.mine.teamName ? <span className="text-muted-foreground">{row.mine.teamName}</span> : null}
+                                {['not_started', 'in_progress', 'returned', 'missing', 'submitted'].includes(row.mine.state) && row.status === 'open' ? (
+                                    <Button type="button" size="sm" variant="outline" className="ml-auto" onClick={() => setSubmitting(row)}>{row.mine.state === 'submitted' ? 'Resubmit' : 'Submit'}</Button>
+                                ) : null}
+                            </>
+                        ) : (
+                            <span className="text-muted-foreground">{countsLine(row)}</span>
+                        )}
+                        {data.isAdmin ? (
+                            <span className="ml-auto flex flex-wrap gap-1">
+                                {row.status === 'draft' ? <Button type="button" size="sm" disabled={pending} onClick={() => run(() => publishAssignmentAction(row.masterId))}>Publish</Button> : null}
+                                {row.status !== 'draft' ? <Button type="button" size="sm" variant="outline" onClick={() => setRoster(row)}>Roster</Button> : null}
+                                {row.status === 'open' ? <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => run(() => closeAssignmentAction(row.masterId))}>Close</Button> : null}
+                                <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => { if (window.confirm(`Delete ${row.title}?`)) run(() => deleteAssignmentAction(row.masterId)) }}>Delete</Button>
+                            </span>
+                        ) : null}
+                    </li>
+                ))}
+            </ul>
+            {error ? <p role="alert" className="mt-2 text-sm text-destructive">{error}</p> : null}
+            {data.isAdmin ? <AssignmentComposer orgId={orgId} open={composing} onOpenChange={setComposing} onCreated={refresh} /> : null}
+            {roster ? <RosterDialog row={roster} open onOpenChange={(open) => { if (!open) setRoster(null) }} onChanged={load} /> : null}
+            {submitting?.mine ? <SubmitDialog copyId={submitting.mine.copyId} submissionType={submitting.submissionType} title={submitting.title} open onOpenChange={(open) => { if (!open) setSubmitting(null) }} onDone={refresh} /> : null}
+        </section>
+    )
+}
+
+/** In a child project: the org's group assignment copies, "From CSE-3A", with Submit for whoever holds them (report §16.6). */
+export function GroupCopiesPanel({ projectId, onBoardChanged }: { projectId: string; onBoardChanged?: () => void }) {
+    const [rows, setRows] = useState<GroupCopyRow[]>([])
+    const [submitting, setSubmitting] = useState<GroupCopyRow | null>(null)
+    const load = useCallback(() => void listProjectGroupCopiesAction(projectId).then((r) => setRows(r.success ? r.rows : [])), [projectId])
+    useEffect(() => { load() }, [load])
+    if (rows.length === 0) return null
+    return (
+        <section aria-label="From the organization" className="mb-5 rounded-lg border border-border bg-card p-4">
+            <ul className="divide-y divide-border">
+                {rows.map((row) => (
+                    <li key={row.copyId} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm">
+                        <Status text={`From ${row.orgTitle}`} tone="active" />
+                        <span className="font-medium">{row.title}</span>
+                        <span className="text-muted-foreground">{due(row.dueDate)} · Reviewed by {row.orgTitle}</span>
+                        <Status text={STATE_LABEL[row.state] + (row.late ? ' · Late' : '')} tone={row.state === 'done' ? 'completed' : 'draft'} />
+                        {row.canSubmit && ['not_started', 'in_progress', 'returned', 'missing', 'submitted'].includes(row.state) ? (
+                            <Button type="button" size="sm" variant="outline" className="ml-auto" onClick={() => setSubmitting(row)}>{row.state === 'submitted' ? 'Resubmit' : 'Submit for the project'}</Button>
+                        ) : null}
+                    </li>
+                ))}
+            </ul>
+            {submitting ? <SubmitDialog copyId={submitting.copyId} submissionType={submitting.submissionType} title={submitting.title} open onOpenChange={(open) => { if (!open) setSubmitting(null) }} onDone={() => { load(); onBoardChanged?.() }} /> : null}
+        </section>
+    )
+}

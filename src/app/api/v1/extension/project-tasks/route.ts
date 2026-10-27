@@ -1,3 +1,4 @@
+import { orgTaskReadFilter } from "@/lib/organizations/assignments";
 import {
   requireAuthenticatedUser,
   jsonError,
@@ -95,6 +96,8 @@ export async function GET(request: Request) {
           and(
             eq(tasks.projectId, projectId),
             isNull(tasks.deletedAt),
+            // Organizations: the same read rule as the Tasks tab (decision 19).
+            orgTaskReadFilter(access, user.id),
             parsed.data.scope === "mine" ? eq(tasks.assigneeId,user.id) : undefined,
             parsed.data.q ? sql`(${tasks.title} ILIKE ${'%' + parsed.data.q.replace(/[\%_]/g, c => '\\'+c) + '%'} OR ${tasks.taskNumber}::text = ${parsed.data.q.replace(/^.*-/, '')})` : undefined,
             cursor && cursorDate

@@ -37,6 +37,7 @@ import {
 import { DashboardTab, DocTab, UpdatesTab, TasksTab, FilesTab, SprintPlanning, ProjectSettingsTab } from '@/components/projects/dashboard/ProjectTabsRegistry';
 import { SkeletonSprints } from '@/components/projects/skeletons/SkeletonSprints';
 import { OrgAboutTab } from '@/components/organizations/OrgAboutTab';
+import { AssignmentsPanel, GroupCopiesPanel } from '@/components/organizations/AssignmentsPanel';
 import { ChildOrgChips, OrgBreadcrumb, OrgIdentityLine, OrgInviteDialog, OrgVisitorActions } from '@/components/organizations/OrgHeaderParts';
 import { isProjectPubliclyReadableVisibility } from '@/lib/projects/project-visibility';
 import { confirmFileNavigation } from '@/lib/files/unsaved-navigation';
@@ -1172,6 +1173,9 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
             {activeTab === 'tasks' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Tasks">
+                        {/* Assignments (report §16.5) and, in child projects, the org's group copies (§16.6). */}
+                        {isOrganization ? <AssignmentsPanel orgId={project.id} onBoardChanged={() => refreshProjectData('tasks')} /> : null}
+                        {parentOrg ? <GroupCopiesPanel projectId={project.id} onBoardChanged={() => refreshProjectData('tasks')} /> : null}
                         <TasksTab projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} currentUserId={currentUserId || undefined} currentUserName={currentUserName} currentUserAvatarUrl={currentUserAvatarUrl} isOwner={isOwner} canEditTasks={canEditTasks} isProjectMember={isOwnerOrMember} canManageFiles={canManageFiles} canManageWorkflow={canManageProjectSettings} initialTasks={tasks} members={allMembers} sprints={sprints} initialOpenTaskId={initialTaskDrawerId ?? workspaceInitialTaskId} initialPanelTab={initialTaskPanelTab} initialCommentId={searchParams?.get('commentId')} initialFileId={searchParams?.get('fileId')} onInitialTaskOpened={workspaceInitialTaskId ? consumeWorkspaceTaskHandoff : undefined} />
                     </TabErrorBoundary>
                 </div>
