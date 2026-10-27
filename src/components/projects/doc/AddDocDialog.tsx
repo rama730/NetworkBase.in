@@ -13,6 +13,9 @@ import {
     PROJECT_DOCS_QUERY_KEY,
     useProjectDocList,
 } from "@/hooks/projects/useProjectDocData";
+import { Button } from "@/components/ui/button";
+import { createDocFile, ORG_DOCS_QUERY_KEY, useOrgDocs } from "@/components/organizations/OrgDocParts";
+import { docFileName } from "@/lib/organizations/doc-rules";
 
 const MARKDOWN_FILE = /\.(md|mdx|markdown)$/i;
 
@@ -32,6 +35,44 @@ export function AddDocDialog({
     const [filter, setFilter] = useState("");
     const [pendingId, setPendingId] = useState<string | null>(null);
     const { data: docs = [] } = useProjectDocList(projectId, open);
+    const org = useOrgDocs(projectId, open).data ?? null;
+    const templates = org?.mode === "child" ? org.docs.filter((doc) => doc.template) : [];
+    const [title, setTitle] = useState("");
+    const [creating, setCreating] = useState<string | null>(null);
+
+    /** New doc (report §19.3) and org template copies (§19.7): a Markdown file in Docs, opened in the editor. */
+    const createDoc = async (key: string, make: () => Promise<{ filename: string; content: string }>) => {
+        if (creating) return;
+        setCreating(key);
+        try {
+            const { filename, content } = await make();
+            const created = await createDocFile(projectId, filename, content);
+            if (org?.mode === "org") {
+                const { updateOrgDocOptionsAction } = await import("@/app/actions/org-docs");
+                await updateOrgDocOptionsAction(org.orgId, created.id, { visibility: "members_only" });
+            }
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: PROJECT_DOC_LIST_QUERY_KEY(projectId) }),
+                queryClient.invalidateQueries({ queryKey: PROJECT_DOCS_QUERY_KEY(projectId) }),
+                queryClient.invalidateQueries({ queryKey: ORG_DOCS_QUERY_KEY(projectId) }),
+            ]);
+            const path = (created.node.path ?? "").split("/").filter(Boolean).map(encodeURIComponent).join("/");
+            const params = new URLSearchParams(searchParams?.toString() ?? "");
+            params.delete("doc");
+            params.delete("from");
+            params.set("tab", "files");
+            params.set("fileId", created.node.id);
+            if (path) params.set("path", path);
+            router.push(`${pathname}?${params.toString()}`, { scroll: false });
+            toast.success("Doc created");
+            setTitle("");
+            onOpenChange(false);
+        } catch (error) {
+            toast.error(feedbackError(error instanceof Error ? error.message : "Failed to create doc", "Failed to create doc"));
+        } finally {
+            setCreating(null);
+        }
+    };
 
     const files = useInfiniteQuery({
         queryKey: ["project-doc-markdown-files", projectId],
@@ -87,8 +128,46 @@ export function AddDocDialog({
             <DialogContent className="max-w-[520px] gap-3 p-4">
                 <DialogHeader>
                     <DialogTitle>Add doc</DialogTitle>
-                    <DialogDescription>Pick a Markdown file from Files.</DialogDescription>
+                    <DialogDescription>Start a new doc, or pick a Markdown file from Files.</DialogDescription>
                 </DialogHeader>
+                <form
+                    className="flex gap-2"
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        const clean = title.trim();
+                        if (clean) void createDoc("new", async () => ({ filename: docFileName(clean), content: `# ${clean}\n` }));
+                    }}
+                >
+                    <Input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={120} placeholder="New doc title" aria-label="New doc title" />
+                    <Button type="submit" disabled={!title.trim() || creating !== null}>
+                        {creating === "new" ? <Loader2 className="size-4 animate-spin" /> : null}
+                        New doc
+                    </Button>
+                </form>
+                {templates.length > 0 ? (
+                    <div role="list" aria-label={`From ${org?.orgTitle} templates`} className="space-y-1">
+                        <p className="text-[12px] font-medium text-muted-foreground">From {org?.orgTitle} templates</p>
+                        {templates.map((template) => (
+                            <button
+                                key={template.id}
+                                type="button"
+                                role="listitem"
+                                disabled={creating !== null}
+                                onClick={() => void createDoc(template.id, async () => {
+                                    const { readOrgTemplateCopyAction } = await import("@/app/actions/org-docs");
+                                    const copy = await readOrgTemplateCopyAction(projectId, template.id);
+                                    if (!copy.success) throw new Error(copy.error);
+                                    return copy;
+                                })}
+                                className="flex w-full items-center gap-2.5 rounded-[5px] px-2.5 py-2 text-left text-[13px] font-medium text-foreground transition-colors hover:bg-muted"
+                            >
+                                <FileText className="size-4 shrink-0 text-muted-foreground" />
+                                <span className="min-w-0 flex-1 truncate">{template.filename}</span>
+                                {creating === template.id ? <Loader2 className="size-3.5 animate-spin text-muted-foreground" /> : <span className="text-[11px] text-muted-foreground">Use this template</span>}
+                            </button>
+                        ))}
+                    </div>
+                ) : null}
                 <Input
                     autoFocus
                     value={filter}

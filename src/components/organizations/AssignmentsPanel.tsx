@@ -22,6 +22,7 @@ import {
     type RosterRow,
 } from '@/app/actions/assignments'
 import { listOrgRosterAction, type OrgRosterPerson } from '@/app/actions/organizations'
+import { listProjectDocsAction } from '@/app/actions/project/doc'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -52,8 +53,14 @@ function countsLine(row: AssignmentRow) {
 }
 
 /** Submit dialog: a link or text, or a reminder to attach the file to the task (report §16.4). */
-function SubmitDialog({ copyId, submissionType, title, open, onOpenChange, onDone }: { copyId: string; submissionType: string; title: string; open: boolean; onOpenChange: (open: boolean) => void; onDone: () => void }) {
+function SubmitDialog({ copyId, submissionType, title, open, onOpenChange, onDone, docsProjectId }: { copyId: string; submissionType: string; title: string; open: boolean; onOpenChange: (open: boolean) => void; onDone: () => void; docsProjectId?: string }) {
     const [link, setLink] = useState('')
+    // Submit with a doc (report §19.7): a child project's doc becomes the submitted link.
+    const [projectDocs, setProjectDocs] = useState<Array<{ slug: string; filename: string }>>([])
+    useEffect(() => {
+        if (!docsProjectId || submissionType !== 'link') return
+        void listProjectDocsAction(docsProjectId).then((r) => setProjectDocs(r.success ? r.docs : []))
+    }, [docsProjectId, submissionType])
     const [text, setText] = useState('')
     const [error, setError] = useState<string | null>(null)
     const [pending, startTransition] = useTransition()
@@ -72,6 +79,13 @@ function SubmitDialog({ copyId, submissionType, title, open, onOpenChange, onDon
                     <DialogDescription>{submissionType === 'file' ? 'Attach your file to this task first (Tasks → open the card → Files), then submit.' : 'Hand in your work. You can resubmit until it is reviewed.'}</DialogDescription>
                 </DialogHeader>
                 {submissionType === 'link' ? <Input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://" aria-label="Link to your work" /> : null}
+                {submissionType === 'link' && projectDocs.length > 0 ? (
+                    <select defaultValue="" aria-label="Or pick a project doc" className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+                        onChange={(e) => { if (e.target.value) setLink(`${window.location.origin}/projects/${encodeURIComponent(docsProjectId!)}?tab=docs&doc=${encodeURIComponent(e.target.value)}`) }}>
+                        <option value="">Or pick a project doc…</option>
+                        {projectDocs.map((doc) => <option key={doc.slug} value={doc.slug}>{doc.filename}</option>)}
+                    </select>
+                ) : null}
                 {submissionType === 'text' ? <textarea value={text} onChange={(e) => setText(e.target.value)} rows={6} maxLength={10000} className={area} aria-label="Your answer" /> : null}
                 {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
                 <Button type="button" disabled={pending} onClick={submit}>Submit</Button>
@@ -413,7 +427,7 @@ export function GroupCopiesPanel({ projectId, onBoardChanged }: { projectId: str
                     </li>
                 ))}
             </ul>
-            {submitting ? <SubmitDialog copyId={submitting.copyId} submissionType={submitting.submissionType} title={submitting.title} open onOpenChange={(open) => { if (!open) setSubmitting(null) }} onDone={() => { load(); onBoardChanged?.() }} /> : null}
+            {submitting ? <SubmitDialog copyId={submitting.copyId} submissionType={submitting.submissionType} title={submitting.title} open onOpenChange={(open) => { if (!open) setSubmitting(null) }} onDone={() => { load(); onBoardChanged?.() }} docsProjectId={projectId} /> : null}
         </section>
     )
 }

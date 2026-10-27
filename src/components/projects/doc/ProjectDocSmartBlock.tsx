@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AlertCircle, FileText, FolderOpen, ListTodo, Sparkles, Timer, Users } from "lucide-react";
+import { AlertCircle, FileText, FolderKanban, FolderOpen, ListTodo, Sparkles, Timer, Users } from "lucide-react";
 
 import { ProjectDocSmartBlockPreviewCard } from "@/components/projects/doc/ProjectDocReferencePreview";
 import type { ProjectDocSmartBlock, ProjectDocSmartBlockPreview } from "@/lib/projects/doc-blocks";
@@ -38,6 +38,12 @@ const BLOCK_COPY: Record<ProjectDocSmartBlock["kind"], { title: string; icon: ty
         icon: Timer,
         tab: "sprints",
         description: "Planning rhythm and sprint movement.",
+    },
+    projects: {
+        title: "Projects",
+        icon: FolderKanban,
+        tab: "projects",
+        description: "Projects inside this organization, live.",
     },
     unknown: {
         title: "Unknown Doc block",
@@ -92,6 +98,8 @@ export function ProjectDocSmartBlock({
                 ? block.ids.length > 0 ? `${block.ids.length} specific item${block.ids.length === 1 ? "" : "s"} linked` : "Open the project surface for current items"
                     : block.kind === "sprints"
                         ? "Open sprint rhythm"
+                        : block.kind === "projects"
+                        ? "Open the organization's projects"
                         : "Editor attention needed";
 
     return (

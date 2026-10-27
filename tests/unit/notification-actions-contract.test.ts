@@ -92,6 +92,7 @@ test('every user-visible project notification preference has a concrete source t
         'src/app/actions/task.ts',
         'src/app/actions/task-comment.ts',
         'src/app/actions/project/doc.ts',
+        'src/app/actions/org-docs.ts',
         'src/app/actions/project/updates.ts',
         'src/app/actions/account.ts',
         'src/app/actions/files/mutations.ts',

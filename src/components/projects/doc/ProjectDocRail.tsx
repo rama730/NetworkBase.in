@@ -16,6 +16,7 @@ import {
     useProjectDocList,
 } from "@/hooks/projects/useProjectDocData";
 import { cn } from "@/lib/utils";
+import { FromOrgDocs, OrgDocAdminTools, OrgDocChips, useOrgDocs } from "@/components/organizations/OrgDocParts";
 
 const ACTIVE_ITEM = "border-foreground/20 bg-muted text-foreground font-semibold";
 const IDLE_ITEM = "border-border bg-card text-muted-foreground hover:border-foreground/20 hover:text-foreground hover:bg-muted/40";
@@ -43,6 +44,7 @@ export function useDocRail(projectId: string, activeSlug: string): DocRailState 
     const navigate = (slug: string | null, replace = false) => {
         const params = new URLSearchParams(searchParams ? searchParams.toString() : "");
         params.set("tab", "docs");
+        params.delete("from"); // own docs, not an org doc opened in place
         if (slug) params.set("doc", normalizeProjectDocSlug(slug));
         else params.delete("doc");
         router[replace ? "replace" : "push"](`${pathname}?${params.toString()}`, { scroll: false });
@@ -98,14 +100,26 @@ export function ProjectDocRail({
     activeSlug,
     canEdit = false,
     rail: passedRail,
+    visibility = "inherit_project",
 }: {
     projectId: string;
     activeSlug: string;
     canEdit?: boolean;
     rail?: DocRailState;
+    /** The open doc's visibility, for the org admin options. */
+    visibility?: string;
 }) {
     const internalRail = useDocRail(projectId, activeSlug);
     const rail = passedRail ?? internalRail;
+    // Org docs (report §19): groups, labels, the From <org> section and admin options.
+    const org = useOrgDocs(projectId).data ?? null;
+    const orgById = new Map((org?.docs ?? []).map((doc) => [doc.id, doc]));
+    const grouped = org?.mode === "org"
+        ? [
+            ...org.groups.map((group) => ({ name: group.name, docs: rail.docs.filter((doc) => orgById.get(doc.id)?.group === group.id) })),
+            { name: "Other", docs: rail.docs.filter((doc) => !orgById.has(doc.id)) },
+        ].filter((section) => section.docs.length > 0)
+        : [{ name: null as string | null, docs: rail.docs }];
 
     return (
         <aside className="hidden w-full xl:block xl:w-[260px] shrink-0 border-l border-border pl-6" aria-label="Project documents">
@@ -133,7 +147,9 @@ export function ProjectDocRail({
                             <div aria-hidden="true" className="nb-skeleton h-[34px] w-full rounded-[5px]" />
                         </div>
                     ) : (
-                        rail.docs.map((doc) => {
+                        grouped.map((section) => [
+                            section.name ? <p key={`group:${section.name}`} className="px-1 pt-2 text-[11px] text-muted-foreground">{section.name}</p> : null,
+                            ...section.docs.map((doc) => {
                             const isActive = doc.slug === activeSlug;
                             return (
                                 <div key={doc.id} className="group relative">
@@ -148,7 +164,8 @@ export function ProjectDocRail({
                                         )}
                                     >
                                         <FileText className={cn("size-3.5 shrink-0", isActive ? "text-foreground" : "text-muted-foreground")} />
-                                        <span className="truncate">{doc.filename}</span>
+                                        <span className="min-w-0 flex-1 truncate">{doc.filename}</span>
+                                        <OrgDocChips item={org?.mode === "org" ? orgById.get(doc.id) : undefined} />
                                     </button>
                                     {canEdit ? (
                                         <button
@@ -163,9 +180,12 @@ export function ProjectDocRail({
                                     ) : null}
                                 </div>
                             );
-                        })
+                            }),
+                        ])
                     )}
                 </nav>
+                {org ? <FromOrgDocs data={org} activeSlug={activeSlug} /> : null}
+                {org ? <OrgDocAdminTools data={org} doc={orgById.get(rail.docs.find((doc) => doc.slug === activeSlug)?.id ?? "")} visibility={visibility} /> : null}
             </div>
             {!passedRail && canEdit ? rail.dialogs : null}
         </aside>
@@ -185,10 +205,13 @@ export function ProjectDocMobileBar({
 }) {
     const internalRail = useDocRail(projectId, activeSlug);
     const rail = passedRail ?? internalRail;
+    const org = useOrgDocs(projectId).data ?? null;
+    const fromOrg = org?.mode === "child" ? <div className="mb-6 xl:hidden"><FromOrgDocs data={org} activeSlug={activeSlug} /></div> : null;
 
-    if (rail.docs.length <= 1 && !rail.isLoading && !canEdit) return null;
+    if (rail.docs.length <= 1 && !rail.isLoading && !canEdit) return fromOrg;
 
     return (
+        <>
         <div className="mb-6 flex flex-wrap items-center gap-2 border-b border-border pb-4 xl:hidden max-md:flex-nowrap max-md:overflow-x-auto max-md:snap-x">
             {rail.isLoading ? (
                 <div className="flex h-[32px] items-center justify-center px-3 text-muted-foreground text-xs gap-1.5 shrink-0">
@@ -220,5 +243,7 @@ export function ProjectDocMobileBar({
                 <AddDocButton onClick={rail.openAdd} className="nb-touch-target h-[32px] w-[32px] shrink-0" />
             ) : null}
         </div>
+        {fromOrg}
+        </>
     );
 }

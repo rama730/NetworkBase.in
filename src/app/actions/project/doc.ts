@@ -75,7 +75,7 @@ const applyCreationIntentSchema = z.object({
 });
 
 const smartBlockPreviewSchema = z.array(z.object({
-    kind: z.enum(["roles", "contributors", "files", "tasks", "sprints", "unknown"]),
+    kind: z.enum(["roles", "contributors", "files", "tasks", "sprints", "projects", "unknown"]),
     ids: z.array(z.string().max(80)).max(25).optional(),
     index: z.number().int().min(0).optional(),
     raw: z.string().max(300).optional(),
@@ -615,14 +615,15 @@ export async function readProjectDocAction(projectId: string, requestedSlug: str
     }
 }
 
-export async function readProjectDocSmartBlockPreviewsAction(projectId: string, input: unknown): Promise<
+export async function readProjectDocSmartBlockPreviewsAction(projectId: string, input: unknown, docSlug: string = "readme"): Promise<
     | { success: true; previews: ProjectDocSmartBlockPreview[] }
     | { success: false; error: string }
 > {
     try {
         const actorUserId = await getOptionalUserId();
         const parsed = smartBlockPreviewSchema.parse(input);
-        const context = await getDocProjectContext(projectId, actorUserId);
+        // The doc being read decides access; a project without a README still shows its other docs' blocks.
+        const context = await getDocProjectContext(projectId, actorUserId, docSlug);
         if (!context.permission.canReadPublished && !context.permission.canEdit) {
             return { success: false, error: "Document references unavailable." };
         }
@@ -802,9 +803,40 @@ export async function readProjectDocSmartBlockPreviewsAction(projectId: string, 
             recentContributors = recentRows.map((row) => optionFromContributor(row, context.project));
         }
 
+        // Projects block (report §19.5): the org's child projects; visitors see public ones only.
+        const isInside = Boolean(context.permission.canEdit || context.permission.accessLevel === "owner" || context.membership);
+        const childProjects: ProjectDocReferenceOption[] = readableKinds.has("projects")
+            ? (await db.select({ id: projects.id, title: projects.title, slug: projects.slug, visibility: projects.visibility })
+                .from(projects)
+                .where(and(
+                    eq(projects.parentId, projectId),
+                    isNull(projects.deletedAt),
+                    isInside ? sql`${projects.visibility} <> 'private'` : eq(projects.visibility, "public"),
+                ))
+                .orderBy(projects.title)
+                .limit(24)).map((row) => ({
+                    id: row.id,
+                    kind: "projects" as const,
+                    title: row.title,
+                    subtitle: row.visibility === "public" ? "Public" : "Org only",
+                    href: `/projects/${encodeURIComponent(row.slug || row.id)}`,
+                }))
+            : [];
+
         const previewFor = (block: (typeof normalizedBlocks)[number]): ProjectDocSmartBlockPreview => {
             if (block.kind === "unknown") return unavailablePreview(block, "This document block is not recognized.");
             if (!canReadReferenceKind(block.kind, context)) return unavailablePreview(block);
+            if (block.kind === "projects") {
+                return {
+                    key: blockKey(block),
+                    kind: block.kind,
+                    title: "Projects",
+                    description: "Projects inside this organization, live.",
+                    href: projectHref(context.project, "projects"),
+                    items: childProjects,
+                    unavailableCount: 0,
+                };
+            }
             const href = projectHref(context.project, block.kind === "files"
                 ? "files"
                 : block.kind === "tasks"
@@ -929,21 +961,23 @@ export async function linkProjectDocAction(projectId: string, nodeId: string) {
         }
 
         const existing = base.docs.find((doc) => doc.linkedNodeId === nodeId);
-        if (existing) return { success: true as const, slug: existing.slug };
+        if (existing) return { success: true as const, slug: existing.slug, id: existing.id };
 
         // Rows with no file and no published content are dead weight; reuse their slug.
         const taken = new Set(base.docs.filter((doc) => doc.linkedNodeId || doc.publishedVersionId).map((doc) => doc.slug));
         const slug = nextFreeDocSlug(normalizeProjectDocSlug(node.name, "doc"), taken);
-        await db
+        const [linked] = await db
             .insert(projectDocs)
-            .values({ projectId, slug, filename: node.name, linkedNodeId: nodeId, settings: context.settings })
+            // A new doc takes the project's defaults, never another doc's org options (Required, group…).
+            .values({ projectId, slug, filename: node.name, linkedNodeId: nodeId, settings: { ...context.settings, org: undefined } })
             .onConflictDoUpdate({
                 target: [projectDocs.projectId, projectDocs.slug],
                 set: { filename: node.name, linkedNodeId: nodeId, updatedAt: new Date() },
-            });
+            })
+            .returning({ id: projectDocs.id });
 
         revalidateProjectDoc(context.project);
-        return { success: true as const, slug };
+        return { success: true as const, slug, id: linked!.id };
     } catch (error) {
         logger.error("project_readme.link_failed", { projectId, nodeId, error: error instanceof Error ? error.message : String(error) });
         return { success: false as const, error: "Internal server error." };
