@@ -126,6 +126,10 @@ export type SprintDetailPayload = {
   rows: SprintTimelineRow[];
   nextCursor: string | null;
   hasMore: boolean;
+  /** Organizations and child projects only (report §15): links, linked projects, the org sprint list. */
+  org?: import("@/lib/organizations/sprints").SprintOrgContext | null;
+  /** The selected sprint's materials (report §15.2). */
+  materials?: import("@/lib/organizations/sprints").SprintMaterial[];
 };
 
 export const SPRINT_STATUS_PRESENTATION: Record<

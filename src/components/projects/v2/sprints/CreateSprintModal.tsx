@@ -10,8 +10,9 @@ import {
   buildSprintEditorDraft,
   createSprintDraftSchema,
   getSprintDurationSummary,
-  type CreateSprintDraftInput,
   type SprintDeleteImpact,
+  type SprintEditorSubmission,
+  type SprintOrgFields,
   type SprintEditorDraft,
   type SprintEditorMode,
 } from "@/lib/projects/sprints";
@@ -34,18 +35,25 @@ interface SprintEditorModalProps {
   isOpen: boolean;
   mode: SprintEditorMode;
   onClose: () => void;
-  onSubmit: (data: CreateSprintDraftInput) => Promise<SprintEditorSubmitResult>;
+  onSubmit: (data: SprintEditorSubmission) => Promise<SprintEditorSubmitResult>;
   onDelete?: () => Promise<SprintEditorSubmitResult>;
   sprint?: SprintListItem | null;
   sprintCount?: number;
   deleteImpact?: SprintDeleteImpact | null;
+  /** Organizations and child projects (report §15.2, §15.5); plain projects get only "Start automatically". */
+  org?: {
+    kind: "org" | "child";
+    orgTitle: string | null;
+    orgSprints: Array<{ id: string; name: string; status: string; startDate: string; endDate: string }>;
+  } | null;
+  initialOrgFields?: SprintOrgFields;
 }
 
 type DraftField = keyof SprintEditorDraft;
 type FieldErrors = Partial<Record<DraftField, string>>;
 type PendingAction = "save" | "delete" | null;
 
-function toFieldErrors(error: z.ZodError<CreateSprintDraftInput>) {
+function toFieldErrors(error: z.ZodError<z.infer<typeof createSprintDraftSchema>>) {
   const nextErrors: FieldErrors = {};
   for (const issue of error.issues) {
     const path = issue.path[0];
@@ -116,7 +124,15 @@ export default function SprintEditorModal({
   sprint = null,
   sprintCount = 0,
   deleteImpact = null,
+  org = null,
+  initialOrgFields,
 }: SprintEditorModalProps) {
+  const [orgFields, setOrgFields] = React.useState<SprintOrgFields>(() => ({
+    autoStart: initialOrgFields?.autoStart ?? true,
+    showInChildren: initialOrgFields?.showInChildren ?? true,
+    createMatching: false,
+    parentSprintId: initialOrgFields?.parentSprintId ?? null,
+  }));
   const [draft, setDraft] = React.useState<SprintEditorDraft>(() =>
     buildSprintEditorDraft({ sprint, sprintCount }),
   );
@@ -198,7 +214,12 @@ export default function SprintEditorModal({
 
       setPendingAction("save");
       try {
-        const result = await onSubmit(parsed.data);
+        const result = await onSubmit({
+          ...parsed.data,
+          autoStart: orgFields.autoStart,
+          ...(org?.kind === "org" ? { showInChildren: orgFields.showInChildren, createMatching: mode === "create" && orgFields.createMatching } : {}),
+          ...(org?.kind === "child" ? { parentSprintId: orgFields.parentSprintId ?? null } : {}),
+        });
         if (!result.success) {
           setErrorMessage(result.error ?? "Failed to save sprint");
           return;
@@ -210,7 +231,7 @@ export default function SprintEditorModal({
         setPendingAction(null);
       }
     },
-    [draft, mode, onClose, onSubmit, projectId, sprint?.id],
+    [draft, mode, onClose, onSubmit, org?.kind, orgFields, projectId, sprint?.id],
   );
 
   const handleDelete = React.useCallback(async () => {
@@ -402,6 +423,50 @@ export default function SprintEditorModal({
                   </span>
                 ) : null}
               </div>
+            </div>
+
+            {/* Organization: start on the date, child projects, or the org sprint this sits inside (report §15) */}
+            <div className="space-y-3">
+              <SectionDivider title={org ? "Organization" : "Start"} />
+              <label className="flex items-center gap-2 text-[13px] text-foreground">
+                <input type="checkbox" checked={orgFields.autoStart ?? true} onChange={(e) => setOrgFields((f) => ({ ...f, autoStart: e.target.checked }))} />
+                Start automatically on the start date
+              </label>
+              {org?.kind === "org" ? (
+                <>
+                  <label className="flex items-center gap-2 text-[13px] text-foreground">
+                    <input type="checkbox" checked={orgFields.showInChildren ?? true} onChange={(e) => setOrgFields((f) => ({ ...f, showInChildren: e.target.checked }))} />
+                    Show in child projects
+                  </label>
+                  {mode === "create" ? (
+                    <label className="flex items-center gap-2 text-[13px] text-foreground">
+                      <input type="checkbox" checked={orgFields.createMatching ?? false} onChange={(e) => setOrgFields((f) => ({ ...f, createMatching: e.target.checked }))} />
+                      Create a matching sprint in every child project
+                    </label>
+                  ) : null}
+                </>
+              ) : null}
+              {org?.kind === "child" && org.orgSprints.length > 0 ? (
+                <Field label={`Inside a ${org.orgTitle ?? "organization"} sprint`} htmlFor="sprint-parent">
+                  <select
+                    id="sprint-parent"
+                    value={orgFields.parentSprintId ?? ""}
+                    onChange={(e) => {
+                      const parent = org.orgSprints.find((s) => s.id === e.target.value) ?? null;
+                      setOrgFields((f) => ({ ...f, parentSprintId: parent?.id ?? null }));
+                      // Picking one starts from its dates; the lead may shorten them but not go outside.
+                      if (parent && mode === "create") {
+                        handleFieldChange("startDate", parent.startDate.slice(0, 10));
+                        handleFieldChange("endDate", parent.endDate.slice(0, 10));
+                      }
+                    }}
+                    className={cn("nb-touch-target h-[34px]", inputClassName(false))}
+                  >
+                    <option value="">Not linked</option>
+                    {org.orgSprints.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.status === "active" ? "running" : "planned"})</option>)}
+                  </select>
+                </Field>
+              ) : null}
             </div>
 
             {/* Danger Zone (Edit mode only) */}

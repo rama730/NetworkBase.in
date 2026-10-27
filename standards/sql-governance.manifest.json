@@ -242,7 +242,8 @@
     "drizzle/0238_application_acceptance_security_hardening.sql",
     "drizzle/0239_connections_security_and_indexes.sql",
     "drizzle/0240_member_welcome_card_and_channel_joins.sql",
-    "drizzle/0241_organizations_core.sql"
+    "drizzle/0241_organizations_core.sql",
+    "drizzle/0243_org_sprints.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",
