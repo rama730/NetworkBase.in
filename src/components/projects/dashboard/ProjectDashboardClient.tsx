@@ -40,6 +40,7 @@ import { OrgAboutTab } from '@/components/organizations/OrgAboutTab';
 import { AssignmentsPanel, GroupCopiesPanel } from '@/components/organizations/AssignmentsPanel';
 import { OrgFilesPanel } from '@/components/organizations/OrgFilesPanel';
 import { OrgMembersTab } from '@/components/organizations/OrgMembersTab';
+import { ChildOrgLine, OrgDashboard, OrgProjectsTab } from '@/components/organizations/OrgOverviewParts';
 import { OrgInviteBanner } from '@/components/organizations/OrgInviteBanner';
 import { ChildOrgChips, OrgBreadcrumb, OrgIdentityLine, OrgInviteDialog, OrgVisitorActions } from '@/components/organizations/OrgHeaderParts';
 import { isProjectPubliclyReadableVisibility } from '@/lib/projects/project-visibility';
@@ -1133,7 +1134,11 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
             {activeTab === 'dashboard' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Dashboard">
+                        {/* Orgs get their own Dashboard (report §27); child projects add the org line (§27.5). */}
+                        {isOrganization ? <OrgDashboard orgId={project.id} orgSlug={project.slug ?? null} /> : <>
+                        {parentOrg ? <ChildOrgLine projectId={project.id} /> : null}
                         <DashboardTab project={projectWithLiveStats} isCreator={isOwner} isCollaborator={isMember} rolesWithFilled={rolesWithFilled} onEdit={handleEdit} onAdvanceStage={handleAdvanceStage} onRedoStage={handleRegressStage} onApplyToRole={handleApplyToRole} lifecycleStages={lifecycleStages} currentStageIndex={optimisticStageIndex} applicationStatus={applicationStatus} onAcceptInvitation={() => void handleInvitation('accept')} onDeclineInvitation={() => void handleInvitation('decline')} invitationLoading={invitationLoading} application={applicationControls} pendingApplications={pendingApplicationsForReviewer} />
+                        </>}
                     </TabErrorBoundary>
                 </div>
             )}
@@ -1141,7 +1146,15 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
             {isOrganization && activeTab === 'about' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="About">
-                        <OrgAboutTab project={projectWithLiveStats} isCreator={isOwner} onEdit={handleEdit} />
+                        <OrgAboutTab project={projectWithLiveStats} isCreator={isOwner} onEdit={handleEdit} visitorActions={organization && !isOwnerOrMember && isProjectPubliclyReadableVisibility(project.visibility) ? <OrgVisitorActions orgId={project.id} href={canonicalProjectHref} joinMode={organization.joinMode} requestPending={organization.viewerRequestPending} loggedIn={Boolean(currentUserId)} /> : undefined} />
+                    </TabErrorBoundary>
+                </div>
+            )}
+
+            {isOrganization && isOwnerOrMember && activeTab === 'projects' && (
+                <div className="w-full h-full min-h-0">
+                    <TabErrorBoundary tabName="Projects">
+                        <OrgProjectsTab orgId={project.id} />
                     </TabErrorBoundary>
                 </div>
             )}
