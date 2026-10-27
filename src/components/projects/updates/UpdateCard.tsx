@@ -36,14 +36,15 @@ import { isUpdateCardControl, removeUpdate, updateAuthorName, updateContextItems
 import { ProjectUpdateContent, UpdateContextAndMedia } from '@/components/projects/updates/UpdateContent';
 
 function UpdateCard({
-  projectId,
-  projectSlug,
+  projectId: feedProjectId,
+  projectSlug: feedProjectSlug,
   update,
   updatesQueryKey,
   onHide,
   onOpenDetail,
   currentUserId,
   highlighted,
+  isNew = false,
 }: {
   projectId: string;
   projectSlug?: string | null;
@@ -53,7 +54,12 @@ function UpdateCard({
   onOpenDetail: (updateId: string) => void;
   currentUserId: string | null;
   highlighted: boolean;
+  /** Org feed: posted since the viewer last opened it. */
+  isNew?: boolean;
 }) {
+  // A post shared up from a child project acts in that project (likes, comments, edits).
+  const projectId = update.fromProject ? update.projectId : feedProjectId;
+  const projectSlug = update.fromProject ? update.fromProject.slug : feedProjectSlug;
   const queryClient = useQueryClient();
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
@@ -168,6 +174,7 @@ function UpdateCard({
         <div className="mb-2 ml-11 flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
           <Pin className="h-3 w-3" />
           Pinned update
+          {update.pinnedUntil ? ` · until ${new Date(update.pinnedUntil).toLocaleDateString()}` : null}
         </div>
       ) : null}
       <div className="flex gap-3">
@@ -211,6 +218,20 @@ function UpdateCard({
                   <span className="font-mono text-[11px] text-muted-foreground">
                     {update.author.roleLabel}
                   </span>
+                ) : null}
+                {update.updateType === "announcement" || update.updateType === "discussion" ? (
+                  <span className="rounded-[3px] border border-border px-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                    {update.updateType === "announcement" ? "Announcement" : "Discussion"}
+                  </span>
+                ) : null}
+                {update.fromProject ? (
+                  <span className="rounded-[3px] border border-border px-1 text-[11px] text-muted-foreground">From {update.fromProject.title}</span>
+                ) : null}
+                {(update.audience.roles?.length || update.audience.projectIds?.length) ? (
+                  <span className="text-[11px] text-muted-foreground">· Limited audience</span>
+                ) : null}
+                {isNew ? (
+                  <span className="rounded-[3px] bg-foreground px-1 font-mono text-[10px] uppercase tracking-wider text-background">New</span>
                 ) : null}
                 <span className="font-mono text-[11px] text-muted-foreground">
                   · {isPending ? "Posting…" : updateRelativeTime(update.createdAt)}

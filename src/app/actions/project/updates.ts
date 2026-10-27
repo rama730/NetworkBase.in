@@ -1,6 +1,8 @@
 "use server";
 
 import { readViewerOrgRole } from "@/lib/organizations/detail";
+import { orgFeedWhere, orgLivePinSql, readLastSeenUpdates, readOrgUpdateContext, readProjectTitles, type OrgUpdateContext } from "@/lib/organizations/org-updates";
+import { isPinnedNow, type UpdateAudience } from "@/lib/organizations/update-rules";
 import { readProjectRoleTitles, roleTitleKey } from "@/lib/projects/update-roles";
 import { randomUUID } from "node:crypto";
 import { alias } from "drizzle-orm/pg-core";
@@ -16,6 +18,7 @@ import {
     lt,
     or,
     sql,
+    type SQL,
 } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
@@ -298,6 +301,10 @@ export type ProjectUpdateView = {
     media: ProjectUpdateMediaItem[];
     metadata: Record<string, unknown>;
     isPinned: boolean;
+    pinnedUntil: string | null;
+    audience: UpdateAudience;
+    /** Set on child posts shared up into the org feed ("From <project>"). */
+    fromProject: { title: string; slug: string | null } | null;
     likeCount: number;
     commentCount: number;
     likedByViewer: boolean;
@@ -355,7 +362,11 @@ type ProjectUpdateAccess = {
         status: string | null;
         publicTabVisibility: unknown;
         memberUpdatesEnabled: boolean;
+        kind: string;
+        parentId: string | null;
     } | null;
+    /** Org context when this is an org or a child project (report §17). */
+    org: OrgUpdateContext | null;
     viewerId: string | null;
     isOwner: boolean;
     isMember: boolean;
@@ -736,6 +747,7 @@ async function resolveProjectUpdateAccess(projectId: string, viewerId: string | 
             status: projects.status,
             publicTabVisibility: projects.publicTabVisibility,
             memberUpdatesEnabled: projects.memberUpdatesEnabled,
+            kind: projects.kind,
             parentId: projects.parentId,
         })
         .from(projects)
@@ -745,6 +757,7 @@ async function resolveProjectUpdateAccess(projectId: string, viewerId: string | 
     if (!project) {
         return {
             project: null,
+            org: null,
             viewerId,
             isOwner: false,
             isMember: false,
@@ -779,15 +792,18 @@ async function resolveProjectUpdateAccess(projectId: string, viewerId: string | 
         canManageSettings: isOwner,
         publicTabVisibility: project.publicTabVisibility,
     });
+    const org = project.kind === "organization" || project.parentId ? await readOrgUpdateContext(project, viewerId) : null;
     const effectiveAccess = {
         project,
+        org,
         viewerId,
         isOwner,
         isMember,
         memberRole,
         canRead,
         canCreate: canRead && canCreateForRole({ isOwner, memberRole, memberUpdatesEnabled: project.memberUpdatesEnabled }),
-        canManage: canRead && isModerator({ isOwner, memberRole }),
+        // Org admins moderate child project updates too (report §29.4).
+        canManage: canRead && (isModerator({ isOwner, memberRole }) || isInheritedAdmin),
     };
     return effectiveAccess;
 }
@@ -834,7 +850,9 @@ function normalizeUpdate(row: UpdateRow, params: {
     access: ProjectUpdateAccess;
     likedIds: Set<string>;
     contextByUpdateId?: Map<string, ProjectUpdateContextSummary>;
+    fromProjects?: Map<string, { title: string; slug: string | null }>;
 }): ProjectUpdateView {
+    const shared = row.projectId !== params.access.project?.id;
     const viewerId = params.access.viewerId;
     const canModerate = params.access.canManage;
     const isAuthor = Boolean(viewerId && row.authorId === viewerId);
@@ -847,20 +865,24 @@ function normalizeUpdate(row: UpdateRow, params: {
         content: deleted ? "" : row.content,
         updateType: normalizeProjectUpdateType(row.updateType),
         visibility: row.visibility === "members" ? "members" : "public",
-        replyPolicy: row.replyPolicy === "members" ? "members" : "logged_in",
+        replyPolicy: row.replyPolicy === "members" || row.replyPolicy === "closed" ? row.replyPolicy : "logged_in",
         entityRefs: normalizeEntityRefs(row.entityRefs),
         context: params.contextByUpdateId?.get(row.id) ?? {},
         media: normalizeMedia(row.media),
         metadata: normalizeMetadata(row.metadata),
-        isPinned: Boolean(row.isPinned),
+        isPinned: !shared && isPinnedNow(Boolean(row.isPinned), row.pinnedUntil ?? null),
+        pinnedUntil: toIsoString(row.pinnedUntil),
+        audience: (row.audience ?? {}) as UpdateAudience,
+        fromProject: shared ? params.fromProjects?.get(row.projectId) ?? null : null,
         likeCount: Math.max(0, row.likeCount ?? 0),
         commentCount: Math.max(0, row.commentCount ?? 0),
         likedByViewer: params.likedIds.has(row.id),
         canEdit: !deleted && isAuthor,
         canDelete: !deleted && (isAuthor || canModerate),
-        canPin: !deleted && canModerate,
-        canComment: !deleted && Boolean(viewerId) && params.access.canRead && (
-            row.replyPolicy !== "members" || params.access.isOwner || params.access.isMember
+        canPin: !deleted && canModerate && !shared,
+        // ponytail: shared posts take comments in their own project; the card checks there on submit.
+        canComment: !deleted && Boolean(viewerId) && params.access.canRead && row.replyPolicy !== "closed" && (
+            row.replyPolicy !== "members" || params.access.isOwner || params.access.isMember || shared
         ),
         editedAt: toIsoString(row.editedAt),
         deletedAt: toIsoString(row.deletedAt),
@@ -918,6 +940,10 @@ async function readUpdateRowsByIds(updateIds: string[], access: ProjectUpdateAcc
             media: projectUpdates.media,
             metadata: projectUpdates.metadata,
             isPinned: projectUpdates.isPinned,
+            audience: projectUpdates.audience,
+            notifyLevel: projectUpdates.notifyLevel,
+            pinnedUntil: projectUpdates.pinnedUntil,
+            sharedToOrgAt: projectUpdates.sharedToOrgAt,
             likeCount: projectUpdates.likeCount,
             commentCount: projectUpdates.commentCount,
             deletedBy: projectUpdates.deletedBy,
@@ -940,6 +966,7 @@ async function readUpdateRowsByIds(updateIds: string[], access: ProjectUpdateAcc
             inArray(projectUpdates.id, updateIds),
             eq(projectUpdates.projectId, access.project.id),
             access.isOwner || access.isMember ? undefined : eq(projectUpdates.visibility, "public"),
+            orgAudienceWhere(access),
         ));
     return hydrateUpdateRowsWithRoleTitles(access.project.id, rows);
 }
@@ -1052,7 +1079,12 @@ async function contextSummariesForRows(rows: Array<Pick<UpdateRow, "id" | "entit
     return summaries;
 }
 
-function updateCursorCondition(cursor: ProjectUpdateCursor | null) {
+/** An org's own posts are read through its audience rule (report §17.3). */
+function orgAudienceWhere(access: ProjectUpdateAccess) {
+    return access.org?.kind === "org" ? orgFeedWhere(access.org, access.viewerId, "all") : undefined;
+}
+
+function updateCursorCondition(cursor: ProjectUpdateCursor | null, pinned: SQL<boolean> | typeof projectUpdates.isPinned = projectUpdates.isPinned) {
     if (!cursor) return undefined;
     const cursorDate = new Date(cursor.createdAt);
     if (Number.isNaN(cursorDate.getTime())) return undefined;
@@ -1061,13 +1093,10 @@ function updateCursorCondition(cursor: ProjectUpdateCursor | null) {
         and(eq(projectUpdates.createdAt, cursorDate), lt(projectUpdates.id, cursor.id)),
     );
     if (cursor.pinned) {
-        return or(
-            and(eq(projectUpdates.isPinned, true), afterWithinBucket),
-            eq(projectUpdates.isPinned, false),
-        );
+        return or(and(sql`${pinned}`, afterWithinBucket), sql`NOT ${pinned}`);
     }
     // Row comparison lets the member-feed index seek to the cursor instead of filtering every newer row.
-    return and(eq(projectUpdates.isPinned, false), sql`(${projectUpdates.createdAt}, ${projectUpdates.id}) < (${cursorDate}, ${cursor.id}::uuid)`);
+    return and(sql`NOT ${pinned}`, sql`(${projectUpdates.createdAt}, ${projectUpdates.id}) < (${cursorDate}, ${cursor.id}::uuid)`);
 }
 
 export async function readProjectUpdatesAction(projectId: string, params?: {
@@ -1084,6 +1113,15 @@ export async function readProjectUpdatesAction(projectId: string, params?: {
 
         const filter = normalizeProjectUpdateFilter(params?.filter ?? "all");
         const cursor = decodeUpdateCursor(params?.cursor);
+        // The org feed (report §17.5): own posts by audience plus posts shared up from child projects.
+        const orgFeed = access.org?.kind === "org" ? access.org : null;
+        const pinned = orgFeed ? orgLivePinSql(orgFeed.orgId) : projectUpdates.isPinned;
+        const scope = orgFeed
+            ? orgFeedWhere(orgFeed, viewer.userId, filter === "all" || filter === "from_projects" || filter === "announcement" || filter === "discussion" ? filter : "all")
+            : and(
+                eq(projectUpdates.projectId, projectId),
+                access.isOwner || access.isMember ? undefined : eq(projectUpdates.visibility, "public"),
+            );
         const rawRows = await db
             .select({
                 id: projectUpdates.id,
@@ -1097,6 +1135,10 @@ export async function readProjectUpdatesAction(projectId: string, params?: {
                 media: projectUpdates.media,
                 metadata: projectUpdates.metadata,
                 isPinned: projectUpdates.isPinned,
+                audience: projectUpdates.audience,
+                notifyLevel: projectUpdates.notifyLevel,
+                pinnedUntil: projectUpdates.pinnedUntil,
+                sharedToOrgAt: projectUpdates.sharedToOrgAt,
                 likeCount: projectUpdates.likeCount,
                 commentCount: projectUpdates.commentCount,
                 deletedBy: projectUpdates.deletedBy,
@@ -1116,24 +1158,25 @@ export async function readProjectUpdatesAction(projectId: string, params?: {
                 eq(projectMembers.userId, projectUpdates.authorId),
             ))
             .where(and(
-                eq(projectUpdates.projectId, projectId),
+                scope,
                 isNull(projectUpdates.deletedAt),
-                access.isOwner || access.isMember ? undefined : eq(projectUpdates.visibility, "public"),
-                filter === "all" ? undefined : eq(projectUpdates.updateType, filter),
-                updateCursorCondition(cursor),
+                filter === "all" || filter === "from_projects" ? undefined : eq(projectUpdates.updateType, filter),
+                updateCursorCondition(cursor, pinned),
             ))
-            .orderBy(desc(projectUpdates.isPinned), desc(projectUpdates.createdAt), desc(projectUpdates.id))
+            .orderBy(desc(pinned), desc(projectUpdates.createdAt), desc(projectUpdates.id))
             .limit(UPDATES_PAGE_SIZE + 1);
 
         const rows = await hydrateUpdateRowsWithRoleTitles(projectId, rawRows);
         const pageRows = rows.slice(0, UPDATES_PAGE_SIZE);
         const updateIds = pageRows.map((row) => row.id);
-        const [likedIds, contextByUpdateId] = await Promise.all([
+        const [likedIds, contextByUpdateId, fromProjects, lastSeenAt] = await Promise.all([
             likedUpdateIds(updateIds, viewer.userId),
             contextSummariesForRows(pageRows, access),
+            readProjectTitles([...new Set(pageRows.filter((row) => row.projectId !== projectId).map((row) => row.projectId))]),
+            orgFeed ? readLastSeenUpdates(orgFeed.orgId, viewer.userId) : null,
         ]);
-        const updates = pageRows.map((row) => normalizeUpdate(row, { access, likedIds, contextByUpdateId }));
-        const last = pageRows[pageRows.length - 1] ?? null;
+        const updates = pageRows.map((row) => normalizeUpdate(row, { access, likedIds, contextByUpdateId, fromProjects }));
+        const last = updates[updates.length - 1] ?? null;
         const durationMs = Math.round(performance.now() - startedAt);
         logger.metric("project_updates.read", {
             module: "projects",
@@ -1159,6 +1202,14 @@ export async function readProjectUpdatesAction(projectId: string, params?: {
                 nextCursor: rows.length > UPDATES_PAGE_SIZE && last ? encodeUpdateCursor(last) : null,
                 hasMore: rows.length > UPDATES_PAGE_SIZE,
                 movementSummary: null,
+                /** Org feed only: when the viewer last opened it, for New markers. */
+                lastSeenAt,
+                org: access.org ? {
+                    kind: access.org.kind,
+                    title: access.org.orgTitle,
+                    isAdmin: access.org.isOrgAdmin,
+                    shareBlockedReason: access.org.shareBlockedReason,
+                } : null,
                 capabilities: {
                     canCreate: access.canCreate,
                     canManage: access.canManage,
@@ -1392,6 +1443,55 @@ export async function finalizeProjectUpdateMediaUploadAction(projectId: string, 
     }
 }
 
+const PIN_LIMIT_MESSAGE = "Up to 3 posts can be pinned. Unpin one first.";
+
+/** The 0245 trigger refuses a pin over the project's limit. */
+function isPinLimitError(error: unknown) {
+    const text = `${error instanceof Error ? error.message : ""} ${error instanceof Error && error.cause instanceof Error ? error.cause.message : ""}`;
+    return text.includes("project_update_pin_limit");
+}
+
+function futureDate(value: string | null | undefined) {
+    const date = value ? new Date(value) : null;
+    return date && !Number.isNaN(date.getTime()) && date.getTime() > Date.now() ? date : null;
+}
+
+/** Org post rules (report §17.2–17.6): announcement and discussion types, audience, notify, pin, comments off, share up. */
+async function resolveOrgPostOptions(access: ProjectUpdateAccess, updateType: ProjectUpdateType | null, input: {
+    audience?: UpdateAudience | null;
+    notifyLevel?: string | null;
+    pin?: boolean;
+    pinnedUntil?: string | null;
+    commentsOff?: boolean;
+    shareToOrg?: boolean;
+}) {
+    const inOrg = access.org?.kind === "org";
+    const orgAdmin = inOrg && access.canManage;
+    if (updateType === "announcement" && !orgAdmin) return { error: "Only organization admins post announcements." };
+    if (updateType === "discussion" && !inOrg) return { error: "Discussions are for organizations." };
+    if (input.shareToOrg) {
+        if (access.org?.kind !== "child") return { error: "Only child projects share to their organization." };
+        if (access.org.shareBlockedReason) return { error: access.org.shareBlockedReason };
+    }
+    let audience: UpdateAudience = {};
+    if (orgAdmin && input.audience) {
+        const roles = (input.audience.roles ?? []).filter((role) => role === "admin" || role === "member" || role === "viewer");
+        const wanted = (input.audience.projectIds ?? []).filter((id) => isLooseUuid(id));
+        const projectIds = wanted.length === 0 ? [] : (await db.select({ id: projects.id }).from(projects)
+            .where(and(eq(projects.parentId, access.project!.id), inArray(projects.id, wanted), isNull(projects.deletedAt)))).map((row) => row.id);
+        audience = { ...(roles.length ? { roles } : {}), ...(projectIds.length ? { projectIds } : {}) };
+    }
+    return {
+        audience,
+        // ponytail: stored only; email sending lands with notifications (P14).
+        notifyLevel: orgAdmin && input.notifyLevel === "email" ? "email" as const : "in_app" as const,
+        pin: Boolean(orgAdmin && input.pin),
+        pinnedUntil: orgAdmin && input.pin ? futureDate(input.pinnedUntil) : null,
+        commentsOff: Boolean(orgAdmin && input.commentsOff),
+        shareToOrg: Boolean(input.shareToOrg),
+    };
+}
+
 export async function createProjectUpdateAction(projectId: string, input: {
     content: string;
     updateType?: ProjectUpdateType | string | null;
@@ -1399,6 +1499,13 @@ export async function createProjectUpdateAction(projectId: string, input: {
     replyPolicy?: ProjectUpdateReplyPolicy | string | null;
     entityRefs?: ProjectUpdateEntityRefs | null;
     media?: ProjectUpdateMediaItem[] | null;
+    /** Org options (report §17): admins only, except shareToOrg in child projects. */
+    audience?: UpdateAudience | null;
+    notifyLevel?: "in_app" | "email" | null;
+    pin?: boolean;
+    pinnedUntil?: string | null;
+    commentsOff?: boolean;
+    shareToOrg?: boolean;
 }) {
     const startedAt = performance.now();
     try {
@@ -1412,7 +1519,9 @@ export async function createProjectUpdateAction(projectId: string, input: {
 
         const updateType = normalizeProjectUpdateType(input.updateType);
         const visibility: ProjectUpdateVisibility = input.visibility === "members" ? "members" : "public";
-        const replyPolicy: ProjectUpdateReplyPolicy = input.replyPolicy === "members" ? "members" : "logged_in";
+        const orgOptions = await resolveOrgPostOptions(access, updateType, input);
+        if ("error" in orgOptions) return { success: false as const, error: orgOptions.error };
+        const replyPolicy: ProjectUpdateReplyPolicy = orgOptions.commentsOff ? "closed" : input.replyPolicy === "members" ? "members" : "logged_in";
         const entityRefs = normalizeEntityRefs(input.entityRefs);
         const media = normalizeMedia(input.media);
         const content = sanitizeProjectUpdateContent(input.content);
@@ -1440,6 +1549,11 @@ export async function createProjectUpdateAction(projectId: string, input: {
                     entityRefs,
                     media,
                     metadata: { authorRoleSnapshot },
+                    audience: orgOptions.audience,
+                    notifyLevel: orgOptions.notifyLevel,
+                    isPinned: orgOptions.pin,
+                    pinnedUntil: orgOptions.pinnedUntil,
+                    sharedToOrgAt: orgOptions.shareToOrg ? createdAt : null,
                     createdAt,
                     updatedAt: createdAt,
                 })
@@ -1533,6 +1647,7 @@ export async function createProjectUpdateAction(projectId: string, input: {
         }
         return { success: true as const, data: update };
     } catch (error) {
+        if (isPinLimitError(error)) return { success: false as const, error: PIN_LIMIT_MESSAGE };
         console.error("Failed to create project update:", error);
         return { success: false as const, error: "Failed to post update." };
     }
@@ -1695,7 +1810,7 @@ export async function deleteProjectUpdateAction(projectId: string, updateId: str
     }
 }
 
-export async function toggleProjectUpdatePinAction(projectId: string, updateId: string, pinned: boolean) {
+export async function toggleProjectUpdatePinAction(projectId: string, updateId: string, pinned: boolean, pinnedUntil?: string | null) {
     try {
         const viewer = await getViewerAuthContext();
         if (!viewer.userId) return { success: false as const, error: "Please log in to pin updates." };
@@ -1712,7 +1827,9 @@ export async function toggleProjectUpdatePinAction(projectId: string, updateId: 
                 .limit(1);
             if (!target) return false;
             const now = new Date();
-            if (pinned) {
+            // Orgs keep up to 3 pins (the 0245 trigger refuses a 4th); other projects swap their one pin.
+            const isOrg = access.project?.kind === "organization";
+            if (pinned && !isOrg) {
                 await tx
                     .update(projectUpdates)
                     .set({ isPinned: false, updatedAt: now })
@@ -1720,7 +1837,7 @@ export async function toggleProjectUpdatePinAction(projectId: string, updateId: 
             }
             await tx
                 .update(projectUpdates)
-                .set({ isPinned: pinned, updatedAt: now })
+                .set({ isPinned: pinned, pinnedUntil: pinned && isOrg ? futureDate(pinnedUntil) : null, updatedAt: now })
                 .where(eq(projectUpdates.id, updateId));
             return true;
         });
@@ -1732,6 +1849,7 @@ export async function toggleProjectUpdatePinAction(projectId: string, updateId: 
         ]);
         return { success: true as const, data: rows[0] ? normalizeUpdate(rows[0], { access, likedIds, contextByUpdateId }) : null };
     } catch (error) {
+        if (isPinLimitError(error)) return { success: false as const, error: PIN_LIMIT_MESSAGE };
         console.error("Failed to pin project update:", error);
         return { success: false as const, error: "Failed to update pinned state." };
     }
@@ -1865,6 +1983,7 @@ async function assertReadableUpdate(projectId: string, updateId: string, access:
             eq(projectUpdates.projectId, projectId),
             isNull(projectUpdates.deletedAt),
             access.isOwner || access.isMember ? undefined : eq(projectUpdates.visibility, "public"),
+            orgAudienceWhere(access),
         ))
         .limit(1);
     return update ?? null;
@@ -1960,6 +2079,7 @@ export async function createProjectUpdateCommentAction(projectId: string, update
         const update = await assertReadableUpdate(projectId, updateId, access);
         if (!update || !access.project) return { success: false as const, error: "Project update unavailable." };
         const project = access.project;
+        if (update.replyPolicy === "closed") return { success: false as const, error: "Comments are off for this post." };
         if (update.replyPolicy === "members" && !access.isOwner && !access.isMember) {
             return { success: false as const, error: "Only project members can comment on this update." };
         }

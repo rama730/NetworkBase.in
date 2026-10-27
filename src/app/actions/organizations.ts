@@ -172,6 +172,7 @@ export async function updateOrgSettingsAction(orgId: string, section: OrgSetting
     } else {
         if ('child_creation' in value) settingsPatch.childCreation = value.child_creation;
         if ('outside_people' in value) settingsPatch.outsidePeople = value.outside_people;
+        if ('child_share' in value) settingsPatch.childShare = value.child_share;
         if ('visibility_cap' in value) settingsPatch.visibilityCap = value.visibility_cap;
     }
 

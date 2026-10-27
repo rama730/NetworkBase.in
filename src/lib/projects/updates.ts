@@ -10,12 +10,16 @@ export const PROJECT_UPDATE_TYPES = [
     "decision",
     "collaboration_request",
     "behind_the_scenes",
+    // Organizations only (report §17.2): admins post announcements, members post discussions.
+    "announcement",
+    "discussion",
 ] as const;
 
 export type ProjectUpdateType = typeof PROJECT_UPDATE_TYPES[number];
 export type ProjectUpdateVisibility = "public" | "members";
-export type ProjectUpdateReplyPolicy = "logged_in" | "members";
-export type ProjectUpdateFilter = "all" | ProjectUpdateType;
+export type ProjectUpdateReplyPolicy = "logged_in" | "members" | "closed";
+/** "from_projects" is the org feed's view of posts shared up from child projects. */
+export type ProjectUpdateFilter = "all" | "from_projects" | ProjectUpdateType;
 
 export type ProjectUpdateEntityRefs = {
     taskId?: string | null;
@@ -164,7 +168,7 @@ export function normalizeProjectUpdateType(value: unknown): ProjectUpdateType | 
 }
 
 export function normalizeProjectUpdateFilter(value: unknown): ProjectUpdateFilter {
-    if (value === "all") return "all";
+    if (value === "all" || value === "from_projects") return value;
     return normalizeProjectUpdateType(value) ?? "all";
 }
 

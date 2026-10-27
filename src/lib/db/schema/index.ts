@@ -1761,14 +1761,23 @@ export const projectUpdates = pgTable(
         "decision",
         "collaboration_request",
         "behind_the_scenes",
+        // Organizations (0245)
+        "announcement",
+        "discussion",
       ],
     }),
     visibility: text("visibility", { enum: ["public", "members"] })
       .default("public")
       .notNull(),
-    replyPolicy: text("reply_policy", { enum: ["logged_in", "members"] })
+    // "closed" = comments off (0245).
+    replyPolicy: text("reply_policy", { enum: ["logged_in", "members", "closed"] })
       .default("logged_in")
       .notNull(),
+    // Organizations (0245): who sees the post (empty = everyone), notify level, unpin date, shared up from a child project.
+    audience: jsonb("audience").$type<import("@/lib/organizations/update-rules").UpdateAudience>().default({}).notNull(),
+    notifyLevel: text("notify_level", { enum: ["in_app", "email"] }).default("in_app").notNull(),
+    pinnedUntil: timestamp("pinned_until", { withTimezone: true }),
+    sharedToOrgAt: timestamp("shared_to_org_at", { withTimezone: true }),
     entityRefs: jsonb("entity_refs")
       .$type<ProjectUpdateEntityRefs>()
       .default({})
@@ -1879,6 +1888,8 @@ export const projectUpdateDrafts = pgTable(
         "decision",
         "collaboration_request",
         "behind_the_scenes",
+        "announcement",
+        "discussion",
       ],
     }),
     entityRefs: jsonb("entity_refs")

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from "next/link";
+import type { OrgFeedInfo } from '@/components/organizations/OrgUpdateParts';
 import { useEffect, useState } from "react";
 import { type InfiniteData } from "@tanstack/react-query";
 import { type ProjectUpdateCommentView, type ProjectUpdateMovementSummary, type ProjectUpdateView } from "@/app/actions/project/updates";
@@ -10,6 +11,9 @@ export type UpdatesPage = {
   nextCursor: string | null;
   hasMore: boolean;
   movementSummary?: ProjectUpdateMovementSummary | null;
+  /** Org feeds only (report §17.8): when the viewer last opened them, for New markers. */
+  lastSeenAt?: string | null;
+  org?: OrgFeedInfo | null;
   capabilities?: {
     canCreate: boolean;
     canManage: boolean;
