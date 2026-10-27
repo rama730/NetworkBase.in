@@ -15,7 +15,7 @@ import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { getTaskStatusLabel } from "@/lib/projects/task-presentation";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { personName } from "@/lib/messaging/channel-view";
-import type { ChatCardRef, ChatCardView, InviteCardView, TaskCardView } from "@/lib/messaging/types";
+import type { AnnouncementCardView, AssignmentCardView, ChatCardRef, ChatCardView, InviteCardView, TaskCardView } from "@/lib/messaging/types";
 
 /** Live cards (report 7.10 "Cards"): registry by kind; every action calls the existing domain action, then refetches the card. */
 export function MessageCard({ card }: { card: ChatCardRef }) {
@@ -32,7 +32,42 @@ export function MessageCard({ card }: { card: ChatCardRef }) {
 function CardBody({ view }: { view: Exclude<ChatCardView, { restricted: true }> }) {
   if (view.kind === "application") return <ApplicationCard view={view} />;
   if (view.kind === "task") return <TaskCard view={view} />;
+  if (view.kind === "announcement") return <AnnouncementCard view={view} />;
+  if (view.kind === "assignment") return <AssignmentCard view={view} />;
   return <InviteCard view={view} />;
+}
+
+/** An org announcement shared in #general (report §25.5): first lines and Open in Updates. */
+function AnnouncementCard({ view }: { view: AnnouncementCardView }) {
+  const href = `/org/${view.project_slug ?? view.project_id}?tab=updates&updateId=${view.id}`;
+  if (view.deleted) return <Shell label="Announcement" status="deleted"><p className="text-[13px] text-muted-foreground">This announcement was removed.</p></Shell>;
+  return (
+    <Shell label={`Announcement · ${view.project_title}`} status={null}>
+      <p className="line-clamp-4 whitespace-pre-line text-[14px] text-foreground">{view.content}</p>
+      <Actions><Link href={href} className={secondary}>Open in Updates</Link></Actions>
+    </Shell>
+  );
+}
+
+const COPY_STATE_LABEL: Record<string, string> = { not_started: "Not started", in_progress: "In progress", submitted: "Submitted", returned: "Returned", done: "Done", missing: "Missing", excused: "Excused" };
+
+/** An assignment shared in #general: your own status, or counts for owners and admins (report §25.5). */
+function AssignmentCard({ view }: { view: AssignmentCardView }) {
+  const base = `/org/${view.project_slug ?? view.project_id}?tab=tasks`;
+  if (view.deleted) return <Shell label="Assignment" status="deleted"><p className="text-[13px] text-muted-foreground">This assignment was deleted.</p></Shell>;
+  const status = view.own ? `${COPY_STATE_LABEL[view.own.state] ?? view.own.state}${view.own.late ? " · late" : ""}` : view.counts ? `${view.counts.submitted} of ${view.counts.total} submitted` : null;
+  return (
+    <Shell label={`Assignment · ${view.project_title}`} status={null}>
+      <p className="text-[15px] font-medium text-foreground">{view.title}</p>
+      <p className="mt-1 text-[13px] text-muted-foreground">
+        {view.due_date ? `Due ${new Date(view.due_date).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}` : "No due date"}
+        {status ? ` · ${status}` : ""}
+      </p>
+      <Actions>
+        <Link href={view.own ? `${base}&drawerType=task&drawerId=${view.own.copy_id}` : base} className={primary}>{view.own ? "Open my copy" : "Open assignments"}</Link>
+      </Actions>
+    </Shell>
+  );
 }
 
 const TASK_STATUSES: TaskStatus[] = ["todo", "in_progress", "blocked", "done"];

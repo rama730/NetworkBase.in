@@ -248,7 +248,8 @@
     "drizzle/0245_org_updates.sql",
     "drizzle/0246_org_docs.sql",
     "drizzle/0247_org_files.sql",
-    "drizzle/0248_org_profile.sql"
+    "drizzle/0248_org_profile.sql",
+    "drizzle/0249_org_chat.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",

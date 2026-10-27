@@ -17,6 +17,8 @@ import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Input } from '@/components/ui/input'
 import { ORG_TYPES } from '@/lib/organizations/config'
+import { orgChatSettings } from '@/lib/organizations/chat-rules'
+import { updateOrgChatSettingsAction } from '@/app/actions/org-chat'
 import type { OrgDetail } from '@/lib/organizations/detail'
 import { orgGrant, type OrgAction, type OrgRole } from '@/lib/organizations/permissions'
 import type { OrgMemberRole, OrgSettingsSection } from '@/lib/organizations/settings'
@@ -380,5 +382,37 @@ export function OrgProjectsSection({ orgId, organization }: SectionProps) {
                 </div>
             </SettingsCard>
         </Section>
+    )
+}
+
+/** Settings → Updates & messages, chat rows (report §25.4): #general posting and who creates org channels. */
+export function OrgChatSection({ orgId, organization }: { orgId: string; organization: OrgDetail }) {
+    const defaults = orgChatSettings(organization.chat ?? {}, organization.type)
+    const [adminsOnly, setAdminsOnly] = useState(defaults.generalAdminsOnly)
+    const [membersCreate, setMembersCreate] = useState(defaults.membersCreateChannels)
+    const { pending, save, status } = useSave()
+    return (
+        <SettingsCard title="Messages" headingLevel={2} description="How the organization's chat works for everyone in it.">
+            <div className="space-y-5">
+                <div className="flex items-start justify-between gap-4">
+                    <div>
+                        <p className={labelClass}>Only admins post in #general</p>
+                        <p className={helpClass}>Everyone still reads and replies in threads. Big announcements belong in Updates.</p>
+                    </div>
+                    <SettingsSwitch checked={adminsOnly} onCheckedChange={setAdminsOnly} aria-label="Only admins post in #general" />
+                </div>
+                <div className="flex items-start justify-between gap-4">
+                    <div>
+                        <p className={labelClass}>Members can create organization channels</p>
+                        <p className={helpClass}>Project teams always create channels in their own projects.</p>
+                    </div>
+                    <SettingsSwitch checked={membersCreate} onCheckedChange={setMembersCreate} aria-label="Members can create organization channels" />
+                </div>
+                <div className="flex items-center gap-3">
+                    <Button disabled={pending} onClick={() => save(() => updateOrgChatSettingsAction(orgId, { generalAdminsOnly: adminsOnly, membersCreateChannels: membersCreate }))}>Save</Button>
+                    {status}
+                </div>
+            </div>
+        </SettingsCard>
     )
 }

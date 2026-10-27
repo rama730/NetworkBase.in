@@ -1,7 +1,7 @@
 "use client";
 
 import { ChildOrgSection } from "@/components/organizations/ChildOrgSection";
-import { OrgAccessSection, OrgLeaveSection, OrgMembershipSection, OrgPeopleSection, OrgProfileSection, OrgProjectsSection } from "@/components/organizations/OrgSettingsSections";
+import { OrgAccessSection, OrgChatSection, OrgLeaveSection, OrgMembershipSection, OrgPeopleSection, OrgProfileSection, OrgProjectsSection } from "@/components/organizations/OrgSettingsSections";
 import { ORG_SECTION_DEFS, orgSettingsSectionIds, type OrgMemberRole, type OrgSettingsSectionId } from "@/lib/organizations/settings";
 import { useRoleApplicationCounts } from "@/hooks/useRoleApplicationCounts";
 import { TaskCompletionSettings } from "@/components/projects/settings/TaskCompletionSettings";
@@ -1813,6 +1813,8 @@ function ProjectSettingsContent({
                 {sections.some((s) => s.id === "updates") && (
                     <section id="project-settings-updates" data-project-settings-section className="space-y-6">
                         <div className="space-y-6">
+                            {/* Org chat rules sit with Updates (report §25.4: Settings → Updates & messages). */}
+                            {organization ? <OrgChatSection orgId={projectId} organization={organization} /> : null}
                             <SettingsCard
                                 title="Project updates"
                                 headingLevel={2}

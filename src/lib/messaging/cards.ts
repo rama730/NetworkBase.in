@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import { copyState } from "@/lib/organizations/assignment-rules";
 
 import { chatRows, uuidArray } from "@/lib/messaging/server";
 import type { ChatCardRef, ChatCardView } from "@/lib/messaging/types";
@@ -16,6 +17,8 @@ export async function hydrateCards(viewerId: string, refs: ChatCardRef[]): Promi
   const applicationIds = ids("application");
   const taskIds = ids("task");
   const inviteIds = ids("invite");
+  const announcementIds = ids("announcement");
+  const assignmentIds = ids("assignment");
 
   const [applications, tasks, invites] = await Promise.all([
     applicationIds.length === 0 ? [] : chatRows<Record<string, unknown>>(sql`
@@ -71,6 +74,37 @@ export async function hydrateCards(viewerId: string, refs: ChatCardRef[]): Promi
     `),
   ]);
 
+  // Org cards (report §25.5): an announcement for the people its audience allows; an assignment with the
+  // viewer's own copy status, or counts for owners and admins.
+  const [announcements, assignments] = await Promise.all([
+    announcementIds.length === 0 ? [] : chatRows<Record<string, unknown>>(sql`
+      SELECT u.id, left(u.content, 400) AS content, u.project_id, p.slug AS project_slug, p.title AS project_title,
+             u.created_at, u.deleted_at IS NOT NULL AS deleted,
+             (p.owner_id = ${viewerId}::uuid OR EXISTS (
+               SELECT 1 FROM project_members m WHERE m.project_id = u.project_id AND m.user_id = ${viewerId}::uuid
+                 AND (u.audience = '{}'::jsonb OR m.role = 'admin' OR u.author_id = ${viewerId}::uuid OR u.audience->'roles' @> to_jsonb(m.role::text)
+                   OR EXISTS (SELECT 1 FROM project_members cm WHERE cm.user_id = ${viewerId}::uuid
+                     AND cm.project_id::text IN (SELECT jsonb_array_elements_text(coalesce(u.audience->'projectIds', '[]'::jsonb)))))
+             )) AS can_view
+      FROM project_updates u JOIN projects p ON p.id = u.project_id
+      WHERE u.id = ANY(${uuidArray(announcementIds)})
+    `),
+    assignmentIds.length === 0 ? [] : chatRows<Record<string, unknown>>(sql`
+      SELECT t.id, t.title, t.due_date, t.project_id, p.slug AS project_slug, p.title AS project_title, t.deleted_at IS NOT NULL AS deleted,
+             (p.owner_id = ${viewerId}::uuid OR EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = p.id AND m.user_id = ${viewerId}::uuid AND m.role = 'admin')) AS is_admin,
+             EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = p.id AND m.user_id = ${viewerId}::uuid) OR p.owner_id = ${viewerId}::uuid AS can_view,
+             (SELECT jsonb_build_object('copy_id', c.id, 'status', c.status, 'review_status', c.review_status, 'due_date', c.due_date,
+                     'submitted_at', c.review_submitted_at, 'completed_at', c.completed_at, 'excused_at', c.excused_at)
+              FROM tasks c WHERE c.assignment_id = t.id AND c.deleted_at IS NULL AND (c.assignee_id = ${viewerId}::uuid
+                OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = c.id AND tm.user_id = ${viewerId}::uuid)) LIMIT 1) AS own,
+             (SELECT jsonb_build_object('total', count(*) FILTER (WHERE c.excused_at IS NULL), 'done', count(*) FILTER (WHERE c.status = 'done'),
+                     'submitted', count(*) FILTER (WHERE c.review_status = 'pending' OR c.status = 'done'))
+              FROM tasks c WHERE c.assignment_id = t.id AND c.deleted_at IS NULL) AS counts
+      FROM tasks t JOIN projects p ON p.id = t.project_id
+      WHERE t.id = ANY(${uuidArray(assignmentIds)}) AND t.assignment_id IS NULL
+    `),
+  ]);
+
   const cards: Record<string, ChatCardView> = {};
   for (const ref of refs) cards[`${ref.kind}:${ref.ref_id}`] = { kind: ref.kind, id: ref.ref_id, restricted: true };
   for (const row of applications) {
@@ -84,6 +118,27 @@ export async function hydrateCards(viewerId: string, refs: ChatCardRef[]): Promi
   }
   for (const row of invites) {
     if (row.is_candidate || row.can_cancel) cards[`invite:${row.id}`] = { kind: "invite", ...row } as ChatCardView;
+  }
+  for (const row of announcements) {
+    if (row.can_view) {
+      const { can_view: _canView, ...announcement } = row;
+      cards[`announcement:${row.id}`] = { kind: "announcement", ...announcement } as ChatCardView;
+    }
+  }
+  for (const row of assignments) {
+    if (!row.can_view) continue;
+    const { can_view: _canView, is_admin: isAdmin, own, counts, ...assignment } = row;
+    const copy = own as Record<string, string | null> | null;
+    const state = copy ? copyState({
+      status: String(copy.status), reviewStatus: String(copy.review_status), dueDate: copy.due_date ? new Date(copy.due_date) : null,
+      submittedAt: copy.submitted_at ? new Date(copy.submitted_at) : null, completedAt: copy.completed_at ? new Date(copy.completed_at) : null,
+      excusedAt: copy.excused_at ? new Date(copy.excused_at) : null,
+    }) : null;
+    cards[`assignment:${row.id}`] = {
+      kind: "assignment", ...assignment,
+      own: copy && state ? { copy_id: String(copy.copy_id), state: state.state, late: state.late } : null,
+      counts: isAdmin ? counts : null,
+    } as ChatCardView;
   }
   return cards;
 }

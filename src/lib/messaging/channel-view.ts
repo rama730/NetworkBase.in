@@ -202,6 +202,22 @@ export function projectBadges(data: ChatBootstrap | undefined) {
   return badges;
 }
 
+/**
+ * Badges for the workspace list (report §25.7): an org's count includes its child projects' channels, since
+ * a child project lives inside the org's workspace rather than on its own tile.
+ */
+export function workspaceBadges(data: ChatBootstrap | undefined) {
+  const badges = projectBadges(data);
+  const parents = new Map((data?.projects ?? []).filter((p) => p.parent_id).map((p) => [p.id, p.parent_id!]));
+  const listed = new Set((data?.projects ?? []).map((p) => p.id));
+  const rolled = new Map(badges);
+  for (const [projectId, count] of badges) {
+    const parent = parents.get(projectId);
+    if (parent && listed.has(parent)) rolled.set(parent, (rolled.get(parent) ?? 0) + count);
+  }
+  return rolled;
+}
+
 /** Projects ordered by most recent activity (L-30). */
 export function projectsByActivity(data: ChatBootstrap | undefined) {
   if (!data?.projects) return [];

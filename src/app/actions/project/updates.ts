@@ -3,6 +3,7 @@
 import { readViewerOrgRole } from "@/lib/organizations/detail";
 import { orgFeedWhere, orgLivePinSql, readLastSeenUpdates, readOrgUpdateContext, readProjectTitles, type OrgUpdateContext } from "@/lib/organizations/org-updates";
 import { isPinnedNow, type UpdateAudience } from "@/lib/organizations/update-rules";
+import { shareToOrgGeneral } from "@/lib/organizations/org-chat";
 import { readProjectRoleTitles, roleTitleKey } from "@/lib/projects/update-roles";
 import { randomUUID } from "node:crypto";
 import { alias } from "drizzle-orm/pg-core";
@@ -1508,6 +1509,8 @@ export async function createProjectUpdateAction(projectId: string, input: {
     pinnedUntil?: string | null;
     commentsOff?: boolean;
     shareToOrg?: boolean;
+    /** Org announcements: also post a live card in #general (report §25.5). */
+    shareToGeneral?: boolean;
 }) {
     const startedAt = performance.now();
     try {
@@ -1629,6 +1632,9 @@ export async function createProjectUpdateAction(projectId: string, input: {
             });
         }
 
+        if (input.shareToGeneral && updateType === "announcement" && access.org?.kind === "org" && access.canManage) {
+            await shareToOrgGeneral(projectId, viewer.userId, { kind: "announcement", ref_id: inserted.id });
+        }
         revalidatePath(projectBaseHref(access.project)); // paths never carry a query string
         const durationMs = Math.round(performance.now() - startedAt);
         logger.metric("project_updates.create", {
