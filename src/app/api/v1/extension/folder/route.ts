@@ -2,7 +2,7 @@ import { requireAuthenticatedUser, jsonSuccess, jsonError } from "@/app/api/v1/_
 import { db } from "@/lib/db";
 import { projectNodes, taskNodeLinks, tasks } from "@/lib/db/schema";
 import { canReadProjectTab, getProjectAccessById } from "@/lib/data/project-access";
-import { projectContentNodeSql } from "@/lib/files/internal-helpers";
+import { orgFileAccessSql, projectContentNodeSql } from "@/lib/files/internal-helpers";
 import { eq, and, inArray, isNull, gt, or } from "drizzle-orm";
 import { logger } from "@/lib/logger";
 import { z } from "zod";
@@ -71,7 +71,7 @@ export async function GET(request: Request) {
     }
 
     if(parsedQuery.data.parentPath&&parsedQuery.data.parentPath!=="/"){
-      const folder=await db.query.projectNodes.findFirst({where:and(eq(projectNodes.projectId,projectId),eq(projectNodes.path,parsedQuery.data.parentPath),eq(projectNodes.type,"folder"),isNull(projectNodes.deletedAt),canReadProjectTab(access,"tasks")?undefined:projectContentNodeSql),columns:{id:true}});
+      const folder=await db.query.projectNodes.findFirst({where:and(eq(projectNodes.projectId,projectId),eq(projectNodes.path,parsedQuery.data.parentPath),eq(projectNodes.type,"folder"),isNull(projectNodes.deletedAt),canReadProjectTab(access,"tasks")?undefined:projectContentNodeSql,orgFileAccessSql(access)),columns:{id:true}});
       if(!folder)return jsonError("Folder not found",404,"NOT_FOUND");if(parentId&&parentId!==folder.id)return jsonError("Folder identity mismatch",400,"BAD_REQUEST");parentId=folder.id;
     }
     // Find the child nodes
@@ -81,6 +81,7 @@ export async function GET(request: Request) {
         parentId ? eq(projectNodes.parentId, parentId) : isNull(projectNodes.parentId),
         isNull(projectNodes.deletedAt),
         canReadProjectTab(access, "tasks") ? undefined : projectContentNodeSql,
+        orgFileAccessSql(access),
         cursor
           ? or(
               gt(projectNodes.type, cursor.type),

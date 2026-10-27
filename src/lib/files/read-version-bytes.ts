@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { projectNodes, fileVersions, storageAssets } from "@/lib/db/schema";
 import {
   assertProjectFileReadAccess,
-  assertTaskFileNodeVisible,
+  assertFileNodeVisible,
 } from "@/lib/files/internal-helpers";
 import { readBoundedStorageBytes } from "@/lib/storage/bounded-object-read";
 export async function readVersionBytes(input: {
@@ -26,7 +26,7 @@ export async function readVersionBytes(input: {
     ),
   });
   if (!node) throw new Error("File not found");
-  assertTaskFileNodeVisible(access, node);
+  await assertFileNodeVisible(access, node);
   const [version] = await db
     .select({
       storageKey: storageAssets.storageKey,

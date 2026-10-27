@@ -113,7 +113,7 @@ test("Files metadata reads apply task visibility without hiding authorized linke
   const nodes = readFileSync("src/app/actions/files/nodes.ts", "utf8");
   assert.match(nodes, /canReadProjectTaskFiles\(readAccess\)/);
   assert.match(nodes, /normalizedQuery \|\| parentId/);
-  assert.match(nodes, /assertTaskFileNodeVisible/);
+  assert.match(nodes, /assertFileNodeVisible/);
 });
 
 test("managed task folders never expose direct create, upload, or drop mutations", () => {

@@ -10,7 +10,8 @@ import { canProjectMemberUploadFiles } from "@/lib/projects/settings-policies";
 import {
     assertProjectFileReadAccess,
     canReadProjectTaskFiles,
-    assertTaskFileNodeVisible,
+    assertFileNodeVisible,
+    orgFileAccessSql,
     ensureSystemRootFolder,
     projectContentNodeSql,
     visibleFileNodesSql,
@@ -247,6 +248,7 @@ export async function getProjectNodes(
             eq(projectNodes.projectId, projectId),
             isNull(projectNodes.deletedAt),
             scopeCondition,
+            orgFileAccessSql(readAccess),
             itemTypeCondition,
             ilike(projectNodes.name, `%${escapeLikePattern(normalizedQuery)}%`),
             ...(cursorCondition ? [cursorCondition] : []),
@@ -265,6 +267,7 @@ export async function getProjectNodes(
         eq(projectNodes.projectId, projectId),
         isNull(projectNodes.deletedAt),
         scopeCondition,
+        orgFileAccessSql(readAccess),
         itemTypeCondition,
         parentId ? eq(projectNodes.parentId, parentId) : isNull(projectNodes.parentId)
     ];
@@ -408,7 +411,7 @@ export async function getBreadcrumbs(projectId: string, folderId: string | null)
             where: and(eq(projectNodes.id, folderId), eq(projectNodes.projectId, projectId)),
             columns: { path: true, taskId: true, deletedAt: true }
         });
-        if (folder) assertTaskFileNodeVisible(access, folder);
+        if (folder) await assertFileNodeVisible(access, folder);
 
         // Ancestors by parent_id, never by path: a trashed "/A" and a live "/A" share a path.
         const rows = await db.execute<{ id: string; name: string; parent_id: string | null; path: string | null }>(sql`
@@ -441,6 +444,12 @@ export async function findNodeByPathAny(projectId: string, path: string[]) {
 
     if (!path.length) return null;
     if (!canReadProjectTaskFiles(access) && (path[0] === TASK_WORKING_FILES_TITLE || path[0] === ".system")) return null;
+    const found = await findNodeByPathUnchecked(projectId, path, access);
+    // Org Files: a hidden node resolves like a missing one (report §23.9 #3).
+    return found && !(await assertFileNodeVisible(access, found).then(() => false, () => true)) ? found : null;
+}
+
+async function findNodeByPathUnchecked(projectId: string, path: string[], access: Awaited<ReturnType<typeof assertProjectFileReadAccess>>) {
 
     // Task working files have a readable, public presentation path. The
     // physical `.system/tasks/<uuid>` hierarchy never reaches the URL.

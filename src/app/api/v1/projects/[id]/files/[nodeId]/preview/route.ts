@@ -4,7 +4,7 @@ import { and, eq, isNull } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { fileVersions, projectNodes, storageAssets } from "@/lib/db/schema";
-import { assertProjectFileReadAccess, assertTaskFileNodeVisible } from "@/lib/files/internal-helpers";
+import { assertProjectFileReadAccess, assertFileNodeVisible } from "@/lib/files/internal-helpers";
 import { parseProjectFileKey } from "@/lib/storage/project-file-key";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { streamPrivateObject } from "@/lib/storage/private-object-response";
@@ -145,7 +145,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return noStore("File content is unavailable", 404);
   }
   try {
-    assertTaskFileNodeVisible(access, node);
+    await assertFileNodeVisible(access, node);
   } catch {
     return noStore("Forbidden", 403);
   }

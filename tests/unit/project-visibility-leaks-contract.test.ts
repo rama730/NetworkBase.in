@@ -20,7 +20,7 @@ test("COR-002: the file-content server action has no caller-controlled bypass", 
   const reader = read("src/lib/files/content-reader.ts");
   assert.doesNotMatch(reader, /^"use server"/m, "the private reader must not be a server action");
   assert.match(reader, /^import "server-only";/m);
-  assert.match(reader, /assertTaskFileNodeVisible\(access, node\)/);
+  assert.match(reader, /await assertFileNodeVisible\(access, node\)/);
 });
 
 test("COR-006: GitHub blob recovery resolves credentials through the sealed resolver", () => {

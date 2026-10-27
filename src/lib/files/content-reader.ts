@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { githubSyncConnections, projectNodes, projects, storageAssets } from "@/lib/db/schema";
 import type { ProjectAccess } from "@/lib/data/project-access";
-import { assertTaskFileNodeVisible } from "@/lib/files/internal-helpers";
+import { assertFileNodeVisible } from "@/lib/files/internal-helpers";
 import { resolveGithubRepoAccess } from "@/lib/github/auth-resolver";
 import { logger } from "@/lib/logger";
 import { readBoundedStorageText } from "@/lib/storage/bounded-object-read";
@@ -41,7 +41,7 @@ export async function readProjectFileText(
     if (!node) {
         throw new Error("File not found");
     }
-    assertTaskFileNodeVisible(access, node);
+    await assertFileNodeVisible(access, node);
 
     const [asset] = node.s3Key && node.assetId
         ? await db.select({ size: storageAssets.verifiedSize })

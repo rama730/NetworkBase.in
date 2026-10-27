@@ -6,6 +6,7 @@ import { enforceRouteLimit } from "@/app/api/v1/_shared";
 import {
   assertProjectFileReadAccess,
   canReadProjectTaskFiles,
+  orgFileAccessSql,
 } from "@/lib/files/internal-helpers";
 import { prepareFolderExport, streamFolderExport } from "@/lib/files/folder-export";
 import { safeContentDisposition } from "@/lib/storage/private-object-response";
@@ -34,6 +35,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
   if (limited) return limited;
   const access = await assertProjectFileReadAccess(projectId, user?.id ?? null).catch(() => null);
   if (!access) return jsonError("Forbidden", 403, "FORBIDDEN");
+  // ponytail: in an organization only owners and admins download folders, so a zip never carries
+  // Admins-only files or other people's copies. Upgrade: filter the export plan by orgFileAccessSql.
+  if (orgFileAccessSql(access)) return jsonError("Folder downloads are for organization admins.", 403, "FORBIDDEN");
 
   let prepared;
   try {

@@ -22,7 +22,7 @@ import { logger } from "@/lib/logger";
 import { toIsoString as toIso } from "@/lib/utils/date";
 import { isUuid } from "@/lib/validations/uuid";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
-import { projectContentNodeSql, recordNodeEvent } from "@/lib/files/internal-helpers";
+import { orgFileAccessSql, projectContentNodeSql, recordNodeEvent } from "@/lib/files/internal-helpers";
 import {
     getOrBuildProjectDocPublishMetadata,
     DEFAULT_PROJECT_DOC_SETTINGS,
@@ -722,7 +722,8 @@ export async function readProjectDocSmartBlockPreviewsAction(projectId: string, 
         if (readableKinds.has("files")) {
             const fileIds = [...(idsByKind.get("files") ?? [])];
             // Task-owned and /.system files need Tasks visibility (COR-034).
-            const fileScope = canReadReferenceKind("tasks", context) ? undefined : projectContentNodeSql;
+            // Org Files: no Admins-only files or other people's copies in a doc's file blocks (report §23.9).
+            const fileScope = and(canReadReferenceKind("tasks", context) ? undefined : projectContentNodeSql, orgFileAccessSql(await getProjectAccessById(projectId, actorUserId)));
             const [selectedRows, recentRows] = await Promise.all([
                 fileIds.length ? db.query.projectNodes.findMany({
                     where: and(eq(projectNodes.projectId, projectId), eq(projectNodes.type, "file"), isNull(projectNodes.deletedAt), inArray(projectNodes.id, fileIds), fileScope),

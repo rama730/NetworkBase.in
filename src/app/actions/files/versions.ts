@@ -34,7 +34,7 @@ import { notifyForFileVersionCreated } from "@/lib/notifications/task-file";
 import { enqueueProjectNotificationEvent } from "@/lib/notifications/project-events";
 import {
   assertProjectFileReadAccess,
-  assertTaskFileNodeVisible,
+  assertFileNodeVisible,
   assertProjectManageFilesAccess,
   assertProjectManageFilesAccessTx,
   assertProjectUploadAccess,
@@ -72,7 +72,7 @@ async function assertVersionNodeReadable(projectId: string, nodeId: string, acto
     columns: { id: true, path: true, taskId: true, deletedAt: true },
   });
   if (!node) throw new Error("File not found");
-  assertTaskFileNodeVisible(access, node);
+  await assertFileNodeVisible(access, node);
 }
 
 function actorNotificationSnapshot(user: { user_metadata?: Record<string, unknown> | null }) {
@@ -117,7 +117,7 @@ export async function listFileVersionsPage(
     columns: { id: true, type: true, path: true, taskId: true, deletedAt: true },
   });
   if (!node) throw new Error("File not found");
-  assertTaskFileNodeVisible(access, node);
+  await assertFileNodeVisible(access, node);
   if (node.type !== "file") throw new Error("Versions are tracked only on files");
 
   const rows = await db

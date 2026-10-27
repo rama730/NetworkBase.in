@@ -13,6 +13,7 @@ import { extractFoldersFromDataTransfer } from "@/lib/files/folder-drop";
 import { FileTypeChip } from "../FileTypeChip";
 import { TaskLinkPopover } from "../TaskLinkPopover";
 import { VersionPill } from "../VersionPill";
+import { FolderAccessChip } from "@/components/organizations/FolderAccessChip";
 import { formatBytes, formatRelativeTime, formatFileActor } from "./format";
 import { FOLDER_LIST_GRID_TEMPLATE, FOLDER_LIST_ROW_HEIGHT_PX } from "./layout";
 
@@ -513,6 +514,7 @@ export const FolderListRow = React.memo(function FolderListRow({
           </span>
         </div>
         <VersionPill v={node.currentVersion} />
+        {node.type === "folder" ? <FolderAccessChip metadata={node.metadata} /> : null}
         {isFavorite && <Star aria-label="Starred" className="size-3.5 shrink-0 text-[#9A6B00]" fill="currentColor" />}
         {showGitBadge ? <GitChangeBadge status={gitChange!} /> : null}
         {(taskLinkCount ?? 0) > 0 ? (

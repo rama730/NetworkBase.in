@@ -25,7 +25,7 @@ import { after } from "next/server";
 
 import { db } from "@/lib/db";
 import { scheduleAssetDeletionIfUnreferenced } from "@/lib/storage/asset-deletion";
-import { projectContentNodeSql } from "@/lib/files/internal-helpers";
+import { orgFileAccessSql, projectContentNodeSql } from "@/lib/files/internal-helpers";
 import { toIsoString } from "@/lib/utils/date";
 import { parsePositiveInteger } from "@/lib/utils/number";
 import { isLooseUuid } from "@/lib/validations/uuid";
@@ -659,6 +659,7 @@ export async function resolveProjectUpdateMentionTargetAction(projectId: string,
                 eq(projectNodes.id, id),
                 isNull(projectNodes.deletedAt),
                 canReadProjectUpdateTargetTab(access, "task") ? undefined : projectContentNodeSql,
+                orgFileAccessSql(access),
             ))
             .limit(1);
         if (!node) return { success: false as const, error: projectUpdateTargetUnavailableMessage(kind) };
@@ -1048,6 +1049,7 @@ async function contextSummariesForRows(rows: Array<Pick<UpdateRow, "id" | "entit
                     isNull(projectNodes.deletedAt),
                     inArray(projectNodes.id, Array.from(fileIds)),
                     canReadTasks ? undefined : projectContentNodeSql,
+                    orgFileAccessSql(access),
                 ))
             : Promise.resolve([]),
     ]);

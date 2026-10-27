@@ -37,7 +37,8 @@ async function assertUploadAccessForKey(key: string, userId: string) {
         throw new Error(UPLOAD_ERROR_CODES.KEY_FORMAT_INVALID);
     }
     const projectId = parsed.projectId;
-    await assertProjectUploadAccess(projectId, userId);
+    // Org members upload only to their own copies; createFileNode checks the exact copy (report §23.5).
+    await assertProjectUploadAccess(projectId, userId, { anyOwnCopy: true });
     return projectId;
 }
 
@@ -170,7 +171,7 @@ export async function getBatchUploadUrls(
             }
         }
 
-        await assertProjectUploadAccess(firstProjectId, user.id);
+        await assertProjectUploadAccess(firstProjectId, user.id, { anyOwnCopy: true });
 
         const supabase = await createAdminClient();
         const urls: Record<string, string> = {};
