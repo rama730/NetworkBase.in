@@ -43,3 +43,12 @@ test("settings sections by org role", () => {
   for (const ids of [owner, admin]) assert.ok(!ids.includes("roles-applications"), "orgs have no open roles");
   assert.equal(owner[0], "you-membership", "You group first");
 });
+
+test("Members is for org owners and admins only (report §20.8)", () => {
+  const managers = { tabId: "members", isOwnerOrMember: true, publicTabVisibility: publicTabs, isOrganization: true };
+  assert.equal(isProjectTabVisibleToViewer({ ...managers, canManageSettings: true }), true);
+  assert.equal(isProjectTabVisibleToViewer({ ...managers, canManageSettings: false }), false, "members and guests");
+  assert.equal(isProjectTabVisibleToViewer({ ...managers, canManageSettings: true, isOrganization: false }), false, "not in normal projects");
+  assert.equal(resolveAllowedProjectTab({ ...managers, requestedTab: "members", canManageSettings: true }), "members");
+  assert.equal(resolveAllowedProjectTab({ ...managers, requestedTab: "members", canManageSettings: false }), "dashboard");
+});

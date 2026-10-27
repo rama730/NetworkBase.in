@@ -16,6 +16,7 @@ import {
 import { decideOrgJoin, type OrgJoinMode, type OrgJoinOutcome } from "@/lib/organizations/join-rules";
 import { addProjectMemberInternal } from "@/lib/projects/collaborator-lifecycle";
 import { createCopiesForNewMember } from "@/lib/organizations/assignments";
+import { acceptOrgInvite } from "@/lib/organizations/members";
 
 export type OrgSummary = { id: string; title: string; slug: string | null };
 
@@ -153,34 +154,12 @@ async function joinOrg(
   });
 }
 
-/**
- * Accepts every open, unexpired org invite sent to this email (decision 134): the invited role and title
- * apply. Child project and unit placement arrive with child projects (P4). Returns how many were accepted.
- */
+/** Accepts every open, unexpired org invite sent to this email at sign-up (decision 134). Returns how many. */
 export async function acceptOrgEmailInvites(userId: string, email: string): Promise<number> {
-  const invites = await db
-    .select({ id: orgEmailInvites.id, orgId: orgEmailInvites.orgId, role: orgEmailInvites.role, title: orgEmailInvites.title })
-    .from(orgEmailInvites)
+  const invites = await db.select({ id: orgEmailInvites.id }).from(orgEmailInvites)
     .where(and(eq(orgEmailInvites.email, email.trim().toLowerCase()), isNull(orgEmailInvites.acceptedAt), gt(orgEmailInvites.expiresAt, sql`now()`)));
-
   let accepted = 0;
-  for (const invite of invites) {
-    await db.transaction(async (tx) => {
-      const [claimed] = await tx.update(orgEmailInvites)
-        .set({ acceptedAt: new Date() })
-        .where(and(eq(orgEmailInvites.id, invite.id), isNull(orgEmailInvites.acceptedAt)))
-        .returning({ id: orgEmailInvites.id });
-      if (!claimed) return;
-      await addProjectMemberInternal(tx, { projectId: invite.orgId, userId, role: invite.role, actorId: userId, source: "email_invite" });
-      if (invite.role === "member") await createCopiesForNewMember(tx, invite.orgId, userId);
-      if (invite.title) {
-        await tx.update(projectMembers)
-          .set({ title: invite.title })
-          .where(and(eq(projectMembers.projectId, invite.orgId), eq(projectMembers.userId, userId)));
-      }
-      accepted += 1;
-    });
-  }
+  for (const invite of invites) if (await acceptOrgInvite(userId, invite.id)) accepted += 1;
   return accepted;
 }
 
