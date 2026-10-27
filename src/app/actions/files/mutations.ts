@@ -278,7 +278,7 @@ export async function createFileNode(projectId: string, parentId: string | null,
     if (!user) throw new Error("Unauthorized");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
     if (!allowed) throw new Error("Rate limit exceeded");
-    await assertProjectUploadAccess(projectId, user.id);
+    await assertProjectUploadAccess(projectId, user.id, { taskId: file.taskId });
 
     const safeName = normalizeNodeName(file.name);
     assertValidNodeName(safeName);
@@ -309,7 +309,7 @@ export async function createFileNode(projectId: string, parentId: string | null,
     const assetId = finalizedIntent.assetId;
 
     const node = await db.transaction(async (tx) => {
-        await assertProjectUploadAccessTx(tx, projectId, user.id);
+        await assertProjectUploadAccessTx(tx, projectId, user.id, { taskId: file.taskId });
         const [publishableAsset] = await tx.update(storageAssets)
             .set({
                 backupState: sql`CASE WHEN ${storageAssets.backupState} = 'verified' THEN 'verified' ELSE 'pending' END`,
@@ -341,7 +341,7 @@ export async function createFileNode(projectId: string, parentId: string | null,
             )).limit(1).for("update");
             if (!canonical) throw new Error("Canonical file not found in this project");
         }
-        if (file.taskLink) await assertProjectWriteAccessTx(tx, projectId, user.id);
+        if (file.taskLink) await assertProjectWriteAccessTx(tx, projectId, user.id, { taskId: file.taskId });
         const parentPath = await resolveParentAndCheckSibling(tx, projectId, parentId, safeName);
         const nodePath = `${parentPath}/${safeName}`;
 
@@ -1497,7 +1497,7 @@ export async function getOrCreateTaskSystemFolderAction(projectId: string, taskI
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Unauthorized");
     if (!UUID_RE.test(projectId) || !UUID_RE.test(taskId)) throw new Error("Task not found");
-    await assertProjectUploadAccess(projectId, user.id);
+    await assertProjectUploadAccess(projectId, user.id, { taskId });
 
     return await db.transaction(async (tx) => {
         const [task] = await tx.select({ id: tasks.id }).from(tasks)

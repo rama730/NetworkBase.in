@@ -45,6 +45,7 @@ import { generateJoinCode } from "@/lib/organizations/join-rules";
 import { capChildVisibility, childCreationBlock } from "@/lib/organizations/child-rules";
 import { readViewerOrgRole } from "@/lib/organizations/detail";
 import { readOrgRules } from "@/lib/organizations/settings";
+import { createStarterFolders } from "@/lib/organizations/org-files";
 import { isProjectPubliclyReadableVisibility } from "@/lib/projects/project-visibility";
 import { addProjectMemberInternal } from "@/lib/projects/collaborator-lifecycle";
 import { createProjectInvitationAction } from "@/app/actions/project/guidance";
@@ -883,6 +884,8 @@ export async function createProjectAction(
             title: organization?.creator_title || null,
           });
           await syncProjectChat(tx, newProject.id, null, "ensure_default");
+          // Org Files starter folders by type (report §23.3).
+          if (organization) await createStarterFolders(tx, newProject.id, ownerId, organization.org_type);
           await upsertProfileProjectContributionFromMembership(tx, {
             profileId: ownerId,
             projectId: newProject.id,

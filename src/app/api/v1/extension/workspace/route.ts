@@ -114,6 +114,11 @@ export async function GET(request: Request) {
       });
     }
 
+    // Org rules (report §16.11, §23): members see masters and their own copies, and no Admins-only folders.
+    const seesAllOf = (projectRef: ReturnType<typeof sql>) => sql`EXISTS (
+      SELECT 1 FROM projects pr WHERE pr.id = ${projectRef} AND (pr.kind <> 'organization' OR pr.owner_id = ${user.id}::uuid
+        OR EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = pr.id AND pm.user_id = ${user.id}::uuid AND pm.role = 'admin'))
+    )`;
     const [taskRowsResult, rootNodeIdRowsResult, taskFileCountMap, projectTaskCountMap] =
       await Promise.all([
         db.execute(sql`
@@ -124,6 +129,8 @@ export async function GET(request: Request) {
                    task_number AS "taskNumber", updated_at AS "updatedAt"
             FROM tasks
             WHERE project_id = p.id AND deleted_at IS NULL
+              AND (${seesAllOf(sql`p.id`)} OR (kind = 'assignment' AND assignment_id IS NULL) OR assignee_id = ${user.id}::uuid
+                OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = tasks.id AND tm.user_id = ${user.id}::uuid))
             ORDER BY updated_at DESC
             LIMIT 50
           ) t
@@ -137,6 +144,7 @@ export async function GET(request: Request) {
             WHERE project_id = p.id
               AND parent_id IS NULL
               AND deleted_at IS NULL
+              AND (metadata->>'access' IS DISTINCT FROM 'admins' OR ${seesAllOf(sql`p.id`)})
             ORDER BY type, name, id
             LIMIT 100
           ) n

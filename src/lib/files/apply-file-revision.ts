@@ -67,9 +67,9 @@ export async function applyFileRevision(
 ): Promise<ApplyFileRevisionResult> {
   const result = await db.transaction(async (tx) => {
     if (input.accessRequirement === "write") {
-      await assertProjectWriteAccessTx(tx, input.projectId, input.actorUserId);
+      await assertProjectWriteAccessTx(tx, input.projectId, input.actorUserId, { nodeId: input.nodeId });
     } else {
-      await assertProjectUploadAccessTx(tx, input.projectId, input.actorUserId);
+      await assertProjectUploadAccessTx(tx, input.projectId, input.actorUserId, { nodeId: input.nodeId });
     }
     await tx.execute(sql`
       SELECT id

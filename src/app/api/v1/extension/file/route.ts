@@ -16,7 +16,7 @@ import { streamPrivateObject } from "@/lib/storage/private-object-response";
 import { readBoundedStorageBytes } from "@/lib/storage/bounded-object-read";
 import { withIdempotentRoute } from "@/lib/security/idempotency";
 import { recordExtensionMetric } from "@/lib/extension/observability";
-import { assertProjectFileReadAccess, assertTaskFileNodeVisible } from "@/lib/files/internal-helpers";
+import { assertProjectFileReadAccess, assertFileNodeVisible } from "@/lib/files/internal-helpers";
 import { validateCsrf } from "@/lib/security/csrf";
 import {
   assertNoExtensionWriteConflict,
@@ -87,7 +87,7 @@ export async function GET(request: Request) {
     if (!node) {
       return jsonError("File not found", 404, "NOT_FOUND");
     }
-    assertTaskFileNodeVisible(access, node);
+    await assertFileNodeVisible(access, node);
 
     const [version] = await Promise.all([
       db.query.fileVersions.findFirst({

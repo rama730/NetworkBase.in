@@ -20,6 +20,7 @@ export async function captureNodePageQuery(projectId: string, sort: "name" | "up
     createClient: async () => ({ auth: { getUser: async () => ({ data: { user: null } }) } }),
     assertProjectFileReadAccess: async (id: string) => { if (id !== projectId) throw new Error("Wrong project"); authorized = true; return {}; },
     canReadProjectTaskFiles: () => false,
+    orgFileAccessSql: () => undefined,
     projectContentNodeSql: orm.sql`${projectNodes.taskId} IS NULL AND ${projectNodes.path} NOT LIKE '/.system%'`,
     enrichNodesWithLatestVersionAttribution: async (nodes: unknown[]) => nodes,
     db: { query: { projectNodes: { findMany: async (request: typeof captured) => { if (!authorized) throw new Error("Missing authorization"); captured = request; return []; } } } },

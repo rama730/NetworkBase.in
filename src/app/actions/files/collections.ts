@@ -4,7 +4,7 @@ import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { projectNodes } from "@/lib/db/schema";
 import { createClient } from "@/lib/supabase/server";
-import { assertProjectFileReadAccess, canReadProjectTaskFiles } from "@/lib/files/internal-helpers";
+import { assertProjectFileReadAccess, canReadProjectTaskFiles, orgFileAccessSql } from "@/lib/files/internal-helpers";
 import { getFileAttributionByNodeId } from "@/lib/files/file-attribution";
 import type { ProjectNodeWithAttribution } from "./nodes";
 import { taskFileAssociationsSql as associations, taskFileEntriesSql } from "@/lib/files/task-file-collection-query";
@@ -38,16 +38,17 @@ async function authorize(projectId: string) {
     const { data: { user } } = await client.auth.getUser();
     const access = await assertProjectFileReadAccess(projectId, user?.id ?? null);
     if (!canReadProjectTaskFiles(access)) throw new Error("Task files are not available to this viewer.");
+    return access;
 }
 
-async function loadEntries(projectId: string, taskIds: string[], deliverables: boolean, after?: string, query = "", role?: TaskCollectionRole) {
+async function loadEntries(access: Awaited<ReturnType<typeof authorize>>, projectId: string, taskIds: string[], deliverables: boolean, after?: string, query = "", role?: TaskCollectionRole) {
     if (!taskIds.length) return new Map<string, { entries: TaskCollectionEntry[]; nextFileCursor: string | null }>();
     const rows = await db.execute<{ task_id: string; node_id: string; role: TaskCollectionRole; tags: string[]; annotation?: string | null; position: number }>(taskFileEntriesSql(projectId, taskIds, deliverables, after, query, role));
     const nodeIds = rows.map(r => r.node_id);
     if (!nodeIds.length) return new Map(taskIds.map(taskId => [taskId, { entries: [], nextFileCursor: null }]));
     const nodes = await db.query.projectNodes.findMany({
         // No cap here: the selection is already bounded per group (COR-011), and a cap dropped files.
-        where: and(eq(projectNodes.projectId, projectId), isNull(projectNodes.deletedAt), inArray(projectNodes.id, nodeIds)),
+        where: and(eq(projectNodes.projectId, projectId), isNull(projectNodes.deletedAt), inArray(projectNodes.id, nodeIds), orgFileAccessSql(access)),
     });
     const attribution = await getFileAttributionByNodeId(nodes);
     const byId = new Map(nodes.map(node => [node.id, { ...node, ...attribution.get(node.id) } as ProjectNodeWithAttribution]));
@@ -74,7 +75,9 @@ async function loadEntries(projectId: string, taskIds: string[], deliverables: b
 }
 
 export async function getTaskFileGroups(projectId: string, options: { deliverables?: boolean; cursor?: string; fileCursor?: string; query?: string; taskId?: string; role?: TaskCollectionRole } = {}) {
-    await authorize(projectId);
+    const access = await authorize(projectId);
+    // In an organization, members see only their own copies' groups and no Admins-only files (report §23.5).
+    const orgRule = orgFileAccessSql(access, { projectId: sql`n.project_id`, path: sql`n.path`, taskId: sql`t.id` });
     // Groups are newest activity first; the cursor is "<updated_at ISO>~<task id>".
     const [cursorAt, cursorId] = options.cursor?.split("~") ?? [];
     if (options.cursor && (!cursorId || !UUID_RE.test(cursorId) || !/^[0-9][0-9:. +\-]{9,39}$/.test(cursorAt ?? ""))) throw new Error("Invalid task cursor");
@@ -95,6 +98,7 @@ export async function getTaskFileGroups(projectId: string, options: { deliverabl
         WHERE ${options.deliverables ? sql`a.role = 'deliverable'` : sql`a.role IN ('deliverable', 'working', 'reference')`}
             ${options.role ? sql`AND a.role = ${options.role}` : sql``}
             ${options.taskId ? sql`AND t.id = ${options.taskId}::uuid` : sql``}
+            ${orgRule ? sql`AND ${orgRule}` : sql``}
             GROUP BY t.id, t.title, t.status, t.review_status
         HAVING true
         ${query && !options.taskId ? sql`AND bool_or(strpos(lower(t.title), lower(${query})) > 0 OR strpos(lower(n.name), lower(${query})) > 0 OR strpos(lower(coalesce(a.annotation, '')), lower(${query})) > 0)` : sql``}
@@ -102,7 +106,7 @@ export async function getTaskFileGroups(projectId: string, options: { deliverabl
         ORDER BY max(coalesce(fv.uploaded_at, n.updated_at)) DESC, t.id DESC LIMIT 21
     `);
     const page = rows.slice(0, 20);
-    const files = await loadEntries(projectId, page.map(task => task.id), !!options.deliverables, options.fileCursor, options.taskId ? query : "", options.taskId ? options.role : undefined);
+    const files = await loadEntries(access, projectId, page.map(task => task.id), !!options.deliverables, options.fileCursor, options.taskId ? query : "", options.taskId ? options.role : undefined);
     return {
         groups: page.map(({ cursor_at: _cursorAt, ...task }) => ({
             ...task, reviewStatus: task.review_status, updatedAt: task.updated_at,

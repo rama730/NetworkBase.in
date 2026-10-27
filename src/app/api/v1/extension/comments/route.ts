@@ -18,7 +18,7 @@ import {
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import {
   assertProjectFileReadAccess,
-  assertTaskFileNodeVisible,
+  assertFileNodeVisible,
   assertProjectWriteAccessTx,
   recordNodeEvent,
 } from "@/lib/files/internal-helpers";
@@ -73,7 +73,7 @@ async function readable(projectId: string, nodeId: string, userId: string) {
     ),
   });
   if (!node) throw new Error("File not found");
-  assertTaskFileNodeVisible(access, node);
+  await assertFileNodeVisible(access, node);
   return { access, node };
 }
 export async function GET(request: Request) {

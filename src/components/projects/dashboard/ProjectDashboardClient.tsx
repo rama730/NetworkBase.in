@@ -38,6 +38,7 @@ import { DashboardTab, DocTab, UpdatesTab, TasksTab, FilesTab, SprintPlanning, P
 import { SkeletonSprints } from '@/components/projects/skeletons/SkeletonSprints';
 import { OrgAboutTab } from '@/components/organizations/OrgAboutTab';
 import { AssignmentsPanel, GroupCopiesPanel } from '@/components/organizations/AssignmentsPanel';
+import { OrgFilesPanel } from '@/components/organizations/OrgFilesPanel';
 import { ChildOrgChips, OrgBreadcrumb, OrgIdentityLine, OrgInviteDialog, OrgVisitorActions } from '@/components/organizations/OrgHeaderParts';
 import { isProjectPubliclyReadableVisibility } from '@/lib/projects/project-visibility';
 import { confirmFileNavigation } from '@/lib/files/unsaved-navigation';
@@ -563,7 +564,8 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
     const canEditTasks = isOwner || currentProjectRole === 'admin' || currentProjectRole === 'member';
     const canManageFiles = isOwner || currentProjectRole === 'admin';
     const currentFileMember = allMembers.find((item: any) => item?.id === currentUserId);
-    const canUploadFiles = isOwner || canProjectMemberUploadFiles({ role: currentProjectRole, fileUploadEnabled: currentFileMember?.fileUploadEnabled });
+    // Org files: only owners and admins write the org tree; members add files to their own copies (report §23.4).
+    const canUploadFiles = isOrganization ? canManageFiles : isOwner || canProjectMemberUploadFiles({ role: currentProjectRole, fileUploadEnabled: currentFileMember?.fileUploadEnabled });
     const canReadTaskFiles = isProjectTabVisibleToViewer({ tabId: 'tasks', isOwnerOrMember: canSeeAllTabs, publicTabVisibility });
 
     const currentUserName = useMemo(() => {
@@ -1097,10 +1099,10 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
     const filesTabContent = useMemo(
         () => (
             <TabErrorBoundary tabName="Files" fillContainer>
-                <FilesTab key={`${project.id}:${currentUserId ?? 'viewer'}`} projectId={project.id} projectSlug={project.slug || undefined} projectName={project.title} currentUserId={currentUserId || undefined} isOwner={isOwner} isOwnerOrMember={isOwnerOrMember} canManageFiles={canManageFiles} canUploadFiles={canUploadFiles} canReadTasks={canReadTaskFiles} isActive={activeTab === 'files'} syncStatus={filesSyncStatus} initialOpenFileId={initialOpenFileId} initialOpenPath={initialOpenPath} />
+                <FilesTab key={`${project.id}:${currentUserId ?? 'viewer'}`} projectId={project.id} projectSlug={project.slug || undefined} projectName={project.title} currentUserId={currentUserId || undefined} isOwner={isOwner} isOwnerOrMember={isOwnerOrMember} canManageFiles={canManageFiles} canUploadFiles={canUploadFiles} canReadTasks={canReadTaskFiles} isActive={activeTab === 'files'} syncStatus={filesSyncStatus} initialOpenFileId={initialOpenFileId} initialOpenPath={initialOpenPath} isOrganization={isOrganization} />
             </TabErrorBoundary>
         ),
-        [project.id, project.slug, project.title, currentUserId, isOwner, isOwnerOrMember, canManageFiles, canUploadFiles, canReadTaskFiles, activeTab, filesSyncStatus, initialOpenFileId, initialOpenPath],
+        [project.id, project.slug, project.title, currentUserId, isOwner, isOwnerOrMember, canManageFiles, canUploadFiles, canReadTaskFiles, activeTab, filesSyncStatus, initialOpenFileId, initialOpenPath, isOrganization],
     );
 
     return (
@@ -1183,6 +1185,9 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
 
             {activeTab === 'files' && (
                 <div className="w-full h-full min-h-0">
+                    {/* Org Files (report §23): folder access for org admins; From <org> in child projects. */}
+                    {isOrganization && canManageFiles ? <OrgFilesPanel projectId={project.id} mode="org-admin" canCopy={false} /> : null}
+                    {parentOrg && (isOwnerOrMember || isInheritedAdmin) ? <OrgFilesPanel projectId={project.id} mode="child" canCopy={canUploadFiles || isInheritedAdmin} /> : null}
                     {filesTabContent}
                 </div>
             )}

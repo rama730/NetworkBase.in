@@ -40,33 +40,39 @@ export function useOrgDocs(projectId: string, enabled = true) {
     })
 }
 
-/** Saves a Markdown file in the project's Docs folder and adds it to Docs (the Files upload path). */
-export async function createDocFile(projectId: string, filename: string, content: string) {
-    const folder = await ensureDocsFolderAction(projectId)
-    if (!folder.success) throw new Error(folder.error)
-    const [{ getUploadPresignedUrl }, { createFileNode }, { linkProjectDocAction }] = await Promise.all([
+/** Uploads bytes as a new file in a project folder (the Files upload path: presign, upload, node). */
+export async function uploadProjectFile(projectId: string, folderId: string | null, filename: string, blob: Blob) {
+    const [{ getUploadPresignedUrl }, { createFileNode }] = await Promise.all([
         import('@/app/actions/upload'),
         import('@/app/actions/files/mutations'),
-        import('@/app/actions/project/doc'),
     ])
-    const blob = new Blob([content], { type: 'text/plain' })
-    const presigned = await getUploadPresignedUrl(buildProjectFileKey(projectId, `${crypto.randomUUID()}.md`), 'text/plain', blob.size)
+    const contentType = blob.type || 'application/octet-stream'
+    const extension = filename.includes('.') ? filename.split('.').pop() : 'bin'
+    const presigned = await getUploadPresignedUrl(buildProjectFileKey(projectId, `${crypto.randomUUID()}.${extension}`), contentType, blob.size)
     if ('error' in presigned) throw new Error(presigned.error || 'Failed to prepare upload')
     await uploadToSupabaseSignedUrl({
         bucket: 'project-files',
         storagePath: presigned.storageKey,
         uploadToken: presigned.token,
         uploadUrl: presigned.url,
-        contentType: 'text/plain',
+        contentType,
         operationId: presigned.uploadIntentId,
     }, blob, { cacheProfile: 'immutable' })
-    const node = await createFileNode(projectId, folder.folderId, {
+    return createFileNode(projectId, folderId, {
         name: filename,
         s3Key: presigned.storageKey,
         size: blob.size,
-        mimeType: 'text/plain',
+        mimeType: contentType,
         uploadIntentId: presigned.uploadIntentId,
     })
+}
+
+/** Saves a Markdown file in the project's Docs folder and adds it to Docs (the Files upload path). */
+export async function createDocFile(projectId: string, filename: string, content: string) {
+    const folder = await ensureDocsFolderAction(projectId)
+    if (!folder.success) throw new Error(folder.error)
+    const node = await uploadProjectFile(projectId, folder.folderId, filename, new Blob([content], { type: 'text/plain' }))
+    const { linkProjectDocAction } = await import('@/app/actions/project/doc')
     const linked = await linkProjectDocAction(projectId, node.id)
     if (!linked.success) throw new Error(linked.error)
     return { node, slug: linked.slug, id: linked.id }

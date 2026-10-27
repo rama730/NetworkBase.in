@@ -41,6 +41,8 @@ export type ProjectAccess = {
     isInheritedAdmin: boolean;
     canRead: boolean;
     canWrite: boolean;
+    /** Who this access is for; org file rules need it (report §23). */
+    viewerId?: string | null;
 };
 
 /**
@@ -169,6 +171,7 @@ function toProjectAccess(row: Awaited<ReturnType<typeof selectAccessRows>>[numbe
         isInheritedAdmin,
         canRead: computeProjectReadAccess(row.visibility, row.status, isOwner, isMember, parentOrgRole),
         canWrite: computeProjectWriteAccess(isOwner, memberRole) || isInheritedAdmin,
+        viewerId: userId,
     };
 }
 

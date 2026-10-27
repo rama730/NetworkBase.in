@@ -6,7 +6,7 @@ import { taskActivityEvents, projects, profiles, tasks, taskSubtasks, projectSpr
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { logger } from "@/lib/logger";
 import { canReadProjectTab, getProjectAccessById } from "@/lib/data/project-access";
-import { projectContentNodeSql } from "@/lib/files/internal-helpers";
+import { orgFileAccessSql, projectContentNodeSql } from "@/lib/files/internal-helpers";
 
 import { taskReviewSnapshot } from "@/lib/projects/task-review-snapshot";
 
@@ -76,6 +76,7 @@ export async function GET(request: Request) {
             eq(projectNodes.projectId, task.projectId),
             isNull(projectNodes.deletedAt),
             canReadFiles ? undefined : sql`NOT (${projectContentNodeSql})`,
+            orgFileAccessSql(access),
           ),
         )
         .orderBy(taskNodeLinks.order, projectNodes.name),

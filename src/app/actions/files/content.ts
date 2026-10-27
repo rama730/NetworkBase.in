@@ -8,7 +8,7 @@ import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
 import { parseProjectFileKey } from "@/lib/storage/project-file-key";
 import {
     assertProjectFileReadAccess,
-    assertTaskFileNodeVisible,
+    assertFileNodeVisible,
 } from "@/lib/files/internal-helpers";
 import { FileContentUnavailableError, readProjectFileText } from "@/lib/files/content-reader";
 
@@ -45,7 +45,7 @@ export async function getFilePreviewUrl(projectId: string, nodeId: string, downl
         }
 
         const currentS3Key = node.s3Key;
-        assertTaskFileNodeVisible(access, node);
+        await assertFileNodeVisible(access, node);
         if (!currentS3Key) {
             throw new FileContentUnavailableError();
         }

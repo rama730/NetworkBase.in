@@ -10,6 +10,7 @@ import { FileIcon } from "./FileIcons";
 import { ProjectNode } from "@/lib/db/schema";
 import { extractFoldersFromDataTransfer } from "@/lib/files/folder-drop";
 import { VersionPill } from "../files-tab/VersionPill";
+import { FolderAccessChip } from "@/components/organizations/FolderAccessChip";
 
 const NODE_DRAG_MIME = "application/x-nb-node";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -378,6 +379,7 @@ export const FileTreeRow = React.memo(function FileTreeRow({
                         {node.name}
                     </span>
                     <VersionPill v={node.currentVersion} className="h-4 px-1 text-[11px]" />
+                    {isFolder ? <FolderAccessChip metadata={node.metadata} /> : null}
                 </div>
             )}
  

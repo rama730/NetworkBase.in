@@ -90,6 +90,8 @@ export interface FilesTabRootProps {
    * while `initialOpenPath` remains the readable/fallback URL contract.
    */
   initialOpenFileId?: string | null;
+  /** Organizations have no GitHub sync in v1 (report §23.3). */
+  isOrganization?: boolean;
 }
 
 function findVerticalScrollPane(target: EventTarget | null, boundary: HTMLElement) {
@@ -178,7 +180,7 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
     };
   }, [currentUserId, isActive, isOwner, isOwnerOrMember]);
   const canOpenGitHub = Boolean(
-    githubAccess?.linked === true && (isOwner || isOwnerOrMember),
+    githubAccess?.linked === true && (isOwner || isOwnerOrMember) && !props.isOrganization,
   );
   const pendingNavigation = useFilesWorkspaceStore(
     (state) => state.byProjectId[projectId]?.pendingNavigation ?? null,
