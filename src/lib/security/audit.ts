@@ -23,6 +23,7 @@ export const SECURITY_ACTIVITY_EVENT_TYPES = [
   // Left behind when someone clears the whole log, so the log itself shows that it was emptied.
   "security_activity_cleared",
   "account_data_exported",
+  "sign_in_method_linked",
   "sign_in_method_unlinked",
   "editor_token_created",
   "account_deletion_scheduled",

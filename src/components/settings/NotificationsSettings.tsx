@@ -213,7 +213,7 @@ export default function NotificationsPage() {
           </div> : null}
         </div>
         <div className="border-t border-border pt-4">
-          <h5 className="nb-ui-label text-foreground">Muted items</h5>
+          <h4 className="nb-ui-label text-foreground">Muted items</h4>
           {preferences.mutedScopes.length ? <div className="mt-3 divide-y divide-border">{preferences.mutedScopes.map((scope) => {
             const name = scope.label || (isLooseUuid(scope.value) ? "Unnamed item" : scope.value);
             return <SettingsRow key={`${scope.kind}:${scope.value}`} title={name} description={`${MUTE_KIND_LABELS[scope.kind] ?? "Item"} muted`} right={<Button type="button" variant="ghost" size="sm" aria-label={`Unmute ${name}`} onClick={() => save({ ...preferences, mutedScopes: preferences.mutedScopes.filter((item) => item !== scope) })} disabled={isSaving} className="pointer-coarse:h-11">Unmute</Button>} />;

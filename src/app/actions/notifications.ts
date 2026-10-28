@@ -51,14 +51,14 @@ export async function readNotificationsAction(limit = 20, cursor?: string | null
 
         const page = await readNotificationsPage(user.id, limit, cursor ?? null, db);
         return { success: true as const, page };
-    } catch (error: any) {
+    } catch (error) {
         logger.error("notifications.read_failed", {
             module: "notifications",
-            error: error?.message || String(error),
+            error: error instanceof Error ? error.message : String(error),
         });
         return {
             success: false as const,
-            error: error?.message || "Failed to load notifications",
+            error: (error instanceof Error && error.message) || "Failed to load notifications",
             ...(error instanceof InvalidNotificationCursorError ? { code: "INVALID_CURSOR" as const } : {}),
             page: null,
         };
@@ -106,14 +106,14 @@ export async function readNotificationUnreadCountAction() {
             unreadCount: counts.total,
             unreadImportantCount: counts.important,
         };
-    } catch (error: any) {
+    } catch (error) {
         logger.error("notifications.count_failed", {
             module: "notifications",
-            error: error?.message || String(error),
+            error: error instanceof Error ? error.message : String(error),
         });
         return {
             success: false as const,
-            error: error?.message || "Failed to load notification count",
+            error: (error instanceof Error && error.message) || "Failed to load notification count",
             unreadCount: 0,
             unreadImportantCount: 0,
         };
@@ -134,12 +134,12 @@ export async function markNotificationReadAction(notificationId: string) {
         }
         invalidateNotificationUnreadCache(user.id);
         return { success: true as const, item: toNotificationItem(row) };
-    } catch (error: any) {
+    } catch (error) {
         logger.error("notifications.mark_read_failed", {
             module: "notifications",
-            error: error?.message || String(error),
+            error: error instanceof Error ? error.message : String(error),
         });
-        return { success: false as const, error: error?.message || "Failed to mark notification read", item: null };
+        return { success: false as const, error: (error instanceof Error && error.message) || "Failed to mark notification read", item: null };
     }
 }
 
@@ -161,14 +161,14 @@ export async function markNotificationsSeenAction(notificationIds: string[]) {
             requested: Array.from(new Set(notificationIds.filter(Boolean))).length,
         });
         return { success: true as const, items };
-    } catch (error: any) {
+    } catch (error) {
         logger.error("notifications.mark_seen_failed", {
             module: "notifications",
-            error: error?.message || String(error),
+            error: error instanceof Error ? error.message : String(error),
         });
         return {
             success: false as const,
-            error: error?.message || "Failed to mark notifications seen",
+            error: (error instanceof Error && error.message) || "Failed to mark notifications seen",
             items: [] as ReturnType<typeof toNotificationItem>[],
         };
     }
@@ -188,12 +188,12 @@ export async function markNotificationUnreadAction(notificationId: string) {
         }
         invalidateNotificationUnreadCache(user.id);
         return { success: true as const, item: toNotificationItem(row) };
-    } catch (error: any) {
+    } catch (error) {
         logger.error("notifications.mark_unread_failed", {
             module: "notifications",
-            error: error?.message || String(error),
+            error: error instanceof Error ? error.message : String(error),
         });
-        return { success: false as const, error: error?.message || "Failed to mark notification unread", item: null };
+        return { success: false as const, error: (error instanceof Error && error.message) || "Failed to mark notification unread", item: null };
     }
 }
 
@@ -211,12 +211,12 @@ export async function dismissNotificationAction(notificationId: string) {
         }
         invalidateNotificationUnreadCache(user.id);
         return { success: true as const, item: toNotificationItem(row) };
-    } catch (error: any) {
+    } catch (error) {
         logger.error("notifications.dismiss_failed", {
             module: "notifications",
-            error: error?.message || String(error),
+            error: error instanceof Error ? error.message : String(error),
         });
-        return { success: false as const, error: error?.message || "Failed to dismiss notification", item: null };
+        return { success: false as const, error: (error instanceof Error && error.message) || "Failed to dismiss notification", item: null };
     }
 }
 
@@ -231,12 +231,12 @@ export async function dismissAllNotificationsAction() {
         await withDbRetry("notifications.dismiss_all", () => dismissAllNotifications(user.id, db));
         invalidateNotificationUnreadCache(user.id);
         return { success: true as const };
-    } catch (error: any) {
+    } catch (error) {
         logger.error("notifications.dismiss_all_failed", {
             module: "notifications",
-            error: error?.message || String(error),
+            error: error instanceof Error ? error.message : String(error),
         });
-        return { success: false as const, error: error?.message || "Failed to clear notifications" };
+        return { success: false as const, error: (error instanceof Error && error.message) || "Failed to clear notifications" };
     }
 }
 
@@ -260,12 +260,12 @@ export async function readNotificationPreferencesAction() {
             success: true as const,
             preferences: normalizeNotificationPreferences(row?.notificationPreferences),
         };
-    } catch (error: any) {
+    } catch (error) {
         if (isTransientDbError(error)) {
             logger.warn("notifications.preferences_read_transient_fallback", {
                 module: "notifications",
                 errorCode: readDbErrorCode(error),
-                error: error?.message || String(error),
+                error: error instanceof Error ? error.message : String(error),
             });
             // The tray can run on defaults for a moment; Settings must not (it would save them over the real ones).
             return {
@@ -277,11 +277,11 @@ export async function readNotificationPreferencesAction() {
 
         logger.error("notifications.preferences_read_failed", {
             module: "notifications",
-            error: error?.message || String(error),
+            error: error instanceof Error ? error.message : String(error),
         });
         return {
             success: false as const,
-            error: error?.message || "Failed to read notification preferences",
+            error: (error instanceof Error && error.message) || "Failed to read notification preferences",
             preferences: DEFAULT_NOTIFICATION_PREFERENCES,
         };
     }
@@ -347,12 +347,12 @@ export async function muteNotificationScopeAction(scope: NotificationMuteScope) 
 
         const preferences = await muteNotificationScope(user.id, scope, db);
         return { success: true as const, preferences };
-    } catch (error: any) {
+    } catch (error) {
         logger.error("notifications.mute_failed", {
             module: "notifications",
-            error: error?.message || String(error),
+            error: error instanceof Error ? error.message : String(error),
         });
-        return { success: false as const, error: error?.message || "Failed to mute notification type", preferences: null };
+        return { success: false as const, error: (error instanceof Error && error.message) || "Failed to mute notification type", preferences: null };
     }
 }
 
@@ -374,11 +374,11 @@ export async function snoozeNotificationAction(notificationId: string, snoozedUn
             return { success: false as const, error: "Notification not found", item: null };
         }
         return { success: true as const, item: toNotificationItem(row) };
-    } catch (error: any) {
+    } catch (error) {
         logger.error("notifications.snooze_failed", {
             module: "notifications",
-            error: error?.message || String(error),
+            error: error instanceof Error ? error.message : String(error),
         });
-        return { success: false as const, error: error?.message || "Failed to snooze notification", item: null };
+        return { success: false as const, error: (error instanceof Error && error.message) || "Failed to snooze notification", item: null };
     }
 }

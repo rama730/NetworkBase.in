@@ -35,6 +35,8 @@ function getEventSummary(entry: SecurityActivityEntry): string | null {
   if (entry.eventType === "other_sessions_revoked" && typeof entry.metadata.revokedCount === "number") {
     return `${entry.metadata.revokedCount} session${entry.metadata.revokedCount === 1 ? "" : "s"} revoked`;
   account_data_exported: "Account data exported",
+  sign_in_method_linked: "Sign-in method connected",
+  account_data_exported: "Account data exported",
   }
 
   if (

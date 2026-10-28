@@ -17,31 +17,6 @@ function getVisibilitySummary(value: "public" | "connections" | "private") {
   return value;
 }
 
-function getProfilePreview(value: "public" | "connections" | "private") {
-  if (value === "private") {
-    return "Strangers see a locked profile shell with only limited identity and the actions you allow.";
-  }
-  if (value === "connections") {
-    return "Strangers can still find you, but only accepted connections can open the full profile.";
-  }
-  return "Your full profile is open. Messaging and request rules still apply separately.";
-}
-
-function getInteractionPreview(
-  messagePrivacy: "everyone" | "connections",
-  connectionPrivacy: "everyone" | "mutuals_only" | "nobody",
-) {
-  const messages =
-    messagePrivacy === "everyone" ? "Anyone can message you." : "Only connections can message you.";
-  const requests =
-    connectionPrivacy === "mutuals_only"
-      ? "Only mutual connections can send requests."
-      : connectionPrivacy === "nobody"
-        ? "New connection requests are turned off."
-        : "Anyone eligible can send a connection request.";
-  return `${messages} ${requests}`;
-}
-
 function formatPrivacyActivityEntry(entry: Awaited<ReturnType<typeof listPrivacyActivity>>[number]) {
   switch (entry.eventType) {
     case "profile_visibility_changed": {
@@ -113,16 +88,9 @@ export async function GET(request: Request) {
     const [settings, blockedPage, privacyActivity] = await Promise.all([
       getPrivacySettingsPayload(auth.user.id),
       listBlockedAccounts(auth.user.id),
-      // The tab shows the four most recent.
-      listPrivacyActivity(auth.user.id, 4),
+      // The tab shows the four most recent and expands to the rest.
+      listPrivacyActivity(auth.user.id, 10),
     ]);
-    const overview = {
-      profileVisibility: settings.profileVisibility,
-      messagePrivacy: settings.messagePrivacy,
-      connectionPrivacy: settings.connectionPrivacy,
-      blockedCount: settings.blockedCount,
-      summary: `Your profile is visible to ${getVisibilitySummary(settings.profileVisibility)}. ${settings.messagePrivacy === "everyone" ? "Anyone can message you." : "Only connections can message you."} ${settings.connectionPrivacy === "mutuals_only" ? "Only mutual connections can send requests." : settings.connectionPrivacy === "nobody" ? "New connection requests are turned off." : "Anyone eligible can send a connection request."}`,
-    };
 
     logApiRoute(request, {
       requestId,
@@ -137,12 +105,7 @@ export async function GET(request: Request) {
         settings,
         blockedAccounts: blockedPage.accounts,
         blockedAccountsNextCursor: blockedPage.nextCursor,
-        overview,
         privacyActivity: privacyActivity.map(formatPrivacyActivityEntry),
-        previews: {
-          profileVisibility: getProfilePreview(settings.profileVisibility),
-          interactionPermissions: getInteractionPreview(settings.messagePrivacy, settings.connectionPrivacy),
-        },
       },
       undefined,
       { headers: { "Cache-Control": "private, no-store" } },

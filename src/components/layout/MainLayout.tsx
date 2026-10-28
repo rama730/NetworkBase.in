@@ -4,6 +4,7 @@ import { useEffect, type ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
 import { AppSidebar } from './AppSidebar'
 import TopNav from '@/components/layout/header/TopNav'
+import { PendingDeletionNotice } from './PendingDeletionNotice'
 import { WorkspaceDrawerHost } from '@/components/workspace/WorkspaceDrawerHost'
 import { CREATE_PROJECT_PATH, rememberCreateProjectReturnPath } from '@/components/projects/create-wizard/create-project-return'
 import { noteNavigation } from '@/lib/navigation/in-app-history'
@@ -36,6 +37,7 @@ export function MainLayout({ children }: MainLayoutProps) {
             <AppSidebar />
             <div className="nb-main-frame flex min-h-0 flex-1 flex-col">
             <TopNav />
+            <PendingDeletionNotice />
             <main id="main-content" tabIndex={-1} className="flex-1 min-h-0 min-w-0 overflow-hidden">
                 {children}
             </main>

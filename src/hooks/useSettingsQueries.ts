@@ -38,21 +38,7 @@ export const DEFAULT_PRIVACY_SETTINGS: PrivacyData = {
   },
   blockedAccounts: [],
   blockedAccountsNextCursor: null,
-  overview: {
-    profileVisibility: "public",
-    messagePrivacy: "connections",
-    connectionPrivacy: "everyone",
-    blockedCount: 0,
-    summary:
-      "Your profile is visible to public. Messages are open to connections only. Connection requests are open to everyone.",
-  },
   privacyActivity: [],
-  previews: {
-    profileVisibility:
-      "Your full profile is open. Messaging and request rules still apply separately.",
-    interactionPermissions:
-      "Only connections can message you. Anyone eligible can send a connection request.",
-  },
 };
 
 const DEFAULT_SECURITY_DATA: SecurityData = {

@@ -207,3 +207,10 @@ test("readAppearanceSettings dedupes concurrent bootstrap fetches", async () => 
     globalThis.fetch = originalFetch;
   }
 });
+
+test("a snapshot dated far in the future is not believed", () => {
+  const far = parseAppearanceSnapshot({ ...DEFAULT_APPEARANCE_SNAPSHOT, updatedAt: "2099-01-01T00:00:00.000Z" });
+  assert.ok(far && Date.parse(far.updatedAt) < Date.now() + 60_000);
+  const soon = new Date(Date.now() + 2 * 60_000).toISOString();
+  assert.equal(parseAppearanceSnapshot({ ...DEFAULT_APPEARANCE_SNAPSHOT, updatedAt: soon })?.updatedAt, soon);
+});

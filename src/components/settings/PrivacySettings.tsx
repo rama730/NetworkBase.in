@@ -94,6 +94,7 @@ export default function PrivacySettings() {
   // Pages after the first one; dropped whenever the first page is refetched (unblock, refresh).
   const [more, setMore] = useState<{ base: PrivacyBlockedAccount[] | undefined; accounts: PrivacyBlockedAccount[]; cursor: string | null } | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [showAllActivity, setShowAllActivity] = useState(false);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const refreshPrivacy = async () => { await invalidatePrivacyDependents(queryClient); };
   const updateMutation = useMutation({
@@ -136,7 +137,8 @@ export default function PrivacySettings() {
     }
   };
   const filteredBlockedAccounts = blockedAccounts.filter((account) => !blockedQuery || [account.fullName, account.username, account.headline].filter(Boolean).join(" ").toLowerCase().includes(blockedQuery));
-  const recentPrivacyActivity = (data?.privacyActivity ?? []).slice(0, 4);
+  const allPrivacyActivity = data?.privacyActivity ?? [];
+  const recentPrivacyActivity = showAllActivity ? allPrivacyActivity : allPrivacyActivity.slice(0, 4);
   const change = (url: string, body: Record<string, unknown>, successMessage: string) => updateMutation.mutate({ url, body, successMessage });
   const handleProfileVisibilityChange = (visibility: ProfileVisibilitySetting) => {
     if (visibility === "private") {
@@ -211,6 +213,7 @@ export default function PrivacySettings() {
       <h4 className="nb-ui-label text-foreground">Recent changes</h4>
       <p className="nb-compact mt-1 text-muted-foreground">A record of changes to visibility, interactions, and blocks.</p>
       {recentPrivacyActivity.length === 0 ? <p className="mt-3 nb-compact text-muted-foreground">No recent privacy changes.</p> : <div className="mt-3 divide-y divide-border">{recentPrivacyActivity.map((entry) => <div key={entry.id} className="flex min-h-16 flex-col justify-center gap-1 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4"><div><p className="nb-ui-label text-foreground">{entry.label}</p><p className="nb-compact mt-1 text-muted-foreground">{entry.summary}</p></div><time dateTime={entry.createdAt} className="nb-meta shrink-0 text-muted-foreground">{formatDateTime(entry.createdAt)}</time></div>)}</div>}
+      {allPrivacyActivity.length > 4 ? <Button type="button" variant="outline" size="sm" className="mt-3 pointer-coarse:h-11" onClick={() => setShowAllActivity((value) => !value)}>{showAllActivity ? "Show fewer" : `View all ${allPrivacyActivity.length}`}</Button> : null}
       <p className="nb-meta mt-4 text-muted-foreground">Activity records use pseudonymous network and device fingerprints and are removed when the account is deleted.</p>
     </SettingsSectionCard>
 
