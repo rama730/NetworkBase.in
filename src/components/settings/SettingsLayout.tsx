@@ -52,7 +52,11 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     const root = scrollRootRef.current;
     const target = document.getElementById(elementId);
     if (!target || !root?.contains(target)) return false;
-    target.scrollIntoView({ behavior: smooth && !reducedMotion() ? "smooth" : "auto", block: "start" });
+    // Scroll only the settings scroll root. scrollIntoView also scrolls every ancestor, including the app shell
+    // (overflow hidden is still scrollable by script), which shoved the whole page up and left a blank band.
+    const margin = parseFloat(getComputedStyle(target).scrollMarginTop) || 0;
+    const top = Math.max(0, root.scrollTop + target.getBoundingClientRect().top - root.getBoundingClientRect().top - margin);
+    root.scrollTo({ top, behavior: smooth && !reducedMotion() ? "smooth" : "auto" });
     return true;
   }, []);
 
@@ -176,7 +180,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
         </div>
         <SettingsNav activeSection={activeSection} onNavigate={handleNavigate} />
       </div>
-      <div ref={scrollRootRef} data-scroll-root="route" onWheel={releaseAlignment} onTouchStart={releaseAlignment} onKeyDown={releaseAlignment} onPointerDown={releaseAlignment} className="min-w-0 min-h-0 flex-1 app-scroll app-scroll-y p-4 md:p-[calc(var(--ui-panel-padding)+4px)]">
+      <div ref={scrollRootRef} data-scroll-root="route" onWheel={releaseAlignment} onTouchStart={releaseAlignment} onKeyDown={releaseAlignment} onPointerDown={releaseAlignment} className="relative min-w-0 min-h-0 flex-1 app-scroll app-scroll-y p-4 md:p-[calc(var(--ui-panel-padding)+4px)]">
         {children}
       </div>
     </section>

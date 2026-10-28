@@ -4,6 +4,7 @@ import { build } from 'esbuild';
 import postcss from 'postcss';
 import tailwind from '@tailwindcss/postcss';
 import { expect, test } from '@playwright/test';
+import { axeViolations } from './axe';
 
 // The settings controls in a real browser against the real stylesheet: keyboard behaviour, and focus that is
 // still visible after the app's global rules remove outlines and shadows.
@@ -20,7 +21,7 @@ test.beforeEach(async ({ page }) => {
     const pathname = new URL(route.request().url()).pathname;
     return route.fulfill({
       contentType: pathname === '/app.js' ? 'application/javascript' : pathname === '/app.css' ? 'text/css' : 'text/html',
-      body: pathname === '/app.js' ? script : pathname === '/app.css' ? css : '<html><head><link rel="stylesheet" href="/app.css"></head><body><div id="root"></div><script src="/app.js"></script></body></html>',
+      body: pathname === '/app.js' ? script : pathname === '/app.css' ? css : '<html lang="en"><head><title>Settings</title><link rel="stylesheet" href="/app.css"></head><body><div id="root"></div><script src="/app.js"></script></body></html>',
     });
   });
   await page.goto(origin + '/');
@@ -86,4 +87,13 @@ test('the switch toggles with Space, and ignores taps while its save is pending'
   await expect(toggle).toHaveAttribute('aria-checked', 'true');
   await expect(toggle).toBeFocused();
   await expect(toggle).toHaveAttribute('aria-busy', 'true');
+});
+
+test('radio group and switch have no WCAG A or AA violations in light and dark', async ({ page }) => {
+  for (const dark of [false, true]) {
+    await page.evaluate((on) => document.documentElement.classList.toggle('dark', on), dark);
+    // Colours ease between themes; scanning mid-transition reads blended colours.
+    await page.waitForTimeout(500);
+    expect(await axeViolations(page), dark ? 'dark' : 'light').toEqual([]);
+  }
 });

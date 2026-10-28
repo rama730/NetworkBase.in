@@ -20,7 +20,9 @@ test("personal settings render as one navigable scroll document", () => {
   assert.ok(document.indexOf('id="settings-privacy-policies"') > document.indexOf('id="settings-integrations"'), "Privacy and Policies should follow Integrations");
   assert.ok(document.indexOf('id="settings-delete-account"') > document.indexOf('id="settings-privacy-policies"'), "Delete account should be the final settings action");
 
-  assert.match(layout, /scrollIntoView\(\{ behavior: smooth && !reducedMotion\(\) \? "smooth" : "auto", block: "start" \}\)/);
+  assert.match(layout, /root\.scrollTo\(\{ top, behavior: smooth && !reducedMotion\(\) \? "smooth" : "auto" \}\)/, "a jump scrolls the settings pane itself");
+  assert.doesNotMatch(layout, /scrollIntoView\(/, "scrollIntoView would also scroll the application shell around the pane");
+  assert.match(layout, /className="relative [^"]*app-scroll/, "the pane contains its absolutely positioned screen-reader text, so the document cannot scroll");
   assert.match(layout, /window\.history\.replaceState\(window\.history\.state, "", item\.href\)/, "the address follows the section that was chosen");
   assert.match(layout, /alignRef/, "a jump keeps itself aligned while content loads, until the person scrolls");
   assert.match(layout, /IntersectionObserver/, "the highlight follows the page without reading layout on every scroll");
@@ -31,7 +33,7 @@ test("personal settings render as one navigable scroll document", () => {
   assert.match(layout, /nb-nav-link/, "Settings should reuse the application's navigation buttons");
   assert.match(layout, /<h1 id="settings-navigation-title" className="nb-micro max-md:sr-only">Settings<\/h1>/);
   assert.doesNotMatch(document, /title="Settings"/, "The page title belongs in the navigation column");
-  assert.match(layout, /<div ref=\{scrollRootRef\} data-scroll-root="route"[^\n]*className="min-w-0 min-h-0 flex-1 app-scroll app-scroll-y/);
+  assert.match(layout, /<div ref=\{scrollRootRef\} data-scroll-root="route"[^\n]*className="relative min-w-0 min-h-0 flex-1 app-scroll app-scroll-y/);
   assert.doesNotMatch(layout, /position: fixed|nb-settings-local-nav-panel|<details/, "Navigation should participate in the full-height page layout");
   assert.doesNotMatch(globals, /\.nb-settings-local-nav-panel/, "Remove the replaced floating navigation styling");
   assert.match(layout, /event\.metaKey \|\| event\.ctrlKey/, "Native modified-link navigation should remain available");

@@ -138,6 +138,20 @@ export async function startGithubIdentityLink({
   window.location.assign(result.data.url);
 }
 
+/**
+ * Links a Google identity to the signed-in account. It returns through /auth/callback like GitHub does, so the
+ * code is exchanged on the server, the link is logged and emailed, and Settings can say how it went.
+ */
+export async function startGoogleIdentityLink() {
+  const result = await createSupabaseBrowserClient().auth.linkIdentity({
+    provider: "google",
+    options: {
+      redirectTo: buildOAuthRedirectTo(resolveAuthBaseUrl(), "/settings?tab=integrations&identityProvider=google", createGithubOAuthRequestId(), "google"),
+    },
+  });
+  if (result.error) throw identityLinkError(result.error, "Google");
+}
+
 /** Recheck live identities before choosing link versus repository reauthorization. */
 export async function startGithubSyncAuthorization({
   nextPath,

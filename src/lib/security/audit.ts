@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, lt } from "drizzle-orm";
 import { buildPseudonymizedAuditRequestMetadata } from "@/lib/audit/request-metadata";
 import { db } from "@/lib/db";
 import { profileAuditEvents } from "@/lib/db/schema";
@@ -143,6 +143,8 @@ export async function recordSecurityEvent(input: {
 export async function listSecurityActivity(
   userId: string,
   limit: number = 20,
+  // Older than this time: the next page. ponytail: entries logged in the very same millisecond as the page edge can be skipped; add an id tiebreak if that ever shows up.
+  before?: Date,
 ): Promise<SecurityActivityEntry[]> {
   const rows = await db.query.profileAuditEvents.findMany({
     columns: {
@@ -154,6 +156,7 @@ export async function listSecurityActivity(
     where: and(
       eq(profileAuditEvents.userId, userId),
       inArray(profileAuditEvents.eventType, [...SECURITY_ACTIVITY_EVENT_TYPES]),
+      before ? lt(profileAuditEvents.createdAt, before) : undefined,
     ),
     orderBy: [desc(profileAuditEvents.createdAt)],
     limit,
