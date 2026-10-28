@@ -264,6 +264,7 @@ export const queryKeys = {
     root: () => ["workspace"] as const,
     ideProjects: (userId: string | null) => ["workspace", "ide-projects", userId] as const,
     summary: () => ["workspace", "summary"] as const,
+    toReview: () => ["workspace", "to-review"] as const,
     members: () => ["workspace", "members"] as const,
     sprints: () => ["workspace", "sprints"] as const,
     tasks: (scope: "my" | "team" | "all" = "my", limit = 24) =>

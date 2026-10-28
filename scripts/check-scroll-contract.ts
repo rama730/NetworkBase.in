@@ -67,7 +67,7 @@ function collectExtraContractFiles(pageFile: string, repoRoot: string): string[]
   const extras: string[] = [];
 
   const content = readFileIfExists(pageFile);
-  const reexportMatch = content.match(/from\s+['"](\.\.\/[^'"]+)['"]/);
+  const reexportMatch = content.match(/from\s+['"](\.\.?\/[^'"]+)['"]/);
   if (reexportMatch && reexportMatch[1]) {
     const importPath = reexportMatch[1];
     const target = path.resolve(path.dirname(pageFile), importPath + (importPath.endsWith(".tsx") ? "" : ".tsx"));

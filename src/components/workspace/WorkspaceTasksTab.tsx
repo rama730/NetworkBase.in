@@ -247,7 +247,7 @@ export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTab
     });
     const { data, isLoading, error } = query;
     const reviewQuery = useQuery({
-        queryKey: ["workspace", "to-review"],
+        queryKey: queryKeys.workspace.toReview(),
         queryFn: () => fetchToReviewAction(),
         enabled: isWorkspaceOpen && isActive,
         staleTime: 30_000,
