@@ -56,6 +56,7 @@ export interface SecurityActivityEntry {
     | "github_account_replacement_started"
     | "github_account_replaced"
     | "security_activity_cleared"
+    | "account_data_exported"
     | "sign_in_method_unlinked"
     | "editor_token_created"
     | "account_deletion_scheduled"

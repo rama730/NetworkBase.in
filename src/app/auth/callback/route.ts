@@ -8,6 +8,7 @@ import { sealGithubImportToken } from '@/lib/github/repo-security'
 import { hasCompletedOnboarding } from '@/lib/onboarding/completion'
 import { ensureDefaultGithubContributorIdentity } from '@/lib/github/contributor-identity'
 import { recordSecurityEvent } from '@/lib/security/audit'
+import { queueSecurityEmail } from '@/lib/email/security-queue'
 import { getLegalAcceptanceState } from '@/lib/legal/acceptance'
 import { githubOAuthFailureCode } from '@/lib/github/oauth-errors'
 
@@ -226,9 +227,14 @@ export async function GET(request: Request) {
                                 githubId: contributorIdentity.githubId,
                                 githubLogin: contributorIdentity.login,
                             },
+            const isLinked = successUrl.searchParams.get('githubIdentity') === 'linked'
                         }).catch((auditError) => {
                             logger.warn('github.account.replacement.audit_failed', {
                                 requestId,
+                    // Adding or swapping a way to sign in is worth an email as well as a log line.
+                    if (isLinked || isReplaced) {
+                        await queueSecurityEmail(expectedUser.id, 'security_sign_in_method_changed', { detail: isReplaced ? 'The linked GitHub account was replaced' : 'GitHub was connected' })
+                    }
                                 userId: expectedUser.id,
                                 error: auditError instanceof Error ? auditError.message : String(auditError),
                             })

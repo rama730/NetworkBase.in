@@ -8,6 +8,16 @@ import type { SecurityEmailKind } from "./contracts";
 import type { SecurityEmailData } from "./security-templates";
 import { queueEmail, wakeEmailWorker } from "./outbox";
 
+/** The confirmation that an account is gone goes to the address kept on the deletion record: there is no account left to look up. */
+export async function queueDeletionCompletedEmail(email: string, deletionId: string) {
+  try {
+    await queueEmail(db, { kind: "account_deletion_completed", eventId: deletionId, toEmail: email });
+    await wakeEmailWorker();
+  } catch (error) {
+    logger.warn("email.deletion_completed_queue_failed", { module: "email", error: error instanceof Error ? error.message : String(error) });
+  }
+}
+
 /**
  * Queues an account-security email. The action that caused it has already happened, so this never throws: a
  * failure to queue is logged and the person's request still succeeds. `eventId` makes a replay a no-op (the

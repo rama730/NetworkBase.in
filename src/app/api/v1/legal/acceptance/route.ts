@@ -6,6 +6,7 @@ import { validateCsrf } from "@/lib/security/csrf";
 const acceptanceSchema = z.object({
   accepted: z.literal(true),
   context: z.enum(["oauth_signup", "settings", "material_update"]),
+  ageConfirmed: z.boolean().optional(),
 });
 
 export async function GET() {
@@ -24,6 +25,6 @@ export async function POST(request: Request) {
   if (limited) return limited;
   const parsed = acceptanceSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return jsonError("Explicit acceptance is required", 400, "BAD_REQUEST");
-  await recordCurrentLegalAcceptance({ userId: auth.user.id, request, context: parsed.data.context });
+  await recordCurrentLegalAcceptance({ userId: auth.user.id, request, context: parsed.data.context, ageConfirmed: parsed.data.ageConfirmed });
   return jsonSuccess({ accepted: true, requestId: getRequestId(request) });
 }

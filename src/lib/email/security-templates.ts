@@ -21,7 +21,7 @@ type Parts = { subject: string; preview: string; label: string; headline: string
 
 export const SECURITY_EMAIL_KINDS: readonly SecurityEmailKind[] = [
   "security_password_changed", "security_mfa_changed", "security_token_created", "security_sessions_revoked", "security_sign_in_method_changed",
-  "account_deletion_scheduled", "account_deletion_cancelled", "account_deletion_reminder",
+  "account_deletion_scheduled", "account_deletion_cancelled", "account_deletion_reminder", "account_deletion_completed",
 ];
 export const isSecurityEmailKind = (kind: string): kind is SecurityEmailKind => (SECURITY_EMAIL_KINDS as readonly string[]).includes(kind);
 
@@ -93,6 +93,13 @@ function partsFor(kind: SecurityEmailKind, data: SecurityEmailData, url: (path: 
         primary: { label: "Cancel deletion", href: url(`/login?redirect=${encodeURIComponent("/settings#settings-delete-account")}`) },
       };
     }
+    case "account_deletion_completed":
+      return {
+        subject: "Your NetworkBase account was deleted", preview: "Your account and its data have been permanently deleted.", label: "ACCOUNT DELETION",
+        headline: "Your account was deleted",
+        paragraphs: ["Your NetworkBase account and its data have been permanently deleted, as you asked. This is the last email you will get about it.", "We keep only your email address and username for 180 days, so they can’t be taken over, and then remove them. If you didn’t ask for this, write to support@networkbase.in."],
+        primary: { label: "Contact support", href: url("/support") },
+      };
     case "account_deletion_cancelled":
       return {
         subject: "Your NetworkBase account was reactivated", preview: "Deletion was cancelled and your profile is visible again.", label: "ACCOUNT DELETION",

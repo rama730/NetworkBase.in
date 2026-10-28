@@ -2,6 +2,7 @@ import { getRequestId, jsonError, logApiRoute, requireAuthenticatedUser } from '
 import { createAccountExportStream } from '@/lib/account/export-stream';
 import { logger } from '@/lib/logger';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
+import { recordSecurityEvent } from '@/lib/security/audit';
 
 export async function GET(request: Request) {
     const startedAt = Date.now();
@@ -46,6 +47,8 @@ export async function GET(request: Request) {
         }
 
         const stream = await createAccountExportStream(user.id, request.signal);
+        // Recorded once the file is on its way, so the settings page can say when it was last made.
+        await recordSecurityEvent({ userId: user.id, eventType: 'account_data_exported', request }).catch(() => undefined);
 
         logApiRoute(request, {
             requestId,

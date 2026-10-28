@@ -124,11 +124,11 @@ export async function PUT(request: Request) {
             return jsonError("Invalid appearance snapshot", 400, "BAD_REQUEST");
         }
 
-        const metadata = readUserMetadata(auth.user);
+        // Auth merges `data` into the stored metadata, so only this one key is sent: re-sending the copy read a
+        // moment ago could overwrite something changed elsewhere in the meantime.
         const updateResult = await withAppearanceTimeout(
             auth.supabase.auth.updateUser({
                 data: {
-                    ...metadata,
                     app_appearance: snapshot,
                 },
             }),

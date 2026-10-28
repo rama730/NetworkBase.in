@@ -65,6 +65,9 @@ async function prepareOrgEmail(row: OutboxRow, userId: string, email: string, ra
   const kind = row.kind as OrgEmailKind;
   const data = row.data as OrgEmailData | null;
   if (!data?.org?.id) return { drop: "invalid_org_context" };
+  // A suspended org sends nothing (report §30.3); the owner hears why in the tray.
+  const [orgState] = await db.select({ suspendedAt: projects.suspendedAt }).from(projects).where(eq(projects.id, data.org.id)).limit(1);
+  if (orgState?.suspendedAt) return { drop: "org_suspended" };
   const preferences = normalizeNotificationPreferences(rawPreferences);
   if (!ALWAYS_SENT_EMAILS.has(kind)) {
     if (!preferences.delivery.email) return { drop: "email_opt_out" };
@@ -86,6 +89,13 @@ async function prepareOrgEmail(row: OutboxRow, userId: string, email: string, ra
 async function prepareEmail(row: OutboxRow): Promise<Prepared> {
   if (!row.userId) {
     // E3: an invitation to an address without an account. Only bounce blocking and the test allowlist apply.
+    // Two kinds go to an address with no account: an invitation to join, and the confirmation that an account was deleted.
+    if (row.kind === "account_deletion_completed" && row.toEmail) {
+      const email = row.toEmail.toLowerCase();
+      const blocked = await addressBlocked(email);
+      if (blocked) return { drop: blocked };
+      return { payload: row.payload ?? buildSecurityEmail("account_deletion_completed", {}, { email, name: "there" }) };
+    }
     if (row.kind !== "org_invite_signup" || !row.toEmail || !row.data) return { drop: "invalid_recipient" };
     const email = row.toEmail.toLowerCase();
     const blocked = await addressBlocked(email);
