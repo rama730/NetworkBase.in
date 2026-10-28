@@ -190,3 +190,11 @@ test("§27 pass: the child Dashboard's What's happening (group copy, own sprint 
   assert.deepEqual(d?.needsYou.map((n) => n.kind), ["verify"]);
   assert.equal((await dashboard(o.orgId, o.a))?.needsYou.length, 0);
 });
+
+test("the child org line stays closed to org members who can't open the child project", async () => {
+  const o = await org();
+  viewerId = o.a;
+  assert.equal(await dash.readChildOrgLineAction(o.secret), null, "Secret Lab is private to b");
+  viewerId = o.b;
+  assert.ok(await dash.readChildOrgLineAction(o.secret));
+});

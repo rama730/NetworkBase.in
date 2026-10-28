@@ -312,6 +312,8 @@ export async function readChildOrgLineAction(childProjectId: string) {
     const { userId } = await getViewerAuthContext();
     const [child] = await db.select({ parentId: projects.parentId, ownerId: projects.ownerId, slug: projects.slug }).from(projects).where(and(eq(projects.id, childProjectId), isNull(projects.deletedAt))).limit(1);
     if (!child?.parentId || !(await readViewerOrgRole(child.parentId, userId))) return null; // outside people don't get the org line
+    // Org membership alone doesn't open a private child project: its sprint and group copies need read access.
+    if (!userId || !(await getProjectAccessById(childProjectId, userId)).canRead) return null;
     const [[org], [sprint], due, [ownSprint]] = await Promise.all([
         db.select({ title: projects.title, slug: projects.slug }).from(projects).where(eq(projects.id, child.parentId)).limit(1),
         db.select({ name: projectSprints.name, endDate: projectSprints.endDate }).from(projectSprints).where(and(eq(projectSprints.projectId, child.parentId), eq(projectSprints.status, 'active'))).limit(1),
