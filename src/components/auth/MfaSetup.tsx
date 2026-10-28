@@ -30,6 +30,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { queryKeys } from "@/lib/query-keys";
 import type { MfaFactor, SecurityData } from "@/types/settingsTypes";
 import SecurityStepUpDialog from "@/components/settings/SecurityStepUpDialog";
+import { formatCalendarDate, formatDateTime } from "@/lib/ui/date-formatting";
 
 interface MfaSetupProps {
   initialFactors?: MfaFactor[];
@@ -323,7 +324,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
                     Authenticator app
                   </div>
                   <div className="nb-meta text-muted-foreground">
-                    Added {primaryVerifiedFactor.created_at ? new Date(primaryVerifiedFactor.created_at).toLocaleDateString() : "recently"}
+                    Added {primaryVerifiedFactor.created_at ? formatCalendarDate(primaryVerifiedFactor.created_at) : "recently"}
                   </div>
                 </div>
               </div>
@@ -363,7 +364,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
               </div>
               {recoveryCodes?.generatedAt ? (
                 <div className="nb-meta text-muted-foreground">
-                  Last generated {new Date(recoveryCodes.generatedAt).toLocaleString()}
+                  Last generated {formatDateTime(recoveryCodes.generatedAt)}
                 </div>
               ) : null}
             </div>

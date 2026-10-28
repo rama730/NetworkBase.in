@@ -28,7 +28,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { identityLinkError, startGithubIdentityLink } from "@/lib/github/oauth-client";
 import { GitHubCommitAttributionSettings } from "@/components/settings/GitHubCommitAttributionSettings";
 import SecurityStepUpDialog from "@/components/settings/SecurityStepUpDialog";
-import { revokeExtensionSession, generateExtensionToken } from "@/app/actions/extension-sessions";
+import { revokeExtensionSession, generateExtensionToken, getActiveExtensionSessions } from "@/app/actions/extension-sessions";
 import type { AuthConnectionMethod, ExtensionSessionData, ExtensionSessionsData, IntegrationsAuthProvider } from "@/types/settingsTypes";
 
 const PROVIDER_ICONS: Partial<Record<IntegrationsAuthProvider, string>> = {
@@ -137,7 +137,7 @@ function ExtensionSessionRow({ session, revoking, onRevoke }: { session: Extensi
         )}
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <p className="truncate nb-ui-label text-foreground">{title}</p>
+            <p className="truncate nb-ui-label text-foreground" title={title}>{title}</p>
             {isPending ? (
               <span className="nb-meta text-muted-foreground">
                 Awaiting connection
@@ -189,7 +189,10 @@ export default function IntegrationsSettings() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { data, isLoading, error, refetch } = useIntegrationsData();
-  const { data: sessionData, isLoading: sessionsLoading, refetch: refetchSessions } = useExtensionSessionsData();
+  const { data: sessionData, isLoading: sessionsLoading, isError: sessionsFailed, refetch: refetchSessions } = useExtensionSessionsData();
+  // Sessions past the first page, loaded on request; dropped whenever the first page is read again.
+  const [more, setMore] = useState<{ base: unknown; sessions: ExtensionSessionData[]; cursor: string | null; hasMore: boolean } | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [linking, setLinking] = useState<IntegrationsAuthProvider | null>(null);
   const [revoking, setRevoking] = useState<string | null>(null);
   const [showTokenGen, setShowTokenGen] = useState(false);
@@ -209,7 +212,29 @@ export default function IntegrationsSettings() {
   const [replacingGithub, setReplacingGithub] = useState(false);
   const [projectsExpanded, setProjectsExpanded] = useState(false);
 
-  const allSessions = sessionData?.sessions || [];
+  const extra = more && more.base === sessionData ? more : null;
+  const hasMoreSessions = extra ? extra.hasMore : Boolean(sessionData?.hasMore);
+  const nextSessionCursor = extra ? extra.cursor : (sessionData?.nextCursor ?? null);
+  const allSessions = [...(sessionData?.sessions || []), ...(extra?.sessions ?? [])];
+  const loadMoreSessions = async () => {
+    if (!nextSessionCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const result = await getActiveExtensionSessions({ cursor: nextSessionCursor });
+      if (!result.success) throw new Error(result.error);
+      const page = result.sessions.map((session): ExtensionSessionData => ({
+        ...session,
+        expiresAt: new Date(session.expiresAt).toISOString(),
+        lastSeenAt: new Date(session.lastSeenAt).toISOString(),
+        createdAt: new Date(session.createdAt).toISOString(),
+      }));
+      setMore({ base: sessionData, sessions: [...(extra?.sessions ?? []), ...page], cursor: result.nextCursor ?? null, hasMore: result.hasMore });
+    } catch {
+      toast.warning("More sessions didn’t load. Try again.");
+    } finally {
+      setLoadingMore(false);
+    }
+  };
   const activeSessions = allSessions.filter((s) => s.clientVersion !== "pending" && (s.editorPlatform || s.editorName));
   const pendingSessions = allSessions.filter((s) => s.clientVersion === "pending" || (!s.editorPlatform && !s.editorName));
 
@@ -453,9 +478,11 @@ export default function IntegrationsSettings() {
               {activeSessions.length} active · {pendingSessions.length} pending
             </span>
           </div>
-        {sessionsLoading && !sessionData ? (
-            <div aria-hidden="true" className="nb-skeleton h-24 rounded-md" />
-        ) : sessionData?.sessions.length ? (
+        {sessionsFailed && !sessionData ? (
+            <ErrorNotice what="Editor sessions" onRetry={() => void refetchSessions()} />
+        ) : sessionsLoading && !sessionData ? (
+            <div role="status" aria-label="Loading editor sessions" className="nb-skeleton h-24 rounded-md" />
+        ) : allSessions.length ? (
             <div className="divide-y divide-border border-y border-border">
               {activeSessions.map((session) => (
                   <ExtensionSessionRow
@@ -473,6 +500,11 @@ export default function IntegrationsSettings() {
                     onRevoke={() => setRevokeTarget(session)}
                   />
               ))}
+              {hasMoreSessions ? (
+                <div className="flex justify-center py-3">
+                  <Button type="button" variant="outline" size="sm" disabled={loadingMore} onClick={() => void loadMoreSessions()} className="pointer-coarse:h-11">{loadingMore ? "Loading…" : "Load more sessions"}</Button>
+                </div>
+              ) : null}
             </div>
         ) : (
             <p className="rounded-md border border-dashed border-border bg-card nb-grid-ground p-6 text-center nb-compact text-muted-foreground" role="status">
