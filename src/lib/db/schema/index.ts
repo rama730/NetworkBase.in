@@ -931,6 +931,7 @@ export const projects = pgTable(
       "projects_owner_deleted_view_count_idx",
     ).on(t.ownerId, t.deletedAt, t.viewCount),
     parentIdx: index("projects_parent_idx").on(t.parentId).where(sql`${t.parentId} IS NOT NULL`),
+    verifiedByIdx: index("projects_verified_by_idx").on(t.verifiedBy).where(sql`${t.verifiedBy} IS NOT NULL`),
     joinCodeUnique: uniqueIndex("projects_join_code_unique").on(t.joinCode).where(sql`${t.joinCode} IS NOT NULL`),
     kindCheck: check("projects_kind_check", sql`${t.kind} IN ('project', 'organization')`),
     orgHasNoParent: check("projects_org_has_no_parent", sql`${t.kind} = 'project' OR ${t.parentId} IS NULL`),
@@ -1008,6 +1009,7 @@ export const orgJoinBlocks = pgTable(
   (t) => ({
     pk: primaryKey({ columns: [t.orgId, t.userId] }),
     userIdx: index("org_join_blocks_user_idx").on(t.userId),
+    blockedByIdx: index("org_join_blocks_blocked_by_idx").on(t.blockedBy).where(sql`${t.blockedBy} IS NOT NULL`),
   }),
 );
 
@@ -1030,6 +1032,10 @@ export const orgEmailInvites = pgTable(
   (t) => ({
     openUnique: uniqueIndex("org_email_invites_open_unique").on(t.orgId, t.email).where(sql`${t.acceptedAt} IS NULL`),
     emailIdx: index("org_email_invites_email_idx").on(t.email).where(sql`${t.acceptedAt} IS NULL`),
+    orgIdx: index("org_email_invites_org_idx").on(t.orgId),
+    childProjectIdx: index("org_email_invites_child_project_idx").on(t.childProjectId).where(sql`${t.childProjectId} IS NOT NULL`),
+    unitIdx: index("org_email_invites_unit_idx").on(t.unitId).where(sql`${t.unitId} IS NOT NULL`),
+    invitedByIdx: index("org_email_invites_invited_by_idx").on(t.invitedBy).where(sql`${t.invitedBy} IS NOT NULL`),
     emailCheck: check("org_email_invites_email_check", sql`${t.email} = lower(${t.email}) AND char_length(${t.email}) <= 320`),
     roleCheck: check("org_email_invites_role_check", sql`${t.role} IN ('admin', 'member', 'viewer')`),
     titleCheck: check("org_email_invites_title_check", sql`${t.title} IS NULL OR char_length(${t.title}) <= 60`),
@@ -3924,6 +3930,8 @@ export const sprintMaterials = pgTable(
     docUnique: uniqueIndex("sprint_materials_doc_unique").on(t.sprintId, t.docId).where(sql`${t.docId} IS NOT NULL`),
     nodeIdx: index("sprint_materials_node_idx").on(t.nodeId).where(sql`${t.nodeId} IS NOT NULL`),
     docIdx: index("sprint_materials_doc_idx").on(t.docId).where(sql`${t.docId} IS NOT NULL`),
+    sprintIdx: index("sprint_materials_sprint_idx").on(t.sprintId),
+    addedByIdx: index("sprint_materials_added_by_idx").on(t.addedBy).where(sql`${t.addedBy} IS NOT NULL`),
   }),
 );
 
