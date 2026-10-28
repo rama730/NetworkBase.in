@@ -4,11 +4,13 @@ import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { needsSecondFactor } from "@/lib/auth/mfa-ui";
 
-const FACTOR_CACHE_TTL_MS = 60_000;
+// "Has a factor" can be kept longer than "has none": a stale "none" right after someone enrols is the one answer that
+// would let a password-only session through, so it expires within seconds.
+const HAS_FACTOR_TTL_MS = 60_000;
+const NO_FACTOR_TTL_MS = 5_000;
 const FACTOR_CACHE_MAX_USERS = 10_000;
 
 // ponytail: per-process cache, so each server instance keeps its own copy; move to Redis if instances multiply.
-// A stale entry is bounded by the TTL: adding or removing a factor happens on a session that has already passed MFA.
 const factorCache = new Map<string, { has: boolean; at: number }>();
 
 /**
@@ -17,7 +19,7 @@ const factorCache = new Map<string, { has: boolean; at: number }>();
  */
 export async function hasVerifiedMfaFactor(userId: string): Promise<boolean> {
   const cached = factorCache.get(userId);
-  if (cached && Date.now() - cached.at < FACTOR_CACHE_TTL_MS) return cached.has;
+  if (cached && Date.now() - cached.at < (cached.has ? HAS_FACTOR_TTL_MS : NO_FACTOR_TTL_MS)) return cached.has;
   try {
     const rows = await db.execute<{ found: number }>(sql`
       SELECT 1 AS found FROM auth.mfa_factors WHERE user_id = ${userId}::uuid AND status = 'verified' LIMIT 1
