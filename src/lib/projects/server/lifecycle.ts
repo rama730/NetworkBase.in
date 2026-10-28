@@ -46,6 +46,7 @@ import { capChildVisibility, childCreationBlock } from "@/lib/organizations/chil
 import { readViewerOrgRole } from "@/lib/organizations/detail";
 import { readOrgRules } from "@/lib/organizations/settings";
 import { createStarterFolders } from "@/lib/organizations/org-files";
+import { notifyOrg } from "@/lib/organizations/notify";
 import { isProjectPubliclyReadableVisibility } from "@/lib/projects/project-visibility";
 import { addProjectMemberInternal } from "@/lib/projects/collaborator-lifecycle";
 import { createProjectInvitationAction } from "@/app/actions/project/guidance";
@@ -1062,6 +1063,14 @@ export async function createProjectAction(
             preview: { contextLabel: result.title, contextKind: "workflow", secondaryText: "Project lead" },
             dedupeKey: `project-lead:${result.id}:${ownerId}`,
           }).catch(() => undefined);
+        }
+
+        // E1 (report §26.3 A): the owner gets the join code by email too; always sent.
+        if (organization) {
+          await notifyOrg({
+            orgId: result.id, eventKey: "org.created", to: [ownerId], title: `${result.title} is ready${result.joinCode ? ` · share code ${result.joinCode}` : ""}`,
+            href: `/org/${encodeURIComponent(result.slug || result.id)}`, sourceEventId: `created:${result.id}`, email: { kind: "org_ready", data: { joinCode: result.joinCode } },
+          });
         }
 
         return {

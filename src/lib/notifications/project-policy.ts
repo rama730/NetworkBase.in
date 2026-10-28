@@ -14,7 +14,11 @@ export type ProjectNotificationGroupId =
     | "readme"
     | "updates"
     | "security_audit"
-    | "future";
+    | "future"
+    | "org_membership"
+    | "org_assignments"
+    | "org_announcements"
+    | "org_credit";
 export type ProjectNotificationRecipientGroup =
     | "owner"
     | "co_leaders"
@@ -73,7 +77,28 @@ export type ProjectNotificationEventKey =
     | "readme.major_edited"
     | "updates.published"
     | "updates.comment"
-    | "updates.follower_digest";
+    | "updates.follower_digest"
+    | OrgNotificationEventKey;
+
+/** Organization events (report §26.3); they show only in an organization's settings. */
+export type OrgNotificationEventKey =
+    | "org.created"
+    | "org.join_requested"
+    | "org.join_decided"
+    | "org.invited"
+    | "org.member_joined"
+    | "org.role_changed"
+    | "org.removed"
+    | "org.child_added"
+    | "org.child_requests"
+    | "org.child_decided"
+    | "assignments.published"
+    | "assignments.submitted"
+    | "assignments.reviewed"
+    | "assignments.due_changed"
+    | "assignments.due_soon"
+    | "announcements.posted"
+    | "credit.changed";
 
 export type ProjectNotificationRule = {
     enabled: boolean;
@@ -124,7 +149,27 @@ export const PROJECT_NOTIFICATION_GROUPS: Array<{
     { id: "updates", title: "Updates", description: "Project progress posts, follower notifications, and update discussions.", visible: true },
     { id: "security_audit", title: "Security & Audit", description: "Protected actions, exports, archive/delete, and access-sensitive events.", visible: true },
     { id: "future", title: "Future Surfaces", description: "Updates and follower digest triggers hidden until enforceable.", visible: false },
+    { id: "org_membership", title: "Organization", description: "Join requests, invitations, roles, removals and child projects.", visible: true },
+    { id: "org_assignments", title: "Assignments", description: "Published work, submissions, reviews and due dates.", visible: true },
+    { id: "org_announcements", title: "Announcements", description: "Announcements for each post's audience.", visible: true },
+    { id: "org_credit", title: "Profile credit", description: "Verified roles and removed verification.", visible: true },
 ];
+
+const ORG_GROUP_IDS = new Set<ProjectNotificationGroupId>(["org_membership", "org_assignments", "org_announcements", "org_credit"]);
+
+const ORG_KIND: Record<string, NotificationKind> = { org_membership: "org_membership", org_assignments: "org_assignment", org_announcements: "org_announcement", org_credit: "org_credit" };
+
+/** One line per org event: recipients are chosen by the trigger, so defaultRecipients only labels them. */
+const orgEvent = (key: OrgNotificationEventKey, group: ProjectNotificationGroupId, label: string, description: string,
+    importance: NotificationImportance, opts: { aggregate?: ProjectNotificationAggregatePolicy; mandatory?: boolean; recipients?: ProjectNotificationRecipientGroup[] } = {}): ProjectNotificationRegistryEntry => ({
+    key, group, label, description,
+    category: group === "org_assignments" ? "tasks" : "projects",
+    notificationKind: ORG_KIND[group]!,
+    defaultEnabled: true, defaultImportance: importance,
+    defaultRecipients: opts.recipients ?? ["affected_member"],
+    allowMemberOverride: !opts.mandatory, mandatory: Boolean(opts.mandatory),
+    aggregate: opts.aggregate ?? "none", visible: true,
+});
 
 const E = (entry: ProjectNotificationRegistryEntry) => entry;
 
@@ -797,6 +842,23 @@ export const PROJECT_NOTIFICATION_EVENT_REGISTRY = {
         // already notify followers through updates.published.
         visible: false,
     }),
+    "org.created": orgEvent("org.created", "org_membership", "Organization ready", "The owner hears that the organization is ready, with its join code.", "important", { recipients: ["owner"] }),
+    "org.join_requested": orgEvent("org.join_requested", "org_membership", "Join requests", "Admins hear about requests to join, combined.", "important", { aggregate: "burst_10m", recipients: ["owner", "co_leaders"] }),
+    "org.join_decided": orgEvent("org.join_decided", "org_membership", "Request approved or declined", "The person who asked hears the answer.", "important"),
+    "org.invited": orgEvent("org.invited", "org_membership", "Invitations", "People with an account hear they were invited.", "important"),
+    "org.member_joined": orgEvent("org.member_joined", "org_membership", "Joins and leaves", "Admins see people joining and leaving, combined.", "more", { aggregate: "burst_10m", recipients: ["owner", "co_leaders"] }),
+    "org.role_changed": orgEvent("org.role_changed", "org_membership", "Role changed", "A member hears their new role.", "important"),
+    "org.removed": orgEvent("org.removed", "org_membership", "Removed", "A member hears they were removed.", "important", { mandatory: true }),
+    "org.child_added": orgEvent("org.child_added", "org_membership", "Added to a project", "A member hears they were added to a child project.", "important"),
+    "org.child_requests": orgEvent("org.child_requests", "org_membership", "Move-in and detach requests", "Admins hear when a project asks to join or leave.", "important", { recipients: ["owner", "co_leaders"] }),
+    "org.child_decided": orgEvent("org.child_decided", "org_membership", "Move-in and detach answers", "The project's lead hears the answer.", "important"),
+    "assignments.published": orgEvent("assignments.published", "org_assignments", "Assignment published", "Recipients hear about new work and its due date.", "important"),
+    "assignments.submitted": orgEvent("assignments.submitted", "org_assignments", "Submissions", "Admins see new submissions, combined.", "more", { aggregate: "burst_10m", recipients: ["owner", "co_leaders"] }),
+    "assignments.reviewed": orgEvent("assignments.reviewed", "org_assignments", "Returned or approved", "A member hears their work was returned or approved.", "important"),
+    "assignments.due_changed": orgEvent("assignments.due_changed", "org_assignments", "Extended or excused", "A member hears their due date changed or they were excused.", "important"),
+    "assignments.due_soon": orgEvent("assignments.due_soon", "org_assignments", "Due soon and overdue", "People who aren't done hear once a day, at 9:00 their time.", "important"),
+    "announcements.posted": orgEvent("announcements.posted", "org_announcements", "Announcements", "Each announcement's audience hears about it.", "important"),
+    "credit.changed": orgEvent("credit.changed", "org_credit", "Verified or removed", "A member hears their role was verified or the verification removed.", "important"),
 } as const satisfies Record<ProjectNotificationEventKey, ProjectNotificationRegistryEntry>;
 
 export const PROJECT_NOTIFICATION_EVENT_KEYS = Object.keys(PROJECT_NOTIFICATION_EVENT_REGISTRY) as ProjectNotificationEventKey[];
@@ -904,10 +966,11 @@ export function resolveProjectNotificationDecision(params: {
     return { enabled: true, mandatory: false, rule: projectRule };
 }
 
-export function getVisibleProjectNotificationEntries() {
+/** Org event groups show only for organizations; everything else is unchanged for projects. */
+export function getVisibleProjectNotificationEntries(isOrg = false) {
     return PROJECT_NOTIFICATION_EVENT_KEYS
-        .map((key) => PROJECT_NOTIFICATION_EVENT_REGISTRY[key])
-        .filter((entry) => entry.visible);
+        .map((key) => PROJECT_NOTIFICATION_EVENT_REGISTRY[key] as ProjectNotificationRegistryEntry)
+        .filter((entry) => entry.visible && (isOrg || !ORG_GROUP_IDS.has(entry.group)));
 }
 
 export function groupProjectNotificationEntries(entries = getVisibleProjectNotificationEntries()) {
@@ -920,8 +983,8 @@ export function groupProjectNotificationEntries(entries = getVisibleProjectNotif
         .filter((group) => group.entries.length > 0);
 }
 
-export function summarizeProjectNotificationPolicy(policy: ProjectNotificationPolicy) {
-    const visible = getVisibleProjectNotificationEntries();
+export function summarizeProjectNotificationPolicy(policy: ProjectNotificationPolicy, isOrg = false) {
+    const visible = getVisibleProjectNotificationEntries(isOrg);
     const enabled = visible.filter((entry) => resolveProjectNotificationDecision({ eventKey: entry.key, projectPolicy: policy }).enabled);
     const mandatory = visible.filter((entry) => entry.mandatory);
     return {

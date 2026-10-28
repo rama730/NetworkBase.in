@@ -37,6 +37,10 @@ const KIND_REASON: Record<NotificationKind, NotificationReason> = {
     project_file_activity: "file",
     project_security_alert: "update",
     project_update_activity: "update",
+    org_membership: "update",
+    org_assignment: "assigned",
+    org_announcement: "update",
+    org_credit: "update",
 };
 
 export const REASON_LABELS: Record<NotificationReason, string> = {
@@ -95,6 +99,10 @@ const AGGREGATE_NOUNS: Record<NotificationKind, { singular: string; plural: stri
     project_file_activity: { singular: "file update", plural: "file updates" },
     project_security_alert: { singular: "security update", plural: "security updates" },
     project_update_activity: { singular: "project update", plural: "project updates" },
+    org_membership: { singular: "membership update", plural: "membership updates" },
+    org_assignment: { singular: "assignment update", plural: "assignment updates" },
+    org_announcement: { singular: "announcement", plural: "announcements" },
+    org_credit: { singular: "profile credit update", plural: "profile credit updates" },
 };
 
 export function getAggregateLabel(kind: NotificationKind, count: number): string | null {
@@ -255,7 +263,8 @@ export function buildNotificationMuteScopes(item: NotificationItem): Notificatio
         mutedAt: null,
     }];
     const refs = item.entityRefs ?? {};
-    if (refs.projectId) scopes.push({ kind: "project", value: refs.projectId, label: item.preview?.contextLabel ?? "This project", mutedAt: null });
+    if (refs.orgId) scopes.push({ kind: "organization", value: refs.orgId, label: "This organization", mutedAt: null });
+    if (refs.projectId && refs.projectId !== refs.orgId) scopes.push({ kind: "project", value: refs.projectId, label: item.preview?.contextLabel ?? "This project", mutedAt: null });
     if (refs.taskId) scopes.push({ kind: "task", value: refs.taskId, label: item.body ?? item.title, mutedAt: null });
     if (item.actorUserId) scopes.push({ kind: "person", value: item.actorUserId, label: item.preview?.actorName ?? "This person", mutedAt: null });
     return scopes;
@@ -263,7 +272,7 @@ export function buildNotificationMuteScopes(item: NotificationItem): Notificatio
 
 export function getNarrowestNotificationMuteScope(item: NotificationItem): NotificationMuteScope {
     const scopes = buildNotificationMuteScopes(item);
-    const specificityOrder: NotificationMuteScope["kind"][] = ["task", "project", "person", "notification_type"];
+    const specificityOrder: NotificationMuteScope["kind"][] = ["task", "project", "organization", "person", "notification_type"];
     for (const kind of specificityOrder) {
         const scope = scopes.find((candidate) => candidate.kind === kind);
         if (scope) return scope;
@@ -292,6 +301,8 @@ export function notificationMatchesMuteScope(
     if (scope.kind === "project") return refs.projectId === scope.value || refs.projectSlug === scope.value;
     if (scope.kind === "task") return refs.taskId === scope.value;
     if (scope.kind === "person") return params.actorUserId === scope.value;
+    // Muting an org covers its child projects too: their events carry the parent's orgId.
+    if (scope.kind === "organization") return refs.orgId === scope.value;
     return false;
 }
 

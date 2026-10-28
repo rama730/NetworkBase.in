@@ -26,6 +26,7 @@ import { acceptOrgInvite, ledChildProjects, openInvitesFor, removeFromOrg } from
 import { countOrgMembers, findOrgByJoinCode, isOrgHandleAvailable, joinOrgByCode, joinPublicOrg, viewerOrgStatus } from '@/lib/organizations/join';
 import { normalizeJoinCode, ORG_JOIN_MESSAGES, type OrgJoinMode, type OrgJoinOutcome } from '@/lib/organizations/join-rules';
 import { isProjectPubliclyReadableVisibility } from '@/lib/projects/project-visibility';
+import { namesOf, notifyJoined, notifyOrg, orgHref, orgLabel } from '@/lib/organizations/notify';
 
 type Failure = { success: false; error: string };
 
@@ -96,6 +97,7 @@ export async function joinOrganizationAction(
     const invite = target ? (await openInvitesFor(userId, target.id))[0] : undefined;
     if (target && invite && (await acceptOrgInvite(userId, invite.id))) {
         revalidatePath(`/projects/${target.slug ?? target.id}`);
+        await notifyJoined(target.id, userId, `${invite.id}:accepted`);
         return { success: true, outcome: 'joined', org: { id: target.id, title: target.title, slug: target.slug } };
     }
     const result = code ? await joinOrgByCode(userId, code, note) : null;
@@ -105,6 +107,7 @@ export async function joinOrganizationAction(
         return { success: false, error: ORG_JOIN_MESSAGES[outcome] };
     }
     if (outcome === 'joined') revalidatePath(`/projects/${org.slug ?? org.id}`);
+    await afterJoin(org.id, outcome, userId);
     return { success: true, outcome, org };
 }
 
@@ -176,6 +179,8 @@ export async function updateOrgSettingsAction(orgId: string, section: OrgSetting
         if ('max_members' in value) columns.maxCollaborators = value.max_members == null ? null : String(value.max_members);
     } else if (section === 'people') {
         settingsPatch.roleNames = value.role_names;
+    } else if (section === 'notifications') {
+        if ('admin_digest' in value) settingsPatch.adminDigest = value.admin_digest;
     } else {
         if ('child_creation' in value) settingsPatch.childCreation = value.child_creation;
         if ('outside_people' in value) settingsPatch.outsidePeople = value.outside_people;
@@ -270,7 +275,18 @@ export async function joinPublicOrgAction(
         return { success: false, error: ORG_JOIN_MESSAGES[outcome] };
     }
     revalidateOrg(org.slug, org.id);
+    await afterJoin(org.id, outcome, userId);
     return { success: true, outcome };
+}
+
+/** Joined: admins see "N people joined" and the person gets E4. Requested: admins see "N people asked to join". */
+async function afterJoin(orgId: string, outcome: OrgJoinOutcome, userId: string) {
+    const eventId = `join:${userId}:${Date.now()}`;
+    if (outcome === 'joined') return notifyJoined(orgId, userId, eventId);
+    if (outcome !== 'requested') return;
+    const org = await orgLabel(orgId);
+    const name = (await namesOf([userId])).get(userId) ?? 'Someone';
+    if (org) await notifyOrg({ orgId, eventKey: 'org.join_requested', actorId: userId, title: `${name} asked to join ${org.title}`, href: orgHref(org, '?tab=members'), sourceEventId: eventId });
 }
 
 /** Withdraws the viewer's pending join request; withdrawing is not a decline, so there is no cool-down. */
@@ -317,6 +333,9 @@ export async function leaveOrgAction(orgId: string): Promise<{ success: true } |
     // Leaving the org removes you from its projects too (report §14.4, §20.7).
     await db.transaction((tx) => removeFromOrg(tx, orgId, viewer.userId, viewer.userId));
     revalidateOrg(viewer.slug, orgId);
+    const org = await orgLabel(orgId);
+    const name = (await namesOf([viewer.userId])).get(viewer.userId) ?? 'Someone';
+    if (org) await notifyOrg({ orgId, eventKey: 'org.member_joined', actorId: viewer.userId, title: `${name} left ${org.title}`, href: orgHref(org, '?tab=members'), sourceEventId: `left:${viewer.userId}:${Date.now()}` });
     return { success: true };
 }
 
@@ -350,6 +369,7 @@ export async function requestDetachAction(projectId: string): Promise<{ success:
         orgSettings: sql`${projects.orgSettings} || ${JSON.stringify({ detachRequest: { by: viewer.userId, at: new Date().toISOString() } })}::jsonb`,
     }).where(eq(projects.id, projectId));
     revalidateChild(viewer.project);
+    await notifyChildRequest(viewer.project.parentId, projectId, viewer.userId, (child, org) => `${child} wants to leave ${org}`);
     return { success: true };
 }
 
@@ -367,6 +387,7 @@ export async function detachChildAction(projectId: string): Promise<{ success: t
     if (!viewer?.project.parentId || !isAdminRole(viewer.parentRole)) return DENIED;
     await detachFromOrg(projectId);
     revalidateChild(viewer.project);
+    await notifyChildDecision(viewer.project.parentId, projectId, viewer.project.ownerId, viewer.userId, (child, org) => `${child} left ${org}`);
     return { success: true };
 }
 
@@ -418,7 +439,19 @@ export async function moveProjectToOrgAction(projectId: string, orgId: string): 
         orgSettings: sql`${projects.orgSettings} || ${JSON.stringify({ moveInRequest: { orgId, by: viewer.userId, at: new Date().toISOString() } })}::jsonb`,
     }).where(eq(projects.id, projectId));
     revalidateChild(viewer.project);
+    await notifyChildRequest(orgId, projectId, viewer.userId, (child, orgTitle) => `${child} wants to join ${orgTitle}`);
     return { success: true, outcome: 'requested' };
+}
+
+/** Move-in and detach requests reach the org's admins; the answer reaches the project's lead (report §26.3 B). */
+async function notifyChildRequest(orgId: string, projectId: string, actorId: string, title: (child: string, org: string) => string) {
+    const [org, child] = await Promise.all([orgLabel(orgId), orgLabel(projectId)]);
+    if (org && child) await notifyOrg({ orgId, eventKey: 'org.child_requests', actorId, title: title(child.title, org.title), href: orgHref(org, '?tab=projects'), sourceEventId: `child-request:${projectId}:${Date.now()}` });
+}
+
+async function notifyChildDecision(orgId: string, projectId: string, leadId: string, actorId: string, title: (child: string, org: string) => string) {
+    const [org, child] = await Promise.all([orgLabel(orgId), orgLabel(projectId)]);
+    if (org && child) await notifyOrg({ orgId, eventKey: 'org.child_decided', actorId, to: [leadId], title: title(child.title, org.title), href: `/projects/${encodeURIComponent(child.slug ?? child.id)}`, sourceEventId: `child-decision:${projectId}:${Date.now()}` });
 }
 
 async function pendingMoveIn(projectId: string) {
@@ -439,6 +472,7 @@ export async function approveMoveInAction(projectId: string): Promise<{ success:
     }
     await moveIntoOrg(projectId, pending.orgId, pending.project.visibility);
     revalidatePath(`/projects/${pending.project.slug ?? projectId}`);
+    await notifyChildDecision(pending.orgId, projectId, pending.project.ownerId, userId!, (child, orgTitle) => `${child} is now part of ${orgTitle}`);
     return { success: true };
 }
 
@@ -465,6 +499,17 @@ export async function listCreateLocationsAction(): Promise<Array<{ id: string; t
     const userId = await viewerId();
     if (!userId) return [];
     return listCreateLocations(userId);
+}
+
+/** Settings › Notifications › Organizations: every org the viewer owns or belongs to (report §26.8). */
+export async function listMyOrganizationsAction(): Promise<Array<{ id: string; title: string }>> {
+    if (!organizationsEnabled()) return [];
+    const userId = await viewerId();
+    if (!userId) return [];
+    return db.select({ id: projects.id, title: projects.title }).from(projects)
+        .where(and(eq(projects.kind, 'organization'), isNull(projects.deletedAt),
+            sql`(${projects.ownerId} = ${userId} OR EXISTS (SELECT 1 FROM ${projectMembers} m WHERE m.project_id = ${projects.id} AND m.user_id = ${userId}))`))
+        .orderBy(projects.title).limit(200);
 }
 
 export type OrgRosterPerson = { userId: string; name: string; username: string | null; avatarUrl: string | null; title: string | null; role: string; projectHint: string | null };

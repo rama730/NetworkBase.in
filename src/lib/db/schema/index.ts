@@ -72,7 +72,7 @@ type NotificationPreferencesRecord = {
   connections: boolean;
   pausedUntil?: string | null;
   mutedScopes?: Array<{
-    kind: "notification_type" | "project" | "task" | "person";
+    kind: "notification_type" | "project" | "task" | "person" | "organization";
     value: string;
     label?: string | null;
     mutedAt?: string | null;
@@ -80,6 +80,7 @@ type NotificationPreferencesRecord = {
 };
 type UserNotificationEntityRefs = {
   projectId?: string | null;
+  orgId?: string | null;
   projectSlug?: string | null;
   updateId?: string | null;
   taskId?: string | null;
@@ -2734,7 +2735,10 @@ export const emailOutbox = pgTable("email_outbox", {
   id: uuid("id").primaryKey().defaultRandom(),
   eventKey: text("event_key").notNull(),
   kind: text("kind").$type<EmailKind>().notNull(),
-  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  // Null only for invitations to an address without an account (toEmail).
+  userId: uuid("user_id").references(() => profiles.id, { onDelete: "cascade" }),
+  toEmail: text("to_email"),
+  data: jsonb("data").$type<Record<string, unknown>>(),
   actorId: uuid("actor_id"),
   projectId: uuid("project_id"),
   taskId: uuid("task_id"),
@@ -2756,7 +2760,8 @@ export const emailOutbox = pgTable("email_outbox", {
   providerIdx: uniqueIndex("email_outbox_provider_idx").on(t.providerId),
   dueIdx: index("email_outbox_due_idx").on(t.dueAt).where(sql`${t.status} = 'pending'`),
   leaseIdx: index("email_outbox_lease_idx").on(t.leaseExpiresAt).where(sql`${t.status} = 'processing'`),
-  kindCheck: check("email_outbox_kind_check", sql`${t.kind} IN ('welcome', 'task_assignment')`),
+  kindCheck: check("email_outbox_kind_check", sql`${t.kind} IN ('welcome', 'task_assignment', 'org_ready', 'org_invite', 'org_invite_signup', 'org_welcome', 'org_assignment', 'org_due_soon', 'org_overdue', 'org_returned', 'org_announcement', 'org_ended', 'org_digest', 'org_removed', 'org_ownership', 'org_deleted')`),
+  recipientCheck: check("email_outbox_recipient_check", sql`${t.userId} IS NOT NULL OR ${t.toEmail} IS NOT NULL`),
   statusCheck: check("email_outbox_status_check", sql`${t.status} IN ('pending', 'processing', 'accepted', 'dropped', 'failed', 'needs_review')`),
   attemptsCheck: check("email_outbox_attempts_check", sql`${t.attempts} >= 0`),
   deliveryCheck: check("email_outbox_delivery_check", sql`${t.deliveryState} IN ('accepted', 'delivered', 'failed', 'bounced', 'complained')`),

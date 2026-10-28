@@ -13,8 +13,10 @@ import { isProjectMemberEligibleFor } from "@/lib/projects/collaborator-lifecycl
 import { resolveProjectNotificationDecision, normalizeProjectNotificationPolicy, normalizeProjectMemberNotificationOverrides } from "@/lib/notifications/project-policy";
 import { resolveIdeFromSession, SUPPORTED_IDES } from "@/lib/extension/ide-protocol";
 import { resolveAuthBaseUrl } from "@/lib/auth/redirects";
+import { ALWAYS_SENT_EMAILS, buildOrgEmail, orgMuteToken, type OrgEmailData } from "./org-templates";
+import { orgChoiceFor } from "@/lib/notifications/preferences";
 import {
-  buildEmail, DELIVERY_RANK, emailEnabled, eventDeliveryState, recipientAllowed,
+  buildEmail, type OrgEmailKind, DELIVERY_RANK, emailEnabled, eventDeliveryState, recipientAllowed,
   MAX_ATTEMPTS, RETRY_WINDOW_MS, retryDecision, suppressionReason, type EmailPayload, type ResendEvent,
 } from "./contracts";
 
@@ -47,9 +49,51 @@ export async function recordResendEvent(id: string, event: ResendEvent) {
   logger.metric("email.webhook", { module: "email", deliveryId: id, eventType: event.type });
 }
 
-async function prepareEmail(row: OutboxRow): Promise<{ drop: string } | { delay: Date } | { payload: EmailPayload }> {
+type Prepared = { drop: string } | { delay: Date } | { payload: EmailPayload };
+
+async function addressBlocked(email: string) {
+  if (!recipientAllowed(email)) return "nonproduction_recipient_not_allowlisted";
+  if (await db.query.emailSuppressions.findFirst({ where: eq(emailSuppressions.email, email), columns: { email: true } })) return "suppressed";
+  return null;
+}
+
+const MEMBER_EMAILS = new Set(["org_welcome", "org_assignment", "org_due_soon", "org_overdue", "org_returned", "org_announcement", "org_digest", "org_ended"]);
+
+/** Org emails E1–E14 (report §26.5): preferences and the org's own choices are read at send time, not queue time. */
+async function prepareOrgEmail(row: OutboxRow, userId: string, email: string, rawPreferences: unknown): Promise<Prepared> {
+  const kind = row.kind as OrgEmailKind;
+  const data = row.data as OrgEmailData | null;
+  if (!data?.org?.id) return { drop: "invalid_org_context" };
+  const preferences = normalizeNotificationPreferences(rawPreferences);
+  if (!ALWAYS_SENT_EMAILS.has(kind)) {
+    if (!preferences.delivery.email) return { drop: "email_opt_out" };
+    const choice = orgChoiceFor(preferences, data.org.id);
+    if (!choice.email || choice.level === "off") return { drop: "org_email_off" };
+    if (preferences.mutedScopes.some((scope) => scope.kind === "organization" && scope.value === data.org.id)) return { drop: "muted_scope" };
+  }
+  if (MEMBER_EMAILS.has(kind)) {
+    const [member] = await db.select({ ok: sql<number>`1` }).from(projects)
+      .leftJoin(projectMembers, and(eq(projectMembers.projectId, projects.id), eq(projectMembers.userId, userId)))
+      .where(and(eq(projects.id, data.org.id), isNull(projects.deletedAt), sql`(${projects.ownerId} = ${userId} OR ${projectMembers.userId} IS NOT NULL)`)).limit(1);
+    if (!member) return { drop: "membership_changed" };
+  }
+  const token = orgMuteToken(userId, data.org.id);
+  const muteUrl = token ? new URL(`/api/v1/email/org-mute?token=${encodeURIComponent(token)}`, resolveAuthBaseUrl()).toString() : null;
+  return { payload: row.payload ?? buildOrgEmail(kind, { ...data, timeZone: data.timeZone ?? preferences.quietHours.timeZone ?? null }, { email, muteUrl }) };
+}
+
+async function prepareEmail(row: OutboxRow): Promise<Prepared> {
+  if (!row.userId) {
+    // E3: an invitation to an address without an account. Only bounce blocking and the test allowlist apply.
+    if (row.kind !== "org_invite_signup" || !row.toEmail || !row.data) return { drop: "invalid_recipient" };
+    const email = row.toEmail.toLowerCase();
+    const blocked = await addressBlocked(email);
+    if (blocked) return { drop: blocked };
+    return { payload: row.payload ?? buildOrgEmail("org_invite_signup", row.data as OrgEmailData, { email }) };
+  }
+  const userId = row.userId;
   const profile = await db.query.profiles.findFirst({
-    where: and(eq(profiles.id, row.userId), isNull(profiles.deletedAt)),
+    where: and(eq(profiles.id, userId), isNull(profiles.deletedAt)),
     columns: {
       id: true,
       fullName: true,
@@ -63,7 +107,7 @@ async function prepareEmail(row: OutboxRow): Promise<{ drop: string } | { delay:
   });
   if (!profile) return { drop: "account_inactive" };
   const admin = await createAdminClient();
-  const { data, error } = await admin.auth.admin.getUserById(row.userId);
+  const { data, error } = await admin.auth.admin.getUserById(userId);
   if (error) {
     if (error.status === 404) return { drop: "account_missing" };
     throw new Error("recipient_lookup_unavailable");
@@ -73,11 +117,10 @@ async function prepareEmail(row: OutboxRow): Promise<{ drop: string } | { delay:
     return { drop: "recipient_unverified_or_inactive" };
   }
   const email = user.email.toLowerCase();
-  if (!recipientAllowed(email)) return { drop: "nonproduction_recipient_not_allowlisted" };
   if (row.payload && row.payload.to[0]?.toLowerCase() !== email) return { drop: "recipient_changed" };
-  if (await db.query.emailSuppressions.findFirst({ where: eq(emailSuppressions.email, email), columns: { email: true } })) {
-    return { drop: "suppressed" };
-  }
+  const blocked = await addressBlocked(email);
+  if (blocked) return { drop: blocked };
+  if (row.kind.startsWith("org_")) return prepareOrgEmail(row, userId, email, profile.notificationPreferences);
   if (row.kind === "welcome") {
     if (profile.onboardingStatus !== "completed") return { drop: "onboarding_incomplete" };
     return {
@@ -126,7 +169,7 @@ async function prepareEmail(row: OutboxRow): Promise<{ drop: string } | { delay:
     member: { role: projectMembers.role, notificationPreferences: projectMembers.notificationPreferences },
   })
     .from(tasks).innerJoin(projects, eq(projects.id, tasks.projectId))
-    .leftJoin(projectMembers, and(eq(projectMembers.projectId, projects.id), eq(projectMembers.userId, row.userId)))
+    .leftJoin(projectMembers, and(eq(projectMembers.projectId, projects.id), eq(projectMembers.userId, userId)))
     .leftJoin(assigneeProfile, eq(assigneeProfile.id, tasks.assigneeId))
     .leftJoin(actorProfile, row.actorId ? eq(actorProfile.id, row.actorId) : sql`false`)
     .where(and(eq(tasks.id, row.taskId), eq(tasks.projectId, row.projectId), isNull(tasks.deletedAt), isNull(projects.deletedAt))).limit(1);

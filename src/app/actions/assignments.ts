@@ -12,6 +12,7 @@ import { organizationsEnabled } from '@/lib/organizations/config';
 import { canStillSubmit, copyState, type AssignmentSettings, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules';
 import { createCopies, createMasterTask, resolveRecipients } from '@/lib/organizations/assignments';
 import { shareToOrgGeneral } from '@/lib/organizations/org-chat';
+import { notifyAssignmentDueChanged, notifyAssignmentPublished, notifyAssignmentReviewed, notifyAssignmentSubmitted } from '@/lib/organizations/assignment-notify';
 
 // Assignments (report §16, §16.11). Owners and admins create, review and manage; recipients submit.
 
@@ -102,6 +103,7 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
         });
         touch(viewer.slug, data.projectId);
         if (data.publish && data.shareToGeneral) await shareToOrgGeneral(data.projectId, viewer.userId, { kind: 'assignment', ref_id: result.masterId });
+        if (data.publish) await notifyAssignmentPublished(result.masterId, viewer.userId);
         return { success: true, ...result };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Could not create the assignment.' };
@@ -133,6 +135,7 @@ export async function publishAssignmentAction(masterId: string): Promise<{ succe
             return recipients.length;
         });
         touch(ctx.viewer.slug, ctx.master.projectId);
+        await notifyAssignmentPublished(masterId, ctx.viewer.userId);
         return { success: true, copies };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Could not publish.' };
@@ -246,6 +249,7 @@ export async function submitAssignmentAction(copyId: string, input: z.input<type
         });
     });
     revalidatePath(`/projects/${copy.projectId}`);
+    await notifyAssignmentSubmitted(copyId, userId);
     return { success: true };
 }
 
@@ -264,6 +268,7 @@ async function reviewOne(copyId: string, reviewerId: string, decision: 'approve'
             payload: { version: 1, source: 'assignment_review', taskTitle: copy.title, reason: reason ?? null },
         });
     });
+    await notifyAssignmentReviewed(copyId, reviewerId, decision, reason ?? null);
 }
 
 /** Approve, or Return with a reason, one submitted copy (org admins; report §16.4). */
@@ -302,6 +307,7 @@ export async function extendCopyAction(copyId: string, dueDate: string): Promise
     if (!ctx) return DENIED;
     await db.update(tasks).set({ dueDate: new Date(dueDate), updatedAt: new Date() }).where(eq(tasks.id, copyId));
     touch(ctx.viewer.slug, ctx.master.projectId);
+    await notifyAssignmentDueChanged(copyId, ctx.viewer.userId, (title) => `Your due date for ${title} changed`, `${copyId}:due:${dueDate}`);
     return { success: true };
 }
 
@@ -314,6 +320,7 @@ export async function excuseCopyAction(copyId: string, reason: string | null): P
         : { excusedAt: new Date(), excusedReason: reason.trim().slice(0, 500) || 'Excused', updatedAt: new Date() },
     ).where(eq(tasks.id, copyId));
     touch(ctx.viewer.slug, ctx.master.projectId);
+    if (reason !== null) await notifyAssignmentDueChanged(copyId, ctx.viewer.userId, (title) => `You're excused from ${title}`, `${copyId}:excused:${Date.now()}`);
     return { success: true };
 }
 

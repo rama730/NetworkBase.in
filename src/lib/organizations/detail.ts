@@ -30,6 +30,7 @@ export type OrgDetail = {
   childShare: boolean;
   /** Chat rules as stored (report §25.4); read with orgChatSettings for type defaults. */
   chat: { membersCreateChannels?: boolean; generalAdminsOnly?: boolean };
+  adminDigest: "daily" | "instant";
   visibilityCap: VisibilityCap;
   termStart: string | null;
   termEnd: string | null;
@@ -90,6 +91,7 @@ export async function readOrgDetail(
     childCreation: settings.childCreation === "admins" ? "admins" : "members",
     outsidePeople: settings.outsidePeople === true,
     childShare: settings.childShare !== false,
+    adminDigest: (settings as { adminDigest?: string }).adminDigest === "instant" ? "instant" : "daily",
     chat: { membersCreateChannels: (settings as { membersCreateChannels?: boolean }).membersCreateChannels, generalAdminsOnly: (settings as { generalAdminsOnly?: boolean }).generalAdminsOnly },
     visibilityCap: readOrgRules(settings).visibilityCap,
     termStart: org.termStart,

@@ -26,7 +26,11 @@ export type NotificationKind =
     | "project_task_activity"
     | "project_file_activity"
     | "project_security_alert"
-    | "project_update_activity";
+    | "project_update_activity"
+    | "org_membership"
+    | "org_assignment"
+    | "org_announcement"
+    | "org_credit";
 
 export type NotificationImportance = "important" | "more";
 
@@ -50,7 +54,7 @@ export type NotificationPreferenceCategory =
     | "applications"
     | "connections";
 
-export type NotificationMuteScopeKind = "notification_type" | "project" | "task" | "person";
+export type NotificationMuteScopeKind = "notification_type" | "project" | "task" | "person" | "organization";
 
 export type NotificationMuteScope = {
     kind: NotificationMuteScopeKind;
@@ -81,16 +85,26 @@ export type NotificationChatPreferences = {
     showPreview: boolean;
 };
 
+/** Personal Settings › Notifications › Organizations (report §26.8), per org id. */
+export type OrgNotificationChoice = {
+    level: "all" | "important" | "off";
+    email: boolean;
+    includeChildren: boolean;
+};
+
 export type NotificationPreferences = Record<NotificationPreferenceCategory, boolean> & {
     pausedUntil: string | null;
     mutedScopes: NotificationMuteScope[];
     quietHours: NotificationQuietHours;
     delivery: NotificationDeliveryPreferences;
     chat: NotificationChatPreferences;
+    organizations: Record<string, OrgNotificationChoice>;
 };
 
 export type NotificationEntityRefs = {
     projectId?: string | null;
+    /** The organization the event belongs to (the org itself or a child project's parent). */
+    orgId?: string | null;
     projectSlug?: string | null;
     updateId?: string | null;
     taskId?: string | null;

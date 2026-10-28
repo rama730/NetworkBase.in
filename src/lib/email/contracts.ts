@@ -4,7 +4,10 @@ import { resolveAuthBaseUrl } from "@/lib/auth/redirects";
 import { publicAvatarVariantUrl } from "@/lib/profile/avatar-variants";
 import { getPersonAvatarTone, type PersonAvatarTone } from "@/lib/ui/avatar";
 
-export type EmailKind = "welcome" | "task_assignment";
+export type OrgEmailKind =
+  | "org_ready" | "org_invite" | "org_invite_signup" | "org_welcome" | "org_assignment" | "org_due_soon" | "org_overdue"
+  | "org_returned" | "org_announcement" | "org_ended" | "org_digest" | "org_removed" | "org_ownership" | "org_deleted";
+export type EmailKind = "welcome" | "task_assignment" | OrgEmailKind;
 export type EmailAttachment = {
   filename: string;
   path?: string;
@@ -49,7 +52,7 @@ export function assignmentRecipient(actorId: string, assigneeId: string | null |
   return assigneeId && assigneeId !== actorId && assigneeId !== previousId ? assigneeId : null;
 }
 
-function escapeHtml(value: string) {
+export function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
   })[character]!);
@@ -225,7 +228,7 @@ export function extractAvatarStoragePath(avatarUrl: string): { bucket: string; p
   }
 }
 
-function renderPonytailAvatar(params: {
+export function renderPonytailAvatar(params: {
   avatarUrl?: string | null;
   displayName?: string | null;
   username?: string | null;
@@ -244,6 +247,142 @@ function renderPonytailAvatar(params: {
 
   // Pure Ponytail initials avatar: deterministic FNV-1a tone palette, 44x44px square badge with border-radius: 6px.
   return `<table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;display:inline-table;vertical-align:middle;"><tr><td style="width:44px;height:44px;border-radius:6px;background-color:${colors.bg};color:${colors.text};text-align:center;vertical-align:middle;font-size:15px;font-weight:700;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:44px;padding:0;">${escapeHtml(initials)}</td></tr></table>`;
+}
+
+export type EmailShellInput = {
+  title: string;
+  /** Hidden inbox preview text. */
+  preview: string;
+  /** "NetworkBase / <project>" crumb in the brand bar. */
+  crumb?: { label: string; href: string } | null;
+  identity: { avatarHtml: string; label: string; name: string; handle?: string | null; subHtml?: string | null };
+  /** Table rows between the identity header and the buttons. */
+  contentHtml: string;
+  /** Button cells for the action bar. */
+  buttonsHtml: string;
+  footer: { reasonHtml: string; settingsUrl: string; muteUrl?: string | null; muteLabel?: string | null };
+};
+
+/** The one email layout (report §26.5): paper page, brand bar, identity header, content, action bar, footer. */
+export function renderEmailShell(input: EmailShellInput) {
+  const origin = resolveAuthBaseUrl();
+  const supportUrl = "mailto:support@networkbase.in";
+  const privacyUrl = new URL("/privacy", origin).toString();
+  const securityUrl = new URL("/security-reporting", origin).toString();
+  const termsUrl = new URL("/terms", origin).toString();
+  const { identity, footer } = input;
+  // Ghost padding keeps the body out of the inbox snippet without tripping spam filters.
+  const ghostPadding = "&zwnj;&nbsp;".repeat(45);
+  const crumbHtml = input.crumb ? `
+                    <span style="color:#D1D5DB;margin:0 5px;vertical-align:middle;font-weight:normal;line-height:1;" aria-hidden="true">/</span>
+                    <a href="${escapeHtml(input.crumb.href)}" style="color:#4B5563;font-weight:600;font-size:14px;vertical-align:middle;text-decoration:none;line-height:1;">${escapeHtml(input.crumb.label)}</a>` : "";
+  const muteHtml = footer.muteUrl
+    ? ` <span style="color:#D1D5DB;margin:0 6px;" aria-hidden="true">&bull;</span> <a href="${escapeHtml(footer.muteUrl)}" style="color:#C24720;text-decoration:none;font-weight:500;">${escapeHtml(footer.muteLabel ?? "Mute these emails")}</a>`
+    : "";
+  return `<!doctype html>
+<html lang="en" dir="ltr" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
+  <title>${escapeHtml(input.title)}</title>
+  <!--[if mso]>
+  <xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml>
+  <![endif]-->
+  <style>
+    @media only screen and (max-width: 520px) {
+      .container-cell { padding: 20px 16px !important; }
+      .action-bar-table { width: 100% !important; }
+      .action-btn-cell { display: block !important; width: 100% !important; padding: 0 0 8px 0 !important; }
+      .action-btn { display: block !important; width: 100% !important; text-align: center !important; box-sizing: border-box !important; padding: 11px 16px !important; }
+    }
+  </style>
+</head>
+<body style="margin:0;padding:0;background-color:#FAF8F4;color:#141A1E;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;text-align:left;">
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#FAF8F4;opacity:0;" aria-hidden="true">
+    ${escapeHtml(input.preview)}
+    ${ghostPadding}
+  </div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#FAF8F4;width:100%;table-layout:fixed;text-align:left;">
+    <tr>
+      <td class="container-cell" align="left" style="padding:28px 20px;text-align:left;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="left" style="max-width:600px;width:100%;margin:0 auto;text-align:left;">
+          <tr>
+            <td style="padding-bottom:16px;border-bottom:1px solid #E5E7EB;text-align:left;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="left" style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;">
+                <tr>
+                  <td style="width:7px;height:7px;vertical-align:middle;padding:0;line-height:0;font-size:0;">
+                    <div style="width:7px;height:7px;border-radius:2px;background-color:#C24720;font-size:0;line-height:0;display:block;"></div>
+                  </td>
+                  <td style="vertical-align:middle;padding:0 0 0 4px;line-height:1;">
+                    <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;color:#141A1E;vertical-align:middle;line-height:1;display:inline-block;">NetworkBase</span>${crumbHtml}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:24px 0 16px 0;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="vertical-align:middle;padding-right:14px;width:44px;">
+                    ${identity.avatarHtml}
+                  </td>
+                  <td style="vertical-align:middle;">
+                    <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;color:#6B7280;text-transform:uppercase;margin-bottom:2px;">
+                      ${escapeHtml(identity.label)}
+                    </div>
+                    <div style="font-size:16px;font-weight:700;color:#111827;line-height:1.2;">
+                      ${escapeHtml(identity.name)}
+                      ${identity.handle ? `<span style="font-size:13px;font-weight:normal;color:#6B7280;margin-left:4px;">(@${escapeHtml(identity.handle)})</span>` : ""}
+                    </div>
+                    ${identity.subHtml ? `
+                    <div style="font-size:12px;color:#6B7280;margin-top:4px;">
+                      ${identity.subHtml}
+                    </div>` : ""}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+${input.contentHtml}
+
+          <tr>
+            <td style="padding:28px 0 20px 0;">
+              <table class="action-bar-table" role="presentation" cellpadding="0" cellspacing="0" border="0" align="left">
+                <tr>
+${input.buttonsHtml}
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding-top:24px;border-top:1px solid #E5E7EB;font-size:12px;line-height:1.6;color:#6B7280;text-align:left;">
+              <p style="margin:0 0 10px 0;color:#6B7280;">
+                ${footer.reasonHtml} <a href="${escapeHtml(footer.settingsUrl)}" style="color:#C24720;text-decoration:none;font-weight:500;">Manage notification preferences</a>${muteHtml}
+              </p>
+              <div style="margin:0;font-size:12px;color:#6B7280;line-height:1.6;">
+                <a href="${escapeHtml(supportUrl)}" style="color:#6B7280;text-decoration:none;">Contact Support</a>
+                <span style="color:#D1D5DB;margin:0 6px;" aria-hidden="true">&bull;</span>
+                <a href="${escapeHtml(privacyUrl)}" style="color:#6B7280;text-decoration:none;">Privacy</a>
+                <span style="color:#D1D5DB;margin:0 6px;" aria-hidden="true">&bull;</span>
+                <a href="${escapeHtml(securityUrl)}" style="color:#6B7280;text-decoration:none;">Security</a>
+                <span style="color:#D1D5DB;margin:0 6px;" aria-hidden="true">&bull;</span>
+                <a href="${escapeHtml(termsUrl)}" style="color:#6B7280;text-decoration:none;">Terms and Conditions</a>
+              </div>
+              <div style="margin-top:8px;font-size:11px;color:#9CA3AF;">&copy; NetworkBase&trade; &bull; All rights reserved</div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
 }
 
 export function buildEmail(input: BuildEmailInput): EmailPayload {
@@ -314,7 +453,6 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
     }
 
     const previewSnippet = `Welcome to NetworkBase, ${displayName} — Your profile is live. Explore projects, connect with developers, and collaborate seamlessly.`;
-    const ghostPadding = "&zwnj;&nbsp;".repeat(45);
 
     return {
       from: "NetworkBase <welcome@networkbase.in>",
@@ -326,79 +464,14 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
         "List-Unsubscribe": `<${settingsUrl}>, <mailto:support@networkbase.in?subject=unsubscribe>`,
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
       },
-      html: `<!doctype html>
-<html lang="en" dir="ltr" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light dark">
-  <meta name="supported-color-schemes" content="light dark">
-  <title>Welcome to NetworkBase</title>
-  <!--[if mso]>
-  <xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml>
-  <![endif]-->
-  <style>
-    @media only screen and (max-width: 520px) {
-      .container-cell { padding: 20px 16px !important; }
-      .action-bar-table { width: 100% !important; }
-      .action-btn-cell { display: block !important; width: 100% !important; padding: 0 0 8px 0 !important; }
-      .action-btn { display: block !important; width: 100% !important; text-align: center !important; box-sizing: border-box !important; padding: 11px 16px !important; }
-    }
-  </style>
-</head>
-<body style="margin:0;padding:0;background-color:#FAF8F4;color:#141A1E;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;text-align:left;">
-  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#FAF8F4;opacity:0;" aria-hidden="true">
-    ${escapeHtml(previewSnippet)}
-    ${ghostPadding}
-  </div>
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#FAF8F4;width:100%;table-layout:fixed;text-align:left;">
-    <tr>
-      <td class="container-cell" align="left" style="padding:28px 20px;text-align:left;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="left" style="max-width:600px;width:100%;margin:0 auto;text-align:left;">
-          <!-- Top Breadcrumb / Brand Bar -->
-          <tr>
-            <td style="padding-bottom:16px;border-bottom:1px solid #E5E7EB;text-align:left;">
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="left" style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;">
-                <tr>
-                  <td style="width:7px;height:7px;vertical-align:middle;padding:0;line-height:0;font-size:0;">
-                    <div style="width:7px;height:7px;border-radius:2px;background-color:#C24720;font-size:0;line-height:0;display:block;"></div>
-                  </td>
-                  <td style="vertical-align:middle;padding:0 0 0 4px;line-height:1;">
-                    <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;color:#141A1E;vertical-align:middle;line-height:1;display:inline-block;">NetworkBase</span>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Member Profile Header (Ponytail Avatar) -->
-          <tr>
-            <td style="padding:24px 0 16px 0;">
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-                <tr>
-                  <td style="vertical-align:middle;padding-right:14px;width:44px;">
-                    ${userAvatarHtml}
-                  </td>
-                  <td style="vertical-align:middle;">
-                    <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;color:#6B7280;text-transform:uppercase;margin-bottom:2px;">
-                      MEMBER PROFILE
-                    </div>
-                    <div style="font-size:16px;font-weight:700;color:#111827;line-height:1.2;">
-                      ${escapeHtml(displayName)}
-                      ${username ? `<span style="font-size:13px;font-weight:normal;color:#6B7280;margin-left:4px;">(@${escapeHtml(username)})</span>` : ""}
-                    </div>
-                    ${headline ? `
-                    <div style="font-size:12px;color:#6B7280;margin-top:4px;">
-                      <span>${escapeHtml(headline)}</span>
-                    </div>` : ""}
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Welcome Headline & Body -->
-          <tr>
+      html: renderEmailShell({
+        title: "Welcome to NetworkBase",
+        preview: previewSnippet,
+        identity: {
+          avatarHtml: userAvatarHtml, label: "MEMBER PROFILE", name: displayName, handle: username,
+          subHtml: headline ? `<span>${escapeHtml(headline)}</span>` : null,
+        },
+        contentHtml: `          <tr>
             <td style="padding:0 0 16px 0;">
               <h1 style="font-size:21px;line-height:1.35;font-weight:700;color:#111827;margin:8px 0 0 0;word-break:break-word;">
                 Welcome to NetworkBase
@@ -408,54 +481,19 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
               </p>
               ${skillsHtml}
             </td>
-          </tr>
-
-          <!-- Modern Action Bar -->
-          <tr>
-            <td style="padding:28px 0 20px 0;">
-              <table class="action-bar-table" role="presentation" cellpadding="0" cellspacing="0" border="0" align="left">
-                <tr>
-                  <!-- Button 1: Discover / Explore Projects -->
-                  <td class="action-btn-cell" style="padding:0 8px 0 0;vertical-align:middle;">
+          </tr>`,
+        buttonsHtml: `                  <td class="action-btn-cell" style="padding:0 8px 0 0;vertical-align:middle;">
                     <a href="${escapeHtml(discoverUrl)}" class="action-btn" style="display:inline-block;padding:9px 18px;font-size:13px;font-weight:600;color:#FFFFFF;background-color:#C24720;text-decoration:none;border-radius:6px;line-height:1.4;white-space:nowrap;text-align:center;">
                       Explore Projects &rarr;
                     </a>
                   </td>
-                  <!-- Button 2: View Profile -->
                   <td class="action-btn-cell" style="padding:0;vertical-align:middle;">
                     <a href="${escapeHtml(profileUrl)}" class="action-btn" style="display:inline-block;padding:8px 16px;font-size:13px;font-weight:600;color:#374151;background-color:#FFFFFF;border:1px solid #D1D5DB;text-decoration:none;border-radius:6px;line-height:1.4;white-space:nowrap;text-align:center;">
                       View Your Profile &#8599;
                     </a>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Footer & Compliance -->
-          <tr>
-            <td style="padding-top:24px;border-top:1px solid #E5E7EB;font-size:12px;line-height:1.6;color:#6B7280;text-align:left;">
-              <p style="margin:0 0 10px 0;color:#6B7280;">
-                You're receiving this email because you created an account on NetworkBase. <a href="${escapeHtml(settingsUrl)}" style="color:#C24720;text-decoration:none;font-weight:500;">Manage notification preferences</a>
-              </p>
-              <div style="margin:0;font-size:12px;color:#6B7280;line-height:1.6;">
-                <a href="${escapeHtml(supportUrl)}" style="color:#6B7280;text-decoration:none;">Contact Support</a>
-                <span style="color:#D1D5DB;margin:0 6px;" aria-hidden="true">&bull;</span>
-                <a href="${escapeHtml(privacyUrl)}" style="color:#6B7280;text-decoration:none;">Privacy</a>
-                <span style="color:#D1D5DB;margin:0 6px;" aria-hidden="true">&bull;</span>
-                <a href="${escapeHtml(securityUrl)}" style="color:#6B7280;text-decoration:none;">Security</a>
-                <span style="color:#D1D5DB;margin:0 6px;" aria-hidden="true">&bull;</span>
-                <a href="${escapeHtml(termsUrl)}" style="color:#6B7280;text-decoration:none;">Terms and Conditions</a>
-              </div>
-              <div style="margin-top:8px;font-size:11px;color:#9CA3AF;">&copy; NetworkBase&trade; &bull; All rights reserved</div>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`,
+                  </td>`,
+        footer: { reasonHtml: "You're receiving this email because you created an account on NetworkBase.", settingsUrl },
+      }),
     };
   }
 
@@ -640,8 +678,6 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
   summaryTokens.push(`assigned to ${assigneeDisplayName}`);
   if (subtasks.length > 0) summaryTokens.push(`${completedSubtasks} of ${subtasks.length} subtasks completed`);
   const previewSnippet = `${taskTitle} — ${summaryTokens.join(" • ")}`;
-  // Clean ghost whitespace padding to prevent subsequent email body leaking into inbox snippet without triggering Bayesian spam filters
-  const ghostPadding = "&zwnj;&nbsp;".repeat(45);
 
   return {
     from: "NetworkBase <notifications@networkbase.in>",
@@ -653,83 +689,17 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
       "List-Unsubscribe": `<${settingsUrl}>, <mailto:support@networkbase.in?subject=unsubscribe>`,
       "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
     },
-    html: `<!doctype html>
-<html lang="en" dir="ltr" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light dark">
-  <meta name="supported-color-schemes" content="light dark">
-  <title>${escapeHtml(title)}</title>
-  <!--[if mso]>
-  <xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml>
-  <![endif]-->
-  <style>
-    @media only screen and (max-width: 520px) {
-      .container-cell { padding: 20px 16px !important; }
-      .action-bar-table { width: 100% !important; }
-      .action-btn-cell { display: block !important; width: 100% !important; padding: 0 0 8px 0 !important; }
-      .action-btn { display: block !important; width: 100% !important; text-align: center !important; box-sizing: border-box !important; padding: 11px 16px !important; }
-    }
-  </style>
-</head>
-<body style="margin:0;padding:0;background-color:#FAF8F4;color:#141A1E;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;text-align:left;">
-  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#FAF8F4;opacity:0;" aria-hidden="true">
-    ${escapeHtml(previewSnippet)}
-    ${ghostPadding}
-  </div>
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#FAF8F4;width:100%;table-layout:fixed;text-align:left;">
-    <tr>
-      <td class="container-cell" align="left" style="padding:28px 20px;text-align:left;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="left" style="max-width:600px;width:100%;margin:0 auto;text-align:left;">
-          <!-- Top Breadcrumb / Brand Bar -->
-          <tr>
-            <td style="padding-bottom:16px;border-bottom:1px solid #E5E7EB;text-align:left;">
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="left" style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;">
-                <tr>
-                  <td style="width:7px;height:7px;vertical-align:middle;padding:0;line-height:0;font-size:0;">
-                    <div style="width:7px;height:7px;border-radius:2px;background-color:#C24720;font-size:0;line-height:0;display:block;"></div>
-                  </td>
-                  <td style="vertical-align:middle;padding:0 0 0 4px;line-height:1;">
-                    <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;color:#141A1E;vertical-align:middle;line-height:1;display:inline-block;">NetworkBase</span>
-                    <span style="color:#D1D5DB;margin:0 5px;vertical-align:middle;font-weight:normal;line-height:1;" aria-hidden="true">/</span>
-                    <a href="${escapeHtml(projectUrl)}" style="color:#4B5563;font-weight:600;font-size:14px;vertical-align:middle;text-decoration:none;line-height:1;">${escapeHtml(projectTitle)}</a>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Assigned Person Profile Header (Ponytail Avatar) -->
-          <tr>
-            <td style="padding:24px 0 16px 0;">
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-                <tr>
-                  <td style="vertical-align:middle;padding-right:14px;width:44px;">
-                    ${assigneeAvatarHtml}
-                  </td>
-                  <td style="vertical-align:middle;">
-                    <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;color:#6B7280;text-transform:uppercase;margin-bottom:2px;">
-                      ASSIGNED TO
-                    </div>
-                    <div style="font-size:16px;font-weight:700;color:#111827;line-height:1.2;">
-                      ${escapeHtml(assigneeDisplayName)}
-                      ${assigneeUsername ? `<span style="font-size:13px;font-weight:normal;color:#6B7280;margin-left:4px;">(@${escapeHtml(assigneeUsername)})</span>` : ""}
-                    </div>
-                    ${(assignerText || assigneeHeadline) ? `
-                    <div style="font-size:12px;color:#6B7280;margin-top:4px;">
-                      ${assignerText ? `<span style="color:#4B5563;font-weight:500;">${escapeHtml(assignerText)}</span>` : ""}
+    html: renderEmailShell({
+      title,
+      preview: previewSnippet,
+      crumb: { label: projectTitle, href: projectUrl },
+      identity: {
+        avatarHtml: assigneeAvatarHtml, label: "ASSIGNED TO", name: assigneeDisplayName, handle: assigneeUsername,
+        subHtml: (assignerText || assigneeHeadline) ? `${assignerText ? `<span style="color:#4B5563;font-weight:500;">${escapeHtml(assignerText)}</span>` : ""}
                       ${(assignerText && assigneeHeadline) ? ` &bull; ` : ""}
-                      ${assigneeHeadline ? `<span>${escapeHtml(assigneeHeadline)}</span>` : ""}
-                    </div>` : ""}
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Task Name & Details (Open Flow, No Box) -->
-          <tr>
+                      ${assigneeHeadline ? `<span>${escapeHtml(assigneeHeadline)}</span>` : ""}` : null,
+      },
+      contentHtml: `          <tr>
             <td style="padding:0 0 16px 0;">
               <h1 style="font-size:21px;line-height:1.35;font-weight:700;color:#111827;margin:8px 0 0 0;word-break:break-word;">
                 ${escapeHtml(taskTitle)}
@@ -739,60 +709,22 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
             </td>
           </tr>
 
-          <!-- Subtasks Section -->
           ${subtasksHtml ? `<tr><td>${subtasksHtml}</td></tr>` : ""}
 
-          <!-- Referenced Files Section -->
-          ${filesHtml ? `<tr><td>${filesHtml}</td></tr>` : ""}
-
-          <!-- Modern Action Bar (Responsive Button Group) -->
-          <tr>
-            <td style="padding:28px 0 20px 0;">
-              <table class="action-bar-table" role="presentation" cellpadding="0" cellspacing="0" border="0" align="left">
-                <tr>
-                  <!-- Button 1: Task View -->
-                  <td class="action-btn-cell" style="padding:0 8px 0 0;vertical-align:middle;">
+          ${filesHtml ? `<tr><td>${filesHtml}</td></tr>` : ""}`,
+      buttonsHtml: `                  <td class="action-btn-cell" style="padding:0 8px 0 0;vertical-align:middle;">
                     <a href="${escapeHtml(url)}" class="action-btn" style="display:inline-block;padding:9px 18px;font-size:13px;font-weight:600;color:#FFFFFF;background-color:#C24720;text-decoration:none;border-radius:6px;line-height:1.4;white-space:nowrap;text-align:center;">
                       View Task &rarr;
                     </a>
                   </td>
-                  <!-- Button 2: Project Link (Clickable) -->
                   <td class="action-btn-cell" style="padding:0 8px 0 0;vertical-align:middle;">
                     <a href="${escapeHtml(projectUrl)}" class="action-btn" style="display:inline-block;padding:8px 16px;font-size:13px;font-weight:600;color:#374151;background-color:#FFFFFF;border:1px solid #D1D5DB;text-decoration:none;border-radius:6px;line-height:1.4;white-space:nowrap;text-align:center;">
                       ${escapeHtml(projectTitle)} &#8599;
                     </a>
                   </td>
-                  <!-- Button 3: Desktop IDE (If connected) -->
-                  ${desktopIdeButtonHtml}
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Footer & Settings -->
-          <tr>
-            <td style="padding-top:24px;border-top:1px solid #E5E7EB;font-size:12px;line-height:1.6;color:#6B7280;text-align:left;">
-              <p style="margin:0 0 10px 0;color:#6B7280;">
-                You're receiving task updates for ${escapeHtml(projectTitle)} on NetworkBase. <a href="${escapeHtml(settingsUrl)}" style="color:#C24720;text-decoration:none;font-weight:500;">Manage notification preferences</a>
-              </p>
-              <div style="margin:0;font-size:12px;color:#6B7280;line-height:1.6;">
-                <a href="${escapeHtml(supportUrl)}" style="color:#6B7280;text-decoration:none;">Contact Support</a>
-                <span style="color:#D1D5DB;margin:0 6px;" aria-hidden="true">&bull;</span>
-                <a href="${escapeHtml(privacyUrl)}" style="color:#6B7280;text-decoration:none;">Privacy</a>
-                <span style="color:#D1D5DB;margin:0 6px;" aria-hidden="true">&bull;</span>
-                <a href="${escapeHtml(securityUrl)}" style="color:#6B7280;text-decoration:none;">Security</a>
-                <span style="color:#D1D5DB;margin:0 6px;" aria-hidden="true">&bull;</span>
-                <a href="${escapeHtml(termsUrl)}" style="color:#6B7280;text-decoration:none;">Terms and Conditions</a>
-              </div>
-              <div style="margin-top:8px;font-size:11px;color:#9CA3AF;">&copy; NetworkBase&trade; &bull; All rights reserved</div>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`,
+                  ${desktopIdeButtonHtml}`,
+      footer: { reasonHtml: `You're receiving task updates for ${escapeHtml(projectTitle)} on NetworkBase.`, settingsUrl },
+    }),
   };
 }
 

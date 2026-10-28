@@ -1,10 +1,13 @@
 import type {
     NotificationDeliveryPreferences,
+    NotificationEntityRefs,
+    NotificationImportance,
     NotificationMuteScope,
     NotificationMuteScopeKind,
     NotificationPreferenceCategory,
     NotificationPreferences,
     NotificationQuietHours,
+    OrgNotificationChoice,
 } from "@/lib/notifications/types";
 
 const DEFAULT_QUIET_HOURS: NotificationQuietHours = {
@@ -83,6 +86,7 @@ const NOTIFICATION_MUTE_SCOPE_KINDS = [
     "project",
     "task",
     "person",
+    "organization",
 ] as const satisfies readonly NotificationMuteScopeKind[];
 
 const NOTIFICATION_MUTE_SCOPE_KIND_SET = new Set<NotificationMuteScopeKind>(NOTIFICATION_MUTE_SCOPE_KINDS);
@@ -99,7 +103,42 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
     quietHours: { ...DEFAULT_QUIET_HOURS },
     delivery: { ...DEFAULT_DELIVERY },
     chat: { threadReplies: true, showPreview: true },
+    organizations: {},
 };
+
+export const DEFAULT_ORG_NOTIFICATION_CHOICE: OrgNotificationChoice = { level: "all", email: true, includeChildren: true };
+
+function normalizeOrganizations(value: unknown): Record<string, OrgNotificationChoice> {
+    if (!value || typeof value !== "object") return {};
+    const out: Record<string, OrgNotificationChoice> = {};
+    for (const [orgId, raw] of Object.entries(value as Record<string, unknown>).slice(0, 200)) {
+        if (!/^[0-9a-f-]{36}$/i.test(orgId) || !raw || typeof raw !== "object") continue;
+        const c = raw as Record<string, unknown>;
+        out[orgId] = {
+            level: c.level === "important" || c.level === "off" ? c.level : "all",
+            email: asBoolean(c.email, true),
+            includeChildren: asBoolean(c.includeChildren, true),
+        };
+    }
+    return out;
+}
+
+/**
+ * Settings › Organizations: All / Important only / Off. A child project's events (refs carry the parent's
+ * orgId) follow it when Include child projects is on.
+ */
+export function orgChoiceBlocks(preferences: NotificationPreferences, refs: NotificationEntityRefs | null | undefined, importance: NotificationImportance | undefined) {
+    const choice = refs?.orgId ? preferences.organizations[refs.orgId] : undefined;
+    if (!choice) return false;
+    const fromChild = Boolean(refs?.projectId && refs.projectId !== refs.orgId);
+    if (fromChild && !choice.includeChildren) return false;
+    return choice.level === "off" || (choice.level === "important" && importance !== "important");
+}
+
+/** This person's choice for an org, or the default (everything, with email). */
+export function orgChoiceFor(preferences: NotificationPreferences, orgId: string | null | undefined): OrgNotificationChoice {
+    return (orgId && preferences.organizations[orgId]) || DEFAULT_ORG_NOTIFICATION_CHOICE;
+}
 
 function normalizeChat(value: unknown) {
     const candidate = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
@@ -157,7 +196,7 @@ function normalizeMuteScopes(value: unknown): NotificationMuteScope[] {
 
 export function normalizeNotificationPreferences(value: unknown): NotificationPreferences {
     if (!value || typeof value !== "object") {
-        return { ...DEFAULT_NOTIFICATION_PREFERENCES, chat: { ...DEFAULT_NOTIFICATION_PREFERENCES.chat } };
+        return { ...DEFAULT_NOTIFICATION_PREFERENCES, chat: { ...DEFAULT_NOTIFICATION_PREFERENCES.chat }, organizations: {} };
     }
 
     const candidate = value as Partial<Record<keyof NotificationPreferences, unknown>>;
@@ -173,6 +212,7 @@ export function normalizeNotificationPreferences(value: unknown): NotificationPr
         quietHours: normalizeQuietHours(candidate.quietHours),
         delivery: normalizeDelivery(candidate.delivery),
         chat: normalizeChat(candidate.chat),
+        organizations: normalizeOrganizations(candidate.organizations),
     };
 }
 

@@ -50,6 +50,7 @@ import {
 } from "@/lib/db/schema";
 import { computeProjectReadAccess } from "@/lib/data/project-access";
 import { enqueueProjectNotificationEvent } from "@/lib/notifications/project-events";
+import { notifyAnnouncement } from "@/lib/organizations/notify";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { getViewerAuthContext, getViewerProfileContext } from "@/lib/server/viewer-context";
 import { createAdminClient } from "@/lib/supabase/server";
@@ -1634,6 +1635,10 @@ export async function createProjectUpdateAction(projectId: string, input: {
 
         if (input.shareToGeneral && updateType === "announcement" && access.org?.kind === "org" && access.canManage) {
             await shareToOrgGeneral(projectId, viewer.userId, { kind: "announcement", ref_id: inserted.id });
+        }
+        // Org announcements: tray and push for the audience, E9 when the post asked for email (report §26.3 E).
+        if (updateType === "announcement" && access.org?.kind === "org" && access.canManage) {
+            await notifyAnnouncement({ orgId: projectId, updateId: inserted.id, actorId: viewer.userId, content, audience: orgOptions.audience ?? null, email: orgOptions.notifyLevel === "email" });
         }
         revalidatePath(projectBaseHref(access.project)); // paths never carry a query string
         const durationMs = Math.round(performance.now() - startedAt);
