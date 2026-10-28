@@ -42,6 +42,8 @@ function getEventSummary(entry: SecurityActivityEntry): string | null {
   if (
     (entry.eventType === "recovery_codes_generated" || entry.eventType === "recovery_codes_regenerated")
     && typeof entry.metadata.remainingCount === "number"
+  project_ownership_transferred_out: "Project ownership handed over",
+  project_ownership_transferred_in: "Project ownership received",
   ) {
     return `${entry.metadata.remainingCount} recovery codes available`;
   }

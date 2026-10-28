@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { resumeNotifications } from "@/app/actions/presence";
@@ -198,7 +199,7 @@ export default function NotificationsPage() {
           <SettingsRow
             title={pauseActive ? (pausedByStatus ? "Paused by your status" : "Notifications paused") : "Pause notifications"}
             description={pauseActive && preferences.pausedUntil ? `Delivery resumes ${formatDateTime(preferences.pausedUntil)}.` : "Updates remain available in the tray while delivery is paused."}
-            right={<div className="flex flex-wrap gap-2">{([["1h", "1 hour"], ["8h", "8 hours"], ["tomorrow", "Until tomorrow 9 AM"]] as const).map(([choice, label]) => <Button key={choice} type="button" variant="outline" size="sm" onClick={() => pause(choice)} disabled={isSaving}>{label}</Button>)}{pauseActive ? <Button type="button" variant="ghost" size="sm" onClick={() => void resume()} disabled={isSaving || resuming}>{resuming ? "Resuming…" : "Resume"}</Button> : null}</div>}
+            right={<div className="flex flex-wrap gap-2">{pauseActive ? <Button type="button" size="sm" className="pointer-coarse:h-11" onClick={() => void resume()} disabled={isSaving || resuming}>{resuming ? "Resuming…" : "Resume now"}</Button> : null}{([["1h", "1 hour"], ["8h", "8 hours"], ["tomorrow", "Until tomorrow 9 AM"]] as const).map(([choice, label]) => <Button key={choice} type="button" variant="outline" size="sm" className="pointer-coarse:h-11" onClick={() => pause(choice)} disabled={isSaving} aria-label={pauseActive ? `Pause for ${label} instead` : undefined}>{label}</Button>)}</div>}
           />
           <SettingsRow title="Quiet hours" description={preferences.quietHours.enabled ? `From ${formatMinuteOfDay(preferences.quietHours.startMinute)} to ${formatMinuteOfDay(preferences.quietHours.endMinute)} each day, updates wait in the tray until it ends and chat messages don't push (they stay unread in Messages).` : "Set a recurring daily period without delivery interruptions."} right={<SettingsSwitch showLabel aria-label="Enable quiet hours" checked={preferences.quietHours.enabled} onCheckedChange={() => save({ ...preferences, quietHours: { ...preferences.quietHours, enabled: !preferences.quietHours.enabled } }, { quiet: true })} disabled={isSaving} />} />
           {preferences.quietHours.enabled ? <div className="space-y-2 py-4">
@@ -217,7 +218,7 @@ export default function NotificationsPage() {
           {preferences.mutedScopes.length ? <div className="mt-3 divide-y divide-border">{preferences.mutedScopes.map((scope) => {
             const name = scope.label || (isLooseUuid(scope.value) ? "Unnamed item" : scope.value);
             return <SettingsRow key={`${scope.kind}:${scope.value}`} title={name} description={`${MUTE_KIND_LABELS[scope.kind] ?? "Item"} muted`} right={<Button type="button" variant="ghost" size="sm" aria-label={`Unmute ${name}`} onClick={() => save({ ...preferences, mutedScopes: preferences.mutedScopes.filter((item) => item !== scope) })} disabled={isSaving} className="pointer-coarse:h-11">Unmute</Button>} />;
-          })}</div> : <p className="mt-2 nb-compact text-muted-foreground">Nothing muted. Mute a project, task or person from the ⋯ menu on a notification in the tray.</p>}
+          })}</div> : <p className="mt-2 nb-compact text-muted-foreground">Nothing muted. Mute a project, task or person from the ⋯ menu on a notification in the tray, or a conversation from its bell menu in <Link href="/messages" className="text-foreground underline underline-offset-2">Messages</Link>.</p>}
         </div>
       </div>
     </SettingsSectionCard>

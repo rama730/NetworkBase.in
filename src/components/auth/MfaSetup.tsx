@@ -55,7 +55,7 @@ type ProtectedAction =
 
 function formatRecoveryCodesForExport(codes: string[]): string {
   return [
-    "NB S3 Recovery Codes",
+    "NetworkBase recovery codes",
     "",
     "Each code can be used once.",
     "",
@@ -111,6 +111,8 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
   };
 
   const handleSetupOpenChange = async (open: boolean) => {
+    // Esc or a click outside mid-request would reset the dialog under a check that is still running.
+    if (!open && (verifying || enrolling)) return;
     if (!open && pendingFactor && !verifying) {
       await cleanupPendingFactor(pendingFactor.id);
       await refreshSecurity();
@@ -131,7 +133,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
       const result = await supabase.auth.mfa.enroll({
         factorType: "totp",
         friendlyName: "Authenticator app",
-        issuer: "NB S3",
+        issuer: "NetworkBase",
       });
 
       if (result.error || !result.data) {
@@ -283,7 +285,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "nb-s3-recovery-codes.txt";
+    link.download = "networkbase-recovery-codes.txt";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -331,10 +333,12 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
               <Button
                 variant="ghost"
                 size="sm"
+                className="pointer-coarse:h-11 pointer-coarse:w-11"
                 aria-label="Remove authenticator app"
+                title="Remove authenticator app"
                 onClick={() => setUnenrollId(primaryVerifiedFactor.id)}
               >
-                <Trash2 className="h-4 w-4 text-destructive" strokeWidth={1.75} />
+                <Trash2 className="h-4 w-4 text-destructive" strokeWidth={1.75} aria-hidden="true" />
               </Button>
             </div>
         </div>
@@ -459,8 +463,11 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
                       aria-invalid={Boolean(verificationError)}
                       aria-describedby={verificationError ? "mfa-verification-error" : undefined}
                       inputMode="numeric"
+                      autoComplete="one-time-code"
+                      autoFocus
                       pattern="[0-9]*"
                       maxLength={6}
+                      onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void handleVerify(); } }}
                       value={verificationCode}
                       onChange={(event) =>
                         { setVerificationCode(event.target.value.replace(/\D/g, "").slice(0, 6)); setVerificationError(null); }
@@ -520,11 +527,18 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
       </Dialog>
 
       <Dialog open={!!revealedRecoveryCodes} onOpenChange={(open) => { if (!open) setRevealedRecoveryCodes(null); }}>
-        <DialogContent className="sm:max-w-lg">
+        {/* Shown once: only the button closes this, so a stray Esc or click outside cannot throw the codes away. */}
+        <DialogContent
+          className="sm:max-w-lg"
+          showCloseButton={false}
+          onEscapeKeyDown={(event) => event.preventDefault()}
+          onPointerDownOutside={(event) => event.preventDefault()}
+          onInteractOutside={(event) => event.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>Save your recovery codes</DialogTitle>
             <DialogDescription>
-              Each code can be used once if you lose access to your authenticator app. Store them somewhere safe now.
+              Each code can be used once if you lose access to your authenticator app. Store them somewhere safe now: they are not shown again after you close this.
             </DialogDescription>
           </DialogHeader>
 
@@ -560,7 +574,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
         open={!!unenrollId}
         onOpenChange={(open) => { if (!open) setUnenrollId(null); }}
         title="Remove authenticator app?"
-        description="You will need to set up an authenticator app again to re-enable this backup layer."
+        description="Your recovery codes stop working too. You will need to set up an authenticator app again to turn this protection back on."
         confirmLabel="Continue"
         variant="destructive"
         onConfirm={async () => {
@@ -579,7 +593,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
           }
         }}
         title="Verify this device"
-        description="Complete one more check before changing authenticator settings."
+        description={protectedAction?.type === "regenerate-recovery-codes" ? "Complete one more check. New recovery codes replace your current ones, so the old codes stop working." : "Complete one more check before changing authenticator settings."}
         availableMethods={protectedMethods}
         factorId={primaryVerifiedFactor?.id}
         onVerified={async () => {

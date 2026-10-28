@@ -26,3 +26,25 @@ test("commit-identity actions are rate limited", () => {
   const source = read("src/app/actions/github-sync.ts");
   assert.ok((source.match(/consumeRateLimit\(/g) ?? []).length >= 2);
 });
+
+// What a stolen editor token must not outlive: the three events that protect the account.
+for (const path of ["src/app/api/v1/auth/change-password/route.ts", "src/app/api/v1/sessions/route.ts", "src/app/api/v1/account/delete/route.ts"]) {
+  test(`${path} ends the person's editor tokens`, () => {
+    assert.match(read(path), /revokeAllExtensionSessionsForUser\(/);
+  });
+}
+
+// An account with an authenticator must prove it for the actions that cannot be undone: a password alone is not enough.
+for (const path of ["src/app/api/v1/account/delete/route.ts", "src/app/api/v1/github/account/replacement/route.ts"]) {
+  test(`${path} uses the step-up that requires the authenticator when there is one`, () => {
+    const source = read(path);
+    assert.match(source, /resolveDestructiveStepUp\(/);
+    assert.doesNotMatch(source, /resolveSecurityStepUp\(/);
+  });
+}
+
+test("the Google link follow-up is gated on a real link, not on the address alone", () => {
+  const source = read("src/app/auth/callback/route.ts");
+  assert.match(source, /const googleLinked = provider === 'google'[\s\S]*previousUser\?\.id === data\.user\.id[\s\S]*identity\.provider === 'google'/);
+  assert.match(source, /if \(googleLinked\)/);
+});

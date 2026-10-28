@@ -28,14 +28,12 @@ export const isSecurityEmailKind = (kind: string): kind is SecurityEmailKind => 
 /** Deletion emails go to an account that is already hidden, so they are the one kind sent to a deactivated profile. */
 export const isDeletionEmailKind = (kind: string) => kind.startsWith("account_deletion_");
 
-const formatDate = (value: string | null | undefined) => {
+const formatUtc = (value: string | null | undefined, options: Intl.DateTimeFormatOptions, suffix: string) => {
   const date = value ? new Date(value) : null;
-  return date && Number.isFinite(date.getTime()) ? date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" }) + " (UTC)" : null;
+  return date && Number.isFinite(date.getTime()) ? date.toLocaleString("en-US", { ...options, timeZone: "UTC" }) + suffix : null;
 };
-const formatMoment = (value: string | null | undefined) => {
-  const date = value ? new Date(value) : null;
-  return date && Number.isFinite(date.getTime()) ? date.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }) + " UTC" : null;
-};
+const formatDate = (value: string | null | undefined) => formatUtc(value, { month: "long", day: "numeric", year: "numeric" }, " (UTC)");
+const formatMoment = (value: string | null | undefined) => formatUtc(value, { dateStyle: "medium", timeStyle: "short" }, " UTC");
 const oneLine = (value: string, max = 120) => value.replace(/[\r\n]+/g, " ").trim().slice(0, max);
 
 function partsFor(kind: SecurityEmailKind, data: SecurityEmailData, url: (path: string) => string): Parts {

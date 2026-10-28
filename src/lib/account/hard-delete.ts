@@ -10,7 +10,7 @@ import {
   projects,
 } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
-import { queueDeletionCompletedEmail } from "@/lib/email/security-queue";
+import { queueSecurityEmail } from "@/lib/email/security-queue";
 import { verifySignedJobRequestToken } from "@/lib/security/job-request";
 import { createAdminClient } from "@/lib/supabase/server";
 import { isLooseUuid } from "@/lib/validations/uuid";
@@ -171,7 +171,7 @@ export async function executeHardDelete(
 
     // One last email to the address on the deletion record (the queue key makes a retried run send it once).
     const [record] = await db.select({ email: accountDeletions.email }).from(accountDeletions).where(eq(accountDeletions.id, deletionId)).limit(1);
-    if (record?.email) await queueDeletionCompletedEmail(record.email, deletionId);
+    if (record?.email) await queueSecurityEmail({ toEmail: record.email }, "account_deletion_completed", {}, deletionId);
 
     return { success: true };
   } catch (error) {

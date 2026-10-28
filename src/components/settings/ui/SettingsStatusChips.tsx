@@ -5,7 +5,7 @@ export type SettingsStatusChip = {
   label: string;
   value: string;
   /** `attention` for something the person may want to fix; the default is neutral. */
-  tone?: "ok" | "attention" | "neutral";
+  tone?: "ok" | "attention";
   /** Where the control for this lives (a #hash inside the page). */
   href?: string;
 };

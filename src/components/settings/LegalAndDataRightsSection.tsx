@@ -14,6 +14,8 @@ import { formatCalendarDate } from "@/lib/ui/date-formatting";
 type AcceptanceHistoryEntry = { acceptedAt: string; termsVersion: string; eulaVersion: string; privacyNoticeVersion: string; context: string };
 type AcceptanceState = {
   current: boolean;
+  /** The versions in force now, as the server holds them. */
+  versions?: { termsVersion: string; eulaVersion: string; privacyNoticeVersion: string };
   history?: AcceptanceHistoryEntry[];
   latest: {
     acceptedAt: string;
@@ -120,7 +122,7 @@ export function LegalAndDataRightsSection() {
                 ? `You accepted Terms of Service (${state.latest?.termsVersion ?? LEGAL_VERSIONS.terms}), the EULA (${state.latest?.eulaVersion ?? LEGAL_VERSIONS.eula}) and acknowledged the Privacy Policy (${state.latest?.privacyNoticeVersion ?? LEGAL_VERSIONS.privacy})${
                     state.latest?.acceptedAt ? ` on ${formatCalendarDate(state.latest.acceptedAt)}` : ""
                   }.`
-                : `This account has not yet accepted the current terms (${LEGAL_VERSIONS.terms} / ${LEGAL_VERSIONS.eula}).`}
+                : `This account has not yet accepted the current terms (Terms ${state?.versions?.termsVersion ?? LEGAL_VERSIONS.terms}, EULA ${state?.versions?.eulaVersion ?? LEGAL_VERSIONS.eula}, Privacy Policy ${state?.versions?.privacyNoticeVersion ?? LEGAL_VERSIONS.privacy}).`}
           </p>
         </div>
         <div className="shrink-0">

@@ -2,7 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: ".",
-  testMatch: ["text-selection.spec.ts", "messaging.spec.ts", "profile.spec.ts", "sharing.spec.ts", "settings.spec.ts", "settings-controls.spec.ts", "rails.spec.ts", "person-card.spec.ts", "desktop-ide.spec.ts", "org-tabs.spec.ts", "pdf-viewer.spec.ts"],
+  testMatch: ["text-selection.spec.ts", "messaging.spec.ts", "profile.spec.ts", "sharing.spec.ts", "settings.spec.ts", "settings-controls.spec.ts", "settings-tabs.spec.ts", "rails.spec.ts", "person-card.spec.ts", "desktop-ide.spec.ts", "org-tabs.spec.ts", "pdf-viewer.spec.ts"],
   outputDir: "../../test-results/text-selection",
   timeout: 30_000,
   workers: 1,

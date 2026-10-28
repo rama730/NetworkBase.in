@@ -259,10 +259,14 @@ export async function GET(request: Request) {
             })
         }
     }
-    response.headers.set('x-request-id', requestId)
-    return response
-}
-    if (provider === 'google' && successUrl.searchParams.get('identityProvider') === 'google') {
+    // Only a real link counts: someone was already signed in, they are the same person after the exchange, and a
+    // Google identity is on the account. The identityProvider hint comes from the address, so it proves nothing alone.
+    const googleLinked = provider === 'google'
+        && successUrl.searchParams.get('identityProvider') === 'google'
+        && Boolean(previousUser)
+        && previousUser?.id === data.user.id
+        && Boolean(data.user.identities?.some((identity) => identity.provider === 'google'))
+    if (googleLinked) {
         after(async () => {
             try {
                 await queueSecurityEmail(expectedUser.id, 'security_sign_in_method_changed', { detail: 'Google was connected' })
