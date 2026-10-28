@@ -21,6 +21,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { ProjectNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 
+/**
+ * PDF.js, loaded on first use. The legacy build keeps older Safari working; the worker is bundled and served from
+ * this origin (CSP worker-src 'self'), never a CDN. Callers can pre-set workerSrc (the browser fixture does).
+ */
+async function loadPdfjs() {
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  if (!pdfjs.GlobalWorkerOptions.workerSrc) {
+    pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/legacy/build/pdf.worker.min.mjs", import.meta.url).toString();
+  }
+  return pdfjs;
+}
+
 interface PdfBookmark {
   title: string;
   pageNumber?: number;
@@ -92,11 +104,8 @@ export function PdfViewerDriver({
 
     async function loadPdfDocument() {
       try {
-        const pdfjs = await import("pdfjs-dist");
-        if (typeof window !== "undefined" && pdfjs.GlobalWorkerOptions && !pdfjs.GlobalWorkerOptions.workerSrc) {
-          pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
-        }
-        const getDocument = pdfjs.getDocument || (pdfjs as any).default?.getDocument;
+        const pdfjs = await loadPdfjs();
+        const getDocument = pdfjs.getDocument;
 
         // HTTP 206 partial range streaming (sub-200ms page 1 render on 100MB+ files)
         const streamTargetUrl = signedUrl || previewUrl;
@@ -105,13 +114,12 @@ export function PdfViewerDriver({
           rangeChunkSize: 65536,
           disableAutoFetch: false,
           disableStream: false,
-          isEvalSupported: false,
           withCredentials: !signedUrl,
         });
 
         const doc = await loadingTask.promise;
         if (cancelled) {
-          doc.destroy().catch(() => {});
+          doc.loadingTask.destroy().catch(() => {});
           return;
         }
 
@@ -172,7 +180,7 @@ export function PdfViewerDriver({
     return () => {
       cancelled = true;
       if (loadedDoc) {
-        loadedDoc.destroy().catch(() => {});
+        loadedDoc.loadingTask.destroy().catch(() => {});
       }
     };
   }, [viewMode, previewUrl]);
@@ -198,9 +206,6 @@ export function PdfViewerDriver({
         if (cancelled || !canvasRef.current) return;
 
         const canvas = canvasRef.current;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-
         const viewport = page.getViewport({ scale: zoom });
 
         // High-DPI support
@@ -210,14 +215,11 @@ export function PdfViewerDriver({
         canvas.style.width = `${Math.floor(viewport.width)}px`;
         canvas.style.height = `${Math.floor(viewport.height)}px`;
 
-        ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-
-        const renderContext = {
-          canvasContext: ctx,
+        const renderTask = page.render({
+          canvas,
           viewport,
-        };
-
-        const renderTask = page.render(renderContext);
+          transform: pixelRatio !== 1 ? [pixelRatio, 0, 0, pixelRatio, 0, 0] : undefined,
+        });
         renderTaskRef.current = renderTask;
 
         await renderTask.promise;
@@ -225,21 +227,15 @@ export function PdfViewerDriver({
         // Render text layer for text selection & copy
         if (!cancelled && textLayerRef.current) {
           textLayerRef.current.innerHTML = "";
-          textLayerRef.current.style.setProperty("--scale-factor", String(viewport.scale));
+          // Spans size themselves from these variables (pdf.js text_layer CSS, mirrored below).
+          textLayerRef.current.style.setProperty("--total-scale-factor", String(viewport.scale * (viewport.userUnit || 1)));
           try {
-            const pdfjs = await import("pdfjs-dist");
-            const renderTextLayer = pdfjs.renderTextLayer || (pdfjs as any).default?.renderTextLayer;
-            if (typeof renderTextLayer === "function") {
-              const textContent = await page.getTextContent();
-              if (!cancelled && textLayerRef.current) {
-                const textTask = renderTextLayer({
-                  textContentSource: textContent,
-                  container: textLayerRef.current,
-                  viewport,
-                });
-                textTaskRef.current = textTask;
-                await textTask.promise;
-              }
+            const pdfjs = await loadPdfjs();
+            if (!cancelled && textLayerRef.current) {
+              // A stream, read with getReader(): Safari can't async-iterate the one getTextContent() uses.
+              const textLayer = new pdfjs.TextLayer({ textContentSource: page.streamTextContent(), container: textLayerRef.current, viewport });
+              textTaskRef.current = textLayer;
+              await textLayer.render();
             }
           } catch {
             // Text layer failure shouldn't break canvas rendering
@@ -554,12 +550,28 @@ export function PdfViewerDriver({
                     line-height: 1;
                     user-select: text;
                   }
-                  .pdf-text-layer span {
+                  .pdf-text-layer {
+                    --min-font-size: 1;
+                    --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+                    --min-font-size-inv: calc(1 / var(--min-font-size));
+                  }
+                  .pdf-text-layer :is(span, br) {
                     color: transparent;
                     position: absolute;
                     white-space: pre;
                     cursor: text;
                     transform-origin: 0% 0%;
+                  }
+                  .pdf-text-layer > :not(.markedContent),
+                  .pdf-text-layer .markedContent span:not(.markedContent) {
+                    --font-height: 0;
+                    --scale-x: 1;
+                    --rotate: 0deg;
+                    font-size: calc(var(--text-scale-factor) * var(--font-height));
+                    transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+                  }
+                  .pdf-text-layer .markedContent {
+                    display: contents;
                   }
                   .pdf-text-layer span::selection {
                     background: rgba(59, 130, 246, 0.35);
