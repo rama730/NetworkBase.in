@@ -64,9 +64,10 @@ export function FilesWorkspaceHeader({
   const toggleSidebar = useFilesWorkspaceStore((s) => s.toggleSidebar);
   const [actions, setActions] = useState<HTMLDivElement | null>(null);
   const [status, setStatus] = useState<HTMLDivElement | null>(null);
-  const collection = fileCollectionViews.find(
+  const found = fileCollectionViews.find(
     (item) => item.id === workspace?.view,
   );
+  const collection = found && workspace ? { ...found, label: workspace.viewLabel(found.id) } : found;
   const isProject = !workspace || workspace.view === "project";
   const isFile = location?.type === "file";
   const hasLocation = location && location.type !== "root";
@@ -429,7 +430,7 @@ export function FilesWorkspaceMenu({
   const [surface, setSurface] = useState<"search" | "info" | "ide" | null>(null);
   const [draft, setDraft] = useState("");
   const view = workspace?.view ?? "project";
-  const label = fileCollectionViews.find((item) => item.id === view)!.label;
+  const label = workspace?.viewLabel(view) ?? fileCollectionViews.find((item) => item.id === view)!.label;
   const searchLabel = workspace?.taskId
     ? `Search ${workspace.taskTitle || "task files"}`
     : `Search ${label.toLowerCase()}`;

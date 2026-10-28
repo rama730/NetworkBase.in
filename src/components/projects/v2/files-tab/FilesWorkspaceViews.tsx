@@ -65,6 +65,8 @@ const WorkspaceContext = createContext<{
   showCollections: () => void;
   canReadTasks: boolean;
   canOpenGitHub: boolean;
+  /** Orgs rename collections (report §23.3): "Org files", and "Submissions" in Education. */
+  viewLabel: (view: FilesWorkspaceView) => string;
   returnToCollection: () => void;
   selectView: (view: FilesWorkspaceView) => void;
   selectTask: (id: string | null) => void;
@@ -76,14 +78,20 @@ export function FilesWorkspaceViews({
   canReadTasks,
   canOpenGitHub,
   githubAccessResolved,
+  viewLabels,
   children,
 }: {
   projectId: string;
   canReadTasks: boolean;
   canOpenGitHub: boolean;
   githubAccessResolved: boolean;
+  viewLabels?: Partial<Record<FilesWorkspaceView, string>>;
   children: React.ReactNode;
 }) {
+  const viewLabel = useCallback(
+    (id: FilesWorkspaceView) => viewLabels?.[id] ?? fileCollectionViews.find((item) => item.id === id)!.label,
+    [viewLabels],
+  );
   const scrollOffsets = useRef(new Map<string, number>());
   const { canEdit } = useFilesTabRole();
   const [inspector, setInspector] = useState<FilesInspector>(null);
@@ -276,6 +284,7 @@ export function FilesWorkspaceViews({
       showCollections: handleShowCollections,
       canReadTasks,
       canOpenGitHub,
+      viewLabel,
       selectView,
       selectTask,
       returnToCollection: handleReturnToCollection,
@@ -297,6 +306,7 @@ export function FilesWorkspaceViews({
       handleShowCollections,
       canReadTasks,
       canOpenGitHub,
+      viewLabel,
       selectView,
       selectTask,
       handleReturnToCollection,

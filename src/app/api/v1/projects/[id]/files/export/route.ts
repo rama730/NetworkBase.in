@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { sql } from "drizzle-orm";
 
 import { UUID_RE } from "@/app/actions/files/_constants";
 import { jsonError } from "@/app/api/v1/_envelope";
@@ -35,9 +36,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
   if (limited) return limited;
   const access = await assertProjectFileReadAccess(projectId, user?.id ?? null).catch(() => null);
   if (!access) return jsonError("Forbidden", 403, "FORBIDDEN");
-  // ponytail: in an organization only owners and admins download folders, so a zip never carries
-  // Admins-only files or other people's copies. Upgrade: filter the export plan by orgFileAccessSql.
-  if (orgFileAccessSql(access)) return jsonError("Folder downloads are for organization admins.", 403, "FORBIDDEN");
+  // In an organization the zip holds only what this viewer may open: no Admins-only folders or other people's copies.
+  const nodeFilter = orgFileAccessSql(access)
+    ? (alias: "n" | "child") => orgFileAccessSql(access, { projectId: sql.raw(`${alias}.project_id`), path: sql.raw(`${alias}.path`), taskId: sql.raw(`${alias}.task_id`) })
+    : undefined;
 
   let prepared;
   try {
@@ -45,6 +47,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       projectId,
       folderId,
       canReadTaskFiles: canReadProjectTaskFiles(access),
+      nodeFilter,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to prepare folder export";

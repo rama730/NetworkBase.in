@@ -708,7 +708,41 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
 
         // Step 4 settings that need the project to exist first. Failures never undo creation;
         // both stay editable in Project settings.
+        // Report §23.6: copy an org Template folder into the new project (same files, recorded as org copies).
+        const copyOrgTemplateFolder = async (projectId: string, orgFolderId: string) => {
+            const [{ browseOrgFilesAction, listOrgTemplateFoldersAction, recordOrgCopyAction }, { createFolder }, { uploadProjectFile }] = await Promise.all([
+                import('@/app/actions/org-files'), import('@/app/actions/files/mutations'), import('@/components/organizations/OrgDocParts'),
+            ]);
+            let copied = 0;
+            const walk = async (sourceId: string, targetId: string | null, depth: number): Promise<void> => {
+                const listed = await browseOrgFilesAction(projectId, sourceId);
+                if (!listed.success) throw new Error(listed.error);
+                for (const node of listed.nodes) {
+                    if (copied >= 100) return; // ponytail: 100 files per template; larger trees go through Files → Copy.
+                    if (node.type === 'folder') {
+                        if (depth < 5) await walk(node.id, (await createFolder(projectId, targetId, node.name)).id, depth + 1);
+                        continue;
+                    }
+                    const response = await fetch(`/api/v1/projects/${listed.org.id}/files/${node.id}/preview?download=1`);
+                    if (!response.ok) continue;
+                    const created = await uploadProjectFile(projectId, targetId, node.name, await response.blob());
+                    await recordOrgCopyAction(projectId, created.id, node.id);
+                    copied += 1;
+                }
+            };
+            const root = (await listOrgTemplateFoldersAction(data.parent_org_id!)).find((f) => f.id === orgFolderId);
+            await walk(orgFolderId, (await createFolder(projectId, null, root?.name ?? 'Template')).id, 0);
+        };
+
         const applyLaunchSettingsAfterCreate = async (projectId: string) => {
+            if (data.parent_org_id && data.org_template_folder_id) {
+                try {
+                    await copyOrgTemplateFolder(projectId, data.org_template_folder_id);
+                } catch (error) {
+                    console.warn('[create-project] Org template copy failed', error);
+                    warnCreation('The org template could not be copied; copy it from Files.');
+                }
+            }
             if (projectImage) {
                 try {
                     const { uploadProjectImage } = await import('@/lib/upload/project-image-upload-client');

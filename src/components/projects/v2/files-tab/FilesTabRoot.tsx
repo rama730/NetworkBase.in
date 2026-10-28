@@ -92,6 +92,8 @@ export interface FilesTabRootProps {
   initialOpenFileId?: string | null;
   /** Organizations have no GitHub sync in v1 (report §23.3). */
   isOrganization?: boolean;
+  /** Education orgs call Deliverables "Submissions" (report §23.3). */
+  orgType?: string | null;
 }
 
 function findVerticalScrollPane(target: EventTarget | null, boundary: HTMLElement) {
@@ -796,6 +798,7 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
             canReadTasks={canReadTasks}
             canOpenGitHub={canOpenGitHub}
             githubAccessResolved={githubAccessResolved}
+            viewLabels={props.isOrganization ? { project: "Org files", ...(props.orgType === "education" ? { deliverables: "Submissions" } : {}) } : undefined}
           >
             <div
               ref={workspaceRootRef}

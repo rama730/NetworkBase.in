@@ -38,7 +38,7 @@ import { DashboardTab, DocTab, UpdatesTab, TasksTab, FilesTab, SprintPlanning, P
 import { SkeletonSprints } from '@/components/projects/skeletons/SkeletonSprints';
 import { OrgAboutTab } from '@/components/organizations/OrgAboutTab';
 import { AssignmentsPanel, GroupCopiesPanel } from '@/components/organizations/AssignmentsPanel';
-import { OrgFilesPanel } from '@/components/organizations/OrgFilesPanel';
+import { OrgFilesPanel, OrgSprintMaterials } from '@/components/organizations/OrgFilesPanel';
 import { OrgMembersTab } from '@/components/organizations/OrgMembersTab';
 import { ChildOrgLine, ChildUnitsLine, OrgDashboard, OrgProjectsTab } from '@/components/organizations/OrgOverviewParts';
 import { OrgInviteBanner } from '@/components/organizations/OrgInviteBanner';
@@ -1133,10 +1133,10 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
     const filesTabContent = useMemo(
         () => (
             <TabErrorBoundary tabName="Files" fillContainer>
-                <FilesTab key={`${project.id}:${currentUserId ?? 'viewer'}`} projectId={project.id} projectSlug={project.slug || undefined} projectName={project.title} currentUserId={currentUserId || undefined} isOwner={isOwner} isOwnerOrMember={isOwnerOrMember} canManageFiles={canManageFiles} canUploadFiles={canUploadFiles} canReadTasks={canReadTaskFiles} isActive={activeTab === 'files'} syncStatus={filesSyncStatus} initialOpenFileId={initialOpenFileId} initialOpenPath={initialOpenPath} isOrganization={isOrganization} />
+                <FilesTab key={`${project.id}:${currentUserId ?? 'viewer'}`} projectId={project.id} projectSlug={project.slug || undefined} projectName={project.title} currentUserId={currentUserId || undefined} isOwner={isOwner} isOwnerOrMember={isOwnerOrMember} canManageFiles={canManageFiles} canUploadFiles={canUploadFiles} canReadTasks={canReadTaskFiles} isActive={activeTab === 'files'} syncStatus={filesSyncStatus} initialOpenFileId={initialOpenFileId} initialOpenPath={initialOpenPath} isOrganization={isOrganization} orgType={organization?.type ?? null} />
             </TabErrorBoundary>
         ),
-        [project.id, project.slug, project.title, currentUserId, isOwner, isOwnerOrMember, canManageFiles, canUploadFiles, canReadTaskFiles, activeTab, filesSyncStatus, initialOpenFileId, initialOpenPath, isOrganization],
+        [project.id, project.slug, project.title, currentUserId, isOwner, isOwnerOrMember, canManageFiles, canUploadFiles, canReadTaskFiles, activeTab, filesSyncStatus, initialOpenFileId, initialOpenPath, isOrganization, organization?.type],
     );
 
     return (
@@ -1246,6 +1246,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                 <div className="w-full h-full min-h-0">
                     {/* Org Files (report §23): folder access for org admins; From <org> in child projects. */}
                     {isOrganization && canManageFiles ? <OrgFilesPanel projectId={project.id} mode="org-admin" canCopy={false} /> : null}
+                    {isOrganization && isOwnerOrMember ? <OrgSprintMaterials orgId={project.id} orgSlug={project.slug ?? null} /> : null}
                     {parentOrg && (isOwnerOrMember || isInheritedAdmin) ? <OrgFilesPanel projectId={project.id} mode="child" canCopy={canUploadFiles || isInheritedAdmin} /> : null}
                     {filesTabContent}
                 </div>

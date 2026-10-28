@@ -222,6 +222,10 @@ export async function connectGitHubSyncRepository(
     const normalizedBranch = normalizeGithubBranch(branch);
     if (!normalized || !normalizedBranch)
       throw new Error("Choose a valid repository and branch");
+    // No GitHub sync for organizations in v1: it could publish Admins-only files (report §23.9 #22).
+    const [target] = await db.select({ kind: projects.kind }).from(projects).where(eq(projects.id, projectId)).limit(1);
+    if (target?.kind === "organization")
+      throw new Error("Organizations can't connect a GitHub repository.");
     const { user, token } = await session();
     const ctx = await resolveSyncContext(projectId, user.id, token, normalized);
     if (!token)

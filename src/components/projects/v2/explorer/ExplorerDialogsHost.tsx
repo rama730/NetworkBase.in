@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import type { ProjectNode } from "@/lib/db/schema";
 import { getProjectNodes } from "@/app/actions/files/nodes";
 import { createFolder } from "@/app/actions/files/mutations";
+import { readOrgFileUsageAction } from "@/app/actions/org-files";
 import { isInternalTaskWorkingFilesNode } from "@/lib/files/task-working-files";
 import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
 
@@ -712,6 +713,17 @@ export function DeleteDialog({
   confirmDelete: () => Promise<void>;
   canEdit: boolean;
 }) {
+  // Org files in use (sprint materials, references, template folders, docs) warn before Trash (report §23.9 #11).
+  const [usage, setUsage] = useState<string[]>([]);
+  const projectId = deleteDialog.nodes[0]?.projectId ?? null;
+  const ids = deleteDialog.open ? deleteDialog.nodes.map((n) => n.id).join(",") : "";
+  useEffect(() => {
+    setUsage([]);
+    if (!projectId || !ids) return;
+    let live = true;
+    void readOrgFileUsageAction(projectId, ids.split(",")).then((labels) => { if (live) setUsage(labels); }).catch(() => undefined);
+    return () => { live = false; };
+  }, [projectId, ids]);
   return (
     <Dialog
       open={deleteDialog.open}
@@ -743,6 +755,13 @@ export function DeleteDialog({
             to Trash.
           </DialogDescription>
         </DialogHeader>
+        {usage.length > 0 ? (
+          <div role="alert" className="rounded-[5px] border border-amber-500/30 bg-amber-500/10 p-3 text-[13px] text-foreground">
+            <p className="font-medium">Still in use</p>
+            <ul className="mt-1 list-disc pl-5">{usage.map((label) => <li key={label}>{label}</li>)}</ul>
+            <p className="mt-1 text-muted-foreground">References will show “File in Trash”; a trashed template leaves the project wizard.</p>
+          </div>
+        ) : null}
         <DialogFooter className="bg-muted/50 border-t border-border -mx-6 -mb-6 px-6 py-3 rounded-b-[12px] flex items-center justify-end gap-2">
           <Button
             variant="outline"

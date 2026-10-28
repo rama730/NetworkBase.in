@@ -1,15 +1,16 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { and, asc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
-import { projectNodes, projects } from '@/lib/db/schema';
+import { projectNodes, projects, projectSprints, sprintMaterials } from '@/lib/db/schema';
 import { getProjectAccessById } from '@/lib/data/project-access';
 import { assertFileNodeVisible, orgFileAccessSql, projectContentNodeSql } from '@/lib/files/internal-helpers';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
 import { effectiveAccess, folderAccessBlock, readFolderAccess, type FolderAccess } from '@/lib/organizations/file-rules';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
+import { ORG_LIMITS } from '@/lib/organizations/config';
 
 // Org Files (report §23): folder access and Template marks for admins; the From <org> view and copies in
 // child projects. Reads elsewhere go through orgFileAccessSql / assertFileNodeVisible.
@@ -175,4 +176,87 @@ export async function listOrgCopiesAction(childProjectId: string): Promise<{ suc
         orgTitle: ctx.org.title,
         copies: Array.from(rows).map((r) => ({ nodeId: r.node_id, name: r.name, sourceNodeId: r.source_node_id, copiedVersion: Number(r.copied_version), sourceVersion: r.source_version == null ? null : Number(r.source_version) })),
     };
+}
+
+/**
+ * Before an org file or folder goes to Trash (report §23.9 #11): where it's in use as a sprint material, an
+ * assignment or task reference, a template folder or a doc. Empty outside orgs and for anything unused.
+ */
+export async function readOrgFileUsageAction(orgId: string, nodeIds: string[]): Promise<string[]> {
+    if (nodeIds.length === 0 || !(await orgAdmin(orgId, 'read'))) return [];
+    const rows = await db.execute<{ label: string }>(sql`
+        WITH picked AS (SELECT path FROM project_nodes WHERE project_id = ${orgId} AND id IN ${nodeIds.slice(0, 200)} AND deleted_at IS NULL),
+        affected AS (
+            SELECT n.id, n.name, n.type, n.metadata FROM project_nodes n
+            WHERE n.project_id = ${orgId} AND n.deleted_at IS NULL
+              AND EXISTS (SELECT 1 FROM picked p WHERE n.path = p.path OR n.path LIKE p.path || '/%'))
+        SELECT DISTINCT 'Material in ' || s.name AS label FROM sprint_materials m JOIN project_sprints s ON s.id = m.sprint_id WHERE m.node_id IN (SELECT id FROM affected)
+        UNION SELECT DISTINCT 'Reference on ' || t.title FROM task_node_links l JOIN tasks t ON t.id = l.task_id AND t.deleted_at IS NULL WHERE l.node_id IN (SELECT id FROM affected)
+        UNION SELECT DISTINCT 'Template folder ' || a.name FROM affected a WHERE a.type = 'folder' AND (a.metadata->>'template')::boolean IS TRUE
+        UNION SELECT DISTINCT 'Doc ' || d.filename FROM project_docs d WHERE d.project_id = ${orgId} AND d.linked_node_id IN (SELECT id FROM affected)
+        LIMIT 20`);
+    return rows.map((r) => r.label);
+}
+
+/** Org storage for admins (report §23): used of 5 GB, with a warning from 80%. */
+export async function readOrgStorageAction(orgId: string): Promise<{ usedBytes: number; limitBytes: number; warn: boolean } | null> {
+    if (!(await orgAdmin(orgId, 'read'))) return null;
+    const [row] = await db.execute<{ used: number | null }>(sql`
+        SELECT (retained_bytes + reserved_bytes)::bigint AS used FROM storage_quota_scopes WHERE scope_type = 'project' AND scope_id = ${orgId}`);
+    const usedBytes = Number(row?.used ?? 0);
+    return { usedBytes, limitBytes: ORG_LIMITS.orgStorageBytes, warn: usedBytes >= ORG_LIMITS.orgStorageBytes * ORG_LIMITS.orgStorageWarnRatio };
+}
+
+export type SprintMaterialsGroup = { sprintId: string; sprint: string; status: string; files: Array<{ nodeId: string; name: string }> };
+
+/**
+ * Sprint materials (report §23.3): org files linked to each sprint, newest sprint first, filtered by folder access
+ * for members and guests. Docs linked to sprints stay on the Docs tab.
+ */
+export async function readOrgSprintMaterialsAction(orgId: string): Promise<{ success: true; groups: SprintMaterialsGroup[] } | Failure> {
+    const { userId } = await getViewerAuthContext();
+    if (!userId) return DENIED;
+    const access = await getProjectAccessById(orgId, userId);
+    if (access.project?.kind !== 'organization' || !(access.isOwner || access.isMember)) return DENIED;
+    const rows = await db.select({ sprintId: projectSprints.id, sprint: projectSprints.name, status: projectSprints.status, nodeId: projectNodes.id, name: projectNodes.name })
+        .from(sprintMaterials)
+        .innerJoin(projectSprints, eq(projectSprints.id, sprintMaterials.sprintId))
+        .innerJoin(projectNodes, and(eq(projectNodes.id, sprintMaterials.nodeId), isNull(projectNodes.deletedAt)))
+        .where(and(eq(projectSprints.projectId, orgId), orgFileAccessSql(access)))
+        .orderBy(desc(projectSprints.startDate), asc(projectNodes.name))
+        .limit(500);
+    const groups = new Map<string, SprintMaterialsGroup>();
+    for (const r of rows) {
+        const group = groups.get(r.sprintId) ?? { sprintId: r.sprintId, sprint: r.sprint, status: r.status, files: [] };
+        group.files.push({ nodeId: r.nodeId, name: r.name });
+        groups.set(r.sprintId, group);
+    }
+    return { success: true, groups: [...groups.values()] };
+}
+
+export type GroupDeliverableRow = { nodeId: string; name: string; project: string; projectSlug: string | null; projectId: string; assignment: string; review: string };
+
+/** The org's Deliverables also list child projects' group-copy files (report §23.6, §23.9 #14), for admins. */
+export async function readGroupDeliverablesAction(orgId: string): Promise<{ success: true; rows: GroupDeliverableRow[] } | Failure> {
+    if (!(await orgAdmin(orgId, 'read'))) return DENIED;
+    const rows = await db.execute<{ node_id: string; name: string; project: string; project_slug: string | null; project_id: string; assignment: string; review: string }>(sql`
+        SELECT n.id AS node_id, n.name, p.title AS project, p.slug AS project_slug, p.id AS project_id, m.title AS assignment, c.review_status AS review
+        FROM tasks m JOIN tasks c ON c.assignment_id = m.id AND c.deleted_at IS NULL AND c.project_id <> m.project_id
+        JOIN projects p ON p.id = c.project_id AND p.parent_id = ${orgId} AND p.deleted_at IS NULL
+        JOIN project_nodes n ON n.task_id = c.id AND n.type = 'file' AND n.deleted_at IS NULL
+        WHERE m.project_id = ${orgId} AND m.deleted_at IS NULL
+        ORDER BY m.title, p.title, n.name LIMIT 300`);
+    return { success: true, rows: rows.map((r) => ({ nodeId: r.node_id, name: r.name, project: r.project, projectSlug: r.project_slug, projectId: r.project_id, assignment: r.assignment, review: r.review })) };
+}
+
+/** Template folders a member may start a child project from (report §23.3 Template mark, §23.6). */
+export async function listOrgTemplateFoldersAction(orgId: string): Promise<Array<{ id: string; name: string }>> {
+    const { userId } = await getViewerAuthContext();
+    if (!userId) return [];
+    const access = await getProjectAccessById(orgId, userId);
+    if (access.project?.kind !== 'organization' || !(access.isOwner || access.isMember)) return [];
+    return db.select({ id: projectNodes.id, name: projectNodes.name }).from(projectNodes)
+        .where(and(eq(projectNodes.projectId, orgId), eq(projectNodes.type, 'folder'), isNull(projectNodes.deletedAt),
+            sql`(${projectNodes.metadata}->>'template')::boolean IS TRUE`, orgFileAccessSql(access)))
+        .orderBy(asc(projectNodes.name)).limit(50);
 }
