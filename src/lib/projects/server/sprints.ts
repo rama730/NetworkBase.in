@@ -2,6 +2,7 @@ import { assertOrgSprintRules, createMatchingChildSprints, readSprintMaterials, 
 import { buildSprintSeries } from "@/lib/organizations/sprint-rules";
 import { readViewerOrgRole } from "@/lib/organizations/detail";
 import { startSprint } from "@/lib/projects/sprint-schedule";
+import { notifyLinkedSprintsOutside, notifyOrgSprintCompleted } from "@/lib/organizations/sprint-notify";
 import "server-only";
 
 import { isMissingRelationError } from "@/lib/db/errors";
@@ -1567,6 +1568,7 @@ export async function updateSprintAction(data: UpdateSprintInput) {
       },
       { sprintId: sprintListItem.id },
     );
+    await notifyLinkedSprintsOutside(sprintListItem.id, validated.projectId, user.id);
 
     recordSprintMetric("project.sprint.update.result", {
       projectId: validated.projectId,
@@ -1895,7 +1897,8 @@ export async function completeSprintAction(
     });
     const sprint = await readLifecycleSprint(projectId, sprintId);
     await revalidateProjectPaths(projectId);
-    await enqueueProjectNotificationBestEffort(
+    // Orgs tell each member how much of the sprint they finished instead (report §26 C).
+    if (!(await notifyOrgSprintCompleted(sprintId, projectId, user.id))) await enqueueProjectNotificationBestEffort(
       {
         projectId,
         actorUserId: user.id,

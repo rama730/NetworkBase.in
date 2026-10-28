@@ -2,10 +2,11 @@ import { and, asc, eq, lte, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { projectSprintEvents, projectSprints } from "@/lib/db/schema";
+import { notifyOrgSprintBlocked, notifyOrgSprintStarted } from "@/lib/organizations/sprint-notify";
 
 /** Starts one planning sprint unless its project already has an active one. */
 export async function startSprint(sprintId: string, projectId: string, now: Date, actorId: string | null, source: "schedule" | "manual") {
-  return db.transaction(async (tx) => {
+  const started = await db.transaction(async (tx) => {
     const active = await tx.query.projectSprints.findFirst({
       where: and(eq(projectSprints.projectId, projectId), eq(projectSprints.status, "active")),
       columns: { id: true },
@@ -29,6 +30,8 @@ export async function startSprint(sprintId: string, projectId: string, now: Date
     });
     return true;
   });
+  if (started) await notifyOrgSprintStarted(sprintId, projectId, actorId);
+  return started;
 }
 
 /**
@@ -59,6 +62,8 @@ export async function startDueSprints(
   let started = 0;
   for (const candidate of due) {
     if (await startSprint(candidate.id, candidate.projectId, now, null, "schedule")) started += 1;
+    // An org sprint blocked by one still active: admins hear once (report §26 C).
+    else await notifyOrgSprintBlocked(candidate.id, candidate.projectId);
   }
   return { scanned: due.length, started };
 }

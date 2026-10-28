@@ -1,6 +1,6 @@
 import "server-only";
 
-import { handOverLedChildProjects, orgsOwnedBy } from "@/lib/organizations/succession";
+import { handOverLedChildProjects, notifyLeadHandovers, orgsOwnedBy } from "@/lib/organizations/succession";
 import { and, eq, isNull, or, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
@@ -49,7 +49,7 @@ export async function scheduleAccountDeletionForUser(input: {
   const hardDeleteAt = new Date(now.getTime() + ACCOUNT_DELETION_GRACE_DAYS * 86_400_000);
   const legalRetentionUntil = new Date(now.getTime() + LEGAL_REGISTRATION_RETENTION_DAYS * 86_400_000);
 
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     // Serialize concurrent requests for the same user on the profile row.
     const [profile] = await tx
       .select({ visibility: profiles.visibility })
@@ -122,6 +122,9 @@ export async function scheduleAccountDeletionForUser(input: {
       .filter((id) => id !== input.userId);
     return { ok: true, deletionId: deletion!.id, hardDeleteAt, affectedUserIds } as const;
   });
+  // After the commit: each new lead of a child project hears about it.
+  if (result.ok) await notifyLeadHandovers(input.userId);
+  return result;
 }
 
 /**

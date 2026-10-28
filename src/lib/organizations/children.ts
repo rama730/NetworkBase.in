@@ -8,6 +8,7 @@ import { capChildVisibility, isAboveCap, type ChildVisibility } from "@/lib/orga
 import { readOrgRules } from "@/lib/organizations/settings";
 import { unlinkSprints } from "@/lib/organizations/sprints";
 import { releaseGroupCopies } from "@/lib/organizations/assignments";
+import { notifyOrg } from "@/lib/organizations/notify";
 import { isProjectPubliclyReadableVisibility } from "@/lib/projects/project-visibility";
 
 type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -31,17 +32,29 @@ export async function applyChildVisibilityCap(orgId: string, executor: Executor 
   const org = await readOrgCap(executor, orgId);
   if (!org) return 0;
   const children = await executor
-    .select({ id: projects.id, visibility: projects.visibility })
+    .select({ id: projects.id, visibility: projects.visibility, title: projects.title, slug: projects.slug, ownerId: projects.ownerId })
     .from(projects)
     .where(and(eq(projects.parentId, orgId), isNull(projects.deletedAt)));
-  let changed = 0;
+  const lowered: Array<(typeof children)[number] & { next: string }> = [];
   for (const child of children) {
     if (!isAboveCap(child.visibility, org.cap, org.orgPublic)) continue;
     const next = capChildVisibility("public", org.cap, org.orgPublic);
     await executor.update(projects).set({ visibility: next, updatedAt: new Date() }).where(eq(projects.id, child.id));
-    changed += 1;
+    lowered.push({ ...child, next });
   }
-  return changed;
+  // Report §26 B: the lead and the org's admins hear why ("North region is now Org only because Acme Sales changed its rules").
+  if (lowered.length) {
+    const [orgRow] = await executor.select({ title: projects.title }).from(projects).where(eq(projects.id, orgId)).limit(1);
+    const admins = await executor.select({ userId: projectMembers.userId }).from(projectMembers)
+      .where(and(eq(projectMembers.projectId, orgId), sql`${projectMembers.role} IN ('owner', 'admin')`));
+    const stamp = Date.now();
+    for (const child of lowered) {
+      await notifyOrg({ orgId, eventKey: "org.child_notice", to: [child.ownerId, ...admins.map((a) => a.userId)],
+        title: `${child.title} is now ${child.next === "private" ? "Private" : "Org only"} because ${orgRow?.title ?? "the organization"} changed its rules`,
+        href: `/projects/${encodeURIComponent(child.slug ?? child.id)}`, sourceEventId: `capped:${child.id}:${stamp}`, refs: { projectId: child.id } });
+    }
+  }
+  return lowered.length;
 }
 
 /** How many children a cap would lower, for the impact preview (report §21.1 principle 4). */
