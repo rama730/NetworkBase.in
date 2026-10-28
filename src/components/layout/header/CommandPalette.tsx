@@ -23,6 +23,7 @@ import {
     LinkSearchResultCard,
     SettingsSearchResultCard,
     TaskSearchResultCard,
+    OrgSearchResultCard,
 } from "./GlobalSearchResultCards";
 import {
     buildGlobalSearchHref,
@@ -106,6 +107,7 @@ function RecentSearchList({
                         if (recent.preview.kind === "profile") return <ProfileSearchResultCard key={recent.key} result={recent.preview} {...interaction} onConnect={onConnect} isConnecting={connectingUserId === recent.preview.userId} />;
                         if (recent.preview.kind === "task") return <TaskSearchResultCard key={recent.key} result={recent.preview} {...interaction} />;
                         if (recent.preview.kind === "link") return <LinkSearchResultCard key={recent.key} result={recent.preview} {...interaction} />;
+                        if (recent.preview.kind === "org") return <OrgSearchResultCard key={recent.key} result={recent.preview} {...interaction} />;
                     }
                     if (recent.kind !== "query") return null;
                     return (
@@ -169,6 +171,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
         peopleScope,
     });
     const previewResults = previews.isDebouncing ? [] : previews.data ?? [];
+    const orgResults = previewResults.map((result, index) => ({ result, index })).filter((entry): entry is { result: Extract<GlobalSearchPreview, { kind: "org" }>; index: number } => entry.result.kind === "org");
     const projectResults = previewResults.map((result, index) => ({ result, index })).filter((entry): entry is { result: Extract<GlobalSearchPreview, { kind: "project" }>; index: number } => entry.result.kind === "project");
     const profileResults = previewResults.map((result, index) => ({ result, index })).filter((entry): entry is { result: Extract<GlobalSearchPreview, { kind: "profile" }>; index: number } => entry.result.kind === "profile");
     const taskResults = previewResults.map((result, index) => ({ result, index })).filter((entry): entry is { result: Extract<GlobalSearchPreview, { kind: "task" }>; index: number } => entry.result.kind === "task");
@@ -462,6 +465,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
                                         <span className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">{resultLabel}</span>
                                         {previews.isFetching ? <span className="nb-meta text-[11px] text-muted-foreground/70">Refreshing…</span> : null}
                                     </div>
+                                    {orgResults.map(({ result, index }) => <OrgSearchResultCard key={result.id} result={result} index={index} activeIndex={activeIndex} onActivate={setActiveIndex} onOpen={openPreviewResult} />)}
                                     {projectResults.map(({ result, index }) => <ProjectSearchResultCard key={result.id} result={result} index={index} activeIndex={activeIndex} onActivate={setActiveIndex} onOpen={openPreviewResult} />)}
                                     {profileResults.map(({ result, index }) => <ProfileSearchResultCard key={result.id} result={result} index={index} activeIndex={activeIndex} onActivate={setActiveIndex} onOpen={openPreviewResult} onConnect={connectProfile} isConnecting={sendRequest.isPending && sendRequest.variables?.userId === result.userId} />)}
                                     {taskResults.map(({ result, index }) => <TaskSearchResultCard key={result.id} result={result} index={index} activeIndex={activeIndex} onActivate={setActiveIndex} onOpen={openPreviewResult} />)}

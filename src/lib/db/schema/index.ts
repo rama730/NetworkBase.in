@@ -778,6 +778,9 @@ export const projects = pgTable(
     suspendedAt: timestamp("suspended_at", { withTimezone: true }),
     suspendReason: text("suspend_reason"),
     deletionScheduledAt: timestamp("deletion_scheduled_at", { withTimezone: true }),
+    // 0254: hidden from Discover by a platform admin; Verified badge requested by the owner.
+    discoverHiddenAt: timestamp("discover_hidden_at", { withTimezone: true }),
+    verificationRequestedAt: timestamp("verification_requested_at", { withTimezone: true }),
     // Project status (0184), set by owners and admins.
     statusEmoji: text("status_emoji"),
     statusText: text("status_text"),
@@ -931,6 +934,8 @@ export const projects = pgTable(
       "projects_owner_deleted_view_count_idx",
     ).on(t.ownerId, t.deletedAt, t.viewCount),
     parentIdx: index("projects_parent_idx").on(t.parentId).where(sql`${t.parentId} IS NOT NULL`),
+    deletionScheduledIdx: index("projects_deletion_scheduled_idx").on(t.deletionScheduledAt).where(sql`${t.deletionScheduledAt} IS NOT NULL`),
+    verificationRequestedIdx: index("projects_verification_requested_idx").on(t.verificationRequestedAt).where(sql`${t.verificationRequestedAt} IS NOT NULL`),
     verifiedByIdx: index("projects_verified_by_idx").on(t.verifiedBy).where(sql`${t.verifiedBy} IS NOT NULL`),
     joinCodeUnique: uniqueIndex("projects_join_code_unique").on(t.joinCode).where(sql`${t.joinCode} IS NOT NULL`),
     kindCheck: check("projects_kind_check", sql`${t.kind} IN ('project', 'organization')`),
@@ -2771,6 +2776,32 @@ export const emailOutbox = pgTable("email_outbox", {
   statusCheck: check("email_outbox_status_check", sql`${t.status} IN ('pending', 'processing', 'accepted', 'dropped', 'failed', 'needs_review')`),
   attemptsCheck: check("email_outbox_attempts_check", sql`${t.attempts} >= 0`),
   deliveryCheck: check("email_outbox_delivery_check", sql`${t.deliveryState} IN ('accepted', 'delivered', 'failed', 'bounced', 'complained')`),
+}));
+
+/** Reports on projects, orgs, posts, docs and comments (0254), reviewed by platform admins. Server-only. */
+export const contentReports = pgTable("content_reports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  reporterId: uuid("reporter_id").references(() => profiles.id, { onDelete: "set null" }),
+  targetKind: text("target_kind").$type<"project" | "update" | "update_comment" | "doc" | "task_comment">().notNull(),
+  targetId: uuid("target_id").notNull(),
+  projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
+  reason: text("reason").$type<"impersonation" | "spam" | "harassment" | "inappropriate" | "other">().notNull(),
+  details: text("details"),
+  status: text("status").$type<"open" | "dismissed" | "actioned">().default("open").notNull(),
+  action: text("action").$type<"hidden" | "removed" | "suspended">(),
+  resolvedBy: uuid("resolved_by").references(() => profiles.id, { onDelete: "set null" }),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  openIdx: index("content_reports_open_idx").on(t.createdAt.desc()).where(sql`${t.status} = 'open'`),
+  oneOpenIdx: uniqueIndex("content_reports_one_open_idx").on(t.reporterId, t.targetKind, t.targetId).where(sql`${t.status} = 'open'`),
+  targetIdx: index("content_reports_target_idx").on(t.targetKind, t.targetId),
+  projectIdx: index("content_reports_project_idx").on(t.projectId).where(sql`${t.projectId} IS NOT NULL`),
+  resolvedByIdx: index("content_reports_resolved_by_idx").on(t.resolvedBy).where(sql`${t.resolvedBy} IS NOT NULL`),
+  kindCheck: check("content_reports_kind_check", sql`${t.targetKind} IN ('project', 'update', 'update_comment', 'doc', 'task_comment')`),
+  reasonCheck: check("content_reports_reason_check", sql`${t.reason} IN ('impersonation', 'spam', 'harassment', 'inappropriate', 'other')`),
+  statusCheck: check("content_reports_status_check", sql`${t.status} IN ('open', 'dismissed', 'actioned')`),
+  actionCheck: check("content_reports_action_check", sql`${t.action} IS NULL OR ${t.action} IN ('hidden', 'removed', 'suspended')`),
 }));
 
 export const emailWebhookEvents = pgTable("email_webhook_events", {

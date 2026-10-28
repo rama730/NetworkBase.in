@@ -28,6 +28,7 @@ function getWorkerOnlyFunctions() {
   const { chatMentionsRetention, chatIntegrityAudit, chatDue } = loadModule("./functions/chat-maintenance");
   const { reconcileSprintSchedule } = loadModule("./functions/sprint-schedule");
   const { orgDueSoon, orgAdminDigest } = loadModule("./functions/org-notifications");
+  const { orgDuplicate, orgPurge } = loadModule("./functions/org-lifecycle");
   const { cleanupSupersededProfileImage } = loadModule("./functions/profile-image-cleanup");
   const { dataLifecycleRetention } = loadModule("./functions/data-lifecycle-retention");
   const { storageAssetDeletion } = loadModule("./functions/storage-asset-deletion");
@@ -66,6 +67,8 @@ function getWorkerOnlyFunctions() {
     reconcileSprintSchedule,
     orgDueSoon,
     orgAdminDigest,
+    orgDuplicate,
+    orgPurge,
     cleanupSupersededProfileImage,
     dataLifecycleRetention,
     storageAssetDeletion,

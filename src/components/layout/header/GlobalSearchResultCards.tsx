@@ -1,5 +1,6 @@
 "use client";
 
+import { SharedOrgChip } from "@/components/organizations/SharedOrgChip";
 import { format, formatDistanceToNow } from "@/lib/utils/date";
 import {
     ArrowRight,
@@ -34,6 +35,7 @@ import type {
     GlobalSearchProjectPreview,
     GlobalSearchLinkPreview,
     GlobalSearchTaskPreview,
+    GlobalSearchOrgPreview,
 } from "@/hooks/useGlobalSearchPreviews";
 import { getTaskPriorityPresentation, getTaskStatusPresentation } from "@/lib/projects/task-workflow";
 import { getTaskTitlePresentation } from "@/lib/projects/task-presentation";
@@ -292,6 +294,7 @@ export function ProfileSearchResultCard({ result, onOpen, onConnect, isConnectin
                     </span>
                 ) : null}
                 {lastActive ? <span className="text-muted-foreground/80">Active {lastActive}</span> : null}
+                {result.isLockedProfile ? null : <SharedOrgChip userId={result.userId} />}
             </div>
 
             <span className="mt-2 block sm:hidden"><SkillIconRail skills={result.skills} max={4} /></span>
@@ -375,6 +378,29 @@ export function SettingsSearchResultCard({ result, onOpen, ...interaction }: Res
                 <span className="truncate nb-meta text-[11px] text-muted-foreground">Settings / {result.section}</span>
             </div>
             <p className="mt-0.5 line-clamp-1 text-xs leading-relaxed text-muted-foreground">{result.description}</p>
+        </ResultShell>
+    );
+}
+
+const ORG_KIND_LABEL: Record<GlobalSearchOrgPreview["orgKind"], string> = { org: "Organization", assignment: "Assignment", doc: "Doc", child: "Project", sprint: "Sprint", member: "Member", file: "File", action: "Action" };
+
+/** Organizations, assignments, docs and "Search <org>" results (report §30.1). */
+export function OrgSearchResultCard({ result, onOpen, onRemove, ...interaction }: ResultInteractionProps & { result: GlobalSearchOrgPreview; onOpen: (result: GlobalSearchPreview) => void; onRemove?: () => void }) {
+    return (
+        <ResultShell
+            {...interaction}
+            id={result.id}
+            onOpen={() => onOpen(result)}
+            onRemove={onRemove}
+            removeLabel={`Remove ${result.title} from recent searches`}
+            ariaLabel={`Open ${ORG_KIND_LABEL[result.orgKind].toLowerCase()} ${result.title}`}
+        >
+            <div className="flex min-w-0 items-center gap-2">
+                <span className="shrink-0 font-mono text-[11px] font-medium text-muted-foreground">{ORG_KIND_LABEL[result.orgKind]}</span>
+                <span className="truncate text-[15px] font-semibold text-foreground transition-colors group-hover:text-primary">{result.title}</span>
+                {result.chip ? <span className="shrink-0 rounded-[3px] border border-border px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">{result.chip}</span> : null}
+            </div>
+            <p className="mt-0.5 line-clamp-1 text-xs leading-relaxed text-muted-foreground">{result.subtitle}</p>
         </ResultShell>
     );
 }

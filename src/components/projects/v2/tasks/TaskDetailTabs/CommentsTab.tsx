@@ -15,10 +15,12 @@ import {
   Loader2,
   MessageSquare,
   MoreHorizontal,
+  Flag,
   Send,
   Trash2,
   X,
 } from "lucide-react";
+import { ReportDialog } from "@/components/reports/ReportDialog";
 
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/ui/UserAvatar";
@@ -135,6 +137,7 @@ function DiscussionEntry({
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedText, setCopiedText] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [reporting, setReporting] = useState(false);
 
   const handleCopyLink = () => {
     if (typeof window === "undefined") return;
@@ -283,12 +286,21 @@ function DiscussionEntry({
                     )}
                     <span>Delete</span>
                   </DropdownMenuItem>
+                ) : currentUserId ? (
+                  <DropdownMenuItem
+                    onClick={() => setReporting(true)}
+                    className="flex cursor-pointer items-center gap-2 rounded-[3px] px-2 py-1 text-xs"
+                  >
+                    <Flag className="size-3.5" />
+                    <span>Report</span>
+                  </DropdownMenuItem>
                 ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
           ) : null}
         </div>
 
+        {reporting ? <ReportDialog kind="task_comment" targetId={entry.id} noun="comment" open={reporting} onOpenChange={setReporting} /> : null}
         <ConfirmDialog
           open={confirmingDelete}
           onOpenChange={setConfirmingDelete}

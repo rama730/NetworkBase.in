@@ -1,5 +1,6 @@
 'use client';
 
+import { ReportDialog } from "@/components/reports/ReportDialog";
 import { memo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -16,6 +17,7 @@ import {
     MoreHorizontal,
     PanelRightOpen,
     Pin,
+    Flag,
     Trash2,
 } from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
@@ -65,6 +67,7 @@ function UpdateCard({
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(update.content);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isReporting, setIsReporting] = useState(false);
   const href = `/projects/${encodeURIComponent(projectSlug || projectId)}?tab=updates&updateId=${encodeURIComponent(update.id)}`;
   const isDeleted = Boolean(update.deletedAt);
   // An optimistic post the server has not confirmed yet: it reads as pending and cannot be acted on.
@@ -274,6 +277,13 @@ function UpdateCard({
                     Edit update
                   </DropdownMenuItem>
                 ) : null}
+                {/* Report a post or announcement (report §30.3); authors and managers act on their own posts. */}
+                {!update.canEdit && !update.canDelete && !isDeleted ? (
+                  <DropdownMenuItem onClick={() => setIsReporting(true)}>
+                    <Flag className="h-4 w-4" />
+                    Report {update.updateType === "announcement" ? "announcement" : "post"}
+                  </DropdownMenuItem>
+                ) : null}
                 {update.canDelete ? (
                   <>
                     <DropdownMenuSeparator />
@@ -288,6 +298,7 @@ function UpdateCard({
                 ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
+            {isReporting ? <ReportDialog kind="update" targetId={update.id} noun={update.updateType === "announcement" ? "announcement" : "post"} open={isReporting} onOpenChange={setIsReporting} /> : null}
           </div>
 
           {isEditing ? (

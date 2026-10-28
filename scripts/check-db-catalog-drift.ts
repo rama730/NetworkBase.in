@@ -175,6 +175,8 @@ const ALLOWED_PUBLIC_RLS_NO_POLICY_TABLES = new Set([
   "sprint_materials",
   "task_team_members",
   "doc_opens",
+  // 0254: content reports, read and written by the server (platform admins review them).
+  "content_reports",
   "storage_assets",
   "storage_legacy_cleanup_targets",
   "storage_quota_scopes",

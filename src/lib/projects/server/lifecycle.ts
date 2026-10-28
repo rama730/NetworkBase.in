@@ -1982,7 +1982,7 @@ export async function archiveProjectAction(
 }
 
 
-async function countUnregisteredProjectStorage(projectId: string, executor: Pick<typeof db, "execute"> = db) {
+export async function countUnregisteredProjectStorage(projectId: string, executor: Pick<typeof db, "execute"> = db) {
   const rows = await executor.execute<{ legacy_count: number }>(sql`
     SELECT (
       (SELECT count(*) FROM public.projects project
@@ -2033,7 +2033,7 @@ async function countUnregisteredProjectStorage(projectId: string, executor: Pick
 }
 
 
-async function scheduleProjectStorageDeletion(
+export async function scheduleProjectStorageDeletion(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   projectId: string,
 ) {
@@ -2042,7 +2042,7 @@ async function scheduleProjectStorageDeletion(
       state: "delete_pending",
       deleteAfter: sql`GREATEST(${storageAssets.expiresAt} + interval '5 minutes', now())`,
       metadata: sql`${storageAssets.metadata} || jsonb_build_object(
-        'projectDeletionId', ${projectId},
+        'projectDeletionId', ${projectId}::text,
         'projectCleanupScheduledAt', now()
       )`,
       updatedAt: new Date(),

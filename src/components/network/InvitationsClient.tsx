@@ -1,5 +1,6 @@
 "use client";
 
+import { OrgRequestsSection, useOrgRequests } from "@/components/organizations/OrgRequestsSection";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { UserPlus } from "lucide-react";
@@ -479,7 +480,10 @@ export default function InvitationsClient({
         sentProjectInvitations.length,
     );
 
+    const orgRequests = useOrgRequests().data;
+    const hasOrgRequests = Boolean(orgRequests && (orgRequests.invites.length > 0 || orgRequests.joinRequests.length > 0));
     const hasInvitations =
+        hasOrgRequests ||
         connectionInvitations.length > 0 ||
         projectInvitations.length > 0 ||
         projectApplications.length > 0 ||
@@ -568,6 +572,8 @@ export default function InvitationsClient({
                     </button>
                 </p>
             ) : null}
+            {/* Organization invitations, and a link to join requests for orgs you run (report §30.6). */}
+            <OrgRequestsSection joinRequests="link" />
             <p className="nb-meta text-muted-foreground" role="status">
                 {invitationsQuery.data?.pages[0]?.total ?? 0}{" "}
                 {filtered ? "matching" : "open"} invitations and applications

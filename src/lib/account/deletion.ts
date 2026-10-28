@@ -1,5 +1,6 @@
 import "server-only";
 
+import { handOverLedChildProjects, orgsOwnedBy } from "@/lib/organizations/succession";
 import { and, eq, isNull, or, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
@@ -30,7 +31,8 @@ const PROFILE_VISIBILITIES = new Set<string>(["public", "connections", "private"
 
 type ScheduleAccountDeletionResult =
   | { ok: true; deletionId: string; hardDeleteAt: Date; affectedUserIds: string[] }
-  | { ok: false; code: "ALREADY_SCHEDULED" };
+  | { ok: false; code: "ALREADY_SCHEDULED" }
+  | { ok: false; code: "OWNS_ORG"; orgs: Array<{ id: string; title: string; slug: string | null }> };
 
 /**
  * Soft-deletes the account and opens the grace period. The caller must have
@@ -64,6 +66,11 @@ export async function scheduleAccountDeletionForUser(input: {
       ))
       .limit(1);
     if (open) return { ok: false, code: "ALREADY_SCHEDULED" } as const;
+    // Report §30.7: blocked while owning an organization ("Transfer ownership or delete it first").
+    const ownedOrgs = await orgsOwnedBy(input.userId, tx);
+    if (ownedOrgs.length > 0) return { ok: false, code: "OWNS_ORG", orgs: ownedOrgs } as const;
+    // Child projects they lead never go with the account: they pass on before the soft delete.
+    await handOverLedChildProjects(tx, input.userId);
 
     const [peers, ownedProjects] = await Promise.all([
       tx.select({ requesterId: connections.requesterId, addresseeId: connections.addresseeId })

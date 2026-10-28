@@ -43,7 +43,20 @@ export type ProjectAccess = {
     canWrite: boolean;
     /** Who this access is for; org file rules need it (report §23). */
     viewerId?: string | null;
+    /**
+     * Why nobody may change anything here (report §30.3, §30.5): the org (or this project's org) is suspended,
+     * or the org is archived (with its child projects). canWrite is false while this is set.
+     */
+    writeBlocked?: "suspended" | "archived" | "deleting" | null;
 };
+
+/** The plain sentence for a blocked write. */
+export function writeBlockedMessage(reason: ProjectAccess["writeBlocked"]) {
+    if (reason === "suspended") return "This organization is suspended. Everything is read-only.";
+    if (reason === "archived") return "This organization has ended. Everything is read-only.";
+    if (reason === "deleting") return "This organization is scheduled for deletion.";
+    return "You don't have permission to do this.";
+}
 
 /**
  * Mirrors app_private.nb_project_can_read (0241). `parentOrgRole` is the viewer's role in the parent org;
@@ -132,8 +145,13 @@ function selectAccessRows(where: SQL<unknown>, userId: string | null) {
             githubLastCommitSha: projects.githubLastCommitSha,
             memberRole: projectMembers.role,
             fileUploadEnabled: projectMembers.fileUploadEnabled,
+            suspendedAt: projects.suspendedAt,
+            deletionScheduledAt: projects.deletionScheduledAt,
             parentOrgOwnerId: parentOrg.ownerId,
             parentOrgMemberRole: parentOrgMember.role,
+            parentOrgStatus: parentOrg.status,
+            parentOrgSuspendedAt: parentOrg.suspendedAt,
+            parentOrgDeletionScheduledAt: parentOrg.deletionScheduledAt,
         })
         .from(projects)
         .leftJoin(projectMembers, memberJoinCondition)
@@ -146,8 +164,16 @@ function toProjectAccess(row: Awaited<ReturnType<typeof selectAccessRows>>[numbe
     const isOwner = Boolean(userId && row.ownerId === userId);
     const isMember = Boolean(userId && !isOwner && row.memberRole);
     const memberRole: MemberRole = isMember ? ((row.memberRole as MemberRole) || "member") : null;
-    const parentOrgRole: ParentOrgRole = userId && row.parentOrgOwnerId === userId ? "owner" : (row.parentOrgMemberRole ?? null);
+    // An org in its deletion grace grants nothing to its child projects' readers.
+    const parentOrgRole: ParentOrgRole = row.parentOrgDeletionScheduledAt ? null
+        : userId && row.parentOrgOwnerId === userId ? "owner" : (row.parentOrgMemberRole ?? null);
     const isInheritedAdmin = isInheritedAdminRole(parentOrgRole);
+    const writeBlocked = row.deletionScheduledAt ? "deleting" as const
+        : row.suspendedAt || row.parentOrgSuspendedAt ? "suspended" as const
+        : (row.kind === "organization" && row.status === "archived") || (row.parentOrgStatus === "archived" && row.status === "archived") ? "archived" as const
+        : null;
+    // During the 30-day grace only the owner can open the org (to restore it), report §30.5.
+    const canRead = row.deletionScheduledAt ? isOwner : computeProjectReadAccess(row.visibility, row.status, isOwner, isMember, parentOrgRole);
 
     return {
         project: {
@@ -169,9 +195,10 @@ function toProjectAccess(row: Awaited<ReturnType<typeof selectAccessRows>>[numbe
         member: isMember ? { role: memberRole, fileUploadEnabled: row.fileUploadEnabled } : null,
         parentOrgRole,
         isInheritedAdmin,
-        canRead: computeProjectReadAccess(row.visibility, row.status, isOwner, isMember, parentOrgRole),
-        canWrite: computeProjectWriteAccess(isOwner, memberRole) || isInheritedAdmin,
+        canRead,
+        canWrite: !writeBlocked && (computeProjectWriteAccess(isOwner, memberRole) || isInheritedAdmin),
         viewerId: userId,
+        writeBlocked,
     };
 }
 

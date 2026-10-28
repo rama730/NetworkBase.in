@@ -194,7 +194,8 @@ export function normalizeGlobalSearchQuery(query: string) {
 
 export function isProjectDetailPath(pathname: string | null) {
     const segments = pathname?.split("/").filter(Boolean) ?? [];
-    return segments.length === 2 && segments[0] === "projects" && segments[1] !== "new";
+    // An org page (/org/<handle>) searches that org: "Search CSE-3A" first (report §30.1).
+    return segments.length === 2 && (segments[0] === "projects" || segments[0] === "org") && segments[1] !== "new";
 }
 
 export function getProjectIdentifierFromPathname(pathname: string | null) {
@@ -209,6 +210,14 @@ export function getProjectIdentifierFromPathname(pathname: string | null) {
 }
 
 export function resolveGlobalSearchContext(pathname: string | null, searchParams?: URLSearchParams | null): SearchContext {
+    if (isProjectDetailPath(pathname) && pathname?.startsWith("/org/")) {
+        return {
+            context: "project",
+            placeholder: "Search this organization...",
+            title: "Search this organization",
+            description: "Docs, assignments, projects, files you can open, sprints and tasks in this organization.",
+        };
+    }
     if (isProjectDetailPath(pathname)) {
         return {
             context: "project",

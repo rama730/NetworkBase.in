@@ -1,4 +1,4 @@
-import { and, asc, eq, lte } from "drizzle-orm";
+import { and, asc, eq, lte, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { projectSprintEvents, projectSprints } from "@/lib/db/schema";
@@ -48,6 +48,8 @@ export async function startDueSprints(
         eq(projectSprints.status, "planning"),
         eq(projectSprints.autoStart, true),
         lte(projectSprints.startDate, now),
+        // Archived, suspended or deleting orgs (and child projects archived with them) start nothing (report §30.5).
+        sql`NOT app_private.nb_project_read_only(${projectSprints.projectId})`,
         ...(projectId ? [eq(projectSprints.projectId, projectId)] : []),
       ),
     )

@@ -8,6 +8,7 @@ import { get as getIdb, set as setIdb } from "idb-keyval";
 import { getConnectionsFeed, type SuggestedProfile } from "@/app/actions/connections";
 import { fetchDiscoverProjectsAction } from "@/app/actions/discover";
 import { fetchProjectLinkPreviewsAction, fetchProjectTaskPreviewsAction } from "@/app/actions/project";
+import { searchOrgPreviewsAction } from "@/app/actions/org-workspace";
 import { FILTER_VIEWS, PROJECT_STATUS, PROJECT_TYPE, SORT_OPTIONS } from "@/constants/discover";
 import { normalizeGlobalSearchQuery, type GlobalSearchContext, type NetworkSearchScope } from "@/components/layout/header/global-search";
 import { profileHref } from "@/lib/routing/identifiers";
@@ -76,7 +77,14 @@ export type GlobalSearchLinkPreview = GlobalSearchPreviewBase & {
     audience: "public" | "members";
 };
 
-export type GlobalSearchPreview = GlobalSearchProjectPreview | GlobalSearchProfilePreview | GlobalSearchTaskPreview | GlobalSearchSkillPreview | GlobalSearchLinkPreview;
+/** Organizations, assignments, org docs and "Search <org>" results (report §30.1). */
+export type GlobalSearchOrgPreview = GlobalSearchPreviewBase & {
+    kind: "org";
+    orgKind: "org" | "assignment" | "doc" | "child" | "sprint" | "member" | "file" | "action";
+    chip: string | null;
+};
+
+export type GlobalSearchPreview = GlobalSearchProjectPreview | GlobalSearchProfilePreview | GlobalSearchTaskPreview | GlobalSearchSkillPreview | GlobalSearchLinkPreview | GlobalSearchOrgPreview;
 
 function isNullableString(value: unknown): value is string | null {
     return value === null || typeof value === "string";
@@ -98,6 +106,7 @@ export function isGlobalSearchPreview(value: unknown): value is GlobalSearchPrev
     if (!isPreviewBase(value)) return false;
     const preview = value as Record<string, unknown> & GlobalSearchPreviewBase;
     if (preview.kind === "skill") return true;
+    if (preview.kind === "org") return typeof preview.orgKind === "string" && isNullableString(preview.chip);
     if (preview.kind === "link") {
         return typeof preview.platform === "string"
             && isNullableString(preview.iconKey)
@@ -140,6 +149,11 @@ export function isGlobalSearchPreview(value: unknown): value is GlobalSearchPrev
 }
 
 const PREVIEW_LIMIT = 6;
+
+async function fetchOrgPreviews(query: string, orgIdentifier: string | null): Promise<GlobalSearchPreview[]> {
+    const rows = await searchOrgPreviewsAction(query, orgIdentifier).catch(() => []);
+    return rows.map((row) => ({ id: `org-result:${row.id}`, kind: "org" as const, orgKind: row.kind, title: row.title, subtitle: row.subtitle, href: row.href, chip: row.chip, matchReason: null }));
+}
 
 function textIncludes(value: string | null | undefined, query: string) {
     return Boolean(value?.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
@@ -358,14 +372,19 @@ export function useGlobalSearchPreviews({
             }
             const cacheKey = `offline:search:${previewContext}:${peopleScope}:${projectIdentifier || 'none'}:${debouncedQuery.toLowerCase()}`;
             try {
-                const results = await (previewContext === "network"
-                    ? fetchProfilePreviews(debouncedQuery, peopleScope)
-                    : previewContext === "project" && projectIdentifier
-                        ? fetchProjectContextPreviews(projectIdentifier, debouncedQuery)
-                        : fetchProjectPreviews(debouncedQuery));
+                // Org results come first: "Search CSE-3A" inside an org, then your orgs, assignments and docs (report §30.1).
+                const [orgResults, results] = await Promise.all([
+                    previewContext === "network" ? Promise.resolve([]) : fetchOrgPreviews(debouncedQuery, previewContext === "project" ? projectIdentifier ?? null : null),
+                    previewContext === "network"
+                        ? fetchProfilePreviews(debouncedQuery, peopleScope)
+                        : previewContext === "project" && projectIdentifier
+                            ? fetchProjectContextPreviews(projectIdentifier, debouncedQuery)
+                            : fetchProjectPreviews(debouncedQuery),
+                ]);
                 
-                void setIdb(cacheKey, results).catch(() => {});
-                return results;
+                const merged = [...orgResults, ...results];
+                void setIdb(cacheKey, merged).catch(() => {});
+                return merged;
             } catch (error) {
                 if (typeof window !== "undefined" && (!navigator.onLine || error instanceof Error)) {
                     try {

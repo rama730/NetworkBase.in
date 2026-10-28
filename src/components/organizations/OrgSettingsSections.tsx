@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input'
 import { ORG_TYPES } from '@/lib/organizations/config'
 import { orgChatSettings } from '@/lib/organizations/chat-rules'
 import { updateOrgChatSettingsAction } from '@/app/actions/org-chat'
+import { requestOrgVerificationAction } from '@/app/actions/trust'
 import type { OrgDetail } from '@/lib/organizations/detail'
 import { orgGrant, type OrgAction, type OrgRole } from '@/lib/organizations/permissions'
 import type { OrgMemberRole, OrgSettingsSection } from '@/lib/organizations/settings'
@@ -440,6 +441,32 @@ export function OrgNotificationsSection({ orgId, organization }: { orgId: string
                     {status}
                 </div>
             </div>
+        </SettingsCard>
+    )
+}
+
+/**
+ * Settings → General, Verified badge (report §30.3): automatic when your verified email domain matches the
+ * organization's website; otherwise the NetworkBase team reviews the request.
+ */
+export function OrgVerificationSection({ orgId, organization }: { orgId: string; organization: OrgDetail }) {
+    const { pending, save, status } = useSave()
+    return (
+        <SettingsCard title="Verified badge" headingLevel={2} description="A ✓ next to the name on the header, cards and Discover.">
+            {organization.verified ? <p className="text-sm text-foreground">This organization is verified.</p>
+                : organization.verificationRequested ? <p className="text-sm text-muted-foreground">Requested. The NetworkBase team will review it.</p>
+                : (
+                    <div className="space-y-3">
+                        <p className={helpClass}>Verified at once when your email address is on the same domain as the website in Links (not Gmail, Outlook and the like). Otherwise our team reviews it.</p>
+                        <div className="flex items-center gap-3">
+                            <Button disabled={pending} onClick={() => save(async () => {
+                                const result = await requestOrgVerificationAction(orgId)
+                                return result.success ? { success: true } : result
+                            })}>Request verification</Button>
+                            {status}
+                        </div>
+                    </div>
+                )}
         </SettingsCard>
     )
 }

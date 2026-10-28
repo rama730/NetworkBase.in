@@ -95,6 +95,8 @@ export const schemas = new EventSchemas().fromRecord<{
     "workspace/connections.refresh_suggestions_for_candidate": ConnectionsRefreshSuggestionCandidateEvent;
     "notification/fanout": NotificationFanoutInngestEvent;
     "email/outbox.wake": { data: Record<string, never> };
+    /** Organizations P15: Duplicate runs in the background (report §30.5). */
+    "org/duplicate.requested": { data: { sourceId: string; actorId: string; options: import("@/lib/organizations/lifecycle").DuplicateOptions } };
     "project/updates.cleanup": ProjectUpdateCleanupEvent;
     "storage/profile-image.cleanup": ProfileImageCleanupEvent;
 }>();

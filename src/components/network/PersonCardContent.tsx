@@ -1,5 +1,6 @@
 "use client";
 
+import { SharedOrgChip } from '@/components/organizations/SharedOrgChip';
 import { Fragment, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Loader2, MapPin, Users } from 'lucide-react';
@@ -187,6 +188,8 @@ export function PersonCardContent({ person: input, action, variant = 'network', 
         body={!locked && personCardSkills(person.skills).length ? <PersonCardSkillStrip labels={person.skills ?? []} viewerSkills={viewerSkills} /> : null}
         meta={[
             count && person.id ? <SharedConnections key="shared" person={person} count={count} /> : null,
+            // Shared-org chip (report §30.6): an org you're both in, where they show it on their profile.
+            !locked && person.id ? <SharedOrgChip key="org" userId={person.id} /> : null,
             connected ? <span key="connected" className="nb-meta nb-person-date" title={date.title}><span className="nb-person-date-full">{date.text}</span><span className="nb-person-date-compact">{date.compactText}</span></span> : footer,
         ]}
         aside={action}

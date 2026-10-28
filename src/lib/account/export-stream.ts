@@ -1,5 +1,6 @@
 import "server-only";
 
+import { exportOrganizationData } from "@/lib/account/export-organizations";
 import { and, asc, eq, gt, inArray, isNull, lte, or, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
@@ -385,7 +386,8 @@ async function* streamAccountExport(input: {
     legalCursor = page.at(-1)!.id;
     if (page.length < EXPORT_PAGE_SIZE) break;
   }
-  yield "]}";
+  assertActive(signal);
+  yield `],"organizations":${json(await exportOrganizationData(userId))}}`;
 }
 
 export async function createAccountExportStream(userId: string, signal: AbortSignal) {

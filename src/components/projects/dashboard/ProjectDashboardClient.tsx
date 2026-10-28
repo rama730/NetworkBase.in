@@ -42,7 +42,7 @@ import { OrgFilesPanel } from '@/components/organizations/OrgFilesPanel';
 import { OrgMembersTab } from '@/components/organizations/OrgMembersTab';
 import { ChildOrgLine, OrgDashboard, OrgProjectsTab } from '@/components/organizations/OrgOverviewParts';
 import { OrgInviteBanner } from '@/components/organizations/OrgInviteBanner';
-import { ChildOrgChips, OrgBreadcrumb, OrgIdentityLine, OrgInviteDialog, OrgVisitorActions } from '@/components/organizations/OrgHeaderParts';
+import { ChildOrgChips, OrgBreadcrumb, OrgHeaderMenu, OrgIdentityLine, OrgInviteDialog, OrgStatusBanner, OrgVisitorActions } from '@/components/organizations/OrgHeaderParts';
 import { isProjectPubliclyReadableVisibility } from '@/lib/projects/project-visibility';
 import { confirmFileNavigation } from '@/lib/files/unsaved-navigation';
 import { useFilesWorkspaceStore } from '@/stores/filesWorkspaceStore';
@@ -1115,9 +1115,9 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
             isOrganization={isOrganization}
             canOpenSettings={isInheritedAdmin}
             breadcrumb={parentOrg ? <OrgBreadcrumb parentOrg={parentOrg} /> : null}
-            identityExtra={parentOrg ? <ChildOrgChips parentOrg={parentOrg} visibility={project.visibility} archived={project.status === 'archived'} /> : organization ? <OrgIdentityLine handle={project.slug ?? null} organization={organization} memberRole={isOwner ? 'owner' : (currentProjectRole as 'admin' | 'member' | 'viewer' | null) ?? null} archived={project.status === 'archived'} /> : null}
+            identityExtra={parentOrg ? <ChildOrgChips parentOrg={parentOrg} visibility={project.visibility} archived={project.status === 'archived'} /> : organization ? <><OrgIdentityLine handle={project.slug ?? null} organization={organization} memberRole={isOwner ? 'owner' : (currentProjectRole as 'admin' | 'member' | 'viewer' | null) ?? null} archived={project.status === 'archived'} /><OrgStatusBanner orgId={project.id} organization={organization} isOwner={isOwner} /></> : null}
             metadataExtra={organization?.childProjectCount ? <span className="nb-compact text-muted-foreground">· {organization.childProjectCount} {organization.childProjectCount === 1 ? 'project' : 'projects'}</span> : null}
-            actionsStart={organization && !isOwnerOrMember ? <>{currentUserId ? <OrgInviteBanner orgId={project.id} /> : null}{isProjectPubliclyReadableVisibility(project.visibility) && project.status !== 'archived' ? <OrgVisitorActions orgId={project.id} href={canonicalProjectHref} joinMode={organization.joinMode} requestPending={organization.viewerRequestPending} loggedIn={Boolean(currentUserId)} /> : null}</> : null}
+            actionsStart={organization ? <>{!isOwnerOrMember && currentUserId ? <OrgInviteBanner orgId={project.id} /> : null}{!isOwnerOrMember && isProjectPubliclyReadableVisibility(project.visibility) && project.status !== 'archived' && !organization.suspended ? <OrgVisitorActions orgId={project.id} href={canonicalProjectHref} joinMode={organization.joinMode} requestPending={organization.viewerRequestPending} loggedIn={Boolean(currentUserId)} /> : null}{currentUserId && !isOwner ? <OrgHeaderMenu orgId={project.id} /> : null}</> : null}
             showFollow={!organization || (!isOwnerOrMember && isProjectPubliclyReadableVisibility(project.visibility))} onTabHover={handleTabHover} members={allMembers} loadingMembers={loadingMembers} stageLabel={lifecycleStageNames[optimisticStageIndex] ?? null} stageIndex={optimisticStageIndex} stageCount={lifecycleStageNames.length} applicationLabel={applicationHeaderLabel} openRolesCount={rolesWithFilled.filter((role: any) => (role?.count || 0) - (role?.filled || 0) > 0).length}>
             {!activeTab && (
                 <div className="w-full h-full min-h-[40vh] flex items-center justify-center p-8">

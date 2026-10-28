@@ -329,6 +329,12 @@ export const buildBaseConditions = (
             ${projects.createdAt} <= now() - interval '7 days'
             AND (SELECT count(*) FROM project_members m WHERE m.project_id = ${projects.id}) >= 3
         ))`,
+        // Report §30.3, §30.5: hidden by a platform admin, suspended or deleting projects and orgs (and the child
+        // projects of a suspended or deleting org) leave Discover and search; an archived org leaves the feed.
+        sql<boolean>`${projects.discoverHiddenAt} IS NULL AND ${projects.suspendedAt} IS NULL AND ${projects.deletionScheduledAt} IS NULL
+            AND NOT (${projects.kind} = 'organization' AND ${projects.status} = 'archived')
+            AND (${projects.parentId} IS NULL OR NOT EXISTS (SELECT 1 FROM projects o WHERE o.id = ${projects.parentId}
+                AND (o.suspended_at IS NOT NULL OR o.deletion_scheduled_at IS NOT NULL)))`,
     ];
     const show = showKeeps(filters.show ?? 'all');
     if (show.projectKind) conditions.push(eq(projects.kind, show.projectKind as 'project' | 'organization'));

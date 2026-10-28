@@ -92,6 +92,7 @@ export type OrgNotificationEventKey =
     | "org.child_added"
     | "org.child_requests"
     | "org.child_decided"
+    | "org.lifecycle"
     | "assignments.published"
     | "assignments.submitted"
     | "assignments.reviewed"
@@ -851,6 +852,7 @@ export const PROJECT_NOTIFICATION_EVENT_REGISTRY = {
     "org.removed": orgEvent("org.removed", "org_membership", "Removed", "A member hears they were removed.", "important", { mandatory: true }),
     "org.child_added": orgEvent("org.child_added", "org_membership", "Added to a project", "A member hears they were added to a child project.", "important"),
     "org.child_requests": orgEvent("org.child_requests", "org_membership", "Move-in and detach requests", "Admins hear when a project asks to join or leave.", "important", { recipients: ["owner", "co_leaders"] }),
+    "org.lifecycle": orgEvent("org.lifecycle", "org_membership", "Ended, reopened, deleted or new owner", "Members hear when the organization is archived, reopened, deleted, restored, suspended or changes owner.", "important", { mandatory: true }),
     "org.child_decided": orgEvent("org.child_decided", "org_membership", "Move-in and detach answers", "The project's lead hears the answer.", "important"),
     "assignments.published": orgEvent("assignments.published", "org_assignments", "Assignment published", "Recipients hear about new work and its due date.", "important"),
     "assignments.submitted": orgEvent("assignments.submitted", "org_assignments", "Submissions", "Admins see new submissions, combined.", "more", { aggregate: "burst_10m", recipients: ["owner", "co_leaders"] }),

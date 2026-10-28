@@ -19,12 +19,13 @@ type Failure = { success: false; error: string };
 const DENIED: Failure = { success: false, error: "You don't have permission to do this." };
 type ReadableAccess = Awaited<ReturnType<typeof getProjectAccessById>> & { project: NonNullable<Awaited<ReturnType<typeof getProjectAccessById>>['project']> };
 
-/** The viewer when they own or admin the org. */
-async function orgAdmin(orgId: string) {
+/** The viewer when they own or admin the org; writes refuse a suspended or archived org. */
+async function orgAdmin(orgId: string, mode: 'read' | 'write' = 'write') {
     if (!organizationsEnabled()) return null;
     const { userId } = await getViewerAuthContext();
     if (!userId) return null;
     const access = await getProjectAccessById(orgId, userId);
+    if (mode === 'write' && access.writeBlocked) return null;
     return access.project?.kind === 'organization' && (access.isOwner || access.memberRole === 'admin') ? { userId, slug: access.project.slug ?? null } : null;
 }
 
@@ -91,7 +92,7 @@ export type OrgFolderRow = { id: string; path: string; access: FolderAccess | nu
 
 /** Every folder of the org tree with its marks, for the admin panel. */
 export async function listOrgFoldersAction(orgId: string): Promise<{ success: true; folders: OrgFolderRow[] } | Failure> {
-    if (!(await orgAdmin(orgId))) return DENIED;
+    if (!(await orgAdmin(orgId, 'read'))) return DENIED;
     // ponytail: 300 folders, sorted by path. Upgrade: per-folder controls in the Files tree when orgs outgrow it.
     const rows = await db.select({ id: projectNodes.id, path: projectNodes.path, metadata: projectNodes.metadata }).from(projectNodes)
         .where(and(eq(projectNodes.projectId, orgId), eq(projectNodes.type, 'folder'), isNull(projectNodes.deletedAt), projectContentNodeSql))

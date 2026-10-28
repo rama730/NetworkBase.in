@@ -24,11 +24,12 @@ const DENIED: Failure = { success: false, error: "You don't have permission to d
 const INVITE_DAYS = 14;
 
 /** Owners and admins of the org (the Members tab is theirs alone in v1, report §20.8). */
-async function orgManager(orgId: string): Promise<{ userId: string; role: 'owner' | 'admin'; slug: string | null; ownerId: string } | null> {
+async function orgManager(orgId: string, mode: 'read' | 'write' = 'write'): Promise<{ userId: string; role: 'owner' | 'admin'; slug: string | null; ownerId: string } | null> {
     if (!organizationsEnabled()) return null;
     const { userId } = await getViewerAuthContext();
     if (!userId) return null;
     const access = await getProjectAccessById(orgId, userId);
+    if (mode === 'write' && access.writeBlocked) return null;
     if (access.project?.kind !== 'organization') return null;
     const role = access.isOwner ? 'owner' : access.memberRole === 'admin' ? 'admin' : null;
     return role ? { userId, role, slug: access.project.slug ?? null, ownerId: access.project.ownerId } : null;
@@ -60,12 +61,14 @@ export type OrgMembersData = {
 
 /** The roster, requests, open invites and summary lines (report §20.2). Filtering happens in the browser. */
 export async function readOrgMembersAction(orgId: string): Promise<OrgMembersData | Failure> {
-    const viewer = await orgManager(orgId);
+    const viewer = await orgManager(orgId, 'read');
     if (!viewer) return DENIED;
     // ponytail: one roster read per open, sized for ORG_LIMITS.membersPerOrg (2,000). Upgrade: server paging.
     const [people, childRows, units, copies, teamCopies, requests, invites, [org]] = await Promise.all([
         db.select({ userId: projectMembers.userId, role: projectMembers.role, title: projectMembers.title, joinedAt: projectMembers.joinedAt, name: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl, lastActiveAt: profiles.lastActiveAt })
-            .from(projectMembers).innerJoin(profiles, eq(profiles.id, projectMembers.userId)).where(eq(projectMembers.projectId, orgId)),
+            .from(projectMembers).innerJoin(profiles, eq(profiles.id, projectMembers.userId))
+                // Memberships are hidden while an account deletion is pending (report §30.7); back on cancel.
+                .where(and(eq(projectMembers.projectId, orgId), isNull(profiles.deletedAt))),
         db.select({ projectId: projects.id, title: projects.title, userId: projectMembers.userId, unit: sql<string | null>`coalesce(${projectOpenRoles.title}, ${projectOpenRoles.role})` })
             .from(projects).innerJoin(projectMembers, eq(projectMembers.projectId, projects.id)).leftJoin(projectOpenRoles, eq(projectOpenRoles.id, projectMembers.unitId))
             .where(and(eq(projects.parentId, orgId), isNull(projects.deletedAt))),
@@ -416,7 +419,7 @@ export type MemberWorkRow = { copyId: string; title: string; dueDate: string | n
 
 /** The member drawer's Work list: their assignment copies with status (report §20.3). */
 export async function readMemberWorkAction(orgId: string, userId: string): Promise<{ success: true; work: MemberWorkRow[] } | Failure> {
-    const viewer = await orgManager(orgId);
+    const viewer = await orgManager(orgId, 'read');
     if (!viewer) return DENIED;
     const rows = await db.select({ id: tasks.id, title: tasks.title, status: tasks.status, reviewStatus: tasks.reviewStatus, dueDate: tasks.dueDate, reviewSubmittedAt: tasks.reviewSubmittedAt, completedAt: tasks.completedAt, excusedAt: tasks.excusedAt })
         .from(tasks).where(and(eq(tasks.projectId, orgId), isNotNull(tasks.assignmentId), isNull(tasks.deletedAt), or(

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { fetchWorkspaceTasksAction } from "@/app/actions/workspace";
+import { fetchToReviewAction } from "@/app/actions/org-workspace";
 import { queryKeys } from "@/lib/query-keys";
 import {
     useUIStore,
@@ -47,7 +48,10 @@ const PAGE_SIZE = 24;
 const MAX_PAGE_SIZE = 100;
 const OPEN_STATUSES: TaskWorkflowStatus[] = ["todo", "in_progress", "blocked"];
 type WorkspaceScope = "my" | "team" | "all";
-type WorkspaceStatusFilter = "all" | (typeof OPEN_STATUSES)[number];
+type WorkspaceStatusFilter = "all" | "overdue" | (typeof OPEN_STATUSES)[number];
+const DAY_MS = 86_400_000;
+const isOverdue = (task: { dueDate?: string | Date | null; status?: string | null }) => Boolean(task.dueDate && new Date(task.dueDate).getTime() < Date.now() && task.status !== "done");
+const isDueSoon = (task: { dueDate?: string | Date | null; status?: string | null }) => Boolean(task.dueDate && task.status !== "done" && new Date(task.dueDate).getTime() - Date.now() < 2 * DAY_MS && !isOverdue(task));
 type ViewDensity = "cards" | "rows";
 
 function WorkspaceTasksSkeleton() {
@@ -121,6 +125,7 @@ function TaskRow({
                 <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
                     {task.title}
                 </span>
+                <OrgTaskChips task={task} />
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
@@ -190,6 +195,21 @@ function TaskRow({
     );
 }
 
+/** "From Ms. Rao", Late / Missing and "Team A" on assignment copies; the org context on org work (report §29.2). */
+function OrgTaskChips({ task }: { task: WorkspaceTask }) {
+    if (!task.org) return null;
+    const chip = "shrink-0 rounded-[3px] border border-border px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground";
+    return (
+        <span className="hidden min-w-0 items-center gap-1 sm:flex">
+            <span className={chip} title={task.org.context}>{task.org.context}</span>
+            {task.org.fromName ? <span className="shrink-0 text-[11px] text-muted-foreground">From {task.org.fromName}</span> : null}
+            {task.org.teamName ? <span className={chip}>{task.org.teamName}</span> : null}
+            {task.org.copyState === "missing" ? <span className={cn(chip, "border-destructive/30 text-destructive")}>Missing</span>
+                : task.org.late ? <span className={cn(chip, "border-destructive/30 text-destructive")}>Late</span> : null}
+        </span>
+    );
+}
+
 export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTabProps) {
     const router = useRouter();
     const isWorkspaceOpen = useUIStore((s) => s.isWorkspaceOpen);
@@ -199,6 +219,10 @@ export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTab
     // because the viewer has no personal assignment in that project.
     const [scope, setScope] = useState<WorkspaceScope>("all");
     const [status, setStatus] = useState<WorkspaceStatusFilter>("all");
+    // Organization filter (All · Personal · each org), quick filters and the To review view (report §29.2).
+    const [orgFilter, setOrgFilter] = useState<string>("all");
+    const [quick, setQuick] = useState<"due" | "missing" | null>(null);
+    const [showReview, setShowReview] = useState(false);
     const [search, setSearch] = useState("");
     const [density, setDensity] = useState<ViewDensity>("cards");
     const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
@@ -222,6 +246,13 @@ export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTab
         staleTime: 30_000,
     });
     const { data, isLoading, error } = query;
+    const reviewQuery = useQuery({
+        queryKey: ["workspace", "to-review"],
+        queryFn: () => fetchToReviewAction(),
+        enabled: isWorkspaceOpen && isActive,
+        staleTime: 30_000,
+    });
+    const toReview = reviewQuery.data ?? [];
 
     // Infinite auto-scroll sentinel
     useEffect(() => {
@@ -239,13 +270,23 @@ export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTab
     const visibleTasks = useMemo(() => {
         const normalizedSearch = deferredSearch.trim().toLocaleLowerCase();
         return tasks.filter((task) => {
-            const matchesStatus = status === "all" || task.status === status;
+            if (orgFilter === "personal" ? Boolean(task.org?.id) : orgFilter !== "all" && task.org?.id !== orgFilter) return false;
+            if (quick === "due" && !isDueSoon(task)) return false;
+            if (quick === "missing" && task.org?.copyState !== "missing") return false;
+            const matchesStatus = status === "all" || (status === "overdue" ? isOverdue(task) : task.status === status);
             const matchesSearch = !normalizedSearch
                 || task.title.toLocaleLowerCase().includes(normalizedSearch)
                 || task.project?.title?.toLocaleLowerCase().includes(normalizedSearch);
             return matchesStatus && matchesSearch;
         });
-    }, [deferredSearch, status, tasks]);
+    }, [deferredSearch, status, tasks, orgFilter, quick]);
+    const orgOptions = useMemo(() => {
+        const seen = new Map<string, string>();
+        for (const task of tasks) if (task.org?.id && !seen.has(task.org.id)) seen.set(task.org.id, task.org.context.split(" / ")[0]!);
+        return [...seen.entries()];
+    }, [tasks]);
+    const dueSoonCount = tasks.filter(isDueSoon).length;
+    const missingCount = tasks.filter((task) => task.org?.copyState === "missing").length;
 
     const groups = useMemo(() => {
         const grouped = new Map<string, { id: string; slug: string | null; title: string; key: string; tasks: WorkspaceTask[] }>();
@@ -254,7 +295,7 @@ export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTab
             const group = grouped.get(project.id) ?? {
                 id: project.id,
                 slug: project.slug ?? null,
-                title: project.title || "Project",
+                title: task.org?.context || project.title || "Project",
                 key: project.key || "TASK",
                 tasks: [],
             };
@@ -349,7 +390,7 @@ export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTab
     const filteredEmpty = tasks.length > 0 && visibleTasks.length === 0;
     const isEmpty = tasks.length === 0 || filteredEmpty;
 
-    const hasActiveFilters = scope !== "all" || status !== "all" || search.trim().length > 0;
+    const hasActiveFilters = scope !== "all" || status !== "all" || search.trim().length > 0 || orgFilter !== "all" || quick !== null;
 
     const taskFiltersMenu = (
         <DropdownMenu>
@@ -379,11 +420,19 @@ export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTab
                         <DropdownMenuLabel>Status</DropdownMenuLabel>
                         <DropdownMenuRadioGroup value={status} onValueChange={(value) => setStatus(value as WorkspaceStatusFilter)}>
                             <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
+                            <DropdownMenuRadioItem value="overdue">Overdue</DropdownMenuRadioItem>
                             {OPEN_STATUSES.map((taskStatus) => (
                                 <DropdownMenuRadioItem key={taskStatus} value={taskStatus}>
                                     {TASK_STATUS_PRESENTATION[taskStatus].label}
                                 </DropdownMenuRadioItem>
                             ))}
+                        </DropdownMenuRadioGroup>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel>Organization</DropdownMenuLabel>
+                        <DropdownMenuRadioGroup value={orgFilter} onValueChange={setOrgFilter}>
+                            <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
+                            <DropdownMenuRadioItem value="personal">Personal</DropdownMenuRadioItem>
+                            {orgOptions.map(([id, title]) => <DropdownMenuRadioItem key={id} value={id}>{title}</DropdownMenuRadioItem>)}
                         </DropdownMenuRadioGroup>
                         <DropdownMenuSeparator />
                         <DropdownMenuLabel>Density</DropdownMenuLabel>
@@ -422,7 +471,7 @@ export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTab
                     )}
                     {status !== "all" && (
                         <span className="inline-flex items-center gap-1 rounded-[3px] border border-border bg-card px-1.5 py-0.5 font-mono text-[11px] text-foreground">
-                            {TASK_STATUS_PRESENTATION[status]?.label ?? status}
+                            {status === "overdue" ? "Overdue" : TASK_STATUS_PRESENTATION[status]?.label ?? status}
                             <button type="button" onClick={() => setStatus("all")} className="text-muted-foreground hover:text-foreground" aria-label="Clear status filter">
                                 <X className="h-3 w-3" />
                             </button>
@@ -438,7 +487,7 @@ export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTab
                     )}
                     <button
                         type="button"
-                        onClick={() => { resetScope("all"); setStatus("all"); setSearch(""); }}
+                        onClick={() => { resetScope("all"); setStatus("all"); setSearch(""); setOrgFilter("all"); setQuick(null); }}
                         className="ml-auto text-xs font-medium text-primary hover:underline"
                     >
                         Clear all
@@ -446,7 +495,27 @@ export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTab
                 </div>
             )}
 
-            {isEmpty ? (
+            {/* Quick filters as plain text links: Due soon 3 · Missing 1 · To review 5 (report §29.2). */}
+            {(dueSoonCount > 0 || missingCount > 0 || toReview.length > 0) ? (
+                <p className="flex flex-wrap items-center gap-1.5 px-0.5 text-xs text-muted-foreground">
+                    {dueSoonCount > 0 ? <button type="button" className={cn("hover:text-foreground hover:underline", quick === "due" && "font-semibold text-foreground")} onClick={() => { setShowReview(false); setQuick(quick === "due" ? null : "due"); }}>Due soon {dueSoonCount}</button> : null}
+                    {missingCount > 0 ? <><span aria-hidden="true">·</span><button type="button" className={cn("hover:text-foreground hover:underline", quick === "missing" && "font-semibold text-foreground")} onClick={() => { setShowReview(false); setQuick(quick === "missing" ? null : "missing"); }}>Missing {missingCount}</button></> : null}
+                    {toReview.length > 0 ? <><span aria-hidden="true">·</span><button type="button" className={cn("hover:text-foreground hover:underline", showReview && "font-semibold text-foreground")} onClick={() => setShowReview(!showReview)}>To review {toReview.length}</button></> : null}
+                </p>
+            ) : null}
+
+            {showReview ? (
+                <ul className="space-y-1.5" aria-label="Submissions to review">
+                    {toReview.map((row) => (
+                        <li key={row.id}>
+                            <Link href={row.href} onClick={() => setWorkspaceOpen(false)} className="flex min-h-[40px] items-center gap-2 rounded-[6px] border border-border/70 bg-card px-2.5 py-1.5 text-xs hover:bg-muted/30">
+                                <span className="min-w-0 flex-1 truncate"><span className="font-medium text-foreground">{row.who}</span> · {row.title} · <span className="text-muted-foreground">{row.context}</span></span>
+                                {row.submittedAt ? <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{format(parseISO(row.submittedAt), "MMM d")}</span> : null}
+                            </Link>
+                        </li>
+                    ))}
+                </ul>
+            ) : isEmpty ? (
                 <div className="nb-empty-state nb-grid-ground relative py-12">
                     <div className="absolute right-3 top-3">{taskFiltersMenu}</div>
                     <ListChecks className="nb-empty-state-icon" aria-hidden="true" />
