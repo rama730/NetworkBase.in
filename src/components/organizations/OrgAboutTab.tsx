@@ -8,6 +8,7 @@ import { readOrgAboutAction } from '@/app/actions/org-dashboard'
 import JourneyTimeline from '@/components/projects/dashboard/JourneyTimeline'
 import ProjectOverviewCard from '@/components/projects/dashboard/ProjectOverviewCard'
 import { RailSection } from '@/components/ui/rail-section'
+import { messageUserInWindow } from '@/components/messages/message-user'
 import { toast } from '@/lib/feedback'
 import { formatDistanceToNow } from '@/lib/utils/date'
 import type { Project } from '@/types/discover'
@@ -34,6 +35,8 @@ export function OrgAboutTab({ project, isCreator, onEdit, visitorActions }: { pr
         term,
         org?.timeZone ?? null,
     ].filter(Boolean)
+    // The overview card reads these off the full project payload; the shared Project type doesn't list them.
+    const statements = project as Project & { problemStatement?: string | null; solutionStatement?: string | null }
     const roleName = (role: 'owner' | 'admin') => org?.roleNames?.[role] ?? (role === 'owner' ? 'Owner' : 'Admin')
     return (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
@@ -45,6 +48,13 @@ export function OrgAboutTab({ project, isCreator, onEdit, visitorActions }: { pr
                     </section>
                 ) : null}
                 <ProjectOverviewCard project={project} isCreator={isCreator} onEdit={onEdit} />
+                {/* Empty-state prompts for admins (report §22.3). */}
+                {isCreator && (!statements.problemStatement || !statements.solutionStatement) ? (
+                    <p className="flex flex-wrap gap-3 text-sm">
+                        {!statements.problemStatement ? <button type="button" onClick={onEdit} className="underline underline-offset-4">Add the problem {project.title} solves</button> : null}
+                        {!statements.solutionStatement ? <button type="button" onClick={onEdit} className="underline underline-offset-4">Add how {project.title} solves it</button> : null}
+                    </p>
+                ) : null}
                 {data?.projects.length ? (
                     <RailSection title="Projects" action={data.card.kind !== 'visitor' ? <Link href={`${base}?tab=projects`} className="text-[12px] underline underline-offset-4">See all →</Link> : undefined}>
                         <p className="text-sm">
@@ -96,6 +106,7 @@ export function OrgAboutTab({ project, isCreator, onEdit, visitorActions }: { pr
                                 <li key={l.id}>
                                     {l.username ? <Link href={`/u/${l.username}`} className="font-medium hover:underline">{l.name}</Link> : <span className="font-medium">{l.name}</span>}
                                     <span className="text-muted-foreground"> · {l.title || roleName(l.role)}</span>
+                                    {data.card.kind !== 'visitor' ? <> · <Link href={`/messages?userId=${l.id}`} onClick={(e) => messageUserInWindow(l.id, e)} className="text-[12px] underline underline-offset-4">Message</Link></> : null}
                                 </li>
                             ))}
                         </ul>

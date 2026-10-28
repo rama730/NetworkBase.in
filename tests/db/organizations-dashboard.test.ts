@@ -171,3 +171,22 @@ test("a child project's org line: the org, its current sprint and the project's 
   const line = await dash.readChildOrgLineAction(o.child);
   assert.deepEqual(line && { org: line.orgTitle, sprint: line.sprint?.name, due: line.dueCount }, { org: "CSE-3A", sprint: "CO2", due: 1 });
 });
+
+test("§27 pass: the child Dashboard's What's happening (group copy, own sprint inside the org sprint, lead's plan item); the archived summary line", async () => {
+  const o = await org();
+  await o.copy(o.a, { project: o.child });
+  viewerId = o.a;
+  let line = await dash.readChildOrgLineAction(o.child);
+  assert.ok(line?.needsYou.some((n) => n.label === "Lab 2 for the project"), JSON.stringify(line));
+  assert.ok(line?.needsYou.some((n) => n.label === "CO2 started. Plan your sprint in Compiler Lab"), "the lead's linked-sprint item");
+  await sql`INSERT INTO project_sprints (project_id, sprint_number, name, start_date, end_date, status, parent_sprint_id) VALUES (${o.child}, 1, 'Parser week', now() - interval '1 day', now() + interval '2 days', 'active', ${o.sprint})`;
+  line = await dash.readChildOrgLineAction(o.child);
+  assert.deepEqual([line?.ownSprint?.name, line?.ownSprint?.parent], ["Parser week", "CO2"]);
+  assert.ok(!line?.needsYou.some((n) => n.label.startsWith("CO2 started")), "planned now");
+
+  await sql`UPDATE projects SET status = 'archived', term_end = '2026-12-15' WHERE id = ${o.orgId}`;
+  const d = await dashboard(o.orgId, o.owner);
+  assert.equal(d?.archivedSummary, "CSE-3A ended Dec 2026 · 2 sprints · 1 assignment · 4 members");
+  assert.deepEqual(d?.needsYou.map((n) => n.kind), ["verify"]);
+  assert.equal((await dashboard(o.orgId, o.a))?.needsYou.length, 0);
+});

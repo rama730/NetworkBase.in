@@ -133,7 +133,7 @@ async function adminStateRows(orgId: string, base: string, now: Date): Promise<N
 }
 
 /** Child leads (report §26 C): plan inside the org sprint, close a linked sprint, or fix dates that no longer fit. */
-async function leadSprintRows(orgId: string, userId: string): Promise<NeedsYouRow[]> {
+export async function leadSprintRows(orgId: string, userId: string): Promise<NeedsYouRow[]> {
     const rows = await db.execute<{ kind: string; org_sprint: string; child_sprint: string | null; title: string; slug: string | null; id: string }>(sql`
         SELECT CASE
                  WHEN o.status = 'active' AND c.id IS NULL THEN 'plan'

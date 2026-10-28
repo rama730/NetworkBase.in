@@ -12,7 +12,7 @@ import { readViewerOrgRole } from '@/lib/organizations/detail';
 import { readOrgDocsAction } from '@/app/actions/org-docs';
 import { normalizeProjectPublicTabVisibility } from '@/lib/projects/settings-policies';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
-import { copyColumns, ownCopies, plural, readNeedsYou, stateOf, type NeedsYouRow, type OrgViewer } from '@/lib/organizations/needs-you';
+import { copyColumns, leadSprintRows, ownCopies, plural, readNeedsYou, stateOf, type NeedsYouRow, type OrgViewer } from '@/lib/organizations/needs-you';
 
 export type { NeedsYouRow };
 export type ActivityItem = { id: string; kind: ActivityKind; text: string; at: string; href: string };
@@ -106,6 +106,8 @@ export type OrgDashboardData = {
     projects: Array<{ id: string; title: string; slug: string | null; lastActivityAt: string }>;
     people: { avatars: Array<{ id: string; name: string; avatarUrl: string | null }>; total: number; joinedThisWeek: number; requests: number };
     getStarted: string[];
+    /** Archived orgs (report §27.4): "CSE-3A ended Dec 2026 · 5 sprints · 40 assignments · 64 members". */
+    archivedSummary: string | null;
 };
 
 /** The org Dashboard for people in the org (report §27); visitors never see it. */
@@ -166,11 +168,21 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
             v.isAdmin ? undefined : sql`EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = ${projects.id} AND pm.user_id = ${v.userId})`))
         .orderBy(desc(projects.updatedAt)).limit(5);
     const weekAgo = now.getTime() - 7 * DAY;
+    const archived = v.org.status === 'archived';
+    let archivedSummary: string | null = null;
+    if (archived) {
+        const [org] = await db.select({ title: projects.title, termEnd: projects.termEnd, updatedAt: projects.updatedAt }).from(projects).where(eq(projects.id, orgId)).limit(1);
+        const ended = new Intl.DateTimeFormat('en', { month: 'short', year: 'numeric' }).format(org?.termEnd ? new Date(org.termEnd) : org?.updatedAt ?? now);
+        const n = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
+        archivedSummary = `${org?.title ?? 'This organization'} ended ${ended} · ${n(counts?.allSprints ?? 0, 'sprint')} · ${n(masters.length, 'assignment')} · ${n(people.length, 'member')}`;
+    }
+    // Archived: admins keep end-of-term verification (report §27.4); everything else is read-only.
+    const archivedNeeds: NeedsYouRow[] = archived && v.isAdmin ? [{ kind: 'verify', label: 'Verify contributions for the term', href: `/org/${encodeURIComponent(v.org.slug ?? orgId)}?tab=members` }] : [];
     return {
         success: true,
         role: v.isAdmin ? 'admin' : v.isGuest ? 'guest' : 'member',
         pinned: pinned ?? null,
-        needsYou: v.isGuest ? [] : needsYou,
+        needsYou: v.isGuest ? [] : archived ? archivedNeeds : needsYou,
         thisSprint: {
             sprint: active ? { id: active.id, name: active.name, endDate: active.endDate.toISOString() } : null,
             next: !active && next ? { name: next.name, startDate: next.startDate.toISOString() } : null,
@@ -185,7 +197,8 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
             joinedThisWeek: people.filter((p) => p.joinedAt && p.joinedAt.getTime() > weekAgo).length,
             requests: v.isAdmin ? counts?.requests ?? 0 : 0,
         },
-        getStarted: v.isAdmin && v.org.status !== 'archived' ? getStartedSteps({ members: people.length, sprints: counts?.allSprints ?? 0, files: counts?.files ?? 0, announcements: counts?.announcements ?? 0, assignments: masters.length }) : [],
+        archivedSummary,
+        getStarted: v.isAdmin && !archived ? getStartedSteps({ members: people.length, sprints: counts?.allSprints ?? 0, files: counts?.files ?? 0, announcements: counts?.announcements ?? 0, assignments: masters.length }) : [],
     };
 }
 
@@ -297,15 +310,27 @@ export async function readOrgProjectsAction(orgId: string): Promise<{ success: t
 /** `Part of CSE-3A · CO2 ends Fri · 1 assignment due` on a child project's Dashboard (report §22.5, §27.5). */
 export async function readChildOrgLineAction(childProjectId: string) {
     const { userId } = await getViewerAuthContext();
-    const [child] = await db.select({ parentId: projects.parentId }).from(projects).where(and(eq(projects.id, childProjectId), isNull(projects.deletedAt))).limit(1);
+    const [child] = await db.select({ parentId: projects.parentId, ownerId: projects.ownerId, slug: projects.slug }).from(projects).where(and(eq(projects.id, childProjectId), isNull(projects.deletedAt))).limit(1);
     if (!child?.parentId || !(await readViewerOrgRole(child.parentId, userId))) return null; // outside people don't get the org line
-    const [[org], [sprint], due] = await Promise.all([
+    const [[org], [sprint], due, [ownSprint]] = await Promise.all([
         db.select({ title: projects.title, slug: projects.slug }).from(projects).where(eq(projects.id, child.parentId)).limit(1),
         db.select({ name: projectSprints.name, endDate: projectSprints.endDate }).from(projectSprints).where(and(eq(projectSprints.projectId, child.parentId), eq(projectSprints.status, 'active'))).limit(1),
-        db.select(copyColumns).from(tasks).where(and(eq(tasks.projectId, childProjectId), isNotNull(tasks.assignmentId), isNull(tasks.deletedAt))),
+        db.select({ ...copyColumns, title: tasks.title }).from(tasks).where(and(eq(tasks.projectId, childProjectId), isNotNull(tasks.assignmentId), isNull(tasks.deletedAt))),
+        // The project's own running sprint and the org sprint holding it: "Inside CO2 (CSE-3A) · ends Fri" (report §27.5).
+        db.execute<{ name: string; end_date: string; parent: string | null }>(sql`
+            SELECT s.name, s.end_date::text, p.name AS parent FROM project_sprints s LEFT JOIN project_sprints p ON p.id = s.parent_sprint_id
+            WHERE s.project_id = ${childProjectId} AND s.status = 'active' ORDER BY s.start_date DESC LIMIT 1`),
     ]);
     if (!org) return null;
     const now = new Date();
-    const dueCount = due.filter((c) => ['not_started', 'in_progress', 'returned', 'missing'].includes(stateOf(c, now).state)).length;
-    return { orgTitle: org.title, orgSlug: org.slug, sprint: sprint ? { name: sprint.name, endDate: sprint.endDate.toISOString() } : null, dueCount };
+    const open = due.filter((c) => ['not_started', 'in_progress', 'returned', 'missing'].includes(stateOf(c, now).state));
+    // What's happening (report §27.5): the org's group copies for this project and, for the lead, linked-sprint items.
+    const projectHref = `/projects/${encodeURIComponent(child.slug ?? childProjectId)}`;
+    const needsYou: NeedsYouRow[] = open.map((c) => ({ kind: 'group', label: `${c.title} for the project${stateOf(c, now).state === 'missing' ? ' · missing' : ''}`, href: `${projectHref}?tab=tasks` }));
+    if (userId && child.ownerId === userId) needsYou.push(...(await leadSprintRows(child.parentId, userId)).filter((r) => r.href.startsWith(projectHref)));
+    return {
+        orgTitle: org.title, orgSlug: org.slug, sprint: sprint ? { name: sprint.name, endDate: sprint.endDate.toISOString() } : null, dueCount: open.length,
+        needsYou: needsYou.slice(0, 5),
+        ownSprint: ownSprint ? { name: ownSprint.name, endDate: ownSprint.end_date, parent: ownSprint.parent } : null,
+    };
 }
