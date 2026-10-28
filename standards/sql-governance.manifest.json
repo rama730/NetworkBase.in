@@ -252,7 +252,8 @@
     "drizzle/0248_org_profile.sql",
     "drizzle/0249_org_chat.sql",
     "drizzle/0250_org_email.sql",
-    "drizzle/0251_org_foreign_key_indexes.sql"
+    "drizzle/0251_org_foreign_key_indexes.sql",
+    "drizzle/0252_role_applications_server_writes.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",

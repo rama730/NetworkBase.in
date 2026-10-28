@@ -1744,6 +1744,13 @@
       "when": 1792454418000,
       "tag": "0251_org_foreign_key_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 249,
+      "version": "7",
+      "when": 1792454419000,
+      "tag": "0252_role_applications_server_writes",
+      "breakpoints": true
     }
   ]
 }
