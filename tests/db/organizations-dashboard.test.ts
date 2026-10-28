@@ -198,3 +198,21 @@ test("the child org line stays closed to org members who can't open the child pr
   viewerId = o.b;
   assert.ok(await dash.readChildOrgLineAction(o.secret));
 });
+
+test("§28 pass: rows carry stage, sprint inside the org sprint and New in <org>; Remind leads tells leads what's open", async () => {
+  const o = await org();
+  await sql`UPDATE projects SET lifecycle_stages = '["Idea","Build","Ship"]'::jsonb, current_stage_index = 1, org_settings = coalesce(org_settings, '{}'::jsonb) || jsonb_build_object('movedInAt', now()) WHERE id = ${o.child}`;
+  await sql`INSERT INTO project_sprints (project_id, sprint_number, name, start_date, end_date, status, parent_sprint_id) VALUES (${o.child}, 1, 'Parser week', now() - interval '1 day', now() + interval '2 days', 'active', ${o.sprint})`;
+  await o.copy(o.a, { project: o.child, due: "-1 day" });
+  viewerId = o.owner;
+  const read = await dash.readOrgProjectsAction(o.orgId);
+  assert.ok(read.success);
+  const row = read.success ? read.rows.find((r) => r.id === o.child)! : null;
+  assert.deepEqual([row?.stage, row?.sprint, row?.newInOrg], ["Build", { name: "Parser week", inOrgSprint: true }, true]);
+  const reminded = await dash.remindLeadsAction(o.orgId, [o.child]);
+  assert.deepEqual(reminded, { success: true, reminded: 1 });
+  const [note] = await sql`SELECT title FROM user_notifications WHERE user_id = ${o.a} AND title LIKE 'CSE-3A reminded you:%'`;
+  assert.ok(note, "the lead heard");
+  viewerId = o.b;
+  assert.equal((await dash.remindLeadsAction(o.orgId, [o.child])).success, false, "admins only");
+});

@@ -31,7 +31,9 @@ test.beforeAll(async () => {
         '@/app/actions/org-dashboard': `export const readChildOrgLineAction=async()=>null,readOrgDashboardAction=async()=>({success:false,error:'unused'});
             export const readOrgProjectsAction=async()=>({success:true,isAdmin:true,summary:{total:3,attention:1,quiet:1,notInProject:2},rows:['Team Falcon — Distributed Systems Capstone','Team Osprey','Team Kestrel'].map((title,i)=>({
             id:'c'+i,title,slug:'p'+i,visibility:['org','private','public'][i],status:'active',lead:{id:'l',name:'Alexandria Ramana Chandrasekhar'},members:6,units:2,open:4,overdue:i,inReview:1,
-            groupCopy:i?null:{title:'Milestone 2 report',state:'submitted'},lastActivityAt:new Date(Date.now()-i*864e5).toISOString(),reasons:i===1?['2 overdue','quiet 7 days']:[],mine:i===0}))});`,
+            groupCopy:i?null:{title:'Milestone 2 report',state:'submitted'},lastActivityAt:new Date(Date.now()-i*864e5).toISOString(),reasons:i===1?['2 overdue','quiet 7 days']:[],mine:i===0,
+            stage:['Build','Idea','Build'][i],sprint:i===0?{name:'Parser week',inOrgSprint:true}:null,newInOrg:i===2}))});
+            export const remindLeadsAction=async()=>({success:true,reminded:2});`,
         '@/app/actions/org-files': `export const browseOrgFilesAction=async()=>({success:true,org:{id:'org',title:'CSE-3A Software Engineering',slug:'cse-3a'},nodes:[
             {id:'f1',name:'Week 1 — Requirements',type:'folder',path:'/w1',currentVersion:1,size:null,access:null},
             {id:'f2',name:'Distributed-systems-capstone-rubric-final-v3.pdf',type:'file',path:'/r.pdf',currentVersion:3,size:1,access:'public'}]});
@@ -231,4 +233,22 @@ test('Files (§23): storage nearly full, group deliverables, Update copy and ope
     await page.getByRole('button', { name: 'Distributed-systems-capstone-rubric-final-v3.pdf', exact: true }).click();
     await expect(page.getByRole('dialog')).toContainText('read-only');
     await expect(page.getByRole('link', { name: 'Open in CSE-3A Software Engineering →' })).toBeVisible();
+});
+
+test('Projects (§28): Stage, Lead and Sprint filters, Remind leads, Cards view with Message lead and the New badge', async ({ page }) => {
+    await open(page, 'projects', 1280);
+    await page.getByLabel('Sprint').selectOption('linked');
+    await expect(page.getByRole('link', { name: 'Team Falcon — Distributed Systems Capstone' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Team Osprey' })).toHaveCount(0);
+    await page.getByLabel('Sprint').selectOption('all');
+    await page.getByLabel('Stage').selectOption('Idea');
+    await expect(page.getByRole('link', { name: 'Team Osprey' })).toBeVisible();
+    await page.getByLabel('Stage').selectOption('all');
+    await page.getByLabel('Select Team Osprey').check();
+    await page.getByRole('button', { name: 'Remind leads' }).click();
+    await expect(page.getByRole('button', { name: 'Remind leads' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'cards' }).click();
+    await expect(page.getByRole('list', { name: 'Projects' })).toContainText('New');
+    await expect(page.getByRole('link', { name: 'Message lead' }).first()).toBeVisible();
+    await noSideScroll(page);
 });
