@@ -256,7 +256,8 @@
     "drizzle/0252_role_applications_server_writes.sql",
     "drizzle/0253_security_email_kinds.sql",
     "drizzle/0254_org_trust_lifecycle.sql",
-    "drizzle/0255_security_email_completed.sql"
+    "drizzle/0255_security_email_completed.sql",
+    "drizzle/0256_content_reports_reporter_index.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",
