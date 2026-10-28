@@ -85,7 +85,8 @@ export async function moveIntoOrg(projectId: string, orgId: string, currentVisib
   await db.update(projects).set({
     parentId: orgId,
     visibility: capChildVisibility(requested, org.cap, org.orgPublic),
-    orgSettings: sql`${projects.orgSettings} - 'moveInRequest'`,
+    // "New in <org>" for 7 days on the Projects tab (report §28.6); a former org's label no longer applies.
+    orgSettings: sql`(coalesce(${projects.orgSettings}, '{}'::jsonb) - 'moveInRequest' - 'formerOrg') || jsonb_build_object('movedInAt', now())`,
     updatedAt: new Date(),
   }).where(eq(projects.id, projectId));  // Its channels move under the org: #general becomes #<handle> (report §25.2).
   await db.execute(sql`SELECT app_private.chat_reparent_project(${projectId}::uuid)`);

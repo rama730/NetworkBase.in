@@ -252,6 +252,8 @@ export type OrgProjectRow = {
     lead: { id: string; name: string } | null; members: number; units: number;
     open: number; overdue: number; inReview: number; groupCopy: { title: string; state: CopyState } | null;
     lastActivityAt: string; reasons: string[]; mine: boolean;
+    /** Journey stage, the running sprint and whether it sits inside the org's running sprint (report §28.2–28.3). */
+    stage: string | null; sprint: { name: string; inOrgSprint: boolean } | null; newInOrg: boolean;
 };
 
 /** Projects tab (report §28): admins see every child project (Private too) with Needs attention; others what they may. */
@@ -269,6 +271,10 @@ export async function readOrgProjectsAction(orgId: string): Promise<{ success: t
         overdue: sql<number>`(SELECT count(*)::int FROM tasks t WHERE t.project_id = ${projects.id} AND t.deleted_at IS NULL AND t.status <> 'done' AND t.due_date < now())`,
         inReview: sql<number>`(SELECT count(*)::int FROM tasks t WHERE t.project_id = ${projects.id} AND t.deleted_at IS NULL AND t.review_status = 'pending')`,
         lastTaskAt: sql<Date | null>`(SELECT max(t.updated_at) FROM tasks t WHERE t.project_id = ${projects.id})`,
+        stage: sql<string | null>`${projects.lifecycleStages}->>coalesce(${projects.currentStageIndex}, 0)`,
+        sprintName: sql<string | null>`(SELECT s.name FROM project_sprints s WHERE s.project_id = ${projects.id} AND s.status = 'active' ORDER BY s.start_date DESC LIMIT 1)`,
+        inOrgSprint: sql<boolean>`EXISTS (SELECT 1 FROM project_sprints s JOIN project_sprints o ON o.id = s.parent_sprint_id AND o.status = 'active' WHERE s.project_id = ${projects.id} AND s.status = 'active')`,
+        newInOrg: sql<boolean>`coalesce((${projects.orgSettings}->>'movedInAt')::timestamptz > now() - interval '7 days', false)`,
         mine: v.userId ? sql<boolean>`EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = ${projects.id} AND pm.user_id = ${v.userId})` : sql<boolean>`false`,
         leadInOrg: sql<boolean>`(${projects.ownerId} = ${v.access.project!.ownerId} OR EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = ${orgId} AND pm.user_id = ${projects.ownerId}))`,
     }).from(projects).leftJoin(profiles, eq(profiles.id, projects.ownerId))
@@ -288,6 +294,9 @@ export async function readOrgProjectsAction(orgId: string): Promise<{ success: t
             lastActivityAt: lastActivity.toISOString(),
             reasons: v.isAdmin ? needsAttention({ overdue: r.overdue, lastActivityAt: lastActivity, groupCopyState: state, leadInOrg: Boolean(r.leadInOrg), status: r.status, now }) : [],
             mine: Boolean(r.mine),
+            stage: r.stage ?? null,
+            sprint: r.sprintName ? { name: r.sprintName, inOrgSprint: Boolean(r.inOrgSprint) } : null,
+            newInOrg: Boolean(r.newInOrg),
         };
     });
     const [{ n: notInProject } = { n: 0 }] = v.isAdmin ? await db.select({ n: sql<number>`count(*)::int` }).from(projectMembers).where(and(
@@ -335,4 +344,28 @@ export async function readChildOrgLineAction(childProjectId: string) {
         needsYou: needsYou.slice(0, 5),
         ownSprint: ownSprint ? { name: ownSprint.name, endDate: ownSprint.end_date, parent: ownSprint.parent } : null,
     };
+}
+
+/**
+ * Remind leads (report §28.4, §28.7): each selected project's lead hears what's open, "CSE-3A reminded you: Proposal
+ * is missing" or "3 tasks overdue". Admins only; at most once per lead and project every 12 hours.
+ */
+export async function remindLeadsAction(orgId: string, projectIds: string[]): Promise<{ success: true; reminded: number } | Failure> {
+    const v = await orgViewer(orgId);
+    if (!v?.isAdmin || !v.userId || projectIds.length === 0) return v?.isAdmin ? { success: true, reminded: 0 } : DENIED;
+    const read = await readOrgProjectsAction(orgId);
+    if (!read.success) return read;
+    const { notifyOrg } = await import('@/lib/organizations/notify');
+    const window = Math.floor(Date.now() / (12 * 3_600_000));
+    let reminded = 0;
+    for (const row of read.rows.filter((r) => projectIds.includes(r.id) && r.lead)) {
+        const what = row.groupCopy && ['missing', 'returned', 'not_started', 'in_progress'].includes(row.groupCopy.state)
+            ? `${row.groupCopy.title} is ${row.groupCopy.state === 'missing' ? 'missing' : row.groupCopy.state === 'returned' ? 'returned' : 'not handed in yet'}`
+            : row.overdue ? `${row.overdue} ${row.overdue === 1 ? 'task is' : 'tasks are'} overdue in ${row.title}` : null;
+        if (!what) continue;
+        await notifyOrg({ orgId, eventKey: 'assignments.due_changed', actorId: v.userId, to: [row.lead!.id], title: `${v.org.title} reminded you: ${what}`,
+            href: `/projects/${encodeURIComponent(row.slug ?? row.id)}?tab=tasks`, sourceEventId: `remind-lead:${row.id}:${window}` });
+        reminded += 1;
+    }
+    return { success: true, reminded };
 }
