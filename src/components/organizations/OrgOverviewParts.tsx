@@ -56,7 +56,7 @@ export function OrgDashboard({ orgId, orgSlug }: { orgId: string; orgSlug: strin
                         {data.needsYou.length > 5 ? <p className="text-[12px] text-muted-foreground">and {data.needsYou.length - 5} more</p> : null}
                     </RailSection>
                 ) : null}
-                <RailSection title={s.sprint ? `This sprint · ${s.sprint.name} · ends ${day(s.sprint.endDate)}` : 'This sprint'}>
+                <RailSection title={s.sprint ? `This sprint · ${s.sprint.name} · ends ${day(s.sprint.endDate)}${ownLine(s.items)}` : 'This sprint'}>
                     {s.sprint ? (
                         s.items.length ? <ul>{s.items.map((i) => (
                             <li key={i.masterId} className={row}>
@@ -96,6 +96,12 @@ export function OrgDashboard({ orgId, orgSlug }: { orgId: string; orgSlug: strin
             </aside>
         </div>
     )
+}
+
+/** A member's line (report §15.4): "you have 2 of 3 done" across their own copies in the sprint. */
+function ownLine(items: Array<{ own?: { state: string } | null }>) {
+    const own = items.filter((i) => i.own)
+    return own.length ? ` · you have ${own.filter((i) => i.own!.state === 'done').length} of ${own.length} done` : ''
 }
 
 /** Projects tab (report §28): a list with filters for everyone in the org; Needs attention and bulk Archive for admins. */

@@ -283,7 +283,7 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
 }
 
 /** One assignment's roster: per person or team, with Approve / Return / Extend / Excuse (report §16.5). */
-function RosterDialog({ row, open, onOpenChange, onChanged }: { row: AssignmentRow; open: boolean; onOpenChange: (open: boolean) => void; onChanged: () => void }) {
+export function RosterDialog({ row, open, onOpenChange, onChanged }: { row: AssignmentRow; open: boolean; onOpenChange: (open: boolean) => void; onChanged: () => void }) {
     const [rows, setRows] = useState<RosterRow[]>([])
     const [error, setError] = useState<string | null>(null)
     const [pending, startTransition] = useTransition()

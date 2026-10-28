@@ -127,6 +127,9 @@ const orgSprintFields = {
   showInChildren: z.boolean().optional(),
   createMatching: z.boolean().optional(),
   parentSprintId: z.string().uuid().nullable().optional(),
+  // Org sprints (report §15.2–15.3): notify on start; on a date change, shift its assignments' due dates too.
+  notifyOnStart: z.boolean().optional(),
+  moveDueDates: z.boolean().optional(),
 };
 
 export const createSprintSchema = createSprintDraftSchema.extend({
@@ -213,7 +216,7 @@ export function getSprintDurationSummary(startDate: string, endDate: string) {
 
 export type CreateSprintDraftInput = z.infer<typeof createSprintDraftSchema>;
 /** What the sprint editor sends: the draft plus the org sprint choices (report §15.2, §15.5). */
-export type SprintOrgFields = { autoStart?: boolean; showInChildren?: boolean; createMatching?: boolean; parentSprintId?: string | null };
+export type SprintOrgFields = { autoStart?: boolean; showInChildren?: boolean; createMatching?: boolean; parentSprintId?: string | null; notifyOnStart?: boolean; moveDueDates?: boolean };
 export type SprintEditorSubmission = CreateSprintDraftInput & SprintOrgFields;
 export type CreateSprintInput = z.infer<typeof createSprintSchema>;
 export type UpdateSprintInput = z.infer<typeof updateSprintSchema>;

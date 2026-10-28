@@ -48,6 +48,7 @@ import { readOrgRules } from "@/lib/organizations/settings";
 import { createStarterFolders } from "@/lib/organizations/org-files";
 import { namesOf, notifyOrg } from "@/lib/organizations/notify";
 import { createCopiesForNewChild } from "@/lib/organizations/assignments";
+import { planSprintSeriesAction } from "@/lib/projects/server/sprints";
 import { notifyNewCopies } from "@/lib/organizations/assignment-notify";
 import { isProjectPubliclyReadableVisibility } from "@/lib/projects/project-visibility";
 import { addProjectMemberInternal } from "@/lib/projects/collaborator-lifecycle";
@@ -1117,6 +1118,13 @@ export async function createProjectAction(
             notices.push(`The open project assignments from ${child.orgTitle} weren't copied here. Ask an admin to share them again.`);
             logger.warn("org.child_group_copies_failed", { projectId: result.id, error: error instanceof Error ? error.message : String(error) });
           }
+        }
+
+        // Plan your first sprints (report §15.2), with the same generator as Plan a series.
+        if (organization?.plan_sprints) {
+          const plan = organization.plan_sprints;
+          const planned = await planSprintSeriesAction({ projectId: result.id, prefix: plan.prefix, count: plan.count, lengthDays: plan.length_days, startDate: plan.start_date });
+          if (!planned.success) notices.push(`The first sprints weren't planned: ${planned.error}`);
         }
 
         // E1 (report §26.3 A): the owner gets the join code by email too; always sent.

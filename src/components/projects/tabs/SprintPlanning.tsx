@@ -35,7 +35,7 @@ import {
 } from "@/lib/projects/sprints";
 
 import CreateSprintModal from "@/components/projects/v2/sprints/CreateSprintModal";
-import { ChildSprintLine, LinkedProjectsBlock, PlanSeriesButton, RunningOrgSprintPrompt, SprintMaterials, StartNowButton } from "@/components/organizations/OrgSprintParts";
+import { ChildSprintLine, LinkedProjectsBlock, PlanSeriesButton, RunningOrgSprintPrompt, SprintMaterials, StartNowButton, SprintAssignmentRows } from "@/components/organizations/OrgSprintParts";
 import { SprintLifecycleModals } from "@/components/projects/tabs/sprint/SprintLifecycleModals";
 import { SkeletonSprints } from "@/components/projects/skeletons/SkeletonSprints";
 
@@ -134,7 +134,7 @@ export default function SprintPlanning({
   const isEditorOpen = editorState !== null;
   // Organizations and child projects (report §15): editor options, links and materials.
   const orgContext = detail?.org ?? null;
-  const editorOrg = orgContext ? { kind: orgContext.kind, orgTitle: orgContext.orgTitle, orgSprints: orgContext.orgSprints } : null;
+  const editorOrg = orgContext ? { kind: orgContext.kind, orgTitle: orgContext.orgTitle, orgSprints: orgContext.orgSprints, orgType: orgContext.orgType, defaults: orgContext.defaults } : null;
   const editingFlags = editorState?.sprint ? orgContext?.sprintFlags[editorState.sprint.id] : undefined;
   const refreshSprints = () => void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.sprintDetailRoot(projectId) });
   const canManageSprints = permissions.canCreate;
@@ -462,6 +462,7 @@ export default function SprintPlanning({
               <SprintMaterials projectId={projectId} sprintId={selectedSprint.id} projectSlug={projectSlug} materials={detail.materials ?? []} canManage={canManageSprints} onChanged={refreshSprints} />
             ) : null}
             {selectedSprint && orgContext?.kind === "org" ? <LinkedProjectsBlock org={orgContext} /> : null}
+            {selectedSprint && orgContext ? <SprintAssignmentRows projectId={projectId} sprintId={selectedSprint.id} /> : null}
             <SprintTimelineContent
               projectSlug={projectSlug}
               projectKey={projectKey}
@@ -495,7 +496,7 @@ export default function SprintPlanning({
           sprintCount={detail.sprints.length}
           deleteImpact={deleteImpact}
           org={editorOrg}
-          initialOrgFields={editingFlags ? { autoStart: editingFlags.autoStart, showInChildren: editingFlags.showInChildren, parentSprintId: editingFlags.parentSprintId } : { parentSprintId: editorState?.parentSprintId ?? null }}
+          initialOrgFields={editingFlags ? { autoStart: editingFlags.autoStart, showInChildren: editingFlags.showInChildren, parentSprintId: editingFlags.parentSprintId, notifyOnStart: editingFlags.notifyOnStart } : { parentSprintId: editorState?.parentSprintId ?? null }}
         />
       ) : null}
 
@@ -510,6 +511,7 @@ export default function SprintPlanning({
           onConfirmComplete={completeSelectedSprint}
           onConfirmArchive={archiveSelectedSprint}
           onConfirmCancel={cancelSelectedSprint}
+          linkedSprintIds={orgContext?.kind === "child" ? new Set(Object.entries(orgContext.sprintFlags).filter(([, f]) => f.parentSprintId).map(([id]) => id)) : undefined}
         />
       ) : null}
     </>

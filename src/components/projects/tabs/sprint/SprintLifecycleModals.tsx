@@ -32,6 +32,8 @@ type SprintLifecycleModalsProps = {
   ) => Promise<boolean>;
   onConfirmArchive: () => Promise<boolean>;
   onConfirmCancel: () => Promise<boolean>;
+  /** Child projects: sprints linked to an org sprint, listed first as "Move to" targets (report §15.5). */
+  linkedSprintIds?: ReadonlySet<string>;
 };
 
 const completionOptions: Array<{
@@ -68,6 +70,7 @@ export function SprintLifecycleModals({
   onConfirmComplete,
   onConfirmArchive,
   onConfirmCancel,
+  linkedSprintIds,
 }: SprintLifecycleModalsProps) {
   const [unfinishedChoice, setUnfinishedChoice] =
     useState<UnfinishedWorkChoice>("keep");
@@ -77,8 +80,8 @@ export function SprintLifecycleModals({
       // The server accepts only Planning sprints as a destination.
       sprints.filter(
         (sprint) => sprint.id !== selectedSprint?.id && sprint.status === "planning",
-      ),
-    [selectedSprint?.id, sprints],
+      ).sort((a, b) => Number(Boolean(linkedSprintIds?.has(b.id))) - Number(Boolean(linkedSprintIds?.has(a.id)))),
+    [selectedSprint?.id, sprints, linkedSprintIds],
   );
 
   const openerRef = useRef<HTMLElement | null>(null);

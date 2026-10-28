@@ -45,6 +45,9 @@ interface SprintEditorModalProps {
     kind: "org" | "child";
     orgTitle: string | null;
     orgSprints: Array<{ id: string; name: string; status: string; startDate: string; endDate: string }>;
+    /** Orgs: name suggestions by type and the Work defaults for a new sprint (report §15.2, §21). */
+    orgType?: string | null;
+    defaults?: { autoStart: boolean; showInChildren: boolean; createMatching: boolean; notifyOnStart: boolean };
   } | null;
   initialOrgFields?: SprintOrgFields;
 }
@@ -128,10 +131,12 @@ export default function SprintEditorModal({
   initialOrgFields,
 }: SprintEditorModalProps) {
   const [orgFields, setOrgFields] = React.useState<SprintOrgFields>(() => ({
-    autoStart: initialOrgFields?.autoStart ?? true,
-    showInChildren: initialOrgFields?.showInChildren ?? true,
-    createMatching: false,
+    autoStart: initialOrgFields?.autoStart ?? org?.defaults?.autoStart ?? true,
+    showInChildren: initialOrgFields?.showInChildren ?? org?.defaults?.showInChildren ?? true,
+    createMatching: mode === "create" ? org?.defaults?.createMatching ?? false : false,
     parentSprintId: initialOrgFields?.parentSprintId ?? null,
+    notifyOnStart: initialOrgFields?.notifyOnStart ?? org?.defaults?.notifyOnStart ?? true,
+    moveDueDates: false,
   }));
   const [draft, setDraft] = React.useState<SprintEditorDraft>(() =>
     buildSprintEditorDraft({ sprint, sprintCount }),
@@ -217,7 +222,7 @@ export default function SprintEditorModal({
         const result = await onSubmit({
           ...parsed.data,
           autoStart: orgFields.autoStart,
-          ...(org?.kind === "org" ? { showInChildren: orgFields.showInChildren, createMatching: mode === "create" && orgFields.createMatching } : {}),
+          ...(org?.kind === "org" ? { showInChildren: orgFields.showInChildren, createMatching: mode === "create" && orgFields.createMatching, notifyOnStart: orgFields.notifyOnStart, ...(mode === "edit" ? { moveDueDates: orgFields.moveDueDates } : {}) } : {}),
           ...(org?.kind === "child" ? { parentSprintId: orgFields.parentSprintId ?? null } : {}),
         });
         if (!result.success) {
@@ -330,7 +335,7 @@ export default function SprintEditorModal({
                   required
                   value={draft.name}
                   onChange={(event) => handleFieldChange("name", event.target.value)}
-                  placeholder="e.g., Sprint 4"
+                  placeholder={org?.kind === "org" && org.orgType === "education" ? "e.g., CO1" : org?.kind === "org" && org.orgType === "company" ? "e.g., Sprint 12" : "e.g., Sprint 4"}
                   className={cn("nb-touch-target h-[34px]", inputClassName(!!fieldErrors.name))}
                 />
               </Field>
@@ -442,6 +447,16 @@ export default function SprintEditorModal({
                     <label className="flex items-center gap-2 text-[13px] text-foreground">
                       <input type="checkbox" checked={orgFields.createMatching ?? false} onChange={(e) => setOrgFields((f) => ({ ...f, createMatching: e.target.checked }))} />
                       Create a matching sprint in every child project
+                    </label>
+                  ) : null}
+                  <label className="flex items-center gap-2 text-[13px] text-foreground">
+                    <input type="checkbox" checked={orgFields.notifyOnStart ?? true} onChange={(e) => setOrgFields((f) => ({ ...f, notifyOnStart: e.target.checked }))} />
+                    Notify members when it starts
+                  </label>
+                  {mode === "edit" ? (
+                    <label className="flex items-start gap-2 text-[13px] text-foreground">
+                      <input type="checkbox" className="mt-0.5" checked={orgFields.moveDueDates ?? false} onChange={(e) => setOrgFields((f) => ({ ...f, moveDueDates: e.target.checked }))} />
+                      <span>Move due dates too<span className="block text-[12px] text-muted-foreground">If the dates change, its assignments move by the same number of days.</span></span>
                     </label>
                   ) : null}
                 </>
