@@ -40,6 +40,9 @@ type UpdatesTabProps = {
   canManageUpdates: boolean;
   initialUpdateId?: string | null;
   initialCommentId?: string | null;
+  /** + New → Announcement from the org header (report §18.2): focus the composer once. */
+  focusComposer?: boolean;
+  onComposerFocused?: () => void;
 };
 
 const UpdateDetailPanel = dynamic(() => import('@/components/projects/updates/UpdateDetailPanel').then((mod) => mod.UpdateDetailPanel));
@@ -84,8 +87,24 @@ export default function UpdatesTab({
   canManageUpdates,
   initialUpdateId,
   initialCommentId,
+  focusComposer = false,
+  onComposerFocused,
 }: UpdatesTabProps) {
   const queryClient = useQueryClient();
+  // The composer loads lazily, so wait for its text box before focusing it.
+  useEffect(() => {
+    if (!focusComposer) return;
+    let tries = 0;
+    const timer = window.setInterval(() => {
+      const box = document.querySelector<HTMLTextAreaElement>('#project-active-tab-panel textarea');
+      if (box || ++tries > 40) {
+        window.clearInterval(timer);
+        box?.focus();
+        onComposerFocused?.();
+      }
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [focusComposer, onComposerFocused]);
   // Org feeds filter by kind (report §17.5); the plain key stays the prefix so invalidations still reach every filter.
   const [orgFilter, setOrgFilter] = useState<OrgFeedFilter>("all");
   const [orgOptions, setOrgOptions] = useState<OrgPostOptions>({});

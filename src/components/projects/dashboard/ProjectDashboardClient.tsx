@@ -42,7 +42,8 @@ import { OrgFilesPanel } from '@/components/organizations/OrgFilesPanel';
 import { OrgMembersTab } from '@/components/organizations/OrgMembersTab';
 import { ChildOrgLine, ChildUnitsLine, OrgDashboard, OrgProjectsTab } from '@/components/organizations/OrgOverviewParts';
 import { OrgInviteBanner } from '@/components/organizations/OrgInviteBanner';
-import { ChildOrgChips, OrgBreadcrumb, OrgHeaderMenu, OrgIdentityLine, OrgInviteDialog, OrgStatusBanner, OrgVisitorActions } from '@/components/organizations/OrgHeaderParts';
+import { ChildOrgChips, OrgBreadcrumb, OrgCompactMark, OrgHeaderMenu, OrgIdentityLine, OrgInviteDialog, OrgNewItems, OrgNewMenu, OrgStatusBanner, OrgVisitorActions, type OrgNewKind } from '@/components/organizations/OrgHeaderParts';
+import { readOrgTabBadgesAction, type OrgTabBadges } from '@/app/actions/assignments';
 import { isProjectPubliclyReadableVisibility } from '@/lib/projects/project-visibility';
 import { confirmFileNavigation } from '@/lib/files/unsaved-navigation';
 import { useFilesWorkspaceStore } from '@/stores/filesWorkspaceStore';
@@ -307,6 +308,9 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
     const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
     const [isOrgInviteOpen, setIsOrgInviteOpen] = useState(false);
+    // + New ▾ (report §18.2): the target tab opens its composer or modal once, then clears this.
+    const [newIntent, setNewIntent] = useState<Exclude<OrgNewKind, 'project'> | null>(null);
+    const [orgBadges, setOrgBadges] = useState<OrgTabBadges | null>(null);
     const [preselectedRoleId, setPreselectedRoleId] = useState<string | undefined>(undefined);
     const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
     const [isStageUpdating, setIsStageUpdating] = useState(false);
@@ -1089,6 +1093,26 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
     }, [moveStage]);
 
     const filesSyncStatus = extendedProject?.syncStatus;
+    // Org tab badges (report §18.3), re-read on each tab change; opening Updates clears its dot.
+    const orgIdForBadges = isOrganization && isOwnerOrMember ? project.id : null;
+    useEffect(() => {
+        if (!orgIdForBadges) return;
+        let live = true;
+        void readOrgTabBadgesAction(orgIdForBadges).then((b) => { if (live) setOrgBadges(b); });
+        return () => { live = false; };
+    }, [orgIdForBadges, activeTab]);
+    const tabBadges = useMemo(() => orgBadges ? {
+        tasks: orgBadges.tasks || undefined,
+        updates: orgBadges.updates && activeTab !== 'updates' ? 'dot' as const : undefined,
+        members: orgBadges.members || undefined,
+    } : {}, [orgBadges, activeTab]);
+    const startNew = useCallback((kind: OrgNewKind) => {
+        if (kind === 'project') return router.push(`/projects/new?org=${encodeURIComponent(project.slug ?? project.id)}`);
+        setNewIntent(kind);
+        handleTabChange(kind === 'assignment' ? 'tasks' : kind === 'announcement' ? 'updates' : 'sprints');
+    }, [handleTabChange, project.id, project.slug, router]);
+    const canStartNew = isOrganization && canManageProjectSettings && project.status !== 'archived' && !organization?.suspended;
+    const activeSprintName = (sprints as Array<{ status?: string; name?: string }>).find((s) => s.status === 'active')?.name ?? null;
     const filesSyncBadge = useFilesWorkspaceStore((s) => s.byProjectId[project.id]?.git?.syncBadge ?? null);
     // `drawerType=task&drawerId=` is the task link; `taskId` is the legacy form some old links carry.
     const initialTaskDrawerId = (searchParams?.get('drawerType') === 'task' ? searchParams.get('drawerId') : null)
@@ -1117,7 +1141,11 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
             breadcrumb={parentOrg ? <OrgBreadcrumb parentOrg={parentOrg} /> : null}
             identityExtra={parentOrg ? <ChildOrgChips parentOrg={parentOrg} visibility={project.visibility} archived={project.status === 'archived'} /> : organization ? <><OrgIdentityLine handle={project.slug ?? null} organization={organization} memberRole={isOwner ? 'owner' : (currentProjectRole as 'admin' | 'member' | 'viewer' | null) ?? null} archived={project.status === 'archived'} /><OrgStatusBanner orgId={project.id} organization={organization} isOwner={isOwner} /></> : null}
             metadataExtra={organization?.childProjectCount ? <span className="nb-compact text-muted-foreground">· {organization.childProjectCount} {organization.childProjectCount === 1 ? 'project' : 'projects'}</span> : null}
-            actionsStart={organization ? <>{!isOwnerOrMember && currentUserId ? <OrgInviteBanner orgId={project.id} /> : null}{!isOwnerOrMember && isProjectPubliclyReadableVisibility(project.visibility) && project.status !== 'archived' && !organization.suspended ? <OrgVisitorActions orgId={project.id} href={canonicalProjectHref} joinMode={organization.joinMode} requestPending={organization.viewerRequestPending} loggedIn={Boolean(currentUserId)} /> : null}{currentUserId && !isOwner ? <OrgHeaderMenu orgId={project.id} /> : null}</> : null}
+            tabBadges={tabBadges}
+            compactChip={organization ? (activeSprintName ? <span className="nb-status shrink-0" data-status="active">{activeSprintName}</span> : null) : undefined}
+            compactPrefix={parentOrg ? <OrgCompactMark parentOrg={parentOrg} /> : null}
+            compactMenuItems={canStartNew ? <OrgNewItems onNew={startNew} prefix="New " /> : null}
+            actionsStart={organization ? <>{canStartNew ? <OrgNewMenu onNew={startNew} /> : null}{!isOwnerOrMember && currentUserId ? <OrgInviteBanner orgId={project.id} /> : null}{!isOwnerOrMember && isProjectPubliclyReadableVisibility(project.visibility) && project.status !== 'archived' && !organization.suspended ? <OrgVisitorActions orgId={project.id} href={canonicalProjectHref} joinMode={organization.joinMode} requestPending={organization.viewerRequestPending} loggedIn={Boolean(currentUserId)} /> : null}{currentUserId && !isOwner ? <OrgHeaderMenu orgId={project.id} /> : null}</> : null}
             showFollow={!organization || (!isOwnerOrMember && isProjectPubliclyReadableVisibility(project.visibility))} onTabHover={handleTabHover} members={allMembers} loadingMembers={loadingMembers} stageLabel={lifecycleStageNames[optimisticStageIndex] ?? null} stageIndex={optimisticStageIndex} stageCount={lifecycleStageNames.length} applicationLabel={applicationHeaderLabel} openRolesCount={rolesWithFilled.filter((role: any) => (role?.count || 0) - (role?.filled || 0) > 0).length}>
             {!activeTab && (
                 <div className="w-full h-full min-h-[40vh] flex items-center justify-center p-8">
@@ -1179,7 +1207,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
             {activeTab === 'updates' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Updates">
-                        <UpdatesTab projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} currentUserId={currentUserId} currentUserName={currentUserName} currentUserAvatarUrl={currentUserAvatarUrl} canCreateUpdates={canCreateUpdates} canManageUpdates={canManageUpdates} initialUpdateId={searchParams?.get('updateId') || null} initialCommentId={searchParams?.get('commentId') || null} />
+                        <UpdatesTab projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} currentUserId={currentUserId} currentUserName={currentUserName} currentUserAvatarUrl={currentUserAvatarUrl} canCreateUpdates={canCreateUpdates} canManageUpdates={canManageUpdates} focusComposer={newIntent === 'announcement'} onComposerFocused={() => setNewIntent(null)} initialUpdateId={searchParams?.get('updateId') || null} initialCommentId={searchParams?.get('commentId') || null} />
                     </TabErrorBoundary>
                 </div>
             )}
@@ -1189,7 +1217,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                     <TabErrorBoundary tabName="Sprints">
                         <div className="space-y-6">
                             <Suspense fallback={<SkeletonSprints />}>
-                                <SprintPlanning projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} projectKey={project.key} isOwner={isOwner} isOwnerOrMember={isOwnerOrMember} initialSprintData={initialSprintData} />
+                                <SprintPlanning projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} projectKey={project.key} isOwner={isOwner} isOwnerOrMember={isOwnerOrMember} initialSprintData={initialSprintData} startCreate={newIntent === 'sprint'} onCreateStarted={() => setNewIntent(null)} />
                             </Suspense>
                         </div>
                     </TabErrorBoundary>
@@ -1200,7 +1228,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Tasks">
                         {/* Assignments (report §16.5) and, in child projects, the org's group copies (§16.6). */}
-                        {isOrganization ? <AssignmentsPanel orgId={project.id} onBoardChanged={() => refreshProjectData('tasks')} /> : null}
+                        {isOrganization ? <AssignmentsPanel orgId={project.id} onBoardChanged={() => refreshProjectData('tasks')} startComposing={newIntent === 'assignment'} onComposingStarted={() => setNewIntent(null)} /> : null}
                         {parentOrg ? <GroupCopiesPanel projectId={project.id} onBoardChanged={() => refreshProjectData('tasks')} /> : null}
                         <TasksTab projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} currentUserId={currentUserId || undefined} currentUserName={currentUserName} currentUserAvatarUrl={currentUserAvatarUrl} isOwner={isOwner} canEditTasks={canEditTasks} isProjectMember={isOwnerOrMember} canManageFiles={canManageFiles} canManageWorkflow={canManageProjectSettings} isChildProject={Boolean(parentOrg)} initialTasks={tasks} members={allMembers} sprints={sprints} initialOpenTaskId={initialTaskDrawerId ?? workspaceInitialTaskId} initialPanelTab={initialTaskPanelTab} initialCommentId={searchParams?.get('commentId')} initialFileId={searchParams?.get('fileId')} onInitialTaskOpened={workspaceInitialTaskId ? consumeWorkspaceTaskHandoff : undefined} />
                     </TabErrorBoundary>

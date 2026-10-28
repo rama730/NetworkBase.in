@@ -10,6 +10,8 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { ChildLeadAndUnassigned, InheritedAdminRows, UnitPeople } from '@/components/organizations/ChildTeamFields';
 import { ChildUnitsPanel } from '@/components/organizations/ChildUnitsPanel';
 import { CreateLocationProvider } from '@/components/organizations/CreateLocation';
+import ProjectLayout from '@/components/projects/dashboard/ProjectLayout';
+import { OrgNewItems, OrgNewMenu } from '@/components/organizations/OrgHeaderParts';
 
 // The org Tasks, Members, Files and Projects tabs and the sidebar tree (report §31.2 G13, G16), one per ?tab=.
 const tab = new URLSearchParams(location.search).get('tab') ?? 'members';
@@ -31,6 +33,20 @@ function Team() {
     );
 }
 
+// The org header (report §18): + New ▾, tab badges and, on Tasks, the compact bar with the active sprint chip.
+function Header() {
+    const [active, setActive] = React.useState(new URLSearchParams(location.search).get('active') ?? 'dashboard');
+    const [picked, setPicked] = React.useState<string | null>(null);
+    const project = { id: 'org', title: 'CSE-3A 2026', slug: 'cse-3a', visibility: 'org', status: 'active', tags: [], links: [] } as never;
+    return (
+        <ProjectLayout project={project} isOwner isOwnerOrMember canManageSettings isOrganization activeTab={active} onTabChange={setActive}
+            tabBadges={{ tasks: 5, updates: 'dot', members: 2 }} compactChip={<span className="nb-status shrink-0" data-status="active">CO1</span>}
+            compactMenuItems={<OrgNewItems onNew={setPicked} prefix="New " />} actionsStart={<OrgNewMenu onNew={setPicked} />} showFollow={false}>
+            <p data-testid="picked">{picked ?? 'none'}</p>
+        </ProjectLayout>
+    );
+}
+
 createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={client}>
         <main style={{ padding: 16 }}>
@@ -40,6 +56,7 @@ createRoot(document.getElementById('root')!).render(
             {tab === 'files' ? <><OrgFilesPanel projectId="child" mode="child" canCopy /><OrgFilesPanel projectId="org" mode="org-admin" canCopy={false} /></> : null}
             {tab === 'team' ? <Team /> : null}
             {tab === 'units' ? <ChildUnitsPanel projectId="child" /> : null}
+            {tab === 'header' ? <Header /> : null}
             {tab === 'sidebar' ? <nav style={{ width: 240 }}><SidebarWorkspaces data={sidebar as never} /></nav> : null}
         </main>
     </QueryClientProvider>,

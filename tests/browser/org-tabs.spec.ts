@@ -16,13 +16,13 @@ const people = `Array.from({length:12},(_,i)=>({userId:'u'+i,name:i===3?'Alexand
 test.beforeAll(async () => {
     const mocks: Record<string, string> = {
         'next/link': `import React from 'react';export default ({href,children,prefetch,...p})=>React.createElement('a',{href,...p},children);`,
-        'next/navigation': `export const usePathname=()=>'/org/cse-3a';`,
+        'next/navigation': `export const usePathname=()=>'/org/cse-3a',useRouter=()=>({refresh(){},push(){},replace(){}});`,
         '@/app/actions/org-members': `export const readOrgMembersAction=async()=>({success:true,viewerRole:'owner',joinCode:'K7M2QX',rows:${people},
             requests:[{id:'r1',userId:'x',name:'Priya Natarajan',note:'Roll 21, section B',createdAt:new Date().toISOString()}],invites:[],
             children:[{id:'c1',title:'Team Falcon',units:[{id:'un',title:'Frontend'}]}],summary:{members:12,admins:2,guests:0,behind:4,notInProject:0,inactive:0}});
             export const readMemberWorkAction=async()=>({success:true,work:[]});
             export const addMembersToChildAction=${ok},approveJoinRequestsAction=${ok},cancelOrgInviteAction=${ok},changeMemberRoleAction=${ok},declineJoinRequestAction=${ok},inviteByEmailAction=async()=>({success:true,invalid:[]}),removeMembersAction=${ok},resendOrgInviteAction=${ok},setMemberTitleAction=${ok};`,
-        '@/app/actions/organizations': `export const regenerateJoinCodeAction=async()=>({success:true,joinCode:'Q2W3E4'}),archiveChildAction=${ok},childTitleTakenAction=async()=>false;
+        '@/app/actions/organizations': `export const regenerateJoinCodeAction=async()=>({success:true,joinCode:'Q2W3E4'}),archiveChildAction=${ok},cancelJoinRequestAction=${ok},joinPublicOrgAction=${ok},childTitleTakenAction=async()=>false;
             export const listOrgRosterAction=async(orgId,q,admins)=>[['u1','Ravi Kumar','member','In Compiler Lab',['React']],['u2','Asha Nair','member',null,['Testing']],['u3','Ms. Rao','owner',null,[]]]
               .filter((p)=>!admins||p[2]!=='member').map(([userId,name,role,projectHint,skills])=>({userId,name,username:null,avatarUrl:null,title:role==='owner'?'Teacher':null,role,projectHint,skills}));
             export const listOutsidePeopleAction=async()=>[{userId:'x1',name:'Client Person',username:'client',avatarUrl:null,title:'Mentor',role:'outside',projectHint:null}];`,
@@ -43,6 +43,11 @@ test.beforeAll(async () => {
             {id:'un2',title:'Developer testing unit',count:2,filled:2,leadUserId:null,members:[{userId:'u4',name:'Meena'},{userId:'u5',name:'John'}]}],unplaced:[{userId:'u6',name:'Kiran'}]});
             export const updateUnitAction=${ok},moveMemberToUnitAction=${ok},readProjectUnitsAction=async()=>[];`,
         '@/components/messages/message-user': `export const messageUserInWindow=()=>false;`,
+        '@/app/actions/org-lifecycle': `export const restoreOrgAction=${ok};`,
+        '@/components/reports/ReportDialog': `export const ReportDialog=()=>null;`,
+        '@/components/presence/ProjectStatusControl': `export const ProjectStatusControl=()=>null;`,
+        '@/components/projects/dashboard/ProjectSocialLinksCard': `export const ProjectLinkCluster=()=>null;`,
+        '@/app/actions/presence': `const none=async()=>({success:true,data:{}});export const getPresence=none,getMyPresenceSettings=none,setMyStatus=none,clearMyStatus=none,resumeNotifications=none,setStatusVisibility=none,setShowActivity=none,getProjectStatuses=none,setProjectStatus=none;`,
         '@/app/actions/project/doc': `export const listProjectDocsAction=async()=>({success:true,docs:[]});`,
         '@/app/actions/assignments': `const counts={not_started:3,in_progress:2,submitted:4,returned:0,done:1,missing:2,excused:0,total:12};
             export const listAssignmentsAction=async()=>({success:true,isAdmin:true,timeZone:'Asia/Kolkata',rows:[
@@ -56,7 +61,7 @@ test.beforeAll(async () => {
             export const addAssignmentStepAction=${ok},excuseTeamMemberAction=${ok},moveTeamMemberAction=${ok},remindCopiesAction=async()=>({success:true,reminded:3}),readAssignmentTeamsAction=async()=>({success:true,teams:[]});
             export const readReviewQueueAction=async()=>({success:true,rows:[{copyId:'c1',masterId:'a1',title:'Lab 3 — Consensus protocols',who:'Team A',submittedBy:'Asha Nair',submittedAt:new Date(Date.now()-7200000).toISOString(),late:true},{copyId:'c2',masterId:'a1',title:'Lab 3',who:'Priya',submittedBy:null,submittedAt:new Date().toISOString(),late:false}]});`,
     };
-    const bundle = await build({ entryPoints: [path.resolve('tests/browser/org-tabs.fixture.tsx')], bundle: true, write: false, format: 'iife', platform: 'browser', define: { 'process.env.NODE_ENV': '"test"' }, plugins: [{ name: 'org-tabs-boundaries', setup(builder) {
+    const bundle = await build({ entryPoints: [path.resolve('tests/browser/org-tabs.fixture.tsx')], bundle: true, write: false, format: 'iife', platform: 'browser', define: { 'process.env.NODE_ENV': '"test"', 'process.env': '{}' }, plugins: [{ name: 'org-tabs-boundaries', setup(builder) {
         builder.onResolve({ filter: /.*/ }, args => args.path in mocks ? { path: args.path, namespace: 'fixture' } : undefined);
         builder.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ contents: mocks[args.path], resolveDir: process.cwd(), loader: 'js' }));
     } }] });
@@ -177,4 +182,24 @@ test('Assignments (§16): the review queue steps with Next; the roster has Remin
     await expect(dialog.getByText('Ravi Kumar ★', { exact: false })).toBeVisible();
     await noSideScroll(page);
     await page.screenshot({ path: test.info().outputPath('assignments-375.png') });
+});
+
+test('Org header (§18): + New ▾ by keyboard, tab badges with spoken text, and the compact bar with the sprint chip and New items on a phone', async ({ page }) => {
+    await open(page, 'header', 1280);
+    await expect(page.getByTestId('tab-badge-tasks')).toHaveText('5 waiting');
+    await expect(page.getByTestId('tab-badge-members')).toHaveText('2 waiting');
+    await expect(page.getByTestId('tab-badge-updates')).toHaveText('(new)');
+    await page.getByTestId('org-new-menu').focus();
+    await page.keyboard.press('Enter');
+    await page.getByRole('menuitem', { name: 'Announcement' }).click();
+    await expect(page.getByTestId('picked')).toHaveText('announcement');
+
+    await open(page, 'header&active=tasks');
+    await expect(page.getByText('CO1')).toBeVisible();
+    await page.getByRole('button', { name: 'Project actions' }).click();
+    await expect(page.getByRole('menuitem', { name: 'New Sprint' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Org overview' })).toBeVisible();
+    await page.getByRole('menuitem', { name: 'New Sprint' }).click();
+    await expect(page.getByTestId('picked')).toHaveText('sprint');
+    await noSideScroll(page);
 });

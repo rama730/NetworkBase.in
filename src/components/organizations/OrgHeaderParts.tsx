@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
-import { Archive, Building2, Flag, MoreHorizontal, UserPlus } from 'lucide-react'
+import { Archive, Building2, ChevronDown, Flag, FolderKanban, IterationCcw, ListTodo, Megaphone, MoreHorizontal, Plus, UserPlus } from 'lucide-react'
 
 import { cancelJoinRequestAction, joinPublicOrgAction, regenerateJoinCodeAction } from '@/app/actions/organizations'
 import { restoreOrgAction } from '@/app/actions/org-lifecycle'
@@ -209,4 +209,36 @@ export function OrgHeaderMenu({ orgId }: { orgId: string }) {
             {open ? <ReportDialog kind="project" targetId={orgId} noun="organization" open={open} onOpenChange={setOpen} /> : null}
         </>
     )
+}
+
+export type OrgNewKind = 'assignment' | 'announcement' | 'sprint' | 'project'
+const NEW_ITEMS: Array<{ kind: OrgNewKind; label: string; icon: typeof Plus }> = [
+    { kind: 'assignment', label: 'Assignment', icon: ListTodo },
+    { kind: 'announcement', label: 'Announcement', icon: Megaphone },
+    { kind: 'sprint', label: 'Sprint', icon: IterationCcw },
+    { kind: 'project', label: 'Project', icon: FolderKanban },
+]
+
+/** The New items, for the header menu and the mobile ⋯ menu (report §18.2, §18.7). */
+export function OrgNewItems({ onNew, prefix = '' }: { onNew: (kind: OrgNewKind) => void; prefix?: string }) {
+    return <>{NEW_ITEMS.map(({ kind, label, icon: Icon }) => <DropdownMenuItem key={kind} onSelect={() => onNew(kind)}><Icon className="size-4" aria-hidden="true" />{prefix}{label}</DropdownMenuItem>)}</>
+}
+
+/** Admins' + New ▾: each item opens the existing composer or modal (report §18.2). */
+export function OrgNewMenu({ onNew }: { onNew: (kind: OrgNewKind) => void }) {
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button size="sm" data-testid="org-new-menu"><Plus className="size-4" aria-hidden="true" />New<ChevronDown className="size-3.5" aria-hidden="true" /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48"><OrgNewItems onNew={onNew} /></DropdownMenuContent>
+        </DropdownMenu>
+    )
+}
+
+/** The child's compact bar on phones: the org's small logo before the project name (report §18.7). */
+export function OrgCompactMark({ parentOrg }: { parentOrg: ParentOrgLink }) {
+    return parentOrg.coverImage
+        ? <img src={parentOrg.coverImage} alt={parentOrg.title} className="size-4 shrink-0 rounded-[3px] object-cover" />
+        : <Building2 className="size-4 shrink-0 text-muted-foreground" aria-label={parentOrg.title} />
 }
