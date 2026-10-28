@@ -150,3 +150,29 @@ test("Also share in #general posts a live card; each viewer sees what they may, 
   const staff = (await cards.hydrateCards(o.admin, [{ kind: "assignment", ref_id: master!.id }]))[`assignment:${master!.id}`] as { counts: { submitted: number; total: number } };
   assert.deepEqual([staff.counts.submitted, staff.counts.total], [1, 2]);
 });
+
+test("§25 pass: #general starts at the org's notify default; an archived child's channels are read-only; group copies post in the child channel", async () => {
+  const edu = await org("education");
+  const general = await defaultChannel(edu.orgId);
+  assert.equal(await inChannel(general.id, edu.b), "mentions", "Education defaults to Mentions");
+  const company = await org("company");
+  assert.equal(await inChannel((await defaultChannel(company.orgId)).id, company.b), "all");
+  const late = await sql.begin((tx) => createUser(tx));
+  await sql`UPDATE projects SET org_settings = coalesce(org_settings, '{}'::jsonb) || '{"generalNotify":"all"}'::jsonb WHERE id = ${edu.orgId}`;
+  await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${edu.orgId}, ${late}, 'member')`;
+  await sync(edu.orgId, late);
+  assert.equal(await inChannel(general.id, late), "all", "the setting applies to people joining from now on");
+
+  const lab = await defaultChannel(edu.child);
+  await sql`UPDATE projects SET status = 'archived' WHERE id = ${edu.child}`;
+  await assert.rejects(sql`INSERT INTO chat_messages (channel_id, author_id, kind, body, channel_seq) VALUES (${lab.id}, ${edu.a}, 'user', 'hi', 999999)`, /chat_org_read_only/);
+  await sql`UPDATE projects SET status = 'active' WHERE id = ${edu.child}`;
+
+  const notify = await loadAppModule(() => import("../../src/lib/organizations/assignment-notify"));
+  const [m] = await sql`INSERT INTO tasks (project_id, title, kind, creator_id, assignment_settings) VALUES (${edu.orgId}, 'Mini-project proposal', 'assignment', ${edu.owner},
+    ${sql.json({ version: 1, submissionType: "none", reviewRequired: false, lateRule: "none", target: { mode: "each_child" }, publishedAt: new Date().toISOString(), closedAt: null })}) RETURNING id`;
+  await sql`INSERT INTO tasks (project_id, title, kind, assignment_id, assignee_id, creator_id) VALUES (${edu.child}, 'Mini-project proposal', 'task', ${m!.id}, ${edu.a}, ${edu.owner})`;
+  await notify.notifyAssignmentPublished(m!.id, edu.owner);
+  const posted = await sql`SELECT body FROM chat_messages WHERE channel_id = ${lab.id} AND kind = 'system' ORDER BY channel_seq DESC LIMIT 3`;
+  assert.ok(posted.some((p) => String(p.body).includes("CSE-3A assigned Mini-project proposal")), JSON.stringify(posted));
+});

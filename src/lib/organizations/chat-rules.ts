@@ -9,10 +9,12 @@ export function defaultChannelName(handleOrTitle: string | null, isChild: boolea
 
 /** Org chat settings with their type defaults (report §25.4): Education keeps channel creation for admins. */
 export function orgChatSettings(orgSettings: unknown, orgType: string | null) {
-  const s = (orgSettings && typeof orgSettings === "object" ? orgSettings : {}) as { membersCreateChannels?: unknown; generalAdminsOnly?: unknown };
+  const s = (orgSettings && typeof orgSettings === "object" ? orgSettings : {}) as { membersCreateChannels?: unknown; generalAdminsOnly?: unknown; generalNotify?: unknown };
   return {
     membersCreateChannels: typeof s.membersCreateChannels === "boolean" ? s.membersCreateChannels : orgType !== "education",
     generalAdminsOnly: s.generalAdminsOnly === true,
+    // New members' #general notify level (0261 applies it on join): Mentions for Education, All otherwise.
+    generalNotify: s.generalNotify === "all" || s.generalNotify === "mentions" ? s.generalNotify : orgType === "education" ? "mentions" as const : "all" as const,
   };
 }
 

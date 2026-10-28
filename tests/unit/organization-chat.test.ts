@@ -11,9 +11,9 @@ test("a child project's default channel is its handle; others stay #general", ()
 });
 
 test("org chat settings default by type: Education keeps channel creation for admins", () => {
-  assert.deepEqual(orgChatSettings({}, "education"), { membersCreateChannels: false, generalAdminsOnly: false });
-  assert.deepEqual(orgChatSettings({}, "company"), { membersCreateChannels: true, generalAdminsOnly: false });
-  assert.deepEqual(orgChatSettings({ membersCreateChannels: true, generalAdminsOnly: true }, "education"), { membersCreateChannels: true, generalAdminsOnly: true });
+  assert.deepEqual(orgChatSettings({}, "education"), { membersCreateChannels: false, generalAdminsOnly: false, generalNotify: "mentions" });
+  assert.deepEqual(orgChatSettings({}, "company"), { membersCreateChannels: true, generalAdminsOnly: false, generalNotify: "all" });
+  assert.deepEqual(orgChatSettings({ membersCreateChannels: true, generalAdminsOnly: true, generalNotify: "all" }, "education"), { membersCreateChannels: true, generalAdminsOnly: true, generalNotify: "all" });
 });
 
 test("child projects live inside their org's workspace; outside people see theirs as a Guest workspace", () => {

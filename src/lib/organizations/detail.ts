@@ -42,7 +42,7 @@ export type OrgDetail = {
   /** Settings → Work with the type defaults (report §21.2 #5, §21.5). */
   work: OrgWork;
   /** Chat rules as stored (report §25.4); read with orgChatSettings for type defaults. */
-  chat: { membersCreateChannels?: boolean; generalAdminsOnly?: boolean };
+  chat: { membersCreateChannels?: boolean; generalAdminsOnly?: boolean; generalNotify?: string };
   adminDigest: "daily" | "instant";
   /** Org Settings → Updates (report §17.10). */
   announcementNotify: "in_app" | "email";
@@ -124,7 +124,7 @@ export async function readOrgDetail(
     adminDigest: (settings as { adminDigest?: string }).adminDigest === "instant" ? "instant" : "daily",
     announcementNotify: (settings as { announcementNotify?: string }).announcementNotify === "email" ? "email" : "in_app",
     replyRule: (settings as { replyRule?: string }).replyRule === "logged_in" ? "logged_in" : "members",
-    chat: { membersCreateChannels: (settings as { membersCreateChannels?: boolean }).membersCreateChannels, generalAdminsOnly: (settings as { generalAdminsOnly?: boolean }).generalAdminsOnly },
+    chat: { membersCreateChannels: (settings as { membersCreateChannels?: boolean }).membersCreateChannels, generalAdminsOnly: (settings as { generalAdminsOnly?: boolean }).generalAdminsOnly, generalNotify: (settings as { generalNotify?: string }).generalNotify },
     visibilityCap: readOrgRules(settings).visibilityCap,
     termStart: org.termStart,
     termEnd: org.termEnd,

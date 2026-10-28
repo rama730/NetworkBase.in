@@ -497,6 +497,10 @@ export function ConversationView({ channelId, around = null, surface = "page", o
     shell.refresh();
     return true;
   };
+  const placeProject = channel?.project_id && !isApplication ? shell.data?.projects?.find((p) => p.id === channel.project_id) ?? null : null;
+  const orgPlace = placeProject && (placeProject.kind === "organization" || placeProject.parent_id)
+    ? { title: placeProject.title, href: `/${placeProject.kind === "organization" ? "org" : "projects"}/${encodeURIComponent(placeProject.slug ?? placeProject.id)}` }
+    : null;
   const exit = useConversationExit({ id: channelId, project_id: channel?.project_id ?? null, kind: channel?.kind ?? "public", name: channel?.name ?? null });
   // In the window, a conversation you close or leave drops back to the list.
   const closeConversation = async () => {
@@ -662,6 +666,12 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                     {notifyMenu}
                   </DropdownMenuContent>
                 </DropdownMenu>
+              ) : null}
+              {/* Org #general and child project channels link to their page (report §25.5): "Open Compiler Lab →". */}
+              {orgPlace ? (
+                <Link href={orgPlace.href} className="nb-ui-label hidden shrink-0 items-center px-2 text-[13px] text-primary hover:underline sm:inline-flex" data-testid="channel-open-project">
+                  Open {orgPlace.title} →
+                </Link>
               ) : null}
               {isMember ? (
                 <Link href={`/messages/search?in=${channelId}`} className={`${headerButton} hidden sm:inline-flex`} aria-label={`Search in ${displayName}`} title={`Search in ${displayName}`}>

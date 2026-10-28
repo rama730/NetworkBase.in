@@ -23,7 +23,7 @@ async function orgAdmin(orgId: string, mode: 'read' | 'write' = 'write') {
     return access.project?.kind === 'organization' && (access.isOwner || access.memberRole === 'admin') ? { userId, slug: access.project.slug ?? null } : null;
 }
 
-const settingsSchema = z.object({ generalAdminsOnly: z.boolean().optional(), membersCreateChannels: z.boolean().optional() }).strict();
+const settingsSchema = z.object({ generalAdminsOnly: z.boolean().optional(), membersCreateChannels: z.boolean().optional(), generalNotify: z.enum(['all', 'mentions']).optional() }).strict();
 
 /** Settings → Updates & messages (report §25.4): who posts in #general, whether members create org channels. */
 export async function updateOrgChatSettingsAction(orgId: string, patch: z.input<typeof settingsSchema>): Promise<{ success: true } | Failure> {

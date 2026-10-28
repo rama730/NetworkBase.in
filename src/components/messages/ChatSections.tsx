@@ -432,7 +432,7 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
   const canManage = open?.role === "owner" || open?.role === "admin";
   // Only with a project open: in All projects every project's count is already on screen.
   const otherUnread = open ? projects.reduce((sum, project) => sum + (project.id === open.id ? 0 : badges.get(project.id) ?? 0), 0) : 0;
-  const projectHref = open ? `/projects/${open.slug ?? open.id}` : "";
+  const projectHref = open ? `/${open.kind === "organization" ? "org" : "projects"}/${open.slug ?? open.id}` : "";
   const shortcutHint = useSyncExternalStore(noSubscribe, () => modKeyHint().replace("K", "/"), () => "⌘/");
 
   return (
