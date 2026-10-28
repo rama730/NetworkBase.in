@@ -1,5 +1,5 @@
 import { validateCsrf } from "@/lib/security/csrf";
-import { resolvePasswordCredentialState } from "@/lib/auth/account-identity";
+import { isFreshlyVerified } from "@/lib/security/fresh-verification";
 import {
   enforceRouteLimit,
   getRequestId,
@@ -11,13 +11,23 @@ import {
 } from "@/app/api/v1/_shared";
 import { logger } from "@/lib/logger";
 import { getProtectedRecoveryCodes } from "@/lib/services/profile-service";
-import { getLatestPasswordChangeAt, recordSecurityEvent } from "@/lib/security/audit";
+import { recordSecurityEvent } from "@/lib/security/audit";
 import { getVerifiedTotpFactors, listSecurityMfaFactors } from "@/lib/security/mfa";
 import { countRemainingRecoveryCodes } from "@/lib/security/recovery-codes";
-import { countOtherActiveSessions, listActiveSessions, listActiveSessionsPage } from "@/lib/security/session-activity";
+import {
+  countOtherActiveSessions,
+  listActiveSessions,
+  listActiveSessionsPage,
+  revokeActiveSession,
+  dismissLoginHistoryEntry,
+  clearAllLoginHistory,
+} from "@/lib/security/session-activity";
 import { resolveCurrentSessionRowId } from "@/lib/security/session-current";
 import { resolveSecurityStepUp } from "@/lib/security/step-up";
+import { revokeAllExtensionSessionsForUser } from "@/lib/security/extension-token-revocation";
+import { queueSecurityEmail } from "@/lib/email/security-queue";
 import { buildSecurityStepUpMethods } from "@/lib/security/step-up-methods";
+import { isLooseUuid } from "@/lib/validations/uuid";
 
 type SessionPayload = {
   id: string;
@@ -113,6 +123,14 @@ export async function GET(request: Request) {
   }
 }
 
+/** Null once the person has verified this device recently; otherwise the 403 that asks for it. */
+async function requireFreshVerification(
+  supabase: Awaited<ReturnType<typeof requireAuthenticatedUser>>["supabase"],
+  user: NonNullable<Awaited<ReturnType<typeof requireAuthenticatedUser>>["user"]>,
+) {
+  return (await isFreshlyVerified(supabase, user)) ? null : jsonError("Verify this device first", 403, "STEP_UP_REQUIRED");
+}
+
 async function deleteSession(request: Request, id: string) {
   const startedAt = Date.now();
   const requestId = getRequestId(request);
@@ -165,6 +183,8 @@ async function deleteSession(request: Request, id: string) {
     });
     return jsonError("Not authenticated", 401, "UNAUTHORIZED");
   }
+  // Signing devices out is the person's own act, from a browser: an editor token cannot do it.
+  if (auth.extensionSessionId) return jsonError("This needs a browser session", 403, "FORBIDDEN");
 
   const {
     data: { session },
@@ -180,54 +200,120 @@ async function deleteSession(request: Request, id: string) {
     );
   }
 
-  if (id !== resolvedCurrentSessionId) {
-    logApiRoute(request, {
-      requestId,
-      action: "sessions.delete",
-      userId: auth.user.id,
-      startedAt,
-      success: false,
-      status: 404,
-      errorCode: "NOT_FOUND",
-    });
-    return jsonError("Session not found", 404, "NOT_FOUND");
-  }
-
-  try {
-    const result = await auth.supabase.auth.signOut({ scope: "local" });
-    if (result.error) {
+  if (id === resolvedCurrentSessionId) {
+    try {
+      const result = await auth.supabase.auth.signOut({ scope: "local" });
+      if (result.error) {
+        logApiRoute(request, {
+          requestId,
+          action: "sessions.delete",
+          userId: auth.user.id,
+          startedAt,
+          success: false,
+          status: 400,
+          errorCode: "SESSION_REVOKE_FAILED",
+        });
+        return jsonError("Failed to revoke session", 400, "SESSION_REVOKE_FAILED");
+      }
+      logApiRoute(request, {
+        requestId,
+        action: "sessions.delete",
+        userId: auth.user.id,
+        startedAt,
+        success: true,
+        status: 200,
+      });
+      return jsonSuccess(undefined, "Session revoked");
+    } catch (error) {
+      logger.error("[api/v1/sessions] delete failed", { module: 'api', error: error instanceof Error ? error.message : String(error) });
       logApiRoute(request, {
         requestId,
         action: "sessions.delete",
         userId: auth.user.id,
         startedAt,
         success: false,
-        status: 400,
-        errorCode: "SESSION_REVOKE_FAILED",
+        status: 500,
+        errorCode: "INTERNAL_ERROR",
       });
-      return jsonError("Failed to revoke session", 400, "SESSION_REVOKE_FAILED");
+      return jsonError("Failed to revoke session", 500, "INTERNAL_ERROR");
     }
+  }
+
+  // Revoking a remote device session
+  try {
+    const revoked = await revokeActiveSession(auth.user.id, id);
+    // Not one of this person's sessions (or already gone): nothing was signed out, so nothing is recorded.
+    if (!revoked) return jsonError("Session not found", 404, "NOT_FOUND");
+    await recordSecurityEvent({
+      userId: auth.user.id,
+      eventType: "other_sessions_revoked",
+      request,
+      metadata: {
+        revokedCount: 1,
+        targetSessionId: id,
+      },
+    });
+
     logApiRoute(request, {
       requestId,
-      action: "sessions.delete",
+      action: "sessions.delete.remote",
       userId: auth.user.id,
       startedAt,
       success: true,
       status: 200,
     });
-    return jsonSuccess(undefined, "Session revoked");
+    return jsonSuccess(undefined, "Device signed out successfully");
   } catch (error) {
-    logger.error("[api/v1/sessions] delete failed", { module: 'api', error: error instanceof Error ? error.message : String(error) });
+    logger.error("[api/v1/sessions] delete remote session failed", { module: "api", error: error instanceof Error ? error.message : String(error) });
     logApiRoute(request, {
       requestId,
-      action: "sessions.delete",
+      action: "sessions.delete.remote",
       userId: auth.user.id,
       startedAt,
       success: false,
       status: 500,
       errorCode: "INTERNAL_ERROR",
     });
-    return jsonError("Failed to revoke session", 500, "INTERNAL_ERROR");
+    return jsonError("Failed to sign out remote device", 500, "INTERNAL_ERROR");
+  }
+}
+
+async function deleteLoginHistory(request: Request, target: "all" | string) {
+  const startedAt = Date.now();
+  const requestId = getRequestId(request);
+  const csrfError = validateCsrf(request);
+  if (csrfError) return csrfError;
+
+  const auth = await requireAuthenticatedUser();
+  if (auth.response) return auth.response;
+  if (!auth.user) return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+  // History is the evidence of a break-in: a stolen editor token must not be able to erase it.
+  if (auth.extensionSessionId) return jsonError("This needs a browser session", 403, "FORBIDDEN");
+  const historyLimit = await enforceRouteLimit(request, "api:v1:sessions:history-delete", 30, 60, "default", auth.user.id);
+  if (historyLimit) return historyLimit;
+
+  try {
+    if (target === "all") {
+      // Wiping all of it needs the same fresh check as signing every other device out.
+      const verification = await requireFreshVerification(auth.supabase, auth.user);
+      if (verification) return verification;
+      await clearAllLoginHistory(auth.user.id);
+    } else {
+      await dismissLoginHistoryEntry(auth.user.id, target);
+    }
+
+    logApiRoute(request, {
+      requestId,
+      action: "sessions.history.delete",
+      userId: auth.user.id,
+      startedAt,
+      success: true,
+      status: 200,
+    });
+    return jsonSuccess(undefined, target === "all" ? "Sign-in history cleared" : "Sign-in entry removed");
+  } catch (error) {
+    logger.error("[api/v1/sessions] delete history failed", { module: "api", error: error instanceof Error ? error.message : String(error) });
+    return jsonError("Failed to update sign-in history", 500, "INTERNAL_ERROR");
   }
 }
 
@@ -284,34 +370,21 @@ async function deleteOtherSessions(request: Request) {
     });
     return jsonError("Not authenticated", 401, "UNAUTHORIZED");
   }
+  if (auth.extensionSessionId) return jsonError("This needs a browser session", 403, "FORBIDDEN");
 
   try {
-    const factors = await listSecurityMfaFactors(auth.supabase);
-    const hasVerifiedTotp = getVerifiedTotpFactors(factors).length > 0;
-    const remainingRecoveryCodes = countRemainingRecoveryCodes(
-      (await getProtectedRecoveryCodes(user.id, { authorized: true }))?.securityRecoveryCodes ?? [],
-    );
-    const passwordLastChangedAt = await getLatestPasswordChangeAt(user.id);
-    const availableMethods = buildSecurityStepUpMethods({
-      hasTotp: hasVerifiedTotp,
-      hasRecoveryCodes: remainingRecoveryCodes > 0,
-      hasPassword: resolvePasswordCredentialState(user, passwordLastChangedAt),
-    });
-
-    if (availableMethods.length > 0) {
-      const stepUp = await resolveSecurityStepUp(user.id, availableMethods);
-      if (!stepUp.ok) {
-        logApiRoute(request, {
-          requestId,
-          action: "sessions.deleteOthers",
-          userId: user.id,
-          startedAt,
-          success: false,
-          status: 403,
-          errorCode: "STEP_UP_REQUIRED",
-        });
-        return jsonError("Verify this device before logging out other devices", 403, "STEP_UP_REQUIRED");
-      }
+    const verification = await requireFreshVerification(auth.supabase, user);
+    if (verification) {
+      logApiRoute(request, {
+        requestId,
+        action: "sessions.deleteOthers",
+        userId: user.id,
+        startedAt,
+        success: false,
+        status: 403,
+        errorCode: "STEP_UP_REQUIRED",
+      });
+      return verification;
     }
 
     const {
@@ -342,6 +415,10 @@ async function deleteOtherSessions(request: Request) {
         revokedCount,
       },
     });
+    // Editor tokens are sessions too: "other devices" includes the ones in editors.
+    await revokeAllExtensionSessionsForUser(user.id).catch((error: unknown) =>
+      logger.warn("sessions.extension_revoke_failed", { module: "api", error: error instanceof Error ? error.message : String(error) }));
+    await queueSecurityEmail(user.id, "security_sessions_revoked", { detail: String(revokedCount) });
 
     logApiRoute(request, {
       requestId,
@@ -369,8 +446,15 @@ async function deleteOtherSessions(request: Request) {
 
 export async function DELETE(request: Request) {
   const params = new URL(request.url).searchParams;
-  if (params.get("scope") === "others") return deleteOtherSessions(request);
+  const scope = params.get("scope");
+  if (scope === "others") return deleteOtherSessions(request);
+  if (scope === "history_all") return deleteLoginHistory(request, "all");
+  if (scope === "history") {
+    const id = params.get("id");
+    if (!id || !isLooseUuid(id)) return jsonError("Valid session id is required", 400, "BAD_REQUEST");
+    return deleteLoginHistory(request, id);
+  }
   const id = params.get("id");
-  if (!id) return jsonError("Session id is required", 400, "BAD_REQUEST");
+  if (!id || !isLooseUuid(id)) return jsonError("Valid session id is required", 400, "BAD_REQUEST");
   return deleteSession(request, id);
 }

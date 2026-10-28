@@ -11,6 +11,9 @@ import { recordSecurityEvent } from '@/lib/security/audit'
 import { queueSecurityEmail } from '@/lib/email/security-queue'
 import { getLegalAcceptanceState } from '@/lib/legal/acceptance'
 import { githubOAuthFailureCode } from '@/lib/github/oauth-errors'
+import { getSessionIdentifierFromSession } from '@/lib/auth/session-identifier'
+import { getTrustedRequestIp } from '@/lib/security/request-ip'
+import { enrichSessionDeviceInfo } from '@/lib/security/session-activity'
 
 export async function GET(request: Request) {
     const startedAt = Date.now()
@@ -125,6 +128,15 @@ export async function GET(request: Request) {
         phase: hardeningPhase,
     })
 
+    const exchangedSessionId = data?.session ? getSessionIdentifierFromSession(data.session) : null
+    if (exchangedSessionId) {
+        const incomingUa = request.headers.get('user-agent')
+        const incomingIp = getTrustedRequestIp(request)
+        if (incomingUa) {
+            enrichSessionDeviceInfo(exchangedSessionId, incomingUa, incomingIp).catch(() => null)
+        }
+    }
+
     let destinationPath = nextPath
     try {
         const requestedUrl = new URL(nextPath, baseUrl)
@@ -215,9 +227,18 @@ export async function GET(request: Request) {
             // Next.js after() ensures contributor identity enrichment and audit logging
             // do not block the OAuth HTTP redirect back to the user's browser.
             const isReplaced = successUrl.searchParams.get('githubIdentity') === 'replaced'
+            const isLinked = successUrl.searchParams.get('githubIdentity') === 'linked'
             after(async () => {
                 try {
                     const contributorIdentity = await ensureDefaultGithubContributorIdentity(expectedUser.id, providerToken)
+                    // Adding or swapping a way to sign in is worth an email as well as a log line.
+                    if (isLinked || isReplaced) {
+                        await queueSecurityEmail(expectedUser.id, 'security_sign_in_method_changed', { detail: isReplaced ? 'The linked GitHub account was replaced' : 'GitHub was connected' })
+                    }
+                    if (isLinked) {
+                        await recordSecurityEvent({ userId: expectedUser.id, eventType: 'sign_in_method_linked', request, metadata: { provider: 'github', githubLogin: contributorIdentity.login } })
+                            .catch((auditError) => logger.warn('github.account.link.audit_failed', { requestId, userId: expectedUser.id, error: auditError instanceof Error ? auditError.message : String(auditError) }))
+                    }
                     if (isReplaced) {
                         await recordSecurityEvent({
                             userId: expectedUser.id,
@@ -227,22 +248,9 @@ export async function GET(request: Request) {
                                 githubId: contributorIdentity.githubId,
                                 githubLogin: contributorIdentity.login,
                             },
-            const isLinked = successUrl.searchParams.get('githubIdentity') === 'linked'
                         }).catch((auditError) => {
                             logger.warn('github.account.replacement.audit_failed', {
                                 requestId,
-                    // Adding or swapping a way to sign in is worth an email as well as a log line.
-                    if (isLinked || isReplaced) {
-                        await queueSecurityEmail(expectedUser.id, 'security_sign_in_method_changed', { detail: isReplaced ? 'The linked GitHub account was replaced' : 'GitHub was connected' })
-                    }
-                    if (isLinked) {
-                        await recordSecurityEvent({ userId: expectedUser.id, eventType: 'sign_in_method_linked', request, metadata: { provider: 'github', githubLogin: contributorIdentity.login } })
-                            .catch((auditError) => logger.warn('github.account.link.audit_failed', { requestId, userId: expectedUser.id, error: auditError instanceof Error ? auditError.message : String(auditError) }))
-                    }
-                    // Adding or swapping a way to sign in is worth an email as well as a log line.
-                    if (isLinked || isReplaced) {
-                        await queueSecurityEmail(expectedUser.id, 'security_sign_in_method_changed', { detail: isReplaced ? 'The linked GitHub account was replaced' : 'GitHub was connected' })
-                    }
                                 userId: expectedUser.id,
                                 error: auditError instanceof Error ? auditError.message : String(auditError),
                             })
@@ -276,3 +284,6 @@ export async function GET(request: Request) {
             }
         })
     }
+    response.headers.set('x-request-id', requestId)
+    return response
+}

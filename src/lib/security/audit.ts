@@ -192,3 +192,34 @@ export async function getLatestPasswordChangeAt(userId: string): Promise<string 
 
   return latest?.createdAt.toISOString();
 }
+
+export async function deleteSecurityActivityEntry(
+  userId: string,
+  activityId: string,
+): Promise<boolean> {
+  await db
+    .delete(profileAuditEvents)
+    .where(
+      and(
+        eq(profileAuditEvents.userId, userId),
+        eq(profileAuditEvents.id, activityId),
+        // Only entries the Security tab shows: not the privacy, blocking or other audit records that share the table.
+        inArray(profileAuditEvents.eventType, [...SECURITY_ACTIVITY_EVENT_TYPES]),
+      ),
+    );
+  return true;
+}
+
+export async function clearAllSecurityActivity(
+  userId: string,
+): Promise<boolean> {
+  await db
+    .delete(profileAuditEvents)
+    .where(
+      and(
+        eq(profileAuditEvents.userId, userId),
+        inArray(profileAuditEvents.eventType, [...SECURITY_ACTIVITY_EVENT_TYPES]),
+      ),
+    );
+  return true;
+}
