@@ -1,17 +1,21 @@
 {
   "id": "impact-2026-10-28-settings-hardening",
-  "title": "Settings: account-protection fixes and a hash-addressed settings document",
-  "summary": "Ends editor tokens on password change and deletion, requires the authenticator for destructive actions when one exists, fixes the step-up dialog and no-method dead ends, makes notification preference saves merge-only under a row lock, keeps error states honest (no defaults saved over real settings), adds a deletion preflight and manual-token step-up, and turns the Settings nav into hash anchors with observers.",
+  "title": "Settings: account-protection fixes, security emails, and a hash-addressed settings document",
+  "summary": "Ends editor tokens on password change and deletion, requires the authenticator for destructive actions when one exists, fixes the step-up dialog and no-method dead ends, makes notification preference saves merge-only under a row lock, keeps error states honest (no defaults saved over real settings), adds a deletion preflight and manual-token step-up, and turns the Settings nav into hash anchors with observers. Adds eight account-security email kinds on the email outbox (migration 0253), a daily deletion-reminder job, disconnecting sign-in methods with fresh verification, authoritative password state from the stored credential, and more audit events.",
   "riskLevel": "high",
   "runtimePlanes": [
-    "request",
-    "database"
+    "database",
+    "ops",
+    "request"
   ],
   "routeClasses": [
     "active_surface"
   ],
   "dataSourcesChanged": [
+    "account_deletions",
+    "email_outbox",
     "extension_device_sessions",
+    "profile_audit_events",
     "profiles",
     "project_members"
   ],
@@ -22,15 +26,18 @@
   "observability": {
     "metrics": [],
     "logs": [
-      "extension.token_created",
-      "settings.integrations.read_failed",
       "account.deletion-preflight.failed",
+      "email.security_queue_failed",
+      "extension.token_created",
+      "integrations.unlink_failed",
+      "security.audit.from_headers_failed",
+      "settings.integrations.read_failed",
       "settings.render_failed"
     ],
     "alerts": []
   },
   "rollback": {
-    "strategy": "Revert the commit. No migration is involved: revoked tokens stay revoked (the person signs the editor in again), and saved preferences keep their shape.",
+    "strategy": "Revert the commits. Migration 0253 only widens a CHECK constraint on email_outbox.kind: if it was applied, leaving it in place is harmless. Revoked editor tokens stay revoked (sign the editor in again); saved preferences keep their shape.",
     "validation": [
       "npm run typecheck",
       "npm run test:unit",
@@ -42,7 +49,8 @@
       "npm run typecheck",
       "npx tsx --test tests/unit/settings-primitives.test.ts tests/unit/notification-preferences-merge.test.ts tests/unit/settings-navigation-loading.test.ts",
       "npm run test:db -- tests/db/extension-token-revocation.test.ts",
-      "npx playwright test --config tests/browser/playwright.config.ts settings.spec.ts"
+      "npx playwright test --config tests/browser/playwright.config.ts settings.spec.ts",
+      "npm run test:db -- tests/db/account-deletion-reminders.test.ts tests/db/password-state.test.ts tests/db/account-export.test.ts"
     ],
     "reports": []
   },
@@ -57,6 +65,17 @@
     "src/app/actions/notifications.ts",
     "src/app/actions/extension-sessions.ts",
     "standards/impact-reviews/settings-hardening.json",
-    "tests/db/extension-token-revocation.test.ts"
+    "tests/db/extension-token-revocation.test.ts",
+    "src/app/api/v1/sessions",
+    "src/app/api/v1/security",
+    "src/app/api/v1/auth",
+    "src/lib/security",
+    "src/lib/account",
+    "src/lib/email",
+    "src/inngest",
+    "drizzle/0253_security_email_kinds.sql",
+    "tests/db/account-deletion-reminders.test.ts",
+    "tests/db/password-state.test.ts",
+    "tests/db/account-export.test.ts"
   ]
 }

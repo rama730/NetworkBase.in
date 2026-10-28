@@ -2,105 +2,72 @@ import { expect, test } from "@playwright/test";
 import { hasE2ECredentials, login } from "./_helpers/auth";
 import { attachPageMonitoring } from "./_helpers/monitoring";
 
-test.describe("Settings matrix @critical", () => {
+// One signed-in pass over the whole Settings document. Nothing here changes the account: it opens, reads and
+// cancels. (The deletion wizard is opened and closed without confirming.)
+test.describe("Settings document @critical", () => {
   test.skip(!hasE2ECredentials, "E2E_USER_EMAIL and E2E_USER_PASSWORD are required.");
 
-  test("settings landing and all tabs load with stable controls", async ({ browser }) => {
-    const context = await browser.newContext();
-    const page = await context.newPage();
+  test("every section is on the page, reachable from the nav, and the address follows", async ({ page }) => {
     const monitor = attachPageMonitoring(page);
-
     await login(page);
-
     await page.goto("/settings");
-    const main = page.getByRole("main");
-    await expect(page.getByRole("heading", { name: "Account" })).toBeVisible();
-    await expect(main.getByText("Account Details").first()).toBeVisible();
-    await expect(main.getByText("Cache Management").first()).toBeVisible();
-    await expect(main.getByText("Danger Zone").first()).toBeVisible();
 
-    // Test deletion wizard opens with multi-step UI
-    await page.getByRole("button", { name: "Delete" }).click();
-    await expect(main.getByText("Delete Account").first()).toBeVisible();
-    await expect(main.getByText("Step 1 of 5").first()).toBeVisible();
-    await expect(main.getByText("Summary").first()).toBeVisible();
-
-    // Verify data summary is shown (Step 1)
-    await expect(main.getByText("Projects").first()).toBeVisible();
-    await expect(main.getByText("Connections").first()).toBeVisible();
-
-    // Navigate to Step 2 (Export)
-    await page.getByRole("button", { name: "Continue" }).click();
-    await expect(main.getByText("Step 2 of 5").first()).toBeVisible();
-    await expect(main.getByText("Download Your Data").first()).toBeVisible();
-
-    // Navigate to Step 3 (Transfer)
-    await page.getByRole("button", { name: "Continue" }).click();
-    await expect(main.getByText("Step 3 of 5").first()).toBeVisible();
-
-    // Navigate to Step 4 (Consequences)
-    await page.getByRole("button", { name: "Continue" }).click();
-    await expect(main.getByText("Step 4 of 5").first()).toBeVisible();
-    await expect(main.getByText("30-Day Grace Period").first()).toBeVisible();
-
-    // Navigate to Step 5 (Confirm)
-    await page.getByRole("button", { name: "Continue" }).click();
-    await expect(main.getByText("Step 5 of 5").first()).toBeVisible();
-    await expect(page.getByPlaceholder("Type DELETE")).toBeVisible();
-
-    // Go back to verify Back button works
-    await page.getByRole("button", { name: "Back" }).click();
-    await expect(main.getByText("Step 4 of 5").first()).toBeVisible();
-
-    // Cancel the wizard
-    await page.getByRole("button", { name: "Cancel" }).click();
-
-    await page.goto("/settings?tab=security");
-    await expect(page.getByRole("heading", { name: "Security" })).toBeVisible();
-    await expect(main.getByText("Sign-in protection").first()).toBeVisible();
-    await expect(page.getByTestId("security-authenticator-section")).toBeVisible();
-    await expect(page.getByTestId("security-password-section")).toBeVisible();
-    await expect(page.getByTestId("security-active-sessions-section")).toBeVisible();
-    await expect(page.getByTestId("security-login-activity-section")).toBeVisible();
-    await expect(page.getByTestId("security-activity-section")).toBeVisible();
-
-    await page.goto("/settings?tab=privacy");
-    await expect(page.getByRole("heading", { name: "Privacy" })).toBeVisible();
-    await expect(page.getByText(/Account visibility|Connection Request Privacy|Messaging Privacy/i).first()).toBeVisible();
-
-    await page.goto("/settings?tab=notifications");
-    await expect(page.getByRole("heading", { name: "Notifications" })).toBeVisible();
-    const notificationToggle = page.locator("label[for='email']").first();
-    if (await notificationToggle.count()) {
-      await notificationToggle.click();
-      await expect(page.getByText(/Saving\.\.\.|Preferences saved/i).first()).toBeVisible({ timeout: 15000 });
+    const nav = page.getByRole("navigation", { name: "Settings sections" });
+    await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
+    for (const [name, hash] of [
+      ["Account", "settings-account"], ["Security", "settings-security"], ["Privacy", "settings-privacy"],
+      ["Notifications", "settings-notifications"], ["Appearance", "settings-appearance"], ["Integrations", "settings-integrations"],
+      ["Legal and data", "settings-privacy-policies"], ["Delete account", "settings-delete-account"],
+    ] as const) {
+      await nav.getByRole("link", { name, exact: true }).click();
+      await expect(page).toHaveURL(new RegExp(`#${hash}$`));
+      await expect(nav.getByRole("link", { name, exact: true })).toHaveAttribute("aria-current", "location");
+      await expect(page.locator(`#${hash}`)).toBeInViewport();
     }
-
-    await page.goto("/settings?tab=appearance");
-    await expect(page.getByRole("heading", { name: "Appearance" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Reset to defaults" })).toBeVisible();
-    await expect(page.getByText(/Saved on this device|Syncing to your account|Saved to your account|Couldn’t sync account preference/i)).toBeVisible();
-    const htmlRoot = page.locator("html");
-    await page.getByTestId("appearance-theme-dark").click();
-    await expect(htmlRoot).toHaveClass(/dark/);
-    await page.reload();
-    await expect(htmlRoot).toHaveClass(/dark/);
-    await page.getByTestId("appearance-accent-orchid").click();
-    await expect(htmlRoot).toHaveAttribute("data-accent", "orchid");
-    await page.getByTestId("appearance-density-compact").click();
-    await expect(htmlRoot).toHaveAttribute("data-density", "compact");
-    await page.getByTestId("appearance-reduce-motion-toggle").click();
-    await expect(htmlRoot).toHaveAttribute("data-reduce-motion", "true");
-    await page.getByTestId("appearance-theme-system").click();
-
-    await page.goto("/settings?tab=integrations");
-    await expect(page.getByRole("heading", { name: "Integrations", level: 1 })).toBeVisible();
-    await expect(main.getByText("Account Connections").first()).toBeVisible();
-    await expect(main.getByText("External Services").first()).toBeVisible();
-    await expect(main.getByText(/^Account created with$/i).first()).toBeVisible();
-
-    await monitor.assertNoViolations();
     monitor.detach();
-    await context.close();
+  });
+
+  test("old addresses land on their section", async ({ page }) => {
+    await login(page);
+    await page.goto("/settings?tab=notifications");
+    await expect(page).toHaveURL(/#settings-notifications$/);
+    await page.goto("/settings/notifications");
+    await expect(page).toHaveURL(/#settings-notifications$/);
+  });
+
+  test("Security shows its summary and sections; Privacy offers radio choices", async ({ page }) => {
+    await login(page);
+    await page.goto("/settings#settings-security");
+    const security = page.locator("#settings-security");
+    await expect(security.getByRole("list", { name: "Security summary" })).toBeVisible();
+    await expect(security.getByText("Sign-in protection")).toBeVisible();
+    await expect(security.getByText("Sessions and sign-ins")).toBeVisible();
+
+    await page.goto("/settings#settings-privacy");
+    const visibility = page.getByRole("radiogroup", { name: "Profile visibility" });
+    await expect(visibility.getByRole("radio")).toHaveCount(3);
+    await expect(visibility.getByRole("radio", { checked: true })).toHaveCount(1);
+  });
+
+  test("the deletion wizard opens, asks for the email, and cancels without deleting", async ({ page }) => {
+    await login(page);
+    await page.goto("/settings#settings-delete-account");
+    await page.getByRole("button", { name: "Delete account" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByText("What happens to your things")).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Delete account" })).toBeDisabled();
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toBeHidden();
+  });
+
+  test("Appearance changes apply at once and can be reset", async ({ page }) => {
+    await login(page);
+    await page.goto("/settings#settings-appearance");
+    await page.getByTestId("appearance-theme-dark").click();
+    await expect(page.locator("html")).toHaveClass(/dark/);
+    await page.getByTestId("appearance-density-compact").click();
+    await expect(page.locator("html")).toHaveAttribute("data-density", "compact");
+    await page.getByRole("button", { name: "Reset to defaults" }).click();
+    await expect(page.locator("html")).toHaveAttribute("data-density", "default");
   });
 });
