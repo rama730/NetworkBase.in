@@ -1,5 +1,5 @@
 import { OrgInformationFields } from '@/components/organizations/OrgWizardFields';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import { Plus, X } from 'lucide-react';
 import { SkillPicker } from '@/components/skills/SkillPicker';
@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { POPULAR_PROJECT_TAGS, PROJECT_TYPE_OPTIONS } from '@/lib/projects/project-create-options';
+import { childTitleTakenAction } from '@/app/actions/organizations';
+import { useCreateLocation } from '@/components/organizations/CreateLocation';
 import { CreateProjectInput } from '@/lib/validations/project';
 
 type Phase2InformationProps = {
@@ -61,6 +63,23 @@ function SectionHeading({ eyebrow, title, description, id }: { eyebrow: string; 
 export default function Phase2Information({ showValidationSummary = false }: Phase2InformationProps) {
     const { register, setValue, watch, control, formState: { errors } } = useFormContext<CreateProjectInput>();
     const isOrganization = Boolean(watch('organization'));
+    // A child project (report §14.3 Phase 2): the org's category by default, its tags suggested first, and a
+    // warning (never a block) when the title matches another project in the org.
+    const { org } = useCreateLocation();
+    const childTitle = watch('title') || '';
+    const [titleTaken, setTitleTaken] = useState(false);
+    useEffect(() => {
+        if (org?.category && !watch('project_type') && PROJECT_TYPE_OPTIONS.some((type) => type.id === org.category)) {
+            setValue('project_type', org.category as CreateProjectInput['project_type'], { shouldDirty: true });
+        }
+    }, [org?.category, setValue, watch]);
+    useEffect(() => {
+        if (!org) return setTitleTaken(false);
+        let cancelled = false;
+        const timer = setTimeout(() => void childTitleTakenAction(org.id, childTitle).then((taken) => { if (!cancelled) setTitleTaken(taken); }), 400);
+        return () => { cancelled = true; clearTimeout(timer); };
+    }, [org, childTitle]);
+    const suggestedTags = [...new Set([...(org?.tags ?? []), ...POPULAR_PROJECT_TAGS])];
     const [tagInput, setTagInput] = useState('');
     const [tagError, setTagError] = useState('');
 
@@ -211,6 +230,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                         />
                         <p id="create-project-title-help" className="mt-1.5 text-[13px] leading-[1.5] text-muted-foreground">Use a clear, specific name that collaborators can recognize.</p>
                         <FieldError id="create-project-title-error" message={errors.title?.message} />
+                        {titleTaken && org ? <p role="status" className="mt-1.5 text-[13px] leading-[1.5] text-[var(--status-warning)]">Another project in {org.title} is already called this. You can keep it.</p> : null}
                     </div>
 
                     {isOrganization ? <OrgInformationFields /> : null}
@@ -337,7 +357,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                         </div>
                         {tagError ? <p id="create-project-tags-error" role="alert" className="mt-1.5 text-[13px] leading-[1.5] text-destructive">{tagError}</p> : null}
                         <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1.5" aria-label="Suggested tags">
-                            {POPULAR_PROJECT_TAGS.filter((tag) => !tags.some((item) => item.toLocaleLowerCase() === tag.toLocaleLowerCase())).slice(0, 5).map((tag) => (
+                            {suggestedTags.filter((tag) => !tags.some((item) => item.toLocaleLowerCase() === tag.toLocaleLowerCase())).slice(0, 5).map((tag) => (
                                 <button
                                     key={tag}
                                     type="button"

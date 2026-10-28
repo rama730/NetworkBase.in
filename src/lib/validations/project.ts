@@ -14,7 +14,9 @@ export const openRoleSchema = z.object({
     compensationDetails: z.string().max(500).optional(),
     // Child projects only (report §14.4): people placed in this unit. Seats grow to fit them.
     // ponytail: a unit holds the role box's 10 seats; ORG_LIMITS.membersPerUnit (100) waits for real classes that need it.
-    people: z.array(z.object({ user_id: z.string().uuid(), label: z.string().max(120).optional() })).max(10).optional(),
+    people: z.array(z.object({ user_id: z.string().uuid(), label: z.string().max(120).optional(), outside: z.boolean().optional() })).max(10).optional(),
+    // Unit lead ★ (report §14.4): one of the people in this unit.
+    lead_user_id: z.string().uuid().optional(),
 });
 
 export type OpenRoleInput = z.infer<typeof openRoleSchema>;
@@ -165,6 +167,8 @@ export const createProjectSchema = z.object({
     parent_org_id: z.string().uuid().optional(),
     lead_user_id: z.string().uuid().optional(),
     unassigned_people: z.array(z.object({ user_id: z.string().uuid(), label: z.string().max(120).optional() })).max(100).optional(),
+    // Follow org sprints (report §14.3 Phase 4): the project's sprints link to the org's and stay inside their dates.
+    follow_org_sprints: z.boolean().optional(),
     // Present only when creating an organization (report §6); the server checks the feature flag.
     organization: z.object({
         org_type: z.enum(ORG_TYPES),
@@ -187,6 +191,11 @@ export const createProjectSchema = z.object({
     if (term?.term_start && term.term_end && term.term_end < term.term_start) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['organization', 'term_end'], message: 'The term must end after it starts.' });
     }
+    (val.roles || []).forEach((role, index) => {
+        if (role.lead_user_id && !(role.people || []).some((person) => person.user_id === role.lead_user_id)) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['roles', index, 'lead_user_id'], message: 'The unit lead must be in the unit.' });
+        }
+    });
     const roleTitles = new Set<string>();
     for (let index = 0; index < (val.roles || []).length; index += 1) {
         const title = val.roles?.[index]?.role.trim().toLocaleLowerCase();

@@ -24,6 +24,8 @@ export interface WizardContextType {
     addRole: () => void;
     updateRole: (index: number, updates: Partial<OpenRoleInput>) => void;
     removeRole: (index: number) => void;
+    /** Fills an empty team from the org's default units, once per org (report §14.4 additions). */
+    prefillUnits: (orgId: string, names: string[]) => void;
 }
 
 interface UseCreateProjectWizardProps {
@@ -71,6 +73,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
         exists: boolean;
         phase: number;
         savedAt: Date | null;
+        parentOrgId?: string | null;
     } | null>(null);
 
     // Form Setup
@@ -355,6 +358,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                     exists: true,
                     phase: info.phase,
                     savedAt: info.savedAt,
+                    parentOrgId: info.parentOrgId ?? null,
                 });
             }
         };
@@ -469,13 +473,21 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
         removeOpenRole(index);
     }, [removeOpenRole]);
 
+    const prefilledUnitsFor = useRef<string | null>(null);
+    const prefillUnits = useCallback((orgId: string, names: string[]) => {
+        if (prefilledUnitsFor.current === orgId || names.length === 0 || (getValues('roles') ?? []).length > 0) return;
+        prefilledUnitsFor.current = orgId;
+        appendOpenRole(names.map((role) => ({ role, count: 1, description: '', skills: [], experienceLevel: 'any' as const, compensationType: 'unpaid' as const, compensationDetails: '' })));
+    }, [appendOpenRole, getValues]);
+
     const wizardContext: WizardContextType = useMemo(() => ({
         openRoles,
         openRoleIds: openRoleFields.map((field) => field.id),
         addRole,
         updateRole,
         removeRole,
-    }), [openRoles, openRoleFields, addRole, updateRole, removeRole]);
+        prefillUnits,
+    }), [openRoles, openRoleFields, addRole, updateRole, removeRole, prefillUnits]);
 
     // Phase is navigation only. Reaching a later step does not make the
     // project dirty, so closing after restoring all values must not prompt.
@@ -724,7 +736,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                 roles: resolvedRoles,
             });
 
-            if (!result.success || !result.project) throw new Error(result.error || 'Creation failed');
+            if (!result.success || !result.project) throw Object.assign(new Error(result.error || 'Creation failed'), { code: (result as { code?: string }).code });
             createdProjectId = result.project.id;
             if (result.project.joinCode) createdOrganization = { title: result.project.title, joinCode: result.project.joinCode };
             // Things that didn't happen but didn't stop creation, e.g. an invitation refused by privacy rules.
@@ -961,12 +973,29 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                 }
             } catch { }
             if (createdProjectId) warnCreation('Some setup needs attention.');
+            else if (error?.code === 'ORG_BLOCKED') {
+                // Report §14.6: everything entered stays; the person can make it a personal project instead.
+                toast.error(error.message, {
+                    id: creationToastId,
+                    action: {
+                        label: 'Create as a personal project',
+                        onClick: () => {
+                            setValue('parent_org_id', undefined);
+                            setValue('lead_user_id', undefined);
+                            if (getValues('visibility') === 'org') setValue('visibility', 'private');
+                            void onSubmitRef.current?.(getValues());
+                        },
+                    },
+                });
+            }
             else toast.error(feedbackError(error.message || 'Failed to create project', 'Failed to create project'), { id: creationToastId });
         } finally {
             submissionRef.current = false;
             setIsSubmitting(false);
         }
     }, [onSuccess, onClose, phase, isReviewReady, uploadFiles, projectImage]);
+    const onSubmitRef = useRef(onSubmit);
+    onSubmitRef.current = onSubmit;
 
     return {
         phase, methods, wizardContext, isSubmitting, isSavingDraft, phase2ValidationAttempted, phase3ValidationAttempted, phase4ValidationAttempted,

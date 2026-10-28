@@ -102,6 +102,7 @@ export type OrgNotificationEventKey =
     | "announcements.posted"
     | "credit.changed"
     | "org.code_changed"
+    | "org.child_created"
     | "org.child_notice"
     | "org_sprints.started"
     | "org_sprints.completed"
@@ -868,6 +869,7 @@ export const PROJECT_NOTIFICATION_EVENT_REGISTRY = {
     "assignments.due_soon": orgEvent("assignments.due_soon", "org_assignments", "Due soon and overdue", "People who aren't done hear once a day, at 9:00 their time.", "important"),
     "announcements.posted": orgEvent("announcements.posted", "org_announcements", "Announcements", "Each announcement's audience hears about it.", "important"),
     "credit.changed": orgEvent("credit.changed", "org_credit", "Verified or removed", "A member hears their role was verified or the verification removed.", "important"),
+    "org.child_created": orgEvent("org.child_created", "org_membership", "Child project created", "Admins hear when someone creates a project in the organization, combined.", "more", { aggregate: "burst_10m", recipients: ["owner", "co_leaders"] }),
     "org.code_changed": orgEvent("org.code_changed", "org_membership", "Join code changed", "Admins hear when someone makes a new join code.", "more", { recipients: ["owner", "co_leaders"] }),
     "org.child_notice": orgEvent("org.child_notice", "org_membership", "Your child project", "Leads hear when a seat opens or an org rule changes their project.", "important"),
     "org_sprints.started": orgEvent("org_sprints.started", "org_sprints", "Sprint started", "Members hear when an org sprint starts, if Notify on start is on.", "important", { recipients: ["members"] }),

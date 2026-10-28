@@ -22,7 +22,7 @@ import { generateJoinCode } from '@/lib/organizations/join-rules';
 import { allowedChildVisibilities, type ChildVisibility } from '@/lib/organizations/child-rules';
 import { applyChildVisibilityCap, countChildrenAboveCap, countOutsidePeople, detachFromOrg, moveIntoOrg, readOrgCap } from '@/lib/organizations/children';
 import { listCreateLocations, readViewerOrgRole } from '@/lib/organizations/detail';
-import { acceptOrgInvite, ledChildProjects, openInvitesFor, removeFromOrg } from '@/lib/organizations/members';
+import { acceptOrgInvite, ledChildProjects, notifySeatsReopened, openInvitesFor, removeFromOrg } from '@/lib/organizations/members';
 import { countOrgMembers, findOrgByJoinCode, isOrgHandleAvailable, joinOrgByCode, joinPublicOrg, viewerOrgStatus } from '@/lib/organizations/join';
 import { normalizeJoinCode, ORG_JOIN_MESSAGES, type OrgJoinMode, type OrgJoinOutcome } from '@/lib/organizations/join-rules';
 import { isProjectPubliclyReadableVisibility } from '@/lib/projects/project-visibility';
@@ -184,6 +184,7 @@ export async function updateOrgSettingsAction(orgId: string, section: OrgSetting
         if ('outside_people' in value) settingsPatch.outsidePeople = value.outside_people;
         if ('child_share' in value) settingsPatch.childShare = value.child_share;
         if ('visibility_cap' in value) settingsPatch.visibilityCap = value.visibility_cap;
+        if ('default_units' in value) settingsPatch.defaultUnits = value.default_units;
     }
 
     try {
@@ -331,7 +332,8 @@ export async function leaveOrgAction(orgId: string): Promise<{ success: true } |
     const led = await ledChildProjects(db, orgId, viewer.userId);
     if (led.length > 0) return { success: false, error: `You lead ${led.length} ${led.length === 1 ? 'project' : 'projects'} here. Transfer or detach ${led.length === 1 ? 'it' : 'them'} first.` };
     // Leaving the org removes you from its projects too (report §14.4, §20.7).
-    await db.transaction((tx) => removeFromOrg(tx, orgId, viewer.userId, viewer.userId));
+    const seats = await db.transaction((tx) => removeFromOrg(tx, orgId, viewer.userId, viewer.userId));
+    await notifySeatsReopened(orgId, seats);
     revalidateOrg(viewer.slug, orgId);
     const org = await orgLabel(orgId);
     const name = (await namesOf([viewer.userId])).get(viewer.userId) ?? 'Someone';
@@ -509,26 +511,33 @@ export async function listMyOrganizationsAction(): Promise<Array<{ id: string; t
         .orderBy(projects.title).limit(200);
 }
 
-export type OrgRosterPerson = { userId: string; name: string; username: string | null; avatarUrl: string | null; title: string | null; role: string; projectHint: string | null };
+export type OrgRosterPerson = { userId: string; name: string; username: string | null; avatarUrl: string | null; title: string | null; role: string; projectHint: string | null; skills?: string[] };
 
 /**
  * The org roster for the create wizard's people picker (report §14.4): members and admins, searchable by
  * name, username or title, with one "In <project>" hint each. Guests are left out: they never join teams.
  */
-export async function listOrgRosterAction(orgId: string, query = ''): Promise<OrgRosterPerson[]> {
+export async function listOrgRosterAction(orgId: string, query = '', adminsOnly = false): Promise<OrgRosterPerson[]> {
     const viewer = await orgViewer(orgId, 'read');
     if (!viewer || viewer.role === 'visitor' || viewer.role === 'guest') return [];
     const q = query.trim().slice(0, 80);
     const pattern = `%${q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
-    const rows = await db.execute<{ user_id: string; full_name: string | null; username: string | null; avatar_url: string | null; title: string | null; role: string; hint: string | null }>(sql`
+    // Search by name, title, skill, and for owners and admins email too (report §14.4).
+    const byEmail = viewer.role === 'owner' || viewer.role === 'admin';
+    const rows = await db.execute<{ user_id: string; full_name: string | null; username: string | null; avatar_url: string | null; title: string | null; role: string; hint: string | null; skills: string[] | null }>(sql`
         SELECT pm.user_id, p.full_name, p.username, p.avatar_url, pm.title, pm.role,
                (SELECT c.title FROM ${projects} c JOIN ${projectMembers} cm ON cm.project_id = c.id
                  WHERE c.parent_id = ${orgId} AND c.deleted_at IS NULL AND cm.user_id = pm.user_id
-                 ORDER BY c.created_at DESC LIMIT 1) AS hint
+                 ORDER BY c.created_at DESC LIMIT 1) AS hint,
+               (SELECT array_agg(s.name ORDER BY s.name) FROM (SELECT sk.name FROM profile_skills ps JOIN skills sk ON sk.id = ps.skill_id
+                 WHERE ps.profile_id = pm.user_id LIMIT 6) s) AS skills
         FROM ${projectMembers} pm
         JOIN ${profiles} p ON p.id = pm.user_id
         WHERE pm.project_id = ${orgId} AND pm.role IN ('owner', 'admin', 'member') AND p.deleted_at IS NULL
-          AND (${q} = '' OR p.full_name ILIKE ${pattern} OR p.username ILIKE ${pattern} OR pm.title ILIKE ${pattern})
+          AND (NOT ${adminsOnly} OR pm.role IN ('owner', 'admin'))
+          AND (${q} = '' OR p.full_name ILIKE ${pattern} OR p.username ILIKE ${pattern} OR pm.title ILIKE ${pattern}
+            OR (${byEmail} AND lower(p.email) = lower(${q}))
+            OR EXISTS (SELECT 1 FROM profile_skills ps JOIN skills sk ON sk.id = ps.skill_id WHERE ps.profile_id = pm.user_id AND sk.name ILIKE ${pattern}))
         ORDER BY p.full_name NULLS LAST
         LIMIT 50
     `);
@@ -540,5 +549,40 @@ export async function listOrgRosterAction(orgId: string, query = ''): Promise<Or
         title: row.title,
         role: row.role,
         projectHint: row.hint ? `In ${row.hint}` : null,
+        skills: row.skills ?? [],
     }));
+}
+
+/**
+ * The Outside tab of the people picker (report §14.4), only while the org lets outside people into its projects:
+ * public profiles outside the org, never someone who blocked you. They are always invited, never added.
+ */
+export async function listOutsidePeopleAction(orgId: string, query: string): Promise<OrgRosterPerson[]> {
+    const viewer = await orgViewer(orgId, 'read');
+    if (!viewer || viewer.role === 'visitor' || viewer.role === 'guest') return [];
+    const [org] = await db.select({ settings: projects.orgSettings }).from(projects).where(eq(projects.id, orgId)).limit(1);
+    if ((org?.settings as { outsidePeople?: unknown } | null)?.outsidePeople !== true) return [];
+    const q = query.trim().replace(/^@/, '').slice(0, 64);
+    if (q.length < 2) return [];
+    const rate = await consumeRateLimit(`org-outside-search:${viewer.userId}`, 60, 60);
+    if (!rate.allowed) return [];
+    const pattern = `%${q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
+    const rows = await db.execute<{ id: string; full_name: string | null; username: string | null; avatar_url: string | null; headline: string | null }>(sql`
+        SELECT p.id, p.full_name, p.username, p.avatar_url, p.headline FROM ${profiles} p
+        WHERE p.deleted_at IS NULL AND p.visibility = 'public' AND p.onboarding_status = 'completed' AND p.id <> ${viewer.userId}
+          AND (p.username ILIKE ${pattern} OR p.full_name ILIKE ${pattern})
+          AND NOT EXISTS (SELECT 1 FROM ${projectMembers} pm WHERE pm.project_id = ${orgId} AND pm.user_id = p.id)
+          AND NOT app_private.chat_is_blocked(${viewer.userId}::uuid, p.id)
+        ORDER BY (p.username ILIKE ${`${q}%`}) DESC, p.full_name NULLS LAST LIMIT 20`);
+    return Array.from(rows).map((row) => ({ userId: row.id, name: row.full_name || row.username || 'Someone', username: row.username, avatarUrl: row.avatar_url, title: row.headline, role: 'outside', projectHint: null }));
+}
+
+/** Phase 2 warning, not a block (report §14.3): another live project in the org already has this title. */
+export async function childTitleTakenAction(orgId: string, title: string): Promise<boolean> {
+    const viewer = await orgViewer(orgId, 'read');
+    const t = title.trim();
+    if (!viewer || viewer.role === 'visitor' || viewer.role === 'guest' || t.length < 2) return false;
+    const [row] = await db.select({ id: projects.id }).from(projects)
+        .where(and(eq(projects.parentId, orgId), isNull(projects.deletedAt), sql`lower(${projects.title}) = lower(${t})`)).limit(1);
+    return Boolean(row);
 }

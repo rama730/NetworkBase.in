@@ -242,7 +242,7 @@ export type OrgProjectRow = {
 };
 
 /** Projects tab (report §28): admins see every child project (Private too) with Needs attention; others what they may. */
-export async function readOrgProjectsAction(orgId: string): Promise<{ success: true; isAdmin: boolean; rows: OrgProjectRow[]; summary: { total: number; attention: number; quiet: number; notInProject: number } } | Failure> {
+export async function readOrgProjectsAction(orgId: string): Promise<{ success: true; isAdmin: boolean; canCreate: boolean; rows: OrgProjectRow[]; summary: { total: number; attention: number; quiet: number; notInProject: number } } | Failure> {
     const v = await orgViewer(orgId);
     if (!v || !v.isInside) return DENIED;
     const now = new Date();
@@ -281,9 +281,14 @@ export async function readOrgProjectsAction(orgId: string): Promise<{ success: t
         eq(projectMembers.projectId, orgId),
         sql`NOT EXISTS (SELECT 1 FROM project_members cm JOIN projects c ON c.id = cm.project_id WHERE c.parent_id = ${orgId} AND c.deleted_at IS NULL AND cm.user_id = ${projectMembers.userId})`,
     )) : [{ n: 0 }];
+    // + New project (report §14.1 E1): admins always; members when the org lets members create.
+    const [org] = await db.select({ settings: projects.orgSettings, status: projects.status }).from(projects).where(eq(projects.id, orgId)).limit(1);
+    const canCreate = !v.isGuest && org?.status !== 'archived' && !v.access.writeBlocked
+        && (v.isAdmin || (org?.settings as { childCreation?: string } | null)?.childCreation !== 'admins');
     return {
         success: true,
         isAdmin: v.isAdmin,
+        canCreate,
         rows: out,
         summary: { total: out.length, attention: out.filter((r) => r.reasons.length > 0).length, quiet: out.filter((r) => r.reasons.includes('quiet 7 days')).length, notInProject },
     };

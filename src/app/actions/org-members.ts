@@ -7,10 +7,11 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import { applicationEvents, orgEmailInvites, orgJoinBlocks, profiles, projectMembers, projectOpenRoles, projects, roleApplications, taskTeamMembers, tasks } from '@/lib/db/schema';
 import { getProjectAccessById } from '@/lib/data/project-access';
+import { notifyNewCopies } from '@/lib/organizations/assignment-notify';
 import { copyState } from '@/lib/organizations/assignment-rules';
 import { createCopiesForNewMember } from '@/lib/organizations/assignments';
 import { ORG_LIMITS } from '@/lib/organizations/config';
-import { acceptOrgInvite, ledChildProjects, openInvitesFor, removeFromOrg } from '@/lib/organizations/members';
+import { acceptOrgInvite, ledChildProjects, notifySeatsReopened, openInvitesFor, removeFromOrg } from '@/lib/organizations/members';
 import { memberChangeBlock, memberStatus, parseInviteEmails, workSummary, type OrgMemberRole, type RosterRow } from '@/lib/organizations/member-rules';
 import { addProjectMemberInternal, changeProjectMemberRoleInternal } from '@/lib/projects/collaborator-lifecycle';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
@@ -168,6 +169,7 @@ export async function approveJoinRequestsAction(orgId: string, applicationIds: s
                 orgId, eventKey: 'org.join_decided', actorId: viewer.userId, to: [request.userId], title: `You're in ${org.title}`,
                 href: orgHref(org), sourceEventId: `${request.id}:accepted`, email: { kind: 'org_welcome', data: { note: org.welcomeNote } },
             });
+            await notifyNewCopies(orgId, { userId: request.userId });
         }
     }
     return { success: true, approved: result.approved };
@@ -365,13 +367,16 @@ export async function removeMembersAction(orgId: string, userIds: string[], opti
         if (block) return { success: false, error: block };
         if ((await ledChildProjects(db, orgId, id)).length > 0) return { success: false, error: 'This person leads a project here. Transfer or detach it first.' };
     }
-    await db.transaction(async (tx) => {
+    const seats = await db.transaction(async (tx) => {
+        const opened = [];
         for (const id of userIds) {
             // Admins can't remove admins, so the owner acts when an admin is removed.
-            await removeFromOrg(tx, orgId, id, roles.get(id) === 'admin' ? viewer.ownerId : viewer.userId);
+            opened.push(...await removeFromOrg(tx, orgId, id, roles.get(id) === 'admin' ? viewer.ownerId : viewer.userId));
             if (options.block) await tx.insert(orgJoinBlocks).values({ orgId, userId: id, blockedBy: viewer.userId }).onConflictDoNothing();
         }
+        return opened;
     });
+    await notifySeatsReopened(orgId, seats);
     touch(viewer.slug, orgId);
     // E12 is always sent; the reason goes out as written. Being blocked is never mentioned (report §26.3 A).
     const org = await orgLabel(orgId);

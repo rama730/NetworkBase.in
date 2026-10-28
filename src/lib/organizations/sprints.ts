@@ -13,14 +13,15 @@ type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 const LIVE = ["planning", "active", "completed"] as const;
 
 async function readPlacement(executor: Executor, projectId: string) {
-  const [project] = await executor.select({ kind: projects.kind, parentId: projects.parentId }).from(projects).where(eq(projects.id, projectId)).limit(1);
+  const [project] = await executor.select({ kind: projects.kind, parentId: projects.parentId, orgSettings: projects.orgSettings }).from(projects).where(eq(projects.id, projectId)).limit(1);
   return project ?? null;
 }
 
 /**
  * Throws with a plain message when a sprint breaks the org rules (report §15.1): org sprints never overlap;
  * a linked child sprint belongs to its own org's planned or active sprint and fits inside its dates.
- * Callers lock the project row first.
+ * A child that follows org sprints (report §14.3 Phase 4) links a new sprint to the org sprint holding its dates.
+ * Returns the parent sprint to store. Callers lock the project row first.
  */
 export async function assertOrgSprintRules(executor: Executor, input: {
   projectId: string;
@@ -28,7 +29,7 @@ export async function assertOrgSprintRules(executor: Executor, input: {
   endDate: Date;
   parentSprintId?: string | null;
   excludeSprintId?: string | null;
-}) {
+}): Promise<string | null> {
   const project = await readPlacement(executor, input.projectId);
   if (!project) throw new Error("Project not found");
   const range = { startDate: input.startDate, endDate: input.endDate };
@@ -45,10 +46,19 @@ export async function assertOrgSprintRules(executor: Executor, input: {
       ));
     const clash = others.find((other) => overlaps(range, other));
     if (clash) throw new Error(`Organization sprints can't overlap: this overlaps ${clash.name}.`);
-    return;
+    return null;
   }
 
-  if (!input.parentSprintId) return;
+  if (!input.parentSprintId) {
+    if (!project.parentId || (project.orgSettings as { followOrgSprints?: unknown } | null)?.followOrgSprints !== true) return null;
+    const live = await executor
+      .select({ id: projectSprints.id, startDate: projectSprints.startDate, endDate: projectSprints.endDate })
+      .from(projectSprints)
+      .where(and(eq(projectSprints.projectId, project.parentId), inArray(projectSprints.status, ["planning", "active"])));
+    const holder = live.find((sprint) => fitsInside(range, sprint));
+    if (!holder) throw new Error("This project follows its organization's sprints: pick dates inside one of them.");
+    return holder.id;
+  }
   if (!project.parentId) throw new Error("Only projects inside an organization link to an org sprint.");
   const [parent] = await executor
     .select({ name: projectSprints.name, status: projectSprints.status, startDate: projectSprints.startDate, endDate: projectSprints.endDate })
@@ -57,6 +67,7 @@ export async function assertOrgSprintRules(executor: Executor, input: {
     .limit(1);
   if (!parent || (parent.status !== "planning" && parent.status !== "active")) throw new Error("Pick a planned or active sprint of your organization.");
   if (!fitsInside(range, parent)) throw new Error(`The sprint must stay inside ${parent.name}'s dates.`);
+  return input.parentSprintId;
 }
 
 /** "Create a matching sprint in every child project": a planned, linked sprint per live child (report §15.5). */

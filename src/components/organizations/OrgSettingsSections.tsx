@@ -328,6 +328,7 @@ export function OrgProjectsSection({ orgId, organization }: SectionProps) {
     const [outside, setOutside] = useState(organization.outsidePeople)
     const [childShare, setChildShare] = useState(organization.childShare)
     const [cap, setCap] = useState(organization.visibilityCap)
+    const [defaultUnits, setDefaultUnits] = useState(organization.defaultUnits.join('\n'))
     // Impact preview (report §21.1 principle 4): how many projects a tighter cap would lower.
     const [affected, setAffected] = useState<number | null>(null)
     const { pending, save, status } = useSave()
@@ -376,8 +377,13 @@ export function OrgProjectsSection({ orgId, organization }: SectionProps) {
                         </div>
                         <SettingsSwitch checked={childShare} onCheckedChange={setChildShare} aria-label="Projects can share updates to the organization" />
                     </div>
+                    <div>
+                        <label htmlFor="org-default-units" className={labelClass}>Default units</label>
+                        <p className={helpClass}>Pre-fill the team of every new project, one per line, for example Frontend, Backend, Testing. Still editable per project.</p>
+                        <textarea id="org-default-units" value={defaultUnits} onChange={(e) => setDefaultUnits(e.target.value)} rows={3} className="mt-2 w-full rounded-md border border-border bg-background p-2 text-sm" />
+                    </div>
                     <div className="flex items-center gap-3">
-                        <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'projects', { child_creation: childCreation, outside_people: outside, child_share: childShare, ...(cap !== organization.visibilityCap ? { visibility_cap: cap } : {}) }))}>Save</Button>
+                        <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'projects', { child_creation: childCreation, outside_people: outside, child_share: childShare, default_units: defaultUnits.split('\n').map((u) => u.trim()).filter(Boolean).slice(0, 20), ...(cap !== organization.visibilityCap ? { visibility_cap: cap } : {}) }))}>Save</Button>
                         {status}
                     </div>
                 </div>

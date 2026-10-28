@@ -97,8 +97,12 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
     const { control } = useFormContext<CreateProjectInput>();
     const formData = useWatch({ control }) as CreateProjectInput;
     const childOrg = useCreateLocation().org;
-    // The team line, report §14.3 Phase 5: "4 added · 3 invited · 1 open seat".
-    const teamCount = (formData.roles ?? []).reduce((n, role) => n + (role.people?.length ?? 0), 0) + (formData.unassigned_people?.length ?? 0);
+    // The team line, report §14.3 Phase 5: "4 added · 3 invited · 1 open seat". People outside the org are always invited.
+    const placed = [...(formData.roles ?? []).flatMap((role) => role.people ?? []), ...(formData.unassigned_people ?? [])] as Array<{ outside?: boolean }>;
+    const teamCount = placed.length;
+    const outsideCount = placed.filter((person) => person.outside).length;
+    const addedCount = childOrg?.isAdmin ? teamCount - outsideCount : 0;
+    const invitedCount = teamCount - addedCount;
     const openSeats = (formData.roles ?? []).reduce((n, role) => n + Math.max(0, (role.count ?? 0) - (role.people?.length ?? 0)), 0);
 
     useEffect(() => {
@@ -182,10 +186,12 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
             })),
             collaboratorsCount: 1,
             followersCount: 0,
+            // The card preview shows the org chip (report §14.3 Phase 5).
+            cardOrg: childOrg ? { id: childOrg.id, title: childOrg.title, slug: childOrg.slug } : undefined,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
         } as unknown as Project;
-    }, [formData, previewCoverUrl, user]);
+    }, [formData, previewCoverUrl, user, childOrg]);
 
     return (
         <div className="min-w-0 w-full space-y-8 pb-6">
@@ -241,10 +247,20 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                     <ReviewRow label="Organization">
                         <p className="nb-body text-foreground">In {childOrg.title}</p>
                         <p className="nb-compact mt-1 text-muted-foreground">
-                            {teamCount === 0 ? 'No one placed yet' : `${teamCount} ${childOrg.isAdmin ? 'added' : 'invited'}`}
+                            {teamCount === 0 ? 'No one placed yet' : [addedCount ? `${addedCount} added` : null, invitedCount ? `${invitedCount} invited` : null].filter(Boolean).join(' · ')}
                             {openSeats > 0 ? ` · ${openSeats} open ${openSeats === 1 ? 'seat' : 'seats'}` : ''}
                             {formData.lead_user_id ? ' · lead picked by you' : ''}
                         </p>
+                    </ReviewRow>
+                ) : null}
+                {childOrg ? (
+                    <ReviewRow label="Inherited admins">
+                        <p className="nb-compact text-muted-foreground">{childOrg.title}&apos;s owner and admins can see and help with this project.</p>
+                    </ReviewRow>
+                ) : null}
+                {childOrg ? (
+                    <ReviewRow label="Follows org sprints">
+                        <p className="nb-compact text-foreground">{formData.follow_org_sprints ? `Yes · sprints stay inside ${childOrg.title}'s` : 'No'}</p>
                     </ReviewRow>
                 ) : null}
                 {formData.organization ? (
@@ -310,7 +326,8 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                                         <p className="nb-ui-label text-foreground">{role.role}</p>
                                         <DetailLabel>{role.count} {role.count === 1 ? 'opening' : 'openings'}</DetailLabel>
                                         <DetailLabel>{role.experienceLevel || 'any'}</DetailLabel>
-                                        <DetailLabel>{(role.compensationType || 'unpaid').replace('_', ' ')}</DetailLabel>
+                                        {childOrg?.orgType !== 'education' ? <DetailLabel>{(role.compensationType || 'unpaid').replace('_', ' ')}</DetailLabel> : null}
+                                        {role.lead_user_id ? <DetailLabel>★ {role.people?.find((person) => person.user_id === role.lead_user_id)?.label ?? 'Unit lead'}</DetailLabel> : null}
                                     </div>
                                     {role.description ? <p className="nb-compact mt-2 whitespace-pre-wrap text-muted-foreground">{role.description}</p> : null}
                                     {role.skills?.length ? <div className="mt-2"><SkillList skills={role.skills} size="sm" /></div> : null}

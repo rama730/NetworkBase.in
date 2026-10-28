@@ -1573,6 +1573,8 @@ export const projectOpenRoles = pgTable(
     commitmentType: text("commitment_type"),
     experienceRequired: text("experience_required"),
     hoursPerWeek: text("hours_per_week"),
+    // Unit lead ★ (0257, report §14.4)
+    leadUserId: uuid("lead_user_id").references((): AnyPgColumn => profiles.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -1585,6 +1587,7 @@ export const projectOpenRoles = pgTable(
       t.projectId,
       t.updatedAt,
     ),
+    leadUserIdx: index("project_open_roles_lead_user_idx").on(t.leadUserId).where(sql`${t.leadUserId} IS NOT NULL`),
     countNonNegativeCheck: check(
       "project_open_roles_count_non_negative_check",
       sql`${t.count} >= 0`,

@@ -22,7 +22,10 @@ test.beforeAll(async () => {
             children:[{id:'c1',title:'Team Falcon',units:[{id:'un',title:'Frontend'}]}],summary:{members:12,admins:2,guests:0,behind:4,notInProject:0,inactive:0}});
             export const readMemberWorkAction=async()=>({success:true,work:[]});
             export const addMembersToChildAction=${ok},approveJoinRequestsAction=${ok},cancelOrgInviteAction=${ok},changeMemberRoleAction=${ok},declineJoinRequestAction=${ok},inviteByEmailAction=async()=>({success:true,invalid:[]}),removeMembersAction=${ok},resendOrgInviteAction=${ok},setMemberTitleAction=${ok};`,
-        '@/app/actions/organizations': `export const regenerateJoinCodeAction=async()=>({success:true,joinCode:'Q2W3E4'}),archiveChildAction=${ok},listOrgRosterAction=async()=>[];`,
+        '@/app/actions/organizations': `export const regenerateJoinCodeAction=async()=>({success:true,joinCode:'Q2W3E4'}),archiveChildAction=${ok},childTitleTakenAction=async()=>false;
+            export const listOrgRosterAction=async(orgId,q,admins)=>[['u1','Ravi Kumar','member','In Compiler Lab',['React']],['u2','Asha Nair','member',null,['Testing']],['u3','Ms. Rao','owner',null,[]]]
+              .filter((p)=>!admins||p[2]!=='member').map(([userId,name,role,projectHint,skills])=>({userId,name,username:null,avatarUrl:null,title:role==='owner'?'Teacher':null,role,projectHint,skills}));
+            export const listOutsidePeopleAction=async()=>[{userId:'x1',name:'Client Person',username:'client',avatarUrl:null,title:'Mentor',role:'outside',projectHint:null}];`,
         '@/app/actions/org-profile': `export const revokeOrgVerificationAction=${ok},verifyOrgContributionsAction=${ok};`,
         '@/app/actions/org-dashboard': `export const readChildOrgLineAction=async()=>null,readOrgDashboardAction=async()=>({success:false,error:'unused'});
             export const readOrgProjectsAction=async()=>({success:true,isAdmin:true,summary:{total:3,attention:1,quiet:1,notInProject:2},rows:['Team Falcon — Distributed Systems Capstone','Team Osprey','Team Kestrel'].map((title,i)=>({
@@ -35,6 +38,11 @@ test.beforeAll(async () => {
             export const listOrgFoldersAction=async()=>({success:true,folders:[{id:'d1',path:'/Week 1 — Requirements and stakeholder interviews',access:'admins',template:true},{id:'d2',path:'/Rubrics',access:null,template:false}]});
             export const recordOrgCopyAction=${ok},setFolderAccessAction=async()=>({success:true,preview:null}),setFolderTemplateAction=${ok};`,
         '@/components/organizations/OrgDocParts': `export const uploadProjectFile=async()=>({id:'n'});`,
+        '@/app/actions/child-units': `export const readChildUnitsAction=async()=>({success:true,units:[
+            {id:'un1',title:'Frontend developers',count:4,filled:2,leadUserId:'u1',members:[{userId:'u1',name:'Ravi Kumar'},{userId:'u2',name:'Alexandria Ramana Chandrasekhar'}]},
+            {id:'un2',title:'Developer testing unit',count:2,filled:2,leadUserId:null,members:[{userId:'u4',name:'Meena'},{userId:'u5',name:'John'}]}],unplaced:[{userId:'u6',name:'Kiran'}]});
+            export const updateUnitAction=${ok},moveMemberToUnitAction=${ok},readProjectUnitsAction=async()=>[];`,
+        '@/components/messages/message-user': `export const messageUserInWindow=()=>false;`,
         '@/app/actions/project/doc': `export const listProjectDocsAction=async()=>({success:true,docs:[]});`,
         '@/app/actions/assignments': `const counts={not_started:3,in_progress:2,submitted:4,returned:0,done:1,missing:2,excused:0,total:12};
             export const listAssignmentsAction=async()=>({success:true,isAdmin:true,rows:[
@@ -114,4 +122,36 @@ test('Sidebar: New project in an org is reachable by keyboard', async ({ page })
     await page.keyboard.press('Tab');
     await expect(add).toBeVisible();
     await expect(add).toBeFocused();
+});
+
+test('Create wizard team (§14.4): unit lead ★, Move to…, picker filters and the Outside tab work by keyboard at phone width', async ({ page }) => {
+    await open(page, 'team');
+    await expect(page.getByText('Ms. Rao, Teacher')).toBeVisible();
+    await noSideScroll(page);
+    const star = page.getByRole('button', { name: 'Make Asha Nair unit lead' });
+    await star.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('button', { name: 'Asha Nair is unit lead' })).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('combobox', { name: 'Move Ravi Kumar to…' }).selectOption({ label: 'Testing' });
+    await expect(page.getByRole('combobox', { name: 'Move Ravi Kumar to…' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Add people' }).first().click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByText('Asha Nair')).toBeVisible();
+    await dialog.getByLabel('Not in a project yet').check();
+    await expect(dialog.getByText('Ravi Kumar')).toHaveCount(0);
+    await dialog.getByRole('tab', { name: 'Outside CSE-3A' }).click();
+    await dialog.getByRole('textbox', { name: 'Search people' }).fill('cl');
+    await expect(dialog.getByText('Client Person')).toBeVisible();
+    await noSideScroll(page);
+    await page.screenshot({ path: test.info().outputPath('team-375.png') });
+});
+
+test('Units panel (§14.4): rename, seats, unit lead and Move to…, all native controls, no side scroll on a phone', async ({ page }) => {
+    await open(page, 'units');
+    await expect(page.getByRole('textbox', { name: 'Name of Frontend developers' })).toBeVisible();
+    await expect(page.getByRole('combobox', { name: 'Unit lead of Frontend developers' })).toHaveValue('u1');
+    await expect(page.getByRole('combobox', { name: 'Move to…' }).first()).toBeVisible();
+    await expect(page.getByRole('option', { name: 'Developer testing unit (full)' }).first()).toBeDisabled();
+    await noSideScroll(page);
+    await page.screenshot({ path: test.info().outputPath('units-375.png') });
 });

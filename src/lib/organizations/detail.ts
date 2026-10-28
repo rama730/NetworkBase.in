@@ -14,10 +14,17 @@ type OrgSettingsRecord = {
   childCreation?: string;
   outsidePeople?: boolean;
   childShare?: boolean;
+  defaultUnits?: string[];
   roleNames?: Partial<Record<"owner" | "admin" | "member" | "viewer", string>>;
   handleChangedAt?: string;
   changes?: Record<string, { by: string; byName: string | null; at: string }>;
 };
+
+/** Default unit names from org_settings, trimmed and capped. */
+export function readDefaultUnits(settings: unknown): string[] {
+  const units = (settings as { defaultUnits?: unknown } | null)?.defaultUnits;
+  return Array.isArray(units) ? units.filter((u): u is string => typeof u === "string" && u.trim().length > 0).map((u) => u.trim()).slice(0, 20) : [];
+}
 
 /** What the org header, About and Settings need, on top of the project read model (report §18.9). */
 export type OrgDetail = {
@@ -28,6 +35,8 @@ export type OrgDetail = {
   outsidePeople: boolean;
   /** Child projects may share posts up to the org feed (report §17.6). */
   childShare: boolean;
+  /** Default units pre-filling a new child project's team (report §14.4 additions). */
+  defaultUnits: string[];
   /** Chat rules as stored (report §25.4); read with orgChatSettings for type defaults. */
   chat: { membersCreateChannels?: boolean; generalAdminsOnly?: boolean };
   adminDigest: "daily" | "instant";
@@ -102,6 +111,7 @@ export async function readOrgDetail(
     childCreation: settings.childCreation === "admins" ? "admins" : "members",
     outsidePeople: settings.outsidePeople === true,
     childShare: settings.childShare !== false,
+    defaultUnits: readDefaultUnits(settings),
     adminDigest: (settings as { adminDigest?: string }).adminDigest === "instant" ? "instant" : "daily",
     chat: { membersCreateChannels: (settings as { membersCreateChannels?: boolean }).membersCreateChannels, generalAdminsOnly: (settings as { generalAdminsOnly?: boolean }).generalAdminsOnly },
     visibilityCap: readOrgRules(settings).visibilityCap,
@@ -233,7 +243,7 @@ export async function readChildOrgLink(
 /** Every org the person is in, for the create wizard's Where picker, with why they can't create there (report §14.1). */
 export async function listCreateLocations(userId: string) {
   const rows = await db
-    .select({ id: projects.id, title: projects.title, slug: projects.slug, ownerId: projects.ownerId, role: projectMembers.role, visibility: projects.visibility, status: projects.status, suspendedAt: projects.suspendedAt, orgSettings: projects.orgSettings })
+    .select({ id: projects.id, title: projects.title, slug: projects.slug, ownerId: projects.ownerId, role: projectMembers.role, visibility: projects.visibility, status: projects.status, suspendedAt: projects.suspendedAt, orgSettings: projects.orgSettings, orgType: projects.orgType, category: projects.category, tags: projects.tags, memberUpdatesEnabled: projects.memberUpdatesEnabled, memberFileUploadDefault: projects.memberFileUploadDefault })
     .from(projects)
     .innerJoin(projectMembers, and(eq(projectMembers.projectId, projects.id), eq(projectMembers.userId, userId)))
     .where(and(eq(projects.kind, "organization"), isNull(projects.deletedAt)))
@@ -249,6 +259,14 @@ export async function listCreateLocations(userId: string) {
       visibilityCap: rules.visibilityCap,
       orgPublic: isProjectPubliclyReadableVisibility(row.visibility),
       isAdmin: role === "owner" || role === "admin",
+      orgType: row.orgType,
+      category: row.category,
+      defaultUnits: readDefaultUnits(row.orgSettings),
+      outsidePeople: rules.outsidePeople,
+      ownerId: row.ownerId,
+      tags: (row.tags ?? []).slice(0, 8),
+      memberUpdatesEnabled: row.memberUpdatesEnabled,
+      memberFileUploadDefault: row.memberFileUploadDefault,
     };
   });
 }

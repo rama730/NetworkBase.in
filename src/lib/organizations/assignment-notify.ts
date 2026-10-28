@@ -39,15 +39,19 @@ async function materialsOf(masterId: string, orgId: string) {
     ORDER BY n.name LIMIT 10`);
 }
 
-/** Published (individual, team, group copy): tray for everyone, E5 for each recipient with their own copy. */
-export async function notifyAssignmentPublished(masterId: string, actorId: string) {
+/**
+ * Published (individual, team, group copy): tray for everyone, E5 for each recipient with their own copy.
+ * `onlyCopyIds` narrows it to copies made later (a late joiner, a new child project).
+ */
+export async function notifyAssignmentPublished(masterId: string, actorId: string, onlyCopyIds?: string[]) {
   const [master] = await db.select({ id: tasks.id, projectId: tasks.projectId, title: tasks.title, description: tasks.description, dueDate: tasks.dueDate, settings: tasks.assignmentSettings })
     .from(tasks).where(eq(tasks.id, masterId)).limit(1);
   const org = master ? await orgLabel(master.projectId) : null;
   if (!master || !org) return;
   const settings = master.settings as AssignmentSettings | null;
   const copies: CopyRow[] = await db.select({ id: tasks.id, projectId: tasks.projectId, assigneeId: tasks.assigneeId, teamName: tasks.teamName })
-    .from(tasks).where(and(eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt)));
+    .from(tasks).where(and(eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt), onlyCopyIds ? inArray(tasks.id, onlyCopyIds) : undefined));
+  if (copies.length === 0) return;
   const teams = await teamsOf(copies.map((c) => c.id));
   const childIds = [...new Set(copies.filter((c) => c.projectId !== master.projectId).map((c) => c.projectId))];
   const children = new Map(childIds.length ? (await db.select({ id: projects.id, title: projects.title }).from(projects).where(inArray(projects.id, childIds))).map((c) => [c.id, c.title]) : []);
@@ -120,4 +124,19 @@ export async function notifyAssignmentDueChanged(copyId: string, actorId: string
   const ctx = await copyContext(copyId);
   if (!ctx) return;
   await notifyOrg({ orgId: ctx.org.id, eventKey: "assignments.due_changed", actorId, to: await copyPeople(copyId), title: title(ctx.copy.title), href: ctx.href, sourceEventId: eventId, refs: { taskId: copyId } });
+}
+
+/**
+ * After a join or a new child project commits: E5 and the tray line for the copies it received (report §26 D,
+ * "late joiner"). Copies already announced are skipped by the per-person dedupe.
+ */
+export async function notifyNewCopies(orgId: string, where: { userId?: string; projectId?: string }) {
+  const rows = await db.execute<{ master_id: string; creator_id: string | null; copy_id: string }>(sql`
+    SELECT m.id AS master_id, m.creator_id, c.id AS copy_id FROM tasks c JOIN tasks m ON m.id = c.assignment_id
+    WHERE m.project_id = ${orgId} AND m.deleted_at IS NULL AND c.deleted_at IS NULL AND m.assignment_settings->>'closedAt' IS NULL
+      AND c.created_at > now() - interval '1 hour'
+      AND ${where.userId ? sql`c.assignee_id = ${where.userId}` : sql`c.project_id = ${where.projectId ?? null}`}`);
+  const byMaster = new Map<string, { creator: string | null; copies: string[] }>();
+  for (const r of rows) byMaster.set(r.master_id, { creator: r.creator_id, copies: [...(byMaster.get(r.master_id)?.copies ?? []), r.copy_id] });
+  for (const [masterId, { creator, copies }] of byMaster) if (creator) await notifyAssignmentPublished(masterId, creator, copies);
 }

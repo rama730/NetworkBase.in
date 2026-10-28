@@ -7,6 +7,7 @@ import { Pin } from 'lucide-react'
 
 import { readChildOrgLineAction, readOrgDashboardAction, readOrgProjectsAction, type OrgProjectRow } from '@/app/actions/org-dashboard'
 import { archiveChildAction } from '@/app/actions/organizations'
+import { readProjectUnitsAction } from '@/app/actions/child-units'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { RailSection } from '@/components/ui/rail-section'
@@ -98,8 +99,8 @@ export function OrgDashboard({ orgId, orgSlug }: { orgId: string; orgSlug: strin
 }
 
 /** Projects tab (report §28): a list with filters for everyone in the org; Needs attention and bulk Archive for admins. */
-export function OrgProjectsTab({ orgId }: { orgId: string }) {
-    const [data, setData] = useState<{ isAdmin: boolean; rows: OrgProjectRow[]; summary: { total: number; attention: number; quiet: number; notInProject: number } } | null>(null)
+export function OrgProjectsTab({ orgId, orgSlug }: { orgId: string; orgSlug?: string | null }) {
+    const [data, setData] = useState<{ isAdmin: boolean; canCreate?: boolean; rows: OrgProjectRow[]; summary: { total: number; attention: number; quiet: number; notInProject: number } } | null>(null)
     const [q, setQ] = useState('')
     const [status, setStatus] = useState<'all' | 'attention' | 'quiet' | 'archived'>('all')
     const [visibility, setVisibility] = useState('all')
@@ -151,6 +152,7 @@ export function OrgProjectsTab({ orgId }: { orgId: string }) {
                 <select aria-label="Sort" className={sel} value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
                     <option value="active">Recently active</option><option value="name">Name</option><option value="overdue">Most overdue</option>
                 </select>
+                {data.canCreate ? <Button asChild size="sm" className="ml-auto"><Link href={`/projects/new?org=${encodeURIComponent(orgSlug ?? orgId)}`}>+ New project</Link></Button> : null}
                 {data.isAdmin && selected.size ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => { if (window.confirm(`Archive ${selected.size} ${selected.size === 1 ? 'project' : 'projects'}?`)) archive() }}>Archive {selected.size}</Button> : null}
             </div>
             <ul className="divide-y divide-border rounded-lg border border-border">
@@ -189,5 +191,35 @@ export function ChildOrgLine({ projectId }: { projectId: string }) {
             {line.sprint ? ` · ${line.sprint.name} ends ${day(line.sprint.endDate)}` : ''}
             {line.dueCount ? ` · ${line.dueCount} ${line.dueCount === 1 ? 'assignment' : 'assignments'} due` : ''}
         </p>
+    )
+}
+
+/**
+ * The child Dashboard's Team by unit (report §14.4): `Frontend developers · 3 (R)(A)(K) · 1 open seat`; opening a
+ * unit lists the names with its lead ★. Names come from the dashboard's own (privacy-filtered) member list.
+ */
+export function ChildUnitsLine({ projectId, members }: { projectId: string; members: Array<{ id: string; fullName?: string | null; username?: string | null }> }) {
+    const { data: units } = useQuery({ queryKey: ['child-units', projectId], queryFn: () => readProjectUnitsAction(projectId), staleTime: 60_000 })
+    if (!units?.length) return null
+    const nameOf = (id: string) => { const m = members.find((x) => x.id === id); return m ? m.fullName || m.username || 'Member' : null }
+    return (
+        <section aria-label="Team by unit" className="mb-4 space-y-1 text-sm">
+            {units.map((unit) => {
+                const names = unit.memberIds.map((id) => ({ id, name: nameOf(id) })).filter((p): p is { id: string; name: string } => Boolean(p.name))
+                const open = Math.max(0, unit.count - unit.filled)
+                return (
+                    <details key={unit.id}>
+                        <summary className="cursor-pointer text-muted-foreground">
+                            <span className="font-medium text-foreground">{unit.title}</span> · {unit.memberIds.length}{' '}
+                            {names.slice(0, 4).map((p) => <span key={p.id} aria-hidden="true" className="ml-0.5 inline-flex size-5 items-center justify-center rounded-full bg-muted text-[10px] font-semibold">{p.name.slice(0, 1).toUpperCase()}</span>)}
+                            {open ? ` · ${open} open ${open === 1 ? 'seat' : 'seats'}` : ''}
+                        </summary>
+                        <ul className="ml-4 mt-1 space-y-0.5">
+                            {names.map((p) => <li key={p.id}>{p.name}{p.id === unit.leadUserId ? ' ★ unit lead' : ''}</li>)}
+                        </ul>
+                    </details>
+                )
+            })}
+        </section>
     )
 }

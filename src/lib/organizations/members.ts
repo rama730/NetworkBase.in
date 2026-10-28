@@ -5,6 +5,8 @@ import { and, eq, gt, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { orgEmailInvites, profiles, projectMembers, projects } from "@/lib/db/schema";
 import { createCopiesForNewMember, releaseCopiesOnLeave } from "@/lib/organizations/assignments";
+import { notifyNewCopies } from "@/lib/organizations/assignment-notify";
+import { notifyOrg } from "@/lib/organizations/notify";
 import { addProjectMemberInternal, removeProjectMemberInternal } from "@/lib/projects/collaborator-lifecycle";
 
 type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -14,7 +16,7 @@ type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
  * invite's child project and unit place them there too. Returns the org id, or null when the invite is gone.
  */
 export async function acceptOrgInvite(userId: string, inviteId: string): Promise<string | null> {
-  return db.transaction(async (tx) => {
+  const orgId = await db.transaction(async (tx) => {
     const [invite] = await tx.update(orgEmailInvites)
       .set({ acceptedAt: new Date() })
       .where(and(eq(orgEmailInvites.id, inviteId), isNull(orgEmailInvites.acceptedAt), gt(orgEmailInvites.expiresAt, sql`now()`)))
@@ -33,6 +35,8 @@ export async function acceptOrgInvite(userId: string, inviteId: string): Promise
     }
     return invite.orgId;
   });
+  if (orgId) await notifyNewCopies(orgId, { userId });
+  return orgId;
 }
 
 /** Open invites sent to this person's address (exact match, report §20.11), optionally for one org. */
@@ -60,8 +64,11 @@ export async function ledChildProjects(executor: Executor, orgId: string, userId
  * Leaving or being removed (report §20.7): out of every child project (seats reopen), unfinished copies go,
  * handed-in work stays for the admins, then out of the org.
  */
-export async function removeFromOrg(executor: Executor, orgId: string, userId: string, actorId: string) {
-  const childMemberships = await executor.select({ projectId: projectMembers.projectId, leadId: projects.ownerId }).from(projectMembers)
+export type ReopenedSeat = { projectId: string; slug: string | null; leadId: string; unit: string };
+
+/** Returns the unit seats it opened, for the leads' "1 seat open in Frontend developers" after the commit. */
+export async function removeFromOrg(executor: Executor, orgId: string, userId: string, actorId: string): Promise<ReopenedSeat[]> {
+  const childMemberships = await executor.select({ projectId: projectMembers.projectId, leadId: projects.ownerId, slug: projects.slug, unit: sql<string | null>`(SELECT coalesce(r.title, r.role) FROM project_open_roles r WHERE r.id = ${projectMembers.unitId})` }).from(projectMembers)
     .innerJoin(projects, eq(projects.id, projectMembers.projectId))
     .where(and(eq(projects.parentId, orgId), eq(projectMembers.userId, userId), isNull(projects.deletedAt)));
   const self = actorId === userId;
@@ -71,4 +78,14 @@ export async function removeFromOrg(executor: Executor, orgId: string, userId: s
     await removeProjectMemberInternal(executor, { projectId, actorId: self ? userId : leadId, targetUserId: userId, mode: "unassign_active_tasks", allowSelf: self });
   }
   await removeProjectMemberInternal(executor, { projectId: orgId, actorId, targetUserId: userId, mode: "unassign_active_tasks", allowSelf: self });
+  return childMemberships.flatMap((m) => (m.unit ? [{ projectId: m.projectId, slug: m.slug, leadId: m.leadId, unit: m.unit }] : []));
+}
+
+/** Seat reopened (report §26 B): the child project's lead hears it. */
+export async function notifySeatsReopened(orgId: string, seats: ReopenedSeat[]) {
+  const stamp = Date.now();
+  for (const seat of seats) {
+    await notifyOrg({ orgId, eventKey: "org.child_notice", to: [seat.leadId], title: `1 seat open in ${seat.unit}`,
+      href: `/projects/${encodeURIComponent(seat.slug ?? seat.projectId)}?tab=settings`, sourceEventId: `seat:${seat.projectId}:${seat.unit}:${stamp}`, refs: { projectId: seat.projectId } });
+  }
 }

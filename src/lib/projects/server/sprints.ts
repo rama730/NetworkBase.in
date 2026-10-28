@@ -1349,7 +1349,7 @@ export async function createSprintAction(data: CreateSprintInput) {
                 WHERE project_id = ${validated.projectId}
             `);
       const sprintNumber = Number(Array.from(numberRows)[0]?.next_number ?? 1);
-      await assertOrgSprintRules(tx, { projectId: validated.projectId, startDate, endDate, parentSprintId: validated.parentSprintId ?? null });
+      const parentSprintId = await assertOrgSprintRules(tx, { projectId: validated.projectId, startDate, endDate, parentSprintId: validated.parentSprintId ?? null });
       const [created] = await tx
         .insert(projectSprints)
         .values({
@@ -1364,7 +1364,7 @@ export async function createSprintAction(data: CreateSprintInput) {
           status: "planning",
           autoStart: validated.autoStart ?? true,
           showInChildren: validated.showInChildren ?? true,
-          parentSprintId: validated.parentSprintId ?? null,
+          parentSprintId,
         })
         .returning({ id: projectSprints.id });
       if (created && validated.createMatching) {
