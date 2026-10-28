@@ -40,6 +40,7 @@ export function OrgDashboard({ orgId, orgSlug }: { orgId: string; orgSlug: strin
     return (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
             <div className="min-w-0 space-y-6 lg:col-span-8">
+                {data.archivedSummary ? <p className="text-sm text-muted-foreground" data-testid="org-archived-summary">{data.archivedSummary}</p> : null}
                 {data.pinned ? (
                     <Link href={`${base}?tab=updates&updateId=${data.pinned.id}`} className="flex min-h-10 items-center gap-2 rounded-[5px] border border-border bg-muted/30 px-3 text-sm hover:bg-muted">
                         <Pin className="size-3.5 shrink-0" aria-hidden="true" /><span className="truncate">{data.pinned.content}</span>
@@ -192,11 +193,25 @@ export function ChildOrgLine({ projectId }: { projectId: string }) {
     const { data: line } = useQuery({ queryKey: ['child-org-line', projectId], queryFn: () => readChildOrgLineAction(projectId), staleTime: 60_000 })
     if (!line) return null
     return (
-        <p className="mb-4 text-sm text-muted-foreground">
-            Part of <Link href={`/org/${encodeURIComponent(line.orgSlug ?? '')}`} className="font-medium text-foreground hover:underline">{line.orgTitle}</Link>
-            {line.sprint ? ` · ${line.sprint.name} ends ${day(line.sprint.endDate)}` : ''}
-            {line.dueCount ? ` · ${line.dueCount} ${line.dueCount === 1 ? 'assignment' : 'assignments'} due` : ''}
-        </p>
+        <div className="mb-4 space-y-4">
+            <p className="text-sm text-muted-foreground">
+                Part of <Link href={`/org/${encodeURIComponent(line.orgSlug ?? '')}`} className="font-medium text-foreground hover:underline">{line.orgTitle}</Link>
+                {line.sprint ? ` · ${line.sprint.name} ends ${day(line.sprint.endDate)}` : ''}
+                {line.dueCount ? ` · ${line.dueCount} ${line.dueCount === 1 ? 'assignment' : 'assignments'} due` : ''}
+            </p>
+            {/* What's happening = Needs you + This sprint (report §27.5); Activity stays in the rail. */}
+            {line.needsYou.length || line.ownSprint ? (
+                <RailSection title="What's happening">
+                    {line.ownSprint ? (
+                        <p className={row} data-testid="child-this-sprint">
+                            <span className="truncate">This sprint · {line.ownSprint.name}</span>
+                            <span className="shrink-0 text-[12px] text-muted-foreground">{line.ownSprint.parent ? `Inside ${line.ownSprint.parent} (${line.orgTitle}) · ` : ''}ends {day(line.ownSprint.endDate)}</span>
+                        </p>
+                    ) : null}
+                    <ul>{line.needsYou.map((n) => <li key={`${n.kind}:${n.label}`}><Link href={n.href} className={cn(row, 'hover:text-primary')}><span className="truncate">{n.label}</span><span aria-hidden="true">→</span></Link></li>)}</ul>
+                </RailSection>
+            ) : null}
+        </div>
     )
 }
 
