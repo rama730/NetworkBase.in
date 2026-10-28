@@ -78,4 +78,7 @@ test("COR-053: an Auth failure keeps db_deleted and the retry completes; cancel 
   assert.equal((await finalize(target.userId, target.deletionId)).success, true);
   const [done] = await sql`SELECT cleanup_status, completed_at IS NOT NULL AS completed FROM account_deletions WHERE id = ${target.deletionId}`;
   assert.deepEqual({ ...done }, { cleanup_status: "completed", completed: true });
+  // The last email goes to the address kept on the deletion record, once even though the finalizer ran twice.
+  const sent = await sql`SELECT to_email FROM public.email_outbox WHERE kind = 'account_deletion_completed' AND to_email = ${`${target.userId}@x.test`}`;
+  assert.equal(sent.length, 1);
 });

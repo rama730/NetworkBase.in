@@ -57,6 +57,7 @@ export interface SecurityActivityEntry {
     | "github_account_replaced"
     | "security_activity_cleared"
     | "account_data_exported"
+    | "sign_in_method_linked"
     | "sign_in_method_unlinked"
     | "editor_token_created"
     | "account_deletion_scheduled"
@@ -96,14 +97,6 @@ export interface PrivacySettingsState {
   blockedCount: number;
 }
 
-export interface PrivacyOverview {
-  profileVisibility: PrivacySettingsState["profileVisibility"];
-  messagePrivacy: PrivacySettingsState["messagePrivacy"];
-  connectionPrivacy: PrivacySettingsState["connectionPrivacy"];
-  blockedCount: number;
-  summary: string;
-}
-
 export interface PrivacyActivityEntry {
   id: string;
   eventType:
@@ -117,19 +110,12 @@ export interface PrivacyActivityEntry {
   summary: string;
 }
 
-export interface PrivacyPreviewState {
-  profileVisibility: string;
-  interactionPermissions: string;
-}
-
 export interface PrivacyData {
   settings: PrivacySettingsState;
   blockedAccounts: PrivacyBlockedAccount[];
   /** Opaque cursor for GET /api/v1/privacy/blocks; null when every blocked account is loaded. */
   blockedAccountsNextCursor: string | null;
-  overview: PrivacyOverview;
   privacyActivity: PrivacyActivityEntry[];
-  previews: PrivacyPreviewState;
 }
 
 export type IntegrationsAuthProvider = "google" | "github" | "email";

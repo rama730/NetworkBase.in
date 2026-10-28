@@ -376,6 +376,7 @@ export default function IntegrationsSettings() {
     try {
       await startGithubIdentityLink({
         nextPath: "/settings?tab=integrations&githubIdentity=replaced",
+        // ponytail: the old identity is detached before the redirect because an account can hold one identity per provider; GitHub would refuse the new link otherwise. The dialog says so. Ceiling: an abandoned round trip leaves GitHub disconnected.
         beforeRedirect: async () => {
           const response = await fetch("/api/v1/github/account/replacement", { method: "POST" });
           const payload = await response.json().catch(() => null);
@@ -599,6 +600,7 @@ export default function IntegrationsSettings() {
           <p>Project files, repository links, sync history, and past contributor credit stay unchanged.</p>
           <p>Repository access is reviewed per project after the new account is linked.</p>
           <p>Only future commits switch to the new account&apos;s privacy-safe GitHub identity.</p>
+          <p className="font-medium text-foreground">GitHub stays disconnected until you finish choosing a new account. If you leave before that, come back here and connect again.</p>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setReplacementConfirmOpen(false)}>Cancel</Button>
