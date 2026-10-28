@@ -22,7 +22,7 @@ import { createFolder } from '@/app/actions/files/mutations';
 type Failure = { success: false; error: string };
 const DENIED: Failure = { success: false, error: "You don't have permission to do this." };
 
-export type OrgDocItem = OrgDocOptions & { id: string; slug: string; filename: string; label: 'new' | 'updated' | null; sprint: string | null };
+export type OrgDocItem = OrgDocOptions & { id: string; slug: string; filename: string; label: 'new' | 'updated' | null; sprint: string | null; sprintId: string | null };
 export type OrgDocsData = {
     mode: 'org' | 'child';
     orgId: string;
@@ -33,6 +33,8 @@ export type OrgDocsData = {
     signedIn: boolean;
     groups: DocGroup[];
     docs: OrgDocItem[];
+    /** Admins link a doc to one of these (report §19.3 Linked sprint). */
+    sprints: Array<{ id: string; name: string }>;
 };
 
 async function readOrg(orgId: string) {
@@ -87,12 +89,12 @@ export async function readOrgDocsAction(projectId: string): Promise<{ success: t
             .from(projectDocs).leftJoin(projectNodes, eq(projectNodes.id, projectDocs.linkedNodeId)).where(inArray(projectDocs.id, ids)),
         userId ? db.select({ docId: docOpens.docId, version: docOpens.version, at: docOpens.openedAt }).from(docOpens)
             .where(and(eq(docOpens.userId, userId), inArray(docOpens.docId, ids))) : Promise.resolve([]),
-        db.select({ docId: sprintMaterials.docId, name: projectSprints.name }).from(sprintMaterials)
+        db.select({ docId: sprintMaterials.docId, name: projectSprints.name, sprintId: projectSprints.id }).from(sprintMaterials)
             .innerJoin(projectSprints, eq(projectSprints.id, sprintMaterials.sprintId)).where(inArray(sprintMaterials.docId, ids)),
     ]);
     const byId = new Map(rows.map((r) => [r.id, r]));
     const openById = new Map(opens.map((o) => [o.docId, o]));
-    const sprintById = new Map(sprints.map((s) => [s.docId, s.name]));
+    const sprintById = new Map(sprints.map((s) => [s.docId, s]));
     const docs = listed.docs.flatMap((d): OrgDocItem[] => {
         const options = readOrgDocOptions(normalizeProjectDocSettings(byId.get(d.id)?.settings).org, groups);
         if (mode === 'child' && !options.showInChildren) return [];
@@ -100,10 +102,16 @@ export async function readOrgDocsAction(projectId: string): Promise<{ success: t
         return [{
             id: d.id, slug: d.slug, filename: d.filename, ...options,
             label: userId ? docLabel({ readVersion: options.readVersion, opened: opened ? { version: opened.version, at: opened.at } : null, updatedAt: byId.get(d.id)?.updatedAt ?? null }) : null,
-            sprint: sprintById.get(d.id) ?? null,
+            sprint: sprintById.get(d.id)?.name ?? null,
+            sprintId: sprintById.get(d.id)?.sprintId ?? null,
         }];
     });
-    return { success: true, data: { mode, orgId, orgTitle: org.title, orgSlug: org.slug, isAdmin: role === 'owner' || role === 'admin', signedIn: Boolean(userId), groups, docs } };
+    const isAdmin = role === 'owner' || role === 'admin';
+    const linkable = mode === 'org' && isAdmin
+        ? await db.select({ id: projectSprints.id, name: projectSprints.name }).from(projectSprints)
+            .where(and(eq(projectSprints.projectId, orgId), inArray(projectSprints.status, ['planning', 'active']))).orderBy(projectSprints.startDate)
+        : [];
+    return { success: true, data: { mode, orgId, orgTitle: org.title, orgSlug: org.slug, isAdmin, signedIn: Boolean(userId), groups, docs, sprints: linkable } };
 }
 
 const optionsSchema = z.object({
@@ -112,17 +120,30 @@ const optionsSchema = z.object({
     template: z.boolean().optional(),
     showInChildren: z.boolean().optional(),
     visibility: z.enum(['members_only', 'public']).optional(),
+    /** Linked sprint: the doc joins that sprint's Materials, which gives it the sprint chip. */
+    sprintId: z.string().uuid().nullable().optional(),
 }).strict();
 
 /** Group, Required, Template, Show in child projects and visibility for one org doc (owners and admins). */
 export async function updateOrgDocOptionsAction(orgId: string, docId: string, input: z.input<typeof optionsSchema>): Promise<{ success: true } | Failure> {
-    if (!(await orgAdmin(orgId))) return DENIED;
+    const adminId = await orgAdmin(orgId);
+    if (!adminId) return DENIED;
     const parsed = optionsSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: 'Check the doc options.' };
     const doc = await orgDocRow(orgId, docId);
     if (!doc) return { success: false, error: 'That doc is no longer available.' };
-    const { visibility, ...patch } = parsed.data;
-    await writeOrgOptions(doc.id, doc.settings, patch, visibility ? { visibilityOverride: visibility } : {});
+    const { visibility, sprintId, ...patch } = parsed.data;
+    if (sprintId !== undefined) {
+        const [sprint] = sprintId ? await db.select({ id: projectSprints.id }).from(projectSprints)
+            .where(and(eq(projectSprints.id, sprintId), eq(projectSprints.projectId, orgId))).limit(1) : [];
+        if (sprintId && !sprint) return { success: false, error: 'That sprint is no longer available.' };
+        await db.transaction(async (tx) => {
+            await tx.delete(sprintMaterials).where(and(eq(sprintMaterials.docId, doc.id),
+                inArray(sprintMaterials.sprintId, db.select({ id: projectSprints.id }).from(projectSprints).where(eq(projectSprints.projectId, orgId)))));
+            if (sprint) await tx.insert(sprintMaterials).values({ sprintId: sprint.id, docId: doc.id, addedBy: adminId });
+        });
+    }
+    if (Object.keys(patch).length > 0 || visibility) await writeOrgOptions(doc.id, doc.settings, patch, visibility ? { visibilityOverride: visibility } : {});
     const org = await readOrg(orgId);
     touch(org?.slug ?? null, orgId);
     return { success: true };

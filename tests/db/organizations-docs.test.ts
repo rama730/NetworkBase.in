@@ -155,3 +155,26 @@ test("the Projects smart block lists the org's child projects, never Private one
   assert.equal(visitor.success, true, JSON.stringify(visitor));
   if (visitor.success) assert.deepEqual(visitor.previews[0]!.items, [], "Org only projects stay hidden from visitors");
 });
+
+test("§19 pass: inherited org admins edit child docs; Linked sprint gives the sprint chip and joins its Materials", async () => {
+  const o = await orgWithChild();
+  await addDoc(o.child, "readme", "# Compiler Lab");
+  viewerId = o.admin;
+  const asAdmin = await projectDoc.readProjectDocAction(o.child, "readme");
+  assert.ok(asAdmin.success && asAdmin.data.canEdit, "inherited admin can edit");
+  viewerId = o.outsider;
+  const asOutsider = await projectDoc.readProjectDocAction(o.child, "readme");
+  assert.ok(asOutsider.success && !asOutsider.data.canEdit, "a plain member stays read-only");
+
+  const id = await addDoc(o.org, "co1-notes", "# CO1 notes");
+  const [s] = await sql`INSERT INTO project_sprints (project_id, sprint_number, name, status, start_date, end_date) VALUES (${o.org}, 1, 'CO1', 'planning', now(), now() + interval '14 days') RETURNING id`;
+  const data = await list(o.org, o.admin);
+  assert.deepEqual(data!.sprints.map((x) => x.name), ["CO1"]);
+  viewerId = o.admin;
+  assert.ok((await docs.updateOrgDocOptionsAction(o.org, id, { sprintId: s!.id })).success);
+  assert.equal((await list(o.org, o.member))!.docs.find((d) => d.id === id)!.sprint, "CO1");
+  assert.equal((await sql`SELECT count(*)::int AS n FROM sprint_materials WHERE doc_id = ${id}`)[0]!.n, 1);
+  viewerId = o.admin;
+  assert.ok((await docs.updateOrgDocOptionsAction(o.org, id, { sprintId: null })).success);
+  assert.equal((await list(o.org, o.member))!.docs.find((d) => d.id === id)!.sprint, null);
+});
