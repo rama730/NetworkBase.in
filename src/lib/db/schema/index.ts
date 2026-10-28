@@ -1242,6 +1242,8 @@ export const profileProjectContributions = pgTable(
     repositoryUrl: text("repository_url"),
     presentation: jsonb("presentation").$type<import("@/lib/profile/contribution-story").ContributionStory>(),
     featured: boolean("featured").default(false).notNull(),
+    /** Opt-in Work record on an org entry (report §24.5, 0260). */
+    showWorkRecord: boolean("show_work_record").default(false).notNull(),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     source: text("source", {
       enum: ["membership", "application", "owner", "manual"],

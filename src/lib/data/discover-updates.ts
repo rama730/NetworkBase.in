@@ -71,7 +71,7 @@ function visibilityConditions(filters: DiscoverFilters, view: FilterView, viewer
         eq(projectUpdates.visibility, "public"),
         isNull(projectUpdates.deletedAt),
         // The project's own rules: visibility, status, deleted owner, a block with the owner, status/type/skill/Following filters.
-        ...buildBaseConditions({ ...filters, search: undefined }, view, viewerId),
+        ...buildBaseConditions({ ...filters, search: undefined }, view, viewerId, { followedOrgChildren: false }),
         updatesTabVisible(viewerId),
     ];
     if (viewerId) {

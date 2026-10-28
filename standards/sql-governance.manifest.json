@@ -260,7 +260,8 @@
     "drizzle/0256_content_reports_reporter_index.sql",
     "drizzle/0257_unit_leads.sql",
     "drizzle/0258_sprint_notify_on_start.sql",
-    "drizzle/0259_subtask_completed_by.sql"
+    "drizzle/0259_subtask_completed_by.sql",
+    "drizzle/0260_contribution_work_record.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",

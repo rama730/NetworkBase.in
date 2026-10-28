@@ -95,10 +95,13 @@ export async function moveIntoOrg(projectId: string, orgId: string, currentVisib
 export async function detachFromOrg(projectId: string) {
   await unlinkSprints(db, { childProjectId: projectId });
   await releaseGroupCopies(db, projectId);
+  // Profile entries keep the history: "with CSE-3A (until Nov 2026)" (report §24.5).
+  const until = new Intl.DateTimeFormat("en", { month: "short", year: "numeric" }).format(new Date());
   await db.update(projects).set({
     parentId: null,
     visibility: "private",
-    orgSettings: sql`${projects.orgSettings} - 'detachRequest'`,
+    orgSettings: sql`(coalesce(${projects.orgSettings}, '{}'::jsonb) - 'detachRequest')
+      || jsonb_build_object('formerOrg', jsonb_build_object('title', (SELECT o.title FROM projects o WHERE o.id = ${projects.parentId}), 'until', ${until}::text))`,
     updatedAt: new Date(),
   }).where(eq(projects.id, projectId));  // Its channels become its own workspace again; org admins who opened them leave (report §25.2).
   await db.execute(sql`SELECT app_private.chat_reparent_project(${projectId}::uuid)`);

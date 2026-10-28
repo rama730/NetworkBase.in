@@ -34,6 +34,7 @@ import { ProfileRightRail } from './ProfileRightRail'
 import { OpenToRolesCard } from './sections/OpenToRolesCard'
 import { ProjectContributionsCard } from './sections/ProjectContributionsCard'
 import { ProjectsGridCard } from './sections/ProjectsGridCard'
+import { OrgChipsRow } from './sections/OrgChipsRow'
 
 type UserConnectionsModalComponent = typeof import('@/components/profile/v2/UserConnectionsModal')['UserConnectionsModal'];
 type ProfileInviteModalComponent = typeof import('./ProfileInviteModal')['default'];
@@ -672,6 +673,8 @@ export function ProfileV2Client({
                 main={renderMainContent()}
                 mainBottom={renderMainBottom()}
                 highlights={lockedShell ? null : (
+                    <>
+                    <OrgChipsRow contributions={collaborationContributions} />
                     <ComponentErrorBoundary fallbackMessage="Failed to load role preferences.">
                         <OpenToRolesCard
                             openTo={safeProfile.openTo}
@@ -688,6 +691,7 @@ export function ProfileV2Client({
                             hasOpenRoles={openRolesProjects.length > 0 || applicationsCapReached}
                         />
                     </ComponentErrorBoundary>
+                    </>
                 )}
                 rail={lockedShell ? null : (
                     <ProfileRightRail

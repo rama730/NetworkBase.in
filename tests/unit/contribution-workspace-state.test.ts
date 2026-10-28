@@ -142,6 +142,7 @@ async function workspace(
     "@/components/skills/SkillPicker": `export function SkillPicker(){return null;}`,
     "@/components/profile/ContributionStoryView": `export function ContributionStoryView(){return null;}export function ContributionIdentityLinks(){return null;}`,
     "./ContributionSummaryEditor": `export function ContributionSummaryEditor(){return null;}`,
+    "./OrgStoryHelpers": `export function OrgStoryHelpers(){return null;}`,
   };
   const result = await build({
     entryPoints: ["src/components/profile/edit/ContributionWorkspace.tsx"],
