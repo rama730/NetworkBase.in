@@ -424,7 +424,7 @@ export function RosterDialog({ row, open, onOpenChange, onChanged }: { row: Assi
 }
 
 /** The org Tasks tab's Assignments view: admins manage, members hand in, guests see counts. */
-export function AssignmentsPanel({ orgId, onBoardChanged }: { orgId: string; onBoardChanged?: () => void }) {
+export function AssignmentsPanel({ orgId, onBoardChanged, startComposing = false, onComposingStarted }: { orgId: string; onBoardChanged?: () => void; startComposing?: boolean; onComposingStarted?: () => void }) {
     const [data, setData] = useState<{ isAdmin: boolean; rows: AssignmentRow[]; timeZone?: string | null } | null>(null)
     const [composing, setComposing] = useState(false)
     const [roster, setRoster] = useState<AssignmentRow | null>(null)
@@ -434,6 +434,12 @@ export function AssignmentsPanel({ orgId, onBoardChanged }: { orgId: string; onB
     const [pending, startTransition] = useTransition()
     const load = useCallback(() => void listAssignmentsAction(orgId).then((r) => setData(r.success ? { isAdmin: r.isAdmin, rows: r.rows, timeZone: r.timeZone } : null)), [orgId])
     useEffect(() => { load() }, [load])
+    // + New → Assignment from the org header (report §18.2).
+    useEffect(() => {
+        if (!startComposing || !data) return
+        if (data.isAdmin) setComposing(true)
+        onComposingStarted?.()
+    }, [startComposing, data, onComposingStarted])
     const refresh = useCallback(() => { load(); onBoardChanged?.() }, [load, onBoardChanged])
     const run = (action: () => Promise<{ success: boolean; error?: string }>) => startTransition(async () => {
         const result = await action()

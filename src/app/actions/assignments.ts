@@ -621,3 +621,33 @@ export async function readReviewQueueAction(orgId: string): Promise<{ success: t
         submittedAt: r.submitted_at, late: Boolean(r.due_date && new Date(r.submitted_at) > new Date(r.due_date)),
     })) };
 }
+
+export type OrgTabBadges = { tasks: number; updates: boolean; members: number };
+
+/** Org tab badges (report §18.3): admins see submissions to review and join requests; members see work due
+ *  within 2 days. Everyone gets a dot for announcements they haven't seen. */
+export async function readOrgTabBadgesAction(orgId: string): Promise<OrgTabBadges | null> {
+    const viewer = await orgRole(orgId, 'read');
+    if (!viewer) return null;
+    const [row] = await db.execute<{ tasks: number; updates: boolean; members: number }>(sql`
+        SELECT
+          ${viewer.isAdmin
+            ? sql`(SELECT count(*)::int FROM tasks c JOIN tasks m ON m.id = c.assignment_id
+                   WHERE m.project_id = ${orgId} AND m.deleted_at IS NULL AND c.deleted_at IS NULL AND c.review_status = 'pending')`
+            : sql`(SELECT count(DISTINCT c.id)::int FROM tasks c JOIN tasks m ON m.id = c.assignment_id
+                   LEFT JOIN task_team_members tm ON tm.task_id = c.id AND tm.user_id = ${viewer.userId}
+                   WHERE m.project_id = ${orgId} AND m.deleted_at IS NULL AND m.assignment_settings->>'closedAt' IS NULL
+                     AND c.deleted_at IS NULL AND c.excused_at IS NULL AND (c.assignee_id = ${viewer.userId} OR tm.user_id IS NOT NULL)
+                     AND c.due_date BETWEEN now() AND now() + interval '2 days'
+                     AND NOT (c.review_status IN ('pending', 'approved') OR c.status = 'done' OR c.submission IS NOT NULL))`} AS tasks,
+          EXISTS (SELECT 1 FROM project_updates u
+                  WHERE u.project_id = ${orgId} AND u.update_type = 'announcement' AND u.deleted_at IS NULL AND u.author_id IS DISTINCT FROM ${viewer.userId}
+                    AND u.created_at > coalesce((SELECT last_seen_updates_at FROM project_members WHERE project_id = ${orgId} AND user_id = ${viewer.userId}), '-infinity'::timestamptz)
+                    AND (${viewer.isAdmin} OR u.audience = '{}'::jsonb OR u.audience->'roles' @> to_jsonb(${viewer.role}::text)
+                      OR EXISTS (SELECT 1 FROM project_members c JOIN projects p ON p.id = c.project_id
+                                 WHERE c.user_id = ${viewer.userId} AND p.parent_id = ${orgId} AND u.audience->'projectIds' @> to_jsonb(p.id::text)))) AS updates,
+          ${viewer.isAdmin
+            ? sql`(SELECT count(*)::int FROM role_applications WHERE project_id = ${orgId} AND role_id IS NULL AND status = 'pending')`
+            : sql`0`} AS members`);
+    return row ? { tasks: row.tasks, updates: row.updates, members: row.members } : null;
+}

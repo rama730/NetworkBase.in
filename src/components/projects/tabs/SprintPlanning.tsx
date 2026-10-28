@@ -47,6 +47,9 @@ interface SprintPlanningProps {
   isOwner: boolean;
   isOwnerOrMember: boolean;
   initialSprintData?: Promise<SprintDetailPayload | null> | null;
+  /** + New → Sprint from the org header (report §18.2). */
+  startCreate?: boolean;
+  onCreateStarted?: () => void;
 }
 
 export type Sprint = SprintListItem;
@@ -66,6 +69,8 @@ export default function SprintPlanning({
   isOwner,
   isOwnerOrMember,
   initialSprintData: initialSprintPromise = null,
+  startCreate = false,
+  onCreateStarted,
 }: SprintPlanningProps) {
   const initialSprintData = initialSprintPromise ? use(initialSprintPromise) : null;
   const router = useRouter();
@@ -138,6 +143,11 @@ export default function SprintPlanning({
   const editingFlags = editorState?.sprint ? orgContext?.sprintFlags[editorState.sprint.id] : undefined;
   const refreshSprints = () => void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.sprintDetailRoot(projectId) });
   const canManageSprints = permissions.canCreate;
+  useEffect(() => {
+    if (!startCreate) return;
+    if (canManageSprints) setEditorState({ mode: "create", sprint: null });
+    onCreateStarted?.();
+  }, [startCreate, canManageSprints, onCreateStarted]);
   const deleteImpact: SprintDeleteImpact | null =
     editorState?.mode === "edit" &&
     editorState.sprint &&

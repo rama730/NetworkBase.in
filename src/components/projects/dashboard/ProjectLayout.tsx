@@ -71,6 +71,13 @@ interface ProjectLayoutProps {
     metadataExtra?: React.ReactNode;
     actionsStart?: React.ReactNode;
     showFollow?: boolean;
+    /** Org tab badges (report §18.3): a count, or a dot for something unseen. */
+    tabBadges?: Partial<Record<string, number | "dot">>;
+    /** The compact bar on Files / Tasks / Sprints (report §18.7): the org's active sprint chip in place of the
+     *  stage, the child's org logo before its name, and extra ⋯ items such as New. */
+    compactChip?: React.ReactNode;
+    compactPrefix?: React.ReactNode;
+    compactMenuItems?: React.ReactNode;
 }
 
 const TABS = [
@@ -127,6 +134,10 @@ export default function ProjectLayout({
     metadataExtra = null,
     actionsStart = null,
     showFollow = true,
+    tabBadges = {},
+    compactChip,
+    compactPrefix = null,
+    compactMenuItems = null,
 }: ProjectLayoutProps) {
     const [summaryExpanded, setSummaryExpanded] = useState(false);
     const [projectTabsHeight, setProjectTabsHeight] = useState(0);
@@ -441,11 +452,12 @@ export default function ProjectLayout({
 
                     {isToolTab ? (
                         <div className="flex h-12 items-center gap-2 px-4 md:hidden">
+                            {compactPrefix}
                             <ProjectAvatar project={project} className="size-6 rounded-[5px]" />
                             <h1 className="nb-ui-label min-w-0 flex-1 truncate text-[15px] font-semibold text-foreground" title={project?.title}>
                                 {project?.title}
                             </h1>
-                            {stageLabel ? <span className="nb-status shrink-0" data-status="active">{stageLabel}</span> : null}
+                            {compactChip !== undefined ? compactChip : stageLabel ? <span className="nb-status shrink-0" data-status="active">{stageLabel}</span> : null}
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <button ref={actionsTrigger} type="button" aria-label="Project actions" className="nb-icon-button nb-touch-target shrink-0">
@@ -453,6 +465,7 @@ export default function ProjectLayout({
                                     </button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-48">
+                                    {compactMenuItems}
                                     {showFollow ? (
                                         <DropdownMenuItem onSelect={() => onFollow?.()} disabled={followLoading}>
                                             {isFollowing ? <UserCheck className="size-4" aria-hidden="true" /> : <UserPlus className="size-4" aria-hidden="true" />}
@@ -467,11 +480,11 @@ export default function ProjectLayout({
                                     ) : null}
                                     <DropdownMenuItem onSelect={() => onShare?.(actionsTrigger.current ?? undefined)}>
                                         <Share2 className="size-4" aria-hidden="true" />
-                                        Share project
+                                        {isOrganization ? "Share organization" : "Share project"}
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onSelect={() => onTabChange("dashboard")}>
                                         <LayoutDashboard className="size-4" aria-hidden="true" />
-                                        Project overview
+                                        {isOrganization ? "Org overview" : "Project overview"}
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
@@ -531,6 +544,13 @@ export default function ProjectLayout({
                                             {filesSyncBadge.status === "incoming" && filesSyncBadge.count ? filesSyncBadge.count : null}
                                         </span>
                                     )}
+                                    {tabBadges[tab.id] === "dot" ? (
+                                        <span data-testid={`tab-badge-${tab.id}`} className="ml-1 size-2 rounded-full bg-primary"><span className="sr-only">(new)</span></span>
+                                    ) : tabBadges[tab.id] ? (
+                                        <span data-testid={`tab-badge-${tab.id}`} className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] bg-primary px-1 font-mono text-[10px] font-semibold leading-none text-primary-foreground max-md:text-[11px]">
+                                            {tabBadges[tab.id]}<span className="sr-only"> waiting</span>
+                                        </span>
+                                    ) : null}
                                     {isActive ? <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" /> : null}
                                 </button>
                             );
