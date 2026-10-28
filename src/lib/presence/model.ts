@@ -34,6 +34,12 @@ export type PersonPresence = {
   live: boolean;
   lastActiveAt: string | null;
   status: PersonStatus | null;
+  /**
+   * Realtime will let the viewer join this person's `presence:user:<id>` room (the same SQL rule as the
+   * Realtime policy). Badges subscribe only then: a refused private join takes seconds to answer and the
+   * socket answers joins in order, so refused rooms stall the viewer's own presence and chat joins.
+   */
+  realtime: boolean;
 };
 
 export type ProjectStatus = {
