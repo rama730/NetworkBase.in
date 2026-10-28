@@ -98,15 +98,15 @@ async function adminStateRows(orgId: string, base: string, now: Date): Promise<N
               AND NOT EXISTS (SELECT 1 FROM tasks c WHERE c.assignment_id = m.id AND c.deleted_at IS NULL AND (c.assignee_id = pm.user_id
                 OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = c.id AND tm.user_id = pm.user_id)))
             GROUP BY m.id, m.title ORDER BY m.title`),
-        // Members not in a project, while a group assignment is open.
-        db.execute<{ n: number }>(sql`
-            SELECT count(*)::int AS n FROM project_members pm
-            WHERE pm.project_id = ${orgId} AND pm.role = 'member'
-              AND EXISTS (SELECT 1 FROM tasks m WHERE m.project_id = ${orgId} AND m.kind = 'assignment' AND m.deleted_at IS NULL
-                AND m.assignment_settings->'target'->>'mode' IN ('each_child', 'children')
-                AND m.assignment_settings->>'publishedAt' IS NOT NULL AND m.assignment_settings->>'closedAt' IS NULL)
-              AND NOT EXISTS (SELECT 1 FROM project_members c JOIN projects p ON p.id = c.project_id
-                WHERE c.user_id = pm.user_id AND p.parent_id = ${orgId} AND p.deleted_at IS NULL)`),
+        // Members not in a project (report §14.4) once the org has projects; a group assignment with none to go to (E3).
+        db.execute<{ n: number; children: number; group_title: string | null }>(sql`
+            SELECT (SELECT count(*)::int FROM project_members pm WHERE pm.project_id = ${orgId} AND pm.role = 'member'
+                      AND NOT EXISTS (SELECT 1 FROM project_members c JOIN projects p ON p.id = c.project_id
+                        WHERE c.user_id = pm.user_id AND p.parent_id = ${orgId} AND p.deleted_at IS NULL)) AS n,
+                   (SELECT count(*)::int FROM projects p WHERE p.parent_id = ${orgId} AND p.deleted_at IS NULL) AS children,
+                   (SELECT m.title FROM tasks m WHERE m.project_id = ${orgId} AND m.kind = 'assignment' AND m.deleted_at IS NULL
+                      AND m.assignment_settings->'target'->>'mode' = 'each_child'
+                      AND m.assignment_settings->>'publishedAt' IS NOT NULL AND m.assignment_settings->>'closedAt' IS NULL LIMIT 1) AS group_title`),
         // A sprint due to start automatically that could not, because another is still active.
         db.execute<{ name: string; active: string }>(sql`
             SELECT s.name, a.name AS active FROM project_sprints s JOIN project_sprints a ON a.project_id = s.project_id AND a.status = 'active'
@@ -114,7 +114,8 @@ async function adminStateRows(orgId: string, base: string, now: Date): Promise<N
             ORDER BY s.start_date LIMIT 3`),
     ]);
     for (const t of teams) rows.push({ kind: 'team', label: `${plural(t.n, 'new member')} not in a team · ${t.title}`, href: `${base}?tab=tasks` });
-    if (unplaced && unplaced.n > 0) rows.push({ kind: 'unplaced', label: `${plural(unplaced.n, 'member')} not in a project`, href: `${base}?tab=projects` });
+    if (unplaced && unplaced.children > 0 && unplaced.n > 0) rows.push({ kind: 'unplaced', label: `${plural(unplaced.n, 'member')} not in a project`, href: `${base}?tab=projects` });
+    if (unplaced && unplaced.children === 0 && unplaced.group_title) rows.push({ kind: 'needs_projects', label: `${unplaced.group_title} needs projects · Create one`, href: `/projects/new?org=${encodeURIComponent(base.slice('/org/'.length))}` });
     for (const b of blocked) rows.push({ kind: 'autostart', label: `${b.name} couldn't start: ${b.active} is still active`, href: `${base}?tab=sprints` });
     return rows;
 }

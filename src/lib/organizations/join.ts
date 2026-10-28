@@ -16,6 +16,7 @@ import {
 import { decideOrgJoin, type OrgJoinMode, type OrgJoinOutcome } from "@/lib/organizations/join-rules";
 import { addProjectMemberInternal } from "@/lib/projects/collaborator-lifecycle";
 import { createCopiesForNewMember } from "@/lib/organizations/assignments";
+import { notifyNewCopies } from "@/lib/organizations/assignment-notify";
 import { acceptOrgInvite } from "@/lib/organizations/members";
 
 export type OrgSummary = { id: string; title: string; slug: string | null };
@@ -89,7 +90,7 @@ async function joinOrg(
   where: SQL,
   note?: string | null,
 ): Promise<{ outcome: OrgJoinOutcome; org: OrgSummary } | null> {
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const [org] = await tx
       .select({
         id: projects.id,
@@ -152,6 +153,9 @@ async function joinOrg(
     }
     return { outcome, org: summary };
   });
+  // After the commit: the copies they received are announced (E5, report §26 D).
+  if (result?.outcome === "joined") await notifyNewCopies(result.org.id, { userId });
+  return result;
 }
 
 /** Accepts every open, unexpired org invite sent to this email at sign-up (decision 134). Returns how many. */

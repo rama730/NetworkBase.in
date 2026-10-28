@@ -204,6 +204,21 @@ export async function createCopiesForNewMember(executor: Executor, orgId: string
   }
 }
 
+/** A new child project gets a group copy of each open "each project" assignment that isn't overdue (report §14.3 Phase 5). */
+export async function createCopiesForNewChild(executor: Executor, orgId: string, childId: string, leadId: string) {
+  const masters = await executor
+    .select({ id: tasks.id, settings: tasks.assignmentSettings, dueDate: tasks.dueDate, creatorId: tasks.creatorId })
+    .from(tasks)
+    .where(and(eq(tasks.projectId, orgId), eq(tasks.kind, "assignment"), isNull(tasks.assignmentId), isNull(tasks.deletedAt)));
+  const now = Date.now();
+  for (const master of masters) {
+    const s = master.settings;
+    if (!s?.publishedAt || s.closedAt || s.target.mode !== "each_child" || (master.dueDate && master.dueDate.getTime() < now)) continue;
+    const [existing] = await executor.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, master.id), eq(tasks.projectId, childId))).limit(1);
+    if (!existing) await createCopies(executor, master.id, [{ projectId: childId, assigneeId: leadId }], master.creatorId ?? leadId);
+  }
+}
+
 /** Someone leaving: their unfinished copies go (submitted work stays); a team's lead passes on (report §16.9, §16.11). */
 export async function releaseCopiesOnLeave(executor: Executor, orgId: string, userId: string) {
   await executor.update(tasks).set({ deletedAt: new Date(), updatedAt: new Date() }).where(and(

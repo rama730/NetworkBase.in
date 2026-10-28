@@ -18,6 +18,7 @@ import {
   commentMentions,
   profiles,
   projectMembers,
+  projectOpenRoles,
   projects,
   taskCommentLikes,
   taskComments,
@@ -584,22 +585,34 @@ export async function createTaskCommentAction(
     }
     let validatedMentionIds: string[] = [];
 
+    // `@Frontend developers` (report §14.4): a unit's id in a mention token reaches everyone in that unit.
+    const mentionedUnits = candidateMentionIds.length > 0
+      ? await db.select({ id: projectOpenRoles.id }).from(projectOpenRoles)
+          .where(and(eq(projectOpenRoles.projectId, projectId), inArray(projectOpenRoles.id, candidateMentionIds)))
+      : [];
+    const unitIds = new Set(mentionedUnits.map((unit) => unit.id));
+    const unitPeople = unitIds.size > 0
+      ? await db.select({ userId: projectMembers.userId }).from(projectMembers)
+          .where(and(eq(projectMembers.projectId, projectId), inArray(projectMembers.unitId, [...unitIds])))
+      : [];
+    const personIds = [...new Set([...candidateMentionIds.filter((id) => !unitIds.has(id)), ...unitPeople.map((row) => row.userId)])];
+
     // PURE OPTIMIZATION (Item 9): Omit redundant project select since taskAccess already provided ownerId/slug/title.
-    if (candidateMentionIds.length > 0) {
+    if (personIds.length > 0) {
       const memberRows = await db
         .select({ userId: projectMembers.userId })
         .from(projectMembers)
         .where(
           and(
             eq(projectMembers.projectId, projectId),
-            inArray(projectMembers.userId, candidateMentionIds),
+            inArray(projectMembers.userId, personIds),
           ),
         );
 
       const allowed = new Set<string>(memberRows.map((row) => row.userId));
       if (taskAccess.ownerId) allowed.add(taskAccess.ownerId);
 
-      validatedMentionIds = candidateMentionIds.filter((id) => allowed.has(id));
+      validatedMentionIds = personIds.filter((id) => allowed.has(id));
     }
 
     const createdAt = new Date();

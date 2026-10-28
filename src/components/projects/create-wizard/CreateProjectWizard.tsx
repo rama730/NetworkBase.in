@@ -199,6 +199,9 @@ export default function CreateProjectWizard({ onClose, onSuccess, initialSource 
     // No Esc-to-close: this is a page, not a dialog, and a stray Esc must not drop a 5-step form. Cancel is explicit.
 
     const draftPhaseLabel = draftInfo ? WIZARD_PHASES[draftInfo.phase - 1]?.label : undefined;
+    // Report §14.5: the draft remembers its org; opening the wizard for another org says so.
+    const draftOrg = draftInfo?.parentOrgId ? createLocations.find((location) => location.id === draftInfo.parentOrgId) ?? null : null;
+    const draftElsewhere = Boolean(initialOrgId && draftOrg && draftOrg.id !== initialOrgId);
 
     const content = (
             // A normal page in the app shell (spec §18): fills the main content area; header and footer bands, one scrolling body.
@@ -224,7 +227,7 @@ export default function CreateProjectWizard({ onClose, onSuccess, initialSource 
                                         </div>
                                         <div className="min-w-0">
                                             <p className="nb-card-title truncate text-foreground">
-                                                Continue your saved draft?
+                                                {draftElsewhere ? `You have a draft in ${draftOrg!.title}` : draftOrg ? `Resume draft · in ${draftOrg.title}` : 'Continue your saved draft?'}
                                             </p>
                                             <p className="nb-meta text-muted-foreground">
                                                 Stopped at step {draftInfo.phase}{draftPhaseLabel ? ` · ${draftPhaseLabel}` : ''}{draftInfo.savedAt ? ` · ${draftInfo.savedAt.toLocaleDateString()}` : ''}
@@ -235,9 +238,9 @@ export default function CreateProjectWizard({ onClose, onSuccess, initialSource 
                                         <Button
                                             type="button"
                                             variant="ghost"
-                                            onClick={() => setDraftBannerDismissed(true)}
+                                            onClick={() => (draftElsewhere ? void deleteDraft() : setDraftBannerDismissed(true))}
                                         >
-                                            Start fresh
+                                            {draftElsewhere ? 'Start new' : 'Start fresh'}
                                         </Button>
                                         <Button
                                             type="button"

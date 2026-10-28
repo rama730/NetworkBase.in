@@ -2,14 +2,17 @@
 
 import { createContext, useContext, type ReactNode } from 'react'
 import { useFormContext, useWatch } from 'react-hook-form'
+import Link from 'next/link'
 import { Building2, Lock } from 'lucide-react'
+
+import { messageUserInWindow } from '@/components/messages/message-user'
 
 import { capChildVisibility, type VisibilityCap } from '@/lib/organizations/child-rules'
 import type { CreateProjectInput } from '@/lib/validations/project'
 
 // Where a new project goes (report §14.1): Personal or one of the person's orgs, carried through the wizard.
 
-export type CreateLocation = { id: string; title: string; slug: string | null; block: string | null; visibilityCap: string; orgPublic: boolean; isAdmin: boolean }
+export type CreateLocation = { id: string; title: string; slug: string | null; block: string | null; visibilityCap: string; orgPublic: boolean; isAdmin: boolean; orgType?: string | null; category?: string | null; defaultUnits?: string[]; outsidePeople?: boolean; ownerId?: string; tags?: string[]; memberUpdatesEnabled?: boolean; memberFileUploadDefault?: boolean }
 
 type CreateLocationState = { locations: CreateLocation[]; locked: boolean; notice: string | null }
 
@@ -68,6 +71,13 @@ export function WherePicker() {
                             ))}
                         </select>
                     </div>
+                    {/* Report §14.2: members of an "Admins only" org can ask an admin instead. */}
+                    {locations.filter((location) => location.block === 'Only admins create projects here.' && location.ownerId).map((location) => (
+                        <p key={location.id} className="nb-compact mt-2 text-muted-foreground">
+                            {location.title}: only admins create projects here.{' '}
+                            <Link href={`/messages?userId=${location.ownerId}`} onClick={(event) => { messageUserInWindow(location.ownerId!, event) }} className="font-medium text-primary underline-offset-4 hover:underline">Message admins</Link>
+                        </p>
+                    ))}
                 </div>
             ) : null}
         </div>

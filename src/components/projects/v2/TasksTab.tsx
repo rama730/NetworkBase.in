@@ -4,6 +4,7 @@ import { toast, feedbackError } from "@/lib/feedback";
 import { filesReturnQuery } from "@/lib/files/task-navigation";
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { readProjectUnitsAction } from "@/app/actions/child-units";
 import { Plus, Check, Search, X, MoreHorizontal, Laptop } from "lucide-react";
 import {
   DropdownMenu,
@@ -592,8 +593,13 @@ export default function TasksTab({
   };
 
   // Search runs on the server (title, description, task key); re-filtering its results here
-  // would drop a "KEY-12" match whose title does not contain the text.
-  const filteredTasks = sprintAwareTasks;
+  // would drop a "KEY-12" match whose title does not contain the text. The Unit filter (child
+  // projects, report §14.4) narrows to work assigned to a unit's people.
+  // ponytail: filters the loaded pages only, like the count beside the title; a server filter if units grow large.
+  const { data: units = [] } = useQuery({ queryKey: ["project-units", projectId], queryFn: () => readProjectUnitsAction(projectId), staleTime: 60_000 });
+  const [unitFilter, setUnitFilter] = useState("");
+  const unitMembers = units.find((unit) => unit.id === unitFilter)?.memberIds;
+  const filteredTasks = unitMembers ? sprintAwareTasks.filter((task) => Boolean(task.assigneeId && unitMembers.includes(task.assigneeId))) : sprintAwareTasks;
 
   useEffect(() => {
     if (isTaskPanelClosingRef.current) return;
@@ -773,6 +779,13 @@ export default function TasksTab({
 
             {/* Filter */}
             <TaskFilters scope={scope} setScope={setScope} />
+            {units.length ? (
+              <select aria-label="Unit" value={unitFilter} onChange={(e) => setUnitFilter(e.target.value)}
+                className="nb-touch-target h-[34px] rounded-[5px] border border-border bg-card px-2 text-[13px] text-foreground max-md:h-11">
+                <option value="">All units</option>
+                {units.map((unit) => <option key={unit.id} value={unit.id}>{unit.title}</option>)}
+              </select>
+            ) : null}
 
             {/* Connect Desktop IDE (desktop row; phones reach it from the ⋯ menu) */}
             <span className="hidden md:contents">

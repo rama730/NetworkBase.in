@@ -46,7 +46,9 @@ import { capChildVisibility, childCreationBlock } from "@/lib/organizations/chil
 import { readViewerOrgRole } from "@/lib/organizations/detail";
 import { readOrgRules } from "@/lib/organizations/settings";
 import { createStarterFolders } from "@/lib/organizations/org-files";
-import { notifyOrg } from "@/lib/organizations/notify";
+import { namesOf, notifyOrg } from "@/lib/organizations/notify";
+import { createCopiesForNewChild } from "@/lib/organizations/assignments";
+import { notifyNewCopies } from "@/lib/organizations/assignment-notify";
 import { isProjectPubliclyReadableVisibility } from "@/lib/projects/project-visibility";
 import { addProjectMemberInternal } from "@/lib/projects/collaborator-lifecycle";
 import { createProjectInvitationAction } from "@/app/actions/project/guidance";
@@ -153,6 +155,8 @@ interface CreateProjectResult {
     joinCode?: string | null;
   };
   error?: string;
+  /** ORG_BLOCKED: the org no longer lets this person create there; the wizard offers a personal project instead. */
+  code?: "ORG_BLOCKED";
   /** Things that didn't happen but didn't stop creation (an invitation refused by privacy rules). */
   notices?: string[];
 }
@@ -611,19 +615,23 @@ export async function createProjectAction(
     let child: { orgTitle: string; directAdd: boolean; visibility: "public" | "org" | "private" } | null = null;
     const unitPeople = (input.roles ?? []).flatMap((role) => (role.people ?? []).map((person) => person.user_id));
     const unassignedPeople = (input.unassigned_people ?? []).map((person) => person.user_id);
+    const childNotices: string[] = [];
+    // People outside the org (when it allows them) are always invited, even by an admin: they join only this project (decision 6).
+    const outsiders = new Set<string>();
     if (parentOrgId) {
-      const refuse = (error: string) => ({ success: false, error });
+      const refuse = (error: string, code?: "ORG_BLOCKED") => ({ success: false, error, ...(code ? { code } : {}) });
       const [org] = await db
         .select({ title: projects.title, visibility: projects.visibility, status: projects.status, suspendedAt: projects.suspendedAt, deletionScheduledAt: projects.deletionScheduledAt, orgSettings: projects.orgSettings })
         .from(projects)
         .where(and(eq(projects.id, parentOrgId), eq(projects.kind, "organization"), isNull(projects.deletedAt)))
         .limit(1);
-      if (!org) return refuse("Organization not found.");
+      if (!org) return refuse("Organization not found.", "ORG_BLOCKED");
       const rules = readOrgRules(org.orgSettings);
       const role = await readViewerOrgRole(parentOrgId, user.id);
       const open = org.status !== "archived" && !org.suspendedAt && !org.deletionScheduledAt;
       const block = childCreationBlock(role, rules.childCreation, open);
-      if (block) return refuse(block);
+      // Report §14.6: the wizard keeps everything and offers "Create as a personal project".
+      if (block) return refuse(!role ? `You're no longer in ${org.title}.` : !open ? `${org.title} is archived.` : block, "ORG_BLOCKED");
       const isOrgAdmin = role === "owner" || role === "admin";
       if (input.lead_user_id && input.lead_user_id !== user.id) {
         if (!isOrgAdmin) return refuse("Only admins pick someone else as lead.");
@@ -631,18 +639,34 @@ export async function createProjectAction(
         if (!leadRole || leadRole === "viewer") return refuse(`The lead must be a member of ${org.title}.`);
         ownerId = input.lead_user_id;
       }
-      // Everyone placed in the team must be in the org (outside people come with the Outside picker later).
+      // Outside people while the org keeps them out are left out with a reason, not a failed create (report §14.6).
+      const dropped = new Set<string>();
       for (const personId of [...unitPeople, ...unassignedPeople]) {
         const personRole = await readViewerOrgRole(parentOrgId, personId);
-        if ((!personRole || personRole === "viewer") && !rules.outsidePeople) return refuse(`Everyone in the team must be a member of ${org.title}.`);
+        if (!personRole || personRole === "viewer") (rules.outsidePeople ? outsiders : dropped).add(personId);
+      }
+      // An invitation needs a unit, so an outside person outside every unit is left out too.
+      const looseOutsiders = unassignedPeople.filter((id) => outsiders.has(id));
+      if (looseOutsiders.length > 0) {
+        looseOutsiders.forEach((id) => dropped.add(id));
+        childNotices.push(`${looseOutsiders.length === 1 ? "1 person" : `${looseOutsiders.length} people`} outside ${org.title} left out: put them in a unit to invite them.`);
+      }
+      if (dropped.size > 0) {
+        input.roles = input.roles?.map((unit) => ({ ...unit, people: unit.people?.filter((person) => !dropped.has(person.user_id)),
+          lead_user_id: unit.lead_user_id && dropped.has(unit.lead_user_id) ? undefined : unit.lead_user_id }));
+        unassignedPeople.splice(0, unassignedPeople.length, ...unassignedPeople.filter((id) => !dropped.has(id)));
+        const ruleDropped = dropped.size - looseOutsiders.length;
+        if (ruleDropped > 0) childNotices.push(`${ruleDropped === 1 ? "1 person" : `${ruleDropped} people`} outside ${org.title} left out: ${org.title} no longer allows outside people.`);
       }
       // Members send invitations, which need a unit; admins add people directly (decision 8).
       if (!isOrgAdmin && unassignedPeople.length > 0) return refuse("Put invited people in a unit.");
+      const asked = input.visibility === "public" || input.visibility === "private" ? input.visibility : "org";
       child = {
         orgTitle: org.title,
         directAdd: isOrgAdmin,
-        visibility: capChildVisibility(input.visibility === "public" || input.visibility === "private" ? input.visibility : "org", rules.visibilityCap, isProjectPubliclyReadableVisibility(org.visibility)),
+        visibility: capChildVisibility(asked, rules.visibilityCap, isProjectPubliclyReadableVisibility(org.visibility)),
       };
+      if (child.visibility !== asked) childNotices.push(`Visibility changed by ${org.title} rules: ${child.visibility === "private" ? "Private" : "Org only"}.`);
     }
 
     const {
@@ -845,6 +869,7 @@ export async function createProjectAction(
             normalizedImportSourceWithLeadFocus?.type === "github"
               ? normalizedImportSourceWithLeadFocus.branch || "main"
               : "main",
+          ...(parentOrgId && input.follow_org_sprints ? { orgSettings: { followOrgSprints: true } } : {}),
           ...(organization
             ? {
                 kind: "organization" as const,
@@ -915,6 +940,7 @@ export async function createProjectAction(
                   count: Math.max(role.count, role.people?.length ?? 0),
                   description: role.description || "",
                   skills: role.skills || [],
+                  leadUserId: child && role.lead_user_id ? role.lead_user_id : null,
                 })),
               )
               .returning({ id: projectOpenRoles.id });
@@ -934,7 +960,7 @@ export async function createProjectAction(
               ...unassignedPeople.map((userId) => ({ userId, roleId: null })),
             ];
             for (const placement of placements) {
-              if (placement.userId === ownerId) continue;
+              if (placement.userId === ownerId || outsiders.has(placement.userId)) continue;
               await addProjectMemberInternal(tx, { projectId: newProject.id, userId: placement.userId, role: "member", actorId: user.id, source: "manual", roleId: placement.roleId });
             }
           }
@@ -1034,13 +1060,13 @@ export async function createProjectAction(
         }
 
         // Members invite their team: each person gets an invitation to their unit (decision 8).
-        const notices: string[] = [];
-        if (child && !child.directAdd) {
+        const notices: string[] = [...childNotices];
+        if (child && (!child.directAdd || outsiders.size > 0)) {
           const units = await db.select({ id: projectOpenRoles.id, role: projectOpenRoles.role }).from(projectOpenRoles).where(eq(projectOpenRoles.projectId, result.id));
           for (const role of openRoles) {
             const unitId = units.find((unit) => unit.role === role.role)?.id;
             for (const person of role.people ?? []) {
-              if (!unitId || person.user_id === ownerId) continue;
+              if (!unitId || person.user_id === ownerId || (child.directAdd && !outsiders.has(person.user_id))) continue;
               const invited = await createProjectInvitationAction({ projectId: result.id, candidateId: person.user_id, kind: "ordinary_role", roleId: unitId });
               if (!invited.success) notices.push(`${person.label ?? "Someone"} was not invited: ${invited.error}`);
             }
@@ -1061,6 +1087,36 @@ export async function createProjectAction(
             preview: { contextLabel: result.title, contextKind: "workflow", secondaryText: "Project lead" },
             dedupeKey: `project-lead:${result.id}:${ownerId}`,
           }).catch(() => undefined);
+        }
+
+        // A child project (report §14.4, §26 B): people added directly and unit leads hear it, the org's admins hear
+        // "Ravi created Compiler Lab", and open "each project" assignments reach the new project.
+        if (child && parentOrgId) {
+          const href = `/projects/${encodeURIComponent(result.slug || result.id)}`;
+          if (child.directAdd) {
+            for (const unit of openRoles) {
+              for (const person of unit.people ?? []) {
+                if (person.user_id === ownerId || outsiders.has(person.user_id)) continue;
+                await notifyOrg({ orgId: parentOrgId, eventKey: "org.child_added", actorId: user.id, to: [person.user_id], title: `You were added to ${result.title} · ${unit.role}`, href, sourceEventId: `added:${result.id}:${person.user_id}`, refs: { projectId: result.id } });
+              }
+              if (unit.lead_user_id && !outsiders.has(unit.lead_user_id)) {
+                await notifyOrg({ orgId: parentOrgId, eventKey: "org.role_changed", actorId: user.id, to: [unit.lead_user_id], title: `You're unit lead of ${unit.role}`, href, sourceEventId: `unit-lead:${result.id}:${unit.role}:${unit.lead_user_id}`, refs: { projectId: result.id } });
+              }
+            }
+            for (const userId of unassignedPeople) {
+              if (userId === ownerId) continue;
+              await notifyOrg({ orgId: parentOrgId, eventKey: "org.child_added", actorId: user.id, to: [userId], title: `You were added to ${result.title}`, href, sourceEventId: `added:${result.id}:${userId}`, refs: { projectId: result.id } });
+            }
+          }
+          const creator = (await namesOf([user.id])).get(user.id) ?? "Someone";
+          await notifyOrg({ orgId: parentOrgId, eventKey: "org.child_created", actorId: user.id, title: `${creator} created ${result.title}`, href, sourceEventId: `child-created:${result.id}`, refs: { projectId: result.id } });
+          try {
+            await db.transaction((tx) => createCopiesForNewChild(tx, parentOrgId, result.id, ownerId));
+            await notifyNewCopies(parentOrgId, { projectId: result.id });
+          } catch (error) {
+            notices.push(`The open project assignments from ${child.orgTitle} weren't copied here. Ask an admin to share them again.`);
+            logger.warn("org.child_group_copies_failed", { projectId: result.id, error: error instanceof Error ? error.message : String(error) });
+          }
         }
 
         // E1 (report §26.3 A): the owner gets the join code by email too; always sent.

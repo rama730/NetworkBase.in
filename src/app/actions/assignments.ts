@@ -403,7 +403,9 @@ export async function readAssignmentRosterAction(masterId: string): Promise<{ su
         .map((p) => [p.id, p.name || p.username || 'Member']));
     const rows = copies.map((c, i) => {
         const members = people.filter((p) => p.copyId === c.id).map((p) => p.name || p.username || 'Member');
-        const label = c.teamName ?? (c.projectParent === master.projectId ? c.projectTitle : names.get(c.assigneeId ?? '') ?? 'Member');
+        // A group copy whose project left the org stays on the roster as "Detached" (report §14.7).
+        const label = c.teamName ?? (c.projectParent === master.projectId ? c.projectTitle
+            : c.projectId !== master.projectId ? `${c.projectTitle} · Detached` : names.get(c.assigneeId ?? '') ?? 'Member');
         return { copyId: c.id, label, members, ...states[i]!, projectId: c.projectId, dueDate: c.dueDate?.toISOString() ?? null, submission: c.submission, excusedReason: c.excusedReason };
     });
     return { success: true, rows, counts };

@@ -70,6 +70,7 @@ export const ORG_SETTINGS_PATCH = {
     outside_people: z.boolean().optional(),
     child_share: z.boolean().optional(),
     visibility_cap: z.enum(["public", "org", "private"]).optional(),
+    default_units: z.array(z.string().trim().min(1).max(100)).max(20).optional(),
   }).strict(),
   notifications: z.object({
     admin_digest: z.enum(["daily", "instant"]).optional(),

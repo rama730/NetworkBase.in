@@ -6,11 +6,30 @@ import { OrgFilesPanel } from '@/components/organizations/OrgFilesPanel';
 import { OrgMembersTab } from '@/components/organizations/OrgMembersTab';
 import { OrgProjectsTab } from '@/components/organizations/OrgOverviewParts';
 import { SidebarWorkspaces } from '@/components/layout/SidebarWorkspaces';
+import { FormProvider, useForm } from 'react-hook-form';
+import { ChildLeadAndUnassigned, InheritedAdminRows, UnitPeople } from '@/components/organizations/ChildTeamFields';
+import { ChildUnitsPanel } from '@/components/organizations/ChildUnitsPanel';
+import { CreateLocationProvider } from '@/components/organizations/CreateLocation';
 
 // The org Tasks, Members, Files and Projects tabs and the sidebar tree (report §31.2 G13, G16), one per ?tab=.
 const tab = new URLSearchParams(location.search).get('tab') ?? 'members';
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 const sidebar = { orgs: [{ id: 'org', title: 'CSE-3A Software Engineering', slug: 'cse-3a', logo: null, needsYou: 3, unseenAnnouncement: true, isAdmin: true, canCreate: true, moreChildren: 0, children: [{ id: 'c1', title: 'Team Falcon', slug: 'falcon' }] }], requested: [], outside: [], personal: [], archived: [] };
+
+// Phase 3 of the create wizard for a child project (report §14.4), as an admin in an org that allows outside people.
+const orgLocation = { id: 'org', title: 'CSE-3A', slug: 'cse-3a', block: null, visibilityCap: 'public', orgPublic: true, isAdmin: true, orgType: 'education', outsidePeople: true };
+function Team() {
+    const methods = useForm({ defaultValues: { parent_org_id: 'org', roles: [{ role: 'Frontend developers', count: 3, people: [{ user_id: 'u1', label: 'Ravi Kumar' }, { user_id: 'u2', label: 'Asha Nair' }] }, { role: 'Testing', count: 1, people: [] }], unassigned_people: [] } as never });
+    return (
+        <FormProvider {...methods}>
+            <CreateLocationProvider value={{ locations: [orgLocation], locked: true, notice: null }}>
+                <UnitPeople index={0} unitName="Frontend developers" />
+                <ChildLeadAndUnassigned />
+                <InheritedAdminRows />
+            </CreateLocationProvider>
+        </FormProvider>
+    );
+}
 
 createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={client}>
@@ -19,6 +38,8 @@ createRoot(document.getElementById('root')!).render(
             {tab === 'projects' ? <OrgProjectsTab orgId="org" /> : null}
             {tab === 'tasks' ? <AssignmentsPanel orgId="org" /> : null}
             {tab === 'files' ? <><OrgFilesPanel projectId="child" mode="child" canCopy /><OrgFilesPanel projectId="org" mode="org-admin" canCopy={false} /></> : null}
+            {tab === 'team' ? <Team /> : null}
+            {tab === 'units' ? <ChildUnitsPanel projectId="child" /> : null}
             {tab === 'sidebar' ? <nav style={{ width: 240 }}><SidebarWorkspaces data={sidebar as never} /></nav> : null}
         </main>
     </QueryClientProvider>,

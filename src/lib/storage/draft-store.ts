@@ -16,6 +16,8 @@ export interface DraftInfo {
     phase: number;
     savedAt: Date | null;
     isExpired: boolean;
+    /** The org the draft was being created in (report §14.5), if any. */
+    parentOrgId?: string | null;
 }
 
 function getDraftKey(userId?: string | null): string {
@@ -91,6 +93,7 @@ export const draftStore = {
             phase: draft._phase || 1,
             savedAt: new Date(draft._timestamp),
             isExpired: false,
+            parentOrgId: (draft as { parent_org_id?: string | null }).parent_org_id ?? null,
         };
     },
 

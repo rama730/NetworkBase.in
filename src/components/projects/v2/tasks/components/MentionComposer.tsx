@@ -41,6 +41,7 @@ import {
     MentionAutocomplete,
     type MentionCandidate,
 } from "./MentionAutocomplete";
+import { readProjectUnitsAction } from "@/app/actions/child-units";
 
 // ---------------------------------------------------------------------------
 // Types + props
@@ -487,7 +488,12 @@ export const MentionComposer = React.forwardRef<MentionComposerHandle, MentionCo
                     return;
                 }
                 const members = (payload.data?.members ?? []).slice(0, MAX_RESULTS);
-                setCandidates(members);
+                // Units of a child project match by name and come first (report §14.4).
+                const units = (await readProjectUnitsAction(projectId).catch(() => []))
+                    .filter((unit) => unit.title.toLowerCase().includes(query.toLowerCase()))
+                    .map((unit): MentionCandidate => ({ id: unit.id, username: null, fullName: unit.title, avatarUrl: null, unitSize: unit.memberIds.length }));
+                if (cancelled) return;
+                setCandidates([...units, ...members].slice(0, MAX_RESULTS));
                 setActiveIndex(0);
             } catch (err) {
                 if (cancelled) return;

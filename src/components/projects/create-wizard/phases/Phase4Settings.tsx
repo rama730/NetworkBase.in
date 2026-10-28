@@ -108,9 +108,16 @@ function ChoiceChip({ selected, onClick, children }: { selected: boolean; onClic
 }
 
 export default function Phase4Settings({ showValidationSummary = false, linkComposerPending = false, onLinkComposerPending, projectImage, onProjectImageChange }: Phase4SettingsProps) {
-    const { control, setValue, formState: { errors } } = useFormContext<CreateProjectInput>();
+    const { control, setValue, getFieldState, formState: { errors } } = useFormContext<CreateProjectInput>();
     const isOrganization = Boolean(useWatch({ control, name: 'organization' }));
     const childOrg = useCreateLocation().org;
+    // Report §14.3 Phase 4: member permissions start from the org's values, unless already changed here.
+    useEffect(() => {
+        if (!childOrg) return;
+        if (childOrg.memberUpdatesEnabled !== undefined && !getFieldState('member_updates_enabled').isDirty) setValue('member_updates_enabled', childOrg.memberUpdatesEnabled);
+        if (childOrg.memberFileUploadDefault !== undefined && !getFieldState('member_file_upload_default').isDirty) setValue('member_file_upload_default', childOrg.memberFileUploadDefault);
+    }, [childOrg, getFieldState, setValue]);
+    const followOrgSprints = useWatch({ control, name: 'follow_org_sprints' });
     const [
         visibilityValue, publicTabsValue, externalLinksValue, readme, docEditPolicy, lifecycleStagesValue,
         memberUpdatesEnabled, memberFileUploadDefault, notificationRowsValue,
@@ -414,6 +421,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     <div className="border-y border-border">
                         <SwitchRow label="Members can post updates" description="Progress posts on the Updates tab." checked={memberUpdatesEnabled !== false} onCheckedChange={(checked) => set('member_updates_enabled', checked)} />
                         <SwitchRow label="New members can upload files" description="The starting upload permission for each member; adjustable per member later." checked={memberFileUploadDefault !== false} onCheckedChange={(checked) => set('member_file_upload_default', checked)} />
+                        {childOrg ? <SwitchRow label={`Follow ${childOrg.title}'s sprints`} description="New sprints link to the organization's sprint holding their dates and stay inside it." checked={Boolean(followOrgSprints)} onCheckedChange={(checked) => set('follow_org_sprints', checked)} /> : null}
                     </div>
                 </LaunchSection>
 

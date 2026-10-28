@@ -1,6 +1,7 @@
 "use client";
 
 import { ChildOrgSection } from "@/components/organizations/ChildOrgSection";
+import { ChildUnitsPanel } from "@/components/organizations/ChildUnitsPanel";
 import { OrgDangerZone } from "@/components/organizations/OrgDangerZone";
 import { OrgAccessSection, OrgChatSection, OrgNotificationsSection, OrgVerificationSection, OrgLeaveSection, OrgMembershipSection, OrgPeopleSection, OrgProfileSection, OrgProjectsSection } from "@/components/organizations/OrgSettingsSections";
 import { ORG_SECTION_DEFS, orgSettingsSectionIds, type OrgMemberRole, type OrgSettingsSectionId } from "@/lib/organizations/settings";
@@ -212,7 +213,9 @@ function ProjectSettingsContent({
     const organization = project?.organization ?? null;
     const orgRole = (isProjectOwner ? "owner" : actorProjectRole) as OrgMemberRole;
     const sections = useMemo(() => {
-        const visible = getVisibleProjectSettingsSections();
+        // A child project's role boxes are its units (report §21 #6, "Units & open seats").
+        const visible = getVisibleProjectSettingsSections().map((section) => (project?.parentOrg && section.id === "roles-applications"
+            ? { ...section, label: "Units & open seats", description: "Units, their seats and unit leads; open seats org members can apply to." } : section));
         if (organization) {
             // Report §21.4: You sections for everyone, org sections for admins, owner extras for the owner.
             return orgSettingsSectionIds(orgRole).flatMap((id) => {
@@ -1500,6 +1503,7 @@ function ProjectSettingsContent({
                 {sections.some((s) => s.id === "collaborators") && (
                     <section id="project-settings-collaborators" data-project-settings-section className="space-y-6">
                         <div className="space-y-6">
+                        {project?.parentOrg ? <ChildUnitsPanel projectId={projectId} /> : null}
                         <SettingsCard
                             title="Collaborators"
                                 headingLevel={2}

@@ -1,6 +1,7 @@
 'use client';
 
-import { ChildLeadAndUnassigned, UnitPeople } from '@/components/organizations/ChildTeamFields';
+import { ChildLeadAndUnassigned, InheritedAdminRows, UnitPeople } from '@/components/organizations/ChildTeamFields';
+import { useCreateLocation } from '@/components/organizations/CreateLocation';
 import { OrgPeopleFields } from '@/components/organizations/OrgWizardFields';
 import { type ReactNode, useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
@@ -62,7 +63,11 @@ function SectionHeading({ eyebrow, title, description, id }: { eyebrow: string; 
 
 export default function Phase3TeamRoles({ wizardContext, showValidationSummary = false }: Phase3TeamRolesProps) {
     const { getValues, setValue, watch, formState: { errors } } = useFormContext<CreateProjectInput>();
-    const { openRoles, openRoleIds, addRole, updateRole, removeRole } = wizardContext;
+    const { openRoles, openRoleIds, addRole, updateRole, removeRole, prefillUnits } = wizardContext;
+    const { org } = useCreateLocation();
+    // Default units pre-fill an empty team (report §14.4 additions); Education hides compensation (§14.4).
+    useEffect(() => { if (org?.defaultUnits?.length) prefillUnits(org.id, org.defaultUnits); }, [org?.id, org?.defaultUnits, prefillUnits]);
+    const showCompensation = org?.orgType !== 'education';
     const creatorRole = watch('creator_role');
     const leadFocus = creatorRole?.title || '';
     const [roleSuggestionsOpen, setRoleSuggestionsOpen] = useState<Record<string, boolean>>({});
@@ -334,15 +339,15 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
                                                         <SelectContent>{EXPERIENCE_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
                                                     </Select>
                                                 </div>
-                                                <div>
+                                                {showCompensation ? <div>
                                                     <FieldLabel htmlFor={`${roleId}-compensation`}>Compensation</FieldLabel>
                                                     <Select value={role.compensationType || 'unpaid'} onValueChange={(compensationType) => updateRole(index, { compensationType: compensationType as OpenRoleInput['compensationType'] })}>
                                                         <SelectTrigger id={`${roleId}-compensation`} className={fieldClass}><SelectValue /></SelectTrigger>
                                                         <SelectContent>{COMPENSATION_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
                                                     </Select>
-                                                </div>
+                                                </div> : null}
                                             </div>
-                                            {role.compensationType && role.compensationType !== 'unpaid' ? (
+                                            {showCompensation && role.compensationType && role.compensationType !== 'unpaid' ? (
                                                 <div>
                                                     <FieldLabel htmlFor={`${roleId}-compensation-details`}>Compensation details</FieldLabel>
                                                     <Input
@@ -370,6 +375,7 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
                 )}
             </section>
             <ChildLeadAndUnassigned />
+            <InheritedAdminRows />
         </div>
     );
 }
