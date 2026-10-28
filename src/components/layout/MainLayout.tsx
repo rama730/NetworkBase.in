@@ -30,7 +30,7 @@ export function MainLayout({ children }: MainLayoutProps) {
 
     return (
         <div
-            className={`h-dvh min-h-0 overflow-hidden bg-background flex flex-col${messagesShell ? ' nb-shell--messages' : ''}`}
+            className={`relative h-dvh min-h-0 overflow-clip bg-background flex flex-col${messagesShell ? ' nb-shell--messages' : ''}`}
             data-hardening-shell="v1"
         >
             <a href="#main-content" className="nb-skip-link">Skip to content</a>
@@ -38,7 +38,7 @@ export function MainLayout({ children }: MainLayoutProps) {
             <div className="nb-main-frame flex min-h-0 flex-1 flex-col">
             <TopNav />
             <PendingDeletionNotice />
-            <main id="main-content" tabIndex={-1} className="flex-1 min-h-0 min-w-0 overflow-hidden">
+            <main id="main-content" tabIndex={-1} className="flex-1 min-h-0 min-w-0 overflow-clip">
                 {children}
             </main>
             </div>

@@ -4,6 +4,7 @@ import { build } from 'esbuild';
 import postcss from 'postcss';
 import tailwind from '@tailwindcss/postcss';
 import { expect, test } from '@playwright/test';
+import { axeViolations } from './axe';
 
 const origin='https://settings.test';
 let script:string;
@@ -17,7 +18,7 @@ test.beforeAll(async()=>{
     'next/link':`import React from 'react';export default ({href,children,...props})=>React.createElement('a',{href,...props},children);`,
   };
   for(const name of ['AccountSettings','AccountDeletionSettings','AppearanceSettings','IntegrationsSettings','NotificationsSettings','PrivacySettings','SecuritySettings','LegalAndDataRightsSection']){
-    mocks['@/components/settings/'+name]=`import React,{useState} from 'react';function Leaf(){const [draft,setDraft]=useState('');return React.createElement('div',{style:{minHeight:400},className:'rounded-lg border border-border bg-card p-6'},React.createElement('label',null,'${name} draft',React.createElement('input',{value:draft,onChange:e=>setDraft(e.target.value)})));}export default Leaf;export const LegalAndDataRightsSection=Leaf;`;
+    mocks['@/components/settings/'+name]=`import React,{useState} from 'react';function Leaf(){const [draft,setDraft]=useState('');return React.createElement('div',{style:{minHeight:400},className:'rounded-lg border border-border bg-card p-6'},React.createElement('label',null,'${name} draft',React.createElement('input',{value:draft,onChange:e=>setDraft(e.target.value)})),React.createElement('span',{className:'sr-only'},'hidden label'));}export default Leaf;export const LegalAndDataRightsSection=Leaf;`;
   }
   const bundle=await build({entryPoints:[path.resolve('tests/browser/settings.fixture.tsx')],bundle:true,write:false,platform:'browser',format:'iife',define:{'process.env.NODE_ENV':'"test"'},plugins:[{name:'isolated-settings',setup(b){b.onResolve({filter:/.*/},args=>args.path in mocks?{path:args.path,namespace:'fixture'}:undefined);b.onLoad({filter:/.*/,namespace:'fixture'},args=>({contents:mocks[args.path],resolveDir:process.cwd(),loader:'js'}));}}]});
   script=bundle.outputFiles![0]!.text;
@@ -29,7 +30,7 @@ test.beforeEach(async({page})=>{
   await page.route(origin+'/**',route=>{
     const pathname=new URL(route.request().url()).pathname;
     if(pathname==='/sans.ttf'||pathname==='/mono.ttf')return route.fulfill({contentType:'font/ttf',body:pathname==='/sans.ttf'?sans:mono});
-    return route.fulfill({contentType:pathname==='/app.js'?'application/javascript':pathname==='/app.css'?'text/css':'text/html',body:pathname==='/app.js'?script:pathname==='/app.css'?css:'<html><head><link rel="stylesheet" href="/app.css"></head><body><div id="root"></div><script src="/app.js"></script></body></html>'});
+    return route.fulfill({contentType:pathname==='/app.js'?'application/javascript':pathname==='/app.css'?'text/css':'text/html',body:pathname==='/app.js'?script:pathname==='/app.css'?css:'<html lang="en"><head><title>Settings</title><link rel="stylesheet" href="/app.css"></head><body><div id="root"></div><script src="/app.js"></script></body></html>'});
   });
   await page.goto(origin+'/settings');
   await page.evaluate(()=>document.fonts.ready);
@@ -61,6 +62,36 @@ test('settings navigation matches the application sidebar and stays in place whi
   expect((await rail.boundingBox())!.y).toBe(bounds!.y);
   const content=await shell.locator('[data-scroll-root="route"]').boundingBox();expect(content!.x).toBeGreaterThanOrEqual(bounds!.x+bounds!.width);
   expect(await page.evaluate(()=>document.documentElement.scrollHeight===innerHeight)).toBe(true);
+});
+
+test('jumping to a section scrolls only the settings pane, never the application shell around it',async({page})=>{
+  const shell=page.getByRole('region',{name:'Settings',exact:true});
+  const navigation=shell.getByRole('navigation',{name:'Settings sections'});
+  const before=await shell.boundingBox();
+  for(const name of ['Appearance','Integrations','Security']){
+    await navigation.getByRole('link',{name,exact:true}).click();
+    await expect.poll(()=>page.evaluate(()=>{const ancestors=[document.getElementById('app-main'),document.documentElement,document.body];return ancestors.map(el=>el!.scrollTop);})).toEqual([0,0,0]);
+  }
+  // Screen-reader-only text is absolutely positioned: if nothing contains it, it stretches the page and the whole document scrolls.
+  expect(await page.evaluate(()=>document.documentElement.scrollHeight===innerHeight)).toBe(true);
+  await page.evaluate(()=>window.scrollTo(0,400));
+  expect(await page.evaluate(()=>window.scrollY)).toBe(0);
+  await page.goto(origin+'/settings#settings-privacy-policies');
+  await expect(page.locator('#settings-privacy-policies')).toBeVisible();
+  expect(await page.evaluate(()=>document.getElementById('app-main')!.scrollTop)).toBe(0);
+  expect(await shell.boundingBox()).toEqual(before);
+});
+
+test('the settings shell has no WCAG A or AA violations on desktop and phone, light and dark',async({page})=>{
+  for(const viewport of [{width:1280,height:900},{width:375,height:700}]){
+    await page.setViewportSize(viewport);
+    for(const dark of [false,true]){
+      await page.evaluate(on=>document.documentElement.classList.toggle('dark',on),dark);
+      // Colours ease between themes; scanning mid-transition reads blended colours.
+      await page.waitForTimeout(500);
+      expect(await axeViolations(page),`${viewport.width}px ${dark?'dark':'light'}`).toEqual([]);
+    }
+  }
 });
 
 test('settings links and external URL changes scroll to the requested section without discarding mounted fields',async({page})=>{

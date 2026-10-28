@@ -14,6 +14,6 @@ function Fixture(){
     window.addEventListener('popstate',fixture.refresh);
     return()=>window.removeEventListener('popstate',fixture.refresh);
   },[]);
-  return <div className="flex h-dvh flex-col"><header className="h-14 shrink-0">NetworkBase</header><div className="flex min-h-0 flex-1"><nav aria-label="Application navigation" className="hidden shrink-0 border-r border-border px-3 py-4 lg:block" style={{width:'var(--nb-sidebar-width)'}}><div className="pr-1"><a className="nb-nav-link" href="/settings">Settings</a></div></nav><div className="min-h-0 min-w-0 flex-1"><SettingsLayout><SettingsDocument /></SettingsLayout></div></div></div>;
+  return <div className="flex h-dvh flex-col"><header className="h-14 shrink-0">NetworkBase</header><div className="flex min-h-0 flex-1"><nav aria-label="Application navigation" className="hidden shrink-0 border-r border-border px-3 py-4 lg:block" style={{width:'var(--nb-sidebar-width)'}}><div className="pr-1"><a className="nb-nav-link" href="/settings">Settings</a></div></nav><div id="app-main" className="min-h-0 min-w-0 flex-1 overflow-hidden"><SettingsLayout><SettingsDocument /></SettingsLayout></div></div></div>;
 }
 createRoot(document.getElementById('root')!).render(<Fixture />);

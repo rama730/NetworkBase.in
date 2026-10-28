@@ -71,10 +71,13 @@ export interface SecurityActivityEntry {
 export interface SecurityData {
   mfaFactors: MfaFactor[];
   sessions: Session[];
+  /** Where the next page of devices starts; null when every device is loaded. */
+  sessionsNextOffset?: number | null;
   loginHistory: LoginHistoryEntry[];
   password: SecurityPasswordState;
   recoveryCodes: RecoveryCodesState;
   securityActivity: SecurityActivityEntry[];
+  securityActivityHasMore?: boolean;
   assurance: {
     currentLevel: "aal1" | "aal2" | null;
     nextLevel: "aal1" | "aal2" | null;

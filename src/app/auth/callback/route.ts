@@ -262,3 +262,13 @@ export async function GET(request: Request) {
     response.headers.set('x-request-id', requestId)
     return response
 }
+    if (provider === 'google' && successUrl.searchParams.get('identityProvider') === 'google') {
+        after(async () => {
+            try {
+                await queueSecurityEmail(expectedUser.id, 'security_sign_in_method_changed', { detail: 'Google was connected' })
+                await recordSecurityEvent({ userId: expectedUser.id, eventType: 'sign_in_method_linked', request, metadata: { provider: 'google' } })
+            } catch (linkError) {
+                logger.warn('google.account.link.follow_up_failed', { requestId, userId: expectedUser.id, error: linkError instanceof Error ? linkError.message : String(linkError) })
+            }
+        })
+    }

@@ -24,8 +24,7 @@ import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCar
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
 import { useExtensionSessionsData, useIntegrationsData } from "@/hooks/useSettingsQueries";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { identityLinkError, startGithubIdentityLink } from "@/lib/github/oauth-client";
+import { startGithubIdentityLink, startGoogleIdentityLink } from "@/lib/github/oauth-client";
 import { GitHubCommitAttributionSettings } from "@/components/settings/GitHubCommitAttributionSettings";
 import SecurityStepUpDialog from "@/components/settings/SecurityStepUpDialog";
 import { revokeExtensionSession, generateExtensionToken, getActiveExtensionSessions } from "@/app/actions/extension-sessions";
@@ -239,19 +238,23 @@ export default function IntegrationsSettings() {
   const pendingSessions = allSessions.filter((s) => s.clientVersion === "pending" || (!s.editorPlatform && !s.editorName));
 
   useEffect(() => {
-    const outcome = searchParams.get("githubIdentity");
+    // Google comes back through the same callback; a return with no error code means it linked.
+    const google = searchParams.get("identityProvider") === "google";
+    const outcome = searchParams.get("githubIdentity") ?? (google ? "linked" : null);
     if (!outcome) return;
+    const label = google ? "Google" : "GitHub";
     if (outcome === "replaced") {
       toast.success("GitHub account replaced");
     } else if (outcome === "linked") {
-      toast.success("GitHub account linked");
+      toast.success(`${label} account linked`);
     } else if (outcome === "already_linked") {
-      toast.info("This GitHub account is already linked.");
+      toast.info(`This ${label} account is already linked.`);
     } else if (outcome === "error") {
       const desc = searchParams.get("githubErrorDesc");
-      toast.error(feedbackError(desc || "Could not link GitHub account. Please try again.", "Could not link GitHub account. Please try again."));
+      toast.error(feedbackError(desc || `Could not link ${label} account. Please try again.`, `Could not link ${label} account. Please try again.`));
     }
     const next = new URLSearchParams(searchParams.toString());
+    next.delete("identityProvider");
     next.delete("githubIdentity");
     next.delete("githubErrorDesc");
     const query = next.toString();
@@ -313,8 +316,7 @@ export default function IntegrationsSettings() {
         await startGithubIdentityLink();
         return;
       }
-      const { error: linkError } = await createSupabaseBrowserClient().auth.linkIdentity({ provider, options: { redirectTo: `${window.location.origin}/settings?tab=integrations` } });
-      if (linkError) throw identityLinkError(linkError, "Google");
+      await startGoogleIdentityLink();
     } catch (linkError) {
       toast.error(feedbackError(linkError instanceof Error ? linkError.message : `Failed to link ${provider}`, "Action couldn’t finish"));
       setLinking(null);
