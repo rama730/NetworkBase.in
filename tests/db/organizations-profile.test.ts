@@ -123,3 +123,44 @@ test("profile: Show on my profile off hides the org entry, its project entries a
   assert.equal(shown.find((p) => p.id === o.orgId)?.kind, "organization");
   assert.equal(shown.find((p) => p.id === o.child)?.cardOrg?.title, `CSE ${o.tag}`);
 });
+
+test("§24 pass: guests get no automatic entry; story helpers; opt-in Work record; detached and deleted-org labels; Following adds an org's public projects", async () => {
+  const o = await org();
+  const lifecycle = await loadAppModule(() => import("../../src/lib/projects/collaborator-lifecycle"));
+  const { db } = await loadAppModule(() => import("../../src/lib/db"));
+  const guest = await sql.begin((tx) => createUser(tx));
+  await lifecycle.addProjectMemberInternal(db as never, { projectId: o.orgId, userId: guest, role: "viewer", actorId: o.owner, source: "email_invite" } as never);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM profile_project_contributions WHERE profile_id = ${guest} AND project_id = ${o.orgId}`)[0]!.n, 0);
+
+  await sql`UPDATE projects SET description = 'Data Structures, Section A.' WHERE id = ${o.orgId}`;
+  await contribution(o.member, o.orgId);
+  const [entry] = await sql`SELECT id FROM profile_project_contributions WHERE profile_id = ${o.member} AND project_id = ${o.orgId}`;
+  const [m] = await sql`INSERT INTO tasks (project_id, title, kind, creator_id) VALUES (${o.orgId}, 'Lab 1', 'assignment', ${o.owner}) RETURNING id`;
+  await sql`INSERT INTO tasks (project_id, title, kind, assignment_id, assignee_id, creator_id, status) VALUES (${o.orgId}, 'Lab 1', 'task', ${m!.id}, ${o.member}, ${o.owner}, 'done')`;
+  viewerId = o.member;
+  assert.deepEqual(await orgProfile.readOrgStoryStarterAction(entry!.id, "about"), { success: true, text: "Data Structures, Section A." });
+  const work = await orgProfile.readOrgStoryStarterAction(entry!.id, "work");
+  assert.ok(work.success && work.text.includes("- Lab 1") && work.text.includes(`- Compiler Lab ${o.tag}`), JSON.stringify(work));
+  viewerId = o.admin;
+  assert.equal((await orgProfile.readOrgStoryStarterAction(entry!.id, "about")).success, false, "only your own entry");
+
+  viewerId = o.member;
+  assert.ok((await orgProfile.setWorkRecordAction(entry!.id, true)).success);
+  const shown = (await collab.getProfileContributions(o.member)).contributions.find((c) => c.projectId === o.orgId)!;
+  assert.deepEqual(shown.workRecord, { done: 1, total: 1, sprints: 0 });
+
+  // Following the org lists its public child project.
+  await sql`INSERT INTO project_follows (project_id, user_id) VALUES (${o.orgId}, ${o.admin})`;
+  const following = (await discover.getDiscoverProjects({ status: "all", type: "all", tech: [], sort: "newest" } as never, undefined, 60, { view: "following", viewerId: o.admin })).projects.map((p) => p.id);
+  assert.ok(following.includes(o.child) && !following.includes(o.orgOnly), JSON.stringify(following));
+
+  // Detached child: "with <org> (until …)"; deleted org: name kept, no link.
+  await contribution(o.member, o.child);
+  const children = await loadAppModule(() => import("../../src/lib/organizations/children"));
+  await children.detachFromOrg(o.child);
+  const detached = (await collab.getProfileContributions(o.member, { includePrivate: true })).contributions.find((c) => c.projectId === o.child)!;
+  assert.equal(detached.formerOrg?.title, `CSE ${o.tag}`);
+  await sql`UPDATE projects SET deleted_at = now() WHERE id = ${o.orgId}`;
+  const gone = (await collab.getProfileContributions(o.member, { includePrivate: true })).contributions.find((c) => c.projectId === o.orgId)!;
+  assert.deepEqual([gone.goneOrgTitle, gone.projectHref], [`CSE ${o.tag}`, null]);
+});

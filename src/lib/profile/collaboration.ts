@@ -125,6 +125,12 @@ export type ProfileCollaborationContribution = {
   orgVerified?: boolean;
   orgOnly?: boolean;
   verificationRevokedReason?: string | null;
+  /** History labels (report §24.5): a detached child "with CSE-3A (until Nov 2026)"; a deleted org's kept name. */
+  formerOrg?: { title: string; until: string } | null;
+  goneOrgTitle?: string | null;
+  /** Opt-in Work record on an org entry (report §24.5): counts only, never grades. */
+  showWorkRecord?: boolean;
+  workRecord?: { done: number; total: number; sprints: number } | null;
 };
 
 export type ProfileCollaborationSummary = {
@@ -188,6 +194,10 @@ type ProfileProjectRow = {
 };
 
 type ProfileContributionRow = {
+  show_work_record?: boolean | null;
+  work_record?: { done?: number; total?: number; sprints?: number } | null;
+  former_org?: { title?: string; until?: string } | null;
+  gone_org_title?: string | null;
   project_kind?: string | null;
   parent_org_id?: string | null;
   parent_org_title?: string | null;
@@ -517,6 +527,11 @@ function contributionFromRow(row: ProfileContributionRow): ProfileCollaborationC
     orgVerified: Boolean(row.org_verified),
     orgOnly: row.project_visibility === "org",
     verificationRevokedReason: row.verification_revoked_reason ?? null,
+    formerOrg: row.former_org?.title && row.former_org.until ? { title: row.former_org.title, until: row.former_org.until } : null,
+    goneOrgTitle: row.gone_org_title ?? null,
+    showWorkRecord: Boolean(row.show_work_record),
+    workRecord: row.work_record ? { done: Number(row.work_record.done ?? 0), total: Number(row.work_record.total ?? 0), sprints: Number(row.work_record.sprints ?? 0) } : null,
+    ...(row.gone_org_title ? { projectTitle: row.gone_org_title, projectHref: null, projectKind: "organization" } : {}),
   };
 }
 
@@ -727,6 +742,18 @@ async function queryProfileContributionRows(profileId: string, options: {
       parent_org.id AS parent_org_id,
       parent_org.title AS parent_org_title,
       parent_org.slug AS parent_org_slug,
+      CASE WHEN project.parent_id IS NULL THEN project.org_settings->'formerOrg' END AS former_org,
+      (SELECT gone.title FROM projects gone WHERE gone.id = contribution.project_id AND gone.kind = 'organization' AND gone.deleted_at IS NOT NULL) AS gone_org_title,
+      contribution.show_work_record,
+      CASE WHEN contribution.show_work_record AND project.kind = 'organization' THEN (
+        SELECT jsonb_build_object(
+          'done', count(*) FILTER (WHERE c.status = 'done' OR c.review_status = 'approved'),
+          'total', count(*),
+          'sprints', (SELECT count(*) FROM project_sprints s WHERE s.project_id = project.id AND s.status IN ('active', 'completed')))
+        FROM tasks c JOIN tasks m ON m.id = c.assignment_id AND m.project_id = project.id AND m.deleted_at IS NULL
+        WHERE c.deleted_at IS NULL AND c.excused_at IS NULL
+          AND (c.assignee_id = contribution.profile_id OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = c.id AND tm.user_id = contribution.profile_id)))
+      END AS work_record,
       contribution.verification_revoked_reason,
       -- "Verified by <org>": an org owner or admin verified someone else's org entry (report §24.5).
       (project.kind = 'organization' AND contribution.verified_at IS NOT NULL AND contribution.verified_by IS NOT NULL
@@ -1120,6 +1147,13 @@ export async function upsertProfileProjectContributionFromMembership(
   },
 ) {
   const effectiveAt = params.effectiveAt ?? new Date();
+  // Guests of an organization get no automatic entry (report §24.5); one they already have keeps its history.
+  if (params.nextRole === "viewer") {
+    const [guestOfOrg] = await executor.execute<{ skip: boolean }>(sql`
+      SELECT true AS skip FROM projects p WHERE p.id = ${params.projectId} AND p.kind = 'organization'
+        AND NOT EXISTS (SELECT 1 FROM ${profileProjectContributions} c WHERE c.profile_id = ${params.profileId} AND c.project_id = p.id)`);
+    if (guestOfOrg?.skip) return;
+  }
   const contributionRows = await executor.execute<{
     id: string;
     profile_id: string;

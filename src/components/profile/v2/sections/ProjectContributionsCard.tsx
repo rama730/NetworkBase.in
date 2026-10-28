@@ -9,8 +9,10 @@ import { nestContributions } from "@/lib/organizations/profile-rules";
 /** Org context above an entry (report §24.5, §24.6): Verified by <org>, the child's org, org-only, revocation. */
 function OrgEntryLine({ c, isOwner, nested }: { c: ProfileCollaborationContribution; isOwner: boolean; nested?: boolean }) {
   const parts: string[] = [];
-  if (c.projectKind === "organization") parts.push(c.orgVerified ? `✓ Verified by ${c.projectTitle}` : "Organization");
+  if (c.goneOrgTitle) parts.push("Organization no longer on NetworkBase");
+  else if (c.projectKind === "organization") parts.push(c.orgVerified ? `✓ Verified by ${c.projectTitle}` : "Organization");
   else if (c.parentOrg && !nested) parts.push(`Project of ${c.parentOrg.title}`);
+  else if (c.formerOrg) parts.push(`with ${c.formerOrg.title} (until ${c.formerOrg.until})`);
   if (c.orgOnly && c.parentOrg && !c.projectHref) parts.push(`Visible to ${c.parentOrg.title} members`);
   if (isOwner && c.verificationRevokedReason) parts.push(`Verification removed: ${c.verificationRevokedReason}`);
   return parts.length ? <p className="nb-compact pt-4 text-muted-foreground">{parts.join(" · ")}</p> : null;
@@ -130,6 +132,11 @@ export function ProjectContributionsCard({
                       </div>
                     ))}
                   </div>
+                ) : null}
+                {c.workRecord ? (
+                  <p className="nb-compact mb-4 text-muted-foreground" data-testid="work-record">
+                    Work record: {c.workRecord.done} of {c.workRecord.total} assignments · {c.workRecord.sprints} {c.workRecord.sprints === 1 ? "sprint" : "sprints"}
+                  </p>
                 ) : null}
               </div>
             ))}

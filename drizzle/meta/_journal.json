@@ -1800,6 +1800,13 @@
       "when": 1792454426000,
       "tag": "0259_subtask_completed_by",
       "breakpoints": true
+    },
+    {
+      "idx": 257,
+      "version": "7",
+      "when": 1792540826000,
+      "tag": "0260_contribution_work_record",
+      "breakpoints": true
     }
   ]
 }

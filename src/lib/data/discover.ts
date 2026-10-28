@@ -317,6 +317,8 @@ export const buildBaseConditions = (
     filters: DiscoverFilters,
     view: FilterView,
     viewerId: string | null,
+    /** Following an org also lists its public child projects; its children's posts stay out (report §24.10 #12). */
+    options: { followedOrgChildren?: boolean } = {},
 ): SQL<unknown>[] => {
     const conditions: SQL<unknown>[] = [
         // CRITICAL: Always exclude soft-deleted projects from every hub query
@@ -355,15 +357,14 @@ export const buildBaseConditions = (
     }
 
     if (view === FILTER_VIEWS.FOLLOWING && viewerId) {
-        conditions.push(
-            inArray(
-                projects.id,
-                db
-                    .select({ projectId: projectFollows.projectId })
-                    .from(projectFollows)
-                    .where(eq(projectFollows.userId, viewerId))
-            )
-        );
+        const followed = db
+            .select({ projectId: projectFollows.projectId })
+            .from(projectFollows)
+            .where(eq(projectFollows.userId, viewerId));
+        // Following an org adds its public child projects (report §24.3); the public rules above still apply.
+        conditions.push(options.followedOrgChildren === false
+            ? inArray(projects.id, followed)
+            : or(inArray(projects.id, followed), inArray(projects.parentId, followed))!);
     }
 
     if (filters.status && filters.status !== 'all') {

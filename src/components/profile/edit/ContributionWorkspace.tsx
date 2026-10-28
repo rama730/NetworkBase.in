@@ -65,6 +65,7 @@ import {
   ContributionIdentityLinks,
 } from "@/components/profile/ContributionStoryView";
 import { ContributionSummaryEditor } from "./ContributionSummaryEditor";
+import { OrgStoryHelpers } from "./OrgStoryHelpers";
 import {
   createContributionStoryAction,
   saveContributionStoryAction,
@@ -1304,6 +1305,14 @@ export function ContributionWorkspace({
             <p className="nb-compact mt-1 mb-5 text-muted-foreground">
               Explain your part in the project, in your own words.
             </p>
+            {active.projectKind === "organization" ? (
+              <OrgStoryHelpers
+                contributionId={active.id}
+                canStartFromAbout={active.membershipRole === "owner" || active.membershipRole === "admin"}
+                showWorkRecord={Boolean(active.showWorkRecord)}
+                onInsert={(text) => patch(active.id, { summary: d.summary.trim() ? `${d.summary.trim()}\n\n${text}` : text })}
+              />
+            ) : null}
             <ContributionSummaryEditor
               key={active.id}
               value={d.summary}
