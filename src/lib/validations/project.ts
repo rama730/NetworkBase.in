@@ -89,6 +89,8 @@ export const projectDocCreationIntentSchema = z.object({
     sourcePath: z.string().max(500).nullable().optional(),
     publishOnCreate: z.boolean().default(false),
     includeRoles: z.boolean().default(true),
+    /** A child project can start its doc from one of its org's templates (report §19.7). */
+    orgTemplateDocId: z.string().uuid().nullable().optional(),
 });
 
 // Main Project Schema

@@ -674,7 +674,11 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
             }
 
             try {
-                const starterContent = buildProjectDocStarterDraft({
+                const fromTemplate = readmeIntent.orgTemplateDocId
+                    ? await import('@/app/actions/org-docs').then((m) => m.readOrgTemplateCopyAction(projectId, readmeIntent.orgTemplateDocId!))
+                    : null;
+                if (fromTemplate && !fromTemplate.success) warnCreation('The org template could not be copied; the starter doc was used instead.');
+                const starterContent = fromTemplate?.success ? fromTemplate.content : buildProjectDocStarterDraft({
                     title: data.title,
                     shortDescription: data.short_description,
                     description: data.description,

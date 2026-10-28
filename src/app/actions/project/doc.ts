@@ -163,6 +163,15 @@ async function loadDocProjectBase(projectId: string, actorUserId: string | null)
     });
     if (!row) throw new Error("Project not found");
     const { docs, members, ...project } = row;
+    // Inherited org admins edit a child project's docs like its admins; their edits carry their name (report §19.7).
+    if (!members[0] && actorUserId) {
+        const [inherited] = await db.execute<{ ok: number }>(sql`
+            SELECT 1 AS ok FROM projects c JOIN projects o ON o.id = c.parent_id AND o.deleted_at IS NULL
+            WHERE c.id = ${projectId} AND (o.owner_id = ${actorUserId}
+              OR EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = o.id AND m.user_id = ${actorUserId} AND m.role IN ('owner', 'admin')))
+            LIMIT 1`);
+        if (inherited) return { project, membership: { role: "admin" as const }, docs };
+    }
     return { project, membership: members[0] ?? null, docs };
 }
 

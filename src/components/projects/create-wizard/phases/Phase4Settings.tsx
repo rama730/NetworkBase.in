@@ -3,6 +3,7 @@
 import { useCreateLocation } from '@/components/organizations/CreateLocation';
 import { allowedChildVisibilities, type VisibilityCap } from '@/lib/organizations/child-rules';
 import { OrgSettingsFields } from '@/components/organizations/OrgWizardFields';
+import { readOrgDocsAction } from '@/app/actions/org-docs';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { Bell, Building2, Check, ChevronDown, FileText, Folder, Globe, ImageIcon, ImagePlus, Info, Link2, Lock, Users, Workflow, X } from 'lucide-react';
@@ -111,6 +112,16 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
     const { control, setValue, getFieldState, formState: { errors } } = useFormContext<CreateProjectInput>();
     const isOrganization = Boolean(useWatch({ control, name: 'organization' }));
     const childOrg = useCreateLocation().org;
+    // Report §19.7: the starter doc lists the org's templates first.
+    const [orgTemplates, setOrgTemplates] = useState<Array<{ id: string; filename: string }>>([]);
+    useEffect(() => {
+        if (!childOrg) return setOrgTemplates([]);
+        let live = true;
+        void readOrgDocsAction(childOrg.id).then((r) => {
+            if (live) setOrgTemplates(r.success && r.data ? r.data.docs.filter((d) => d.template).map((d) => ({ id: d.id, filename: d.filename })) : []);
+        });
+        return () => { live = false; };
+    }, [childOrg]);
     // Report §14.3 Phase 4: member permissions start from the org's values, unless already changed here.
     useEffect(() => {
         if (!childOrg) return;
@@ -398,9 +409,14 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     {externalLinksError ? <p role="alert" className="mt-2 text-[13px] leading-[1.5] text-destructive">{externalLinksError}</p> : null}
                 </LaunchSection>
 
-                <LaunchSection {...sectionProps('documentation')} title="Starter doc" description="The project Doc tab: setup notes, guidance, and how to contribute." summary={docMode === 'skip' ? 'No doc yet' : `Starter template · ${readme?.publishOnCreate ? 'published' : 'draft'}`}>
+                <LaunchSection {...sectionProps('documentation')} title="Starter doc" description="The project Doc tab: setup notes, guidance, and how to contribute." summary={docMode === 'skip' ? 'No doc yet' : `${orgTemplates.find((t) => t.id === readme?.orgTemplateDocId)?.filename.replace(/\.md$/i, '') ?? 'Starter template'} · ${readme?.publishOnCreate ? 'published' : 'draft'}`}>
                     <div className="flex flex-wrap gap-2" role="group" aria-label="Starter doc">
-                        <ChoiceChip selected={docMode === 'starter'} onClick={() => set('readme', { ...readme, mode: 'starter' } as CreateProjectInput['readme'])}>Starter template</ChoiceChip>
+                        {orgTemplates.map((t) => (
+                            <ChoiceChip key={t.id} selected={docMode === 'starter' && readme?.orgTemplateDocId === t.id} onClick={() => set('readme', { ...readme, mode: 'starter', orgTemplateDocId: t.id } as CreateProjectInput['readme'])}>
+                                {childOrg?.title}: {t.filename.replace(/\.md$/i, '')}
+                            </ChoiceChip>
+                        ))}
+                        <ChoiceChip selected={docMode === 'starter' && !readme?.orgTemplateDocId} onClick={() => set('readme', { ...readme, mode: 'starter', orgTemplateDocId: null } as CreateProjectInput['readme'])}>Starter template</ChoiceChip>
                         <ChoiceChip selected={docMode === 'skip'} onClick={() => set('readme', { ...readme, mode: 'skip', publishOnCreate: false } as CreateProjectInput['readme'])}>No doc yet</ChoiceChip>
                     </div>
                     {sourceType !== 'scratch' ? (

@@ -175,6 +175,16 @@ export function OrgDocAdminTools({ data, doc, visibility }: { data: OrgDocsData;
                     <option value="public">Public</option>
                 </select>
             </label>
+            {data.sprints.length > 0 || doc.sprintId ? (
+                <label className="block space-y-1">
+                    <span className="text-muted-foreground">Linked sprint</span>
+                    <select value={doc.sprintId ?? ''} disabled={pending} onChange={(e) => setOption({ sprintId: e.target.value || null })} className="h-8 w-full rounded-[5px] border border-border bg-background px-2">
+                        <option value="">None</option>
+                        {doc.sprintId && !data.sprints.some((s) => s.id === doc.sprintId) ? <option value={doc.sprintId}>{doc.sprint}</option> : null}
+                        {data.sprints.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                </label>
+            ) : null}
             <label className={box}><input type="checkbox" checked={doc.required} disabled={pending} onChange={(e) => setOption({ required: e.target.checked })} /> Required reading</label>
             <label className={box}><input type="checkbox" checked={doc.template} disabled={pending} onChange={(e) => setOption({ template: e.target.checked })} /> Template</label>
             <label className={box}><input type="checkbox" checked={doc.showInChildren} disabled={pending} onChange={(e) => setOption({ showInChildren: e.target.checked })} /> Show in child projects</label>
