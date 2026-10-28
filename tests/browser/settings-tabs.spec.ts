@@ -15,7 +15,7 @@ async function ready(page: Page) {
   await expect(page.getByRole('heading', { name: 'Blocked accounts and activity' })).toBeVisible();
   // Data from the mocked server is on the page, so the scans and tests below look at real content.
   await expect(page.getByText('Person 0')).toBeVisible();
-  await expect(page.getByText('This device', { exact: true })).toBeVisible();
+  await expect(page.locator('#settings-security-sessions').getByText('This device', { exact: true })).toBeVisible();
 }
 
 test('the real settings document loads every tab without page errors', async ({ page }) => {
@@ -444,7 +444,8 @@ test('appearance: the theme choice moves with the arrow keys and picks with Spac
 });
 
 // ── Keyboard only ────────────────────────────────────────────────────────────────────────────────────────────
-test('Tab reaches every control in the document, and radio groups are one stop each', async ({ page }) => {
+test('Tab reaches every control in the document, and radio groups are one stop each', async ({ page, browserName }) => {
+  test.skip(browserName === 'webkit', 'Safari does not Tab to buttons and links unless the system setting is on.');
   await openRealSettings(page);
   await ready(page);
   const describe = (el: Element | null) => (el ? `${el.tagName}|${el.getAttribute('role') ?? ''}|${(el.getAttribute('aria-label') ?? el.textContent ?? '').trim().slice(0, 40)}|${el.id}` : 'none');
@@ -471,7 +472,8 @@ test('Tab reaches every control in the document, and radio groups are one stop e
   expect(radioStops.length).toBe(groups);
 });
 
-test('a dialog traps focus, Escape closes it, and focus returns to what opened it', async ({ page }) => {
+test('a dialog traps focus, Escape closes it, and focus returns to what opened it', async ({ page, browserName }) => {
+  test.skip(browserName === 'webkit', 'Safari does not Tab to buttons and links unless the system setting is on.');
   await openRealSettings(page);
   await ready(page);
   const trigger = page.locator('#settings-security-sessions').getByRole('button', { name: 'Sign out other devices' });
