@@ -2,6 +2,7 @@ import { assertOrgSprintRules, createMatchingChildSprints, readSprintMaterials, 
 import { buildSprintSeries } from "@/lib/organizations/sprint-rules";
 import { readViewerOrgRole } from "@/lib/organizations/detail";
 import { startSprint } from "@/lib/projects/sprint-schedule";
+import { postOrgAnnouncement } from "@/lib/organizations/org-updates";
 import { notifyChildSprintsUnlinked, notifyLinkedSprintsOutside, notifyOrgSprintCompleted, orgSprintNotifyDefault, readLinkedChildSprints, shiftOrgSprintDueDates, type LinkedChildSprint } from "@/lib/organizations/sprint-notify";
 import "server-only";
 
@@ -2153,12 +2154,17 @@ export async function planSprintSeriesAction(input: { projectId: string; prefix:
 }
 
 /** Starts a planned sprint now, for sprints with "Start automatically" off or started early (report §15.8). */
-export async function startSprintNowAction(sprintId: string, projectId: string) {
+export async function startSprintNowAction(sprintId: string, projectId: string, announcement?: string | null) {
   try {
     const user = await getAuthUserOrThrow();
     await requireSprintOwner(projectId, user.id);
     const started = await startSprint(sprintId, projectId, new Date(), user.id, "manual");
     if (!started) throw new Error("Only a planned sprint can start, and only when no other sprint is active.");
+    // "Also post an announcement" (report §17.2), off by default; orgs only.
+    if (announcement?.trim()) {
+      const [project] = await db.select({ kind: projects.kind }).from(projects).where(eq(projects.id, projectId)).limit(1);
+      if (project?.kind === "organization") await postOrgAnnouncement(projectId, user.id, announcement);
+    }
     await revalidateProjectPaths(projectId);
     return { success: true as const };
   } catch (error) {

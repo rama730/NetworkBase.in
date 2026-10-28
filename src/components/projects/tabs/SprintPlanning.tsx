@@ -456,7 +456,7 @@ export default function SprintPlanning({
             ) : null}
             {selectedSprint && orgContext ? <ChildSprintLine org={orgContext} /> : null}
             {selectedSprint?.status === "planning" && permissions.canStart ? (
-              <div className="mb-3"><StartNowButton projectId={projectId} sprintId={selectedSprint.id} onStarted={refreshSprints} /></div>
+              <div className="mb-3"><StartNowButton projectId={projectId} sprintId={selectedSprint.id} onStarted={refreshSprints} announceAs={orgContext?.kind === "org" ? selectedSprint.name : null} /></div>
             ) : null}
             {selectedSprint ? (
               <SprintMaterials projectId={projectId} sprintId={selectedSprint.id} projectSlug={projectSlug} materials={detail.materials ?? []} canManage={canManageSprints} onChanged={refreshSprints} />

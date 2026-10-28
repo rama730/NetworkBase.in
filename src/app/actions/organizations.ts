@@ -179,6 +179,8 @@ export async function updateOrgSettingsAction(orgId: string, section: OrgSetting
         settingsPatch.roleNames = value.role_names;
     } else if (section === 'notifications') {
         if ('admin_digest' in value) settingsPatch.adminDigest = value.admin_digest;
+        if ('announcement_notify' in value) settingsPatch.announcementNotify = value.announcement_notify;
+        if ('reply_rule' in value) settingsPatch.replyRule = value.reply_rule;
     } else {
         if ('child_creation' in value) settingsPatch.childCreation = value.child_creation;
         if ('outside_people' in value) settingsPatch.outsidePeople = value.outside_people;

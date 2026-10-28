@@ -122,6 +122,9 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
     const [steps, setSteps] = useState<string[]>([])
     // Also share in #general (report §25.5): off by default.
     const [shareToGeneral, setShareToGeneral] = useState(false)
+    // Also post an announcement (report §17.2): off by default; the text is filled in from the assignment.
+    const [announce, setAnnounce] = useState(false)
+    const [announcement, setAnnouncement] = useState<string | null>(null)
     const [stepDraft, setStepDraft] = useState('')
     const [roster, setRoster] = useState<OrgRosterPerson[]>([])
     const [options, setOptions] = useState<{ children: Array<{ id: string; title: string }>; sprints: Array<{ id: string; name: string; status: string }>; teamAssignments?: Array<{ id: string; title: string }> }>({ children: [], sprints: [] })
@@ -149,6 +152,7 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
                 : mode === 'teams' ? { mode, teams: teams.map((t) => ({ name: t.name, userIds: t.people.map((p) => p.userId), leadId: t.leadId })), individuals }
                     : mode === 'each_child' ? { mode } : { mode: 'children', projectIds: childIds }
 
+    const defaultAnnouncement = `${title.trim() || 'A new assignment'} is out${dueLocal ? ` · due ${new Date(dueLocal).toLocaleString('en', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}` : ''}.`
     const save = (publish: boolean) => startTransition(async () => {
         if (!dueLocal) return setError('Pick a due date and time.')
         // Report §16.9: a past due date is allowed, after a check.
@@ -157,6 +161,7 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
             projectId: orgId, title, description, dueDate: new Date(dueLocal).toISOString(), sprintId: sprintId || null, publish,
             submissionType, reviewRequired, lateRule, lateUntil: lateRule === 'until' && lateUntilLocal ? new Date(lateUntilLocal).toISOString() : null,
             target: target(), steps, shareToGeneral,
+            ...(publish && announce ? { announcement: (announcement ?? defaultAnnouncement).trim() } : {}),
         })
         if (!result.success) return setError(result.error)
         setError(null)
@@ -313,7 +318,11 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
                     <p className="text-sm text-muted-foreground" role="status">{preview}</p>
                     {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
                     <div className="flex flex-wrap items-center justify-end gap-2">
-                        <label className="mr-auto flex items-center gap-1.5 text-sm"><input type="checkbox" checked={shareToGeneral} onChange={(e) => setShareToGeneral(e.target.checked)} /> Also share in #general</label>
+                        <span className="mr-auto flex flex-wrap items-center gap-3 text-sm">
+                            <label className="flex items-center gap-1.5"><input type="checkbox" checked={shareToGeneral} onChange={(e) => setShareToGeneral(e.target.checked)} /> Also share in #general</label>
+                            <label className="flex items-center gap-1.5"><input type="checkbox" checked={announce} onChange={(e) => setAnnounce(e.target.checked)} /> Also post an announcement</label>
+                        </span>
+                        {announce ? <textarea value={announcement ?? defaultAnnouncement} onChange={(e) => setAnnouncement(e.target.value)} rows={2} maxLength={5000} aria-label="Announcement" className={`${area} basis-full`} /> : null}
                         <Button type="button" variant="outline" disabled={pending} onClick={() => save(false)}>Save as draft</Button>
                         <Button type="button" disabled={pending || !title.trim()} onClick={() => save(true)}>Publish</Button>
                     </div>

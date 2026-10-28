@@ -118,6 +118,11 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
         if (childOrg.memberFileUploadDefault !== undefined && !getFieldState('member_file_upload_default').isDirty) setValue('member_file_upload_default', childOrg.memberFileUploadDefault);
     }, [childOrg, getFieldState, setValue]);
     const followOrgSprints = useWatch({ control, name: 'follow_org_sprints' });
+    // Report §17.10: members post updates by default in companies, not in Education orgs.
+    const orgType = useWatch({ control, name: 'organization.org_type' });
+    useEffect(() => {
+        if (isOrganization && orgType && !getFieldState('member_updates_enabled').isDirty) setValue('member_updates_enabled', orgType !== 'education');
+    }, [getFieldState, isOrganization, orgType, setValue]);
     const [
         visibilityValue, publicTabsValue, externalLinksValue, readme, docEditPolicy, lifecycleStagesValue,
         memberUpdatesEnabled, memberFileUploadDefault, notificationRowsValue,

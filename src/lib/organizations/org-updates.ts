@@ -5,7 +5,7 @@ import { and, eq, inArray, isNotNull, isNull, or, sql, type SQL } from "drizzle-
 import { db } from "@/lib/db";
 import { projectMembers, projectUpdates, projects } from "@/lib/db/schema";
 import { readViewerOrgRole, type OrgMemberRoleOrNone } from "@/lib/organizations/detail";
-import { shareBlock } from "@/lib/organizations/update-rules";
+import { shareBlock, type UpdateAudience } from "@/lib/organizations/update-rules";
 
 // Org Updates (report §17): who may post what, the audience rule on reads, the shared-up feed.
 
@@ -20,6 +20,11 @@ export type OrgUpdateContext = {
   viewerChildIds: string[];
   /** Child only: whether its posts may be shared up, and why not. */
   shareBlockedReason: string | null;
+  /** Org feed: child posts an org admin pinned there (report §17.6, "org feed only"). */
+  sharedPinIds: string[];
+  /** Org Settings → Updates (report §17.10): announcements notify in-app by default; replies from org members only. */
+  notifyDefault: "in_app" | "email";
+  replyDefault: "members" | "logged_in";
 };
 
 export async function readOrgUpdateContext(project: { id: string; kind?: string | null; parentId?: string | null; visibility?: string | null }, viewerId: string | null): Promise<OrgUpdateContext | null> {
@@ -42,6 +47,9 @@ export async function readOrgUpdateContext(project: { id: string; kind?: string 
     viewerRole,
     isOrgAdmin: viewerRole === "owner" || viewerRole === "admin",
     viewerChildIds,
+    sharedPinIds: readSharedPins(org.orgSettings),
+    notifyDefault: (org.orgSettings as { announcementNotify?: string } | null)?.announcementNotify === "email" ? "email" : "in_app",
+    replyDefault: (org.orgSettings as { replyRule?: string } | null)?.replyRule === "logged_in" ? "logged_in" : "members",
     shareBlockedReason: project.kind === "organization" ? null : shareBlock({
       childVisibility: project.visibility ?? null,
       orgAllowsShare: (org.orgSettings as { childShare?: boolean } | null)?.childShare !== false,
@@ -110,7 +118,44 @@ export async function readPinnedOrgLine(ctx: OrgUpdateContext, viewerId: string 
 }
 
 
-/** Pinned-first in the org feed: the org's own live pins only (a child's pin stays in the child). */
+/** Pinned-first in the org feed: the org's own live pins and the shared posts it pinned (a child's own pin stays in the child). */
 export function orgLivePinSql(orgId: string): SQL<boolean> {
-  return sql<boolean>`(${projectUpdates.isPinned} AND ${projectUpdates.projectId} = ${orgId} AND (${projectUpdates.pinnedUntil} IS NULL OR ${projectUpdates.pinnedUntil} > now()))`;
+  return sql<boolean>`((${projectUpdates.isPinned} AND ${projectUpdates.projectId} = ${orgId} AND (${projectUpdates.pinnedUntil} IS NULL OR ${projectUpdates.pinnedUntil} > now()))
+    OR (${projectUpdates.sharedToOrgAt} IS NOT NULL AND ${projectUpdates.id}::text IN (SELECT jsonb_array_elements_text(coalesce(org_settings->'sharedPins', '[]'::jsonb)) FROM projects WHERE id = ${orgId})))`;
+}
+
+export function readSharedPins(orgSettings: unknown): string[] {
+  const pins = (orgSettings as { sharedPins?: unknown } | null)?.sharedPins;
+  return Array.isArray(pins) ? pins.filter((id): id is string => typeof id === "string").slice(0, 3) : [];
+}
+
+/** How many people an audience reaches, for the composer's "Visible to … · notifies …" line (report §17.3). */
+export async function countAudience(orgId: string, audience: UpdateAudience | null) {
+  const roles = audience?.roles ?? [];
+  const projectIds = audience?.projectIds ?? [];
+  const [row] = await db.execute<{ n: number }>(sql`
+    SELECT count(DISTINCT pm.user_id)::int AS n FROM project_members pm WHERE pm.project_id = ${orgId}
+      AND (${roles.length === 0 && projectIds.length === 0}
+        OR pm.role IN ('owner', 'admin')
+        OR pm.role IN (SELECT jsonb_array_elements_text(${JSON.stringify(roles)}::jsonb))
+        OR EXISTS (SELECT 1 FROM project_members c JOIN projects p ON p.id = c.project_id
+          WHERE c.user_id = pm.user_id AND p.parent_id = ${orgId} AND p.id::text IN (SELECT jsonb_array_elements_text(${JSON.stringify(projectIds)}::jsonb))))`);
+  return row?.n ?? 0;
+}
+
+/**
+ * "Also post an announcement" when a sprint starts or an assignment is published (report §17.2): a plain
+ * announcement to everyone, in-app, with the org's reply default.
+ */
+export async function postOrgAnnouncement(orgId: string, actorId: string, content: string) {
+  const text = content.trim().slice(0, 5000);
+  if (!text) return null;
+  const [org] = await db.select({ settings: projects.orgSettings }).from(projects).where(eq(projects.id, orgId)).limit(1);
+  const replyPolicy = (org?.settings as { replyRule?: string } | null)?.replyRule === "logged_in" ? "logged_in" : "members";
+  const [row] = await db.insert(projectUpdates).values({ projectId: orgId, authorId: actorId, content: text, updateType: "announcement", visibility: "members", replyPolicy, notifyLevel: "in_app" })
+    .returning({ id: projectUpdates.id });
+  if (!row) return null;
+  const { notifyAnnouncement } = await import("@/lib/organizations/notify");
+  await notifyAnnouncement({ orgId, updateId: row.id, actorId, content: text, audience: {}, email: false });
+  return row.id;
 }

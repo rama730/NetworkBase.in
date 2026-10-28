@@ -427,6 +427,8 @@ export function OrgChatSection({ orgId, organization }: { orgId: string; organiz
 /** Settings → Notifications (report §26.8): admins get one daily summary email, or only tray notices. */
 export function OrgNotificationsSection({ orgId, organization }: { orgId: string; organization: OrgDetail }) {
     const [digest, setDigest] = useState(organization.adminDigest)
+    const [announce, setAnnounce] = useState(organization.announcementNotify)
+    const [replies, setReplies] = useState(organization.replyRule)
     const { pending, save, status } = useSave()
     return (
         <SettingsCard title="Admin batching" headingLevel={2} description="How owners and admins hear about submissions and join requests." footer={<LastChanged organization={organization} section="notifications" />}>
@@ -442,8 +444,21 @@ export function OrgNotificationsSection({ orgId, organization }: { orgId: string
                         <span>Instant<span className="block text-xs text-muted-foreground">Notifications only, as things happen. No summary email.</span></span>
                     </label>
                 </fieldset>
+                {/* Org Settings → Updates (report §17.10): the starting choices in the announcement composer. */}
+                <label className="block text-sm">
+                    <span className="font-medium text-foreground">Announcements notify</span>
+                    <select value={announce} onChange={(e) => setAnnounce(e.target.value as typeof announce)} className="mt-1 block h-9 rounded-md border border-border bg-background px-2 text-sm">
+                        <option value="in_app">In-app</option><option value="email">In-app and email</option>
+                    </select>
+                </label>
+                <label className="block text-sm">
+                    <span className="font-medium text-foreground">Who can reply to posts</span>
+                    <select value={replies} onChange={(e) => setReplies(e.target.value as typeof replies)} className="mt-1 block h-9 rounded-md border border-border bg-background px-2 text-sm">
+                        <option value="members">Organization members</option><option value="logged_in">Anyone signed in</option>
+                    </select>
+                </label>
                 <div className="flex items-center gap-3">
-                    <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'notifications', { admin_digest: digest }))}>Save</Button>
+                    <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'notifications', { admin_digest: digest, announcement_notify: announce, reply_rule: replies }))}>Save</Button>
                     {status}
                 </div>
             </div>

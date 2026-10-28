@@ -1,7 +1,7 @@
 "use server";
 
 import { readViewerOrgRole } from "@/lib/organizations/detail";
-import { orgFeedWhere, orgLivePinSql, readLastSeenUpdates, readOrgUpdateContext, readProjectTitles, type OrgUpdateContext } from "@/lib/organizations/org-updates";
+import { orgFeedWhere, orgLivePinSql, readLastSeenUpdates, readOrgUpdateContext, readProjectTitles, readSharedPins, type OrgUpdateContext } from "@/lib/organizations/org-updates";
 import { isPinnedNow, type UpdateAudience } from "@/lib/organizations/update-rules";
 import { shareToOrgGeneral } from "@/lib/organizations/org-chat";
 import { readProjectRoleTitles, roleTitleKey } from "@/lib/projects/update-roles";
@@ -50,7 +50,7 @@ import {
 } from "@/lib/db/schema";
 import { computeProjectReadAccess } from "@/lib/data/project-access";
 import { enqueueProjectNotificationEvent } from "@/lib/notifications/project-events";
-import { notifyAnnouncement } from "@/lib/organizations/notify";
+import { notifyAnnouncement, notifyOrg } from "@/lib/organizations/notify";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { getViewerAuthContext, getViewerProfileContext } from "@/lib/server/viewer-context";
 import { createAdminClient } from "@/lib/supabase/server";
@@ -313,6 +313,8 @@ export type ProjectUpdateView = {
     canEdit: boolean;
     canDelete: boolean;
     canPin: boolean;
+    /** A child project's own post shared up to its org (report §17.6): "Shared to CSE-3A". */
+    sharedToOrgTitle?: string | null;
     canComment: boolean;
     editedAt: string | null;
     deletedAt: string | null;
@@ -873,7 +875,8 @@ function normalizeUpdate(row: UpdateRow, params: {
         context: params.contextByUpdateId?.get(row.id) ?? {},
         media: normalizeMedia(row.media),
         metadata: normalizeMetadata(row.metadata),
-        isPinned: !shared && isPinnedNow(Boolean(row.isPinned), row.pinnedUntil ?? null),
+        // A shared post is pinned only by the org, in the org feed (report §17.6).
+        isPinned: shared ? Boolean(params.access.org?.kind === "org" && params.access.org.sharedPinIds.includes(row.id)) : isPinnedNow(Boolean(row.isPinned), row.pinnedUntil ?? null),
         pinnedUntil: toIsoString(row.pinnedUntil),
         audience: (row.audience ?? {}) as UpdateAudience,
         fromProject: shared ? params.fromProjects?.get(row.projectId) ?? null : null,
@@ -882,7 +885,9 @@ function normalizeUpdate(row: UpdateRow, params: {
         likedByViewer: params.likedIds.has(row.id),
         canEdit: !deleted && isAuthor,
         canDelete: !deleted && (isAuthor || canModerate),
-        canPin: !deleted && canModerate && !shared,
+        // Org admins pin shared posts in the org feed only (report §17.6).
+        canPin: !deleted && canModerate && (!shared || Boolean(params.access.org?.kind === "org" && params.access.org.isOrgAdmin)),
+        sharedToOrgTitle: !shared && row.sharedToOrgAt && params.access.org?.kind === "child" ? params.access.org.orgTitle : null,
         // ponytail: shared posts take comments in their own project; the card checks there on submit.
         canComment: !deleted && Boolean(viewerId) && params.access.canRead && row.replyPolicy !== "closed" && (
             row.replyPolicy !== "members" || params.access.isOwner || params.access.isMember || shared
@@ -967,7 +972,8 @@ async function readUpdateRowsByIds(updateIds: string[], access: ProjectUpdateAcc
         ))
         .where(and(
             inArray(projectUpdates.id, updateIds),
-            eq(projectUpdates.projectId, access.project.id),
+            // The org feed's own rule covers its posts and the posts shared up to it (report §17.6).
+            access.org?.kind === "org" ? undefined : eq(projectUpdates.projectId, access.project.id),
             access.isOwner || access.isMember ? undefined : eq(projectUpdates.visibility, "public"),
             orgAudienceWhere(access),
         ));
@@ -1213,6 +1219,7 @@ export async function readProjectUpdatesAction(projectId: string, params?: {
                     title: access.org.orgTitle,
                     isAdmin: access.org.isOrgAdmin,
                     shareBlockedReason: access.org.shareBlockedReason,
+                    notifyDefault: access.org.notifyDefault,
                 } : null,
                 capabilities: {
                     canCreate: access.canCreate,
@@ -1488,7 +1495,7 @@ async function resolveOrgPostOptions(access: ProjectUpdateAccess, updateType: Pr
     return {
         audience,
         // ponytail: stored only; email sending lands with notifications (P14).
-        notifyLevel: orgAdmin && input.notifyLevel === "email" ? "email" as const : "in_app" as const,
+        notifyLevel: orgAdmin && (input.notifyLevel ?? access.org?.notifyDefault) === "email" ? "email" as const : "in_app" as const,
         pin: Boolean(orgAdmin && input.pin),
         pinnedUntil: orgAdmin && input.pin ? futureDate(input.pinnedUntil) : null,
         commentsOff: Boolean(orgAdmin && input.commentsOff),
@@ -1527,7 +1534,8 @@ export async function createProjectUpdateAction(projectId: string, input: {
         const visibility: ProjectUpdateVisibility = input.visibility === "members" ? "members" : "public";
         const orgOptions = await resolveOrgPostOptions(access, updateType, input);
         if ("error" in orgOptions) return { success: false as const, error: orgOptions.error };
-        const replyPolicy: ProjectUpdateReplyPolicy = orgOptions.commentsOff ? "closed" : input.replyPolicy === "members" ? "members" : "logged_in";
+        const replyPolicy: ProjectUpdateReplyPolicy = orgOptions.commentsOff ? "closed" : input.replyPolicy === "members" ? "members"
+            : input.replyPolicy === "logged_in" ? "logged_in" : access.org?.kind === "org" ? access.org.replyDefault : "logged_in";
         const entityRefs = normalizeEntityRefs(input.entityRefs);
         const media = normalizeMedia(input.media);
         const content = sanitizeProjectUpdateContent(input.content);
@@ -1671,6 +1679,8 @@ export async function editProjectUpdateAction(projectId: string, updateId: strin
     updateType?: ProjectUpdateType | string | null;
     entityRefs?: ProjectUpdateEntityRefs | null;
     media?: ProjectUpdateMediaItem[] | null;
+    /** Org announcements (report §17.4): an edit tells the audience again only when asked. */
+    notifyAgain?: boolean;
 }) {
     try {
         const viewer = await getViewerAuthContext();
@@ -1723,7 +1733,8 @@ export async function editProjectUpdateAction(projectId: string, updateId: strin
                 .update(projectUpdates)
                 .set({
                     content,
-                    updateType: normalizeProjectUpdateType(input.updateType),
+                    // An edit that leaves the type out keeps it, so an announcement stays one.
+                    ...(input.updateType === undefined ? {} : { updateType: normalizeProjectUpdateType(input.updateType) }),
                     entityRefs,
                     media,
                     editedAt: now,
@@ -1736,6 +1747,9 @@ export async function editProjectUpdateAction(projectId: string, updateId: strin
             likedUpdateIds([updateId], viewer.userId),
             contextSummariesForRows(rows, access),
         ]);
+        if (input.notifyAgain && access.org?.kind === "org" && access.org.isOrgAdmin && rows[0]?.updateType === "announcement") {
+            await notifyAnnouncement({ orgId: access.org.orgId, updateId, actorId: viewer.userId, content, audience: (rows[0].audience ?? {}) as UpdateAudience, email: false, again: true });
+        }
         return { success: true as const, data: rows[0] ? normalizeUpdate(rows[0], { access, likedIds, contextByUpdateId }) : null };
     } catch (error) {
         console.error("Failed to edit project update:", error);
@@ -1743,13 +1757,14 @@ export async function editProjectUpdateAction(projectId: string, updateId: strin
     }
 }
 
-export async function deleteProjectUpdateAction(projectId: string, updateId: string) {
+export async function deleteProjectUpdateAction(projectId: string, updateId: string, reason?: string | null) {
     try {
         const viewer = await getViewerAuthContext();
         if (!viewer.userId) return { success: false as const, error: "Please log in to delete updates." };
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
         if (!access.canRead || !access.project) return { success: false as const, error: "Project update unavailable." };
         const now = new Date();
+        let removedAuthorId: string | null = null;
         await db.transaction(async (tx) => {
             const [existing] = await tx
                 .select({
@@ -1765,6 +1780,11 @@ export async function deleteProjectUpdateAction(projectId: string, updateId: str
             if (!existing || existing.deletedAt) throw new Error("Project update not found.");
             if (existing.authorId !== viewer.userId && !access.canManage) {
                 throw new Error("You do not have permission to delete this update.");
+            }
+            // In an org or child project, removing someone else's post needs a reason, which the author hears (report §17.4).
+            if (existing.authorId && existing.authorId !== viewer.userId && access.org) {
+                if (!reason?.trim()) throw new ModerationReasonError();
+                removedAuthorId = existing.authorId;
             }
             await queueRemovedLegacyUpdateMedia({
                 tx,
@@ -1816,11 +1836,43 @@ export async function deleteProjectUpdateAction(projectId: string, updateId: str
             contextSummariesForRows(rows, access),
         ]);
         revalidatePath(projectBaseHref(access.project));
+        if (removedAuthorId && access.org) {
+            await notifyOrg({ orgId: access.org.orgId, eventKey: "org.lifecycle", actorId: viewer.userId, to: [removedAuthorId], title: `Your post was removed: ${reason!.trim().slice(0, 300)}`,
+                href: `${projectBaseHref(access.project)}?tab=updates`, sourceEventId: `post-removed:${updateId}` });
+        }
         return { success: true as const, data: rows[0] ? normalizeUpdate(rows[0], { access, likedIds, contextByUpdateId }) : null };
     } catch (error) {
+        if (error instanceof ModerationReasonError) return { success: false as const, error: error.message };
         console.error("Failed to delete project update:", error);
         return { success: false as const, error: "Failed to delete update." };
     }
+}
+
+class ModerationReasonError extends Error {
+    constructor() { super("Say why you're removing this post. The author will see it."); }
+}
+
+/** An org admin pins a child's shared post in the org feed only (report §17.6); the 3-pin limit counts these too. */
+async function countOrgOwnPins(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], orgId: string, exceptId?: string) {
+    const [own] = await tx.select({ n: sql<number>`count(*)::int` }).from(projectUpdates)
+        .where(and(eq(projectUpdates.projectId, orgId), eq(projectUpdates.isPinned, true), isNull(projectUpdates.deletedAt),
+            sql`(${projectUpdates.pinnedUntil} IS NULL OR ${projectUpdates.pinnedUntil} > now())`, exceptId ? sql`${projectUpdates.id} <> ${exceptId}` : undefined));
+    return own?.n ?? 0;
+}
+
+async function pinSharedInOrgFeed(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], orgId: string, updateId: string, pinned: boolean) {
+    const [shared] = await tx.select({ id: projectUpdates.id }).from(projectUpdates)
+        .where(and(eq(projectUpdates.id, updateId), isNull(projectUpdates.deletedAt), sql`${projectUpdates.sharedToOrgAt} IS NOT NULL`,
+            sql`${projectUpdates.projectId} IN (SELECT id FROM projects WHERE parent_id = ${orgId} AND deleted_at IS NULL)`)).limit(1);
+    if (!shared) return false;
+    const [org] = await tx.select({ settings: projects.orgSettings }).from(projects).where(eq(projects.id, orgId)).limit(1);
+    const current = readSharedPins(org?.settings);
+    const next = pinned ? [...new Set([...current, updateId])] : current.filter((id) => id !== updateId);
+    if (pinned && !current.includes(updateId)) {
+        if ((await countOrgOwnPins(tx, orgId)) + next.length > 3) throw new Error("ORG_PIN_LIMIT");
+    }
+    await tx.update(projects).set({ orgSettings: sql`coalesce(${projects.orgSettings}, '{}'::jsonb) || jsonb_build_object('sharedPins', ${JSON.stringify(next)}::jsonb)` }).where(eq(projects.id, orgId));
+    return true;
 }
 
 export async function toggleProjectUpdatePinAction(projectId: string, updateId: string, pinned: boolean, pinnedUntil?: string | null) {
@@ -1838,10 +1890,13 @@ export async function toggleProjectUpdatePinAction(projectId: string, updateId: 
                 .from(projectUpdates)
                 .where(and(eq(projectUpdates.id, updateId), eq(projectUpdates.projectId, projectId), isNull(projectUpdates.deletedAt)))
                 .limit(1);
-            if (!target) return false;
+            if (!target) return access.org?.kind === "org" ? pinSharedInOrgFeed(tx, access.org.orgId, updateId, pinned) : false;
             const now = new Date();
             // Orgs keep up to 3 pins (the 0245 trigger refuses a 4th); other projects swap their one pin.
             const isOrg = access.project?.kind === "organization";
+            // Shared posts pinned in the org feed count toward the same 3.
+            if (pinned && isOrg && access.org?.kind === "org"
+                && (await countOrgOwnPins(tx, projectId, updateId)) + access.org.sharedPinIds.length >= 3) throw new Error("ORG_PIN_LIMIT");
             if (pinned && !isOrg) {
                 await tx
                     .update(projectUpdates)
@@ -1855,6 +1910,9 @@ export async function toggleProjectUpdatePinAction(projectId: string, updateId: 
             return true;
         });
         if (!found) return { success: false as const, error: "That update is no longer available." };
+        if (access.org?.kind === "org") {
+            access.org.sharedPinIds = pinned ? [...new Set([...access.org.sharedPinIds, updateId])] : access.org.sharedPinIds.filter((id) => id !== updateId);
+        }
         const rows = await readUpdateRowsByIds([updateId], access);
         const [likedIds, contextByUpdateId] = await Promise.all([
             likedUpdateIds([updateId], viewer.userId),
@@ -1862,7 +1920,7 @@ export async function toggleProjectUpdatePinAction(projectId: string, updateId: 
         ]);
         return { success: true as const, data: rows[0] ? normalizeUpdate(rows[0], { access, likedIds, contextByUpdateId }) : null };
     } catch (error) {
-        if (isPinLimitError(error)) return { success: false as const, error: PIN_LIMIT_MESSAGE };
+        if (isPinLimitError(error) || (error instanceof Error && error.message === "ORG_PIN_LIMIT")) return { success: false as const, error: PIN_LIMIT_MESSAGE };
         console.error("Failed to pin project update:", error);
         return { success: false as const, error: "Failed to update pinned state." };
     }
