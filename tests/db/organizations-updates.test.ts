@@ -143,5 +143,5 @@ test("inherited org admins moderate child project updates", async () => {
   const o = await orgWithChild();
   const r = await post(o.child, o.member);
   viewerId = o.admin;
-  assert.equal((await updates.deleteProjectUpdateAction(o.child, r.success ? r.data!.id : "")).success, true);
+  assert.equal((await updates.deleteProjectUpdateAction(o.child, r.success ? r.data!.id : "", "Off topic")).success, true);
 });

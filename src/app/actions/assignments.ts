@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/server';
 import { canStillSubmit, copyState, type AssignmentSettings, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules';
 import { createCopies, createMasterTask, resolveRecipients } from '@/lib/organizations/assignments';
 import { shareToOrgGeneral } from '@/lib/organizations/org-chat';
+import { postOrgAnnouncement } from '@/lib/organizations/org-updates';
 import { ORG_LIMITS } from '@/lib/organizations/config';
 import { notifyAssignmentDueChanged, notifyAssignmentPublished, notifyAssignmentReviewed, notifyAssignmentSubmitted } from '@/lib/organizations/assignment-notify';
 
@@ -66,6 +67,8 @@ const createSchema = z.object({
     steps: z.array(z.string().trim().min(1).max(200)).max(50),
     /** Also share in #general (report §25.5), off by default; only when published. */
     shareToGeneral: z.boolean().optional(),
+    /** "Also post an announcement" (report §17.2), off by default; only when published. */
+    announcement: z.string().trim().max(5000).optional(),
 });
 
 /** New assignment: a master, and copies when published (report §16.2). Drafts make no copies. */
@@ -103,6 +106,7 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
         });
         touch(viewer.slug, data.projectId);
         if (data.publish && data.shareToGeneral) await shareToOrgGeneral(data.projectId, viewer.userId, { kind: 'assignment', ref_id: result.masterId });
+        if (data.publish && data.announcement) await postOrgAnnouncement(data.projectId, viewer.userId, data.announcement);
         if (data.publish) await notifyAssignmentPublished(result.masterId, viewer.userId);
         return { success: true, ...result };
     } catch (error) {

@@ -77,6 +77,8 @@ function UpdateCard({
   );
 
   const like = useToggleUpdateLike(projectId, update.id);
+  // "Edited" with Notify again (report §17.4): off unless ticked.
+  const [notifyAgain, setNotifyAgain] = useState(false);
 
   const editMutation = useMutation({
     mutationFn: async () => {
@@ -84,6 +86,7 @@ function UpdateCard({
         content: draft,
         entityRefs: update.entityRefs,
         media: update.media,
+        notifyAgain,
       });
       if (!result.success || !result.data)
         throw new Error(result.error || "Failed to edit update");
@@ -109,7 +112,13 @@ function UpdateCard({
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      const result = await deleteProjectUpdateAction(projectId, update.id);
+      let result = await deleteProjectUpdateAction(projectId, update.id);
+      // Removing someone else's post in an org needs a reason the author will see (report §17.4).
+      if (!result.success && result.error?.startsWith("Say why")) {
+        const reason = window.prompt(result.error);
+        if (!reason?.trim()) throw new Error("Not removed: a reason is needed.");
+        result = await deleteProjectUpdateAction(projectId, update.id, reason);
+      }
       if (!result.success)
         throw new Error(result.error || "Failed to delete update");
       return result.data ?? null;
@@ -131,8 +140,9 @@ function UpdateCard({
 
   const pinMutation = useMutation({
     mutationFn: async () => {
+      // A shared post is pinned in the feed it is shown in (the org's), never in its own project (report §17.6).
       const result = await toggleProjectUpdatePinAction(
-        projectId,
+        update.fromProject ? feedProjectId : projectId,
         update.id,
         !update.isPinned,
       );
@@ -230,6 +240,9 @@ function UpdateCard({
                 {update.fromProject ? (
                   <span className="rounded-[3px] border border-border px-1 text-[11px] text-muted-foreground">From {update.fromProject.title}</span>
                 ) : null}
+                {update.sharedToOrgTitle ? (
+                  <span className="rounded-[3px] border border-border px-1 text-[11px] text-muted-foreground">Shared to {update.sharedToOrgTitle}</span>
+                ) : null}
                 {(update.audience.roles?.length || update.audience.projectIds?.length) ? (
                   <span className="text-[11px] text-muted-foreground">· Limited audience</span>
                 ) : null}
@@ -310,7 +323,13 @@ function UpdateCard({
                 }
                 className="flex min-h-28 w-full resize-none rounded-[5px] border border-input bg-transparent px-3 py-2 text-base shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-input/30"
               />
-              <div className="mt-2 flex justify-end gap-2">
+              <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
+                {update.updateType === "announcement" && update.canPin ? (
+                  <label className="mr-auto flex items-center gap-1.5 text-[12px] text-muted-foreground">
+                    <input type="checkbox" checked={notifyAgain} onChange={(event) => setNotifyAgain(event.target.checked)} />
+                    Notify again
+                  </label>
+                ) : null}
                 <Button
                   type="button"
                   variant="ghost"

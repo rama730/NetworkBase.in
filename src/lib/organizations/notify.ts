@@ -125,8 +125,8 @@ export async function notifyJoined(orgId: string, userId: string, eventId: strin
 /** At most 5 emailed announcements per org per day (report §26.5); more posts still reach the tray. */
 export const ANNOUNCEMENT_EMAILS_PER_DAY = 5;
 
-/** Announcements reach their audience only (report §26.10 #5): roles and child projects, admins always. */
-export async function notifyAnnouncement(input: { orgId: string; updateId: string; actorId: string; content: string; audience: UpdateAudience | null; email: boolean }) {
+/** Announcements reach their audience only (report §26.10 #5); `again` is "Edited with Notify again" (in-app, §17.9). */
+export async function notifyAnnouncement(input: { orgId: string; updateId: string; actorId: string; content: string; audience: UpdateAudience | null; email: boolean; again?: boolean }) {
   const org = await orgLabel(input.orgId);
   if (!org) return;
   const [owner] = await db.select({ ownerId: projects.ownerId }).from(projects).where(eq(projects.id, input.orgId)).limit(1);
@@ -139,7 +139,7 @@ export async function notifyAnnouncement(input: { orgId: string; updateId: strin
     isAdmin: m.role === "owner" || m.role === "admin", isAuthor: m.userId === input.actorId,
     role: m.role as "owner" | "admin" | "member" | "viewer", childProjectIds: inChild.has(m.userId) ? childIds : [],
   })).map((m) => m.userId);
-  let email = input.email;
+  let email = input.email && !input.again;
   if (email) {
     const [{ n } = { n: 0 }] = await db.select({ n: sql<number>`count(*)::int` }).from(projectUpdates)
       .where(and(eq(projectUpdates.projectId, input.orgId), eq(projectUpdates.notifyLevel, "email"), sql`${projectUpdates.createdAt} > now() - interval '1 day'`));
@@ -148,8 +148,8 @@ export async function notifyAnnouncement(input: { orgId: string; updateId: strin
   }
   const author = (await namesOf([input.actorId])).get(input.actorId) ?? "Someone";
   await notifyOrg({
-    orgId: input.orgId, eventKey: "announcements.posted", actorId: input.actorId, to: people, title: `${author}: ${input.content.replace(/\s+/g, " ").slice(0, 120)}`,
-    href: orgHref(org, `?tab=updates&updateId=${encodeURIComponent(input.updateId)}`), sourceEventId: `announcement:${input.updateId}`, refs: { updateId: input.updateId },
+    orgId: input.orgId, eventKey: "announcements.posted", actorId: input.actorId, to: people, title: `${input.again ? "Updated: " : `${author}: `}${input.content.replace(/\s+/g, " ").slice(0, 120)}`,
+    href: orgHref(org, `?tab=updates&updateId=${encodeURIComponent(input.updateId)}`), sourceEventId: input.again ? `announcement:${input.updateId}:again:${Date.now()}` : `announcement:${input.updateId}`, refs: { updateId: input.updateId },
     email: email ? { kind: "org_announcement", data: { post: { id: input.updateId, content: input.content.slice(0, 5000) } } } : null,
   });
   return { emailed: email };

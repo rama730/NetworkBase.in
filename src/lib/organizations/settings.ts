@@ -74,6 +74,8 @@ export const ORG_SETTINGS_PATCH = {
   }).strict(),
   notifications: z.object({
     admin_digest: z.enum(["daily", "instant"]).optional(),
+    announcement_notify: z.enum(["in_app", "email"]).optional(),
+    reply_rule: z.enum(["members", "logged_in"]).optional(),
   }).strict(),
 } as const;
 

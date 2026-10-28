@@ -153,17 +153,36 @@ function MaterialPicker({ open, onOpenChange, projectId, sprintId, onAdded }: { 
 }
 
 /** Planned sprints that don't start on their own (or start early) start here (report §15.2, §15.8). */
-export function StartNowButton({ projectId, sprintId, onStarted }: { projectId: string; sprintId: string; onStarted: Done }) {
+export function StartNowButton({ projectId, sprintId, onStarted, announceAs }: { projectId: string; sprintId: string; onStarted: Done; announceAs?: string | null }) {
     const [pending, startTransition] = useTransition()
     const [error, setError] = useState<string | null>(null)
+    // Orgs: "Also post an announcement" (report §17.2), off by default with the text pre-filled.
+    const [confirming, setConfirming] = useState(false)
+    const [announce, setAnnounce] = useState(false)
+    const [text, setText] = useState(announceAs ? `${announceAs} has started.` : '')
+    const start = () => startTransition(async () => {
+        const result = await startSprintNowAction(sprintId, projectId, announce ? text : null)
+        if (!result.success) return setError(result.error)
+        setError(null)
+        setConfirming(false)
+        onStarted()
+    })
+    if (confirming) {
+        return (
+            <div className="space-y-2 rounded-md border border-border p-2 text-sm">
+                <label className="flex items-center gap-2"><input type="checkbox" checked={announce} onChange={(e) => setAnnounce(e.target.checked)} /> Also post an announcement</label>
+                {announce ? <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} maxLength={5000} aria-label="Announcement" className="w-full rounded-md border border-border bg-background p-2" /> : null}
+                <div className="flex gap-2">
+                    <Button type="button" size="sm" disabled={pending} onClick={start}><Play className="size-3.5" aria-hidden="true" />Start now</Button>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setConfirming(false)}>Cancel</Button>
+                </div>
+                {error ? <p role="alert" className="text-xs text-destructive">{error}</p> : null}
+            </div>
+        )
+    }
     return (
         <span className="inline-flex items-center gap-2">
-            <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => startTransition(async () => {
-                const result = await startSprintNowAction(sprintId, projectId)
-                if (!result.success) return setError(result.error)
-                setError(null)
-                onStarted()
-            })}><Play className="size-3.5" aria-hidden="true" />Start now</Button>
+            <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => (announceAs ? setConfirming(true) : start())}><Play className="size-3.5" aria-hidden="true" />Start now</Button>
             {error ? <span role="alert" className="text-xs text-destructive">{error}</span> : null}
         </span>
     )

@@ -6,14 +6,14 @@ import { useQuery } from '@tanstack/react-query'
 import { Pin } from 'lucide-react'
 
 import { readAssignmentComposerOptionsAction } from '@/app/actions/assignments'
-import { readOrgPinnedLineAction } from '@/app/actions/org-updates'
+import { countAnnouncementAudienceAction, readOrgPinnedLineAction } from '@/app/actions/org-updates'
 import type { OrgFeedFilter } from '@/lib/organizations/org-updates'
 import type { UpdateAudience } from '@/lib/organizations/update-rules'
 import { cn } from '@/lib/utils'
 
 // Org Updates (report §17): the composer's org options, the feed filters, and the pinned org line.
 
-export type OrgFeedInfo = { kind: 'org' | 'child'; title: string; isAdmin: boolean; shareBlockedReason: string | null }
+export type OrgFeedInfo = { kind: 'org' | 'child'; title: string; isAdmin: boolean; shareBlockedReason: string | null; notifyDefault?: 'in_app' | 'email' }
 
 export type OrgPostOptions = {
     updateType?: 'announcement' | 'discussion'
@@ -36,7 +36,15 @@ const ROLE_OPTIONS = [
 /** What the next post carries on top of the composer's own fields. Admins in an org get the full set. */
 export function OrgUpdateOptions({ org, orgId, value, onChange }: { org: OrgFeedInfo; orgId: string; value: OrgPostOptions; onChange: (next: OrgPostOptions) => void }) {
     const [children, setChildren] = useState<Array<{ id: string; title: string }>>([])
+    const [reach, setReach] = useState<number | null>(null)
     const isOrgAdmin = org.kind === 'org' && org.isAdmin
+    const audienceKey = JSON.stringify(value.audience ?? {})
+    useEffect(() => {
+        if (!isOrgAdmin) return
+        let cancelled = false
+        const timer = setTimeout(() => void countAnnouncementAudienceAction(orgId, JSON.parse(audienceKey)).then((n) => { if (!cancelled) setReach(n) }), 300)
+        return () => { cancelled = true; clearTimeout(timer) }
+    }, [audienceKey, isOrgAdmin, orgId])
     useEffect(() => {
         if (isOrgAdmin) void readAssignmentComposerOptionsAction(orgId).then((r) => { if (r.success) setChildren(r.children) })
     }, [isOrgAdmin, orgId])
@@ -89,7 +97,7 @@ export function OrgUpdateOptions({ org, orgId, value, onChange }: { org: OrgFeed
             </details>
             <div className="flex flex-wrap items-center gap-1.5">
                 <label className={chip}>
-                    <input type="checkbox" checked={value.notifyLevel === 'email'} onChange={(e) => onChange({ ...value, notifyLevel: e.target.checked ? 'email' : 'in_app' })} />
+                    <input type="checkbox" checked={(value.notifyLevel ?? org.notifyDefault) === 'email'} onChange={(e) => onChange({ ...value, notifyLevel: e.target.checked ? 'email' : 'in_app' })} />
                     Also email
                 </label>
                 <label className={chip}>
@@ -113,6 +121,13 @@ export function OrgUpdateOptions({ org, orgId, value, onChange }: { org: OrgFeed
                     </label>
                 ) : null}
             </div>
+            {/* Preview line and the empty-audience warning (report §17.3, §17.11). */}
+            {reach !== null ? (
+                <p role="status" className={reach === 0 ? 'text-destructive' : 'text-muted-foreground'}>
+                    {reach === 0 ? 'Nobody is in this audience yet. Pick another before posting.'
+                        : `Visible to ${reach} ${reach === 1 ? 'person' : 'people'} · ${(value.updateType ?? 'announcement') === 'announcement' ? `notifies ${reach} by in-app${(value.notifyLevel ?? org.notifyDefault) === 'email' ? ' and email' : ''}` : 'no notifications'}`}
+                </p>
+            ) : null}
         </fieldset>
     )
 }

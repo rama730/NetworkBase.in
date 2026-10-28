@@ -80,6 +80,18 @@ export async function readNeedsYou(v: OrgViewer, now: Date): Promise<NeedsYouRow
         if (state !== 'done' && state !== 'excused' && state !== 'submitted') rows.push({ kind: 'group', label: `${c.project} · ${c.title} for the project`, href: `/projects/${encodeURIComponent(c.slug ?? c.projectId)}?tab=tasks` });
     }
     rows.push(...await leadSprintRows(v.org.id, v.userId));
+    // Important (emailed) announcements stay in Needs you until the Updates tab is opened (report §17.4).
+    const role = v.access?.memberRole ?? 'member';
+    const unread = await db.execute<{ id: string; content: string }>(sql`
+        SELECT u.id, u.content FROM project_updates u
+        WHERE u.project_id = ${v.org.id} AND u.update_type = 'announcement' AND u.notify_level = 'email' AND u.deleted_at IS NULL
+          AND u.created_at > now() - interval '14 days' AND u.author_id IS DISTINCT FROM ${v.userId}
+          AND u.created_at > coalesce((SELECT last_seen_updates_at FROM project_members WHERE project_id = ${v.org.id} AND user_id = ${v.userId}), '-infinity'::timestamptz)
+          AND (u.audience = '{}'::jsonb OR u.audience->'roles' @> to_jsonb(${role}::text)
+            OR EXISTS (SELECT 1 FROM project_members c JOIN projects p ON p.id = c.project_id
+              WHERE c.user_id = ${v.userId} AND p.parent_id = ${v.org.id} AND u.audience->'projectIds' @> to_jsonb(p.id::text)))
+        ORDER BY u.created_at DESC LIMIT 3`);
+    for (const a of unread) rows.push({ kind: 'announcement', label: `Read: ${a.content.replace(/\s+/g, ' ').slice(0, 60)}`, href: `${base}?tab=updates&updateId=${a.id}` });
     const docs = await readOrgDocsAction(v.org.id);
     if (docs.success && docs.data) for (const d of docs.data.docs) if (d.required && d.label === 'new') rows.push({ kind: 'doc', label: `Read ${d.filename.replace(/\.(md|mdx|markdown)$/i, '')}`, href: `${base}?tab=readme&doc=${d.slug}` });
     return rows;
