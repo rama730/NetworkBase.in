@@ -43,7 +43,7 @@ async function main() {
     source("src/components/profile/edit/EditProfileEditor.tsx"),
     source("src/components/profile/v2/sections/ProjectContributionsCard.tsx"),
     source("src/app/api/v1/profiles/[id]/collaboration-stages/[stageId]/route.ts"),
-    source("src/app/actions/project/updates.ts"),
+    source("src/lib/projects/update-roles.ts"),
     source("scripts/check-profile-contribution-database.ts"),
     source("docs/runbooks/profile-contributions.md"),
     source("drizzle/0208_native_auth_uid.sql"),

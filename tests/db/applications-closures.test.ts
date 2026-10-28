@@ -9,6 +9,11 @@ moduleStubs.set("@/lib/supabase/server", {
   createAdminClient: async () => { throw new Error("not used"); },
 });
 moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: () => undefined, unstable_cache: (fn: unknown) => fn, updateTag: () => undefined });
+// Post-response work (next/server after) runs inline here; the action returns before it settles, as in a request.
+moduleStubs.set("next/server", {
+  after: (task: unknown) => { void Promise.resolve(typeof task === "function" ? (task as () => unknown)() : task).catch(() => undefined); },
+  NextResponse: class {}, NextRequest: class {},
+});
 
 let apps: typeof import("../../src/app/actions/applications");
 let lifecycle: typeof import("../../src/lib/projects/server/lifecycle");

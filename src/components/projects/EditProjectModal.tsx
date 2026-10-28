@@ -267,7 +267,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                     </div>
 
                     {/* Mobile Tab Strip (visible on small screens) */}
-                    <div className="flex md:hidden overflow-x-auto gap-1 border-b border-border bg-muted/30 p-2 shrink-0 scrollbar-none" role="tablist" aria-label="Edit project sections">
+                    <div className="app-scroll app-scroll-x app-scroll-hidden flex md:hidden gap-1 border-b border-border bg-muted/30 p-2 shrink-0" role="tablist" aria-label="Edit project sections">
                         {TABS.map((tab) => {
                             const Icon = tab.icon;
                             const isActive = activeTab === tab.id;
