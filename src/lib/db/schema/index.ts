@@ -2069,6 +2069,8 @@ export const projectSprints = pgTable(
     parentSprintId: uuid("parent_sprint_id").references((): AnyPgColumn => projectSprints.id, { onDelete: "set null" }),
     autoStart: boolean("auto_start").default(true).notNull(),
     showInChildren: boolean("show_in_children").default(true).notNull(),
+    // Org sprints: tell members when it starts (0258, report §15.2).
+    notifyOnStart: boolean("notify_on_start").default(true).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

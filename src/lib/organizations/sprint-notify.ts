@@ -23,18 +23,18 @@ async function safely(label: string, work: () => Promise<unknown>) {
   try { await work(); } catch (error) { logger.warn("org_sprint_notice.failed", { module: "notifications", label, error: error instanceof Error ? error.message : String(error) }); }
 }
 
-/** Started: members hear "CO1 started · 3 assignments · 2 materials" (Notify on start, on by default); leads without a linked sprint hear to plan one. */
+/** Started: members hear "CO1 started · 3 assignments · 2 materials" when the sprint's Notify is on; leads without a linked sprint hear to plan one. */
 export function notifyOrgSprintStarted(sprintId: string, projectId: string, actorId: string | null) {
   return safely("started", async () => {
     const org = await projectOf(projectId);
     if (!org || org.kind !== "organization") return;
-    const [sprint] = await db.execute<{ name: string; assignments: number }>(sql`
-      SELECT s.name, (SELECT count(*)::int FROM tasks m WHERE m.sprint_id = s.id AND m.kind = 'assignment' AND m.deleted_at IS NULL
+    const [sprint] = await db.execute<{ name: string; notify: boolean; assignments: number }>(sql`
+      SELECT s.name, s.notify_on_start AS notify, (SELECT count(*)::int FROM tasks m WHERE m.sprint_id = s.id AND m.kind = 'assignment' AND m.deleted_at IS NULL
         AND m.assignment_settings->>'publishedAt' IS NOT NULL) AS assignments
       FROM project_sprints s WHERE s.id = ${sprintId}`);
     if (!sprint) return;
     const href = orgHref(org, "?tab=sprints");
-    if ((org.settings as { sprintNotifyOnStart?: unknown } | null)?.sprintNotifyOnStart !== false) {
+    if (sprint.notify) {
       const materials = (await readSprintMaterials(sprintId)).length;
       const parts = [sprint.assignments ? plural(sprint.assignments, "assignment") : null, materials ? plural(materials, "material") : null].filter(Boolean);
       await notifyOrg({ orgId: org.id, eventKey: "org_sprints.started", actorId, title: [`${sprint.name} started`, ...parts].join(" · "), href, sourceEventId: `sprint-started:${sprintId}` });
@@ -111,5 +111,61 @@ export function notifyOrgSprintBlocked(sprintId: string, projectId: string) {
       UNION SELECT user_id FROM project_members WHERE project_id = ${org.id} AND role IN ('owner', 'admin')`);
     await notifyOrg({ orgId: org.id, eventKey: "org_sprints.notice", to: admins.map((a) => a.user_id), title: `${row.name} couldn't start: ${row.active} is still active`,
       href: orgHref(org, "?tab=sprints"), sourceEventId: `sprint-blocked:${sprintId}` });
+  });
+}
+
+type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** A new org sprint's "Notify members when it starts", from the org's Work default (report §21); on otherwise. */
+export async function orgSprintNotifyDefault(executor: Executor, projectId: string) {
+  const [row] = await executor.execute<{ value: unknown }>(sql`SELECT org_settings->'sprintNotifyOnStart' AS value FROM projects WHERE id = ${projectId}`);
+  return row?.value !== false;
+}
+
+export type LinkedChildSprint = { sprintName: string; ownerId: string; projectId: string; slug: string | null };
+
+/** Read inside the cancel transaction, before the links go. */
+export async function readLinkedChildSprints(executor: Executor, orgSprintId: string): Promise<LinkedChildSprint[]> {
+  return executor.execute<LinkedChildSprint>(sql`
+    SELECT c.name AS "sprintName", p.owner_id AS "ownerId", p.id AS "projectId", p.slug FROM project_sprints c JOIN projects p ON p.id = c.project_id
+    WHERE c.parent_sprint_id = ${orgSprintId} AND p.deleted_at IS NULL`);
+}
+
+/** Cancel (report §15.3): each lead hears their sprint is no longer inside the org sprint. */
+export function notifyChildSprintsUnlinked(orgId: string, orgSprintId: string, linked: LinkedChildSprint[], actorId: string) {
+  return safely("unlinked", async () => {
+    if (linked.length === 0) return;
+    const [org] = await db.execute<{ kind: string | null; name: string }>(sql`
+      SELECT p.kind, s.name FROM projects p JOIN project_sprints s ON s.id = ${orgSprintId} WHERE p.id = ${orgId}`);
+    if (org?.kind !== "organization") return;
+    for (const child of linked) {
+      await notifyOrg({ orgId, eventKey: "org_sprints.notice", actorId, to: [child.ownerId], title: `${org.name} was cancelled. ${child.sprintName} is no longer linked to it`,
+        href: `/projects/${encodeURIComponent(child.slug ?? child.projectId)}?tab=sprints`, sourceEventId: `sprint-unlinked:${orgSprintId}:${child.projectId}`, refs: { projectId: child.projectId } });
+    }
+  });
+}
+
+/** "Move due dates too": the sprint's published assignments and every copy shift by the same amount; people hear the new date. */
+export function shiftOrgSprintDueDates(orgId: string, sprintId: string, shiftMs: number, actorId: string) {
+  return safely("shift", async () => {
+    const seconds = Math.round(shiftMs / 1000);
+    const masters = await db.execute<{ id: string; title: string; due_date: string }>(sql`
+      UPDATE tasks SET due_date = due_date + make_interval(secs => ${seconds}), updated_at = now()
+      WHERE project_id = ${orgId} AND sprint_id = ${sprintId} AND kind = 'assignment' AND deleted_at IS NULL AND due_date IS NOT NULL
+      RETURNING id, title, due_date::text`);
+    if (masters.length === 0) return;
+    await db.execute(sql`
+      UPDATE tasks SET due_date = due_date + make_interval(secs => ${seconds}), updated_at = now()
+      WHERE assignment_id IN (${sql.join(masters.map((m) => sql`${m.id}::uuid`), sql`, `)}) AND deleted_at IS NULL AND due_date IS NOT NULL`);
+    const [org] = await db.execute<{ title: string | null; slug: string | null; time_zone: string | null }>(sql`SELECT title, slug, time_zone FROM projects WHERE id = ${orgId}`);
+    for (const master of masters) {
+      const people = await db.execute<{ user_id: string }>(sql`
+        SELECT c.assignee_id AS user_id FROM tasks c WHERE c.assignment_id = ${master.id} AND c.deleted_at IS NULL AND c.assignee_id IS NOT NULL
+        UNION SELECT tm.user_id FROM task_team_members tm JOIN tasks c ON c.id = tm.task_id WHERE c.assignment_id = ${master.id} AND c.deleted_at IS NULL`);
+      if (people.length === 0) continue;
+      const due = new Intl.DateTimeFormat("en", { timeZone: org?.time_zone || "UTC", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(master.due_date));
+      await notifyOrg({ orgId, eventKey: "assignments.due_changed", actorId, to: people.map((p) => p.user_id), title: `${master.title} is now due ${due}`,
+        href: orgHref({ id: orgId, slug: org?.slug ?? null }, "?tab=tasks"), sourceEventId: `shift:${master.id}:${master.due_date}`, refs: { taskId: master.id } });
+    }
   });
 }

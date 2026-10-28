@@ -13,7 +13,7 @@ type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 const LIVE = ["planning", "active", "completed"] as const;
 
 async function readPlacement(executor: Executor, projectId: string) {
-  const [project] = await executor.select({ kind: projects.kind, parentId: projects.parentId, orgSettings: projects.orgSettings }).from(projects).where(eq(projects.id, projectId)).limit(1);
+  const [project] = await executor.select({ kind: projects.kind, parentId: projects.parentId, orgSettings: projects.orgSettings, orgType: projects.orgType }).from(projects).where(eq(projects.id, projectId)).limit(1);
   return project ?? null;
 }
 
@@ -135,20 +135,26 @@ export type SprintOrgContext = {
   linkedProjects: Array<{ projectId: string; title: string; slug: string | null; sprintId: string; sprintName: string; status: string }>;
   notLinkedCount: number;
   /** Per sprint of this project: its link and whether it starts automatically. */
-  sprintFlags: Record<string, { parentSprintId: string | null; autoStart: boolean; showInChildren: boolean }>;
+  sprintFlags: Record<string, { parentSprintId: string | null; autoStart: boolean; showInChildren: boolean; notifyOnStart: boolean }>;
+  /** Orgs: the org type (name suggestions) and the Work defaults for a new sprint (report §15.2, §21). */
+  orgType?: string | null;
+  defaults?: { autoStart: boolean; showInChildren: boolean; createMatching: boolean; notifyOnStart: boolean };
 };
 
 export async function readSprintOrgContext(projectId: string, selectedSprintId: string | null): Promise<SprintOrgContext | null> {
   const project = await readPlacement(db, projectId);
   if (!project || (project.kind !== "organization" && !project.parentId)) return null;
   const flags = await db
-    .select({ id: projectSprints.id, parentSprintId: projectSprints.parentSprintId, autoStart: projectSprints.autoStart, showInChildren: projectSprints.showInChildren, status: projectSprints.status })
+    .select({ id: projectSprints.id, parentSprintId: projectSprints.parentSprintId, autoStart: projectSprints.autoStart, showInChildren: projectSprints.showInChildren, notifyOnStart: projectSprints.notifyOnStart, status: projectSprints.status })
     .from(projectSprints)
     .where(eq(projectSprints.projectId, projectId));
-  const sprintFlags = Object.fromEntries(flags.map((f) => [f.id, { parentSprintId: f.parentSprintId, autoStart: f.autoStart, showInChildren: f.showInChildren }]));
+  const sprintFlags = Object.fromEntries(flags.map((f) => [f.id, { parentSprintId: f.parentSprintId, autoStart: f.autoStart, showInChildren: f.showInChildren, notifyOnStart: f.notifyOnStart }]));
   const empty: SprintOrgContext = { kind: project.kind === "organization" ? "org" : "child", orgSprints: [], orgTitle: null, orgSlug: null, parentSprint: null, runningOrgSprint: null, linkedProjects: [], notLinkedCount: 0, sprintFlags };
 
   if (project.kind === "organization") {
+    const work = (project.orgSettings ?? {}) as { sprintAutoStart?: unknown; sprintShowInChildren?: unknown; sprintCreateMatching?: unknown; sprintNotifyOnStart?: unknown };
+    empty.orgType = project.orgType;
+    empty.defaults = { autoStart: work.sprintAutoStart !== false, showInChildren: work.sprintShowInChildren !== false, createMatching: work.sprintCreateMatching === true, notifyOnStart: work.sprintNotifyOnStart !== false };
     if (!selectedSprintId) return empty;
     const [linked, children] = await Promise.all([
       db.select({ projectId: projects.id, title: projects.title, slug: projects.slug, sprintId: projectSprints.id, sprintName: projectSprints.name, status: projectSprints.status })

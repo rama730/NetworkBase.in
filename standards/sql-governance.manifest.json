@@ -258,7 +258,8 @@
     "drizzle/0254_org_trust_lifecycle.sql",
     "drizzle/0255_security_email_completed.sql",
     "drizzle/0256_content_reports_reporter_index.sql",
-    "drizzle/0257_unit_leads.sql"
+    "drizzle/0257_unit_leads.sql",
+    "drizzle/0258_sprint_notify_on_start.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",

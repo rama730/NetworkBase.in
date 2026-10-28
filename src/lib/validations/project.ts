@@ -179,6 +179,13 @@ export const createProjectSchema = z.object({
         join_mode: z.enum(['instant', 'approval']).default('instant'),
         child_creation: z.enum(['members', 'admins']).default('members'),
         outside_people: z.boolean().default(false),
+        // "Plan your first sprints" (report §15.2): CO1–CO5 weekly from a date, created as planned sprints.
+        plan_sprints: z.object({
+            prefix: z.string().trim().min(1).max(40),
+            count: z.number().int().min(1).max(20),
+            length_days: z.number().int().min(1).max(60),
+            start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        }).optional(),
     }).optional(),
 }).superRefine((val, ctx) => {
     if (val.organization && val.parent_org_id) {

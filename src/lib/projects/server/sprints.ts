@@ -2,7 +2,7 @@ import { assertOrgSprintRules, createMatchingChildSprints, readSprintMaterials, 
 import { buildSprintSeries } from "@/lib/organizations/sprint-rules";
 import { readViewerOrgRole } from "@/lib/organizations/detail";
 import { startSprint } from "@/lib/projects/sprint-schedule";
-import { notifyLinkedSprintsOutside, notifyOrgSprintCompleted } from "@/lib/organizations/sprint-notify";
+import { notifyChildSprintsUnlinked, notifyLinkedSprintsOutside, notifyOrgSprintCompleted, orgSprintNotifyDefault, readLinkedChildSprints, shiftOrgSprintDueDates, type LinkedChildSprint } from "@/lib/organizations/sprint-notify";
 import "server-only";
 
 import { isMissingRelationError } from "@/lib/db/errors";
@@ -1364,6 +1364,7 @@ export async function createSprintAction(data: CreateSprintInput) {
           status: "planning",
           autoStart: validated.autoStart ?? true,
           showInChildren: validated.showInChildren ?? true,
+          notifyOnStart: validated.notifyOnStart ?? (await orgSprintNotifyDefault(tx, validated.projectId)),
           parentSprintId,
         })
         .returning({ id: projectSprints.id });
@@ -1478,6 +1479,7 @@ export async function updateSprintAction(data: UpdateSprintInput) {
         projectId: projectSprints.projectId,
         status: projectSprints.status,
         parentSprintId: projectSprints.parentSprintId,
+        startDate: projectSprints.startDate,
       })
       .from(projectSprints)
       .where(
@@ -1515,6 +1517,7 @@ export async function updateSprintAction(data: UpdateSprintInput) {
           parentSprintId,
           ...(validated.autoStart === undefined ? {} : { autoStart: validated.autoStart }),
           ...(validated.showInChildren === undefined ? {} : { showInChildren: validated.showInChildren }),
+          ...(validated.notifyOnStart === undefined ? {} : { notifyOnStart: validated.notifyOnStart }),
           updatedAt: changedAt,
         })
         .where(
@@ -1569,6 +1572,9 @@ export async function updateSprintAction(data: UpdateSprintInput) {
       { sprintId: sprintListItem.id },
     );
     await notifyLinkedSprintsOutside(sprintListItem.id, validated.projectId, user.id);
+    // "Move due dates too" (report §15.3): the sprint's assignments and their copies shift by the same days.
+    const shiftMs = startDate.getTime() - existingSprint.startDate.getTime();
+    if (validated.moveDueDates && shiftMs !== 0) await shiftOrgSprintDueDates(validated.projectId, sprintListItem.id, shiftMs, user.id);
 
     recordSprintMetric("project.sprint.update.result", {
       projectId: validated.projectId,
@@ -2015,6 +2021,7 @@ export async function cancelSprintAction(sprintId: string, projectId: string) {
     if (!user) throw new Error("Unauthorized");
     await requireSprintOwner(projectId, user.id);
     const now = new Date();
+    let unlinked: LinkedChildSprint[] = [];
     await db.transaction(async (tx) => {
       const [updated] = await tx
         .update(projectSprints)
@@ -2065,9 +2072,11 @@ export async function cancelSprintAction(sprintId: string, projectId: string) {
         payload: { returnedTaskCount: taskIds.length },
         createdAt: now,
       });
-      // Linked child sprints become ordinary sprints (report §15.3, Cancel).
+      // Linked child sprints become ordinary sprints (report §15.3, Cancel); their leads are told after the commit.
+      unlinked = await readLinkedChildSprints(tx, sprintId);
       await unlinkSprints(tx, { orgSprintId: sprintId });
     });
+    await notifyChildSprintsUnlinked(projectId, sprintId, unlinked, user.id);
     const sprint = await readLifecycleSprint(projectId, sprintId);
     await revalidateProjectPaths(projectId);
     recordSprintMetric("project.sprint.lifecycle.result", {
@@ -2107,8 +2116,10 @@ export async function planSprintSeriesAction(input: { projectId: string; prefix:
     const series = buildSprintSeries({ ...input, prefix });
     await db.transaction(async (tx) => {
       await tx.execute(sql`SELECT id FROM ${projects} WHERE id = ${input.projectId} FOR UPDATE`);
-      const [project] = await tx.select({ kind: projects.kind }).from(projects).where(eq(projects.id, input.projectId)).limit(1);
+      const [project] = await tx.select({ kind: projects.kind, orgSettings: projects.orgSettings }).from(projects).where(eq(projects.id, input.projectId)).limit(1);
       if (project?.kind !== "organization") throw new Error("Series are planned on an organization.");
+      // The org's Work defaults apply to every planned sprint (report §21).
+      const work = (project.orgSettings ?? {}) as { sprintAutoStart?: unknown; sprintShowInChildren?: unknown; sprintNotifyOnStart?: unknown };
       for (const item of series) {
         const startDate = parseSprintDateInput(item.startDate);
         const endDate = parseSprintDateInput(item.endDate);
@@ -2121,6 +2132,9 @@ export async function planSprintSeriesAction(input: { projectId: string; prefix:
           startDate,
           endDate,
           status: "planning",
+          autoStart: work.sprintAutoStart !== false,
+          showInChildren: work.sprintShowInChildren !== false,
+          notifyOnStart: work.sprintNotifyOnStart !== false,
         }).returning({ id: projectSprints.id });
         await tx.insert(projectSprintEvents).values({
           projectId: input.projectId,

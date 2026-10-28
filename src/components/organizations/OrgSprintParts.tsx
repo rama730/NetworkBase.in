@@ -15,6 +15,10 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import type { SprintMaterial, SprintOrgContext } from '@/lib/organizations/sprints'
+import { useQuery } from '@tanstack/react-query'
+import { readSprintAssignmentsAction } from '@/app/actions/sprint-assignments'
+import { RosterDialog } from '@/components/organizations/AssignmentsPanel'
+import type { AssignmentRow } from '@/app/actions/assignments'
 
 // The organization parts of the Sprints tab (report §15.4–15.5). The existing tab keeps its layout.
 
@@ -201,5 +205,51 @@ export function PlanSeriesButton({ projectId, suggestedPrefix, onPlanned }: { pr
                 </DialogContent>
             </Dialog>
         </>
+    )
+}
+
+const STATE: Record<string, string> = { not_started: 'not started', in_progress: 'in progress', submitted: 'Submitted', returned: 'Returned', done: 'Done', missing: 'Missing', excused: 'Excused' }
+const dueText = (iso: string | null) => (iso ? `due ${DAY.format(new Date(iso))}` : 'no due date')
+
+/**
+ * Assignment rows in the sprint timeline (report §15.4–15.5): admins `Lab 1 — 18 of 30 done · 4 missing` with the
+ * roster; guests the counts only; members their own copy; a child project the org's group copies.
+ */
+export function SprintAssignmentRows({ projectId, sprintId }: { projectId: string; sprintId: string }) {
+    const query = useQuery({ queryKey: ['sprint-assignments', projectId, sprintId], queryFn: () => readSprintAssignmentsAction(projectId, sprintId), staleTime: 30_000 })
+    const [roster, setRoster] = useState<AssignmentRow | null>(null)
+    const data = query.data
+    if (!data || data.rows.length === 0) return null
+    const item = 'flex flex-wrap items-center gap-x-2 gap-y-1 py-1.5 text-sm'
+    return (
+        <section aria-label="Assignments in this sprint" className="mb-4 rounded-md border border-border p-3">
+            <p className="font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground">Assignments</p>
+            <ul className="mt-1 divide-y divide-border">
+                {data.view === 'admin' || data.view === 'guest' ? data.rows.map((row) => (
+                    <li key={row.masterId} className={item}>
+                        <span className="text-muted-foreground">Assignment ·</span><span className="font-medium">{row.title}</span>
+                        <span className="text-muted-foreground">— {row.counts.done} of {row.counts.total} done{row.counts.missing ? ` · ${row.counts.missing} missing` : ''}</span>
+                        {data.view === 'admin' ? <Button type="button" size="sm" variant="outline" className="ml-auto" onClick={() => setRoster(row)}>Roster</Button> : null}
+                    </li>
+                )) : null}
+                {data.view === 'member' ? data.rows.map((row) => (
+                    <li key={row.masterId} className={item}>
+                        <span className="font-medium">{row.title}</span>
+                        <span className="text-muted-foreground">· {row.state === 'submitted' || row.state === 'done' ? STATE[row.state] : row.state ? `${dueText(row.dueDate)} · ${STATE[row.state]}` : dueText(row.dueDate)}{row.late ? ' · late' : ''}</span>
+                    </li>
+                )) : null}
+                {data.view === 'child' ? data.rows.map((row) => (
+                    <li key={row.copyId} className={item}>
+                        <span className="rounded-[3px] border border-border px-1 text-[11px] text-muted-foreground">From {data.orgTitle}</span>
+                        <span className="font-medium">{row.title}</span>
+                        <span className="text-muted-foreground">· {dueText(row.dueDate)} · {STATE[row.state]}{row.late ? ' · late' : ''}</span>
+                    </li>
+                )) : null}
+            </ul>
+            {data.view !== 'member' && data.view !== 'child' && data.completed ? (
+                <p className="mt-2 text-xs text-muted-foreground">{data.completed.by} completed this sprint · {data.completed.assignments} {data.completed.assignments === 1 ? 'assignment' : 'assignments'} · {data.completed.missingPeople} {data.completed.missingPeople === 1 ? 'person' : 'people'} with missing work</p>
+            ) : null}
+            {roster ? <RosterDialog row={roster} open onOpenChange={(open) => { if (!open) setRoster(null) }} onChanged={() => void query.refetch()} /> : null}
+        </section>
     )
 }

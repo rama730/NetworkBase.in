@@ -74,7 +74,36 @@ export function OrgInformationFields() {
                     </label>
                 </div>
             </fieldset>
+            <PlanFirstSprints />
         </div>
+    )
+}
+
+/** "Plan your first sprints" (report §15.2): optional; CO1–CO5 weekly from the term start, as planned sprints. */
+function PlanFirstSprints() {
+    const { setValue } = useFormContext<CreateProjectInput>()
+    const type = useWatch<CreateProjectInput, 'organization.org_type'>({ name: 'organization.org_type' })
+    const termStart = useWatch<CreateProjectInput, 'organization.term_start'>({ name: 'organization.term_start' })
+    const plan = useWatch<CreateProjectInput, 'organization.plan_sprints'>({ name: 'organization.plan_sprints' })
+    const today = new Date().toISOString().slice(0, 10)
+    const set = (next: NonNullable<typeof plan> | undefined) => setValue('organization.plan_sprints', next, { shouldDirty: true })
+    return (
+        <fieldset>
+            <legend className={labelClass}>Plan your first sprints (optional)</legend>
+            <label className="mt-1.5 flex items-center gap-2 text-[13px] text-foreground">
+                <input type="checkbox" checked={Boolean(plan)} onChange={(e) => set(e.target.checked ? { prefix: type === 'education' ? 'CO' : 'Sprint ', count: 5, length_days: 7, start_date: termStart || today } : undefined)} />
+                Plan a series of sprints now
+            </label>
+            {plan ? (
+                <div className="mt-2 grid gap-3 sm:grid-cols-4">
+                    <label className="text-[13px] text-muted-foreground">Name<Input value={plan.prefix} maxLength={40} onChange={(e) => set({ ...plan, prefix: e.target.value })} className="mt-1" /></label>
+                    <label className="text-[13px] text-muted-foreground">How many<Input type="number" min={1} max={20} value={plan.count} onChange={(e) => set({ ...plan, count: Math.min(20, Math.max(1, Number(e.target.value) || 1)) })} className="mt-1" /></label>
+                    <label className="text-[13px] text-muted-foreground">Days each<Input type="number" min={1} max={60} value={plan.length_days} onChange={(e) => set({ ...plan, length_days: Math.min(60, Math.max(1, Number(e.target.value) || 1)) })} className="mt-1" /></label>
+                    <label className="text-[13px] text-muted-foreground">First starts<Input type="date" value={plan.start_date} onChange={(e) => set({ ...plan, start_date: e.target.value || today })} className="mt-1" /></label>
+                </div>
+            ) : null}
+            <p className={helpClass}>Named {plan ? `${plan.prefix.trim()}1–${plan.prefix.trim()}${plan.count}` : 'CO1, CO2…'}; you can rename, move or add more on the Sprints tab.</p>
+        </fieldset>
     )
 }
 
