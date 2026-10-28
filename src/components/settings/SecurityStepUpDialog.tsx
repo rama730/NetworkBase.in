@@ -1,5 +1,6 @@
 "use client";
 
+import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,8 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast, feedbackError } from "@/lib/feedback";
-
-type SecurityStepUpMethod = "totp" | "recovery_code" | "password";
+import { SECURITY_STEP_UP_MAX_AGE_SECONDS, type SecurityStepUpMethod } from "@/lib/security/step-up-methods";
 
 type SecurityStepUpDialogProps = {
   open: boolean;
@@ -58,11 +58,35 @@ export default function SecurityStepUpDialog({
     setMethod((current) => (current && availableMethods.includes(current) ? current : defaultMethod));
   }, [availableMethods, defaultMethod, open]);
 
+  // Esc and a click outside also come through here: once the check is running, closing would not stop the
+  // action that follows it, so the dialog stays until it finishes.
+  const handleOpenChange = (next: boolean) => {
+    if (!next && submitting) return;
+    onOpenChange(next);
+  };
+
+  // Nothing to verify with (no password, authenticator or recovery codes): say so instead of showing nothing.
   if (!method) {
-    return null;
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add a way to verify first</DialogTitle>
+            <DialogDescription>
+              This change needs a second check, and there is nothing to check with yet. Add an authenticator app in Security, then try again.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" onClick={() => onOpenChange(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
   }
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (event?: FormEvent) => {
+    event?.preventDefault();
+    if (submitDisabled) return;
     setSubmitting(true);
     try {
       const payload = method === "password"
@@ -82,8 +106,9 @@ export default function SecurityStepUpDialog({
         throw new Error(json?.message || "Failed to verify this device");
       }
 
-      toast.success("This device is verified for security changes");
+      // The action that follows reports its own result; a second "verified" toast would stack on it.
       await onVerified();
+      setSubmitting(false);
       onOpenChange(false);
     } catch (error) {
       toast.error(feedbackError(error instanceof Error ? error.message : "Failed to verify this device", "Failed to verify this device"));
@@ -100,22 +125,25 @@ export default function SecurityStepUpDialog({
     || (method === "password" && password.length === 0);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
+        <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
+          <DialogHeader>
+            <DialogTitle>{title}</DialogTitle>
+            <DialogDescription>{description}</DialogDescription>
+          </DialogHeader>
 
-        <div className="space-y-4">
           {availableMethods.length > 1 ? (
-            <div className="flex flex-wrap gap-2">
+            <div role="radiogroup" aria-label="Verification method" className="flex flex-wrap gap-2">
               {availableMethods.map((entry) => (
                 <Button
                   key={entry}
                   type="button"
+                  role="radio"
+                  aria-checked={entry === method}
                   size="sm"
                   variant={entry === method ? "secondary" : "outline"}
+                  disabled={submitting}
                   onClick={() => {
                     setMethod(entry);
                     setCode("");
@@ -130,9 +158,11 @@ export default function SecurityStepUpDialog({
 
           {method !== "password" ? (
             <div className="space-y-2">
-              <label htmlFor="security-step-up-code" className="text-sm font-medium leading-none">{isTotp ? "Current 6-digit code" : "Recovery code"}</label>
+              <label htmlFor="security-step-up-code" className="nb-ui-label text-foreground">{isTotp ? "Current 6-digit code" : "Recovery code"}</label>
               <Input
                 id="security-step-up-code"
+                autoFocus
+                autoComplete="one-time-code"
                 inputMode={isTotp ? "numeric" : undefined}
                 pattern={isTotp ? "[0-9]*" : undefined}
                 maxLength={isTotp ? 6 : undefined}
@@ -142,50 +172,45 @@ export default function SecurityStepUpDialog({
                 disabled={submitting}
               />
             </div>
-          ) : null}
-
-          {method === "password" ? (
+          ) : (
             <div className="space-y-2">
-              <label htmlFor="security-step-up-password" className="text-sm font-medium leading-none">Current password</label>
+              <label htmlFor="security-step-up-password" className="nb-ui-label text-foreground">Current password</label>
               <Input
                 id="security-step-up-password"
+                autoFocus
                 type="password"
+                autoComplete="current-password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder="Enter your password"
                 disabled={submitting}
               />
             </div>
-          ) : null}
+          )}
 
-          <div className="rounded-lg border border-border bg-muted/50 px-4 py-3 nb-compact text-muted-foreground">
-            This verification stays active for up to 5 minutes on this device.
-          </div>
-        </div>
+          <p className="rounded-lg border border-border bg-muted/50 px-4 py-3 nb-compact text-muted-foreground">
+            This verification stays active for up to {Math.round(SECURITY_STEP_UP_MAX_AGE_SECONDS / 60)} minutes on this device.
+          </p>
 
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={submitting}
-            onClick={() => onOpenChange(false)}
-          >
-            Cancel
-          </Button>
-          <Button type="button" disabled={submitDisabled} onClick={() => void handleSubmit()}>
-            {submitting ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Verifying...
-              </>
-            ) : (
-              <>
-                <ShieldCheck className="h-4 w-4" />
-                Verify device
-              </>
-            )}
-          </Button>
-        </DialogFooter>
+          <DialogFooter>
+            <Button type="button" variant="outline" disabled={submitting} onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={submitDisabled}>
+              {submitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Verifying...
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="h-4 w-4" />
+                  Verify device
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

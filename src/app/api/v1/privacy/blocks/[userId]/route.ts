@@ -9,6 +9,7 @@ import {
 import { logger } from "@/lib/logger";
 import { setUserBlocked } from "@/lib/privacy/blocks";
 import { validateCsrf } from "@/lib/security/csrf";
+import { isLooseUuid } from "@/lib/validations/uuid";
 
 export async function DELETE(request: Request, context: { params: Promise<{ userId: string }> }) {
   const startedAt = Date.now();
@@ -24,7 +25,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ user
   }
 
   const { userId } = await context.params;
-  if (!userId) return jsonError("User is required", 400, "BAD_REQUEST");
+  if (!userId || !isLooseUuid(userId)) return jsonError("User is required", 400, "BAD_REQUEST");
 
   try {
     const target = await setUserBlocked({ blockerId: auth.user.id, targetUserId: userId, blocked: false, request });

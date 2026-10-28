@@ -159,8 +159,8 @@ test("integrations settings shows extension app identity before sessions", () =>
   assert.match(integrations, /\/ide-icons\/cursor\.png/);
   assert.match(integrations, /\/ide-icons\/windsurf\.svg/);
   assert.match(integrations, /\/ide-icons\/antigravity\.png/);
-  assert.match(integrations, /Revocable sessions/);
-  assert.match(integrations, /Web login or manual token/);
+  assert.match(integrations, /Revoke any time/);
+  assert.match(integrations, /Sign in from your editor/);
   assert.match(integrations, /session\.clientVersion/);
   assert.match(integrations, /session\.editorVersion/);
 });

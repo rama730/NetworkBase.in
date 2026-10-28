@@ -60,6 +60,7 @@ describe("database retry contract", () => {
 
         assert.match(notificationActions, /withDbRetry\("notifications\.preferences\.read"/, "settings preference reads should retry transient DB failures");
         assert.match(notificationActions, /notifications\.preferences_read_transient_fallback/, "preference reads should fall back to defaults after transient failures");
-        assert.match(notificationActions, /success: true as const,\s+preferences: DEFAULT_NOTIFICATION_PREFERENCES/s, "preference transient fallback should avoid surfacing a settings error");
+        // The tray keeps a successful fallback; it is marked `degraded` so Settings never saves defaults over real preferences.
+        assert.match(notificationActions, /success: true as const,\s+degraded: true as const,\s+preferences: DEFAULT_NOTIFICATION_PREFERENCES/s, "preference transient fallback should avoid surfacing a settings error and be marked degraded");
     });
 });

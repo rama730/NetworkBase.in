@@ -7,6 +7,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { formatDateTime } from "@/lib/ui/date-formatting";
 import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
 import { PasswordStrengthMeter } from "@/components/settings/PasswordStrengthMeter";
 import SecurityStepUpDialog from "@/components/settings/SecurityStepUpDialog";
@@ -43,18 +45,19 @@ export default function PasswordManagementSection({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [stepUpOpen, setStepUpOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [signOutOtherDevices, setSignOutOtherDevices] = useState(true);
 
   const isChangingPassword = changePasswordMutation.isPending;
   const title = hasPassword ? "Change password" : "Set a password";
   const description = hasPassword
     ? "Manage the password used with this account."
     : "Add a password so email sign-in is available on this account.";
-  const statusLabel = hasPassword ? "Password available" : "No password set";
+  const statusLabel = hasPassword ? "Password set" : "No password set";
   const helperCopy = hasPassword
-    ? `Prefer a strong password with at least ${PASSWORD_MIN_LENGTH} characters.`
-    : `Add a strong password with at least ${PASSWORD_MIN_LENGTH} characters if you want email sign-in available on this account.`;
+    ? `Use at least ${PASSWORD_MIN_LENGTH} characters.`
+    : `Add one with at least ${PASSWORD_MIN_LENGTH} characters to sign in with your email.`;
   const passwordPolicy = getPasswordPolicyResult(newPassword);
-  const formattedLastChanged = lastChangedAt ? new Date(lastChangedAt).toLocaleString() : null;
+  const formattedLastChanged = lastChangedAt ? formatDateTime(lastChangedAt) : null;
 
   const resetForm = () => {
     setSubmitted(false);
@@ -64,10 +67,11 @@ export default function PasswordManagementSection({
     setShowCurrentPassword(false);
     setShowNewPassword(false);
     setShowConfirmPassword(false);
+    setSignOutOtherDevices(true);
   };
 
   const submitPasswordChange = async () => {
-    const result = await changePasswordMutation.mutateAsync({ currentPassword, newPassword });
+    const result = await changePasswordMutation.mutateAsync({ currentPassword, newPassword, signOutOtherDevices });
     if (!result.success) {
       const errorCode = "errorCode" in result ? result.errorCode : undefined;
       if (errorCode === "STEP_UP_REQUIRED") {
@@ -98,12 +102,7 @@ export default function PasswordManagementSection({
       return;
     }
 
-    if (!passwordPolicy.ok) {
-      toast.warning("Check password requirements");
-      document.getElementById("new-password")?.focus();
-      return;
-    }
-
+    // The submit button stays disabled until the policy passes, so there is no "requirements" branch here.
     await submitPasswordChange();
   };
 
@@ -132,6 +131,7 @@ export default function PasswordManagementSection({
                 <div className="relative">
                   <Input
                     id="current-password"
+                    autoComplete="current-password"
                     type={showCurrentPassword ? "text" : "password"}
                     value={currentPassword}
                     onChange={(event) => setCurrentPassword(event.target.value)}
@@ -142,7 +142,8 @@ export default function PasswordManagementSection({
                   <button
                     type="button"
                     onClick={() => setShowCurrentPassword((prev) => !prev)}
-                    aria-label={showCurrentPassword ? "Hide current password" : "Show current password"}
+                    aria-label="Show current password"
+                    aria-pressed={showCurrentPassword}
                     className="absolute right-0 top-0 flex h-full items-center px-3 text-muted-foreground transition-colors hover:text-foreground"
                   >
                     {showCurrentPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -159,6 +160,7 @@ export default function PasswordManagementSection({
                     id="new-password"
                     aria-invalid={submitted && !passwordPolicy.ok}
                     aria-describedby={submitted && !passwordPolicy.ok ? "new-password-error" : undefined}
+                    autoComplete="new-password"
                     type={showNewPassword ? "text" : "password"}
                     value={newPassword}
                     onChange={(event) => setNewPassword(event.target.value)}
@@ -169,7 +171,8 @@ export default function PasswordManagementSection({
                   <button
                     type="button"
                     onClick={() => setShowNewPassword((prev) => !prev)}
-                    aria-label={showNewPassword ? "Hide new password" : "Show new password"}
+                    aria-label="Show new password"
+                    aria-pressed={showNewPassword}
                     className="absolute right-0 top-0 flex h-full items-center px-3 text-muted-foreground transition-colors hover:text-foreground"
                   >
                     {showNewPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -185,7 +188,8 @@ export default function PasswordManagementSection({
                   <Input
                     id="confirm-password"
                     aria-invalid={Boolean((submitted || confirmPassword) && newPassword !== confirmPassword)}
-                    aria-describedby="confirm-password-error"
+                    aria-describedby={(submitted || confirmPassword) && newPassword !== confirmPassword ? "confirm-password-error" : undefined}
+                    autoComplete="new-password"
                     type={showConfirmPassword ? "text" : "password"}
                     value={confirmPassword}
                     onChange={(event) => setConfirmPassword(event.target.value)}
@@ -196,7 +200,8 @@ export default function PasswordManagementSection({
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword((prev) => !prev)}
-                    aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                    aria-label="Show confirm password"
+                    aria-pressed={showConfirmPassword}
                     className="absolute right-0 top-0 flex h-full items-center px-3 text-muted-foreground transition-colors hover:text-foreground"
                   >
                     {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -208,8 +213,16 @@ export default function PasswordManagementSection({
               </div>
             </div>
 
+            <label className="flex min-h-11 items-center gap-3 nb-compact text-foreground">
+              <Checkbox
+                checked={signOutOtherDevices}
+                onCheckedChange={(checked) => setSignOutOtherDevices(checked === true)}
+                disabled={isChangingPassword}
+              />
+              Sign out my other devices
+            </label>
             <p className="nb-meta text-muted-foreground">
-              Recovery is handled from the sign-in flow if you ever lose access.
+              If you lose access later, use “Forgot password” on the sign-in page. Editor tokens always end when the password changes.
             </p>
 
             <div className="flex flex-wrap gap-3">

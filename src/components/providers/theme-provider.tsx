@@ -42,6 +42,9 @@ interface AppearanceContextValue {
     reduceMotion: boolean;
     setReduceMotion: (reduce: boolean) => void;
     syncState: AppearanceSyncState;
+    /** The operating system already asks for less motion, whatever the setting here says. */
+    systemReduceMotion: boolean;
+    retrySync: () => void;
     lastSyncedAt?: string;
     resetAppearance: () => Promise<void>;
 }
@@ -128,7 +131,7 @@ function ThemeRuntimeProvider({ children }: { children: ReactNode }) {
             if (result.remoteSynced) writeSyncedMarker(syncedMarker(viewerId, saved))
             lastSyncedSnapshotRef.current = saved
             setLastSyncedAt(saved.updatedAt)
-            setSyncState('saved')
+            setSyncState(result.remoteSynced ? 'saved' : 'queued')
         } catch {
             setSyncState('save_failed')
         } finally {
@@ -156,6 +159,14 @@ function ThemeRuntimeProvider({ children }: { children: ReactNode }) {
         setSyncState('saving')
         if (syncTimerRef.current !== null) window.clearTimeout(syncTimerRef.current)
         syncTimerRef.current = window.setTimeout(() => void flushRemoteSync(), REMOTE_SYNC_DEBOUNCE_MS)
+    }, [accentColor, density, flushRemoteSync, reduceMotion, theme, viewerId])
+
+    // Push the current appearance to the account again (after a failed or queued sync).
+    const retrySync = useCallback(() => {
+        if (!viewerId) return
+        pendingSyncRef.current = createAppearanceSnapshot({ theme, accentColor, density, reduceMotion, updatedAt: new Date().toISOString() })
+        setSyncState('saving')
+        void flushRemoteSync()
     }, [accentColor, density, flushRemoteSync, reduceMotion, theme, viewerId])
 
     const applySnapshot = useCallback((snapshot: AppearanceSnapshot) => {
@@ -288,9 +299,11 @@ function ThemeRuntimeProvider({ children }: { children: ReactNode }) {
         reduceMotion,
         setReduceMotion,
         syncState,
+        systemReduceMotion,
+        retrySync,
         lastSyncedAt,
         resetAppearance,
-    }), [accentColor, density, lastSyncedAt, reduceMotion, resetAppearance, setAccentColor, setDensity, setReduceMotion, syncState])
+    }), [accentColor, density, lastSyncedAt, reduceMotion, resetAppearance, retrySync, setAccentColor, setDensity, setReduceMotion, syncState, systemReduceMotion])
 
     return (
         <ThemeContext.Provider value={themeValue}>

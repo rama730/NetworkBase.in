@@ -66,7 +66,7 @@ describe("github unavailable-account end-to-end contract", () => {
     const callback = source("src/app/auth/callback/route.ts");
 
     assert.match(replacement, /validateCsrf/);
-    assert.match(replacement, /resolveSecurityStepUp/);
+    assert.match(replacement, /resolveDestructiveStepUp/);
     assert.match(replacement, /hasFallbackIdentity/);
     assert.match(replacement, /unlinkIdentity\(githubIdentity\)/);
     assert.match(replacement, /clearGithubImportAccessCookie/);

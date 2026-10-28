@@ -1,9 +1,11 @@
 "use client";
 
+import { useMemo } from "react";
 import dynamic from "next/dynamic";
 import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader";
 import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
 import { SettingsSectionsSkeleton } from "@/components/settings/ui/SettingsSectionsSkeleton";
+import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { useSecurityData } from "@/hooks/useSettingsQueries";
 import { useAuth } from "@/hooks/useAuth";
 import { hasPasswordCredential } from "@/lib/auth/account-identity";
@@ -21,20 +23,25 @@ function SecuritySectionsSkeleton() {
 
 export default function SecurityPage({ embedded = false }: { embedded?: boolean }) {
     const { user } = useAuth();
-    const { data: securityData, isLoading, error } = useSecurityData({ hardeningEnabled: true });
+    const { data: securityData, isLoading, error, refetch } = useSecurityData({ hardeningEnabled: true });
     const securityErrorMessage = error ? (error instanceof Error ? error.message : String(error)) : null;
     const passwordAvailable = Boolean(securityData?.password?.hasPassword || hasPasswordCredential(user));
     const verifiedTotpFactors = (securityData?.mfaFactors ?? []).filter(
         (factor) => factor.type === "totp" && factor.status === "verified"
     );
     const primaryVerifiedFactorId = verifiedTotpFactors[0]?.id;
-    const stepUpState = {
-        hasTotp: Boolean(primaryVerifiedFactorId),
-        hasRecoveryCodes: (securityData?.recoveryCodes?.remainingCount ?? 0) > 0,
-    };
-    const passwordStepUpMethods = buildSecurityStepUpMethods({ ...stepUpState, hasPassword: false })
-        .filter((method): method is "totp" | "recovery_code" => method !== "password");
-    const sessionStepUpMethods = buildSecurityStepUpMethods({ ...stepUpState, hasPassword: passwordAvailable });
+    const hasTotp = Boolean(primaryVerifiedFactorId);
+    const hasRecoveryCodes = (securityData?.recoveryCodes?.remainingCount ?? 0) > 0;
+    // Stable arrays: the step-up dialog resets its state whenever these change identity.
+    const passwordStepUpMethods = useMemo(
+        () => buildSecurityStepUpMethods({ hasTotp, hasRecoveryCodes, hasPassword: false })
+            .filter((method): method is "totp" | "recovery_code" => method !== "password"),
+        [hasTotp, hasRecoveryCodes],
+    );
+    const sessionStepUpMethods = useMemo(
+        () => buildSecurityStepUpMethods({ hasTotp, hasRecoveryCodes, hasPassword: passwordAvailable }),
+        [hasTotp, hasRecoveryCodes, passwordAvailable],
+    );
 
     if (isLoading) {
         return (
@@ -59,11 +66,12 @@ export default function SecurityPage({ embedded = false }: { embedded?: boolean 
                 />
             ) : null}
 
-            {securityErrorMessage ? (
-                <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 nb-compact text-destructive">
-                    {securityErrorMessage}
-                </div>
+            {/* Without the data there is nothing true to show: no sections built from defaults beside an error. */}
+            {securityErrorMessage && !securityData ? (
+                <ErrorNotice what="Security settings" onRetry={() => void refetch()} />
             ) : null}
+            {securityErrorMessage && !securityData ? null : (
+            <>
 
             <SettingsSectionCard
                 title="Sign-in protection"
@@ -115,6 +123,8 @@ export default function SecurityPage({ embedded = false }: { embedded?: boolean 
             >
                 <SecurityActivitySection activity={securityData?.securityActivity} />
             </SettingsSectionCard>
+            </>
+            )}
         </div>
     );
 }

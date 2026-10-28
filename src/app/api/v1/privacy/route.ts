@@ -1,5 +1,6 @@
 import { handlePrivacySettingPatch } from "@/app/api/v1/privacy/_update";
 import {
+  enforceRouteLimit,
   getRequestId,
   jsonError,
   jsonSuccess,
@@ -105,12 +106,15 @@ export async function GET(request: Request) {
   if (auth.response || !auth.user) {
     return auth.response ?? jsonError("Not authenticated", 401, "UNAUTHORIZED");
   }
+  const limitResponse = await enforceRouteLimit(request, "api:v1:privacy:get", 120, 60, "default", auth.user.id);
+  if (limitResponse) return limitResponse;
 
   try {
     const [settings, blockedPage, privacyActivity] = await Promise.all([
       getPrivacySettingsPayload(auth.user.id),
       listBlockedAccounts(auth.user.id),
-      listPrivacyActivity(auth.user.id, 10),
+      // The tab shows the four most recent.
+      listPrivacyActivity(auth.user.id, 4),
     ]);
     const overview = {
       profileVisibility: settings.profileVisibility,
@@ -141,7 +145,7 @@ export async function GET(request: Request) {
         },
       },
       undefined,
-      { headers: { "Cache-Control": "private, max-age=15, stale-while-revalidate=60" } },
+      { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (error) {
     logger.error("[api/v1/privacy] failed", { module: 'api', error: error instanceof Error ? error.message : String(error) });
@@ -189,7 +193,9 @@ export async function PATCH(request: Request) {
   const csrfError = validateCsrf(request);
   if (csrfError) return csrfError;
   const body = await request.clone().json().catch(() => null) as Record<string, unknown> | null;
-  const setting = PRIVACY_SETTINGS.find((candidate) => body && candidate.bodyKey in body);
-  if (!setting) return jsonError("Unknown privacy setting", 400, "BAD_REQUEST");
+  const matches = PRIVACY_SETTINGS.filter((candidate) => body && candidate.bodyKey in body);
+  // One setting per request: applying only the first of several would silently drop the rest.
+  if (matches.length !== 1) return jsonError(matches.length ? "Change one privacy setting at a time" : "Unknown privacy setting", 400, "BAD_REQUEST");
+  const setting = matches[0]!;
   return handlePrivacySettingPatch<string>(request, setting);
 }

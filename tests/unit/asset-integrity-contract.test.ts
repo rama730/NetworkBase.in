@@ -51,7 +51,7 @@ test("COR-048: project, draft and sprint deletes recheck their preconditions und
 
 test("AUTH-006: account deletion requires a server-verified step-up and is not a server action", () => {
   const route = read("src/app/api/v1/account/delete/route.ts");
-  assert.match(route, /resolveSecurityStepUp\(user\.id\)/);
+  assert.match(route, /resolveDestructiveStepUp\(auth\.supabase, user\.id\)/);
   assert.match(route, /'STEP_UP_REQUIRED'/);
   assert.match(route, /auth\.extensionSessionId/);
   const action = read("src/app/actions/account.ts");
