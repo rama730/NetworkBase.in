@@ -18,6 +18,8 @@ const nextConfig: NextConfig = {
       { source: '/people/:path*', destination: '/network/:path*', permanent: true },
       { source: '/profile', destination: '/my-profile', permanent: true },
       { source: '/profile/:path*', destination: '/my-profile/:path*', permanent: true },
+      // Settings is one document: old section addresses (they are in emails already sent) land on their section.
+      { source: '/settings/:section(account|security|privacy|notifications|appearance|integrations|privacy-policies|delete-account)', destination: '/settings#settings-:section', permanent: false },
       // Messages: Activity and Threads became the Inbox; thread and details open as drawers on the conversation.
       { source: '/messages/activity', destination: '/messages/inbox', permanent: false },
       // Merged into /messages (the sidebar's DM section now expands in place).

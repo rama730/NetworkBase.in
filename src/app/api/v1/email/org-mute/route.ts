@@ -21,7 +21,7 @@ async function resolve(request: NextRequest) {
   return parsed && org ? { ...parsed, title: org.title } : null;
 }
 
-const invalid = () => page(`<h1 style="font-size:20px;">This link doesn't work</h1><p style="color:#4B5563;">Change your email choices in <a href="/settings/notifications" style="color:#C24720;">notification settings</a>.</p>`, 400);
+const invalid = () => page(`<h1 style="font-size:20px;">This link doesn't work</h1><p style="color:#4B5563;">Change your email choices in <a href="/settings#settings-notifications" style="color:#C24720;">notification settings</a>.</p>`, 400);
 
 export async function GET(request: NextRequest) {
   const limited = await enforceRouteLimit(request, "api:v1:email:org-mute", 60, 60);
@@ -39,5 +39,5 @@ export async function POST(request: NextRequest) {
   const target = await resolve(request);
   if (!target || !(await muteOrgEmails(target.userId, target.orgId))) return invalid();
   return page(`<h1 style="font-size:20px;">Emails from ${escapeHtml(target.title)} are muted</h1>
-<p style="color:#4B5563;line-height:1.6;">Turn them back on in <a href="/settings/notifications" style="color:#C24720;">notification settings</a>.</p>`);
+<p style="color:#4B5563;line-height:1.6;">Turn them back on in <a href="/settings#settings-notifications" style="color:#C24720;">notification settings</a>.</p>`);
 }

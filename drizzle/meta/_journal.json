@@ -1751,6 +1751,13 @@
       "when": 1792454419000,
       "tag": "0252_role_applications_server_writes",
       "breakpoints": true
+    },
+    {
+      "idx": 250,
+      "version": "7",
+      "when": 1792454420000,
+      "tag": "0253_security_email_kinds",
+      "breakpoints": true
     }
   ]
 }

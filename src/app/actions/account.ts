@@ -19,6 +19,7 @@ import { enqueueProjectNotificationEvent } from '@/lib/notifications/project-eve
 import { z } from 'zod';
 import { cancelAccountDeletionForUser } from '@/lib/account/deletion';
 import { syncProjectChat } from '@/lib/messaging/integrations';
+import { queueSecurityEmail } from '@/lib/email/security-queue';
 
 // ============================================================================
 // ACCOUNT DELETION
@@ -37,10 +38,14 @@ export async function cancelAccountDeletion(): Promise<{ success: boolean; error
         if (!user) {
             return { success: false, error: 'Not authenticated' };
         }
+        // A cancel is cheap but it undoes a deletion: a stolen session shouldn't be able to flip it back and forth.
+        const limit = await consumeRateLimit(`account-cancel-deletion:${user.id}`, 10, 3600);
+        if (!limit.allowed) return { success: false, error: 'Too many attempts. Please try again later.' };
         const outcome = await cancelAccountDeletionForUser(user.id);
         if (outcome === 'not_found') return { success: false, error: 'No pending deletion found' };
         if (outcome === 'too_late') return { success: false, error: 'Account deletion is already being finalized' };
         revalidatePath('/');
+        await queueSecurityEmail(user.id, 'account_deletion_cancelled');
         return { success: true };
     } catch (error) {
         logger.error('account.cancel-deletion.failed', { module: 'account', error: error instanceof Error ? error.message : String(error) });

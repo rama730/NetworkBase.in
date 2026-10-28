@@ -17,6 +17,7 @@ function getWorkerOnlyFunctions() {
   const { workspaceCountersRefresh } = loadModule("./functions/workspace-counter-refresh");
   const { accountCleanup } = loadModule("./functions/account-cleanup");
   const { accountHardDelete } = loadModule("./functions/account-hard-delete");
+  const { accountDeletionReminders } = loadModule("./functions/account-deletion-reminders");
   const { computeSocialGraphSuggestions, refreshSocialGraphSuggestionsForCandidate } = loadModule("./functions/social-graph-suggestions");
   const { notificationsRetention } = loadModule("./functions/notifications-retention");
   const { notificationsRetentionWatchdog } = loadModule("./functions/notifications-retention-watchdog");
@@ -50,6 +51,7 @@ function getWorkerOnlyFunctions() {
     workspaceCountersRefresh,
     accountCleanup,
     accountHardDelete,
+    accountDeletionReminders,
     computeSocialGraphSuggestions,
     refreshSocialGraphSuggestionsForCandidate,
     notificationsRetention,

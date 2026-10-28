@@ -232,6 +232,7 @@ export default function NotificationsPage({ embedded = false }: { embedded?: boo
         <PreferenceSwitch id="delivery-browser" title="Desktop notifications on this device" description={deliveryDescriptions.browser} checked={preferences.delivery.browser && permissionState === "granted"} disabled={isSaving || permissionState === "unsupported" || permissionState === "denied"} onToggle={() => void toggleBrowser()} />
         <PreferenceSwitch id="delivery-push" title="Push notifications on this device" description={deliveryDescriptions.push} checked={preferences.delivery.push && pushStatus === "subscribed"} disabled={isSaving || pushBusy || pushStatus === "unsupported" || pushStatus === "denied"} onToggle={() => void togglePush()} />
       </div>
+      <p className="mt-3 nb-meta text-muted-foreground">Emails about the security of your account (a changed password, a new editor token, an authenticator change, account deletion) are always sent. They can’t be turned off here.</p>
     </SettingsSectionCard>
 
     <SettingsSectionCard title="Messages" description="How chat messages reach you as push notifications.">

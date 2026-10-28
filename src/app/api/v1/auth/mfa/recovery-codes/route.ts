@@ -13,6 +13,7 @@ import {
 import { withIdempotentRoute } from "@/lib/security/idempotency";
 import { logger } from "@/lib/logger";
 import { recordSecurityEvent } from "@/lib/security/audit";
+import { queueSecurityEmail } from "@/lib/email/security-queue";
 import {
   countRemainingRecoveryCodes,
   generateRecoveryCodes,
@@ -219,6 +220,8 @@ export async function POST(request: Request) {
       );
     }
 
+    // Turning on an authenticator (the first set of codes) or replacing the codes is worth telling the person about.
+    await queueSecurityEmail(user.id, "security_mfa_changed", { detail: mode === "initial" ? "added" : "regenerated" });
     logApiRoute(request, {
       requestId,
       action: "auth.mfaRecoveryCodes.post",

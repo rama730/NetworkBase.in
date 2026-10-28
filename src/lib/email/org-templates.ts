@@ -270,7 +270,7 @@ export function buildOrgEmail(kind: OrgEmailKind, data: OrgEmailData, input: { e
   const origin = resolveAuthBaseUrl();
   const url = (path: string) => new URL(path, origin).toString();
   const p = partsFor(kind, data, url);
-  const settingsUrl = url("/settings/notifications");
+  const settingsUrl = url("/settings#settings-notifications");
   const who = p.identity === "actor" && data.actor
     ? { avatarHtml: renderPonytailAvatar({ avatarUrl: data.actor.avatarUrl, displayName: data.actor.name, username: data.actor.username, identityKey: data.actor.id }), name: data.actor.name, handle: data.actor.username ?? null, subHtml: data.actor.headline ? `<span>${escapeHtml(data.actor.headline)}</span>` : null }
     : { avatarHtml: renderPonytailAvatar({ avatarUrl: data.org.logoUrl, displayName: data.org.title, identityKey: data.org.id }), name: data.child ? `${data.org.title} / ${data.child.title}` : data.org.title, handle: null, subHtml: null };
@@ -319,7 +319,8 @@ export function buildOrgEmail(kind: OrgEmailKind, data: OrgEmailData, input: { e
     html,
     headers: {
       "List-Unsubscribe": `<${mute ?? settingsUrl}>, <mailto:support@networkbase.in?subject=unsubscribe>`,
-      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      // One-click only where the link is the signed mute endpoint, which accepts POST.
+      ...(mute ? { "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } : {}),
     },
   };
 }

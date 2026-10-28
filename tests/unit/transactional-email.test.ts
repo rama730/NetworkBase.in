@@ -56,7 +56,7 @@ test("two small branded multipart templates escape dynamic content and use the t
   assert.doesNotMatch(task.html, /<script>/);
   assert.match(task.html, /&lt;script&gt;/);
   assert.match(task.text, /projects\/project%2F1\?tab=tasks&drawerType=task&drawerId=task%2F1/);
-  assert.match(task.text, /settings\/notifications/);
+  assert.match(task.text, /settings#settings-notifications/);
   assert.throws(() => buildEmail({ kind: "task_assignment", email: "ada@example.com", name: "Ada" }), /Missing task/);
 });
 
@@ -179,7 +179,8 @@ test("redesigned task email renders open layout, Ponytail avatar, subtasks and f
 
   // Verify RFC 8058 one-click unsubscribe headers
   assert.ok(emailA.headers?.["List-Unsubscribe"]);
-  assert.equal(emailA.headers?.["List-Unsubscribe-Post"], "List-Unsubscribe=One-Click");
+  // No one-click header: nothing accepts a POST that unsubscribes, so claiming it would send mail apps to a page.
+  assert.equal(emailA.headers?.["List-Unsubscribe-Post"], undefined);
 
   // Verify dual-title preheader and deep ghost spacing for left inbox preview list
   assert.match(emailA.subject, /Task assigned: Conduct end-to-end testing on core floors/);
@@ -283,8 +284,8 @@ test("redesigned welcome email renders Ponytail avatar, profile identity, skills
   assert.equal(welcomeWithAvatar.from, "NetworkBase <welcome@networkbase.in>");
   assert.equal(welcomeWithAvatar.reply_to, "support@networkbase.in");
   assert.equal(welcomeWithAvatar.subject, "Welcome to NetworkBase, Sarah Connor");
-  assert.equal(welcomeWithAvatar.headers?.["List-Unsubscribe-Post"], "List-Unsubscribe=One-Click");
-  assert.match(welcomeWithAvatar.headers?.["List-Unsubscribe"] || "", /settings\/notifications/);
+  assert.equal(welcomeWithAvatar.headers?.["List-Unsubscribe-Post"], undefined);
+  assert.match(welcomeWithAvatar.headers?.["List-Unsubscribe"] || "", /settings#settings-notifications/);
 
   // Zero MIME attachments (no paperclip bug in Apple Mail)
   assert.equal(welcomeWithAvatar.attachments, undefined);

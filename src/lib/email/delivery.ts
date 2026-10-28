@@ -15,6 +15,7 @@ import { resolveIdeFromSession, SUPPORTED_IDES } from "@/lib/extension/ide-proto
 import { resolveAuthBaseUrl } from "@/lib/auth/redirects";
 import { ALWAYS_SENT_EMAILS, buildOrgEmail, orgMuteToken, type OrgEmailData } from "./org-templates";
 import { orgChoiceFor } from "@/lib/notifications/preferences";
+import { buildSecurityEmail, isDeletionEmailKind, isSecurityEmailKind, type SecurityEmailData } from "./security-templates";
 import {
   buildEmail, type OrgEmailKind, DELIVERY_RANK, emailEnabled, eventDeliveryState, recipientAllowed,
   MAX_ATTEMPTS, RETRY_WINDOW_MS, retryDecision, suppressionReason, type EmailPayload, type ResendEvent,
@@ -93,7 +94,8 @@ async function prepareEmail(row: OutboxRow): Promise<Prepared> {
   }
   const userId = row.userId;
   const profile = await db.query.profiles.findFirst({
-    where: and(eq(profiles.id, userId), isNull(profiles.deletedAt)),
+    // A scheduled deletion hides the profile, and the deletion emails are the ones that must still reach it.
+    where: and(eq(profiles.id, userId), isDeletionEmailKind(row.kind) ? undefined : isNull(profiles.deletedAt)),
     columns: {
       id: true,
       fullName: true,
@@ -121,6 +123,10 @@ async function prepareEmail(row: OutboxRow): Promise<Prepared> {
   const blocked = await addressBlocked(email);
   if (blocked) return { drop: blocked };
   if (row.kind.startsWith("org_")) return prepareOrgEmail(row, userId, email, profile.notificationPreferences);
+  if (isSecurityEmailKind(row.kind)) {
+    // About the account itself: no email switch, no mutes. Bounce blocking and the allowlist above still apply.
+    return { payload: row.payload ?? buildSecurityEmail(row.kind, (row.data ?? {}) as SecurityEmailData, { email, name: profile.fullName || "there", username: profile.username, avatarUrl: profile.avatarUrl, userId: profile.id }) };
+  }
   if (row.kind === "welcome") {
     if (profile.onboardingStatus !== "completed") return { drop: "onboarding_incomplete" };
     return {

@@ -19,6 +19,7 @@ import { getPasswordPolicyResult } from "@/lib/security/password-policy";
 import { isLeakedPassword } from "@/lib/security/leaked-password";
 import { logger } from "@/lib/logger";
 import { revokeAllExtensionSessionsForUser } from "@/lib/security/extension-token-revocation";
+import { queueSecurityEmail } from "@/lib/email/security-queue";
 
 // Passwords are used exactly as typed (sign-in does not trim), so they are never trimmed here either.
 const changePasswordSchema = z.object({
@@ -313,6 +314,7 @@ export async function POST(request: Request) {
       });
     }
 
+    await queueSecurityEmail(authUser.id, "security_password_changed");
     logApiRoute(request, {
       requestId,
       action: "auth.changePassword.post",

@@ -11,6 +11,7 @@ import {
   requireAuthenticatedUser,
 } from "@/app/api/v1/_shared";
 import { recordSecurityEvent } from "@/lib/security/audit";
+import { queueSecurityEmail } from "@/lib/email/security-queue";
 import { getVerifiedTotpFactors, listSecurityMfaFactors } from "@/lib/security/mfa";
 import { countRemainingRecoveryCodes, parseStoredRecoveryCodes } from "@/lib/security/recovery-codes";
 import { resolveSecurityStepUp } from "@/lib/security/step-up";
@@ -176,6 +177,7 @@ export async function DELETE(
           bumpedRecoveryCodesGeneration: bumpedGeneration,
         },
       });
+      await queueSecurityEmail(user.id, "security_mfa_changed", { detail: "removed" });
     } catch (cleanupError) {
       logger.error("auth.mfaFactor.delete.post_unenroll_cleanup_failed", {
         requestId,
