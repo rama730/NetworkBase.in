@@ -24,7 +24,7 @@ interface Props {
     onDeleted: (hardDeleteAt: string | null) => void;
 }
 
-type OwnedProject = { id: string; title: string; slug: string | null; otherMembers: number };
+type OwnedProject = { id: string; title: string; slug: string | null; otherMembers: number; kind?: string; handover?: boolean };
 type StepUpState = { methods: Array<"totp" | "recovery_code" | "password">; factorId?: string };
 
 export default function AccountDeletionWizard({ onClose, onDeleted }: Props) {
@@ -105,7 +105,10 @@ export default function AccountDeletionWizard({ onClose, onDeleted }: Props) {
         />;
     }
 
-    const sharedProjects = (owned ?? []).filter((project) => project.otherMembers > 0);
+    // Report §30.7: orgs block deletion; child projects you lead pass to a new lead instead of going.
+    const ownedOrgs = (owned ?? []).filter((project) => project.kind === "organization");
+    const handedOver = (owned ?? []).filter((project) => project.handover);
+    const sharedProjects = (owned ?? []).filter((project) => project.otherMembers > 0 && project.kind !== "organization" && !project.handover);
 
     return <Dialog open onOpenChange={(open) => { if (!open && !deleting) onClose(); }}>
         <DialogContent>
@@ -139,7 +142,19 @@ export default function AccountDeletionWizard({ onClose, onDeleted }: Props) {
                     ) : (
                         <p className="text-muted-foreground">You don’t own any projects.</p>
                     )}
+                    {handedOver.length > 0 ? (
+                        <p>{handedOver.map((project) => project.title).join(", ")} {handedOver.length === 1 ? "passes" : "pass"} to a new lead in {handedOver.length === 1 ? "its" : "their"} organization, so {handedOver.length === 1 ? "it isn’t" : "they aren’t"} deleted.</p>
+                    ) : null}
                 </div>
+
+                {ownedOrgs.length > 0 ? (
+                    <div role="alert" className="space-y-1 rounded-lg border border-[var(--status-danger)]/30 bg-[var(--status-danger-soft)] p-3 text-foreground">
+                        <p className="font-medium">You own {ownedOrgs.length === 1 ? "an organization" : `${ownedOrgs.length} organizations`}. Transfer ownership or delete {ownedOrgs.length === 1 ? "it" : "them"} first.</p>
+                        <ul className="list-disc pl-4">
+                            {ownedOrgs.map((org) => <li key={org.id}><Link href={`/org/${encodeURIComponent(org.slug ?? org.id)}?tab=settings`} onClick={onClose} className="text-primary hover:underline">{org.title}</Link></li>)}
+                        </ul>
+                    </div>
+                ) : null}
 
                 <Button variant="outline" asChild>
                     <a href="/api/v1/account/export" download><Download className="h-4 w-4" aria-hidden="true" />Download my data</a>
@@ -171,7 +186,7 @@ export default function AccountDeletionWizard({ onClose, onDeleted }: Props) {
 
             <DialogFooter>
                 <Button variant="outline" onClick={onClose} disabled={deleting}>Cancel</Button>
-                <Button variant="destructive" onClick={() => void handleDelete()} disabled={deleting || !confirmed}>
+                <Button variant="destructive" onClick={() => void handleDelete()} disabled={deleting || !confirmed || ownedOrgs.length > 0}>
                     {deleting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Trash2 className="h-4 w-4" aria-hidden="true" />}
                     Delete account
                 </Button>

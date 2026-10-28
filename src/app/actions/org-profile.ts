@@ -21,6 +21,8 @@ async function orgAdmin(orgId: string) {
     const { userId } = await getViewerAuthContext();
     if (!userId) return null;
     const access = await getProjectAccessById(orgId, userId);
+    // Archiving prompts admins to verify, so an archived org still allows it; a suspended one doesn't.
+    if (access.writeBlocked && access.writeBlocked !== 'archived') return null;
     return access.project?.kind === 'organization' && (access.isOwner || access.memberRole === 'admin') ? userId : null;
 }
 

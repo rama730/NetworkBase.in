@@ -148,8 +148,8 @@ export async function transferProjectOwnership(
             // SEC-C4: `FOR UPDATE` locks the project row for the duration of
             // the transaction so a second caller (e.g. a parallel transfer or
             // a soft-delete) cannot race the owner check.
-            const lockedRows = await tx.execute<{ owner_id: string; title: string | null; slug: string | null }>(sql`
-                SELECT owner_id, title, slug FROM ${projects} WHERE id = ${projectId} FOR UPDATE
+            const lockedRows = await tx.execute<{ owner_id: string; title: string | null; slug: string | null; kind: string }>(sql`
+                SELECT owner_id, title, slug, kind FROM ${projects} WHERE id = ${projectId} FOR UPDATE
             `);
             const lockedProject = Array.from(lockedRows)[0];
 
@@ -162,7 +162,7 @@ export async function transferProjectOwnership(
 
             // Verify new owner is a project member
             const [membership] = await tx
-                .select({ id: projectMembers.id })
+                .select({ id: projectMembers.id, role: projectMembers.role })
                 .from(projectMembers)
                 .where(
                     and(
@@ -175,12 +175,18 @@ export async function transferProjectOwnership(
             if (!membership) {
                 return { ok: false as const, code: 'NOT_A_MEMBER' as const };
             }
+            // An organization passes only to one of its existing admins (report §30.5).
+            if (lockedProject.kind === 'organization' && membership.role !== 'admin') {
+                return { ok: false as const, code: 'NOT_AN_ADMIN' as const };
+            }
 
             // Transfer ownership
             await tx
                 .update(projects)
                 .set({
                     ownerId: newOwnerId,
+                    // A child project handed over at account deletion has its new lead now (report §30.7).
+                    orgSettings: sql`${projects.orgSettings} - 'leadHandover'`,
                     updatedAt: new Date(),
                 })
                 .where(eq(projects.id, projectId));
@@ -276,6 +282,7 @@ export async function transferProjectOwnership(
                 ok: true as const,
                 projectTitle: lockedProject.title,
                 projectSlug: lockedProject.slug,
+                kind: lockedProject.kind,
                 projectEventId: projectEvent?.id ?? null,
             };
         });
@@ -286,6 +293,8 @@ export async function transferProjectOwnership(
                     return { success: false, error: 'Not the project owner', errorCode: 'NOT_OWNER' };
                 case 'NOT_A_MEMBER':
                     return { success: false, error: 'New owner must be a project member', errorCode: 'NOT_A_MEMBER' };
+                case 'NOT_AN_ADMIN':
+                    return { success: false, error: 'An organization can only pass to one of its admins.', errorCode: 'NOT_A_MEMBER' };
                 case 'PROJECT_NOT_FOUND':
                     return { success: false, error: 'Project not found', errorCode: 'PROJECT_NOT_FOUND' };
             }
@@ -358,6 +367,15 @@ export async function transferProjectOwnership(
                     sourceEventId,
                 }),
             ]);
+            // E13 to both people for an organization (report §26.3 A).
+            if (transferResult.kind === 'organization') {
+                const { notifyOrg, orgHref, orgLabel, queueOrgEmails } = await import('@/lib/organizations/notify');
+                const org = await orgLabel(projectId);
+                if (org) {
+                    await notifyOrg({ orgId: projectId, eventKey: 'org.lifecycle', actorId: user.id, to: [newOwnerId], title: `You're now the owner of ${org.title}`, href: orgHref(org, '?tab=settings'), sourceEventId: `owner:${sourceEventId}`, email: { kind: 'org_ownership' } });
+                    await queueOrgEmails(projectId, newOwnerId, `owner-out:${sourceEventId}`, { kind: 'org_ownership', data: { previousOwner: true } }, [user.id]);
+                }
+            }
         } catch (notificationError) {
             logger.warn('account.transfer-ownership.notification_failed', {
                 module: 'account',

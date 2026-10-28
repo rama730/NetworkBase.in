@@ -16,11 +16,12 @@ import { getViewerAuthContext } from '@/lib/server/viewer-context';
 type Failure = { success: false; error: string };
 const DENIED: Failure = { success: false, error: "You don't have permission to do this." };
 
-async function orgAdmin(orgId: string) {
+async function orgAdmin(orgId: string, mode: 'read' | 'write' = 'write') {
     if (!organizationsEnabled()) return null;
     const { userId } = await getViewerAuthContext();
     if (!userId) return null;
     const access = await getProjectAccessById(orgId, userId);
+    if (mode === 'write' && access.writeBlocked) return null;
     return access.project?.kind === 'organization' && (access.isOwner || access.memberRole === 'admin') ? { userId, slug: access.project.slug ?? null } : null;
 }
 
@@ -41,7 +42,7 @@ export async function updateOrgChatSettingsAction(orgId: string, patch: z.input<
 }
 
 export async function readOrgChatSettingsAction(orgId: string) {
-    if (!(await orgAdmin(orgId))) return null;
+    if (!(await orgAdmin(orgId, 'read'))) return null;
     const [org] = await db.select({ settings: projects.orgSettings, type: projects.orgType }).from(projects).where(eq(projects.id, orgId)).limit(1);
     return org ? orgChatSettings(org.settings, org.type) : null;
 }
@@ -50,7 +51,7 @@ export type BrowseProjectRow = { projectId: string; title: string; channelId: st
 
 /** Browse projects (report §25.1, §25.3): every child project's default channel, for org admins to open. */
 export async function browseOrgProjectChannelsAction(orgId: string): Promise<{ success: true; rows: BrowseProjectRow[] } | Failure> {
-    const admin = await orgAdmin(orgId);
+    const admin = await orgAdmin(orgId, 'read');
     if (!admin) return DENIED;
     const rows = await db.select({
         projectId: projects.id, title: projects.title, channelId: chatChannels.id, channelName: chatChannels.name,

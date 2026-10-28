@@ -7,6 +7,24 @@ import { countPendingInvitationsForCandidate } from "@/lib/projects/project-invi
 import { eq, and, isNull, sql, exists, ne, or, count } from "drizzle-orm";
 import { countReviewableApplications } from "@/lib/applications/reviewers";
 import { normalizeTaskSurfaceRecord } from "@/lib/projects/task-presentation";
+import { copyState } from "@/lib/organizations/assignment-rules";
+import { readOrgPendingCountAction } from "@/app/actions/org-workspace";
+
+/**
+ * Org rules for My work (report §29.2): assignment masters never show; excused copies are hidden; an org's person
+ * copies show only to their assignee and team (admins don't see them here either). Group copies in child projects
+ * show like any project task.
+ */
+function orgCopyRules(userId: string) {
+    return sql`${tasks.kind} <> 'assignment' AND ${tasks.excusedAt} IS NULL AND (
+        ${tasks.assignmentId} IS NULL
+        OR EXISTS (SELECT 1 FROM projects cp WHERE cp.id = ${tasks.projectId} AND cp.kind <> 'organization')
+        OR ${tasks.assigneeId} = ${userId}::uuid
+        OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${tasks.id} AND tm.user_id = ${userId}::uuid))`;
+}
+function mineSql(userId: string) {
+    return sql`(${tasks.assigneeId} = ${userId}::uuid OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${tasks.id} AND tm.user_id = ${userId}::uuid))`;
+}
 
 function normalizeWorkspaceLimit(rawLimit: unknown, fallback = 24) {
     const parsed = typeof rawLimit === "number" ? rawLimit : Number(rawLimit);
@@ -26,7 +44,9 @@ export async function getWorkspaceSummaryAction() {
             db.select({ value: count() }).from(tasks).where(and(
                 isNull(tasks.deletedAt),
                 sql`(${tasks.status} <> 'done' OR ${tasks.reviewStatus} = 'pending')`,
-                eq(tasks.assigneeId, user.id),
+                // Your open work, including assignment copies you or your team hold (report §29.2).
+                mineSql(user.id),
+                orgCopyRules(user.id),
                 exists(db.select({ id: projects.id }).from(projects).where(and(
                     eq(projects.id, tasks.projectId),
                     isNull(projects.deletedAt),
@@ -42,11 +62,13 @@ export async function getWorkspaceSummaryAction() {
             countReviewableApplications(user.id).then((value) => [{ value }]),
             countPendingInvitationsForCandidate(user.id).then((value) => [{ value }]),
         ]);
+        // Invitations badge: org invitations, plus join requests for orgs you run (report §29.2).
+        const orgPending = await readOrgPendingCountAction().catch(() => 0);
 
         return {
             success: true as const,
             taskCount: taskResult[0]?.value ?? 0,
-            requestCount: (applicationResult[0]?.value ?? 0) + (inviteResult[0]?.value ?? 0),
+            requestCount: (applicationResult[0]?.value ?? 0) + (inviteResult[0]?.value ?? 0) + orgPending,
         };
     } catch (error) {
         console.error("Workspace summary fetch failed:", error);
@@ -76,7 +98,8 @@ export async function fetchWorkspaceTasksAction(
 
         const baseWhere = and(
             isNull(tasks.deletedAt),
-            sql`(${tasks.status} <> 'done' OR ${tasks.reviewStatus} = 'pending')`
+            sql`(${tasks.status} <> 'done' OR ${tasks.reviewStatus} = 'pending')`,
+            orgCopyRules(user.id),
         );
 
         const visibleProjectCheck = exists(
@@ -101,12 +124,13 @@ export async function fetchWorkspaceTasksAction(
 
         let scopeWhere;
         if (scope === "my") {
-            scopeWhere = and(visibleProjectCheck, eq(tasks.assigneeId, user.id));
+            scopeWhere = and(visibleProjectCheck, mineSql(user.id));
         } else {
             if (scope === "team") {
                 scopeWhere = and(
                     visibleProjectCheck,
                     or(isNull(tasks.assigneeId), ne(tasks.assigneeId, user.id)),
+                    sql`NOT ${mineSql(user.id)}`,
                 );
             } else {
                 scopeWhere = visibleProjectCheck;
@@ -116,6 +140,8 @@ export async function fetchWorkspaceTasksAction(
         const taskPage = await db.query.tasks.findMany({
             where: and(baseWhere, scopeWhere),
             orderBy: (t, { asc, desc }) => [
+                // My tasks: soonest due first (report §29.2).
+                ...(scope === "my" ? [sql`${t.dueDate} ASC NULLS LAST`] : []),
                 sql`CASE WHEN ${t.dueDate} IS NOT NULL AND ${t.dueDate} < now() THEN 0 ELSE 1 END`,
                 sql`CASE ${t.priority} WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END`,
                 asc(t.dueDate),
@@ -202,7 +228,23 @@ export async function fetchWorkspaceTasksAction(
             }
         }
 
+        // Org context per row: "CSE-3A", "CSE-3A / Compiler Lab" or the personal project; "From Ms. Rao",
+        // Late / Missing and the team for assignment copies (report §29.2).
+        const orgInfo = taskIds.length ? (await db.execute(sql`
+            SELECT t.id::text AS task_id, p.kind, p.title AS project_title, coalesce(o.id, CASE WHEN p.kind = 'organization' THEN p.id END)::text AS org_id,
+              o.title AS org_title, t.team_name, t.review_submitted_at, t.completed_at, t.excused_at,
+              (SELECT coalesce(pr.full_name, pr.username) FROM tasks m JOIN profiles pr ON pr.id = m.creator_id WHERE m.id = t.assignment_id) AS from_name
+            FROM tasks t JOIN projects p ON p.id = t.project_id LEFT JOIN projects o ON o.id = p.parent_id AND o.kind = 'organization'
+            WHERE t.id = ANY(${sql`ARRAY[${sql.join(taskIds.map((id) => sql`${id}::uuid`), sql`, `)}]::uuid[]`})`)) as unknown as Array<{
+            task_id: string; kind: string; project_title: string; org_id: string | null; org_title: string | null; team_name: string | null;
+            review_submitted_at: string | null; completed_at: string | null; excused_at: string | null; from_name: string | null;
+        }> : [];
+        const orgById = new Map(orgInfo.map((row) => [row.task_id, row]));
+        const now = new Date();
+
         const normalized = page.map((task) => {
+            const info = orgById.get(task.id);
+            const copy = task.assignmentId ? copyState({ status: task.status, reviewStatus: task.reviewStatus, dueDate: task.dueDate, submittedAt: info?.review_submitted_at ? new Date(info.review_submitted_at) : null, completedAt: info?.completed_at ? new Date(info.completed_at) : null, excusedAt: info?.excused_at ? new Date(info.excused_at) : null }, now) : null;
             const counts = countMap.get(task.id) ?? { subtaskCount: 0, completedSubtaskCount: 0, fileCount: 0, commentCount: 0 };
             return {
                 ...normalizeTaskSurfaceRecord({
@@ -215,6 +257,14 @@ export async function fetchWorkspaceTasksAction(
                 project: task.project,
                 sprint: task.sprint,
                 assignee: task.assignee,
+                org: info ? {
+                    id: info.org_id,
+                    context: info.kind === "organization" ? info.project_title : info.org_title ? `${info.org_title} / ${info.project_title}` : info.project_title,
+                    fromName: task.assignmentId ? info.from_name : null,
+                    teamName: info.team_name,
+                    copyState: copy?.state ?? null,
+                    late: copy?.late ?? false,
+                } : null,
             };
         });
         return { success: true as const, tasks: normalized, hasMore };

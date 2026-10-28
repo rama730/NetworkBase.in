@@ -11,11 +11,13 @@ import {
 import {
     ArrowLeft,
     CornerDownRight,
+    Flag,
     Loader2,
     Send,
     Trash2,
     X,
 } from "lucide-react";
+import { ReportButton } from "@/components/reports/ReportDialog";
 import { toast, feedbackError } from "@/lib/feedback";
 import { createProjectUpdateCommentAction, deleteProjectUpdateCommentAction, readProjectUpdateCommentsAction, type ProjectUpdateCommentView, type ProjectUpdateView } from "@/app/actions/project/updates";
 import { UserAvatar } from "@/components/ui/UserAvatar";
@@ -221,6 +223,8 @@ function CommentRow({
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
+                      ) : currentUserId ? (
+                        <ReportButton kind="update_comment" targetId={c.id} noun="comment" className="nb-touch-target ml-2 flex size-7 shrink-0 items-center justify-center rounded-[4px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"><Flag className="h-3.5 w-3.5" aria-label="Report comment" /></ReportButton>
                       ) : null}
                     </div>
                     <p className="mt-1 whitespace-pre-wrap break-words text-[13px] leading-[1.5] text-foreground/90">
@@ -799,6 +803,8 @@ export function UpdateComments({
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
+                  ) : currentUserId ? (
+                    <ReportButton kind="update_comment" targetId={c.id} noun="comment" className="nb-touch-target ml-2 flex size-7 shrink-0 items-center justify-center rounded-[4px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"><Flag className="h-3.5 w-3.5" aria-label="Report comment" /></ReportButton>
                   ) : null}
                 </div>
                 <p className="mt-1 whitespace-pre-wrap break-words text-[13px] leading-5 text-foreground/90">

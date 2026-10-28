@@ -132,11 +132,12 @@ export async function checkOrgHandleAction(raw: string): Promise<{ available: bo
 type OrgViewer = { userId: string; role: OrgRole; slug: string | null };
 
 /** The signed-in viewer and their role in this org ("guest" for viewers); null outside it or when it isn't an org. */
-async function orgViewer(orgId: string): Promise<OrgViewer | null> {
+async function orgViewer(orgId: string, mode: 'read' | 'write' = 'write'): Promise<OrgViewer | null> {
     if (!organizationsEnabled()) return null;
     const userId = await viewerId();
     if (!userId) return null;
     const access = await getProjectAccessById(orgId, userId);
+    if (mode === 'write' && access.writeBlocked) return null;
     if (access.project?.kind !== 'organization') return null;
     const role: OrgRole = access.isOwner ? 'owner' : access.memberRole === 'admin' ? 'admin' : access.memberRole === 'member' ? 'member' : access.memberRole === 'viewer' ? 'guest' : 'visitor';
     return { userId, role, slug: access.project.slug ?? null };
@@ -311,7 +312,7 @@ const myMembershipSchema = z.object({ title: z.string().trim().max(60).nullable(
 
 /** "My membership" (report §21.3): everyone edits their own title and whether the org shows on their profile. */
 export async function updateMyOrgMembershipAction(orgId: string, patch: unknown): Promise<{ success: true } | Failure> {
-    const viewer = await orgViewer(orgId);
+    const viewer = await orgViewer(orgId, 'read');
     if (!viewer || viewer.role === 'visitor') return DENIED;
     const parsed = myMembershipSchema.safeParse(patch);
     if (!parsed.success) return { success: false, error: 'Titles are up to 60 characters.' };
@@ -325,7 +326,7 @@ export async function updateMyOrgMembershipAction(orgId: string, patch: unknown)
 
 /** "Leave organization" (report §21.3). The owner transfers ownership first; child projects follow in P4. */
 export async function leaveOrgAction(orgId: string): Promise<{ success: true } | Failure> {
-    const viewer = await orgViewer(orgId);
+    const viewer = await orgViewer(orgId, 'read');
     if (!viewer || viewer.role === 'visitor') return DENIED;
     if (orgGrant(viewer.role, 'leave') !== 'yes') return { success: false, error: 'Transfer ownership before you leave.' };
     const led = await ledChildProjects(db, orgId, viewer.userId);
@@ -488,7 +489,7 @@ export async function cancelMoveInAction(projectId: string): Promise<{ success: 
 
 /** Impact preview before tightening the cap: how many child projects would be lowered. */
 export async function previewVisibilityCapAction(orgId: string, cap: 'public' | 'org' | 'private'): Promise<{ success: true; affected: number } | Failure> {
-    const viewer = await orgViewer(orgId);
+    const viewer = await orgViewer(orgId, 'read');
     if (!viewer || orgGrant(viewer.role, 'manage_joining') !== 'yes') return DENIED;
     return { success: true, affected: await countChildrenAboveCap(orgId, cap) };
 }
@@ -519,7 +520,7 @@ export type OrgRosterPerson = { userId: string; name: string; username: string |
  * name, username or title, with one "In <project>" hint each. Guests are left out: they never join teams.
  */
 export async function listOrgRosterAction(orgId: string, query = ''): Promise<OrgRosterPerson[]> {
-    const viewer = await orgViewer(orgId);
+    const viewer = await orgViewer(orgId, 'read');
     if (!viewer || viewer.role === 'visitor' || viewer.role === 'guest') return [];
     const q = query.trim().slice(0, 80);
     const pattern = `%${q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
@@ -530,7 +531,7 @@ export async function listOrgRosterAction(orgId: string, query = ''): Promise<Or
                  ORDER BY c.created_at DESC LIMIT 1) AS hint
         FROM ${projectMembers} pm
         JOIN ${profiles} p ON p.id = pm.user_id
-        WHERE pm.project_id = ${orgId} AND pm.role IN ('owner', 'admin', 'member')
+        WHERE pm.project_id = ${orgId} AND pm.role IN ('owner', 'admin', 'member') AND p.deleted_at IS NULL
           AND (${q} = '' OR p.full_name ILIKE ${pattern} OR p.username ILIKE ${pattern} OR pm.title ILIKE ${pattern})
         ORDER BY p.full_name NULLS LAST
         LIMIT 50

@@ -39,6 +39,12 @@ export type OrgDetail = {
   childProjectCount: number;
   memberCount: number;
   suspended: boolean;
+  /** Lifecycle (report §30.3, §30.5): the reason shows to members; the owner sees the deletion date with Restore. */
+  suspendReason: string | null;
+  archived: boolean;
+  deletionScheduledAt: string | null;
+  verified: boolean;
+  verificationRequested: boolean;
   /** Owners and admins only. */
   joinCode: string | null;
   joinCodeEnabled: boolean;
@@ -65,6 +71,11 @@ export async function readOrgDetail(
       timeZone: projects.timeZone,
       welcomeNote: projects.welcomeNote,
       suspendedAt: projects.suspendedAt,
+      suspendReason: projects.suspendReason,
+      status: projects.status,
+      deletionScheduledAt: projects.deletionScheduledAt,
+      verifiedAt: projects.verifiedAt,
+      verificationRequestedAt: projects.verificationRequestedAt,
       joinCode: projects.joinCode,
       joinCodeEnabled: projects.joinCodeEnabled,
     }).from(projects).where(and(eq(projects.id, orgId), eq(projects.kind, "organization"))).limit(1),
@@ -101,6 +112,11 @@ export async function readOrgDetail(
     childProjectCount: children?.n ?? 0,
     memberCount: members?.n ?? 0,
     suspended: Boolean(org.suspendedAt),
+    suspendReason: viewer.isInOrg ? org.suspendReason : null,
+    archived: org.status === "archived",
+    deletionScheduledAt: org.deletionScheduledAt ? org.deletionScheduledAt.toISOString() : null,
+    verified: Boolean(org.verifiedAt),
+    verificationRequested: Boolean(org.verificationRequestedAt),
     joinCode: viewer.isAdmin ? org.joinCode : null,
     joinCodeEnabled: org.joinCodeEnabled,
     handleRenameAvailableAt: renameAt && renameAt.getTime() > Date.now() ? renameAt.toISOString() : null,

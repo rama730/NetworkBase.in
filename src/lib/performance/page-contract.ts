@@ -280,6 +280,17 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     maxInitialPayloadKb: 240,
     allowForceDynamic: true,
   }),
+  // Platform admin review of reports, verification requests and suspended orgs (report §30.3).
+  "/admin/reports": buildUserShellContract("/admin/reports", "src/app/(site)/admin/reports/page.tsx", {
+    renderingMode: "dynamic",
+    cacheStrategy: "none",
+    cacheTtlSeconds: 0,
+    invalidationOwner: "none",
+    hydrationBoundary: "minimal",
+    bootstrapReadModel: "server_query",
+    maxInitialPayloadKb: 240,
+    allowForceDynamic: true,
+  }),
   "/my-profile": buildUserShellContract("/my-profile", "src/app/(site)/(main)/my-profile/page.tsx", {
     renderingMode: "dynamic",
     cacheTtlSeconds: 60,

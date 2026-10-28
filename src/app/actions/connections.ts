@@ -1,5 +1,6 @@
 "use server";
 
+import { openInvitesFor } from '@/lib/organizations/members';
 import { personFilterSql } from '@/lib/network/person-filter-sql';
 import type { NetworkPersonFilters } from '@/lib/network/browse-query';
 import { readPersonCardDetails } from '@/lib/network/person-card-read';
@@ -62,15 +63,17 @@ export async function readNetworkPendingCountsAction() {
         const user = await getAuthUser();
         if (!user) return { success: false as const, error: 'Not authenticated', pendingConnections: 0, pendingInvites: 0, pendingApplications: 0, totalConnections: 0 };
 
-        const [stats, pendingInvites, pendingApplications] = await Promise.all([
+        const [stats, pendingInvites, pendingApplications, orgInvites] = await Promise.all([
             getConnectionStatsForUser(user.id),
             countPendingInvitationsForCandidate(user.id),
             countReviewableApplications(user.id),
+            // The Network badge includes organization invitations (report §30.6).
+            openInvitesFor(user.id).then((rows) => rows.length).catch(() => 0),
         ]);
         return {
             success: true as const,
             pendingConnections: stats.pendingIncoming,
-            pendingInvites,
+            pendingInvites: pendingInvites + orgInvites,
             pendingApplications,
             totalConnections: stats.totalConnections,
         };

@@ -133,6 +133,9 @@ export async function DELETE(request: Request) {
             username: typeof user.user_metadata?.username === 'string' ? user.user_metadata.username : null,
             reason: reason || null,
         });
+        if (!result.ok && result.code === 'OWNS_ORG') {
+            return fail(`You own ${result.orgs.map((org) => org.title).join(', ')}. Transfer ownership or delete ${result.orgs.length === 1 ? 'it' : 'them'} first.`, 409, 'CONFLICT');
+        }
         if (!result.ok) return fail('Account deletion is already scheduled', 409, 'CONFLICT');
 
         await recordSecurityEvent({ userId: user.id, eventType: 'account_deletion_scheduled', request, metadata: { hardDeleteAt: result.hardDeleteAt.toISOString() } }).catch(() => undefined);

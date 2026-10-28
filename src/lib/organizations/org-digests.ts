@@ -12,7 +12,9 @@ import { DIGEST_HOUR, digestIsEmpty, DUE_SOON_HOUR, localClock, nextDate } from 
 // the outbox event key (per person, per org, per local day) makes a second run in the same hour a no-op.
 
 const notHandedIn = sql`NOT (c.review_status = 'pending' OR c.status = 'done' OR c.submission IS NOT NULL)`;
-const openMaster = sql`m.deleted_at IS NULL AND m.assignment_settings->>'publishedAt' IS NOT NULL AND m.assignment_settings->>'closedAt' IS NULL`;
+// Archived, suspended or deleting orgs send no reminders or digests (report §30.5).
+const openMaster = sql`m.deleted_at IS NULL AND m.assignment_settings->>'publishedAt' IS NOT NULL AND m.assignment_settings->>'closedAt' IS NULL
+  AND NOT app_private.nb_project_read_only(m.project_id)`;
 
 type DueRow = { copy_id: string; title: string; due_date: string; status: string; org_id: string; people: string[]; late_rule: string | null; late_until: string | null };
 
@@ -86,7 +88,7 @@ export async function runOrgDueSoon(now = new Date()) {
 /** E11 at 8:00 org time to the owner and admins: to review, join requests, behind. Empty → not sent; "instant" orgs skip it. */
 export async function runOrgAdminDigest(now = new Date()) {
   const orgs = await db.select({ id: projects.id, ownerId: projects.ownerId, timeZone: projects.timeZone, settings: projects.orgSettings })
-    .from(projects).where(and(eq(projects.kind, "organization"), isNull(projects.deletedAt)));
+    .from(projects).where(and(eq(projects.kind, "organization"), isNull(projects.deletedAt), sql`NOT app_private.nb_project_read_only(${projects.id})`));
   let sent = 0;
   for (const org of orgs) {
     const clock = localClock(now, org.timeZone);

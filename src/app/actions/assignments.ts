@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 import { db } from '@/lib/db';
 import { profiles, projects, projectSprints, projectWorkflowColumns, taskActivityEvents, taskTeamMembers, tasks } from '@/lib/db/schema';
-import { getProjectAccessById } from '@/lib/data/project-access';
+import { getProjectAccessById, writeBlockedMessage } from '@/lib/data/project-access';
 import { createClient } from '@/lib/supabase/server';
 import { organizationsEnabled } from '@/lib/organizations/config';
 import { canStillSubmit, copyState, type AssignmentSettings, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules';
@@ -26,11 +26,12 @@ async function viewerId() {
 }
 
 /** The viewer and their role in the org that owns `orgId` (null outside it, or when it isn't an org). */
-async function orgRole(orgId: string) {
+async function orgRole(orgId: string, mode: 'read' | 'write' = 'write') {
     if (!organizationsEnabled()) return null;
     const userId = await viewerId();
     if (!userId) return null;
     const access = await getProjectAccessById(orgId, userId);
+    if (mode === 'write' && access.writeBlocked) return null;
     if (access.project?.kind !== 'organization') return null;
     const role = access.isOwner ? 'owner' : access.memberRole;
     return role ? { userId, role, isAdmin: role === 'owner' || role === 'admin', slug: access.project.slug ?? null } : null;
@@ -217,6 +218,8 @@ export async function submitAssignmentAction(copyId: string, input: z.input<type
     const [teammate] = await db.select({ userId: taskTeamMembers.userId }).from(taskTeamMembers).where(and(eq(taskTeamMembers.taskId, copyId), eq(taskTeamMembers.userId, userId))).limit(1);
     if (copy.assigneeId !== userId && !teammate) return DENIED;
     if (copy.excusedAt) return { success: false, error: "You're excused from this one." };
+    const copyAccess = await getProjectAccessById(copy.projectId, userId);
+    if (copyAccess.writeBlocked) return { success: false, error: writeBlockedMessage(copyAccess.writeBlocked) };
     if (!canStillSubmit(master.settings, copy.dueDate)) return { success: false, error: master.settings.closedAt ? 'This assignment is closed.' : 'Late submissions are not accepted.' };
     const { link, text } = parsed.data;
     const type = master.settings.submissionType;
@@ -341,7 +344,7 @@ const emptyCounts = (): AssignmentRow['counts'] => ({ not_started: 0, in_progres
 
 /** The Assignments view (report §16.5): admins and guests get counts per master; members get their own copy. */
 export async function listAssignmentsAction(orgId: string): Promise<{ success: true; isAdmin: boolean; rows: AssignmentRow[] } | Failure> {
-    const viewer = await orgRole(orgId);
+    const viewer = await orgRole(orgId, 'read');
     if (!viewer) return DENIED;
     const masters = await db.select().from(tasks)
         .where(and(eq(tasks.projectId, orgId), eq(tasks.kind, 'assignment'), isNull(tasks.assignmentId), isNull(tasks.deletedAt)))
@@ -377,7 +380,7 @@ export type RosterRow = { copyId: string; label: string; members: string[]; stat
 export async function readAssignmentRosterAction(masterId: string): Promise<{ success: true; rows: RosterRow[]; counts: AssignmentRow['counts'] } | Failure> {
     const master = await loadMaster(masterId);
     if (!master) return DENIED;
-    const viewer = await orgRole(master.projectId);
+    const viewer = await orgRole(master.projectId, 'read');
     if (!viewer || (!viewer.isAdmin && viewer.role !== 'viewer')) return DENIED;
     const copies = await db.select({
         id: tasks.id, projectId: tasks.projectId, assigneeId: tasks.assigneeId, teamName: tasks.teamName, status: tasks.status, reviewStatus: tasks.reviewStatus,
@@ -410,7 +413,7 @@ export async function readAssignmentRosterAction(masterId: string): Promise<{ su
 
 /** Composer pickers: the org's child projects and its planned or active sprints. */
 export async function readAssignmentComposerOptionsAction(orgId: string) {
-    const viewer = await orgRole(orgId);
+    const viewer = await orgRole(orgId, 'read');
     if (!viewer?.isAdmin) return { success: false as const, error: DENIED.error };
     const [children, sprints] = await Promise.all([
         db.select({ id: projects.id, title: projects.title }).from(projects).where(and(eq(projects.parentId, orgId), isNull(projects.deletedAt))).orderBy(asc(projects.title)),

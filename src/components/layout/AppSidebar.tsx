@@ -16,6 +16,8 @@ import { useRealtime } from "@/components/providers/RealtimeProvider";
 import WorkspaceIndicator from "./header/WorkspaceIndicator";
 import { queryKeys } from "@/lib/query-keys";
 import { useUIStore } from "@/stores/ui-store";
+import { readSidebarWorkspacesAction } from "@/app/actions/org-workspace";
+import { SidebarWorkspaces } from "./SidebarWorkspaces";
 
 type SidebarProject = {
     id: string;
@@ -78,6 +80,16 @@ export function SidebarNav() {
         refetchOnWindowFocus: false,
     });
     const projects = projectsQuery.data ?? [];
+    // Organizations (report §29.3): one request returns orgs, child projects, badges and Archived. Null while the
+    // feature is off, so the plain project list stays.
+    const workspacesQuery = useQuery({
+        queryKey: ["sidebar-workspaces", profileId ?? "unknown"],
+        queryFn: () => readSidebarWorkspacesAction(),
+        enabled: Boolean(isAuthenticated && profileId),
+        staleTime: 60_000,
+        refetchOnWindowFocus: false,
+    });
+    const workspaces = workspacesQuery.data ?? null;
 
     return (
         <div className="nb-sidebar-scroll app-scroll app-scroll-y min-h-0 flex-1 space-y-3 pr-1">
@@ -102,14 +114,14 @@ export function SidebarNav() {
                 </div>
                 <div className="space-y-1" aria-label="Your projects" aria-busy={projectsQuery.isLoading}>
                     {projectsQuery.isLoading && <><span className="sr-only" role="status">Loading workspaces…</span>{[1, 2, 3].map((key) => <Skeleton key={key} className="mx-2 h-8 rounded" />)}</>}
-                    {projects.map((project) => {
+                    {workspaces ? <SidebarWorkspaces data={workspaces} /> : projects.map((project) => {
                         const active = pathname === project.href || pathname?.startsWith(`${project.href}/`);
                         return <Link key={project.id} href={project.href} className="nb-nav-link" title={project.title} aria-current={active ? "page" : undefined}>
                             <span className="nb-sidebar-label truncate">{project.title}</span>
                         </Link>;
                     })}
-                    {!projectsQuery.isLoading && !projectsQuery.isError && projects.length === 0 && <p className="px-2 py-1 text-xs text-muted-foreground">No projects yet</p>}
-                    {projectsQuery.isError && <p className="px-2 py-1 text-xs text-muted-foreground">Projects unavailable</p>}
+                    {!workspaces && !projectsQuery.isLoading && !projectsQuery.isError && projects.length === 0 && <p className="px-2 py-1 text-xs text-muted-foreground">No projects yet</p>}
+                    {projectsQuery.isError && !workspaces && <p className="px-2 py-1 text-xs text-muted-foreground">Projects unavailable</p>}
                 </div>
             </section>}
         </div>

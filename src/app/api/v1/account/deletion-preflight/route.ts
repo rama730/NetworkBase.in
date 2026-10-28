@@ -16,7 +16,7 @@ export async function GET() {
 
     try {
         const owned = await db
-            .select({ id: projects.id, title: projects.title, slug: projects.slug })
+            .select({ id: projects.id, title: projects.title, slug: projects.slug, kind: projects.kind, parentId: projects.parentId })
             .from(projects)
             .where(and(eq(projects.ownerId, auth.user.id), isNull(projects.deletedAt)))
             .limit(50);
@@ -29,7 +29,8 @@ export async function GET() {
             : [];
         const others = new Map(memberCounts.map((row) => [row.projectId, Number(row.others)]));
         return jsonSuccess(
-            { projects: owned.map((project) => ({ ...project, otherMembers: others.get(project.id) ?? 0 })) },
+            // Orgs block deletion; child projects pass to a new lead instead of going (report §30.7).
+            { projects: owned.map(({ parentId, ...project }) => ({ ...project, handover: Boolean(parentId), otherMembers: others.get(project.id) ?? 0 })) },
             undefined,
             { headers: { 'Cache-Control': 'private, no-store' } },
         );

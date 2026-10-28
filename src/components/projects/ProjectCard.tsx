@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { Users, Bell, BellRing, BarChart2, ExternalLink, Globe } from "lucide-react";
+import { Users, Bell, BellRing, BarChart2, ExternalLink, Flag, Globe, MoreHorizontal } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { ROUTES } from "@/constants/routes";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
@@ -17,6 +17,7 @@ import { resolveClientSkill, useSkillCatalog } from "@/lib/skills/client";
 import { SocialPresenceIcon } from "@/components/profile/SocialPresenceIcon";
 import { resolveProjectSocialLinks } from "@/lib/projects/social-links";
 import ProjectAvatar, { getProjectAvatarUrl } from "@/components/projects/ProjectAvatar";
+import { ReportDialog } from "@/components/reports/ReportDialog";
 
 const MAX_PROJECT_CARD_SKILL_ICONS = 6;
 const APPLICATION_CHIP_LABEL = { applied: "Applied", declined: "Declined", invited: "Invited" } as const;
@@ -36,6 +37,7 @@ interface ProjectCardProps {
 export default memo(function ProjectCard({ project, viewModel, isFollowing = false, followersCount: initialFollowers, applicationChip, onOpenProject }: ProjectCardProps) {
     useSkillCatalog();
     const { user } = useAuth();
+    const [reporting, setReporting] = useState(false);
     const { mutateAsync } = useToggleProjectFollow();
     const [following, setFollowing] = useState(isFollowing);
     // An unknown count reads as a dash, never as a confident zero (state matrix).
@@ -168,6 +170,16 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
                 <button type="button" aria-disabled={busy || undefined} aria-busy={busy} aria-pressed={following} aria-label={`Follow ${project.title}, ${followers ?? "unknown"} ${followers === 1 ? "follower" : "followers"}`} title={following ? "Following" : "Follow"} className="nb-icon-button gap-1 px-1.5 font-mono text-xs" onClick={toggleFollow} data-testid={`project-card-follow-${project.id}`}>
                     {following ? <BellRing size={16} aria-hidden="true" /> : <Bell size={16} aria-hidden="true" />}{followers ?? "—"}
                 </button>
+                {/* Report (report §30.3): signed-in people other than the owner. */}
+                {user && user.id !== project.ownerId ? (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger className="nb-icon-button px-1" aria-label={`More actions for ${project.title}`}><MoreHorizontal size={16} aria-hidden="true" /></DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem onSelect={() => setReporting(true)}><Flag className="size-4" aria-hidden="true" />Report {isOrg ? "organization" : "project"}</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                ) : null}
+                {reporting ? <ReportDialog kind="project" targetId={project.id} noun={isOrg ? "organization" : "project"} open={reporting} onOpenChange={setReporting} /> : null}
             </div>
         </div>
         {error === "signed-out" ? (

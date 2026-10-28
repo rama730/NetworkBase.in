@@ -3,9 +3,12 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
-import { Archive, Building2, UserPlus } from 'lucide-react'
+import { Archive, Building2, Flag, MoreHorizontal, UserPlus } from 'lucide-react'
 
 import { cancelJoinRequestAction, joinPublicOrgAction, regenerateJoinCodeAction } from '@/app/actions/organizations'
+import { restoreOrgAction } from '@/app/actions/org-lifecycle'
+import { ReportDialog } from '@/components/reports/ReportDialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import type { OrgDetail, ParentOrgLink } from '@/lib/organizations/detail'
@@ -164,5 +167,46 @@ export function ChildOrgChips({ parentOrg, visibility, archived }: { parentOrg: 
             {parentOrg.viewerIsInheritedAdmin ? <span className="nb-status" data-status="active">{parentOrg.title} admin</span> : null}
             {archived && parentOrg.archived ? <span className="nb-status" data-status="archived">Archived with {parentOrg.title}</span> : null}
         </p>
+    )
+}
+
+/** Suspended (everyone, with the reason for members) or scheduled for deletion (the owner, with Restore). Report §30.3, §30.5. */
+export function OrgStatusBanner({ orgId, organization, isOwner }: { orgId: string; organization: OrgDetail; isOwner: boolean }) {
+    const router = useRouter()
+    const [pending, start] = useTransition()
+    if (organization.suspended) {
+        return (
+            <p role="status" className="mt-2 rounded-[5px] border border-destructive/30 bg-destructive/5 px-3 py-2 text-[13px] text-foreground">
+                This organization is suspended. Everything is read-only.{organization.suspendReason ? ` Reason: ${organization.suspendReason}.` : ''}{isOwner ? ' To appeal, email support@networkbase.in.' : ''}
+            </p>
+        )
+    }
+    if (organization.deletionScheduledAt && isOwner) {
+        const purge = new Date(new Date(organization.deletionScheduledAt).getTime() + 30 * 86_400_000)
+        return (
+            <p role="status" className="mt-2 flex flex-wrap items-center gap-2 rounded-[5px] border border-destructive/30 bg-destructive/5 px-3 py-2 text-[13px] text-foreground">
+                Scheduled for deletion on {purge.toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}
+                <button type="button" disabled={pending} className="font-medium underline underline-offset-2" onClick={() => start(async () => { const r = await restoreOrgAction(orgId); if (r.success) router.refresh() })}>Restore</button>
+            </p>
+        )
+    }
+    return null
+}
+
+/** The org header's ⋯ menu: Report (report §30.3). */
+export function OrgHeaderMenu({ orgId }: { orgId: string }) {
+    const [open, setOpen] = useState(false)
+    return (
+        <>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <button type="button" aria-label="Organization actions" className="nb-icon-button nb-touch-target"><MoreHorizontal className="size-4" aria-hidden="true" /></button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onSelect={() => setOpen(true)}><Flag className="size-4" aria-hidden="true" />Report organization</DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+            {open ? <ReportDialog kind="project" targetId={orgId} noun="organization" open={open} onOpenChange={setOpen} /> : null}
+        </>
     )
 }

@@ -1,7 +1,8 @@
 "use client";
 
 import { ChildOrgSection } from "@/components/organizations/ChildOrgSection";
-import { OrgAccessSection, OrgChatSection, OrgNotificationsSection, OrgLeaveSection, OrgMembershipSection, OrgPeopleSection, OrgProfileSection, OrgProjectsSection } from "@/components/organizations/OrgSettingsSections";
+import { OrgDangerZone } from "@/components/organizations/OrgDangerZone";
+import { OrgAccessSection, OrgChatSection, OrgNotificationsSection, OrgVerificationSection, OrgLeaveSection, OrgMembershipSection, OrgPeopleSection, OrgProfileSection, OrgProjectsSection } from "@/components/organizations/OrgSettingsSections";
 import { ORG_SECTION_DEFS, orgSettingsSectionIds, type OrgMemberRole, type OrgSettingsSectionId } from "@/lib/organizations/settings";
 import { useRoleApplicationCounts } from "@/hooks/useRoleApplicationCounts";
 import { TaskCompletionSettings } from "@/components/projects/settings/TaskCompletionSettings";
@@ -1385,6 +1386,7 @@ function ProjectSettingsContent({
                         onProjectTitleChange={setProjectTitle}
                     />
                 )}
+                {organization && isProjectOwner && sections.some((s) => s.id === "general") ? <OrgVerificationSection orgId={projectId} organization={organization} /> : null}
                 {sections.some((s) => s.id === "child-org") && project ? <ChildOrgSection project={project} isLead={isProjectOwner} canManage={canManageSettings} /> : null}
                 {organization && sections.some((s) => s.id === "org-profile") && <OrgProfileSection orgId={projectId} organization={organization} role={orgRole} handle={project?.slug ?? null} />}
                 {sections.some((s) => s.id === "links") && (
@@ -2068,7 +2070,7 @@ function ProjectSettingsContent({
                 )}
                 {sections.some((s) => s.id === "danger") && (
                     <section id="project-settings-danger" data-project-settings-section className="space-y-6">
-                        <SettingsCard
+                        {organization ? <OrgDangerZone orgId={projectId} organization={organization} handle={project?.slug ?? null} /> : <SettingsCard
                             title="Danger Zone"
                                 headingLevel={2}
                                 loadState={{ loading: dangerPreflightLoading, hasData: Boolean(dangerPreflight), error: settingsErrors.danger ?? null, retry: () => void loadDangerPreflight(true) }}
@@ -2269,7 +2271,7 @@ function ProjectSettingsContent({
                                 </div>
                             </div>
                         </div>
-                    </SettingsCard>
+                    </SettingsCard>}
                     </section>
                 )}
             </main>

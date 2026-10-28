@@ -1,5 +1,6 @@
 "use client";
 
+import { OrgRequestsSection, useOrgRequests } from "@/components/organizations/OrgRequestsSection";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -105,6 +106,8 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
         [incomingApplications],
     );
     const pendingConnections = connectionsQuery.data?.incoming ?? [];
+    const orgRequests = useOrgRequests(isWorkspaceOpen && isActive).data;
+    const hasOrgRequests = Boolean(orgRequests && (orgRequests.invites.length > 0 || orgRequests.joinRequests.length > 0));
 
     const removeOptimistically = (id: string) => {
         queryClient.setQueryData(queryKeys.workspace.joinRequests(20), (previous: typeof data) => {
@@ -261,7 +264,7 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
         );
     }
 
-    const hasAnyRequests = pendingConnections.length > 0 || pendingInvites.length > 0 || pendingIncoming.length > 0;
+    const hasAnyRequests = hasOrgRequests || pendingConnections.length > 0 || pendingInvites.length > 0 || pendingIncoming.length > 0;
 
     if (!hasAnyRequests) {
         return (
@@ -280,6 +283,7 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
             <p className="mb-4 px-1 text-[13px] leading-5 text-muted-foreground">
                 Connection and project decisions that need your attention, in one place.
             </p>
+            <OrgRequestsSection joinRequests="decide" onNavigate={() => setWorkspaceOpen(false)} enabled={isWorkspaceOpen && isActive} />
             {pendingConnections.length > 0 && (
                 <div className="mb-6">
                     <div className="mb-3 flex items-center justify-between pl-1">
