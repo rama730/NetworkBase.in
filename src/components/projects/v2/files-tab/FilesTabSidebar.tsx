@@ -601,7 +601,8 @@ export function FilesTabSidebar({
                      !["tasks", "deliverables"].includes(item.id)) &&
                   (item.id !== "github" || workspaceView.canOpenGitHub),
               )
-              .map(({ id, label, Icon }) => {
+              .map(({ id, Icon }) => {
+                const label = workspaceView.viewLabel(id);
                 const isActive = workspaceView.view === id;
                 return (
                   <button

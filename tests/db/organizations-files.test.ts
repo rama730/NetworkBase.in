@@ -78,7 +78,7 @@ async function org() {
   const copyB = await copyTask(orgId, master!.id, b!);
   const fileA = await node(orgId, `/.system/tasks/${copyA}/lab2-a.pdf`, "file", { taskId: copyA });
   const fileB = await node(orgId, `/.system/tasks/${copyB}/lab2-b.pdf`, "file", { taskId: copyB });
-  return { orgId, child, owner: owner!, admin: admin!, a: a!, b: b!, outsider: outsider!, notes, key, syllabus, copyA, copyB, fileA, fileB };
+  return { orgId, child, owner: owner!, admin: admin!, a: a!, b: b!, outsider: outsider!, notes, key, syllabus, copyA, copyB, fileA, fileB, master: master!.id as string };
 }
 
 async function search(projectId: string, as: string, query: string) {
@@ -181,4 +181,60 @@ test("From <org> in a child project: org members browse the org tree read-only; 
   const copies = await orgFiles.listOrgCopiesAction(o.child);
   assert.equal(copies.success, true);
   if (copies.success) assert.deepEqual(copies.copies.map((c) => [c.nodeId, c.copiedVersion, c.sourceVersion]), [[copy, 1, 3]]);
+});
+
+test("§23 pass: Sprint materials by access, trash-in-use warnings, storage line, template folders, group deliverables; no GitHub sync for orgs", async () => {
+  const o = await org();
+  const [sprint] = await sql`INSERT INTO project_sprints (project_id, sprint_number, name, status, start_date, end_date) VALUES (${o.orgId}, 1, 'CO2', 'active', now(), now() + interval '7 days') RETURNING id`;
+  await sql`INSERT INTO sprint_materials (sprint_id, node_id) VALUES (${sprint!.id}, ${o.notes}), (${sprint!.id}, ${o.key})`;
+  viewerId = o.a;
+  const asMember = await orgFiles.readOrgSprintMaterialsAction(o.orgId);
+  assert.deepEqual(asMember.success && asMember.groups.map((g) => [g.sprint, g.files.map((f) => f.name)]), [["CO2", ["notes.pdf"]]], "the answer key stays hidden");
+  viewerId = o.admin;
+  const asAdmin = await orgFiles.readOrgSprintMaterialsAction(o.orgId);
+  assert.equal(asAdmin.success && asAdmin.groups[0]!.files.length, 2);
+
+  const [course] = await sql`SELECT id FROM project_nodes WHERE project_id = ${o.orgId} AND path = '/Course materials'`;
+  await sql`UPDATE project_nodes SET metadata = metadata || '{"template": true}'::jsonb WHERE id = ${course!.id}`;
+  const usage = await orgFiles.readOrgFileUsageAction(o.orgId, [course!.id]);
+  assert.deepEqual(usage.sort(), ["Material in CO2", "Template folder Course materials"]);
+  viewerId = o.a;
+  assert.deepEqual(await orgFiles.readOrgFileUsageAction(o.orgId, [course!.id]), [], "admins only");
+  assert.deepEqual((await orgFiles.listOrgTemplateFoldersAction(o.orgId)).map((f) => f.name), ["Course materials"]);
+
+  viewerId = o.admin;
+  await sql`INSERT INTO storage_quota_scopes (scope_type, scope_id, limit_bytes, retained_bytes) VALUES ('project', ${o.orgId}, ${10 * 1024 ** 3}, ${Math.round(4.2 * 1024 ** 3)})
+    ON CONFLICT (scope_type, scope_id) DO UPDATE SET retained_bytes = EXCLUDED.retained_bytes`;
+  const storage = await orgFiles.readOrgStorageAction(o.orgId);
+  assert.deepEqual([storage?.limitBytes, storage?.warn], [5 * 1024 ** 3, true]);
+  await sql`DELETE FROM storage_quota_scopes WHERE scope_type = 'project' AND scope_id = ${o.orgId}`;
+
+  // A group copy in the child project with a handed-in file shows in the org's deliverables.
+  const [group] = await sql`INSERT INTO tasks (project_id, title, kind, assignment_id, assignee_id, creator_id, review_status) VALUES (${o.child}, 'Lab 2', 'task', ${o.master}, ${o.a}, ${o.owner}, 'pending') RETURNING id`;
+  await node(o.child, `/.system/tasks/${group!.id}/parser.zip`, "file", { taskId: group!.id });
+  const deliverables = await orgFiles.readGroupDeliverablesAction(o.orgId);
+  assert.deepEqual(deliverables.success && deliverables.rows.map((r) => [r.name, r.project, r.review]), [["parser.zip", "Compiler Lab", "pending"]]);
+
+  const github = await loadAppModule(() => import("../../src/app/actions/github-sync"));
+  const refused = await github.connectGitHubSyncRepository(o.orgId, "https://github.com/acme/repo", "main") as { success?: boolean; error?: string };
+  assert.ok(!refused.success && /Organizations can't connect/.test(String(refused.error)), JSON.stringify(refused));
+});
+
+test("§23 pass: a member's folder zip skips Admins-only folders and other people's copies", async () => {
+  const o = await org();
+  await sql`UPDATE project_nodes SET s3_key = 'legacy/' || id::text, size = 10 WHERE project_id = ${o.orgId} AND type = 'file'`;
+  const exportLib = await loadAppModule(() => import("../../src/lib/files/folder-export"));
+  const accessLib = await loadAppModule(() => import("../../src/lib/data/project-access"));
+  const { sql: dsql } = await import("drizzle-orm");
+  const plan = async (userId: string) => {
+    const access = await accessLib.getProjectAccessById(o.orgId, userId);
+    const nodeFilter = helpers.orgFileAccessSql(access)
+      ? (alias: "n" | "child") => helpers.orgFileAccessSql(access, { projectId: dsql.raw(`${alias}.project_id`), path: dsql.raw(`${alias}.path`), taskId: dsql.raw(`${alias}.task_id`) })
+      : undefined;
+    const prepared = await exportLib.prepareFolderExport({ projectId: o.orgId, folderId: null, canReadTaskFiles: true, nodeFilter });
+    await exportLib.releaseFolderExport(prepared.operationId);
+    return prepared.entries.filter((e) => e.type === "file").map((e) => e.path.split("/").at(-1)).sort();
+  };
+  assert.deepEqual(await plan(o.a), ["lab2-a.pdf", "notes.pdf", "syllabus.pdf"]);
+  assert.ok((await plan(o.owner)).includes("answer-key.pdf"));
 });

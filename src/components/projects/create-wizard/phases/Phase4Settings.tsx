@@ -4,6 +4,7 @@ import { useCreateLocation } from '@/components/organizations/CreateLocation';
 import { allowedChildVisibilities, type VisibilityCap } from '@/lib/organizations/child-rules';
 import { OrgSettingsFields } from '@/components/organizations/OrgWizardFields';
 import { readOrgDocsAction } from '@/app/actions/org-docs';
+import { listOrgTemplateFoldersAction } from '@/app/actions/org-files';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { Bell, Building2, Check, ChevronDown, FileText, Folder, Globe, ImageIcon, ImagePlus, Info, Link2, Lock, Users, Workflow, X } from 'lucide-react';
@@ -120,6 +121,15 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
         void readOrgDocsAction(childOrg.id).then((r) => {
             if (live) setOrgTemplates(r.success && r.data ? r.data.docs.filter((d) => d.template).map((d) => ({ id: d.id, filename: d.filename })) : []);
         });
+        return () => { live = false; };
+    }, [childOrg]);
+    // Report §23.6: start the project's files from one of the org's Template folders.
+    const [templateFolders, setTemplateFolders] = useState<Array<{ id: string; name: string }>>([]);
+    const templateFolderId = useWatch({ control, name: 'org_template_folder_id' });
+    useEffect(() => {
+        if (!childOrg) return setTemplateFolders([]);
+        let live = true;
+        void listOrgTemplateFoldersAction(childOrg.id).then((folders) => { if (live) setTemplateFolders(folders); });
         return () => { live = false; };
     }, [childOrg]);
     // Report §14.3 Phase 4: member permissions start from the org's values, unless already changed here.
@@ -456,6 +466,17 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                                 <p className="nb-compact mt-1 text-muted-foreground">{sourceSummary}. Change the source in step 1.</p>
                             </div>
                         </div>
+                        {childOrg && templateFolders.length > 0 ? (
+                            <div className="border-b border-border px-4 py-3.5">
+                                <label htmlFor="org-template-folder" className="nb-ui-label text-foreground">From a {childOrg.title} template</label>
+                                <p className="nb-compact mt-1 text-muted-foreground">Copies the folder into the new project. The copies are yours to change.</p>
+                                <select id="org-template-folder" value={templateFolderId ?? ''} onChange={(e) => set('org_template_folder_id', e.target.value || null)}
+                                    className="mt-2 h-9 w-full max-w-xs rounded-md border border-border bg-background px-2 text-sm">
+                                    <option value="">None</option>
+                                    {templateFolders.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                                </select>
+                            </div>
+                        ) : null}
                         <div className="flex items-start gap-3 px-4 py-3.5">
                             <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                             <div className="min-w-0">

@@ -339,7 +339,7 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
 }
 
 /** One assignment's roster: per person or team, with Approve / Return / Extend / Excuse (report §16.5). */
-export function RosterDialog({ row, open, onOpenChange, onChanged }: { row: AssignmentRow; open: boolean; onOpenChange: (open: boolean) => void; onChanged: () => void }) {
+export function RosterDialog({ row, orgId, open, onOpenChange, onChanged }: { row: AssignmentRow; orgId?: string; open: boolean; onOpenChange: (open: boolean) => void; onChanged: () => void }) {
     const [rows, setRows] = useState<RosterRow[]>([])
     const [error, setError] = useState<string | null>(null)
     const [pending, startTransition] = useTransition()
@@ -362,6 +362,8 @@ export function RosterDialog({ row, open, onOpenChange, onChanged }: { row: Assi
                     {row.counts.submitted > 0 ? <Button type="button" size="sm" disabled={pending} onClick={() => run(() => approveAllSubmittedAction(row.masterId))}>Approve all submitted</Button> : null}
                     <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(async () => { const r = await remindCopiesAction(row.masterId); return r.success ? { success: true } : r })}>Remind everyone not done</Button>
                     {/* Brief and shared Q&A live on the master task (report §16.4 Conversation, §16.5 Brief / Discussion). */}
+                    {/* Download all (report §23.5): one folder per person or team, latest handed-in files. */}
+                    {orgId && row.submissionType === 'file' && row.counts.submitted + row.counts.done > 0 ? <Button asChild size="sm" variant="outline"><a href={`/api/v1/projects/${orgId}/tasks/${row.masterId}/submissions`} download>Download all</a></Button> : null}
                     <a href={`?tab=tasks&drawerType=task&drawerId=${row.masterId}`} className="self-center text-sm text-primary underline-offset-4 hover:underline">Brief and Q&amp;A</a>
                 </div>
                 <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); const input = e.currentTarget.elements.namedItem('step') as HTMLInputElement; const value = input.value.trim(); if (value) run(async () => { const r = await addAssignmentStepAction(row.masterId, value); if (r.success) input.value = ''; return r }) }}>
@@ -499,7 +501,7 @@ export function AssignmentsPanel({ orgId, onBoardChanged, startComposing = false
             </ul>
             {error ? <p role="alert" className="mt-2 text-sm text-destructive">{error}</p> : null}
             {data.isAdmin ? <AssignmentComposer orgId={orgId} open={composing} onOpenChange={setComposing} onCreated={refresh} /> : null}
-            {roster ? <RosterDialog row={roster} open onOpenChange={(open) => { if (!open) setRoster(null) }} onChanged={load} /> : null}
+            {roster ? <RosterDialog row={roster} orgId={orgId} open onOpenChange={(open) => { if (!open) setRoster(null) }} onChanged={load} /> : null}
             {submitting?.mine ? <SubmitDialog copyId={submitting.mine.copyId} submissionType={submitting.submissionType} title={submitting.title} open onOpenChange={(open) => { if (!open) setSubmitting(null) }} onDone={refresh} /> : null}
         </section>
     )

@@ -37,7 +37,9 @@ test.beforeAll(async () => {
             {id:'f2',name:'Distributed-systems-capstone-rubric-final-v3.pdf',type:'file',path:'/r.pdf',currentVersion:3,size:1,access:'public'}]});
             export const listOrgCopiesAction=async()=>({success:true,orgTitle:'CSE-3A',copies:[{nodeId:'n',name:'rubric.pdf',sourceNodeId:'f2',copiedVersion:1,sourceVersion:3}]});
             export const listOrgFoldersAction=async()=>({success:true,folders:[{id:'d1',path:'/Week 1 — Requirements and stakeholder interviews',access:'admins',template:true},{id:'d2',path:'/Rubrics',access:null,template:false}]});
-            export const recordOrgCopyAction=${ok},setFolderAccessAction=async()=>({success:true,preview:null}),setFolderTemplateAction=${ok};`,
+            export const recordOrgCopyAction=${ok},setFolderAccessAction=async()=>({success:true,preview:null}),setFolderTemplateAction=${ok};
+            export const readOrgStorageAction=async()=>({usedBytes:4.3*1024**3,limitBytes:5*1024**3,warn:true}),readOrgSprintMaterialsAction=async()=>({success:true,groups:[]});
+            export const readGroupDeliverablesAction=async()=>({success:true,rows:[{nodeId:'g1',name:'parser.zip',project:'Team Falcon',projectSlug:'falcon',projectId:'c1',assignment:'Milestone 2 report',review:'pending'}]});`,
         '@/components/organizations/OrgDocParts': `export const uploadProjectFile=async()=>({id:'n'});`,
         '@/app/actions/child-units': `export const readChildUnitsAction=async()=>({success:true,units:[
             {id:'un1',title:'Frontend developers',count:4,filled:2,leadUserId:'u1',members:[{userId:'u1',name:'Ravi Kumar'},{userId:'u2',name:'Alexandria Ramana Chandrasekhar'}]},
@@ -45,6 +47,7 @@ test.beforeAll(async () => {
             export const updateUnitAction=${ok},moveMemberToUnitAction=${ok},readProjectUnitsAction=async()=>[];`,
         '@/components/messages/message-user': `export const messageUserInWindow=()=>false;`,
         '@/app/actions/org-lifecycle': `export const restoreOrgAction=${ok};`,
+        '@/hooks/useFileVersions': `export const saveFileRevision=async()=>({success:true});`,
         '@/components/reports/ReportDialog': `export const ReportDialog=()=>null;`,
         '@/components/presence/ProjectStatusControl': `export const ProjectStatusControl=()=>null;`,
         '@/components/projects/dashboard/ProjectSocialLinksCard': `export const ProjectLinkCluster=()=>null;`,
@@ -216,4 +219,16 @@ test('Members (§20): bulk Remind, the Outside people filter, and the drawer has
     await page.getByRole('button', { name: /^Student 5/ }).click();
     await expect(page.getByRole('link', { name: 'Message' })).toBeVisible();
     await expect(page.getByText('status changed · Lab 2')).toBeVisible();
+});
+
+test('Files (§23): storage nearly full, group deliverables, Update copy and opening an org file in place', async ({ page }) => {
+    await open(page, 'files', 1280);
+    await expect(page.getByTestId('org-storage')).toContainText('4.3 GB of 5 GB used · nearly full');
+    await page.getByText('Deliverables from projects · 1').click();
+    await expect(page.getByRole('link', { name: 'parser.zip' })).toBeVisible();
+    await page.getByText('From the organization').click();
+    await expect(page.getByRole('button', { name: 'Update copy' })).toBeVisible();
+    await page.getByRole('button', { name: 'Distributed-systems-capstone-rubric-final-v3.pdf', exact: true }).click();
+    await expect(page.getByRole('dialog')).toContainText('read-only');
+    await expect(page.getByRole('link', { name: 'Open in CSE-3A Software Engineering →' })).toBeVisible();
 });

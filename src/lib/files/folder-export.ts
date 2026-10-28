@@ -1,13 +1,14 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql, type SQL } from "drizzle-orm";
 import { Zip, ZipPassThrough } from "fflate";
 
 import { db } from "@/lib/db";
 import { storageAssetPins, storageAssets } from "@/lib/db/schema";
 import {
   buildFolderExportEntries,
+  FOLDER_EXPORT_MAX_BYTES,
   FOLDER_EXPORT_MAX_ENTRIES,
   type FolderExportEntry,
   type FolderExportRow,
@@ -28,10 +29,85 @@ export type PreparedFolderExport = {
   requiresTaskAccess: boolean;
 };
 
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** Locks and pins every asset in an export so nothing is purged while the zip streams. */
+async function pinExportAssets(tx: Tx, entries: FolderExportEntry[], operationId: string, expiresAt: Date) {
+  const assetIds = Array.from(new Set(entries.flatMap((entry) => entry.assetId ? [entry.assetId] : []))).sort();
+  if (assetIds.length === 0) return;
+  const locked = await tx
+    .select({ id: storageAssets.id, state: storageAssets.state })
+    .from(storageAssets)
+    .where(inArray(storageAssets.id, assetIds))
+    .orderBy(storageAssets.id)
+    .for("update");
+  if (locked.length !== assetIds.length || locked.some((asset) => asset.state !== "verified")) {
+    throw new Error("One or more files changed while the export was being prepared");
+  }
+  for (let offset = 0; offset < assetIds.length; offset += 500) {
+    await tx.insert(storageAssetPins).values(assetIds.slice(offset, offset + 500).map((assetId) => ({
+      assetId,
+      operationId,
+      kind: "export" as const,
+      expiresAt,
+    })));
+  }
+}
+
+/**
+ * Download all (report §23.5): one folder per person or team with the files on their handed-in copy of one
+ * assignment; excused copies are skipped. Copies in child projects (group copies) are named by project.
+ */
+export async function prepareSubmissionsExport(input: { masterId: string }): Promise<PreparedFolderExport> {
+  // ponytail: streams straight to the admin; the report's background job and "ready" notice come when classes
+  // outgrow the 1 GB / 20,000-entry export ceiling.
+  const operationId = randomUUID();
+  const expiresAt = new Date(Date.now() + FOLDER_EXPORT_PIN_MS);
+  const entries = await db.transaction(async (tx) => {
+    const rows = Array.from(await tx.execute<{ copy_id: string; who: string; id: string; name: string; asset_id: string | null; s3_key: string | null; size: number | null; bucket: string | null; storage_key: string | null; verified_size: number | null }>(sql`
+      SELECT c.id AS copy_id,
+             coalesce(c.team_name, (SELECT p.title FROM projects p WHERE p.id = c.project_id AND p.id <> m.project_id),
+                      (SELECT coalesce(pr.full_name, pr.username) FROM profiles pr WHERE pr.id = c.assignee_id), 'Member') AS who,
+             n.id, n.name, n.asset_id, n.s3_key, n.size, a.bucket, a.storage_key, a.verified_size
+      FROM tasks c JOIN tasks m ON m.id = c.assignment_id
+      JOIN project_nodes n ON n.task_id = c.id AND n.type = 'file' AND n.deleted_at IS NULL
+      LEFT JOIN storage_assets a ON a.id = n.asset_id
+      WHERE c.assignment_id = ${input.masterId} AND c.deleted_at IS NULL AND c.excused_at IS NULL
+        AND (c.submission IS NOT NULL OR c.review_status IN ('pending', 'approved') OR c.status = 'done')
+      ORDER BY 2, n.name
+      LIMIT ${FOLDER_EXPORT_MAX_ENTRIES}`));
+    const clean = (value: string) => value.replace(/[\/\\:*?"<>|\u0000-\u001f]+/g, " ").trim().slice(0, 120) || "Untitled";
+    const folders = new Map<string, string>();
+    const used = new Set<string>();
+    const list: FolderExportEntry[] = [];
+    for (const row of rows) {
+      if (!folders.has(row.copy_id)) {
+        let name = clean(row.who);
+        for (let i = 2; used.has(name); i++) name = `${clean(row.who)} (${i})`;
+        used.add(name);
+        folders.set(row.copy_id, name);
+        list.push({ id: row.copy_id, path: name, type: "folder", bucket: null, storageKey: null, assetId: null, size: 0 });
+      }
+      list.push({
+        id: row.id, path: `${folders.get(row.copy_id)}/${clean(row.name)}`, type: "file",
+        bucket: row.bucket ?? "project-files", storageKey: row.storage_key ?? row.s3_key, assetId: row.asset_id, size: Number(row.verified_size ?? row.size ?? 0),
+      });
+    }
+    if (!list.some((entry) => entry.type === "file")) throw new Error("No handed-in files to download yet");
+    await pinExportAssets(tx, list, operationId, expiresAt);
+    return list;
+  });
+  const totalBytes = entries.reduce((sum, entry) => sum + entry.size, 0);
+  if (totalBytes > FOLDER_EXPORT_MAX_BYTES) throw new Error("Submissions are limited to 1 GB per download");
+  return { operationId, entries, totalBytes, requiresTaskAccess: true };
+}
+
 export async function prepareFolderExport(input: {
   projectId: string;
   folderId: string | null;
   canReadTaskFiles: boolean;
+  /** Org folder access per row alias (report §23.4): members' zips skip Admins-only folders and others' copies. */
+  nodeFilter?: (alias: "n" | "child") => SQL | undefined;
 }): Promise<PreparedFolderExport> {
   const operationId = randomUUID();
   const expiresAt = new Date(Date.now() + FOLDER_EXPORT_PIN_MS);
@@ -54,6 +130,7 @@ export async function prepareFolderExport(input: {
           AND n.deleted_at IS NULL
           AND ${anchor}
           AND ${taskVisibility}
+          AND ${input.nodeFilter?.("n") ?? sql`true`}
         UNION ALL
         SELECT child.id, child.parent_id, child.type, child.name, child.s3_key,
                child.asset_id, child.size, child.task_id, child.path, tree.depth + 1
@@ -63,6 +140,7 @@ export async function prepareFolderExport(input: {
           AND child.deleted_at IS NULL
           AND tree.depth < ${FOLDER_EXPORT_MAX_DEPTH}
           AND ${childTaskVisibility}
+          AND ${input.nodeFilter?.("child") ?? sql`true`}
       )
       SELECT tree.*,
              asset.state AS asset_state,
@@ -88,26 +166,7 @@ export async function prepareFolderExport(input: {
       throw new Error("No files found to download");
     }
 
-    const assetIds = Array.from(new Set(entries.flatMap((entry) => entry.assetId ? [entry.assetId] : []))).sort();
-    if (assetIds.length > 0) {
-      const locked = await tx
-        .select({ id: storageAssets.id, state: storageAssets.state })
-        .from(storageAssets)
-        .where(inArray(storageAssets.id, assetIds))
-        .orderBy(storageAssets.id)
-        .for("update");
-      if (locked.length !== assetIds.length || locked.some((asset) => asset.state !== "verified")) {
-        throw new Error("One or more files changed while the export was being prepared");
-      }
-      for (let offset = 0; offset < assetIds.length; offset += 500) {
-        await tx.insert(storageAssetPins).values(assetIds.slice(offset, offset + 500).map((assetId) => ({
-          assetId,
-          operationId,
-          kind: "export" as const,
-          expiresAt,
-        })));
-      }
-    }
+    await pinExportAssets(tx, entries, operationId, expiresAt);
     return { rows: found, entries, totalBytes };
   });
 

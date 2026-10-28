@@ -171,6 +171,8 @@ export const createProjectSchema = z.object({
     unassigned_people: z.array(z.object({ user_id: z.string().uuid(), label: z.string().max(120).optional() })).max(100).optional(),
     // Follow org sprints (report §14.3 Phase 4): the project's sprints link to the org's and stay inside their dates.
     follow_org_sprints: z.boolean().optional(),
+    // Start from an org template folder (report §23.6): copied into the new project after it's created.
+    org_template_folder_id: z.string().uuid().nullable().optional(),
     // Present only when creating an organization (report §6); the server checks the feature flag.
     organization: z.object({
         org_type: z.enum(ORG_TYPES),

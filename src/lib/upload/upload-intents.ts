@@ -6,6 +6,7 @@ import { and, asc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   importJobFiles,
+  projects,
   storageAssetOperations,
   storageAssets,
   storageQuotaScopes,
@@ -27,6 +28,7 @@ import {
   PROJECT_STORAGE_LIMIT_BYTES,
   USER_STORAGE_LIMIT_BYTES,
 } from "@/lib/storage/storage-quota";
+import { ORG_LIMITS } from "@/lib/organizations/config";
 
 const DEFAULT_UPLOAD_INTENT_TTL_MS = 60 * 60 * 1000;
 const VERIFICATION_LEASE_MS = 10 * 60 * 1000;
@@ -428,8 +430,12 @@ export async function createUploadIntent(rawParams: CreateUploadIntentParams) {
     }
 
     const byteQuota = projectQuota ?? userQuota;
+    // Organizations hold 5 GB (report §23, ORG_LIMITS.orgStorageBytes); copies of org files are counted once.
+    const [scopeProject] = projectQuota
+      ? await tx.select({ kind: projects.kind }).from(projects).where(eq(projects.id, projectQuota.scopeId)).limit(1)
+      : [];
     assertStorageQuotaAdmission({
-      limitBytes: byteQuota.limitBytes,
+      limitBytes: scopeProject?.kind === "organization" ? Math.min(byteQuota.limitBytes, ORG_LIMITS.orgStorageBytes) : byteQuota.limitBytes,
       retainedBytes: byteQuota.retainedBytes,
       reservedBytes: byteQuota.reservedBytes,
       outstandingUploads: userQuota.outstandingUploads,

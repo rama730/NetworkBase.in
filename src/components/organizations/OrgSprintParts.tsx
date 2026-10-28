@@ -268,7 +268,7 @@ export function SprintAssignmentRows({ projectId, sprintId }: { projectId: strin
             {data.view !== 'member' && data.view !== 'child' && data.completed ? (
                 <p className="mt-2 text-xs text-muted-foreground">{data.completed.by} completed this sprint · {data.completed.assignments} {data.completed.assignments === 1 ? 'assignment' : 'assignments'} · {data.completed.missingPeople} {data.completed.missingPeople === 1 ? 'person' : 'people'} with missing work</p>
             ) : null}
-            {roster ? <RosterDialog row={roster} open onOpenChange={(open) => { if (!open) setRoster(null) }} onChanged={() => void query.refetch()} /> : null}
+            {roster ? <RosterDialog row={roster} orgId={projectId} open onOpenChange={(open) => { if (!open) setRoster(null) }} onChanged={() => void query.refetch()} /> : null}
         </section>
     )
 }
