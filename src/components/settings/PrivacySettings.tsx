@@ -73,7 +73,7 @@ function BlockedAccountRow({ account, onUnblock, isPending }: { account: Privacy
     <div className="flex min-w-0 items-center gap-3">
       <UserAvatar identity={account} size={40} fallbackDisplayName={displayName} fallbackClassName="text-sm font-semibold text-primary-foreground" />
       <div className="min-w-0">
-        <Link href={profileHref(account)} className="block truncate nb-ui-label text-foreground hover:text-primary pointer-coarse:-my-3.5 pointer-coarse:py-3.5">{displayName}</Link>
+        <Link href={profileHref(account)} className="block truncate nb-ui-label text-foreground hover:text-primary pointer-coarse:-my-3 pointer-coarse:min-h-11 pointer-coarse:py-3.5">{displayName}</Link>
         <p className="truncate nb-meta text-muted-foreground">{account.username ? `@${account.username}` : account.headline || "NetworkBase member"}</p>
         {account.username && account.headline ? <p className="truncate nb-meta text-muted-foreground">{account.headline}</p> : null}
       </div>
