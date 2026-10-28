@@ -36,7 +36,7 @@ export default function AccountDeletionSettings() {
   const unknown = isLoading || isError;
 
   return <>
-    <SettingsSectionCard title="Delete account" description="Permanently delete your account and everything in it, after a 30-day recovery period.">
+    <SettingsSectionCard title="Delete this account" description="Your account and everything in it are removed after a 30-day recovery period.">
       {isError ? <ErrorNotice what="Your deletion status" onRetry={() => void refetch()} className="mb-3" /> : null}
       {pending && deletionStatus?.hardDeleteAt ? (
         <PendingDeletionBanner

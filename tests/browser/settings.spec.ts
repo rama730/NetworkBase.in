@@ -38,8 +38,8 @@ test.beforeEach(async({page})=>{
 
 test('settings navigation matches the application sidebar and stays in place while content scrolls',async({page})=>{
   const shell=page.getByRole('region',{name:'Settings',exact:true});
-  const rail=shell.getByRole('complementary',{name:'Settings navigation'});
-  const navigation=rail.getByRole('navigation',{name:'Settings sections'});
+  const navigation=shell.getByRole('navigation',{name:'Settings sections'});
+  const rail=navigation.locator('xpath=..');
   const main=page.getByRole('navigation',{name:'Application navigation'});
   const reference=main.getByRole('link',{name:'Settings',exact:true});
   const bounds=await rail.boundingBox();
@@ -56,8 +56,8 @@ test('settings navigation matches the application sidebar and stays in place whi
     expect(await link.evaluate(el=>{const s=getComputedStyle(el);return [s.fontSize,s.padding,s.borderRadius];})).toEqual(await reference.evaluate(el=>{const s=getComputedStyle(el);return [s.fontSize,s.padding,s.borderRadius];}));
   }
   await navigation.getByRole('link',{name:'Appearance',exact:true}).click();
-  await expect(page).toHaveURL(/tab=appearance/);
-  await expect(navigation.getByRole('link',{name:'Appearance',exact:true})).toHaveAttribute('aria-current','page');
+  await expect(page).toHaveURL(/#settings-appearance$/);
+  await expect(navigation.getByRole('link',{name:'Appearance',exact:true})).toHaveAttribute('aria-current','location');
   expect((await rail.boundingBox())!.y).toBe(bounds!.y);
   const content=await shell.locator('[data-scroll-root="route"]').boundingBox();expect(content!.x).toBeGreaterThanOrEqual(bounds!.x+bounds!.width);
   expect(await page.evaluate(()=>document.documentElement.scrollHeight===innerHeight)).toBe(true);
@@ -68,19 +68,19 @@ test('settings links and external URL changes scroll to the requested section wi
   const draft=page.getByLabel('AccountSettings draft',{exact:true});
   await draft.fill('Unsaved local field');
   await nav.getByRole('link',{name:'Privacy',exact:true}).click();
-  await expect(nav.getByRole('link',{name:'Privacy',exact:true})).toHaveAttribute('aria-current','page');
+  await expect(nav.getByRole('link',{name:'Privacy',exact:true})).toHaveAttribute('aria-current','location');
   await nav.getByRole('link',{name:'Account',exact:true}).click();
-  await expect(page).toHaveURL(origin+'/settings');await expect(draft).toHaveValue('Unsaved local field');
+  await expect(page).toHaveURL(origin+'/settings#settings-account');await expect(draft).toHaveValue('Unsaved local field');
   await expect.poll(()=>page.locator('[data-scroll-root="route"]').evaluate(el=>el.scrollTop)).toBe(0);
   await page.evaluate(()=>{const f=(window as any).settingsFixture;f.navigate('/settings?tab=security');});
-  await expect(nav.getByRole('link',{name:'Security',exact:true})).toHaveAttribute('aria-current','page');
+  await expect(nav.getByRole('link',{name:'Security',exact:true})).toHaveAttribute('aria-current','location');
   await page.evaluate(()=>history.back());
-  await expect(nav.getByRole('link',{name:'Account',exact:true})).toHaveAttribute('aria-current','page');
+  await expect(nav.getByRole('link',{name:'Account',exact:true})).toHaveAttribute('aria-current','location');
   await expect(draft).toHaveValue('Unsaved local field');
   await page.goto(origin+'/settings?tab=integrations');
-  await expect(nav.getByRole('link',{name:'Integrations',exact:true})).toHaveAttribute('aria-current','page');
-  await page.reload();await expect(nav.getByRole('link',{name:'Integrations',exact:true})).toHaveAttribute('aria-current','page');
-  await page.goto(origin+'/settings?tab=invalid');await expect(nav.getByRole('link',{name:'Account',exact:true})).toHaveAttribute('aria-current','page');
+  await expect(nav.getByRole('link',{name:'Integrations',exact:true})).toHaveAttribute('aria-current','location');
+  await page.reload();await expect(nav.getByRole('link',{name:'Integrations',exact:true})).toHaveAttribute('aria-current','location');
+  await page.goto(origin+'/settings?tab=invalid');await expect(nav.getByRole('link',{name:'Account',exact:true})).toHaveAttribute('aria-current','location');
 });
 
 test('manual scrolling updates navigation and nested data-rights anchors remain reachable',async({page})=>{
@@ -89,27 +89,27 @@ test('manual scrolling updates navigation and nested data-rights anchors remain 
   await page.locator('[data-scroll-root="route"]').hover();
   await page.mouse.wheel(0,security!.y-account!.y);
   const nav=page.getByRole('navigation',{name:'Settings sections'});
-  await expect(nav.getByRole('link',{name:'Security',exact:true})).toHaveAttribute('aria-current','page');
+  await expect(nav.getByRole('link',{name:'Security',exact:true})).toHaveAttribute('aria-current','location');
   await page.goto(origin+'/settings?tab=privacy-policies#settings-delete-account');
   await expect(page.getByLabel('AccountDeletionSettings draft',{exact:true})).toBeInViewport();
-  await expect(nav.getByRole('link',{name:'Privacy and policies',exact:true})).toHaveAttribute('aria-current','page');
+  await expect(nav.getByRole('link',{name:'Delete account',exact:true})).toHaveAttribute('aria-current','location');
 });
 
 test.describe('touch layouts',()=>{
   test.use({hasTouch:true});
-  test('all seven sections stay reachable on narrow and short viewports',async({page})=>{
+  test('all eight sections stay reachable on narrow and short viewports',async({page})=>{
     for(const size of [{width:320,height:740},{width:320,height:400},{width:768,height:600}]){
       await page.setViewportSize(size);
       const nav=page.getByRole('navigation',{name:'Settings sections'});
-      await expect(nav.getByRole('link')).toHaveCount(7);
+      await expect(nav.getByRole('link')).toHaveCount(8);
       for(const link of await nav.getByRole('link').all())expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-      await nav.getByRole('link',{name:'Privacy and policies',exact:true}).click();
-      await expect(nav.getByRole('link',{name:'Privacy and policies',exact:true})).toHaveAttribute('aria-current','page');
+      await nav.getByRole('link',{name:'Legal and data',exact:true}).click();
+      await expect(nav.getByRole('link',{name:'Legal and data',exact:true})).toHaveAttribute('aria-current','location');
       const content=page.locator('[data-scroll-root="route"]');
       expect((await content.boundingBox())!.height).toBeGreaterThan(100);
       expect(await content.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-      await nav.getByRole('link',{name:'Account',exact:true}).click();await expect(nav.getByRole('link',{name:'Account',exact:true})).toHaveAttribute('aria-current','page');
+      await nav.getByRole('link',{name:'Account',exact:true}).click();await expect(nav.getByRole('link',{name:'Account',exact:true})).toHaveAttribute('aria-current','location');
     }
   });
 });

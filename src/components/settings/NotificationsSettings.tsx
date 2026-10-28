@@ -193,7 +193,7 @@ export default function NotificationsPage({ embedded = false }: { embedded?: boo
       <div className="divide-y divide-border">
         {NOTIFICATION_PREFERENCE_CATEGORIES.map((category) => <PreferenceSwitch key={category.key} id={category.key} title={category.title} description={category.description} checked={preferences[category.key]} disabled={isSaving} onToggle={() => toggleCategory(category.key)} />)}
       </div>
-      <div className="mt-4 border-t border-border pt-4">
+      <div id="settings-notifications-quiet-hours" className="mt-4 scroll-mt-6 border-t border-border pt-4">
         <h4 className="nb-ui-label text-foreground">Quiet controls</h4>
         <div className="mt-2 divide-y divide-border">
           {/* Only an active pause says when it ends (an old one would read "resumes" in the past). */}
@@ -226,7 +226,7 @@ export default function NotificationsPage({ embedded = false }: { embedded?: boo
 
     <OrgNotificationChoices preferences={preferences} disabled={isSaving} onSave={save} />
 
-    <SettingsSectionCard title="Delivery" description="Choose where important updates can reach you.">
+    <SettingsSectionCard id="settings-notifications-delivery" title="Delivery" description="Choose where important updates can reach you.">
       <div className="divide-y divide-border">
         <PreferenceSwitch id="delivery-email" title="Email" description="Email me when someone assigns me a task, and organization emails such as assignments and announcements. Mutes and the Organizations choices above also apply." checked={preferences.delivery.email ?? true} disabled={isSaving} onToggle={() => save({ ...preferences, delivery: { ...preferences.delivery, email: !(preferences.delivery.email ?? true) } })} />
         <PreferenceSwitch id="delivery-browser" title="Desktop notifications on this device" description={deliveryDescriptions.browser} checked={preferences.delivery.browser && permissionState === "granted"} disabled={isSaving || permissionState === "unsupported" || permissionState === "denied"} onToggle={() => void toggleBrowser()} />

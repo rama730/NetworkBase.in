@@ -13,6 +13,7 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader";
 import { SettingsRadioGroup } from "@/components/settings/ui/SettingsRadioGroup";
 import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
+import { SettingsStatusChips } from "@/components/settings/ui/SettingsStatusChips";
 import { SettingsSectionsSkeleton } from "@/components/settings/ui/SettingsSectionsSkeleton";
 import { usePrivacySettings } from "@/hooks/useSettingsQueries";
 import { invalidatePrivacyDependents } from "@/lib/privacy/client-invalidation";
@@ -150,17 +151,27 @@ export default function PrivacySettings({ embedded = false }: { embedded?: boole
   return <div className={embedded ? "space-y-8" : "space-y-6"}>
     {!embedded ? <SettingsPageHeader title="Privacy" description="Control profile visibility, interactions, and blocked accounts." /> : null}
 
+    <SettingsStatusChips
+      label="Privacy summary"
+      items={[
+        { label: "Profile", value: VISIBILITY_COPY[settings?.profileVisibility ?? "public"]?.label ?? "Public", href: "/settings#settings-privacy-visibility" },
+        { label: "Messages", value: MESSAGE_COPY[settings?.messagePrivacy ?? "connections"]?.label ?? "Connections", href: "/settings#settings-privacy-messages" },
+        { label: "Requests", value: CONNECTION_OPTIONS.find((option) => option.value === settings?.connectionPrivacy)?.label ?? "Everyone", href: "/settings#settings-privacy-requests" },
+        { label: "Blocked", value: String(data.blockedAccounts.length) + (data.blockedAccountsNextCursor ? "+" : ""), href: "/settings#settings-privacy-blocked" },
+      ]}
+    />
+
     <SettingsSectionCard title="Who can see and reach you" description="Choose who can view your profile and contact you.">
-      <SettingsRadioGroup label="Profile visibility" description="Choose who can open your full profile." value={settings?.profileVisibility} onValueChange={handleProfileVisibilityChange} options={VISIBILITY_OPTIONS} busy={busy} />
+      <SettingsRadioGroup id="settings-privacy-visibility" label="Profile visibility" description="Choose who can open your full profile." value={settings?.profileVisibility} onValueChange={handleProfileVisibilityChange} options={VISIBILITY_OPTIONS} busy={busy} />
 
       <div className="my-6 border-t border-border" />
-      <SettingsRadioGroup label="Messages" description="Choose who can start a direct conversation with you. Project invitations and applications still reach you." value={settings?.messagePrivacy} onValueChange={handleMessagePrivacyChange} options={MESSAGE_OPTIONS} busy={busy} optionsClassName="sm:grid-cols-2" />
+      <SettingsRadioGroup id="settings-privacy-messages" label="Messages" description="Choose who can start a direct conversation with you. Project invitations and applications still reach you." value={settings?.messagePrivacy} onValueChange={handleMessagePrivacyChange} options={MESSAGE_OPTIONS} busy={busy} optionsClassName="sm:grid-cols-2" />
 
       <div className="my-6 border-t border-border" />
-      <SettingsRadioGroup label="Connection requests" description="Choose who can send you a connection request." value={settings?.connectionPrivacy} onValueChange={handleConnectionPrivacyChange} options={CONNECTION_OPTIONS} busy={busy} optionsClassName="md:grid-cols-3" />
+      <SettingsRadioGroup id="settings-privacy-requests" label="Connection requests" description="Choose who can send you a connection request." value={settings?.connectionPrivacy} onValueChange={handleConnectionPrivacyChange} options={CONNECTION_OPTIONS} busy={busy} optionsClassName="md:grid-cols-3" />
     </SettingsSectionCard>
 
-    <SettingsSectionCard title="Blocked accounts and activity" description="Manage blocked people and review recent privacy changes.">
+    <SettingsSectionCard id="settings-privacy-blocked" title="Blocked accounts and activity" description="Manage blocked people and review recent privacy changes.">
       {data.blockedAccounts.length > 0 ? <SearchField label="Search blocked accounts" value={blockedSearch} onChange={setBlockedSearch} className="mb-3" /> : null}
       {data.blockedAccounts.length === 0 ? <div className="flex min-h-24 items-center gap-3 rounded-md border border-dashed border-border bg-card px-4"><ShieldBan className="size-5 text-muted-foreground" strokeWidth={1.75} aria-hidden="true" /><div><p className="nb-ui-label text-foreground">No blocked accounts</p><p className="nb-compact mt-1 text-muted-foreground">Blocked people will appear here.</p></div></div> : filteredBlockedAccounts.length === 0 ? <p className="py-6 text-center nb-compact text-muted-foreground">No blocked accounts match your search.</p> : <div>{filteredBlockedAccounts.map((account) => <BlockedAccountRow key={account.id} account={account} isPending={unblockMutation.isPending && unblockMutation.variables === account.id} onUnblock={handleUnblock} />)}</div>}
       {blockedQuery && nextBlockedCursor ? <p className="mt-2 nb-meta text-muted-foreground">Search covers the accounts loaded so far.</p> : null}

@@ -1,0 +1,62 @@
+{
+  "id": "impact-2026-10-28-settings-hardening",
+  "title": "Settings: account-protection fixes and a hash-addressed settings document",
+  "summary": "Ends editor tokens on password change and deletion, requires the authenticator for destructive actions when one exists, fixes the step-up dialog and no-method dead ends, makes notification preference saves merge-only under a row lock, keeps error states honest (no defaults saved over real settings), adds a deletion preflight and manual-token step-up, and turns the Settings nav into hash anchors with observers.",
+  "riskLevel": "high",
+  "runtimePlanes": [
+    "request",
+    "database"
+  ],
+  "routeClasses": [
+    "active_surface"
+  ],
+  "dataSourcesChanged": [
+    "extension_device_sessions",
+    "profiles",
+    "project_members"
+  ],
+  "canonicalLogicDomains": [
+    "profile_display"
+  ],
+  "concurrencyRisk": "Notification preference saves lock the profile row and write only the changed top-level keys, so two tabs or a tray mute can no longer overwrite each other. Editor token revocation is a single UPDATE and idempotent.",
+  "observability": {
+    "metrics": [],
+    "logs": [
+      "extension.token_created",
+      "settings.integrations.read_failed",
+      "account.deletion-preflight.failed",
+      "settings.render_failed"
+    ],
+    "alerts": []
+  },
+  "rollback": {
+    "strategy": "Revert the commit. No migration is involved: revoked tokens stay revoked (the person signs the editor in again), and saved preferences keep their shape.",
+    "validation": [
+      "npm run typecheck",
+      "npm run test:unit",
+      "npm run check:impact-review"
+    ]
+  },
+  "evidence": {
+    "commands": [
+      "npm run typecheck",
+      "npx tsx --test tests/unit/settings-primitives.test.ts tests/unit/notification-preferences-merge.test.ts tests/unit/settings-navigation-loading.test.ts",
+      "npm run test:db -- tests/db/extension-token-revocation.test.ts",
+      "npx playwright test --config tests/browser/playwright.config.ts settings.spec.ts"
+    ],
+    "reports": []
+  },
+  "paths": [
+    "src/app/api/v1/_shared.ts",
+    "src/app/api/v1/account",
+    "src/app/api/v1/auth/change-password",
+    "src/app/api/v1/github/account/replacement",
+    "src/app/api/v1/integrations",
+    "src/app/api/v1/legal",
+    "src/app/api/v1/privacy",
+    "src/app/actions/notifications.ts",
+    "src/app/actions/extension-sessions.ts",
+    "standards/impact-reviews/settings-hardening.json",
+    "tests/db/extension-token-revocation.test.ts"
+  ]
+}

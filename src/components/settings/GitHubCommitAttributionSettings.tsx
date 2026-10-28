@@ -1,35 +1,40 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import * as sync from "@/app/actions/github-sync";
+import { useCallback, useEffect, useState } from "react";
 import { Loader2, ShieldCheck, Mail } from "lucide-react";
+import * as sync from "@/app/actions/github-sync";
+import { ErrorNotice } from "@/components/ui/ErrorNotice";
 
 type Success<T> =
   Extract<T, { success: true }> extends { data: infer D } ? D : never;
 
-export function GitHubCommitAttributionSettings() {
-  const [currentIdentity, setCurrentIdentity] = useState<Success<
-    Awaited<ReturnType<typeof sync.getCurrentGitHubCommitIdentity>>
-  > | null>(null);
-  const [loadingCurrent, setLoadingCurrent] = useState(false);
+type Identity = Success<Awaited<ReturnType<typeof sync.getCurrentGitHubCommitIdentity>>>;
 
-  useEffect(() => {
+export function GitHubCommitAttributionSettings() {
+  const [currentIdentity, setCurrentIdentity] = useState<Identity | null>(null);
+  const [loadingCurrent, setLoadingCurrent] = useState(true);
+  const [failed, setFailed] = useState(false);
+
+  const load = useCallback(() => {
     let active = true;
     setLoadingCurrent(true);
+    setFailed(false);
     sync.getCurrentGitHubCommitIdentity()
       .then((res) => {
-        if (active && res.success && res.data) {
-          setCurrentIdentity(res.data);
-        }
+        if (!active) return;
+        if (res.success) setCurrentIdentity(res.data ?? null);
+        else setFailed(true);
       })
-      .catch(() => {})
-      .finally(() => {
-        if (active) setLoadingCurrent(false);
-      });
-    return () => {
-      active = false;
-    };
+      .catch(() => { if (active) setFailed(true); })
+      .finally(() => { if (active) setLoadingCurrent(false); });
+    return () => { active = false; };
   }, []);
+
+  useEffect(() => load(), [load]);
+
+  // `configured` is true once the person has picked a commit identity; before that the address is only the one
+  // GitHub gave us at sign-in, so it is not called verified.
+  const configured = Boolean(currentIdentity && "configured" in currentIdentity && currentIdentity.configured);
 
   return (
     <div>
@@ -37,41 +42,35 @@ export function GitHubCommitAttributionSettings() {
         <div>
           <h4 className="nb-ui-label text-foreground">Commit attribution</h4>
           <p className="nb-compact mt-1 text-muted-foreground">
-            NetworkBase automatically signs Git commits with your privacy-safe GitHub noreply identity.
+            Commits made from NetworkBase are signed with a privacy-safe GitHub address. You can choose which address from each project’s contributor settings.
           </p>
         </div>
         {currentIdentity?.email ? (
           <span className="nb-meta self-start text-muted-foreground sm:self-center">
-            Connected
+            {configured ? "Chosen" : "From your GitHub sign-in"}
           </span>
         ) : null}
       </div>
 
-      {/* Active Author Identity Card */}
-      {currentIdentity && currentIdentity.email ? (
+      {failed ? (
+        <ErrorNotice what="Commit attribution" onRetry={() => void load()} className="mt-3" />
+      ) : currentIdentity && currentIdentity.email ? (
         <div className="mt-3 flex flex-wrap items-center gap-2.5 rounded-md border border-border bg-muted/50 px-3 py-3">
           <div className="nb-compact flex items-center gap-1.5 font-medium text-foreground">
-            <Mail className="size-4 text-muted-foreground" strokeWidth={1.75} />
-            <span>Active commit author:</span>
+            <Mail className="size-4 text-muted-foreground" strokeWidth={1.75} aria-hidden="true" />
+            <span>Commit author:</span>
           </div>
           <code className="nb-meta rounded-md border border-border bg-background px-2 py-1 text-foreground">
             {currentIdentity.email}
           </code>
-          {currentIdentity.isNoreply ? (
-            <span className="nb-meta inline-flex items-center gap-1 text-muted-foreground">
-              <ShieldCheck className="size-3.5" strokeWidth={1.75} />
-              Privacy-safe noreply
-            </span>
-          ) : (
-            <span className="nb-meta inline-flex items-center gap-1 text-muted-foreground">
-              <ShieldCheck className="size-3.5" strokeWidth={1.75} />
-              Verified email
-            </span>
-          )}
+          <span className="nb-meta inline-flex items-center gap-1 text-muted-foreground">
+            <ShieldCheck className="size-3.5" strokeWidth={1.75} aria-hidden="true" />
+            {currentIdentity.isNoreply ? "Privacy-safe noreply address" : configured ? "Email you chose" : "Not confirmed yet: choose one in a project"}
+          </span>
         </div>
       ) : loadingCurrent ? (
-        <div className="nb-compact mt-3 flex items-center gap-2 text-muted-foreground">
-          <Loader2 className="size-4 animate-spin" />
+        <div role="status" className="nb-compact mt-3 flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
           <span>Loading commit attribution status…</span>
         </div>
       ) : null}

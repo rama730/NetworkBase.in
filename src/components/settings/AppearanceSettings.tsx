@@ -57,6 +57,7 @@ export default function AppearanceSettings({ embedded = false }: { embedded?: bo
 
     <SettingsSectionCard title="Theme and color" description="Choose the interface theme and shared action color.">
       <SettingsRadioGroup<ThemeMode>
+        id="settings-appearance-theme"
         label="Theme"
         description={theme === "system" ? `Following this device: ${resolvedTheme}.` : undefined}
         value={theme}
@@ -68,6 +69,7 @@ export default function AppearanceSettings({ embedded = false }: { embedded?: bo
 
       <div className="mt-6 border-t border-border pt-6">
         <SettingsRadioGroup<AccentColor>
+          id="settings-appearance-accent"
           label="Accent color"
           description="Used for actions, selected states, and focus indicators."
           value={accentColor}
@@ -90,6 +92,7 @@ export default function AppearanceSettings({ embedded = false }: { embedded?: bo
 
     <SettingsSectionCard title="Layout and motion" description="Adjust information density and movement for comfort and accessibility.">
       <SettingsRadioGroup<Density>
+        id="settings-appearance-density"
         label="Interface density"
         value={density}
         onValueChange={setDensity}
@@ -103,7 +106,7 @@ export default function AppearanceSettings({ embedded = false }: { embedded?: bo
           <span className="min-w-0"><span className="block nb-ui-label text-foreground">{option.label}</span><span className="block nb-compact mt-1 text-muted-foreground">{option.description}</span></span>
         </span>}
       />
-      <div className="mt-4 border-t border-border pt-2">
+      <div id="settings-appearance-motion" className="mt-4 scroll-mt-6 border-t border-border pt-2">
         <SettingsRow
           title="Reduce motion"
           description={systemReduceMotion && !reduceMotion ? "Your device already asks for less motion, so animation is reduced. Turn this on to keep it that way everywhere." : "Minimize animation, hover movement, and smooth scrolling throughout the interface."}

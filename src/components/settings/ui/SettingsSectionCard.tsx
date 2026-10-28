@@ -10,20 +10,24 @@ export function SettingsSectionCard({
     children,
     className,
     testId,
+    id,
 }: {
     title: string;
     description?: string;
     children: React.ReactNode;
     className?: string;
     testId?: string;
+    /** An anchor inside the section (`#settings-<section>-<name>`), so search and links can land on this card. */
+    id?: string;
 }) {
     const open = useOpenSettingsSections();
     return (
         <section
+            id={id}
             data-testid={testId}
             className={cn(
                 open
-                    ? "space-y-4 border-b border-border pb-6 last:border-b-0 last:pb-0"
+                    ? "scroll-mt-6 space-y-4 border-b border-border pb-6 last:border-b-0 last:pb-0"
                     : "rounded-lg border border-border bg-card",
                 className
             )}

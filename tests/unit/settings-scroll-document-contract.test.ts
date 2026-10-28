@@ -20,21 +20,22 @@ test("personal settings render as one navigable scroll document", () => {
   assert.ok(document.indexOf('id="settings-privacy-policies"') > document.indexOf('id="settings-integrations"'), "Privacy and Policies should follow Integrations");
   assert.ok(document.indexOf('id="settings-delete-account"') > document.indexOf('id="settings-privacy-policies"'), "Delete account should be the final settings action");
 
-  assert.match(layout, /scrollIntoView\(\{ behavior: motion, block: "start" \}\)/);
-  assert.match(layout, /router\.replace\(item\.href, \{ scroll: false \}\)/);
-  assert.match(layout, /locallyNavigatedTabRef/, "URL synchronization should not issue a competing scroll after a local tab click");
+  assert.match(layout, /scrollIntoView\(\{ behavior: smooth && !reducedMotion\(\) \? "smooth" : "auto", block: "start" \}\)/);
+  assert.match(layout, /window\.history\.replaceState\(window\.history\.state, "", item\.href\)/, "the address follows the section that was chosen");
+  assert.match(layout, /alignRef/, "a jump keeps itself aligned while content loads, until the person scrolls");
+  assert.match(layout, /IntersectionObserver/, "the highlight follows the page without reading layout on every scroll");
   assert.doesNotMatch(document, /contentVisibility|containIntrinsicSize/, "Section targets should retain real layout geometry for native scrolling");
   assert.doesNotMatch(document, /scrollIntoView|useSearchParams/, "The settings document should not compete with the layout scroll controller");
   assert.match(layout, /data-scroll-root="route"/);
   assert.match(layout, /md:w-\[var\(--nb-sidebar-width\)\]/, "Section navigation should use the same width as the main sidebar");
   assert.match(layout, /nb-nav-link/, "Settings should reuse the application's navigation buttons");
-  assert.match(layout, /<h1 id="settings-navigation-title" className="nb-micro">Settings<\/h1>/);
+  assert.match(layout, /<h1 id="settings-navigation-title" className="nb-micro max-md:sr-only">Settings<\/h1>/);
   assert.doesNotMatch(document, /title="Settings"/, "The page title belongs in the navigation column");
   assert.match(layout, /<div ref=\{scrollRootRef\} data-scroll-root="route"[^\n]*className="min-w-0 min-h-0 flex-1 app-scroll app-scroll-y/);
   assert.doesNotMatch(layout, /position: fixed|nb-settings-local-nav-panel|<details/, "Navigation should participate in the full-height page layout");
   assert.doesNotMatch(globals, /\.nb-settings-local-nav-panel/, "Remove the replaced floating navigation styling");
   assert.match(layout, /event\.metaKey \|\| event\.ctrlKey/, "Native modified-link navigation should remain available");
-  assert.match(layout, /prefers-reduced-motion: reduce/);
+  assert.match(layout, /isReducedMotionEnabled/, "the in-app Reduce motion setting also stops smooth scrolling");
   assert.doesNotMatch(layout, /space-y-6 pb-10/, "The settings document should not leave an artificial gap after its final section");
   assert.match(layout, /SETTINGS_SECTION_META\["privacy-policies"\]/, "Privacy and Policies should be a first-class navigation item");
 });

@@ -1,14 +1,16 @@
+import SettingsDocument from "@/components/settings/SettingsDocument";
 import { buildRouteMetadata } from "@/lib/metadata/route-metadata";
 
 export function generateMetadata() {
   return buildRouteMetadata({
     title: "Settings | NetworkBase",
-    description: "Manage your account, privacy, appearance, and integrations on NetworkBase.",
+    description: "Manage your account, security, privacy, notifications, appearance, integrations, and data on NetworkBase.",
     path: "/settings",
+    // Personal and signed-in: never something to index.
+    robots: { index: false, follow: false },
   });
 }
 
-export default async function SettingsRoute() {
-  const { default: SettingsDocument } = await import("@/components/settings/SettingsDocument");
+export default function SettingsRoute() {
   return <SettingsDocument />;
 }

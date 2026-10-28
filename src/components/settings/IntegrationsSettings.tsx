@@ -385,11 +385,11 @@ export default function IntegrationsSettings({ embedded = false }: { embedded?: 
     {!embedded ? <SettingsPageHeader title="Integrations" description="Manage sign-in methods, GitHub access, and active editor sessions." /> : null}
     {error ? <ErrorNotice what="Integrations" onRetry={() => void refetch()} /> : null}
 
-    <SettingsSectionCard title="Account connections" description={data?.summary || "Sign-in methods attached to this account."}>
+    <SettingsSectionCard id="settings-integrations-connections" title="Account connections" description={data?.summary || "Sign-in methods attached to this account."}>
       {isLoading ? <div role="status" aria-label="Loading connections" className="nb-skeleton h-32 rounded-md" /> : <div>{data?.authConnections.map((provider) => <ProviderRow key={provider.provider} provider={provider} linking={linking === provider.provider} onLink={() => void linkProvider(provider.provider as "google" | "github")} />)}</div>}
     </SettingsSectionCard>
 
-    <SettingsSectionCard title="GitHub" description="Repository access is managed from each project; this page only shows account-level status.">
+    <SettingsSectionCard id="settings-integrations-github" title="GitHub" description="Repository access is managed from each project; this page only shows account-level status.">
       <div className="flex min-h-16 flex-col gap-4 pb-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"><Github className="size-5" strokeWidth={1.75} /></span>
@@ -423,7 +423,7 @@ export default function IntegrationsSettings({ embedded = false }: { embedded?: 
       <div className="pt-5"><GitHubCommitAttributionSettings /></div>
     </SettingsSectionCard>
 
-    <SettingsSectionCard title="Editor connections" description="Manage authorized editor sessions and fallback sign-in tokens.">
+    <SettingsSectionCard id="settings-integrations-editors" title="Editor connections" description="Manage authorized editor sessions and fallback sign-in tokens.">
       <div className="space-y-4">
         <ExtensionAppCard />
         <div>
@@ -461,7 +461,7 @@ export default function IntegrationsSettings({ embedded = false }: { embedded?: 
         )}
         </div>
 
-        <div className="border-t border-border pt-4">
+        <div id="settings-integrations-token" className="scroll-mt-6 border-t border-border pt-4">
           <SettingsRow
             title="Manual authentication token"
             description="A fallback if signing in from your editor is blocked. It works for one year until you revoke it, so treat it like a password."

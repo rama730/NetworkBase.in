@@ -6,6 +6,7 @@ import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader"
 import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
 import { SettingsSectionsSkeleton } from "@/components/settings/ui/SettingsSectionsSkeleton";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
+import { SettingsStatusChips } from "@/components/settings/ui/SettingsStatusChips";
 import { useSecurityData } from "@/hooks/useSettingsQueries";
 import { useAuth } from "@/hooks/useAuth";
 import { hasPasswordCredential } from "@/lib/auth/account-identity";
@@ -72,12 +73,19 @@ export default function SecurityPage({ embedded = false }: { embedded?: boolean 
             ) : null}
             {securityErrorMessage && !securityData ? null : (
             <>
-
+            <SettingsStatusChips
+                label="Security summary"
+                items={[
+                    { label: "Password", value: passwordAvailable ? "Set" : "Not set", tone: passwordAvailable ? "ok" : "attention", href: "/settings#settings-security-password" },
+                    { label: "Authenticator", value: hasTotp ? "On" : "Off", tone: hasTotp ? "ok" : "attention", href: "/settings#settings-security-authenticator" },
+                    { label: "Signed-in devices", value: String(securityData?.sessions?.length ?? 0), href: "/settings#settings-security-sessions" },
+                ]}
+            />
             <SettingsSectionCard
                 title="Sign-in protection"
                 description="Manage the verification methods that protect your account."
             >
-                <div data-testid="security-authenticator-section">
+                <div id="settings-security-authenticator" data-testid="security-authenticator-section" className="scroll-mt-6">
                     <div className="mb-4">
                         <h4 className="nb-ui-label text-foreground">Authenticator app</h4>
                         <p className="nb-compact mt-1 text-muted-foreground">Use a 6-digit code as an extra verification step.</p>
@@ -101,7 +109,7 @@ export default function SecurityPage({ embedded = false }: { embedded?: boolean 
                 title="Sessions and sign-ins"
                 description="Review signed-in devices and recent access to your account."
             >
-                <div data-testid="security-active-sessions-section">
+                <div id="settings-security-sessions" data-testid="security-active-sessions-section" className="scroll-mt-6">
                     <h4 className="nb-ui-label mb-3 text-foreground">Active sessions</h4>
                     <SessionsList
                         initialSessions={securityData?.sessions}
@@ -110,7 +118,7 @@ export default function SecurityPage({ embedded = false }: { embedded?: boolean 
                     />
                 </div>
                 <div className="my-6 border-t border-border" />
-                <div data-testid="security-login-activity-section">
+                <div id="settings-security-sign-ins" data-testid="security-login-activity-section" className="scroll-mt-6">
                     <h4 className="nb-ui-label mb-3 text-foreground">Recent sign-ins</h4>
                     <LoginHistory initialHistory={securityData?.loginHistory} />
                 </div>
@@ -120,6 +128,7 @@ export default function SecurityPage({ embedded = false }: { embedded?: boolean 
                 title="Security activity"
                 description="Review recent changes to account protection."
                 testId="security-activity-section"
+                id="settings-security-activity"
             >
                 <SecurityActivitySection activity={securityData?.securityActivity} />
             </SettingsSectionCard>

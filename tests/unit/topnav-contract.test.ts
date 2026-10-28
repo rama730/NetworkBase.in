@@ -178,7 +178,7 @@ test("recent global-search storage isolates users and contexts and tolerates mal
 
 test("settings search resolves user intent to the canonical tabbed settings route", () => {
   assert.equal(searchSettings("change color theme")[0]?.id, "theme");
-  assert.equal(searchSettings("VS Code disconnect")[0]?.href, "/settings?tab=integrations");
+  assert.equal(searchSettings("VS Code disconnect")[0]?.href, "/settings#settings-integrations-editors");
   assert.equal(searchSettings("").length, 6);
 });
 
