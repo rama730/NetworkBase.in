@@ -83,7 +83,7 @@ export async function resolveRecipients(executor: Executor, orgId: string, targe
 }
 
 /** Inserts one task the way createTaskAction does: next task number, top of the To do column. */
-async function insertTask(executor: Executor, values: {
+export async function insertTask(executor: Executor, values: {
   projectId: string;
   title: string;
   description: string | null;

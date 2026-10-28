@@ -237,6 +237,8 @@ async function fetchProjectTasksForActor(
           creatorId: true,
           workflowColumnId: true,
           title: true,
+          assignmentId: true,
+          teamName: true,
           description: surface === "full",
           status: true,
           reviewStatus: true,
@@ -350,10 +352,16 @@ async function fetchProjectTasksForActor(
             LEFT JOIN comment_counts comment ON comment.task_id = selected.id
           `));
       const countsByTaskId = new Map(countRows.map((row) => [row.task_id, row]));
+      // Assignment copies carry a "From" chip (report §16.5–16.6): the org for a group copy in a child project,
+      // otherwise whoever assigned it.
+      const parentOrgTitle = limitedTasks.some((task) => task.assignmentId)
+        ? (await db.execute<{ title: string | null }>(sql`SELECT o.title FROM projects p JOIN projects o ON o.id = p.parent_id WHERE p.id = ${projectId}`))[0]?.title ?? null
+        : null;
       const normalizedTasks = limitedTasks.map((task) => {
         const counts = countsByTaskId.get(task.id);
         return normalizeTaskSurfaceRecord({
           ...task,
+          fromLabel: task.assignmentId ? parentOrgTitle ?? (task as { creator?: { fullName?: string | null } }).creator?.fullName ?? null : null,
           subtaskCount: Number(counts?.subtask_count ?? 0),
           completedSubtaskCount: Number(counts?.completed_subtask_count ?? 0),
           newSubtaskCount: Number(counts?.new_subtask_count ?? 0),

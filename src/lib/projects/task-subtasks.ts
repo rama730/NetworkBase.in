@@ -3,6 +3,8 @@ export type TaskSubtask = {
   taskId: string;
   title: string;
   completed: boolean;
+  /** Who ticked it, when known (0259). */
+  completedBy?: string | null;
   position: number;
   createdAt: string;
   updatedAt: string;

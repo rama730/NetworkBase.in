@@ -45,12 +45,16 @@ test.beforeAll(async () => {
         '@/components/messages/message-user': `export const messageUserInWindow=()=>false;`,
         '@/app/actions/project/doc': `export const listProjectDocsAction=async()=>({success:true,docs:[]});`,
         '@/app/actions/assignments': `const counts={not_started:3,in_progress:2,submitted:4,returned:0,done:1,missing:2,excused:0,total:12};
-            export const listAssignmentsAction=async()=>({success:true,isAdmin:true,rows:[
+            export const listAssignmentsAction=async()=>({success:true,isAdmin:true,timeZone:'Asia/Kolkata',rows:[
             {masterId:'a1',title:'Lab 3 — Consensus protocols and failure detectors',dueDate:new Date(Date.now()+864e5).toISOString(),status:'open',submissionType:'link',reviewRequired:true,teams:true,counts,mine:null},
             {masterId:'a2',title:'Reading quiz',dueDate:null,status:'draft',submissionType:'none',reviewRequired:false,teams:false,counts,mine:null}]});
-            export const readAssignmentComposerOptionsAction=async()=>({success:true,children:[],roster:[]}),readAssignmentRosterAction=async()=>({success:true,rows:[],counts});
+            export const readAssignmentComposerOptionsAction=async()=>({success:true,children:[],sprints:[],teamAssignments:[]}),readAssignmentRosterAction=async()=>({success:true,counts,rows:[
+              {copyId:'t1',label:'Team A',members:[],people:[{id:'u1',name:'Ravi Kumar',lead:true},{id:'u2',name:'Alexandria Ramana Chandrasekhar',lead:false}],submittedBy:null,state:'in_progress',late:false,projectId:'org',dueDate:null,submission:null,excusedReason:null},
+              {copyId:'t2',label:'Priya (individual)',members:[],state:'missing',late:false,projectId:'org',dueDate:null,submission:null,excusedReason:null}]});
             export const listProjectGroupCopiesAction=async()=>({success:true,rows:[]});
-            export const approveAllSubmittedAction=${ok},closeAssignmentAction=${ok},createAssignmentAction=${ok},deleteAssignmentAction=${ok},excuseCopyAction=${ok},extendCopyAction=${ok},publishAssignmentAction=${ok},reviewAssignmentCopyAction=${ok},submitAssignmentAction=${ok};`,
+            export const approveAllSubmittedAction=${ok},closeAssignmentAction=${ok},createAssignmentAction=${ok},deleteAssignmentAction=${ok},excuseCopyAction=${ok},extendCopyAction=${ok},publishAssignmentAction=${ok},reviewAssignmentCopyAction=${ok},submitAssignmentAction=${ok};
+            export const addAssignmentStepAction=${ok},excuseTeamMemberAction=${ok},moveTeamMemberAction=${ok},remindCopiesAction=async()=>({success:true,reminded:3}),readAssignmentTeamsAction=async()=>({success:true,teams:[]});
+            export const readReviewQueueAction=async()=>({success:true,rows:[{copyId:'c1',masterId:'a1',title:'Lab 3 — Consensus protocols',who:'Team A',submittedBy:'Asha Nair',submittedAt:new Date(Date.now()-7200000).toISOString(),late:true},{copyId:'c2',masterId:'a1',title:'Lab 3',who:'Priya',submittedBy:null,submittedAt:new Date().toISOString(),late:false}]});`,
     };
     const bundle = await build({ entryPoints: [path.resolve('tests/browser/org-tabs.fixture.tsx')], bundle: true, write: false, format: 'iife', platform: 'browser', define: { 'process.env.NODE_ENV': '"test"' }, plugins: [{ name: 'org-tabs-boundaries', setup(builder) {
         builder.onResolve({ filter: /.*/ }, args => args.path in mocks ? { path: args.path, namespace: 'fixture' } : undefined);
@@ -154,4 +158,23 @@ test('Units panel (§14.4): rename, seats, unit lead and Move to…, all native 
     await expect(page.getByRole('option', { name: 'Developer testing unit (full)' }).first()).toBeDisabled();
     await noSideScroll(page);
     await page.screenshot({ path: test.info().outputPath('units-375.png') });
+});
+
+test('Assignments (§16): the review queue steps with Next; the roster has Remind, Add step and per-person team moves, on a phone', async ({ page }) => {
+    await open(page, 'tasks');
+    await page.getByRole('button', { name: 'Review' }).click();
+    const queue = page.getByRole('region', { name: 'Review queue' });
+    await expect(queue.getByText('1 of 2 waiting')).toBeVisible();
+    await expect(queue.getByText(/Team A · Lab 3 — Consensus protocols · .* · Late · submitted by Asha Nair/)).toBeVisible();
+    await queue.getByRole('button', { name: 'Next' }).click();
+    await expect(queue.getByText('2 of 2 waiting')).toBeVisible();
+    await noSideScroll(page);
+    await page.getByRole('button', { name: 'Roster' }).first().click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('button', { name: 'Remind everyone not done' })).toBeVisible();
+    await expect(dialog.getByRole('textbox', { name: 'Add a step to every copy' })).toBeVisible();
+    await expect(dialog.getByRole('combobox', { name: 'Move Alexandria Ramana Chandrasekhar to…' })).toBeVisible();
+    await expect(dialog.getByText('Ravi Kumar ★', { exact: false })).toBeVisible();
+    await noSideScroll(page);
+    await page.screenshot({ path: test.info().outputPath('assignments-375.png') });
 });

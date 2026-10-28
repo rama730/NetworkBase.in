@@ -5,6 +5,7 @@ import { filesReturnQuery } from "@/lib/files/task-navigation";
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { readProjectUnitsAction } from "@/app/actions/child-units";
+import { TeamTaskDialog } from "@/components/organizations/TeamTaskDialog";
 import { Plus, Check, Search, X, MoreHorizontal, Laptop } from "lucide-react";
 import {
   DropdownMenu,
@@ -93,6 +94,8 @@ interface TasksTabProps {
   isProjectMember?: boolean;
   canManageFiles?: boolean;
   canManageWorkflow: boolean;
+  /** A child project: leads and admins also make team tasks (report §16.11). */
+  isChildProject?: boolean;
   initialTasks?: any[];
   members?: any[];
   sprints?: any[];
@@ -115,6 +118,7 @@ export default function TasksTab({
   isProjectMember = true,
   canManageFiles = false,
   canManageWorkflow,
+  isChildProject = false,
   initialTasks = [],
   members = [],
   sprints = [],
@@ -598,6 +602,7 @@ export default function TasksTab({
   // ponytail: filters the loaded pages only, like the count beside the title; a server filter if units grow large.
   const { data: units = [] } = useQuery({ queryKey: ["project-units", projectId], queryFn: () => readProjectUnitsAction(projectId), staleTime: 60_000 });
   const [unitFilter, setUnitFilter] = useState("");
+  const [teamTaskOpen, setTeamTaskOpen] = useState(false);
   const unitMembers = units.find((unit) => unit.id === unitFilter)?.memberIds;
   const filteredTasks = unitMembers ? sprintAwareTasks.filter((task) => Boolean(task.assigneeId && unitMembers.includes(task.assigneeId))) : sprintAwareTasks;
 
@@ -795,6 +800,17 @@ export default function TasksTab({
                 taskId={editingTask?.id}
               />
             </span>
+
+            {isChildProject && canManageWorkflow ? (
+              <button type="button" onClick={() => setTeamTaskOpen(true)}
+                className="nb-touch-target inline-flex h-[34px] items-center gap-1.5 rounded-[5px] border border-border bg-card px-3 text-[13px] font-medium text-foreground hover:bg-muted max-md:h-11">
+                Team task
+              </button>
+            ) : null}
+            {isChildProject && teamTaskOpen ? (
+              <TeamTaskDialog projectId={projectId} members={members} open={teamTaskOpen} onOpenChange={setTeamTaskOpen}
+                onCreated={() => void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) })} />
+            ) : null}
 
             {/* New Section */}
             {canManageWorkflow ? (

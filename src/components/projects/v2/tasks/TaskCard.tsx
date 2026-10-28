@@ -262,6 +262,11 @@ export const TaskCard = memo(function TaskCard({
               </div>
             )}
             <TaskMetaIndicators {...taskRecord} />
+            {taskRecord.fromLabel ? (
+              <span className="truncate rounded-[3px] border border-border px-1 text-[10px] text-muted-foreground" title={`From ${taskRecord.fromLabel}`}>
+                From {taskRecord.fromLabel}{taskRecord.teamName ? ` · ${taskRecord.teamName}` : ""}
+              </span>
+            ) : null}
           </div>
 
           <div className="flex shrink-0 items-center gap-1.5">
