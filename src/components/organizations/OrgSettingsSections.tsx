@@ -329,6 +329,7 @@ export function OrgProjectsSection({ orgId, organization }: SectionProps) {
     const [childShare, setChildShare] = useState(organization.childShare)
     const [cap, setCap] = useState(organization.visibilityCap)
     const [defaultUnits, setDefaultUnits] = useState(organization.defaultUnits.join('\n'))
+    const [followSprints, setFollowSprints] = useState(organization.followSprintsDefault)
     // Impact preview (report §21.1 principle 4): how many projects a tighter cap would lower.
     const [affected, setAffected] = useState<number | null>(null)
     const { pending, save, status } = useSave()
@@ -382,8 +383,72 @@ export function OrgProjectsSection({ orgId, organization }: SectionProps) {
                         <p className={helpClass}>Pre-fill the team of every new project, one per line, for example Frontend, Backend, Testing. Still editable per project.</p>
                         <textarea id="org-default-units" value={defaultUnits} onChange={(e) => setDefaultUnits(e.target.value)} rows={3} className="mt-2 w-full rounded-md border border-border bg-background p-2 text-sm" />
                     </div>
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <p className={labelClass}>New projects follow org sprints</p>
+                            <p className={helpClass}>On by default. A new project&apos;s sprints link to the organization&apos;s sprint holding their dates; the lead can turn it off.</p>
+                        </div>
+                        <SettingsSwitch checked={followSprints} onCheckedChange={setFollowSprints} aria-label="New projects follow org sprints" />
+                    </div>
                     <div className="flex items-center gap-3">
-                        <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'projects', { child_creation: childCreation, outside_people: outside, child_share: childShare, default_units: defaultUnits.split('\n').map((u) => u.trim()).filter(Boolean).slice(0, 20), ...(cap !== organization.visibilityCap ? { visibility_cap: cap } : {}) }))}>Save</Button>
+                        <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'projects', { follow_sprints: followSprints, child_creation: childCreation, outside_people: outside, child_share: childShare, default_units: defaultUnits.split('\n').map((u) => u.trim()).filter(Boolean).slice(0, 20), ...(cap !== organization.visibilityCap ? { visibility_cap: cap } : {}) }))}>Save</Button>
+                        {status}
+                    </div>
+                </div>
+            </SettingsCard>
+        </Section>
+    )
+}
+
+/** Settings → Work (report §21.2 #5): defaults for new assignments and sprints, reminders and story points. */
+export function OrgWorkSection({ orgId, organization }: SectionProps) {
+    const [work, setWork] = useState(organization.work)
+    const { pending, save, status } = useSave()
+    const set = <K extends keyof typeof work>(key: K, value: (typeof work)[K]) => setWork((cur) => ({ ...cur, [key]: value }))
+    const toggle = (key: 'reviewRequired' | 'sprintAutoStart' | 'sprintNotifyOnStart' | 'sprintShowInChildren' | 'sprintCreateMatching', label: string, help: string) => (
+        <div className="flex items-start justify-between gap-4">
+            <div><p className={labelClass}>{label}</p><p className={helpClass}>{help}</p></div>
+            <SettingsSwitch checked={work[key]} onCheckedChange={(v) => set(key, v)} aria-label={label} />
+        </div>
+    )
+    const select = 'mt-2 h-9 w-full max-w-xs rounded-md border border-border bg-background px-2 text-sm'
+    return (
+        <Section id="org-work">
+            <SettingsCard title="Work" headingLevel={2} description="Defaults for new assignments and sprints. Each assignment or sprint can still change them." footer={<LastChanged organization={organization} section="work" />}>
+                <div className="space-y-6">
+                    <p className="nb-ui-label text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">Assignments</p>
+                    {toggle('reviewRequired', 'Review required', 'Admins approve or return each submission, for example a lab report. On for Education, off for other types.')}
+                    <div>
+                        <label htmlFor="org-late-rule" className={labelClass}>Late submissions</label>
+                        <p className={helpClass}>What happens after the due date. Education accepts late work until a date you set per assignment.</p>
+                        <select id="org-late-rule" className={select} value={work.lateRule} onChange={(e) => set('lateRule', e.target.value as typeof work.lateRule)}>
+                            <option value="always">Always allowed</option><option value="until">Allowed until a date</option><option value="none">Not allowed</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="org-reminders" className={labelClass}>Reminders</label>
+                        <p className={helpClass}>Sent at 9:00 in each person&apos;s time zone to people who haven&apos;t handed in yet.</p>
+                        <select id="org-reminders" className={select} value={work.reminders} onChange={(e) => set('reminders', e.target.value as typeof work.reminders)}>
+                            <option value="both">24 hours before and on the due day</option><option value="day_before">24 hours before</option><option value="due_day">On the due day</option><option value="off">Off</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="org-story-points" className={labelClass}>Story points</label>
+                        <p className={helpClass}>Hidden for Education, where work is counted by assignment, shown for other types.</p>
+                        <select id="org-story-points" className={select} value={work.storyPoints} onChange={(e) => set('storyPoints', e.target.value as typeof work.storyPoints)}>
+                            <option value="shown">Shown</option><option value="hidden">Hidden</option>
+                        </select>
+                    </div>
+                    <p className="nb-ui-label text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">Sprints</p>
+                    {toggle('sprintAutoStart', 'Start automatically', 'A sprint starts on its start date, for example CO1 on Aug 5.')}
+                    {toggle('sprintNotifyOnStart', 'Notify on start', 'Members hear when a sprint starts.')}
+                    {toggle('sprintShowInChildren', 'Show in child projects', 'Projects see the running org sprint and can link theirs to it.')}
+                    {toggle('sprintCreateMatching', 'Create matching sprints', 'Off by default. Each project following org sprints gets its own sprint with the same dates.')}
+                    <div className="flex items-center gap-3">
+                        <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'work', {
+                            review_required: work.reviewRequired, late_rule: work.lateRule, reminders: work.reminders, story_points: work.storyPoints,
+                            sprint_auto_start: work.sprintAutoStart, sprint_notify_on_start: work.sprintNotifyOnStart, sprint_show_in_children: work.sprintShowInChildren, sprint_create_matching: work.sprintCreateMatching,
+                        }))}>Save</Button>
                         {status}
                     </div>
                 </div>

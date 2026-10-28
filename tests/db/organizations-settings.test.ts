@@ -132,3 +132,42 @@ test("everyone edits their own title and profile switch; members can leave, the 
   const ownerLeave = await orgs.leaveOrgAction(id);
   assert.equal(!ownerLeave.success && ownerLeave.error, "Transfer ownership before you leave.");
 });
+
+test("§21 Work: type defaults, admins save the section, composer and sprint defaults follow it; child Collaborators show unit and Outside <org>", async () => {
+  const { id, admin, member } = await org();
+  const { readOrgWork } = await loadAppModule(() => import("../../src/lib/organizations/settings"));
+  assert.deepEqual([readOrgWork({}, "education").reviewRequired, readOrgWork({}, "education").lateRule, readOrgWork({}, "education").storyPoints], [true, "until", "hidden"]);
+  assert.deepEqual([readOrgWork({}, "company").reviewRequired, readOrgWork({}, "company").lateRule, readOrgWork({}, "company").storyPoints], [false, "always", "shown"]);
+
+  viewerId = member;
+  assert.equal((await orgs.updateOrgSettingsAction(id, "work", { review_required: false })).success, false);
+  viewerId = admin;
+  assert.ok((await orgs.updateOrgSettingsAction(id, "work", { review_required: false, late_rule: "none", reminders: "off", story_points: "shown", sprint_auto_start: false })).success);
+  const s = (await settingsOf(id)).org_settings;
+  assert.deepEqual([s.assignmentReview, s.assignmentLateRule, s.assignmentReminders, s.storyPoints, s.sprintAutoStart], [false, "none", "off", "shown", false]);
+  assert.equal(s.changes.work.by, admin);
+  assert.ok((await orgs.updateOrgSettingsAction(id, "projects", { follow_sprints: false })).success);
+  const d = await detail.readOrgDetail(id, { userId: admin, isAdmin: true, isInOrg: true });
+  assert.equal(d?.followSprintsDefault, false);
+  assert.equal(d?.work.lateRule, "none");
+
+  const assignments = await loadAppModule(() => import("../../src/app/actions/assignments"));
+  const options = await assignments.readAssignmentComposerOptionsAction(id);
+  assert.ok(options.success);
+  assert.deepEqual(options.success && options.defaults, { reviewRequired: false, lateRule: "none" });
+
+  const child = await sql.begin((tx) => createProject(tx, member, { visibility: "org" }));
+  created.push(child);
+  const outsider = await sql.begin((tx) => createUser(tx));
+  await sql`UPDATE projects SET parent_id = ${id}, title = 'Compiler Lab' WHERE id = ${child}`;
+  const [unit] = await sql`INSERT INTO project_open_roles (project_id, role, count) VALUES (${child}, 'Frontend', 3) RETURNING id`;
+  await sql`INSERT INTO project_members (project_id, user_id, role, unit_id) VALUES (${child}, ${member}, 'owner', NULL), (${child}, ${outsider}, 'member', ${unit!.id})`;
+  const settingsServer = await loadAppModule(() => import("../../src/lib/projects/server/settings"));
+  viewerId = member;
+  const collab = await settingsServer.getProjectCollaboratorSettingsAction(child, {});
+  assert.ok(collab.success, JSON.stringify(collab).slice(0, 300));
+  const row = collab.success ? collab.data.members.find((m) => m.id === outsider) : undefined;
+  const [{ title: orgTitle }] = await sql`SELECT title FROM projects WHERE id = ${id}`;
+  assert.deepEqual([row?.unitTitle, row?.outsideOf], ["Frontend", orgTitle]);
+  assert.equal(collab.success && collab.data.members.find((m) => m.id === member)?.outsideOf, null, "org members are not outside");
+});

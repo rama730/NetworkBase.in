@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { orgHandleHolds, profiles, projectMembers, projects, roleApplications } from "@/lib/db/schema";
 import { defaultOrgRoleNames, type OrgType } from "@/lib/organizations/config";
 import { childCreationBlock, type VisibilityCap } from "@/lib/organizations/child-rules";
-import { readOrgRules } from "@/lib/organizations/settings";
+import { readOrgRules, readOrgWork, type OrgWork } from "@/lib/organizations/settings";
 import { isProjectPubliclyReadableVisibility } from "@/lib/projects/project-visibility";
 
 type OrgSettingsRecord = {
@@ -37,6 +37,10 @@ export type OrgDetail = {
   childShare: boolean;
   /** Default units pre-filling a new child project's team (report §14.4 additions). */
   defaultUnits: string[];
+  /** New child projects follow org sprints (report §21.2 #4, on by default). */
+  followSprintsDefault: boolean;
+  /** Settings → Work with the type defaults (report §21.2 #5, §21.5). */
+  work: OrgWork;
   /** Chat rules as stored (report §25.4); read with orgChatSettings for type defaults. */
   chat: { membersCreateChannels?: boolean; generalAdminsOnly?: boolean };
   adminDigest: "daily" | "instant";
@@ -115,6 +119,8 @@ export async function readOrgDetail(
     outsidePeople: settings.outsidePeople === true,
     childShare: settings.childShare !== false,
     defaultUnits: readDefaultUnits(settings),
+    followSprintsDefault: (settings as { followSprintsDefault?: boolean }).followSprintsDefault !== false,
+    work: readOrgWork(settings, org.orgType),
     adminDigest: (settings as { adminDigest?: string }).adminDigest === "instant" ? "instant" : "daily",
     announcementNotify: (settings as { announcementNotify?: string }).announcementNotify === "email" ? "email" : "in_app",
     replyRule: (settings as { replyRule?: string }).replyRule === "logged_in" ? "logged_in" : "members",
@@ -267,6 +273,7 @@ export async function listCreateLocations(userId: string) {
       orgType: row.orgType,
       category: row.category,
       defaultUnits: readDefaultUnits(row.orgSettings),
+      followSprintsDefault: (row.orgSettings as { followSprintsDefault?: boolean } | null)?.followSprintsDefault !== false,
       outsidePeople: rules.outsidePeople,
       ownerId: row.ownerId,
       tags: (row.tags ?? []).slice(0, 8),

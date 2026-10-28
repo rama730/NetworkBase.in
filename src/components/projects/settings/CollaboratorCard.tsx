@@ -121,6 +121,11 @@ export function CollaboratorCard({
                                 >
                                     {reference.roleLabel}
                                 </span>
+                                {member.outsideOf ? (
+                                    <span className="h-5 px-[7px] rounded-[3px] text-[11px] leading-none shrink-0 inline-flex items-center border border-border bg-muted/60 text-muted-foreground">
+                                        Outside {member.outsideOf}
+                                    </span>
+                                ) : null}
                                 {!reference.isAssignable ? (
                                     <span className="h-5 px-[7px] rounded-[3px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none shrink-0 inline-flex items-center border border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400">
                                         Not assignable

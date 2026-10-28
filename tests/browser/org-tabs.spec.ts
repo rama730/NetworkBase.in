@@ -19,8 +19,9 @@ test.beforeAll(async () => {
         'next/navigation': `export const usePathname=()=>'/org/cse-3a',useRouter=()=>({refresh(){},push(){},replace(){}});`,
         '@/app/actions/org-members': `export const readOrgMembersAction=async()=>({success:true,viewerRole:'owner',joinCode:'K7M2QX',rows:${people},
             requests:[{id:'r1',userId:'x',name:'Priya Natarajan',note:'Roll 21, section B',createdAt:new Date().toISOString()}],invites:[],
-            children:[{id:'c1',title:'Team Falcon',units:[{id:'un',title:'Frontend'}]}],summary:{members:12,admins:2,guests:0,behind:4,notInProject:0,inactive:0}});
-            export const readMemberWorkAction=async()=>({success:true,work:[]});
+            children:[{id:'c1',title:'Team Falcon',units:[{id:'un',title:'Frontend'}]}],outside:[{userId:'o1',name:'Client Person',username:null,projects:['Team Falcon']}],summary:{members:12,admins:2,guests:0,behind:4,notInProject:0,inactive:0}});
+            export const readMemberWorkAction=async()=>({success:true,work:[]}),readMemberActivityAction=async()=>({success:true,activity:[{at:new Date().toISOString(),what:'status changed',task:'Lab 2',project:'Team Falcon'}]});
+            export const remindMembersAction=async()=>({success:true,reminded:2});
             export const addMembersToChildAction=${ok},approveJoinRequestsAction=${ok},cancelOrgInviteAction=${ok},changeMemberRoleAction=${ok},declineJoinRequestAction=${ok},inviteByEmailAction=async()=>({success:true,invalid:[]}),removeMembersAction=${ok},resendOrgInviteAction=${ok},setMemberTitleAction=${ok};`,
         '@/app/actions/organizations': `export const regenerateJoinCodeAction=async()=>({success:true,joinCode:'Q2W3E4'}),archiveChildAction=${ok},cancelJoinRequestAction=${ok},joinPublicOrgAction=${ok},childTitleTakenAction=async()=>false;
             export const listOrgRosterAction=async(orgId,q,admins)=>[['u1','Ravi Kumar','member','In Compiler Lab',['React']],['u2','Asha Nair','member',null,['Testing']],['u3','Ms. Rao','owner',null,[]]]
@@ -53,7 +54,7 @@ test.beforeAll(async () => {
             export const listAssignmentsAction=async()=>({success:true,isAdmin:true,timeZone:'Asia/Kolkata',rows:[
             {masterId:'a1',title:'Lab 3 — Consensus protocols and failure detectors',dueDate:new Date(Date.now()+864e5).toISOString(),status:'open',submissionType:'link',reviewRequired:true,teams:true,counts,mine:null},
             {masterId:'a2',title:'Reading quiz',dueDate:null,status:'draft',submissionType:'none',reviewRequired:false,teams:false,counts,mine:null}]});
-            export const readAssignmentComposerOptionsAction=async()=>({success:true,children:[],sprints:[],teamAssignments:[]}),readAssignmentRosterAction=async()=>({success:true,counts,rows:[
+            export const readAssignmentComposerOptionsAction=async()=>({success:true,children:[],sprints:[],teamAssignments:[],defaults:{reviewRequired:true,lateRule:'until'}}),readAssignmentRosterAction=async()=>({success:true,counts,rows:[
               {copyId:'t1',label:'Team A',members:[],people:[{id:'u1',name:'Ravi Kumar',lead:true},{id:'u2',name:'Alexandria Ramana Chandrasekhar',lead:false}],submittedBy:null,state:'in_progress',late:false,projectId:'org',dueDate:null,submission:null,excusedReason:null},
               {copyId:'t2',label:'Priya (individual)',members:[],state:'missing',late:false,projectId:'org',dueDate:null,submission:null,excusedReason:null}]});
             export const listProjectGroupCopiesAction=async()=>({success:true,rows:[]});
@@ -202,4 +203,17 @@ test('Org header (§18): + New ▾ by keyboard, tab badges with spoken text, and
     await page.getByRole('menuitem', { name: 'New Sprint' }).click();
     await expect(page.getByTestId('picked')).toHaveText('sprint');
     await noSideScroll(page);
+});
+
+test('Members (§20): bulk Remind, the Outside people filter, and the drawer has Message and Recent activity', async ({ page }) => {
+    await open(page, 'members', 1280);
+    await page.getByLabel('Select Student 2').check();
+    await page.getByRole('group', { name: 'Bulk actions' }).getByRole('button', { name: 'Remind' }).click();
+    await expect(page.getByRole('group', { name: 'Bulk actions' }), 'success clears the selection').toHaveCount(0);
+    await page.getByLabel('Status').selectOption('outside');
+    await expect(page.getByRole('list', { name: 'Outside people' })).toContainText('Client Person');
+    await page.getByLabel('Status').selectOption('all');
+    await page.getByRole('button', { name: /^Student 5/ }).click();
+    await expect(page.getByRole('link', { name: 'Message' })).toBeVisible();
+    await expect(page.getByText('status changed · Lab 2')).toBeVisible();
 });

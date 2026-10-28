@@ -134,7 +134,13 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
     useEffect(() => {
         if (!open) return
         void listOrgRosterAction(orgId, '').then(setRoster)
-        void readAssignmentComposerOptionsAction(orgId).then((r) => { if (r.success) setOptions({ children: r.children, sprints: r.sprints, teamAssignments: r.teamAssignments }) })
+        void readAssignmentComposerOptionsAction(orgId).then((r) => {
+            if (!r.success) return
+            setOptions({ children: r.children, sprints: r.sprints, teamAssignments: r.teamAssignments })
+            // A new assignment starts from the org's Work defaults (report §21.2 #5).
+            setReviewRequired(r.defaults.reviewRequired)
+            setLateRule(r.defaults.lateRule)
+        })
     }, [open, orgId])
 
     const placed = new Set(teams.flatMap((t) => t.people.map((p) => p.userId)))

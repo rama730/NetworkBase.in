@@ -4,7 +4,7 @@ import type { ProjectSettingsSectionId } from "@/lib/projects/settings-policies"
 import { ORG_LIMITS, ORG_TYPES } from "@/lib/organizations/config";
 import type { VisibilityCap } from "@/lib/organizations/child-rules";
 
-export type OrgSettingsSectionId = "you-membership" | "you-leave" | "org-profile" | "org-access" | "org-people" | "org-projects";
+export type OrgSettingsSectionId = "you-membership" | "you-leave" | "org-profile" | "org-access" | "org-people" | "org-projects" | "org-work";
 export type OrgMemberRole = "owner" | "admin" | "member" | "viewer";
 
 export const ORG_SECTION_DEFS: Record<OrgSettingsSectionId, { label: string; description: string }> = {
@@ -14,13 +14,14 @@ export const ORG_SECTION_DEFS: Record<OrgSettingsSectionId, { label: string; des
   "org-access": { label: "Access & joining", description: "Who can join and how." },
   "org-people": { label: "People & roles", description: "Role names and what each role can do." },
   "org-projects": { label: "Projects", description: "Who creates projects inside the organization and who can be added to them." },
+  "org-work": { label: "Work", description: "Defaults for new assignments and sprints, and reminders." },
 };
 
 const YOU: OrgSettingsSectionId[] = ["you-membership", "you-leave"];
 // The project sections an org keeps, in report §21.2 order; open roles don't apply (people join with the code).
 // Same order as the Settings document renders them, so the rail and the page agree.
 const ORG_FOR_ADMINS: Array<OrgSettingsSectionId | ProjectSettingsSectionId> = [
-  "org-profile", "links", "access", "org-access", "org-people", "org-projects", "collaborators",
+  "org-profile", "links", "access", "org-access", "org-people", "org-projects", "org-work", "collaborators",
   "readme", "updates", "tasks-workflow", "files-workspace", "notifications", "privacy-policies", "privacy-terms",
 ];
 
@@ -71,6 +72,17 @@ export const ORG_SETTINGS_PATCH = {
     child_share: z.boolean().optional(),
     visibility_cap: z.enum(["public", "org", "private"]).optional(),
     default_units: z.array(z.string().trim().min(1).max(100)).max(20).optional(),
+    follow_sprints: z.boolean().optional(),
+  }).strict(),
+  work: z.object({
+    review_required: z.boolean().optional(),
+    late_rule: z.enum(["none", "until", "always"]).optional(),
+    reminders: z.enum(["both", "day_before", "due_day", "off"]).optional(),
+    story_points: z.enum(["shown", "hidden"]).optional(),
+    sprint_auto_start: z.boolean().optional(),
+    sprint_notify_on_start: z.boolean().optional(),
+    sprint_show_in_children: z.boolean().optional(),
+    sprint_create_matching: z.boolean().optional(),
   }).strict(),
   notifications: z.object({
     admin_digest: z.enum(["daily", "instant"]).optional(),
@@ -82,7 +94,38 @@ export const ORG_SETTINGS_PATCH = {
 export type OrgSettingsSection = keyof typeof ORG_SETTINGS_PATCH;
 
 /** Who saves which section (report §21.2): role names are the owner's; the rest is owners and admins. */
-export const ORG_SECTION_OWNER_ONLY: Record<OrgSettingsSection, boolean> = { profile: false, access: false, people: true, projects: false, notifications: false };
+export const ORG_SECTION_OWNER_ONLY: Record<OrgSettingsSection, boolean> = { profile: false, access: false, people: true, projects: false, work: false, notifications: false };
+
+export type OrgWork = {
+  reviewRequired: boolean;
+  lateRule: "none" | "until" | "always";
+  reminders: "both" | "day_before" | "due_day" | "off";
+  storyPoints: "shown" | "hidden";
+  sprintAutoStart: boolean;
+  sprintNotifyOnStart: boolean;
+  sprintShowInChildren: boolean;
+  sprintCreateMatching: boolean;
+};
+
+/**
+ * The Work section (report §21.2 #5) with the type defaults (§21.5): Education reviews assignments, accepts late
+ * work until a date and hides story points; other types don't review, always accept late work and show points.
+ */
+export function readOrgWork(orgSettings: unknown, orgType: string | null | undefined): OrgWork {
+  const s = (orgSettings ?? {}) as Record<string, unknown>;
+  const education = orgType === "education";
+  const pick = <T extends string>(value: unknown, options: readonly T[], fallback: T): T => (options.includes(value as T) ? (value as T) : fallback);
+  return {
+    reviewRequired: typeof s.assignmentReview === "boolean" ? s.assignmentReview : education,
+    lateRule: pick(s.assignmentLateRule, ["none", "until", "always"] as const, education ? "until" : "always"),
+    reminders: pick(s.assignmentReminders, ["both", "day_before", "due_day", "off"] as const, "both"),
+    storyPoints: pick(s.storyPoints, ["shown", "hidden"] as const, education ? "hidden" : "shown"),
+    sprintAutoStart: s.sprintAutoStart !== false,
+    sprintNotifyOnStart: s.sprintNotifyOnStart !== false,
+    sprintShowInChildren: s.sprintShowInChildren !== false,
+    sprintCreateMatching: s.sprintCreateMatching === true,
+  };
+}
 
 /** The child-project rules an org enforces (report §21.7), read from org_settings with their defaults. */
 export function readOrgRules(orgSettings: unknown): { childCreation: "members" | "admins"; outsidePeople: boolean; visibilityCap: VisibilityCap } {

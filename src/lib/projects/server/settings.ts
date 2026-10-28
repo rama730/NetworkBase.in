@@ -520,6 +520,7 @@ export async function readCollaboratorSettings(
       .select({
         importSource: projects.importSource,
         ownerId: projects.ownerId,
+        parentId: projects.parentId,
       })
       .from(projects)
       .where(eq(projects.id, projectId))
@@ -535,6 +536,7 @@ export async function readCollaboratorSettings(
         username: profiles.username,
         fullName: profiles.fullName,
         avatarUrl: profiles.avatarUrl,
+        unitTitle: sql<string | null>`(SELECT coalesce(r.title, r.role) FROM project_open_roles r WHERE r.id = ${projectMembers.unitId})`,
       })
       .from(projectMembers)
       .leftJoin(profiles, eq(profiles.id, projectMembers.userId))
@@ -576,6 +578,7 @@ export async function readCollaboratorSettings(
             username: ownerProfile.username,
             fullName: ownerProfile.fullName,
             avatarUrl: ownerProfile.avatarUrl,
+            unitTitle: null,
           },
           ...slice,
         ].slice(0, safeLimit);
@@ -590,6 +593,14 @@ export async function readCollaboratorSettings(
         : null;
 
     const memberIds = slice.map((row) => row.userId);
+    // Outside people in an org's child project are labelled "Outside <org>" (report §20.8, §21.6 #5).
+    const outside = projectRow?.parentId && memberIds.length > 0
+      ? await db.execute<{ user_id: string; org: string }>(sql`
+          SELECT c.user_id, o.title AS org FROM project_members c JOIN projects o ON o.id = ${projectRow.parentId}
+          WHERE c.project_id = ${projectId} AND c.user_id IN ${memberIds} AND o.owner_id <> c.user_id
+            AND NOT EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = o.id AND m.user_id = c.user_id)`)
+      : [];
+    const outsideOf = new Map(outside.map((r) => [r.user_id, r.org]));
     const [roleTitleByUser, responsibilityByUser, roleCounts] =
       await Promise.all([
         readAcceptedRoleTitles(projectId, memberIds),
@@ -623,6 +634,8 @@ export async function readCollaboratorSettings(
                 ? leadFocus || "Lead"
                 : (roleTitleByUser.get(row.userId) ?? null),
             joinedAt: row.joinedAt?.toISOString?.() ?? null,
+            unitTitle: row.unitTitle ?? null,
+            outsideOf: outsideOf.get(row.userId) ?? null,
             fileUploadEnabled: row.fileUploadEnabled !== false,
             responsibilityCounts: responsibilityByUser.get(row.userId) ?? {
               activeAssignedTasks: 0,

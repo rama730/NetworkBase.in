@@ -5,6 +5,7 @@ import { and, eq, inArray, isNull, ne, notInArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { projectDocs, projectNodes, projectSprintEvents, projectSprints, projects, sprintMaterials } from "@/lib/db/schema";
 import { fitsInside, overlaps } from "@/lib/organizations/sprint-rules";
+import { readOrgWork } from "@/lib/organizations/settings";
 
 // Org sprints (report §15): checks, matching child sprints, links and materials, kept beside the project
 // sprint actions that call them.
@@ -152,9 +153,9 @@ export async function readSprintOrgContext(projectId: string, selectedSprintId: 
   const empty: SprintOrgContext = { kind: project.kind === "organization" ? "org" : "child", orgSprints: [], orgTitle: null, orgSlug: null, parentSprint: null, runningOrgSprint: null, linkedProjects: [], notLinkedCount: 0, sprintFlags };
 
   if (project.kind === "organization") {
-    const work = (project.orgSettings ?? {}) as { sprintAutoStart?: unknown; sprintShowInChildren?: unknown; sprintCreateMatching?: unknown; sprintNotifyOnStart?: unknown };
+    const work = readOrgWork(project.orgSettings, project.orgType);
     empty.orgType = project.orgType;
-    empty.defaults = { autoStart: work.sprintAutoStart !== false, showInChildren: work.sprintShowInChildren !== false, createMatching: work.sprintCreateMatching === true, notifyOnStart: work.sprintNotifyOnStart !== false };
+    empty.defaults = { autoStart: work.sprintAutoStart, showInChildren: work.sprintShowInChildren, createMatching: work.sprintCreateMatching, notifyOnStart: work.sprintNotifyOnStart };
     if (!selectedSprintId) return empty;
     const [linked, children] = await Promise.all([
       db.select({ projectId: projects.id, title: projects.title, slug: projects.slug, sprintId: projectSprints.id, sprintName: projectSprints.name, status: projectSprints.status })

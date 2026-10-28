@@ -1111,6 +1111,13 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
         setNewIntent(kind);
         handleTabChange(kind === 'assignment' ? 'tasks' : kind === 'announcement' ? 'updates' : 'sprints');
     }, [handleTabChange, project.id, project.slug, router]);
+    // Settings → Work → Story points: Hidden (report §21.2 #5) covers the board, drawers and dialogs (portals) alike.
+    const hideStoryPoints = organization?.work.storyPoints === 'hidden';
+    useEffect(() => {
+        if (!hideStoryPoints) return;
+        document.documentElement.dataset.storyPoints = 'hidden';
+        return () => { delete document.documentElement.dataset.storyPoints; };
+    }, [hideStoryPoints]);
     const canStartNew = isOrganization && canManageProjectSettings && project.status !== 'archived' && !organization?.suspended;
     const activeSprintName = (sprints as Array<{ status?: string; name?: string }>).find((s) => s.status === 'active')?.name ?? null;
     const filesSyncBadge = useFilesWorkspaceStore((s) => s.byProjectId[project.id]?.git?.syncBadge ?? null);
