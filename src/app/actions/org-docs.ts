@@ -8,7 +8,7 @@ import { db } from '@/lib/db';
 import { docOpens, projectDocs, projectMembers, projectNodes, projectOpenRoles, projects, projectSprints, sprintMaterials } from '@/lib/db/schema';
 import { getProjectAccessById } from '@/lib/data/project-access';
 import { enqueueProjectNotificationEvent } from '@/lib/notifications/project-events';
-import { ORG_LIMITS, organizationsEnabled } from '@/lib/organizations/config';
+import { ORG_LIMITS } from '@/lib/organizations/config';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
 import { docFileName, docLabel, fillDocTemplate, readDocGroups, readOrgDocOptions, templateCopyTitle, type DocGroup, type OrgDocOptions } from '@/lib/organizations/doc-rules';
 import { normalizeProjectDocSettings } from '@/lib/projects/doc';
@@ -43,7 +43,6 @@ async function readOrg(orgId: string) {
 
 /** The viewer when they own or admin `orgId` (an org, with the flag on). */
 async function orgAdmin(orgId: string) {
-    if (!organizationsEnabled()) return null;
     const { userId } = await getViewerAuthContext();
     const role = userId ? await readViewerOrgRole(orgId, userId) : null;
     return userId && (role === 'owner' || role === 'admin') ? userId : null;
@@ -70,7 +69,6 @@ const touch = (slug: string | null, id: string) => revalidatePath(`/org/${slug ?
  * for org people only (outside people never see it, report §19.7). Null when neither applies.
  */
 export async function readOrgDocsAction(projectId: string): Promise<{ success: true; data: OrgDocsData | null } | Failure> {
-    if (!organizationsEnabled()) return { success: true, data: null };
     const { userId } = await getViewerAuthContext();
     const [project] = await db.select({ id: projects.id, kind: projects.kind, parentId: projects.parentId })
         .from(projects).where(and(eq(projects.id, projectId), isNull(projects.deletedAt))).limit(1);
@@ -163,7 +161,6 @@ export async function publishOrgDocAction(orgId: string, docId: string, input: z
 
 /** Opening an org doc clears its New label at the current re-read version (report §19.4). */
 export async function markDocOpenedAction(orgId: string, docSlug: string): Promise<{ success: true } | Failure> {
-    if (!organizationsEnabled()) return DENIED;
     const { userId } = await getViewerAuthContext();
     if (!userId) return DENIED;
     const listed = await listProjectDocsAction(orgId);
@@ -201,7 +198,6 @@ export async function saveOrgDocGroupsAction(orgId: string, groups: DocGroup[]):
  * saves it as a new file in the project's Docs folder and adds it to Docs, as Files does for any new file.
  */
 export async function readOrgTemplateCopyAction(childProjectId: string, orgDocId: string): Promise<{ success: true; filename: string; content: string } | Failure> {
-    if (!organizationsEnabled()) return DENIED;
     const { userId } = await getViewerAuthContext();
     if (!userId) return DENIED;
     const [child] = await db.select({ id: projects.id, title: projects.title, parentId: projects.parentId })

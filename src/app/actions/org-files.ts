@@ -7,7 +7,6 @@ import { db } from '@/lib/db';
 import { projectNodes, projects } from '@/lib/db/schema';
 import { getProjectAccessById } from '@/lib/data/project-access';
 import { assertFileNodeVisible, orgFileAccessSql, projectContentNodeSql } from '@/lib/files/internal-helpers';
-import { organizationsEnabled } from '@/lib/organizations/config';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
 import { effectiveAccess, folderAccessBlock, readFolderAccess, type FolderAccess } from '@/lib/organizations/file-rules';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
@@ -21,7 +20,6 @@ type ReadableAccess = Awaited<ReturnType<typeof getProjectAccessById>> & { proje
 
 /** The viewer when they own or admin the org; writes refuse a suspended or archived org. */
 async function orgAdmin(orgId: string, mode: 'read' | 'write' = 'write') {
-    if (!organizationsEnabled()) return null;
     const { userId } = await getViewerAuthContext();
     if (!userId) return null;
     const access = await getProjectAccessById(orgId, userId);
@@ -102,7 +100,6 @@ export async function listOrgFoldersAction(orgId: string): Promise<{ success: tr
 
 /** The org's access for an org person inside one of its child projects; null for anyone else (§23.6). */
 async function childOrgAccess(childProjectId: string): Promise<{ userId: string; orgAccess: ReadableAccess; org: { id: string; title: string; slug: string | null } } | null> {
-    if (!organizationsEnabled()) return null;
     const { userId } = await getViewerAuthContext();
     if (!userId) return null;
     const [child] = await db.select({ parentId: projects.parentId }).from(projects).where(and(eq(projects.id, childProjectId), isNull(projects.deletedAt))).limit(1);

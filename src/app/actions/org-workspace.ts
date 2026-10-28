@@ -6,7 +6,6 @@ import { db } from '@/lib/db';
 import { projectMembers, projects } from '@/lib/db/schema';
 import { getProjectAccessById } from '@/lib/data/project-access';
 import { orgFileAccessSql } from '@/lib/files/internal-helpers';
-import { organizationsEnabled } from '@/lib/organizations/config';
 import { readNeedsYou, type OrgViewer } from '@/lib/organizations/needs-you';
 import { openInvitesFor } from '@/lib/organizations/members';
 import { readOrgRules } from '@/lib/organizations/settings';
@@ -17,7 +16,6 @@ import { getViewerAuthContext } from '@/lib/server/viewer-context';
 const ROWS = <T,>(query: ReturnType<typeof sql>) => db.execute(query) as unknown as Promise<T[]>;
 
 async function viewer() {
-    if (!organizationsEnabled()) return null;
     const { userId } = await getViewerAuthContext();
     return userId;
 }

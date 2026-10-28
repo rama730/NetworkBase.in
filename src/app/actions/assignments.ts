@@ -8,7 +8,6 @@ import { db } from '@/lib/db';
 import { profiles, projects, projectSprints, projectWorkflowColumns, taskActivityEvents, taskTeamMembers, tasks } from '@/lib/db/schema';
 import { getProjectAccessById, writeBlockedMessage } from '@/lib/data/project-access';
 import { createClient } from '@/lib/supabase/server';
-import { organizationsEnabled } from '@/lib/organizations/config';
 import { canStillSubmit, copyState, type AssignmentSettings, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules';
 import { createCopies, createMasterTask, resolveRecipients } from '@/lib/organizations/assignments';
 import { shareToOrgGeneral } from '@/lib/organizations/org-chat';
@@ -27,7 +26,6 @@ async function viewerId() {
 
 /** The viewer and their role in the org that owns `orgId` (null outside it, or when it isn't an org). */
 async function orgRole(orgId: string, mode: 'read' | 'write' = 'write') {
-    if (!organizationsEnabled()) return null;
     const userId = await viewerId();
     if (!userId) return null;
     const access = await getProjectAccessById(orgId, userId);
@@ -209,7 +207,7 @@ const submitSchema = z.object({ link: z.string().trim().url().max(2000).optional
 
 /** Hand in a copy: its assignee or any teammate (report §16.4, §16.11). Review on → Submitted; off → Done. */
 export async function submitAssignmentAction(copyId: string, input: z.input<typeof submitSchema>): Promise<{ success: true } | Failure> {
-    const userId = organizationsEnabled() ? await viewerId() : null;
+    const userId = await viewerId();
     const parsed = submitSchema.safeParse(input);
     if (!userId || !parsed.success) return parsed.success ? DENIED : { success: false, error: 'Enter a valid link.' };
     const loaded = await loadCopy(copyId);
@@ -427,7 +425,6 @@ export type GroupCopyRow = { copyId: string; title: string; orgTitle: string; du
 
 /** A child project's group assignment copies, "From CSE-3A" (report §16.6), with Submit for whoever holds them. */
 export async function listProjectGroupCopiesAction(projectId: string): Promise<{ success: true; rows: GroupCopyRow[] } | Failure> {
-    if (!organizationsEnabled()) return { success: true, rows: [] };
     const userId = await viewerId();
     const access = await getProjectAccessById(projectId, userId);
     if (!access.project?.parentId || !(access.isOwner || access.isMember || access.isInheritedAdmin)) return { success: true, rows: [] };

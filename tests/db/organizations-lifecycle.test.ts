@@ -18,7 +18,6 @@ moduleStubs.set("@/lib/supabase/server", {
 moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: () => undefined, unstable_cache: (fn: unknown) => fn, updateTag: () => undefined });
 moduleStubs.set("next/headers", { headers: async () => new Headers({ "x-forwarded-for": "203.0.113.40" }) });
 moduleStubs.set("@/inngest/client", { inngest: { send: async () => ({ ids: [] }), createFunction: () => ({}) } });
-process.env.ORGANIZATIONS_ENABLED = "true";
 process.env.JOB_REQUEST_SECRET = "test-job-request-secret-for-hard-delete-0123456789";
 delete process.env.UPSTASH_REDIS_REST_URL;
 delete process.env.UPSTASH_REDIS_REST_TOKEN;

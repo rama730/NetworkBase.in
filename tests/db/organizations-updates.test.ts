@@ -14,7 +14,6 @@ moduleStubs.set("@/lib/supabase/server", {
 });
 moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: () => undefined, unstable_cache: (fn: unknown) => fn, updateTag: () => undefined });
 moduleStubs.set("next/headers", { headers: async () => new Headers({ "x-forwarded-for": "203.0.113.14" }) });
-process.env.ORGANIZATIONS_ENABLED = "true";
 
 let updates: typeof import("../../src/app/actions/project/updates");
 let orgUpdates: typeof import("../../src/app/actions/org-updates");

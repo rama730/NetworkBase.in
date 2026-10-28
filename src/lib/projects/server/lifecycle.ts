@@ -38,7 +38,7 @@ import { getTrustedHeadersIp } from "@/lib/security/request-ip";
 import { headers } from "next/headers";
 import { buildJourneyCompletionDates, normalizeJourneyCompletionDates } from "@/lib/projects/journey-completion";
 import { isLooseUuid } from "@/lib/validations/uuid";
-import { defaultOrgRoleNames, organizationsEnabled, ORG_LIMITS } from "@/lib/organizations/config";
+import { defaultOrgRoleNames, ORG_LIMITS } from "@/lib/organizations/config";
 import { validateOrgHandle } from "@/lib/organizations/handle";
 import { isOrgHandleAvailable } from "@/lib/organizations/join";
 import { generateJoinCode } from "@/lib/organizations/join-rules";
@@ -593,7 +593,6 @@ export async function createProjectAction(
     let orgHandle: string | null = null;
     if (organization) {
       const refuse = (error: string) => ({ success: false, error });
-      if (!organizationsEnabled()) return refuse("Organizations are not available yet.");
       const checked = validateOrgHandle(organization.handle);
       if (!checked.ok) return refuse(checked.reason === "reserved" ? "That handle is reserved." : "Choose a handle of 3–40 letters, numbers or single dashes.");
       if (!(await isOrgHandleAvailable(checked.handle))) return refuse(`@${checked.handle} is taken.`);
@@ -614,7 +613,6 @@ export async function createProjectAction(
     const unassignedPeople = (input.unassigned_people ?? []).map((person) => person.user_id);
     if (parentOrgId) {
       const refuse = (error: string) => ({ success: false, error });
-      if (!organizationsEnabled()) return refuse("Organizations are not available yet.");
       const [org] = await db
         .select({ title: projects.title, visibility: projects.visibility, status: projects.status, suspendedAt: projects.suspendedAt, deletionScheduledAt: projects.deletionScheduledAt, orgSettings: projects.orgSettings })
         .from(projects)

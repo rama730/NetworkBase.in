@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/server';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
 import { getTrustedHeadersIp } from '@/lib/security/request-ip';
 import { z } from 'zod';
-import { organizationsEnabled, ORG_LIMITS } from '@/lib/organizations/config';
+import { ORG_LIMITS } from '@/lib/organizations/config';
 import { validateOrgHandle } from '@/lib/organizations/handle';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 
@@ -62,7 +62,6 @@ async function allowLookup(userId: string | null) {
 }
 
 export async function getJoinPreviewAction(rawCode: string): Promise<{ success: true; preview: OrgJoinPreview } | Failure> {
-    if (!organizationsEnabled()) return NO_MATCH;
     const code = normalizeJoinCode(rawCode);
     const userId = await viewerId();
     if (!(await allowLookup(userId))) return TOO_MANY;
@@ -87,7 +86,6 @@ export async function joinOrganizationAction(
     rawCode: string,
     note?: string | null,
 ): Promise<{ success: true; outcome: OrgJoinOutcome; org: { id: string; title: string; slug: string | null } } | Failure> {
-    if (!organizationsEnabled()) return NO_MATCH;
     const userId = await viewerId();
     if (!userId) return { success: false, error: 'Log in to join an organization.' };
     if (!(await allowLookup(userId))) return TOO_MANY;
@@ -114,7 +112,7 @@ export async function joinOrganizationAction(
 /** Live check for the create wizard's @handle field. */
 export async function checkOrgHandleAction(raw: string): Promise<{ available: boolean; handle: string | null; message: string }> {
     const userId = await viewerId();
-    if (!organizationsEnabled() || !userId) return { available: false, handle: null, message: 'Not available.' };
+    if (!userId) return { available: false, handle: null, message: 'Not available.' };
     const checked = validateOrgHandle(raw);
     if (!checked.ok) {
         return {
@@ -133,7 +131,6 @@ type OrgViewer = { userId: string; role: OrgRole; slug: string | null };
 
 /** The signed-in viewer and their role in this org ("guest" for viewers); null outside it or when it isn't an org. */
 async function orgViewer(orgId: string, mode: 'read' | 'write' = 'write'): Promise<OrgViewer | null> {
-    if (!organizationsEnabled()) return null;
     const userId = await viewerId();
     if (!userId) return null;
     const access = await getProjectAccessById(orgId, userId);
@@ -265,7 +262,6 @@ export async function joinPublicOrgAction(
     orgId: string,
     note?: string | null,
 ): Promise<{ success: true; outcome: OrgJoinOutcome } | Failure> {
-    if (!organizationsEnabled()) return NO_MATCH;
     const userId = await viewerId();
     if (!userId) return { success: false, error: 'Log in to join an organization.' };
     if (!(await allowLookup(userId))) return TOO_MANY;
@@ -292,7 +288,6 @@ async function afterJoin(orgId: string, outcome: OrgJoinOutcome, userId: string)
 
 /** Withdraws the viewer's pending join request; withdrawing is not a decline, so there is no cool-down. */
 export async function cancelJoinRequestAction(orgId: string): Promise<{ success: true } | Failure> {
-    if (!organizationsEnabled()) return DENIED;
     const userId = await viewerId();
     if (!userId) return DENIED;
     const now = new Date();
@@ -350,7 +345,6 @@ type ChildViewer = {
 };
 
 async function childViewer(projectId: string): Promise<ChildViewer | null> {
-    if (!organizationsEnabled()) return null;
     const userId = await viewerId();
     if (!userId) return null;
     const [project] = await db.select({ id: projects.id, ownerId: projects.ownerId, parentId: projects.parentId, visibility: projects.visibility, slug: projects.slug, orgSettings: projects.orgSettings, kind: projects.kind })
@@ -465,7 +459,7 @@ async function pendingMoveIn(projectId: string) {
 /** An org admin approves a move-in request; the outside-people rule is checked again. */
 export async function approveMoveInAction(projectId: string): Promise<{ success: true } | Failure> {
     const userId = await viewerId();
-    const pending = organizationsEnabled() && userId ? await pendingMoveIn(projectId) : null;
+    const pending = userId ? await pendingMoveIn(projectId) : null;
     if (!pending || !isAdminRole(await readViewerOrgRole(pending.orgId, userId))) return DENIED;
     const org = await readOrgCap(db, pending.orgId);
     if (org && !org.outsidePeople && (await countOutsidePeople(projectId, pending.orgId)) > 0) {
@@ -480,7 +474,7 @@ export async function approveMoveInAction(projectId: string): Promise<{ success:
 /** The lead withdraws, or an org admin declines, a move-in request. */
 export async function cancelMoveInAction(projectId: string): Promise<{ success: true } | Failure> {
     const userId = await viewerId();
-    const pending = organizationsEnabled() && userId ? await pendingMoveIn(projectId) : null;
+    const pending = userId ? await pendingMoveIn(projectId) : null;
     if (!pending || !(pending.project.ownerId === userId || isAdminRole(await readViewerOrgRole(pending.orgId, userId)))) return DENIED;
     await db.update(projects).set({ orgSettings: sql`${projects.orgSettings} - 'moveInRequest'` }).where(eq(projects.id, projectId));
     revalidatePath(`/projects/${pending.project.slug ?? projectId}`);
@@ -496,7 +490,6 @@ export async function previewVisibilityCapAction(orgId: string, cap: 'public' | 
 
 /** Orgs the viewer can open the create wizard in, with the reason when they can't (report §14.1 E4). */
 export async function listCreateLocationsAction(): Promise<Array<{ id: string; title: string; slug: string | null; block: string | null; visibilityCap: string; orgPublic: boolean; isAdmin: boolean }>> {
-    if (!organizationsEnabled()) return [];
     const userId = await viewerId();
     if (!userId) return [];
     return listCreateLocations(userId);
@@ -504,7 +497,6 @@ export async function listCreateLocationsAction(): Promise<Array<{ id: string; t
 
 /** Settings › Notifications › Organizations: every org the viewer owns or belongs to (report §26.8). */
 export async function listMyOrganizationsAction(): Promise<Array<{ id: string; title: string }>> {
-    if (!organizationsEnabled()) return [];
     const userId = await viewerId();
     if (!userId) return [];
     return db.select({ id: projects.id, title: projects.title }).from(projects)

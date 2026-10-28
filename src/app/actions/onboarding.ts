@@ -1,6 +1,5 @@
 'use server'
 
-import { organizationsEnabled } from '@/lib/organizations/config'
 import { acceptOrgEmailInvites, joinOrgByCode } from '@/lib/organizations/join'
 import { normalizeJoinCode, type OrgJoinOutcome } from '@/lib/organizations/join-rules'
 import { after } from 'next/server'
@@ -313,7 +312,6 @@ export async function completeOnboarding(
  * with no extra click (decisions 133, 134). Never fails the onboarding itself.
  */
 async function joinOrgsAfterOnboarding(userId: string, email: string, rawCode: string | undefined): Promise<OnboardingOrgJoin | null> {
-    if (!organizationsEnabled()) return null
     try {
         await acceptOrgEmailInvites(userId, email)
         const code = rawCode ? normalizeJoinCode(rawCode) : null

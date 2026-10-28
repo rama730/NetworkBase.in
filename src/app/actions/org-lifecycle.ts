@@ -8,7 +8,7 @@ import { inngest } from '@/inngest/client';
 import { db } from '@/lib/db';
 import { projects } from '@/lib/db/schema';
 import { getProjectAccessById, writeBlockedMessage } from '@/lib/data/project-access';
-import { ORG_LIMITS, organizationsEnabled } from '@/lib/organizations/config';
+import { ORG_LIMITS } from '@/lib/organizations/config';
 import { validateOrgHandle } from '@/lib/organizations/handle';
 import { isOrgHandleAvailable } from '@/lib/organizations/join';
 import { archiveOrg, orgLifecyclePreview, restoreOrg, scheduleOrgDeletion, unarchiveOrg, ORG_DELETION_GRACE_DAYS } from '@/lib/organizations/lifecycle';
@@ -21,7 +21,6 @@ type Failure = { success: false; error: string };
 const DENIED: Failure = { success: false, error: 'Only the owner can do this.' };
 
 async function orgOwner(orgId: string) {
-    if (!organizationsEnabled()) return null;
     const { userId } = await getViewerAuthContext();
     if (!userId) return null;
     const access = await getProjectAccessById(orgId, userId);

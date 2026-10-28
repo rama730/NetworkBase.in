@@ -7,7 +7,6 @@ import { closeAppDb, createProject, createUser, loadAppModule, moduleStubs, sql 
 // P14 (report §26): the scheduled jobs, the digest skip, material privacy in E5 and announcement audiences.
 moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: () => undefined, unstable_cache: (fn: unknown) => fn, updateTag: () => undefined });
 moduleStubs.set("@/inngest/client", { inngest: { send: async () => ({ ids: [] }), createFunction: () => ({}) } });
-process.env.ORGANIZATIONS_ENABLED = "true";
 process.env.RESEND_EMAIL_ENABLED = "true";
 
 let digests: typeof import("../../src/lib/organizations/org-digests");

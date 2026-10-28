@@ -7,7 +7,6 @@ import { profiles, projectMembers, projectNodeEvents, projectNodes, projectOpenR
 import { getProjectAccessById, type ProjectAccess } from '@/lib/data/project-access';
 import { orgFileAccessSql } from '@/lib/files/internal-helpers';
 import { copyState, type CopyState } from '@/lib/organizations/assignment-rules';
-import { organizationsEnabled } from '@/lib/organizations/config';
 import { activityVisible, getStartedSteps, journeyFromSprints, needsAttention, type ActivityKind } from '@/lib/organizations/dashboard-rules';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
 import { readOrgDocsAction } from '@/app/actions/org-docs';
@@ -26,7 +25,6 @@ const DAY = 86_400_000;
 
 
 async function orgViewer(orgId: string): Promise<OrgViewer | null> {
-    if (!organizationsEnabled()) return null;
     const { userId } = await getViewerAuthContext();
     const access = await getProjectAccessById(orgId, userId);
     if (access.project?.kind !== 'organization' || !access.canRead) return null;
@@ -293,7 +291,6 @@ export async function readOrgProjectsAction(orgId: string): Promise<{ success: t
 
 /** `Part of CSE-3A · CO2 ends Fri · 1 assignment due` on a child project's Dashboard (report §22.5, §27.5). */
 export async function readChildOrgLineAction(childProjectId: string) {
-    if (!organizationsEnabled()) return null;
     const { userId } = await getViewerAuthContext();
     const [child] = await db.select({ parentId: projects.parentId }).from(projects).where(and(eq(projects.id, childProjectId), isNull(projects.deletedAt))).limit(1);
     if (!child?.parentId || !(await readViewerOrgRole(child.parentId, userId))) return null; // outside people don't get the org line
