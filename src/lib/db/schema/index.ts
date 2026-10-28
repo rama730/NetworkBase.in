@@ -2766,7 +2766,7 @@ export const emailOutbox = pgTable("email_outbox", {
   providerIdx: uniqueIndex("email_outbox_provider_idx").on(t.providerId),
   dueIdx: index("email_outbox_due_idx").on(t.dueAt).where(sql`${t.status} = 'pending'`),
   leaseIdx: index("email_outbox_lease_idx").on(t.leaseExpiresAt).where(sql`${t.status} = 'processing'`),
-  kindCheck: check("email_outbox_kind_check", sql`${t.kind} IN ('welcome', 'task_assignment', 'org_ready', 'org_invite', 'org_invite_signup', 'org_welcome', 'org_assignment', 'org_due_soon', 'org_overdue', 'org_returned', 'org_announcement', 'org_ended', 'org_digest', 'org_removed', 'org_ownership', 'org_deleted')`),
+  kindCheck: check("email_outbox_kind_check", sql`${t.kind} IN ('welcome', 'task_assignment', 'org_ready', 'org_invite', 'org_invite_signup', 'org_welcome', 'org_assignment', 'org_due_soon', 'org_overdue', 'org_returned', 'org_announcement', 'org_ended', 'org_digest', 'org_removed', 'org_ownership', 'org_deleted', 'security_password_changed', 'security_mfa_changed', 'security_token_created', 'account_deletion_scheduled', 'account_deletion_cancelled', 'account_deletion_reminder')`),
   recipientCheck: check("email_outbox_recipient_check", sql`${t.userId} IS NOT NULL OR ${t.toEmail} IS NOT NULL`),
   statusCheck: check("email_outbox_status_check", sql`${t.status} IN ('pending', 'processing', 'accepted', 'dropped', 'failed', 'needs_review')`),
   attemptsCheck: check("email_outbox_attempts_check", sql`${t.attempts} >= 0`),

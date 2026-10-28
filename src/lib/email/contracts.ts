@@ -7,7 +7,11 @@ import { getPersonAvatarTone, type PersonAvatarTone } from "@/lib/ui/avatar";
 export type OrgEmailKind =
   | "org_ready" | "org_invite" | "org_invite_signup" | "org_welcome" | "org_assignment" | "org_due_soon" | "org_overdue"
   | "org_returned" | "org_announcement" | "org_ended" | "org_digest" | "org_removed" | "org_ownership" | "org_deleted";
-export type EmailKind = "welcome" | "task_assignment" | OrgEmailKind;
+/** Account security and deletion: sent whatever the email setting says (the account itself is at stake). */
+export type SecurityEmailKind =
+  | "security_password_changed" | "security_mfa_changed" | "security_token_created"
+  | "account_deletion_scheduled" | "account_deletion_cancelled" | "account_deletion_reminder";
+export type EmailKind = "welcome" | "task_assignment" | OrgEmailKind | SecurityEmailKind;
 export type EmailAttachment = {
   filename: string;
   path?: string;
@@ -399,7 +403,7 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
   const filesUrl = !welcome && input.projectSlug
     ? new URL(`/projects/${encodeURIComponent(input.projectSlug)}?tab=files`, origin).toString()
     : null;
-  const settingsUrl = new URL("/settings/notifications", origin).toString();
+  const settingsUrl = new URL("/settings#settings-notifications", origin).toString();
   const supportUrl = "mailto:support@networkbase.in";
   const privacyUrl = new URL("/privacy", origin).toString();
   const securityUrl = new URL("/security-reporting", origin).toString();
@@ -461,8 +465,8 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
       subject: `Welcome to NetworkBase, ${displayName.replace(/[\r\n]/g, " ").slice(0, 80)}`,
       text: welcomeText,
       headers: {
+        // No one-click POST header: there is no endpoint that unsubscribes on POST, and claiming one makes mail apps POST a page.
         "List-Unsubscribe": `<${settingsUrl}>, <mailto:support@networkbase.in?subject=unsubscribe>`,
-        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
       },
       html: renderEmailShell({
         title: "Welcome to NetworkBase",
@@ -687,7 +691,6 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
     text,
     headers: {
       "List-Unsubscribe": `<${settingsUrl}>, <mailto:support@networkbase.in?subject=unsubscribe>`,
-      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
     },
     html: renderEmailShell({
       title,
