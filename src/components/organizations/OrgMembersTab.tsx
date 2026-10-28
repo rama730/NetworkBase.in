@@ -69,7 +69,7 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
         <div className="mx-auto grid w-full max-w-[1240px] gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
             <div className="min-w-0 space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
-                    <Input value={filter.q ?? ''} onChange={(e) => setFilter({ ...filter, q: e.target.value })} placeholder="Search members…" aria-label="Search members" className="h-9 w-56" />
+                    <Input value={filter.q ?? ''} onChange={(e) => setFilter({ ...filter, q: e.target.value })} placeholder="Search members…" aria-label="Search members" className="h-9 w-full sm:w-56" />
                     <select aria-label="Role" className={select} value={filter.role ?? 'all'} onChange={(e) => setFilter({ ...filter, role: e.target.value as RosterFilter['role'] })}>
                         <option value="all">All roles</option><option value="admins">Admins</option><option value="members">Members</option><option value="guests">Guests</option>
                     </select>
@@ -85,6 +85,8 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
                         <option value="name">Sort: Name</option><option value="behind">Behind first</option><option value="active">Last active</option><option value="joined">Joined</option>
                     </select>
                 </div>
+
+                {data.requests.length > 0 ? <div className="lg:hidden"><Requests orgId={orgId} data={data} pending={pending} run={run} /></div> : null}
 
                 {ids.length > 0 ? <BulkBar orgId={orgId} data={data} ids={ids} pending={pending} run={run} onClear={() => setSelected(new Set())} /> : null}
 
@@ -122,9 +124,10 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
                                     <span className="mt-0.5 block truncate text-[12px] text-muted-foreground">
                                         {r.projects.length ? r.projects.map((p) => (p.unit ? `${p.title} · ${p.unit}` : p.title)).join(', ') : '— not in a project'}
                                     </span>
+                                    <span className={cn('mt-0.5 block text-[12px] sm:hidden', r.behind ? 'text-destructive' : 'text-muted-foreground')}>{workLine(r.work)} · active {ago(r.lastActiveAt)}</span>
                                 </button>
-                                <span className={cn('shrink-0 text-[12px]', r.behind ? 'text-destructive' : 'text-muted-foreground')}>{workLine(r.work)}</span>
-                                <span className="w-24 shrink-0 text-right font-mono text-[11px] text-muted-foreground">{ago(r.lastActiveAt)}</span>
+                                <span className={cn('hidden shrink-0 text-[12px] sm:inline', r.behind ? 'text-destructive' : 'text-muted-foreground')}>{workLine(r.work)}</span>
+                                <span className="hidden w-24 shrink-0 text-right font-mono text-[11px] text-muted-foreground sm:inline">{ago(r.lastActiveAt)}</span>
                             </li>
                         ))}
                     </ul>
@@ -132,7 +135,7 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
             </div>
 
             <aside className="space-y-5">
-                <Requests orgId={orgId} data={data} pending={pending} run={run} />
+                <div className={data.requests.length > 0 ? 'hidden lg:block' : undefined}><Requests orgId={orgId} data={data} pending={pending} run={run} /></div>
                 <InviteBox orgId={orgId} data={data} pending={pending} run={run} onCode={(joinCode) => setData({ ...data, joinCode })} />
                 <section aria-label="Summary" className="space-y-1 text-sm">
                     <button type="button" className="block hover:underline" onClick={() => setFilter({ sort: 'name' })}>{s.members} members</button>
@@ -145,7 +148,7 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
 
             <Dialog open={Boolean(open)} onOpenChange={(v) => { if (!v) setOpen(null) }}>
                 <DialogContent presentation="right-drawer" className="overflow-y-auto p-5">
-                    <DialogTitle className="sr-only">Member</DialogTitle>
+                    <DialogTitle className="sr-only">{open ? `Member: ${open.name}` : 'Member'}</DialogTitle>
                     {open ? <MemberDrawer orgId={orgId} row={open} data={data} label={label} pending={pending} run={(w, d) => { run(w, d); setOpen(null) }} /> : null}
                 </DialogContent>
             </Dialog>
@@ -161,7 +164,7 @@ function BulkBar({ orgId, data, ids, pending, run, onClear }: { orgId: string; d
     const [block, setBlock] = useState(false)
     const units = data.children.find((c) => c.id === childId)?.units ?? []
     return (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/30 p-2 text-sm" role="toolbar" aria-label="Bulk actions">
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/30 p-2 text-sm" role="group" aria-label="Bulk actions">
             <span className="font-medium">{ids.length} selected</span>
             <select aria-label="Change role" className={select} value="" disabled={pending} onChange={(e) => {
                 const role = e.target.value as 'admin' | 'member' | 'viewer'

@@ -20,6 +20,7 @@ export default function robots(): MetadataRoute.Robots {
         "/open-source",
         "/u/",
         "/projects/",
+        "/org/",
       ],
       disallow: [
         "/api/",

@@ -63,7 +63,7 @@ function OrgPeoplePicker({ open, onOpenChange, target, limit, onAdd }: { open: b
                         return (
                             <li key={person.userId}>
                                 <label className={`flex items-center gap-3 px-3 py-2 ${already ? 'opacity-60' : 'cursor-pointer hover:bg-muted/50'}`}>
-                                    <input type="checkbox" checked={checked} disabled={already} onChange={() => toggle(person)} />
+                                    <input type="checkbox" checked={checked} disabled={already || (!checked && ticked.length >= limit)} onChange={() => toggle(person)} />
                                     <span className="min-w-0 flex-1">
                                         <span className="block truncate text-sm text-foreground">{person.name}{person.title ? <span className="text-muted-foreground"> · {person.title}</span> : null}</span>
                                         {person.projectHint ? <span className="block truncate text-xs text-muted-foreground">{person.projectHint}</span> : null}
@@ -74,7 +74,7 @@ function OrgPeoplePicker({ open, onOpenChange, target, limit, onAdd }: { open: b
                     })}
                 </ul>
                 <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs text-muted-foreground">{limit < 1 ? 'This unit is full.' : `Up to ${limit} more.`}</p>
+                    <p className="text-xs text-muted-foreground" aria-live="polite">{limit < 1 ? 'This unit is full.' : `${ticked.length} of up to ${limit} picked.`}</p>
                     <Button type="button" disabled={ticked.length === 0} onClick={() => { onAdd(ticked); setTicked([]); onOpenChange(false) }}>
                         Add {ticked.length || ''} to {target}
                     </Button>

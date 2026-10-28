@@ -51,7 +51,7 @@ function OrgRow({ org, active }: { org: SidebarOrg; active: (href: string) => bo
                     {org.needsYou > 0 ? <span className="nb-nav-count nb-sidebar-label" aria-hidden="true">{org.needsYou > 99 ? "99+" : org.needsYou}</span> : null}
                 </Link>
                 {org.canCreate ? (
-                    <Link href={`/projects/new?org=${encodeURIComponent(org.id)}`} className="nb-sidebar-label absolute right-1 hidden rounded p-0.5 text-muted-foreground hover:text-foreground group-hover:block" aria-label={`New project in ${org.title}`} title={`New project in ${org.title}`}>
+                    <Link href={`/projects/new?org=${encodeURIComponent(org.id)}`} className="nb-sidebar-label absolute right-1 hidden rounded p-0.5 text-muted-foreground hover:text-foreground group-hover:block group-focus-within:block" aria-label={`New project in ${org.title}`} title={`New project in ${org.title}`}>
                         <Plus className="size-3.5" />
                     </Link>
                 ) : null}

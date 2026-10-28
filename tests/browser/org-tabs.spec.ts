@@ -1,0 +1,117 @@
+import path from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { build } from 'esbuild';
+import postcss from 'postcss';
+import tailwind from '@tailwindcss/postcss';
+import { expect, test, type Page } from '@playwright/test';
+
+// Org tabs at phone width (report §31.2 G13) and keyboard reach (G16), against the real components and stylesheet.
+const origin = 'https://org-tabs.test';
+let script: string, css: string;
+const ok = 'async()=>({success:true})';
+const people = `Array.from({length:12},(_,i)=>({userId:'u'+i,name:i===3?'Alexandria Ramana Chandrasekhar':'Student '+i,role:i===0?'owner':i===1?'admin':'member',title:i===2?'Section B':null,
+    projects:[{id:'c1',title:'Team Falcon — Distributed Systems Capstone',unit:'Frontend'}],work:{done:i%4,total:5,missing:i%3},lastActiveAt:new Date(Date.now()-i*36e5).toISOString(),
+    joinedAt:new Date().toISOString(),behind:i%3===2,inactive:false,avatarUrl:null,username:'s'+i}))`;
+
+test.beforeAll(async () => {
+    const mocks: Record<string, string> = {
+        'next/link': `import React from 'react';export default ({href,children,prefetch,...p})=>React.createElement('a',{href,...p},children);`,
+        'next/navigation': `export const usePathname=()=>'/org/cse-3a';`,
+        '@/app/actions/org-members': `export const readOrgMembersAction=async()=>({success:true,viewerRole:'owner',joinCode:'K7M2QX',rows:${people},
+            requests:[{id:'r1',userId:'x',name:'Priya Natarajan',note:'Roll 21, section B',createdAt:new Date().toISOString()}],invites:[],
+            children:[{id:'c1',title:'Team Falcon',units:[{id:'un',title:'Frontend'}]}],summary:{members:12,admins:2,guests:0,behind:4,notInProject:0,inactive:0}});
+            export const readMemberWorkAction=async()=>({success:true,work:[]});
+            export const addMembersToChildAction=${ok},approveJoinRequestsAction=${ok},cancelOrgInviteAction=${ok},changeMemberRoleAction=${ok},declineJoinRequestAction=${ok},inviteByEmailAction=async()=>({success:true,invalid:[]}),removeMembersAction=${ok},resendOrgInviteAction=${ok},setMemberTitleAction=${ok};`,
+        '@/app/actions/organizations': `export const regenerateJoinCodeAction=async()=>({success:true,joinCode:'Q2W3E4'}),archiveChildAction=${ok},listOrgRosterAction=async()=>[];`,
+        '@/app/actions/org-profile': `export const revokeOrgVerificationAction=${ok},verifyOrgContributionsAction=${ok};`,
+        '@/app/actions/org-dashboard': `export const readChildOrgLineAction=async()=>null,readOrgDashboardAction=async()=>({success:false,error:'unused'});
+            export const readOrgProjectsAction=async()=>({success:true,isAdmin:true,summary:{total:3,attention:1,quiet:1,notInProject:2},rows:['Team Falcon — Distributed Systems Capstone','Team Osprey','Team Kestrel'].map((title,i)=>({
+            id:'c'+i,title,slug:'p'+i,visibility:['org','private','public'][i],status:'active',lead:{id:'l',name:'Alexandria Ramana Chandrasekhar'},members:6,units:2,open:4,overdue:i,inReview:1,
+            groupCopy:i?null:{title:'Milestone 2 report',state:'submitted'},lastActivityAt:new Date(Date.now()-i*864e5).toISOString(),reasons:i===1?['2 overdue','quiet 7 days']:[],mine:i===0}))});`,
+        '@/app/actions/org-files': `export const browseOrgFilesAction=async()=>({success:true,org:{id:'org',title:'CSE-3A Software Engineering',slug:'cse-3a'},nodes:[
+            {id:'f1',name:'Week 1 — Requirements',type:'folder',path:'/w1',currentVersion:1,size:null,access:null},
+            {id:'f2',name:'Distributed-systems-capstone-rubric-final-v3.pdf',type:'file',path:'/r.pdf',currentVersion:3,size:1,access:'public'}]});
+            export const listOrgCopiesAction=async()=>({success:true,orgTitle:'CSE-3A',copies:[{nodeId:'n',name:'rubric.pdf',sourceNodeId:'f2',copiedVersion:1,sourceVersion:3}]});
+            export const listOrgFoldersAction=async()=>({success:true,folders:[{id:'d1',path:'/Week 1 — Requirements and stakeholder interviews',access:'admins',template:true},{id:'d2',path:'/Rubrics',access:null,template:false}]});
+            export const recordOrgCopyAction=${ok},setFolderAccessAction=async()=>({success:true,preview:null}),setFolderTemplateAction=${ok};`,
+        '@/components/organizations/OrgDocParts': `export const uploadProjectFile=async()=>({id:'n'});`,
+        '@/app/actions/project/doc': `export const listProjectDocsAction=async()=>({success:true,docs:[]});`,
+        '@/app/actions/assignments': `const counts={not_started:3,in_progress:2,submitted:4,returned:0,done:1,missing:2,excused:0,total:12};
+            export const listAssignmentsAction=async()=>({success:true,isAdmin:true,rows:[
+            {masterId:'a1',title:'Lab 3 — Consensus protocols and failure detectors',dueDate:new Date(Date.now()+864e5).toISOString(),status:'open',submissionType:'link',reviewRequired:true,teams:true,counts,mine:null},
+            {masterId:'a2',title:'Reading quiz',dueDate:null,status:'draft',submissionType:'none',reviewRequired:false,teams:false,counts,mine:null}]});
+            export const readAssignmentComposerOptionsAction=async()=>({success:true,children:[],roster:[]}),readAssignmentRosterAction=async()=>({success:true,rows:[],counts});
+            export const listProjectGroupCopiesAction=async()=>({success:true,rows:[]});
+            export const approveAllSubmittedAction=${ok},closeAssignmentAction=${ok},createAssignmentAction=${ok},deleteAssignmentAction=${ok},excuseCopyAction=${ok},extendCopyAction=${ok},publishAssignmentAction=${ok},reviewAssignmentCopyAction=${ok},submitAssignmentAction=${ok};`,
+    };
+    const bundle = await build({ entryPoints: [path.resolve('tests/browser/org-tabs.fixture.tsx')], bundle: true, write: false, format: 'iife', platform: 'browser', define: { 'process.env.NODE_ENV': '"test"' }, plugins: [{ name: 'org-tabs-boundaries', setup(builder) {
+        builder.onResolve({ filter: /.*/ }, args => args.path in mocks ? { path: args.path, namespace: 'fixture' } : undefined);
+        builder.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ contents: mocks[args.path], resolveDir: process.cwd(), loader: 'js' }));
+    } }] });
+    script = bundle.outputFiles![0]!.text;
+    css = (await postcss([tailwind()]).process(await readFile('src/app/globals.css', 'utf8'), { from: path.resolve('src/app/globals.css') })).css;
+});
+
+async function open(page: Page, tab: string, width = 375) {
+    await page.setViewportSize({ width, height: 812 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.route(origin + '/**', route => {
+        const url = new URL(route.request().url());
+        const body = url.pathname === '/app.js' ? script : url.pathname === '/app.css' ? css : '<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/app.css"></head><body><div id="root"></div><script src="/app.js"></script></body></html>';
+        return route.fulfill({ body, contentType: url.pathname.endsWith('.js') ? 'application/javascript' : url.pathname.endsWith('.css') ? 'text/css' : 'text/html' });
+    });
+    await page.goto(`${origin}/?tab=${tab}`);
+}
+
+/** Nothing pushes the page sideways at phone width. */
+async function noSideScroll(page: Page) {
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+}
+
+test('Members: requests come first on phones, rows stack, nothing scrolls sideways', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    await open(page, 'members');
+    await expect(page.getByText('Student 11')).toBeVisible();
+    await noSideScroll(page);
+    const request = await page.getByText('Priya Natarajan').first().boundingBox();
+    const roster = await page.getByText('Student 11').boundingBox();
+    expect(request!.y).toBeLessThan(roster!.y);
+    await expect(page.getByText(/1 of 5 done · 1 missing · active/).first()).toBeVisible();
+    await page.getByRole('checkbox', { name: 'Select Student 4' }).check();
+    await expect(page.getByRole('group', { name: 'Bulk actions' })).toBeVisible();
+    await noSideScroll(page);
+    await page.getByRole('button', { name: /Alexandria Ramana Chandrasekhar/ }).click();
+    await expect(page.getByRole('dialog', { name: 'Member: Alexandria Ramana Chandrasekhar' })).toBeVisible();
+    await noSideScroll(page);
+    expect(await page.getByRole('dialog').evaluate((d) => d.scrollWidth - d.clientWidth)).toBeLessThanOrEqual(0);
+    await page.screenshot({ path: test.info().outputPath('members-375.png') });
+    expect(errors).toEqual([]);
+});
+
+test('Projects, Tasks and Files fit a phone', async ({ page }) => {
+    for (const [tab, text] of [['projects', 'Team Osprey'], ['tasks', 'Reading quiz'], ['files', 'Folder access']] as const) {
+        await open(page, tab);
+        await expect(page.getByText(text).first()).toBeVisible();
+        if (tab === 'files') {
+            for (const summary of await page.locator('summary').all()) await summary.click();
+            expect((await page.getByRole('button', { name: 'Copy Distributed-systems-capstone-rubric-final-v3.pdf to this project' }).innerText()).trim()).toBe('Copy');
+            await expect(page.getByRole('checkbox', { name: 'Template: /Rubrics' })).toBeVisible();
+        }
+        await noSideScroll(page);
+        await page.screenshot({ path: test.info().outputPath(`${tab}-375.png`), fullPage: true });
+    }
+    await open(page, 'projects', 1200);
+    await expect(page.locator('li', { hasText: 'Team Osprey' }).getByText(/^active /)).toBeVisible();
+});
+
+test('Sidebar: New project in an org is reachable by keyboard', async ({ page }) => {
+    test.skip(test.info().project.name === 'webkit', 'Safari moves focus to links only with Option-Tab');
+    await open(page, 'sidebar', 1200);
+    const add = page.getByRole('link', { name: 'New project in CSE-3A Software Engineering' });
+    await expect(add).toBeHidden();
+    await page.getByRole('link', { name: /CSE-3A Software Engineering, 3 need you/ }).focus();
+    await page.keyboard.press('Tab');
+    await expect(add).toBeVisible();
+    await expect(add).toBeFocused();
+});

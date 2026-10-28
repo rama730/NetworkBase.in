@@ -140,7 +140,7 @@ export function OrgProjectsTab({ orgId }: { orgId: string }) {
                 </> : null}
             </p>
             <div className="flex flex-wrap items-center gap-2">
-                <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" aria-label="Search projects" className="h-9 w-52" />
+                <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" aria-label="Search projects" className="h-9 w-full sm:w-52" />
                 <select aria-label="Status" className={sel} value={status} onChange={(e) => setStatus(e.target.value as typeof status)}>
                     <option value="all">Active</option>{data.isAdmin ? <option value="attention">Needs attention</option> : null}<option value="quiet">Quiet 7 days</option><option value="archived">Archived</option>
                 </select>
@@ -167,10 +167,11 @@ export function OrgProjectsTab({ orgId }: { orgId: string }) {
                             <p className="mt-0.5 text-[12px] text-muted-foreground">
                                 {r.open} open · {r.overdue} overdue · {r.inReview} in review
                                 {r.groupCopy ? ` · ${r.groupCopy.title}: ${STATE[r.groupCopy.state] ?? r.groupCopy.state}` : ''}
+                                <span className="sm:hidden"> · active {ago(r.lastActivityAt)}</span>
                             </p>
                             {r.reasons.length ? <p className="mt-0.5 text-[12px] text-destructive">⚠ Needs attention: {r.reasons.join(' · ')}</p> : null}
                         </div>
-                        <span className="shrink-0 font-mono text-[11px] text-muted-foreground">active {ago(r.lastActivityAt)}</span>
+                        <span className="hidden shrink-0 font-mono text-[11px] text-muted-foreground sm:inline">active {ago(r.lastActivityAt)}</span>
                     </li>
                 ))}
             </ul>
