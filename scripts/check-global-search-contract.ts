@@ -9,7 +9,8 @@ function source(relativePath: string) {
 const schema = source("src/lib/db/schema/index.ts");
 const hubAction = source("src/app/actions/discover.ts");
 const connectionsAction = source("src/app/actions/connections.ts");
-const taskAction = source("src/app/actions/project/index.ts");
+// The task fetch lives in the domain module since fe0b4c64; the action file is a thin wrapper over it.
+const taskAction = source("src/lib/projects/server/tasks.ts");
 const observability = source("src/lib/search/observability.ts");
 const previewHook = source("src/hooks/useGlobalSearchPreviews.ts");
 const commandPalette = source("src/components/layout/header/CommandPalette.tsx");

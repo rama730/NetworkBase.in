@@ -9,6 +9,11 @@ moduleStubs.set("@/lib/supabase/server", {
   createAdminClient: async () => { throw new Error("not used"); },
 });
 moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: () => undefined, unstable_cache: (fn: unknown) => fn, updateTag: () => undefined });
+// Post-response work (next/server after) runs inline here; the action returns before it settles, as in a request.
+moduleStubs.set("next/server", {
+  after: (task: unknown) => { void Promise.resolve(typeof task === "function" ? (task as () => unknown)() : task).catch(() => undefined); },
+  NextResponse: class {}, NextRequest: class {},
+});
 
 let apps: typeof import("../../src/app/actions/applications");
 before(async () => {
@@ -179,7 +184,12 @@ test("when a role fills, other pending applicants are closed as role_filled, tol
     assert.equal(lost!.decision_reason_code, "role_filled");
     const lines = await sql`SELECT m.body FROM chat_messages m JOIN chat_channels c ON c.id = m.channel_id WHERE c.application_id = ${loser.applicationId!} AND m.kind = 'system'`;
     assert.ok(lines.some((l) => /role was filled/i.test(String(l.body))), JSON.stringify(lines));
-    const notes = await sql`SELECT 1 FROM user_notifications WHERE user_id = ${second} AND (entity_refs->>'applicationId') = ${loser.applicationId!}`;
+    // The notice is sent after the response (next/server after), so give it a moment.
+    let notes: unknown[] = [];
+    for (let i = 0; i < 30 && notes.length === 0; i++) {
+      notes = await sql`SELECT 1 FROM user_notifications WHERE user_id = ${second} AND (entity_refs->>'applicationId') = ${loser.applicationId!}`;
+      if (notes.length === 0) await new Promise((resolve) => setTimeout(resolve, 100));
+    }
     assert.ok(notes.length >= 1, "the closed applicant is notified");
     void applicant;
   });
