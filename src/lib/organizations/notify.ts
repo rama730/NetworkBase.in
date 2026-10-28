@@ -5,7 +5,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { profiles, projectMembers, projects, projectUpdates } from "@/lib/db/schema";
 import { emailEnabled, type OrgEmailKind } from "@/lib/email/contracts";
-import { queueEmail, wakeEmailWorker } from "@/lib/email/outbox";
+import { queueEmail, queueEmails, wakeEmailWorker } from "@/lib/email/outbox";
 import type { OrgEmailData, OrgEmailPerson } from "@/lib/email/org-templates";
 import { logger } from "@/lib/logger";
 import { enqueueProjectNotificationEvent } from "@/lib/notifications/project-events";
@@ -70,12 +70,10 @@ export async function queueOrgEmails(orgId: string, actorId: string | null, even
   try {
     const base = await orgEmailBase(orgId, actorId);
     if (!base) return;
-    for (const userId of new Set(recipients)) {
-      if (userId === actorId) continue;
-      const extra = typeof email.data === "function" ? email.data(userId) : email.data ?? {};
-      if (extra === null) continue;
-      await queueEmail(db, { kind: email.kind, eventId, userId, actorId: actorId ?? undefined, projectId: orgId, data: { ...base, ...extra } });
-    }
+    await queueEmails(db, [...new Set(recipients)].flatMap((userId) => {
+      const extra = userId === actorId ? null : typeof email.data === "function" ? email.data(userId) : email.data ?? {};
+      return extra === null ? [] : [{ kind: email.kind, eventId, userId, actorId: actorId ?? undefined, projectId: orgId, data: { ...base, ...extra } }];
+    }));
     await wakeEmailWorker();
   } catch (error) {
     logger.warn("org_notifications.email_failed", { module: "email", kind: email.kind, error: error instanceof Error ? error.message : String(error) });

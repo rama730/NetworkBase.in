@@ -1,5 +1,7 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
+
 import { and, eq, inArray, isNotNull, isNull, ne, or, sql, type SQL } from "drizzle-orm";
 
 import { db } from "@/lib/db";
@@ -133,38 +135,57 @@ export async function createMasterTask(executor: Executor, input: {
 
 /**
  * One copy per recipient, with the master's steps (report §16.3). Group copies go into the child project's
- * sprint linked to the master's sprint, or its backlog. ponytail: copies are created inline; the org member
- * cap (2,000) keeps this under ORG_LIMITS.copiesCreatedInline, so the background-job path isn't needed yet.
+ * sprint linked to the master's sprint, or its backlog. Copies are written in bulk, one task-number bump and one
+ * column lookup per project, so 2,000 copies are a handful of statements. ponytail: inline up to
+ * ORG_LIMITS.copiesCreatedInline (the member cap); a background job only if that cap is ever raised.
  */
 export async function createCopies(executor: Executor, masterId: string, recipients: CopyRecipient[], creatorId: string) {
   const [master] = await executor.select().from(tasks).where(eq(tasks.id, masterId)).limit(1);
   if (!master) throw new Error("Assignment not found");
   const steps = await executor.select({ title: taskSubtasks.title, position: taskSubtasks.position }).from(taskSubtasks).where(eq(taskSubtasks.taskId, masterId));
-  const childSprintCache = new Map<string, string | null>();
+
+  // A group copy sits in the child project's sprint linked to the master's sprint (report §16.6).
+  const childSprint = new Map<string, string | null>();
+  const children = [...new Set(recipients.map((r) => r.projectId).filter((id) => id !== master.projectId))];
+  if (master.sprintId && children.length) {
+    const linked = await executor.select({ id: projectSprints.id, projectId: projectSprints.projectId }).from(projectSprints)
+      .where(and(inArray(projectSprints.projectId, children), eq(projectSprints.parentSprintId, master.sprintId), inArray(projectSprints.status, ["planning", "active"])));
+    for (const row of linked) if (!childSprint.has(row.projectId)) childSprint.set(row.projectId, row.id);
+  }
+
+  const byProject = new Map<string, Array<CopyRecipient & { id: string; sprintId: string | null }>>();
   for (const recipient of recipients) {
-    let sprintId: string | null = recipient.projectId === master.projectId ? master.sprintId : null;
-    if (recipient.projectId !== master.projectId && master.sprintId) {
-      if (!childSprintCache.has(recipient.projectId)) {
-        const [linked] = await executor.select({ id: projectSprints.id }).from(projectSprints)
-          .where(and(eq(projectSprints.projectId, recipient.projectId), eq(projectSprints.parentSprintId, master.sprintId), inArray(projectSprints.status, ["planning", "active"])))
-          .limit(1);
-        childSprintCache.set(recipient.projectId, linked?.id ?? null);
-      }
-      sprintId = childSprintCache.get(recipient.projectId) ?? null;
-    }
-    const copyId = await insertTask(executor, {
-      projectId: recipient.projectId, title: master.title, description: master.description, dueDate: master.dueDate, sprintId,
-      assigneeId: recipient.assigneeId, creatorId, kind: "task", assignmentId: masterId, assignmentSettings: null, teamName: recipient.teamName ?? null,
-    });
-    if (steps.length > 0) await executor.insert(taskSubtasks).values(steps.map((step) => ({ taskId: copyId, title: step.title, position: step.position })));
-    // A group copy sits in the child project's linked sprint, visible to the whole team (report §16.6).
-    if (sprintId && recipient.projectId !== master.projectId) {
-      await executor.insert(sprintTaskMemberships).values({ projectId: recipient.projectId, sprintId, taskId: copyId, addedBy: creatorId });
-    }
-    if (recipient.members?.length) {
-      await executor.insert(taskTeamMembers).values(recipient.members.map((userId) => ({ taskId: copyId, userId, isLead: userId === recipient.assigneeId })));
+    const sprintId = recipient.projectId === master.projectId ? master.sprintId : childSprint.get(recipient.projectId) ?? null;
+    byProject.set(recipient.projectId, [...(byProject.get(recipient.projectId) ?? []), { ...recipient, id: randomUUID(), sprintId }]);
+  }
+
+  const now = new Date();
+  for (const [projectId, copies] of byProject) {
+    // Same numbering and column as createTaskAction: next task numbers, appended to the default To do column.
+    const [counter] = await executor.execute<{ current_task_number: number }>(sql`
+      UPDATE ${projects} SET current_task_number = COALESCE(current_task_number, 0) + ${copies.length} WHERE id = ${projectId} RETURNING current_task_number`);
+    const first = (counter?.current_task_number ?? copies.length) - copies.length + 1;
+    const [column] = await executor.select({ id: projectWorkflowColumns.id }).from(projectWorkflowColumns)
+      .where(and(eq(projectWorkflowColumns.projectId, projectId), eq(projectWorkflowColumns.status, "todo"), eq(projectWorkflowColumns.isDefault, true))).limit(1);
+    const [top] = column ? await executor.execute<{ position: number }>(sql`
+      SELECT COALESCE(MAX(position), 0)::float8 AS position FROM ${tasks} WHERE workflow_column_id = ${column.id} AND deleted_at IS NULL`) : [];
+    for (let i = 0; i < copies.length; i += 500) {
+      await executor.insert(tasks).values(copies.slice(i, i + 500).map((copy, j) => ({
+        id: copy.id, projectId, title: master.title, description: master.description, dueDate: master.dueDate, sprintId: copy.sprintId,
+        assigneeId: copy.assigneeId, creatorId, kind: "task" as const, assignmentId: masterId, assignmentSettings: null, teamName: copy.teamName ?? null,
+        status: "todo" as const, workflowColumnId: column?.id ?? null, position: column ? Number(top?.position ?? 0) + 1024 * (i + j + 1) : null,
+        timelineOriginSprintId: copy.sprintId, timelineOriginAt: copy.sprintId ? now : null, taskNumber: counter ? first + i + j : null,
+      })));
     }
   }
+
+  const all = [...byProject.values()].flat();
+  const subtasks = all.flatMap((copy) => steps.map((step) => ({ taskId: copy.id, title: step.title, position: step.position })));
+  for (let i = 0; i < subtasks.length; i += 1000) await executor.insert(taskSubtasks).values(subtasks.slice(i, i + 1000));
+  const sprintRows = all.filter((c) => c.sprintId && c.projectId !== master.projectId).map((c) => ({ projectId: c.projectId, sprintId: c.sprintId!, taskId: c.id, addedBy: creatorId }));
+  if (sprintRows.length) await executor.insert(sprintTaskMemberships).values(sprintRows);
+  const teamRows = all.flatMap((c) => (c.members ?? []).map((userId) => ({ taskId: c.id, userId, isLead: userId === c.assigneeId })));
+  for (let i = 0; i < teamRows.length; i += 1000) await executor.insert(taskTeamMembers).values(teamRows.slice(i, i + 1000));
 }
 
 /** Late joiners get copies of open assignments that aren't past due; teams mode excepted (report §16.9, §16.11). */
