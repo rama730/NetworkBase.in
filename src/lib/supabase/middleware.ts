@@ -281,7 +281,8 @@ export async function updateSession(request: NextRequest, options: UpdateSession
         }
     }
 
-    if (user && isAuthOnlyRoute(pathname)) {
+    // The second-factor step runs on /login with a password-only session already in place.
+    if (user && isAuthOnlyRoute(pathname) && !(pathname === '/login' && request.nextUrl.searchParams.get('step') === 'mfa')) {
         const rawRedirect = request.nextUrl.searchParams.get('redirect')
         const redirectPath = rawRedirect ? normalizeAuthNextPath(rawRedirect) : ''
 

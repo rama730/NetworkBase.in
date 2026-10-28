@@ -7,11 +7,14 @@ test("Google and GitHub OAuth return through versioned legal acceptance", () => 
   const callback = readFileSync(resolve(process.cwd(), "src/app/auth/callback/route.ts"), "utf8");
   const login = readFileSync(resolve(process.cwd(), "src/components/auth/LoginForm.tsx"), "utf8");
   const signup = readFileSync(resolve(process.cwd(), "src/components/auth/SignupForm.tsx"), "utf8");
+  // Both forms use the one shared provider pair, which wraps every return in the legal step.
+  const oauthButtons = readFileSync(resolve(process.cwd(), "src/components/auth/AuthShell.tsx"), "utf8");
 
-  assert.match(login, /signInWithGoogle\(legalNext\)/);
-  assert.match(login, /signInWithGitHub\(legalNext\)/);
-  assert.match(signup, /signInWithGoogle\(legalNext\)/);
-  assert.match(signup, /signInWithGitHub\(legalNext\)/);
+  assert.match(oauthButtons, /const legalNext = `\/legal\/accept\?context=oauth_signup&next=\$\{encodeURIComponent\(next\)\}`/);
+  assert.match(oauthButtons, /signInWithGoogle\(legalNext\)/);
+  assert.match(oauthButtons, /signInWithGitHub\(legalNext\)/);
+  assert.match(login, /<OAuthButtons next=\{redirectPath\}/);
+  assert.match(signup, /<OAuthButtons next=\{afterSignupPath\}/);
   assert.match(callback, /requestedUrl\.pathname === '\/legal\/accept'/);
   assert.match(callback, /requestedUrl\.searchParams\.get\('context'\) === 'oauth_signup'/);
   assert.match(callback, /getLegalAcceptanceState\(data\.user\.id\)/);

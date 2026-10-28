@@ -43,6 +43,11 @@ export function normalizeTotpQrCodeSource(qrCode: string | null | undefined): st
     return value;
 }
 
+/** A session that has only the password step while the account has a verified second factor must finish sign-in. */
+export function needsSecondFactor(currentLevel: string | null | undefined, hasVerifiedFactor: boolean): boolean {
+    return hasVerifiedFactor && currentLevel !== "aal2";
+}
+
 export function getTotpVerificationErrorMessage(error: AuthLikeError | Error | null | undefined): string {
     const code = normalizeAuthMessage((error as AuthLikeError | null | undefined)?.code).toLowerCase();
     const message = normalizeAuthMessage((error as AuthLikeError | null | undefined)?.message);

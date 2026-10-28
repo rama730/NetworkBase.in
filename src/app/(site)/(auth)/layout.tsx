@@ -7,5 +7,5 @@ export default function AuthLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <div className="auth-root w-full">{children}</div>;
+  return children;
 }

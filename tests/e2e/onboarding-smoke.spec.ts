@@ -164,7 +164,7 @@ async function login(page: import('@playwright/test').Page, email: string) {
 
         await expect(page.getByLabel('Email')).toBeVisible({ timeout: 10000 })
         await page.getByLabel('Email').fill(email)
-        await page.getByLabel('Password').fill(onboardingPassword)
+        await page.getByLabel('Password', { exact: true }).fill(onboardingPassword)
         await page.getByRole('button', { name: 'Sign in' }).click()
 
         try {

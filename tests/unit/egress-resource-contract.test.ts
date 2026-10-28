@@ -25,7 +25,7 @@ test("app chrome renders before the legal gate and profile pages reuse server re
   const layout = read("src/app/(site)/(main)/layout.tsx");
   assert.match(layout, /initialProfile=\{null\}/);
   assert.doesNotMatch(layout, /getViewerProfileContext/);
-  assert.match(layout, /<MainLayout>\s*<Suspense[\s\S]*<LegalAcceptanceGate user=\{user\}>\{children\}<\/LegalAcceptanceGate>/);
+  assert.match(layout, /<MainLayout>\s*<Suspense[\s\S]*<LegalAcceptanceGate user=\{user\} aal=\{snapshot\?\.aal \?\? null\}>\{children\}<\/LegalAcceptanceGate>/);
   assert.match(read("src/app/(site)/(main)/u/[username]/page.tsx"), /const readPublicProfileRoute = cache/);
   assert.match(read("src/app/(site)/(main)/my-profile/page.tsx"), /const readOwnerProfileRoute = cache/);
 });
