@@ -8,7 +8,8 @@ const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8"
 test("every person badge reads the one shared live store through usePersonPresence", () => {
   const hook = read("src/components/presence/usePresence.ts");
   assert.match(hook, /import \{ useLiveOnline \} from "@\/components\/presence\/live-online"/);
-  assert.match(hook, /const realtime = useLiveOnline\(options\.live === undefined \? userId : null\)/);
+  // Only people Realtime will let the viewer observe get a room (the server's `realtime` flag).
+  assert.match(hook, /const realtime = useLiveOnline\(options\.live === undefined && query\.data\?\.realtime \? userId : null\)/);
   assert.match(hook, /resolveLive\(options\.live \?\? realtime, data\?\.live\)/);
   const live = read("src/components/presence/live-online.ts");
   assert.match(live, /createLiveStore\(\{ subscribeRoom: subscribePresenceRoom \}\)/);

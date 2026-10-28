@@ -125,8 +125,9 @@ export function usePersonPresence(userId: string | null | undefined, options: { 
     refetchInterval: REFRESH_MS,
     refetchIntervalInBackground: false,
   });
-  // One shared realtime source for every badge; an explicit `live` (the viewer's own badge) wins.
-  const realtime = useLiveOnline(options.live === undefined ? userId : null);
+  // One shared realtime source for every badge; an explicit `live` (the viewer's own badge) wins. Only people
+  // the server says Realtime will let us observe get a room: refused joins stall the whole socket (see `realtime`).
+  const realtime = useLiveOnline(options.live === undefined && query.data?.realtime ? userId : null);
   return useMemo(() => {
     const data = query.data ?? null;
     const lastActiveAt = data ? data.lastActiveAt : options.fallbackLastActiveAt ?? null;

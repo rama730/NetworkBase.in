@@ -48,6 +48,20 @@ async function liveSet(userIds: string[]) {
   }
 }
 
+/**
+ * Whose `presence:user:<id>` room the viewer may join: app_private.nb_can_observe_user_presence, the function
+ * the Realtime read policy calls, evaluated as the viewer (transaction-local JWT claims). One rule, so a badge
+ * never asks for a room Realtime will refuse.
+ */
+async function observableSet(viewerId: string, userIds: string[]) {
+  if (userIds.length === 0) return new Set<string>();
+  const found = await withDbRetry("presence.observable", () => db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT set_config('request.jwt.claims', ${JSON.stringify({ sub: viewerId, role: "authenticated" })}, true)`);
+    return tx.execute(sql`SELECT t.id FROM unnest(${uuidArray(userIds)}) AS t(id) WHERE app_private.nb_can_observe_user_presence(t.id)`);
+  }), { module: "presence" }) as unknown as Array<{ id: string }>;
+  return new Set(found.map((row) => row.id));
+}
+
 type PresenceRow = {
   id: string;
   last_active_at: string | null;
@@ -97,7 +111,10 @@ export async function getPresence(input: { userIds: string[] }) {
       FROM profiles p
       WHERE p.id = ANY(${uuidArray(ids)})
     `);
-    const live = await liveSet(found.filter((row) => row.show_activity && !row.blocked).map((row) => row.id));
+    const [live, observable] = await Promise.all([
+      liveSet(found.filter((row) => row.show_activity && !row.blocked).map((row) => row.id)),
+      observableSet(user.id, found.filter((row) => row.id !== user.id).map((row) => row.id)),
+    ]);
     const now = Date.now();
     const presence = found.map((row): PersonPresence => {
       const can = presencePrivacy({
@@ -121,7 +138,7 @@ export async function getPresence(input: { userIds: string[] }) {
           pausesNotifications: row.status_pauses_notifications,
         })
         : null;
-      return { userId: row.id, live: isLive, lastActiveAt, status };
+      return { userId: row.id, live: isLive, lastActiveAt, status, realtime: observable.has(row.id) };
     });
     return { success: true as const, presence };
   } catch (error) {
