@@ -13406,7 +13406,12 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
             built from defaults. Actions that cannot be undone, or that make a long
             lived credential, need a fresh verification, and an account that has an
             authenticator must use it (not just a password). Editor tokens end when
-            the password changes or deletion is scheduled.
+            the password changes or deletion is scheduled. Disconnecting a sign-in method
+            asks for the same check and never removes the last one. Emails about the
+            security of the account (password, authenticator, editor tokens, sign-in
+            methods, other devices, account deletion and its 7-day and 1-day
+            reminders) are always sent: Notifications says so and offers no switch.
+            The export lists what it holds, and is limited to once an hour.
           </p>
           <div class="table-wrap">
             <table>
