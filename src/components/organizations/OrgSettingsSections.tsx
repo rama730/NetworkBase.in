@@ -462,6 +462,7 @@ export function OrgChatSection({ orgId, organization }: { orgId: string; organiz
     const defaults = orgChatSettings(organization.chat ?? {}, organization.type)
     const [adminsOnly, setAdminsOnly] = useState(defaults.generalAdminsOnly)
     const [membersCreate, setMembersCreate] = useState(defaults.membersCreateChannels)
+    const [generalNotify, setGeneralNotify] = useState(defaults.generalNotify)
     const { pending, save, status } = useSave()
     return (
         <SettingsCard title="Messages" headingLevel={2} description="How the organization's chat works for everyone in it.">
@@ -480,8 +481,15 @@ export function OrgChatSection({ orgId, organization }: { orgId: string; organiz
                     </div>
                     <SettingsSwitch checked={membersCreate} onCheckedChange={setMembersCreate} aria-label="Members can create organization channels" />
                 </div>
+                <div>
+                    <label htmlFor="org-general-notify" className={labelClass}>Default notifications for #general</label>
+                    <p className={helpClass}>For people who join from now on; each person can change theirs. Mentions for Education, All otherwise.</p>
+                    <select id="org-general-notify" value={generalNotify} onChange={(e) => setGeneralNotify(e.target.value as typeof generalNotify)} className="mt-2 h-9 w-full max-w-xs rounded-md border border-border bg-background px-2 text-sm">
+                        <option value="all">All messages</option><option value="mentions">Mentions only</option>
+                    </select>
+                </div>
                 <div className="flex items-center gap-3">
-                    <Button disabled={pending} onClick={() => save(() => updateOrgChatSettingsAction(orgId, { generalAdminsOnly: adminsOnly, membersCreateChannels: membersCreate }))}>Save</Button>
+                    <Button disabled={pending} onClick={() => save(() => updateOrgChatSettingsAction(orgId, { generalAdminsOnly: adminsOnly, membersCreateChannels: membersCreate, generalNotify }))}>Save</Button>
                     {status}
                 </div>
             </div>

@@ -77,6 +77,12 @@ export async function notifyAssignmentPublished(masterId: string, actorId: strin
       // Team and group copies each get their own line ("You're in Team A for Lab 2").
       const title = childTitle ? `${org.title} assigned ${master.title} to ${childTitle}` : `You're in ${copy.teamName} for ${master.title}`;
       await notifyOrg({ orgId: org.id, eventKey: "assignments.published", actorId, to: people, title, href, sourceEventId: `published:${copy.id}`, refs: { taskId: copy.id } });
+      // The group copy also lands in the project's own channel (report §25.5): "CSE-3A assigned Mini-project proposal".
+      if (childTitle) {
+        await db.execute(sql`
+          SELECT app_private.chat_post_system(c.id, ${actorId}::uuid, ${`${org.title} assigned ${master.title}`})
+          FROM public.chat_channels c WHERE c.project_id = ${copy.projectId} AND c.is_default`).catch(() => undefined);
+      }
     } else individuals.push(...people);
     for (const userId of people) {
       perUser.set(userId, {
