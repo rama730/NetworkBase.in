@@ -184,3 +184,50 @@ test("add to a child project: admins add people straight into a unit", async () 
   viewerId = o.a;
   assert.equal((await members.addMembersToChildAction(o.orgId, o.child, [o.b], null)).success, false);
 });
+
+test("§20 pass: Max members holds for invites; bulk Remind; drawer activity; Outside people; hidden members stay off visitors' avatars", async () => {
+  const o = await org();
+  const invitee = await sql.begin((tx) => createUser(tx));
+  const [{ email }] = await sql`SELECT email FROM profiles WHERE id = ${invitee}`;
+  viewerId = o.owner;
+  assert.ok((await members.inviteByEmailAction(o.orgId, { emails: email, role: "member" })).success);
+  await sql`UPDATE projects SET max_collaborators = '4' WHERE id = ${o.orgId}`;
+  viewerId = invitee;
+  const [invite] = await members.listMyOrgInvitesAction();
+  const full = await members.acceptOrgInviteAction(invite!.id);
+  assert.ok(!full.success && full.error.startsWith("This organization is full"), JSON.stringify(full));
+  await sql`UPDATE projects SET max_collaborators = '5' WHERE id = ${o.orgId}`;
+  assert.ok((await members.acceptOrgInviteAction(invite!.id)).success, "room again: the invite was still open");
+
+  // Remind: only people with open work hear about it.
+  const settings = sql.json({ version: 1, submissionType: "none", reviewRequired: false, lateRule: "none", target: { mode: "everyone" }, publishedAt: new Date().toISOString(), closedAt: null });
+  const [m] = await sql`INSERT INTO tasks (project_id, title, kind, creator_id, assignment_settings) VALUES (${o.orgId}, 'Lab 1', 'assignment', ${o.owner}, ${settings}) RETURNING id`;
+  const [copy] = await sql`INSERT INTO tasks (project_id, title, kind, assignment_id, assignee_id, creator_id, due_date) VALUES (${o.orgId}, 'Lab 1', 'task', ${m!.id}, ${o.a}, ${o.owner}, now() - interval '1 day') RETURNING id`;
+  viewerId = o.admin;
+  const reminded = await members.remindMembersAction(o.orgId, [o.a, o.b]);
+  assert.deepEqual(reminded, { success: true, reminded: 1 });
+  await members.remindMembersAction(o.orgId, [o.a]);
+  const notes = await sql`SELECT title FROM user_notifications WHERE user_id = ${o.a} AND title LIKE 'Reminder:%'`;
+  assert.equal(notes.length, 1, "one per 12 hours");
+
+  await sql`INSERT INTO task_activity_events (task_id, project_id, actor_id, event_type) VALUES (${copy!.id}, ${o.orgId}, ${o.a}, 'status_changed')`;
+  const activity = await members.readMemberActivityAction(o.orgId, o.a);
+  assert.ok(activity.success && activity.activity[0]?.what === "status changed" && activity.activity[0].task === "Lab 1");
+  viewerId = o.b;
+  assert.equal((await members.readMemberActivityAction(o.orgId, o.a)).success, false, "admins only");
+
+  const outsider = await sql.begin((tx) => createUser(tx));
+  await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${o.child}, ${outsider}, 'member')`;
+  assert.deepEqual((await roster(o.orgId, o.admin))!.outside.map((p) => [p.userId, p.projects]), [[outsider, ["Compiler Lab"]]]);
+
+  await sql`UPDATE project_members SET show_on_profile = false WHERE project_id = ${o.orgId} AND user_id = ${o.b}`;
+  await sql`UPDATE projects SET visibility = 'public', status = 'active' WHERE id = ${o.orgId}`;
+  const tasksServer = await loadAppModule(() => import("../../src/lib/projects/server/tasks"));
+  viewerId = outsider;
+  const seen = await tasksServer.getProjectMembersAction(o.orgId, 50);
+  const ids = (seen as { members?: Array<{ id: string }> }).members?.map((x) => x.id) ?? [];
+  assert.ok(ids.length > 0 && !ids.includes(o.b), JSON.stringify(seen).slice(0, 300));
+  viewerId = o.admin;
+  const inside = (await tasksServer.getProjectMembersAction(o.orgId, 50)) as { members?: Array<{ id: string }> };
+  assert.ok(inside.members?.some((x) => x.id === o.b), "members still see everyone");
+});

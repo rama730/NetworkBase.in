@@ -780,6 +780,10 @@ export async function getProjectMembersAction(
         const whereConditions: any[] = [
           eq(projectMembers.projectId, projectId),
         ];
+        // Outsiders see only people with "Show on my profile" on (report §20.8).
+        const access = actorId ? await getProjectAccessById(projectId, actorId) : null;
+        const inside = Boolean(access && (access.isOwner || access.isMember || access.isInheritedAdmin));
+        if (!inside) whereConditions.push(eq(projectMembers.showOnProfile, true));
 
         if (cursor) {
           try {

@@ -8,6 +8,7 @@ import { createCopiesForNewMember, releaseCopiesOnLeave } from "@/lib/organizati
 import { notifyNewCopies } from "@/lib/organizations/assignment-notify";
 import { notifyOrg } from "@/lib/organizations/notify";
 import { addProjectMemberInternal, removeProjectMemberInternal } from "@/lib/projects/collaborator-lifecycle";
+import { orgMemberCap } from "@/lib/organizations/join-rules";
 
 type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -15,8 +16,14 @@ type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
  * Accepts one open org invite for this person (report §20.5): the invited role and title apply, and the
  * invite's child project and unit place them there too. Returns the org id, or null when the invite is gone.
  */
-export async function acceptOrgInvite(userId: string, inviteId: string): Promise<string | null> {
+export async function acceptOrgInvite(userId: string, inviteId: string): Promise<{ orgId: string } | { full: true } | null> {
   const orgId = await db.transaction(async (tx) => {
+    // Max members holds for invites too (report §20.5): a full org keeps the invite open until there's room.
+    const [target] = await tx.select({ orgId: orgEmailInvites.orgId, max: projects.maxCollaborators }).from(orgEmailInvites)
+      .innerJoin(projects, eq(projects.id, orgEmailInvites.orgId)).where(eq(orgEmailInvites.id, inviteId)).for("update", { of: projects }).limit(1);
+    if (!target) return null;
+    const [{ n } = { n: 0 }] = await tx.select({ n: sql<number>`count(*)::int` }).from(projectMembers).where(eq(projectMembers.projectId, target.orgId));
+    if (n >= orgMemberCap(target.max)) return "full" as const;
     const [invite] = await tx.update(orgEmailInvites)
       .set({ acceptedAt: new Date() })
       .where(and(eq(orgEmailInvites.id, inviteId), isNull(orgEmailInvites.acceptedAt), gt(orgEmailInvites.expiresAt, sql`now()`)))
@@ -35,8 +42,9 @@ export async function acceptOrgInvite(userId: string, inviteId: string): Promise
     }
     return invite.orgId;
   });
+  if (orgId === "full") return { full: true };
   if (orgId) await notifyNewCopies(orgId, { userId });
-  return orgId;
+  return orgId ? { orgId } : null;
 }
 
 /** Open invites sent to this person's address (exact match, report §20.11), optionally for one org. */

@@ -13,7 +13,7 @@ import {
   reservedUsernames,
   roleApplications,
 } from "@/lib/db/schema";
-import { decideOrgJoin, type OrgJoinMode, type OrgJoinOutcome } from "@/lib/organizations/join-rules";
+import { decideOrgJoin, orgMemberCap, type OrgJoinMode, type OrgJoinOutcome } from "@/lib/organizations/join-rules";
 import { addProjectMemberInternal } from "@/lib/projects/collaborator-lifecycle";
 import { createCopiesForNewMember } from "@/lib/organizations/assignments";
 import { notifyNewCopies } from "@/lib/organizations/assignment-notify";
@@ -23,11 +23,6 @@ export type OrgSummary = { id: string; title: string; slug: string | null };
 
 function readJoinMode(settings: unknown): OrgJoinMode {
   return (settings as { joinMode?: unknown } | null)?.joinMode === "approval" ? "approval" : "instant";
-}
-
-function parseMaxMembers(value: string | null) {
-  const n = value ? Number.parseInt(value, 10) : NaN;
-  return Number.isFinite(n) && n > 0 ? n : null;
 }
 
 /** The org behind an enabled join code, or null. Never says why a code doesn't match. */
@@ -126,7 +121,7 @@ async function joinOrg(
       isBlocked: Boolean(block),
       joinMode: readJoinMode(org.orgSettings),
       memberCount: members?.n ?? 0,
-      maxMembers: parseMaxMembers(org.maxCollaborators),
+      maxMembers: orgMemberCap(org.maxCollaborators),
       request: request ? { status: request.status, updatedAt: request.updatedAt, decidedBySelf: request.decisionBy === userId } : null,
     });
     const summary = { id: org.id, title: org.title, slug: org.slug };
@@ -163,7 +158,10 @@ export async function acceptOrgEmailInvites(userId: string, email: string): Prom
   const invites = await db.select({ id: orgEmailInvites.id }).from(orgEmailInvites)
     .where(and(eq(orgEmailInvites.email, email.trim().toLowerCase()), isNull(orgEmailInvites.acceptedAt), gt(orgEmailInvites.expiresAt, sql`now()`)));
   let accepted = 0;
-  for (const invite of invites) if (await acceptOrgInvite(userId, invite.id)) accepted += 1;
+  for (const invite of invites) {
+    const result = await acceptOrgInvite(userId, invite.id);
+    if (result && "orgId" in result) accepted += 1;
+  }
   return accepted;
 }
 

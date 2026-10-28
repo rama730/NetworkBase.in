@@ -664,7 +664,7 @@ export default function InvitationsClient({
                                         >
                                             <span>
                                                 Invitation ·{" "}
-                                                {invitation.roleTitle}
+                                                {invitation.roleTitle} · {invitation.projectTitle}
                                             </span>
                                         </Link>
                                     }

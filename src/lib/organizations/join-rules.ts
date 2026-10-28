@@ -40,6 +40,12 @@ export type OrgJoinOutcome =
   | "unavailable"
   | "cooldown";
 
+/** The org's member cap: Max members when set (a positive number), never above the platform limit. */
+export function orgMemberCap(maxCollaborators: string | null) {
+  const n = maxCollaborators ? Number.parseInt(maxCollaborators, 10) : NaN;
+  return Math.min(Number.isFinite(n) && n > 0 ? n : ORG_LIMITS.membersPerOrg, ORG_LIMITS.membersPerOrg);
+}
+
 export function decideOrgJoin(state: OrgJoinState): OrgJoinOutcome {
   if (!state.available) return "unavailable";
   if (state.isMember) return "already_member";

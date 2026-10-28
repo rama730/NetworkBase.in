@@ -93,7 +93,8 @@ export async function joinOrganizationAction(
     // An invite waiting for this person is accepted instead, with its role (report §20.11).
     const target = code ? await findOrgByJoinCode(code) : null;
     const invite = target ? (await openInvitesFor(userId, target.id))[0] : undefined;
-    if (target && invite && (await acceptOrgInvite(userId, invite.id))) {
+    const accepted = target && invite ? await acceptOrgInvite(userId, invite.id) : null;
+    if (target && invite && accepted && 'orgId' in accepted) {
         revalidatePath(`/projects/${target.slug ?? target.id}`);
         await notifyJoined(target.id, userId, `${invite.id}:accepted`);
         return { success: true, outcome: 'joined', org: { id: target.id, title: target.title, slug: target.slug } };
