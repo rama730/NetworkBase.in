@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { getJoinPreviewAction } from '@/app/actions/organizations'
 import { JoinOrgButton } from '@/components/organizations/JoinOrgButton'
 import { ProjectAvatar } from '@/components/projects/ProjectAvatar'
+import { AUTH_LINK, AuthShell } from '@/components/auth/AuthShell'
 import { Button } from '@/components/ui/button'
 import { buildAuthPageHref } from '@/lib/auth/redirects'
 import { buildRouteMetadata } from '@/lib/metadata/route-metadata'
@@ -16,6 +17,8 @@ export const metadata = buildRouteMetadata({
     description: 'You have been invited to join an organization on NetworkBase.',
     path: '/join',
 })
+
+const JOIN_PANEL = { eyebrow: 'Organizations', title: 'Your class or team, in one place.' }
 
 const TYPE_LABEL: Record<string, string> = { education: 'Education', company: 'Company', community: 'Community', research: 'Research', club: 'Club' }
 
@@ -30,13 +33,9 @@ export default async function JoinOrganizationPage({ params }: { params: Promise
     const result = code ? await getJoinPreviewAction(code) : null
     if (!result?.success) {
         return (
-            <main className="flex min-h-dvh items-center justify-center bg-background px-4 py-12 text-foreground">
-                <div className="w-full max-w-sm space-y-4 text-center">
-                    <h1 className="text-xl font-semibold">{result?.error ?? "That code doesn't match an organization."}</h1>
-                    <p className="text-sm text-muted-foreground">If your organization made a new code, ask for it.</p>
-                    <Button asChild variant="outline" className="min-h-11"><Link href="/join">Enter a code</Link></Button>
-                </div>
-            </main>
+            <AuthShell title={result?.error ?? "That code doesn't match an organization."} description="If your organization made a new code, ask for it." panel={JOIN_PANEL}>
+                <Button asChild variant="outline" className="h-11 w-full"><Link href="/join">Enter a code</Link></Button>
+            </AuthShell>
         )
     }
 
@@ -47,15 +46,11 @@ export default async function JoinOrganizationPage({ params }: { params: Promise
     const orgHref = `/projects/${preview.slug ?? ''}`
 
     return (
-        <main className="flex min-h-dvh items-center justify-center bg-background px-4 py-12 text-foreground">
-            <div className="w-full max-w-sm space-y-6">
-                <div className="flex flex-col items-center gap-3 text-center">
+        <AuthShell title={preview.title} description="You've been invited to join this organization." panel={JOIN_PANEL}>
+            <div className="space-y-6">
+                <div className="flex items-center gap-3 rounded-md border border-border bg-card p-3.5">
                     <ProjectAvatar project={{ title: preview.title, coverImage: preview.coverImage }} showPresence={false} />
-                    <div className="space-y-1">
-                        <p className="text-sm text-muted-foreground">You&apos;ve been invited to join</p>
-                        <h1 className="text-2xl font-semibold tracking-tight">{preview.title}</h1>
-                        {facts ? <p className="text-sm text-muted-foreground">{facts}</p> : null}
-                    </div>
+                    <p className="min-w-0 truncate text-sm text-muted-foreground">{facts || 'Organization'}</p>
                 </div>
 
                 {!user ? (
@@ -63,19 +58,19 @@ export default async function JoinOrganizationPage({ params }: { params: Promise
                         {preview.joinMode === 'approval' ? (
                             <p className="text-center text-sm text-muted-foreground">Your request will be reviewed by the admins.</p>
                         ) : null}
-                        <Button asChild className="min-h-11 w-full"><Link href={buildAuthPageHref('/signup', here)}>Sign up to join</Link></Button>
+                        <Button asChild className="h-11 w-full font-medium"><Link href={buildAuthPageHref('/signup', here)}>Sign up to join</Link></Button>
                         <p className="text-center text-sm text-muted-foreground">
-                            Already have an account? <Link className="font-medium text-foreground underline underline-offset-4" href={buildAuthPageHref('/login', here)}>Log in</Link>
+                            Already have an account? <Link className={AUTH_LINK} href={buildAuthPageHref('/login', here)}>Sign in</Link>
                         </p>
                     </div>
                 ) : preview.viewer === 'member' ? (
-                    <Button asChild className="min-h-11 w-full"><Link href={orgHref}>Open {preview.title}</Link></Button>
+                    <Button asChild className="h-11 w-full font-medium"><Link href={orgHref}>Open {preview.title}</Link></Button>
                 ) : preview.viewer === 'pending' ? (
                     <p role="status" className="rounded-md border border-border bg-muted px-3 py-2 text-center text-sm">Request pending. The admins will review it.</p>
                 ) : (
                     <JoinOrgButton code={code!} joinMode={preview.joinMode} orgHref={orgHref} />
                 )}
             </div>
-        </main>
+        </AuthShell>
     )
 }
