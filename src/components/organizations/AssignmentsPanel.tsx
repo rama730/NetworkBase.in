@@ -216,7 +216,7 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
                                         </div>
                                         <div className="mt-2 flex flex-wrap gap-1.5">
                                             {team.people.map((p) => (
-                                                <button key={p.userId} type="button" title="Make team lead" onClick={() => setTeams((cur) => cur.map((t, i) => (i === ti ? { ...t, leadId: p.userId } : t)))}
+                                                <button key={p.userId} type="button" title="Make team lead" aria-pressed={team.leadId === p.userId} aria-label={`${p.name}, ${team.leadId === p.userId ? 'team lead' : 'make team lead'}`} onClick={() => setTeams((cur) => cur.map((t, i) => (i === ti ? { ...t, leadId: p.userId } : t)))}
                                                     className="rounded-full border border-border px-2 py-0.5 text-xs">{p.name}{team.leadId === p.userId ? ' ★' : ''}</button>
                                             ))}
                                             <select value="" aria-label={`Add to ${team.name}`} className={`${select} h-7 text-xs`} onChange={(e) => {

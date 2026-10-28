@@ -62,7 +62,7 @@ export function parseShareResource(value: string, origin?: string): ShareResourc
       || url.hostname !== base.hostname || url.port !== base.port) return null;
     const path = url.pathname.replace(/\/$/, '') || '/';
     if (path === '/') return { kind: 'application', identifier: '', url: base.origin + '/' };
-    const match = path.match(/^\/(u|projects)\/([^/]+)$/);
+    const match = path.match(/^\/(u|projects|org)\/([^/]+)$/);
     if (!match) return null;
     const identifier = decodeURIComponent(match[2]!);
     if (match[1] === 'u') {
@@ -70,7 +70,7 @@ export function parseShareResource(value: string, origin?: string): ShareResourc
       return path ? { kind: 'profile', identifier: normalizeUsername(identifier), url: base.origin + path } : null;
     }
     if (!/^[a-zA-Z0-9_-]{1,200}$/.test(identifier)) return null;
-    return { kind: 'project', identifier, url: `${base.origin}/projects/${encodeURIComponent(identifier)}` };
+    return { kind: 'project', identifier, url: `${base.origin}/${match[1]}/${encodeURIComponent(identifier)}` };
   } catch { return null; }
 }
 

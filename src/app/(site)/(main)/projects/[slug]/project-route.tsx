@@ -47,12 +47,14 @@ const readProjectRouteShell = cache(async (slugOrId: string) => {
 export async function generateProjectRouteMetadata({
     params,
     searchParams,
+    base = '/projects',
 }: {
     params: Promise<{ slug: string }>; 
     searchParams: Promise<RouteSearchParams>;
+    base?: ProjectRouteBase;
 }): Promise<Metadata> {
     const [{ slug }, _searchParams] = await Promise.all([params, searchParams]);
-    const url = new URL(`/projects/${encodeURIComponent(slug)}`, shareOrigin()).href;
+    const url = new URL(`${base}/${encodeURIComponent(slug)}`, shareOrigin()).href;
     const preview = await readSharePreview(url);
     const metadata = shareMetadata(preview ?? genericSharePreview({ kind: 'project', identifier: slug, url }, 'unavailable'));
 
@@ -68,6 +70,8 @@ export async function generateProjectRouteMetadata({
             docs: "Docs",
             files: "Files",
             tasks: "Tasks",
+            members: "Members",
+            projects: "Projects",
         };
         const tabTitle = tabTitleMap[tab];
         if (tabTitle) {

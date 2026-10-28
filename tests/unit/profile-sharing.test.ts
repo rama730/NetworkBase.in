@@ -13,6 +13,7 @@ test('share URLs resolve trusted routes only, with normalized usernames and no p
   for (const name of [null, 'x', 'bad-name', 'bad/name', 'x'.repeat(21), '11111111-1111-4111-8111-111111111111']) assert.equal(profileSharePath(name), null);
   assert.equal(parseShareResource('http://networkbase.in/u/BUILDER?auth=secret#portfolio', origin)?.url, origin+'/u/builder');
   assert.equal(parseShareResource(origin+'/projects/project-one?tab=settings', origin)?.url, origin+'/projects/project-one');
+  assert.equal(parseShareResource(origin+'/org/acme-lab?tab=members', origin)?.url, origin+'/org/acme-lab');
   assert.equal(parseShareResource(origin+'/?workspace=secret', origin)?.url, origin+'/');
   for (const url of ['https://networkbase.in.example.com/u/builder', 'https://person@networkbase.in/u/builder', origin+':8443/u/builder', origin+'/u/%ZZ', origin+'/u/bad%2Fname', origin+'/my-profile', origin+'/messages/secret', origin+'/projects/new/settings', 'javascript:alert(1)']) assert.equal(parseShareResource(url,origin),null,url);
 });

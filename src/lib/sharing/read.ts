@@ -133,10 +133,11 @@ async function readProject(resource: ShareResource, viewerId: string | null): Pr
   if (!access.project) return genericSharePreview(resource, 'unavailable');
   const visibility = access.project.visibility === 'public' ? 'public' : access.project.visibility === 'unlisted' ? 'unlisted' : 'private';
   if (!access.canRead) return { ...genericSharePreview(resource, 'restricted'), visibility };
-  const resolved = { ...resource, url: new URL(`/projects/${access.project.slug || access.project.id}`, resource.url).href };
+  // An organization's canonical address is /org/<handle> (report §24).
+  const resolved = { ...resource, url: new URL(`/${access.project.kind === 'organization' ? 'org' : 'projects'}/${access.project.slug || access.project.id}`, resource.url).href };
   const dashboard = canReadProjectTab(access, 'dashboard');
   const [project] = await db.select({ title: projects.title, description: projects.description, shortDescription: projects.shortDescription,
-    coverImage: projects.coverImage, coverAsset: projects.coverImageAssetId, coverHash: storageAssets.contentHash, coverKey: storageAssets.storageKey, views: projects.viewCount, followers: projects.followersCount })
+    coverImage: projects.coverImage, coverAsset: projects.coverImageAssetId, coverHash: storageAssets.contentHash, coverKey: storageAssets.storageKey, views: projects.viewCount, followers: projects.followersCount, discoverHiddenAt: projects.discoverHiddenAt })
     .from(projects).leftJoin(storageAssets,and(eq(storageAssets.id,projects.coverImageAssetId),eq(storageAssets.projectId,projects.id),eq(storageAssets.state,'verified'))).where(and(eq(projects.id, access.project.id), isNull(projects.deletedAt))).limit(1);
   if (!project) return genericSharePreview(resource, 'unavailable');
   const unknown = (part: string, error: unknown) => { logger.warn('share.project.'+part+'.unavailable', { error: String(error) }); return null; };
@@ -154,7 +155,8 @@ async function readProject(resource: ShareResource, viewerId: string | null): Pr
   const details: ProjectShareDetails = { team: teamSummary?.team ?? null, teamOverflow: teamSummary?.teamOverflow ?? null,
     roles: roleSummary?.roles ?? null, roleOverflow: roleSummary?.roleOverflow ?? null,
     views: shareMetric(project.views), followers: shareMetric(project.followers) };
-  const result: SharePreview = { ...genericSharePreview(resolved, 'ready'), visibility, indexable: visibility === 'public' && ['active','completed','archived'].includes(access.project.status ?? ''), draft: access.project.status === 'draft',
+  const result: SharePreview = { ...genericSharePreview(resolved, 'ready'), visibility, indexable: visibility === 'public' && ['active','completed','archived'].includes(access.project.status ?? '')
+      && !project.discoverHiddenAt && access.writeBlocked !== 'suspended' && access.writeBlocked !== 'deleting', draft: access.project.status === 'draft',
     entityKey: createHash('sha256').update(`project:${access.project.id}`).digest('hex'),
     title: shareText(project.title).slice(0,160) || 'Project on NetworkBase',
     description: shareText(project.shortDescription || (dashboard ? project.description : null)).slice(0,300) || 'View this project on NetworkBase.',

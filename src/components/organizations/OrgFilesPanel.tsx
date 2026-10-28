@@ -51,13 +51,13 @@ function FolderAccessManager({ orgId }: { orgId: string }) {
         <ul className="divide-y divide-border text-sm">
             {folders.map((folder) => (
                 <li key={folder.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-1.5">
-                    <span className="min-w-0 flex-1 truncate font-mono text-[12px]">{folder.path}</span>
+                    <span className="min-w-0 flex-1 truncate font-mono text-[12px]" title={folder.path}>{folder.path}</span>
                     <select aria-label={`Access for ${folder.path}`} disabled={pending} value={folder.access ?? 'members'}
                         onChange={(e) => setAccess(folder, e.target.value === 'members' && !folder.access ? null : (e.target.value as FolderAccess))}
                         className="h-8 rounded-md border border-border bg-background px-2 text-[12px]">
                         {(['members', 'admins', 'public'] as const).map((value) => <option key={value} value={value}>{ACCESS_LABEL[value]}</option>)}
                     </select>
-                    <label className="flex items-center gap-1.5 text-[12px]"><input type="checkbox" disabled={pending} checked={folder.template} onChange={(e) => setTemplate(folder, e.target.checked)} /> Template</label>
+                    <label className="flex items-center gap-1.5 text-[12px]"><input type="checkbox" aria-label={`Template: ${folder.path}`} disabled={pending} checked={folder.template} onChange={(e) => setTemplate(folder, e.target.checked)} /> Template</label>
                 </li>
             ))}
         </ul>
@@ -117,7 +117,7 @@ function FromOrgFiles({ projectId, canCopy }: { projectId: string; canCopy: bool
                             : <Link href={orgHref(n.id)} className="min-w-0 flex-1 truncate hover:underline">{n.name}</Link>}
                         <FolderAccessChip metadata={{ access: n.access }} />
                         {n.type === 'file' && n.currentVersion > 1 ? <span className="text-[11px] text-muted-foreground">v{n.currentVersion}</span> : null}
-                        {n.type === 'file' && canCopy ? <Button type="button" size="sm" variant="outline" disabled={copying !== null} onClick={() => void copy(n)}>{copying === n.id ? 'Copying…' : 'Copy to this project'}</Button> : null}
+                        {n.type === 'file' && canCopy ? <Button type="button" size="sm" variant="outline" aria-label={`Copy ${n.name} to this project`} disabled={copying !== null} onClick={() => void copy(n)}>{copying === n.id ? 'Copying…' : <><span className="sm:hidden">Copy</span><span className="hidden sm:inline">Copy to this project</span></>}</Button> : null}
                     </li>
                 ))}
             </ul>
