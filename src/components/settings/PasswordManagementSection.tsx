@@ -2,7 +2,7 @@
 
 import { toast, feedbackError } from "@/lib/feedback";
 import type { FormEvent } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,8 @@ export default function PasswordManagementSection({
   const [stepUpOpen, setStepUpOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [signOutOtherDevices, setSignOutOtherDevices] = useState(true);
+  // null: not checked yet or couldn't be checked (the server checks again on submit).
+  const [breached, setBreached] = useState<boolean | null>(null);
 
   const isChangingPassword = changePasswordMutation.isPending;
   const title = hasPassword ? "Change password" : "Set a password";
@@ -52,6 +54,30 @@ export default function PasswordManagementSection({
     : `Add one with at least ${PASSWORD_MIN_LENGTH} characters to sign in with your email.`;
   const passwordPolicy = getPasswordPolicyResult(newPassword);
   const formattedLastChanged = lastChangedAt ? formatDateTime(lastChangedAt) : null;
+
+  // Once the password meets the policy, ask whether it has appeared in a data breach, after a short pause in typing,
+  // so the answer arrives while the person is still on the form and not as a rejection on submit.
+  const policyOk = passwordPolicy.ok;
+  useEffect(() => {
+    setBreached(null);
+    if (!policyOk) return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      fetch("/api/v1/auth/password-safety", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: newPassword }),
+        signal: controller.signal,
+      })
+        .then((response) => response.json().catch(() => null))
+        .then((payload) => {
+          if (payload?.errorCode === "LEAKED_PASSWORD") setBreached(true);
+          else if (payload?.success) setBreached(false);
+        })
+        .catch(() => undefined);
+    }, 700);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [newPassword, policyOk]);
 
   const resetForm = () => {
     setSubmitted(false);
@@ -174,6 +200,7 @@ export default function PasswordManagementSection({
                 </div>
                 <PasswordStrengthMeter password={newPassword} result={passwordPolicy} />
                 {submitted && !passwordPolicy.ok && <p id="new-password-error" className="nb-compact text-destructive">{passwordPolicy.error}</p>}
+                {breached ? <p role="alert" className="nb-compact text-destructive">This password has appeared in a data breach. Choose a different one.</p> : null}
               </div>
 
               <div className="space-y-2">
@@ -220,7 +247,7 @@ export default function PasswordManagementSection({
             </p>
 
             <div className="flex flex-wrap gap-3">
-              <Button type="submit" disabled={isChangingPassword || !passwordPolicy.ok}>
+              <Button type="submit" disabled={isChangingPassword || !passwordPolicy.ok || breached === true}>
                 {isChangingPassword ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />

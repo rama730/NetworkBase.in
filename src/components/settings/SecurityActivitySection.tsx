@@ -25,6 +25,7 @@ const EVENT_LABELS: Record<SecurityActivityEntry["eventType"], string> = {
   github_account_replacement_started: "GitHub account replacement started",
   github_account_replaced: "GitHub account replaced",
   security_activity_cleared: "Security activity cleared",
+  sign_in_method_unlinked: "Sign-in method disconnected",
   editor_token_created: "Editor token created",
   account_deletion_scheduled: "Account deletion scheduled",
   account_deletion_cancelled: "Account deletion cancelled",

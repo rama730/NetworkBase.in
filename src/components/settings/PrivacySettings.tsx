@@ -11,6 +11,11 @@ import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { SearchField } from "@/components/ui/SearchField";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { SettingsRadioGroup } from "@/components/settings/ui/SettingsRadioGroup";
+import { SettingsRow } from "@/components/settings/ui/SettingsRow";
+import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
+import { setShowActivity } from "@/app/actions/presence";
+import { useMyPresenceSettings, useRefreshPresence } from "@/components/presence/useMyPresence";
+import { profileEditHref } from "@/lib/profile/edit-route";
 import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
 import { SettingsStatusChips } from "@/components/settings/ui/SettingsStatusChips";
 import { SettingsSectionsSkeleton } from "@/components/settings/ui/SettingsSectionsSkeleton";
@@ -96,6 +101,16 @@ export default function PrivacySettings() {
     onSuccess: async (_data, update) => { toast.success(update.successMessage); await refreshPrivacy(); },
     onError: (error) => toast.error(feedbackError(error instanceof Error ? error.message : "Failed to update privacy settings", "Failed to update privacy settings")),
   });
+  const presence = useMyPresenceSettings();
+  const refreshPresence = useRefreshPresence();
+  const activityMutation = useMutation({
+    mutationFn: async (show: boolean) => {
+      const result = await setShowActivity({ show });
+      if (!result.success) throw new Error("Failed to update activity visibility");
+    },
+    onSuccess: async (_data, show) => { toast.success(show ? "Others can see when you’re active" : "Your activity is hidden"); await refreshPresence(); },
+    onError: () => toast.error("Failed to update activity visibility"),
+  });
   const unblockMutation = useMutation({
     mutationFn: unblockAccount,
     onSuccess: async () => { toast.success("Account unblocked"); setMore(null); await refreshPrivacy(); },
@@ -167,6 +182,23 @@ export default function PrivacySettings() {
 
       <div className="my-6 border-t border-border" />
       <SettingsRadioGroup id="settings-privacy-requests" label="Connection requests" description="Choose who can send you a connection request." value={settings?.connectionPrivacy} onValueChange={handleConnectionPrivacyChange} options={CONNECTION_OPTIONS} busy={busy} optionsClassName="md:grid-cols-3" />
+    </SettingsSectionCard>
+
+    <SettingsSectionCard id="settings-privacy-activity" title="Activity and discovery" description="What people can see about your presence, and whether you show up as open to collaborate.">
+      <SettingsRow
+        title="Show when I’m active"
+        description="Others see a dot when you’re online and when you were last active. Turning it off hides both."
+        right={<SettingsSwitch showLabel aria-label="Show when I’m active" checked={presence.data?.showActivity ?? true} pending={activityMutation.isPending} disabled={!presence.data} onCheckedChange={(show) => activityMutation.mutate(show)} />}
+      />
+      <SettingsRow
+        title="Status visibility"
+        description="You choose who sees each status when you set it, from your profile menu."
+      />
+      <SettingsRow
+        title="Open to collaborate"
+        description="Shows an “Open to collaborate” label on your profile and in people suggestions. Edit it with the rest of your opportunities."
+        right={<Button asChild variant="outline" size="sm" className="pointer-coarse:h-11"><Link href={profileEditHref("opportunity")}>Edit</Link></Button>}
+      />
     </SettingsSectionCard>
 
     <SettingsSectionCard id="settings-privacy-blocked" title="Blocked accounts and activity" description="Manage blocked people and review recent privacy changes.">

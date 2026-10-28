@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -43,7 +43,7 @@ function ProviderIcon({ provider }: { provider: IntegrationsAuthProvider }) {
     : <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"><Mail className="size-4" strokeWidth={1.75} /></span>;
 }
 
-function ProviderRow({ provider, linking, onLink }: { provider: AuthConnectionMethod; linking: boolean; onLink: () => void }) {
+function ProviderRow({ provider, linking, onLink, onUnlink }: { provider: AuthConnectionMethod; linking: boolean; onLink: () => void; onUnlink: () => void }) {
   const stateLabel = provider.state === "primary" ? "Main sign-in method" : provider.state === "linked" ? "Connected" : provider.state === "not_linked" ? "Not connected" : String(provider.state).split("_").join(" ");
   return <div className="flex min-h-16 flex-col justify-center gap-3 border-b border-border py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between">
     <div className="flex min-w-0 items-center gap-3">
@@ -56,6 +56,7 @@ function ProviderRow({ provider, linking, onLink }: { provider: AuthConnectionMe
       </div>
     </div>
     {provider.state === "not_linked" && provider.provider !== "email" ? <Button className="self-start sm:self-auto" size="sm" variant="outline" onClick={onLink} disabled={linking}>{linking ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}Connect</Button> : null}
+    {provider.state !== "not_linked" && (provider.provider === "google" || provider.provider === "github") ? <Button className="self-start sm:self-auto pointer-coarse:h-11" size="sm" variant="outline" onClick={onUnlink}>Disconnect</Button> : null}
     {provider.state === "not_linked" && provider.provider === "email" ? <Button size="sm" variant="outline" asChild><Link href="/settings#settings-security">Set a password</Link></Button> : null}
   </div>;
 }
@@ -198,7 +199,10 @@ export default function IntegrationsSettings() {
   const [replacementConfirmOpen, setReplacementConfirmOpen] = useState(false);
   const [stepUpOpen, setStepUpOpen] = useState(false);
   // What the verification is for: replacing the GitHub account, or creating a manual token.
-  const [stepUpPurpose, setStepUpPurpose] = useState<"replace" | "token">("replace");
+  const [stepUpPurpose, setStepUpPurpose] = useState<"replace" | "token" | "unlink">("replace");
+  const [unlinkConfirm, setUnlinkConfirm] = useState<"google" | "github" | null>(null);
+  // Remembered across the verification dialog, which opens after the confirmation has closed.
+  const unlinkPending = useRef<"google" | "github" | null>(null);
   const [revokeTarget, setRevokeTarget] = useState<ExtensionSessionData | null>(null);
   const [replacementMethods, setReplacementMethods] = useState<Array<"totp" | "recovery_code" | "password">>([]);
   const [replacementFactorId, setReplacementFactorId] = useState<string | undefined>();
@@ -292,7 +296,7 @@ export default function IntegrationsSettings() {
     }
   };
 
-  const requestStepUp = async (purpose: "replace" | "token") => {
+  const requestStepUp = async (purpose: "replace" | "token" | "unlink") => {
     try {
       const response = await fetch("/api/v1/auth/security-step-up");
       const payload = await response.json().catch(() => null);
@@ -306,7 +310,7 @@ export default function IntegrationsSettings() {
           )
         : [];
       if (!methods.length) {
-        toast.error(purpose === "token" ? "Add a password or authenticator in Security before creating a token" : "Add a password or authenticator in Security before replacing GitHub");
+        toast.error(purpose === "token" ? "Add a password or authenticator in Security before creating a token" : purpose === "unlink" ? "Add a password or authenticator in Security before disconnecting a sign-in method" : "Add a password or authenticator in Security before replacing GitHub");
         return;
       }
       setStepUpPurpose(purpose);
@@ -323,6 +327,24 @@ export default function IntegrationsSettings() {
     }
   };
   const requestReplacementVerification = () => requestStepUp("replace");
+
+  const unlinkProvider = async (provider: "google" | "github") => {
+    unlinkPending.current = provider;
+    const response = await fetch("/api/v1/integrations/unlink", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider }) });
+    const payload = await response.json().catch(() => null);
+    if (response.status === 403 && payload?.errorCode === "STEP_UP_REQUIRED") {
+      await requestStepUp("unlink");
+      return;
+    }
+    if (!response.ok || payload?.success === false) {
+      toast.warning(payload?.message || "That sign-in method could not be disconnected");
+      return;
+    }
+    unlinkPending.current = null;
+    toast.success(`${provider === "google" ? "Google" : "GitHub"} disconnected`);
+    void refetch();
+    void queryClient.invalidateQueries({ queryKey: queryKeys.settings.security() });
+  };
 
   const replaceGithubAccount = async () => {
     setReplacingGithub(true);
@@ -384,7 +406,7 @@ export default function IntegrationsSettings() {
     {error ? <ErrorNotice what="Integrations" onRetry={() => void refetch()} /> : null}
 
     <SettingsSectionCard id="settings-integrations-connections" title="Account connections" description={data?.summary || "Sign-in methods attached to this account."}>
-      {isLoading ? <div role="status" aria-label="Loading connections" className="nb-skeleton h-32 rounded-md" /> : <div>{data?.authConnections.map((provider) => <ProviderRow key={provider.provider} provider={provider} linking={linking === provider.provider} onLink={() => void linkProvider(provider.provider as "google" | "github")} />)}</div>}
+      {isLoading ? <div role="status" aria-label="Loading connections" className="nb-skeleton h-32 rounded-md" /> : <div>{data?.authConnections.map((provider) => <ProviderRow key={provider.provider} provider={provider} linking={linking === provider.provider} onLink={() => void linkProvider(provider.provider as "google" | "github")} onUnlink={() => setUnlinkConfirm(provider.provider as "google" | "github")} />)}</div>}
     </SettingsSectionCard>
 
     <SettingsSectionCard id="settings-integrations-github" title="GitHub" description="Repository access is managed from each project; this page only shows account-level status.">
@@ -556,11 +578,21 @@ export default function IntegrationsSettings() {
     <SecurityStepUpDialog
       open={stepUpOpen}
       onOpenChange={setStepUpOpen}
-      title={stepUpPurpose === "token" ? "Verify before creating a token" : "Verify this GitHub account change"}
-      description={stepUpPurpose === "token" ? "A token signs in as you for a year, so confirm it is you first." : "Confirm your NetworkBase identity before the unavailable GitHub account is detached."}
+      title={stepUpPurpose === "token" ? "Verify before creating a token" : stepUpPurpose === "unlink" ? "Verify before disconnecting" : "Verify this GitHub account change"}
+      description={stepUpPurpose === "token" ? "A token signs in as you for a year, so confirm it is you first." : stepUpPurpose === "unlink" ? "Removing a way to sign in is a security change, so confirm it is you first." : "Confirm your NetworkBase identity before the unavailable GitHub account is detached."}
       availableMethods={replacementMethods}
       factorId={replacementFactorId}
-      onVerified={stepUpPurpose === "token" ? handleGenerateToken : replaceGithubAccount}
+      onVerified={stepUpPurpose === "token" ? handleGenerateToken : stepUpPurpose === "unlink" ? () => (unlinkPending.current ? unlinkProvider(unlinkPending.current) : undefined) : replaceGithubAccount}
+    />
+
+    <ConfirmDialog
+      open={unlinkConfirm !== null}
+      onOpenChange={(open) => { if (!open) setUnlinkConfirm(null); }}
+      title={`Disconnect ${unlinkConfirm === "google" ? "Google" : "GitHub"}?`}
+      description={unlinkConfirm === "github" ? "You will no longer be able to sign in with GitHub, and repository access from this account stops. Your projects stay as they are." : "You will no longer be able to sign in with Google. You need another way to sign in first."}
+      confirmLabel="Disconnect"
+      variant="destructive"
+      onConfirm={() => (unlinkConfirm ? unlinkProvider(unlinkConfirm) : undefined)}
     />
 
     <ConfirmDialog
