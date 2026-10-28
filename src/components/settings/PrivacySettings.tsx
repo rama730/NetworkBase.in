@@ -10,7 +10,6 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { SearchField } from "@/components/ui/SearchField";
 import { UserAvatar } from "@/components/ui/UserAvatar";
-import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader";
 import { SettingsRadioGroup } from "@/components/settings/ui/SettingsRadioGroup";
 import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
 import { SettingsStatusChips } from "@/components/settings/ui/SettingsStatusChips";
@@ -83,7 +82,7 @@ function BlockedAccountRow({ account, onUnblock, isPending }: { account: Privacy
 
 type Confirmation = { title: string; description: string; confirmLabel: string; run: () => void };
 
-export default function PrivacySettings({ embedded = false }: { embedded?: boolean }) {
+export default function PrivacySettings() {
   const queryClient = useQueryClient();
   const { data, isLoading, isError, refetch } = usePrivacySettings();
   const [blockedSearch, setBlockedSearch] = useState("");
@@ -148,8 +147,7 @@ export default function PrivacySettings({ embedded = false }: { embedded?: boole
   // Without the data there is nothing true to show: not "no blocked accounts", and no options that look unset.
   if (isError || !data) return <ErrorNotice what="Privacy settings" onRetry={() => void refetch()} />;
 
-  return <div className={embedded ? "space-y-8" : "space-y-6"}>
-    {!embedded ? <SettingsPageHeader title="Privacy" description="Control profile visibility, interactions, and blocked accounts." /> : null}
+  return <div className="space-y-8">
 
     <SettingsStatusChips
       label="Privacy summary"

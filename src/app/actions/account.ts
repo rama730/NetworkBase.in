@@ -20,6 +20,7 @@ import { z } from 'zod';
 import { cancelAccountDeletionForUser } from '@/lib/account/deletion';
 import { syncProjectChat } from '@/lib/messaging/integrations';
 import { queueSecurityEmail } from '@/lib/email/security-queue';
+import { recordSecurityEventFromHeaders } from '@/lib/security/audit-from-headers';
 
 // ============================================================================
 // ACCOUNT DELETION
@@ -45,6 +46,7 @@ export async function cancelAccountDeletion(): Promise<{ success: boolean; error
         if (outcome === 'not_found') return { success: false, error: 'No pending deletion found' };
         if (outcome === 'too_late') return { success: false, error: 'Account deletion is already being finalized' };
         revalidatePath('/');
+        await recordSecurityEventFromHeaders({ userId: user.id, eventType: 'account_deletion_cancelled' });
         await queueSecurityEmail(user.id, 'account_deletion_cancelled');
         return { success: true };
     } catch (error) {

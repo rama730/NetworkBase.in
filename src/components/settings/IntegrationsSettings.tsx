@@ -19,7 +19,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader";
 import { SettingsRow } from "@/components/settings/ui/SettingsRow";
 import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
 import { useQueryClient } from "@tanstack/react-query";
@@ -184,7 +183,7 @@ function ExtensionSessionRow({ session, revoking, onRevoke }: { session: Extensi
   );
 }
 
-export default function IntegrationsSettings({ embedded = false }: { embedded?: boolean }) {
+export default function IntegrationsSettings() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -381,8 +380,7 @@ export default function IntegrationsSettings({ embedded = false }: { embedded?: 
     }
   };
 
-  return <div className={embedded ? "space-y-8" : "space-y-6"}>
-    {!embedded ? <SettingsPageHeader title="Integrations" description="Manage sign-in methods, GitHub access, and active editor sessions." /> : null}
+  return <div className="space-y-8">
     {error ? <ErrorNotice what="Integrations" onRetry={() => void refetch()} /> : null}
 
     <SettingsSectionCard id="settings-integrations-connections" title="Account connections" description={data?.summary || "Sign-in methods attached to this account."}>
@@ -475,7 +473,7 @@ export default function IntegrationsSettings({ embedded = false }: { embedded?: 
           />
 
           {showTokenGen && (
-            <div className={embedded ? "mt-3 border-t border-border pt-4" : "mt-3 rounded-md border border-border bg-muted/50 p-4"}>
+            <div className="mt-3 border-t border-border pt-4">
               {!generatedToken ? (
                 <div className="space-y-3">
                   <div className="max-w-xs space-y-1.5">

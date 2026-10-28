@@ -279,16 +279,12 @@ export function useUpdateNotificationPreferences() {
 }
 
 // Security data
-export function useSecurityData(options?: { hardeningEnabled?: boolean }) {
-  const hardeningEnabled = options?.hardeningEnabled ?? false;
-
+export function useSecurityData() {
   return useQuery({
     queryKey: queryKeys.settings.security(),
     queryFn: fetchSecurityData,
     retry: 1,
-    staleTime: hardeningEnabled
-      ? SETTINGS_SECURITY_STALE_MS
-      : SETTINGS_STALE_MS,
+    staleTime: SETTINGS_SECURITY_STALE_MS,
     gcTime: SETTINGS_GC_MS,
     refetchOnWindowFocus: false,
   });

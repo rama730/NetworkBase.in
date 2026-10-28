@@ -20,6 +20,11 @@ export const SECURITY_ACTIVITY_EVENT_TYPES = [
   "other_sessions_revoked",
   "github_account_replacement_started",
   "github_account_replaced",
+  // Left behind when someone clears the whole log, so the log itself shows that it was emptied.
+  "security_activity_cleared",
+  "editor_token_created",
+  "account_deletion_scheduled",
+  "account_deletion_cancelled",
 ] as const;
 
 export type SecurityActivityEventType = (typeof SECURITY_ACTIVITY_EVENT_TYPES)[number];

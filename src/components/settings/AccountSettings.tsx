@@ -5,7 +5,6 @@ import { toast } from "@/lib/feedback";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Database, Loader2, LogOut } from "lucide-react";
-import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader";
 import { SettingsRow } from "@/components/settings/ui/SettingsRow";
 import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
 import { SignOutConfirmDialog } from "@/components/auth/SignOutConfirmDialog";
@@ -17,7 +16,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { cacheManager } from "@/lib/utils/cache-manager";
 import { normalizeIdentityFields } from "@/lib/ui/identity";
 
-export default function AccountPage({ embedded = false }: { embedded?: boolean }) {
+export default function AccountPage() {
   const [isClearingCache, setIsClearingCache] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const { data: deletionStatus = { pending: false } } =
@@ -47,13 +46,7 @@ export default function AccountPage({ embedded = false }: { embedded?: boolean }
 
   return (
     <>
-      <div className={embedded ? "space-y-8" : "space-y-6"}>
-        {!embedded ? (
-          <SettingsPageHeader
-            title="Account"
-            description="Manage your signed-in account, local app data, and account actions."
-          />
-        ) : null}
+      <div className="space-y-8">
 
         {deletionStatus.pending && deletionStatus.hardDeleteAt && (
           <PendingDeletionBanner

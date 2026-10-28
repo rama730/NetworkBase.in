@@ -54,7 +54,11 @@ export interface SecurityActivityEntry {
     | "password_changed"
     | "other_sessions_revoked"
     | "github_account_replacement_started"
-    | "github_account_replaced";
+    | "github_account_replaced"
+    | "security_activity_cleared"
+    | "editor_token_created"
+    | "account_deletion_scheduled"
+    | "account_deletion_cancelled";
   createdAt: string;
   networkFingerprint?: string;
   deviceFingerprint?: string;

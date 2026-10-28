@@ -9,7 +9,7 @@ export type OrgEmailKind =
   | "org_returned" | "org_announcement" | "org_ended" | "org_digest" | "org_removed" | "org_ownership" | "org_deleted";
 /** Account security and deletion: sent whatever the email setting says (the account itself is at stake). */
 export type SecurityEmailKind =
-  | "security_password_changed" | "security_mfa_changed" | "security_token_created"
+  | "security_password_changed" | "security_mfa_changed" | "security_token_created" | "security_sessions_revoked"
   | "account_deletion_scheduled" | "account_deletion_cancelled" | "account_deletion_reminder";
 export type EmailKind = "welcome" | "task_assignment" | OrgEmailKind | SecurityEmailKind;
 export type EmailAttachment = {
