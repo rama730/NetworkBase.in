@@ -5,6 +5,7 @@ import { normalizeAuthNextPath } from '@/lib/auth/redirects'
 import { getAuthHardeningPhase } from '@/lib/auth/hardening'
 import { classifyAuthLookupError, toAuthErrorMessage } from '@/lib/auth/session-lookup'
 import { resolveAuthSnapshot } from '@/lib/auth/snapshot'
+import { isSecondFactorDue } from '@/lib/auth/mfa-gate'
 import {
     classifyRoute,
     isAuthOnlyRoute,
@@ -177,6 +178,7 @@ export async function updateSession(request: NextRequest, options: UpdateSession
     let user: Awaited<ReturnType<typeof resolveAuthSnapshot>>['user'] = null
     let onboardingComplete = false
     let emailVerified = false
+    let userAal: 'aal1' | 'aal2' | null = null
     let authLookupDegraded = false
     const shouldResolveAuth = hasAnyAuthCookie(request)
 
@@ -233,12 +235,25 @@ export async function updateSession(request: NextRequest, options: UpdateSession
             user = authResolution.user
             onboardingComplete = authResolution.snapshot?.onboardingComplete ?? false
             emailVerified = authResolution.snapshot?.emailVerified ?? false
+            userAal = authResolution.snapshot?.aal ?? null
         }
     }
 
     const url = request.nextUrl.clone()
     if (user && hasOnboardingClaims(user)) {
         onboardingComplete = true
+    }
+
+    // Password-only session on an account with a second factor: every page leads to the code step, which itself
+    // renders with that session in place. Server reads see no user until then (lib/supabase/server.ts).
+    if (user && await isSecondFactorDue(user.id, userAal)) {
+        if (pathname === '/login' && request.nextUrl.searchParams.get('step') === 'mfa') {
+            return withRequestId(supabaseResponse, requestId, routeClass)
+        }
+        const codeStepUrl = new URL('/login', request.url)
+        codeStepUrl.searchParams.set('step', 'mfa')
+        codeStepUrl.searchParams.set('redirect', normalizeAuthNextPath(`${pathname}${request.nextUrl.search}`))
+        return redirectWithRequestId(codeStepUrl, requestId, routeClass, supabaseResponse)
     }
 
     if (!user && isProtectedAppRoute(pathname)) {
@@ -281,8 +296,7 @@ export async function updateSession(request: NextRequest, options: UpdateSession
         }
     }
 
-    // The second-factor step runs on /login with a password-only session already in place.
-    if (user && isAuthOnlyRoute(pathname) && !(pathname === '/login' && request.nextUrl.searchParams.get('step') === 'mfa')) {
+    if (user && isAuthOnlyRoute(pathname)) {
         const rawRedirect = request.nextUrl.searchParams.get('redirect')
         const redirectPath = rawRedirect ? normalizeAuthNextPath(rawRedirect) : ''
 

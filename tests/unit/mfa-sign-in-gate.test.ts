@@ -10,13 +10,21 @@ test('a password-only session with a verified factor must finish the second step
     assert.equal(needsSecondFactor('aal1', false), false)
 })
 
-test('the main layout sends unfinished sessions to the code step, and /login lets them through', () => {
-    const layout = readFileSync('src/app/(site)/(main)/layout.tsx', 'utf8')
+test('one gate covers every server read, and pages lead to the code step', () => {
+    const server = readFileSync('src/lib/supabase/server.ts', 'utf8')
     const middleware = readFileSync('src/lib/supabase/middleware.ts', 'utf8')
+    const proxy = readFileSync('src/proxy.ts', 'utf8')
+    const gate = readFileSync('src/lib/auth/mfa-gate.ts', 'utf8')
     const login = readFileSync('src/components/auth/LoginForm.tsx', 'utf8')
-    assert.match(layout, /hasVerifiedMfaFactor\(user\.id\)/)
-    assert.match(layout, /redirect\(`\/login\?step=mfa&redirect=/)
-    assert.match(middleware, /searchParams\.get\('step'\) === 'mfa'/)
+    // Pages, server actions and API routes all resolve the viewer through this one snapshot.
+    assert.match(server, /resolveAuthSnapshot\(client\)\.then\(withSecondFactorGate\)/)
+    assert.match(server, /return \{ \.\.\.resolution, session: null, snapshot: null, user: null \}/)
+    assert.match(middleware, /if \(user && await isSecondFactorDue\(user\.id, userAal\)\)/)
+    assert.match(middleware, /codeStepUrl\.searchParams\.set\('step', 'mfa'\)/)
+    assert.match(proxy, /"\/legal\/accept"\]\)/)
+    // The factor list comes from the database, never the unsigned cookie copy of the user.
+    assert.match(gate, /FROM auth\.mfa_factors WHERE user_id = \$\{userId\}::uuid AND status = 'verified'/)
+    assert.match(gate, /return cached\?\.has \?\? false/)
     assert.match(login, /mfa\.challengeAndVerify\(\{ factorId: factor\.id, code: value \}\)/)
     assert.match(login, /syncBrowserSessionToServer\(data\.session\)/)
 })

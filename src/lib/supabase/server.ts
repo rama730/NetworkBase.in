@@ -81,7 +81,7 @@ export async function createClient() {
     const resolveClientAuthSnapshot = () => {
         if (!authResolutionPromise) {
             const startedAt = Date.now()
-            authResolutionPromise = resolveAuthSnapshot(client).then((resolution) => {
+            authResolutionPromise = resolveAuthSnapshot(client).then(withSecondFactorGate).then((resolution) => {
                 logger.metric('auth.server.resolution', {
                     module: 'auth',
                     route,
@@ -130,6 +130,17 @@ export async function createClient() {
     ;(client as AuthSnapshotAwareClient).__resolveAuthSnapshot = resolveClientAuthSnapshot
 
     return client
+}
+
+/**
+ * A session that has only passed the password step, on an account with a verified second factor, is not signed in
+ * yet: every server read (pages, server actions, API routes) sees no user until the code step upgrades it.
+ */
+async function withSecondFactorGate(resolution: AuthSnapshotResolution): Promise<AuthSnapshotResolution> {
+    if (!resolution.user || resolution.snapshot?.aal === 'aal2') return resolution
+    const { isSecondFactorDue } = await import('@/lib/auth/mfa-gate')
+    if (!(await isSecondFactorDue(resolution.user.id, resolution.snapshot?.aal))) return resolution
+    return { ...resolution, session: null, snapshot: null, user: null }
 }
 
 export async function createAdminClient() {
