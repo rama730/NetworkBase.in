@@ -1,7 +1,14 @@
 import { APPEARANCE_STORAGE_KEYS } from "@/lib/theme/appearance";
+import { COOKIE_CONSENT_STORAGE_KEY } from "@/lib/privacy/cookie-consent";
 
 const KNOWN_INDEXED_DB_NAMES = ["keyval-store"] as const;
-const PRESERVED_LOCAL_STORAGE_KEYS = Object.values(APPEARANCE_STORAGE_KEYS);
+// Clearing the cache must not undo choices the person made: appearance, the cookie decision (or the consent
+// banner would come back), and the sidebar state.
+const PRESERVED_LOCAL_STORAGE_KEYS = [
+    ...Object.values(APPEARANCE_STORAGE_KEYS),
+    COOKIE_CONSENT_STORAGE_KEY,
+    "networkbase:sidebar-collapsed",
+];
 
 export type StorageCategoryUsage = {
     id: string;

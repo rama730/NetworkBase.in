@@ -108,7 +108,7 @@ export async function requireAuthenticatedUser() {
         const now = new Date();
         // One bounded read: the session and the profile email together; revocation and expiry are checked on every call.
         const [found] = await db
-          .select({ session: extensionDeviceSessions, email: profiles.email, fullName:profiles.fullName,avatarUrl:profiles.avatarUrl,username:profiles.username })
+          .select({ session: extensionDeviceSessions, email: profiles.email, fullName:profiles.fullName,avatarUrl:profiles.avatarUrl,username:profiles.username,deletedAt:profiles.deletedAt })
           .from(extensionDeviceSessions)
           .leftJoin(profiles, eq(profiles.id, extensionDeviceSessions.userId))
           .where(and(
@@ -117,7 +117,8 @@ export async function requireAuthenticatedUser() {
             gt(extensionDeviceSessions.expiresAt, now),
           ))
           .limit(1);
-        const session = found?.session;
+        // An account that scheduled its deletion no longer accepts editor tokens.
+        const session = found?.deletedAt ? undefined : found?.session;
 
         if (session) {
           const extensionVersion = normalizeSessionHeader(headerStore.get("x-extension-version"), 40);

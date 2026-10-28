@@ -18,10 +18,13 @@ import { withIdempotentRoute } from "@/lib/security/idempotency";
 import { getPasswordPolicyResult } from "@/lib/security/password-policy";
 import { isLeakedPassword } from "@/lib/security/leaked-password";
 import { logger } from "@/lib/logger";
+import { revokeAllExtensionSessionsForUser } from "@/lib/security/extension-token-revocation";
 
+// Passwords are used exactly as typed (sign-in does not trim), so they are never trimmed here either.
 const changePasswordSchema = z.object({
-  currentPassword: z.string().optional(),
-  newPassword: z.string().min(1),
+  currentPassword: z.string().max(128).optional(),
+  newPassword: z.string().min(1).max(128),
+  signOutOtherDevices: z.boolean().optional(),
 });
 
 export async function POST(request: Request) {
@@ -78,6 +81,10 @@ export async function POST(request: Request) {
   }
 
   const authUser = auth.user;
+  // An editor token must not be able to change the password that protects the account.
+  if (auth.extensionSessionId) return jsonError("Changing your password requires a browser session", 403, "FORBIDDEN");
+  const userLimit = await enforceRouteLimit(request, "api:v1:auth:change-password:user", 10, 3600, "default", authUser.id);
+  if (userLimit) return userLimit;
   return withIdempotentRoute(request, { namespace: 'auth.changePassword', scopeId: authUser.id }, async () => {
   let rawBody: unknown;
   try {
@@ -109,9 +116,9 @@ export async function POST(request: Request) {
     return jsonError("Invalid request body", 400, "BAD_REQUEST");
   }
 
-  const currentPassword = (parsed.data.currentPassword || "").trim();
-  const newPassword = parsed.data.newPassword.trim();
-  if (!newPassword) {
+  const currentPassword = parsed.data.currentPassword || "";
+  const newPassword = parsed.data.newPassword;
+  if (!newPassword.trim()) {
     logApiRoute(request, {
       requestId,
       action: "auth.changePassword.post",
@@ -272,6 +279,18 @@ export async function POST(request: Request) {
         errorCode: "PASSWORD_CHANGE_FAILED",
       });
       return jsonError("Password update failed", 400, "PASSWORD_CHANGE_FAILED");
+    }
+
+    // The old password may be in someone else's hands: editor tokens always end, and other browsers by default.
+    try {
+      await revokeAllExtensionSessionsForUser(authUser.id);
+      if (parsed.data.signOutOtherDevices !== false) await auth.supabase.auth.signOut({ scope: "others" });
+    } catch (revokeError) {
+      logger.warn("auth.change_password.revoke_failed", {
+        requestId,
+        userId: authUser.id,
+        error: revokeError instanceof Error ? revokeError.message : String(revokeError),
+      });
     }
 
     try {

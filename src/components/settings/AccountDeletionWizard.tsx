@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Download, Loader2, Trash2, TriangleAlert } from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
-import { formatCalendarDate } from "@/lib/ui/date-formatting";
+import { Input } from "@/components/ui/input";
+import { useAuth } from "@/hooks/useAuth";
 import SecurityStepUpDialog from "@/components/settings/SecurityStepUpDialog";
 import {
     Dialog,
@@ -18,43 +20,77 @@ import {
 
 interface Props {
     onClose: () => void;
-    onDeleted: () => void;
+    /** Called with the date the account will be removed, once deletion is scheduled. */
+    onDeleted: (hardDeleteAt: string | null) => void;
 }
 
+type OwnedProject = { id: string; title: string; slug: string | null; otherMembers: number };
+type StepUpState = { methods: Array<"totp" | "recovery_code" | "password">; factorId?: string };
+
 export default function AccountDeletionWizard({ onClose, onDeleted }: Props) {
+    const router = useRouter();
+    const { user, signOut } = useAuth();
+    const email = user?.email ?? "";
+    const username = typeof user?.user_metadata?.username === "string" ? user.user_metadata.username : "";
+    // What the person types: their own email, or their username when they have no email on the account.
+    const confirmWord = email || username || "DELETE";
     const [confirmText, setConfirmText] = useState("");
     const [reason, setReason] = useState("");
     const [deleting, setDeleting] = useState(false);
-    const [stepUp, setStepUp] = useState<{ methods: Array<"totp" | "recovery_code" | "password">; factorId?: string } | null>(null);
+    const [stepUp, setStepUp] = useState<StepUpState | null>(null);
+    const [needsFreshSignIn, setNeedsFreshSignIn] = useState(false);
+    const [owned, setOwned] = useState<OwnedProject[] | null>(null);
+    const [ownedFailed, setOwnedFailed] = useState(false);
+
+    // What this takes with it, shown before the person confirms.
+    useEffect(() => {
+        const controller = new AbortController();
+        fetch("/api/v1/account/deletion-preflight", { signal: controller.signal, cache: "no-store" })
+            .then((response) => response.json())
+            .then((payload) => {
+                if (payload?.success && Array.isArray(payload.data?.projects)) setOwned(payload.data.projects);
+                else setOwnedFailed(true);
+            })
+            .catch(() => { if (!controller.signal.aborted) setOwnedFailed(true); });
+        return () => controller.abort();
+    }, []);
+
+    const confirmed = confirmText.trim().toLowerCase() === confirmWord.toLowerCase();
 
     const handleDelete = async () => {
-        if (confirmText !== "DELETE") return;
+        if (!confirmed) return;
         setDeleting(true);
         try {
             const response = await fetch("/api/v1/account/delete", {
                 method: "DELETE",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ confirmationText: confirmText, reason: reason || undefined }),
+                body: JSON.stringify({ confirmationText: confirmText.trim(), reason: reason || undefined }),
             });
-            const payload = await response.json();
+            const payload = await response.json().catch(() => null);
             // The server requires a fresh identity check before deleting.
-            if (response.status === 403 && payload?.errorCode === "STEP_UP_REQUIRED" && payload?.details?.availableMethods?.length) {
-                setStepUp({ methods: payload.details.availableMethods, factorId: payload.details.factorId ?? undefined });
+            if (response.status === 403 && payload?.errorCode === "STEP_UP_REQUIRED") {
+                if (payload?.details?.availableMethods?.length) {
+                    setStepUp({ methods: payload.details.availableMethods, factorId: payload.details.factorId ?? undefined });
+                } else {
+                    // Signed in with a provider and nothing else to verify with: a fresh sign-in is the proof.
+                    setNeedsFreshSignIn(true);
+                }
                 return;
             }
             if (!response.ok || payload?.success === false) {
                 throw new Error(payload?.message || "Failed to delete account");
             }
-            const hardDeleteAt = payload?.data?.hardDeleteAt;
-            toast.success(hardDeleteAt
-                ? `Account scheduled for deletion on ${formatCalendarDate(hardDeleteAt)}.`
-                : "Account scheduled for deletion in 30 days.");
-            onDeleted();
+            onDeleted(payload?.data?.hardDeleteAt ?? null);
         } catch (error) {
             toast.error(feedbackError(error instanceof Error ? error.message : "Failed to delete account", "Failed to delete account"));
         } finally {
             setDeleting(false);
         }
+    };
+
+    const signInAgain = async () => {
+        await signOut();
+        router.push(`/login?redirect=${encodeURIComponent("/settings#settings-delete-account")}`);
     };
 
     if (stepUp) {
@@ -69,37 +105,74 @@ export default function AccountDeletionWizard({ onClose, onDeleted }: Props) {
         />;
     }
 
+    const sharedProjects = (owned ?? []).filter((project) => project.otherMembers > 0);
+
     return <Dialog open onOpenChange={(open) => { if (!open && !deleting) onClose(); }}>
         <DialogContent>
             <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-red-600"><TriangleAlert className="h-5 w-5" />Delete account</DialogTitle>
+                <DialogTitle className="flex items-center gap-2 text-[var(--status-danger)]"><TriangleAlert className="h-5 w-5" aria-hidden="true" />Delete account</DialogTitle>
                 <DialogDescription>
-                    Your profile is hidden immediately. After a 30-day grace period, your account and associated data are permanently deleted.
+                    Your profile is hidden and you are signed out everywhere right away. After 30 days your account and its data are permanently deleted. You can cancel any time before then.
                 </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4 text-sm">
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-100">
-                    Before deleting, transfer any projects you need to preserve from each project&apos;s Settings tab. You can cancel a pending deletion during the grace period.
+            <div className="space-y-4 nb-compact">
+                <div className="space-y-2 rounded-lg border border-[var(--status-warning)]/30 bg-[var(--status-warning-soft)] p-3 text-foreground">
+                    <p className="font-medium">What happens to your things</p>
+                    <ul className="list-disc space-y-1 pl-4 text-muted-foreground">
+                        <li>Projects you own are deleted, including for the people working in them.</li>
+                        <li>Your direct messages are deleted. Your messages in group chats stay, without your name.</li>
+                        <li>We keep a record of your email and username for 180 days so they can’t be taken over.</li>
+                    </ul>
+                    {owned === null && !ownedFailed ? (
+                        <p className="nb-meta text-muted-foreground" role="status">Checking your projects…</p>
+                    ) : ownedFailed ? (
+                        <p className="nb-meta text-muted-foreground">We couldn’t check your projects. Review them on your Projects page before continuing.</p>
+                    ) : owned && owned.length > 0 ? (
+                        <p>
+                            You own {owned.length} project{owned.length === 1 ? "" : "s"}
+                            {sharedProjects.length > 0
+                                ? `, ${sharedProjects.length} with other people in ${sharedProjects.length === 1 ? "it" : "them"}: ${sharedProjects.slice(0, 3).map((project) => project.title).join(", ")}${sharedProjects.length > 3 ? "…" : ""}`
+                                : ""}.
+                            {" "}Transfer any you want to keep from each project’s Settings tab. <Link href="/projects" onClick={onClose} className="text-primary hover:underline">Open your projects</Link>
+                        </p>
+                    ) : (
+                        <p className="text-muted-foreground">You don’t own any projects.</p>
+                    )}
                 </div>
+
                 <Button variant="outline" asChild>
-                    <a href="/api/v1/account/export" download><Download className="h-4 w-4" />Download my data</a>
+                    <a href="/api/v1/account/export" download><Download className="h-4 w-4" aria-hidden="true" />Download my data</a>
                 </Button>
-                <label className="block space-y-1.5">
-                    <span>Type <strong>DELETE</strong> to confirm</span>
-                    <input value={confirmText} onChange={(event) => setConfirmText(event.target.value)} autoComplete="off" className="w-full rounded-lg border bg-transparent px-3 py-2 outline-none  " />
-                </label>
-                <label className="block space-y-1.5">
-                    <span className="text-muted-foreground">Reason for leaving (optional)</span>
-                    <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={2} maxLength={1000} className="w-full resize-none rounded-lg border bg-transparent px-3 py-2 outline-none  " />
-                </label>
-                <p className="text-xs text-muted-foreground">Need to transfer ownership first? <Link href="/projects" onClick={onClose} className="text-primary hover:underline">Open your projects</Link>.</p>
+
+                <div className="space-y-1.5">
+                    <label htmlFor="delete-account-confirm" className="nb-ui-label text-foreground">Type <strong>{confirmWord}</strong> to confirm</label>
+                    <Input id="delete-account-confirm" autoFocus value={confirmText} onChange={(event) => setConfirmText(event.target.value)} autoComplete="off" spellCheck={false} />
+                </div>
+                <div className="space-y-1.5">
+                    <label htmlFor="delete-account-reason" className="nb-ui-label text-muted-foreground">Reason for leaving (optional)</label>
+                    <textarea
+                        id="delete-account-reason"
+                        value={reason}
+                        onChange={(event) => setReason(event.target.value)}
+                        rows={2}
+                        maxLength={1000}
+                        className="w-full resize-none rounded-md border border-input bg-card px-[var(--ui-control-px)] py-2 text-[15px] leading-[1.5] outline-none focus-visible:bg-muted/20"
+                    />
+                </div>
+
+                {needsFreshSignIn ? (
+                    <div role="alert" className="space-y-2 rounded-lg border border-[var(--status-danger)]/30 bg-[var(--status-danger-soft)] p-3 text-[var(--status-danger)]">
+                        <p>This account has no password or authenticator to verify with. Sign in again, then come back here within 10 minutes.</p>
+                        <Button type="button" variant="outline" size="sm" onClick={() => void signInAgain()}>Sign in again</Button>
+                    </div>
+                ) : null}
             </div>
 
             <DialogFooter>
                 <Button variant="outline" onClick={onClose} disabled={deleting}>Cancel</Button>
-                <Button variant="destructive" onClick={() => void handleDelete()} disabled={deleting || confirmText !== "DELETE"}>
-                    {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                <Button variant="destructive" onClick={() => void handleDelete()} disabled={deleting || !confirmed}>
+                    {deleting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Trash2 className="h-4 w-4" aria-hidden="true" />}
                     Delete account
                 </Button>
             </DialogFooter>

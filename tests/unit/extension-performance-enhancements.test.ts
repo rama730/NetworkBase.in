@@ -50,6 +50,6 @@ describe("IDE & Editor Extension Performance & Architecture Enhancements", () =>
 
     // Custom device label
     assert.match(settingsSource, /deviceLabel/, "must support custom device label");
-    assert.match(settingsSource, /placeholder="Device label \(e\.g\. Workstation, optional\)"/, "must render device label input");
+    assert.match(settingsSource, /Device label \(optional\)/, "must render a labelled device label input");
   });
 });

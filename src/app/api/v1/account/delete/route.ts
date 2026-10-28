@@ -7,9 +7,10 @@ import { z } from 'zod';
 import { scheduleAccountDeletionForUser } from '@/lib/account/deletion';
 import { inngest } from '@/inngest/client';
 import { createSignedJobRequestToken } from '@/lib/security/job-request';
-import { resolveSecurityStepUp } from '@/lib/security/step-up';
+import { resolveDestructiveStepUp } from '@/lib/security/destructive-step-up';
 import { resolveStepUpCapabilities } from '@/lib/security/step-up-capabilities';
 import { queueCounterRefreshBestEffort } from '@/lib/workspace/counter-buffer';
+import { revokeAllExtensionSessionsForUser } from '@/lib/security/extension-token-revocation';
 
 const ACCOUNT_DELETE_CONFIRM_TEXT = 'DELETE';
 // Accounts with no password, authenticator or recovery code prove possession by a fresh sign-in.
@@ -56,33 +57,6 @@ export async function DELETE(request: Request) {
     const user = auth.user;
 
     return withIdempotentRoute(request, { namespace: 'account.delete', scopeId: user.id }, async () => {
-    // Rate limiting: 3 attempts per hour
-    try {
-        const rateLimitResult = await consumeRateLimit(
-            `account-delete:${user.id}`,
-            3,
-            3600,
-        );
-        if (!rateLimitResult.allowed) {
-            logApiRoute(request, {
-                requestId,
-                action: 'account.delete',
-                startedAt,
-                success: false,
-                status: 429,
-                errorCode: 'RATE_LIMITED',
-            });
-            return jsonError(
-                'Too many deletion attempts. Please try again later.',
-                429,
-                'RATE_LIMITED',
-            );
-        }
-    } catch (rlErr) {
-        // Rate limit check failure is non-blocking
-        logger.warn('Rate limit check error (non-fatal):', { module: 'api', error: rlErr instanceof Error ? rlErr.message : String(rlErr) });
-    }
-
     try {
         let confirmationText = '';
         let reason: string | undefined;
@@ -116,11 +90,14 @@ export async function DELETE(request: Request) {
             return jsonError(message, status, errorCode, details);
         };
         if (auth.extensionSessionId) return fail('Account deletion requires a browser session', 403, 'FORBIDDEN');
-        if (confirmationText.trim().toUpperCase() !== ACCOUNT_DELETE_CONFIRM_TEXT) return fail('Confirmation required', 400, 'BAD_REQUEST');
+        // The person types their own email or username (or the word DELETE): something only they would type.
+        const username = typeof user.user_metadata?.username === 'string' ? user.user_metadata.username : '';
+        const accepted = new Set([ACCOUNT_DELETE_CONFIRM_TEXT, user.email ?? '', username].map((value) => value.trim().toUpperCase()).filter(Boolean));
+        if (!accepted.has(confirmationText.trim().toUpperCase())) return fail('Confirmation required', 400, 'BAD_REQUEST');
 
         // AUTH-006: a server-verified, unexpired step-up proves possession; sending
         // an OTP does not. Accounts with no step-up method need a fresh sign-in.
-        const stepUp = await resolveSecurityStepUp(user.id);
+        const stepUp = await resolveDestructiveStepUp(auth.supabase, user.id);
         if (!stepUp.ok) {
             const { availableMethods, primaryTotpFactorId } = await resolveStepUpCapabilities({ supabase: auth.supabase, user });
             // The sign-in time of *this* session (verified JWT amr), not the account's last sign-in anywhere.
@@ -136,6 +113,16 @@ export async function DELETE(request: Request) {
                     { availableMethods, factorId: primaryTotpFactorId ?? null },
                 );
             }
+        }
+
+        // Only attempts that got past the step-up count, so a step-up retry doesn't burn the budget.
+        // Failing open here would let a stolen session retry without limit, so a limiter outage refuses instead.
+        try {
+            const rateLimitResult = await consumeRateLimit(`account-delete:${user.id}`, 3, 3600);
+            if (!rateLimitResult.allowed) return fail('Too many deletion attempts. Please try again later.', 429, 'RATE_LIMITED');
+        } catch (rlErr) {
+            logger.warn('Rate limit check error:', { module: 'api', error: rlErr instanceof Error ? rlErr.message : String(rlErr) });
+            return fail('Account deletion is temporarily unavailable. Please try again shortly.', 503, 'UNAVAILABLE');
         }
 
         const result = await scheduleAccountDeletionForUser({
@@ -161,6 +148,8 @@ export async function DELETE(request: Request) {
             },
         }).catch((error: unknown) =>
             logger.warn('account.inngest-dispatch.failed', { module: 'account', error: error instanceof Error ? error.message : String(error) }));
+        await revokeAllExtensionSessionsForUser(user.id).catch((error: unknown) =>
+            logger.warn('account.extension-revoke.failed', { module: 'account', error: error instanceof Error ? error.message : String(error) }));
         await auth.supabase.auth.signOut().catch(() => undefined);
 
         logApiRoute(request, {

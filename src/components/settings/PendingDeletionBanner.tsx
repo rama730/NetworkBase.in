@@ -26,7 +26,7 @@ export default function PendingDeletionBanner({ hardDeleteAt, onCancelled }: Pro
         try {
             const result = await cancelAccountDeletion();
             if (result.success) {
-                toast.success("Account reactivated successfully!");
+                toast.success("Account reactivated");
                 onCancelled();
             } else {
                 toast.error(feedbackError(result.error || "Failed to cancel deletion", "Failed to cancel deletion"));
@@ -39,10 +39,10 @@ export default function PendingDeletionBanner({ hardDeleteAt, onCancelled }: Pro
     };
 
     return (
-        <div className="flex flex-wrap items-center gap-3 border-t border-border py-3 text-[12px] text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-3 border-t border-border py-3 nb-compact text-muted-foreground">
             <AlertTriangle className="size-3.5 shrink-0 text-[var(--status-warning)]" aria-hidden="true" />
             <span className="min-w-0 flex-1">Account deletion scheduled for <strong className="font-medium text-foreground">{formatCalendarDate(deleteDate)}</strong>{daysRemaining > 0 ? ` · ${daysRemaining} day${daysRemaining === 1 ? "" : "s"} remaining` : ""}.</span>
-            <Button variant="outline" size="sm" onClick={handleCancel} disabled={cancelling}>{cancelling ? "Cancelling…" : "Reactivate account"}</Button>
+            <Button variant="outline" size="sm" onClick={handleCancel} disabled={cancelling}>{cancelling ? "Reactivating…" : "Reactivate account"}</Button>
         </div>
     );
 }

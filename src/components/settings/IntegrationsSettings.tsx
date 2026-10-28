@@ -8,6 +8,9 @@ import { formatDistanceToNow } from "@/lib/utils/date";
 import { ChevronDown, Code2, Copy, ExternalLink, GitBranch, Github, KeyRound, Link2, Loader2, Mail } from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { ErrorNotice } from "@/components/ui/ErrorNotice";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -42,18 +45,19 @@ function ProviderIcon({ provider }: { provider: IntegrationsAuthProvider }) {
 }
 
 function ProviderRow({ provider, linking, onLink }: { provider: AuthConnectionMethod; linking: boolean; onLink: () => void }) {
-  const stateLabel = provider.state.split("_").join(" ");
+  const stateLabel = provider.state === "primary" ? "Main sign-in method" : provider.state === "linked" ? "Connected" : provider.state === "not_linked" ? "Not connected" : String(provider.state).split("_").join(" ");
   return <div className="flex min-h-16 flex-col justify-center gap-3 border-b border-border py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between">
     <div className="flex min-w-0 items-center gap-3">
       <ProviderIcon provider={provider.provider} />
       <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1"><h4 className="nb-ui-label text-foreground">{provider.label}</h4><span className="nb-meta capitalize text-muted-foreground">{stateLabel}</span></div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1"><h4 className="nb-ui-label text-foreground">{provider.label}</h4><span className="nb-meta text-muted-foreground">{stateLabel}</span></div>
         <p className="nb-compact mt-1 text-muted-foreground">{provider.detail}</p>
         {provider.secondaryDetail ? <p className="nb-meta mt-1 text-muted-foreground">{provider.secondaryDetail}</p> : null}
+        {provider.provider === "github" && provider.state === "not_linked" ? <p className="nb-meta mt-1 text-muted-foreground">Connecting asks GitHub to let NetworkBase read your repositories and organizations, and your email, so you can import and sync projects.</p> : null}
       </div>
     </div>
-    {provider.state === "not_linked" && provider.provider !== "email" ? <Button className="self-start sm:self-auto" size="sm" variant="outline" onClick={onLink} disabled={linking}>{linking ? <Loader2 className="size-4 animate-spin" /> : null}Link</Button> : null}
-    {provider.state === "not_linked" && provider.provider === "email" ? <Button size="sm" variant="outline" asChild><Link href="/settings?tab=security">Set password</Link></Button> : null}
+    {provider.state === "not_linked" && provider.provider !== "email" ? <Button className="self-start sm:self-auto" size="sm" variant="outline" onClick={onLink} disabled={linking}>{linking ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}Connect</Button> : null}
+    {provider.state === "not_linked" && provider.provider === "email" ? <Button size="sm" variant="outline" asChild><Link href="/settings#settings-security">Set a password</Link></Button> : null}
   </div>;
 }
 
@@ -99,7 +103,7 @@ function ExtensionAppCard() {
           </p>
         </div>
       </div>
-      <span className="nb-meta shrink-0 text-muted-foreground">Web login or manual token · Revocable sessions</span>
+      <span className="nb-meta shrink-0 text-muted-foreground">Sign in from your editor, or use a token. Revoke any time.</span>
     </div>
   );
 }
@@ -194,6 +198,9 @@ export default function IntegrationsSettings({ embedded = false }: { embedded?: 
   const [deviceLabel, setDeviceLabel] = useState("");
   const [replacementConfirmOpen, setReplacementConfirmOpen] = useState(false);
   const [stepUpOpen, setStepUpOpen] = useState(false);
+  // What the verification is for: replacing the GitHub account, or creating a manual token.
+  const [stepUpPurpose, setStepUpPurpose] = useState<"replace" | "token">("replace");
+  const [revokeTarget, setRevokeTarget] = useState<ExtensionSessionData | null>(null);
   const [replacementMethods, setReplacementMethods] = useState<Array<"totp" | "recovery_code" | "password">>([]);
   const [replacementFactorId, setReplacementFactorId] = useState<string | undefined>();
   const [replacingGithub, setReplacingGithub] = useState(false);
@@ -219,7 +226,8 @@ export default function IntegrationsSettings({ embedded = false }: { embedded?: 
     const next = new URLSearchParams(searchParams.toString());
     next.delete("githubIdentity");
     next.delete("githubErrorDesc");
-    router.replace(`/settings?${next.toString()}`, { scroll: false });
+    const query = next.toString();
+    router.replace(`/settings${query ? `?${query}` : ""}#settings-integrations`, { scroll: false });
     void refetch();
   }, [refetch, router, searchParams]);
 
@@ -258,6 +266,8 @@ export default function IntegrationsSettings({ embedded = false }: { embedded?: 
       if (result.success && result.rawToken) {
         setGeneratedToken(result.rawToken);
         await refetchSessions();
+      } else if ("stepUpRequired" in result && result.stepUpRequired) {
+        await requestStepUp("token");
       } else {
         toast.error(feedbackError(result.error || "Failed to generate token", "Failed to generate token"));
       }
@@ -283,7 +293,7 @@ export default function IntegrationsSettings({ embedded = false }: { embedded?: 
     }
   };
 
-  const requestReplacementVerification = async () => {
+  const requestStepUp = async (purpose: "replace" | "token") => {
     try {
       const response = await fetch("/api/v1/auth/security-step-up");
       const payload = await response.json().catch(() => null);
@@ -297,9 +307,10 @@ export default function IntegrationsSettings({ embedded = false }: { embedded?: 
           )
         : [];
       if (!methods.length) {
-        toast.error("Add a password or authenticator in Security before replacing GitHub");
+        toast.error(purpose === "token" ? "Add a password or authenticator in Security before creating a token" : "Add a password or authenticator in Security before replacing GitHub");
         return;
       }
+      setStepUpPurpose(purpose);
       setReplacementMethods(methods);
       setReplacementFactorId(
         typeof payload?.data?.primaryTotpFactorId === "string"
@@ -309,9 +320,10 @@ export default function IntegrationsSettings({ embedded = false }: { embedded?: 
       setReplacementConfirmOpen(false);
       setStepUpOpen(true);
     } catch (error) {
-      toast.error(feedbackError(error instanceof Error ? error.message : "Could not start account replacement", "Could not start account replacement"));
+      toast.error(feedbackError(error instanceof Error ? error.message : "Could not start verification", "Could not start verification"));
     }
   };
+  const requestReplacementVerification = () => requestStepUp("replace");
 
   const replaceGithubAccount = async () => {
     setReplacingGithub(true);
@@ -371,10 +383,10 @@ export default function IntegrationsSettings({ embedded = false }: { embedded?: 
 
   return <div className={embedded ? "space-y-8" : "space-y-6"}>
     {!embedded ? <SettingsPageHeader title="Integrations" description="Manage sign-in methods, GitHub access, and active editor sessions." /> : null}
-    {error ? <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 nb-compact text-destructive">{error instanceof Error ? error.message : "Unable to load integrations"}</p> : null}
+    {error ? <ErrorNotice what="Integrations" onRetry={() => void refetch()} /> : null}
 
     <SettingsSectionCard title="Account connections" description={data?.summary || "Sign-in methods attached to this account."}>
-      {isLoading ? <div aria-hidden="true" className="nb-skeleton h-32 rounded-md" /> : <div>{data?.authConnections.map((provider) => <ProviderRow key={provider.provider} provider={provider} linking={linking === provider.provider} onLink={() => void linkProvider(provider.provider as "google" | "github")} />)}</div>}
+      {isLoading ? <div role="status" aria-label="Loading connections" className="nb-skeleton h-32 rounded-md" /> : <div>{data?.authConnections.map((provider) => <ProviderRow key={provider.provider} provider={provider} linking={linking === provider.provider} onLink={() => void linkProvider(provider.provider as "google" | "github")} />)}</div>}
     </SettingsSectionCard>
 
     <SettingsSectionCard title="GitHub" description="Repository access is managed from each project; this page only shows account-level status.">
@@ -430,7 +442,7 @@ export default function IntegrationsSettings({ embedded = false }: { embedded?: 
                     key={session.id}
                     session={session}
                     revoking={revoking === session.id}
-                    onRevoke={() => void revoke(session.id)}
+                    onRevoke={() => setRevokeTarget(session)}
                   />
               ))}
               {pendingSessions.map((session) => (
@@ -438,7 +450,7 @@ export default function IntegrationsSettings({ embedded = false }: { embedded?: 
                     key={session.id}
                     session={session}
                     revoking={revoking === session.id}
-                    onRevoke={() => void revoke(session.id)}
+                    onRevoke={() => setRevokeTarget(session)}
                   />
               ))}
             </div>
@@ -452,8 +464,12 @@ export default function IntegrationsSettings({ embedded = false }: { embedded?: 
         <div className="border-t border-border pt-4">
           <SettingsRow
             title="Manual authentication token"
-            description="Use a fallback token if browser sign-in is blocked in your editor."
-            right={<Button size="sm" variant="outline" onClick={() => setShowTokenGen(!showTokenGen)}>
+            description="A fallback if signing in from your editor is blocked. It works for one year until you revoke it, so treat it like a password."
+            right={<Button size="sm" variant="outline" onClick={() => {
+              // Closing the panel also forgets the token: it is shown once and is not kept on screen.
+              if (showTokenGen) { setGeneratedToken(null); setDeviceLabel(""); }
+              setShowTokenGen(!showTokenGen);
+            }} className="pointer-coarse:h-11">
               {showTokenGen ? "Cancel" : "Generate token"}
             </Button>}
           />
@@ -462,14 +478,9 @@ export default function IntegrationsSettings({ embedded = false }: { embedded?: 
             <div className={embedded ? "mt-3 border-t border-border pt-4" : "mt-3 rounded-md border border-border bg-muted/50 p-4"}>
               {!generatedToken ? (
                 <div className="space-y-3">
-                  <div className="max-w-xs">
-                    <input
-                      type="text"
-                      value={deviceLabel}
-                      onChange={(e) => setDeviceLabel(e.target.value)}
-                      placeholder="Device label (e.g. Workstation, optional)"
-                      className="h-10 w-full rounded-md border border-input bg-background px-3 nb-compact text-foreground outline-none transition-colors focus:border-ring focus:ring-1 focus:ring-ring"
-                    />
+                  <div className="max-w-xs space-y-1.5">
+                    <label htmlFor="extension-token-label" className="nb-ui-label text-foreground">Device label (optional)</label>
+                    <Input id="extension-token-label" type="text" maxLength={120} value={deviceLabel} onChange={(e) => setDeviceLabel(e.target.value)} placeholder="e.g. Workstation" />
                   </div>
                   <Button size="sm" onClick={() => void handleGenerateToken()} disabled={generatingToken}>
                     {generatingToken ? <Loader2 className="size-4 animate-spin" /> : <KeyRound className="size-4" strokeWidth={1.75} />}
@@ -479,18 +490,21 @@ export default function IntegrationsSettings({ embedded = false }: { embedded?: 
               ) : (
                 <div className="space-y-3">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <input
+                    <Input
                       type="text"
                       readOnly
+                      aria-label="Your new token"
                       value={generatedToken}
-                      className="h-10 w-full rounded-md border border-input bg-background px-3 nb-meta text-foreground outline-none"
+                      className="nb-meta"
                       onClick={(e) => (e.target as HTMLInputElement).select()}
                     />
                     <Button
                       size="sm"
                       onClick={() => {
-                        navigator.clipboard.writeText(generatedToken);
-                        toast.success("Copied to clipboard");
+                        navigator.clipboard.writeText(generatedToken).then(
+                          () => toast.success("Copied to clipboard"),
+                          () => toast.warning("Couldn’t copy. Select the token and copy it by hand."),
+                        );
                       }}
                       className="shrink-0"
                     >
@@ -511,11 +525,10 @@ export default function IntegrationsSettings({ embedded = false }: { embedded?: 
                   </div>
                   <div className="flex items-start gap-2 rounded-md border border-border bg-background p-3 nb-compact text-muted-foreground">
                     <KeyRound className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} />
-                    <span>This token is ready. Paste it into your editor&apos;s authentication prompt to complete connection.</span>
+                    <span>Paste it into your editor&apos;s authentication prompt. It is shown only once and works for one year.</span>
                   </div>
                 </div>
               )}
-              <p className="nb-meta mt-2 text-muted-foreground">This token will only be shown once. Paste it into your editor&apos;s authentication prompt.</p>
             </div>
           )}
         </div>
@@ -545,11 +558,21 @@ export default function IntegrationsSettings({ embedded = false }: { embedded?: 
     <SecurityStepUpDialog
       open={stepUpOpen}
       onOpenChange={setStepUpOpen}
-      title="Verify this GitHub account change"
-      description="Confirm your NetworkBase identity before the unavailable GitHub account is detached."
+      title={stepUpPurpose === "token" ? "Verify before creating a token" : "Verify this GitHub account change"}
+      description={stepUpPurpose === "token" ? "A token signs in as you for a year, so confirm it is you first." : "Confirm your NetworkBase identity before the unavailable GitHub account is detached."}
       availableMethods={replacementMethods}
       factorId={replacementFactorId}
-      onVerified={replaceGithubAccount}
+      onVerified={stepUpPurpose === "token" ? handleGenerateToken : replaceGithubAccount}
+    />
+
+    <ConfirmDialog
+      open={revokeTarget !== null}
+      onOpenChange={(open) => { if (!open) setRevokeTarget(null); }}
+      title={revokeTarget && (revokeTarget.clientVersion === "pending" || (!revokeTarget.editorPlatform && !revokeTarget.editorName)) ? "Revoke this token?" : "Disconnect this editor?"}
+      description="It will stop working right away. You can connect again any time."
+      confirmLabel="Disconnect"
+      variant="destructive"
+      onConfirm={() => revokeTarget ? revoke(revokeTarget.id) : undefined}
     />
   </div>;
 }

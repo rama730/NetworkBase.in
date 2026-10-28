@@ -5,6 +5,8 @@ export type AccentPaletteMeta = {
     label: string;
     description: string;
     solid: string;
+    /** The same action colour as it is applied on dark surfaces (see the data-accent rules in globals.css). */
+    solidDark: string;
     selectedTint: string;
 };
 
@@ -12,43 +14,49 @@ export const ACCENT_PALETTES: Record<AccentColor, AccentPaletteMeta> = {
     default: {
         id: "default",
         label: "Clay",
-        description: "Warm clay actions on paper surfaces.",
+        description: "Warm clay, the default.",
         solid: "#C24720",
+        solidDark: "#F3A17E",
         selectedTint: "#F3F0EA",
     },
     orchid: {
         id: "orchid",
         label: "Orchid",
-        description: "Solid violet actions with a soft lavender selected surface.",
+        description: "Violet.",
         solid: "#77449B",
+        solidDark: "#D3ADF0",
         selectedTint: "color-mix(in srgb, #77449B 7%, #FAF8F4)",
     },
     forest: {
         id: "forest",
         label: "Forest",
-        description: "Solid emerald actions with a pale mint selected surface.",
+        description: "Emerald green.",
         solid: "#2F6B4F",
+        solidDark: "#99CEAD",
         selectedTint: "color-mix(in srgb, #2F6B4F 7%, #FAF8F4)",
     },
     ember: {
         id: "ember",
         label: "Ember",
-        description: "Solid orange actions with a soft amber selected surface.",
+        description: "Warm amber.",
         solid: "#955B15",
+        solidDark: "#EDBF85",
         selectedTint: "color-mix(in srgb, #955B15 7%, #FAF8F4)",
     },
     rose: {
         id: "rose",
         label: "Rose",
-        description: "Solid rose actions with a soft blush selected surface.",
+        description: "Rose.",
         solid: "#A33D59",
+        solidDark: "#EEA7BB",
         selectedTint: "color-mix(in srgb, #A33D59 7%, #FAF8F4)",
     },
     lagoon: {
         id: "lagoon",
         label: "Lagoon",
-        description: "Solid teal actions with a pale cyan selected surface.",
+        description: "Teal.",
         solid: "#226974",
+        solidDark: "#9ED2D6",
         selectedTint: "color-mix(in srgb, #226974 7%, #FAF8F4)",
     },
 };

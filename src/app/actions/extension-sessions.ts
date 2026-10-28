@@ -13,6 +13,9 @@ import { EXTENSION_DEVICE_SESSION_EVENTS } from "@/lib/extension/session-events"
 import { listActiveExtensionSessionsForUser } from "@/lib/extension/active-sessions";
 import { buildExtensionRevocationUri, inferExtensionCallbackUri, normalizeExtensionCallbackUri } from "@/lib/extension/session-callback";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
+import { resolveSecurityStepUp } from "@/lib/security/step-up";
+import { resolveStepUpCapabilities } from "@/lib/security/step-up-capabilities";
+import { logger } from "@/lib/logger";
 import { z } from "zod";
 
 type ExtensionTokenAuthMethod = "web_login" | "manual_token";
@@ -155,13 +158,23 @@ export async function generateExtensionToken(
         }
 
         const authMethod = options.authMethod ?? "manual_token";
+        // A manual token is a year-long bearer credential made from Settings: it needs the same fresh check as other
+        // account-protection changes (when the account has anything to check with), and the editor details the
+        // browser sends along are not trusted: the editor reports its own when it first connects.
+        if (authMethod === "manual_token") {
+            const { availableMethods } = await resolveStepUpCapabilities({ supabase: supabase as never, user });
+            if (availableMethods.length > 0 && !(await resolveSecurityStepUp(user.id)).ok) {
+                return { success: false as const, error: "Verify this device before creating a token", stepUpRequired: true as const };
+            }
+        }
+        const trusted = authMethod === "manual_token" ? {} : options;
         const headerStore = await headers();
         const ipAddress = getTrustedHeadersIp(headerStore);
         const userAgent = headerStore.get("user-agent")?.trim() || null;
-        const editorHost = normalizeSessionMetadata(options.editorHost, 80);
-        const editorName = normalizeSessionMetadata(options.editorName, 120);
-        const editorPlatform = normalizeSessionMetadata(options.editorPlatform, 80);
-        const editorVersion = normalizeSessionMetadata(options.editorVersion, 80);
+        const editorHost = normalizeSessionMetadata(trusted.editorHost, 80);
+        const editorName = normalizeSessionMetadata(trusted.editorName, 120);
+        const editorPlatform = normalizeSessionMetadata(trusted.editorPlatform, 80);
+        const editorVersion = normalizeSessionMetadata(trusted.editorVersion, 80);
         const callbackUri = normalizeExtensionCallbackUri(options.callbackUri);
 
         // Generate token and hash
@@ -183,7 +196,7 @@ export async function generateExtensionToken(
                         tokenHash,
                         tokenPrefix,
                         deviceName: normalizeDeviceName(deviceName, authMethod),
-                        clientVersion: options.clientVersion?.trim().slice(0, 40) || "pending",
+                        clientVersion: trusted.clientVersion?.trim().slice(0, 40) || "pending",
                         ipAddress,
                         userAgent,
                         editorHost,
@@ -233,6 +246,7 @@ export async function generateExtensionToken(
             });
         }, { module: "extension" });
 
+        logger.info("extension.token_created", { module: "extension", userId: user.id, method: authMethod, sessionId: session.id });
         return { success: true as const, rawToken, session };
     } catch (e) {
         console.error("Failed to generate extension token:", e);

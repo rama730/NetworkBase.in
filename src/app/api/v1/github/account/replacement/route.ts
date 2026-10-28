@@ -16,7 +16,7 @@ import { clearGithubImportAccessCookie } from "@/lib/github/import-access-cookie
 import { loadGithubLinkedUser } from "@/lib/github/linked-user";
 import { logger } from "@/lib/logger";
 import { recordSecurityEvent } from "@/lib/security/audit";
-import { resolveSecurityStepUp } from "@/lib/security/step-up";
+import { resolveDestructiveStepUp } from "@/lib/security/destructive-step-up";
 
 export async function POST(request: Request) {
   const startedAt = Date.now();
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const stepUp = await resolveSecurityStepUp(user.id);
+  const stepUp = await resolveDestructiveStepUp(auth.supabase, user.id);
   if (!stepUp.ok) {
     return fail(
       "Verify this device before replacing the linked GitHub account",

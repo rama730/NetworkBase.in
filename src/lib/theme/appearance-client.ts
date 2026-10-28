@@ -1,6 +1,7 @@
 import { parseAppearanceSnapshot, type AppearanceSnapshot } from "@/lib/theme/appearance";
 
-export type AppearanceSyncState = "idle" | "saving" | "saved" | "save_failed";
+/** `queued`: the server accepted it but could not store it on the account yet; it syncs on a later change. */
+export type AppearanceSyncState = "idle" | "saving" | "saved" | "queued" | "save_failed";
 
 export type AppearanceSettingsPayload = {
     userId: string | null;

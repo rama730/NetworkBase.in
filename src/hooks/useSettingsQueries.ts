@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { readShellPart } from "@/lib/shell-batch";
 import {
   useQuery,
@@ -16,10 +17,7 @@ import type {
   SecurityData,
 } from "@/types/settingsTypes";
 import { queryKeys } from "@/lib/query-keys";
-import {
-  DEFAULT_NOTIFICATION_PREFERENCES,
-  normalizeNotificationPreferences,
-} from "@/lib/notifications/preferences";
+import { normalizeNotificationPreferences } from "@/lib/notifications/preferences";
 import {
   updateNotificationPreferencesAction,
 } from "@/app/actions/notifications";
@@ -162,7 +160,8 @@ async function fetchIntegrationsData(): Promise<IntegrationsData> {
 }
 
 async function fetchPrivacyData(): Promise<PrivacyData> {
-  const res = await fetch("/api/v1/privacy");
+  // no-store: after an unblock the next read must see it, not a 15-second-old copy from the browser cache.
+  const res = await fetch("/api/v1/privacy", { cache: "no-store" });
   return (
     (await parseJsonResponse<PrivacyData>(
       res,
@@ -172,11 +171,8 @@ async function fetchPrivacyData(): Promise<PrivacyData> {
 }
 
 async function fetchAccountDeletionStatus(): Promise<AccountDeletionStatusData> {
-  try {
-    return await getAccountDeletionStatus();
-  } catch {
-    return DEFAULT_ACCOUNT_DELETION_STATUS;
-  }
+  // No "not pending" fallback: a failed lookup must not look like an account that is safe to delete.
+  return await getAccountDeletionStatus();
 }
 
 async function fetchExtensionSessionsData(): Promise<ExtensionSessionsData> {
@@ -215,12 +211,10 @@ export function useNotificationPreferences({ enabled = true }: { enabled?: boole
     enabled,
     queryFn: async (): Promise<NotificationPreferences> => {
       const result = await readShellPart("notificationPreferences");
-      if (!result.success) {
-        console.warn(
-          "[settings] notification preferences lookup failed",
-          result.error,
-        );
-        return DEFAULT_NOTIFICATION_PREFERENCES;
+      // Defaults are not an answer here: shown as if real, the next toggle would save them over the person's own
+      // mutes, quiet hours and organizations. Fail, and let the section show an error with Retry.
+      if (!result.success || ("degraded" in result && result.degraded)) {
+        throw new Error("Notification preferences could not be loaded");
       }
 
       return normalizeNotificationPreferences(result.preferences);
@@ -233,12 +227,19 @@ export function useNotificationPreferences({ enabled = true }: { enabled?: boole
 
 export function useUpdateNotificationPreferences() {
   const queryClient = useQueryClient();
+  // What the cache held before this change: the keys that differ are the ones the server should write.
+  const baseRef = useRef<NotificationPreferences | null>(null);
 
   return useMutation({
     mutationFn: async (preferences: NotificationPreferences) => {
-      const result = await updateNotificationPreferencesAction(
-        normalizeNotificationPreferences(preferences),
-      );
+      const next = normalizeNotificationPreferences(preferences);
+      const base = baseRef.current;
+      const changedKeys = base
+        ? (Object.keys(next) as Array<keyof NotificationPreferences>).filter(
+            (key) => JSON.stringify(next[key]) !== JSON.stringify(base[key]),
+          )
+        : undefined;
+      const result = await updateNotificationPreferencesAction(next, changedKeys);
       if (!result.success || !result.preferences) {
         throw new Error(
           result.error || "Failed to update notification preferences",
@@ -251,9 +252,10 @@ export function useUpdateNotificationPreferences() {
       await queryClient.cancelQueries({
         queryKey: queryKeys.settings.notifications(),
       });
-      const previous = queryClient.getQueryData(
+      const previous = queryClient.getQueryData<NotificationPreferences>(
         queryKeys.settings.notifications(),
       );
+      baseRef.current = previous ?? null;
       queryClient.setQueryData(
         queryKeys.settings.notifications(),
         normalizeNotificationPreferences(newPrefs),
@@ -318,15 +320,17 @@ export function useExtensionSessionsData() {
 async function submitPasswordChangeRequest({
   currentPassword,
   newPassword,
+  signOutOtherDevices,
 }: {
   currentPassword: string;
   newPassword: string;
+  signOutOtherDevices?: boolean;
 }) {
   try {
     const res = await fetch("/api/v1/auth/change-password", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ currentPassword, newPassword }),
+      body: JSON.stringify({ currentPassword, newPassword, signOutOtherDevices }),
     });
 
     await parseJsonResponse<unknown>(res, "Password change failed");

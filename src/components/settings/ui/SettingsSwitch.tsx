@@ -3,26 +3,39 @@
 import * as SwitchPrimitive from "@radix-ui/react-switch";
 import { cn } from "@/lib/utils";
 
+/**
+ * The settings switch (spec: 38×22, clay when on). It applies at once, so `pending` marks the one row that is
+ * saving: it keeps its place in the tab order (never disabled while focused) but ignores further taps.
+ * `showLabel` adds the visible On/Off text; screen readers get the state from the switch itself.
+ */
 export function SettingsSwitch({
   className,
   showLabel,
   checked,
   disabled,
+  pending,
+  onCheckedChange,
   ...props
 }: React.ComponentProps<typeof SwitchPrimitive.Root> & {
   showLabel?: boolean;
+  pending?: boolean;
 }) {
   const switchElement = (
     <SwitchPrimitive.Root
       className={cn(
-        "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border border-border bg-muted transition-colors outline-none before:absolute before:-inset-3 before:content-[''] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:border-primary data-[state=checked]:bg-primary",
+        "relative inline-flex h-[22px] w-[38px] shrink-0 cursor-pointer items-center rounded-full border border-border bg-muted transition-colors outline-none before:absolute before:-inset-x-1 before:-inset-y-[11px] before:content-[''] focus-visible:border-foreground disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[pending=true]:cursor-progress data-[pending=true]:opacity-70",
         className,
       )}
       checked={checked}
       disabled={disabled}
+      aria-busy={pending || undefined}
+      data-pending={pending || undefined}
+      onCheckedChange={(next) => {
+        if (!pending) onCheckedChange?.(next);
+      }}
       {...props}
     >
-      <SwitchPrimitive.Thumb className="block size-4 translate-x-0 rounded-full bg-background shadow-sm transition-transform data-[state=checked]:translate-x-4" />
+      <SwitchPrimitive.Thumb className="block size-[16px] translate-x-[2px] rounded-full bg-background shadow-sm transition-transform data-[state=checked]:translate-x-[18px]" />
     </SwitchPrimitive.Root>
   );
 
@@ -32,7 +45,7 @@ export function SettingsSwitch({
 
   return (
     <div className="flex shrink-0 items-center gap-3">
-      <span className={cn("nb-meta text-muted-foreground select-none w-6 text-right", disabled && "opacity-50")}>
+      <span aria-hidden="true" className={cn("nb-meta text-muted-foreground select-none w-6 text-right", disabled && "opacity-50")}>
         {checked ? "On" : "Off"}
       </span>
       {switchElement}

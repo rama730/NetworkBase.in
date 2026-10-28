@@ -63,14 +63,14 @@ test("personal settings keep only the necessary grouped surfaces", () => {
   assert.match(security, /title="Sign-in protection"/);
   assert.match(security, /title="Sessions and sign-ins"/);
   assert.doesNotMatch(privacy, /Privacy Overview|OverviewChip/);
-  assert.match(privacy, /title="Privacy controls"/);
+  assert.match(privacy, /title="Who can see and reach you"/);
   assert.match(privacy, /title="Blocked accounts and activity"/);
   assert.match(privacy, /\.slice\(0, 4\)/, "Privacy history should be limited to four recent changes");
   assert.doesNotMatch(privacy, /LegalAndDataRightsSection/, "Legal controls should live at the end of the settings document");
   assert.match(notifications, /SettingsSwitch/);
   assert.match(notifications, /title="Notification preferences"/);
   assert.match(notifications, /Turn all off/);
-  assert.match(notifications, /checked \? "On" : "Off"/);
+  assert.match(notifications, /<SettingsSwitch showLabel/, "switches show their On/Off text through the shared switch");
   assert.match(appearance, /title="Theme and color"/);
   assert.match(appearance, /title="Layout and motion"/);
   assert.doesNotMatch(privacy, /<Check\b/, "Privacy choices should not render a tick indicator");

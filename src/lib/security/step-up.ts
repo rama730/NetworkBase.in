@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { SECURITY_STEP_UP_MAX_AGE_SECONDS } from "@/lib/security/step-up-methods";
 
 export type SecurityStepUpMethod = "totp" | "recovery_code" | "password";
 
@@ -12,7 +13,7 @@ type SecurityStepUpPayload = {
 };
 
 export const SECURITY_STEP_UP_COOKIE_NAME = "nb-security-stepup";
-export const SECURITY_STEP_UP_MAX_AGE_SECONDS = 5 * 60;
+export { SECURITY_STEP_UP_MAX_AGE_SECONDS };
 
 function resolveSecurityStepUpSecret(): string {
   const secret = process.env.SECURITY_STEPUP_SECRET ?? "";

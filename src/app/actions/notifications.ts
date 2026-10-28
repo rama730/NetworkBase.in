@@ -2,6 +2,8 @@
 
 import { db } from "@/lib/db";
 import { eq } from "drizzle-orm";
+import { consumeRateLimit } from "@/lib/security/rate-limit";
+import { mergeNotificationPreferences } from "@/lib/notifications/merge";
 import { isTransientDbError, readDbErrorCode, withDbRetry } from "@/lib/db/retry";
 import { profiles } from "@/lib/db/schema";
 import {
@@ -265,8 +267,10 @@ export async function readNotificationPreferencesAction() {
                 errorCode: readDbErrorCode(error),
                 error: error?.message || String(error),
             });
+            // The tray can run on defaults for a moment; Settings must not (it would save them over the real ones).
             return {
                 success: true as const,
+                degraded: true as const,
                 preferences: DEFAULT_NOTIFICATION_PREFERENCES,
             };
         }
@@ -283,32 +287,53 @@ export async function readNotificationPreferencesAction() {
     }
 }
 
-export async function updateNotificationPreferencesAction(preferences: NotificationPreferences) {
+type NotificationPreferenceKey = keyof NotificationPreferences;
+
+/**
+ * Saves notification preferences. `changedKeys` names the top-level settings the person actually changed: only
+ * those are written, on top of what is stored now, so a toggle can't revert a mute added from the tray or a
+ * pause set from a status in the meantime. Without it the whole object is replaced (legacy callers).
+ */
+export async function updateNotificationPreferencesAction(preferences: NotificationPreferences, changedKeys?: NotificationPreferenceKey[]) {
     try {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
             return { success: false as const, error: "Unauthorized", preferences: null };
         }
+        const limit = await consumeRateLimit(`notification-preferences:${user.id}`, 60, 60);
+        if (!limit.allowed) {
+            return { success: false as const, error: "Too many changes. Please wait a moment.", preferences: null };
+        }
 
-        const normalized = normalizeNotificationPreferences(preferences);
-        const [row] = await db
-            .update(profiles)
-            .set({ notificationPreferences: normalized, updatedAt: new Date() })
-            .where(eq(profiles.id, user.id))
-            .returning({ notificationPreferences: profiles.notificationPreferences });
+        const saved = await db.transaction(async (tx) => {
+            // Locked while it is read and written, so two saves can't both start from the same stored copy.
+            const [current] = await tx
+                .select({ notificationPreferences: profiles.notificationPreferences })
+                .from(profiles)
+                .where(eq(profiles.id, user.id))
+                .for("update");
+            if (!current) return null;
+            const next = mergeNotificationPreferences(current.notificationPreferences, preferences, changedKeys);
+            const [row] = await tx
+                .update(profiles)
+                .set({ notificationPreferences: next, updatedAt: new Date() })
+                .where(eq(profiles.id, user.id))
+                .returning({ notificationPreferences: profiles.notificationPreferences });
+            return row ?? null;
+        });
 
-        if (!row) {
+        if (!saved) {
             return { success: false as const, error: "Profile not found", preferences: null };
         }
 
-        return { success: true as const, preferences: normalizeNotificationPreferences(row.notificationPreferences) };
-    } catch (error: any) {
+        return { success: true as const, preferences: normalizeNotificationPreferences(saved.notificationPreferences) };
+    } catch (error) {
         logger.error("notifications.preferences_update_failed", {
             module: "notifications",
-            error: error?.message || String(error),
+            error: error instanceof Error ? error.message : String(error),
         });
-        return { success: false as const, error: error?.message || "Failed to update notification preferences", preferences: null };
+        return { success: false as const, error: "Failed to update notification preferences", preferences: null };
     }
 }
 
