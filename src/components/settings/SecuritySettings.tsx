@@ -42,6 +42,9 @@ export default function SecurityPage() {
         () => buildSecurityStepUpMethods({ hasTotp, hasRecoveryCodes, hasPassword: passwordAvailable }),
         [hasTotp, hasRecoveryCodes, passwordAvailable],
     );
+    // Signing other devices out and clearing the activity log must be verified with the authenticator when there is
+    // one; a password is offered only when there is no authenticator.
+    const sensitiveStepUpMethods = hasTotp ? passwordStepUpMethods : sessionStepUpMethods;
 
     if (isLoading) {
         return (
@@ -102,14 +105,15 @@ export default function SecurityPage() {
                     <h4 className="nb-ui-label mb-3 text-foreground">Active sessions</h4>
                     <SessionsList
                         initialSessions={securityData?.sessions}
-                        availableStepUpMethods={sessionStepUpMethods}
+                        initialNextOffset={securityData?.sessionsNextOffset}
+                        availableStepUpMethods={sensitiveStepUpMethods}
                         primaryTotpFactorId={primaryVerifiedFactorId}
                     />
                 </div>
                 <div className="my-6 border-t border-border" />
                 <div id="settings-security-sign-ins" data-testid="security-login-activity-section" className="scroll-mt-6">
                     <h4 className="nb-ui-label mb-3 text-foreground">Recent sign-ins</h4>
-                    <LoginHistory initialHistory={securityData?.loginHistory} />
+                    <LoginHistory initialHistory={securityData?.loginHistory} availableStepUpMethods={sensitiveStepUpMethods} primaryTotpFactorId={primaryVerifiedFactorId} />
                 </div>
             </SettingsSectionCard>
 
@@ -119,7 +123,7 @@ export default function SecurityPage() {
                 testId="security-activity-section"
                 id="settings-security-activity"
             >
-                <SecurityActivitySection activity={securityData?.securityActivity} />
+                <SecurityActivitySection activity={securityData?.securityActivity} hasMore={securityData?.securityActivityHasMore} availableStepUpMethods={sensitiveStepUpMethods} primaryTotpFactorId={primaryVerifiedFactorId} />
             </SettingsSectionCard>
             </>
             )}

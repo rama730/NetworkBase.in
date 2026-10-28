@@ -3,10 +3,13 @@ import { cookies } from "next/headers";
 import {
   enforceRouteLimit,
   getRequestId,
+  getRequestIp,
+  getSessionIdentifier,
   jsonError,
   jsonSuccess,
   logApiRoute,
 } from "@/app/api/v1/_shared";
+import { enrichSessionDeviceInfo } from "@/lib/security/session-activity";
 import { createClient } from "@/lib/supabase/server";
 import { clearGithubImportAccessCookie } from "@/lib/github/import-access-cookie";
 
@@ -158,6 +161,15 @@ export async function POST(request: Request) {
         errorCode: "BAD_REQUEST",
       });
       return jsonError("Failed to sync browser session", 400, "BAD_REQUEST");
+    }
+
+    const syncedSessionId = data.session ? getSessionIdentifier(data.session) : null;
+    if (syncedSessionId) {
+      const incomingUa = request.headers.get("user-agent");
+      const incomingIp = getRequestIp(request);
+      if (incomingUa) {
+        enrichSessionDeviceInfo(syncedSessionId, incomingUa, incomingIp).catch(() => null);
+      }
     }
 
     logApiRoute(request, {
