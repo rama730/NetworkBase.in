@@ -8,6 +8,7 @@ import { normalizeNotificationPreferences } from "@/lib/notifications/preference
 import { readNeedsYou, type OrgViewer } from "@/lib/organizations/needs-you";
 import { notifyOrg, orgHref, queueOrgEmails } from "@/lib/organizations/notify";
 import { DIGEST_HOUR, digestIsEmpty, DUE_SOON_HOUR, localClock, nextDate } from "@/lib/organizations/notify-rules";
+import { readOrgWork } from "@/lib/organizations/settings";
 
 // The two scheduled org jobs (report §26.5). Both run hourly and act only where it is the right local hour;
 // the outbox event key (per person, per org, per local day) makes a second run in the same hour a no-op.
@@ -39,8 +40,10 @@ export async function runOrgDueSoon(now = new Date()) {
   const orgIds = [...new Set(rows.map((r) => r.org_id))];
   const [prefs, orgs] = await Promise.all([
     db.select({ id: profiles.id, preferences: profiles.notificationPreferences }).from(profiles).where(inArray(profiles.id, people)),
-    db.select({ id: projects.id, title: projects.title, slug: projects.slug, timeZone: projects.timeZone }).from(projects).where(inArray(projects.id, orgIds)),
+    db.select({ id: projects.id, title: projects.title, slug: projects.slug, timeZone: projects.timeZone, settings: projects.orgSettings, type: projects.orgType }).from(projects).where(inArray(projects.id, orgIds)),
   ]);
+  // Settings → Work → Reminders (report §21.2 #5): 24 hours before, on the due day, both, or off.
+  const remindersOf = new Map(orgs.map((o) => [o.id, readOrgWork(o.settings, o.type).reminders]));
   const zoneOf = new Map(prefs.map((p) => [p.id, normalizeNotificationPreferences(p.preferences).quietHours.timeZone ?? null]));
   const orgById = new Map(orgs.map((o) => [o.id, o]));
 
@@ -64,12 +67,14 @@ export async function runOrgDueSoon(now = new Date()) {
           email: { kind: "org_overdue", data: { assignment: { title: row.title, copyId: row.copy_id, dueAt: due.toISOString(), lateUntil: row.late_rule === "until" ? row.late_until : null }, timeZone: zone ?? null } },
         });
       } else if (localClock(due, zone).date === clock.date) {
+        if (remindersOf.get(org.id) === "day_before" || remindersOf.get(org.id) === "off") continue;
         const at = new Intl.DateTimeFormat("en", { timeZone: zone ?? "UTC", hour: "numeric", minute: "2-digit" }).format(due);
         await notifyOrg({
           orgId: org.id, eventKey: "assignments.due_soon", to: [userId], title: `${row.title} is due today at ${at}`,
           href: orgHref(org, `?tab=assignments&copy=${encodeURIComponent(row.copy_id)}`), sourceEventId: `today:${row.copy_id}`, refs: { taskId: row.copy_id },
         });
       } else if (localClock(due, zone).date === nextDate(clock.date)) {
+        if (remindersOf.get(org.id) === "due_day" || remindersOf.get(org.id) === "off") continue;
         const key = `${org.id}:${userId}`;
         const entry = dueSoon.get(key) ?? { orgId: org.id, userId, date: clock.date, items: [] };
         entry.items.push({ title: row.title, dueAt: due.toISOString(), status: row.status === "in_progress" ? "In progress" : "Not started" });

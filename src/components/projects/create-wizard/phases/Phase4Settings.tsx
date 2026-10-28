@@ -127,6 +127,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
         if (!childOrg) return;
         if (childOrg.memberUpdatesEnabled !== undefined && !getFieldState('member_updates_enabled').isDirty) setValue('member_updates_enabled', childOrg.memberUpdatesEnabled);
         if (childOrg.memberFileUploadDefault !== undefined && !getFieldState('member_file_upload_default').isDirty) setValue('member_file_upload_default', childOrg.memberFileUploadDefault);
+        if (childOrg.followSprintsDefault !== undefined && !getFieldState('follow_org_sprints').isDirty) setValue('follow_org_sprints', childOrg.followSprintsDefault);
     }, [childOrg, getFieldState, setValue]);
     const followOrgSprints = useWatch({ control, name: 'follow_org_sprints' });
     // Report §17.10: members post updates by default in companies, not in Education orgs.

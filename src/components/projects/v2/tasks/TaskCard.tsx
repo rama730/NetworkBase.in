@@ -224,7 +224,7 @@ export const TaskCard = memo(function TaskCard({
             </span>
           )}
           {taskRecord.storyPoints != null && (
-            <span className="shrink-0 rounded-[3px] border border-border bg-muted/40 px-2 py-0.5 font-mono text-[11px] font-semibold text-muted-foreground">
+            <span data-story-point className="shrink-0 rounded-[3px] border border-border bg-muted/40 px-2 py-0.5 font-mono text-[11px] font-semibold text-muted-foreground">
               {taskRecord.storyPoints} pts
             </span>
           )}

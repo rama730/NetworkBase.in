@@ -12,7 +12,7 @@ import type { CreateProjectInput } from '@/lib/validations/project'
 
 // Where a new project goes (report §14.1): Personal or one of the person's orgs, carried through the wizard.
 
-export type CreateLocation = { id: string; title: string; slug: string | null; block: string | null; visibilityCap: string; orgPublic: boolean; isAdmin: boolean; orgType?: string | null; category?: string | null; defaultUnits?: string[]; outsidePeople?: boolean; ownerId?: string; tags?: string[]; memberUpdatesEnabled?: boolean; memberFileUploadDefault?: boolean }
+export type CreateLocation = { id: string; title: string; slug: string | null; block: string | null; visibilityCap: string; orgPublic: boolean; isAdmin: boolean; orgType?: string | null; category?: string | null; defaultUnits?: string[]; outsidePeople?: boolean; ownerId?: string; tags?: string[]; memberUpdatesEnabled?: boolean; memberFileUploadDefault?: boolean; followSprintsDefault?: boolean }
 
 type CreateLocationState = { locations: CreateLocation[]; locked: boolean; notice: string | null }
 

@@ -219,7 +219,7 @@ export function SprintTimelineContent({
                     {task.storyPoints != null && (
                       <>
                         <span>·</span>
-                        <span className="inline-flex items-center gap-1 rounded-[3px] border border-border bg-muted/60 px-1.5 py-0.5 font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-foreground">
+                        <span data-story-point className="inline-flex items-center gap-1 rounded-[3px] border border-border bg-muted/60 px-1.5 py-0.5 font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-foreground">
                           {task.storyPoints} PTS
                         </span>
                       </>

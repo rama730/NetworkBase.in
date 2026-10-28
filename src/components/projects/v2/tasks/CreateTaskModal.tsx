@@ -544,6 +544,7 @@ export default function CreateTaskModal({
                     </div>
                   </Field>
 
+                  <div data-story-point>
                   <Field
                     label="Story Points"
                     htmlFor="task-story-points"
@@ -593,6 +594,7 @@ export default function CreateTaskModal({
                       </div>
                     </div>
                   </Field>
+                  </div>
                 </div>
               </div>
 

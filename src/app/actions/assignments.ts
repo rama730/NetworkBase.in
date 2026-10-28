@@ -13,6 +13,7 @@ import { createCopies, createMasterTask, resolveRecipients } from '@/lib/organiz
 import { shareToOrgGeneral } from '@/lib/organizations/org-chat';
 import { postOrgAnnouncement } from '@/lib/organizations/org-updates';
 import { ORG_LIMITS } from '@/lib/organizations/config';
+import { readOrgWork } from '@/lib/organizations/settings';
 import { notifyAssignmentDueChanged, notifyAssignmentPublished, notifyAssignmentReviewed, notifyAssignmentSubmitted } from '@/lib/organizations/assignment-notify';
 
 // Assignments (report §16, §16.11). Owners and admins create, review and manage; recipients submit.
@@ -454,7 +455,7 @@ export async function readAssignmentRosterAction(masterId: string): Promise<{ su
 export async function readAssignmentComposerOptionsAction(orgId: string) {
     const viewer = await orgRole(orgId, 'read');
     if (!viewer?.isAdmin) return { success: false as const, error: DENIED.error };
-    const [children, sprints, teamAssignments] = await Promise.all([
+    const [children, sprints, teamAssignments, [org]] = await Promise.all([
         db.select({ id: projects.id, title: projects.title }).from(projects).where(and(eq(projects.parentId, orgId), isNull(projects.deletedAt))).orderBy(asc(projects.title)),
         db.select({ id: projectSprints.id, name: projectSprints.name, status: projectSprints.status }).from(projectSprints)
             .where(and(eq(projectSprints.projectId, orgId), inArray(projectSprints.status, ['planning', 'active']))).orderBy(asc(projectSprints.startDate)),
@@ -462,8 +463,11 @@ export async function readAssignmentComposerOptionsAction(orgId: string) {
         db.select({ id: tasks.id, title: tasks.title }).from(tasks)
             .where(and(eq(tasks.projectId, orgId), eq(tasks.kind, 'assignment'), isNull(tasks.deletedAt), sql`${tasks.assignmentSettings}->'target'->>'mode' = 'teams'`))
             .orderBy(sql`${tasks.createdAt} DESC`).limit(30),
+        db.select({ settings: projects.orgSettings, type: projects.orgType }).from(projects).where(eq(projects.id, orgId)).limit(1),
     ]);
-    return { success: true as const, children, sprints, teamAssignments };
+    // Settings → Work defaults (report §21.2 #5); the composer can still change them per assignment.
+    const work = readOrgWork(org?.settings, org?.type);
+    return { success: true as const, children, sprints, teamAssignments, defaults: { reviewRequired: work.reviewRequired, lateRule: work.lateRule } };
 }
 
 export type GroupCopyRow = { copyId: string; title: string; orgTitle: string; dueDate: string | null; state: CopyState; late: boolean; submissionType: string; canSubmit: boolean };

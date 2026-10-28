@@ -27,6 +27,7 @@ export type ProjectSettingsSectionId =
   | "org-access"
   | "org-people"
   | "org-projects"
+  | "org-work"
   | "child-org";
 
 type ProjectSettingsSectionDefinition = {
@@ -45,6 +46,9 @@ export type ProjectSettingsMember = {
   joinedAt?: string | null;
   fileUploadEnabled?: boolean | null;
   responsibilityCounts?: ProjectMemberResponsibilityCounts | null;
+  /** Child projects of an org (report §21.6 #5): the person's unit, and the org's name when they're not in it. */
+  unitTitle?: string | null;
+  outsideOf?: string | null;
 };
 
 export type ProjectMemberRole = "owner" | "admin" | "member" | "viewer";

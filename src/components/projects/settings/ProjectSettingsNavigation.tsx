@@ -48,6 +48,7 @@ const icons = {
   "org-access": KeyRound,
   "org-people": ShieldCheck,
   "org-projects": FolderTree,
+  "org-work": Workflow,
   "child-org": Building2,
 };
 

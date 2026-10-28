@@ -234,6 +234,8 @@
   --skeleton-highlight: color-mix(in srgb, var(--card) 72%, var(--muted));
 }
 :root[data-density="default"] { --ui-control-height: 34px; --ui-panel-padding: 20px; }
+/* Org Settings → Work → Story points: Hidden (report §21.2 #5); set while that org's page is open. */
+:root[data-story-points="hidden"] [data-story-point] { display: none; }
 :root[data-density="compact"] {
   --ui-control-height-sm: 28px; --ui-control-height: 30px; --ui-control-height-lg: 38px;
   --ui-panel-padding: 16px; --ui-panel-padding-lg: 20px; --ui-list-row-min-h: 40px;

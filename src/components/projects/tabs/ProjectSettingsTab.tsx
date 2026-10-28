@@ -3,7 +3,7 @@
 import { ChildOrgSection } from "@/components/organizations/ChildOrgSection";
 import { ChildUnitsPanel } from "@/components/organizations/ChildUnitsPanel";
 import { OrgDangerZone } from "@/components/organizations/OrgDangerZone";
-import { OrgAccessSection, OrgChatSection, OrgNotificationsSection, OrgVerificationSection, OrgLeaveSection, OrgMembershipSection, OrgPeopleSection, OrgProfileSection, OrgProjectsSection } from "@/components/organizations/OrgSettingsSections";
+import { OrgAccessSection, OrgChatSection, OrgNotificationsSection, OrgVerificationSection, OrgLeaveSection, OrgMembershipSection, OrgPeopleSection, OrgProfileSection, OrgProjectsSection, OrgWorkSection } from "@/components/organizations/OrgSettingsSections";
 import { ORG_SECTION_DEFS, orgSettingsSectionIds, type OrgMemberRole, type OrgSettingsSectionId } from "@/lib/organizations/settings";
 import { useRoleApplicationCounts } from "@/hooks/useRoleApplicationCounts";
 import { TaskCompletionSettings } from "@/components/projects/settings/TaskCompletionSettings";
@@ -1500,6 +1500,7 @@ function ProjectSettingsContent({
                 {organization && sections.some((s) => s.id === "org-access") && <OrgAccessSection orgId={projectId} organization={organization} role={orgRole} maxMembers={project?.maxCollaborators ?? null} />}
                 {organization && sections.some((s) => s.id === "org-people") && <OrgPeopleSection orgId={projectId} organization={organization} role={orgRole} />}
                 {organization && sections.some((s) => s.id === "org-projects") && <OrgProjectsSection orgId={projectId} organization={organization} role={orgRole} />}
+                {organization && sections.some((s) => s.id === "org-work") && <OrgWorkSection orgId={projectId} organization={organization} role={orgRole} />}
                 {sections.some((s) => s.id === "collaborators") && (
                     <section id="project-settings-collaborators" data-project-settings-section className="space-y-6">
                         <div className="space-y-6">
@@ -1668,24 +1669,35 @@ function ProjectSettingsContent({
                                             );
                                         }
 
-                                        return (
-                                            <div className="divide-y divide-border">
-                                                {displayMembers.map((member) => (
-                                                    <CollaboratorCard
-                                                        disabled={collaboratorLoading || collaboratorRefreshing || collaboratorLoadingMore || confirmLoading}
-                                                        key={member.id}
-                                                        member={member}
-                                                        ownerId={ownerId}
-                                                        isProjectOwner={isProjectOwner}
-                                                        actorRole={actorProjectRole}
-                                                        onRoleChange={prepareRoleChange}
-                                                        onRemove={prepareRemoveMember}
-                                                        onTransfer={prepareTransferToMember}
-                                                        onNotificationSettings={openMemberNotificationSettings}
-                                                    />
-                                                ))}
-                                            </div>
+                                        const card = (member: (typeof displayMembers)[number]) => (
+                                            <CollaboratorCard
+                                                disabled={collaboratorLoading || collaboratorRefreshing || collaboratorLoadingMore || confirmLoading}
+                                                key={member.id}
+                                                member={member}
+                                                ownerId={ownerId}
+                                                isProjectOwner={isProjectOwner}
+                                                actorRole={actorProjectRole}
+                                                onRoleChange={prepareRoleChange}
+                                                onRemove={prepareRemoveMember}
+                                                onTransfer={prepareTransferToMember}
+                                                onNotificationSettings={openMemberNotificationSettings}
+                                            />
                                         );
+                                        // Child projects of an org group people by unit (report §21.6 #5); "No unit" comes last.
+                                        if (displayMembers.some((m) => m.unitTitle)) {
+                                            const units = [...new Set(displayMembers.map((m) => m.unitTitle ?? ""))].sort((a, b) => (a ? b ? a.localeCompare(b) : -1 : 1));
+                                            return (
+                                                <div className="space-y-4">
+                                                    {units.map((unit) => (
+                                                        <div key={unit || "none"}>
+                                                            <p className="nb-meta pb-1 text-xs text-muted-foreground">{unit || "No unit"}</p>
+                                                            <div className="divide-y divide-border">{displayMembers.filter((m) => (m.unitTitle ?? "") === unit).map(card)}</div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            );
+                                        }
+                                        return <div className="divide-y divide-border">{displayMembers.map(card)}</div>;
                                     })()
                                 )}
 

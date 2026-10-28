@@ -1015,7 +1015,7 @@ export default function DetailsTab({
           </div>
 
           {/* Story points */}
-          <div className="space-y-1.5">
+          <div className="space-y-1.5" data-story-point>
             <label htmlFor="task-story-points" className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
               <Zap className="size-3 text-muted-foreground" />
               Story points

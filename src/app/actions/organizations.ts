@@ -178,6 +178,10 @@ export async function updateOrgSettingsAction(orgId: string, section: OrgSetting
         if ('max_members' in value) columns.maxCollaborators = value.max_members == null ? null : String(value.max_members);
     } else if (section === 'people') {
         settingsPatch.roleNames = value.role_names;
+    } else if (section === 'work') {
+        const keys = { review_required: 'assignmentReview', late_rule: 'assignmentLateRule', reminders: 'assignmentReminders', story_points: 'storyPoints',
+            sprint_auto_start: 'sprintAutoStart', sprint_notify_on_start: 'sprintNotifyOnStart', sprint_show_in_children: 'sprintShowInChildren', sprint_create_matching: 'sprintCreateMatching' } as const;
+        for (const [field, key] of Object.entries(keys)) if (field in value) settingsPatch[key] = value[field];
     } else if (section === 'notifications') {
         if ('admin_digest' in value) settingsPatch.adminDigest = value.admin_digest;
         if ('announcement_notify' in value) settingsPatch.announcementNotify = value.announcement_notify;
@@ -188,6 +192,7 @@ export async function updateOrgSettingsAction(orgId: string, section: OrgSetting
         if ('child_share' in value) settingsPatch.childShare = value.child_share;
         if ('visibility_cap' in value) settingsPatch.visibilityCap = value.visibility_cap;
         if ('default_units' in value) settingsPatch.defaultUnits = value.default_units;
+        if ('follow_sprints' in value) settingsPatch.followSprintsDefault = value.follow_sprints;
     }
 
     try {

@@ -162,3 +162,25 @@ test("the signed mute link: GET only asks, POST mutes that org's email; a forged
   assert.deepEqual(await choice(), { level: "all", email: false, includeChildren: true });
   delete process.env.EMAIL_LINK_SECRET;
 });
+
+test("§21 Work → Reminders: due-day only skips the day-before email; off sends neither; overdue still goes", async () => {
+  const o = await org();
+  const now = new Date();
+  now.setUTCHours(9, 20, 0, 0);
+  const m = await master(o.id, o.owner);
+  await copy(o.id, m, o.a, new Date(now.getTime() + 24 * 3600 * 1000));
+  await copy(o.id, m, o.b, new Date(now.getTime() + 3 * 3600 * 1000));
+  await sql`UPDATE projects SET org_settings = coalesce(org_settings, '{}'::jsonb) || '{"assignmentReminders":"due_day"}'::jsonb WHERE id = ${o.id}`;
+  await digests.runOrgDueSoon(now);
+  assert.equal((await outbox(o.id, "org_due_soon")).length, 0, "no day-before email");
+  assert.ok((await tray(o.id, o.b)).some((r) => r.title.startsWith("Lab 2 is due today")));
+
+  const o2 = await org();
+  const m2 = await master(o2.id, o2.owner);
+  await copy(o2.id, m2, o2.b, new Date(now.getTime() + 3 * 3600 * 1000));
+  await copy(o2.id, m2, o2.a, new Date(now.getTime() - 2 * 3600 * 1000));
+  await sql`UPDATE projects SET org_settings = coalesce(org_settings, '{}'::jsonb) || '{"assignmentReminders":"off"}'::jsonb WHERE id = ${o2.id}`;
+  await digests.runOrgDueSoon(now);
+  assert.equal((await tray(o2.id, o2.b)).length, 0, "off: no due-today notice");
+  assert.equal((await tray(o2.id, o2.a)).length, 1, "overdue is not a reminder");
+});
