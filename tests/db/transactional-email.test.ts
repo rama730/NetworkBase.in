@@ -56,6 +56,9 @@ before(async () => {
   taskActions = await import("@/app/actions/task");
   projectActions = await import("@/app/actions/project");
   webhook = await import("@/app/api/v1/webhooks/resend/route");
+  // drainEmailOutbox is the global worker (25 rows a run, oldest first). Other test files queue mail too
+  // (.env.local enables sending), so start from an empty queue or their rows use up the budget.
+  await sql`DELETE FROM email_outbox WHERE status IN ('pending', 'processing')`;
 });
 beforeEach(() => {
   process.env.RESEND_EMAIL_ENABLED = "true";
