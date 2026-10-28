@@ -58,6 +58,8 @@ type ProjectRow = {
     slug: string | null;
     visibility: string | null;
     notificationPreferences: unknown;
+    kind?: string | null;
+    parentId?: string | null;
 };
 
 type MemberRow = {
@@ -253,6 +255,8 @@ export async function resolveProjectNotificationRecipients(params: {
             slug: projects.slug,
             visibility: projects.visibility,
             notificationPreferences: projects.notificationPreferences,
+            kind: projects.kind,
+            parentId: projects.parentId,
         })
         .from(projects)
         .where(and(eq(projects.id, params.projectId), isNull(projects.deletedAt)))
@@ -353,6 +357,8 @@ function buildProjectNotificationWrites(params: {
                     ...(input.entityRefs ?? {}),
                     projectId: project.id,
                     projectSlug: project.slug ?? null,
+                    // Org choices and the org mute reach child projects through their parent (report §26.8).
+                    orgId: project.kind === "organization" ? project.id : project.parentId ?? null,
                 },
                 preview: previewFor(input, project),
                 dedupeKey: dedupeKeyFor(input, recipientUserId),

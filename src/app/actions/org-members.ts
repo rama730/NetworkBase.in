@@ -14,9 +14,10 @@ import { acceptOrgInvite, ledChildProjects, openInvitesFor, removeFromOrg } from
 import { memberChangeBlock, memberStatus, parseInviteEmails, workSummary, type OrgMemberRole, type RosterRow } from '@/lib/organizations/member-rules';
 import { addProjectMemberInternal, changeProjectMemberRoleInternal } from '@/lib/projects/collaborator-lifecycle';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
+import { namesOf, notifyJoined, notifyOrg, orgHref, orgLabel, queueOrgInviteSignupEmails, ROLE_LABEL } from '@/lib/organizations/notify';
 
 // Org Members (report §20): the admin roster, join requests, email invites, roles and titles, removal,
-// and adding people to child projects. Notifications for all of these arrive with P14.
+// and adding people to child projects. Each change notifies the person it is about (report §26.3 A, B).
 
 type Failure = { success: false; error: string };
 const DENIED: Failure = { success: false, error: "You don't have permission to do this." };
@@ -140,7 +141,7 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
 export async function approveJoinRequestsAction(orgId: string, applicationIds: string[]): Promise<{ success: true; approved: number } | Failure> {
     const viewer = await orgManager(orgId);
     if (!viewer) return DENIED;
-    return db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
         const [org] = await tx.select({ max: projects.maxCollaborators }).from(projects).where(eq(projects.id, orgId)).for('update').limit(1);
         const pending = await tx.select({ id: roleApplications.id, userId: roleApplications.applicantId }).from(roleApplications)
             .where(and(eq(roleApplications.projectId, orgId), isNull(roleApplications.roleId), eq(roleApplications.status, 'pending'), inArray(roleApplications.id, applicationIds.slice(0, 500))));
@@ -155,8 +156,19 @@ export async function approveJoinRequestsAction(orgId: string, applicationIds: s
             await tx.insert(applicationEvents).values({ applicationId: request.id, actorId: viewer.userId, kind: 'accepted', fromStatus: 'pending', toStatus: 'accepted', metadata: { source: 'org_request' } });
         }
         touch(viewer.slug, orgId);
-        return { success: true as const, approved: pending.length };
+        return { success: true as const, approved: pending.length, pending };
     });
+    if (!result.success) return result;
+    const org = await orgLabel(orgId);
+    if (org) {
+        for (const request of result.pending) {
+            await notifyOrg({
+                orgId, eventKey: 'org.join_decided', actorId: viewer.userId, to: [request.userId], title: `You're in ${org.title}`,
+                href: orgHref(org), sourceEventId: `${request.id}:accepted`, email: { kind: 'org_welcome', data: { note: org.welcomeNote } },
+            });
+        }
+    }
+    return { success: true, approved: result.approved };
 }
 
 /** Decline with an optional reason; they may ask again after the cool-down (report §20.5). */
@@ -167,10 +179,18 @@ export async function declineJoinRequestAction(orgId: string, applicationId: str
     const declined = await db.update(roleApplications)
         .set({ status: 'rejected', decisionAt: now, decisionBy: viewer.userId, decisionReasonText: reason?.trim().slice(0, 500) || null, updatedAt: now })
         .where(and(eq(roleApplications.id, applicationId), eq(roleApplications.projectId, orgId), isNull(roleApplications.roleId), eq(roleApplications.status, 'pending')))
-        .returning({ id: roleApplications.id });
+        .returning({ id: roleApplications.id, userId: roleApplications.applicantId, reason: roleApplications.decisionReasonText });
     if (!declined.length) return { success: false, error: 'That request is no longer waiting.' };
     await db.insert(applicationEvents).values({ applicationId, actorId: viewer.userId, kind: 'rejected', fromStatus: 'pending', toStatus: 'rejected', metadata: { source: 'org_request' } });
     touch(viewer.slug, orgId);
+    const org = await orgLabel(orgId);
+    if (org) {
+        await notifyOrg({
+            orgId, eventKey: 'org.join_decided', actorId: viewer.userId, to: [declined[0]!.userId],
+            title: `Your request to join ${org.title} was declined${declined[0]!.reason ? `: ${declined[0]!.reason}` : ''}`,
+            href: orgHref(org), sourceEventId: `${applicationId}:declined`,
+        });
+    }
     return { success: true };
 }
 
@@ -209,22 +229,52 @@ export async function inviteByEmailAction(orgId: string, input: z.input<typeof i
         .where(and(eq(projectMembers.projectId, orgId), inArray(profiles.email, valid)))).map((r) => r.email.toLowerCase()));
     const toInvite = valid.filter((e) => !already.has(e));
     const expiresAt = new Date(Date.now() + INVITE_DAYS * 86_400_000);
+    const invites: Array<{ id: string; email: string }> = [];
     for (const email of toInvite) {
-        await db.insert(orgEmailInvites).values({ orgId, email, role: parsed.data.role, title: parsed.data.title || null, childProjectId: parsed.data.childProjectId ?? null, unitId, invitedBy: viewer.userId, expiresAt })
-            .onConflictDoUpdate({ target: [orgEmailInvites.orgId, orgEmailInvites.email], targetWhere: sql`${orgEmailInvites.acceptedAt} IS NULL`, set: { role: parsed.data.role, title: parsed.data.title || null, childProjectId: parsed.data.childProjectId ?? null, unitId, invitedBy: viewer.userId, expiresAt } });
+        const [row] = await db.insert(orgEmailInvites).values({ orgId, email, role: parsed.data.role, title: parsed.data.title || null, childProjectId: parsed.data.childProjectId ?? null, unitId, invitedBy: viewer.userId, expiresAt })
+            .onConflictDoUpdate({ target: [orgEmailInvites.orgId, orgEmailInvites.email], targetWhere: sql`${orgEmailInvites.acceptedAt} IS NULL`, set: { role: parsed.data.role, title: parsed.data.title || null, childProjectId: parsed.data.childProjectId ?? null, unitId, invitedBy: viewer.userId, expiresAt } })
+            .returning({ id: orgEmailInvites.id });
+        if (row) invites.push({ id: row.id, email });
     }
-    const existing = toInvite.length === 0 ? 0 : (await db.select({ id: profiles.id }).from(profiles).where(inArray(profiles.email, toInvite))).length;
+    const accounts = toInvite.length === 0 ? [] : await db.select({ id: profiles.id, email: profiles.email }).from(profiles).where(inArray(profiles.email, toInvite));
     touch(viewer.slug, orgId);
-    return { success: true, invited: toInvite.length, existing, invalid };
+    await notifyInvites(orgId, viewer.userId, invites, accounts, { role: parsed.data.role, title: parsed.data.title || null, expiresAt });
+    return { success: true, invited: toInvite.length, existing: accounts.length, invalid };
+}
+
+/** E2 for people with an account (plus the tray), E3 for addresses without one (report §26.3 A). */
+async function notifyInvites(orgId: string, actorId: string, invites: Array<{ id: string; email: string }>, accounts: Array<{ id: string; email: string }>,
+    details: { role: string; title: string | null; expiresAt: Date }, eventSuffix = '') {
+    const org = await orgLabel(orgId);
+    if (!org || invites.length === 0) return;
+    const byEmail = new Map(accounts.map((a) => [a.email.toLowerCase(), a.id]));
+    const inviter = (await namesOf([actorId])).get(actorId) ?? 'Someone';
+    const data = { role: ROLE_LABEL[details.role] ?? details.role, memberTitle: details.title, expiresAt: details.expiresAt.toISOString() };
+    for (const invite of invites) {
+        const userId = byEmail.get(invite.email.toLowerCase());
+        if (!userId) continue;
+        await notifyOrg({
+            orgId, eventKey: 'org.invited', actorId, to: [userId], title: `${inviter} invited you to ${org.title} as ${data.role}`,
+            href: '/network?tab=invitations', sourceEventId: `${invite.id}${eventSuffix}`, refs: { invitationId: invite.id }, email: { kind: 'org_invite', data },
+        });
+    }
+    await queueOrgInviteSignupEmails(orgId, actorId, invites.filter((i) => !byEmail.has(i.email.toLowerCase())).map((i) => ({ id: `${i.id}${eventSuffix}`, email: i.email, data })));
 }
 
 /** Resend: another 14 days (the email itself goes out with P14). */
 export async function resendOrgInviteAction(orgId: string, inviteId: string): Promise<{ success: true } | Failure> {
     const viewer = await orgManager(orgId);
     if (!viewer) return DENIED;
-    const updated = await db.update(orgEmailInvites).set({ expiresAt: new Date(Date.now() + INVITE_DAYS * 86_400_000) })
-        .where(and(eq(orgEmailInvites.id, inviteId), eq(orgEmailInvites.orgId, orgId), isNull(orgEmailInvites.acceptedAt))).returning({ id: orgEmailInvites.id });
-    return updated.length ? { success: true } : { success: false, error: 'That invite is no longer open.' };
+    const expiresAt = new Date(Date.now() + INVITE_DAYS * 86_400_000);
+    const updated = await db.update(orgEmailInvites).set({ expiresAt })
+        .where(and(eq(orgEmailInvites.id, inviteId), eq(orgEmailInvites.orgId, orgId), isNull(orgEmailInvites.acceptedAt)))
+        .returning({ id: orgEmailInvites.id, email: orgEmailInvites.email, role: orgEmailInvites.role, title: orgEmailInvites.title });
+    if (!updated.length) return { success: false, error: 'That invite is no longer open.' };
+    const invite = updated[0]!;
+    const accounts = await db.select({ id: profiles.id, email: profiles.email }).from(profiles).where(eq(profiles.email, invite.email));
+    // A resend is a new event: its own key, so the email goes out again.
+    await notifyInvites(orgId, viewer.userId, [invite], accounts, { role: invite.role, title: invite.title, expiresAt }, `:resend:${expiresAt.getTime()}`);
+    return { success: true };
 }
 
 export async function cancelOrgInviteAction(orgId: string, inviteId: string): Promise<{ success: true } | Failure> {
@@ -250,6 +300,7 @@ export async function acceptOrgInviteAction(inviteId: string): Promise<{ success
     const orgId = mine ? await acceptOrgInvite(userId, inviteId) : null;
     if (!orgId) return { success: false, error: 'That invite is no longer open.' };
     revalidatePath(`/projects/${orgId}`);
+    await notifyJoined(orgId, userId, `${inviteId}:accepted`);
     return { success: true, orgId };
 }
 
@@ -278,6 +329,14 @@ export async function changeMemberRoleAction(orgId: string, userIds: string[], r
         }
     });
     touch(viewer.slug, orgId);
+    const org = await orgLabel(orgId);
+    const changed = userIds.filter((id) => roles.get(id) !== role);
+    if (org && changed.length) {
+        await notifyOrg({
+            orgId, eventKey: 'org.role_changed', actorId: viewer.userId, to: changed, title: `You're now ${role === 'admin' ? 'an' : 'a'} ${ROLE_LABEL[role]} in ${org.title}`,
+            href: orgHref(org), sourceEventId: `role:${role}:${Date.now()}`,
+        });
+    }
     return { success: true, changed: userIds.length };
 }
 
@@ -315,6 +374,15 @@ export async function removeMembersAction(orgId: string, userIds: string[], opti
         }
     });
     touch(viewer.slug, orgId);
+    // E12 is always sent; the reason goes out as written. Being blocked is never mentioned (report §26.3 A).
+    const org = await orgLabel(orgId);
+    const reason = options.reason?.trim().slice(0, 500) || null;
+    if (org) {
+        await notifyOrg({
+            orgId, eventKey: 'org.removed', actorId: viewer.userId, to: userIds, title: `You were removed from ${org.title}`, body: reason,
+            href: '/projects', sourceEventId: `removed:${Date.now()}`, email: { kind: 'org_removed', data: { reason } },
+        });
+    }
     return { success: true, removed: userIds.length };
 }
 
@@ -322,7 +390,7 @@ export async function removeMembersAction(orgId: string, userIds: string[], opti
 export async function addMembersToChildAction(orgId: string, childProjectId: string, userIds: string[], unitId: string | null): Promise<{ success: true; added: number } | Failure> {
     const viewer = await orgManager(orgId);
     if (!viewer) return DENIED;
-    const [child] = await db.select({ id: projects.id, ownerId: projects.ownerId }).from(projects)
+    const [child] = await db.select({ id: projects.id, ownerId: projects.ownerId, title: projects.title, slug: projects.slug }).from(projects)
         .where(and(eq(projects.id, childProjectId), eq(projects.parentId, orgId), isNull(projects.deletedAt))).limit(1);
     if (!child) return { success: false, error: 'That project is no longer in this organization.' };
     if (unitId) {
@@ -335,6 +403,12 @@ export async function addMembersToChildAction(orgId: string, childProjectId: str
         for (const id of people) await addProjectMemberInternal(tx, { projectId: child.id, userId: id, role: 'member', actorId: child.ownerId, source: 'manual', roleId: unitId });
     });
     touch(viewer.slug, orgId);
+    if (people.length) {
+        await notifyOrg({
+            orgId, eventKey: 'org.child_added', actorId: viewer.userId, to: people, title: `You were added to ${child.title}`,
+            href: `/projects/${encodeURIComponent(child.slug ?? child.id)}`, sourceEventId: `child:${child.id}:${unitId ?? ''}:${Date.now()}`,
+        });
+    }
     return { success: true, added: people.length };
 }
 
@@ -355,3 +429,4 @@ export async function readMemberWorkAction(orgId: string, userId: string): Promi
         work: rows.map((r) => ({ copyId: r.id, title: r.title, dueDate: r.dueDate?.toISOString() ?? null, ...copyState({ status: r.status, reviewStatus: r.reviewStatus, dueDate: r.dueDate, submittedAt: r.reviewSubmittedAt, completedAt: r.completedAt, excusedAt: r.excusedAt }, now) })),
     };
 }
+

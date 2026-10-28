@@ -416,3 +416,30 @@ export function OrgChatSection({ orgId, organization }: { orgId: string; organiz
         </SettingsCard>
     )
 }
+
+/** Settings → Notifications (report §26.8): admins get one daily summary email, or only tray notices. */
+export function OrgNotificationsSection({ orgId, organization }: { orgId: string; organization: OrgDetail }) {
+    const [digest, setDigest] = useState(organization.adminDigest)
+    const { pending, save, status } = useSave()
+    return (
+        <SettingsCard title="Admin batching" headingLevel={2} description="How owners and admins hear about submissions and join requests." footer={<LastChanged organization={organization} section="notifications" />}>
+            <div className="space-y-4">
+                <fieldset className="space-y-2 text-sm">
+                    <legend className="sr-only">Admin batching</legend>
+                    <label className="flex items-start gap-2">
+                        <input type="radio" name="org-admin-digest" checked={digest === 'daily'} onChange={() => setDigest('daily')} className="mt-1" />
+                        <span>Daily summary email<span className="block text-xs text-muted-foreground">At 8:00 in the organization&apos;s time zone. Skipped when there&apos;s nothing to report.</span></span>
+                    </label>
+                    <label className="flex items-start gap-2">
+                        <input type="radio" name="org-admin-digest" checked={digest === 'instant'} onChange={() => setDigest('instant')} className="mt-1" />
+                        <span>Instant<span className="block text-xs text-muted-foreground">Notifications only, as things happen. No summary email.</span></span>
+                    </label>
+                </fieldset>
+                <div className="flex items-center gap-3">
+                    <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'notifications', { admin_digest: digest }))}>Save</Button>
+                    {status}
+                </div>
+            </div>
+        </SettingsCard>
+    )
+}

@@ -13,6 +13,7 @@ import {
     getNotificationPauseUntil,
     getQuietHoursResumeAt,
     normalizeNotificationPreferences,
+    orgChoiceBlocks,
 } from "@/lib/notifications/preferences";
 import {
     getNotificationReason,
@@ -122,7 +123,7 @@ export async function getNotificationPreferencesMap(
     return map;
 }
 
-type NotificationSkipReason = "actor_self" | "category_off" | "muted_scope";
+type NotificationSkipReason = "actor_self" | "category_off" | "muted_scope" | "org_off";
 type NotificationDelayReason = "paused" | "quiet_hours";
 
 export function resolveNotificationDeliveryPolicy(params: {
@@ -131,6 +132,7 @@ export function resolveNotificationDeliveryPolicy(params: {
     kind: NotificationKind;
     category: NotificationPreferenceCategory;
     entityRefs?: NotificationEntityRefs | null;
+    importance?: NotificationImportance;
     preferenceMap: Map<string, NotificationPreferences>;
     now?: Date;
 }): { allowed: true; delayUntil: Date | null; delayReason: NotificationDelayReason | null } | { allowed: false; reason: NotificationSkipReason } {
@@ -146,6 +148,7 @@ export function resolveNotificationDeliveryPolicy(params: {
         entityRefs,
     }, scope));
     if (muted) return { allowed: false, reason: "muted_scope" };
+    if (orgChoiceBlocks(preferences, entityRefs, params.importance)) return { allowed: false, reason: "org_off" };
 
     if (isNotificationPauseActive(preferences, now)) {
         return { allowed: true, delayUntil: getNotificationPauseUntil(preferences, now), delayReason: "paused" };
@@ -201,6 +204,7 @@ export async function createNotification(
         kind: input.kind,
         category: input.category,
         entityRefs: input.entityRefs ?? null,
+        importance,
         preferenceMap,
     });
     if (!check.allowed) {
@@ -309,6 +313,7 @@ export async function upsertAggregatedNotification(
         kind: input.kind,
         category: input.category,
         entityRefs: input.entityRefs ?? null,
+        importance,
         preferenceMap,
     });
     if (!check.allowed) {

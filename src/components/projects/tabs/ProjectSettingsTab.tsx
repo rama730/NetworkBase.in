@@ -1,7 +1,7 @@
 "use client";
 
 import { ChildOrgSection } from "@/components/organizations/ChildOrgSection";
-import { OrgAccessSection, OrgChatSection, OrgLeaveSection, OrgMembershipSection, OrgPeopleSection, OrgProfileSection, OrgProjectsSection } from "@/components/organizations/OrgSettingsSections";
+import { OrgAccessSection, OrgChatSection, OrgNotificationsSection, OrgLeaveSection, OrgMembershipSection, OrgPeopleSection, OrgProfileSection, OrgProjectsSection } from "@/components/organizations/OrgSettingsSections";
 import { ORG_SECTION_DEFS, orgSettingsSectionIds, type OrgMemberRole, type OrgSettingsSectionId } from "@/lib/organizations/settings";
 import { useRoleApplicationCounts } from "@/hooks/useRoleApplicationCounts";
 import { TaskCompletionSettings } from "@/components/projects/settings/TaskCompletionSettings";
@@ -26,6 +26,7 @@ import { readProjectDocSettingsAction, updateProjectDocSettingsAction } from "@/
 import { cn } from "@/lib/utils";
 import {
     buildDefaultProjectNotificationPolicy,
+    getVisibleProjectNotificationEntries,
     groupProjectNotificationEntries,
     normalizeProjectMemberNotificationOverrides,
     normalizeProjectNotificationPolicy,
@@ -172,6 +173,8 @@ function resetSettingsFromProject(project: any) {
 }
 
 const NOTIFICATION_GROUPS = groupProjectNotificationEntries();
+// Organizations add their own event groups (report §26.8).
+const ORG_NOTIFICATION_GROUPS = groupProjectNotificationEntries(getVisibleProjectNotificationEntries(true));
 const FILE_POLICY = buildProjectFilePolicy();
 
 interface ProjectSettingsTabProps {
@@ -395,25 +398,26 @@ function ProjectSettingsContent({
     const collaboratorMembers = collaboratorData?.members ?? members;
     const rolePolicy = buildProjectRolePolicy({ isOwner: isProjectOwner, actorRole: actorProjectRole, ownerId, members: collaboratorMembers });
     const filteredCollaborators = rolePolicy.members.filter((member) => projectMemberRole(member, ownerId) !== "owner");
-    const notificationSummary = summarizeProjectNotificationPolicy(projectNotificationDraft);
+    const notificationGroups = organization ? ORG_NOTIFICATION_GROUPS : NOTIFICATION_GROUPS;
+    const notificationSummary = summarizeProjectNotificationPolicy(projectNotificationDraft, Boolean(organization));
     const toggleNotificationGroup = (groupId: string) => {
         setExpandedNotificationGroups((prev) => ({
             ...prev,
             [groupId]: !prev[groupId],
         }));
     };
-    const areAllNotificationGroupsExpanded = NOTIFICATION_GROUPS.length > 0 && NOTIFICATION_GROUPS.every((g) => expandedNotificationGroups[g.id]);
+    const areAllNotificationGroupsExpanded = notificationGroups.length > 0 && notificationGroups.every((g) => expandedNotificationGroups[g.id]);
     const toggleAllNotificationGroups = useCallback(() => {
         if (areAllNotificationGroupsExpanded) {
             setExpandedNotificationGroups({});
         } else {
             const next: Record<string, boolean> = {};
-            for (const g of NOTIFICATION_GROUPS) {
+            for (const g of notificationGroups) {
                 next[g.id] = true;
             }
             setExpandedNotificationGroups(next);
         }
-    }, [areAllNotificationGroupsExpanded]);
+    }, [areAllNotificationGroupsExpanded, notificationGroups]);
     const preflightPolicy = buildProjectSettingsPreflight(dangerPreflight);
 
     const visibilityDirty = visibility !== savedVisibility;
@@ -2020,7 +2024,7 @@ function ProjectSettingsContent({
                                                 </h3>
                                             </div>
                                             <p className="nb-compact mt-0.5 text-xs text-muted-foreground leading-relaxed">
-                                                {notificationSummary.visibleCount} triggers organized across {NOTIFICATION_GROUPS.length} workflow categories. Click any category trigger to expand and customize event delivery.
+                                                {notificationSummary.visibleCount} triggers organized across {notificationGroups.length} workflow categories. Click any category trigger to expand and customize event delivery.
                                             </p>
                                         </div>
                                         <div className="flex items-center gap-2">
@@ -2038,7 +2042,7 @@ function ProjectSettingsContent({
 
                                     {/* Categories retain their controls during a background refresh. */}
                                     <div className="space-y-3">
-                                        {NOTIFICATION_GROUPS.map((group) => (
+                                        {notificationGroups.map((group) => (
                                             <ProjectNotificationCategoryCard
                                                 key={group.id}
                                                 group={group}
@@ -2052,6 +2056,7 @@ function ProjectSettingsContent({
                                     </div>
                                 </div>
                             </SettingsCard>
+                            {organization ? <OrgNotificationsSection orgId={projectId} organization={organization} /> : null}
                         </div>
                     </section>
                 )}

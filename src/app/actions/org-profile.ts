@@ -8,9 +8,10 @@ import { getProjectAccessById } from '@/lib/data/project-access';
 import { organizationsEnabled } from '@/lib/organizations/config';
 import { markProfileCollaborationSummaryStale } from '@/lib/profile/collaboration';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
+import { namesOf, notifyOrg, orgLabel } from '@/lib/organizations/notify';
 
 // Org contributions (report §24.5): org owners and admins verify members' org entries ("Verified by CSE-3A",
-// role and dates only, never the text) and may revoke with a reason. Notifications arrive with P14.
+// role and dates only, never the text) and may revoke with a reason. The member hears either (report §26.3 I).
 
 type Failure = { success: false; error: string };
 const DENIED: Failure = { success: false, error: "You don't have permission to do this." };
@@ -35,6 +36,10 @@ export async function verifyOrgContributionsAction(orgId: string, userIds: strin
         .where(and(eq(profileProjectContributions.projectId, orgId), inArray(profileProjectContributions.profileId, members), isNull(profileProjectContributions.deletedAt)))
         .returning({ profileId: profileProjectContributions.profileId });
     await markProfileCollaborationSummaryStale(verified.map((v) => v.profileId));
+    const [org, names] = await Promise.all([orgLabel(orgId), namesOf([adminId])]);
+    if (org && verified.length) {
+        await notifyOrg({ orgId, eventKey: 'credit.changed', actorId: adminId, to: verified.map((v) => v.profileId), title: `${names.get(adminId) ?? 'An admin'} verified your role in ${org.title}`, href: '/profile', sourceEventId: `verified:${Date.now()}` });
+    }
     return { success: true, verified: verified.length };
 }
 
@@ -50,5 +55,7 @@ export async function revokeOrgVerificationAction(orgId: string, userId: string,
         .returning({ profileId: profileProjectContributions.profileId });
     if (!revoked.length) return { success: false, error: 'That person has no entry for this organization.' };
     await markProfileCollaborationSummaryStale(userId);
+    const org = await orgLabel(orgId);
+    if (org) await notifyOrg({ orgId, eventKey: 'credit.changed', actorId: adminId, to: [userId], title: `Your verification in ${org.title} was removed: ${clean}`, href: '/profile', sourceEventId: `revoked:${userId}:${Date.now()}` });
     return { success: true };
 }

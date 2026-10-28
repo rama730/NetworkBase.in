@@ -6,13 +6,18 @@ import { resumeNotifications } from "@/app/actions/presence";
 import { useMyPresenceSettings } from "@/components/presence/useMyPresence";
 import { queryKeys } from "@/lib/query-keys";
 import { Loader2 } from "lucide-react";
-import { toast, feedbackError } from "@/lib/feedback";
+import { toast } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ErrorNotice } from "@/components/ui/ErrorNotice";
+import { formatDateTime } from "@/lib/ui/date-formatting";
+import { isLooseUuid } from "@/lib/validations/uuid";
 import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader";
 import { SettingsRow } from "@/components/settings/ui/SettingsRow";
 import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
 import { SettingsSectionsSkeleton } from "@/components/settings/ui/SettingsSectionsSkeleton";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
+import { OrgNotificationChoices } from "@/components/settings/OrgNotificationChoices";
 import { useNotificationPreferences, useUpdateNotificationPreferences } from "@/hooks/useSettingsQueries";
 import type { NotificationPreferences } from "@/types/settingsTypes";
 import type { NotificationPreferenceCategory } from "@/lib/notifications/types";
@@ -25,28 +30,54 @@ function NotificationsSkeleton() {
 }
 
 function PreferenceSwitch({ id, title, description, checked, disabled, onToggle }: { id: string; title: string; description: string; checked: boolean; disabled: boolean; onToggle: () => void }) {
-  return <SettingsRow title={title} description={description} right={<div className="flex items-center gap-3"><span className="nb-meta text-muted-foreground select-none w-6 text-right">{checked ? "On" : "Off"}</span><SettingsSwitch id={id} aria-label={title} checked={checked} onCheckedChange={onToggle} disabled={disabled} /></div>} />;
+  return <SettingsRow title={title} description={description} right={<SettingsSwitch showLabel id={id} aria-label={title} aria-describedby={`${id}-description`} checked={checked} onCheckedChange={onToggle} disabled={disabled} />} descriptionId={`${id}-description`} />;
+}
+
+const MUTE_KIND_LABELS: Record<string, string> = {
+  notification_type: "Notification type",
+  project: "Project",
+  task: "Task",
+  person: "Person",
+  organization: "Organization",
+};
+
+/** A quiet-hours time: edited freely, saved when the field is left (not on every keystroke). */
+function QuietTimeField({ label, minute, onCommit }: { label: string; minute: number; onCommit: (value: string) => void }) {
+  const [draft, setDraft] = useState(formatMinuteOfDay(minute));
+  useEffect(() => setDraft(formatMinuteOfDay(minute)), [minute]);
+  return <label className="nb-compact text-muted-foreground">
+    <span className="mb-2 block nb-meta text-foreground">{label}</span>
+    <Input type="time" value={draft} onChange={(event) => setDraft(event.target.value)} onBlur={() => { if (draft && draft !== formatMinuteOfDay(minute)) onCommit(draft); }} />
+  </label>;
 }
 
 export default function NotificationsPage({ embedded = false }: { embedded?: boolean }) {
-  const { data: preferences, isLoading, isError } = useNotificationPreferences();
+  const { data: preferences, isLoading, isError, refetch } = useNotificationPreferences();
   const updateMutation = useUpdateNotificationPreferences();
   const [permissionState, setPermissionState] = useState<BrowserNotificationPermissionState>("default");
   const [pushStatus, setPushStatus] = useState<WebPushClientStatus>("idle");
   const [pushBusy, setPushBusy] = useState(false);
+  const [resuming, setResuming] = useState(false);
 
   useEffect(() => {
     let active = true;
-    setPermissionState(getBrowserNotificationSupport());
-    void getCurrentPushStatus().then((status) => { if (active) setPushStatus(status); }).catch(() => undefined);
-    return () => { active = false; };
+    const refresh = () => {
+      setPermissionState(getBrowserNotificationSupport());
+      void getCurrentPushStatus().then((status) => { if (active) setPushStatus(status); }).catch(() => undefined);
+    };
+    refresh();
+    // Permission changed in the browser's own settings: read it again when the person comes back to this tab.
+    document.addEventListener("visibilitychange", refresh);
+    return () => { active = false; document.removeEventListener("visibilitychange", refresh); };
   }, []);
 
   const queryClient = useQueryClient();
   const presence = useMyPresenceSettings();
-  // Quiet hours keep the zone they were set in, so the server applies them on your clock.
-  const save = (next: NotificationPreferences) => updateMutation.mutate(
-    { ...next, quietHours: { ...next.quietHours, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone } },
+  // Quiet hours keep the zone they were set in, so the server applies them on your clock. The zone is taken from
+  // this browser only when the quiet-hours settings themselves change (or none was ever saved): flipping an
+  // unrelated switch while travelling must not move the window.
+  const save = (next: NotificationPreferences, { quiet = false }: { quiet?: boolean } = {}) => updateMutation.mutate(
+    { ...next, quietHours: { ...next.quietHours, timeZone: quiet || !next.quietHours.timeZone ? Intl.DateTimeFormat().resolvedOptions().timeZone : next.quietHours.timeZone } },
     { onError: () => toast.error("Failed to save preferences") },
   );
   const toggleCategory = (key: NotificationPreferenceCategory) => { if (preferences) save({ ...preferences, [key]: !preferences[key] }); };
@@ -67,24 +98,26 @@ export default function NotificationsPage({ embedded = false }: { embedded?: boo
   const pause = (choice: "1h" | "8h" | "tomorrow") => { if (preferences) save({ ...preferences, pausedUntil: pauseUntil(choice).toISOString() }); };
   // Resume also lifts a pause your status set (so your card stops saying "Notifications paused").
   const resume = async () => {
-    if (preferences) {
-      queryClient.setQueryData(queryKeys.settings.notifications(), {
-        ...preferences,
-        pausedUntil: null,
-      });
-    }
-    const result = await resumeNotifications();
-    if (!result.success) {
+    if (resuming) return;
+    setResuming(true);
+    try {
+      const result = await resumeNotifications();
+      if (!result.success) {
+        toast.error("Couldn't resume notifications.");
+        return;
+      }
+      void queryClient.invalidateQueries({ queryKey: queryKeys.presence.mine() });
+    } catch {
+      toast.error("Couldn't resume notifications.");
+    } finally {
+      setResuming(false);
       void queryClient.invalidateQueries({ queryKey: queryKeys.settings.notifications() });
-      return void toast.error("Couldn't resume notifications.");
     }
-    void queryClient.invalidateQueries({ queryKey: queryKeys.settings.notifications() });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.presence.mine() });
   };
   const setQuietTime = (field: "startMinute" | "endMinute", value: string) => {
     if (!preferences) return;
     const minute = parseTimeInput(value);
-    if (minute !== null) save({ ...preferences, quietHours: { ...preferences.quietHours, [field]: minute } });
+    if (minute !== null) save({ ...preferences, quietHours: { ...preferences.quietHours, [field]: minute } }, { quiet: true });
   };
 
   const toggleBrowser = async () => {
@@ -94,7 +127,7 @@ export default function NotificationsPage({ embedded = false }: { embedded?: boo
       const permission = await requestBrowserNotificationPermission();
       setPermissionState(permission);
       if (permission !== "granted") {
-        toast.error(feedbackError(permission === "denied" ? "Browser notifications are blocked in browser settings." : "Browser notifications are unavailable here.", "Browser notifications are unavailable here."));
+        toast.warning(permission === "denied" ? "Browser notifications are blocked in your browser settings." : "Browser notifications are unavailable here.");
         return;
       }
     }
@@ -117,17 +150,21 @@ export default function NotificationsPage({ embedded = false }: { embedded?: boo
       const result = await subscribeWebPush();
       if (!result.ok) {
         const messages: Record<string, string> = { permission_denied: "Push permission was denied in your browser.", missing_vapid_key: "Push is not configured yet. Contact support." };
-        toast.error(feedbackError(messages[result.reason] || "Couldn't enable push notifications.", "Couldn't enable push notifications."));
+        toast.warning(messages[result.reason] || "Couldn't enable push notifications.");
         setPushStatus(await getCurrentPushStatus());
         return;
       }
       setPushStatus("subscribed");
-      save({ ...preferences, delivery: { ...preferences.delivery, push: true } });
+      // If saving fails the device would stay subscribed with the setting off: undo the subscription.
+      updateMutation.mutate(
+        { ...preferences, delivery: { ...preferences.delivery, push: true } },
+        { onError: () => { void unsubscribeWebPush().then(() => setPushStatus("idle")).catch(() => undefined); toast.error("Failed to save preferences"); } },
+      );
     } catch { toast.error("Couldn't change push notifications."); } finally { setPushBusy(false); }
   };
 
   if (isLoading) return <NotificationsSkeleton />;
-  if (isError || !preferences) return <div className="rounded-lg border border-border bg-card p-6 text-center nb-compact text-destructive">Failed to load notification preferences.</div>;
+  if (isError || !preferences) return <ErrorNotice what="Notification preferences" onRetry={() => void refetch()} />;
 
   const isSaving = updateMutation.isPending;
   const pauseActive = isNotificationPauseActive(preferences);
@@ -143,7 +180,8 @@ export default function NotificationsPage({ embedded = false }: { embedded?: boo
 
   return <div className={embedded ? "space-y-8" : "space-y-6"}>
     {!embedded ? <SettingsPageHeader title="Notifications" description="Choose which updates appear and how they reach you." /> : null}
-    {isSaving ? <p aria-live="polite" className="flex items-center gap-2 nb-compact text-muted-foreground"><Loader2 className="size-4 animate-spin" />Saving changes…</p> : null}
+    {/* Always in the layout, so saving never moves what is below it. */}
+    <p role="status" className="flex h-5 items-center gap-2 nb-compact text-muted-foreground">{isSaving ? <><Loader2 className="size-4 animate-spin" aria-hidden="true" />Saving changes…</> : null}</p>
 
     <SettingsSectionCard title="Notification preferences" description="Choose what appears in the notification tray and when delivery pauses.">
       <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
@@ -161,26 +199,38 @@ export default function NotificationsPage({ embedded = false }: { embedded?: boo
           {/* Only an active pause says when it ends (an old one would read "resumes" in the past). */}
           <SettingsRow
             title={pauseActive ? (pausedByStatus ? "Paused by your status" : "Notifications paused") : "Pause notifications"}
-            description={pauseActive && preferences.pausedUntil ? `Delivery resumes ${new Date(preferences.pausedUntil).toLocaleString()}.` : "Updates remain available in the tray while delivery is paused."}
-            right={<div className="flex flex-wrap gap-2">{([["1h", "1 hour"], ["8h", "8 hours"], ["tomorrow", "Until tomorrow 9 AM"]] as const).map(([choice, label]) => <Button key={choice} type="button" variant="outline" size="sm" onClick={() => pause(choice)} disabled={isSaving}>{label}</Button>)}{pauseActive ? <Button type="button" variant="ghost" size="sm" onClick={() => void resume()} disabled={isSaving}>Resume</Button> : null}</div>}
+            description={pauseActive && preferences.pausedUntil ? `Delivery resumes ${formatDateTime(preferences.pausedUntil)}.` : "Updates remain available in the tray while delivery is paused."}
+            right={<div className="flex flex-wrap gap-2">{([["1h", "1 hour"], ["8h", "8 hours"], ["tomorrow", "Until tomorrow 9 AM"]] as const).map(([choice, label]) => <Button key={choice} type="button" variant="outline" size="sm" onClick={() => pause(choice)} disabled={isSaving}>{label}</Button>)}{pauseActive ? <Button type="button" variant="ghost" size="sm" onClick={() => void resume()} disabled={isSaving || resuming}>{resuming ? "Resuming…" : "Resume"}</Button> : null}</div>}
           />
-          <SettingsRow title="Quiet hours" description={preferences.quietHours.enabled ? `From ${formatMinuteOfDay(preferences.quietHours.startMinute)} to ${formatMinuteOfDay(preferences.quietHours.endMinute)} each day, updates wait in the tray until it ends and chat messages don't push (they stay unread in Messages).` : "Set a recurring daily period without delivery interruptions."} right={<div className="flex items-center gap-3"><span className="nb-meta text-muted-foreground select-none w-6 text-right">{preferences.quietHours.enabled ? "On" : "Off"}</span><SettingsSwitch aria-label="Enable quiet hours" checked={preferences.quietHours.enabled} onCheckedChange={() => save({ ...preferences, quietHours: { ...preferences.quietHours, enabled: !preferences.quietHours.enabled } })} disabled={isSaving} /></div>} />
-          {preferences.quietHours.enabled ? <div className="grid gap-3 py-4 sm:grid-cols-2">
-            {(["startMinute", "endMinute"] as const).map((field) => <label key={field} className="nb-compact text-muted-foreground"><span className="mb-2 block nb-meta text-foreground">{field === "startMinute" ? "From" : "Until"}</span><input type="time" aria-label={field === "startMinute" ? "Quiet hours start" : "Quiet hours end"} value={formatMinuteOfDay(preferences.quietHours[field])} onChange={(event) => setQuietTime(field, event.target.value)} className="h-10 w-full rounded-md border border-border bg-background px-3 nb-compact text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50" /></label>)}
+          <SettingsRow title="Quiet hours" description={preferences.quietHours.enabled ? `From ${formatMinuteOfDay(preferences.quietHours.startMinute)} to ${formatMinuteOfDay(preferences.quietHours.endMinute)} each day, updates wait in the tray until it ends and chat messages don't push (they stay unread in Messages).` : "Set a recurring daily period without delivery interruptions."} right={<SettingsSwitch showLabel aria-label="Enable quiet hours" checked={preferences.quietHours.enabled} onCheckedChange={() => save({ ...preferences, quietHours: { ...preferences.quietHours, enabled: !preferences.quietHours.enabled } }, { quiet: true })} disabled={isSaving} />} />
+          {preferences.quietHours.enabled ? <div className="space-y-2 py-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <QuietTimeField label="From" minute={preferences.quietHours.startMinute} onCommit={(value) => setQuietTime("startMinute", value)} />
+              <QuietTimeField label="Until" minute={preferences.quietHours.endMinute} onCommit={(value) => setQuietTime("endMinute", value)} />
+            </div>
+            <p className="nb-meta text-muted-foreground">
+              Times are in {preferences.quietHours.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone}.
+              {preferences.quietHours.startMinute === preferences.quietHours.endMinute ? " Start and end are the same, so quiet hours are not active." : ""}
+            </p>
           </div> : null}
         </div>
         <div className="border-t border-border pt-4">
-          <h5 className="nb-ui-label text-foreground">Muted scopes</h5>
-          {preferences.mutedScopes.length ? <div className="mt-3 divide-y divide-border">{preferences.mutedScopes.map((scope) => <SettingsRow key={`${scope.kind}:${scope.value}`} title={scope.label || scope.value} description={`${scope.kind === "notification_type" ? "Notification type" : scope.kind} mute`} right={<Button type="button" variant="ghost" size="sm" onClick={() => save({ ...preferences, mutedScopes: preferences.mutedScopes.filter((item) => item !== scope) })} disabled={isSaving}>Remove</Button>} />)}</div> : <p className="mt-2 nb-compact text-muted-foreground">Nothing muted.</p>}
+          <h5 className="nb-ui-label text-foreground">Muted items</h5>
+          {preferences.mutedScopes.length ? <div className="mt-3 divide-y divide-border">{preferences.mutedScopes.map((scope) => {
+            const name = scope.label || (isLooseUuid(scope.value) ? "Unnamed item" : scope.value);
+            return <SettingsRow key={`${scope.kind}:${scope.value}`} title={name} description={`${MUTE_KIND_LABELS[scope.kind] ?? "Item"} muted`} right={<Button type="button" variant="ghost" size="sm" aria-label={`Unmute ${name}`} onClick={() => save({ ...preferences, mutedScopes: preferences.mutedScopes.filter((item) => item !== scope) })} disabled={isSaving} className="pointer-coarse:h-11">Unmute</Button>} />;
+          })}</div> : <p className="mt-2 nb-compact text-muted-foreground">Nothing muted. Mute a project, task or person from the ⋯ menu on a notification in the tray.</p>}
         </div>
       </div>
     </SettingsSectionCard>
 
+    <OrgNotificationChoices preferences={preferences} disabled={isSaving} onSave={save} />
+
     <SettingsSectionCard title="Delivery" description="Choose where important updates can reach you.">
       <div className="divide-y divide-border">
-        <PreferenceSwitch id="delivery-email" title="Email task assignments" description="Email me when someone assigns me a task. Task preferences, mutes, pauses and quiet hours also apply." checked={preferences.delivery.email ?? true} disabled={isSaving} onToggle={() => save({ ...preferences, delivery: { ...preferences.delivery, email: !(preferences.delivery.email ?? true) } })} />
-        <PreferenceSwitch id="delivery-browser" title="Desktop notifications" description={deliveryDescriptions.browser} checked={preferences.delivery.browser && permissionState === "granted"} disabled={isSaving || permissionState === "unsupported" || permissionState === "denied"} onToggle={() => void toggleBrowser()} />
-        <PreferenceSwitch id="delivery-push" title="Push notifications" description={deliveryDescriptions.push} checked={preferences.delivery.push && pushStatus === "subscribed"} disabled={isSaving || pushBusy || pushStatus === "unsupported" || pushStatus === "denied"} onToggle={() => void togglePush()} />
+        <PreferenceSwitch id="delivery-email" title="Email" description="Email me when someone assigns me a task, and organization emails such as assignments and announcements. Mutes and the Organizations choices above also apply." checked={preferences.delivery.email ?? true} disabled={isSaving} onToggle={() => save({ ...preferences, delivery: { ...preferences.delivery, email: !(preferences.delivery.email ?? true) } })} />
+        <PreferenceSwitch id="delivery-browser" title="Desktop notifications on this device" description={deliveryDescriptions.browser} checked={preferences.delivery.browser && permissionState === "granted"} disabled={isSaving || permissionState === "unsupported" || permissionState === "denied"} onToggle={() => void toggleBrowser()} />
+        <PreferenceSwitch id="delivery-push" title="Push notifications on this device" description={deliveryDescriptions.push} checked={preferences.delivery.push && pushStatus === "subscribed"} disabled={isSaving || pushBusy || pushStatus === "unsupported" || pushStatus === "denied"} onToggle={() => void togglePush()} />
       </div>
     </SettingsSectionCard>
 

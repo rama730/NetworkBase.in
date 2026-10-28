@@ -71,12 +71,15 @@ export const ORG_SETTINGS_PATCH = {
     child_share: z.boolean().optional(),
     visibility_cap: z.enum(["public", "org", "private"]).optional(),
   }).strict(),
+  notifications: z.object({
+    admin_digest: z.enum(["daily", "instant"]).optional(),
+  }).strict(),
 } as const;
 
 export type OrgSettingsSection = keyof typeof ORG_SETTINGS_PATCH;
 
 /** Who saves which section (report §21.2): role names are the owner's; the rest is owners and admins. */
-export const ORG_SECTION_OWNER_ONLY: Record<OrgSettingsSection, boolean> = { profile: false, access: false, people: true, projects: false };
+export const ORG_SECTION_OWNER_ONLY: Record<OrgSettingsSection, boolean> = { profile: false, access: false, people: true, projects: false, notifications: false };
 
 /** The child-project rules an org enforces (report §21.7), read from org_settings with their defaults. */
 export function readOrgRules(orgSettings: unknown): { childCreation: "members" | "admins"; outsidePeople: boolean; visibilityCap: VisibilityCap } {
