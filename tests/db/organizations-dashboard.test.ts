@@ -82,7 +82,8 @@ test("Needs you: admins see reviews and requests; members their own due and retu
   await o.copy(o.b, { review: "rejected", status: "in_progress", due: "5 days" });
   await o.copy(o.b, { due: "-2 days" });
   const member = await dashboard(o.orgId, o.b);
-  assert.deepEqual(member!.needsYou.map((n) => n.label).sort(), ["Lab 2 · due soon", "Lab 2 · overdue", "Lab 2 · returned"].sort());
+  // b also leads Secret Lab, which has no sprint inside the active CO2 (report §26 C).
+  assert.deepEqual(member!.needsYou.map((n) => n.label).sort(), ["CO2 started. Plan your sprint in Secret Lab", "Lab 2 · due soon", "Lab 2 · overdue", "Lab 2 · returned"].sort());
 
   await o.copy(o.a, { project: o.child });
   const lead = await dashboard(o.orgId, o.a);

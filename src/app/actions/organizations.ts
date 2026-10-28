@@ -212,6 +212,10 @@ export async function regenerateJoinCodeAction(orgId: string): Promise<{ success
         try {
             await db.update(projects).set({ joinCode, updatedAt: new Date() }).where(eq(projects.id, orgId));
             revalidateOrg(viewer.slug, orgId);
+            // The other admins hear who changed it (report §26 A).
+            const name = (await namesOf([viewer.userId])).get(viewer.userId) ?? 'an admin';
+            await notifyOrg({ orgId, eventKey: 'org.code_changed', actorId: viewer.userId, title: `The join code was changed by ${name}`,
+                href: orgHref({ slug: viewer.slug, id: orgId }, '?tab=members'), sourceEventId: `code:${joinCode}` });
             return { success: true, joinCode };
         } catch {
             // ponytail: a collision with another org's code just retries; 32^6 codes make five tries plenty.

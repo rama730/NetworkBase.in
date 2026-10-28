@@ -5,6 +5,7 @@ import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { profiles, projectMembers, projects, roleApplications } from "@/lib/db/schema";
 import { normalizeNotificationPreferences } from "@/lib/notifications/preferences";
+import { readNeedsYou, type OrgViewer } from "@/lib/organizations/needs-you";
 import { notifyOrg, orgHref, queueOrgEmails } from "@/lib/organizations/notify";
 import { DIGEST_HOUR, digestIsEmpty, DUE_SOON_HOUR, localClock, nextDate } from "@/lib/organizations/notify-rules";
 
@@ -19,8 +20,8 @@ const openMaster = sql`m.deleted_at IS NULL AND m.assignment_settings->>'publish
 type DueRow = { copy_id: string; title: string; due_date: string; status: string; org_id: string; people: string[]; late_rule: string | null; late_until: string | null };
 
 /**
- * E6 (one combined "due tomorrow" per person per org per day, at 9:00 their time) and E7 (once per copy when
- * it goes overdue and late work is still accepted), each with its tray notice.
+ * E6 (one combined "due tomorrow" per person per org per day, at 9:00 their time), the due-day tray notice, and
+ * E7 (once per copy when it goes overdue and late work is still accepted), each with its tray notice.
  */
 export async function runOrgDueSoon(now = new Date()) {
   // ponytail: one scan of copies due in the next two days or overdue in the last one. Ceiling: fine to tens of
@@ -62,6 +63,12 @@ export async function runOrgDueSoon(now = new Date()) {
           href: orgHref(org, `?tab=assignments&copy=${encodeURIComponent(row.copy_id)}`), sourceEventId: `overdue:${row.copy_id}`, refs: { taskId: row.copy_id },
           email: { kind: "org_overdue", data: { assignment: { title: row.title, copyId: row.copy_id, dueAt: due.toISOString(), lateUntil: row.late_rule === "until" ? row.late_until : null }, timeZone: zone ?? null } },
         });
+      } else if (localClock(due, zone).date === clock.date) {
+        const at = new Intl.DateTimeFormat("en", { timeZone: zone ?? "UTC", hour: "numeric", minute: "2-digit" }).format(due);
+        await notifyOrg({
+          orgId: org.id, eventKey: "assignments.due_soon", to: [userId], title: `${row.title} is due today at ${at}`,
+          href: orgHref(org, `?tab=assignments&copy=${encodeURIComponent(row.copy_id)}`), sourceEventId: `today:${row.copy_id}`, refs: { taskId: row.copy_id },
+        });
       } else if (localClock(due, zone).date === nextDate(clock.date)) {
         const key = `${org.id}:${userId}`;
         const entry = dueSoon.get(key) ?? { orgId: org.id, userId, date: clock.date, items: [] };
@@ -85,9 +92,12 @@ export async function runOrgDueSoon(now = new Date()) {
   return { dueSoon: dueSoon.size, overdue };
 }
 
-/** E11 at 8:00 org time to the owner and admins: to review, join requests, behind. Empty → not sent; "instant" orgs skip it. */
+/**
+ * E11 at 8:00 org time to the owner and admins: to review, join requests, Needs you, behind. Empty → not sent;
+ * "instant" orgs skip it.
+ */
 export async function runOrgAdminDigest(now = new Date()) {
-  const orgs = await db.select({ id: projects.id, ownerId: projects.ownerId, timeZone: projects.timeZone, settings: projects.orgSettings })
+  const orgs = await db.select({ id: projects.id, ownerId: projects.ownerId, timeZone: projects.timeZone, settings: projects.orgSettings, title: projects.title, slug: projects.slug, status: projects.status })
     .from(projects).where(and(eq(projects.kind, "organization"), isNull(projects.deletedAt), sql`NOT app_private.nb_project_read_only(${projects.id})`));
   let sent = 0;
   for (const org of orgs) {
@@ -105,7 +115,7 @@ export async function runOrgAdminDigest(now = new Date()) {
         WHERE m.project_id = ${org.id} AND ${openMaster} AND c.deleted_at IS NULL AND c.excused_at IS NULL
           AND c.due_date < ${now.toISOString()}::timestamptz AND ${notHandedIn}`),
     ]);
-    const digest = { toReview: [...toReview], joinRequests: requests?.n ?? 0, needsYou: [] as string[], behind: behind?.n ?? 0 };
+    const digest = { toReview: [...toReview], joinRequests: requests?.n ?? 0, needsYou: await digestNeedsYou(org, clock.date, now), behind: behind?.n ?? 0 };
     if (digestIsEmpty(digest)) continue;
     const admins = await db.select({ userId: projectMembers.userId }).from(projectMembers)
       .where(and(eq(projectMembers.projectId, org.id), eq(projectMembers.role, "admin")));
@@ -113,4 +123,17 @@ export async function runOrgAdminDigest(now = new Date()) {
     sent++;
   }
   return { sent };
+}
+
+/** The admin Needs you lines (report §26.4) without what the digest already counts, plus sprints ending tomorrow. */
+async function digestNeedsYou(org: { id: string; ownerId: string; title: string | null; slug: string | null; status: string | null }, today: string, now: Date) {
+  const viewer = { userId: org.ownerId, isAdmin: true, isInside: true, isGuest: false, access: null, org: { id: org.id, title: org.title || "Organization", slug: org.slug, status: org.status } } as unknown as OrgViewer;
+  const lines = (await readNeedsYou(viewer, now)).filter((row) => row.kind !== "review" && row.kind !== "requests").map((row) => row.label);
+  const ending = await db.execute<{ name: string; missing: number }>(sql`
+    SELECT s.name, (SELECT count(DISTINCT c.assignee_id)::int FROM tasks c JOIN tasks m ON m.id = c.assignment_id
+      WHERE m.sprint_id = s.id AND ${openMaster} AND c.deleted_at IS NULL AND c.excused_at IS NULL AND ${notHandedIn}) AS missing
+    FROM project_sprints s WHERE s.project_id = ${org.id} AND s.status = 'active'
+      AND (s.end_date AT TIME ZONE coalesce(nullif((SELECT time_zone FROM projects WHERE id = ${org.id}), ''), 'UTC'))::date = ${nextDate(today)}::date`);
+  for (const s of ending) lines.push(`${s.name} ends tomorrow${s.missing ? ` · ${s.missing} ${s.missing === 1 ? "person has" : "people have"} missing work` : ""}`);
+  return lines;
 }

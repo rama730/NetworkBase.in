@@ -18,7 +18,8 @@ export type ProjectNotificationGroupId =
     | "org_membership"
     | "org_assignments"
     | "org_announcements"
-    | "org_credit";
+    | "org_credit"
+    | "org_sprints";
 export type ProjectNotificationRecipientGroup =
     | "owner"
     | "co_leaders"
@@ -99,7 +100,12 @@ export type OrgNotificationEventKey =
     | "assignments.due_changed"
     | "assignments.due_soon"
     | "announcements.posted"
-    | "credit.changed";
+    | "credit.changed"
+    | "org.code_changed"
+    | "org.child_notice"
+    | "org_sprints.started"
+    | "org_sprints.completed"
+    | "org_sprints.notice";
 
 export type ProjectNotificationRule = {
     enabled: boolean;
@@ -154,11 +160,12 @@ export const PROJECT_NOTIFICATION_GROUPS: Array<{
     { id: "org_assignments", title: "Assignments", description: "Published work, submissions, reviews and due dates.", visible: true },
     { id: "org_announcements", title: "Announcements", description: "Announcements for each post's audience.", visible: true },
     { id: "org_credit", title: "Profile credit", description: "Verified roles and removed verification.", visible: true },
+    { id: "org_sprints", title: "Sprints", description: "Org sprints starting and closing, and sprint steps for leads and admins.", visible: true },
 ];
 
-const ORG_GROUP_IDS = new Set<ProjectNotificationGroupId>(["org_membership", "org_assignments", "org_announcements", "org_credit"]);
+const ORG_GROUP_IDS = new Set<ProjectNotificationGroupId>(["org_membership", "org_assignments", "org_announcements", "org_credit", "org_sprints"]);
 
-const ORG_KIND: Record<string, NotificationKind> = { org_membership: "org_membership", org_assignments: "org_assignment", org_announcements: "org_announcement", org_credit: "org_credit" };
+const ORG_KIND: Record<string, NotificationKind> = { org_membership: "org_membership", org_assignments: "org_assignment", org_announcements: "org_announcement", org_credit: "org_credit", org_sprints: "project_sprint_activity" };
 
 /** One line per org event: recipients are chosen by the trigger, so defaultRecipients only labels them. */
 const orgEvent = (key: OrgNotificationEventKey, group: ProjectNotificationGroupId, label: string, description: string,
@@ -861,6 +868,11 @@ export const PROJECT_NOTIFICATION_EVENT_REGISTRY = {
     "assignments.due_soon": orgEvent("assignments.due_soon", "org_assignments", "Due soon and overdue", "People who aren't done hear once a day, at 9:00 their time.", "important"),
     "announcements.posted": orgEvent("announcements.posted", "org_announcements", "Announcements", "Each announcement's audience hears about it.", "important"),
     "credit.changed": orgEvent("credit.changed", "org_credit", "Verified or removed", "A member hears their role was verified or the verification removed.", "important"),
+    "org.code_changed": orgEvent("org.code_changed", "org_membership", "Join code changed", "Admins hear when someone makes a new join code.", "more", { recipients: ["owner", "co_leaders"] }),
+    "org.child_notice": orgEvent("org.child_notice", "org_membership", "Your child project", "Leads hear when a seat opens or an org rule changes their project.", "important"),
+    "org_sprints.started": orgEvent("org_sprints.started", "org_sprints", "Sprint started", "Members hear when an org sprint starts, if Notify on start is on.", "important", { recipients: ["members"] }),
+    "org_sprints.completed": orgEvent("org_sprints.completed", "org_sprints", "Sprint closed", "Members hear an org sprint closed and how much of it they finished.", "more"),
+    "org_sprints.notice": orgEvent("org_sprints.notice", "org_sprints", "Sprint steps", "Leads hear to plan or close their linked sprint; admins hear a sprint couldn't start.", "important"),
 } as const satisfies Record<ProjectNotificationEventKey, ProjectNotificationRegistryEntry>;
 
 export const PROJECT_NOTIFICATION_EVENT_KEYS = Object.keys(PROJECT_NOTIFICATION_EVENT_REGISTRY) as ProjectNotificationEventKey[];

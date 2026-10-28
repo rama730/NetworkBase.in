@@ -98,5 +98,5 @@ test("Settings › Organizations: Important only and Off filter the tray; child 
 test("org event groups show for organizations only", () => {
   const ids = (isOrg: boolean) => groupProjectNotificationEntries(getVisibleProjectNotificationEntries(isOrg)).map((g) => g.id);
   assert.ok(!ids(false).some((id) => id.startsWith("org_")));
-  assert.deepEqual(ids(true).filter((id) => id.startsWith("org_")), ["org_membership", "org_assignments", "org_announcements", "org_credit"]);
+  assert.deepEqual(ids(true).filter((id) => id.startsWith("org_")), ["org_membership", "org_assignments", "org_announcements", "org_credit", "org_sprints"]);
 });

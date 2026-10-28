@@ -1,6 +1,6 @@
 import { and, eq, isNull, lte, sql } from "drizzle-orm";
 
-import { handOverLedChildProjects, handOverOwnedOrgs } from "@/lib/organizations/succession";
+import { handOverLedChildProjects, handOverOwnedOrgs, notifyLeadHandovers } from "@/lib/organizations/succession";
 import { db } from "@/lib/db";
 import { anonymizeChatAuthor, deleteDirectMessagesSql } from "@/lib/messaging/account";
 import {
@@ -126,6 +126,7 @@ export async function executeHardDelete(
     if (phase !== "db_deleted") {
       return { success: false, error: phase === "ineligible" ? "Deletion record not found, cancelled or not yet due" : `Deletion is in phase ${phase}; retry later` };
     }
+    await notifyLeadHandovers(userId);
 
     // Phase 2: Auth deletion (idempotent). Failure keeps db_deleted for retry.
     const admin = await createAdminClient();

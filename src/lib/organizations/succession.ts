@@ -5,6 +5,7 @@ import { and, asc, eq, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { profiles, projectMembers, projects } from "@/lib/db/schema";
 import { syncProjectChat } from "@/lib/messaging/integrations";
+import { notifyOrg } from "@/lib/organizations/notify";
 
 // Account deletion and organizations (report §30.7): owners of an org can't delete their account; child projects
 // a person leads never go with the account. They pass to a project admin → unit lead → the org owner.
@@ -57,6 +58,16 @@ export async function handOverLedChildProjects(executor: Executor, userId: strin
     await makeOwner(executor, child.id, userId, next, { leadHandover: { from: userId, at: new Date().toISOString() } });
   }
   return led.length;
+}
+
+/** After the handover commits: each new lead hears "You're the lead of Compiler Lab" (report §26 B), once per handover. */
+export async function notifyLeadHandovers(fromUserId: string) {
+  const handed = await db.select({ id: projects.id, title: projects.title, slug: projects.slug, parentId: projects.parentId, ownerId: projects.ownerId, at: sql<string | null>`${projects.orgSettings}->'leadHandover'->>'at'` })
+    .from(projects).where(and(isNotNull(projects.parentId), isNull(projects.deletedAt), sql`${projects.orgSettings}->'leadHandover'->>'from' = ${fromUserId}`));
+  for (const child of handed) {
+    await notifyOrg({ orgId: child.parentId!, eventKey: "org.role_changed", to: [child.ownerId], title: `You're the lead of ${child.title}`,
+      href: `/projects/${encodeURIComponent(child.slug ?? child.id)}`, sourceEventId: `lead:${child.id}:${child.at ?? ""}`, refs: { projectId: child.id } });
+  }
 }
 
 /** Involuntary removal only (an account removed at hard delete): the org passes to its longest-serving admin. */

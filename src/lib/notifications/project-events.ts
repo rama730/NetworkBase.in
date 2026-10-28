@@ -357,8 +357,10 @@ function buildProjectNotificationWrites(params: {
                     ...(input.entityRefs ?? {}),
                     projectId: project.id,
                     projectSlug: project.slug ?? null,
-                    // Org choices and the org mute reach child projects through their parent (report §26.8).
-                    orgId: project.kind === "organization" ? project.id : project.parentId ?? null,
+                    // Org choices and the org mute reach child projects through their parent (report §26.8),
+                    // unless this person set the child project's notifications themselves: their setting wins.
+                    orgId: project.kind === "organization" ? project.id
+                        : overridesByUser.get(recipientUserId)?.mode === "custom" ? null : project.parentId ?? null,
                 },
                 preview: previewFor(input, project),
                 dedupeKey: dedupeKeyFor(input, recipientUserId),
