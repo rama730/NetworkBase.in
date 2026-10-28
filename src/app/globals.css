@@ -143,6 +143,12 @@
   --nb-page-inset: 24px;
   --nb-workspace-inset: 20px;
   --nb-grid-line: rgb(33 42 48 / 7%);
+  /* Fixed inverse (ink) surfaces: the auth panel and the website process block, in both appearances. */
+  --surface-inverse: #141A1E;
+  --surface-inverse-raised: #212A30;
+  --text-inverse: #FAF8F4;
+  --text-inverse-muted: #B6C0C5;
+  --accent-inverse: #F3A17E;
   --theme-action-solid-light: #C24720;
   --theme-action-solid-dark: #F3A17E;
   --theme-action-hover-light: color-mix(in srgb, var(--theme-action-solid-light) 88%, #141A1E);
@@ -744,8 +750,8 @@ html[data-reduce-motion="true"] .nb-skeleton {
   aspect-ratio: auto !important;
 }
 
-/* Authentication fields follow the same neutral, line-free focus policy. */
-.auth-root input:focus-visible { border-color: var(--input); box-shadow:none; }
+/* Authentication fields follow the line-free focus policy: focus darkens the field's own border. */
+.nb-auth input:focus-visible { border-color: var(--foreground); box-shadow:none; }
 
 /* NetworkBase brand primitives. The product mark is semantic: only exported
    files use a fixed Clay/Ink/Paper colour. */
@@ -1023,20 +1029,48 @@ svg.lucide { stroke-width:1.75; }
 .nb-site-nav { max-width:1248px; margin:auto; padding:0 24px; min-height:60px; display:flex; align-items:center; justify-content:space-between; gap:16px; }
 .nb-site-hero { max-width:1248px; margin:auto; padding:84px 24px 72px; display:grid; grid-template-columns:minmax(0,1fr) 420px; gap:56px; align-items:center; }
 .nb-site-preview { border:1px solid var(--border); border-radius:8px; background:var(--card); }
+.nb-site-header { position:sticky; top:0; z-index:40; border-bottom:1px solid var(--border); background:color-mix(in srgb, var(--background) 88%, transparent); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); }
+.nb-site-anchor { scroll-margin-top:72px; }
+.nb-site-process { border-radius:18px; padding:48px 44px; }
+.dark .nb-site-process { border:1px solid var(--border); }
+@media (prefers-reduced-motion:no-preference) { html:has(.nb-site-anchor) { scroll-behavior:smooth; } }
 .nb-site-section { max-width:1248px; margin:auto; padding:80px 24px; }
-.nb-site-process, .nb-auth-editorial { color:#FAF8F4; background-color:#141A1E; --nb-grid-line:rgb(255 255 255 / 6%); }
-.nb-auth-editorial { padding:48px; min-height:100dvh; }
-.auth-root > main { grid-template-columns:minmax(0,9fr) minmax(0,7fr); }
-.auth-root > main > div:first-child > div { max-width:380px; }
+.nb-site-process, .nb-auth-panel { color:var(--text-inverse); background-color:var(--surface-inverse); --nb-grid-line:rgb(255 255 255 / 6%); }
+.nb-inverse-muted { color:var(--text-inverse-muted); }
+.dark .nb-site-process, .dark .nb-auth-panel { background-color:var(--surface-inverse-raised); }
+/* Account pages: paper form column + sticky ink panel; one column below 1024px. */
+.nb-auth { min-height:100dvh; display:grid; grid-template-columns:minmax(0,9fr) minmax(0,7fr); background:var(--background); color:var(--foreground); }
+.nb-auth[data-panel="false"] { grid-template-columns:minmax(0,1fr); }
+.nb-auth-form { display:flex; justify-content:center; min-height:100dvh; padding:40px 24px; }
+.nb-auth-column { width:100%; max-width:380px; display:flex; flex-direction:column; gap:40px; }
+.nb-auth-body { margin-block:auto; }
+.nb-auth-panel { position:sticky; top:0; height:100dvh; padding:48px; display:flex; flex-direction:column; justify-content:space-between; }
+.dark .nb-auth-panel { border-left:1px solid var(--border); }
+.nb-auth-note { font-size:12px; line-height:1.4; }
+.nb-auth-alert { display:flex; gap:10px; align-items:flex-start; padding:12px; border:1px solid color-mix(in srgb, currentColor 22%, transparent); border-radius:var(--radius-md); font-size:14px; line-height:1.4; }
+.nb-auth-alert[data-tone="error"] { color:var(--status-danger); background:var(--status-danger-soft); }
+.nb-auth-alert[data-tone="success"] { color:var(--status-success); background:var(--status-success-soft); }
+.nb-auth-alert[data-tone="warning"] { color:var(--status-warning); background:var(--status-warning-soft); }
+.nb-auth-alert[data-tone="info"] { color:var(--status-info); background:var(--status-info-soft); }
+.nb-auth-reveal { position:absolute; top:0; right:0; display:inline-flex; width:44px; height:44px; align-items:center; justify-content:center; border-radius:var(--radius-md); color:var(--muted-foreground); }
+.nb-auth-reveal:hover, .nb-auth-reveal:focus-visible { color:var(--foreground); background:color-mix(in srgb, var(--foreground) 6%, transparent); }
+.nb-auth-step { animation:nb-auth-step 180ms ease-out; }
+@keyframes nb-auth-step { from { opacity:0; transform:translateY(4px); } }
+@media (prefers-reduced-motion:reduce) { .nb-auth-step { animation:none; } }
 @media (max-width:1023px) {
   .nb-site-hero { grid-template-columns:minmax(0,1fr); gap:40px; padding-top:56px; padding-bottom:48px; }
   .nb-site-preview { max-width:520px; }
-  .auth-root > main { grid-template-columns:minmax(0,1fr); }
+  .nb-auth { grid-template-columns:minmax(0,1fr); }
+  .nb-auth-panel { display:none; }
 }
 @media (max-width:639px) {
   .nb-site-section { padding:48px 16px; }
   .nb-site-nav { padding:12px 16px; flex-wrap:wrap; }
   .nb-site-hero { padding-inline:16px; }
+  .nb-site-process { padding:32px 20px; }
+  .nb-auth-form { padding:24px 16px 32px; }
+  .nb-auth-column { gap:32px; }
+  .nb-auth-body { margin-block:0; }
 }
 @theme inline {
   --color-indigo-50: var(--accent);

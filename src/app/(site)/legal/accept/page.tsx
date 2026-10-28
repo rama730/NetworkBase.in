@@ -2,7 +2,9 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Loader2, ShieldCheck } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { AuthAlert, AuthShell } from "@/components/auth/AuthShell";
+import { Button } from "@/components/ui/button";
 import { LEGAL_VERSIONS } from "@/lib/legal/versions";
 import { normalizeAuthNextPath } from "@/lib/auth/redirects";
 
@@ -55,39 +57,44 @@ export default function LegalAcceptancePage() {
     }
   }
 
+  const panel = isOAuthSignup
+    ? { eyebrow: "Almost there", title: "One agreement, then you're in." }
+    : { eyebrow: "Updated terms", title: "What you agree to, in plain view." };
+
   if (checking) {
     return (
-      <main className="flex min-h-screen items-center justify-center" aria-busy="true">
-        <span className="sr-only">Checking your agreement.</span>
-        <Loader2 className="h-6 w-6 animate-spin text-zinc-500" aria-hidden="true" />
-      </main>
+      <AuthShell title="Before you continue" description="Checking your agreement…" panel={panel}>
+        <div className="h-40 animate-pulse rounded-md bg-muted" aria-busy="true" />
+      </AuthShell>
     );
   }
 
+  const docLink = "font-medium text-foreground underline underline-offset-2 hover:text-primary";
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 py-12 dark:bg-zinc-950">
-      <section className="w-full max-w-xl rounded-lg border border-zinc-200 bg-white p-6 shadow-xl shadow-zinc-200/40 dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-none sm:p-9">
-        <div className="inline-flex rounded-lg bg-indigo-50 p-3 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-300"><ShieldCheck className="h-6 w-6" /></div>
-        <h1 className="mt-5 text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white">Before you continue</h1>
-        <p className="mt-3 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-          {isOAuthSignup
-            ? "Your sign-in account is connected. Please review and accept NetworkBase’s current legal terms to finish creating your account."
-            : "NetworkBase’s legal terms have been introduced or updated. Please review and accept the current versions before continuing."}
-        </p>
-        <div className="mt-5 grid grid-cols-3 gap-2 text-center text-xs text-zinc-500">
-          <div className="rounded-lg bg-zinc-50 p-2 dark:bg-zinc-950">Terms<br /><strong>{LEGAL_VERSIONS.terms}</strong></div>
-          <div className="rounded-lg bg-zinc-50 p-2 dark:bg-zinc-950">EULA<br /><strong>{LEGAL_VERSIONS.eula}</strong></div>
-          <div className="rounded-lg bg-zinc-50 p-2 dark:bg-zinc-950">Privacy<br /><strong>{LEGAL_VERSIONS.privacy}</strong></div>
+    <AuthShell
+      title="Before you continue"
+      description={isOAuthSignup
+        ? "Your account is connected. Review and accept NetworkBase's current terms to finish creating it."
+        : "We've updated our terms. Review and accept the current versions to keep using NetworkBase."}
+      panel={panel}
+    >
+      <div className="space-y-4">
+        <div className="grid grid-cols-3 gap-2 text-center text-xs text-muted-foreground">
+          {([["Terms", LEGAL_VERSIONS.terms, "/terms"], ["EULA", LEGAL_VERSIONS.eula, "/eula"], ["Privacy", LEGAL_VERSIONS.privacy, "/privacy"]] as const).map(([label, version, href]) => (
+            <a key={label} href={href} target="_blank" className="rounded-md border border-border bg-card p-2 hover:border-foreground">
+              {label}<br /><strong className="font-mono text-foreground">{version}</strong>
+            </a>
+          ))}
         </div>
-        <label className="mt-6 flex cursor-pointer items-start gap-3 rounded-lg border border-zinc-200 p-4 text-sm leading-6 text-zinc-700 dark:border-zinc-700 dark:text-zinc-200">
-          <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="mt-1 h-4 w-4 rounded border-zinc-300 text-indigo-600" />
-          <span>I am at least 18 years old, accept the <a href="/terms" target="_blank" className="font-semibold text-indigo-600 hover:underline dark:text-indigo-300">Terms of Service</a> and <a href="/eula" target="_blank" className="font-semibold text-indigo-600 hover:underline dark:text-indigo-300">EULA</a>, and acknowledge the <a href="/privacy" target="_blank" className="font-semibold text-indigo-600 hover:underline dark:text-indigo-300">Privacy Policy</a>.</span>
+        <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-md border border-border bg-card p-4 text-sm leading-6">
+          <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="mt-1 size-4 shrink-0 accent-[var(--primary)]" />
+          <span>I am at least 18 years old, accept the <a href="/terms" target="_blank" className={docLink}>Terms of Service</a> and <a href="/eula" target="_blank" className={docLink}>EULA</a>, and acknowledge the <a href="/privacy" target="_blank" className={docLink}>Privacy Policy</a>.</span>
         </label>
-        {error ? <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p> : null}
-        <button type="button" disabled={!confirmed || submitting} onClick={() => void continueToNetworkBase()} className="mt-5 inline-flex w-full items-center justify-center rounded-lg bg-zinc-950 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-zinc-950">
-          {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Agree and continue
-        </button>
-      </section>
-    </main>
+        {error ? <AuthAlert tone="error">{error}</AuthAlert> : null}
+        <Button type="button" disabled={!confirmed || submitting} onClick={() => void continueToNetworkBase()} className="h-11 w-full font-medium">
+          {submitting ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null} Agree and continue
+        </Button>
+      </div>
+    </AuthShell>
   );
 }

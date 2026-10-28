@@ -15,5 +15,5 @@ function first(value: string | string[] | undefined) {
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
     const params = await searchParams
-    return <LoginForm redirect={first(params.redirect)} error={first(params.error)} mode={first(params.mode)} />
+    return <LoginForm redirect={first(params.redirect)} error={first(params.error)} step={first(params.step)} />
 }

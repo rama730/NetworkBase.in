@@ -6,3 +6,11 @@ export function resolveAuthPageErrorMessage(code: string | null | undefined): st
             return null
     }
 }
+
+/** Plain copy for provider errors people can act on; anything else passes through. */
+export function toFriendlyAuthError(message: string | null | undefined, fallback: string): string {
+    const text = (message || '').trim()
+    if (/captcha/i.test(text)) return "The security check didn't pass. Refresh the page and try again."
+    if (/rate limit|too many requests|for security purposes/i.test(text)) return 'Too many attempts. Wait a minute and try again.'
+    return text || fallback
+}

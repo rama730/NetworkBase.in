@@ -73,6 +73,8 @@ export type AuthSnapshot = {
     email: string | null
     appMetadata: Record<string, unknown>
     userMetadata: Record<string, unknown>
+    /** Assurance level from the verified token: 'aal2' only after the second factor. */
+    aal: 'aal1' | 'aal2'
 }
 
 export type AuthSnapshotResolution = {
@@ -408,6 +410,7 @@ export function buildAuthSnapshotFromClaims(payload: JwtPayload): AuthSnapshot |
         email: typeof payload.email === 'string' ? payload.email : null,
         appMetadata,
         userMetadata,
+        aal: payload.aal === 'aal2' ? 'aal2' : 'aal1',
     }
 }
 

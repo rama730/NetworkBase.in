@@ -2,169 +2,149 @@
 
 import Link from 'next/link'
 import type { FormEvent } from 'react'
-import { useState } from 'react'
-import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import TurnstileWidget, { hasTurnstileSiteKey } from '@/components/auth/TurnstileWidget'
-import { AuthAmbientCanvas } from '@/components/auth/AuthAmbientCanvas'
+import { AUTH_EMAIL_HANDOFF_KEY, AUTH_INPUT, AUTH_LINK, RECOVERY_PANEL, AuthAlert, AuthField, AuthShell, SubmitButton, fieldError } from '@/components/auth/AuthShell'
 import { buildOAuthRedirectTo, resolveAuthBaseUrl } from '@/lib/auth/redirects'
 import { loadBrowserSupabase } from '@/lib/auth/browser-auth-actions'
-import { LegalLinks } from '@/components/legal/LegalLinks'
+import { toFriendlyAuthError } from '@/lib/auth/error-messages'
+
+const RESEND_COOLDOWN_SECONDS = 60
+
+function toRecoveryErrorMessage(error: unknown) {
+    return toFriendlyAuthError(error instanceof Error ? error.message : '', "We couldn't send the reset email. Try again.")
+}
 
 export default function ForgotPasswordPage() {
     const [email, setEmail] = useState('')
+    const [emailError, setEmailError] = useState<string | null>(null)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [sent, setSent] = useState(false)
+    const [cooldown, setCooldown] = useState(0)
     const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+    // Turnstile tokens are single-use: every attempt remounts the widget for a fresh one.
+    const [captchaKey, setCaptchaKey] = useState(0)
+    const emailRef = useRef<HTMLInputElement | null>(null)
     const requiresCaptcha = hasTurnstileSiteKey()
 
-    const handleSubmit = async (event: FormEvent) => {
-        event.preventDefault()
-        setError(null)
+    useEffect(() => {
+        try {
+            const handoff = sessionStorage.getItem(AUTH_EMAIL_HANDOFF_KEY)
+            if (handoff) setEmail(handoff)
+            sessionStorage.removeItem(AUTH_EMAIL_HANDOFF_KEY)
+        } catch {
+            // Storage can be blocked; the field just starts empty.
+        }
+    }, [])
 
+    useEffect(() => {
+        if (cooldown <= 0) return
+        const timer = setInterval(() => setCooldown((value) => Math.max(0, value - 1)), 1000)
+        return () => clearInterval(timer)
+    }, [cooldown])
+
+    const sendLink = async () => {
+        setError(null)
+        if (!email.trim()) {
+            setEmailError('Enter your email.')
+            emailRef.current?.focus()
+            return
+        }
         if (requiresCaptcha && !captchaToken) {
-            setError('Please complete the Turnstile check.')
+            setError('Complete the security check below.')
             return
         }
 
         setIsSubmitting(true)
         try {
             const redirectTo = buildOAuthRedirectTo(
-                resolveAuthBaseUrl({
-                    browserOrigin: typeof window !== 'undefined' ? window.location.origin : null,
-                }),
+                resolveAuthBaseUrl({ browserOrigin: typeof window !== 'undefined' ? window.location.origin : null }),
                 '/reset-password'
             )
-
             const supabase = await loadBrowserSupabase()
             const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
                 redirectTo,
                 captchaToken: captchaToken || undefined,
             })
-
-            if (resetError) {
-                throw resetError
-            }
-
+            if (resetError) throw resetError
             setSent(true)
+            setCooldown(RESEND_COOLDOWN_SECONDS)
         } catch (submitError) {
-            setCaptchaToken(null)
-            setError(submitError instanceof Error ? submitError.message : 'Unable to send reset email.')
+            setError(toRecoveryErrorMessage(submitError))
         } finally {
+            setCaptchaToken(null)
+            setCaptchaKey((key) => key + 1)
             setIsSubmitting(false)
         }
     }
 
-    return (
-        <main className="min-h-dvh w-full grid grid-cols-1 lg:grid-cols-2 bg-background text-foreground">
-            {/* Left Panel: Clean Interactive Password Recovery Form */}
-            <div className="flex flex-col justify-center items-center py-8 sm:py-12 px-6 sm:px-10 lg:px-12 xl:p-16 w-full min-h-dvh">
-                <div className="w-full max-w-md my-auto sm:mt-2 transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[340ms] ease-out">
-                    {/* Title Header */}
-                    <div className="space-y-1.5 mb-8">
-                        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
-                            Reset your password
-                        </h1>
-                        <p className="text-sm text-muted-foreground">
-                            We will send a secure recovery link to your email.
-                        </p>
-                    </div>
+    const captcha = requiresCaptcha ? (
+        <TurnstileWidget
+            key={captchaKey}
+            action="forgot-password"
+            onVerify={(token) => { setCaptchaToken(token); setError(null) }}
+            onExpire={() => setCaptchaToken(null)}
+        />
+    ) : null
 
-                    {sent ? (
-                        <div className="p-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-sm text-emerald-800 dark:text-emerald-200 flex items-start gap-3 animate-in fade-in-50 duration-[260ms]">
-                            <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                            <div className="space-y-1">
-                                <p className="font-medium">Reset link sent</p>
-                                <p className="text-emerald-700/90 dark:text-emerald-300/90 text-xs leading-relaxed">
-                                    If an account matches <span className="font-semibold">{email}</span>, you will receive an email shortly with recovery instructions. Please check your inbox and spam folder.
-                                </p>
-                            </div>
-                        </div>
-                    ) : (
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            {error && (
-                                <div
-                                    role="alert"
-                                    className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-start gap-2.5 animate-in fade-in-50 duration-[180ms]"
-                                >
-                                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                                    <span>{error}</span>
-                                </div>
-                            )}
-
-                            <div className="space-y-1.5">
-                                <label
-                                    htmlFor="email"
-                                    className="text-sm font-medium leading-none text-foreground"
-                                >
-                                    Email
-                                </label>
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    autoComplete="username email"
-                                    placeholder="name@example.com"
-                                    value={email}
-                                    onChange={(event) => {
-                                        setError(null)
-                                        setEmail(event.target.value)
-                                    }}
-                                    className="h-11 border-border/80 bg-background focus-visible:border-neutral-400 dark:focus-visible:border-neutral-500 focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-none"
-                                    required
-                                    disabled={isSubmitting}
-                                />
-                            </div>
-
-                            {requiresCaptcha ? (
-                                <div className="flex justify-center my-2">
-                                    <TurnstileWidget
-                                        action="forgot-password"
-                                        onVerify={(token) => {
-                                            setCaptchaToken(token)
-                                            setError(null)
-                                        }}
-                                        onExpire={() => setCaptchaToken(null)}
-                                    />
-                                </div>
-                            ) : null}
-
-                            <Button
-                                type="submit"
-                                className="w-full h-11 font-medium shadow-none transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[260ms]"
-                                disabled={isSubmitting}
-                            >
-                                {isSubmitting ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Sending reset link...
-                                    </>
-                                ) : (
-                                    'Send reset link'
-                                )}
-                            </Button>
-                        </form>
-                    )}
-
-                    {/* Footer */}
-                    <div className="mt-8 pt-6 border-t border-border/40 text-center space-y-4">
-                        <p className="text-sm text-muted-foreground">
-                            Back to{' '}
-                            <Link
-                                href="/login"
-                                className="text-primary font-medium hover:underline underline-offset-4"
-                            >
-                                Sign in
-                            </Link>
-                        </p>
-                        <LegalLinks className="text-[11px] text-muted-foreground/80" showCopyright />
+    if (sent) {
+        return (
+            <AuthShell
+                title="Check your email"
+                description={<>If an account exists for <span className="font-medium text-foreground">{email.trim()}</span>, a reset link is on its way. It can take a minute, so check spam too.</>}
+                panel={RECOVERY_PANEL}
+            >
+                <div className="nb-auth-step space-y-4">
+                    {error ? <AuthAlert tone="error">{error}</AuthAlert> : null}
+                    <Button asChild className="h-11 w-full font-medium"><Link href="/login">Back to sign in</Link></Button>
+                    {cooldown === 0 ? captcha : null}
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                        <button type="button" className="min-h-11 text-muted-foreground hover:text-foreground" onClick={() => { setSent(false); setError(null) }}>
+                            Use a different email
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => void sendLink()}
+                            disabled={cooldown > 0 || isSubmitting}
+                            className="min-h-11 font-medium text-primary underline-offset-4 hover:underline disabled:font-normal disabled:text-muted-foreground disabled:no-underline"
+                        >
+                            {isSubmitting ? 'Sending…' : cooldown > 0 ? `Resend link in ${cooldown}s` : 'Resend link'}
+                        </button>
                     </div>
                 </div>
-            </div>
+            </AuthShell>
+        )
+    }
 
-            {/* Right Panel: Reusable Kinetic Ambient Canvas */}
-            <AuthAmbientCanvas />
-        </main>
+    return (
+        <AuthShell
+            title="Reset your password"
+            description="Enter your account email and we'll send you a link to choose a new password."
+            panel={RECOVERY_PANEL}
+            footer={<>Remembered it? <Link href="/login" className={AUTH_LINK}>Sign in</Link></>}
+        >
+            <form onSubmit={(event: FormEvent) => { event.preventDefault(); void sendLink() }} className="space-y-4" noValidate>
+                {error ? <AuthAlert tone="error">{error}</AuthAlert> : null}
+                <AuthField id="email" label="Email" error={emailError}>
+                    <Input
+                        ref={emailRef}
+                        id="email"
+                        type="email"
+                        autoComplete="username email"
+                        placeholder="you@example.com"
+                        value={email}
+                        onChange={(event) => { setError(null); setEmailError(null); setEmail(event.target.value) }}
+                        className={AUTH_INPUT}
+                        disabled={isSubmitting}
+                        {...fieldError('email', emailError)}
+                    />
+                </AuthField>
+                {captcha}
+                <SubmitButton busy={isSubmitting} busyLabel="Sending link…">Send reset link</SubmitButton>
+            </form>
+        </AuthShell>
     )
 }
