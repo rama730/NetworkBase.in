@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, Suspense } from "react";
-import { LogOut, Menu, Plus, Scale, Search, Share2, Smile, UserRound } from "lucide-react";
+import { LogOut, Menu, Plus, Scale, Search, Settings, Share2, Smile, UserRound } from "lucide-react";
 import Logo from "./Logo";
 import {
     DropdownMenu,
@@ -292,11 +292,20 @@ export default function TopNav() {
                                         </DropdownMenuItem>
                                         <DropdownMenuItem asChild>
                                             <Link
-                                                href="/settings?tab=privacy-policies"
+                                                href={ROUTES.SETTINGS}
+                                                className="nb-touch-target flex h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-[5px] px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted focus:bg-muted focus:text-foreground"
+                                            >
+                                                <Settings className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                                                <span>Settings</span>
+                                            </Link>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem asChild>
+                                            <Link
+                                                href="/settings#settings-privacy-policies"
                                                 className="nb-touch-target flex h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-[5px] px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted focus:bg-muted focus:text-foreground"
                                             >
                                                 <Scale className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                                                <span>Legal & Policies</span>
+                                                <span>Legal and data</span>
                                             </Link>
                                         </DropdownMenuItem>
                                         <DropdownMenuItem

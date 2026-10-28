@@ -31,10 +31,10 @@ function calculateStrength(password: string, result: PasswordPolicyResult): Stre
 
     const strengthLevels: Record<number, Omit<StrengthResult, "score">> = {
         0: { label: "", color: "text-muted-foreground", bgColor: "bg-muted" },
-        1: { label: "Weak", color: "text-red-600", bgColor: "bg-red-500" },
-        2: { label: "Fair", color: "text-orange-600", bgColor: "bg-orange-500" },
-        3: { label: "Good", color: "text-yellow-600", bgColor: "bg-yellow-500" },
-        4: { label: "Strong", color: "text-green-600", bgColor: "bg-green-500" },
+        1: { label: "Weak", color: "text-[var(--status-danger)]", bgColor: "bg-[var(--status-danger)]" },
+        2: { label: "Fair", color: "text-[var(--status-warning)]", bgColor: "bg-[var(--status-warning)]" },
+        3: { label: "Good", color: "text-[var(--status-warning)]", bgColor: "bg-[var(--status-warning)]" },
+        4: { label: "Strong", color: "text-[var(--status-success)]", bgColor: "bg-[var(--status-success)]" },
     };
 
     return { score, ...(strengthLevels[score] as Omit<StrengthResult, "score">) };
@@ -62,7 +62,7 @@ export function PasswordStrengthMeter({
 
     return (
         <div className="space-y-2">
-            <div className="flex gap-1">
+            <div className="flex gap-1" role="progressbar" aria-label="Password strength" aria-valuemin={0} aria-valuemax={4} aria-valuenow={strength.score} aria-valuetext={strength.label || undefined}>
                 {[1, 2, 3, 4].map((level) => (
                     <div
                         key={level}
@@ -75,11 +75,11 @@ export function PasswordStrengthMeter({
             </div>
 
             <div className="flex items-center justify-between">
-                <span className={`text-xs font-medium ${strength.color}`}>
+                <span role="status" className={`nb-meta font-medium ${strength.color}`}>
                     {strength.label}
                 </span>
                 {guidance ? (
-                    <span className="text-xs text-muted-foreground">
+                    <span className="nb-meta text-muted-foreground">
                         {guidance}
                     </span>
                 ) : null}

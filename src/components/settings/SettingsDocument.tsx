@@ -25,9 +25,10 @@ function DocumentSection({
     <section
       id={id}
       data-settings-section
+      aria-labelledby={`${id}-heading`}
       className="scroll-mt-6 space-y-8"
     >
-      <SettingsPageHeader title={title} description={description} level={2} />
+      <SettingsPageHeader title={title} description={description} level={2} headingId={`${id}-heading`} />
       {children}
     </section>
   );
@@ -62,21 +63,16 @@ export default function SettingsDocument() {
             <IntegrationsSettings embedded />
           </DocumentSection>
 
-          <DocumentSection
-            id="settings-privacy-policies"
-            title="Legal and data rights"
-            description="Review current terms and manage your account data rights."
-          >
+          <DocumentSection id="settings-privacy-policies" {...SETTINGS_SECTION_META["privacy-policies"]}>
             <LegalAndDataRightsSection />
           </DocumentSection>
 
-          <section
-            id="settings-delete-account"
-            className="scroll-mt-6"
-          >
+          <DocumentSection id="settings-delete-account" title="Delete account" description="Permanently remove your account and its data.">
             <AccountDeletionSettings />
-          </section>
+          </DocumentSection>
         </div>
+        {/* Room below the last short sections, so each can scroll to the top when chosen in the nav. */}
+        <div aria-hidden="true" className="h-[50vh]" />
       </div>
     </OpenSettingsSections>
   );

@@ -95,5 +95,5 @@ test("Skeleton architectural contract: Settings loading CSS purge hygiene", () =
 
     // No dynamically evaluated class template strings
     assert.doesNotMatch(settingsLoading, /className=\{`h-10 \$\{width\} rounded-md`\}/);
-    assert.match(settingsLoading, /NAV_ITEM_SKELETONS/);
+    assert.match(settingsLoading, /SETTINGS_SECTIONS\.map/, "the fallback has one block per settings section");
 });

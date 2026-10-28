@@ -108,7 +108,7 @@ export default function PasswordManagementSection({
 
   const content = (
     <>
-      <div className="space-y-4" data-testid="security-password-section">
+      <div id="settings-security-password" className="scroll-mt-6 space-y-4" data-testid="security-password-section">
         <div className="flex min-h-16 flex-col justify-center gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <h4 className="nb-ui-label text-foreground">Password</h4>

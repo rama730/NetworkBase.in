@@ -13377,6 +13377,37 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
             project-settings consumers and the Messages system retain their
             existing presentation and behavior.
           </p>
+          <p>
+            Settings addresses and navigation (2026-10). The page stays one
+            document, and a section is a #hash on it (/settings#settings-security),
+            with deeper anchors inside a section (…#settings-security-sessions).
+            The older ?tab= form still lands on its section and is rewritten to the
+            hash. Choosing a nav item, or following a link, updates the address,
+            scrolls to the section, keeps it in place while its content loads
+            (until the person scrolls), and moves focus to the section heading.
+            The highlight follows the section nearest the top. Reduce motion (the
+            in-app setting and the system one) turns smooth scrolling off. Delete
+            account is the last nav item, styled as a danger action. On phones the
+            nav is a single row of chips. The section names are one set everywhere
+            (nav, headings, search, user menu): Account, Security, Privacy,
+            Notifications, Appearance, Integrations, Legal and data, Delete account.
+            The older 200px-nav-and-cards layout in Pattern G is superseded by this
+            section.
+          </p>
+          <p>
+            Controls. A choice among a few options that applies at once is a radio
+            group (labelled group, one tab stop, arrow keys move focus, Space or
+            Enter picks); it shows a filled dot and a border, never a shadow. A
+            switch is 38×22, shows On or Off text, and while its save runs it stays
+            in the tab order and ignores further taps. Security and Privacy open
+            with a one-line status row (password, authenticator, devices; profile,
+            messages, requests, blocked), each item linking to its control. A
+            section that cannot load shows one error with Retry and no controls
+            built from defaults. Actions that cannot be undone, or that make a long
+            lived credential, need a fresh verification, and an account that has an
+            authenticator must use it (not just a password). Editor tokens end when
+            the password changes or deletion is scheduled.
+          </p>
           <div class="table-wrap">
             <table>
               <thead>

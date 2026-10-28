@@ -210,7 +210,7 @@ export function LegalAndDataRightsSection() {
       {/* 3. Data Portability */}
       <div className="my-6 border-t border-border" />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div id="settings-privacy-policies-export" className="flex scroll-mt-6 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="max-w-xl">
           <h4 className="nb-ui-label text-foreground">Export account data</h4>
           <p className="nb-compact mt-0.5 text-muted-foreground">

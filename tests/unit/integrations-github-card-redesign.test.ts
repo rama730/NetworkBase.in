@@ -105,14 +105,15 @@ describe("GitHub Card Redesign & Integrations Settings Contract", () => {
     assert.ok(!content.includes("<summary"), "Must not have <summary> tag");
 
     // Must display active commit author
-    assert.ok(content.includes("Active commit author:"), "Must display active commit author label");
+    assert.ok(content.includes("Commit author:"), "Must display the commit author label");
 
     // Redundant 'Select another verified email' button must be removed to avoid confusion
     assert.ok(!content.includes("Select another verified email"), "Must remove redundant 'Select another verified email' button");
 
     // Must render privacy-safe noreply badge and connected status
     assert.ok(content.includes("Privacy-safe noreply"), "Must display privacy-safe noreply badge");
-    assert.ok(content.includes("Connected"), "Must display Connected badge");
+    // Honest status: an address only derived from the sign-in is not called connected or verified.
+    assert.ok(content.includes("From your GitHub sign-in") && content.includes("Chosen"), "Must say whether the address was chosen or derived");
   });
 
   it("API route selects cloned repos and synced connections with high-performance query", () => {

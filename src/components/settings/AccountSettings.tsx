@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { toast } from "@/lib/feedback";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,9 @@ export default function AccountPage({ embedded = false }: { embedded?: boolean }
       pending: false,
     });
   };
+
+  const providers = Array.from(new Set((user?.identities ?? []).map((identity) => identity.provider))).map((provider) => provider === "email" ? "Email and password" : provider.charAt(0).toUpperCase() + provider.slice(1));
+  const emailVerified = Boolean(user?.email_confirmed_at);
 
   const handleClearCache = async () => {
     setIsClearingCache(true);
@@ -64,8 +68,13 @@ export default function AccountPage({ embedded = false }: { embedded?: boolean }
         >
           <div className="divide-y divide-border">
             <SettingsRow title="Name" right={<span className="nb-compact text-foreground">{profile?.fullName || normalizeIdentityFields(user?.user_metadata).fullName || "Not set"}</span>} />
-            <SettingsRow title="Email" right={<span className="nb-compact text-foreground">{profile?.email || user?.email || "Not available"}</span>} />
-            <SettingsRow title="Username" right={<span className="nb-meta text-foreground">{profile?.username ? `@${profile.username}` : profile ? "Not set" : "…"}</span>} />
+            <SettingsRow title="Email" right={<span className="nb-compact break-all text-foreground">{profile?.email || user?.email || "Not available"}{user?.email ? <span className="ml-2 nb-meta text-muted-foreground">{emailVerified ? "Verified" : "Not verified"}</span> : null}</span>} />
+            <SettingsRow title="Username" right={<span className="nb-meta text-foreground">{profile?.username ? `@${profile.username}` : profile ? "Not set" : <><span aria-hidden="true">…</span><span className="sr-only">Loading</span></>}</span>} />
+            <SettingsRow title="Sign-in methods" description="Add or remove them in Security and Integrations." right={<span className="nb-compact text-foreground">{providers.length ? providers.join(", ") : "None"}</span>} />
+          </div>
+          <div className="mt-3">
+            <Button asChild variant="outline" size="sm" className="pointer-coarse:h-11"><Link href="/my-profile/edit">Edit your profile</Link></Button>
+            <span className="ml-3 nb-meta text-muted-foreground">Name and username are changed on your profile.</span>
           </div>
         </SettingsSectionCard>
 
@@ -78,7 +87,7 @@ export default function AccountPage({ embedded = false }: { embedded?: boolean }
             description="NetworkBase downloads these files again when they are needed."
             right={
               <Button variant="outline" onClick={() => void handleClearCache()} disabled={isClearingCache}>
-                {isClearingCache ? <Loader2 className="size-4 animate-spin" /> : <Database className="size-4" />}
+                {isClearingCache ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Database className="size-4" aria-hidden="true" />}
                 {isClearingCache ? "Clearing…" : "Clear cache"}
               </Button>
             }
@@ -90,15 +99,15 @@ export default function AccountPage({ embedded = false }: { embedded?: boolean }
           description="Safely sign out of your account on this device."
         >
           <SettingsRow
-            title="Active session"
-            description="You will be signed out on this device. Unsaved offline changes or drafts may be lost."
+            title="This device"
+            description="You will be signed out here only. Unsaved offline changes or drafts may be lost."
             right={
               <Button
                 variant="outline"
-                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                className="text-[var(--status-danger)] hover:bg-[var(--status-danger-soft)] hover:text-[var(--status-danger)]"
                 onClick={() => setShowSignOutConfirm(true)}
               >
-                <LogOut className="size-4" />
+                <LogOut className="size-4" aria-hidden="true" />
                 Sign out
               </Button>
             }

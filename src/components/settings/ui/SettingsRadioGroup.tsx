@@ -31,6 +31,7 @@ export function SettingsRadioGroup<T extends string>({
   optionsClassName,
   renderOption,
   testIdPrefix,
+  id,
 }: {
   label: string;
   description?: string;
@@ -44,6 +45,8 @@ export function SettingsRadioGroup<T extends string>({
   renderOption?: (option: SettingsRadioOption<T>, state: { selected: boolean }) => ReactNode;
   /** Puts `data-testid="<prefix>-<value>"` on each option. */
   testIdPrefix?: string;
+  /** An anchor for links and search (`#settings-<section>-<name>`). */
+  id?: string;
 }) {
   const labelId = useId();
   const descriptionId = useId();
@@ -59,7 +62,7 @@ export function SettingsRadioGroup<T extends string>({
   };
 
   return (
-    <div className={className}>
+    <div id={id} className={cn(id && "scroll-mt-6", className)}>
       <h4 id={labelId} className="nb-ui-label text-foreground">{label}</h4>
       {description ? <p id={descriptionId} className="nb-compact mt-1 text-muted-foreground">{description}</p> : null}
       <div
