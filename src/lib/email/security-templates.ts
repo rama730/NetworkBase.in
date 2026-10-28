@@ -20,7 +20,7 @@ type Link = { label: string; href: string };
 type Parts = { subject: string; preview: string; label: string; headline: string; paragraphs: string[]; primary: Link; secondary?: Link | null };
 
 export const SECURITY_EMAIL_KINDS: readonly SecurityEmailKind[] = [
-  "security_password_changed", "security_mfa_changed", "security_token_created",
+  "security_password_changed", "security_mfa_changed", "security_token_created", "security_sessions_revoked",
   "account_deletion_scheduled", "account_deletion_cancelled", "account_deletion_reminder",
 ];
 export const isSecurityEmailKind = (kind: string): kind is SecurityEmailKind => (SECURITY_EMAIL_KINDS as readonly string[]).includes(kind);
@@ -68,6 +68,15 @@ function partsFor(kind: SecurityEmailKind, data: SecurityEmailData, url: (path: 
         paragraphs: [`${when ? `On ${when}, a` : "A"} manual editor token${data.detail ? ` (“${oneLine(data.detail, 80)}”)` : ""} was created. It signs in to your account from an editor for a year, until you revoke it.`, "If you didn't create it, revoke it in Settings > Integrations, then change your password."],
         primary: { label: "Review editor connections", href: url("/settings#settings-integrations-editors") }, secondary: notMe,
       };
+    case "security_sessions_revoked": {
+      const count = Number(data.detail);
+      return {
+        subject: "Your other devices were signed out", preview: "Every other device was signed out of your NetworkBase account.", label: "ACCOUNT SECURITY",
+        headline: "Your other devices were signed out",
+        paragraphs: [`${when ? `On ${when}, ` : ""}${Number.isFinite(count) && count > 0 ? `${count} other session${count === 1 ? " was" : "s were"}` : "Your other sessions were"} signed out, and editor tokens were revoked. You are still signed in here.`, notMeLine],
+        primary: review, secondary: notMe,
+      };
+    }
     case "account_deletion_scheduled": {
       const date = formatDate(data.hardDeleteAt);
       return {

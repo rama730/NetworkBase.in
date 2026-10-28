@@ -12,7 +12,6 @@ import { Input } from "@/components/ui/input";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { formatDateTime } from "@/lib/ui/date-formatting";
 import { isLooseUuid } from "@/lib/validations/uuid";
-import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader";
 import { SettingsRow } from "@/components/settings/ui/SettingsRow";
 import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
 import { SettingsSectionsSkeleton } from "@/components/settings/ui/SettingsSectionsSkeleton";
@@ -51,7 +50,7 @@ function QuietTimeField({ label, minute, onCommit }: { label: string; minute: nu
   </label>;
 }
 
-export default function NotificationsPage({ embedded = false }: { embedded?: boolean }) {
+export default function NotificationsPage() {
   const { data: preferences, isLoading, isError, refetch } = useNotificationPreferences();
   const updateMutation = useUpdateNotificationPreferences();
   const [permissionState, setPermissionState] = useState<BrowserNotificationPermissionState>("default");
@@ -178,8 +177,7 @@ export default function NotificationsPage({ embedded = false }: { embedded?: boo
     push: pushStatus === "unsupported" ? "This browser doesn't support web push." : pushStatus === "denied" ? "Push permission is blocked in browser settings." : "Deliver important updates and chat messages even when this tab is closed.",
   };
 
-  return <div className={embedded ? "space-y-8" : "space-y-6"}>
-    {!embedded ? <SettingsPageHeader title="Notifications" description="Choose which updates appear and how they reach you." /> : null}
+  return <div className="space-y-8">
     {/* Always in the layout, so saving never moves what is below it. */}
     <p role="status" className="flex h-5 items-center gap-2 nb-compact text-muted-foreground">{isSaving ? <><Loader2 className="size-4 animate-spin" aria-hidden="true" />Saving changes…</> : null}</p>
 

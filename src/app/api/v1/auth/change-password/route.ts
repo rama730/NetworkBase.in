@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { validateCsrf } from "@/lib/security/csrf";
-import { resolvePasswordCredentialState } from "@/lib/auth/account-identity";
+import { accountHasPassword as readAccountHasPassword } from "@/lib/auth/password-state";
 import {
   enforceRouteLimit,
   getRequestId,
@@ -9,7 +9,7 @@ import {
   logApiRoute,
   requireAuthenticatedUser,
 } from "@/app/api/v1/_shared";
-import { getLatestPasswordChangeAt, recordSecurityEvent } from "@/lib/security/audit";
+import { recordSecurityEvent } from "@/lib/security/audit";
 import { isEmailVerified } from "@/lib/auth/email-verification";
 import { getVerifiedTotpFactors, listSecurityMfaFactors } from "@/lib/security/mfa";
 import { verifyPasswordCredential } from "@/lib/security/password-auth";
@@ -195,8 +195,8 @@ export async function POST(request: Request) {
     return jsonError("Account is missing a verified email address", 400, "BAD_REQUEST");
   }
 
-  const passwordLastChangedAt = await getLatestPasswordChangeAt(authUser.id);
-  const accountHasPassword = resolvePasswordCredentialState(authUser, passwordLastChangedAt);
+  // The stored credential decides, not the activity log (which the person can clear and which is trimmed on a schedule).
+  const accountHasPassword = await readAccountHasPassword(authUser);
   if (accountHasPassword && !currentPassword) {
     logApiRoute(request, {
       requestId,

@@ -17,6 +17,7 @@ import { resolveSecurityStepUp } from "@/lib/security/step-up";
 import { resolveStepUpCapabilities } from "@/lib/security/step-up-capabilities";
 import { logger } from "@/lib/logger";
 import { queueSecurityEmail } from "@/lib/email/security-queue";
+import { recordSecurityEventFromHeaders } from "@/lib/security/audit-from-headers";
 import { z } from "zod";
 
 type ExtensionTokenAuthMethod = "web_login" | "manual_token";
@@ -249,7 +250,10 @@ export async function generateExtensionToken(
 
         logger.info("extension.token_created", { module: "extension", userId: user.id, method: authMethod, sessionId: session.id });
         // A browser sign-in from the editor is something the person just did; a hand-made token is a credential to know about.
-        if (authMethod === "manual_token") await queueSecurityEmail(user.id, "security_token_created", { detail: deviceName });
+        if (authMethod === "manual_token") {
+            await recordSecurityEventFromHeaders({ userId: user.id, eventType: "editor_token_created", metadata: { label: deviceName.slice(0, 120) } });
+            await queueSecurityEmail(user.id, "security_token_created", { detail: deviceName });
+        }
         return { success: true as const, rawToken, session };
     } catch (e) {
         console.error("Failed to generate extension token:", e);

@@ -40,27 +40,27 @@ export default function SettingsDocument() {
       <div data-settings-document className="mx-auto w-full max-w-4xl pb-16">
         <div className="space-y-16">
           <DocumentSection id="settings-account" {...SETTINGS_SECTION_META.account}>
-            <AccountSettings embedded />
+            <AccountSettings />
           </DocumentSection>
 
           <DocumentSection id="settings-security" {...SETTINGS_SECTION_META.security}>
-            <SecuritySettings embedded />
+            <SecuritySettings />
           </DocumentSection>
 
           <DocumentSection id="settings-privacy" {...SETTINGS_SECTION_META.privacy}>
-            <PrivacySettings embedded />
+            <PrivacySettings />
           </DocumentSection>
 
           <DocumentSection id="settings-notifications" {...SETTINGS_SECTION_META.notifications}>
-            <NotificationsSettings embedded />
+            <NotificationsSettings />
           </DocumentSection>
 
           <DocumentSection id="settings-appearance" {...SETTINGS_SECTION_META.appearance}>
-            <AppearanceSettings embedded />
+            <AppearanceSettings />
           </DocumentSection>
 
           <DocumentSection id="settings-integrations" {...SETTINGS_SECTION_META.integrations}>
-            <IntegrationsSettings embedded />
+            <IntegrationsSettings />
           </DocumentSection>
 
           <DocumentSection id="settings-privacy-policies" {...SETTINGS_SECTION_META["privacy-policies"]}>

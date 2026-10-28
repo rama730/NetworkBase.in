@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { Monitor, Moon, RotateCcw, Sun } from "lucide-react";
 import { useAppearance, useTheme } from "@/components/providers/theme-provider";
 import { Button } from "@/components/ui/button";
-import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader";
 import { SettingsRadioGroup } from "@/components/settings/ui/SettingsRadioGroup";
 import { SettingsRow } from "@/components/settings/ui/SettingsRow";
 import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
@@ -25,14 +24,14 @@ const DENSITY_OPTIONS = (Object.entries(DENSITY_LABELS) as Array<[Density, { lab
 /** A little list in each density's own spacing, so the choice can be seen before it is made. */
 const DENSITY_PREVIEW_GAP: Record<Density, string> = { compact: "gap-0.5", default: "gap-1", comfortable: "gap-1.5" };
 
-export default function AppearanceSettings({ embedded = false }: { embedded?: boolean }) {
+export default function AppearanceSettings() {
   const { theme, resolvedTheme, setThemeWithTransition } = useTheme();
   const { accentColor, setAccentColor, density, setDensity, reduceMotion, setReduceMotion, systemReduceMotion, syncState, lastSyncedAt, resetAppearance, retrySync } = useAppearance();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
   if (!mounted) {
-    return <div className={embedded ? "space-y-8" : "space-y-4 pb-10"}>{!embedded ? <SettingsPageHeader title="Appearance" description="Customize theme, color, density, and motion." /> : null}<SettingsSectionsSkeleton /></div>;
+    return <div className="space-y-8"><SettingsSectionsSkeleton /></div>;
   }
 
   const isDefaultAppearance = theme === DEFAULT_APPEARANCE_SNAPSHOT.theme && accentColor === DEFAULT_APPEARANCE_SNAPSHOT.accentColor && density === DEFAULT_APPEARANCE_SNAPSHOT.density && reduceMotion === DEFAULT_APPEARANCE_SNAPSHOT.reduceMotion;
@@ -43,8 +42,7 @@ export default function AppearanceSettings({ embedded = false }: { embedded?: bo
     : "Saved on this device";
   const canRetry = syncState === "save_failed" || syncState === "queued";
 
-  return <div className={embedded ? "space-y-8" : "space-y-6 pb-10"}>
-    {!embedded ? <SettingsPageHeader title="Appearance" description="Customize theme, color, density, and motion." /> : null}
+  return <div className="space-y-8">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <p role="status" className={cn("flex flex-wrap items-center gap-2 nb-compact text-muted-foreground", syncState === "save_failed" && "text-destructive")}>
         {syncMessage}

@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 import dynamic from "next/dynamic";
-import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader";
 import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
 import { SettingsSectionsSkeleton } from "@/components/settings/ui/SettingsSectionsSkeleton";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
@@ -22,9 +21,9 @@ function SecuritySectionsSkeleton() {
     return <SettingsSectionsSkeleton count={3} />;
 }
 
-export default function SecurityPage({ embedded = false }: { embedded?: boolean }) {
+export default function SecurityPage() {
     const { user } = useAuth();
-    const { data: securityData, isLoading, error, refetch } = useSecurityData({ hardeningEnabled: true });
+    const { data: securityData, isLoading, error, refetch } = useSecurityData();
     const securityErrorMessage = error ? (error instanceof Error ? error.message : String(error)) : null;
     const passwordAvailable = Boolean(securityData?.password?.hasPassword || hasPasswordCredential(user));
     const verifiedTotpFactors = (securityData?.mfaFactors ?? []).filter(
@@ -46,26 +45,14 @@ export default function SecurityPage({ embedded = false }: { embedded?: boolean 
 
     if (isLoading) {
         return (
-            <div className={embedded ? "space-y-8" : "space-y-6"} data-hardening-security="v1">
-                {!embedded ? (
-                    <SettingsPageHeader
-                        title="Security"
-                        description="Protect your account with an authenticator app, manage your fallback password, and review recent activity."
-                    />
-                ) : null}
+            <div className="space-y-8">
                 <SecuritySectionsSkeleton />
             </div>
         );
     }
 
     return (
-        <div className={embedded ? "space-y-8" : "space-y-6"} data-hardening-security="v1">
-            {!embedded ? (
-                <SettingsPageHeader
-                    title="Security"
-                    description="Protect your account with an authenticator app, manage your fallback password, and review recent activity."
-                />
-            ) : null}
+        <div className="space-y-8">
 
             {/* Without the data there is nothing true to show: no sections built from defaults beside an error. */}
             {securityErrorMessage && !securityData ? (
@@ -97,7 +84,6 @@ export default function SecurityPage({ embedded = false }: { embedded?: boolean 
                 </div>
                 <div className="my-6 border-t border-border" />
                 <PasswordManagementSection
-                    embedded
                     hasPassword={passwordAvailable}
                     lastChangedAt={securityData?.password?.lastChangedAt}
                     availableStepUpMethods={passwordStepUpMethods}

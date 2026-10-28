@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatDateTime } from "@/lib/ui/date-formatting";
-import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
 import { PasswordStrengthMeter } from "@/components/settings/PasswordStrengthMeter";
 import SecurityStepUpDialog from "@/components/settings/SecurityStepUpDialog";
 import { useChangePassword } from "@/hooks/useSettingsQueries";
@@ -20,7 +19,6 @@ import type { SecurityData } from "@/types/settingsTypes";
 type SecurityStepUpMethod = "totp" | "recovery_code";
 
 type PasswordManagementSectionProps = {
-  embedded?: boolean;
   hasPassword: boolean;
   lastChangedAt?: string;
   availableStepUpMethods: SecurityStepUpMethod[];
@@ -28,7 +26,6 @@ type PasswordManagementSectionProps = {
 };
 
 export default function PasswordManagementSection({
-  embedded = false,
   hasPassword,
   lastChangedAt,
   availableStepUpMethods,
@@ -49,9 +46,6 @@ export default function PasswordManagementSection({
 
   const isChangingPassword = changePasswordMutation.isPending;
   const title = hasPassword ? "Change password" : "Set a password";
-  const description = hasPassword
-    ? "Manage the password used with this account."
-    : "Add a password so email sign-in is available on this account.";
   const statusLabel = hasPassword ? "Password set" : "No password set";
   const helperCopy = hasPassword
     ? `Use at least ${PASSWORD_MIN_LENGTH} characters.`
@@ -266,11 +260,5 @@ export default function PasswordManagementSection({
     </>
   );
 
-  if (embedded) return content;
-
-  return (
-    <SettingsSectionCard title="Password" description={description}>
-      {content}
-    </SettingsSectionCard>
-  );
+  return content;
 }

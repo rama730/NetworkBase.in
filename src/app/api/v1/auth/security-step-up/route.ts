@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { validateCsrf } from "@/lib/security/csrf";
-import { resolvePasswordCredentialState } from "@/lib/auth/account-identity";
+import { accountHasPassword } from "@/lib/auth/password-state";
 import { db } from "@/lib/db";
 import { profileSecurityStates, recoveryCodeRedemptions } from "@/lib/db/schema";
 import {
@@ -21,7 +21,7 @@ import {
   countRemainingRecoveryCodes,
   parseStoredRecoveryCodes,
 } from "@/lib/security/recovery-codes";
-import { getLatestPasswordChangeAt, recordSecurityEvent } from "@/lib/security/audit";
+import { recordSecurityEvent } from "@/lib/security/audit";
 import { verifyPasswordCredential } from "@/lib/security/password-auth";
 import { getVerifiedTotpFactors, listSecurityMfaFactors } from "@/lib/security/mfa";
 
@@ -380,8 +380,7 @@ export async function POST(request: Request) {
       if (!password.trim()) {
         return jsonError("Enter your current password", 400, "BAD_REQUEST");
       }
-      const passwordLastChangedAt = await getLatestPasswordChangeAt(user.id);
-      if (!user.email || !resolvePasswordCredentialState(user, passwordLastChangedAt)) {
+      if (!user.email || !(await accountHasPassword(user))) {
         return jsonError("Password verification is not available for this account", 400, "BAD_REQUEST");
       }
 

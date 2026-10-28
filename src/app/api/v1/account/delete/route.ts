@@ -12,6 +12,7 @@ import { resolveStepUpCapabilities } from '@/lib/security/step-up-capabilities';
 import { queueCounterRefreshBestEffort } from '@/lib/workspace/counter-buffer';
 import { revokeAllExtensionSessionsForUser } from '@/lib/security/extension-token-revocation';
 import { queueSecurityEmail } from '@/lib/email/security-queue';
+import { recordSecurityEvent } from '@/lib/security/audit';
 
 const ACCOUNT_DELETE_CONFIRM_TEXT = 'DELETE';
 // Accounts with no password, authenticator or recovery code prove possession by a fresh sign-in.
@@ -134,6 +135,7 @@ export async function DELETE(request: Request) {
         });
         if (!result.ok) return fail('Account deletion is already scheduled', 409, 'CONFLICT');
 
+        await recordSecurityEvent({ userId: user.id, eventType: 'account_deletion_scheduled', request, metadata: { hardDeleteAt: result.hardDeleteAt.toISOString() } }).catch(() => undefined);
         await queueSecurityEmail(user.id, 'account_deletion_scheduled', { hardDeleteAt: result.hardDeleteAt.toISOString() }, `${result.deletionId}:scheduled`);
 
         if (result.affectedUserIds.length > 0) {
