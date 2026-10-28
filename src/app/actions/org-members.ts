@@ -11,6 +11,7 @@ import { notifyNewCopies } from '@/lib/organizations/assignment-notify';
 import { copyState } from '@/lib/organizations/assignment-rules';
 import { createCopiesForNewMember } from '@/lib/organizations/assignments';
 import { ORG_LIMITS } from '@/lib/organizations/config';
+import { orgMemberCap } from '@/lib/organizations/join-rules';
 import { acceptOrgInvite, ledChildProjects, notifySeatsReopened, openInvitesFor, removeFromOrg } from '@/lib/organizations/members';
 import { memberChangeBlock, memberStatus, parseInviteEmails, workSummary, type OrgMemberRole, type RosterRow } from '@/lib/organizations/member-rules';
 import { addProjectMemberInternal, changeProjectMemberRoleInternal } from '@/lib/projects/collaborator-lifecycle';
@@ -37,11 +38,6 @@ async function orgManager(orgId: string, mode: 'read' | 'write' = 'write'): Prom
 
 const touch = (slug: string | null, id: string) => revalidatePath(`/org/${slug ?? id}`);
 
-function parseMax(value: string | null) {
-    const n = value ? Number.parseInt(value, 10) : NaN;
-    return Number.isFinite(n) && n > 0 ? n : null;
-}
-
 async function rolesOf(orgId: string, ownerId: string, userIds: string[]) {
     const rows = await db.select({ userId: projectMembers.userId, role: projectMembers.role }).from(projectMembers)
         .where(and(eq(projectMembers.projectId, orgId), inArray(projectMembers.userId, userIds)));
@@ -56,6 +52,8 @@ export type OrgMembersData = {
     requests: Array<{ id: string; userId: string; name: string; note: string | null; createdAt: string }>;
     invites: Array<{ id: string; email: string; role: string; title: string | null; expiresAt: string }>;
     children: Array<{ id: string; title: string; units: Array<{ id: string; title: string }> }>;
+    /** People in child projects who aren't in the org (report §20.2 Status: Outside people). */
+    outside: Array<{ userId: string; name: string; username: string | null; projects: string[] }>;
     summary: { members: number; admins: number; guests: number; behind: number; notInProject: number; inactive: number };
 };
 
@@ -120,6 +118,12 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
     const emptyChildren = await db.select({ id: projects.id, title: projects.title }).from(projects)
         .where(and(eq(projects.parentId, orgId), isNull(projects.deletedAt)));
     for (const child of emptyChildren) if (!children.some((c) => c.id === child.id)) children.push({ id: child.id, title: child.title, units: units.filter((u) => u.projectId === child.id).map((u) => ({ id: u.id, title: u.title })) });
+    const outside = await db.execute<{ user_id: string; name: string | null; username: string | null; projects: string[] }>(sql`
+        SELECT m.user_id, coalesce(pr.full_name, pr.username) AS name, pr.username, json_agg(p.title ORDER BY p.title) AS projects
+        FROM project_members m JOIN projects p ON p.id = m.project_id AND p.parent_id = ${orgId} AND p.deleted_at IS NULL
+        JOIN profiles pr ON pr.id = m.user_id
+        WHERE NOT EXISTS (SELECT 1 FROM project_members o WHERE o.project_id = ${orgId} AND o.user_id = m.user_id) AND m.user_id <> ${viewer.ownerId}
+        GROUP BY m.user_id, pr.full_name, pr.username ORDER BY 2 LIMIT 500`);
 
     return {
         success: true,
@@ -129,6 +133,7 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
         requests: requests.map((r) => ({ id: r.id, userId: r.userId, name: r.name || r.username || 'Someone', note: r.note, createdAt: r.createdAt.toISOString() })),
         invites: invites.map((i) => ({ ...i, expiresAt: i.expiresAt.toISOString() })),
         children: children.sort((a, b) => a.title.localeCompare(b.title)),
+        outside: outside.map((o) => ({ userId: o.user_id, name: o.name || 'Someone', username: o.username, projects: o.projects })),
         summary: {
             members: rows.length,
             admins: rows.filter((r) => r.role === 'owner' || r.role === 'admin').length,
@@ -149,8 +154,8 @@ export async function approveJoinRequestsAction(orgId: string, applicationIds: s
         const pending = await tx.select({ id: roleApplications.id, userId: roleApplications.applicantId }).from(roleApplications)
             .where(and(eq(roleApplications.projectId, orgId), isNull(roleApplications.roleId), eq(roleApplications.status, 'pending'), inArray(roleApplications.id, applicationIds.slice(0, 500))));
         const [{ n } = { n: 0 }] = await tx.select({ n: sql<number>`count(*)::int` }).from(projectMembers).where(eq(projectMembers.projectId, orgId));
-        const max = parseMax(org?.max ?? null);
-        if (max !== null && n + pending.length > max) return { success: false as const, error: `This organization is full (${max} members). Raise Max members in Settings first.` };
+        const max = orgMemberCap(org?.max ?? null);
+        if (n + pending.length > max) return { success: false as const, error: `This organization is full (${max} members). Raise Max members in Settings first.` };
         const now = new Date();
         for (const request of pending) {
             await addProjectMemberInternal(tx, { projectId: orgId, userId: request.userId, role: 'member', actorId: viewer.userId, source: 'application_accept', applicationId: request.id });
@@ -299,8 +304,10 @@ export async function acceptOrgInviteAction(inviteId: string): Promise<{ success
     const { userId } = await getViewerAuthContext();
     if (!userId) return DENIED;
     const mine = (await openInvitesFor(userId)).some((i) => i.id === inviteId);
-    const orgId = mine ? await acceptOrgInvite(userId, inviteId) : null;
-    if (!orgId) return { success: false, error: 'That invite is no longer open.' };
+    const accepted = mine ? await acceptOrgInvite(userId, inviteId) : null;
+    if (accepted && 'full' in accepted) return { success: false, error: 'This organization is full. Ask an admin to raise Max members.' };
+    if (!accepted) return { success: false, error: 'That invite is no longer open.' };
+    const { orgId } = accepted;
     revalidatePath(`/projects/${orgId}`);
     await notifyJoined(orgId, userId, `${inviteId}:accepted`);
     return { success: true, orgId };
@@ -419,6 +426,46 @@ export async function addMembersToChildAction(orgId: string, childProjectId: str
 export type MemberWorkRow = { copyId: string; title: string; dueDate: string | null; state: string; late: boolean };
 
 /** The member drawer's Work list: their assignment copies with status (report §20.3). */
+export type MemberActivityRow = { at: string; what: string; task: string; project: string };
+
+/** Remind about missing work (report §20.6): one notice per person with what's still open, at most every 12 hours. */
+export async function remindMembersAction(orgId: string, userIds: string[]): Promise<{ success: true; reminded: number } | Failure> {
+    const viewer = await orgManager(orgId);
+    if (!viewer) return DENIED;
+    const [org] = await db.select({ id: projects.id, title: projects.title, slug: projects.slug }).from(projects).where(eq(projects.id, orgId)).limit(1);
+    if (!org || userIds.length === 0) return { success: true, reminded: 0 };
+    const open = await db.execute<{ user_id: string; n: number }>(sql`
+        SELECT u.user_id, count(DISTINCT c.id)::int AS n
+        FROM tasks c JOIN tasks m ON m.id = c.assignment_id
+        CROSS JOIN LATERAL (SELECT c.assignee_id AS user_id UNION SELECT tm.user_id FROM task_team_members tm WHERE tm.task_id = c.id) u
+        WHERE m.project_id = ${orgId} AND m.deleted_at IS NULL AND m.assignment_settings->>'publishedAt' IS NOT NULL AND m.assignment_settings->>'closedAt' IS NULL
+          AND c.deleted_at IS NULL AND c.excused_at IS NULL AND c.due_date IS NOT NULL
+          AND NOT (c.review_status IN ('pending', 'approved') OR c.status = 'done' OR c.submission IS NOT NULL)
+          AND u.user_id IN ${userIds.slice(0, ORG_LIMITS.membersPerOrg)}
+        GROUP BY u.user_id`);
+    const window = Math.floor(Date.now() / (12 * 3_600_000));
+    for (const row of open) {
+        await notifyOrg({
+            orgId, eventKey: 'assignments.due_changed', actorId: viewer.userId, to: [row.user_id],
+            title: `Reminder: ${row.n} ${row.n === 1 ? 'piece of work is' : 'pieces of work are'} still open in ${org.title}`,
+            href: orgHref(org, '?tab=tasks'), sourceEventId: `remind-member:${row.user_id}:${window}`,
+        });
+    }
+    return { success: true, reminded: open.length };
+}
+
+/** The drawer's Recent activity (report §20.3): their last 10 task events across the org and its child projects. */
+export async function readMemberActivityAction(orgId: string, userId: string): Promise<{ success: true; activity: MemberActivityRow[] } | Failure> {
+    const viewer = await orgManager(orgId, 'read');
+    if (!viewer) return DENIED;
+    const rows = await db.execute<{ at: string; event_type: string; task: string; project: string }>(sql`
+        SELECT e.created_at::text AS at, e.event_type, t.title AS task, p.title AS project
+        FROM task_activity_events e JOIN tasks t ON t.id = e.task_id JOIN projects p ON p.id = e.project_id
+        WHERE e.actor_id = ${userId} AND (p.id = ${orgId} OR p.parent_id = ${orgId}) AND p.deleted_at IS NULL
+        ORDER BY e.created_at DESC LIMIT 10`);
+    return { success: true, activity: rows.map((r) => ({ at: r.at, what: r.event_type.replace(/_/g, ' '), task: r.task, project: r.project })) };
+}
+
 export async function readMemberWorkAction(orgId: string, userId: string): Promise<{ success: true; work: MemberWorkRow[] } | Failure> {
     const viewer = await orgManager(orgId, 'read');
     if (!viewer) return DENIED;

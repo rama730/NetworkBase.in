@@ -10,11 +10,14 @@ import {
     changeMemberRoleAction,
     declineJoinRequestAction,
     inviteByEmailAction,
+    readMemberActivityAction,
     readMemberWorkAction,
     readOrgMembersAction,
+    remindMembersAction,
     removeMembersAction,
     resendOrgInviteAction,
     setMemberTitleAction,
+    type MemberActivityRow,
     type MemberWorkRow,
     type OrgMembersData,
 } from '@/app/actions/org-members'
@@ -27,6 +30,7 @@ import { filterRoster, type RosterFilter, type RosterRow } from '@/lib/organizat
 import { toast } from '@/lib/feedback'
 import { formatDistanceToNow } from '@/lib/utils/date'
 import { cn } from '@/lib/utils'
+import { messageUserInWindow } from '@/components/messages/message-user'
 
 // Members tab (report §20): roster with filters and bulk actions, Requests / Invite / summary rail, member drawer.
 
@@ -40,7 +44,7 @@ const workLine = (w: RosterRow['work']) => (w.total === 0 ? '—' : `${w.done} o
 export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?: RoleNames }) {
     const [data, setData] = useState<OrgMembersData | null>(null)
     const [error, setError] = useState<string | null>(null)
-    const [filter, setFilter] = useState<RosterFilter & { invited?: boolean }>({ sort: 'name' })
+    const [filter, setFilter] = useState<RosterFilter & { invited?: boolean; outside?: boolean }>({ sort: 'name' })
     const [selected, setSelected] = useState<Set<string>>(new Set())
     const [open, setOpen] = useState<Row | null>(null)
     const [pending, startTransition] = useTransition()
@@ -77,9 +81,13 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
                         <option value="all">All projects</option><option value="none">Not in a project</option>
                         {data.children.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
                     </select>
-                    <select aria-label="Status" className={select} value={filter.invited ? 'invited' : filter.status ?? 'all'}
-                        onChange={(e) => setFilter({ ...filter, invited: e.target.value === 'invited', status: e.target.value === 'invited' ? 'all' : (e.target.value as RosterFilter['status']) })}>
+                    <select aria-label="Status" className={select} value={filter.invited ? 'invited' : filter.outside ? 'outside' : filter.status ?? 'all'}
+                        onChange={(e) => {
+                            const v = e.target.value
+                            setFilter({ ...filter, invited: v === 'invited', outside: v === 'outside', status: v === 'invited' || v === 'outside' ? 'all' : (v as RosterFilter['status']) })
+                        }}>
                         <option value="all">Any status</option><option value="behind">Behind</option><option value="inactive">Inactive 14 days</option><option value="invited">Invited</option>
+                        <option value="outside">Outside people</option>
                     </select>
                     <select aria-label="Sort" className={select} value={filter.sort ?? 'name'} onChange={(e) => setFilter({ ...filter, sort: e.target.value as RosterFilter['sort'] })}>
                         <option value="name">Sort: Name</option><option value="behind">Behind first</option><option value="active">Last active</option><option value="joined">Joined</option>
@@ -90,7 +98,18 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
 
                 {ids.length > 0 ? <BulkBar orgId={orgId} data={data} ids={ids} pending={pending} run={run} onClear={() => setSelected(new Set())} /> : null}
 
-                {filter.invited ? (
+                {filter.outside ? (
+                    <ul className="divide-y divide-border rounded-lg border border-border" aria-label="Outside people">
+                        {data.outside.length === 0 ? <li className="p-4 text-sm text-muted-foreground">No outside people in child projects.</li> : null}
+                        {data.outside.map((o) => (
+                            <li key={o.userId} className="flex flex-wrap items-center gap-x-3 gap-y-1 p-3 text-sm">
+                                <span className="font-medium">{o.name}</span>
+                                <span className="rounded-[3px] border border-border px-1 text-[11px] text-muted-foreground">Outside</span>
+                                <span className="min-w-0 truncate text-muted-foreground">{o.projects.join(', ')}</span>
+                            </li>
+                        ))}
+                    </ul>
+                ) : filter.invited ? (
                     <ul className="divide-y divide-border rounded-lg border border-border">
                         {data.invites.length === 0 ? <li className="p-4 text-sm text-muted-foreground">No open invites.</li> : null}
                         {data.invites.map((i) => (
@@ -166,6 +185,7 @@ function BulkBar({ orgId, data, ids, pending, run, onClear }: { orgId: string; d
     return (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/30 p-2 text-sm" role="group" aria-label="Bulk actions">
             <span className="font-medium">{ids.length} selected</span>
+            <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => remindMembersAction(orgId, ids), 'Reminders sent to people with open work')}>Remind</Button>
             <select aria-label="Change role" className={select} value="" disabled={pending} onChange={(e) => {
                 const role = e.target.value as 'admin' | 'member' | 'viewer'
                 if (role) run(() => changeMemberRoleAction(orgId, ids, role), 'Roles changed')
@@ -279,8 +299,12 @@ function InviteBox({ orgId, data, pending, run, onCode }: { orgId: string; data:
 
 function MemberDrawer({ orgId, row, data, label, pending, run }: { orgId: string; row: Row; data: OrgMembersData; label: (role: string) => string; pending: boolean; run: Run }) {
     const [work, setWork] = useState<MemberWorkRow[] | null>(null)
+    const [activity, setActivity] = useState<MemberActivityRow[] | null>(null)
     const [title, setTitle] = useState(row.title ?? '')
-    useEffect(() => { void readMemberWorkAction(orgId, row.userId).then((r) => setWork(r.success ? r.work : [])) }, [orgId, row.userId])
+    useEffect(() => {
+        void readMemberWorkAction(orgId, row.userId).then((r) => setWork(r.success ? r.work : []))
+        void readMemberActivityAction(orgId, row.userId).then((r) => setActivity(r.success ? r.activity : []))
+    }, [orgId, row.userId])
     const canChange = row.role !== 'owner' && (data.viewerRole === 'owner' || row.role !== 'admin')
     return (
         <div className="space-y-5 text-sm">
@@ -288,7 +312,10 @@ function MemberDrawer({ orgId, row, data, label, pending, run }: { orgId: string
                 <p className="text-lg font-semibold">{row.name}</p>
                 <p className="text-muted-foreground">{label(row.role)}{row.title ? ` · ${row.title}` : ''}</p>
                 <p className="font-mono text-[11px] text-muted-foreground">Joined {ago(row.joinedAt)} · active {ago(row.lastActiveAt)}</p>
-                {row.username ? <Link href={`/u/${row.username}`} className="text-[13px] underline underline-offset-4">View profile</Link> : null}
+                <p className="flex gap-3 text-[13px]">
+                    {row.username ? <Link href={`/u/${row.username}`} className="underline underline-offset-4">View profile</Link> : null}
+                    <Link href={`/messages?userId=${row.userId}`} onClick={(e) => messageUserInWindow(row.userId, e)} className="underline underline-offset-4">Message</Link>
+                </p>
             </header>
             <section className="space-y-1.5">
                 <h4 className="font-semibold">Work</h4>
@@ -316,6 +343,19 @@ function MemberDrawer({ orgId, row, data, label, pending, run }: { orgId: string
             <section className="space-y-1">
                 <h4 className="font-semibold">Projects &amp; units</h4>
                 {row.projects.length === 0 ? <p className="text-muted-foreground">Not in a project.</p> : row.projects.map((p) => <p key={p.id}>{p.title}{p.unit ? ` · ${p.unit}` : ''}</p>)}
+            </section>
+            <section className="space-y-1.5">
+                <h4 className="font-semibold">Recent activity</h4>
+                {activity === null ? <p className="text-muted-foreground">Loading…</p> : activity.length === 0 ? <p className="text-muted-foreground">Nothing recent.</p> : (
+                    <ul className="space-y-1 text-[13px]">
+                        {activity.map((a, i) => (
+                            <li key={i} className="flex justify-between gap-2">
+                                <span className="min-w-0 truncate">{a.what} · {a.task} <span className="text-muted-foreground">in {a.project}</span></span>
+                                <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{ago(a.at)}</span>
+                            </li>
+                        ))}
+                    </ul>
+                )}
             </section>
             <section className="space-y-2">
                 <h4 className="font-semibold">Membership</h4>

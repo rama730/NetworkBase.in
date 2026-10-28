@@ -145,7 +145,9 @@ export async function readNetworkInvitationsAction(
                     CASE WHEN c.requester_id=${user.id}::uuid THEN c.addressee_id ELSE c.requester_id END AS actor_id
                 FROM connections c WHERE c.status='pending' AND (c.requester_id=${user.id}::uuid OR c.addressee_id=${user.id}::uuid)
                 UNION ALL
-                SELECT i.id,'invitation',CASE WHEN i.inviter_id=${user.id}::uuid THEN 'sent' ELSE 'received' END,i.created_at,i.note,i.project_id,p.title,p.slug,
+                SELECT i.id,'invitation',CASE WHEN i.inviter_id=${user.id}::uuid THEN 'sent' ELSE 'received' END,i.created_at,i.note,i.project_id,
+                    -- A child project's invitation names its org too: "Compiler Lab · CSE-3A" (report §20, unit labels).
+                    p.title||coalesce(' · '||(SELECT o.title FROM projects o WHERE o.id=p.parent_id AND o.deleted_at IS NULL),''),p.slug,
                     coalesce(i.role_title,i.guidance_label,'Collaborator'),NULL,NULL,NULL,NULL,NULL,CASE WHEN i.inviter_id=${user.id}::uuid THEN i.candidate_id ELSE i.inviter_id END
                 FROM project_invitations i JOIN projects p ON p.id=i.project_id
                 WHERE i.status='pending' AND i.expires_at>now() AND p.deleted_at IS NULL AND (i.inviter_id=${user.id}::uuid OR i.candidate_id=${user.id}::uuid)

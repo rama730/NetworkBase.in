@@ -277,11 +277,13 @@ async function fetchProjectDetailShellData(
           username: profiles.username,
           fullName: profiles.fullName,
           avatarUrl: profiles.avatarUrl,
-          totalCount: sql<number>`count(*) over ()::int`,
+          // The count stays the full number even when people hide themselves (report §20.8).
+          totalCount: sql<number>`(SELECT count(*) FROM project_members WHERE project_id = ${projectId})::int`,
         })
         .from(projectMembers)
         .leftJoin(profiles, eq(projectMembers.userId, profiles.id))
-        .where(eq(projectMembers.projectId, projectId))
+        // Outsiders see only people with "Show on my profile" on (report §20.8).
+        .where(and(eq(projectMembers.projectId, projectId), canSeePrivateAttribution ? undefined : eq(projectMembers.showOnProfile, true)))
         .orderBy(desc(projectMembers.joinedAt), desc(projectMembers.id))
         .limit(PROJECT_DETAIL_MEMBER_PAGE_SIZE + 1),
       db
