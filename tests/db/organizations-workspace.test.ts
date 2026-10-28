@@ -14,7 +14,6 @@ moduleStubs.set("@/lib/supabase/server", {
   createAdminClient: async () => { throw new Error("not used"); },
 });
 moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: () => undefined, unstable_cache: (fn: unknown) => fn, updateTag: () => undefined });
-process.env.ORGANIZATIONS_ENABLED = "true";
 delete process.env.UPSTASH_REDIS_REST_URL;
 delete process.env.UPSTASH_REDIS_REST_TOKEN;
 

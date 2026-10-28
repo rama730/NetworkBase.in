@@ -44,13 +44,12 @@ interface Props {
     onSourceChange?: (source: 'scratch' | 'github' | 'upload' | null) => void;
     githubOAuthResume?: CreateProjectGithubOAuthResume | null;
     onGithubOAuthResumeRestored?: (resumeId: string) => void;
-    organizationsEnabled?: boolean;
     createLocations?: CreateLocation[];
     initialOrgId?: string | null;
     locationNotice?: string | null;
 }
 
-export default function CreateProjectWizard({ onClose, onSuccess, initialSource = null, onSourceChange, githubOAuthResume = null, onGithubOAuthResumeRestored, organizationsEnabled = false, createLocations = [], initialOrgId = null, locationNotice = null }: Props) {
+export default function CreateProjectWizard({ onClose, onSuccess, initialSource = null, onSourceChange, githubOAuthResume = null, onGithubOAuthResumeRestored, createLocations = [], initialOrgId = null, locationNotice = null }: Props) {
     const {
         phase, methods, wizardContext, isSubmitting, isSavingDraft, phase2ValidationAttempted, phase3ValidationAttempted, phase4ValidationAttempted,
         phase4LinkComposerPending, setPhase4LinkComposerPending, isPhaseTransitioning, isReviewReady, setIsReviewReady,
@@ -307,7 +306,6 @@ export default function CreateProjectWizard({ onClose, onSuccess, initialSource 
                                                 initialSource={isResumingGithubOAuth ? 'github' : initialSource}
                                                 onSourceChange={onSourceChange}
                                                 isResumingGithubOAuth={isResumingGithubOAuth}
-                                                organizationsEnabled={organizationsEnabled}
                                             />
                                         )}
                                         {phase === 2 && <Phase2Information showValidationSummary={phase2ValidationAttempted} />}

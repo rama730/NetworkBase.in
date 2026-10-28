@@ -7,7 +7,6 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import { chatChannelMembers, chatChannels, projects } from '@/lib/db/schema';
 import { getProjectAccessById } from '@/lib/data/project-access';
-import { organizationsEnabled } from '@/lib/organizations/config';
 import { orgChatSettings } from '@/lib/organizations/chat-rules';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 
@@ -17,7 +16,6 @@ type Failure = { success: false; error: string };
 const DENIED: Failure = { success: false, error: "You don't have permission to do this." };
 
 async function orgAdmin(orgId: string, mode: 'read' | 'write' = 'write') {
-    if (!organizationsEnabled()) return null;
     const { userId } = await getViewerAuthContext();
     if (!userId) return null;
     const access = await getProjectAccessById(orgId, userId);

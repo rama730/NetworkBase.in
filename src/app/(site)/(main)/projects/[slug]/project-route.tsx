@@ -6,7 +6,6 @@ import ProjectDashboardClient from '@/components/projects/dashboard/ProjectDashb
 import { readProjectDetailShell, readProjectSprintDetail } from '@/app/actions/project';
 import ProjectDetailLoading from './loading';
 import { PrivateOrgHeader } from '@/components/organizations/PrivateOrgHeader';
-import { organizationsEnabled } from '@/lib/organizations/config';
 import { readOrgCard, resolveHeldOrgHandle } from '@/lib/organizations/detail';
 import { getViewerIdentityContext, toClientViewer } from '@/lib/server/viewer-context';
 import { shareMetadata } from '@/lib/sharing/metadata';
@@ -85,7 +84,7 @@ export async function generateProjectRouteMetadata({
                     isOwnerOrMember,
                     canManageSettings,
                     publicTabVisibility: project.publicTabVisibility,
-                    isOrganization: Boolean(project.organization) && organizationsEnabled(),
+                    isOrganization: Boolean(project.organization),
                 });
                 if (isVisible) {
                     metadata.title = `${tabTitle} | ${project.title} | NetworkBase`;
@@ -121,14 +120,13 @@ async function ResolvedProjectDashboard({
     const { user } = viewerIdentity;
     const clientViewer = toClientViewer(viewerIdentity);
 
-    const orgsOn = organizationsEnabled();
     if (!result.success) {
         // An org's old handle redirects for 90 days; a private org shows outsiders only its minimal header.
-        if (result.errorCode === 'NOT_FOUND' && orgsOn && base === '/org') {
+        if (result.errorCode === 'NOT_FOUND' && base === '/org') {
             const current = await resolveHeldOrgHandle(slug);
             if (current) redirect(`/org/${encodeURIComponent(current)}${queryStringOf(_searchParams)}`);
         }
-        if (result.errorCode === 'FORBIDDEN' && orgsOn) {
+        if (result.errorCode === 'FORBIDDEN') {
             const card = await readOrgCard(slug);
             if (card) return <PrivateOrgHeader title={card.title} coverImage={card.coverImage} />;
         }
@@ -139,9 +137,6 @@ async function ResolvedProjectDashboard({
     }
 
     const { project, capabilities } = result.data;
-    // With the flag off an org is shown as the project it is underneath.
-    if (!orgsOn) Object.assign(project, { organization: null, parentOrg: null, pendingMoveIn: null, moveTargets: [] });
-
     // Canonical address: the human-readable slug, under /org for organizations and /projects otherwise.
     const canonicalBase: ProjectRouteBase = project.organization ? '/org' : '/projects';
     if ((project.slug && slug !== project.slug) || base !== canonicalBase) {

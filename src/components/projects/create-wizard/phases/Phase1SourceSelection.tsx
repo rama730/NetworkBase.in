@@ -71,7 +71,6 @@ export default function Phase1SourceSelection({
     initialSource = null,
     onSourceChange,
     isResumingGithubOAuth = false,
-    organizationsEnabled = false,
 }: {
     uploadFiles: FileList | null;
     setUploadFiles: (files: FileList | null) => void;
@@ -88,7 +87,6 @@ export default function Phase1SourceSelection({
     initialSource?: SourceType | null;
     onSourceChange?: (source: SourceType | null) => void;
     isResumingGithubOAuth?: boolean;
-    organizationsEnabled?: boolean;
 }) {
     const { getValues, setValue, watch } = useFormContext<CreateProjectInput>();
     const importSourceType = watch('import_source.type') as SourceType | undefined;
@@ -1644,7 +1642,7 @@ export default function Phase1SourceSelection({
                 value={organization ? 'organization' : selectedSource}
                 onChange={handleSelectStartingPoint}
                 // Orgs cannot nest: no Organization card inside an org (report §14.3).
-                showOrganization={(organizationsEnabled && !location.org) || Boolean(organization)}
+                showOrganization={!location.org || Boolean(organization)}
             />
             <section
                 id={`create-project-source-panel-${activeSourceView}`}

@@ -1,7 +1,6 @@
-import { notFound, redirect } from 'next/navigation'
+import { redirect } from 'next/navigation'
 
 import { buildRouteMetadata } from '@/lib/metadata/route-metadata'
-import { organizationsEnabled } from '@/lib/organizations/config'
 import { normalizeJoinCode, ORG_JOIN_MESSAGES } from '@/lib/organizations/join-rules'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,7 +13,6 @@ export const metadata = buildRouteMetadata({
 
 /** "Have a code? Join an organization": a plain GET form, so it works before any script loads. */
 export default async function JoinWithCodePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-    if (!organizationsEnabled()) notFound()
     const raw = (await searchParams).code
     const typed = typeof raw === 'string' ? raw : null
     const code = typed ? normalizeJoinCode(typed) : null

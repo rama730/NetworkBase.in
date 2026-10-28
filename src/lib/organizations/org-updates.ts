@@ -4,7 +4,6 @@ import { and, eq, inArray, isNotNull, isNull, or, sql, type SQL } from "drizzle-
 
 import { db } from "@/lib/db";
 import { projectMembers, projectUpdates, projects } from "@/lib/db/schema";
-import { organizationsEnabled } from "@/lib/organizations/config";
 import { readViewerOrgRole, type OrgMemberRoleOrNone } from "@/lib/organizations/detail";
 import { shareBlock } from "@/lib/organizations/update-rules";
 
@@ -25,7 +24,7 @@ export type OrgUpdateContext = {
 
 export async function readOrgUpdateContext(project: { id: string; kind?: string | null; parentId?: string | null; visibility?: string | null }, viewerId: string | null): Promise<OrgUpdateContext | null> {
   const orgId = project.kind === "organization" ? project.id : project.parentId ?? null;
-  if (!orgId || !organizationsEnabled()) return null;
+  if (!orgId) return null;
   const [org] = await db.select({ title: projects.title, slug: projects.slug, orgSettings: projects.orgSettings })
     .from(projects).where(and(eq(projects.id, orgId), eq(projects.kind, "organization"), isNull(projects.deletedAt))).limit(1);
   if (!org) return null;

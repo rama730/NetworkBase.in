@@ -21,7 +21,6 @@ import {
 
 interface CreateProjectRouteClientProps {
     initialSource?: CreateProjectSource | null
-    organizationsEnabled?: boolean
     createLocations?: CreateLocation[]
     initialOrgId?: string | null
     locationNotice?: string | null
@@ -32,7 +31,6 @@ type Handoff = { source: CreateProjectSource | null; resume: CreateProjectGithub
 /** The only home of the create-project wizard: the /projects/new page (spec §18). */
 export function CreateProjectRouteClient({
     initialSource = null,
-    organizationsEnabled = false,
     createLocations = [],
     initialOrgId = null,
     locationNotice = null,
@@ -113,7 +111,6 @@ export function CreateProjectRouteClient({
             onSourceChange={handleSourceChange}
             githubOAuthResume={handoff.resume}
             onGithubOAuthResumeRestored={handleResumeRestored}
-            organizationsEnabled={organizationsEnabled}
             createLocations={createLocations}
             initialOrgId={initialOrgId}
             locationNotice={locationNotice}

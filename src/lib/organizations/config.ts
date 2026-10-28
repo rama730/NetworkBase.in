@@ -1,8 +1,3 @@
-/** Organizations ship behind this flag until P16 removes it (server-only; read per request). */
-export function organizationsEnabled() {
-  return process.env.ORGANIZATIONS_ENABLED === "true";
-}
-
 /**
  * Every organization limit (docs/organization-concept-report.md §30.4), in one place.
  * ponytail: fixed v1 values; raise a value here when real orgs hit it (support asks first).

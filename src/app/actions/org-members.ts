@@ -9,7 +9,7 @@ import { applicationEvents, orgEmailInvites, orgJoinBlocks, profiles, projectMem
 import { getProjectAccessById } from '@/lib/data/project-access';
 import { copyState } from '@/lib/organizations/assignment-rules';
 import { createCopiesForNewMember } from '@/lib/organizations/assignments';
-import { ORG_LIMITS, organizationsEnabled } from '@/lib/organizations/config';
+import { ORG_LIMITS } from '@/lib/organizations/config';
 import { acceptOrgInvite, ledChildProjects, openInvitesFor, removeFromOrg } from '@/lib/organizations/members';
 import { memberChangeBlock, memberStatus, parseInviteEmails, workSummary, type OrgMemberRole, type RosterRow } from '@/lib/organizations/member-rules';
 import { addProjectMemberInternal, changeProjectMemberRoleInternal } from '@/lib/projects/collaborator-lifecycle';
@@ -25,7 +25,6 @@ const INVITE_DAYS = 14;
 
 /** Owners and admins of the org (the Members tab is theirs alone in v1, report §20.8). */
 async function orgManager(orgId: string, mode: 'read' | 'write' = 'write'): Promise<{ userId: string; role: 'owner' | 'admin'; slug: string | null; ownerId: string } | null> {
-    if (!organizationsEnabled()) return null;
     const { userId } = await getViewerAuthContext();
     if (!userId) return null;
     const access = await getProjectAccessById(orgId, userId);
@@ -290,13 +289,11 @@ export async function cancelOrgInviteAction(orgId: string, inviteId: string): Pr
 
 /** Invites waiting for the signed-in person (exact address match). */
 export async function listMyOrgInvitesAction() {
-    if (!organizationsEnabled()) return [];
     const { userId } = await getViewerAuthContext();
     return userId ? openInvitesFor(userId) : [];
 }
 
 export async function acceptOrgInviteAction(inviteId: string): Promise<{ success: true; orgId: string } | Failure> {
-    if (!organizationsEnabled()) return DENIED;
     const { userId } = await getViewerAuthContext();
     if (!userId) return DENIED;
     const mine = (await openInvitesFor(userId)).some((i) => i.id === inviteId);
@@ -308,7 +305,6 @@ export async function acceptOrgInviteAction(inviteId: string): Promise<{ success
 }
 
 export async function declineOrgInviteAction(inviteId: string): Promise<{ success: true } | Failure> {
-    if (!organizationsEnabled()) return DENIED;
     const { userId } = await getViewerAuthContext();
     if (!userId || !(await openInvitesFor(userId)).some((i) => i.id === inviteId)) return DENIED;
     await db.delete(orgEmailInvites).where(and(eq(orgEmailInvites.id, inviteId), isNull(orgEmailInvites.acceptedAt)));

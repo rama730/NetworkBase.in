@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { notFound, redirect } from 'next/navigation'
+import { redirect } from 'next/navigation'
 
 import { getJoinPreviewAction } from '@/app/actions/organizations'
 import { JoinOrgButton } from '@/components/organizations/JoinOrgButton'
@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button'
 import { buildAuthPageHref } from '@/lib/auth/redirects'
 import { buildRouteMetadata } from '@/lib/metadata/route-metadata'
 import { hasOnboardingClaims } from '@/lib/onboarding/state'
-import { organizationsEnabled } from '@/lib/organizations/config'
 import { normalizeJoinCode } from '@/lib/organizations/join-rules'
 import { getViewerAuthContext } from '@/lib/server/viewer-context'
 
@@ -22,7 +21,6 @@ const TYPE_LABEL: Record<string, string> = { education: 'Education', company: 'C
 
 /** Join preview (report §6.1, §29.1): the same page for a typed code, a shared link and a logged-out visitor. */
 export default async function JoinOrganizationPage({ params }: { params: Promise<{ code: string }> }) {
-    if (!organizationsEnabled()) notFound()
     const code = normalizeJoinCode((await params).code)
     const { user } = await getViewerAuthContext()
     const here = `/join/${code ?? ''}`

@@ -5,7 +5,6 @@ import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { profileProjectContributions, projectMembers } from '@/lib/db/schema';
 import { getProjectAccessById } from '@/lib/data/project-access';
-import { organizationsEnabled } from '@/lib/organizations/config';
 import { markProfileCollaborationSummaryStale } from '@/lib/profile/collaboration';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 import { namesOf, notifyOrg, orgLabel } from '@/lib/organizations/notify';
@@ -17,7 +16,6 @@ type Failure = { success: false; error: string };
 const DENIED: Failure = { success: false, error: "You don't have permission to do this." };
 
 async function orgAdmin(orgId: string) {
-    if (!organizationsEnabled()) return null;
     const { userId } = await getViewerAuthContext();
     if (!userId) return null;
     const access = await getProjectAccessById(orgId, userId);
