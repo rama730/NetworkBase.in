@@ -11,8 +11,10 @@ import { LEGAL_EFFECTIVE_DATE, LEGAL_VERSIONS } from "@/lib/legal/versions";
 import { openCookieSettings } from "@/lib/privacy/cookie-consent";
 import { formatCalendarDate } from "@/lib/ui/date-formatting";
 
+type AcceptanceHistoryEntry = { acceptedAt: string; termsVersion: string; eulaVersion: string; privacyNoticeVersion: string; context: string };
 type AcceptanceState = {
   current: boolean;
+  history?: AcceptanceHistoryEntry[];
   latest: {
     acceptedAt: string;
     termsVersion: string;
@@ -45,6 +47,8 @@ export function LegalAndDataRightsSection() {
   const [fetchError, setFetchError] = useState(false);
   const [accepting, setAccepting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
+  const [lastExportedAt, setLastExportedAt] = useState<string | null>(null);
 
   const loadStatus = useCallback(() => {
     setLoading(true);
@@ -71,16 +75,20 @@ export function LegalAndDataRightsSection() {
 
   useEffect(() => {
     loadStatus();
+    fetch("/api/v1/account/export-status", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((payload) => setLastExportedAt(typeof payload?.data?.lastExportedAt === "string" ? payload.data.lastExportedAt : null))
+      .catch(() => undefined);
   }, [loadStatus]);
 
   async function acceptCurrentTerms() {
-    if (!confirmed) return;
+    if (!confirmed || !ageConfirmed) return;
     setAccepting(true);
     try {
       const response = await fetch("/api/v1/legal/acceptance", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accepted: true, context: "settings" }),
+        body: JSON.stringify({ accepted: true, context: "settings", ageConfirmed }),
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok || payload?.success === false) {
@@ -145,13 +153,17 @@ export function LegalAndDataRightsSection() {
       {!loading && !fetchError && !state?.current && (
         <div className="mt-4 space-y-4 rounded-md border border-border bg-muted/40 p-4">
           <label className="flex min-h-11 cursor-pointer items-start gap-3 nb-compact text-foreground">
+            <Checkbox checked={ageConfirmed} onCheckedChange={(value) => setAgeConfirmed(value === true)} className="mt-0.5" />
+            <span>I am at least 18 years old.</span>
+          </label>
+          <label className="flex min-h-11 cursor-pointer items-start gap-3 nb-compact text-foreground">
             <Checkbox
               checked={confirmed}
               onCheckedChange={(value) => setConfirmed(value === true)}
               className="mt-0.5"
             />
             <span>
-              I am at least 18 years old, accept the{" "}
+              I accept the{" "}
               <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline">
                 Terms of Service
               </a>{" "}
@@ -169,7 +181,7 @@ export function LegalAndDataRightsSection() {
           <Button
             type="button"
             size="sm"
-            disabled={!confirmed || accepting}
+            disabled={!confirmed || !ageConfirmed || accepting}
             onClick={() => void acceptCurrentTerms()}
           >
             {accepting ? (
@@ -181,6 +193,20 @@ export function LegalAndDataRightsSection() {
           </Button>
         </div>
       )}
+
+      {state?.history && state.history.length > 0 ? (
+        <details className="mt-4">
+          <summary className="cursor-pointer nb-compact font-medium text-foreground">Acceptance history ({state.history.length})</summary>
+          <ul className="mt-2 divide-y divide-border">
+            {state.history.map((entry) => (
+              <li key={`${entry.acceptedAt}-${entry.termsVersion}`} className="flex flex-col gap-0.5 py-2 sm:flex-row sm:items-center sm:justify-between">
+                <span className="nb-compact text-foreground">Terms {entry.termsVersion} · EULA {entry.eulaVersion} · Privacy {entry.privacyNoticeVersion}</span>
+                <time dateTime={entry.acceptedAt} className="nb-meta text-muted-foreground">{formatCalendarDate(entry.acceptedAt)}</time>
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
 
       {/* 2. Governing Policies */}
       <div className="my-6 border-t border-border" />
@@ -214,7 +240,7 @@ export function LegalAndDataRightsSection() {
         <div className="max-w-xl">
           <h4 className="nb-ui-label text-foreground">Export account data</h4>
           <p className="nb-compact mt-0.5 text-muted-foreground">
-            Download a JSON file with your profile, project contributions, the projects you own and are a member of, tasks assigned to you, your comments on project updates, your connections, the messages you wrote, and your legal acceptances. You can export once an hour.
+            Download a JSON file with your profile, project contributions, the projects you own and are a member of, tasks assigned to you, your comments on project updates, your connections, the messages you wrote, and your legal acceptances. You can export once an hour.{lastExportedAt ? ` Last exported ${formatCalendarDate(lastExportedAt)}.` : ""}
           </p>
         </div>
         <div className="shrink-0">

@@ -141,6 +141,10 @@ export async function POST(request: Request) {
   if (!user) {
     return jsonError("Not authenticated", 401, "UNAUTHORIZED");
   }
+  // The limit above is per network, which a shared address (or someone else on it) can use up for you: guessing
+  // codes is also limited per person.
+  const userLimit = await enforceRouteLimit(request, "api:v1:auth:security-step-up:user", 20, 60, "default", user.id);
+  if (userLimit) return userLimit;
 
   let body: SecurityStepUpBody = {};
   try {

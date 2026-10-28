@@ -79,6 +79,8 @@ export async function recordCurrentLegalAcceptance(input: {
   userId: string;
   request: Request;
   context: "email_signup" | "oauth_signup" | "settings" | "material_update";
+  /** The person said they are 18 or older, on its own line apart from accepting the terms. */
+  ageConfirmed?: boolean;
 }) {
   const acceptedAt = new Date();
   const retentionExpiresAt = new Date(acceptedAt);
@@ -101,6 +103,7 @@ export async function recordCurrentLegalAcceptance(input: {
             ipHash: evidenceHash(ip),
             userAgentHash: evidenceHash(userAgent),
             method: "affirmative_checkbox_or_button",
+            ageConfirmed: input.ageConfirmed === true,
           },
         })
         .onConflictDoNothing()
@@ -136,6 +139,24 @@ export async function getLegalAcceptanceState(userId: string) {
       { module: "legal" },
     );
 
+    // The record of what was accepted and when, newest first (the person can read their own history).
+    const history = await withDbRetry(
+      "legal.getLegalAcceptanceHistory",
+      () => db
+        .select({
+          termsVersion: legalAcceptances.termsVersion,
+          eulaVersion: legalAcceptances.eulaVersion,
+          privacyNoticeVersion: legalAcceptances.privacyNoticeVersion,
+          context: legalAcceptances.context,
+          acceptedAt: legalAcceptances.acceptedAt,
+        })
+        .from(legalAcceptances)
+        .where(eq(legalAcceptances.userId, userId))
+        .orderBy(desc(legalAcceptances.acceptedAt))
+        .limit(10),
+      { module: "legal" },
+    );
+
     const current = latest
       ? latest.termsVersion === CURRENT_LEGAL_ACCEPTANCE.termsVersion
         && latest.eulaVersion === CURRENT_LEGAL_ACCEPTANCE.eulaVersion
@@ -147,7 +168,7 @@ export async function getLegalAcceptanceState(userId: string) {
       setCachedLegalAcceptance(userId, true);
     }
 
-    return { current, latest: latest ?? null, versions: CURRENT_LEGAL_ACCEPTANCE };
+    return { current, latest: latest ?? null, history, versions: CURRENT_LEGAL_ACCEPTANCE };
   } catch (error) {
     logger.warn("legal.getLegalAcceptanceState_failed", {
       module: "legal",
@@ -159,6 +180,7 @@ export async function getLegalAcceptanceState(userId: string) {
     return {
       current: acceptanceProvenDuringOutage(legalAcceptanceCache.get(userId)),
       latest: null,
+      history: [],
       versions: CURRENT_LEGAL_ACCEPTANCE,
     };
   }

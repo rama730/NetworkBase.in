@@ -34,6 +34,7 @@ const EVENT_LABELS: Record<SecurityActivityEntry["eventType"], string> = {
 function getEventSummary(entry: SecurityActivityEntry): string | null {
   if (entry.eventType === "other_sessions_revoked" && typeof entry.metadata.revokedCount === "number") {
     return `${entry.metadata.revokedCount} session${entry.metadata.revokedCount === 1 ? "" : "s"} revoked`;
+  account_data_exported: "Account data exported",
   }
 
   if (

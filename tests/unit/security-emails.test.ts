@@ -13,8 +13,8 @@ test("every kind renders a subject, plain text, HTML and a primary link that poi
         const email = buildSecurityEmail(kind, { at, hardDeleteAt, daysLeft: 7, detail: "added" }, person);
         assert.ok(email.subject.length > 0, kind);
         assert.deepEqual(email.to, ["ada@example.com"]);
-        assert.match(email.html, /https:\/\/networkbase\.in\/(settings|login)/, kind);
-        assert.match(email.text, /https:\/\/networkbase\.in\/(settings|login)/, kind);
+        assert.match(email.html, /https:\/\/networkbase\.in\/(settings|login|support)/, kind);
+        assert.match(email.text, /https:\/\/networkbase\.in\/(settings|login|support)/, kind);
     }
 });
 

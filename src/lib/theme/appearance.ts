@@ -62,10 +62,15 @@ export function isDensity(value: unknown): value is Density {
   return typeof value === "string" && DENSITIES.includes(value as Density);
 }
 
+/** How far ahead of the server a device clock may be before its timestamp is not believed. */
+export const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
+
 function normalizeUpdatedAt(value: unknown, fallbackIso: string): string {
   if (typeof value !== "string") return fallbackIso;
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return fallbackIso;
+  // A time in the future would make this copy win every comparison from then on (a wrong clock, or a made-up value).
+  if (parsed.getTime() > Date.parse(fallbackIso) + MAX_CLOCK_SKEW_MS) return fallbackIso;
   return parsed.toISOString();
 }
 
