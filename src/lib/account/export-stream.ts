@@ -13,8 +13,11 @@ import {
   profileProjectContributions,
   profileProjectContributionStages,
   profiles,
+  projectMembers,
+  projectUpdateComments,
   projects,
   skills,
+  tasks,
 } from "@/lib/db/schema";
 
 const EXPORT_PAGE_SIZE = 250;
@@ -201,6 +204,70 @@ async function* streamAccountExport(input: {
     projectCursor = page.at(-1)!.id;
     if (page.length < EXPORT_PAGE_SIZE) break;
   }
+  yield "],\"memberships\":";
+
+  yield "[";
+  written = 0;
+  let membershipCursor: string | null = null;
+  while (true) {
+    assertActive(signal);
+    const page = await db
+      .select({ id: projectMembers.id, projectId: projectMembers.projectId, projectTitle: projects.title, role: projectMembers.role, joinedAt: projectMembers.joinedAt })
+      .from(projectMembers)
+      .innerJoin(projects, eq(projects.id, projectMembers.projectId))
+      .where(and(eq(projectMembers.userId, userId), lte(projectMembers.joinedAt, exportedAt), membershipCursor ? gt(projectMembers.id, membershipCursor) : undefined))
+      .orderBy(asc(projectMembers.id))
+      .limit(EXPORT_PAGE_SIZE);
+    if (page.length === 0) break;
+    for (const row of page) {
+      if (written++) yield ",";
+      yield json({ projectId: row.projectId, projectTitle: row.projectTitle, role: row.role, joinedAt: row.joinedAt });
+    }
+    membershipCursor = page.at(-1)!.id;
+    if (page.length < EXPORT_PAGE_SIZE) break;
+  }
+  yield "],\"assignedTasks\":";
+
+  yield "[";
+  written = 0;
+  let taskCursor: string | null = null;
+  while (true) {
+    assertActive(signal);
+    const page = await db
+      .select({ id: tasks.id, projectId: tasks.projectId, title: tasks.title, status: tasks.status, priority: tasks.priority, dueDate: tasks.dueDate, createdAt: tasks.createdAt })
+      .from(tasks)
+      .where(and(eq(tasks.assigneeId, userId), isNull(tasks.deletedAt), lte(tasks.createdAt, exportedAt), taskCursor ? gt(tasks.id, taskCursor) : undefined))
+      .orderBy(asc(tasks.id))
+      .limit(EXPORT_PAGE_SIZE);
+    if (page.length === 0) break;
+    for (const row of page) {
+      if (written++) yield ",";
+      yield json(row);
+    }
+    taskCursor = page.at(-1)!.id;
+    if (page.length < EXPORT_PAGE_SIZE) break;
+  }
+  yield "],\"updateComments\":";
+
+  yield "[";
+  written = 0;
+  let commentCursor: string | null = null;
+  while (true) {
+    assertActive(signal);
+    const page = await db
+      .select({ id: projectUpdateComments.id, projectId: projectUpdateComments.projectId, updateId: projectUpdateComments.updateId, content: projectUpdateComments.content, createdAt: projectUpdateComments.createdAt })
+      .from(projectUpdateComments)
+      .where(and(eq(projectUpdateComments.userId, userId), isNull(projectUpdateComments.deletedAt), lte(projectUpdateComments.createdAt, exportedAt), commentCursor ? gt(projectUpdateComments.id, commentCursor) : undefined))
+      .orderBy(asc(projectUpdateComments.id))
+      .limit(EXPORT_PAGE_SIZE);
+    if (page.length === 0) break;
+    for (const row of page) {
+      if (written++) yield ",";
+      yield json(row);
+    }
+    commentCursor = page.at(-1)!.id;
+    if (page.length < EXPORT_PAGE_SIZE) break;
+  }
   yield "],\"connections\":";
 
   yield "[";
@@ -259,7 +326,7 @@ async function* streamAccountExport(input: {
       FROM chat_messages m
       JOIN chat_channels c ON c.id = m.channel_id
       WHERE m.author_id = ${userId}::uuid
-        AND m.created_at <= ${exportedAt}
+        AND m.created_at <= ${exportedAt.toISOString()}::timestamptz
         ${messageCursor ? sql`AND (m.channel_id, m.channel_seq) > (${messageCursor.channelId}::uuid, ${messageCursor.seq})` : sql``}
       ORDER BY m.channel_id, m.channel_seq
       LIMIT ${MESSAGE_PAGE_SIZE}

@@ -20,7 +20,7 @@ type Link = { label: string; href: string };
 type Parts = { subject: string; preview: string; label: string; headline: string; paragraphs: string[]; primary: Link; secondary?: Link | null };
 
 export const SECURITY_EMAIL_KINDS: readonly SecurityEmailKind[] = [
-  "security_password_changed", "security_mfa_changed", "security_token_created", "security_sessions_revoked",
+  "security_password_changed", "security_mfa_changed", "security_token_created", "security_sessions_revoked", "security_sign_in_method_changed",
   "account_deletion_scheduled", "account_deletion_cancelled", "account_deletion_reminder",
 ];
 export const isSecurityEmailKind = (kind: string): kind is SecurityEmailKind => (SECURITY_EMAIL_KINDS as readonly string[]).includes(kind);
@@ -67,6 +67,13 @@ function partsFor(kind: SecurityEmailKind, data: SecurityEmailData, url: (path: 
         headline: "A new editor token was created",
         paragraphs: [`${when ? `On ${when}, a` : "A"} manual editor token${data.detail ? ` (“${oneLine(data.detail, 80)}”)` : ""} was created. It signs in to your account from an editor for a year, until you revoke it.`, "If you didn't create it, revoke it in Settings > Integrations, then change your password."],
         primary: { label: "Review editor connections", href: url("/settings#settings-integrations-editors") }, secondary: notMe,
+      };
+    case "security_sign_in_method_changed":
+      return {
+        subject: "A sign-in method was changed on your NetworkBase account", preview: data.detail ?? "A way to sign in to your account changed.", label: "ACCOUNT SECURITY",
+        headline: "A sign-in method was changed",
+        paragraphs: [`${when ? `On ${when}: ` : ""}${oneLine(data.detail ?? "A sign-in method was changed", 120)}.`, notMeLine],
+        primary: review, secondary: notMe,
       };
     case "security_sessions_revoked": {
       const count = Number(data.detail);
