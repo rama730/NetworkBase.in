@@ -6,7 +6,7 @@ import { accountHasPassword } from "@/lib/auth/password-state";
 import { getProtectedRecoveryCodes } from "@/lib/services/profile-service";
 import { getVerifiedTotpFactors, listSecurityMfaFactors } from "@/lib/security/mfa";
 import { countRemainingRecoveryCodes } from "@/lib/security/recovery-codes";
-import { resolveSecurityStepUp } from "@/lib/security/step-up";
+import { resolveDestructiveStepUp } from "@/lib/security/destructive-step-up";
 import { buildSecurityStepUpMethods } from "@/lib/security/step-up-methods";
 
 /**
@@ -26,5 +26,5 @@ export async function isFreshlyVerified(supabase: Parameters<typeof listSecurity
     hasPassword: await accountHasPassword(user),
   });
   if (availableMethods.length === 0) return true;
-  return (await resolveSecurityStepUp(user.id, hasVerifiedTotp ? ["totp", "recovery_code"] : availableMethods)).ok;
+  return (await resolveDestructiveStepUp(supabase, user.id)).ok;
 }

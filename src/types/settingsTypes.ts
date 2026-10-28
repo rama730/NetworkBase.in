@@ -61,7 +61,9 @@ export interface SecurityActivityEntry {
     | "sign_in_method_unlinked"
     | "editor_token_created"
     | "account_deletion_scheduled"
-    | "account_deletion_cancelled";
+    | "account_deletion_cancelled"
+    | "project_ownership_transferred_out"
+    | "project_ownership_transferred_in";
   createdAt: string;
   networkFingerprint?: string;
   deviceFingerprint?: string;

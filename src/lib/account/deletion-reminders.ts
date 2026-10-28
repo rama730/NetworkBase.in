@@ -7,7 +7,7 @@ import { accountDeletions } from "@/lib/db/schema";
 import { queueSecurityEmail } from "@/lib/email/security-queue";
 
 /** Reminder points before the account is permanently deleted. */
-export const DELETION_REMINDER_DAYS = [7, 1] as const;
+const DELETION_REMINDER_DAYS = [7, 1] as const;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**

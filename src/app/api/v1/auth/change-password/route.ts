@@ -283,15 +283,19 @@ export async function POST(request: Request) {
     }
 
     // The old password may be in someone else's hands: editor tokens always end, and other browsers by default.
-    try {
-      await revokeAllExtensionSessionsForUser(authUser.id);
-      if (parsed.data.signOutOtherDevices !== false) await auth.supabase.auth.signOut({ scope: "others" });
-    } catch (revokeError) {
-      logger.warn("auth.change_password.revoke_failed", {
-        requestId,
-        userId: authUser.id,
-        error: revokeError instanceof Error ? revokeError.message : String(revokeError),
-      });
+    // Each step on its own: a failure ending the editor tokens must not leave other browsers signed in, or the reverse.
+    const revocations = await Promise.allSettled([
+      revokeAllExtensionSessionsForUser(authUser.id),
+      parsed.data.signOutOtherDevices !== false ? auth.supabase.auth.signOut({ scope: "others" }) : Promise.resolve(null),
+    ]);
+    for (const outcome of revocations) {
+      if (outcome.status === "rejected") {
+        logger.warn("auth.change_password.revoke_failed", {
+          requestId,
+          userId: authUser.id,
+          error: outcome.reason instanceof Error ? outcome.reason.message : String(outcome.reason),
+        });
+      }
     }
 
     try {

@@ -6,6 +6,19 @@ import { XIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+// The last two elements that took focus, so a dialog can tell what had focus before its own fields did.
+let currentFocus: HTMLElement | null = null
+let previousFocus: HTMLElement | null = null
+if (typeof document !== "undefined") {
+  document.addEventListener("focusin", (event) => {
+    const target = event.target
+    if (target instanceof HTMLElement && target !== currentFocus) {
+      previousFocus = currentFocus
+      currentFocus = target
+    }
+  }, true)
+}
+
 function Dialog({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {
@@ -53,12 +66,18 @@ function DialogContent({
   overlayClassName,
   presentation = "center",
   onEscapeKeyDown,
+  onOpenAutoFocus,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
   overlayClassName?: string
   presentation?: "center" | "right-drawer" | "bottom-sheet"
 }) {
+  // Radix returns focus only to a Trigger. Dialogs opened from state have none, so focus would fall to <body>:
+  // remember what had focus when this one opened and give it back on close (unless the caller handled it).
+  const returnFocusTo = React.useRef<HTMLElement | null>(null)
+  const contentRef = React.useRef<HTMLDivElement | null>(null)
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay className={overlayClassName} />
@@ -66,6 +85,24 @@ function DialogContent({
         data-slot="dialog-content"
         data-presentation={presentation}
         aria-describedby={undefined}
+        ref={(node) => {
+          contentRef.current = node
+          // Radix skips its own mount event when a field inside already took focus (autoFocus), so read it here:
+          // then what came before that field is what to return to.
+          // Only once per opening: this callback runs again on every render while the dialog is open.
+          if (!node || returnFocusTo.current) return
+          const insideNow = currentFocus && node.contains(currentFocus)
+          returnFocusTo.current = insideNow ? previousFocus : currentFocus
+        }}
+        onOpenAutoFocus={onOpenAutoFocus}
+        onCloseAutoFocus={(event) => {
+          onCloseAutoFocus?.(event)
+          const previous = returnFocusTo.current
+          returnFocusTo.current = null
+          if (event.defaultPrevented || !previous || previous === document.body || !previous.isConnected) return
+          event.preventDefault()
+          previous.focus()
+        }}
         // Escape in an open combobox (a skill or people search) closes its list, not the whole dialog.
         onEscapeKeyDown={(event) => {
           const active = document.activeElement
