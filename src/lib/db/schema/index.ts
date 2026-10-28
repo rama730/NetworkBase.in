@@ -2795,6 +2795,7 @@ export const contentReports = pgTable("content_reports", {
 }, (t) => ({
   openIdx: index("content_reports_open_idx").on(t.createdAt.desc()).where(sql`${t.status} = 'open'`),
   oneOpenIdx: uniqueIndex("content_reports_one_open_idx").on(t.reporterId, t.targetKind, t.targetId).where(sql`${t.status} = 'open'`),
+  reporterIdx: index("content_reports_reporter_idx").on(t.reporterId).where(sql`${t.reporterId} IS NOT NULL`),
   targetIdx: index("content_reports_target_idx").on(t.targetKind, t.targetId),
   projectIdx: index("content_reports_project_idx").on(t.projectId).where(sql`${t.projectId} IS NOT NULL`),
   resolvedByIdx: index("content_reports_resolved_by_idx").on(t.resolvedBy).where(sql`${t.resolvedBy} IS NOT NULL`),
