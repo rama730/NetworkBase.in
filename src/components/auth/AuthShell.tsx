@@ -18,11 +18,6 @@ export const RECOVERY_PANEL: AuthPanelContent = {
     points: ['Reset links work once and expire', 'We never ask for your password by email', 'Only you choose the new password'],
 }
 
-const DEFAULT_PANEL: AuthPanelContent = {
-    eyebrow: 'Built around people and projects',
-    title: 'Good work starts with the right people.',
-}
-
 /**
  * Every account page: wordmark → title → form → alternate path → legal links, with the ink panel on wide screens.
  * `panel={null}` drops the panel for status-only pages.
@@ -30,13 +25,13 @@ const DEFAULT_PANEL: AuthPanelContent = {
 export function AuthShell({
     title,
     description,
-    panel = DEFAULT_PANEL,
+    panel,
     footer,
     children,
 }: {
     title: ReactNode
     description?: ReactNode
-    panel?: AuthPanelContent | null
+    panel: AuthPanelContent | null
     footer?: ReactNode
     children?: ReactNode
 }) {

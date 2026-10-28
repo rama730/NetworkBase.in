@@ -85,7 +85,6 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
     const idempotencyKeyRef = useRef<string>(
         typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Date.now())
     )
-    const submitRequestIdRef = useRef(0)
     const fieldRefs = useRef<Partial<Record<FieldKey, HTMLInputElement | null>>>({})
 
     const [isVerifyingOtp, setIsVerifyingOtp] = useState(false)
@@ -198,7 +197,6 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
             return
         }
 
-        const requestId = ++submitRequestIdRef.current
         setIsLoading(true)
         try {
             const signUpResult = await Promise.race([
@@ -210,7 +208,6 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
                 }),
                 new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Request timeout')), SIGNUP_REQUEST_TIMEOUT_MS)),
             ])
-            if (requestId !== submitRequestIdRef.current) return
 
             const authError = (signUpResult as { error?: unknown } | null)?.error
             if (isDuplicateObfuscatedResponse(signUpResult) || authError) {
@@ -236,12 +233,11 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
             }
             setFormError("We couldn't create your account. Try again.")
         } catch (signupError) {
-            if (requestId !== submitRequestIdRef.current) return
             setFormError(signupError instanceof Error && signupError.message === 'Request timeout'
                 ? 'Creating your account is taking too long. Check your connection and try again.'
                 : 'Something went wrong. Try again.')
         } finally {
-            if (requestId === submitRequestIdRef.current) setIsLoading(false)
+            setIsLoading(false)
         }
     }
 

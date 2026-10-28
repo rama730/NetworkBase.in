@@ -46,7 +46,6 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
     const [captchaKey, setCaptchaKey] = useState(0)
     const [code, setCode] = useState('')
     const [codeError, setCodeError] = useState<string | null>(null)
-    const requestIdRef = useRef(0)
     const emailRef = useRef<HTMLInputElement | null>(null)
     const passwordRef = useRef<HTMLInputElement | null>(null)
     const codeRef = useRef<HTMLInputElement | null>(null)
@@ -82,14 +81,12 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
         }
 
         setBusy(true)
-        const requestId = ++requestIdRef.current
         let leaving = false
         try {
             const result = await Promise.race([
                 signIn(email.trim(), password, captchaToken || undefined),
                 new Promise<never>((_, reject) => setTimeout(() => reject(new Error('LOGIN_TIMEOUT')), LOGIN_REQUEST_TIMEOUT_MS)),
             ])
-            if (requestId !== requestIdRef.current) return
             if (result.error) {
                 setFormError(toSignInErrorMessage(result.error.message))
                 setCaptchaToken(null)
@@ -105,12 +102,11 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
             leaving = true
             router.push(redirectPath)
         } catch (signInError) {
-            if (requestId !== requestIdRef.current) return
             setFormError(signInError instanceof Error && signInError.message === 'LOGIN_TIMEOUT'
                 ? 'Sign in is taking too long. Check your connection and try again.'
                 : 'Something went wrong. Try again.')
         } finally {
-            if (!leaving && requestId === requestIdRef.current) setBusy(false)
+            if (!leaving) setBusy(false)
         }
     }
 

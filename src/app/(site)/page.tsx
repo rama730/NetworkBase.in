@@ -28,9 +28,9 @@ const steps = [
 
 // Example content only: labelled as such on the page, never presented as real people or counts.
 const exampleProfiles = [
-  { initials: "AK", role: "Frontend developer", level: "Mid-level", hours: "10–20 h / week", skills: ["React", "TypeScript", "Accessibility"] },
-  { initials: "MR", role: "Product designer", level: "Senior", hours: "5–10 h / week", skills: ["Figma", "Design systems", "Research"] },
-  { initials: "JS", role: "Data engineer", level: "Student", hours: "20–40 h / week", skills: ["Python", "SQL", "Airflow"] },
+  { initials: "AK", role: "Frontend developer", level: "Mid-level", hours: "10–20 h / week", skills: ["React", "TypeScript", "Accessibility Testing"] },
+  { initials: "MR", role: "Product designer", level: "Senior", hours: "5–10 h / week", skills: ["Figma", "Design Systems", "UX Research"] },
+  { initials: "JS", role: "Data engineer", level: "Student", hours: "20–40 h / week", skills: ["Python", "SQL", "Apache Airflow"] },
   { initials: "LT", role: "Mobile developer", level: "Junior", hours: "10–20 h / week", skills: ["Flutter", "Firebase", "Swift"] },
 ];
 

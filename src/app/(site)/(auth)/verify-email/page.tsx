@@ -69,7 +69,12 @@ function VerifyEmailPageInner() {
         try {
             const supabase = await loadBrowserSupabase()
             const { data } = await supabase.auth.refreshSession()
-            if (data.session?.user?.email_confirmed_at) {
+            if (!data.session) {
+                setError('Your session has ended. Sign in again to continue.')
+                setIsChecking(false)
+                return
+            }
+            if (data.session.user?.email_confirmed_at) {
                 await syncBrowserSessionToServer(data.session).catch(() => null)
                 window.location.reload()
                 return
