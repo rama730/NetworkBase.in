@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/server';
 import { canStillSubmit, copyState, type AssignmentSettings, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules';
 import { createCopies, createMasterTask, resolveRecipients } from '@/lib/organizations/assignments';
 import { shareToOrgGeneral } from '@/lib/organizations/org-chat';
+import { ORG_LIMITS } from '@/lib/organizations/config';
 import { notifyAssignmentDueChanged, notifyAssignmentPublished, notifyAssignmentReviewed, notifyAssignmentSubmitted } from '@/lib/organizations/assignment-notify';
 
 // Assignments (report §16, §16.11). Owners and admins create, review and manage; recipients submit.
@@ -164,6 +165,12 @@ export async function updateAssignmentAction(masterId: string, patch: z.input<ty
         }
     });
     touch(ctx.viewer.slug, ctx.master.projectId);
+    // A due-date move reaches the people whose copy moved with it (report §16.3, "Due date moved to Mon").
+    if (dueDate && ctx.master.dueDate && new Date(dueDate).getTime() !== ctx.master.dueDate.getTime()) {
+        const moved = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt), eq(tasks.dueDate, new Date(dueDate))));
+        const when = new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric' }).format(new Date(dueDate));
+        for (const { id } of moved) await notifyAssignmentDueChanged(id, ctx.viewer.userId, (t) => `${t}: due date moved to ${when}`, `${id}:moved:${dueDate}`);
+    }
     return { success: true };
 }
 
@@ -334,14 +341,16 @@ export type AssignmentRow = {
     reviewRequired: boolean;
     teams: boolean;
     counts: Record<CopyState, number> & { total: number };
+    /** Teams mode: people done out of everyone placed ("7 of 11 people", report §16.11). */
+    people?: { done: number; total: number };
     /** Members: their own copy (or their team's). */
-    mine: { copyId: string; state: CopyState; late: boolean; teamName: string | null; submission: unknown; projectId: string } | null;
+    mine: { copyId: string; state: CopyState; late: boolean; teamName: string | null; submission: unknown; projectId: string; returnedReason?: string | null } | null;
 };
 
 const emptyCounts = (): AssignmentRow['counts'] => ({ not_started: 0, in_progress: 0, submitted: 0, returned: 0, done: 0, missing: 0, excused: 0, total: 0 });
 
 /** The Assignments view (report §16.5): admins and guests get counts per master; members get their own copy. */
-export async function listAssignmentsAction(orgId: string): Promise<{ success: true; isAdmin: boolean; rows: AssignmentRow[] } | Failure> {
+export async function listAssignmentsAction(orgId: string): Promise<{ success: true; isAdmin: boolean; rows: AssignmentRow[]; timeZone: string | null } | Failure> {
     const viewer = await orgRole(orgId, 'read');
     if (!viewer) return DENIED;
     const masters = await db.select().from(tasks)
@@ -351,6 +360,8 @@ export async function listAssignmentsAction(orgId: string): Promise<{ success: t
     const ids = visible.map((m) => m.id);
     const copies = ids.length === 0 ? [] : await db.select().from(tasks).where(and(inArray(tasks.assignmentId, ids), isNull(tasks.deletedAt)));
     const myTeams = new Set((await db.select({ taskId: taskTeamMembers.taskId }).from(taskTeamMembers).where(eq(taskTeamMembers.userId, viewer.userId))).map((r) => r.taskId));
+    const teamSizes = new Map(copies.length === 0 ? [] : (await db.select({ taskId: taskTeamMembers.taskId, n: sql<number>`count(*)::int` }).from(taskTeamMembers)
+        .where(inArray(taskTeamMembers.taskId, copies.map((c) => c.id))).groupBy(taskTeamMembers.taskId)).map((r) => [r.taskId, r.n]));
     const now = new Date();
     const rows: AssignmentRow[] = visible.map((m) => {
         const settings = m.assignmentSettings!;
@@ -362,17 +373,37 @@ export async function listAssignmentsAction(orgId: string): Promise<{ success: t
             if (s.state !== 'excused') counts.total += 1;
             if (c.assigneeId === viewer.userId || myTeams.has(c.id)) mine = { copyId: c.id, ...s, teamName: c.teamName, submission: c.submission, projectId: c.projectId };
         }
+        const teamPeople = settings.target.mode === 'teams' ? copies.filter((c) => c.assignmentId === m.id).reduce((acc, c) => {
+            const size = Math.max(1, teamSizes.get(c.id) ?? 0);
+            const s = copyState({ status: c.status, reviewStatus: c.reviewStatus, dueDate: c.dueDate, submittedAt: c.reviewSubmittedAt, completedAt: c.completedAt, excusedAt: c.excusedAt }, now);
+            return s.state === 'excused' ? acc : { done: acc.done + (s.state === 'done' ? size : 0), total: acc.total + size };
+        }, { done: 0, total: 0 }) : undefined;
         return {
             masterId: m.id, title: m.title, dueDate: m.dueDate?.toISOString() ?? null,
             status: !settings.publishedAt ? 'draft' : settings.closedAt ? 'closed' : 'open',
             submissionType: settings.submissionType, reviewRequired: settings.reviewRequired, teams: settings.target.mode === 'teams',
-            counts, mine,
+            counts, mine, ...(teamPeople ? { people: teamPeople } : {}),
         };
     });
-    return { success: true, isAdmin: viewer.isAdmin, rows: viewer.isAdmin || viewer.role === 'viewer' ? rows : rows.filter((r) => r.mine) };
+    // A member's feedback when work comes back (report §16.5): the latest Return reason on their copy.
+    const returned = rows.filter((r) => r.mine?.state === 'returned').map((r) => r.mine!.copyId);
+    if (returned.length) {
+        const reasons = await db.execute<{ task_id: string; reason: string | null }>(sql`
+            SELECT DISTINCT ON (task_id) task_id, payload->>'reason' AS reason FROM task_activity_events
+            WHERE task_id IN (${sql.join(returned.map((id) => sql`${id}::uuid`), sql`, `)}) AND event_type = 'changes_requested'
+            ORDER BY task_id, created_at DESC`);
+        const byCopy = new Map(reasons.map((r) => [r.task_id, r.reason]));
+        for (const row of rows) if (row.mine && byCopy.has(row.mine.copyId)) row.mine.returnedReason = byCopy.get(row.mine.copyId) ?? null;
+    }
+    const [org] = await db.select({ timeZone: projects.timeZone }).from(projects).where(eq(projects.id, orgId)).limit(1);
+    return { success: true, isAdmin: viewer.isAdmin, rows: viewer.isAdmin || viewer.role === 'viewer' ? rows : rows.filter((r) => r.mine), timeZone: org?.timeZone ?? null };
 }
 
-export type RosterRow = { copyId: string; label: string; members: string[]; state: CopyState; late: boolean; projectId: string; dueDate: string | null; submission: unknown; excusedReason: string | null };
+export type RosterRow = {
+    copyId: string; label: string; members: string[]; state: CopyState; late: boolean; projectId: string; dueDate: string | null; submission: unknown; excusedReason: string | null;
+    /** Team copies (report §16.11): who is on it (★ lead) and who handed in for the team. */
+    people?: Array<{ id: string; name: string; lead: boolean }>; submittedBy?: string | null;
+};
 
 /** The roster for one assignment (report §16.5): admins see names; guests see counts without names. */
 export async function readAssignmentRosterAction(masterId: string): Promise<{ success: true; rows: RosterRow[]; counts: AssignmentRow['counts'] } | Failure> {
@@ -395,10 +426,11 @@ export async function readAssignmentRosterAction(masterId: string): Promise<{ su
         return s;
     });
     if (!viewer.isAdmin) return { success: true, rows: [], counts };
-    const people = copies.length === 0 ? [] : await db.select({ copyId: taskTeamMembers.taskId, name: profiles.fullName, username: profiles.username })
+    const people = copies.length === 0 ? [] : await db.select({ copyId: taskTeamMembers.taskId, userId: taskTeamMembers.userId, isLead: taskTeamMembers.isLead, name: profiles.fullName, username: profiles.username })
         .from(taskTeamMembers).innerJoin(profiles, eq(profiles.id, taskTeamMembers.userId))
         .where(inArray(taskTeamMembers.taskId, copies.map((c) => c.id)));
-    const assigneeIds = copies.map((c) => c.assigneeId).filter((id): id is string => Boolean(id));
+    const submitterIds = copies.map((c) => (c.submission as { by?: string } | null)?.by).filter((id): id is string => Boolean(id));
+    const assigneeIds = [...copies.map((c) => c.assigneeId).filter((id): id is string => Boolean(id)), ...submitterIds];
     const names = new Map((assigneeIds.length ? await db.select({ id: profiles.id, name: profiles.fullName, username: profiles.username }).from(profiles).where(inArray(profiles.id, assigneeIds)) : [])
         .map((p) => [p.id, p.name || p.username || 'Member']));
     const rows = copies.map((c, i) => {
@@ -406,7 +438,10 @@ export async function readAssignmentRosterAction(masterId: string): Promise<{ su
         // A group copy whose project left the org stays on the roster as "Detached" (report §14.7).
         const label = c.teamName ?? (c.projectParent === master.projectId ? c.projectTitle
             : c.projectId !== master.projectId ? `${c.projectTitle} · Detached` : names.get(c.assigneeId ?? '') ?? 'Member');
-        return { copyId: c.id, label, members, ...states[i]!, projectId: c.projectId, dueDate: c.dueDate?.toISOString() ?? null, submission: c.submission, excusedReason: c.excusedReason };
+        const team = people.filter((p) => p.copyId === c.id).map((p) => ({ id: p.userId, name: p.name || p.username || 'Member', lead: p.isLead }));
+        const by = (c.submission as { by?: string } | null)?.by;
+        return { copyId: c.id, label, members, ...states[i]!, projectId: c.projectId, dueDate: c.dueDate?.toISOString() ?? null, submission: c.submission, excusedReason: c.excusedReason,
+            ...(c.teamName ? { people: team, submittedBy: by ? names.get(by) ?? null : null } : {}) };
     });
     return { success: true, rows, counts };
 }
@@ -415,12 +450,16 @@ export async function readAssignmentRosterAction(masterId: string): Promise<{ su
 export async function readAssignmentComposerOptionsAction(orgId: string) {
     const viewer = await orgRole(orgId, 'read');
     if (!viewer?.isAdmin) return { success: false as const, error: DENIED.error };
-    const [children, sprints] = await Promise.all([
+    const [children, sprints, teamAssignments] = await Promise.all([
         db.select({ id: projects.id, title: projects.title }).from(projects).where(and(eq(projects.parentId, orgId), isNull(projects.deletedAt))).orderBy(asc(projects.title)),
         db.select({ id: projectSprints.id, name: projectSprints.name, status: projectSprints.status }).from(projectSprints)
             .where(and(eq(projectSprints.projectId, orgId), inArray(projectSprints.status, ['planning', 'active']))).orderBy(asc(projectSprints.startDate)),
+        // "Copy teams from" (report §16.11): earlier team assignments, newest first.
+        db.select({ id: tasks.id, title: tasks.title }).from(tasks)
+            .where(and(eq(tasks.projectId, orgId), eq(tasks.kind, 'assignment'), isNull(tasks.deletedAt), sql`${tasks.assignmentSettings}->'target'->>'mode' = 'teams'`))
+            .orderBy(sql`${tasks.createdAt} DESC`).limit(30),
     ]);
-    return { success: true as const, children, sprints };
+    return { success: true as const, children, sprints, teamAssignments };
 }
 
 export type GroupCopyRow = { copyId: string; title: string; orgTitle: string; dueDate: string | null; state: CopyState; late: boolean; submissionType: string; canSubmit: boolean };
@@ -446,4 +485,135 @@ export async function listProjectGroupCopiesAction(projectId: string): Promise<{
             canSubmit: c.assigneeId === userId,
         })),
     };
+}
+
+// --- After publishing (report §16.3, §16.11) ---
+
+/** A step added after publish reaches every copy; ticks already made stay. */
+export async function addAssignmentStepAction(masterId: string, title: string): Promise<{ success: true } | Failure> {
+    const ctx = await adminOfMaster(masterId);
+    const step = title.trim().slice(0, 200);
+    if (!ctx) return DENIED;
+    if (!step) return { success: false, error: 'Write the step first.' };
+    await db.execute(sql`
+        INSERT INTO task_subtasks (task_id, title, position)
+        SELECT t.id, ${step}, coalesce((SELECT max(s.position) + 1 FROM task_subtasks s WHERE s.task_id = t.id), 0)
+        FROM tasks t WHERE (t.id = ${masterId} OR t.assignment_id = ${masterId}) AND t.deleted_at IS NULL`);
+    touch(ctx.viewer.slug, ctx.master.projectId);
+    return { success: true };
+}
+
+/** Remind one copy, or everyone not done (report §16.3); a person is reminded at most once per 12 hours. */
+export async function remindCopiesAction(masterId: string, copyIds?: string[]): Promise<{ success: true; reminded: number } | Failure> {
+    const ctx = await adminOfMaster(masterId);
+    if (!ctx) return DENIED;
+    const open = await db.select({ id: tasks.id }).from(tasks).where(and(
+        eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt), isNull(tasks.excusedAt), sql`NOT ${handedIn}`,
+        ...(copyIds?.length ? [inArray(tasks.id, copyIds.slice(0, 2000))] : []),
+    ));
+    const window = Math.floor(Date.now() / (ORG_LIMITS.remindSamePersonHours * 3_600_000));
+    const due = ctx.master.dueDate ? new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric' }).format(ctx.master.dueDate) : null;
+    for (const { id } of open) {
+        await notifyAssignmentDueChanged(id, ctx.viewer.userId, (t) => `Reminder: ${t}${due ? ` is due ${due}` : ' is waiting for you'}`, `remind:${id}:${window}`);
+    }
+    return { success: true, reminded: open.length };
+}
+
+/** Teams of an earlier teams assignment, for "Copy teams from" (report §16.11). */
+export async function readAssignmentTeamsAction(masterId: string): Promise<{ success: true; teams: Array<{ name: string; userIds: string[]; leadId: string | null }> } | Failure> {
+    const ctx = await adminOfMaster(masterId);
+    if (!ctx) return DENIED;
+    const rows = await db.select({ copyId: tasks.id, name: tasks.teamName, userId: taskTeamMembers.userId, isLead: taskTeamMembers.isLead }).from(tasks)
+        .innerJoin(taskTeamMembers, eq(taskTeamMembers.taskId, tasks.id))
+        .where(and(eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt), sql`${tasks.teamName} IS NOT NULL`));
+    const teams = new Map<string, { name: string; userIds: string[]; leadId: string | null }>();
+    for (const r of rows) {
+        const team = teams.get(r.copyId) ?? { name: r.name ?? 'Team', userIds: [], leadId: null };
+        team.userIds.push(r.userId);
+        if (r.isLead) team.leadId = r.userId;
+        teams.set(r.copyId, team);
+    }
+    return { success: true, teams: [...teams.values()].sort((a, b) => a.name.localeCompare(b.name)) };
+}
+
+/**
+ * Changing teams after publish (report §16.11): move a person into another team copy, out to their own copy, or
+ * (a late joiner) into a team at all. Only while neither team has handed in. The person hears where they are now.
+ */
+export async function moveTeamMemberAction(masterId: string, userId: string, toCopyId: string | null): Promise<{ success: true } | Failure> {
+    const ctx = await adminOfMaster(masterId);
+    if (!ctx) return DENIED;
+    if (ctx.master.settings.target.mode !== 'teams') return { success: false, error: 'Only team assignments have teams.' };
+    let title = '';
+    try {
+        title = await db.transaction(async (tx) => {
+            const copies = await tx.select().from(tasks).where(and(eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt))).for('update');
+            const members = await tx.select().from(taskTeamMembers).where(inArray(taskTeamMembers.taskId, copies.map((c) => c.id)));
+            const locked = (c: (typeof copies)[number]) => c.reviewStatus === 'pending' || c.status === 'done' || c.submission !== null;
+            const from = copies.find((c) => members.some((m) => m.taskId === c.id && m.userId === userId) || (c.assigneeId === userId && !c.teamName));
+            const to = toCopyId ? copies.find((c) => c.id === toCopyId && c.teamName) : null;
+            if (toCopyId && !to) throw new Error('That team is gone.');
+            if (from && to && from.id === to.id) return to.teamName ?? '';
+            if ((from && locked(from)) || (to && locked(to))) throw new Error('That team already handed in, so it is locked.');
+            if (from?.teamName) {
+                await tx.delete(taskTeamMembers).where(and(eq(taskTeamMembers.taskId, from.id), eq(taskTeamMembers.userId, userId)));
+                const left = members.filter((m) => m.taskId === from.id && m.userId !== userId);
+                if (left.length === 0) await tx.update(tasks).set({ deletedAt: new Date(), updatedAt: new Date() }).where(eq(tasks.id, from.id));
+                else if (from.assigneeId === userId) {
+                    await tx.update(taskTeamMembers).set({ isLead: true }).where(and(eq(taskTeamMembers.taskId, from.id), eq(taskTeamMembers.userId, left[0]!.userId)));
+                    await tx.update(tasks).set({ assigneeId: left[0]!.userId, updatedAt: new Date() }).where(eq(tasks.id, from.id));
+                }
+            } else if (from) {
+                await tx.update(tasks).set({ deletedAt: new Date(), updatedAt: new Date() }).where(eq(tasks.id, from.id));
+            }
+            if (to) {
+                await tx.insert(taskTeamMembers).values({ taskId: to.id, userId, isLead: false }).onConflictDoNothing();
+                return to.teamName ?? 'a team';
+            }
+            await createCopies(tx, masterId, [{ projectId: ctx.master.projectId, assigneeId: userId }], ctx.viewer.userId);
+            return '';
+        });
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Could not move them.' };
+    }
+    touch(ctx.viewer.slug, ctx.master.projectId);
+    const [copy] = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt),
+        toCopyId ? eq(tasks.id, toCopyId) : eq(tasks.assigneeId, userId))).limit(1);
+    if (copy) await notifyAssignmentDueChanged(copy.id, ctx.viewer.userId, (t) => (title ? `You moved to ${title} for ${t}` : `You now have your own copy of ${t}`), `team-move:${masterId}:${userId}:${Date.now()}`);
+    return { success: true };
+}
+
+/** Excuse one person on a team (report §16.11): the team carries on; that person leaves the counts with an excused copy. */
+export async function excuseTeamMemberAction(copyId: string, userId: string, reason: string): Promise<{ success: true } | Failure> {
+    const ctx = await adminOfCopy(copyId);
+    if (!ctx) return DENIED;
+    if (!ctx.copy.teamName) return excuseCopyAction(copyId, reason);
+    const [member] = await db.select({ userId: taskTeamMembers.userId }).from(taskTeamMembers).where(and(eq(taskTeamMembers.taskId, copyId), eq(taskTeamMembers.userId, userId))).limit(1);
+    if (!member) return { success: false, error: "They're not on this team." };
+    const moved = await moveTeamMemberAction(ctx.master.id, userId, null);
+    if (!moved.success) return moved;
+    const [own] = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, ctx.master.id), eq(tasks.assigneeId, userId), isNull(tasks.teamName), isNull(tasks.deletedAt))).limit(1);
+    return own ? excuseCopyAction(own.id, reason) : { success: true };
+}
+
+export type ReviewQueueRow = { copyId: string; masterId: string; title: string; who: string; submittedBy: string | null; submittedAt: string; late: boolean };
+
+/** The marking inbox across every assignment (report §16.4–16.5): oldest first, with who handed in. */
+export async function readReviewQueueAction(orgId: string): Promise<{ success: true; rows: ReviewQueueRow[] } | Failure> {
+    const viewer = await orgRole(orgId, 'read');
+    if (!viewer?.isAdmin) return DENIED;
+    const rows = await db.execute<{ copy_id: string; master_id: string; title: string; team_name: string | null; assignee: string | null; project: string | null; submitted_by: string | null; submitted_at: string; due_date: string | null }>(sql`
+        SELECT c.id AS copy_id, m.id AS master_id, m.title, c.team_name,
+               (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = c.assignee_id) AS assignee,
+               (SELECT pr.title FROM projects pr WHERE pr.id = c.project_id AND pr.id <> m.project_id) AS project,
+               (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = (c.submission->>'by')::uuid) AS submitted_by,
+               c.review_submitted_at::text AS submitted_at, c.due_date::text AS due_date
+        FROM tasks c JOIN tasks m ON m.id = c.assignment_id
+        WHERE m.project_id = ${orgId} AND m.deleted_at IS NULL AND c.deleted_at IS NULL AND c.review_status = 'pending'
+        ORDER BY c.review_submitted_at ASC NULLS LAST LIMIT 200`);
+    return { success: true, rows: rows.map((r) => ({
+        copyId: r.copy_id, masterId: r.master_id, title: r.title,
+        who: r.team_name ?? r.project ?? r.assignee ?? 'Member', submittedBy: r.team_name ? r.submitted_by : null,
+        submittedAt: r.submitted_at, late: Boolean(r.due_date && new Date(r.submitted_at) > new Date(r.due_date)),
+    })) };
 }

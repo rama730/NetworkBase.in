@@ -44,6 +44,10 @@ export type TaskSurfaceRecord = {
   assigneeId: string | null;
   creatorId: string | null;
   sprintId: string | null;
+  /** Assignment copies (report §16): the master, the team, and who it is "From". */
+  assignmentId?: string | null;
+  teamName?: string | null;
+  fromLabel?: string | null;
   dueDate: string | null;
   storyPoints: number | null;
   taskNumber: number | null;
@@ -283,6 +287,9 @@ export function normalizeTaskSurfaceRecord(value: any): TaskSurfaceRecord {
       asTrimmedString(value?.creatorId) ?? asTrimmedString(value?.creator_id),
     sprintId:
       asTrimmedString(value?.sprintId) ?? asTrimmedString(value?.sprint_id),
+    assignmentId: asTrimmedString(value?.assignmentId) ?? asTrimmedString(value?.assignment_id),
+    teamName: asTrimmedString(value?.teamName) ?? asTrimmedString(value?.team_name),
+    fromLabel: asTrimmedString(value?.fromLabel),
     dueDate: asIsoString(value?.dueDate) ?? asIsoString(value?.due_date),
     storyPoints: asNumber(value?.storyPoints) ?? asNumber(value?.story_points),
     taskNumber: asNumber(value?.taskNumber) ?? asNumber(value?.task_number),

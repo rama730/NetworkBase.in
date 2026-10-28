@@ -72,6 +72,8 @@ export async function toggleSubtaskAction(
             await lockSubtaskWriteScope(tx, { subtaskId }, projectId, user.id);
             const [row] = await tx.update(taskSubtasks).set({
                 completed,
+                // Shared team copies show who ticked each step (report §16.11).
+                completedBy: completed ? user.id : null,
                 updatedAt: new Date(),
             }).where(eq(taskSubtasks.id, subtaskId)).returning();
             if (!row) throw new Error("Subtask not found");

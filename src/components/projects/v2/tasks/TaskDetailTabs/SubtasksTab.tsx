@@ -33,6 +33,8 @@ interface SubtasksTabProps {
   onDeleteSubtask: (subtaskId: string) => Promise<MutationResult>;
   onUpdateSubtask: (subtaskId: string, title: string) => Promise<MutationResult>;
   onRetry: () => Promise<unknown>;
+  /** Names for "✓ Write tests · Kiran" on shared (team) copies. */
+  nameOf?: (userId: string) => string | null;
 }
 
 export default function SubtasksTab({
@@ -49,6 +51,7 @@ export default function SubtasksTab({
   onDeleteSubtask,
   onUpdateSubtask,
   onRetry,
+  nameOf,
 }: SubtasksTabProps) {
   const [draft, setDraft] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -257,6 +260,9 @@ export default function SubtasksTab({
             {subtask.title}
           </span>
         )}
+        {subtask.completed && subtask.completedBy && nameOf?.(subtask.completedBy) ? (
+          <span className="shrink-0 text-[11px] text-muted-foreground">· {nameOf(subtask.completedBy)}</span>
+        ) : null}
 
         {pending ? (
           <span className="shrink-0 font-mono text-[11px] text-muted-foreground">

@@ -2418,6 +2418,8 @@ export const taskSubtasks = pgTable(
       .references(() => tasks.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     completed: boolean("completed").default(false).notNull(),
+    // Who ticked it (0259, report §16.11).
+    completedBy: uuid("completed_by").references((): AnyPgColumn => profiles.id, { onDelete: "set null" }),
     position: integer("position").default(0).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -2431,6 +2433,7 @@ export const taskSubtasks = pgTable(
       t.taskId,
       t.position,
     ),
+    completedByIdx: index("task_subtasks_completed_by_idx").on(t.completedBy).where(sql`${t.completedBy} IS NOT NULL`),
     taskCompletedIdx: index("task_subtasks_task_completed_idx").on(
       t.taskId,
       t.completed,

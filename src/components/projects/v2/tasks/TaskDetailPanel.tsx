@@ -607,6 +607,10 @@ export default function TaskDetailPanel({
                   onDeleteSubtask={resource.removeSubtask}
                   onUpdateSubtask={resource.updateSubtask}
                   onRetry={resource.loadSubtasks}
+                  nameOf={(userId) => {
+                    const m = members.find((member: any) => member?.id === userId);
+                    return m ? m.fullName || m.username || null : null;
+                  }}
                 />
               </div>
             ) : null}

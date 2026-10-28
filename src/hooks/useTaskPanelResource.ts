@@ -102,7 +102,7 @@ function mergeFileWarnings(...warningSets: TaskFileReadinessWarning[][]) {
 
 const SUBTASK_PAGE_SIZE = 200;
 
-function toPanelSubtask(value: Record<string, unknown> | null) {
+function toPanelSubtask(value: Record<string, unknown> | null): TaskPanelSubtask | null {
   if (!value) return null;
   const toIsoDate = (raw: unknown) => {
     if (raw instanceof Date) return raw.toISOString();
@@ -117,6 +117,7 @@ function toPanelSubtask(value: Record<string, unknown> | null) {
     taskId: String(value.task_id ?? value.taskId ?? ""),
     title: String(value.title ?? ""),
     completed: Boolean(value.completed),
+    completedBy: typeof (value.completed_by ?? value.completedBy) === "string" ? String(value.completed_by ?? value.completedBy) : null,
     position: Number(value.position ?? 0),
     createdAt: toIsoDate(value.created_at ?? value.createdAt),
     updatedAt: toIsoDate(value.updated_at ?? value.updatedAt),
@@ -377,7 +378,7 @@ export function useTaskPanelResource(params: {
           // One extra row tells whether another page exists.
           const { data, error } = await supabase
             .from("task_subtasks")
-            .select("id, task_id, title, completed, position, created_at, updated_at")
+            .select("id, task_id, title, completed, completed_by, position, created_at, updated_at")
             .eq("task_id", task.id)
             .order("position", { ascending: true })
             .order("id", { ascending: true })

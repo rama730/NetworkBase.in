@@ -6,6 +6,9 @@ import { db } from '@/lib/db';
 import { profiles, projectMembers, projectOpenRoles, projects } from '@/lib/db/schema';
 import { getProjectAccessById } from '@/lib/data/project-access';
 import { notifyOrg } from '@/lib/organizations/notify';
+import { insertTask } from '@/lib/organizations/assignments';
+import { enqueueProjectNotificationEvent } from '@/lib/notifications/project-events';
+import { taskTeamMembers } from '@/lib/db/schema';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 
 // Units after creation (report §14.4, §21 "Units & open seats"): the lead, a project admin or an inherited org admin
@@ -127,4 +130,60 @@ export async function readProjectUnitsAction(projectId: string): Promise<Array<{
             .where(and(eq(projectMembers.projectId, projectId), isNull(projects.deletedAt))),
     ]);
     return units.map((u) => ({ id: u.id, title: u.title || u.role, memberIds: members.filter((m) => m.unitId === u.id).map((m) => m.userId), leadUserId: u.leadUserId, count: u.count, filled: u.filled }));
+}
+
+/**
+ * Team tasks in a child project (report §16.11): one shared task per team or per unit, worked and moved by any
+ * teammate; the team lead (or unit lead) is the assignee. Review follows the project's own policy.
+ */
+export async function createTeamTasksAction(projectId: string, input: {
+    title: string; description?: string | null; dueDate?: string | null;
+    mode: 'teams' | 'units'; teams?: Array<{ name: string; userIds: string[]; leadId?: string | null }>;
+}): Promise<{ success: true; created: number } | Failure> {
+    const m = await manager(projectId);
+    if (!m) return DENIED;
+    const title = input.title.trim().slice(0, 200);
+    if (!title) return { success: false, error: 'Give the task a title.' };
+    const due = input.dueDate ? new Date(input.dueDate) : null;
+    if (due && !Number.isFinite(due.getTime())) return { success: false, error: 'Pick a valid due date.' };
+
+    const members = await db.select({ userId: projectMembers.userId, unitId: projectMembers.unitId }).from(projectMembers).where(eq(projectMembers.projectId, projectId));
+    const inProject = new Set([...members.map((x) => x.userId), m.project.ownerId]);
+    let teams: Array<{ name: string; userIds: string[]; leadId: string }>;
+    if (input.mode === 'units') {
+        const units = await db.select({ id: projectOpenRoles.id, role: projectOpenRoles.role, title: projectOpenRoles.title, leadUserId: projectOpenRoles.leadUserId })
+            .from(projectOpenRoles).where(eq(projectOpenRoles.projectId, projectId)).orderBy(asc(projectOpenRoles.createdAt));
+        teams = units.flatMap((u) => {
+            const people = members.filter((x) => x.unitId === u.id).map((x) => x.userId);
+            return people.length ? [{ name: u.title || u.role, userIds: people, leadId: u.leadUserId && people.includes(u.leadUserId) ? u.leadUserId : people[0]! }] : [];
+        });
+        if (teams.length === 0) return { success: false, error: 'No unit has people in it yet.' };
+    } else {
+        const seen = new Set<string>();
+        teams = [];
+        for (const t of input.teams ?? []) {
+            const people = [...new Set(t.userIds)].filter((id) => inProject.has(id));
+            if (people.length === 0) return { success: false, error: 'Every team needs at least one person from the project.' };
+            if (people.some((id) => seen.has(id))) return { success: false, error: 'A person can be in one team only.' };
+            people.forEach((id) => seen.add(id));
+            teams.push({ name: t.name.trim().slice(0, 60) || `Team ${String.fromCharCode(65 + teams.length)}`, userIds: people, leadId: t.leadId && people.includes(t.leadId) ? t.leadId : people[0]! });
+        }
+        if (teams.length === 0) return { success: false, error: 'Add at least one team.' };
+    }
+
+    const created = await db.transaction(async (tx) => {
+        const ids: Array<{ id: string; team: (typeof teams)[number] }> = [];
+        for (const team of teams) {
+            const id = await insertTask(tx, { projectId, title, description: input.description?.trim() || null, dueDate: due, sprintId: null, assigneeId: team.leadId,
+                creatorId: m.userId, kind: 'task', assignmentId: null, assignmentSettings: null, teamName: team.name });
+            await tx.insert(taskTeamMembers).values(team.userIds.map((userId) => ({ taskId: id, userId, isLead: userId === team.leadId })));
+            ids.push({ id, team });
+        }
+        return ids;
+    });
+    for (const { id, team } of created) {
+        await enqueueProjectNotificationEvent({ projectId, eventKey: 'tasks.assigned', actorUserId: m.userId, directRecipientIds: team.userIds,
+            title: `You're in ${team.name} for ${title}`, sourceEventId: `team-task:${id}`, entityRefs: { taskId: id } }).catch(() => undefined);
+    }
+    return { success: true, created: created.length };
 }
