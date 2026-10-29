@@ -21,6 +21,7 @@ import { getProfileToRoleAlignmentAction, type AttributeAlignment } from "@/app/
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useReportDialog } from "@/components/reports/ReportDialog";
 import { useAuth } from "@/hooks/use-auth";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { conversationHref } from "@/lib/messaging/routes";
@@ -228,6 +229,8 @@ export default function InviteCollaboratorModal({
     const selectableRoles = useMemo(() => activeRoles.filter((role) => remainingRoles(role) > 0 && !staleRoleIds.includes(role.id)), [activeRoles, staleRoleIds]);
     const selectableRoleKey = useMemo(() => selectableRoles.map((role) => role.id).join("|"), [selectableRoles]);
     const selectedRole = activeRoles.find((role) => role.id === roleId) || null;
+    // Report a role post from where it's read (trust and safety C15).
+    const reportRole = useReportDialog({ kind: "role", targetId: selectedRole?.id ?? "", noun: "role post" });
     const candidateIsFixed = Boolean(initialCandidate);
     const projectIsFixed = Boolean(projectId);
     const canAppointSelectedGuidance = mode === "invite" && (canAppointGuidance || selectedProject?.role === "owner");
@@ -616,6 +619,7 @@ export default function InviteCollaboratorModal({
             >{projectOptions.length ? projectOptions.map((project) => <button key={project.id} type="button" role="option" aria-selected={project.id === selectedProjectId} onClick={() => { setSelectedProjectId(project.id); setIsChoosingProject(false); setFormError(null); }} className={`flex w-full items-center justify-between gap-3 rounded-[5px] px-3 py-2 text-left text-sm transition-colors ${project.id === selectedProjectId ? "bg-primary/10 font-medium text-primary" : "hover:bg-muted text-foreground"}`}><span className="truncate">{project.title}</span>{project.id === selectedProjectId ? <Check aria-hidden="true" className="size-4 shrink-0" /> : null}</button>) : <p className="px-3 py-2 text-sm text-muted-foreground">No eligible workspaces available.</p>}</div></div> : null;
 
     return (
+        <>
         <Dialog open={isOpen} onOpenChange={(open) => !open && !submitting && closeComposer("dismissed")}>
             <DialogContent
                 presentation={phone ? "bottom-sheet" : "center"}
@@ -774,6 +778,7 @@ export default function InviteCollaboratorModal({
 
                 <DialogFooter className="flex items-center justify-end gap-2.5 border-t border-border bg-muted/10 px-4 py-3.5 sm:px-6">
                     {submitBlocker ? <p id="recruitment-submit-hint" className="mr-auto min-w-0 text-xs text-muted-foreground">{submitBlocker}</p> : null}
+                    {mode === "apply" && selectedRole && !submitBlocker ? <button type="button" onClick={reportRole.open} className="mr-auto text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground">Report this role post</button> : null}
                     <Button type="button" variant="outline" onClick={() => closeComposer("cancelled")} disabled={submitting} className="nb-touch-target h-[34px] rounded-[5px] border-border text-foreground hover:bg-muted">Cancel</Button>
                     <Button
                         type="button"
@@ -785,5 +790,7 @@ export default function InviteCollaboratorModal({
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+        {reportRole.dialog}
+        </>
     );
 }

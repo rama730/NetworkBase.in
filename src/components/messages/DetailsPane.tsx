@@ -403,6 +403,7 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
   const [confirmPrivacy, setConfirmPrivacy] = useState(false);
   const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
   const exit = useConversationExit({ id: channelId, project_id: channel?.project_id ?? null, kind: channel?.kind ?? "public", name: channel?.name ?? null });
+  const reportChannel = useReportDialog({ kind: "chat_channel", targetId: channelId, noun: "channel" });
 
   if (details.isError && !channel) return <ErrorNotice what="Details" onRetry={() => void details.refetch()} className="m-4" />;
   if (!channel) {
@@ -567,6 +568,11 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
                 <p className="mt-1 text-[13px] text-muted-foreground">{creatorName ? `By ${creatorName} on ` : "On "}{createdDate}</p>
               </div>
             </div>
+            {/* Report a channel you didn't create (trust and safety C15); groups and DMs report people or messages instead. */}
+            {!isGroup && channel.created_by !== meId ? (
+              <button type="button" onClick={reportChannel.open} className="text-[13px] text-muted-foreground underline underline-offset-4 hover:text-foreground">Report channel</button>
+            ) : null}
+            {reportChannel.dialog}
             {canLeave || canArchive ? (
               <div className="flex flex-wrap gap-2 pt-1">
                 {canLeave && channel.is_member ? <Button type="button" variant="outline" onClick={() => setConfirm("leave")} className="pointer-coarse:h-11">Leave {isGroup ? "conversation" : "channel"}</Button> : null}
