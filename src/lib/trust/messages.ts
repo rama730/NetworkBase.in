@@ -4,7 +4,6 @@ import { caseLabel, KIND_NOUN, ruleLabel, type ModerationActionKind, type Report
 // The words for every safety notice and email (docs/trust-and-safety-concept.md §9, §13). Pure, so the tray, the
 // emails, the console's "Preview email" and the tests say exactly the same thing. Never names a reporter.
 
-const DATE = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
 export const shortDate = (value: Date | string | null | undefined, timeZone?: string | null) =>
   value ? new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: timeZone || "Asia/Kolkata" }).format(new Date(value)) : "";
 
@@ -185,4 +184,3 @@ export function weeklyHealthEmail(lines: string[]): TrustEmailData {
     paragraphs: ["The last 7 days."], bullets: lines, primary: { label: "Open Health", href: "/admin/trust?tab=health" } };
 }
 
-export { DATE as TRUST_DATE };

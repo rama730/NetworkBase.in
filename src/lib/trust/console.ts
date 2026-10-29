@@ -243,14 +243,14 @@ export async function readPerson(handleOrId: string) {
 }
 
 /** Audit log tab (17.11). */
-export async function readAudit(f: { staff?: string; kind?: string; from?: string; to?: string; limit?: number } = {}) {
+export async function readAudit(f: { kind?: string; from?: string; to?: string } = {}) {
   const rows = await db.execute<{ id: string; created_at: string; staff: string | null; kind: string; case_number: number | null; data: Record<string, unknown> }>(sql`
     SELECT e.id, e.created_at::text, coalesce(p.full_name, p.username) AS staff, e.kind, c.number::int AS case_number, e.data
     FROM moderation_events e LEFT JOIN profiles p ON p.id = e.actor_id LEFT JOIN moderation_cases c ON c.id = e.case_id
     WHERE e.actor_id IS NOT NULL
-      ${f.staff ? sql`AND e.actor_id = ${f.staff}` : sql``} ${f.kind ? sql`AND e.kind = ${f.kind}` : sql``}
+      ${f.kind ? sql`AND e.kind = ${f.kind}` : sql``}
       ${f.from ? sql`AND e.created_at >= ${f.from}::date` : sql``} ${f.to ? sql`AND e.created_at < ${f.to}::date + 1` : sql``}
-    ORDER BY e.created_at DESC LIMIT ${f.limit ?? 300}`);
+    ORDER BY e.created_at DESC LIMIT 300`);
   return [...rows];
 }
 
