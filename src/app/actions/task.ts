@@ -10,11 +10,11 @@ import { recordTaskAssignment, taskAssignmentNotification } from "@/lib/workspac
 import {
   fileVersions,
   profiles,
-  projectMembers,
-  projectNodes,
-  projectSprints,
+  workspaceMembers,
+  workspaceNodes,
+  workspaceSprints,
   sprintTaskMemberships,
-  projectWorkflowColumns,
+  workspaceWorkflowColumns,
   taskActivityEvents,
   taskNodeLinks,
   tasks,
@@ -126,10 +126,10 @@ export async function updateTaskFieldAction(
         }
         const sprintId = requestedSprintId;
         if (sprintId) {
-          const sprint = await tx.query.projectSprints.findFirst({
+          const sprint = await tx.query.workspaceSprints.findFirst({
             where: and(
-              eq(projectSprints.id, sprintId),
-              eq(projectSprints.projectId, locked.projectId),
+              eq(workspaceSprints.id, sprintId),
+              eq(workspaceSprints.projectId, locked.projectId),
             ),
             columns: { id: true, status: true },
           });
@@ -502,14 +502,14 @@ export async function assignTaskAction(
                 id: profiles.id,
                 fullName: profiles.fullName,
                 avatarUrl: profiles.avatarUrl,
-                memberRole: projectMembers.role,
+                memberRole: workspaceMembers.role,
               })
               .from(profiles)
               .leftJoin(
-                projectMembers,
+                workspaceMembers,
                 and(
-                  eq(projectMembers.userId, profiles.id),
-                  eq(projectMembers.projectId, locked.projectId),
+                  eq(workspaceMembers.userId, profiles.id),
+                  eq(workspaceMembers.projectId, locked.projectId),
                 ),
               )
               .where(inArray(profiles.id, snapshotIds))
@@ -632,18 +632,18 @@ export async function approveTaskReviewAction(
           linkId: taskNodeLinks.id,
           tags: taskNodeLinks.tags,
           annotation: taskNodeLinks.annotation,
-          id: projectNodes.id,
-          name: projectNodes.name,
-          type: projectNodes.type,
-          path: projectNodes.path,
-          canonicalNodeId: projectNodes.canonicalNodeId,
-          currentVersion: projectNodes.currentVersion,
+          id: workspaceNodes.id,
+          name: workspaceNodes.name,
+          type: workspaceNodes.type,
+          path: workspaceNodes.path,
+          canonicalNodeId: workspaceNodes.canonicalNodeId,
+          currentVersion: workspaceNodes.currentVersion,
           revisedAt: fileVersions.uploadedAt,
         })
         .from(taskNodeLinks)
-        .innerJoin(projectNodes, eq(projectNodes.id, taskNodeLinks.nodeId))
-        .innerJoin(fileVersions, and(eq(fileVersions.nodeId, projectNodes.id), eq(fileVersions.version, projectNodes.currentVersion)))
-        .where(and(eq(taskNodeLinks.taskId, taskId), isNull(projectNodes.deletedAt)))
+        .innerJoin(workspaceNodes, eq(workspaceNodes.id, taskNodeLinks.nodeId))
+        .innerJoin(fileVersions, and(eq(fileVersions.nodeId, workspaceNodes.id), eq(fileVersions.version, workspaceNodes.currentVersion)))
+        .where(and(eq(taskNodeLinks.taskId, taskId), isNull(workspaceNodes.deletedAt)))
         .for("update");
 
       // Approval belongs to a specific file version in this task, not every

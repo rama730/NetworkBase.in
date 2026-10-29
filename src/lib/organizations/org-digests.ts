@@ -3,7 +3,7 @@ import "server-only";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { profiles, projectMembers, projects, roleApplications } from "@/lib/db/schema";
+import { profiles, workspaceMembers, workspaces, roleApplications } from "@/lib/db/schema";
 import { normalizeNotificationPreferences } from "@/lib/notifications/preferences";
 import { readNeedsYou, type OrgViewer } from "@/lib/organizations/needs-you";
 import { notifyOrg, orgHref, queueOrgEmails } from "@/lib/organizations/notify";
@@ -16,7 +16,7 @@ import { readOrgWork } from "@/lib/organizations/settings";
 const notHandedIn = sql`NOT (c.review_status = 'pending' OR c.status = 'done' OR c.submission IS NOT NULL)`;
 // Archived, suspended or deleting orgs send no reminders or digests (report §30.5).
 const openMaster = sql`m.deleted_at IS NULL AND m.assignment_settings->>'publishedAt' IS NOT NULL AND m.assignment_settings->>'closedAt' IS NULL
-  AND NOT app_private.nb_project_read_only(m.project_id)`;
+  AND NOT app_private.nb_workspace_read_only(m.workspace_id)`;
 
 type DueRow = { copy_id: string; title: string; due_date: string; status: string; org_id: string; people: string[]; late_rule: string | null; late_until: string | null };
 
@@ -28,7 +28,7 @@ export async function runOrgDueSoon(now = new Date()) {
   // ponytail: one scan of copies due in the next two days or overdue in the last one. Ceiling: fine to tens of
   // thousands of open copies; upgrade to a per-zone queue if the hourly scan grows slow.
   const rows = await db.execute<DueRow>(sql`
-    SELECT c.id AS copy_id, c.title, c.due_date, c.status, m.project_id AS org_id,
+    SELECT c.id AS copy_id, c.title, c.due_date, c.status, m.workspace_id AS org_id,
       m.assignment_settings->>'lateRule' AS late_rule, m.assignment_settings->>'lateUntil' AS late_until,
       to_jsonb(array_remove(array_append(coalesce((SELECT array_agg(tm.user_id) FROM task_team_members tm WHERE tm.task_id = c.id), '{}'), c.assignee_id), NULL)) AS people
     FROM tasks c JOIN tasks m ON m.id = c.assignment_id
@@ -40,7 +40,7 @@ export async function runOrgDueSoon(now = new Date()) {
   const orgIds = [...new Set(rows.map((r) => r.org_id))];
   const [prefs, orgs] = await Promise.all([
     db.select({ id: profiles.id, preferences: profiles.notificationPreferences }).from(profiles).where(inArray(profiles.id, people)),
-    db.select({ id: projects.id, title: projects.title, slug: projects.slug, timeZone: projects.timeZone, settings: projects.orgSettings, type: projects.orgType }).from(projects).where(inArray(projects.id, orgIds)),
+    db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, timeZone: workspaces.timeZone, settings: workspaces.orgSettings, type: workspaces.orgType }).from(workspaces).where(inArray(workspaces.id, orgIds)),
   ]);
   // Settings → Work → Reminders (report §21.2 #5): 24 hours before, on the due day, both, or off.
   const remindersOf = new Map(orgs.map((o) => [o.id, readOrgWork(o.settings, o.type).reminders]));
@@ -102,8 +102,8 @@ export async function runOrgDueSoon(now = new Date()) {
  * "instant" orgs skip it.
  */
 export async function runOrgAdminDigest(now = new Date()) {
-  const orgs = await db.select({ id: projects.id, ownerId: projects.ownerId, timeZone: projects.timeZone, settings: projects.orgSettings, title: projects.title, slug: projects.slug, status: projects.status })
-    .from(projects).where(and(eq(projects.kind, "organization"), isNull(projects.deletedAt), sql`NOT app_private.nb_project_read_only(${projects.id})`));
+  const orgs = await db.select({ id: workspaces.id, ownerId: workspaces.ownerId, timeZone: workspaces.timeZone, settings: workspaces.orgSettings, title: workspaces.title, slug: workspaces.slug, status: workspaces.status })
+    .from(workspaces).where(and(eq(workspaces.kind, "organization"), isNull(workspaces.deletedAt), sql`NOT app_private.nb_workspace_read_only(${workspaces.id})`));
   let sent = 0;
   for (const org of orgs) {
     const clock = localClock(now, org.timeZone);
@@ -111,19 +111,19 @@ export async function runOrgAdminDigest(now = new Date()) {
     const [toReview, [requests], [behind]] = await Promise.all([
       db.execute<{ title: string; count: number }>(sql`
         SELECT m.title, count(*)::int AS count FROM tasks c JOIN tasks m ON m.id = c.assignment_id
-        WHERE m.project_id = ${org.id} AND m.deleted_at IS NULL AND c.deleted_at IS NULL AND c.review_status = 'pending'
+        WHERE m.workspace_id = ${org.id} AND m.deleted_at IS NULL AND c.deleted_at IS NULL AND c.review_status = 'pending'
         GROUP BY m.id, m.title ORDER BY count DESC LIMIT 20`),
       db.select({ n: sql<number>`count(*)::int` }).from(roleApplications)
         .where(and(eq(roleApplications.projectId, org.id), isNull(roleApplications.roleId), eq(roleApplications.status, "pending"))),
       db.execute<{ n: number }>(sql`
         SELECT count(DISTINCT c.assignee_id)::int AS n FROM tasks c JOIN tasks m ON m.id = c.assignment_id
-        WHERE m.project_id = ${org.id} AND ${openMaster} AND c.deleted_at IS NULL AND c.excused_at IS NULL
+        WHERE m.workspace_id = ${org.id} AND ${openMaster} AND c.deleted_at IS NULL AND c.excused_at IS NULL
           AND c.due_date < ${now.toISOString()}::timestamptz AND ${notHandedIn}`),
     ]);
     const digest = { toReview: [...toReview], joinRequests: requests?.n ?? 0, needsYou: await digestNeedsYou(org, clock.date, now), behind: behind?.n ?? 0 };
     if (digestIsEmpty(digest)) continue;
-    const admins = await db.select({ userId: projectMembers.userId }).from(projectMembers)
-      .where(and(eq(projectMembers.projectId, org.id), eq(projectMembers.role, "admin")));
+    const admins = await db.select({ userId: workspaceMembers.userId }).from(workspaceMembers)
+      .where(and(eq(workspaceMembers.projectId, org.id), eq(workspaceMembers.role, "admin")));
     await queueOrgEmails(org.id, null, `digest:${org.id}:${clock.date}`, { kind: "org_digest", data: { digest } }, [org.ownerId, ...admins.map((a) => a.userId)]);
     sent++;
   }
@@ -137,8 +137,8 @@ async function digestNeedsYou(org: { id: string; ownerId: string; title: string 
   const ending = await db.execute<{ name: string; missing: number }>(sql`
     SELECT s.name, (SELECT count(DISTINCT c.assignee_id)::int FROM tasks c JOIN tasks m ON m.id = c.assignment_id
       WHERE m.sprint_id = s.id AND ${openMaster} AND c.deleted_at IS NULL AND c.excused_at IS NULL AND ${notHandedIn}) AS missing
-    FROM project_sprints s WHERE s.project_id = ${org.id} AND s.status = 'active'
-      AND (s.end_date AT TIME ZONE coalesce(nullif((SELECT time_zone FROM projects WHERE id = ${org.id}), ''), 'UTC'))::date = ${nextDate(today)}::date`);
+    FROM workspace_sprints s WHERE s.workspace_id = ${org.id} AND s.status = 'active'
+      AND (s.end_date AT TIME ZONE coalesce(nullif((SELECT time_zone FROM workspaces WHERE id = ${org.id}), ''), 'UTC'))::date = ${nextDate(today)}::date`);
   for (const s of ending) lines.push(`${s.name} ends tomorrow${s.missing ? ` · ${s.missing} ${s.missing === 1 ? "person has" : "people have"} missing work` : ""}`);
   return lines;
 }

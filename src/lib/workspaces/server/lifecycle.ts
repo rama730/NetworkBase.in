@@ -2,7 +2,7 @@ import "server-only";
 
 import { type WorkspaceVisibility, isWorkspaceVisibility } from "@/lib/workspaces/workspace-visibility";
 import { db } from "@/lib/db";
-import { projects, projectMembers, profiles, projectOpenRoles, tags, projectTags, storageAssets, projectNodeEvents, projectGuidanceAppointments, projectFollows, roleApplications } from "@/lib/db/schema";
+import { workspaces, workspaceMembers, profiles, workspaceOpenRoles, tags, workspaceTags, storageAssets, workspaceNodeEvents, workspaceMentors, workspaceFollows, roleApplications } from "@/lib/db/schema";
 import { eq, sql, inArray, and, desc, isNull, gt, ilike } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { clearSealedGithubTokenFromImportSource, sanitizeGitErrorMessage, sealGithubImportToken } from "@/lib/github/repo-security";
@@ -103,16 +103,16 @@ async function assertProjectOwnerForSettings(
 ) {
   const [project] = await db
     .select({
-      id: projects.id,
-      slug: projects.slug,
-      ownerId: projects.ownerId,
-      coverImage: projects.coverImage,
-      coverImageBucket: projects.coverImageBucket,
-      coverImageKey: projects.coverImageKey,
-      coverImageAssetId: projects.coverImageAssetId,
+      id: workspaces.id,
+      slug: workspaces.slug,
+      ownerId: workspaces.ownerId,
+      coverImage: workspaces.coverImage,
+      coverImageBucket: workspaces.coverImageBucket,
+      coverImageKey: workspaces.coverImageKey,
+      coverImageAssetId: workspaces.coverImageAssetId,
     })
-    .from(projects)
-    .where(eq(projects.id, projectId))
+    .from(workspaces)
+    .where(eq(workspaces.id, projectId))
     .limit(1);
 
   if (!project) throw new Error("Workspace not found");
@@ -129,7 +129,7 @@ const revalidateProjectFollowers = async (projectId: string) => {
   // Only this project's page: the shared detail tags cover every project, so a follow must not expire them all.
   revalidatePath(`/workspaces/${projectId}`);
   try {
-    const [project] = await db.select({ slug: projects.slug }).from(projects).where(eq(projects.id, projectId)).limit(1);
+    const [project] = await db.select({ slug: workspaces.slug }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
     if (project?.slug) revalidatePath(`/workspaces/${project.slug}`);
   } catch {
     // Ignore slug revalidation errors on legacy schemas.
@@ -212,13 +212,13 @@ async function persistGithubImportQueueFailure(input: {
   };
 
   await db
-    .update(projects)
+    .update(workspaces)
     .set({
       syncStatus: "failed",
       importSource: nextImportSource as any,
       updatedAt: new Date(),
     })
-    .where(eq(projects.id, input.projectId));
+    .where(eq(workspaces.id, input.projectId));
 }
 
 
@@ -284,7 +284,7 @@ async function enqueueGithubImportOrRunInline(input: {
 
   try {
     await inngest.send({
-      name: "project/import",
+      name: "workspace/import",
       id: input.eventId,
       data: {
         projectId: input.projectId,
@@ -603,8 +603,8 @@ export async function createWorkspaceAction(
       if (!(await isOrgHandleAvailable(checked.handle))) return refuse(`@${checked.handle} is taken.`);
       const [owned] = await db
         .select({ n: sql<number>`count(*)::int` })
-        .from(projects)
-        .where(and(eq(projects.ownerId, user.id), eq(projects.kind, "organization"), isNull(projects.deletedAt)));
+        .from(workspaces)
+        .where(and(eq(workspaces.ownerId, user.id), eq(workspaces.kind, "organization"), isNull(workspaces.deletedAt)));
       if ((owned?.n ?? 0) >= ORG_LIMITS.orgsOwnedPerUser) return refuse(`You can own up to ${ORG_LIMITS.orgsOwnedPerUser} organizations.`);
       orgHandle = checked.handle;
     }
@@ -622,9 +622,9 @@ export async function createWorkspaceAction(
     if (parentOrgId) {
       const refuse = (error: string, code?: "ORG_BLOCKED") => ({ success: false, error, ...(code ? { code } : {}) });
       const [org] = await db
-        .select({ title: projects.title, visibility: projects.visibility, status: projects.status, suspendedAt: projects.suspendedAt, deletionScheduledAt: projects.deletionScheduledAt, orgSettings: projects.orgSettings })
-        .from(projects)
-        .where(and(eq(projects.id, parentOrgId), eq(projects.kind, "organization"), isNull(projects.deletedAt)))
+        .select({ title: workspaces.title, visibility: workspaces.visibility, status: workspaces.status, suspendedAt: workspaces.suspendedAt, deletionScheduledAt: workspaces.deletionScheduledAt, orgSettings: workspaces.orgSettings })
+        .from(workspaces)
+        .where(and(eq(workspaces.id, parentOrgId), eq(workspaces.kind, "organization"), isNull(workspaces.deletedAt)))
         .limit(1);
       if (!org) return refuse("Organization not found.", "ORG_BLOCKED");
       const rules = readOrgRules(org.orgSettings);
@@ -906,7 +906,7 @@ export async function createWorkspaceAction(
         // Project, owner membership, and the project's #general are created together.
         const result = await db.transaction(async (tx) => {
           const [newProject] = await tx
-            .insert(projects)
+            .insert(workspaces)
             .values(projectData)
             .returning();
 
@@ -914,7 +914,7 @@ export async function createWorkspaceAction(
             throw new Error("Couldn’t create workspace");
           }
 
-          await tx.insert(projectMembers).values({
+          await tx.insert(workspaceMembers).values({
             projectId: newProject.id,
             userId: ownerId,
             role: "owner",
@@ -944,7 +944,7 @@ export async function createWorkspaceAction(
           let unitIds: string[] = [];
           if (openRoles.length > 0) {
             const insertedRoles = await tx
-              .insert(projectOpenRoles)
+              .insert(workspaceOpenRoles)
               .values(
                 openRoles.map((role) => ({
                   projectId: newProject.id,
@@ -956,7 +956,7 @@ export async function createWorkspaceAction(
                   leadUserId: child && role.lead_user_id ? role.lead_user_id : null,
                 })),
               )
-              .returning({ id: projectOpenRoles.id });
+              .returning({ id: workspaceOpenRoles.id });
             // ponytail: batch open-role skill syncing cuts N sequential DB roundtrips to 1 bulk insert. ceiling: 50 open roles. upgrade: multi-row batching beyond 50.
             const roleSkillEntries = insertedRoles.map((insertedRole, index) => ({
               roleId: insertedRole.id,
@@ -1003,7 +1003,7 @@ export async function createWorkspaceAction(
                 .returning({ id: tags.id });
               if (insertedTags.length > 0) {
                 await tx
-                  .insert(projectTags)
+                  .insert(workspaceTags)
                   .values(
                     insertedTags.map((t) => ({
                       projectId: newProject.id,
@@ -1024,9 +1024,9 @@ export async function createWorkspaceAction(
           );
           if (resolvedProjectSkills.length > 0) {
             await tx
-              .update(projects)
+              .update(workspaces)
               .set({ skills: resolvedProjectSkills.map((skill) => skill.name) })
-              .where(eq(projects.id, newProject.id));
+              .where(eq(workspaces.id, newProject.id));
           }
 
           return newProject;
@@ -1063,11 +1063,11 @@ export async function createWorkspaceAction(
             console.error("Failed to enqueue GitHub import after project creation:", importErr);
             // Project row was already committed. Update syncStatus to failed so Files tab offers retry
             await db
-              .update(projects)
+              .update(workspaces)
               .set({
                 syncStatus: "failed",
               })
-              .where(eq(projects.id, result.id))
+              .where(eq(workspaces.id, result.id))
               .catch(() => undefined);
           }
         }
@@ -1075,7 +1075,7 @@ export async function createWorkspaceAction(
         // Members invite their team: each person gets an invitation to their unit (decision 8).
         const notices: string[] = [...childNotices];
         if (child && (!child.directAdd || outsiders.size > 0)) {
-          const units = await db.select({ id: projectOpenRoles.id, role: projectOpenRoles.role }).from(projectOpenRoles).where(eq(projectOpenRoles.projectId, result.id));
+          const units = await db.select({ id: workspaceOpenRoles.id, role: workspaceOpenRoles.role }).from(workspaceOpenRoles).where(eq(workspaceOpenRoles.projectId, result.id));
           for (const role of openRoles) {
             const unitId = units.find((unit) => unit.role === role.role)?.id;
             for (const person of role.people ?? []) {
@@ -1249,16 +1249,16 @@ export async function updateWorkspace(projectId: string, input: UpdateWorkspaceI
       // Check ownership
       const [project] = await tx
         .select({
-          id: projects.id,
-          ownerId: projects.ownerId,
-          externalLinkMetadata: projects.externalLinkMetadata,
-          importSource: projects.importSource,
-          slug: projects.slug,
-          title: projects.title,
-          status: projects.status,
+          id: workspaces.id,
+          ownerId: workspaces.ownerId,
+          externalLinkMetadata: workspaces.externalLinkMetadata,
+          importSource: workspaces.importSource,
+          slug: workspaces.slug,
+          title: workspaces.title,
+          status: workspaces.status,
         })
-        .from(projects)
-        .where(eq(projects.id, projectId))
+        .from(workspaces)
+        .where(eq(workspaces.id, projectId))
         .limit(1);
 
       if (!project) throw new Error("Workspace not found");
@@ -1268,7 +1268,7 @@ export async function updateWorkspace(projectId: string, input: UpdateWorkspaceI
 
       const { roles, deletedRoleIds, ...raw } = data;
 
-      const updateValues: Partial<typeof projects.$inferInsert> = {
+      const updateValues: Partial<typeof workspaces.$inferInsert> = {
         updatedAt: new Date(),
       };
       if (raw.title !== undefined) updateValues.title = raw.title;
@@ -1301,9 +1301,9 @@ export async function updateWorkspace(projectId: string, input: UpdateWorkspaceI
       }
 
       await tx
-        .update(projects)
+        .update(workspaces)
         .set(updateValues)
-        .where(eq(projects.id, projectId));
+        .where(eq(workspaces.id, projectId));
       await markWorkspaceCollaboratorsSummaryStale(projectId, tx);
       const stopsTakingApplications = (status: string | null | undefined) => status === "archived" || status === "completed";
       if (raw.status !== undefined && stopsTakingApplications(raw.status) && !stopsTakingApplications(project.status)) {
@@ -1316,8 +1316,8 @@ export async function updateWorkspace(projectId: string, input: UpdateWorkspaceI
       // Sync Junction Tables for normalized relational search
       if (raw.tags !== undefined) {
         await tx
-          .delete(projectTags)
-          .where(eq(projectTags.projectId, projectId));
+          .delete(workspaceTags)
+          .where(eq(workspaceTags.projectId, projectId));
         if (tagsArray.length > 0) {
           const tagValues = tagsArray
             .map((t) => {
@@ -1338,7 +1338,7 @@ export async function updateWorkspace(projectId: string, input: UpdateWorkspaceI
               .where(inArray(tags.slug, slugs));
             if (foundTags.length > 0) {
               await tx
-                .insert(projectTags)
+                .insert(workspaceTags)
                 .values(foundTags.map((t) => ({ projectId, tagId: t.id })))
                 .onConflictDoNothing();
             }
@@ -1369,9 +1369,9 @@ export async function updateWorkspace(projectId: string, input: UpdateWorkspaceI
           // Save updated importSource
           updateValues.importSource = updatedImportSource;
           await tx
-            .update(projects)
+            .update(workspaces)
             .set({ importSource: updatedImportSource })
-            .where(eq(projects.id, projectId));
+            .where(eq(workspaces.id, projectId));
         } else {
           // Keep leadFocus synced if lead occupies an open role directly
           const prevLeadFocus = ((project.importSource as any)?.metadata?.leadFocus || "").trim().toLowerCase();
@@ -1390,9 +1390,9 @@ export async function updateWorkspace(projectId: string, input: UpdateWorkspaceI
             };
             updateValues.importSource = updatedImportSource;
             await tx
-              .update(projects)
+              .update(workspaces)
               .set({ importSource: updatedImportSource })
-              .where(eq(projects.id, projectId));
+              .where(eq(workspaces.id, projectId));
           }
         }
 
@@ -1415,9 +1415,9 @@ export async function updateWorkspace(projectId: string, input: UpdateWorkspaceI
         ]));
         if (suppliedRoleIds.length > 0) {
           const ownedRoles = await tx
-            .select({ id: projectOpenRoles.id })
-            .from(projectOpenRoles)
-            .where(and(eq(projectOpenRoles.projectId, projectId), inArray(projectOpenRoles.id, suppliedRoleIds)));
+            .select({ id: workspaceOpenRoles.id })
+            .from(workspaceOpenRoles)
+            .where(and(eq(workspaceOpenRoles.projectId, projectId), inArray(workspaceOpenRoles.id, suppliedRoleIds)));
           if (ownedRoles.length !== suppliedRoleIds.length) {
             throw new Error("Role not found in this workspace");
           }
@@ -1430,11 +1430,11 @@ export async function updateWorkspace(projectId: string, input: UpdateWorkspaceI
             items: await closePendingApplications(tx, { projectId, actorId: user.id, reason: "role_removed", roleIds: cleanDeletedIds, source: "role_deleted" }),
           });
           await tx
-            .delete(projectOpenRoles)
+            .delete(workspaceOpenRoles)
             .where(
               and(
-                eq(projectOpenRoles.projectId, projectId),
-                inArray(projectOpenRoles.id, cleanDeletedIds),
+                eq(workspaceOpenRoles.projectId, projectId),
+                inArray(workspaceOpenRoles.id, cleanDeletedIds),
               ),
             );
         }
@@ -1449,7 +1449,7 @@ export async function updateWorkspace(projectId: string, input: UpdateWorkspaceI
               user.id,
             );
             await tx
-              .update(projectOpenRoles)
+              .update(workspaceOpenRoles)
               .set({
                 role: role.role,
                 count: role.count,
@@ -1459,13 +1459,13 @@ export async function updateWorkspace(projectId: string, input: UpdateWorkspaceI
               })
               .where(
                 and(
-                  eq(projectOpenRoles.projectId, projectId),
-                  eq(projectOpenRoles.id, role.id),
+                  eq(workspaceOpenRoles.projectId, projectId),
+                  eq(workspaceOpenRoles.id, role.id),
                 ),
               );
           } else {
             const [insertedRole] = await tx
-              .insert(projectOpenRoles)
+              .insert(workspaceOpenRoles)
               .values({
                 projectId: project.id,
                 role: role.role,
@@ -1473,7 +1473,7 @@ export async function updateWorkspace(projectId: string, input: UpdateWorkspaceI
                 description: role.description || "",
                 skills: role.skills || [],
               })
-              .returning({ id: projectOpenRoles.id });
+              .returning({ id: workspaceOpenRoles.id });
             if (insertedRole) {
               const resolvedRoleSkills = await syncRoleSkills(
                 tx,
@@ -1483,9 +1483,9 @@ export async function updateWorkspace(projectId: string, input: UpdateWorkspaceI
                 user.id,
               );
               await tx
-                .update(projectOpenRoles)
+                .update(workspaceOpenRoles)
                 .set({ skills: resolvedRoleSkills.map((skill) => skill.name) })
-                .where(eq(projectOpenRoles.id, insertedRole.id));
+                .where(eq(workspaceOpenRoles.id, insertedRole.id));
             }
           }
         }
@@ -1498,22 +1498,22 @@ export async function updateWorkspace(projectId: string, input: UpdateWorkspaceI
 
         openRoles = await tx
           .select({
-            id: projectOpenRoles.id,
-            projectId: projectOpenRoles.projectId,
-            role: projectOpenRoles.role,
-            title: projectOpenRoles.title,
-            description: projectOpenRoles.description,
-            count: projectOpenRoles.count,
-            filled: projectOpenRoles.filled,
-            skills: projectOpenRoles.skills,
-            createdAt: projectOpenRoles.createdAt,
-            updatedAt: projectOpenRoles.updatedAt,
+            id: workspaceOpenRoles.id,
+            projectId: workspaceOpenRoles.projectId,
+            role: workspaceOpenRoles.role,
+            title: workspaceOpenRoles.title,
+            description: workspaceOpenRoles.description,
+            count: workspaceOpenRoles.count,
+            filled: workspaceOpenRoles.filled,
+            skills: workspaceOpenRoles.skills,
+            createdAt: workspaceOpenRoles.createdAt,
+            updatedAt: workspaceOpenRoles.updatedAt,
           })
-          .from(projectOpenRoles)
-          .where(eq(projectOpenRoles.projectId, projectId))
+          .from(workspaceOpenRoles)
+          .where(eq(workspaceOpenRoles.projectId, projectId))
           .orderBy(
-            desc(projectOpenRoles.updatedAt),
-            desc(projectOpenRoles.createdAt),
+            desc(workspaceOpenRoles.updatedAt),
+            desc(workspaceOpenRoles.createdAt),
           );
       }
 
@@ -1573,7 +1573,7 @@ export async function updateWorkspace(projectId: string, input: UpdateWorkspaceI
         }
         if (data.roles || data.status !== undefined) {
           void inngest.send({
-            name: "workspace/connections.sync_suggestions",
+            name: "connections/sync_suggestions",
             data: { userId: ownerId },
           }).catch((syncError) => {
             logger.warn("project.suggestion_sync_enqueue_failed", {
@@ -1746,7 +1746,7 @@ export async function finalizeWorkspaceCoverImageUploadAction(input: {
       if (!publishableAsset) throw new Error("Workspace image is no longer publishable");
 
       const [row] = await tx
-        .update(projects)
+        .update(workspaces)
         .set({
           coverImage: imageUrl,
           coverImageBucket: WORKSPACE_COVER_UPLOAD_BUCKET,
@@ -1755,9 +1755,9 @@ export async function finalizeWorkspaceCoverImageUploadAction(input: {
           updatedAt: new Date(),
         })
         .where(
-          and(eq(projects.id, input.projectId), eq(projects.ownerId, user.id)),
+          and(eq(workspaces.id, input.projectId), eq(workspaces.ownerId, user.id)),
         )
-        .returning({ id: projects.id });
+        .returning({ id: workspaces.id });
       if (!row) return null;
 
       if (project.coverImageAssetId && project.coverImageAssetId !== assetId) {
@@ -1817,7 +1817,7 @@ export async function clearWorkspaceCoverImageAction(
 
     const [updated] = await db.transaction(async (tx) => {
       const rows = await tx
-        .update(projects)
+        .update(workspaces)
         .set({
           coverImage: null,
           coverImageBucket: null,
@@ -1825,8 +1825,8 @@ export async function clearWorkspaceCoverImageAction(
           coverImageAssetId: null,
           updatedAt: new Date(),
         })
-        .where(and(eq(projects.id, projectId), eq(projects.ownerId, user.id)))
-        .returning({ id: projects.id });
+        .where(and(eq(workspaces.id, projectId), eq(workspaces.ownerId, user.id)))
+        .returning({ id: workspaces.id });
       if (project.coverImageAssetId) {
         await scheduleAssetDeletionIfUnreferenced(tx, [project.coverImageAssetId]);
       }
@@ -1870,9 +1870,9 @@ export async function updateWorkspaceExternalLinksAction(
     if ("error" in initialSplit)
       return { success: false as const, error: initialSplit.error };
     const [project] = await db
-      .select({ ownerId: projects.ownerId, slug: projects.slug, externalLinks: projects.externalLinks, externalLinkMetadata: projects.externalLinkMetadata })
-      .from(projects)
-      .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
+      .select({ ownerId: workspaces.ownerId, slug: workspaces.slug, externalLinks: workspaces.externalLinks, externalLinkMetadata: workspaces.externalLinkMetadata })
+      .from(workspaces)
+      .where(and(eq(workspaces.id, projectId), isNull(workspaces.deletedAt)))
       .limit(1);
     if (!project)
       return { success: false as const, error: "Workspace not found." };
@@ -1881,12 +1881,12 @@ export async function updateWorkspaceExternalLinksAction(
       project.ownerId === user.id
         ? [null]
         : await db
-            .select({ role: projectMembers.role })
-            .from(projectMembers)
+            .select({ role: workspaceMembers.role })
+            .from(workspaceMembers)
             .where(
               and(
-                eq(projectMembers.projectId, projectId),
-                eq(projectMembers.userId, user.id),
+                eq(workspaceMembers.projectId, projectId),
+                eq(workspaceMembers.userId, user.id),
               ),
             )
             .limit(1);
@@ -1932,10 +1932,10 @@ export async function updateWorkspaceExternalLinksAction(
           : {}),
       };
       await tx
-        .update(projects)
+        .update(workspaces)
         .set({ externalLinks: links, externalLinkMetadata, updatedAt: new Date() })
-        .where(eq(projects.id, projectId));
-      await tx.insert(projectNodeEvents).values({
+        .where(eq(workspaces.id, projectId));
+      await tx.insert(workspaceNodeEvents).values({
         projectId,
         actorId: user.id,
         type: "project_social_links.updated",
@@ -2001,12 +2001,12 @@ export async function archiveWorkspaceAction(
     let closedByArchive: ClosedApplication[] = [];
     await db.transaction(async (tx) => {
       await tx
-        .update(projects)
+        .update(workspaces)
         .set({ status: "archived", updatedAt: archivedAt })
-        .where(eq(projects.id, projectId));
+        .where(eq(workspaces.id, projectId));
       closedByArchive = await closePendingApplications(tx, { projectId, actorId: user.id, reason: "project_closed", source: "project_archived" });
       const ended = await tx
-        .update(projectGuidanceAppointments)
+        .update(workspaceMentors)
         .set({
           status: "ended",
           endedAt: archivedAt,
@@ -2016,13 +2016,13 @@ export async function archiveWorkspaceAction(
         })
         .where(
           and(
-            eq(projectGuidanceAppointments.projectId, projectId),
-            eq(projectGuidanceAppointments.status, "active"),
+            eq(workspaceMentors.projectId, projectId),
+            eq(workspaceMentors.status, "active"),
           ),
         )
-        .returning({ id: projectGuidanceAppointments.id });
+        .returning({ id: workspaceMentors.id });
       if (ended.length > 0) {
-        await tx.insert(projectNodeEvents).values({
+        await tx.insert(workspaceNodeEvents).values({
           projectId,
           actorId: user.id,
           nodeId: null,
@@ -2081,42 +2081,42 @@ export async function archiveWorkspaceAction(
 export async function countUnregisteredWorkspaceStorage(projectId: string, executor: Pick<typeof db, "execute"> = db) {
   const rows = await executor.execute<{ legacy_count: number }>(sql`
     SELECT (
-      (SELECT count(*) FROM public.projects project
+      (SELECT count(*) FROM public.workspaces project
         WHERE project.id = ${projectId}
           AND (project.cover_image_key IS NOT NULL OR project.cover_image LIKE '%/storage/v1/object/%')
           AND project.cover_image_asset_id IS NULL)
-      + (SELECT count(*) FROM public.project_nodes node
-        WHERE node.project_id = ${projectId}
+      + (SELECT count(*) FROM public.workspace_nodes node
+        WHERE node.workspace_id = ${projectId}
           AND node.s3_key IS NOT NULL
           AND node.asset_id IS NULL)
       + (SELECT count(*) FROM public.file_versions version
-          JOIN public.project_nodes node ON node.id = version.node_id
-        WHERE node.project_id = ${projectId}
+          JOIN public.workspace_nodes node ON node.id = version.node_id
+        WHERE node.workspace_id = ${projectId}
           AND version.s3_key <> ''
           AND version.asset_id IS NULL)
-      + (SELECT count(*) FROM public.project_updates update_row
-        WHERE update_row.project_id = ${projectId}
+      + (SELECT count(*) FROM public.workspace_updates update_row
+        WHERE update_row.workspace_id = ${projectId}
           AND jsonb_array_length(update_row.media) > (
-            SELECT count(*) FROM public.project_update_media_assets media_ref
+            SELECT count(*) FROM public.workspace_update_media_assets media_ref
             WHERE media_ref.update_id = update_row.id
           ))
-      + (SELECT count(*) FROM public.project_update_drafts draft
-        WHERE draft.project_id = ${projectId}
+      + (SELECT count(*) FROM public.workspace_update_drafts draft
+        WHERE draft.workspace_id = ${projectId}
           AND jsonb_array_length(draft.media) > (
-            SELECT count(*) FROM public.project_update_draft_media_assets media_ref
-            WHERE media_ref.project_id = draft.project_id
+            SELECT count(*) FROM public.workspace_update_draft_media_assets media_ref
+            WHERE media_ref.workspace_id = draft.workspace_id
               AND media_ref.user_id = draft.user_id
           ))
       -- chat_attachments always reference a storage asset, so chat adds nothing here.
       + (SELECT count(*) FROM public.import_jobs import_job
-        WHERE import_job.project_id = ${projectId}
+        WHERE import_job.workspace_id = ${projectId}
           AND import_job.manifest_s3_key IS NOT NULL
           AND import_job.manifest_asset_id IS NULL)
       + (SELECT count(*) FROM public.github_sync_runs sync_run
           CROSS JOIN LATERAL jsonb_array_elements(
             COALESCE(sync_run.manifest->'files', '[]'::jsonb)
           ) AS sync_file
-        WHERE sync_run.project_id = ${projectId}
+        WHERE sync_run.workspace_id = ${projectId}
           AND sync_file->>'snapshotKey' LIKE (${projectId}::text || '/sync-snapshots/' || sync_run.id::text || '/%')
           AND NOT EXISTS (
             SELECT 1 FROM public.github_sync_snapshot_assets snapshot_ref
@@ -2173,12 +2173,12 @@ export async function deleteWorkspace(
 
     const [project] = await db
       .select({
-        ownerId: projects.ownerId,
-        slug: projects.slug,
-        title: projects.title,
+        ownerId: workspaces.ownerId,
+        slug: workspaces.slug,
+        title: workspaces.title,
       })
-      .from(projects)
-      .where(eq(projects.id, projectId))
+      .from(workspaces)
+      .where(eq(workspaces.id, projectId))
       .limit(1);
 
     if (!project) {
@@ -2211,9 +2211,9 @@ export async function deleteWorkspace(
     let waitingApplicants: ClosedApplication[] = [];
     const blocked = await db.transaction(async (tx) => {
       const [locked] = await tx
-        .select({ ownerId: projects.ownerId })
-        .from(projects)
-        .where(eq(projects.id, projectId))
+        .select({ ownerId: workspaces.ownerId })
+        .from(workspaces)
+        .where(eq(workspaces.id, projectId))
         .for("update");
       if (!locked || locked.ownerId !== user.id) return "FORBIDDEN" as const;
       if (await countUnregisteredWorkspaceStorage(projectId, tx) > 0) return "STORAGE_MIGRATION_PENDING" as const;
@@ -2226,9 +2226,9 @@ export async function deleteWorkspace(
       // Hard-delete the project (cascades to nodes, tasks, sprints, members,
       // and its chat channels; cards elsewhere then show a restricted placeholder).
       const deletedProjects = await tx
-        .delete(projects)
-        .where(and(eq(projects.id, projectId), eq(projects.ownerId, user.id)))
-        .returning({ id: projects.id });
+        .delete(workspaces)
+        .where(and(eq(workspaces.id, projectId), eq(workspaces.ownerId, user.id)))
+        .returning({ id: workspaces.id });
 
       // Keep denormalized profile stats in sync
       if (deletedProjects.length > 0) {
@@ -2298,10 +2298,10 @@ export async function deleteWorkspaceDraftAction(
 
     const [project] = await db
       .select({
-        ownerId: projects.ownerId,
+        ownerId: workspaces.ownerId,
       })
-      .from(projects)
-      .where(eq(projects.id, projectId))
+      .from(workspaces)
+      .where(eq(workspaces.id, projectId))
       .limit(1);
 
     if (!project) return { success: true }; // Already gone
@@ -2319,9 +2319,9 @@ export async function deleteWorkspaceDraftAction(
     // under the row lock with storage registration (COR-048).
     const blockedReason = await db.transaction(async (tx) => {
       const [locked] = await tx
-        .select({ ownerId: projects.ownerId, status: projects.status })
-        .from(projects)
-        .where(eq(projects.id, projectId))
+        .select({ ownerId: workspaces.ownerId, status: workspaces.status })
+        .from(workspaces)
+        .where(eq(workspaces.id, projectId))
         .for("update");
       if (!locked) return null;
       if (locked.ownerId !== user.id) return "Sign in to continue";
@@ -2330,9 +2330,9 @@ export async function deleteWorkspaceDraftAction(
       await scheduleWorkspaceStorageDeletion(tx, projectId);
       // Delete project (cascades to members, roles, etc.)
       const deleted = await tx
-        .delete(projects)
-        .where(and(eq(projects.id, projectId), eq(projects.ownerId, user.id), eq(projects.status, "draft")))
-        .returning({ id: projects.id });
+        .delete(workspaces)
+        .where(and(eq(workspaces.id, projectId), eq(workspaces.ownerId, user.id), eq(workspaces.status, "draft")))
+        .returning({ id: workspaces.id });
       if (deleted.length > 0) {
         await tx
           .update(profiles)
@@ -2392,48 +2392,48 @@ export async function toggleWorkspaceFollowAction(
 
       if (shouldFollow) {
         const inserted = await tx
-          .insert(projectFollows)
+          .insert(workspaceFollows)
           .values({ userId: user.id, projectId })
           .onConflictDoNothing({
-            target: [projectFollows.projectId, projectFollows.userId],
+            target: [workspaceFollows.projectId, workspaceFollows.userId],
           })
-          .returning({ id: projectFollows.id });
+          .returning({ id: workspaceFollows.id });
 
         if (inserted.length > 0) {
           const [updated] = await tx
-            .update(projects)
-            .set({ followersCount: sql`${projects.followersCount} + 1` })
-            .where(eq(projects.id, projectId))
-            .returning({ followersCount: projects.followersCount });
+            .update(workspaces)
+            .set({ followersCount: sql`${workspaces.followersCount} + 1` })
+            .where(eq(workspaces.id, projectId))
+            .returning({ followersCount: workspaces.followersCount });
           return updated?.followersCount ?? 0;
         }
       } else {
         const deleted = await tx
-          .delete(projectFollows)
+          .delete(workspaceFollows)
           .where(
             and(
-              eq(projectFollows.userId, user.id),
-              eq(projectFollows.projectId, projectId),
+              eq(workspaceFollows.userId, user.id),
+              eq(workspaceFollows.projectId, projectId),
             ),
           )
-          .returning({ id: projectFollows.id });
+          .returning({ id: workspaceFollows.id });
 
         if (deleted.length > 0) {
           const [updated] = await tx
-            .update(projects)
+            .update(workspaces)
             .set({
-              followersCount: sql`GREATEST(${projects.followersCount} - 1, 0)`,
+              followersCount: sql`GREATEST(${workspaces.followersCount} - 1, 0)`,
             })
-            .where(eq(projects.id, projectId))
-            .returning({ followersCount: projects.followersCount });
+            .where(eq(workspaces.id, projectId))
+            .returning({ followersCount: workspaces.followersCount });
           return updated?.followersCount ?? 0;
         }
       }
 
       const [row] = await tx
-        .select({ followersCount: projects.followersCount })
-        .from(projects)
-        .where(eq(projects.id, projectId))
+        .select({ followersCount: workspaces.followersCount })
+        .from(workspaces)
+        .where(eq(workspaces.id, projectId))
         .limit(1);
       return row?.followersCount ?? 0;
     });
@@ -2468,10 +2468,10 @@ export async function incrementWorkspaceViewAction(
 
     if (!redis) {
       const [updated] = await db
-        .update(projects)
-        .set({ viewCount: sql`${projects.viewCount} + 1` })
-        .where(eq(projects.id, projectId))
-        .returning({ viewCount: projects.viewCount });
+        .update(workspaces)
+        .set({ viewCount: sql`${workspaces.viewCount} + 1` })
+        .where(eq(workspaces.id, projectId))
+        .returning({ viewCount: workspaces.viewCount });
 
       return { success: true, viewCount: Number(updated?.viewCount ?? 1) };
     } else {
@@ -2483,9 +2483,9 @@ export async function incrementWorkspaceViewAction(
         dbVal = parseInt(cached as string, 10) || 0;
       } else {
         const [dbRow] = await db
-          .select({ viewCount: projects.viewCount })
-          .from(projects)
-          .where(eq(projects.id, projectId))
+          .select({ viewCount: workspaces.viewCount })
+          .from(workspaces)
+          .where(eq(workspaces.id, projectId))
           .limit(1);
         dbVal = dbRow?.viewCount ?? 0;
         await redis.set(cacheKey, dbVal, { ex: 60 });
@@ -2584,13 +2584,13 @@ export async function updateWorkspaceStageAction(
 
     const [projectForStageUpdate] = await db
       .select({
-        ownerId: projects.ownerId,
-        lifecycleStages: projects.lifecycleStages,
-        currentStageIndex: projects.currentStageIndex,
-        stageCompletionDates: projects.stageCompletionDates,
+        ownerId: workspaces.ownerId,
+        lifecycleStages: workspaces.lifecycleStages,
+        currentStageIndex: workspaces.currentStageIndex,
+        stageCompletionDates: workspaces.stageCompletionDates,
       })
-      .from(projects)
-      .where(eq(projects.id, projectId))
+      .from(workspaces)
+      .where(eq(workspaces.id, projectId))
       .limit(1);
 
     if (!projectForStageUpdate) {
@@ -2634,11 +2634,11 @@ export async function updateWorkspaceStageAction(
 
     const whereClause = expectedUpdatedAtDate
       ? and(
-          eq(projects.id, projectId),
-          eq(projects.ownerId, user.id),
-          eq(projects.updatedAt, expectedUpdatedAtDate),
+          eq(workspaces.id, projectId),
+          eq(workspaces.ownerId, user.id),
+          eq(workspaces.updatedAt, expectedUpdatedAtDate),
         )
-      : and(eq(projects.id, projectId), eq(projects.ownerId, user.id));
+      : and(eq(workspaces.id, projectId), eq(workspaces.ownerId, user.id));
 
     const previousStageIndex = Math.min(
       Math.max(0, projectForStageUpdate.currentStageIndex ?? 0),
@@ -2652,7 +2652,7 @@ export async function updateWorkspaceStageAction(
     });
 
     const [updated] = await db
-      .update(projects)
+      .update(workspaces)
       .set({
         currentStageIndex: normalizedIndex,
         stageCompletionDates: updatedDates,
@@ -2660,21 +2660,21 @@ export async function updateWorkspaceStageAction(
       })
       .where(whereClause)
       .returning({
-        currentStageIndex: projects.currentStageIndex,
-        updatedAt: projects.updatedAt,
-        slug: projects.slug,
-        stageCompletionDates: projects.stageCompletionDates,
+        currentStageIndex: workspaces.currentStageIndex,
+        updatedAt: workspaces.updatedAt,
+        slug: workspaces.slug,
+        stageCompletionDates: workspaces.stageCompletionDates,
       });
 
     if (!updated) {
       const [current] = await db
         .select({
-          ownerId: projects.ownerId,
-          currentStageIndex: projects.currentStageIndex,
-          updatedAt: projects.updatedAt,
+          ownerId: workspaces.ownerId,
+          currentStageIndex: workspaces.currentStageIndex,
+          updatedAt: workspaces.updatedAt,
         })
-        .from(projects)
-        .where(eq(projects.id, projectId))
+        .from(workspaces)
+        .where(eq(workspaces.id, projectId))
         .limit(1);
 
       if (!current) {
@@ -2761,14 +2761,14 @@ export async function updateWorkspaceLifecycleAction(
     // Get current index for Smart Rebalance calculation
     const [project] = await db
       .select({
-        currentStageIndex: projects.currentStageIndex,
-        lifecycleStages: projects.lifecycleStages,
-        stageCompletionDates: projects.stageCompletionDates,
-        slug: projects.slug,
-        updatedAt: projects.updatedAt,
+        currentStageIndex: workspaces.currentStageIndex,
+        lifecycleStages: workspaces.lifecycleStages,
+        stageCompletionDates: workspaces.stageCompletionDates,
+        slug: workspaces.slug,
+        updatedAt: workspaces.updatedAt,
       })
-      .from(projects)
-      .where(and(eq(projects.id, projectId), eq(projects.ownerId, user.id)))
+      .from(workspaces)
+      .where(and(eq(workspaces.id, projectId), eq(workspaces.ownerId, user.id)))
       .limit(1);
 
     if (!project) {
@@ -2811,7 +2811,7 @@ export async function updateWorkspaceLifecycleAction(
     );
 
     const [updated] = await db
-      .update(projects)
+      .update(workspaces)
       .set({
         lifecycleStages: sanitizedStages,
         currentStageIndex: newIndex,
@@ -2819,11 +2819,11 @@ export async function updateWorkspaceLifecycleAction(
         updatedAt: new Date(),
       })
       .where(and(
-        eq(projects.id, projectId),
-        eq(projects.ownerId, user.id),
-        eq(projects.updatedAt, project.updatedAt),
+        eq(workspaces.id, projectId),
+        eq(workspaces.ownerId, user.id),
+        eq(workspaces.updatedAt, project.updatedAt),
       ))
-      .returning({ id: projects.id });
+      .returning({ id: workspaces.id });
 
     if (!updated) {
       throw new Error("Stages changed. Refresh and retry.");
@@ -2875,27 +2875,27 @@ export async function getProfileWorkspacesWithOpenRolesAction(
       ? { updatedAt: cursorDate, id: cursorId }
       : null;
     const selectionFilters = [
-      gt(projects.openRolesCount, 0),
-      isNull(projects.deletedAt),
+      gt(workspaces.openRolesCount, 0),
+      isNull(workspaces.deletedAt),
       // Same rule as computeWorkspaceReadAccess for a non-member viewer.
-      inArray(projects.visibility, ["public", "unlisted"]),
-      sql`${projects.status} IS NOT NULL AND ${projects.status} <> 'draft'`,
+      inArray(workspaces.visibility, ["public", "unlisted"]),
+      sql`${workspaces.status} IS NOT NULL AND ${workspaces.status} <> 'draft'`,
       // A closed project takes no applications.
-      sql`${projects.status} NOT IN ('archived', 'completed')`,
-      excludeMemberUserId ? sql`${projects.ownerId} <> ${excludeMemberUserId}::uuid` : undefined,
+      sql`${workspaces.status} NOT IN ('archived', 'completed')`,
+      excludeMemberUserId ? sql`${workspaces.ownerId} <> ${excludeMemberUserId}::uuid` : undefined,
       // Not offered where the viewer can't apply right now: already pending, or declined within the 24 h cooldown
       // (withdrawn, ended-membership and filled-role applications can apply again).
       // An invitation to the same project is the answer to wait for (applying is refused alongside it).
       excludeMemberUserId ? sql`NOT EXISTS (
-        SELECT 1 FROM project_invitations AS open_invitation
-        WHERE open_invitation.project_id = ${projects.id}
+        SELECT 1 FROM workspace_invitations AS open_invitation
+        WHERE open_invitation.workspace_id = ${workspaces.id}
           AND open_invitation.candidate_id = ${excludeMemberUserId}::uuid
           AND open_invitation.status = 'pending' AND open_invitation.expires_at > now()
       )` : undefined,
       excludeMemberUserId ? sql`NOT EXISTS (
         SELECT 1
         FROM role_applications AS blocking_application
-        WHERE blocking_application.project_id = ${projects.id}
+        WHERE blocking_application.workspace_id = ${workspaces.id}
           AND blocking_application.applicant_id = ${excludeMemberUserId}::uuid
           AND (
             blocking_application.status = 'pending'
@@ -2909,50 +2909,50 @@ export async function getProfileWorkspacesWithOpenRolesAction(
       )` : undefined,
       excludeMemberUserId ? sql`NOT EXISTS (
         SELECT 1
-        FROM project_members AS excluded_member
-        WHERE excluded_member.project_id = ${projects.id}
+        FROM workspace_members AS excluded_member
+        WHERE excluded_member.workspace_id = ${workspaces.id}
           AND excluded_member.user_id = ${excludeMemberUserId}::uuid
       )` : undefined,
-      searchPattern ? ilike(projects.title, searchPattern) : undefined,
-      cursor ? sql`(${projects.updatedAt}, ${projects.id}) < (${cursor.updatedAt}, ${cursor.id}::uuid)` : undefined,
+      searchPattern ? ilike(workspaces.title, searchPattern) : undefined,
+      cursor ? sql`(${workspaces.updatedAt}, ${workspaces.id}) < (${cursor.updatedAt}, ${cursor.id}::uuid)` : undefined,
     ];
 
     const owned = await db
       .select({
-        id: projects.id,
-        title: projects.title,
-        slug: projects.slug,
-        ownerId: projects.ownerId,
-        updatedAt: projects.updatedAt,
+        id: workspaces.id,
+        title: workspaces.title,
+        slug: workspaces.slug,
+        ownerId: workspaces.ownerId,
+        updatedAt: workspaces.updatedAt,
       })
-      .from(projects)
+      .from(workspaces)
       .where(
         and(
-          eq(projects.ownerId, targetProfileId),
+          eq(workspaces.ownerId, targetProfileId),
           ...selectionFilters,
         ),
       )
-      .orderBy(desc(projects.updatedAt), desc(projects.id))
+      .orderBy(desc(workspaces.updatedAt), desc(workspaces.id))
       .limit(limit + 1);
 
     const member = await db
       .select({
-        id: projects.id,
-        title: projects.title,
-        slug: projects.slug,
-        ownerId: projects.ownerId,
-        updatedAt: projects.updatedAt,
+        id: workspaces.id,
+        title: workspaces.title,
+        slug: workspaces.slug,
+        ownerId: workspaces.ownerId,
+        updatedAt: workspaces.updatedAt,
       })
-      .from(projectMembers)
-      .innerJoin(projects, eq(projects.id, projectMembers.projectId))
+      .from(workspaceMembers)
+      .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.projectId))
       .where(
         and(
-          eq(projectMembers.userId, targetProfileId),
-          inArray(projectMembers.role, ["owner", "admin"]),
+          eq(workspaceMembers.userId, targetProfileId),
+          inArray(workspaceMembers.role, ["owner", "admin"]),
           ...selectionFilters,
         ),
       )
-      .orderBy(desc(projects.updatedAt), desc(projects.id))
+      .orderBy(desc(workspaces.updatedAt), desc(workspaces.id))
       .limit(limit + 1);
 
     const projectsMerged = Array.from(
@@ -2978,16 +2978,16 @@ export async function getProfileWorkspacesWithOpenRolesAction(
       description: string | null;
       skills: string[] | null;
     }>(sql`
-      SELECT id, project_id AS "projectId", role, title, count, filled, description, skills
+      SELECT id, workspace_id AS "projectId", role, title, count, filled, description, skills
       FROM (
         SELECT open_role.*,
-               row_number() OVER (PARTITION BY open_role.project_id ORDER BY open_role.title, open_role.id) AS role_rank
-        FROM project_open_roles AS open_role
-        WHERE open_role.project_id IN (${sql.join(eligibleProjectIds.map((id) => sql`${id}::uuid`), sql`, `)})
+               row_number() OVER (PARTITION BY open_role.workspace_id ORDER BY open_role.title, open_role.id) AS role_rank
+        FROM workspace_open_roles AS open_role
+        WHERE open_role.workspace_id IN (${sql.join(eligibleProjectIds.map((id) => sql`${id}::uuid`), sql`, `)})
           AND open_role.filled < open_role.count
       ) AS bounded_roles
       WHERE role_rank <= 20
-      ORDER BY project_id, title, id
+      ORDER BY workspace_id, title, id
     `));
 
     const listMap = new Map<

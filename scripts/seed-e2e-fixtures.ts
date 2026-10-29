@@ -182,7 +182,7 @@ async function seedFixtures() {
         `;
 
         await tx`
-            insert into projects (
+            insert into workspaces (
                 id,
                 owner_id,
                 title,
@@ -215,9 +215,9 @@ async function seedFixtures() {
         `;
 
         await tx`
-            insert into project_open_roles (
+            insert into workspace_open_roles (
                 id,
-                project_id,
+                workspace_id,
                 role,
                 title,
                 description,
@@ -240,7 +240,7 @@ async function seedFixtures() {
                 now()
             )
             on conflict (id) do update
-            set project_id = excluded.project_id,
+            set workspace_id = excluded.workspace_id,
                 role = excluded.role,
                 title = excluded.title,
                 description = excluded.description,
@@ -250,7 +250,7 @@ async function seedFixtures() {
         await tx`
             insert into role_applications (
                 id,
-                project_id,
+                workspace_id,
                 role_id,
                 applicant_id,
                 creator_id,
@@ -271,7 +271,7 @@ async function seedFixtures() {
                 now()
             )
             on conflict (id) do update
-            set project_id = excluded.project_id,
+            set workspace_id = excluded.workspace_id,
                 role_id = excluded.role_id,
                 applicant_id = excluded.applicant_id,
                 creator_id = excluded.creator_id,
@@ -280,7 +280,7 @@ async function seedFixtures() {
                 updated_at = now()
         `;
         // The project's #general and the application's private thread with its card.
-        await tx`select app_private.chat_sync_project_members(${APP_PROJECT_ID}::uuid, null, 'ensure_default')`;
+        await tx`select app_private.chat_sync_workspace_members(${APP_PROJECT_ID}::uuid, null, 'ensure_default')`;
         await tx`select app_private.chat_ensure_application_channel(${APP_ID}::uuid)`;
 
         for (let index = 0; index < HUB_PROJECT_FIXTURES.length; index += 1) {
@@ -289,7 +289,7 @@ async function seedFixtures() {
             const shiftedSeconds = 3600 + index;
 
             await tx`
-                insert into projects (
+                insert into workspaces (
                     id,
                     owner_id,
                     title,
@@ -323,17 +323,17 @@ async function seedFixtures() {
             `;
 
             await tx`
-                insert into project_members (project_id, user_id, role, joined_at)
+                insert into workspace_members (workspace_id, user_id, role, joined_at)
                 values (${fixture.id}, ${targetUserId}, 'owner', now())
-                on conflict (project_id, user_id) do update
+                on conflict (workspace_id, user_id) do update
                 set role = 'owner'
             `;
         }
 
         await tx`
-            insert into project_nodes (
+            insert into workspace_nodes (
                 id,
-                project_id,
+                workspace_id,
                 parent_id,
                 type,
                 name,
@@ -354,7 +354,7 @@ async function seedFixtures() {
                 now()
             )
             on conflict (id) do update
-            set project_id = excluded.project_id,
+            set workspace_id = excluded.workspace_id,
                 type = excluded.type,
                 name = excluded.name,
                 updated_at = now()
@@ -375,7 +375,7 @@ async function seedFixtures() {
     `;
     const [publicProjectCount] = await sql<{ count: number }[]>`
         select count(*)::int as count
-        from projects
+        from workspaces
         where visibility = 'public'
           and status = 'active'
     `;

@@ -13,10 +13,10 @@ export function applicationMetaSql(applicationId: SQL, viewerId: string): SQL {
       'applicant', jsonb_build_object('id', ap.id, 'username', ap.username, 'full_name', ap.full_name, 'avatar_url', ap.avatar_url),
       'lead', jsonb_build_object('id', lp.id, 'username', lp.username, 'full_name', lp.full_name, 'avatar_url', lp.avatar_url))
     FROM role_applications a
-    JOIN projects p ON p.id = a.project_id
+    JOIN workspaces p ON p.id = a.workspace_id
     JOIN profiles ap ON ap.id = a.applicant_id
     JOIN profiles lp ON lp.id = p.owner_id
-    LEFT JOIN project_open_roles r ON r.id = a.role_id
+    LEFT JOIN workspace_open_roles r ON r.id = a.role_id
     WHERE a.id = ${applicationId})`;
 }
 

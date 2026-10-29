@@ -2,7 +2,7 @@ import { and, desc, eq, inArray, isNull, lte, ne, or, sql } from 'drizzle-orm'
 
 import { db } from '@/lib/db'
 import { isMissingRelationError } from '@/lib/db/errors'
-import { connections, profiles, projectOpenRoles, projects, projectMembers } from '@/lib/db/schema'
+import { connections, profiles, workspaceOpenRoles, workspaces, workspaceMembers } from '@/lib/db/schema'
 import { logger } from '@/lib/logger'
 import { filterWorkspaceLinksForAudience } from '@/lib/workspaces/social-links'
 import { getCacheEnvelope, cacheStaleableData, isCacheStale, redis } from '@/lib/redis'
@@ -116,27 +116,27 @@ export async function readPublicWorkspacesFeedCache(limit: number, cursor: Publi
 export async function queryAndCachePublicWorkspacesFeed(limit: number, cursor: PublicWorkspacesCursor | null) {
     const rows = await db
         .select({
-            id: projects.id,
-            slug: projects.slug,
-            title: projects.title,
+            id: workspaces.id,
+            slug: workspaces.slug,
+            title: workspaces.title,
             // The card shows two lines: no need to ship whole READMEs in a shared feed.
-            description: sql<string | null>`left(${projects.description}, 280)`,
-            shortDescription: projects.shortDescription,
-            category: projects.category,
-            skills: projects.skills,
-            tags: projects.tags,
-            status: projects.status,
-            visibility: projects.visibility,
-            ownerId: projects.ownerId,
-            viewCount: projects.viewCount,
-            followersCount: projects.followersCount,
-            savesCount: projects.savesCount,
-            coverImage: projects.coverImage,
-            externalLinks: projects.externalLinks,
-            githubRepoUrl: projects.githubRepoUrl,
-            createdAt: projects.createdAt,
-            cursorAt: sql<string>`to_char(${projects.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
-            updatedAt: projects.updatedAt,
+            description: sql<string | null>`left(${workspaces.description}, 280)`,
+            shortDescription: workspaces.shortDescription,
+            category: workspaces.category,
+            skills: workspaces.skills,
+            tags: workspaces.tags,
+            status: workspaces.status,
+            visibility: workspaces.visibility,
+            ownerId: workspaces.ownerId,
+            viewCount: workspaces.viewCount,
+            followersCount: workspaces.followersCount,
+            savesCount: workspaces.savesCount,
+            coverImage: workspaces.coverImage,
+            externalLinks: workspaces.externalLinks,
+            githubRepoUrl: workspaces.githubRepoUrl,
+            createdAt: workspaces.createdAt,
+            cursorAt: sql<string>`to_char(${workspaces.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+            updatedAt: workspaces.updatedAt,
             profiles: {
                 id: profiles.id,
                 username: profiles.username,
@@ -145,21 +145,21 @@ export async function queryAndCachePublicWorkspacesFeed(limit: number, cursor: P
                 visibility: profiles.visibility,
             },
         })
-        .from(projects)
-        .innerJoin(profiles, eq(projects.ownerId, profiles.id))
+        .from(workspaces)
+        .innerJoin(profiles, eq(workspaces.ownerId, profiles.id))
         .where(
             and(
                 // Literal values, written exactly like the 0195 partial index's predicate, so the planner uses it.
-                sql<boolean>`${projects.deletedAt} IS NULL AND ${projects.visibility} IN ('public', 'unlisted') AND ${projects.status} <> 'draft'`,
+                sql<boolean>`${workspaces.deletedAt} IS NULL AND ${workspaces.visibility} IN ('public', 'unlisted') AND ${workspaces.status} <> 'draft'`,
                 // A deleted account's projects leave the feed with it.
                 isNull(profiles.deletedAt),
                 // Microsecond-exact: a millisecond cursor would skip rows created in the same millisecond.
                 cursor
-                    ? sql<boolean>`(${projects.createdAt}, ${projects.id}) < (${cursor.createdAt}::timestamptz, ${cursor.id}::uuid)`
+                    ? sql<boolean>`(${workspaces.createdAt}, ${workspaces.id}) < (${cursor.createdAt}::timestamptz, ${cursor.id}::uuid)`
                     : undefined,
             ),
         )
-        .orderBy(desc(projects.createdAt), desc(projects.id))
+        .orderBy(desc(workspaces.createdAt), desc(workspaces.id))
         .limit(limit + 1)
 
     const hasMore = rows.length > limit
@@ -171,17 +171,17 @@ export async function queryAndCachePublicWorkspacesFeed(limit: number, cursor: P
         ? []
         : await db
             .select({
-                projectId: projectOpenRoles.projectId,
-                open: sql<number>`coalesce(sum(greatest(${projectOpenRoles.count} - ${projectOpenRoles.filled}, 0)), 0)`.mapWith(Number),
+                projectId: workspaceOpenRoles.projectId,
+                open: sql<number>`coalesce(sum(greatest(${workspaceOpenRoles.count} - ${workspaceOpenRoles.filled}, 0)), 0)`.mapWith(Number),
             })
-            .from(projectOpenRoles)
-            .where(inArray(projectOpenRoles.projectId, projectIds))
-            .groupBy(projectOpenRoles.projectId)
+            .from(workspaceOpenRoles)
+            .where(inArray(workspaceOpenRoles.projectId, projectIds))
+            .groupBy(workspaceOpenRoles.projectId)
             .catch((error) => {
-                if (isMissingRelationError(error, 'project_open_roles')) {
+                if (isMissingRelationError(error, 'workspace_open_roles')) {
                     logger.warn('public-feed.project_open_roles_missing', {
                         module: 'public-feed-service',
-                        relation: 'project_open_roles',
+                        relation: 'workspace_open_roles',
                     })
                     return []
                 }
@@ -191,19 +191,19 @@ export async function queryAndCachePublicWorkspacesFeed(limit: number, cursor: P
 
     const rankedSub = db
             .select({
-                projectId: projectMembers.projectId,
-                userId: projectMembers.userId,
-                role: projectMembers.role,
+                projectId: workspaceMembers.projectId,
+                userId: workspaceMembers.userId,
+                role: workspaceMembers.role,
                 username: profiles.username,
                 fullName: profiles.fullName,
                 avatarUrl: profiles.avatarUrl,
-                memberRank: sql<number>`row_number() over (partition by ${projectMembers.projectId} order by ${projectMembers.joinedAt}, ${projectMembers.userId})`.mapWith(Number).as('member_rank'),
-                teamSize: sql<number>`count(*) over (partition by ${projectMembers.projectId})`.mapWith(Number).as('team_size'),
+                memberRank: sql<number>`row_number() over (partition by ${workspaceMembers.projectId} order by ${workspaceMembers.joinedAt}, ${workspaceMembers.userId})`.mapWith(Number).as('member_rank'),
+                teamSize: sql<number>`count(*) over (partition by ${workspaceMembers.projectId})`.mapWith(Number).as('team_size'),
             })
-            .from(projectMembers)
-            .innerJoin(profiles, eq(projectMembers.userId, profiles.id))
+            .from(workspaceMembers)
+            .innerJoin(profiles, eq(workspaceMembers.userId, profiles.id))
             // Only members anyone may see: public profiles that still exist.
-            .where(and(inArray(projectMembers.projectId, projectIds), sql`coalesce(${profiles.visibility}, 'public') = 'public'`, isNull(profiles.deletedAt)))
+            .where(and(inArray(workspaceMembers.projectId, projectIds), sql`coalesce(${profiles.visibility}, 'public') = 'public'`, isNull(profiles.deletedAt)))
             .as('ranked_members')
     const rankedMembers = projectIds.length === 0
         ? []

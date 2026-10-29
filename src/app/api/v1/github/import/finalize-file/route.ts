@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
-import { importJobs, importJobFiles, uploadIntents, projectNodes, fileVersions, storageAssets } from '@/lib/db/schema';
+import { importJobs, importJobFiles, uploadIntents, workspaceNodes, fileVersions, storageAssets } from '@/lib/db/schema';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { jsonError, jsonSuccess } from '@/app/api/v1/_envelope';
 import { validateCsrf } from '@/lib/security/csrf';
@@ -85,11 +85,11 @@ export async function POST(request: NextRequest) {
             return jsonError('Upload intent does not match the manifest entry', 400, 'BAD_REQUEST');
         }
         if (jobFile.status === 'completed') {
-            const existing = await db.query.projectNodes.findFirst({
+            const existing = await db.query.workspaceNodes.findFirst({
                 where: and(
-                    eq(projectNodes.projectId, job.projectId),
-                    eq(projectNodes.path, `/${filePath.replaceAll('\\', '/').replace(/^\/+/, '')}`),
-                    isNull(projectNodes.deletedAt),
+                    eq(workspaceNodes.projectId, job.projectId),
+                    eq(workspaceNodes.path, `/${filePath.replaceAll('\\', '/').replace(/^\/+/, '')}`),
+                    isNull(workspaceNodes.deletedAt),
                 ),
                 columns: { id: true, currentVersion: true },
             });
@@ -183,12 +183,12 @@ export async function POST(request: NextRequest) {
             }
             if (lockedJobFile.status === 'completed') {
                 const [publishedNode] = await tx.select({
-                    id: projectNodes.id,
-                    currentVersion: projectNodes.currentVersion,
-                }).from(projectNodes).where(and(
-                    eq(projectNodes.projectId, job.projectId),
-                    eq(projectNodes.path, nodePath),
-                    isNull(projectNodes.deletedAt),
+                    id: workspaceNodes.id,
+                    currentVersion: workspaceNodes.currentVersion,
+                }).from(workspaceNodes).where(and(
+                    eq(workspaceNodes.projectId, job.projectId),
+                    eq(workspaceNodes.path, nodePath),
+                    isNull(workspaceNodes.deletedAt),
                 )).limit(1);
                 if (!publishedNode) throw new Error('Completed import file has no published node');
                 const [currentJob] = await tx.select({ status: importJobs.status })
@@ -211,10 +211,10 @@ export async function POST(request: NextRequest) {
             if (!publishableAsset) throw new Error('Import asset is no longer publishable');
 
             // Check if node already exists (matching path in project)
-            const [existingNode] = await tx.select().from(projectNodes).where(and(
-                    eq(projectNodes.projectId, job.projectId),
-                    eq(projectNodes.path, nodePath),
-                    isNull(projectNodes.deletedAt)
+            const [existingNode] = await tx.select().from(workspaceNodes).where(and(
+                    eq(workspaceNodes.projectId, job.projectId),
+                    eq(workspaceNodes.path, nodePath),
+                    isNull(workspaceNodes.deletedAt)
                 )).limit(1).for('update');
 
             const nodeId = existingNode?.id || randomUUID();
@@ -222,7 +222,7 @@ export async function POST(request: NextRequest) {
 
             if (existingNode) {
                 await tx
-                    .update(projectNodes)
+                    .update(workspaceNodes)
                     .set({
                         currentVersion: nextVersion,
                         s3Key: intent.storageKey,
@@ -233,10 +233,10 @@ export async function POST(request: NextRequest) {
                         syncStatus: 'merged',
                         updatedAt: new Date(),
                     })
-                    .where(eq(projectNodes.id, existingNode.id));
+                    .where(eq(workspaceNodes.id, existingNode.id));
             } else {
                 await tx
-                    .insert(projectNodes)
+                    .insert(workspaceNodes)
                     .values({
                         id: nodeId,
                         projectId: job.projectId,

@@ -25,9 +25,9 @@ test("moving an open role recounts both projects", async () => {
     const owner = await createUser(tx);
     const a = await createProject(tx, owner);
     const b = await createProject(tx, owner);
-    const [role] = await tx`INSERT INTO public.project_open_roles (project_id, role, count) VALUES (${a}, 'dev', 1) RETURNING id`;
-    await tx`UPDATE public.project_open_roles SET project_id = ${b} WHERE id = ${role!.id}`;
-    const rows = await tx`SELECT id, open_roles_count FROM public.projects WHERE id IN (${a}, ${b})`;
+    const [role] = await tx`INSERT INTO public.workspace_open_roles (workspace_id, role, count) VALUES (${a}, 'dev', 1) RETURNING id`;
+    await tx`UPDATE public.workspace_open_roles SET workspace_id = ${b} WHERE id = ${role!.id}`;
+    const rows = await tx`SELECT id, open_roles_count FROM public.workspaces WHERE id IN (${a}, ${b})`;
     return Object.fromEntries(rows.map((r) => [r.id === a ? "a" : "b", r.open_roles_count]));
   });
   assert.deepEqual(counts, { a: 0, b: 1 });

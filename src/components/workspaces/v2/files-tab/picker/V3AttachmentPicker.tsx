@@ -9,7 +9,7 @@ import {
   getWorkspaceNodes,
   getNodeMetadataBatch,
 } from "@/app/actions/files/nodes";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { useFilesStore } from "@/stores/filesStore";
 import { FileIcon } from "../../explorer/FileIcons";
 import { logger } from "@/lib/logger";
@@ -19,8 +19,8 @@ export interface V3AttachmentPickerProps {
   projectName?: string;
   isOpen: boolean;
   onClose: () => void;
-  initialSelection?: ProjectNode[];
-  onSelectionChange?: (nodes: ProjectNode[]) => void;
+  initialSelection?: WorkspaceNode[];
+  onSelectionChange?: (nodes: WorkspaceNode[]) => void;
   selectionMode?: "single" | "multiple";
   excludedNodeIds?: readonly string[];
   footer?: React.ReactNode;
@@ -39,13 +39,13 @@ export function V3AttachmentPicker({
   excludedNodeIds = [],
   footer,
 }: V3AttachmentPickerProps) {
-  const [selectedNodes, setSelectedNodes] = useState<ProjectNode[]>(
+  const [selectedNodes, setSelectedNodes] = useState<WorkspaceNode[]>(
     initialSelection ?? [],
   );
   const [searchInput, setSearchInput] = useState("");
   const [query, setQuery] = useState("");
-  const [folder, setFolder] = useState<ProjectNode | null>(null);
-  const [ancestors, setAncestors] = useState<ProjectNode[]>([]);
+  const [folder, setFolder] = useState<WorkspaceNode | null>(null);
+  const [ancestors, setAncestors] = useState<WorkspaceNode[]>([]);
   const [recent, setRecent] = useState(false);
   const recents = useFilesStore(
     (state) => state.byProjectId[projectId]?.recents ?? EMPTY_IDS,
@@ -125,7 +125,7 @@ export function V3AttachmentPicker({
     const nodes = files.data?.pages.flatMap((page) => page.nodes);
     if (nodes) useFilesStore.getState().upsertNodes(projectId, nodes);
   }, [files.data, projectId]);
-  function select(node: ProjectNode) {
+  function select(node: WorkspaceNode) {
     if (node.type === "folder") {
       if (query) {
         setAncestors([]);

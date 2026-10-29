@@ -4,7 +4,7 @@ import { and, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
 
 import type { AssignmentRow } from '@/app/actions/assignments';
 import { db } from '@/lib/db';
-import { profiles, projectSprintEvents, projects, taskTeamMembers, tasks } from '@/lib/db/schema';
+import { profiles, workspaceSprintEvents, workspaces, taskTeamMembers, tasks } from '@/lib/db/schema';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import type { AssignmentSettings, CopyState } from '@/lib/organizations/assignment-rules';
 import { stateOf } from '@/lib/organizations/needs-you';
@@ -34,7 +34,7 @@ export async function readSprintAssignmentsAction(projectId: string, sprintId: s
         const copies = await db.select({ ...copyColumns, title: tasks.title }).from(tasks)
             .where(and(eq(tasks.projectId, projectId), eq(tasks.sprintId, sprintId), isNotNull(tasks.assignmentId), isNull(tasks.deletedAt)));
         if (copies.length === 0) return null;
-        const [org] = await db.select({ title: projects.title }).from(projects).where(eq(projects.id, access.project.parentId)).limit(1);
+        const [org] = await db.select({ title: workspaces.title }).from(workspaces).where(eq(workspaces.id, access.project.parentId)).limit(1);
         return { view: 'child', orgTitle: org?.title ?? 'the organization', rows: copies.map((c) => ({ copyId: c.id, title: c.title, dueDate: c.dueDate?.toISOString() ?? null, ...stateOf(c, now) })) };
     }
 
@@ -76,9 +76,9 @@ export async function readSprintAssignmentsAction(projectId: string, sprintId: s
             reviewRequired: s.reviewRequired, teams: s.target.mode === 'teams', counts, mine: null };
     });
     // The completed row (report §15.3): "Ms. Rao completed CO1 · 4 assignments · 2 people with missing work".
-    const [done] = await db.select({ by: sql<string | null>`coalesce(${profiles.fullName}, ${profiles.username})` }).from(projectSprintEvents)
-        .leftJoin(profiles, eq(profiles.id, projectSprintEvents.actorId))
-        .where(and(eq(projectSprintEvents.sprintId, sprintId), eq(projectSprintEvents.eventType, 'completed'))).limit(1);
+    const [done] = await db.select({ by: sql<string | null>`coalesce(${profiles.fullName}, ${profiles.username})` }).from(workspaceSprintEvents)
+        .leftJoin(profiles, eq(profiles.id, workspaceSprintEvents.actorId))
+        .where(and(eq(workspaceSprintEvents.sprintId, sprintId), eq(workspaceSprintEvents.eventType, 'completed'))).limit(1);
     return {
         view: isAdmin ? 'admin' : 'guest',
         rows,

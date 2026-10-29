@@ -93,14 +93,14 @@ export async function createProject(
   options: { visibility?: string; status?: string; publicTabVisibility?: Record<string, boolean> } = {},
 ) {
   const id = randomUUID();
-  await tx`INSERT INTO public.projects (id, owner_id, title, slug, visibility, status, public_tab_visibility)
+  await tx`INSERT INTO public.workspaces (id, owner_id, title, slug, visibility, status, public_tab_visibility)
            VALUES (${id}, ${ownerId}, ${`Project ${id.slice(0, 6)}`}, ${`p-${id}`}, ${options.visibility ?? "public"},
                    ${options.status ?? "active"}, ${tx.json({ ...DEFAULT_TABS, ...options.publicTabVisibility })})`;
   return id;
 }
 
 export async function addMember(tx: Tx, projectId: string, userId: string, role = "member") {
-  await tx`INSERT INTO public.project_members (project_id, user_id, role) VALUES (${projectId}, ${userId}, ${role})`;
+  await tx`INSERT INTO public.workspace_members (workspace_id, user_id, role) VALUES (${projectId}, ${userId}, ${role})`;
 }
 
 /** Owner + member + outsider around one project. */

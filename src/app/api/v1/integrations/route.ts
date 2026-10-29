@@ -1,7 +1,7 @@
 import { and, desc, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { enforceRouteLimit, jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
-import { projects, projectMembers, githubSyncConnections } from "@/lib/db/schema";
+import { workspaces, workspaceMembers, githubSyncConnections } from "@/lib/db/schema";
 import { getLatestPasswordChangeAt } from "@/lib/security/audit";
 import { resolveGithubExternalAccountHealth } from "@/lib/github/account-health";
 import { buildGithubAccountConnectionState } from "@/lib/github/connection-state";
@@ -49,43 +49,43 @@ export async function GET(request: Request) {
 
         const githubProjectRows = await db
             .select({
-                id: projects.id,
-                slug: projects.slug,
-                title: projects.title,
-                importSource: projects.importSource,
-                githubRepoUrl: projects.githubRepoUrl,
-                githubLastSyncAt: projects.githubLastSyncAt,
+                id: workspaces.id,
+                slug: workspaces.slug,
+                title: workspaces.title,
+                importSource: workspaces.importSource,
+                githubRepoUrl: workspaces.githubRepoUrl,
+                githubLastSyncAt: workspaces.githubLastSyncAt,
                 syncRepository: githubSyncConnections.repository,
                 syncBranch: githubSyncConnections.branch,
             })
-            .from(projects)
-            .leftJoin(githubSyncConnections, eq(projects.id, githubSyncConnections.projectId))
+            .from(workspaces)
+            .leftJoin(githubSyncConnections, eq(workspaces.id, githubSyncConnections.projectId))
             .where(
                 and(
-                    sql`(${projects.ownerId} = ${user.id} OR exists (select 1 from ${projectMembers} where ${projectMembers.projectId} = ${projects.id} and ${projectMembers.userId} = ${user.id}))`,
-                    isNull(projects.deletedAt),
+                    sql`(${workspaces.ownerId} = ${user.id} OR exists (select 1 from ${workspaceMembers} where ${workspaceMembers.projectId} = ${workspaces.id} and ${workspaceMembers.userId} = ${user.id}))`,
+                    isNull(workspaces.deletedAt),
                     or(
-                        isNotNull(projects.githubRepoUrl),
+                        isNotNull(workspaces.githubRepoUrl),
                         isNotNull(githubSyncConnections.projectId),
-                        sql`${projects.importSource}->>'type' = 'github'`,
+                        sql`${workspaces.importSource}->>'type' = 'github'`,
                     ),
                 ),
             )
-            .orderBy(desc(projects.updatedAt))
+            .orderBy(desc(workspaces.updatedAt))
             .limit(25);
         // The list shows 25; the count says how many there really are.
         const [{ total: githubProjectTotal = 0 } = { total: 0 }] = await db
             .select({ total: sql<number>`count(*)::int` })
-            .from(projects)
-            .leftJoin(githubSyncConnections, eq(projects.id, githubSyncConnections.projectId))
+            .from(workspaces)
+            .leftJoin(githubSyncConnections, eq(workspaces.id, githubSyncConnections.projectId))
             .where(
                 and(
-                    sql`(${projects.ownerId} = ${user.id} OR exists (select 1 from ${projectMembers} where ${projectMembers.projectId} = ${projects.id} and ${projectMembers.userId} = ${user.id}))`,
-                    isNull(projects.deletedAt),
+                    sql`(${workspaces.ownerId} = ${user.id} OR exists (select 1 from ${workspaceMembers} where ${workspaceMembers.projectId} = ${workspaces.id} and ${workspaceMembers.userId} = ${user.id}))`,
+                    isNull(workspaces.deletedAt),
                     or(
-                        isNotNull(projects.githubRepoUrl),
+                        isNotNull(workspaces.githubRepoUrl),
                         isNotNull(githubSyncConnections.projectId),
-                        sql`${projects.importSource}->>'type' = 'github'`,
+                        sql`${workspaces.importSource}->>'type' = 'github'`,
                     ),
                 ),
             );

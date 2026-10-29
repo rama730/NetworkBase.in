@@ -10,7 +10,7 @@ let projects:typeof import('../../src/app/actions/sharing-destinations')['listSh
 let owner='',outsider='',peer='',p1='',p2='';const users:string[]=[],channels:string[]=[];
 async function channel(kind:string,projectId:string|null,name:string|null,other?:string,applicationId?:string){
   const id=randomUUID();channels.push(id);
-  await sql`INSERT INTO chat_channels(id,kind,dm_key,project_id,name,application_id,created_by,last_message_at) VALUES (${id},${kind},${kind==='dm'?[owner,other].sort().join(':'):null},${projectId},${name},${applicationId??null},${owner},now())`;
+  await sql`INSERT INTO chat_channels(id,kind,dm_key,workspace_id,name,application_id,created_by,last_message_at) VALUES (${id},${kind},${kind==='dm'?[owner,other].sort().join(':'):null},${projectId},${name},${applicationId??null},${owner},now())`;
   await sql`INSERT INTO chat_channel_members(channel_id,user_id,role) VALUES (${id},${owner},'owner')`;
   if(other)await sql`INSERT INTO chat_channel_members(channel_id,user_id,role) VALUES (${id},${other},'member')`;
   return id;
@@ -29,7 +29,7 @@ before(async()=>{
 });
 after(async()=>{
   await sql`DELETE FROM chat_channels WHERE id=ANY(${channels}::uuid[])`;
-  await sql`DELETE FROM projects WHERE id=ANY(${[p1,p2]}::uuid[])`;
+  await sql`DELETE FROM workspaces WHERE id=ANY(${[p1,p2]}::uuid[])`;
   await sql`DELETE FROM connections WHERE requester_id=ANY(${users}::uuid[]) OR addressee_id=ANY(${users}::uuid[])`;
   await sql`DELETE FROM auth.users WHERE id=ANY(${users}::uuid[])`;
   await sql.end();await closeAppDb();
@@ -65,9 +65,9 @@ test('membership, session changes, deleted projects and malformed cursors fail c
   assert.equal((await list({scope:{kind:'project',projectId:p1},expectedActorId:outsider})).success,false);
   actor=owner;assert.equal((await list(input({kind:'dms'},{cursor:'malformed'}))).success,false);
   assert.equal((await list(input({kind:'project',projectId:'not-a-uuid'}))).success,false);
-  await sql`DELETE FROM project_members WHERE project_id=${p1} AND user_id=${owner}`;
+  await sql`DELETE FROM workspace_members WHERE workspace_id=${p1} AND user_id=${owner}`;
   assert.equal((await list(input({kind:'project',projectId:p1}))).success,false);
-  await sql`UPDATE projects SET deleted_at=now() WHERE id=${p2}`;
+  await sql`UPDATE workspaces SET deleted_at=now() WHERE id=${p2}`;
   assert.equal((await list(input({kind:'project',projectId:p2}))).success,false);
   actor=null;assert.equal((await list(input({kind:'dms'}))).success,false);
 });

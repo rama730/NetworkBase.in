@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import {
   githubSyncConnections,
   githubSyncRuns,
-  projects,
+  workspaces,
 } from "@/lib/db/schema";
 import { jsonError, jsonSuccess } from "@/app/api/v1/_envelope";
 import { enforceRouteLimit } from "@/app/api/v1/_shared";
@@ -99,10 +99,10 @@ export async function POST(request: NextRequest) {
       .select({ connection: githubSyncConnections })
       .from(githubSyncConnections)
       .innerJoin(
-        projects,
+        workspaces,
         and(
-          eq(projects.id, githubSyncConnections.projectId),
-          isNull(projects.deletedAt),
+          eq(workspaces.id, githubSyncConnections.projectId),
+          isNull(workspaces.deletedAt),
         ),
       )
       .where(

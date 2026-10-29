@@ -7,7 +7,7 @@ const route = readFileSync("src/app/api/v1/workspaces/[id]/sync-diff/route.ts", 
 
 test("sync-diff returns a bounded, resumable page", () => {
   assert.match(route, /limitSchema = z\.coerce\.number\(\)\.int\(\)\.min\(1\)\.max\(500\)/);
-  assert.match(route, /\.orderBy\(projectNodeEvents\.sequenceNumber\)\s*\.limit\(limit \+ 1\)/);
+  assert.match(route, /\.orderBy\(workspaceNodeEvents\.sequenceNumber\)\s*\.limit\(limit \+ 1\)/);
   assert.match(route, /hasMore = rows\.length > limit/);
   assert.match(route, /lastDeliveredSequence: rows\.at\(-1\)\?\.sequenceNumber \?\? since/);
   assert.match(route, /currentSequence: projectSequence\?\.currentSequence \?\? since/);

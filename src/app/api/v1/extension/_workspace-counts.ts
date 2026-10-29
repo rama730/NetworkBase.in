@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { projectNodes, taskNodeLinks, tasks } from "@/lib/db/schema";
+import { workspaceNodes, taskNodeLinks, tasks } from "@/lib/db/schema";
 
 export function taskFileCountKey(projectId: string, taskId: string) {
   return `${projectId}:${taskId}`;
@@ -42,12 +42,12 @@ export async function getTaskFileCountMap(projectId: string, taskIds: string[]) 
       count: sql<number>`count(*)`,
     })
     .from(taskNodeLinks)
-    .innerJoin(projectNodes, eq(taskNodeLinks.nodeId, projectNodes.id))
+    .innerJoin(workspaceNodes, eq(taskNodeLinks.nodeId, workspaceNodes.id))
     .where(
       and(
         inArray(taskNodeLinks.taskId, taskIds),
-        eq(projectNodes.projectId, projectId),
-        isNull(projectNodes.deletedAt),
+        eq(workspaceNodes.projectId, projectId),
+        isNull(workspaceNodes.deletedAt),
       ),
     )
     .groupBy(taskNodeLinks.taskId);
@@ -58,18 +58,18 @@ export async function getWorkspaceTaskFileCountMap(projectIds: string[]) {
   if (projectIds.length === 0) return new Map<string, number>();
   const rows = await db
     .select({
-      projectId: projectNodes.projectId,
+      projectId: workspaceNodes.projectId,
       taskId: taskNodeLinks.taskId,
       count: sql<number>`count(*)`,
     })
     .from(taskNodeLinks)
-    .innerJoin(projectNodes, eq(taskNodeLinks.nodeId, projectNodes.id))
+    .innerJoin(workspaceNodes, eq(taskNodeLinks.nodeId, workspaceNodes.id))
     .where(
       and(
-        inArray(projectNodes.projectId, projectIds),
-        isNull(projectNodes.deletedAt),
+        inArray(workspaceNodes.projectId, projectIds),
+        isNull(workspaceNodes.deletedAt),
       ),
     )
-    .groupBy(projectNodes.projectId, taskNodeLinks.taskId);
+    .groupBy(workspaceNodes.projectId, taskNodeLinks.taskId);
   return new Map(rows.map((row) => [taskFileCountKey(row.projectId, row.taskId), Number(row.count) || 0]));
 }

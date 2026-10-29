@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { projectNodes } from "@/lib/db/schema";
+import { workspaceNodes } from "@/lib/db/schema";
 import { eq, and, } from "drizzle-orm";
 import { createClient } from "@/lib/supabase/server";
 import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
@@ -35,8 +35,8 @@ export async function getFilePreviewUrl(projectId: string, nodeId: string, downl
         // Verify read access (works for public projects too)
         const access = await assertWorkspaceFileReadAccess(projectId, actorId);
 
-        const node = await db.query.projectNodes.findFirst({
-            where: and(eq(projectNodes.id, nodeId), eq(projectNodes.projectId, projectId)),
+        const node = await db.query.workspaceNodes.findFirst({
+            where: and(eq(workspaceNodes.id, nodeId), eq(workspaceNodes.projectId, projectId)),
             columns: { s3Key: true, path: true, taskId: true, deletedAt: true }
         });
 

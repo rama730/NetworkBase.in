@@ -3,7 +3,7 @@ import "server-only";
 import { and, eq, gt, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { profiles, projectNodeLocks, projectNodes } from "@/lib/db/schema";
+import { profiles, workspaceNodeLocks, workspaceNodes } from "@/lib/db/schema";
 import { recordNodeEvent } from "@/lib/files/internal-helpers";
 import { recordFilesMetric } from "@/lib/files/observability";
 
@@ -104,23 +104,23 @@ async function readConflictLease(
 ): Promise<FileLeaseView | null> {
   const [row] = await tx
     .select({
-      nodeId: projectNodeLocks.nodeId,
-      projectId: projectNodeLocks.projectId,
-      lockedBy: projectNodeLocks.lockedBy,
-      clientKind: projectNodeLocks.clientKind,
-      acquiredAt: projectNodeLocks.acquiredAt,
-      renewedAt: projectNodeLocks.renewedAt,
-      expiresAt: projectNodeLocks.expiresAt,
+      nodeId: workspaceNodeLocks.nodeId,
+      projectId: workspaceNodeLocks.projectId,
+      lockedBy: workspaceNodeLocks.lockedBy,
+      clientKind: workspaceNodeLocks.clientKind,
+      acquiredAt: workspaceNodeLocks.acquiredAt,
+      renewedAt: workspaceNodeLocks.renewedAt,
+      expiresAt: workspaceNodeLocks.expiresAt,
       fullName: profiles.fullName,
       username: profiles.username,
     })
-    .from(projectNodeLocks)
-    .leftJoin(profiles, eq(profiles.id, projectNodeLocks.lockedBy))
+    .from(workspaceNodeLocks)
+    .leftJoin(profiles, eq(profiles.id, workspaceNodeLocks.lockedBy))
     .where(
       and(
-        eq(projectNodeLocks.projectId, projectId),
-        eq(projectNodeLocks.nodeId, nodeId),
-        gt(projectNodeLocks.expiresAt, new Date()),
+        eq(workspaceNodeLocks.projectId, projectId),
+        eq(workspaceNodeLocks.nodeId, nodeId),
+        gt(workspaceNodeLocks.expiresAt, new Date()),
       ),
     )
     .limit(1);
@@ -151,19 +151,19 @@ export async function acquireFileLease(input: AcquireFileLeaseInput): Promise<Ow
 
   try {
     const lease = await db.transaction(async (tx) => {
-      const node = await tx.query.projectNodes.findFirst({
+      const node = await tx.query.workspaceNodes.findFirst({
         where: and(
-          eq(projectNodes.id, input.nodeId),
-          eq(projectNodes.projectId, input.projectId),
-          eq(projectNodes.type, "file"),
+          eq(workspaceNodes.id, input.nodeId),
+          eq(workspaceNodes.projectId, input.projectId),
+          eq(workspaceNodes.type, "file"),
         ),
         columns: { id: true, deletedAt: true },
       });
       if (!node || node.deletedAt) throw new Error("File not found");
 
       const result = await tx.execute<LeaseRow>(sql`
-        INSERT INTO project_node_locks (
-          node_id, project_id, locked_by, session_id, lease_id, client_kind,
+        INSERT INTO workspace_node_locks (
+          node_id, workspace_id, locked_by, session_id, lease_id, client_kind,
           device_session_id, fencing_token, acquired_at, renewed_at, expires_at
         ) VALUES (
           ${input.nodeId}::uuid,
@@ -173,51 +173,51 @@ export async function acquireFileLease(input: AcquireFileLeaseInput): Promise<Ow
           ${candidateLeaseId}::uuid,
           ${input.clientKind},
           ${input.deviceSessionId ?? null}::uuid,
-          nextval('project_node_lock_fencing_seq'),
+          nextval('workspace_node_lock_fencing_seq'),
           ${now.toISOString()}::timestamptz,
           ${now.toISOString()}::timestamptz,
           ${expiresAt.toISOString()}::timestamptz
         )
         ON CONFLICT (node_id) DO UPDATE SET
-          project_id = EXCLUDED.project_id,
+          workspace_id = EXCLUDED.workspace_id,
           locked_by = EXCLUDED.locked_by,
           session_id = EXCLUDED.session_id,
           lease_id = CASE
-            WHEN project_node_locks.locked_by = EXCLUDED.locked_by
-              AND project_node_locks.session_id = EXCLUDED.session_id
-              AND project_node_locks.expires_at > ${now.toISOString()}::timestamptz
-            THEN project_node_locks.lease_id
+            WHEN workspace_node_locks.locked_by = EXCLUDED.locked_by
+              AND workspace_node_locks.session_id = EXCLUDED.session_id
+              AND workspace_node_locks.expires_at > ${now.toISOString()}::timestamptz
+            THEN workspace_node_locks.lease_id
             ELSE EXCLUDED.lease_id
           END,
           client_kind = EXCLUDED.client_kind,
           device_session_id = EXCLUDED.device_session_id,
           fencing_token = CASE
-            WHEN project_node_locks.locked_by = EXCLUDED.locked_by
-              AND project_node_locks.session_id = EXCLUDED.session_id
-              AND project_node_locks.expires_at > ${now.toISOString()}::timestamptz
-            THEN project_node_locks.fencing_token
-            ELSE nextval('project_node_lock_fencing_seq')
+            WHEN workspace_node_locks.locked_by = EXCLUDED.locked_by
+              AND workspace_node_locks.session_id = EXCLUDED.session_id
+              AND workspace_node_locks.expires_at > ${now.toISOString()}::timestamptz
+            THEN workspace_node_locks.fencing_token
+            ELSE nextval('workspace_node_lock_fencing_seq')
           END,
           acquired_at = CASE
-            WHEN project_node_locks.locked_by = EXCLUDED.locked_by
-              AND project_node_locks.session_id = EXCLUDED.session_id
-              AND project_node_locks.expires_at > ${now.toISOString()}::timestamptz
-            THEN project_node_locks.acquired_at
+            WHEN workspace_node_locks.locked_by = EXCLUDED.locked_by
+              AND workspace_node_locks.session_id = EXCLUDED.session_id
+              AND workspace_node_locks.expires_at > ${now.toISOString()}::timestamptz
+            THEN workspace_node_locks.acquired_at
             ELSE EXCLUDED.acquired_at
           END,
           renewed_at = EXCLUDED.renewed_at,
           expires_at = EXCLUDED.expires_at
-        WHERE project_node_locks.project_id = EXCLUDED.project_id
+        WHERE workspace_node_locks.workspace_id = EXCLUDED.workspace_id
           AND (
             (
-              project_node_locks.locked_by = EXCLUDED.locked_by
-              AND project_node_locks.session_id = EXCLUDED.session_id
+              workspace_node_locks.locked_by = EXCLUDED.locked_by
+              AND workspace_node_locks.session_id = EXCLUDED.session_id
             )
-            OR project_node_locks.expires_at <= ${now.toISOString()}::timestamptz
+            OR workspace_node_locks.expires_at <= ${now.toISOString()}::timestamptz
           )
         RETURNING
           node_id AS "nodeId",
-          project_id AS "projectId",
+          workspace_id AS "projectId",
           locked_by AS "lockedBy",
           session_id AS "sessionId",
           lease_id AS "leaseId",
@@ -285,18 +285,18 @@ export async function renewFileLease(input: {
   const now = new Date();
   const expiresAt = new Date(now.getTime() + clampTtlSeconds(input.ttlSeconds) * 1000);
   const result = await db.execute<LeaseRow>(sql`
-    UPDATE project_node_locks
+    UPDATE workspace_node_locks
     SET renewed_at = ${now.toISOString()}::timestamptz,
         expires_at = ${expiresAt.toISOString()}::timestamptz
     WHERE node_id = ${input.nodeId}::uuid
-      AND project_id = ${input.projectId}::uuid
+      AND workspace_id = ${input.projectId}::uuid
       AND locked_by = ${input.userId}::uuid
       AND session_id = ${input.credentials.sessionId}::uuid
       AND lease_id = ${input.credentials.leaseId}::uuid
       AND fencing_token = ${input.credentials.fencingToken}
       AND expires_at > ${now.toISOString()}::timestamptz
     RETURNING
-      node_id AS "nodeId", project_id AS "projectId", locked_by AS "lockedBy",
+      node_id AS "nodeId", workspace_id AS "projectId", locked_by AS "lockedBy",
       session_id AS "sessionId", lease_id AS "leaseId", client_kind AS "clientKind",
       fencing_token AS "fencingToken", acquired_at AS "acquiredAt",
       renewed_at AS "renewedAt", expires_at AS "expiresAt"
@@ -313,9 +313,9 @@ export async function releaseFileLease(input: {
   credentials: FileLeaseCredentials;
 }): Promise<boolean> {
   const result = await db.execute<{ nodeId: string }>(sql`
-    DELETE FROM project_node_locks
+    DELETE FROM workspace_node_locks
     WHERE node_id = ${input.nodeId}::uuid
-      AND project_id = ${input.projectId}::uuid
+      AND workspace_id = ${input.projectId}::uuid
       AND locked_by = ${input.userId}::uuid
       AND session_id = ${input.credentials.sessionId}::uuid
       AND lease_id = ${input.credentials.leaseId}::uuid
@@ -335,19 +335,19 @@ export async function releaseFileLease(input: {
 export async function getWorkspaceFileLeases(projectId: string): Promise<FileLeaseView[]> {
   const rows = await db
     .select({
-      nodeId: projectNodeLocks.nodeId,
-      projectId: projectNodeLocks.projectId,
-      lockedBy: projectNodeLocks.lockedBy,
-      clientKind: projectNodeLocks.clientKind,
-      acquiredAt: projectNodeLocks.acquiredAt,
-      renewedAt: projectNodeLocks.renewedAt,
-      expiresAt: projectNodeLocks.expiresAt,
+      nodeId: workspaceNodeLocks.nodeId,
+      projectId: workspaceNodeLocks.projectId,
+      lockedBy: workspaceNodeLocks.lockedBy,
+      clientKind: workspaceNodeLocks.clientKind,
+      acquiredAt: workspaceNodeLocks.acquiredAt,
+      renewedAt: workspaceNodeLocks.renewedAt,
+      expiresAt: workspaceNodeLocks.expiresAt,
       fullName: profiles.fullName,
       username: profiles.username,
     })
-    .from(projectNodeLocks)
-    .leftJoin(profiles, eq(profiles.id, projectNodeLocks.lockedBy))
-    .where(and(eq(projectNodeLocks.projectId, projectId), gt(projectNodeLocks.expiresAt, new Date())));
+    .from(workspaceNodeLocks)
+    .leftJoin(profiles, eq(profiles.id, workspaceNodeLocks.lockedBy))
+    .where(and(eq(workspaceNodeLocks.projectId, projectId), gt(workspaceNodeLocks.expiresAt, new Date())));
 
   return rows.map((row) => ({
     nodeId: row.nodeId,
@@ -373,9 +373,9 @@ export async function assertOwnedFileLease(
 ) {
   const result = await tx.execute<{ leaseId: string }>(sql`
     SELECT lease_id AS "leaseId"
-    FROM project_node_locks
+    FROM workspace_node_locks
     WHERE node_id = ${input.nodeId}::uuid
-      AND project_id = ${input.projectId}::uuid
+      AND workspace_id = ${input.projectId}::uuid
       AND locked_by = ${input.userId}::uuid
       AND session_id = ${input.credentials.sessionId}::uuid
       AND lease_id = ${input.credentials.leaseId}::uuid
@@ -391,13 +391,13 @@ export async function deleteExpiredFileLeases(limit = 1_000) {
   const result = await db.execute<{ nodeId: string }>(sql`
     WITH expired AS (
       SELECT node_id
-      FROM project_node_locks
+      FROM workspace_node_locks
       WHERE expires_at <= now()
       ORDER BY expires_at ASC
       LIMIT ${safeLimit}
       FOR UPDATE SKIP LOCKED
     )
-    DELETE FROM project_node_locks locks
+    DELETE FROM workspace_node_locks locks
     USING expired
     WHERE locks.node_id = expired.node_id
     RETURNING locks.node_id AS "nodeId"
@@ -451,28 +451,28 @@ export async function batchRenewFileLeases(input: {
   );
 
   const result = await db.execute<LeaseRow>(sql`
-    UPDATE project_node_locks
+    UPDATE workspace_node_locks
     SET renewed_at = ${now.toISOString()}::timestamptz,
         expires_at = ${expiresAt.toISOString()}::timestamptz
-    FROM (VALUES ${sql.join(valuesTuples, sql`, `)}) AS v(node_id, project_id, lease_id, fencing_token)
-    WHERE project_node_locks.node_id = v.node_id
-      AND project_node_locks.project_id = v.project_id
-      AND project_node_locks.locked_by = ${input.userId}::uuid
-      AND project_node_locks.session_id = ${input.sessionId}::uuid
-      AND project_node_locks.lease_id = v.lease_id
-      AND project_node_locks.fencing_token = v.fencing_token
-      AND project_node_locks.expires_at > ${now.toISOString()}::timestamptz
+    FROM (VALUES ${sql.join(valuesTuples, sql`, `)}) AS v(node_id, workspace_id, lease_id, fencing_token)
+    WHERE workspace_node_locks.node_id = v.node_id
+      AND workspace_node_locks.workspace_id = v.workspace_id
+      AND workspace_node_locks.locked_by = ${input.userId}::uuid
+      AND workspace_node_locks.session_id = ${input.sessionId}::uuid
+      AND workspace_node_locks.lease_id = v.lease_id
+      AND workspace_node_locks.fencing_token = v.fencing_token
+      AND workspace_node_locks.expires_at > ${now.toISOString()}::timestamptz
     RETURNING
-      project_node_locks.node_id AS "nodeId",
-      project_node_locks.project_id AS "projectId",
-      project_node_locks.locked_by AS "lockedBy",
-      project_node_locks.session_id AS "sessionId",
-      project_node_locks.lease_id AS "leaseId",
-      project_node_locks.client_kind AS "clientKind",
-      project_node_locks.fencing_token AS "fencingToken",
-      project_node_locks.acquired_at AS "acquiredAt",
-      project_node_locks.renewed_at AS "renewedAt",
-      project_node_locks.expires_at AS "expiresAt"
+      workspace_node_locks.node_id AS "nodeId",
+      workspace_node_locks.workspace_id AS "projectId",
+      workspace_node_locks.locked_by AS "lockedBy",
+      workspace_node_locks.session_id AS "sessionId",
+      workspace_node_locks.lease_id AS "leaseId",
+      workspace_node_locks.client_kind AS "clientKind",
+      workspace_node_locks.fencing_token AS "fencingToken",
+      workspace_node_locks.acquired_at AS "acquiredAt",
+      workspace_node_locks.renewed_at AS "renewedAt",
+      workspace_node_locks.expires_at AS "expiresAt"
   `);
 
   return Array.from(result).map((r) => toOwnedLease(r));
@@ -484,7 +484,7 @@ export async function releaseAllSessionLeases(input: {
   sessionId: string;
 }): Promise<number> {
   const result = await db.execute<{ nodeId: string }>(sql`
-    DELETE FROM project_node_locks
+    DELETE FROM workspace_node_locks
     WHERE locked_by = ${input.userId}::uuid
       AND session_id = ${input.sessionId}::uuid
     RETURNING node_id AS "nodeId"

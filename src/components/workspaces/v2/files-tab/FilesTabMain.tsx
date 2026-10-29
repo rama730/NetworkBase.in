@@ -5,7 +5,7 @@
 import * as React from "react";
 import { AlertTriangle, Loader2 } from "lucide-react";
 
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { useFilesStore } from "@/stores/filesStore";
 
 import { useFilesTabRole } from "./FilesTabRoleContext";
@@ -53,7 +53,7 @@ export interface FilesTabMainProps {
 // workspace entry has not been created yet. Keeps Zustand selector
 // equality (`Object.is`) stable across renders so we do not trigger
 // gratuitous re-renders before the project workspace is hydrated.
-const EMPTY_NODES = Object.freeze({}) as Record<string, ProjectNode>;
+const EMPTY_NODES = Object.freeze({}) as Record<string, WorkspaceNode>;
 
 // ---------------------------------------------------------------------------
 // Component
@@ -90,7 +90,7 @@ export function FilesTabMain({
   );
   const nodesById = useFilesStore(
     (s) => s.byProjectId[projectId]?.nodesById ?? EMPTY_NODES,
-  ) as Record<string, ProjectNode>;
+  ) as Record<string, WorkspaceNode>;
 
   const unresolved =
     currentLocationId !== null && nodesById[currentLocationId] === undefined;

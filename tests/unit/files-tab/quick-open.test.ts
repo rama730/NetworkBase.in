@@ -37,14 +37,14 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import {
   buildNodePathMap,
 } from "@/components/workspaces/v2/files-tab/quick-open/QuickOpenDialog";
 
 // ─── Fixture builders ────────────────────────────────────────────────
 
-function makeFolder(id: string, name: string, parentId: string | null): ProjectNode {
+function makeFolder(id: string, name: string, parentId: string | null): WorkspaceNode {
   return {
     id,
     projectId: "proj-1",
@@ -63,10 +63,10 @@ function makeFolder(id: string, name: string, parentId: string | null): ProjectN
     createdAt: new Date(0),
     updatedAt: new Date(0),
     deletedAt: null,
-  } as unknown as ProjectNode;
+  } as unknown as WorkspaceNode;
 }
 
-function makeFile(id: string, name: string, parentId: string | null): ProjectNode {
+function makeFile(id: string, name: string, parentId: string | null): WorkspaceNode {
   return {
     id,
     projectId: "proj-1",
@@ -85,11 +85,11 @@ function makeFile(id: string, name: string, parentId: string | null): ProjectNod
     createdAt: new Date(0),
     updatedAt: new Date(0),
     deletedAt: null,
-  } as unknown as ProjectNode;
+  } as unknown as WorkspaceNode;
 }
 
-function buildNodes(nodes: ProjectNode[]): Record<string, ProjectNode> {
-  const out: Record<string, ProjectNode> = {};
+function buildNodes(nodes: WorkspaceNode[]): Record<string, WorkspaceNode> {
+  const out: Record<string, WorkspaceNode> = {};
   for (const n of nodes) out[n.id] = n;
   return out;
 }

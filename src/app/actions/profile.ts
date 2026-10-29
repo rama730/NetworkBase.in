@@ -752,7 +752,7 @@ export async function updateProfileAction(data: UpdateProfileInput): Promise<Upd
                 })
             })
             void inngest.send({
-                name: 'workspace/connections.refresh_suggestions_for_candidate',
+                name: 'connections/refresh_suggestions_for_candidate',
                 data: { candidateUserId: user.id },
             }).catch((syncError) => {
                 logger.warn('profile.suggestion_sync_enqueue_failed', {

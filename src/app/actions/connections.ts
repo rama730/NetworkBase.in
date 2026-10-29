@@ -12,7 +12,7 @@ import { DISCOVER_RAIL_CARD_COUNT } from '@/lib/discover/query';
 import { isLooseUuid } from '@/lib/validations/uuid';
 import { z } from 'zod';
 import { notFixtureAccountSql } from '@/lib/accounts/fixture-accounts';
-import { connectionSuggestionDismissals, connectionSuggestions, connections, profiles, projects, roleApplications } from '@/lib/db/schema';
+import { connectionSuggestionDismissals, connectionSuggestions, connections, profiles, workspaces, roleApplications } from '@/lib/db/schema';
 import { countPendingInvitationsForCandidate } from '@/lib/workspaces/workspace-invitations';
 import { getAuthUser } from '@/lib/supabase/auth-user';
 import { IdempotencyConflictError, runIdempotent } from '@/lib/security/idempotency';
@@ -662,7 +662,7 @@ async function getConnectionsFeedImpl(
     // Only the discover tab reads these: other tabs neither wait for them nor leave them unhandled (PERF-008).
     const metadataPromise = tab !== 'discover' ? null : Promise.all([
         includeMeta
-            ? db.select({ id: projects.id }).from(projects).where(eq(projects.ownerId, user.id)).limit(50)
+            ? db.select({ id: workspaces.id }).from(workspaces).where(eq(workspaces.ownerId, user.id)).limit(50)
             : Promise.resolve([]),
         // Always: one row, and skill matching on suggestions needs it even without the rest of the meta.
         db.select({ skills: profiles.skills }).from(profiles).where(eq(profiles.id, user.id)).limit(1),
@@ -1096,7 +1096,7 @@ async function getConnectionsFeedImpl(
         discoverConditions.push(sql`coalesce(${profiles.connectionPrivacy}, 'everyone') <> 'nobody'`);
     }
     if (input.filters?.hasSharedProjects) {
-        discoverConditions.push(sql`EXISTS (SELECT 1 FROM ${projects} WHERE ${projects.ownerId} = ${profiles.id})`);
+        discoverConditions.push(sql`EXISTS (SELECT 1 FROM ${workspaces} WHERE ${workspaces.ownerId} = ${profiles.id})`);
     }
 
     const discoverQueryStartedAt = performance.now();
@@ -1205,7 +1205,7 @@ async function getConnectionsFeedImpl(
             fallbackConditions.push(sql`coalesce(${profiles.connectionPrivacy}, 'everyone') <> 'nobody'`);
         }
         if (input.filters?.hasSharedProjects) {
-            fallbackConditions.push(sql`EXISTS (SELECT 1 FROM ${projects} WHERE ${projects.ownerId} = ${profiles.id})`);
+            fallbackConditions.push(sql`EXISTS (SELECT 1 FROM ${workspaces} WHERE ${workspaces.ownerId} = ${profiles.id})`);
         }
         const searchRank = sql`CASE
                     WHEN lower(coalesce(${profiles.username}, '')) = ${safeSearch?.toLowerCase() ?? ''} THEN 100
@@ -1843,7 +1843,7 @@ export async function acceptAllIncomingConnectionRequests(
             await Promise.allSettled([
                 applyConnectionPairsToRedis(accepted, 'add'),
                 ...[...affectedUserIds].map((userId) =>
-                    inngest.send({ name: 'workspace/connections.sync_suggestions', data: { userId } }),
+                    inngest.send({ name: 'connections/sync_suggestions', data: { userId } }),
                 ),
                 ...accepted.map((row) =>
                     emitConnectionAcceptedNotification({
@@ -2155,8 +2155,8 @@ export async function acceptConnectionRequest(
                                 eventKey: new Date().toISOString(),
                             }) : Promise.resolve(),
                             accepted.changed ? inngest.send([
-                                { name: 'workspace/connections.sync_suggestions', data: { userId: acceptedRequesterId } },
-                                { name: 'workspace/connections.sync_suggestions', data: { userId: acceptedAddresseeId } },
+                                { name: 'connections/sync_suggestions', data: { userId: acceptedRequesterId } },
+                                { name: 'connections/sync_suggestions', data: { userId: acceptedAddresseeId } },
                             ]) : Promise.resolve(),
                         ]);
                     } catch (err) {
@@ -2403,8 +2403,8 @@ export async function removeConnection(
                     revalidateConnectionsPaths(),
                     queueCounterRefreshBestEffort([removed.requesterId, removed.addresseeId]),
                     inngest.send([
-                        { name: 'workspace/connections.sync_suggestions', data: { userId: removed.requesterId } },
-                        { name: 'workspace/connections.sync_suggestions', data: { userId: removed.addresseeId } },
+                        { name: 'connections/sync_suggestions', data: { userId: removed.requesterId } },
+                        { name: 'connections/sync_suggestions', data: { userId: removed.addresseeId } },
                     ]),
                 ]);
             } catch (err) {

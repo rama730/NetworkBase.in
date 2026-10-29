@@ -34,9 +34,9 @@ test("memberships, assigned tasks and update comments are exported, and nobody e
   const project = await sql.begin((tx) => createProject(tx, owner));
   await sql.begin((tx) => addMember(tx, project, me));
   await sql.begin((tx) => addMember(tx, project, other));
-  await sql`INSERT INTO public.tasks (project_id, title, assignee_id) VALUES (${project}, 'Mine', ${me}), (${project}, 'Theirs', ${other})`;
-  const [update] = await sql`INSERT INTO public.project_updates (project_id, author_id, content, visibility) VALUES (${project}, ${owner}, 'news', 'public') RETURNING id`;
-  await sql`INSERT INTO public.project_update_comments (update_id, project_id, user_id, content) VALUES (${update!.id}, ${project}, ${me}, 'my comment'), (${update!.id}, ${project}, ${other}, 'their comment')`;
+  await sql`INSERT INTO public.tasks (workspace_id, title, assignee_id) VALUES (${project}, 'Mine', ${me}), (${project}, 'Theirs', ${other})`;
+  const [update] = await sql`INSERT INTO public.workspace_updates (workspace_id, author_id, content, visibility) VALUES (${project}, ${owner}, 'news', 'public') RETURNING id`;
+  await sql`INSERT INTO public.workspace_update_comments (update_id, workspace_id, user_id, content) VALUES (${update!.id}, ${project}, ${me}, 'my comment'), (${update!.id}, ${project}, ${other}, 'their comment')`;
 
   const data = await exportOf(me) as { memberships: Array<{ projectId: string; role: string }>; assignedTasks: Array<{ title: string }>; updateComments: Array<{ content: string }> };
   assert.deepEqual(data.memberships.map((row) => row.projectId), [project]);

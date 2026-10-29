@@ -30,7 +30,7 @@ before(async () => {
 
 const created: string[] = [];
 after(async () => {
-  for (const id of created.reverse()) await sql`DELETE FROM projects WHERE id = ${id} OR parent_id = ${id}`;
+  for (const id of created.reverse()) await sql`DELETE FROM workspaces WHERE id = ${id} OR parent_id = ${id}`;
   await sql.end();
   await closeAppDb();
 });
@@ -39,22 +39,22 @@ test("tab badges by person", async () => {
   const [owner, member, applicant] = await Promise.all([1, 2, 3].map(() => sql.begin((tx) => createUser(tx))));
   const id = await sql.begin((tx) => createProject(tx, owner!));
   created.push(id);
-  await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${id}, ${owner!}, 'owner'), (${id}, ${member!}, 'member')`;
-  await sql`UPDATE projects SET kind = 'organization', org_type = 'education', title = 'CSE-3A', join_code = ${generateJoinCode()} WHERE id = ${id}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${owner!}, 'owner'), (${id}, ${member!}, 'member')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', title = 'CSE-3A', join_code = ${generateJoinCode()} WHERE id = ${id}`;
   const settings = sql.json({ version: 1, submissionType: "none", reviewRequired: true, lateRule: "none", target: { mode: "everyone" }, publishedAt: new Date().toISOString(), closedAt: null });
-  const [m] = await sql`INSERT INTO tasks (project_id, title, kind, creator_id, assignment_settings) VALUES (${id}, 'Lab 1', 'assignment', ${owner!}, ${settings}) RETURNING id`;
-  await sql`INSERT INTO tasks (project_id, title, kind, assignment_id, assignee_id, creator_id, due_date) VALUES
+  const [m] = await sql`INSERT INTO tasks (workspace_id, title, kind, creator_id, assignment_settings) VALUES (${id}, 'Lab 1', 'assignment', ${owner!}, ${settings}) RETURNING id`;
+  await sql`INSERT INTO tasks (workspace_id, title, kind, assignment_id, assignee_id, creator_id, due_date) VALUES
     (${id}, 'Lab 1', 'task', ${m!.id}, ${member!}, ${owner!}, now() + interval '1 day'),
     (${id}, 'Lab 1', 'task', ${m!.id}, ${owner!}, ${owner!}, now() + interval '1 day')`;
   await sql`UPDATE tasks SET review_status = 'pending', review_submitted_at = now() WHERE assignment_id = ${m!.id} AND assignee_id = ${owner!}`;
-  await sql`INSERT INTO role_applications (project_id, applicant_id, status, message) VALUES (${id}, ${applicant!}, 'pending', 'hi')`;
-  await sql`INSERT INTO project_updates (project_id, author_id, content, update_type, visibility) VALUES (${id}, ${owner!}, 'Midterm moved', 'announcement', 'members')`;
+  await sql`INSERT INTO role_applications (workspace_id, applicant_id, status, message) VALUES (${id}, ${applicant!}, 'pending', 'hi')`;
+  await sql`INSERT INTO workspace_updates (workspace_id, author_id, content, update_type, visibility) VALUES (${id}, ${owner!}, 'Midterm moved', 'announcement', 'members')`;
 
   viewerId = owner!;
   assert.deepEqual(await assignments.readOrgTabBadgesAction(id), { tasks: 1, updates: false, members: 1 }, "own announcement is not new");
   viewerId = member!;
   assert.deepEqual(await assignments.readOrgTabBadgesAction(id), { tasks: 1, updates: true, members: 0 });
-  await sql`UPDATE project_members SET last_seen_updates_at = now() WHERE project_id = ${id} AND user_id = ${member!}`;
+  await sql`UPDATE workspace_members SET last_seen_updates_at = now() WHERE workspace_id = ${id} AND user_id = ${member!}`;
   assert.equal((await assignments.readOrgTabBadgesAction(id))?.updates, false);
   viewerId = applicant!;
   assert.equal(await assignments.readOrgTabBadgesAction(id), null, "not in the org");

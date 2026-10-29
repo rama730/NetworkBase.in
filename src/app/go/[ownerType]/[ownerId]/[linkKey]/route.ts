@@ -3,7 +3,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 
 import { enforceRouteLimit } from '@/app/api/v1/_shared';
 import { db } from '@/lib/db';
-import { githubSyncConnections, profiles, projects } from '@/lib/db/schema';
+import { githubSyncConnections, profiles, workspaces } from '@/lib/db/schema';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { normalizeSocialLinks } from '@/lib/profile/normalization';
 import { resolveWorkspaceSocialLinks } from '@/lib/workspaces/social-links';
@@ -65,16 +65,16 @@ export async function GET(
         if (!access.project || !access.canRead) return blocked('This link is not available.', 404);
         const [project] = await db
             .select({
-                externalLinks: projects.externalLinks,
-                githubRepoUrl: projects.githubRepoUrl,
-                slug: projects.slug,
-                importSource: projects.importSource,
+                externalLinks: workspaces.externalLinks,
+                githubRepoUrl: workspaces.githubRepoUrl,
+                slug: workspaces.slug,
+                importSource: workspaces.importSource,
                 githubSyncRepository: githubSyncConnections.repository,
                 githubSyncBranch: githubSyncConnections.branch,
             })
-            .from(projects)
-            .leftJoin(githubSyncConnections, eq(projects.id, githubSyncConnections.projectId))
-            .where(and(eq(projects.id, ownerId), isNull(projects.deletedAt)))
+            .from(workspaces)
+            .leftJoin(githubSyncConnections, eq(workspaces.id, githubSyncConnections.projectId))
+            .where(and(eq(workspaces.id, ownerId), isNull(workspaces.deletedAt)))
             .limit(1);
         const link = resolveWorkspaceSocialLinks(
             project?.externalLinks ?? {},

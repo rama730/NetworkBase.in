@@ -6,7 +6,7 @@ import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
 import { readBoundedStorageBytes } from "@/lib/storage/bounded-object-read";
 import { db } from "@/lib/db";
-import { storageAssets, projectMembers, projectFollows, projectOpenRoles, roleApplications, tasks, profiles, projects, projectNodeEvents } from "@/lib/db/schema";
+import { storageAssets, workspaceMembers, workspaceFollows, workspaceOpenRoles, roleApplications, tasks, profiles, workspaces, workspaceNodeEvents } from "@/lib/db/schema";
 import { and, eq, sql, isNull, desc } from "drizzle-orm";
 import { type WorkspaceVisibility, isWorkspaceVisibility, normalizeWorkspaceVisibility } from "@/lib/workspaces/workspace-visibility";
 import { buildWorkspaceAccessTransitionPolicy, type WorkspacePublicTabVisibility, normalizeWorkspacePublicTabVisibility } from "@/lib/workspaces/settings-policies";
@@ -373,18 +373,18 @@ async function readProjectAccessImpactCounts(projectId: string) {
   ] = await Promise.all([
     db
       .select({ count: sql<number>`count(*)::int` })
-      .from(projectMembers)
-      .where(eq(projectMembers.projectId, projectId))
+      .from(workspaceMembers)
+      .where(eq(workspaceMembers.projectId, projectId))
       .limit(1),
     db
       .select({ count: sql<number>`count(*)::int` })
-      .from(projectFollows)
-      .where(eq(projectFollows.projectId, projectId))
+      .from(workspaceFollows)
+      .where(eq(workspaceFollows.projectId, projectId))
       .limit(1),
     db
       .select({ count: sql<number>`count(*)::int` })
-      .from(projectOpenRoles)
-      .where(eq(projectOpenRoles.projectId, projectId))
+      .from(workspaceOpenRoles)
+      .where(eq(workspaceOpenRoles.projectId, projectId))
       .limit(1),
     db
       .select({ count: sql<number>`count(*)::int` })
@@ -430,20 +430,20 @@ async function readProjectAccessTransitionPreviews(
         fullName: profiles.fullName,
         avatarUrl: profiles.avatarUrl,
       })
-      .from(projectFollows)
-      .innerJoin(profiles, eq(profiles.id, projectFollows.userId))
-      .where(eq(projectFollows.projectId, projectId))
-      .orderBy(desc(projectFollows.createdAt))
+      .from(workspaceFollows)
+      .innerJoin(profiles, eq(profiles.id, workspaceFollows.userId))
+      .where(eq(workspaceFollows.projectId, projectId))
+      .orderBy(desc(workspaceFollows.createdAt))
       .limit(6),
     db
       .select({
-        id: projectOpenRoles.id,
-        title: projectOpenRoles.title,
-        role: projectOpenRoles.role,
+        id: workspaceOpenRoles.id,
+        title: workspaceOpenRoles.title,
+        role: workspaceOpenRoles.role,
       })
-      .from(projectOpenRoles)
-      .where(eq(projectOpenRoles.projectId, projectId))
-      .orderBy(desc(projectOpenRoles.createdAt))
+      .from(workspaceOpenRoles)
+      .where(eq(workspaceOpenRoles.projectId, projectId))
+      .orderBy(desc(workspaceOpenRoles.createdAt))
       .limit(6),
     db
       .select({
@@ -452,14 +452,14 @@ async function readProjectAccessTransitionPreviews(
         applicantName: sql<
           string | null
         >`coalesce(${profiles.fullName}, ${profiles.username})`,
-        roleTitle: projectOpenRoles.title,
-        roleName: projectOpenRoles.role,
+        roleTitle: workspaceOpenRoles.title,
+        roleName: workspaceOpenRoles.role,
       })
       .from(roleApplications)
       .leftJoin(profiles, eq(profiles.id, roleApplications.applicantId))
       .leftJoin(
-        projectOpenRoles,
-        eq(projectOpenRoles.id, roleApplications.roleId),
+        workspaceOpenRoles,
+        eq(workspaceOpenRoles.id, roleApplications.roleId),
       )
       .where(
         and(
@@ -609,7 +609,7 @@ export async function updateWorkspaceVisibilityAction(
       };
 
     // A child project's visibility follows its org's cap; it changes in Settings → Organization.
-    const [placement] = await db.select({ parentId: projects.parentId, kind: projects.kind }).from(projects).where(eq(projects.id, projectId)).limit(1);
+    const [placement] = await db.select({ parentId: workspaces.parentId, kind: workspaces.kind }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
     if (placement?.parentId) {
       return {
         success: false,
@@ -669,7 +669,7 @@ export async function updateWorkspaceVisibilityAction(
 
     await db.transaction(async (tx) => {
       await tx
-        .update(projects)
+        .update(workspaces)
         .set({
           visibility: nextVisibility,
           ...(imageMigration
@@ -682,10 +682,10 @@ export async function updateWorkspaceVisibilityAction(
             : {}),
           updatedAt: new Date(),
         })
-        .where(and(eq(projects.id, projectId), eq(projects.ownerId, user.id)));
+        .where(and(eq(workspaces.id, projectId), eq(workspaces.ownerId, user.id)));
       await markWorkspaceCollaboratorsSummaryStale(projectId, tx);
 
-      await tx.insert(projectNodeEvents).values({
+      await tx.insert(workspaceNodeEvents).values({
         projectId,
         actorId: user.id,
         nodeId: null,
@@ -835,9 +835,9 @@ export async function updateWorkspacePublicTabVisibilityAction(
     );
     const normalized = normalizeWorkspacePublicTabVisibility(nextVisibility);
     const [current] = await db
-      .select({ publicTabVisibility: projects.publicTabVisibility })
-      .from(projects)
-      .where(eq(projects.id, projectId))
+      .select({ publicTabVisibility: workspaces.publicTabVisibility })
+      .from(workspaces)
+      .where(eq(workspaces.id, projectId))
       .limit(1);
     const previous = normalizeWorkspacePublicTabVisibility(
       current?.publicTabVisibility,
@@ -845,10 +845,10 @@ export async function updateWorkspacePublicTabVisibilityAction(
 
     await db.transaction(async (tx) => {
       await tx
-        .update(projects)
+        .update(workspaces)
         .set({ publicTabVisibility: normalized, updatedAt: new Date() })
-        .where(eq(projects.id, projectId));
-      await tx.insert(projectNodeEvents).values({
+        .where(eq(workspaces.id, projectId));
+      await tx.insert(workspaceNodeEvents).values({
         projectId,
         actorId: user.id,
         nodeId: null,

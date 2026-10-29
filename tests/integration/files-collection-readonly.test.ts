@@ -17,7 +17,7 @@ test("production pagination predicates keep project, Trash and task visibility f
         const cursor = Buffer.from(JSON.stringify({ v: 2, sort, rank, id: "00000000-0000-4000-8000-000000000000", name: "A:::file", mime: "", date: "2026-01-01T00:00:00.000Z" })).toString("base64url");
         const page = await captureNodePageQuery(project, sort, cursor, search);
         const q = dialect.sqlToQuery(sql`
-          WITH project_nodes AS (
+          WITH workspace_nodes AS (
             SELECT ('00000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid AS id,
               CASE WHEN i = 2 THEN '22222222-2222-4222-8222-222222222222'::uuid ELSE ${project}::uuid END AS project_id,
               CASE WHEN i = 3 THEN now() ELSE NULL::timestamptz END AS deleted_at,
@@ -25,8 +25,8 @@ test("production pagination predicates keep project, Trash and task visibility f
               NULL::uuid AS parent_id, 'file'::text AS type, 'Z file'::text AS name,
               '/file'::text AS path, 1 AS current_version, 'text/plain'::text AS mime_type, '2025-01-01'::timestamptz AS updated_at
             FROM generate_series(1,4) i
-          ), file_versions AS (SELECT id AS node_id, current_version AS version, updated_at AS uploaded_at FROM project_nodes)
-          SELECT id FROM project_nodes WHERE ${page.where} ORDER BY ${sql.join(page.orderBy, sql`, `)} LIMIT ${page.limit}
+          ), file_versions AS (SELECT id AS node_id, current_version AS version, updated_at AS uploaded_at FROM workspace_nodes)
+          SELECT id FROM workspace_nodes WHERE ${page.where} ORDER BY ${sql.join(page.orderBy, sql`, `)} LIMIT ${page.limit}
         `);
         const rows = await tx.unsafe(q.sql, q.params as never[]);
         assert.deepEqual(rows.map(row => row.id), ["00000000-0000-4000-8000-000000000001"], `${sort}, rank=${rank}, search=${search}: no cursor branch may bypass access filters`);
@@ -57,16 +57,16 @@ test("task collection SQL: role parity, linked files, legacy ownership, workspac
       }
       const project = "11111111-1111-4111-8111-111111111111";
       const query = dialect.sqlToQuery(sql`
-        WITH tasks(id, project_id, deleted_at) AS (VALUES
+        WITH tasks(id, workspace_id, deleted_at) AS (VALUES
           ('22222222-2222-4222-8222-222222222222'::uuid, ${project}::uuid, NULL::timestamptz),
           ('33333333-3333-4333-8333-333333333333'::uuid, ${project}::uuid, now())
-        ), fixture_nodes(id, project_id, task_id, parent_id, path, name, canonical_node_id, deleted_at) AS (VALUES
+        ), fixture_nodes(id, workspace_id, task_id, parent_id, path, name, canonical_node_id, deleted_at) AS (VALUES
           ('44444444-4444-4444-8444-444444444444'::uuid, ${project}::uuid, NULL::uuid, NULL::uuid, '/README.md', 'README.md', NULL::uuid, NULL::timestamptz),
           ('55555555-5555-4555-8555-555555555555'::uuid, ${project}::uuid, '22222222-2222-4222-8222-222222222222'::uuid, NULL::uuid, '/.system/tasks/22222222-2222-4222-8222-222222222222/sketch.png', 'sketch.png', NULL::uuid, NULL::timestamptz),
           ('66666666-6666-4666-8666-666666666666'::uuid, ${project}::uuid, NULL::uuid, NULL::uuid, '/removed.txt', 'removed.txt', NULL::uuid, now()),
           ('77777777-7777-4777-8777-777777777777'::uuid, '99999999-9999-4999-8999-999999999999'::uuid, NULL::uuid, NULL::uuid, '/private.txt', 'private.txt', NULL::uuid, NULL::timestamptz),
           ('88888888-8888-4888-8888-888888888888'::uuid, ${project}::uuid, '22222222-2222-4222-8222-222222222222'::uuid, NULL::uuid, '/.system/tasks/22222222-2222-4222-8222-222222222222/detached.png', 'detached.png', NULL::uuid, NULL::timestamptz)
-        ), project_nodes AS (SELECT *, CASE WHEN name = 'detached.png' THEN '{"taskFileDetachedFrom":"22222222-2222-4222-8222-222222222222"}'::jsonb ELSE '{}'::jsonb END AS metadata FROM fixture_nodes), task_node_links(task_id, node_id, tags, annotation) AS (VALUES
+        ), workspace_nodes AS (SELECT *, CASE WHEN name = 'detached.png' THEN '{"taskFileDetachedFrom":"22222222-2222-4222-8222-222222222222"}'::jsonb ELSE '{}'::jsonb END AS metadata FROM fixture_nodes), task_node_links(task_id, node_id, tags, annotation) AS (VALUES
           ('22222222-2222-4222-8222-222222222222'::uuid, '44444444-4444-4444-8444-444444444444'::uuid, '["initial_reference"]'::jsonb, NULL::text),
           ('33333333-3333-4333-8333-333333333333'::uuid, '44444444-4444-4444-8444-444444444444'::uuid, '[]'::jsonb, NULL::text),
           ('22222222-2222-4222-8222-222222222222'::uuid, '66666666-6666-4666-8666-666666666666'::uuid, '[]'::jsonb, NULL::text),
@@ -79,10 +79,10 @@ test("task collection SQL: role parity, linked files, legacy ownership, workspac
 
       const task = "22222222-2222-4222-8222-222222222222";
       const fileFixtures = sql`WITH tasks AS (SELECT ${task}::uuid AS id, ${project}::uuid AS project_id, NULL::timestamptz AS deleted_at),
-        project_nodes AS (SELECT ('00000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid AS id,
+        workspace_nodes AS (SELECT ('00000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid AS id,
           ${project}::uuid AS project_id, NULL::uuid AS task_id, NULL::uuid AS parent_id,
           '/file' || i AS path, 'file' || i AS name, NULL::uuid AS canonical_node_id, NULL::timestamptz AS deleted_at, '{}'::jsonb AS metadata FROM generate_series(1, 70) i),
-        task_node_links AS (SELECT ${task}::uuid AS task_id, id AS node_id, '["initial_reference"]'::jsonb AS tags, NULL::text AS annotation FROM project_nodes)`;
+        task_node_links AS (SELECT ${task}::uuid AS task_id, id AS node_id, '["initial_reference"]'::jsonb AS tags, NULL::text AS annotation FROM workspace_nodes)`;
       const readPage = async (after?: string, search = "", role?: string) => {
         const q = dialect.sqlToQuery(sql`${fileFixtures} SELECT * FROM (${taskFileEntriesSql(project, [task], false, after, search, role)}) page`);
         return tx.unsafe(q.sql, q.params as never[]);

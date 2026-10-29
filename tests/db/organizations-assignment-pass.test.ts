@@ -38,7 +38,7 @@ before(async () => {
 
 const created: string[] = [];
 after(async () => {
-  for (const id of created.reverse()) await sql`DELETE FROM projects WHERE id = ${id} OR parent_id = ${id}`;
+  for (const id of created.reverse()) await sql`DELETE FROM workspaces WHERE id = ${id} OR parent_id = ${id}`;
   await sql.end();
   await closeAppDb();
 });
@@ -49,8 +49,8 @@ const future = (days = 7) => new Date(Date.now() + days * 86_400_000).toISOStrin
 async function org() {
   const [owner, a, b, c, d] = await Promise.all([1, 2, 3, 4, 5].map(() => sql.begin((tx) => createUser(tx))));
   const id = await sql.begin((tx) => createProject(tx, owner!));
-  await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${id}, ${owner!}, 'owner'), (${id}, ${a!}, 'member'), (${id}, ${b!}, 'member'), (${id}, ${c!}, 'member'), (${id}, ${d!}, 'member')`;
-  await sql`UPDATE projects SET kind = 'organization', org_type = 'education', title = 'CSE-3A', join_code = ${generateJoinCode()}, task_review_required = true WHERE id = ${id}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${owner!}, 'owner'), (${id}, ${a!}, 'member'), (${id}, ${b!}, 'member'), (${id}, ${c!}, 'member'), (${id}, ${d!}, 'member')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', title = 'CSE-3A', join_code = ${generateJoinCode()}, task_review_required = true WHERE id = ${id}`;
   created.push(id);
   return { id, owner: owner!, a: a!, b: b!, c: c!, d: d! };
 }
@@ -124,13 +124,13 @@ test("teams after publish: move a person, add a late joiner, lock once submitted
 test("child team tasks by unit; any teammate ticks a step and it records who; copies carry a From chip on the board", async () => {
   const o = await org();
   const lab = await sql.begin((tx) => createProject(tx, o.a));
-  await sql`UPDATE projects SET parent_id = ${o.id}, title = 'Compiler Lab' WHERE id = ${lab}`;
-  const [unit] = await sql`INSERT INTO project_open_roles (project_id, role, count, filled, lead_user_id) VALUES (${lab}, 'Frontend', 3, 2, ${o.c}) RETURNING id`;
-  await sql`INSERT INTO project_members (project_id, user_id, role, unit_id) VALUES (${lab}, ${o.a}, 'owner', NULL), (${lab}, ${o.b}, 'member', ${unit!.id}), (${lab}, ${o.c}, 'member', ${unit!.id})`;
+  await sql`UPDATE workspaces SET parent_id = ${o.id}, title = 'Compiler Lab' WHERE id = ${lab}`;
+  const [unit] = await sql`INSERT INTO workspace_open_roles (workspace_id, role, count, filled, team_lead_user_id) VALUES (${lab}, 'Frontend', 3, 2, ${o.c}) RETURNING id`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role, unit_id) VALUES (${lab}, ${o.a}, 'owner', NULL), (${lab}, ${o.b}, 'member', ${unit!.id}), (${lab}, ${o.c}, 'member', ${unit!.id})`;
   viewerId = o.a;
   const made = await units.createTeamTasksAction(lab, { title: "Build the parser", mode: "units" });
   assert.ok(made.success && made.created === 1, JSON.stringify(made));
-  const [task] = await sql`SELECT id, assignee_id, team_name FROM tasks WHERE project_id = ${lab} AND team_name = 'Frontend'`;
+  const [task] = await sql`SELECT id, assignee_id, team_name FROM tasks WHERE workspace_id = ${lab} AND team_name = 'Frontend'`;
   assert.equal(task!.assignee_id, o.c, "the unit lead leads the team task");
   assert.ok((await titles(o.b)).includes("You’re in Frontend for Build the parser"));
 
@@ -141,9 +141,9 @@ test("child team tasks by unit; any teammate ticks a step and it records who; co
   assert.equal((await sql`SELECT completed_by FROM task_subtasks WHERE id = ${step!.id}`)[0]!.completed_by, o.b);
 
   // The org's group copy shows "From CSE-3A" on the child board.
-  const [g] = await sql`INSERT INTO tasks (project_id, title, kind, creator_id, assignment_settings) VALUES (${o.id}, 'Proposal', 'assignment', ${o.owner},
+  const [g] = await sql`INSERT INTO tasks (workspace_id, title, kind, creator_id, assignment_settings) VALUES (${o.id}, 'Proposal', 'assignment', ${o.owner},
     ${sql.json({ version: 1, submissionType: "none", reviewRequired: false, lateRule: "none", target: { mode: "each_child" }, publishedAt: new Date().toISOString(), closedAt: null })}) RETURNING id`;
-  await sql`INSERT INTO tasks (project_id, title, kind, assignment_id, assignee_id, creator_id) VALUES (${lab}, 'Proposal', 'task', ${g!.id}, ${o.a}, ${o.owner})`;
+  await sql`INSERT INTO tasks (workspace_id, title, kind, assignment_id, assignee_id, creator_id) VALUES (${lab}, 'Proposal', 'task', ${g!.id}, ${o.a}, ${o.owner})`;
   viewerId = o.a;
   const board = await tasksServer.fetchWorkspaceTasksAction(lab, 50);
   viewerId = "";

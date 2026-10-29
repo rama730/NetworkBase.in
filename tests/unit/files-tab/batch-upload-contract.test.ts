@@ -30,7 +30,7 @@ describe("2PC Batch Upload & Finalize Architecture Contract", () => {
     assert.match(source, /await db\.transaction\(async \(tx\) =>/);
 
     // Must deduplicate files and insert in a single SQL operation
-    assert.match(source, /await tx\.insert\(projectNodes\)\.values\(valuesToInsert\.map/);
+    assert.match(source, /await tx\.insert\(workspaceNodes\)\.values\(valuesToInsert\.map/);
 
     // Publication attaches verified assets and creates initial versions atomically.
     assert.match(source, /await tx\.insert\(fileVersions\)\.values/);
@@ -47,7 +47,7 @@ describe("2PC Batch Upload & Finalize Architecture Contract", () => {
     assert.match(source, /parent\.type !== "folder"/);
 
     // Must scope sibling collision lookup by taskId and deletedAt
-    assert.match(source, /isNull\(projectNodes\.taskId\)/);
+    assert.match(source, /isNull\(workspaceNodes\.taskId\)/);
 
   });
 

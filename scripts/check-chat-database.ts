@@ -129,28 +129,28 @@ async function main() {
       INSERT INTO connections (requester_id, addressee_id, status, blocked_by, blocked_at)
       VALUES (${blocked}, ${owner}, 'blocked', ${blocked}, now())
     `;
-    await sql`INSERT INTO projects (id, owner_id, title) VALUES (${projectId}, ${owner}, 'Chat test'), (${otherProject}, ${stranger}, 'Other')`;
+    await sql`INSERT INTO workspaces (id, owner_id, title) VALUES (${projectId}, ${owner}, 'Chat test'), (${otherProject}, ${stranger}, 'Other')`;
     await sql`
-      INSERT INTO project_members (project_id, user_id, role) VALUES
+      INSERT INTO workspace_members (workspace_id, user_id, role) VALUES
         (${projectId}, ${owner}, 'owner'), (${projectId}, ${member}, 'member'), (${projectId}, ${admin}, 'admin'),
         (${otherProject}, ${stranger}, 'owner')
     `;
-    await sql`INSERT INTO tasks (id, project_id, title) VALUES (${taskId}, ${projectId}, 'Card task')`;
-    await sql`INSERT INTO role_applications (id, project_id, applicant_id, creator_id, message) VALUES (${applicationId}, ${projectId}, ${open}, ${owner}, 'Hire me')`;
+    await sql`INSERT INTO tasks (id, workspace_id, title) VALUES (${taskId}, ${projectId}, 'Card task')`;
+    await sql`INSERT INTO role_applications (id, workspace_id, applicant_id, creator_id, message) VALUES (${applicationId}, ${projectId}, ${open}, ${owner}, 'Hire me')`;
     await sql`
-      INSERT INTO project_invitations (id, project_id, inviter_id, candidate_id, kind, role_title, project_title, expires_at)
+      INSERT INTO workspace_invitations (id, workspace_id, inviter_id, candidate_id, kind, role_title, project_title, expires_at)
       VALUES (${invitationId}, ${projectId}, ${owner}, ${open}, 'ordinary_role', 'Engineer', 'Chat test', now() + interval '14 days')
     `;
 
     // --- 7.1 project channels and sync
-    const [{ general }] = await sql`SELECT app_private.chat_sync_project_members(${projectId}::uuid, NULL::uuid, 'ensure_default') AS general`;
+    const [{ general }] = await sql`SELECT app_private.chat_sync_workspace_members(${projectId}::uuid, NULL::uuid, 'ensure_default') AS general`;
     await check("default channel exists, public, named general", async () => {
       const [row] = await sql`SELECT kind, name, is_default, member_count FROM chat_channels WHERE id = ${general}`;
       return row?.kind === "public" && row.name === "general" && row.is_default === true && row.member_count === 3;
     });
     await check("ensure_default is idempotent", async () => {
-      const [{ again }] = await sql`SELECT app_private.chat_sync_project_members(${projectId}::uuid, NULL::uuid, 'ensure_default') AS again`;
-      const [{ n }] = await sql`SELECT count(*)::int AS n FROM chat_channels WHERE project_id = ${projectId} AND is_default`;
+      const [{ again }] = await sql`SELECT app_private.chat_sync_workspace_members(${projectId}::uuid, NULL::uuid, 'ensure_default') AS again`;
+      const [{ n }] = await sql`SELECT count(*)::int AS n FROM chat_channels WHERE workspace_id = ${projectId} AND is_default`;
       return again === general && n === 1;
     });
 
@@ -357,18 +357,18 @@ async function main() {
       denied(() => sql`SELECT app_private.chat_add_members(${secret}::uuid, ${owner}::uuid, ${[stranger]}::uuid[])`));
     await check("per-project channel cap of 200", async () => {
       await sql`
-        INSERT INTO chat_channels (kind, name, project_id, created_by)
+        INSERT INTO chat_channels (kind, name, workspace_id, created_by)
         SELECT 'public', 'filler-' || g, ${projectId}, ${owner} FROM generate_series(1, 200) g
       `;
       const refused = await denied(() => sql`SELECT app_private.chat_create_channel(${projectId}::uuid, ${owner}::uuid, 'one-too-many', NULL, false)`);
-      await sql`DELETE FROM chat_channels WHERE project_id = ${projectId} AND name LIKE 'filler-%'`;
+      await sql`DELETE FROM chat_channels WHERE workspace_id = ${projectId} AND name LIKE 'filler-%'`;
       return refused;
     });
 
     // --- group chats
     await check("group chat: unnamed private channel, members must be messageable", async () => {
       const [{ group }] = await sql`SELECT app_private.chat_create_group(${owner}::uuid, ${[member, open]}::uuid[]) AS group`;
-      const [row] = await sql`SELECT kind, name, project_id, member_count FROM chat_channels WHERE id = ${group}`;
+      const [row] = await sql`SELECT kind, name, workspace_id AS workspace_id, member_count FROM chat_channels WHERE id = ${group}`;
       const refused = await denied(() => sql`SELECT app_private.chat_create_group(${owner}::uuid, ${[blocked]}::uuid[])`);
       return row.kind === "private" && row.name === null && row.project_id === null && row.member_count === 3 && refused;
     });
@@ -389,7 +389,7 @@ async function main() {
       await sql`DELETE FROM realtime.messages WHERE event = 'card.changed'`;
       await sql`UPDATE tasks SET status = 'done' WHERE id = ${taskId}`;
       await sql`UPDATE role_applications SET status = 'accepted', decision_at = now() WHERE id = ${applicationId}`;
-      await sql`UPDATE project_invitations SET status = 'accepted' WHERE id = ${invitationId}`;
+      await sql`UPDATE workspace_invitations SET status = 'accepted' WHERE id = ${invitationId}`;
       await sql`UPDATE tasks SET description = 'not a card field' WHERE id = ${taskId}`;
       const rows = await sql`SELECT payload->>'kind' AS kind, topic FROM realtime.messages WHERE event = 'card.changed'`;
       const kinds = rows.map((r) => r.kind).sort().join(",");
@@ -398,25 +398,25 @@ async function main() {
 
     // --- membership sync on project leave
     await check("removing a project member removes every project channel membership", async () => {
-      await sql`SELECT app_private.chat_sync_project_members(${projectId}::uuid, ${member}::uuid, 'remove')`;
+      await sql`SELECT app_private.chat_sync_workspace_members(${projectId}::uuid, ${member}::uuid, 'remove')`;
       const [{ n }] = await sql`
         SELECT count(*)::int AS n FROM chat_channel_members m JOIN chat_channels c ON c.id = m.channel_id
-        WHERE m.user_id = ${member} AND c.project_id = ${projectId}
+        WHERE m.user_id = ${member} AND c.workspace_id = ${projectId}
       `;
       const [{ dmKept }] = await sql`SELECT count(*)::int AS "dmKept" FROM chat_channel_members WHERE user_id = ${member} AND channel_id = ${dm}`;
       return n === 0 && dmKept === 1;
     });
     await check("adding a project member joins only the default channel", async () => {
-      await sql`SELECT app_private.chat_sync_project_members(${projectId}::uuid, ${member}::uuid, 'add')`;
+      await sql`SELECT app_private.chat_sync_workspace_members(${projectId}::uuid, ${member}::uuid, 'add')`;
       const rows = await sql`
         SELECT c.is_default FROM chat_channel_members m JOIN chat_channels c ON c.id = m.channel_id
-        WHERE m.user_id = ${member} AND c.project_id = ${projectId}
+        WHERE m.user_id = ${member} AND c.workspace_id = ${projectId}
       `;
       return rows.length === 1 && rows[0].is_default === true;
     });
 
     // --- bootstrap
-    await check("bootstrap returns joined channels with DM profile and projects", async () => {
+    await check("bootstrap returns joined channels with DM profile and workspaces", async () => {
       const [{ data }] = await sql`SELECT app_private.chat_bootstrap(${owner}::uuid, NULL) AS data`;
       const channels = data.channels as Array<Record<string, unknown>>;
       const dmRow = channels.find((c) => c.id === dm);
@@ -601,14 +601,14 @@ async function main() {
       return body.includes("chat_channel_members") && !body.includes("conversation_participants");
     });
   } finally {
-    await sql`DELETE FROM chat_channels WHERE project_id IN (${projectId}, ${otherProject}) OR id IN (
+    await sql`DELETE FROM chat_channels WHERE workspace_id IN (${projectId}, ${otherProject}) OR id IN (
       SELECT channel_id FROM chat_channel_members WHERE user_id = ANY(${users}::uuid[])
     )`.catch(() => undefined);
     await sql`DELETE FROM realtime.messages WHERE topic LIKE 'chat:%'`.catch(() => undefined);
-    await sql`DELETE FROM project_invitations WHERE id = ${invitationId}`.catch(() => undefined);
+    await sql`DELETE FROM workspace_invitations WHERE id = ${invitationId}`.catch(() => undefined);
     await sql`DELETE FROM role_applications WHERE id = ${applicationId}`.catch(() => undefined);
     await sql`DELETE FROM tasks WHERE id = ${taskId}`.catch(() => undefined);
-    await sql`DELETE FROM projects WHERE id IN (${projectId}, ${otherProject})`.catch(() => undefined);
+    await sql`DELETE FROM workspaces WHERE id IN (${projectId}, ${otherProject})`.catch(() => undefined);
     await sql`DELETE FROM connections WHERE requester_id = ANY(${users}::uuid[]) OR addressee_id = ANY(${users}::uuid[])`.catch(() => undefined);
     await sql`DELETE FROM profiles WHERE id = ANY(${users}::uuid[])`.catch(() => undefined);
     await sql.end();

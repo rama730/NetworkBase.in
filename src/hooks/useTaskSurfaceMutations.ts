@@ -23,7 +23,7 @@ import {
   normalizeTaskSurfaceRecord,
   type TaskSurfaceRecord,
 } from "@/lib/workspaces/task-presentation";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 
 type MutableTaskField =
   | "title"
@@ -50,7 +50,7 @@ function isTaskStatus(value: string): value is TaskStatus {
 export function useTaskSurfaceMutations(params: {
   task: TaskSurfaceRecord;
   projectId: string;
-  attachments: ProjectNode[];
+  attachments: WorkspaceNode[];
   sprints?: any[];
   members?: any[];
   onTaskChange: (task: TaskSurfaceRecord) => void;

@@ -39,7 +39,7 @@ before(async () => {
 
 const created: string[] = [];
 after(async () => {
-  for (const id of created.reverse()) await sql`DELETE FROM projects WHERE id = ${id} OR parent_id = ${id}`;
+  for (const id of created.reverse()) await sql`DELETE FROM workspaces WHERE id = ${id} OR parent_id = ${id}`;
   await sql.end();
   await closeAppDb();
 });
@@ -47,12 +47,12 @@ after(async () => {
 async function org(settings: Record<string, unknown> = {}) {
   const [owner, admin, member, other] = await Promise.all([1, 2, 3, 4].map(() => sql.begin((tx) => createUser(tx))));
   const id = await sql.begin((tx) => createProject(tx, owner!));
-  await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${id}, ${owner!}, 'owner'), (${id}, ${admin!}, 'admin'), (${id}, ${member!}, 'member'), (${id}, ${other!}, 'member')`;
-  await sql`UPDATE projects SET kind = 'organization', org_type = 'company', title = 'Acme Sales', join_code = ${generateJoinCode()}, member_updates_enabled = true,
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${owner!}, 'owner'), (${id}, ${admin!}, 'admin'), (${id}, ${member!}, 'member'), (${id}, ${other!}, 'member')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'company', title = 'Acme Sales', join_code = ${generateJoinCode()}, member_updates_enabled = true,
             org_settings = ${sql.json({ version: 1, ...settings })} WHERE id = ${id}`;
   const child = await sql.begin((tx) => createProject(tx, member!, { visibility: "org" }));
-  await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${child}, ${member!}, 'owner')`;
-  await sql`UPDATE projects SET parent_id = ${id}, title = 'North region' WHERE id = ${child}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${child}, ${member!}, 'owner')`;
+  await sql`UPDATE workspaces SET parent_id = ${id}, title = 'North region' WHERE id = ${child}`;
   created.push(id);
   return { id, child, owner: owner!, admin: admin!, member: member!, other: other! };
 }
@@ -72,7 +72,7 @@ test("an org admin pins a shared post in the org feed only; it counts toward the
   const pinned = await updates.toggleWorkspaceUpdatePinAction(o.id, shared, true);
   assert.equal(pinned.success, true, JSON.stringify(pinned));
   assert.equal(pinned.success && pinned.data?.isPinned, true);
-  const [childRow] = await sql`SELECT is_pinned FROM project_updates WHERE id = ${shared}`;
+  const [childRow] = await sql`SELECT is_pinned FROM workspace_updates WHERE id = ${shared}`;
   assert.equal(childRow!.is_pinned, false, "the child's own pin is untouched");
   const feed = await updates.readWorkspaceUpdatesAction(o.id, {});
   assert.ok(feed.success && feed.data.updates[0]!.id === shared, "pinned first in the org feed");
@@ -103,7 +103,7 @@ test("Notify again tells the audience; removing someone else's post needs a reas
 test("org defaults: replies from org members, email notify; the audience count; emailed announcements wait in Needs your attentionr attention", async () => {
   const o = await org({ announcementNotify: "email" });
   const id = await post(o.id, o.admin, { updateType: "announcement", content: "All hands Friday" });
-  const [row] = await sql`SELECT reply_policy, notify_level FROM project_updates WHERE id = ${id}`;
+  const [row] = await sql`SELECT reply_policy, notify_level FROM workspace_updates WHERE id = ${id}`;
   assert.deepEqual([row!.reply_policy, row!.notify_level], ["members", "email"]);
   viewerId = o.admin;
   assert.equal(await orgUpdates.countAnnouncementAudienceAction(o.id, {}), 4);
@@ -112,7 +112,7 @@ test("org defaults: replies from org members, email notify; the audience count; 
   assert.equal(await orgUpdates.countAnnouncementAudienceAction(o.id, {}), null, "admins only");
   const viewer = { userId: o.other, isAdmin: false, isInside: true, isGuest: false, access: { memberRole: "member" }, org: { id: o.id, title: "Acme Sales", slug: null, status: "active" } } as never;
   assert.ok((await needsYou.readNeedsYou(viewer, new Date())).some((r) => r.label === "Read: All hands Friday"));
-  await sql`UPDATE project_members SET last_seen_updates_at = now() WHERE project_id = ${o.id} AND user_id = ${o.other}`;
+  await sql`UPDATE workspace_members SET last_seen_updates_at = now() WHERE workspace_id = ${o.id} AND user_id = ${o.other}`;
   assert.ok(!(await needsYou.readNeedsYou(viewer, new Date())).some((r) => r.kind === "announcement"), "gone once opened");
 });
 
@@ -122,11 +122,11 @@ test("Also post an announcement on assignment publish and on Start now", async (
   const published = await assignments.createAssignmentAction({ projectId: o.id, title: "Weekly pipeline report", dueDate: new Date(Date.now() + 5 * 86_400_000).toISOString(), publish: true,
     submissionType: "none", lateRule: "none", target: { mode: "everyone" }, steps: [], announcement: "Weekly pipeline report is out, due Friday." } as never);
   assert.ok(published.success, JSON.stringify(published));
-  const [s] = await sql`INSERT INTO project_sprints (project_id, sprint_number, name, status, start_date, end_date) VALUES (${o.id}, 1, 'October push', 'planning', now(), now() + interval '20 days') RETURNING id`;
+  const [s] = await sql`INSERT INTO workspace_sprints (workspace_id, sprint_number, name, status, start_date, end_date) VALUES (${o.id}, 1, 'October push', 'planning', now(), now() + interval '20 days') RETURNING id`;
   const started = await sprints.startSprintNowAction(s!.id, o.id, "October push has started.");
   viewerId = "";
   assert.equal(started.success, true, JSON.stringify(started));
-  const posts = await sql`SELECT content FROM project_updates WHERE project_id = ${o.id} AND update_type = 'announcement' ORDER BY created_at`;
+  const posts = await sql`SELECT content FROM workspace_updates WHERE workspace_id = ${o.id} AND update_type = 'announcement' ORDER BY created_at`;
   assert.deepEqual(posts.map((p) => p.content), ["Weekly pipeline report is out, due Friday.", "October push has started."]);
   assert.ok((await titles(o.member)).some((t) => t.endsWith("October push has started.")));
 });

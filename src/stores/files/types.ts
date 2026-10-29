@@ -1,4 +1,4 @@
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 
 // ─── Explorer ────────────────────────────────────────────────────────
 export type ExplorerSort = "name" | "updated" | "type";
@@ -185,7 +185,7 @@ export type WorkspaceFilesState = {
   savedViews: SavedExplorerView[];
 
   // Cached metadata
-  nodesById: Record<string, ProjectNode>;
+  nodesById: Record<string, WorkspaceNode>;
   childrenByParentId: Record<string, string[]>;
   loadedChildren: Record<string, boolean>;
   folderMeta: Record<string, { nextCursor: string | null; hasMore: boolean }>;
@@ -244,7 +244,7 @@ export type FilesStoreState = {
   toggleFavorite: (projectId: string, nodeId: string) => void;
 
   // cache actions
-  upsertNodes: (projectId: string, nodes: ProjectNode[]) => void;
+  upsertNodes: (projectId: string, nodes: WorkspaceNode[]) => void;
   setChildren: (projectId: string, parentId: string | null, childIds: string[]) => void;
   setFolderPayload: (
     projectId: string,
@@ -253,7 +253,7 @@ export type FilesStoreState = {
   ) => void;
   setNodesAndChildren: (
     projectId: string,
-    nodes: ProjectNode[],
+    nodes: WorkspaceNode[],
     parentId: string | null,
     childIds: string[],
     payload?: { nextCursor: string | null; hasMore: boolean; loaded: boolean }
@@ -263,7 +263,7 @@ export type FilesStoreState = {
   removeNodeFromCaches: (projectId: string, nodeId: string, options?: { keepFavorite?: boolean }) => void;
   setTaskLinkCounts: (projectId: string, counts: Record<string, number>) => void;
   patchNodeVersion: (projectId: string, nodeId: string, currentVersion: number) => void;
-  setNodes: (projectId: string, nodes: ProjectNode[]) => void;
+  setNodes: (projectId: string, nodes: WorkspaceNode[]) => void;
   batchUpdateStore: (
     projectId: string,
     payloads: Array<{
@@ -273,11 +273,11 @@ export type FilesStoreState = {
       hasMore: boolean;
       loaded: boolean;
     }>,
-    nodes?: ProjectNode[]
+    nodes?: WorkspaceNode[]
   ) => void;
   hydrateFromIdb: (
     projectId: string,
-    nodesById: Record<string, ProjectNode>,
+    nodesById: Record<string, WorkspaceNode>,
     childrenByParentId: Record<string, string[]>
   ) => void;
 

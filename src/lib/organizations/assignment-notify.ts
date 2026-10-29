@@ -3,7 +3,7 @@ import "server-only";
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { projects, taskSubtasks, taskTeamMembers, tasks } from "@/lib/db/schema";
+import { workspaces, taskSubtasks, taskTeamMembers, tasks } from "@/lib/db/schema";
 import type { OrgEmailData } from "@/lib/email/org-templates";
 import type { AssignmentSettings } from "@/lib/organizations/assignment-rules";
 import { namesOf, notifyOrg, orgHref, orgLabel, queueOrgEmails } from "@/lib/organizations/notify";
@@ -30,11 +30,11 @@ export async function copyPeople(copyId: string) {
 /** Linked files of the master, minus anything under an Admins-only folder (report §26.10 #5). */
 async function materialsOf(masterId: string, orgId: string) {
   return db.execute<{ name: string; size: number | null }>(sql`
-    SELECT n.name, n.size FROM project_nodes n
-    WHERE n.project_id = ${orgId} AND n.type = 'file' AND n.deleted_at IS NULL
+    SELECT n.name, n.size FROM workspace_nodes n
+    WHERE n.workspace_id = ${orgId} AND n.type = 'file' AND n.deleted_at IS NULL
       AND (n.task_id = ${masterId} OR EXISTS (SELECT 1 FROM task_node_links l WHERE l.task_id = ${masterId} AND l.node_id = n.id))
       AND NOT EXISTS (
-        SELECT 1 FROM project_nodes f WHERE f.project_id = n.project_id AND f.type = 'folder' AND f.deleted_at IS NULL
+        SELECT 1 FROM workspace_nodes f WHERE f.workspace_id = n.workspace_id AND f.type = 'folder' AND f.deleted_at IS NULL
           AND f.metadata->>'access' = 'admins' AND starts_with(n.path, f.path || '/'))
     ORDER BY n.name LIMIT 10`);
 }
@@ -54,7 +54,7 @@ export async function notifyAssignmentPublished(masterId: string, actorId: strin
   if (copies.length === 0) return;
   const teams = await teamsOf(copies.map((c) => c.id));
   const childIds = [...new Set(copies.filter((c) => c.projectId !== master.projectId).map((c) => c.projectId))];
-  const children = new Map(childIds.length ? (await db.select({ id: projects.id, title: projects.title }).from(projects).where(inArray(projects.id, childIds))).map((c) => [c.id, c.title]) : []);
+  const children = new Map(childIds.length ? (await db.select({ id: workspaces.id, title: workspaces.title }).from(workspaces).where(inArray(workspaces.id, childIds))).map((c) => [c.id, c.title]) : []);
   const names = await namesOf([...new Set([...teams.values()].flat())]);
   const actor = (await namesOf([actorId])).get(actorId) ?? "Someone";
   const [steps, materials] = await Promise.all([
@@ -81,7 +81,7 @@ export async function notifyAssignmentPublished(masterId: string, actorId: strin
       if (childTitle) {
         await db.execute(sql`
           SELECT app_private.chat_post_system(c.id, ${actorId}::uuid, ${`${org.title} assigned ${master.title}`})
-          FROM public.chat_channels c WHERE c.project_id = ${copy.projectId} AND c.is_default`).catch(() => undefined);
+          FROM public.chat_channels c WHERE c.workspace_id = ${copy.projectId} AND c.is_default`).catch(() => undefined);
       }
     } else individuals.push(...people);
     for (const userId of people) {
@@ -139,9 +139,9 @@ export async function notifyAssignmentDueChanged(copyId: string, actorId: string
 export async function notifyNewCopies(orgId: string, where: { userId?: string; projectId?: string }) {
   const rows = await db.execute<{ master_id: string; creator_id: string | null; copy_id: string }>(sql`
     SELECT m.id AS master_id, m.creator_id, c.id AS copy_id FROM tasks c JOIN tasks m ON m.id = c.assignment_id
-    WHERE m.project_id = ${orgId} AND m.deleted_at IS NULL AND c.deleted_at IS NULL AND m.assignment_settings->>'closedAt' IS NULL
+    WHERE m.workspace_id = ${orgId} AND m.deleted_at IS NULL AND c.deleted_at IS NULL AND m.assignment_settings->>'closedAt' IS NULL
       AND c.created_at > now() - interval '1 hour'
-      AND ${where.userId ? sql`c.assignee_id = ${where.userId}` : sql`c.project_id = ${where.projectId ?? null}`}`);
+      AND ${where.userId ? sql`c.assignee_id = ${where.userId}` : sql`c.workspace_id = ${where.projectId ?? null}`}`);
   const byMaster = new Map<string, { creator: string | null; copies: string[] }>();
   for (const r of rows) byMaster.set(r.master_id, { creator: r.creator_id, copies: [...(byMaster.get(r.master_id)?.copies ?? []), r.copy_id] });
   for (const [masterId, { creator, copies }] of byMaster) if (creator) await notifyAssignmentPublished(masterId, creator, copies);

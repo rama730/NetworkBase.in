@@ -5,7 +5,7 @@ import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { db } from '@/lib/db';
-import { chatChannelMembers, chatChannels, projects } from '@/lib/db/schema';
+import { chatChannelMembers, chatChannels, workspaces } from '@/lib/db/schema';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { orgChatSettings } from '@/lib/organizations/chat-rules';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
@@ -31,17 +31,17 @@ export async function updateOrgChatSettingsAction(orgId: string, patch: z.input<
     if (!admin) return DENIED;
     const parsed = settingsSchema.safeParse(patch);
     if (!parsed.success) return { success: false, error: 'Check the chat settings.' };
-    await db.update(projects).set({
-        orgSettings: sql`${projects.orgSettings} || ${JSON.stringify(parsed.data)}::jsonb`,
+    await db.update(workspaces).set({
+        orgSettings: sql`${workspaces.orgSettings} || ${JSON.stringify(parsed.data)}::jsonb`,
         updatedAt: new Date(),
-    }).where(eq(projects.id, orgId));
+    }).where(eq(workspaces.id, orgId));
     revalidatePath(`/org/${admin.slug ?? orgId}`);
     return { success: true };
 }
 
 export async function readOrgChatSettingsAction(orgId: string) {
     if (!(await orgAdmin(orgId, 'read'))) return null;
-    const [org] = await db.select({ settings: projects.orgSettings, type: projects.orgType }).from(projects).where(eq(projects.id, orgId)).limit(1);
+    const [org] = await db.select({ settings: workspaces.orgSettings, type: workspaces.orgType }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
     return org ? orgChatSettings(org.settings, org.type) : null;
 }
 
@@ -52,11 +52,11 @@ export async function browseOrgWorkspaceChannelsAction(orgId: string): Promise<{
     const admin = await orgAdmin(orgId, 'read');
     if (!admin) return DENIED;
     const rows = await db.select({
-        projectId: projects.id, title: projects.title, channelId: chatChannels.id, channelName: chatChannels.name,
+        projectId: workspaces.id, title: workspaces.title, channelId: chatChannels.id, channelName: chatChannels.name,
         joined: sql<boolean>`EXISTS (SELECT 1 FROM ${chatChannelMembers} m WHERE m.channel_id = ${chatChannels.id} AND m.user_id = ${admin.userId})`,
-    }).from(projects)
-        .leftJoin(chatChannels, and(eq(chatChannels.projectId, projects.id), eq(chatChannels.isDefault, true)))
-        .where(and(eq(projects.parentId, orgId), isNull(projects.deletedAt)))
-        .orderBy(asc(projects.title));
+    }).from(workspaces)
+        .leftJoin(chatChannels, and(eq(chatChannels.projectId, workspaces.id), eq(chatChannels.isDefault, true)))
+        .where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt)))
+        .orderBy(asc(workspaces.title));
     return { success: true, rows: rows.map((r) => ({ ...r, joined: Boolean(r.joined) })) };
 }

@@ -10,7 +10,7 @@ import {
   ttlMsToSeconds,
 } from "@/app/api/v1/_file-lease-route";
 import { db } from "@/lib/db";
-import { projectNodes } from "@/lib/db/schema";
+import { workspaceNodes } from "@/lib/db/schema";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { validateCsrf } from "@/lib/security/csrf";
 import {
@@ -71,12 +71,12 @@ async function resolveEditableNode(projectId: string, path: string, userId: stri
   const access = await getWorkspaceAccessById(projectId, userId);
   if (!access.project) return { error: jsonError("Workspace not found", 404, "NOT_FOUND") };
   if (!access.canWrite) return { error: jsonError("You don’t have access to this", 403, "FORBIDDEN") };
-  const node = await db.query.projectNodes.findFirst({
+  const node = await db.query.workspaceNodes.findFirst({
     where: and(
-      eq(projectNodes.projectId, projectId),
-      eq(projectNodes.path, path),
-      eq(projectNodes.type, "file"),
-      isNull(projectNodes.deletedAt),
+      eq(workspaceNodes.projectId, projectId),
+      eq(workspaceNodes.path, path),
+      eq(workspaceNodes.type, "file"),
+      isNull(workspaceNodes.deletedAt),
     ),
     columns: { id: true },
   });

@@ -98,14 +98,14 @@ async function main() {
       SELECT
         node.id AS "nodeId",
         version.id AS "versionId",
-        node.project_id AS "projectId",
+        node.workspace_id AS "projectId",
         version.version,
         node.s3_key AS "nodeKey",
         version.s3_key AS "versionKey",
         node.created_by AS "ownerUserId",
         GREATEST(COALESCE(node.size, version.size, 0), 0)::bigint AS "declaredSize",
         COALESCE(NULLIF(node.mime_type, ''), NULLIF(version.mime_type, ''), 'application/octet-stream') AS "declaredMimeType"
-      FROM public.project_nodes node
+      FROM public.workspace_nodes node
       JOIN public.file_versions version
         ON version.node_id = node.id AND version.version = node.current_version
       LEFT JOIN public.storage_assets version_asset ON version_asset.id = version.asset_id
@@ -129,11 +129,11 @@ async function main() {
         await tx`SELECT set_config('app.maintenance_operation', 'version_repair', true)`;
         const rows = await tx<{ id: string }[]>`
           SELECT node.id
-          FROM public.project_nodes node
+          FROM public.workspace_nodes node
           JOIN public.file_versions version
             ON version.node_id = node.id AND version.version = node.current_version
           WHERE node.id = ${candidate.nodeId}
-            AND node.project_id = ${candidate.projectId}
+            AND node.workspace_id = ${candidate.projectId}
             AND node.current_version = ${candidate.version}
             AND node.s3_key = ${candidate.nodeKey}
             AND version.id = ${candidate.versionId}
@@ -163,7 +163,7 @@ async function main() {
             };
         const inserted = await tx<{ id: string; state: string; contentHash: string | null }[]>`
           INSERT INTO public.storage_assets(
-            owner_user_id, project_id, bucket, storage_key, purpose, state,
+            owner_user_id, workspace_id, bucket, storage_key, purpose, state,
             declared_mime_type, declared_size, verified_mime_type, verified_size,
             content_hash, metadata, expires_at, verified_at, backup_state, last_error_code
           ) VALUES (
@@ -205,7 +205,7 @@ async function main() {
           WHERE id = ${candidate.versionId} AND s3_key = ${candidate.versionKey}
         `;
         await tx`
-          UPDATE public.project_nodes
+          UPDATE public.workspace_nodes
           SET asset_id = ${asset.id}, size = ${values.size}, mime_type = ${values.mimeType}, updated_at = now()
           WHERE id = ${candidate.nodeId} AND s3_key = ${candidate.nodeKey}
             AND current_version = ${candidate.version}

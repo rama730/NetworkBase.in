@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import dynamic from "next/dynamic";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { resolvePreviewType, type UniversalPreviewType } from "../utils/fileKind";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, RefreshCw } from "lucide-react";
@@ -50,7 +50,7 @@ const BinaryInspectorDriver = dynamic(
 );
 
 interface UniversalPreviewEngineProps {
-  node: ProjectNode;
+  node: WorkspaceNode;
   signedUrl: string | null;
   signedUrlError?: string | null;
   projectId: string;

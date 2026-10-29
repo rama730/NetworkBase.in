@@ -5,7 +5,7 @@ import test from "node:test";
 const lifecycle = readFileSync("src/lib/workspaces/collaborator-lifecycle.ts", "utf8");
 
 test("a full role expires pending project_invitations for it (not only the old message mirror)", () => {
-  assert.match(lifecycle, /\.update\(projectInvitations\)[\s\S]{0,200}status: "expired"[\s\S]{0,400}eq\(projectInvitations\.roleId, params\.roleId\)[\s\S]{0,120}eq\(projectInvitations\.status, "pending"\)/);
+  assert.match(lifecycle, /\.update\(workspaceInvitations\)[\s\S]{0,200}status: "expired"[\s\S]{0,400}eq\(workspaceInvitations\.roleId, params\.roleId\)[\s\S]{0,120}eq\(workspaceInvitations\.status, "pending"\)/);
 });
 
 test("project membership changes always sync chat membership", () => {

@@ -5,7 +5,7 @@ import "server-only";
 import { type WorkspaceAccess, getWorkspaceAccessById, canReadWorkspaceTab, WorkspaceTabForbiddenError, getWorkspaceAccessByIdentifier, assertWorkspaceTabReadAccess } from "@/lib/data/workspace-access";
 import { normalizeSearchQuery, containsLikePattern, escapeLikePattern, tokenizeSearchQuery } from "@/lib/search/query";
 import { sql, eq, and, or, isNull, isNotNull, ilike, desc, inArray } from "drizzle-orm";
-import { tasks, taskReadReceipts, projects, projectMembers, roleApplications, projectOpenRoles, projectSprints, projectWorkflowColumns, sprintTaskMemberships, taskActivityEvents, projectNodes, taskNodeLinks, taskSubtasks } from "@/lib/db/schema";
+import { tasks, taskReadReceipts, workspaces, workspaceMembers, roleApplications, workspaceOpenRoles, workspaceSprints, workspaceWorkflowColumns, sprintTaskMemberships, taskActivityEvents, workspaceNodes, taskNodeLinks, taskSubtasks } from "@/lib/db/schema";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
 import { db } from "@/lib/db";
@@ -324,7 +324,7 @@ async function fetchProjectTasksForActor(
                      )::int AS new_count
               FROM task_node_links link
               JOIN selected_tasks selected ON selected.id = link.task_id
-              JOIN project_nodes node ON node.id = link.node_id AND node.deleted_at IS NULL
+              JOIN workspace_nodes node ON node.id = link.node_id AND node.deleted_at IS NULL
               GROUP BY link.task_id
             ), comment_counts AS (
               SELECT comment.task_id,
@@ -355,7 +355,7 @@ async function fetchProjectTasksForActor(
       // Assignment copies carry a "From" chip (report §16.5–16.6): the org for a group copy in a child project,
       // otherwise whoever assigned it.
       const parentOrgTitle = limitedTasks.some((task) => task.assignmentId)
-        ? (await db.execute<{ title: string | null }>(sql`SELECT o.title FROM projects p JOIN projects o ON o.id = p.parent_id WHERE p.id = ${projectId}`))[0]?.title ?? null
+        ? (await db.execute<{ title: string | null }>(sql`SELECT o.title FROM workspaces p JOIN workspaces o ON o.id = p.parent_id WHERE p.id = ${projectId}`))[0]?.title ?? null
         : null;
       const normalizedTasks = limitedTasks.map((task) => {
         const counts = countsByTaskId.get(task.id);
@@ -487,9 +487,9 @@ export async function fetchWorkspaceLinkPreviewsAction(input: {
     if (!access.canRead) return { success: false as const, code: "FORBIDDEN" as const, error: "You don’t have access to this" };
 
     const [project] = await db
-      .select({ id: projects.id, externalLinks: projects.externalLinks, githubRepoUrl: projects.githubRepoUrl })
-      .from(projects)
-      .where(and(eq(projects.id, access.project.id), isNull(projects.deletedAt)))
+      .select({ id: workspaces.id, externalLinks: workspaces.externalLinks, githubRepoUrl: workspaces.githubRepoUrl })
+      .from(workspaces)
+      .where(and(eq(workspaces.id, access.project.id), isNull(workspaces.deletedAt)))
       .limit(1);
     if (!project) return { success: false as const, code: "NOT_FOUND" as const, error: "Workspace not found" };
 
@@ -689,7 +689,7 @@ export async function getWorkspaceTaskDetailAction(
             "completed_subtask_count",
           ),
         fileCount:
-          sql<number>`(SELECT count(*)::int FROM task_node_links JOIN project_nodes ON project_nodes.id = task_node_links.node_id WHERE task_node_links.task_id = ${tasks.id} AND project_nodes.deleted_at IS NULL)`.as(
+          sql<number>`(SELECT count(*)::int FROM task_node_links JOIN workspace_nodes ON workspace_nodes.id = task_node_links.node_id WHERE task_node_links.task_id = ${tasks.id} AND workspace_nodes.deleted_at IS NULL)`.as(
             "file_count",
           ),
         commentCount:
@@ -778,12 +778,12 @@ export async function getWorkspaceMembersAction(
       async () => {
         await assertWorkspaceTabReadAccess(projectId, actorId, "dashboard");
         const whereConditions: any[] = [
-          eq(projectMembers.projectId, projectId),
+          eq(workspaceMembers.projectId, projectId),
         ];
         // Outsiders see only people with "Show on my profile" on (report §20.8).
         const access = actorId ? await getWorkspaceAccessById(projectId, actorId) : null;
         const inside = Boolean(access && (access.isOwner || access.isMember || access.isInheritedAdmin));
-        if (!inside) whereConditions.push(eq(projectMembers.showOnProfile, true));
+        if (!inside) whereConditions.push(eq(workspaceMembers.showOnProfile, true));
 
         if (cursor) {
           try {
@@ -791,7 +791,7 @@ export async function getWorkspaceMembersAction(
             const [joinedAt, memberId] = decoded.split(":::");
             if (joinedAt && memberId) {
               whereConditions.push(
-                sql`(${projectMembers.joinedAt}, ${projectMembers.id}) < (${new Date(joinedAt)}, ${memberId})`,
+                sql`(${workspaceMembers.joinedAt}, ${workspaceMembers.id}) < (${new Date(joinedAt)}, ${memberId})`,
               );
             }
           } catch {
@@ -799,7 +799,7 @@ export async function getWorkspaceMembersAction(
           }
         }
 
-        const membersResult = await db.query.projectMembers.findMany({
+        const membersResult = await db.query.workspaceMembers.findMany({
           where: and(...whereConditions),
           columns: {
             id: true,
@@ -853,13 +853,13 @@ export async function getWorkspaceMembersAction(
             ? await db
                 .select({
                   applicantId: roleApplications.applicantId,
-                  roleTitle: projectOpenRoles.title,
-                  roleName: projectOpenRoles.role,
+                  roleTitle: workspaceOpenRoles.title,
+                  roleName: workspaceOpenRoles.role,
                 })
                 .from(roleApplications)
                 .leftJoin(
-                  projectOpenRoles,
-                  eq(projectOpenRoles.id, roleApplications.roleId),
+                  workspaceOpenRoles,
+                  eq(workspaceOpenRoles.id, roleApplications.roleId),
                 )
                 .where(
                   and(
@@ -944,10 +944,10 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
         user.id,
         "assign_tasks",
       );
-      const assigneeMember = await db.query.projectMembers.findFirst({
+      const assigneeMember = await db.query.workspaceMembers.findFirst({
         where: and(
-          eq(projectMembers.projectId, validated.projectId),
-          eq(projectMembers.userId, validated.assigneeId),
+          eq(workspaceMembers.projectId, validated.projectId),
+          eq(workspaceMembers.userId, validated.assigneeId),
         ),
         columns: { id: true, role: true },
       });
@@ -963,7 +963,7 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
       // Lock row to ensure strictly monotonic task number under concurrent creates.
       const counterRows = await tx.execute<{ current_task_number: number }>(sql`
                 SELECT current_task_number
-                FROM ${projects}
+                FROM ${workspaces}
                 WHERE id = ${validated.projectId}
                 FOR UPDATE
             `);
@@ -972,8 +972,8 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
 
       if (validated.sprintId) {
         const sprintRows = await tx.execute<{ id: string; status: string }>(sql`
-                    SELECT id, status FROM ${projectSprints}
-                    WHERE id = ${validated.sprintId} AND project_id = ${validated.projectId}
+                    SELECT id, status FROM ${workspaceSprints}
+                    WHERE id = ${validated.sprintId} AND workspace_id = ${validated.projectId}
                     FOR SHARE
                 `);
         const sprint = Array.from(sprintRows)[0];
@@ -987,14 +987,14 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
 
       const nextTaskNumber = Number(current.current_task_number || 0) + 1;
       await tx
-        .update(projects)
+        .update(workspaces)
         .set({ currentTaskNumber: nextTaskNumber })
-        .where(eq(projects.id, validated.projectId));
-      const defaultColumn = await tx.query.projectWorkflowColumns.findFirst({
+        .where(eq(workspaces.id, validated.projectId));
+      const defaultColumn = await tx.query.workspaceWorkflowColumns.findFirst({
         where: and(
-          eq(projectWorkflowColumns.projectId, validated.projectId),
-          eq(projectWorkflowColumns.status, validated.status === "done" ? "todo" : validated.status),
-          eq(projectWorkflowColumns.isDefault, true),
+          eq(workspaceWorkflowColumns.projectId, validated.projectId),
+          eq(workspaceWorkflowColumns.status, validated.status === "done" ? "todo" : validated.status),
+          eq(workspaceWorkflowColumns.isDefault, true),
         ),
         columns: { id: true },
       });
@@ -1085,11 +1085,11 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
         validated.attachmentNodeIds.length > 0
       ) {
         const uniqueAttachmentIds = [...new Set(validated.attachmentNodeIds)];
-        const attachmentNodes = await tx.query.projectNodes.findMany({
+        const attachmentNodes = await tx.query.workspaceNodes.findMany({
           where: and(
-            eq(projectNodes.projectId, validated.projectId),
-            inArray(projectNodes.id, uniqueAttachmentIds),
-            isNull(projectNodes.deletedAt),
+            eq(workspaceNodes.projectId, validated.projectId),
+            inArray(workspaceNodes.id, uniqueAttachmentIds),
+            isNull(workspaceNodes.deletedAt),
           ),
           columns: { id: true },
         });
@@ -1257,8 +1257,8 @@ export async function deleteTaskAction(taskId: string, projectId: string) {
     if (!user) throw new Error("Sign in to continue");
 
     // Access Check - Only project owner can delete tasks
-    const project = await db.query.projects.findFirst({
-      where: eq(projects.id, projectId),
+    const project = await db.query.workspaces.findFirst({
+      where: eq(workspaces.id, projectId),
       columns: { ownerId: true, slug: true },
     });
     if (!project) throw new Error("Workspace not found");
@@ -1286,48 +1286,48 @@ export async function deleteTaskAction(taskId: string, projectId: string) {
       // Soft-deleting a task must not strand its private working files behind
       // the hidden task workspace. Preserve them in one explicit recovery
       // folder, then detach their task ownership and links.
-      const taskNodes = await tx.query.projectNodes.findMany({
-        where: and(eq(projectNodes.projectId, projectId), eq(projectNodes.taskId, taskId)),
+      const taskNodes = await tx.query.workspaceNodes.findMany({
+        where: and(eq(workspaceNodes.projectId, projectId), eq(workspaceNodes.taskId, taskId)),
         columns: { id: true, parentId: true, name: true, path: true, type: true },
       });
       if (taskNodes.length > 0) {
         const scopedIds = new Set(taskNodes.map((node) => node.id));
         const rootNodes = taskNodes.filter((node) => !node.parentId || !scopedIds.has(node.parentId));
         const recoveryName = `Recovered task files ${taskId.slice(0, 8)}`;
-        let recoveryFolder = await tx.query.projectNodes.findFirst({
-          where: and(eq(projectNodes.projectId, projectId), isNull(projectNodes.parentId), eq(projectNodes.name, recoveryName)),
+        let recoveryFolder = await tx.query.workspaceNodes.findFirst({
+          where: and(eq(workspaceNodes.projectId, projectId), isNull(workspaceNodes.parentId), eq(workspaceNodes.name, recoveryName)),
           columns: { id: true, path: true },
         });
         if (!recoveryFolder) {
-          const [created] = await tx.insert(projectNodes).values({
+          const [created] = await tx.insert(workspaceNodes).values({
             projectId,
             parentId: null,
             type: "folder",
             name: recoveryName,
             path: `/${recoveryName}`,
             createdBy: user.id,
-          }).returning({ id: projectNodes.id, path: projectNodes.path });
+          }).returning({ id: workspaceNodes.id, path: workspaceNodes.path });
           recoveryFolder = created!;
         }
         if (rootNodes.length > 0) {
-          await tx.update(projectNodes)
+          await tx.update(workspaceNodes)
             .set({
               parentId: recoveryFolder.id,
-              path: sql`CASE ${projectNodes.id} ${sql.join(rootNodes.map((node) => sql`WHEN ${node.id}::uuid THEN ${`${recoveryFolder!.path}/${node.name}`}`), sql` `)} END`,
+              path: sql`CASE ${workspaceNodes.id} ${sql.join(rootNodes.map((node) => sql`WHEN ${node.id}::uuid THEN ${`${recoveryFolder!.path}/${node.name}`}`), sql` `)} END`,
               taskId: null,
               updatedAt: new Date(),
             })
-            .where(inArray(projectNodes.id, rootNodes.map((node) => node.id)));
+            .where(inArray(workspaceNodes.id, rootNodes.map((node) => node.id)));
         }
         for (const node of rootNodes) {
           const nextPath = `${recoveryFolder.path}/${node.name}`;
           if (node.type === "folder") {
             await tx.execute(sql`
-              UPDATE project_nodes
+              UPDATE workspace_nodes
               SET task_id = NULL,
                   path = ${nextPath} || SUBSTRING(path FROM ${node.path.length + 1}),
                   updated_at = NOW()
-              WHERE project_id = ${projectId}
+              WHERE workspace_id = ${projectId}
                 AND task_id = ${taskId}
                 AND starts_with(path, ${`${node.path}/`})
             `);

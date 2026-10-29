@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import UniversalPreviewEngine from "./UniversalPreviewEngine";
 
 export default function AssetPreview({
@@ -9,7 +9,7 @@ export default function AssetPreview({
   signedUrl,
   projectId = "",
 }: {
-  node: ProjectNode;
+  node: WorkspaceNode;
   signedUrl: string | null;
   projectId?: string;
 }): React.JSX.Element {

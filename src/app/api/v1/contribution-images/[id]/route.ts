@@ -43,8 +43,8 @@ export async function GET(
       deleted_at: Date | null;
       project_deleted_at: Date | null;
     }>(sql`
-      SELECT c.profile_id,c.project_id,c.visibility,c.presentation,c.deleted_at,p.visibility AS project_visibility,p.status AS project_status,p.deleted_at AS project_deleted_at
-      FROM profile_contribution_media_assets ref JOIN profile_project_contributions c ON c.id=ref.contribution_id LEFT JOIN projects p ON p.id=c.project_id WHERE ref.asset_id=${id}::uuid LIMIT 50
+      SELECT c.profile_id,c.workspace_id AS project_id,c.visibility,c.presentation,c.deleted_at,p.visibility AS project_visibility,p.status AS project_status,p.deleted_at AS project_deleted_at
+      FROM profile_contribution_media_assets ref JOIN profile_contributions c ON c.id=ref.contribution_id LEFT JOIN workspaces p ON p.id=c.workspace_id WHERE ref.asset_id=${id}::uuid LIMIT 50
     `);
     let allowed = Boolean(user?.id && asset.ownerUserId === user.id);
     for (const row of rows) {

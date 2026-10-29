@@ -31,7 +31,7 @@ before(async () => {
 
 const created: string[] = [];
 after(async () => {
-  for (const id of created.reverse()) await sql`DELETE FROM projects WHERE id = ${id}`;
+  for (const id of created.reverse()) await sql`DELETE FROM workspaces WHERE id = ${id}`;
   await sql.end();
   await closeAppDb();
 });
@@ -42,22 +42,22 @@ async function org(options: { ageDays?: number; members?: number } = {}) {
   const [admin, member] = [await sql.begin((tx) => createUser(tx)), await sql.begin((tx) => createUser(tx))];
   const orgId = await sql.begin((tx) => createProject(tx, owner));
   const extra = await Promise.all(Array.from({ length: Math.max(0, (options.members ?? 3) - 3) }, () => sql.begin((tx) => createUser(tx))));
-  await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${orgId}, ${owner}, 'owner'), (${orgId}, ${admin}, 'admin')`;
-  if ((options.members ?? 3) >= 3) await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${orgId}, ${member}, 'member')`;
-  for (const u of extra) await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${orgId}, ${u}, 'member')`;
-  await sql`UPDATE projects SET kind = 'organization', org_type = 'education', join_code = ${generateJoinCode()}, title = ${`CSE ${tag}`}, slug = ${`cse-${tag}`},
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${orgId}, ${owner}, 'owner'), (${orgId}, ${admin}, 'admin')`;
+  if ((options.members ?? 3) >= 3) await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${orgId}, ${member}, 'member')`;
+  for (const u of extra) await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${orgId}, ${u}, 'member')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', join_code = ${generateJoinCode()}, title = ${`CSE ${tag}`}, slug = ${`cse-${tag}`},
     created_at = now() - (${options.ageDays ?? 30} || ' days')::interval WHERE id = ${orgId}`;
   const child = await sql.begin((tx) => createProject(tx, member));
   const orgOnly = await sql.begin((tx) => createProject(tx, member, { visibility: "org" }));
-  await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${child}, ${member}, 'owner'), (${orgOnly}, ${member}, 'owner')`;
-  await sql`UPDATE projects SET parent_id = ${orgId}, title = ${`Compiler Lab ${tag}`} WHERE id = ${child}`;
-  await sql`UPDATE projects SET parent_id = ${orgId}, title = ${`Secret Lab ${tag}`} WHERE id = ${orgOnly}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${child}, ${member}, 'owner'), (${orgOnly}, ${member}, 'owner')`;
+  await sql`UPDATE workspaces SET parent_id = ${orgId}, title = ${`Compiler Lab ${tag}`} WHERE id = ${child}`;
+  await sql`UPDATE workspaces SET parent_id = ${orgId}, title = ${`Secret Lab ${tag}`} WHERE id = ${orgOnly}`;
   created.push(orgId, child, orgOnly);
   return { orgId, child, orgOnly, owner, admin, member, tag };
 }
 
 async function contribution(profileId: string, projectId: string, verifiedBy: string | null = profileId) {
-  await sql`INSERT INTO profile_project_contributions (profile_id, project_id, source, role_kind, role_title, visibility, started_at, verified_at, verified_by)
+  await sql`INSERT INTO profile_contributions (profile_id, workspace_id, source, role_kind, role_title, visibility, started_at, verified_at, verified_by)
     VALUES (${profileId}, ${projectId}, 'membership', 'member', 'Member', 'public', now(), now(), ${verifiedBy})`;
 }
 
@@ -111,14 +111,14 @@ test("profile: Show on my profile off hides the org entry, its project entries a
   const o = await org();
   await contribution(o.member, o.orgId);
   await contribution(o.member, o.child);
-  await sql`UPDATE project_members SET show_on_profile = false WHERE project_id = ${o.orgId} AND user_id = ${o.member}`;
+  await sql`UPDATE workspace_members SET show_on_profile = false WHERE workspace_id = ${o.orgId} AND user_id = ${o.member}`;
   const pub = (await collab.getProfileContributions(o.member)).contributions.map((c) => c.projectId);
   assert.ok(!pub.includes(o.orgId) && !pub.includes(o.child), JSON.stringify(pub));
   const own = (await collab.getProfileContributions(o.member, { includePrivate: true })).contributions.map((c) => c.projectId);
   assert.ok(own.includes(o.orgId), "the owner still sees it");
   const portfolio = (await collab.getProfilePortfolioWorkspaces(o.member)).projects.map((p) => p.id);
   assert.ok(!portfolio.includes(o.orgId) && !portfolio.includes(o.child));
-  await sql`UPDATE project_members SET show_on_profile = true WHERE project_id = ${o.orgId} AND user_id = ${o.member}`;
+  await sql`UPDATE workspace_members SET show_on_profile = true WHERE workspace_id = ${o.orgId} AND user_id = ${o.member}`;
   const shown = (await collab.getProfilePortfolioWorkspaces(o.member)).projects;
   assert.equal(shown.find((p) => p.id === o.orgId)?.kind, "organization");
   assert.equal(shown.find((p) => p.id === o.child)?.cardOrg?.title, `CSE ${o.tag}`);
@@ -130,13 +130,13 @@ test("§24 pass: guests get no automatic entry; story helpers; opt-in Work recor
   const { db } = await loadAppModule(() => import("../../src/lib/db"));
   const guest = await sql.begin((tx) => createUser(tx));
   await lifecycle.addWorkspaceMemberInternal(db as never, { projectId: o.orgId, userId: guest, role: "viewer", actorId: o.owner, source: "email_invite" } as never);
-  assert.equal((await sql`SELECT count(*)::int AS n FROM profile_project_contributions WHERE profile_id = ${guest} AND project_id = ${o.orgId}`)[0]!.n, 0);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM profile_contributions WHERE profile_id = ${guest} AND workspace_id = ${o.orgId}`)[0]!.n, 0);
 
-  await sql`UPDATE projects SET description = 'Data Structures, Section A.' WHERE id = ${o.orgId}`;
+  await sql`UPDATE workspaces SET description = 'Data Structures, Section A.' WHERE id = ${o.orgId}`;
   await contribution(o.member, o.orgId);
-  const [entry] = await sql`SELECT id FROM profile_project_contributions WHERE profile_id = ${o.member} AND project_id = ${o.orgId}`;
-  const [m] = await sql`INSERT INTO tasks (project_id, title, kind, creator_id) VALUES (${o.orgId}, 'Lab 1', 'assignment', ${o.owner}) RETURNING id`;
-  await sql`INSERT INTO tasks (project_id, title, kind, assignment_id, assignee_id, creator_id, status) VALUES (${o.orgId}, 'Lab 1', 'task', ${m!.id}, ${o.member}, ${o.owner}, 'done')`;
+  const [entry] = await sql`SELECT id FROM profile_contributions WHERE profile_id = ${o.member} AND workspace_id = ${o.orgId}`;
+  const [m] = await sql`INSERT INTO tasks (workspace_id, title, kind, creator_id) VALUES (${o.orgId}, 'Lab 1', 'assignment', ${o.owner}) RETURNING id`;
+  await sql`INSERT INTO tasks (workspace_id, title, kind, assignment_id, assignee_id, creator_id, status) VALUES (${o.orgId}, 'Lab 1', 'task', ${m!.id}, ${o.member}, ${o.owner}, 'done')`;
   viewerId = o.member;
   assert.deepEqual(await orgProfile.readOrgStoryStarterAction(entry!.id, "about"), { success: true, text: "Data Structures, Section A." });
   const work = await orgProfile.readOrgStoryStarterAction(entry!.id, "work");
@@ -150,7 +150,7 @@ test("§24 pass: guests get no automatic entry; story helpers; opt-in Work recor
   assert.deepEqual(shown.workRecord, { done: 1, total: 1, sprints: 0 });
 
   // Following the org lists its public child project.
-  await sql`INSERT INTO project_follows (project_id, user_id) VALUES (${o.orgId}, ${o.admin})`;
+  await sql`INSERT INTO workspace_follows (workspace_id, user_id) VALUES (${o.orgId}, ${o.admin})`;
   const following = (await discover.getDiscoverWorkspaces({ status: "all", type: "all", tech: [], sort: "newest" } as never, undefined, 60, { view: "following", viewerId: o.admin })).projects.map((p) => p.id);
   assert.ok(following.includes(o.child) && !following.includes(o.orgOnly), JSON.stringify(following));
 
@@ -160,7 +160,7 @@ test("§24 pass: guests get no automatic entry; story helpers; opt-in Work recor
   await children.detachFromOrg(o.child);
   const detached = (await collab.getProfileContributions(o.member, { includePrivate: true })).contributions.find((c) => c.projectId === o.child)!;
   assert.equal(detached.formerOrg?.title, `CSE ${o.tag}`);
-  await sql`UPDATE projects SET deleted_at = now() WHERE id = ${o.orgId}`;
+  await sql`UPDATE workspaces SET deleted_at = now() WHERE id = ${o.orgId}`;
   const gone = (await collab.getProfileContributions(o.member, { includePrivate: true })).contributions.find((c) => c.projectId === o.orgId)!;
   assert.deepEqual([gone.goneOrgTitle, gone.projectHref], [`CSE ${o.tag}`, null]);
 });

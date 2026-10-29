@@ -8,7 +8,7 @@ import { CheckSquare, ChevronDown, Paperclip, Trash2, User, X, Zap } from "lucid
 import { usePlainContentHeadings } from "@/components/workspaces/PlainContentHeadings";
 
 import { cn } from "@/lib/utils";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import {
   Dialog,
   DialogContent,
@@ -45,7 +45,7 @@ interface CreateTaskModalProps {
   onCreate: (data: {
     draft: TaskEditorDraft;
     subtasks: TaskEditorSubtaskDraft[];
-    attachments: ProjectNode[];
+    attachments: WorkspaceNode[];
   }) => Promise<{ success: boolean; error?: string }>;
   members?: any[];
   sprints?: any[];
@@ -171,7 +171,7 @@ export default function CreateTaskModal({
 
   const [subtasks, setSubtasks] = React.useState<TaskEditorSubtaskDraft[]>([]);
   const [newSubtaskTitle, setNewSubtaskTitle] = React.useState("");
-  const [attachments, setAttachments] = React.useState<ProjectNode[]>([]);
+  const [attachments, setAttachments] = React.useState<WorkspaceNode[]>([]);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});

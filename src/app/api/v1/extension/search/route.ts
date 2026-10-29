@@ -10,7 +10,7 @@ import {
   visibleFileNodesSql,
 } from "@/lib/files/internal-helpers";
 import { db } from "@/lib/db";
-import { projectNodes, fileVersions, profiles } from "@/lib/db/schema";
+import { workspaceNodes, fileVersions, profiles } from "@/lib/db/schema";
 import { and, eq, isNull, asc, gt, sql } from "drizzle-orm";
 import { z } from "zod";
 export const runtime = "nodejs";
@@ -34,37 +34,37 @@ export async function GET(request: Request) {
     const pattern = "%" + q.replace(/[\\%_]/g, (c) => "\\" + c) + "%";
     const rows = await db
       .select({
-        id: projectNodes.id,
-        name: projectNodes.name,
-        path: projectNodes.path,
-        type: projectNodes.type,
-        currentVersion: projectNodes.currentVersion,
+        id: workspaceNodes.id,
+        name: workspaceNodes.name,
+        path: workspaceNodes.path,
+        type: workspaceNodes.type,
+        currentVersion: workspaceNodes.currentVersion,
         contentHash: fileVersions.contentHash,
-        size: projectNodes.size,
-        updatedAt: projectNodes.updatedAt,
+        size: workspaceNodes.size,
+        updatedAt: workspaceNodes.updatedAt,
         updatedByName: profiles.fullName,
         updatedByAvatarUrl: profiles.avatarUrl,
       })
-      .from(projectNodes)
+      .from(workspaceNodes)
       .leftJoin(
         fileVersions,
         and(
-          eq(fileVersions.nodeId, projectNodes.id),
-          eq(fileVersions.version, projectNodes.currentVersion),
+          eq(fileVersions.nodeId, workspaceNodes.id),
+          eq(fileVersions.version, workspaceNodes.currentVersion),
         ),
       )
       .leftJoin(profiles, eq(profiles.id, fileVersions.uploadedBy))
       .where(
         and(
-          eq(projectNodes.projectId, projectId),
-          eq(projectNodes.type, kind),
-          isNull(projectNodes.deletedAt),
+          eq(workspaceNodes.projectId, projectId),
+          eq(workspaceNodes.type, kind),
+          isNull(workspaceNodes.deletedAt),
           visibleFileNodesSql(access),
-          sql`${projectNodes.path} ILIKE ${pattern}`,
-          after ? gt(projectNodes.id, after) : undefined,
+          sql`${workspaceNodes.path} ILIKE ${pattern}`,
+          after ? gt(workspaceNodes.id, after) : undefined,
         ),
       )
-      .orderBy(asc(projectNodes.id))
+      .orderBy(asc(workspaceNodes.id))
       .limit(101);
     return jsonSuccess({
       scope: "project_filenames",

@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import React, { useCallback, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { getWorkspaceNodes } from "@/app/actions/files/nodes";
 import { updateTaskNodeLink } from "@/app/actions/files/links";
 import {
@@ -21,7 +21,7 @@ import {
 
 const MoveDialog = dynamic(() => import("@/components/workspaces/v2/explorer/ExplorerDialogsHost").then((mod) => mod.MoveDialog), { ssr: false });
 
-type LinkedTaskNode = ProjectNode & {
+type LinkedTaskNode = WorkspaceNode & {
   order?: number;
   annotation?: string | null;
   tags?: string[] | null;
@@ -34,10 +34,10 @@ interface TaskFilesExplorerProps {
   canEdit: boolean;
   canManageFiles?: boolean;
   onUnlink?: (nodeId: string) => void;
-  onOpenFile?: (node: ProjectNode) => void;
-  onShowHistory?: (node: ProjectNode) => void;
+  onOpenFile?: (node: WorkspaceNode) => void;
+  onShowHistory?: (node: WorkspaceNode) => void;
   onReplaceWithNewVersion?: (
-    node: ProjectNode,
+    node: WorkspaceNode,
     file: File,
   ) => Promise<{ success: boolean; error?: string }> | void;
   highlightedNodeId?: string | null;
@@ -62,7 +62,7 @@ export function TaskFilesExplorer({
     Record<string, boolean>
   >({});
   const [loadedChildren, setLoadedChildren] = useState<
-    Record<string, ProjectNode[]>
+    Record<string, WorkspaceNode[]>
   >({});
   const [childCursors, setChildCursors] = useState<Record<string, string | null>>({});
   const [loadingFolders, setLoadingFolders] = useState<Record<string, boolean>>(
@@ -70,7 +70,7 @@ export function TaskFilesExplorer({
   );
   const [locationDialog, setLocationDialog] = useState<{
     open: boolean;
-    nodes: ProjectNode[];
+    nodes: WorkspaceNode[];
     targetFolderId: string | null;
     mode: "move" | "publish";
   }>({ open: false, nodes: [], targetFolderId: null, mode: "move" });
@@ -99,7 +99,7 @@ export function TaskFilesExplorer({
   }, [canManageFiles, locationDialog, onFilesChanged, projectId]);
 
   const handleToggle = useCallback(
-    async (node: ProjectNode) => {
+    async (node: WorkspaceNode) => {
       if (node.type !== "folder") return;
 
       const isExpanded = !!expandedFolderIds[node.id];
@@ -169,7 +169,7 @@ export function TaskFilesExplorer({
   );
 
   const handleMoveToDeliverables = useCallback(
-    (node: ProjectNode) => {
+    (node: WorkspaceNode) => {
       void handleTagChange(
         node.id,
         replaceTaskFileRoleTag((node as LinkedTaskNode).tags, "deliverable"),
@@ -179,7 +179,7 @@ export function TaskFilesExplorer({
   );
 
   const handleMoveToWorkingFiles = useCallback(
-    (node: ProjectNode) => {
+    (node: WorkspaceNode) => {
       void handleTagChange(
         node.id,
         replaceTaskFileRoleTag((node as LinkedTaskNode).tags, "working"),
@@ -189,7 +189,7 @@ export function TaskFilesExplorer({
   );
 
   const handleMoveToReferences = useCallback(
-    (node: ProjectNode) => {
+    (node: WorkspaceNode) => {
       void handleTagChange(
         node.id,
         replaceTaskFileRoleTag((node as LinkedTaskNode).tags, "reference"),

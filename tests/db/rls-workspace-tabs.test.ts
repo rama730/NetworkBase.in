@@ -6,21 +6,21 @@ import { actAs, actAsOwner, createProject, createUser, grantBrowserRead, inRollb
 after(() => sql.end());
 
 async function seed(tx: Tx, projectId: string, authorId: string) {
-  const [task] = await tx`INSERT INTO public.tasks (project_id, title) VALUES (${projectId}, 't') RETURNING id`;
+  const [task] = await tx`INSERT INTO public.tasks (workspace_id, title) VALUES (${projectId}, 't') RETURNING id`;
   await tx`INSERT INTO public.task_subtasks (task_id, title) VALUES (${task!.id}, 's')`;
-  const [live] = await tx`INSERT INTO public.project_updates (project_id, author_id, content) VALUES (${projectId}, ${authorId}, 'live') RETURNING id`;
-  const [gone] = await tx`INSERT INTO public.project_updates (project_id, author_id, content, deleted_at) VALUES (${projectId}, ${authorId}, 'gone', now()) RETURNING id`;
-  await tx`INSERT INTO public.project_update_comments (update_id, project_id, user_id, content) VALUES (${live!.id}, ${projectId}, ${authorId}, 'c1'), (${gone!.id}, ${projectId}, ${authorId}, 'c2')`;
+  const [live] = await tx`INSERT INTO public.workspace_updates (workspace_id, author_id, content) VALUES (${projectId}, ${authorId}, 'live') RETURNING id`;
+  const [gone] = await tx`INSERT INTO public.workspace_updates (workspace_id, author_id, content, deleted_at) VALUES (${projectId}, ${authorId}, 'gone', now()) RETURNING id`;
+  await tx`INSERT INTO public.workspace_update_comments (update_id, workspace_id, user_id, content) VALUES (${live!.id}, ${projectId}, ${authorId}, 'c1'), (${gone!.id}, ${projectId}, ${authorId}, 'c2')`;
 }
 
 async function counts(tx: Tx, viewer: string | null, projectId: string) {
   await actAs(tx, viewer);
   const [row] = await tx`SELECT
-    (SELECT count(*)::int FROM public.projects WHERE id = ${projectId}) AS projects,
-    (SELECT count(*)::int FROM public.tasks WHERE project_id = ${projectId}) AS tasks,
-    (SELECT count(*)::int FROM public.task_subtasks s JOIN public.tasks t ON t.id = s.task_id WHERE t.project_id = ${projectId}) AS subtasks,
-    (SELECT count(*)::int FROM public.project_updates WHERE project_id = ${projectId}) AS updates,
-    (SELECT count(*)::int FROM public.project_update_comments WHERE project_id = ${projectId}) AS comments`;
+    (SELECT count(*)::int FROM public.workspaces WHERE id = ${projectId}) AS projects,
+    (SELECT count(*)::int FROM public.tasks WHERE workspace_id = ${projectId}) AS tasks,
+    (SELECT count(*)::int FROM public.task_subtasks s JOIN public.tasks t ON t.id = s.task_id WHERE t.workspace_id = ${projectId}) AS subtasks,
+    (SELECT count(*)::int FROM public.workspace_updates WHERE workspace_id = ${projectId}) AS updates,
+    (SELECT count(*)::int FROM public.workspace_update_comments WHERE workspace_id = ${projectId}) AS comments`;
   await actAsOwner(tx);
   return { ...row };
 }

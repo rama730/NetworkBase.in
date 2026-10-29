@@ -1,6 +1,6 @@
 import { requireAuthenticatedUser, jsonSuccess, jsonError } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
-import { projectNodes, taskNodeLinks, tasks } from "@/lib/db/schema";
+import { workspaceNodes, taskNodeLinks, tasks } from "@/lib/db/schema";
 import { canReadWorkspaceTab, getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { orgFileAccessSql, projectContentNodeSql } from "@/lib/files/internal-helpers";
 import { eq, and, inArray, isNull, gt, or } from "drizzle-orm";
@@ -71,25 +71,25 @@ export async function GET(request: Request) {
     }
 
     if(parsedQuery.data.parentPath&&parsedQuery.data.parentPath!=="/"){
-      const folder=await db.query.projectNodes.findFirst({where:and(eq(projectNodes.projectId,projectId),eq(projectNodes.path,parsedQuery.data.parentPath),eq(projectNodes.type,"folder"),isNull(projectNodes.deletedAt),canReadWorkspaceTab(access,"tasks")?undefined:projectContentNodeSql,orgFileAccessSql(access)),columns:{id:true}});
+      const folder=await db.query.workspaceNodes.findFirst({where:and(eq(workspaceNodes.projectId,projectId),eq(workspaceNodes.path,parsedQuery.data.parentPath),eq(workspaceNodes.type,"folder"),isNull(workspaceNodes.deletedAt),canReadWorkspaceTab(access,"tasks")?undefined:projectContentNodeSql,orgFileAccessSql(access)),columns:{id:true}});
       if(!folder)return jsonError("Folder not found",404,"NOT_FOUND");if(parentId&&parentId!==folder.id)return jsonError("Folder identity mismatch",400,"BAD_REQUEST");parentId=folder.id;
     }
     // Find the child nodes
-    const rows = await db.query.projectNodes.findMany({
+    const rows = await db.query.workspaceNodes.findMany({
       where: and(
-        eq(projectNodes.projectId, projectId),
-        parentId ? eq(projectNodes.parentId, parentId) : isNull(projectNodes.parentId),
-        isNull(projectNodes.deletedAt),
+        eq(workspaceNodes.projectId, projectId),
+        parentId ? eq(workspaceNodes.parentId, parentId) : isNull(workspaceNodes.parentId),
+        isNull(workspaceNodes.deletedAt),
         canReadWorkspaceTab(access, "tasks") ? undefined : projectContentNodeSql,
         orgFileAccessSql(access),
         cursor
           ? or(
-              gt(projectNodes.type, cursor.type),
-              and(eq(projectNodes.type, cursor.type), gt(projectNodes.name, cursor.name)),
+              gt(workspaceNodes.type, cursor.type),
+              and(eq(workspaceNodes.type, cursor.type), gt(workspaceNodes.name, cursor.name)),
               and(
-                eq(projectNodes.type, cursor.type),
-                eq(projectNodes.name, cursor.name),
-                gt(projectNodes.id, cursor.id),
+                eq(workspaceNodes.type, cursor.type),
+                eq(workspaceNodes.name, cursor.name),
+                gt(workspaceNodes.id, cursor.id),
               ),
             )
           : undefined,

@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { profiles, projectNodes, projects, tasks, taskNodeLinks } from "@/lib/db/schema";
+import { profiles, workspaceNodes, workspaces, tasks, taskNodeLinks } from "@/lib/db/schema";
 import { escapeLikePattern, MAX_TASK_ATTACHMENTS } from "@/app/actions/files/_constants";
 import { eq, and, isNull, inArray, sql, desc, ilike } from "drizzle-orm";
 import { createClient } from "@/lib/supabase/server";
@@ -41,8 +41,8 @@ async function assertLinkTargetsTx(tx: Tx, projectId: string, userId: string, ta
     const [task] = await tx.select({ id: tasks.id }).from(tasks)
         .where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt))).limit(1);
     if (!task) throw new Error("Task not found");
-    const [node] = await tx.select({ id: projectNodes.id }).from(projectNodes)
-        .where(and(eq(projectNodes.id, nodeId), eq(projectNodes.projectId, projectId), isNull(projectNodes.deletedAt))).limit(1);
+    const [node] = await tx.select({ id: workspaceNodes.id }).from(workspaceNodes)
+        .where(and(eq(workspaceNodes.id, nodeId), eq(workspaceNodes.projectId, projectId), isNull(workspaceNodes.deletedAt))).limit(1);
     if (!node) throw new Error("File not found");
 }
 
@@ -75,9 +75,9 @@ export async function getTaskLinkCounts(projectId: string, nodeIds: string[]) {
                 count: sql<number>`count(*)`,
             })
             .from(taskNodeLinks)
-            .innerJoin(projectNodes, eq(taskNodeLinks.nodeId, projectNodes.id))
+            .innerJoin(workspaceNodes, eq(taskNodeLinks.nodeId, workspaceNodes.id))
             .innerJoin(tasks, eq(taskNodeLinks.taskId, tasks.id))
-            .where(and(eq(projectNodes.projectId, projectId), eq(tasks.projectId, projectId), isNull(projectNodes.deletedAt), isNull(tasks.deletedAt), inArray(taskNodeLinks.nodeId, chunk)))
+            .where(and(eq(workspaceNodes.projectId, projectId), eq(tasks.projectId, projectId), isNull(workspaceNodes.deletedAt), isNull(tasks.deletedAt), inArray(taskNodeLinks.nodeId, chunk)))
             .groupBy(taskNodeLinks.nodeId);
 
         for (const r of rows) out[r.nodeId] = Number(r.count) || 0;
@@ -104,8 +104,8 @@ export async function getTaskLinksForNode(projectId: string, nodeId: string): Pr
     if (!canReadWorkspaceTaskFiles(access)) return [];
 
     // Confirm the node belongs to the project
-    const node = await db.query.projectNodes.findFirst({
-        where: and(eq(projectNodes.id, nodeId), eq(projectNodes.projectId, projectId)),
+    const node = await db.query.workspaceNodes.findFirst({
+        where: and(eq(workspaceNodes.id, nodeId), eq(workspaceNodes.projectId, projectId)),
         columns: { id: true },
     });
     if (!node) throw new Error("File not found");
@@ -217,8 +217,8 @@ export async function unlinkNodeFromTask(taskId: string, nodeId: string) {
     await assertWorkspaceWriteAccess(projectId, user.id);
 
     // Ensure node belongs to the same project (prevents unlinking arbitrary links across projects)
-    const node = await db.query.projectNodes.findFirst({
-        where: and(eq(projectNodes.id, nodeId), eq(projectNodes.projectId, projectId)),
+    const node = await db.query.workspaceNodes.findFirst({
+        where: and(eq(workspaceNodes.id, nodeId), eq(workspaceNodes.projectId, projectId)),
         columns: { id: true, taskId: true }
     });
     if (!node) throw new Error("File not found");
@@ -234,10 +234,10 @@ export async function unlinkNodeFromTask(taskId: string, nodeId: string) {
                 WHERE task_id = ${taskId}::uuid AND node_id = ${nodeId}::uuid
                 RETURNING 1
             )
-            UPDATE project_nodes
+            UPDATE workspace_nodes
             SET metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object('taskFileDetachedFrom', ${taskId}::text)
             WHERE id = ${nodeId}::uuid
-              AND project_id = ${projectId}::uuid
+              AND workspace_id = ${projectId}::uuid
               AND (task_id = ${taskId}::uuid OR path LIKE ${`/.system/tasks/${taskId}/%`})
         `);
     });
@@ -253,7 +253,7 @@ export async function getTaskAttachments(projectId: string, taskId: string) {
 
     const rows = await db
         .select({
-            node: projectNodes,
+            node: workspaceNodes,
             linkedAt: taskNodeLinks.linkedAt,
             order: taskNodeLinks.order,
             annotation: taskNodeLinks.annotation,
@@ -261,8 +261,8 @@ export async function getTaskAttachments(projectId: string, taskId: string) {
         })
         .from(taskNodeLinks)
         .innerJoin(tasks, eq(taskNodeLinks.taskId, tasks.id))
-        .innerJoin(projectNodes, eq(taskNodeLinks.nodeId, projectNodes.id))
-        .where(and(eq(taskNodeLinks.taskId, taskId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt), eq(projectNodes.projectId, projectId), isNull(projectNodes.deletedAt)))
+        .innerJoin(workspaceNodes, eq(taskNodeLinks.nodeId, workspaceNodes.id))
+        .where(and(eq(taskNodeLinks.taskId, taskId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt), eq(workspaceNodes.projectId, projectId), isNull(workspaceNodes.deletedAt)))
         .orderBy(taskNodeLinks.order, desc(taskNodeLinks.linkedAt))
         .limit(MAX_TASK_ATTACHMENTS);
 
@@ -346,11 +346,11 @@ export async function searchWorkspaceTasks(
             reviewStatus: tasks.reviewStatus,
             priority: tasks.priority,
             taskNumber: tasks.taskNumber,
-            projectKey: projects.key,
+            projectKey: workspaces.key,
             assigneeName: profiles.fullName,
         })
         .from(tasks)
-        .innerJoin(projects, eq(projects.id, tasks.projectId))
+        .innerJoin(workspaces, eq(workspaces.id, tasks.projectId))
         .leftJoin(profiles, eq(tasks.assigneeId, profiles.id))
         .where(and(
             eq(tasks.projectId, projectId),

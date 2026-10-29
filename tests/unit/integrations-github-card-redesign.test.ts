@@ -122,7 +122,7 @@ describe("GitHub Card Redesign & Integrations Settings Contract", () => {
 
     // Joins githubSyncConnections
     assert.ok(content.includes("leftJoin(githubSyncConnections"), "Must leftJoin githubSyncConnections");
-    assert.ok(content.includes("projects.importSource"), "Must check projects.importSource for cloned repos");
+    assert.ok(content.includes("workspaces.importSource"), "Must check workspaces.importSource for cloned repos");
     assert.ok(content.includes("githubProjects"), "Must build and return githubProjects list");
   });
 });

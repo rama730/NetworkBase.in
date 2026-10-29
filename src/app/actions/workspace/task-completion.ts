@@ -5,7 +5,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
-import { projects, projectTaskPolicyEvents } from "@/lib/db/schema";
+import { workspaces, workspaceTaskPolicyEvents } from "@/lib/db/schema";
 import {
   canReadWorkspaceTab,
   getWorkspaceAccessById,
@@ -23,8 +23,8 @@ export async function getTaskCompletionPolicyAction(projectId: string) {
       access.member?.role !== "admin"
     )
       throw new Error("You don’t have access to this");
-    const project = await db.query.projects.findFirst({
-      where: eq(projects.id, projectId),
+    const project = await db.query.workspaces.findFirst({
+      where: eq(workspaces.id, projectId),
       columns: { taskReviewRequired: true, taskCompletionPolicyVersion: true },
     });
     if (!project) throw new Error("Workspace not found");
@@ -70,7 +70,7 @@ export async function updateTaskCompletionPolicyAction(input: {
         task_completion_policy_version: number;
       }>(sql`
         SELECT p.owner_id, m.role, p.task_review_required, p.task_completion_policy_version
-        FROM projects p LEFT JOIN project_members m ON m.project_id = p.id AND m.user_id = ${user.id}
+        FROM workspaces p LEFT JOIN workspace_members m ON m.workspace_id = p.id AND m.user_id = ${user.id}
         WHERE p.id = ${data.projectId} AND p.deleted_at IS NULL FOR UPDATE OF p
       `);
       if (!row || (row.owner_id !== user.id && row.role !== "admin"))
@@ -81,19 +81,19 @@ export async function updateTaskCompletionPolicyAction(input: {
         return row.task_completion_policy_version;
       const next = row.task_completion_policy_version + 1;
       await tx
-        .update(projects)
+        .update(workspaces)
         .set({
           taskReviewRequired: data.reviewRequired,
           taskCompletionPolicyVersion: next,
         })
         .where(
           and(
-            eq(projects.id, data.projectId),
-            eq(projects.taskCompletionPolicyVersion, data.expectedVersion),
+            eq(workspaces.id, data.projectId),
+            eq(workspaces.taskCompletionPolicyVersion, data.expectedVersion),
           ),
         );
       await tx
-        .insert(projectTaskPolicyEvents)
+        .insert(workspaceTaskPolicyEvents)
         .values({
           projectId: data.projectId,
           actorId: user.id,

@@ -3,9 +3,9 @@ import { db } from "@/lib/db";
 import { scheduleAssetDeletionIfUnreferenced } from "@/lib/storage/asset-deletion";
 import {
   fileVersions,
-  projectDocs,
-  projectNodes,
-  projects,
+  workspaceDocuments,
+  workspaceNodes,
+  workspaces,
   storageAssets,
   taskNodeLinks,
 } from "@/lib/db/schema";
@@ -25,10 +25,10 @@ export async function readFileSubtree(
   const ids = Array.from(
     await tx.execute<{ id: string }>(sql`
     WITH RECURSIVE subtree AS (
-      SELECT id FROM project_nodes WHERE project_id = ${projectId}::uuid AND id = ${nodeId}::uuid
+      SELECT id FROM workspace_nodes WHERE workspace_id = ${projectId}::uuid AND id = ${nodeId}::uuid
       UNION
-      SELECT child.id FROM project_nodes child JOIN subtree parent ON child.parent_id = parent.id
-      WHERE child.project_id = ${projectId}::uuid
+      SELECT child.id FROM workspace_nodes child JOIN subtree parent ON child.parent_id = parent.id
+      WHERE child.workspace_id = ${projectId}::uuid
     ) SELECT id FROM subtree LIMIT ${MAX_PURGE_NODES + 1}
   `),
   );
@@ -37,11 +37,11 @@ export async function readFileSubtree(
       "This folder contains more than 500 items. Delete smaller groups from Trash first.",
     );
   return ids.length
-    ? tx.query.projectNodes.findMany({
+    ? tx.query.workspaceNodes.findMany({
         where: and(
-          eq(projectNodes.projectId, projectId),
+          eq(workspaceNodes.projectId, projectId),
           inArray(
-            projectNodes.id,
+            workspaceNodes.id,
             ids.map((row) => row.id),
           ),
         ),
@@ -62,10 +62,10 @@ export async function inspectPermanentDelete(
   if (nodes.some((node) => node.metadata?.isSystem === true))
     throw new Error("System folders cannot be permanently deleted.");
   const ids = nodes.map((node) => node.id);
-  const aliases = await tx.query.projectNodes.findFirst({
+  const aliases = await tx.query.workspaceNodes.findFirst({
     where: and(
-      inArray(projectNodes.canonicalNodeId, ids),
-      notInArray(projectNodes.id, ids),
+      inArray(workspaceNodes.canonicalNodeId, ids),
+      notInArray(workspaceNodes.id, ids),
     ),
     columns: { id: true },
   });
@@ -113,8 +113,8 @@ export async function inspectPermanentDelete(
       .where(inArray(taskNodeLinks.nodeId, ids)),
     tx
       .select({ count: sql<number>`count(*)::int` })
-      .from(projectDocs)
-      .where(inArray(projectDocs.linkedNodeId, ids)),
+      .from(workspaceDocuments)
+      .where(inArray(workspaceDocuments.linkedNodeId, ids)),
   ]);
   return {
     nodes,
@@ -135,14 +135,14 @@ export async function inspectPermanentDelete(
 export async function finishPermanentDelete(projectId: string, nodeId: string) {
   return db.transaction(async (tx) => {
     await tx
-      .select({ id: projects.id })
-      .from(projects)
-      .where(eq(projects.id, projectId))
+      .select({ id: workspaces.id })
+      .from(workspaces)
+      .where(eq(workspaces.id, projectId))
       .for("update");
-    const root = await tx.query.projectNodes.findFirst({
+    const root = await tx.query.workspaceNodes.findFirst({
       where: and(
-        eq(projectNodes.projectId, projectId),
-        eq(projectNodes.id, nodeId),
+        eq(workspaceNodes.projectId, projectId),
+        eq(workspaceNodes.id, nodeId),
       ),
     });
     if (!root) return { deletedIds: [] as string[] };
@@ -172,11 +172,11 @@ export async function finishPermanentDelete(projectId: string, nodeId: string) {
       tx,
     );
     await tx
-      .delete(projectNodes)
+      .delete(workspaceNodes)
       .where(
         and(
-          eq(projectNodes.projectId, projectId),
-          inArray(projectNodes.id, plan.ids),
+          eq(workspaceNodes.projectId, projectId),
+          inArray(workspaceNodes.id, plan.ids),
         ),
       );
     if (plan.assetIds.length > 0) {

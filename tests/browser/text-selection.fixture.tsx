@@ -7,14 +7,14 @@ import StarterKit from "@tiptap/starter-kit";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { TextViewer, type TextViewerMode } from "@/components/workspaces/v2/files-tab/file/TextViewer";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 
 const node = {
   id: "selection-fixture",
   name: "selection.txt",
   currentVersion: 1,
   updatedAt: new Date("2026-10-09T00:00:00Z"),
-} as ProjectNode;
+} as WorkspaceNode;
 
 function Fixture() {
   const [mode, setMode] = React.useState<TextViewerMode>("view");

@@ -8,7 +8,7 @@ import { and, eq, isNull, or } from 'drizzle-orm';
 import { isUuid } from '@/lib/validations/uuid';
 import sharp from 'sharp';
 import { db } from '@/lib/db';
-import { profiles, projects, storageAssets } from '@/lib/db/schema';
+import { profiles, workspaces, storageAssets } from '@/lib/db/schema';
 import { readBoundedStorageBytes } from '@/lib/storage/bounded-object-read';
 import { initialsForName } from '@/lib/profile/display';
 import { genericSharePreview, parseShareResource, shareText, projectRolesFitImage, projectImageSkillsFit, socialImageCanRender, type SharePreview } from './presentation';
@@ -37,7 +37,7 @@ async function verifiedImage(preview: SharePreview, small = false, budgetMs = 25
   const reference = preview.kind === 'profile'
     ? await db.select({ assetId: profiles.avatarAssetId, entityId: profiles.id }).from(profiles)
       .where(and(eq(profiles.username, path), eq(profiles.visibility, 'public'), isNull(profiles.deletedAt))).limit(1)
-    : await db.select({ assetId: projects.coverImageAssetId, entityId: projects.id }).from(projects).where(and(isUuid(path) ? or(eq(projects.id,path),eq(projects.slug,path)) : eq(projects.slug, path), isNull(projects.deletedAt))).limit(1);
+    : await db.select({ assetId: workspaces.coverImageAssetId, entityId: workspaces.id }).from(workspaces).where(and(isUuid(path) ? or(eq(workspaces.id,path),eq(workspaces.slug,path)) : eq(workspaces.slug, path), isNull(workspaces.deletedAt))).limit(1);
   const assetId = reference[0]?.assetId;
   if (!assetId) return null;
   const [asset] = await db.select({ bucket: storageAssets.bucket, key: storageAssets.storageKey, mime: storageAssets.verifiedMimeType, ownerId: storageAssets.ownerUserId, projectId: storageAssets.projectId })

@@ -47,7 +47,7 @@ async function cleanup() {
     `;
 
     await tx`
-      delete from project_nodes
+      delete from workspace_nodes
       where name ilike ${runPattern}
          or metadata->>'fixture' ilike ${`%${RUN_ID}%`}
     `;

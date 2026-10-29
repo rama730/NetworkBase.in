@@ -32,18 +32,18 @@ import { parsePositiveInteger } from "@/lib/utils/number";
 import { isLooseUuid } from "@/lib/validations/uuid";
 import {
     profiles,
-    profileProjectContributionStages,
-    profileProjectContributions,
-    projectMembers,
-    projectNodes,
-    projectSprints,
-    projects,
-    projectUpdateComments,
-    projectUpdateDraftMediaAssets,
-    projectUpdateDrafts,
-    projectUpdateLikes,
-    projectUpdateMediaAssets,
-    projectUpdates,
+    profileContributionStages,
+    profileContributions,
+    workspaceMembers,
+    workspaceNodes,
+    workspaceSprints,
+    workspaces,
+    workspaceUpdateComments,
+    workspaceUpdateDraftMediaAssets,
+    workspaceUpdateDrafts,
+    workspaceUpdateLikes,
+    workspaceUpdateMediaAssets,
+    workspaceUpdates,
     storageAssets,
     storageLegacyCleanupTargets,
     tasks,
@@ -142,12 +142,12 @@ async function replaceUpdateMediaAssetRefs(params: {
     allowedLegacyBindings?: Set<string>;
 }) {
     const previous = await params.tx
-        .select({ assetId: projectUpdateMediaAssets.assetId })
-        .from(projectUpdateMediaAssets)
-        .where(eq(projectUpdateMediaAssets.updateId, params.updateId));
+        .select({ assetId: workspaceUpdateMediaAssets.assetId })
+        .from(workspaceUpdateMediaAssets)
+        .where(eq(workspaceUpdateMediaAssets.updateId, params.updateId));
     await params.tx
-        .delete(projectUpdateMediaAssets)
-        .where(eq(projectUpdateMediaAssets.updateId, params.updateId));
+        .delete(workspaceUpdateMediaAssets)
+        .where(eq(workspaceUpdateMediaAssets.updateId, params.updateId));
 
     const attachedAssetIds = new Set<string>();
     for (const [ordinal, item] of params.media.entries()) {
@@ -184,7 +184,7 @@ async function replaceUpdateMediaAssetRefs(params: {
             .returning({ id: storageAssets.id });
         if (!publishable) throw new Error("Update media asset is no longer publishable");
         attachedAssetIds.add(item.assetId);
-        await params.tx.insert(projectUpdateMediaAssets).values({
+        await params.tx.insert(workspaceUpdateMediaAssets).values({
             updateId: params.updateId,
             assetId: item.assetId,
             ordinal,
@@ -206,15 +206,15 @@ async function replaceDraftMediaAssetRefs(params: {
     allowedLegacyBindings?: Set<string>;
 }) {
     const previous = await params.tx
-        .select({ assetId: projectUpdateDraftMediaAssets.assetId })
-        .from(projectUpdateDraftMediaAssets)
+        .select({ assetId: workspaceUpdateDraftMediaAssets.assetId })
+        .from(workspaceUpdateDraftMediaAssets)
         .where(and(
-            eq(projectUpdateDraftMediaAssets.projectId, params.projectId),
-            eq(projectUpdateDraftMediaAssets.userId, params.userId),
+            eq(workspaceUpdateDraftMediaAssets.projectId, params.projectId),
+            eq(workspaceUpdateDraftMediaAssets.userId, params.userId),
         ));
-    await params.tx.delete(projectUpdateDraftMediaAssets).where(and(
-        eq(projectUpdateDraftMediaAssets.projectId, params.projectId),
-        eq(projectUpdateDraftMediaAssets.userId, params.userId),
+    await params.tx.delete(workspaceUpdateDraftMediaAssets).where(and(
+        eq(workspaceUpdateDraftMediaAssets.projectId, params.projectId),
+        eq(workspaceUpdateDraftMediaAssets.userId, params.userId),
     ));
 
     const attachedAssetIds = new Set<string>();
@@ -252,7 +252,7 @@ async function replaceDraftMediaAssetRefs(params: {
             .returning({ id: storageAssets.id });
         if (!publishable) throw new Error("Draft media asset is no longer available");
         attachedAssetIds.add(item.assetId);
-        await params.tx.insert(projectUpdateDraftMediaAssets).values({
+        await params.tx.insert(workspaceUpdateDraftMediaAssets).values({
             projectId: params.projectId,
             userId: params.userId,
             assetId: item.assetId,
@@ -597,10 +597,10 @@ export async function resolveWorkspaceUpdateMentionTargetAction(projectId: strin
                     .select({
                         id: tasks.id,
                         taskNumber: tasks.taskNumber,
-                        projectKey: projects.key,
+                        projectKey: workspaces.key,
                     })
                     .from(tasks)
-                    .innerJoin(projects, eq(tasks.projectId, projects.id))
+                    .innerJoin(workspaces, eq(tasks.projectId, workspaces.id))
                     .where(and(eq(tasks.projectId, projectId), eq(tasks.id, id), isNull(tasks.deletedAt)))
                     .limit(1);
             } else {
@@ -613,13 +613,13 @@ export async function resolveWorkspaceUpdateMentionTargetAction(projectId: strin
                             .select({
                                 id: tasks.id,
                                 taskNumber: tasks.taskNumber,
-                                projectKey: projects.key,
+                                projectKey: workspaces.key,
                             })
                             .from(tasks)
-                            .innerJoin(projects, eq(tasks.projectId, projects.id))
+                            .innerJoin(workspaces, eq(tasks.projectId, workspaces.id))
                             .where(
                                 and(
-                                    eq(projects.key, projectKey),
+                                    eq(workspaces.key, projectKey),
                                     eq(tasks.taskNumber, taskNum),
                                     eq(tasks.projectId, projectId),
                                     isNull(tasks.deletedAt)
@@ -641,9 +641,9 @@ export async function resolveWorkspaceUpdateMentionTargetAction(projectId: strin
             if (!isUuid) return { success: false as const, error: projectUpdateTargetUnavailableMessage(kind) };
 
             const [sprint] = await db
-                .select({ id: projectSprints.id })
-                .from(projectSprints)
-                .where(and(eq(projectSprints.projectId, projectId), eq(projectSprints.id, id)))
+                .select({ id: workspaceSprints.id })
+                .from(workspaceSprints)
+                .where(and(eq(workspaceSprints.projectId, projectId), eq(workspaceSprints.id, id)))
                 .limit(1);
             if (!sprint) return { success: false as const, error: projectUpdateTargetUnavailableMessage(kind) };
             return { success: true as const, href: projectSprintHref(access.project, sprint.id), kind };
@@ -653,15 +653,15 @@ export async function resolveWorkspaceUpdateMentionTargetAction(projectId: strin
 
         const [node] = await db
             .select({
-                id: projectNodes.id,
-                name: projectNodes.name,
-                path: projectNodes.path,
+                id: workspaceNodes.id,
+                name: workspaceNodes.name,
+                path: workspaceNodes.path,
             })
-            .from(projectNodes)
+            .from(workspaceNodes)
             .where(and(
-                eq(projectNodes.projectId, projectId),
-                eq(projectNodes.id, id),
-                isNull(projectNodes.deletedAt),
+                eq(workspaceNodes.projectId, projectId),
+                eq(workspaceNodes.id, id),
+                isNull(workspaceNodes.deletedAt),
                 canReadProjectUpdateTargetTab(access, "task") ? undefined : projectContentNodeSql,
                 orgFileAccessSql(access),
             ))
@@ -744,19 +744,19 @@ function canCreateForRole(access: Pick<ProjectUpdateAccess, "isOwner" | "memberR
 async function resolveProjectUpdateAccess(projectId: string, viewerId: string | null): Promise<ProjectUpdateAccess> {
     const [project] = await db
         .select({
-            id: projects.id,
-            ownerId: projects.ownerId,
-            title: projects.title,
-            slug: projects.slug,
-            visibility: projects.visibility,
-            status: projects.status,
-            publicTabVisibility: projects.publicTabVisibility,
-            memberUpdatesEnabled: projects.memberUpdatesEnabled,
-            kind: projects.kind,
-            parentId: projects.parentId,
+            id: workspaces.id,
+            ownerId: workspaces.ownerId,
+            title: workspaces.title,
+            slug: workspaces.slug,
+            visibility: workspaces.visibility,
+            status: workspaces.status,
+            publicTabVisibility: workspaces.publicTabVisibility,
+            memberUpdatesEnabled: workspaces.memberUpdatesEnabled,
+            kind: workspaces.kind,
+            parentId: workspaces.parentId,
         })
-        .from(projects)
-        .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
+        .from(workspaces)
+        .where(and(eq(workspaces.id, projectId), isNull(workspaces.deletedAt)))
         .limit(1);
 
     if (!project) {
@@ -776,9 +776,9 @@ async function resolveProjectUpdateAccess(projectId: string, viewerId: string | 
     const isOwner = Boolean(viewerId && viewerId === project.ownerId);
     const [membership] = viewerId && !isOwner
         ? await db
-            .select({ role: projectMembers.role })
-            .from(projectMembers)
-            .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, viewerId)))
+            .select({ role: workspaceMembers.role })
+            .from(workspaceMembers)
+            .where(and(eq(workspaceMembers.projectId, projectId), eq(workspaceMembers.userId, viewerId)))
             .limit(1)
         : [];
     const isMember = Boolean(membership);
@@ -813,7 +813,7 @@ async function resolveProjectUpdateAccess(projectId: string, viewerId: string | 
     return effectiveAccess;
 }
 
-type UpdateRow = typeof projectUpdates.$inferSelect & {
+type UpdateRow = typeof workspaceUpdates.$inferSelect & {
     authorFullName: string | null;
     authorUsername: string | null;
     authorAvatarUrl: string | null;
@@ -937,44 +937,44 @@ async function readUpdateRowsByIds(updateIds: string[], access: ProjectUpdateAcc
     if (!access.project || updateIds.length === 0) return [];
     const rows = await db
         .select({
-            id: projectUpdates.id,
-            projectId: projectUpdates.projectId,
-            authorId: projectUpdates.authorId,
-            content: projectUpdates.content,
-            updateType: projectUpdates.updateType,
-            visibility: projectUpdates.visibility,
-            replyPolicy: projectUpdates.replyPolicy,
-            entityRefs: projectUpdates.entityRefs,
-            media: projectUpdates.media,
-            metadata: projectUpdates.metadata,
-            isPinned: projectUpdates.isPinned,
-            audience: projectUpdates.audience,
-            notifyLevel: projectUpdates.notifyLevel,
-            pinnedUntil: projectUpdates.pinnedUntil,
-            sharedToOrgAt: projectUpdates.sharedToOrgAt,
-            likeCount: projectUpdates.likeCount,
-            commentCount: projectUpdates.commentCount,
-            deletedBy: projectUpdates.deletedBy,
-            editedAt: projectUpdates.editedAt,
-            deletedAt: projectUpdates.deletedAt,
-            createdAt: projectUpdates.createdAt,
-            updatedAt: projectUpdates.updatedAt,
+            id: workspaceUpdates.id,
+            projectId: workspaceUpdates.projectId,
+            authorId: workspaceUpdates.authorId,
+            content: workspaceUpdates.content,
+            updateType: workspaceUpdates.updateType,
+            visibility: workspaceUpdates.visibility,
+            replyPolicy: workspaceUpdates.replyPolicy,
+            entityRefs: workspaceUpdates.entityRefs,
+            media: workspaceUpdates.media,
+            metadata: workspaceUpdates.metadata,
+            isPinned: workspaceUpdates.isPinned,
+            audience: workspaceUpdates.audience,
+            notifyLevel: workspaceUpdates.notifyLevel,
+            pinnedUntil: workspaceUpdates.pinnedUntil,
+            sharedToOrgAt: workspaceUpdates.sharedToOrgAt,
+            likeCount: workspaceUpdates.likeCount,
+            commentCount: workspaceUpdates.commentCount,
+            deletedBy: workspaceUpdates.deletedBy,
+            editedAt: workspaceUpdates.editedAt,
+            deletedAt: workspaceUpdates.deletedAt,
+            createdAt: workspaceUpdates.createdAt,
+            updatedAt: workspaceUpdates.updatedAt,
             authorFullName: profiles.fullName,
             authorUsername: profiles.username,
             authorAvatarUrl: profiles.avatarUrl,
-            authorMembershipRole: projectMembers.role,
+            authorMembershipRole: workspaceMembers.role,
         })
-        .from(projectUpdates)
-        .leftJoin(profiles, eq(profiles.id, projectUpdates.authorId))
-        .leftJoin(projectMembers, and(
-            eq(projectMembers.projectId, projectUpdates.projectId),
-            eq(projectMembers.userId, projectUpdates.authorId),
+        .from(workspaceUpdates)
+        .leftJoin(profiles, eq(profiles.id, workspaceUpdates.authorId))
+        .leftJoin(workspaceMembers, and(
+            eq(workspaceMembers.projectId, workspaceUpdates.projectId),
+            eq(workspaceMembers.userId, workspaceUpdates.authorId),
         ))
         .where(and(
-            inArray(projectUpdates.id, updateIds),
+            inArray(workspaceUpdates.id, updateIds),
             // The org feed's own rule covers its posts and the posts shared up to it (report §17.6).
-            access.org?.kind === "org" ? undefined : eq(projectUpdates.projectId, access.project.id),
-            access.isOwner || access.isMember ? undefined : eq(projectUpdates.visibility, "public"),
+            access.org?.kind === "org" ? undefined : eq(workspaceUpdates.projectId, access.project.id),
+            access.isOwner || access.isMember ? undefined : eq(workspaceUpdates.visibility, "public"),
             orgAudienceWhere(access),
         ));
     return hydrateUpdateRowsWithRoleTitles(access.project.id, rows);
@@ -983,11 +983,11 @@ async function readUpdateRowsByIds(updateIds: string[], access: ProjectUpdateAcc
 async function likedUpdateIds(updateIds: string[], viewerId: string | null) {
     if (!viewerId || updateIds.length === 0) return new Set<string>();
     const rows = await db
-        .select({ updateId: projectUpdateLikes.updateId })
-        .from(projectUpdateLikes)
+        .select({ updateId: workspaceUpdateLikes.updateId })
+        .from(workspaceUpdateLikes)
         .where(and(
-            eq(projectUpdateLikes.userId, viewerId),
-            inArray(projectUpdateLikes.updateId, updateIds),
+            eq(workspaceUpdateLikes.userId, viewerId),
+            inArray(workspaceUpdateLikes.updateId, updateIds),
         ));
     return new Set(rows.map((row) => row.updateId));
 }
@@ -1034,28 +1034,28 @@ async function contextSummariesForRows(rows: Array<Pick<UpdateRow, "id" | "entit
         canReadSprints && sprintIds.size > 0
             ? db
                 .select({
-                    id: projectSprints.id,
-                    name: projectSprints.name,
-                    status: projectSprints.status,
-                    goal: projectSprints.goal,
+                    id: workspaceSprints.id,
+                    name: workspaceSprints.name,
+                    status: workspaceSprints.status,
+                    goal: workspaceSprints.goal,
                 })
-                .from(projectSprints)
-                .where(and(eq(projectSprints.projectId, access.project.id), inArray(projectSprints.id, Array.from(sprintIds))))
+                .from(workspaceSprints)
+                .where(and(eq(workspaceSprints.projectId, access.project.id), inArray(workspaceSprints.id, Array.from(sprintIds))))
             : Promise.resolve([]),
         canReadFiles && fileIds.size > 0
             ? db
                 .select({
-                    id: projectNodes.id,
-                    name: projectNodes.name,
-                    path: projectNodes.path,
-                    mimeType: projectNodes.mimeType,
+                    id: workspaceNodes.id,
+                    name: workspaceNodes.name,
+                    path: workspaceNodes.path,
+                    mimeType: workspaceNodes.mimeType,
                 })
-                .from(projectNodes)
+                .from(workspaceNodes)
                 .where(and(
-                    eq(projectNodes.projectId, access.project.id),
-                    eq(projectNodes.type, "file"),
-                    isNull(projectNodes.deletedAt),
-                    inArray(projectNodes.id, Array.from(fileIds)),
+                    eq(workspaceNodes.projectId, access.project.id),
+                    eq(workspaceNodes.type, "file"),
+                    isNull(workspaceNodes.deletedAt),
+                    inArray(workspaceNodes.id, Array.from(fileIds)),
                     canReadTasks ? undefined : projectContentNodeSql,
                     orgFileAccessSql(access),
                 ))
@@ -1094,19 +1094,19 @@ function orgAudienceWhere(access: ProjectUpdateAccess) {
     return access.org?.kind === "org" ? orgFeedWhere(access.org, access.viewerId, "all") : undefined;
 }
 
-function updateCursorCondition(cursor: ProjectUpdateCursor | null, pinned: SQL<boolean> | typeof projectUpdates.isPinned = projectUpdates.isPinned) {
+function updateCursorCondition(cursor: ProjectUpdateCursor | null, pinned: SQL<boolean> | typeof workspaceUpdates.isPinned = workspaceUpdates.isPinned) {
     if (!cursor) return undefined;
     const cursorDate = new Date(cursor.createdAt);
     if (Number.isNaN(cursorDate.getTime())) return undefined;
     const afterWithinBucket = or(
-        lt(projectUpdates.createdAt, cursorDate),
-        and(eq(projectUpdates.createdAt, cursorDate), lt(projectUpdates.id, cursor.id)),
+        lt(workspaceUpdates.createdAt, cursorDate),
+        and(eq(workspaceUpdates.createdAt, cursorDate), lt(workspaceUpdates.id, cursor.id)),
     );
     if (cursor.pinned) {
         return or(and(sql`${pinned}`, afterWithinBucket), sql`NOT ${pinned}`);
     }
     // Row comparison lets the member-feed index seek to the cursor instead of filtering every newer row.
-    return and(sql`NOT ${pinned}`, sql`(${projectUpdates.createdAt}, ${projectUpdates.id}) < (${cursorDate}, ${cursor.id}::uuid)`);
+    return and(sql`NOT ${pinned}`, sql`(${workspaceUpdates.createdAt}, ${workspaceUpdates.id}) < (${cursorDate}, ${cursor.id}::uuid)`);
 }
 
 export async function readWorkspaceUpdatesAction(projectId: string, params?: {
@@ -1125,55 +1125,55 @@ export async function readWorkspaceUpdatesAction(projectId: string, params?: {
         const cursor = decodeUpdateCursor(params?.cursor);
         // The org feed (report §17.5): own posts by audience plus posts shared up from child projects.
         const orgFeed = access.org?.kind === "org" ? access.org : null;
-        const pinned = orgFeed ? orgLivePinSql(orgFeed.orgId) : projectUpdates.isPinned;
+        const pinned = orgFeed ? orgLivePinSql(orgFeed.orgId) : workspaceUpdates.isPinned;
         const scope = orgFeed
             ? orgFeedWhere(orgFeed, viewer.userId, filter === "all" || filter === "from_projects" || filter === "announcement" || filter === "discussion" ? filter : "all")
             : and(
-                eq(projectUpdates.projectId, projectId),
-                access.isOwner || access.isMember ? undefined : eq(projectUpdates.visibility, "public"),
+                eq(workspaceUpdates.projectId, projectId),
+                access.isOwner || access.isMember ? undefined : eq(workspaceUpdates.visibility, "public"),
             );
         const rawRows = await db
             .select({
-                id: projectUpdates.id,
-                projectId: projectUpdates.projectId,
-                authorId: projectUpdates.authorId,
-                content: projectUpdates.content,
-                updateType: projectUpdates.updateType,
-                visibility: projectUpdates.visibility,
-                replyPolicy: projectUpdates.replyPolicy,
-                entityRefs: projectUpdates.entityRefs,
-                media: projectUpdates.media,
-                metadata: projectUpdates.metadata,
-                isPinned: projectUpdates.isPinned,
-                audience: projectUpdates.audience,
-                notifyLevel: projectUpdates.notifyLevel,
-                pinnedUntil: projectUpdates.pinnedUntil,
-                sharedToOrgAt: projectUpdates.sharedToOrgAt,
-                likeCount: projectUpdates.likeCount,
-                commentCount: projectUpdates.commentCount,
-                deletedBy: projectUpdates.deletedBy,
-                editedAt: projectUpdates.editedAt,
-                deletedAt: projectUpdates.deletedAt,
-                createdAt: projectUpdates.createdAt,
-                updatedAt: projectUpdates.updatedAt,
+                id: workspaceUpdates.id,
+                projectId: workspaceUpdates.projectId,
+                authorId: workspaceUpdates.authorId,
+                content: workspaceUpdates.content,
+                updateType: workspaceUpdates.updateType,
+                visibility: workspaceUpdates.visibility,
+                replyPolicy: workspaceUpdates.replyPolicy,
+                entityRefs: workspaceUpdates.entityRefs,
+                media: workspaceUpdates.media,
+                metadata: workspaceUpdates.metadata,
+                isPinned: workspaceUpdates.isPinned,
+                audience: workspaceUpdates.audience,
+                notifyLevel: workspaceUpdates.notifyLevel,
+                pinnedUntil: workspaceUpdates.pinnedUntil,
+                sharedToOrgAt: workspaceUpdates.sharedToOrgAt,
+                likeCount: workspaceUpdates.likeCount,
+                commentCount: workspaceUpdates.commentCount,
+                deletedBy: workspaceUpdates.deletedBy,
+                editedAt: workspaceUpdates.editedAt,
+                deletedAt: workspaceUpdates.deletedAt,
+                createdAt: workspaceUpdates.createdAt,
+                updatedAt: workspaceUpdates.updatedAt,
                 authorFullName: profiles.fullName,
                 authorUsername: profiles.username,
                 authorAvatarUrl: profiles.avatarUrl,
-                authorMembershipRole: projectMembers.role,
+                authorMembershipRole: workspaceMembers.role,
             })
-            .from(projectUpdates)
-            .leftJoin(profiles, eq(profiles.id, projectUpdates.authorId))
-            .leftJoin(projectMembers, and(
-                eq(projectMembers.projectId, projectUpdates.projectId),
-                eq(projectMembers.userId, projectUpdates.authorId),
+            .from(workspaceUpdates)
+            .leftJoin(profiles, eq(profiles.id, workspaceUpdates.authorId))
+            .leftJoin(workspaceMembers, and(
+                eq(workspaceMembers.projectId, workspaceUpdates.projectId),
+                eq(workspaceMembers.userId, workspaceUpdates.authorId),
             ))
             .where(and(
                 scope,
-                isNull(projectUpdates.deletedAt),
-                filter === "all" || filter === "from_projects" ? undefined : eq(projectUpdates.updateType, filter),
+                isNull(workspaceUpdates.deletedAt),
+                filter === "all" || filter === "from_projects" ? undefined : eq(workspaceUpdates.updateType, filter),
                 updateCursorCondition(cursor, pinned),
             ))
-            .orderBy(desc(pinned), desc(projectUpdates.createdAt), desc(projectUpdates.id))
+            .orderBy(desc(pinned), desc(workspaceUpdates.createdAt), desc(workspaceUpdates.id))
             .limit(UPDATES_PAGE_SIZE + 1);
 
         const rows = await hydrateUpdateRowsWithRoleTitles(projectId, rawRows);
@@ -1280,34 +1280,34 @@ async function readContextOptionsForKind(params: {
     }
 
     if (params.kind === "sprint") {
-        const conditions = [eq(projectSprints.projectId, params.projectId)];
-        if (params.query) conditions.push(or(ilike(projectSprints.name, like), ilike(projectSprints.goal, like), ilike(projectSprints.description, like))!);
+        const conditions = [eq(workspaceSprints.projectId, params.projectId)];
+        if (params.query) conditions.push(or(ilike(workspaceSprints.name, like), ilike(workspaceSprints.goal, like), ilike(workspaceSprints.description, like))!);
         const rows = await db
             .select({
-                id: projectSprints.id,
-                name: projectSprints.name,
-                status: projectSprints.status,
-                goal: projectSprints.goal,
+                id: workspaceSprints.id,
+                name: workspaceSprints.name,
+                status: workspaceSprints.status,
+                goal: workspaceSprints.goal,
             })
-            .from(projectSprints)
+            .from(workspaceSprints)
             .where(and(...conditions))
-            .orderBy(desc(projectSprints.updatedAt))
+            .orderBy(desc(workspaceSprints.updatedAt))
             .limit(params.limit);
         return rows.map((row) => sprintContextOption(row, params.project));
     }
 
-    const conditions = [eq(projectNodes.projectId, params.projectId), eq(projectNodes.type, "file"), isNull(projectNodes.deletedAt)];
-    if (params.query) conditions.push(or(ilike(projectNodes.name, like), ilike(projectNodes.path, like))!);
+    const conditions = [eq(workspaceNodes.projectId, params.projectId), eq(workspaceNodes.type, "file"), isNull(workspaceNodes.deletedAt)];
+    if (params.query) conditions.push(or(ilike(workspaceNodes.name, like), ilike(workspaceNodes.path, like))!);
     const rows = await db
         .select({
-            id: projectNodes.id,
-            name: projectNodes.name,
-            path: projectNodes.path,
-            mimeType: projectNodes.mimeType,
+            id: workspaceNodes.id,
+            name: workspaceNodes.name,
+            path: workspaceNodes.path,
+            mimeType: workspaceNodes.mimeType,
         })
-        .from(projectNodes)
+        .from(workspaceNodes)
         .where(and(...conditions))
-        .orderBy(desc(projectNodes.updatedAt))
+        .orderBy(desc(workspaceNodes.updatedAt))
         .limit(params.limit);
     return rows.map((row) => fileContextOption(row, params.project));
 }
@@ -1488,8 +1488,8 @@ async function resolveOrgPostOptions(access: ProjectUpdateAccess, updateType: Wo
     if (orgAdmin && input.audience) {
         const roles = (input.audience.roles ?? []).filter((role) => role === "admin" || role === "member" || role === "viewer");
         const wanted = (input.audience.projectIds ?? []).filter((id) => isLooseUuid(id));
-        const projectIds = wanted.length === 0 ? [] : (await db.select({ id: projects.id }).from(projects)
-            .where(and(eq(projects.parentId, access.project!.id), inArray(projects.id, wanted), isNull(projects.deletedAt)))).map((row) => row.id);
+        const projectIds = wanted.length === 0 ? [] : (await db.select({ id: workspaces.id }).from(workspaces)
+            .where(and(eq(workspaces.parentId, access.project!.id), inArray(workspaces.id, wanted), isNull(workspaces.deletedAt)))).map((row) => row.id);
         audience = { ...(roles.length ? { roles } : {}), ...(projectIds.length ? { projectIds } : {}) };
     }
     return {
@@ -1552,7 +1552,7 @@ export async function createWorkspaceUpdateAction(projectId: string, input: {
         });
         const inserted = await db.transaction(async (tx) => {
             const [row] = await tx
-                .insert(projectUpdates)
+                .insert(workspaceUpdates)
                 .values({
                     projectId,
                     authorId: viewer.userId,
@@ -1571,7 +1571,7 @@ export async function createWorkspaceUpdateAction(projectId: string, input: {
                     createdAt,
                     updatedAt: createdAt,
                 })
-                .returning({ id: projectUpdates.id });
+                .returning({ id: workspaceUpdates.id });
             if (!row) throw new Error("Failed to create project update");
             await replaceUpdateMediaAssetRefs({
                 tx,
@@ -1698,12 +1698,12 @@ export async function editWorkspaceUpdateAction(projectId: string, updateId: str
         await db.transaction(async (tx) => {
             const [existing] = await tx
                 .select({
-                    authorId: projectUpdates.authorId,
-                    deletedAt: projectUpdates.deletedAt,
-                    media: projectUpdates.media,
+                    authorId: workspaceUpdates.authorId,
+                    deletedAt: workspaceUpdates.deletedAt,
+                    media: workspaceUpdates.media,
                 })
-                .from(projectUpdates)
-                .where(and(eq(projectUpdates.id, updateId), eq(projectUpdates.projectId, projectId)))
+                .from(workspaceUpdates)
+                .where(and(eq(workspaceUpdates.id, updateId), eq(workspaceUpdates.projectId, projectId)))
                 .limit(1)
                 .for("update");
             if (!existing || existing.deletedAt) throw new Error("Project update not found.");
@@ -1730,7 +1730,7 @@ export async function editWorkspaceUpdateAction(projectId: string, updateId: str
                 allowedLegacyBindings,
             });
             await tx
-                .update(projectUpdates)
+                .update(workspaceUpdates)
                 .set({
                     content,
                     // An edit that leaves the type out keeps it, so an announcement stays one.
@@ -1740,7 +1740,7 @@ export async function editWorkspaceUpdateAction(projectId: string, updateId: str
                     editedAt: now,
                     updatedAt: now,
                 })
-                .where(eq(projectUpdates.id, updateId));
+                .where(eq(workspaceUpdates.id, updateId));
         });
         const rows = await readUpdateRowsByIds([updateId], access);
         const [likedIds, contextByUpdateId] = await Promise.all([
@@ -1768,13 +1768,13 @@ export async function deleteWorkspaceUpdateAction(projectId: string, updateId: s
         await db.transaction(async (tx) => {
             const [existing] = await tx
                 .select({
-                    id: projectUpdates.id,
-                    authorId: projectUpdates.authorId,
-                    deletedAt: projectUpdates.deletedAt,
-                    media: projectUpdates.media,
+                    id: workspaceUpdates.id,
+                    authorId: workspaceUpdates.authorId,
+                    deletedAt: workspaceUpdates.deletedAt,
+                    media: workspaceUpdates.media,
                 })
-                .from(projectUpdates)
-                .where(and(eq(projectUpdates.id, updateId), eq(projectUpdates.projectId, projectId)))
+                .from(workspaceUpdates)
+                .where(and(eq(workspaceUpdates.id, updateId), eq(workspaceUpdates.projectId, projectId)))
                 .limit(1)
                 .for("update");
             if (!existing || existing.deletedAt) throw new Error("Project update not found.");
@@ -1802,7 +1802,7 @@ export async function deleteWorkspaceUpdateAction(projectId: string, updateId: s
                 media: [],
             });
             await tx
-                .update(projectUpdates)
+                .update(workspaceUpdates)
                 .set({
                     content: "",
                     entityRefs: {},
@@ -1813,14 +1813,14 @@ export async function deleteWorkspaceUpdateAction(projectId: string, updateId: s
                     isPinned: false,
                     updatedAt: now,
                 })
-                .where(eq(projectUpdates.id, updateId));
+                .where(eq(workspaceUpdates.id, updateId));
         });
 
         // Asynchronously clean up storage assets and comments via Inngest background job
         try {
             const { inngest } = await import("@/inngest/client");
             await inngest.send({
-                name: "project/updates.cleanup",
+                name: "workspace/updates.cleanup",
                 data: {
                     projectId,
                     updateId,
@@ -1854,24 +1854,24 @@ class ModerationReasonError extends Error {
 
 /** An org admin pins a child's shared post in the org feed only (report §17.6); the 3-pin limit counts these too. */
 async function countOrgOwnPins(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], orgId: string, exceptId?: string) {
-    const [own] = await tx.select({ n: sql<number>`count(*)::int` }).from(projectUpdates)
-        .where(and(eq(projectUpdates.projectId, orgId), eq(projectUpdates.isPinned, true), isNull(projectUpdates.deletedAt),
-            sql`(${projectUpdates.pinnedUntil} IS NULL OR ${projectUpdates.pinnedUntil} > now())`, exceptId ? sql`${projectUpdates.id} <> ${exceptId}` : undefined));
+    const [own] = await tx.select({ n: sql<number>`count(*)::int` }).from(workspaceUpdates)
+        .where(and(eq(workspaceUpdates.projectId, orgId), eq(workspaceUpdates.isPinned, true), isNull(workspaceUpdates.deletedAt),
+            sql`(${workspaceUpdates.pinnedUntil} IS NULL OR ${workspaceUpdates.pinnedUntil} > now())`, exceptId ? sql`${workspaceUpdates.id} <> ${exceptId}` : undefined));
     return own?.n ?? 0;
 }
 
 async function pinSharedInOrgFeed(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], orgId: string, updateId: string, pinned: boolean) {
-    const [shared] = await tx.select({ id: projectUpdates.id }).from(projectUpdates)
-        .where(and(eq(projectUpdates.id, updateId), isNull(projectUpdates.deletedAt), sql`${projectUpdates.sharedToOrgAt} IS NOT NULL`,
-            sql`${projectUpdates.projectId} IN (SELECT id FROM projects WHERE parent_id = ${orgId} AND deleted_at IS NULL)`)).limit(1);
+    const [shared] = await tx.select({ id: workspaceUpdates.id }).from(workspaceUpdates)
+        .where(and(eq(workspaceUpdates.id, updateId), isNull(workspaceUpdates.deletedAt), sql`${workspaceUpdates.sharedToOrgAt} IS NOT NULL`,
+            sql`${workspaceUpdates.projectId} IN (SELECT id FROM workspaces WHERE parent_id = ${orgId} AND deleted_at IS NULL)`)).limit(1);
     if (!shared) return false;
-    const [org] = await tx.select({ settings: projects.orgSettings }).from(projects).where(eq(projects.id, orgId)).limit(1);
+    const [org] = await tx.select({ settings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
     const current = readSharedPins(org?.settings);
     const next = pinned ? [...new Set([...current, updateId])] : current.filter((id) => id !== updateId);
     if (pinned && !current.includes(updateId)) {
         if ((await countOrgOwnPins(tx, orgId)) + next.length > 3) throw new Error("ORG_PIN_LIMIT");
     }
-    await tx.update(projects).set({ orgSettings: sql`coalesce(${projects.orgSettings}, '{}'::jsonb) || jsonb_build_object('sharedPins', ${JSON.stringify(next)}::jsonb)` }).where(eq(projects.id, orgId));
+    await tx.update(workspaces).set({ orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) || jsonb_build_object('sharedPins', ${JSON.stringify(next)}::jsonb)` }).where(eq(workspaces.id, orgId));
     return true;
 }
 
@@ -1884,11 +1884,11 @@ export async function toggleWorkspaceUpdatePinAction(projectId: string, updateId
         const found = await db.transaction(async (tx) => {
             // COR-046: the project row lock serializes pin swaps, and the target is validated before
             // anything is unpinned, so a bad request never clears the current pin.
-            await tx.execute(sql`SELECT id FROM projects WHERE id = ${projectId} FOR UPDATE`);
+            await tx.execute(sql`SELECT id FROM workspaces WHERE id = ${projectId} FOR UPDATE`);
             const [target] = await tx
-                .select({ id: projectUpdates.id })
-                .from(projectUpdates)
-                .where(and(eq(projectUpdates.id, updateId), eq(projectUpdates.projectId, projectId), isNull(projectUpdates.deletedAt)))
+                .select({ id: workspaceUpdates.id })
+                .from(workspaceUpdates)
+                .where(and(eq(workspaceUpdates.id, updateId), eq(workspaceUpdates.projectId, projectId), isNull(workspaceUpdates.deletedAt)))
                 .limit(1);
             if (!target) return access.org?.kind === "org" ? pinSharedInOrgFeed(tx, access.org.orgId, updateId, pinned) : false;
             const now = new Date();
@@ -1899,14 +1899,14 @@ export async function toggleWorkspaceUpdatePinAction(projectId: string, updateId
                 && (await countOrgOwnPins(tx, projectId, updateId)) + access.org.sharedPinIds.length >= 3) throw new Error("ORG_PIN_LIMIT");
             if (pinned && !isOrg) {
                 await tx
-                    .update(projectUpdates)
+                    .update(workspaceUpdates)
                     .set({ isPinned: false, updatedAt: now })
-                    .where(and(eq(projectUpdates.projectId, projectId), eq(projectUpdates.isPinned, true)));
+                    .where(and(eq(workspaceUpdates.projectId, projectId), eq(workspaceUpdates.isPinned, true)));
             }
             await tx
-                .update(projectUpdates)
+                .update(workspaceUpdates)
                 .set({ isPinned: pinned, pinnedUntil: pinned && isOrg ? futureDate(pinnedUntil) : null, updatedAt: now })
-                .where(eq(projectUpdates.id, updateId));
+                .where(eq(workspaceUpdates.id, updateId));
             return true;
         });
         if (!found) return { success: false as const, error: "That update is no longer available." };
@@ -1936,50 +1936,50 @@ export async function toggleWorkspaceUpdateLikeAction(projectId: string, updateI
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
         if (!access.canRead || !access.project) return { success: false as const, error: "Project update unavailable." };
         const [update] = await db
-            .select({ id: projectUpdates.id, visibility: projectUpdates.visibility })
-            .from(projectUpdates)
+            .select({ id: workspaceUpdates.id, visibility: workspaceUpdates.visibility })
+            .from(workspaceUpdates)
             .where(and(
-                eq(projectUpdates.id, updateId),
-                eq(projectUpdates.projectId, projectId),
-                isNull(projectUpdates.deletedAt),
-                access.isOwner || access.isMember ? undefined : eq(projectUpdates.visibility, "public"),
+                eq(workspaceUpdates.id, updateId),
+                eq(workspaceUpdates.projectId, projectId),
+                isNull(workspaceUpdates.deletedAt),
+                access.isOwner || access.isMember ? undefined : eq(workspaceUpdates.visibility, "public"),
             ))
             .limit(1);
         if (!update) return { success: false as const, error: "Project update not found." };
 
         const result = await db.transaction(async (tx) => {
             const deletedRows = await tx
-                .delete(projectUpdateLikes)
-                .where(and(eq(projectUpdateLikes.updateId, updateId), eq(projectUpdateLikes.userId, viewer.userId!)))
-                .returning({ id: projectUpdateLikes.id });
+                .delete(workspaceUpdateLikes)
+                .where(and(eq(workspaceUpdateLikes.updateId, updateId), eq(workspaceUpdateLikes.userId, viewer.userId!)))
+                .returning({ id: workspaceUpdateLikes.id });
             if (deletedRows.length > 0) {
                 const [countRow] = await tx
-                    .update(projectUpdates)
-                    .set({ likeCount: sql`GREATEST(${projectUpdates.likeCount} - 1, 0)`, updatedAt: new Date() })
-                    .where(eq(projectUpdates.id, updateId))
-                    .returning({ likeCount: projectUpdates.likeCount });
+                    .update(workspaceUpdates)
+                    .set({ likeCount: sql`GREATEST(${workspaceUpdates.likeCount} - 1, 0)`, updatedAt: new Date() })
+                    .where(eq(workspaceUpdates.id, updateId))
+                    .returning({ likeCount: workspaceUpdates.likeCount });
                 return { liked: false, likeCount: Math.max(0, countRow?.likeCount ?? 0) };
             }
             const insertedRows = await tx
-                .insert(projectUpdateLikes)
+                .insert(workspaceUpdateLikes)
                 .values({ updateId, userId: viewer.userId!, createdAt: new Date() })
                 .onConflictDoNothing({
-                    target: [projectUpdateLikes.updateId, projectUpdateLikes.userId],
+                    target: [workspaceUpdateLikes.updateId, workspaceUpdateLikes.userId],
                 })
-                .returning({ id: projectUpdateLikes.id });
+                .returning({ id: workspaceUpdateLikes.id });
             if (insertedRows.length > 0) {
                 const [countRow] = await tx
-                    .update(projectUpdates)
-                    .set({ likeCount: sql`${projectUpdates.likeCount} + 1`, updatedAt: new Date() })
-                    .where(eq(projectUpdates.id, updateId))
-                    .returning({ likeCount: projectUpdates.likeCount });
+                    .update(workspaceUpdates)
+                    .set({ likeCount: sql`${workspaceUpdates.likeCount} + 1`, updatedAt: new Date() })
+                    .where(eq(workspaceUpdates.id, updateId))
+                    .returning({ likeCount: workspaceUpdates.likeCount });
                 return { liked: true, likeCount: Math.max(0, countRow?.likeCount ?? 0) };
             }
 
             const [countRow] = await tx
-                .select({ likeCount: projectUpdates.likeCount })
-                .from(projectUpdates)
-                .where(eq(projectUpdates.id, updateId))
+                .select({ likeCount: workspaceUpdates.likeCount })
+                .from(workspaceUpdates)
+                .where(eq(workspaceUpdates.id, updateId))
                 .limit(1);
             return { liked: true, likeCount: Math.max(0, countRow?.likeCount ?? 0) };
         });
@@ -1990,7 +1990,7 @@ export async function toggleWorkspaceUpdateLikeAction(projectId: string, updateI
     }
 }
 
-type CommentRow = typeof projectUpdateComments.$inferSelect & {
+type CommentRow = typeof workspaceUpdateComments.$inferSelect & {
     authorFullName: string | null;
     authorUsername: string | null;
     authorAvatarUrl: string | null;
@@ -2032,8 +2032,8 @@ function commentCursorCondition(cursor: ProjectUpdateCommentCursor | null) {
     const cursorDate = new Date(cursor.createdAt);
     if (Number.isNaN(cursorDate.getTime())) return undefined;
     return or(
-        gt(projectUpdateComments.createdAt, cursorDate),
-        and(eq(projectUpdateComments.createdAt, cursorDate), gt(projectUpdateComments.id, cursor.id)),
+        gt(workspaceUpdateComments.createdAt, cursorDate),
+        and(eq(workspaceUpdateComments.createdAt, cursorDate), gt(workspaceUpdateComments.id, cursor.id)),
     );
 }
 
@@ -2041,19 +2041,19 @@ async function assertReadableUpdate(projectId: string, updateId: string, access:
     if (!access.canRead || !access.project) return null;
     const [update] = await db
         .select({
-            id: projectUpdates.id,
-            projectId: projectUpdates.projectId,
-            authorId: projectUpdates.authorId,
-            replyPolicy: projectUpdates.replyPolicy,
-            visibility: projectUpdates.visibility,
-            deletedAt: projectUpdates.deletedAt,
+            id: workspaceUpdates.id,
+            projectId: workspaceUpdates.projectId,
+            authorId: workspaceUpdates.authorId,
+            replyPolicy: workspaceUpdates.replyPolicy,
+            visibility: workspaceUpdates.visibility,
+            deletedAt: workspaceUpdates.deletedAt,
         })
-        .from(projectUpdates)
+        .from(workspaceUpdates)
         .where(and(
-            eq(projectUpdates.id, updateId),
-            eq(projectUpdates.projectId, projectId),
-            isNull(projectUpdates.deletedAt),
-            access.isOwner || access.isMember ? undefined : eq(projectUpdates.visibility, "public"),
+            eq(workspaceUpdates.id, updateId),
+            eq(workspaceUpdates.projectId, projectId),
+            isNull(workspaceUpdates.deletedAt),
+            access.isOwner || access.isMember ? undefined : eq(workspaceUpdates.visibility, "public"),
             orgAudienceWhere(access),
         ))
         .limit(1);
@@ -2071,36 +2071,36 @@ export async function readWorkspaceUpdateCommentsAction(projectId: string, updat
         const targetProfiles = alias(profiles, "target_profiles");
         const rawRows = await db
             .select({
-                id: projectUpdateComments.id,
-                updateId: projectUpdateComments.updateId,
-                projectId: projectUpdateComments.projectId,
-                parentId: projectUpdateComments.parentId,
-                userId: projectUpdateComments.userId,
-                targetUserId: projectUpdateComments.targetUserId,
-                content: projectUpdateComments.content,
-                deletedBy: projectUpdateComments.deletedBy,
-                deletedAt: projectUpdateComments.deletedAt,
-                createdAt: projectUpdateComments.createdAt,
-                updatedAt: projectUpdateComments.updatedAt,
+                id: workspaceUpdateComments.id,
+                updateId: workspaceUpdateComments.updateId,
+                projectId: workspaceUpdateComments.projectId,
+                parentId: workspaceUpdateComments.parentId,
+                userId: workspaceUpdateComments.userId,
+                targetUserId: workspaceUpdateComments.targetUserId,
+                content: workspaceUpdateComments.content,
+                deletedBy: workspaceUpdateComments.deletedBy,
+                deletedAt: workspaceUpdateComments.deletedAt,
+                createdAt: workspaceUpdateComments.createdAt,
+                updatedAt: workspaceUpdateComments.updatedAt,
                 authorFullName: profiles.fullName,
                 authorUsername: profiles.username,
                 authorAvatarUrl: profiles.avatarUrl,
-                authorMembershipRole: projectMembers.role,
+                authorMembershipRole: workspaceMembers.role,
                 targetUsername: targetProfiles.username,
             })
-            .from(projectUpdateComments)
-            .leftJoin(profiles, eq(profiles.id, projectUpdateComments.userId))
-            .leftJoin(projectMembers, and(
-                eq(projectMembers.projectId, projectUpdateComments.projectId),
-                eq(projectMembers.userId, projectUpdateComments.userId),
+            .from(workspaceUpdateComments)
+            .leftJoin(profiles, eq(profiles.id, workspaceUpdateComments.userId))
+            .leftJoin(workspaceMembers, and(
+                eq(workspaceMembers.projectId, workspaceUpdateComments.projectId),
+                eq(workspaceMembers.userId, workspaceUpdateComments.userId),
             ))
-            .leftJoin(targetProfiles, eq(targetProfiles.id, projectUpdateComments.targetUserId))
+            .leftJoin(targetProfiles, eq(targetProfiles.id, workspaceUpdateComments.targetUserId))
             .where(and(
-                eq(projectUpdateComments.updateId, updateId),
-                eq(projectUpdateComments.projectId, projectId),
+                eq(workspaceUpdateComments.updateId, updateId),
+                eq(workspaceUpdateComments.projectId, projectId),
                 commentCursorCondition(parsedCursor),
             ))
-            .orderBy(asc(projectUpdateComments.createdAt), asc(projectUpdateComments.id))
+            .orderBy(asc(workspaceUpdateComments.createdAt), asc(workspaceUpdateComments.id))
             .limit(COMMENTS_PAGE_SIZE + 1);
         const rows = await hydrateCommentRowsWithRoleTitles(projectId, rawRows);
         const pageRows = rows.slice(0, COMMENTS_PAGE_SIZE);
@@ -2164,13 +2164,13 @@ export async function createWorkspaceUpdateCommentAction(projectId: string, upda
             let targetUserId: string | null = null;
             if (parentId) {
                 const [parentComment] = await tx
-                    .select({ userId: projectUpdateComments.userId })
-                    .from(projectUpdateComments)
+                    .select({ userId: workspaceUpdateComments.userId })
+                    .from(workspaceUpdateComments)
                     .where(and(
-                        eq(projectUpdateComments.id, parentId),
-                        eq(projectUpdateComments.updateId, updateId),
-                        eq(projectUpdateComments.projectId, projectId),
-                        isNull(projectUpdateComments.deletedAt),
+                        eq(workspaceUpdateComments.id, parentId),
+                        eq(workspaceUpdateComments.updateId, updateId),
+                        eq(workspaceUpdateComments.projectId, projectId),
+                        isNull(workspaceUpdateComments.deletedAt),
                     ))
                     .for("share")
                     .limit(1);
@@ -2178,7 +2178,7 @@ export async function createWorkspaceUpdateCommentAction(projectId: string, upda
                 targetUserId = parentComment.userId;
             }
             const insertedRows = await tx
-                .insert(projectUpdateComments)
+                .insert(workspaceUpdateComments)
                 .values({
                     projectId,
                     updateId,
@@ -2189,11 +2189,11 @@ export async function createWorkspaceUpdateCommentAction(projectId: string, upda
                     createdAt,
                     updatedAt: createdAt,
                 })
-                .returning({ id: projectUpdateComments.id });
+                .returning({ id: workspaceUpdateComments.id });
             await tx
-                .update(projectUpdates)
-                .set({ commentCount: sql`${projectUpdates.commentCount} + 1`, updatedAt: createdAt })
-                .where(eq(projectUpdates.id, updateId));
+                .update(workspaceUpdates)
+                .set({ commentCount: sql`${workspaceUpdates.commentCount} + 1`, updatedAt: createdAt })
+                .where(eq(workspaceUpdates.id, updateId));
             return { inserted: insertedRows[0], targetUserId };
         });
         if (!posted) return { success: false as const, error: "Reply target unavailable." };
@@ -2288,31 +2288,31 @@ export async function createWorkspaceUpdateCommentAction(projectId: string, upda
         const targetProfiles = alias(profiles, "target_profiles");
         const rawCommentRows = await db
             .select({
-                id: projectUpdateComments.id,
-                updateId: projectUpdateComments.updateId,
-                projectId: projectUpdateComments.projectId,
-                parentId: projectUpdateComments.parentId,
-                userId: projectUpdateComments.userId,
-                targetUserId: projectUpdateComments.targetUserId,
-                content: projectUpdateComments.content,
-                deletedBy: projectUpdateComments.deletedBy,
-                deletedAt: projectUpdateComments.deletedAt,
-                createdAt: projectUpdateComments.createdAt,
-                updatedAt: projectUpdateComments.updatedAt,
+                id: workspaceUpdateComments.id,
+                updateId: workspaceUpdateComments.updateId,
+                projectId: workspaceUpdateComments.projectId,
+                parentId: workspaceUpdateComments.parentId,
+                userId: workspaceUpdateComments.userId,
+                targetUserId: workspaceUpdateComments.targetUserId,
+                content: workspaceUpdateComments.content,
+                deletedBy: workspaceUpdateComments.deletedBy,
+                deletedAt: workspaceUpdateComments.deletedAt,
+                createdAt: workspaceUpdateComments.createdAt,
+                updatedAt: workspaceUpdateComments.updatedAt,
                 authorFullName: profiles.fullName,
                 authorUsername: profiles.username,
                 authorAvatarUrl: profiles.avatarUrl,
-                authorMembershipRole: projectMembers.role,
+                authorMembershipRole: workspaceMembers.role,
                 targetUsername: targetProfiles.username,
             })
-            .from(projectUpdateComments)
-            .leftJoin(profiles, eq(profiles.id, projectUpdateComments.userId))
-            .leftJoin(projectMembers, and(
-                eq(projectMembers.projectId, projectUpdateComments.projectId),
-                eq(projectMembers.userId, projectUpdateComments.userId),
+            .from(workspaceUpdateComments)
+            .leftJoin(profiles, eq(profiles.id, workspaceUpdateComments.userId))
+            .leftJoin(workspaceMembers, and(
+                eq(workspaceMembers.projectId, workspaceUpdateComments.projectId),
+                eq(workspaceMembers.userId, workspaceUpdateComments.userId),
             ))
-            .leftJoin(targetProfiles, eq(targetProfiles.id, projectUpdateComments.targetUserId))
-            .where(eq(projectUpdateComments.id, inserted.id))
+            .leftJoin(targetProfiles, eq(targetProfiles.id, workspaceUpdateComments.targetUserId))
+            .where(eq(workspaceUpdateComments.id, inserted.id))
             .limit(1);
         const [row] = await hydrateCommentRowsWithRoleTitles(projectId, rawCommentRows);
         const durationMs = Math.round(performance.now() - startedAt);
@@ -2348,13 +2348,13 @@ export async function deleteWorkspaceUpdateCommentAction(projectId: string, comm
         if (!access.canRead || !access.project) return { success: false as const, error: "Project update unavailable." };
         const [comment] = await db
             .select({
-                id: projectUpdateComments.id,
-                updateId: projectUpdateComments.updateId,
-                userId: projectUpdateComments.userId,
-                deletedAt: projectUpdateComments.deletedAt,
+                id: workspaceUpdateComments.id,
+                updateId: workspaceUpdateComments.updateId,
+                userId: workspaceUpdateComments.userId,
+                deletedAt: workspaceUpdateComments.deletedAt,
             })
-            .from(projectUpdateComments)
-            .where(and(eq(projectUpdateComments.id, commentId), eq(projectUpdateComments.projectId, projectId)))
+            .from(workspaceUpdateComments)
+            .where(and(eq(workspaceUpdateComments.id, commentId), eq(workspaceUpdateComments.projectId, projectId)))
             .limit(1);
         if (!comment || comment.deletedAt) return { success: false as const, error: "Comment not found." };
         if (comment.userId !== viewer.userId && !access.canManage) {
@@ -2364,15 +2364,15 @@ export async function deleteWorkspaceUpdateCommentAction(projectId: string, comm
         await db.transaction(async (tx) => {
             // COR-040: only the request that actually tombstones the comment decrements the count.
             const deleted = await tx
-                .update(projectUpdateComments)
+                .update(workspaceUpdateComments)
                 .set({ content: "", deletedAt: now, deletedBy: viewer.userId, updatedAt: now })
-                .where(and(eq(projectUpdateComments.id, commentId), isNull(projectUpdateComments.deletedAt)))
-                .returning({ id: projectUpdateComments.id });
+                .where(and(eq(workspaceUpdateComments.id, commentId), isNull(workspaceUpdateComments.deletedAt)))
+                .returning({ id: workspaceUpdateComments.id });
             if (deleted.length === 0) return;
             await tx
-                .update(projectUpdates)
-                .set({ commentCount: sql`GREATEST(${projectUpdates.commentCount} - 1, 0)`, updatedAt: now })
-                .where(eq(projectUpdates.id, comment.updateId));
+                .update(workspaceUpdates)
+                .set({ commentCount: sql`GREATEST(${workspaceUpdates.commentCount} - 1, 0)`, updatedAt: now })
+                .where(eq(workspaceUpdates.id, comment.updateId));
         });
         return { success: true as const, updateId: comment.updateId };
     } catch (error) {
@@ -2392,11 +2392,11 @@ export async function readWorkspaceUpdateDraftAction(projectId: string) {
     try {
         const [draft] = await db
             .select()
-            .from(projectUpdateDrafts)
+            .from(workspaceUpdateDrafts)
             .where(
                 and(
-                    eq(projectUpdateDrafts.projectId, projectId),
-                    eq(projectUpdateDrafts.userId, userId)
+                    eq(workspaceUpdateDrafts.projectId, projectId),
+                    eq(workspaceUpdateDrafts.userId, userId)
                 )
             )
             .limit(1);
@@ -2435,11 +2435,11 @@ export async function saveWorkspaceUpdateDraftAction(
         if (!content.trim() && !hasReferences && media.length === 0) {
             await db.transaction(async (tx) => {
                 const [existingDraft] = await tx
-                    .select({ media: projectUpdateDrafts.media })
-                    .from(projectUpdateDrafts)
+                    .select({ media: workspaceUpdateDrafts.media })
+                    .from(workspaceUpdateDrafts)
                     .where(and(
-                        eq(projectUpdateDrafts.projectId, projectId),
-                        eq(projectUpdateDrafts.userId, userId),
+                        eq(workspaceUpdateDrafts.projectId, projectId),
+                        eq(workspaceUpdateDrafts.userId, userId),
                     ))
                     .limit(1)
                     .for("update");
@@ -2459,10 +2459,10 @@ export async function saveWorkspaceUpdateDraftAction(
                         media: [],
                     });
                 }
-                await tx.delete(projectUpdateDrafts).where(
+                await tx.delete(workspaceUpdateDrafts).where(
                     and(
-                        eq(projectUpdateDrafts.projectId, projectId),
-                        eq(projectUpdateDrafts.userId, userId)
+                        eq(workspaceUpdateDrafts.projectId, projectId),
+                        eq(workspaceUpdateDrafts.userId, userId)
                     )
                 );
             });
@@ -2471,11 +2471,11 @@ export async function saveWorkspaceUpdateDraftAction(
 
         const draft = await db.transaction(async (tx) => {
             const [existingDraft] = await tx
-                .select({ media: projectUpdateDrafts.media })
-                .from(projectUpdateDrafts)
+                .select({ media: workspaceUpdateDrafts.media })
+                .from(workspaceUpdateDrafts)
                 .where(and(
-                    eq(projectUpdateDrafts.projectId, projectId),
-                    eq(projectUpdateDrafts.userId, userId),
+                    eq(workspaceUpdateDrafts.projectId, projectId),
+                    eq(workspaceUpdateDrafts.userId, userId),
                 ))
                 .limit(1)
                 .for("update");
@@ -2493,7 +2493,7 @@ export async function saveWorkspaceUpdateDraftAction(
                 next: media,
             });
             const [row] = await tx
-                .insert(projectUpdateDrafts)
+                .insert(workspaceUpdateDrafts)
                 .values({
                     projectId,
                     userId,
@@ -2505,7 +2505,7 @@ export async function saveWorkspaceUpdateDraftAction(
                     updatedAt: sql`now()`,
                 })
                 .onConflictDoUpdate({
-                    target: [projectUpdateDrafts.projectId, projectUpdateDrafts.userId],
+                    target: [workspaceUpdateDrafts.projectId, workspaceUpdateDrafts.userId],
                     set: {
                         content,
                         visibility,

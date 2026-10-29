@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { profiles, type ProjectNode } from "@/lib/db/schema";
+import { profiles, type WorkspaceNode } from "@/lib/db/schema";
 import { inArray, sql } from "drizzle-orm";
 
 export type FileAttribution = {
@@ -25,7 +25,7 @@ const BATCH_SIZE = 1_000;
 
 /** Canonical updater projection shared by Files and task attachments. */
 export async function getFileAttributionByNodeId(
-  nodes: readonly ProjectNode[],
+  nodes: readonly WorkspaceNode[],
 ): Promise<Map<string, FileAttribution>> {
   const files = nodes.filter((node) => node.type === "file");
   // ponytail: short-circuit for directory-only trees saves 1 database query per folder view. ceiling: empty files array. upgrade: run query when file nodes exist.
@@ -44,7 +44,7 @@ export async function getFileAttributionByNodeId(
         p.username,
         p.avatar_url,
         CASE WHEN fv.attribution->>'source' = 'github' THEN fv.attribution->'contributors'->0->>'name' END AS external_name
-      FROM project_nodes pn
+      FROM workspace_nodes pn
       LEFT JOIN file_versions fv
         ON pn.id = fv.node_id
        AND pn.current_version = fv.version

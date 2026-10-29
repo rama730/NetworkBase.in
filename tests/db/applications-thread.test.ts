@@ -19,7 +19,7 @@ async function withThread(fn: (ctx: { owner: string; admin: string; applicant: s
   const [owner, admin, applicant] = await Promise.all([0, 1, 2].map(() => sql.begin((tx) => createUser(tx))));
   const projectId = await sql.begin((tx) => createProject(tx, owner!));
   await sql.begin(async (tx) => { await addMember(tx, projectId, owner!, "owner"); await addMember(tx, projectId, admin!, "admin"); });
-  const [role] = await sql`INSERT INTO project_open_roles (project_id, role, count) VALUES (${projectId}, 'Designer', 3) RETURNING id`;
+  const [role] = await sql`INSERT INTO workspace_open_roles (workspace_id, role, count) VALUES (${projectId}, 'Designer', 3) RETURNING id`;
   try {
     viewerId = applicant!;
     const applied = await apps.applyToRoleAction(projectId, role!.id as string, "I would like to help");
@@ -27,11 +27,11 @@ async function withThread(fn: (ctx: { owner: string; admin: string; applicant: s
     const [channel] = await sql`SELECT id FROM chat_channels WHERE application_id = ${applied.applicationId!}`;
     await fn({ owner: owner!, admin: admin!, applicant: applicant!, applicationId: applied.applicationId!, channelId: channel!.id as string });
   } finally {
-    await sql`DELETE FROM role_applications WHERE project_id = ${projectId}`;
-    await sql`DELETE FROM chat_channels WHERE project_id = ${projectId}`;
-    await sql`DELETE FROM project_members WHERE project_id = ${projectId}`;
-    await sql`DELETE FROM project_open_roles WHERE project_id = ${projectId}`;
-    await sql`DELETE FROM projects WHERE id = ${projectId}`;
+    await sql`DELETE FROM role_applications WHERE workspace_id = ${projectId}`;
+    await sql`DELETE FROM chat_channels WHERE workspace_id = ${projectId}`;
+    await sql`DELETE FROM workspace_members WHERE workspace_id = ${projectId}`;
+    await sql`DELETE FROM workspace_open_roles WHERE workspace_id = ${projectId}`;
+    await sql`DELETE FROM workspaces WHERE id = ${projectId}`;
   }
 }
 

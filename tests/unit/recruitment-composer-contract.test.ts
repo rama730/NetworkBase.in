@@ -51,7 +51,7 @@ test("application entry points exclude existing project members", () => {
     // The viewer to exclude comes from the session, never from the caller (COR-044).
     assert.match(profilePage, /getProfileWorkspacesWithOpenRolesAction\(data\.profile\.id\)/);
     assert.match(projectAction, /const \{ userId: excludeMemberUserId \} = await getViewerAuthContext\(\)/);
-    assert.match(projectAction, /NOT EXISTS \([\s\S]*project_members AS excluded_member/);
+    assert.match(projectAction, /NOT EXISTS \([\s\S]*workspace_members AS excluded_member/);
     assert.match(dashboard, /Workspace members cannot apply for an additional role/);
 });
 
@@ -81,7 +81,7 @@ test("guidance invitations use the existing Open Roles invitation lifecycle", ()
     const openRoles = source("src/components/workspaces/dashboard/OpenRolesCard.tsx");
     const applicationCard = source("src/components/messages/cards/MessageCard.tsx");
 
-    assert.match(statusAction, /db\.query\.projectInvitations\.findFirst/);
+    assert.match(statusAction, /db\.query\.workspaceInvitations\.findFirst/);
     assert.match(statusAction, /invitationKind: durableInvitation\.kind/);
     assert.match(statusAction, /invitationId: durableInvitation\.id/);
     assert.match(statusAction, /guidanceLabel \|\| "Mentor"/);

@@ -21,8 +21,8 @@ async function twoProjects() {
   const liveChannel = await channelOf(owner, live, `live-${owner.slice(0, 6)}`);
   const goneChannel = await channelOf(owner, gone, `gone-${owner.slice(0, 6)}`);
   const cleanup = async () => {
-    await sql`DELETE FROM chat_channels WHERE project_id = ANY(${[live, gone]}::uuid[])`;
-    await sql`DELETE FROM projects WHERE id = ANY(${[live, gone]}::uuid[])`;
+    await sql`DELETE FROM chat_channels WHERE workspace_id = ANY(${[live, gone]}::uuid[])`;
+    await sql`DELETE FROM workspaces WHERE id = ANY(${[live, gone]}::uuid[])`;
     await sql`DELETE FROM profiles WHERE id = ${owner}`;
   };
   return { owner, live, gone, liveChannel, goneChannel, cleanup };
@@ -33,9 +33,9 @@ test("the bootstrap lists neither a deleted project nor its channels, even if a 
   const f = await twoProjects();
   try {
     // Simulate what earlier versions of project delete left: the workspace soft-deleted with its channel intact.
-    await sql`ALTER TABLE projects DISABLE TRIGGER projects_drop_chat_on_soft_delete`;
-    await sql`UPDATE projects SET deleted_at = now() WHERE id = ${f.gone}`;
-    await sql`ALTER TABLE projects ENABLE TRIGGER projects_drop_chat_on_soft_delete`;
+    await sql`ALTER TABLE workspaces DISABLE TRIGGER workspaces_drop_chat_on_soft_delete`;
+    await sql`UPDATE workspaces SET deleted_at = now() WHERE id = ${f.gone}`;
+    await sql`ALTER TABLE workspaces ENABLE TRIGGER workspaces_drop_chat_on_soft_delete`;
     assert.equal((await sql`SELECT 1 FROM chat_channels WHERE id = ${f.goneChannel}`).length, 1, "the leftover channel exists");
     const data = await bootstrap(f.owner);
     assert.deepEqual(data.projects.map((p) => p.id), [f.live]);
@@ -46,7 +46,7 @@ test("the bootstrap lists neither a deleted project nor its channels, even if a 
 test("soft-deleting a project removes its chat; other projects keep theirs", async () => {
   const f = await twoProjects();
   try {
-    await sql`UPDATE projects SET deleted_at = now() WHERE id = ${f.gone}`;
+    await sql`UPDATE workspaces SET deleted_at = now() WHERE id = ${f.gone}`;
     assert.equal((await sql`SELECT 1 FROM chat_channels WHERE id = ${f.goneChannel}`).length, 0);
     assert.equal((await sql`SELECT 1 FROM chat_channel_members WHERE channel_id = ${f.goneChannel}`).length, 0);
     assert.equal((await sql`SELECT 1 FROM chat_channels WHERE id = ${f.liveChannel}`).length, 1);
@@ -58,9 +58,9 @@ test("soft-deleting a project removes its chat; other projects keep theirs", asy
 test("a deleted project's members no longer count as project members for chat", async () => {
   const f = await twoProjects();
   try {
-    const member = async (project: string) => (await sql`SELECT app_private.chat_is_project_member(${project}::uuid, ${f.owner}::uuid) AS v`)[0]!.v as boolean;
+    const member = async (project: string) => (await sql`SELECT app_private.chat_is_workspace_member(${project}::uuid, ${f.owner}::uuid) AS v`)[0]!.v as boolean;
     assert.equal(await member(f.gone), true);
-    await sql`UPDATE projects SET deleted_at = now() WHERE id = ${f.gone}`;
+    await sql`UPDATE workspaces SET deleted_at = now() WHERE id = ${f.gone}`;
     assert.equal(await member(f.gone), false);
     assert.equal(await member(f.live), true);
   } finally { await f.cleanup(); }

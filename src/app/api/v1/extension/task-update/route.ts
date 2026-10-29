@@ -9,8 +9,8 @@ import { routeErrorResponse } from "@/app/api/v1/_error";
 import { db } from "@/lib/db";
 import {
   taskActivityEvents,
-  projectNodeEvents,
-  projectNodes,
+  workspaceNodeEvents,
+  workspaceNodes,
   fileVersions,
   taskSubtasks,
 } from "@/lib/db/schema";
@@ -144,14 +144,14 @@ export async function PATCH(request: Request) {
             "Completion evidence is only attached to an explicit completion attempt",
           );
         for (const receipt of input.evidence.receipts) {
-          const event = await tx.query.projectNodeEvents.findFirst({
+          const event = await tx.query.workspaceNodeEvents.findFirst({
             where: and(
-              eq(projectNodeEvents.projectId, input.projectId),
-              eq(projectNodeEvents.nodeId, receipt.nodeId),
-              eq(projectNodeEvents.actorId, user.id),
-              sql`${projectNodeEvents.metadata}->>'operationId' LIKE ${receipt.operationId + ":%"}`,
-              sql`${projectNodeEvents.metadata}->>'hash' = ${receipt.contentHash}`,
-              sql`(${projectNodeEvents.metadata}->>'version')::integer = ${receipt.version}`,
+              eq(workspaceNodeEvents.projectId, input.projectId),
+              eq(workspaceNodeEvents.nodeId, receipt.nodeId),
+              eq(workspaceNodeEvents.actorId, user.id),
+              sql`${workspaceNodeEvents.metadata}->>'operationId' LIKE ${receipt.operationId + ":%"}`,
+              sql`${workspaceNodeEvents.metadata}->>'hash' = ${receipt.contentHash}`,
+              sql`(${workspaceNodeEvents.metadata}->>'version')::integer = ${receipt.version}`,
             ),
           });
           if (!event)

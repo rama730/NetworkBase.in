@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { db } from '../src/lib/db';
-import { projects } from '../src/lib/db/schema';
+import { workspaces } from '../src/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
 async function main() {
@@ -9,8 +9,8 @@ async function main() {
 
     for (const id of ids) {
         console.log("Checking ID", { id });
-        const result = await db.query.projects.findFirst({
-            where: eq(projects.id, id)
+        const result = await db.query.workspaces.findFirst({
+            where: eq(workspaces.id, id)
         });
         console.log("Project lookup result", { id, status: result ? "FOUND" : "NOT FOUND" });
         if (result) {

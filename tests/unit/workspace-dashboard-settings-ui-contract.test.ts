@@ -122,8 +122,8 @@ test("completed journey stages always have an honest hover label", () => {
 test("journey stage transitions record all crossed stages and lifecycle edits remap dates", () => {
   const actions = projectActionsSource();
 
-  assert.match(actions, /currentStageIndex: projects\.currentStageIndex/);
-  assert.match(actions, /stageCompletionDates: projects\.stageCompletionDates/);
+  assert.match(actions, /currentStageIndex: workspaces\.currentStageIndex/);
+  assert.match(actions, /stageCompletionDates: workspaces\.stageCompletionDates/);
   assert.match(actions, /stageCompletionDates: normalizeJourneyCompletionDates\(/);
   assert.match(actions, /buildJourneyCompletionDates/);
   assert.match(actions, /normalizeJourneyCompletionDates/);

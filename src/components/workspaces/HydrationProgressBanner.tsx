@@ -59,7 +59,7 @@ export function HydrationProgressBanner({ projectId }: HydrationProgressBannerPr
       bindings: [
         {
           event: "UPDATE",
-          table: "projects",
+          table: "workspaces",
           filter: `id=eq.${projectId}`,
           // The row event carries no import_source (column revoked); it only signals a re-read.
           handler: () => {

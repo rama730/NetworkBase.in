@@ -1,7 +1,7 @@
 "use server";
 
 import { sql } from "drizzle-orm";
-import { shareDestinationWorkspaceion } from "@/lib/sharing/destination-read";
+import { shareDestinationProjection } from "@/lib/sharing/destination-read";
 import { chatFailure, chatRows, invalidInput, isUuid, requireChatUser, unauthorized } from "@/lib/messaging/server";
 import type { ConversationScope } from "@/lib/sharing/destination-scope";
 import type { ShareDestination, ShareWorkspace } from "@/lib/sharing/destination-scope";
@@ -30,11 +30,11 @@ export async function listShareDestinations(input: { scope: ConversationScope; q
   const pattern = `%${query.replace(/[%_\\]/g, "\\$&")}%`;
   const limit = Number.isInteger(input.limit) ? Math.min(50,Math.max(1,input.limit!)) : 50;
   const projectId = "projectId" in scope ? scope.projectId : null;
-  const filter = scope.kind === "project" ? sql`c.project_id = ${projectId}::uuid AND c.application_id IS NULL AND app_private.chat_is_project_member(c.project_id, ${user.id}::uuid)`
-    : scope.kind === "project-applications" ? sql`c.project_id = ${projectId}::uuid AND c.application_id IS NOT NULL AND app_private.chat_is_project_member(c.project_id, ${user.id}::uuid)`
+  const filter = scope.kind === "project" ? sql`c.workspace_id = ${projectId}::uuid AND c.application_id IS NULL AND app_private.chat_is_workspace_member(c.workspace_id, ${user.id}::uuid)`
+    : scope.kind === "project-applications" ? sql`c.workspace_id = ${projectId}::uuid AND c.application_id IS NOT NULL AND app_private.chat_is_workspace_member(c.workspace_id, ${user.id}::uuid)`
     : scope.kind === "applications" ? sql`c.application_id IS NOT NULL`
-    : scope.kind === "dms" ? sql`c.kind = 'dm' AND c.project_id IS NULL AND c.application_id IS NULL`
-    : sql`c.kind = 'private' AND c.project_id IS NULL AND c.application_id IS NULL`;
+    : scope.kind === "dms" ? sql`c.kind = 'dm' AND c.workspace_id IS NULL AND c.application_id IS NULL`
+    : sql`c.kind = 'private' AND c.workspace_id IS NULL AND c.application_id IS NULL`;
   const projectOrder = scope.kind === "project";
   const after = !cursor ? sql`TRUE` : projectOrder
     ? sql`(-sort_star, -sort_default, sort_name, id) > (${-cursor.starred}, ${-cursor.default}, ${cursor.name}, ${cursor.id}::uuid)`
@@ -42,20 +42,20 @@ export async function listShareDestinations(input: { scope: ConversationScope; q
   try {
     let project:null|{id:string;title:string;slug:string|null;cover_image:string|null;role:string}=null;
     if(projectId) {
-      const [access]=await chatRows<NonNullable<typeof project>>(sql`SELECT p.id,p.title,p.slug,p.cover_image,m.role FROM projects p JOIN project_members m ON m.project_id=p.id
+      const [access]=await chatRows<NonNullable<typeof project>>(sql`SELECT p.id,p.title,p.slug,p.cover_image,m.role FROM workspaces p JOIN workspace_members m ON m.workspace_id=p.id
         WHERE p.id=${projectId}::uuid AND m.user_id=${user.id}::uuid AND p.deleted_at IS NULL`);
       if(!access)return {success:false as const,error:'chat_not_member'};
       project=access;
     }
     const rows = await chatRows<Row>(sql`
       WITH eligible AS (
-        SELECT ${shareDestinationWorkspaceion(user.id)}, coalesce(c.last_message_at,m.joined_at)::text AS sort_time,
+        SELECT ${shareDestinationProjection(user.id)}, coalesce(c.last_message_at,m.joined_at)::text AS sort_time,
           left(lower(coalesce(c.name,c.title,c.id::text)),300) AS sort_name,
           m.starred::int AS sort_star, c.is_default::int AS sort_default
         FROM chat_channel_members m JOIN chat_channels c ON c.id = m.channel_id
-        LEFT JOIN projects p ON p.id = c.project_id
+        LEFT JOIN workspaces p ON p.id = c.workspace_id
         WHERE m.user_id = ${user.id}::uuid AND m.archived_at IS NULL AND c.archived_at IS NULL
-          AND (c.project_id IS NULL OR (p.id IS NOT NULL AND p.deleted_at IS NULL)) AND ${filter}
+          AND (c.workspace_id IS NULL OR (p.id IS NOT NULL AND p.deleted_at IS NULL)) AND ${filter}
       )
       SELECT * FROM eligible WHERE ${after} AND (${query === ""} OR
         concat_ws(' ',name,title,dm_user->>'full_name',dm_user->>'username',project_title) ILIKE ${pattern} ESCAPE '\\')
@@ -78,8 +78,8 @@ export async function getShareDestination(input:{channelId:string;expectedActorI
   if(!user||input?.expectedActorId!==user.id)return unauthorized;
   if(!isUuid(input.channelId))return invalidInput;
   try {
-    const [channel]=await chatRows<ShareDestination>(sql`SELECT ${shareDestinationWorkspaceion(user.id)}, TRUE AS is_member
-      FROM chat_channel_members m JOIN chat_channels c ON c.id=m.channel_id LEFT JOIN projects p ON p.id=c.project_id
+    const [channel]=await chatRows<ShareDestination>(sql`SELECT ${shareDestinationProjection(user.id)}, TRUE AS is_member
+      FROM chat_channel_members m JOIN chat_channels c ON c.id=m.channel_id LEFT JOIN workspaces p ON p.id=c.workspace_id
       WHERE m.user_id=${user.id}::uuid AND c.id=${input.channelId}::uuid`);
     if(!channel)return {success:false as const,error:'chat_not_member'};
     return {success:true as const,viewerId:user.id,channel};
@@ -101,10 +101,10 @@ export async function listShareWorkspaces(input:{expectedActorId:string;query?:s
     const rows=await chatRows<ShareWorkspace&{sort_name:string}>(sql`
       SELECT p.id,p.title,p.slug,p.cover_image,m.role,left(lower(p.title),300) AS sort_name,
         (SELECT count(*)::int FROM chat_channel_members cm JOIN chat_channels c ON c.id=cm.channel_id
-          WHERE cm.user_id=${user.id}::uuid AND c.project_id=p.id AND c.application_id IS NULL AND cm.archived_at IS NULL AND c.archived_at IS NULL) AS joined_channels,
+          WHERE cm.user_id=${user.id}::uuid AND c.workspace_id=p.id AND c.application_id IS NULL AND cm.archived_at IS NULL AND c.archived_at IS NULL) AS joined_channels,
         (SELECT coalesce(sum(cm.mention_count),0)::int FROM chat_channel_members cm JOIN chat_channels c ON c.id=cm.channel_id
-          WHERE cm.user_id=${user.id}::uuid AND c.project_id=p.id AND cm.archived_at IS NULL AND c.archived_at IS NULL) AS mention_count
-      FROM project_members m JOIN projects p ON p.id=m.project_id WHERE m.user_id=${user.id}::uuid AND p.deleted_at IS NULL
+          WHERE cm.user_id=${user.id}::uuid AND c.workspace_id=p.id AND cm.archived_at IS NULL AND c.archived_at IS NULL) AS mention_count
+      FROM workspace_members m JOIN workspaces p ON p.id=m.workspace_id WHERE m.user_id=${user.id}::uuid AND p.deleted_at IS NULL
         AND (${query===''} OR concat_ws(' ',p.title,p.slug) ILIKE ${pattern} ESCAPE '\\')
         AND ${cursor?sql`(left(lower(p.title),300),p.id)>(${cursor.name},${cursor.id}::uuid)`:sql`TRUE`}
       ORDER BY sort_name,p.id LIMIT ${limit+1}`);

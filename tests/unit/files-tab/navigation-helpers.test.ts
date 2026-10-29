@@ -13,7 +13,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { ancestorChain } from "@/components/workspaces/v2/files-tab/navigation";
 import { encodePath, splitEncoded } from "@/components/workspaces/v2/files-tab/url";
 
@@ -29,8 +29,8 @@ type NodeInit = {
   path?: string;
 };
 
-/** Builds a minimal ProjectNode that satisfies the fields the helpers read. */
-function node(init: NodeInit): ProjectNode {
+/** Builds a minimal WorkspaceNode that satisfies the fields the helpers read. */
+function node(init: NodeInit): WorkspaceNode {
   return {
     id: init.id,
     projectId: "proj-1",
@@ -52,8 +52,8 @@ function node(init: NodeInit): ProjectNode {
   };
 }
 
-function buildTree(inits: NodeInit[]): Record<string, ProjectNode> {
-  const out: Record<string, ProjectNode> = {};
+function buildTree(inits: NodeInit[]): Record<string, WorkspaceNode> {
+  const out: Record<string, WorkspaceNode> = {};
   for (const init of inits) out[init.id] = node(init);
   return out;
 }

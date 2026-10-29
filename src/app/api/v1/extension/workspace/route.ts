@@ -7,11 +7,11 @@ import crypto from "crypto";
 import { db } from "@/lib/db";
 import {
   profiles,
-  projects,
-  projectEventCounters,
-  projectMembers,
+  workspaces,
+  workspaceEventCounters,
+  workspaceMembers,
   tasks,
-  projectNodes,
+  workspaceNodes,
   taskNodeLinks,
 } from "@/lib/db/schema";
 import { eq, and, inArray, isNull, isNotNull, or, gt, asc, sql } from "drizzle-orm";
@@ -45,26 +45,26 @@ export async function GET(request: Request) {
     // 1. Fetch user's projects (via project memberships)
     const userProjects = await db
       .select({
-        id: projects.id,
-        name: projects.title,
-        slug: projects.slug,
-        description: projects.description,
-        imageUrl: projects.coverImage,
-        currentSequenceNumber: sql<number>`coalesce(${projectEventCounters.nextSequence}, ${projects.currentSequenceNumber})`,
-        updatedAt: projects.updatedAt,
+        id: workspaces.id,
+        name: workspaces.title,
+        slug: workspaces.slug,
+        description: workspaces.description,
+        imageUrl: workspaces.coverImage,
+        currentSequenceNumber: sql<number>`coalesce(${workspaceEventCounters.nextSequence}, ${workspaces.currentSequenceNumber})`,
+        updatedAt: workspaces.updatedAt,
       })
-      .from(projects)
-      .leftJoin(projectMembers, and(eq(projects.id, projectMembers.projectId),eq(projectMembers.userId,user.id)))
-      .leftJoin(projectEventCounters, eq(projectEventCounters.projectId, projects.id))
+      .from(workspaces)
+      .leftJoin(workspaceMembers, and(eq(workspaces.id, workspaceMembers.projectId),eq(workspaceMembers.userId,user.id)))
+      .leftJoin(workspaceEventCounters, eq(workspaceEventCounters.projectId, workspaces.id))
       .where(
-        and(or(eq(projects.ownerId,user.id),isNotNull(projectMembers.id)),isNull(projects.deletedAt),requestedProjectId?eq(projects.id,requestedProjectId):requestedSlug?eq(projects.slug,requestedSlug):cursor?gt(projects.id,cursor):undefined),
-      ).orderBy(asc(projects.id)).limit(26);
+        and(or(eq(workspaces.ownerId,user.id),isNotNull(workspaceMembers.id)),isNull(workspaces.deletedAt),requestedProjectId?eq(workspaces.id,requestedProjectId):requestedSlug?eq(workspaces.slug,requestedSlug):cursor?gt(workspaces.id,cursor):undefined),
+      ).orderBy(asc(workspaces.id)).limit(26);
 
     const filteredProjects=userProjects.slice(0,25);
     const projectPage={hasMore:userProjects.length>25,nextCursor:userProjects.length>25?filteredProjects.at(-1)!.id:null};
 
     const projectIds = filteredProjects.map((project) => project.id);
-    const fileCounts=projectIds.length?await db.select({projectId:projectNodes.projectId,count:sql<number>`count(*)::int`}).from(projectNodes).where(and(inArray(projectNodes.projectId,projectIds),eq(projectNodes.type,"file"),isNull(projectNodes.deletedAt))).groupBy(projectNodes.projectId):[];
+    const fileCounts=projectIds.length?await db.select({projectId:workspaceNodes.projectId,count:sql<number>`count(*)::int`}).from(workspaceNodes).where(and(inArray(workspaceNodes.projectId,projectIds),eq(workspaceNodes.type,"file"),isNull(workspaceNodes.deletedAt))).groupBy(workspaceNodes.projectId):[];
     const fileCountMap=new Map(fileCounts.map(row=>[row.projectId,Number(row.count)]));
     if (projectIds.length === 0) {
       return jsonSuccess({
@@ -116,8 +116,8 @@ export async function GET(request: Request) {
 
     // Org rules (report §16.11, §23): members see masters and their own copies, and no Admins-only folders.
     const seesAllOf = (projectRef: ReturnType<typeof sql>) => sql`EXISTS (
-      SELECT 1 FROM projects pr WHERE pr.id = ${projectRef} AND (pr.kind <> 'organization' OR pr.owner_id = ${user.id}::uuid
-        OR EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = pr.id AND pm.user_id = ${user.id}::uuid AND pm.role = 'admin'))
+      SELECT 1 FROM workspaces pr WHERE pr.id = ${projectRef} AND (pr.kind <> 'organization' OR pr.owner_id = ${user.id}::uuid
+        OR EXISTS (SELECT 1 FROM workspace_members pm WHERE pm.workspace_id = pr.id AND pm.user_id = ${user.id}::uuid AND pm.role = 'admin'))
     )`;
     const [taskRowsResult, rootNodeIdRowsResult, taskFileCountMap, projectTaskCountMap] =
       await Promise.all([
@@ -125,10 +125,10 @@ export async function GET(request: Request) {
           SELECT t.*
           FROM unnest(ARRAY[${sql.join(projectIds.map(id => sql`${id}::uuid`), sql`, `)}]::uuid[]) AS p(id)
           CROSS JOIN LATERAL (
-            SELECT id, project_id AS "projectId", title, description, status, priority,
+            SELECT id, workspace_id AS "projectId", title, description, status, priority,
                    task_number AS "taskNumber", updated_at AS "updatedAt"
             FROM tasks
-            WHERE project_id = p.id AND deleted_at IS NULL
+            WHERE workspace_id = p.id AND deleted_at IS NULL
               AND (${seesAllOf(sql`p.id`)} OR (kind = 'assignment' AND assignment_id IS NULL) OR assignee_id = ${user.id}::uuid
                 OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = tasks.id AND tm.user_id = ${user.id}::uuid))
             ORDER BY updated_at DESC
@@ -140,8 +140,8 @@ export async function GET(request: Request) {
           FROM unnest(ARRAY[${sql.join(projectIds.map(id => sql`${id}::uuid`), sql`, `)}]::uuid[]) AS p(id)
           CROSS JOIN LATERAL (
             SELECT id
-            FROM project_nodes
-            WHERE project_id = p.id
+            FROM workspace_nodes
+            WHERE workspace_id = p.id
               AND parent_id IS NULL
               AND deleted_at IS NULL
               AND (metadata->>'access' IS DISTINCT FROM 'admins' OR ${seesAllOf(sql`p.id`)})
@@ -158,16 +158,16 @@ export async function GET(request: Request) {
       ? []
       : await db
           .select({
-            node: projectNodes,
+            node: workspaceNodes,
             linkedTaskId: tasks.id,
             linkedTaskTitle: tasks.title,
             linkedTaskNumber: tasks.taskNumber,
           })
-          .from(projectNodes)
-          .leftJoin(taskNodeLinks, eq(projectNodes.id, taskNodeLinks.nodeId))
+          .from(workspaceNodes)
+          .leftJoin(taskNodeLinks, eq(workspaceNodes.id, taskNodeLinks.nodeId))
           .leftJoin(tasks, and(eq(taskNodeLinks.taskId, tasks.id), isNull(tasks.deletedAt)))
-          .where(inArray(projectNodes.id, rootNodeIds))
-          .orderBy(projectNodes.projectId, projectNodes.type, projectNodes.name, projectNodes.id);
+          .where(inArray(workspaceNodes.id, rootNodeIds))
+          .orderBy(workspaceNodes.projectId, workspaceNodes.type, workspaceNodes.name, workspaceNodes.id);
 
     const taskRows = taskRowsResult as unknown as Array<{
       id: string;

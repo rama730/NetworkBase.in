@@ -8,7 +8,7 @@ export const counterRefreshMarkerKey = (userId: string) => `profile_counters:que
 
 function dispatchRefresh(userId: string) {
     return inngest.send({
-        name: "workspace/counters.refresh",
+        name: "my-work/counters.refresh",
         data: { userId },
     });
 }

@@ -6,7 +6,7 @@ import {
     requireAuthenticatedUser,
 } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
-import { projectEventCounters, projectNodeEvents, projectNodes, projects, taskNodeLinks, tasks } from "@/lib/db/schema";
+import { workspaceEventCounters, workspaceNodeEvents, workspaceNodes, workspaces, taskNodeLinks, tasks } from "@/lib/db/schema";
 import { and, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { isLooseUuid } from "@/lib/validations/uuid";
@@ -73,45 +73,45 @@ export async function GET(
 
     const [projectSequence] = await db
         .select({
-            currentSequence: sql<number>`coalesce(${projectEventCounters.nextSequence}, ${projects.currentSequenceNumber})`,
+            currentSequence: sql<number>`coalesce(${workspaceEventCounters.nextSequence}, ${workspaces.currentSequenceNumber})`,
         })
-        .from(projects)
-        .leftJoin(projectEventCounters, eq(projectEventCounters.projectId, projects.id))
-        .where(eq(projects.id, projectId))
+        .from(workspaces)
+        .leftJoin(workspaceEventCounters, eq(workspaceEventCounters.projectId, workspaces.id))
+        .where(eq(workspaces.id, projectId))
         .limit(1);
 
     const rows = await db
         .select({
-            id: projectNodeEvents.id,
-            nodeId: projectNodeEvents.nodeId,
-            actorId: projectNodeEvents.actorId,
-            type: projectNodeEvents.type,
-            sequenceNumber: projectNodeEvents.sequenceNumber,
-            metadata: projectNodeEvents.metadata,
-            createdAt: projectNodeEvents.createdAt,
+            id: workspaceNodeEvents.id,
+            nodeId: workspaceNodeEvents.nodeId,
+            actorId: workspaceNodeEvents.actorId,
+            type: workspaceNodeEvents.type,
+            sequenceNumber: workspaceNodeEvents.sequenceNumber,
+            metadata: workspaceNodeEvents.metadata,
+            createdAt: workspaceNodeEvents.createdAt,
             node: {
-                id: projectNodes.id,
-                parentId: projectNodes.parentId,
-                name: projectNodes.name,
-                type: projectNodes.type,
-                path: projectNodes.path,
-                size: projectNodes.size,
-                mimeType: projectNodes.mimeType,
-                currentVersion: projectNodes.currentVersion,
-                syncStatus: projectNodes.syncStatus,
-                updatedAt: projectNodes.updatedAt,
-                deletedAt: projectNodes.deletedAt,
+                id: workspaceNodes.id,
+                parentId: workspaceNodes.parentId,
+                name: workspaceNodes.name,
+                type: workspaceNodes.type,
+                path: workspaceNodes.path,
+                size: workspaceNodes.size,
+                mimeType: workspaceNodes.mimeType,
+                currentVersion: workspaceNodes.currentVersion,
+                syncStatus: workspaceNodes.syncStatus,
+                updatedAt: workspaceNodes.updatedAt,
+                deletedAt: workspaceNodes.deletedAt,
             },
         })
-        .from(projectNodeEvents)
-        .leftJoin(projectNodes, eq(projectNodeEvents.nodeId, projectNodes.id))
+        .from(workspaceNodeEvents)
+        .leftJoin(workspaceNodes, eq(workspaceNodeEvents.nodeId, workspaceNodes.id))
         .where(
             and(
-                eq(projectNodeEvents.projectId, projectId),
-                gt(projectNodeEvents.sequenceNumber, since)
+                eq(workspaceNodeEvents.projectId, projectId),
+                gt(workspaceNodeEvents.sequenceNumber, since)
             )
         )
-        .orderBy(projectNodeEvents.sequenceNumber)
+        .orderBy(workspaceNodeEvents.sequenceNumber)
         .limit(limit + 1);
 
     const hasMore = rows.length > limit;

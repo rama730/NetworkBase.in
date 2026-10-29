@@ -5,7 +5,7 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { db } from '@/lib/db';
-import { contentReports, projectDocs, projects, projectUpdateComments, projectUpdates, taskComments, tasks } from '@/lib/db/schema';
+import { contentReports, workspaceDocuments, workspaces, workspaceUpdateComments, workspaceUpdates, taskComments, tasks } from '@/lib/db/schema';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { logger } from '@/lib/logger';
 import { notifyOrg, orgHref, orgLabel } from '@/lib/organizations/notify';
@@ -40,9 +40,9 @@ async function platformAdmin() {
 /** The project a reported thing belongs to, when it still exists. */
 async function reportedProject(kind: ReportTargetKind, id: string): Promise<string | null> {
     const row = kind === 'project' ? { projectId: id }
-        : kind === 'update' ? (await db.select({ projectId: projectUpdates.projectId }).from(projectUpdates).where(and(eq(projectUpdates.id, id), isNull(projectUpdates.deletedAt))).limit(1))[0]
-        : kind === 'update_comment' ? (await db.select({ projectId: projectUpdates.projectId }).from(projectUpdateComments).innerJoin(projectUpdates, eq(projectUpdates.id, projectUpdateComments.updateId)).where(and(eq(projectUpdateComments.id, id), isNull(projectUpdateComments.deletedAt))).limit(1))[0]
-        : kind === 'doc' ? (await db.select({ projectId: projectDocs.projectId }).from(projectDocs).where(eq(projectDocs.id, id)).limit(1))[0]
+        : kind === 'update' ? (await db.select({ projectId: workspaceUpdates.projectId }).from(workspaceUpdates).where(and(eq(workspaceUpdates.id, id), isNull(workspaceUpdates.deletedAt))).limit(1))[0]
+        : kind === 'update_comment' ? (await db.select({ projectId: workspaceUpdates.projectId }).from(workspaceUpdateComments).innerJoin(workspaceUpdates, eq(workspaceUpdates.id, workspaceUpdateComments.updateId)).where(and(eq(workspaceUpdateComments.id, id), isNull(workspaceUpdateComments.deletedAt))).limit(1))[0]
+        : kind === 'doc' ? (await db.select({ projectId: workspaceDocuments.projectId }).from(workspaceDocuments).where(eq(workspaceDocuments.id, id)).limit(1))[0]
         : (await db.select({ projectId: tasks.projectId }).from(taskComments).innerJoin(tasks, eq(tasks.id, taskComments.taskId)).where(and(eq(taskComments.id, id), isNull(taskComments.deletedAt))).limit(1))[0];
     return row?.projectId ?? null;
 }
@@ -94,7 +94,7 @@ export async function hideFromDiscoverAction(reportId: string): Promise<{ succes
     if (!admin) return DENIED;
     const report = await resolve(reportId, admin.id, 'actioned', 'hidden');
     if (!report?.projectId) return { success: false, error: 'Report not found.' };
-    await db.update(projects).set({ discoverHiddenAt: new Date() }).where(eq(projects.id, report.projectId));
+    await db.update(workspaces).set({ discoverHiddenAt: new Date() }).where(eq(workspaces.id, report.projectId));
     return { success: true };
 }
 
@@ -108,13 +108,13 @@ export async function removeReportedContentAction(reportId: string): Promise<{ s
     const now = new Date();
     let authorId: string | null = null;
     if (report.targetKind === 'update') {
-        [{ authorId } = { authorId: null }] = await db.update(projectUpdates).set({ deletedAt: now }).where(eq(projectUpdates.id, report.targetId)).returning({ authorId: projectUpdates.authorId });
+        [{ authorId } = { authorId: null }] = await db.update(workspaceUpdates).set({ deletedAt: now }).where(eq(workspaceUpdates.id, report.targetId)).returning({ authorId: workspaceUpdates.authorId });
     } else if (report.targetKind === 'update_comment') {
-        [{ authorId } = { authorId: null }] = await db.update(projectUpdateComments).set({ deletedAt: now }).where(eq(projectUpdateComments.id, report.targetId)).returning({ authorId: projectUpdateComments.userId });
+        [{ authorId } = { authorId: null }] = await db.update(workspaceUpdateComments).set({ deletedAt: now }).where(eq(workspaceUpdateComments.id, report.targetId)).returning({ authorId: workspaceUpdateComments.userId });
     } else if (report.targetKind === 'task_comment') {
         [{ authorId } = { authorId: null }] = await db.update(taskComments).set({ deletedAt: now }).where(eq(taskComments.id, report.targetId)).returning({ authorId: taskComments.userId });
     } else {
-        await db.delete(projectDocs).where(eq(projectDocs.id, report.targetId));
+        await db.delete(workspaceDocuments).where(eq(workspaceDocuments.id, report.targetId));
     }
     await resolve(reportId, admin.id, 'actioned', 'removed');
     // "Your post was removed: <reason>" to the author (report §26.3 E), in the tray.
@@ -133,8 +133,8 @@ export async function suspendOrgAction(input: z.input<typeof suspendSchema>): Pr
     if (!admin) return DENIED;
     const parsed = suspendSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: 'Give the reason the owner will see.' };
-    const updated = await db.update(projects).set({ suspendedAt: new Date(), suspendReason: parsed.data.reason, updatedAt: new Date() })
-        .where(and(eq(projects.id, parsed.data.orgId), eq(projects.kind, 'organization'))).returning({ ownerId: projects.ownerId });
+    const updated = await db.update(workspaces).set({ suspendedAt: new Date(), suspendReason: parsed.data.reason, updatedAt: new Date() })
+        .where(and(eq(workspaces.id, parsed.data.orgId), eq(workspaces.kind, 'organization'))).returning({ ownerId: workspaces.ownerId });
     if (!updated.length) return { success: false, error: 'Organization not found.' };
     if (parsed.data.reportId) await resolve(parsed.data.reportId, admin.id, 'actioned', 'suspended');
     const org = await orgLabel(parsed.data.orgId);
@@ -148,10 +148,10 @@ export async function suspendOrgAction(input: z.input<typeof suspendSchema>): Pr
 export async function unsuspendOrgAction(orgId: string): Promise<{ success: true } | Failure> {
     const admin = await platformAdmin();
     if (!admin) return DENIED;
-    await db.update(projects).set({ suspendedAt: null, suspendReason: null, updatedAt: new Date() }).where(eq(projects.id, orgId));
+    await db.update(workspaces).set({ suspendedAt: null, suspendReason: null, updatedAt: new Date() }).where(eq(workspaces.id, orgId));
     const org = await orgLabel(orgId);
     if (org) {
-        const [row] = await db.select({ ownerId: projects.ownerId }).from(projects).where(eq(projects.id, orgId)).limit(1);
+        const [row] = await db.select({ ownerId: workspaces.ownerId }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
         await notifyOrg({ orgId, eventKey: 'org.lifecycle', to: [row!.ownerId], title: `${org.title} is no longer suspended`, href: orgHref(org), sourceEventId: `unsuspended:${orgId}:${Date.now()}` });
     }
     revalidatePath('/admin/reports');
@@ -167,13 +167,13 @@ export async function requestOrgVerificationAction(orgId: string): Promise<{ suc
     if (!user) return DENIED;
     const access = await getWorkspaceAccessById(orgId, user.id);
     if (access.project?.kind !== 'organization' || !access.isOwner) return DENIED;
-    const [org] = await db.select({ links: projects.externalLinks, verifiedAt: projects.verifiedAt }).from(projects).where(eq(projects.id, orgId)).limit(1);
+    const [org] = await db.select({ links: workspaces.externalLinks, verifiedAt: workspaces.verifiedAt }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
     if (org?.verifiedAt) return { success: true, verified: true };
     const websites = linkUrls(org?.links);
     const domain = user.email_confirmed_at ? verificationDomain(user.email, websites) : null;
-    await db.update(projects).set(domain
+    await db.update(workspaces).set(domain
         ? { verifiedAt: new Date(), verificationDomain: domain, verificationRequestedAt: null }
-        : { verificationRequestedAt: new Date() }).where(eq(projects.id, orgId));
+        : { verificationRequestedAt: new Date() }).where(eq(workspaces.id, orgId));
     revalidatePath(`/org/${access.project.slug ?? orgId}`);
     return { success: true, verified: Boolean(domain) };
 }
@@ -181,10 +181,10 @@ export async function requestOrgVerificationAction(orgId: string): Promise<{ suc
 export async function decideOrgVerificationAction(orgId: string, approve: boolean): Promise<{ success: true } | Failure> {
     const admin = await platformAdmin();
     if (!admin) return DENIED;
-    await db.update(projects).set(approve ? { verifiedAt: new Date(), verificationRequestedAt: null } : { verificationRequestedAt: null })
-        .where(and(eq(projects.id, orgId), eq(projects.kind, 'organization')));
+    await db.update(workspaces).set(approve ? { verifiedAt: new Date(), verificationRequestedAt: null } : { verificationRequestedAt: null })
+        .where(and(eq(workspaces.id, orgId), eq(workspaces.kind, 'organization')));
     const org = await orgLabel(orgId);
-    const [row] = await db.select({ ownerId: projects.ownerId }).from(projects).where(eq(projects.id, orgId)).limit(1);
+    const [row] = await db.select({ ownerId: workspaces.ownerId }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
     if (org && row) {
         await notifyOrg({ orgId, eventKey: 'org.lifecycle', to: [row.ownerId], title: approve ? `${org.title} is verified` : `${org.title} wasn’t verified this time`, href: orgHref(org, '?tab=settings'), sourceEventId: `verification:${orgId}:${Date.now()}` });
     }
@@ -197,21 +197,21 @@ export async function readAdminReportsAction() {
     const admin = await platformAdmin();
     if (!admin) return null;
     const reports = await db.execute<{ id: string; target_kind: ReportTargetKind; target_id: string; reason: string; details: string | null; created_at: string; project_id: string | null; project_title: string | null; project_slug: string | null; project_kind: string | null; suspended: boolean; excerpt: string | null; reports: number }>(sql`
-        SELECT DISTINCT ON (r.target_kind, r.target_id) r.id, r.target_kind, r.target_id, r.reason, r.details, r.created_at, r.project_id,
+        SELECT DISTINCT ON (r.target_kind, r.target_id) r.id, r.target_kind, r.target_id, r.reason, r.details, r.created_at, r.workspace_id AS project_id,
           p.title AS project_title, p.slug AS project_slug, p.kind AS project_kind, (p.suspended_at IS NOT NULL) AS suspended,
           CASE r.target_kind
-            WHEN 'update' THEN (SELECT left(u.content, 200) FROM project_updates u WHERE u.id = r.target_id)
-            WHEN 'update_comment' THEN (SELECT left(c.content, 200) FROM project_update_comments c WHERE c.id = r.target_id)
+            WHEN 'update' THEN (SELECT left(u.content, 200) FROM workspace_updates u WHERE u.id = r.target_id)
+            WHEN 'update_comment' THEN (SELECT left(c.content, 200) FROM workspace_update_comments c WHERE c.id = r.target_id)
             WHEN 'task_comment' THEN (SELECT left(c.content, 200) FROM task_comments c WHERE c.id = r.target_id)
-            WHEN 'doc' THEN (SELECT d.slug FROM project_docs d WHERE d.id = r.target_id)
+            WHEN 'doc' THEN (SELECT d.slug FROM workspace_documents d WHERE d.id = r.target_id)
           END AS excerpt,
           (SELECT count(*)::int FROM content_reports o WHERE o.target_kind = r.target_kind AND o.target_id = r.target_id AND o.status = 'open') AS reports
-        FROM content_reports r LEFT JOIN projects p ON p.id = r.project_id
+        FROM content_reports r LEFT JOIN workspaces p ON p.id = r.workspace_id
         WHERE r.status = 'open' ORDER BY r.target_kind, r.target_id, r.created_at DESC LIMIT 200`);
-    const verification = await db.select({ id: projects.id, title: projects.title, slug: projects.slug, links: projects.externalLinks, requestedAt: projects.verificationRequestedAt })
-        .from(projects).where(and(eq(projects.kind, 'organization'), sql`${projects.verificationRequestedAt} IS NOT NULL`, isNull(projects.verifiedAt), isNull(projects.deletedAt)));
-    const suspended = await db.select({ id: projects.id, title: projects.title, slug: projects.slug, reason: projects.suspendReason, at: projects.suspendedAt })
-        .from(projects).where(and(eq(projects.kind, 'organization'), sql`${projects.suspendedAt} IS NOT NULL`, isNull(projects.deletedAt)));
+    const verification = await db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, links: workspaces.externalLinks, requestedAt: workspaces.verificationRequestedAt })
+        .from(workspaces).where(and(eq(workspaces.kind, 'organization'), sql`${workspaces.verificationRequestedAt} IS NOT NULL`, isNull(workspaces.verifiedAt), isNull(workspaces.deletedAt)));
+    const suspended = await db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, reason: workspaces.suspendReason, at: workspaces.suspendedAt })
+        .from(workspaces).where(and(eq(workspaces.kind, 'organization'), sql`${workspaces.suspendedAt} IS NOT NULL`, isNull(workspaces.deletedAt)));
     return {
         reports: [...reports].sort((a, b) => b.created_at.localeCompare(a.created_at)),
         verification: verification.map((v) => ({ ...v, websites: linkUrls(v.links), requestedAt: v.requestedAt?.toISOString() ?? null, links: undefined })),

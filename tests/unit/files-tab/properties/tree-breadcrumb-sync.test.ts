@@ -38,7 +38,7 @@ import { before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import fc from "fast-check";
 
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import {
   ancestorChain,
   type CurrentLocation,
@@ -124,13 +124,13 @@ const treeSpecArb: fc.Arbitrary<TreeSpec> = fc.letrec<{ tree: TreeSpec }>(
 ).tree;
 
 // ---------------------------------------------------------------------------
-// Materialize a `TreeSpec` into a `Record<id, ProjectNode>` + a flat id list.
+// Materialize a `TreeSpec` into a `Record<id, WorkspaceNode>` + a flat id list.
 // Ids are assigned deterministically by DFS order so the property's
 // counter-examples are stable under shrinking.
 // ---------------------------------------------------------------------------
 
 interface Materialized {
-  nodesById: Record<string, ProjectNode>;
+  nodesById: Record<string, WorkspaceNode>;
   nodeIds: string[]; // every id in the tree, DFS pre-order
 }
 
@@ -138,7 +138,7 @@ function buildNode(
   id: string,
   parentId: string | null,
   spec: TreeSpec,
-): ProjectNode {
+): WorkspaceNode {
   const now = new Date("2026-01-01T00:00:00Z");
   return {
     id,
@@ -162,7 +162,7 @@ function buildNode(
 }
 
 function materialize(root: TreeSpec): Materialized {
-  const nodesById: Record<string, ProjectNode> = {};
+  const nodesById: Record<string, WorkspaceNode> = {};
   const nodeIds: string[] = [];
   let counter = 0;
 
@@ -202,7 +202,7 @@ function navigationActionsArb(
 // ---------------------------------------------------------------------------
 
 function toCurrentLocation(
-  nodesById: Record<string, ProjectNode>,
+  nodesById: Record<string, WorkspaceNode>,
   id: string | null,
 ): CurrentLocation {
   if (id === null) return { type: "root" };

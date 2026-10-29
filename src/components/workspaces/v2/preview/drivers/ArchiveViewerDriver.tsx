@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { formatBytes } from "../../files-tab/folder/format";
 import * as fflate from "fflate";
 
@@ -25,7 +25,7 @@ interface ArchiveEntry {
 }
 
 interface ArchiveViewerDriverProps {
-  node: ProjectNode;
+  node: WorkspaceNode;
   signedUrl: string;
 }
 

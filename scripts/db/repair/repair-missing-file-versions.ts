@@ -14,7 +14,7 @@ import { and, asc, eq, gt, isNotNull, isNull, sql } from "drizzle-orm";
 
 import {
   fileVersions,
-  projectNodes,
+  workspaceNodes,
   storageAssets,
   storageRepairFailures,
 } from "../../../src/lib/db/schema";
@@ -45,26 +45,26 @@ let db: (typeof import("../../../src/lib/db"))["db"];
 
 async function fetchCandidates(afterId: string | null): Promise<Candidate[]> {
   return db.select({
-    id: projectNodes.id,
-    projectId: projectNodes.projectId,
-    s3Key: projectNodes.s3Key,
-    size: projectNodes.size,
-    mimeType: projectNodes.mimeType,
-    currentVersion: projectNodes.currentVersion,
+    id: workspaceNodes.id,
+    projectId: workspaceNodes.projectId,
+    s3Key: workspaceNodes.s3Key,
+    size: workspaceNodes.size,
+    mimeType: workspaceNodes.mimeType,
+    currentVersion: workspaceNodes.currentVersion,
   })
-    .from(projectNodes)
+    .from(workspaceNodes)
     .where(and(
-      eq(projectNodes.type, "file"),
-      isNull(projectNodes.deletedAt),
-      isNotNull(projectNodes.s3Key),
-      afterId ? gt(projectNodes.id, afterId) : undefined,
+      eq(workspaceNodes.type, "file"),
+      isNull(workspaceNodes.deletedAt),
+      isNotNull(workspaceNodes.s3Key),
+      afterId ? gt(workspaceNodes.id, afterId) : undefined,
       sql`NOT EXISTS (
         SELECT 1 FROM ${fileVersions}
-        WHERE ${fileVersions.nodeId} = ${projectNodes.id}
-          AND ${fileVersions.version} = ${projectNodes.currentVersion}
+        WHERE ${fileVersions.nodeId} = ${workspaceNodes.id}
+          AND ${fileVersions.version} = ${workspaceNodes.currentVersion}
       )`,
     ))
-    .orderBy(asc(projectNodes.id))
+    .orderBy(asc(workspaceNodes.id))
     .limit(BATCH_SIZE);
 }
 
@@ -154,9 +154,9 @@ async function repairCandidate(
 
   return db.transaction(async (tx) => {
     await tx.execute(sql`SELECT set_config('app.maintenance_operation', 'version_repair', true)`);
-    await tx.execute(sql`SELECT id FROM project_nodes WHERE id = ${candidate.id} FOR UPDATE`);
-    const current = await tx.query.projectNodes.findFirst({
-      where: eq(projectNodes.id, candidate.id),
+    await tx.execute(sql`SELECT id FROM workspace_nodes WHERE id = ${candidate.id} FOR UPDATE`);
+    const current = await tx.query.workspaceNodes.findFirst({
+      where: eq(workspaceNodes.id, candidate.id),
       columns: {
         id: true,
         projectId: true,
@@ -238,12 +238,12 @@ async function repairCandidate(
         repairedAt: new Date().toISOString(),
       },
     });
-    await tx.update(projectNodes)
+    await tx.update(workspaceNodes)
       .set({ assetId: asset.id, updatedAt: new Date() })
       .where(and(
-        eq(projectNodes.id, candidate.id),
-        eq(projectNodes.s3Key, storageKey),
-        eq(projectNodes.currentVersion, candidate.currentVersion),
+        eq(workspaceNodes.id, candidate.id),
+        eq(workspaceNodes.s3Key, storageKey),
+        eq(workspaceNodes.currentVersion, candidate.currentVersion),
       ));
     await tx.update(storageRepairFailures)
       .set({ resolvedAt: new Date(), updatedAt: new Date() })

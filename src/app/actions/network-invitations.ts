@@ -133,33 +133,33 @@ export async function readNetworkInvitationsAction(
             WITH entries AS (
                 ${query.kind === "decided" ? sql`
                 SELECT a.id,'application'::text AS source,'received'::text AS direction,coalesce(a.decision_at,a.updated_at) AS created_at,a.message AS note,
-                    a.project_id,p.title AS project_title,p.slug AS project_slug,coalesce(r.title,r.role,'Role removed') AS role_title,
+                    a.workspace_id AS project_id,p.title AS project_title,p.slug AS project_slug,coalesce(r.title,r.role,'Role removed') AS role_title,
                     a.status::text AS application_status,a.decision_reason_text AS decision_reason,ch.id AS channel_id,a.decision_reason_code AS decision_code,a.details,a.applicant_id AS actor_id
-                FROM role_applications a JOIN projects p ON p.id=a.project_id LEFT JOIN project_open_roles r ON r.id=a.role_id
+                FROM role_applications a JOIN workspaces p ON p.id=a.workspace_id LEFT JOIN workspace_open_roles r ON r.id=a.role_id
                     LEFT JOIN chat_channels ch ON ch.application_id=a.id
                 WHERE a.status IN ('accepted','rejected','withdrawn') AND a.updated_at>now()-interval '30 days'
-                    AND ${canReviewWorkspaceSql(user.id, sql`a.project_id`)}` : sql`
+                    AND ${canReviewWorkspaceSql(user.id, sql`a.workspace_id`)}` : sql`
                 SELECT c.id,'connection'::text AS source,CASE WHEN c.requester_id=${user.id}::uuid THEN 'sent' ELSE 'received' END AS direction,
                     c.created_at,c.message AS note,NULL::uuid AS project_id,NULL::text AS project_title,NULL::text AS project_slug,NULL::text AS role_title,
                     NULL::text AS application_status,NULL::text AS decision_reason,NULL::uuid AS channel_id,NULL::text AS decision_code,NULL::jsonb AS details,
                     CASE WHEN c.requester_id=${user.id}::uuid THEN c.addressee_id ELSE c.requester_id END AS actor_id
                 FROM connections c WHERE c.status='pending' AND (c.requester_id=${user.id}::uuid OR c.addressee_id=${user.id}::uuid)
                 UNION ALL
-                SELECT i.id,'invitation',CASE WHEN i.inviter_id=${user.id}::uuid THEN 'sent' ELSE 'received' END,i.created_at,i.note,i.project_id,
+                SELECT i.id,'invitation',CASE WHEN i.inviter_id=${user.id}::uuid THEN 'sent' ELSE 'received' END,i.created_at,i.note,i.workspace_id AS project_id,
                     -- A child project's invitation names its org too: "Compiler Lab · CSE-3A" (report §20, unit labels).
-                    p.title||coalesce(' · '||(SELECT o.title FROM projects o WHERE o.id=p.parent_id AND o.deleted_at IS NULL),''),p.slug,
+                    p.title||coalesce(' · '||(SELECT o.title FROM workspaces o WHERE o.id=p.parent_id AND o.deleted_at IS NULL),''),p.slug,
                     coalesce(i.role_title,i.guidance_label,'Collaborator'),NULL,NULL,NULL,NULL,NULL,CASE WHEN i.inviter_id=${user.id}::uuid THEN i.candidate_id ELSE i.inviter_id END
-                FROM project_invitations i JOIN projects p ON p.id=i.project_id
+                FROM workspace_invitations i JOIN workspaces p ON p.id=i.workspace_id
                 WHERE i.status='pending' AND i.expires_at>now() AND p.deleted_at IS NULL AND (i.inviter_id=${user.id}::uuid OR i.candidate_id=${user.id}::uuid)
                 UNION ALL
-                SELECT a.id,'application','received',${pendingApplicationDate},a.message,a.project_id,p.title,p.slug,coalesce(r.title,r.role,'Role removed'),NULL,NULL,ch.id,NULL,a.details,a.applicant_id
-                FROM role_applications a JOIN projects p ON p.id=a.project_id LEFT JOIN project_open_roles r ON r.id=a.role_id
+                SELECT a.id,'application','received',${pendingApplicationDate},a.message,a.workspace_id AS project_id,p.title,p.slug,coalesce(r.title,r.role,'Role removed'),NULL,NULL,ch.id,NULL,a.details,a.applicant_id
+                FROM role_applications a JOIN workspaces p ON p.id=a.workspace_id LEFT JOIN workspace_open_roles r ON r.id=a.role_id
                     LEFT JOIN chat_channels ch ON ch.application_id=a.id
-                WHERE a.status='pending' AND ${canReviewWorkspaceSql(user.id, sql`a.project_id`)}
+                WHERE a.status='pending' AND ${canReviewWorkspaceSql(user.id, sql`a.workspace_id`)}
                 UNION ALL
-                SELECT a.id,'application','sent',${applicationActivityDate},a.message,a.project_id,p.title,p.slug,coalesce(r.title,r.role,'Role removed'),
+                SELECT a.id,'application','sent',${applicationActivityDate},a.message,a.workspace_id AS project_id,p.title,p.slug,coalesce(r.title,r.role,'Role removed'),
                     a.status::text,a.decision_reason_text,ch.id,a.decision_reason_code,NULL,p.owner_id
-                FROM role_applications a JOIN projects p ON p.id=a.project_id LEFT JOIN project_open_roles r ON r.id=a.role_id
+                FROM role_applications a JOIN workspaces p ON p.id=a.workspace_id LEFT JOIN workspace_open_roles r ON r.id=a.role_id
                     LEFT JOIN chat_channels ch ON ch.application_id=a.id
                 WHERE a.applicant_id=${user.id}::uuid AND p.deleted_at IS NULL
                     AND (a.status='pending' OR (a.status IN ('accepted','rejected','withdrawn') AND a.updated_at>now()-interval '30 days'))`}

@@ -31,17 +31,17 @@ async function withProject(fn: (ids: { owner: string; projectId: string }) => Pr
   try {
     await fn({ owner, projectId });
   } finally {
-    await sql`DELETE FROM file_versions WHERE node_id IN (SELECT id FROM project_nodes WHERE project_id = ${projectId})`;
-    await sql`DELETE FROM task_node_links WHERE task_id IN (SELECT id FROM tasks WHERE project_id = ${projectId})`;
-    await sql`DELETE FROM project_nodes WHERE project_id = ${projectId}`;
-    await sql`DELETE FROM tasks WHERE project_id = ${projectId}`;
-    await sql`DELETE FROM project_members WHERE project_id = ${projectId}`;
-    await sql`DELETE FROM projects WHERE id = ${projectId}`;
+    await sql`DELETE FROM file_versions WHERE node_id IN (SELECT id FROM workspace_nodes WHERE workspace_id = ${projectId})`;
+    await sql`DELETE FROM task_node_links WHERE task_id IN (SELECT id FROM tasks WHERE workspace_id = ${projectId})`;
+    await sql`DELETE FROM workspace_nodes WHERE workspace_id = ${projectId}`;
+    await sql`DELETE FROM tasks WHERE workspace_id = ${projectId}`;
+    await sql`DELETE FROM workspace_members WHERE workspace_id = ${projectId}`;
+    await sql`DELETE FROM workspaces WHERE id = ${projectId}`;
   }
 }
 
 async function createTask(projectId: string) {
-  const [task] = await sql`INSERT INTO tasks (project_id, title) VALUES (${projectId}, 't') RETURNING id`;
+  const [task] = await sql`INSERT INTO tasks (workspace_id, title) VALUES (${projectId}, 't') RETURNING id`;
   return task!.id as string;
 }
 
@@ -51,7 +51,7 @@ test("task system folder: first creation works, repeats are idempotent", async (
     const first = await mutations.getOrCreateTaskSystemFolderAction(projectId, taskId);
     const again = await mutations.getOrCreateTaskSystemFolderAction(projectId, taskId);
     assert.equal(again, first);
-    const rows = await sql`SELECT path FROM project_nodes WHERE project_id = ${projectId} AND deleted_at IS NULL ORDER BY path`;
+    const rows = await sql`SELECT path FROM workspace_nodes WHERE workspace_id = ${projectId} AND deleted_at IS NULL ORDER BY path`;
     assert.deepEqual(rows.map((r) => r.path), ["/.system", "/.system/tasks", `/.system/tasks/${taskId}`]);
   });
 });
@@ -65,8 +65,8 @@ test("task system folder: rejects a malformed id and a task from another project
       await assert.rejects(mutations.getOrCreateTaskSystemFolderAction(projectId, foreignTask), /Task not found/);
       await assert.rejects(mutations.getOrCreateTaskSystemFolderAction(projectId, randomUUID()), /Task not found/);
     } finally {
-      await sql`DELETE FROM tasks WHERE project_id = ${otherProject}`;
-      await sql`DELETE FROM projects WHERE id = ${otherProject}`;
+      await sql`DELETE FROM tasks WHERE workspace_id = ${otherProject}`;
+      await sql`DELETE FROM workspaces WHERE id = ${otherProject}`;
     }
   });
 });
@@ -75,7 +75,7 @@ test("folder-tree upload needs upload access, not just membership", async () => 
   await withProject(async ({ projectId }) => {
     const member = await sql.begin((tx) => createUser(tx));
     await sql.begin((tx) => addMember(tx, projectId, member));
-    await sql`UPDATE project_members SET file_upload_enabled = false WHERE project_id = ${projectId} AND user_id = ${member}`;
+    await sql`UPDATE workspace_members SET file_upload_enabled = false WHERE workspace_id = ${projectId} AND user_id = ${member}`;
     viewerId = member;
     await assert.rejects(
       mutations.bulkCreateFolderTree(projectId, null, [{ path: "a/b.txt", name: "b.txt", size: 1, mimeType: "text/plain" }]),
@@ -85,7 +85,7 @@ test("folder-tree upload needs upload access, not just membership", async () => 
 });
 
 async function insertNode(projectId: string, owner: string, type: "file" | "folder", name: string, path: string, parentId: string | null) {
-  const [row] = await sql`INSERT INTO project_nodes (project_id, type, name, path, parent_id, created_by)
+  const [row] = await sql`INSERT INTO workspace_nodes (workspace_id, type, name, path, parent_id, created_by)
     VALUES (${projectId}, ${type}, ${name}, ${path}, ${parentId}, ${owner}) RETURNING id`;
   return row!.id as string;
 }
@@ -96,10 +96,10 @@ test("a trashed descendant follows its folder's rename and restores under the ne
     const file = await insertNode(projectId, owner, "file", "x.txt", "/A/x.txt", folder);
     await mutations.bulkTrashNodes([file], projectId);
     await mutations.renameNode(folder, "B", projectId);
-    const [trashed] = await sql`SELECT path FROM project_nodes WHERE id = ${file}`;
+    const [trashed] = await sql`SELECT path FROM workspace_nodes WHERE id = ${file}`;
     assert.equal(trashed!.path, "/B/x.txt");
     await mutations.restoreNode(file, projectId);
-    const [restored] = await sql`SELECT path, deleted_at FROM project_nodes WHERE id = ${file}`;
+    const [restored] = await sql`SELECT path, deleted_at FROM workspace_nodes WHERE id = ${file}`;
     assert.equal(restored!.path, "/B/x.txt");
     assert.equal(restored!.deleted_at, null);
   });
@@ -109,7 +109,7 @@ test("folder-tree upload matches existing folders case-insensitively", async () 
   await withProject(async ({ owner, projectId }) => {
     await insertNode(projectId, owner, "folder", "Docs", "/Docs", null);
     await mutations.bulkCreateFolderTree(projectId, null, [{ path: "docs/guide/a.txt", name: "a.txt", size: 1, mimeType: "text/plain" }]);
-    const rows = await sql`SELECT path FROM project_nodes WHERE project_id = ${projectId} AND type = 'folder' AND deleted_at IS NULL ORDER BY path`;
+    const rows = await sql`SELECT path FROM workspace_nodes WHERE workspace_id = ${projectId} AND type = 'folder' AND deleted_at IS NULL ORDER BY path`;
     assert.deepEqual(rows.map((r) => r.path), ["/Docs", "/Docs/guide"]);
   });
 });
@@ -121,7 +121,7 @@ test("renaming a folder never rewrites an unrelated trashed folder that once had
     await mutations.bulkTrashNodes([oldFolder], projectId);
     const liveFolder = await insertNode(projectId, owner, "folder", "A", "/A", null);
     await mutations.renameNode(liveFolder, "C", projectId);
-    const [untouched] = await sql`SELECT path FROM project_nodes WHERE id = ${oldFile}`;
+    const [untouched] = await sql`SELECT path FROM workspace_nodes WHERE id = ${oldFile}`;
     assert.equal(untouched!.path, "/A/old.txt");
   });
 });
@@ -148,7 +148,7 @@ test("version delete reaches any version and keeps the newest as current", async
     const key = `projects/${projectId}/files/a.bin`;
     const [asset] = await sql`INSERT INTO storage_assets (bucket, storage_key, purpose, state, declared_mime_type, declared_size, expires_at, verified_at, verified_size, verified_mime_type)
       VALUES ('project-files', ${key}, 'project_file', 'verified', 'application/octet-stream', 1, now() + interval '1 day', now(), 1, 'application/octet-stream') RETURNING id`;
-    const [node] = await sql`INSERT INTO project_nodes (project_id, type, name, path, created_by, s3_key, asset_id, size, mime_type, current_version)
+    const [node] = await sql`INSERT INTO workspace_nodes (workspace_id, type, name, path, created_by, s3_key, asset_id, size, mime_type, current_version)
       VALUES (${projectId}, 'file', 'a.bin', '/a.bin', ${owner}, ${key}, ${asset!.id}, 1, 'application/octet-stream', 105) RETURNING id`;
     await sql`INSERT INTO file_versions (node_id, version, s3_key, size, mime_type, uploaded_by, asset_id)
       SELECT ${node!.id}, v, ${key}, 1, 'application/octet-stream', ${owner}, ${asset!.id} FROM generate_series(1, 105) v`;
@@ -160,7 +160,7 @@ test("version delete reaches any version and keeps the newest as current", async
       assert.equal(count, 103);
     } finally {
       await sql`DELETE FROM file_versions WHERE node_id = ${node!.id}`;
-      await sql`DELETE FROM project_nodes WHERE id = ${node!.id}`;
+      await sql`DELETE FROM workspace_nodes WHERE id = ${node!.id}`;
       await sql`DELETE FROM storage_asset_deletion_jobs WHERE asset_id = ${asset!.id}`.catch(() => undefined);
     }
   });

@@ -13,7 +13,7 @@ import {
   resolveWritableExtensionFile,
 } from "@/app/api/v1/extension/_file-revision";
 import { db } from "@/lib/db";
-import { fileVersions, projectNodes, storageAssets, uploadIntents } from "@/lib/db/schema";
+import { fileVersions, workspaceNodes, storageAssets, uploadIntents } from "@/lib/db/schema";
 import { recordExtensionMetric } from "@/lib/extension/observability";
 import { applyFileRevision } from "@/lib/files/apply-file-revision";
 import { FILE_REVISION_MODES, normalizeRevisionComment, parseFileRevisionMode } from "@/lib/files/revision-policy";
@@ -67,8 +67,8 @@ async function recoverFinalizedIntent(intent: typeof uploadIntents.$inferSelect)
     ),
     orderBy: [desc(fileVersions.version)],
   });
-  const node = await db.query.projectNodes.findFirst({
-    where: eq(projectNodes.id, nodeId),
+  const node = await db.query.workspaceNodes.findFirst({
+    where: eq(workspaceNodes.id, nodeId),
   });
   if (!version || !node) return null;
 

@@ -212,7 +212,7 @@ test("dedicated save is transactional, idempotent, versioned, audited, and inval
   const action = read("src/app/actions/profile-contributions.ts");
   assert.match(action, /profileContributionBatchSchema\.safeParse/);
   assert.match(action, /db\.transaction/);
-  assert.match(action, /eq\(profileProjectContributions\.version, mutation\.expectedVersion/);
+  assert.match(action, /eq\(profileContributions\.version, mutation\.expectedVersion/);
   assert.match(action, /syncContributionSkillsBatch\(tx/);
   assert.equal(action.match(/markProfileCollaborationSummaryStale\(user\.id, tx\)/g)?.length, 1);
   assert.match(action, /profile_contribution_batch_saved/);

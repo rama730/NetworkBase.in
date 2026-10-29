@@ -21,12 +21,12 @@ export function useUserFollowedWorkspaces(
                 queryKey: [...queryKeys.discover.userFollowedProjects(userId), pageIds.join(',')],
                 queryFn: async (): Promise<Set<string>> => {
                     const { data, error } = await createClient()
-                        .from('project_follows')
-                        .select('project_id')
+                        .from('workspace_follows')
+                        .select('workspace_id')
                         .eq('user_id', userId!)
-                        .in('project_id', pageIds);
+                        .in('workspace_id', pageIds);
                     if (error) throw error;
-                    return new Set((data || []).map((row: { project_id: string }) => row.project_id));
+                    return new Set((data || []).map((row: { workspace_id: string }) => row.workspace_id));
                 },
                 enabled: Boolean(userId) && pageIds.length > 0,
                 staleTime: 60_000,

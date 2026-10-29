@@ -26,8 +26,8 @@ before(async () => {
 const created: string[] = [];
 after(async () => {
   for (const id of created) {
-    await sql`DELETE FROM role_applications WHERE project_id = ${id}`;
-    await sql`DELETE FROM projects WHERE id = ${id}`;
+    await sql`DELETE FROM role_applications WHERE workspace_id = ${id}`;
+    await sql`DELETE FROM workspaces WHERE id = ${id}`;
   }
   await sql.end();
   await closeAppDb();
@@ -37,15 +37,15 @@ async function org(settings: Record<string, unknown> = {}, extra: { maxMembers?:
   const owner = await sql.begin((tx) => createUser(tx));
   const id = await sql.begin((tx) => createProject(tx, owner, { visibility: extra.visibility ?? "public", status: extra.status ?? "active" }));
   const code = generateJoinCode();
-  await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${id}, ${owner}, 'owner')`;
-  await sql`UPDATE projects SET kind = 'organization', org_type = 'education', join_code = ${code},
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${owner}, 'owner')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', join_code = ${code},
             org_settings = ${sql.json({ version: 1, ...settings })}, max_collaborators = ${extra.maxMembers ?? null} WHERE id = ${id}`;
   created.push(id);
   return { owner, id, code };
 }
 
 const role = async (projectId: string, userId: string) =>
-  (await sql`SELECT role FROM project_members WHERE project_id = ${projectId} AND user_id = ${userId}`)[0]?.role ?? null;
+  (await sql`SELECT role FROM workspace_members WHERE workspace_id = ${projectId} AND user_id = ${userId}`)[0]?.role ?? null;
 
 test("instant mode: a code joins as Member; again says already a member", async () => {
   const { id, code } = await org();
@@ -62,7 +62,7 @@ test("approval mode: a code sends one request without a role; nobody is added", 
   viewerId = await sql.begin((tx) => createUser(tx));
   const first = await orgs.joinOrganizationAction(code, "Section B");
   assert.equal(first.success && first.outcome, "requested", JSON.stringify(first));
-  const [request] = await sql`SELECT status, role_id, message FROM role_applications WHERE project_id = ${id} AND applicant_id = ${viewerId}`;
+  const [request] = await sql`SELECT status, role_id, message FROM role_applications WHERE workspace_id = ${id} AND applicant_id = ${viewerId}`;
   assert.deepEqual({ ...request }, { status: "pending", role_id: null, message: "Section B" });
   assert.equal(await role(id, viewerId), null);
   const again = await orgs.joinOrganizationAction(code);
@@ -84,7 +84,7 @@ test("blocked, full, archived, disabled and unknown codes are refused with plain
   assert.equal(await role(archived.id, viewerId), null);
 
   const disabled = await org();
-  await sql`UPDATE projects SET join_code_enabled = false WHERE id = ${disabled.id}`;
+  await sql`UPDATE workspaces SET join_code_enabled = false WHERE id = ${disabled.id}`;
   const disabledResult = await orgs.joinOrganizationAction(disabled.code);
   assert.equal(!disabledResult.success && disabledResult.error, "That code doesn’t match an organization.");
 
@@ -110,7 +110,7 @@ test("email invites are accepted at sign-up with their role and title", async ()
   await sql`INSERT INTO org_email_invites (org_id, email, role, title, expires_at) VALUES (${id}, ${email.toLowerCase()}, 'viewer', 'Examiner', now() + interval '7 days')`;
   const accepted = await join.acceptOrgEmailInvites(userId, email.toUpperCase());
   assert.equal(accepted, 1);
-  const [member] = await sql`SELECT role, title FROM project_members WHERE project_id = ${id} AND user_id = ${userId}`;
+  const [member] = await sql`SELECT role, title FROM workspace_members WHERE workspace_id = ${id} AND user_id = ${userId}`;
   assert.deepEqual({ ...member }, { role: "viewer", title: "Examiner" });
   assert.equal((await sql`SELECT count(*)::int AS n FROM org_email_invites WHERE org_id = ${id} AND accepted_at IS NOT NULL`)[0]!.n, 1);
   assert.equal(await join.acceptOrgEmailInvites(userId, email), 0, "accepted once");
@@ -118,7 +118,7 @@ test("email invites are accepted at sign-up with their role and title", async ()
 
 test("handles are free only when no project, hold or reserved name has them", async () => {
   const { id } = await org();
-  const [{ slug }] = (await sql`SELECT slug FROM projects WHERE id = ${id}`) as unknown as [{ slug: string }];
+  const [{ slug }] = (await sql`SELECT slug FROM workspaces WHERE id = ${id}`) as unknown as [{ slug: string }];
   assert.equal(await join.isOrgHandleAvailable(slug), false);
   await sql`INSERT INTO org_handle_holds (handle, org_id, held_until) VALUES ('held-handle-p2', ${id}, now() + interval '1 day') ON CONFLICT (handle) DO UPDATE SET org_id = EXCLUDED.org_id, held_until = EXCLUDED.held_until`;
   assert.equal(await join.isOrgHandleAvailable("held-handle-p2"), false);
@@ -142,9 +142,9 @@ test("creating an organization keeps the exact handle, makes a join code and app
   assert.equal(result.project!.slug, handle);
   assert.match(result.project!.joinCode ?? "", /^[A-HJ-NP-Z2-9]{6}$/);
   const [row] = await sql`SELECT kind, org_type, task_review_required, term_end::text AS term_end, org_settings->>'joinMode' AS join_mode,
-                                 org_settings->'roleNames'->>'member' AS member_name FROM projects WHERE id = ${result.project!.id}`;
+                                 org_settings->'roleNames'->>'member' AS member_name FROM workspaces WHERE id = ${result.project!.id}`;
   assert.deepEqual({ ...row }, { kind: "organization", org_type: "education", task_review_required: true, term_end: "2026-12-15", join_mode: "approval", member_name: "Student" });
-  const [owner] = await sql`SELECT role, title FROM project_members WHERE project_id = ${result.project!.id} AND user_id = ${viewerId}`;
+  const [owner] = await sql`SELECT role, title FROM workspace_members WHERE workspace_id = ${result.project!.id} AND user_id = ${viewerId}`;
   assert.deepEqual({ ...owner }, { role: "owner", title: "Teacher" });
 
   const taken = await lifecycle.createWorkspaceAction(input);

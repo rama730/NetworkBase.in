@@ -33,7 +33,7 @@ async function person(options: { visibility?: string; deleted?: boolean } = {}) 
 const project = (owner: string, options: Parameters<typeof createProject>[2] = {}) => sql.begin((tx) => createProject(tx, owner, options));
 async function post(projectId: string, authorId: string, content: string, extra: { visibility?: string; deleted?: boolean; at?: string; media?: unknown; metadata?: unknown } = {}) {
   const [row] = await sql`
-    INSERT INTO public.project_updates (project_id, author_id, content, visibility, deleted_at, created_at, media, metadata)
+    INSERT INTO public.workspace_updates (workspace_id, author_id, content, visibility, deleted_at, created_at, media, metadata)
     VALUES (${projectId}, ${authorId}, ${content}, ${extra.visibility ?? "public"}, ${extra.deleted ? new Date() : null},
             ${extra.at ? new Date(extra.at) : new Date()}, ${sql.json((extra.media ?? []) as never)}, ${sql.json((extra.metadata ?? {}) as never)})
     RETURNING id`;
@@ -167,7 +167,7 @@ test("Following shows only followed projects, and nothing for a signed-out viewe
   const other = await project(owner);
   await post(followed, owner, "from followed");
   await post(other, owner, "from other");
-  await sql`INSERT INTO public.project_follows (project_id, user_id) VALUES (${followed}, ${viewer})`;
+  await sql`INSERT INTO public.workspace_follows (workspace_id, user_id) VALUES (${followed}, ${viewer})`;
 
   assert.deepEqual(await texts(viewer, { view: "following" }), ["from followed"]);
   assert.deepEqual(await texts(null, { view: "following" }), []);
@@ -202,7 +202,7 @@ test("likedByViewer is the viewer's, and a bad cursor is refused", async () => {
   const other = await person();
   const open = await project(owner);
   const id = await post(open, owner, "likeable");
-  await sql`INSERT INTO public.project_update_likes (update_id, user_id) VALUES (${id}, ${viewer})`;
+  await sql`INSERT INTO public.workspace_update_likes (update_id, user_id) VALUES (${id}, ${viewer})`;
 
   assert.equal((await feed.getDiscoverUpdatesPage({ viewerId: viewer, limit: 5 })).updates[0]!.likedByViewer, true);
   assert.equal((await feed.getDiscoverUpdatesPage({ viewerId: other, limit: 5 })).updates[0]!.likedByViewer, false);
@@ -210,7 +210,7 @@ test("likedByViewer is the viewer's, and a bad cursor is refused", async () => {
   await assert.rejects(feed.getDiscoverUpdatesPage({ viewerId: null, limit: 5, cursor: "not-a-cursor" }), /cursor/i);
 });
 
-test("an owner is labelled Lead, a co-leader Co-leader, and a plain member gets no label", async () => {
+test("an owner is labelled Owner, an admin Admin, and a plain member gets no label", async () => {
   const owner = await person();
   const admin = await person();
   const member = await person();
@@ -220,7 +220,7 @@ test("an owner is labelled Lead, a co-leader Co-leader, and a plain member gets 
   await post(adminProject, admin, "admin post");
   await post(memberProject, member, "member post");
   const byText = Object.fromEntries((await feed.getDiscoverUpdatesPage({ viewerId: null, limit: 12 })).updates.map((update) => [update.content, update.author?.roleLabel]));
-  assert.equal(byText["owner post"], "Lead");
-  assert.equal(byText["admin post"], "Co-leader");
+  assert.equal(byText["owner post"], "Owner");
+  assert.equal(byText["admin post"], "Admin");
   assert.equal(byText["member post"], null);
 });

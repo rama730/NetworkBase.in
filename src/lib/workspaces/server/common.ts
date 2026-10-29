@@ -5,7 +5,7 @@ import { invalidatePublicWorkspacesFeedCache } from "@/lib/workspaces/public-fee
 import { revalidatePath, revalidateTag } from "next/cache";
 import { DISCOVER_ANON_CACHE_TAG } from "@/constants/discover";
 import { db } from "@/lib/db";
-import { projects, projectMembers, profiles, githubSyncConnections, projectFollows } from "@/lib/db/schema";
+import { workspaces, workspaceMembers, profiles, githubSyncConnections, workspaceFollows } from "@/lib/db/schema";
 import { eq, and, isNull, or, sql } from "drizzle-orm";
 import { publishUsers } from "@/lib/messaging/publish";
 import { markProfileCollaborationSummaryStale } from "@/lib/profile/collaboration";
@@ -66,9 +66,9 @@ export const revalidateWorkspacePaths = async (projectId: string) => {
   revalidateTag(PUBLIC_WORKSPACE_DETAIL_METADATA_CACHE_TAG, { expire: 0 });
   try {
     const [project] = await db
-      .select({ slug: projects.slug })
-      .from(projects)
-      .where(eq(projects.id, projectId))
+      .select({ slug: workspaces.slug })
+      .from(workspaces)
+      .where(eq(workspaces.id, projectId))
       .limit(1);
     if (project?.slug) {
       revalidatePath(`/workspaces/${project.slug}`);
@@ -90,8 +90,8 @@ export async function invalidateWorkspacePublicCaches(projectId: string) {
 
   try {
     const [members, project] = await Promise.all([
-      db.select({ userId: projectMembers.userId }).from(projectMembers).where(eq(projectMembers.projectId, projectId)),
-      db.select({ ownerId: projects.ownerId }).from(projects).where(eq(projects.id, projectId)).limit(1).then((r) => r[0]),
+      db.select({ userId: workspaceMembers.userId }).from(workspaceMembers).where(eq(workspaceMembers.projectId, projectId)),
+      db.select({ ownerId: workspaces.ownerId }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1).then((r) => r[0]),
     ]);
     const userIds = Array.from(new Set([
       ...(project?.ownerId ? [project.ownerId] : []),
@@ -218,10 +218,10 @@ export async function resolveWorkspaceDetailTarget(
   const isUuid = isLooseUuid(trimmed);
   const where = isUuid
     ? and(
-        isNull(projects.deletedAt),
-        or(eq(projects.slug, trimmed), eq(projects.id, trimmed)),
+        isNull(workspaces.deletedAt),
+        or(eq(workspaces.slug, trimmed), eq(workspaces.id, trimmed)),
       )
-    : and(isNull(projects.deletedAt), eq(projects.slug, trimmed));
+    : and(isNull(workspaces.deletedAt), eq(workspaces.slug, trimmed));
 
   const project = await retryWorkspaceDetailRead(
     "resolve_project_detail_target",
@@ -229,72 +229,72 @@ export async function resolveWorkspaceDetailTarget(
       const ownerProfiles = alias(profiles, "project_detail_owner_profiles");
       const q = db
         .select({
-          id: projects.id,
-          ownerId: projects.ownerId,
+          id: workspaces.id,
+          ownerId: workspaces.ownerId,
           ownerUsername: ownerProfiles.username,
           ownerFullName: ownerProfiles.fullName,
           ownerAvatarUrl: ownerProfiles.avatarUrl,
-          title: projects.title,
-          slug: projects.slug,
-          kind: projects.kind,
-          parentId: projects.parentId,
-          orgSettings: projects.orgSettings,
-          description: projects.description,
-          shortDescription: projects.shortDescription,
-          problemStatement: projects.problemStatement,
-          solutionStatement: projects.solutionStatement,
-          coverImage: projects.coverImage,
-          category: projects.category,
-          tags: projects.tags,
-          skills: projects.skills,
-          externalLinks: projects.externalLinks,
-          externalLinkMetadata: projects.externalLinkMetadata,
-          visibility: projects.visibility,
-          publicTabVisibility: projects.publicTabVisibility,
-          lookingForCollaborators: projects.lookingForCollaborators,
-          memberUpdatesEnabled: projects.memberUpdatesEnabled,
-          memberFileUploadDefault: projects.memberFileUploadDefault,
-          maxCollaborators: projects.maxCollaborators,
-          status: projects.status,
-          lifecycleStages: projects.lifecycleStages,
-          currentStageIndex: projects.currentStageIndex,
-          stageCompletionDates: projects.stageCompletionDates,
-          importSource: projects.importSource,
-          githubRepoUrl: projects.githubRepoUrl,
-          githubDefaultBranch: projects.githubDefaultBranch,
+          title: workspaces.title,
+          slug: workspaces.slug,
+          kind: workspaces.kind,
+          parentId: workspaces.parentId,
+          orgSettings: workspaces.orgSettings,
+          description: workspaces.description,
+          shortDescription: workspaces.shortDescription,
+          problemStatement: workspaces.problemStatement,
+          solutionStatement: workspaces.solutionStatement,
+          coverImage: workspaces.coverImage,
+          category: workspaces.category,
+          tags: workspaces.tags,
+          skills: workspaces.skills,
+          externalLinks: workspaces.externalLinks,
+          externalLinkMetadata: workspaces.externalLinkMetadata,
+          visibility: workspaces.visibility,
+          publicTabVisibility: workspaces.publicTabVisibility,
+          lookingForCollaborators: workspaces.lookingForCollaborators,
+          memberUpdatesEnabled: workspaces.memberUpdatesEnabled,
+          memberFileUploadDefault: workspaces.memberFileUploadDefault,
+          maxCollaborators: workspaces.maxCollaborators,
+          status: workspaces.status,
+          lifecycleStages: workspaces.lifecycleStages,
+          currentStageIndex: workspaces.currentStageIndex,
+          stageCompletionDates: workspaces.stageCompletionDates,
+          importSource: workspaces.importSource,
+          githubRepoUrl: workspaces.githubRepoUrl,
+          githubDefaultBranch: workspaces.githubDefaultBranch,
           githubSyncRepository: githubSyncConnections.repository,
           githubSyncBranch: githubSyncConnections.branch,
-          syncStatus: projects.syncStatus,
-          updatedAt: projects.updatedAt,
-          viewCount: projects.viewCount,
-          followersCount: projects.followersCount,
-          key: projects.key,
+          syncStatus: workspaces.syncStatus,
+          updatedAt: workspaces.updatedAt,
+          viewCount: workspaces.viewCount,
+          followersCount: workspaces.followersCount,
+          key: workspaces.key,
           memberRole: actorUserId
-            ? projectMembers.role
+            ? workspaceMembers.role
             : sql<string | null>`NULL`,
           isFollowed: actorUserId
-            ? sql<boolean>`${projectFollows.id} IS NOT NULL`
+            ? sql<boolean>`${workspaceFollows.id} IS NOT NULL`
             : sql<boolean>`false`,
         })
-        .from(projects)
-        .leftJoin(ownerProfiles, eq(projects.ownerId, ownerProfiles.id))
+        .from(workspaces)
+        .leftJoin(ownerProfiles, eq(workspaces.ownerId, ownerProfiles.id))
         .leftJoin(
           githubSyncConnections,
-          eq(projects.id, githubSyncConnections.projectId),
+          eq(workspaces.id, githubSyncConnections.projectId),
         );
 
       if (actorUserId) {
         q.leftJoin(
-          projectMembers,
+          workspaceMembers,
           and(
-            eq(projectMembers.projectId, projects.id),
-            eq(projectMembers.userId, actorUserId),
+            eq(workspaceMembers.projectId, workspaces.id),
+            eq(workspaceMembers.userId, actorUserId),
           ),
         ).leftJoin(
-          projectFollows,
+          workspaceFollows,
           and(
-            eq(projectFollows.projectId, projects.id),
-            eq(projectFollows.userId, actorUserId),
+            eq(workspaceFollows.projectId, workspaces.id),
+            eq(workspaceFollows.userId, actorUserId),
           ),
         );
       }
@@ -432,19 +432,19 @@ export async function enqueueWorkspaceNotificationBestEffort(
 export async function loadOwnedWorkspaceForSettings(projectId: string, userId: string) {
   const [project] = await db
     .select({
-      id: projects.id,
-      ownerId: projects.ownerId,
-      title: projects.title,
-      slug: projects.slug,
-      status: projects.status,
-      visibility: projects.visibility,
-      coverImage: projects.coverImage,
-      coverImageBucket: projects.coverImageBucket,
-      coverImageKey: projects.coverImageKey,
-      coverImageAssetId: projects.coverImageAssetId,
+      id: workspaces.id,
+      ownerId: workspaces.ownerId,
+      title: workspaces.title,
+      slug: workspaces.slug,
+      status: workspaces.status,
+      visibility: workspaces.visibility,
+      coverImage: workspaces.coverImage,
+      coverImageBucket: workspaces.coverImageBucket,
+      coverImageKey: workspaces.coverImageKey,
+      coverImageAssetId: workspaces.coverImageAssetId,
     })
-    .from(projects)
-    .where(eq(projects.id, projectId))
+    .from(workspaces)
+    .where(eq(workspaces.id, projectId))
     .limit(1);
 
   if (!project) {

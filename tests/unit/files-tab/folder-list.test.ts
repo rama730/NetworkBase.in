@@ -174,7 +174,7 @@ describe("sortFolderListNodes — property suite (Req 4.2)", () => {
     .map((items) => {
       // Deduplicate by id — the comparator's id tie-break is only well
       // defined when ids are unique, which matches the real data model
-      // (projectNodes.id is a primary key).
+      // (workspaceNodes.id is a primary key).
       const seen = new Set<string>();
       return items.filter((n) => {
         if (seen.has(n.id)) return false;

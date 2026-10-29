@@ -19,14 +19,14 @@ describe("project contribution sequencing", () => {
 
   it("allocates one sequence range for a batch", () => {
     const helpers = read("src/lib/files/internal-helpers.ts");
-    assert.match(helpers, /insert\(projectEventCounters\)/);
-    assert.match(helpers, /nextSequence: sql`\$\{projectEventCounters\.nextSequence\} \+ \$\{count\}`/);
+    assert.match(helpers, /insert\(workspaceEventCounters\)/);
+    assert.match(helpers, /nextSequence: sql`\$\{workspaceEventCounters\.nextSequence\} \+ \$\{count\}`/);
     assert.match(helpers, /startSeq \+ idx \+ 1/);
   });
 
   it("reads synchronization watermarks from the counter authority", () => {
-    assert.match(read("src/lib/github/sync-service.ts"), /projectEventCounters/);
-    assert.match(read("src/app/api/v1/workspaces/[id]/sync-diff/route.ts"), /projectEventCounters\.nextSequence/);
-    assert.match(read("src/app/api/v1/extension/workspace/route.ts"), /projectEventCounters\.nextSequence/);
+    assert.match(read("src/lib/github/sync-service.ts"), /workspaceEventCounters/);
+    assert.match(read("src/app/api/v1/workspaces/[id]/sync-diff/route.ts"), /workspaceEventCounters\.nextSequence/);
+    assert.match(read("src/app/api/v1/extension/workspace/route.ts"), /workspaceEventCounters\.nextSequence/);
   });
 });

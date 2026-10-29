@@ -24,13 +24,13 @@ async function main() {
     try {
         const rows = await sql<{ id: string; email: string; username: string | null; projects: number; updates: number }[]>`
             SELECT p.id, p.email, p.username,
-                   (SELECT count(*) FROM projects pr WHERE pr.owner_id = p.id)::int AS projects,
-                   (SELECT count(*) FROM project_updates pu WHERE pu.author_id = p.id)::int AS updates
+                   (SELECT count(*) FROM workspaces pr WHERE pr.owner_id = p.id)::int AS workspaces,
+                   (SELECT count(*) FROM workspace_updates pu WHERE pu.author_id = p.id)::int AS updates
             FROM profiles p
             WHERE p.email ILIKE ${FIXTURE_EMAIL_PATTERN}
             ORDER BY p.created_at`;
         console.log(`${confirm ? "Deleting" : "Would delete"} ${rows.length} fixture account(s):`);
-        for (const row of rows) console.log(`  ${row.email}  @${row.username ?? "-"}  projects=${row.projects} updates=${row.updates}`);
+        for (const row of rows) console.log(`  ${row.email}  @${row.username ?? "-"}  workspaces=${row.projects} updates=${row.updates}`);
         if (!confirm) {
             console.log("Dry run: nothing deleted. Re-run with --confirm to delete.");
             return;

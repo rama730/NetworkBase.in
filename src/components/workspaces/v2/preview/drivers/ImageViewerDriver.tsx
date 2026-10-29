@@ -16,12 +16,12 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { extOf } from "../../utils/fileKind";
 import { toast } from "@/lib/feedback";
 
 interface ImageViewerDriverProps {
-  node: ProjectNode;
+  node: WorkspaceNode;
   signedUrl: string;
 }
 

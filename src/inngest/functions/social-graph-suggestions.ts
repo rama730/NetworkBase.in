@@ -6,14 +6,14 @@ import {
     connections,
     connectionSuggestions,
     profiles,
-    projects,
-    projectOpenRoles
+    workspaces,
+    workspaceOpenRoles
 } from "@/lib/db/schema";
 import { matchingSkillLabels } from "@/lib/skills/matching";
 
 export const computeSocialGraphSuggestions = inngest.createFunction(
     { id: "social-graph-suggestions", retries: 1 },
-    { event: "workspace/connections.sync_suggestions" },
+    [{ event: "connections/sync_suggestions" }, { event: "workspace/connections.sync_suggestions" }] /* old name drains for one release */,
     async ({ event, step }) => {
         const { userId } = event.data;
 
@@ -21,14 +21,14 @@ export const computeSocialGraphSuggestions = inngest.createFunction(
         const myOpenRoles = await step.run("fetch-my-open-roles", async () => {
             return await db
                 .select({
-                    roleTitle: projectOpenRoles.title,
-                    requiredSkills: projectOpenRoles.skills,
+                    roleTitle: workspaceOpenRoles.title,
+                    requiredSkills: workspaceOpenRoles.skills,
                 })
-                .from(projectOpenRoles)
-                .innerJoin(projects, eq(projectOpenRoles.projectId, projects.id))
+                .from(workspaceOpenRoles)
+                .innerJoin(workspaces, eq(workspaceOpenRoles.projectId, workspaces.id))
                 .where(and(
-                    eq(projects.ownerId, userId),
-                    eq(projects.status, 'active')
+                    eq(workspaces.ownerId, userId),
+                    eq(workspaces.status, 'active')
                 ));
         });
 
@@ -167,7 +167,7 @@ export const computeSocialGraphSuggestions = inngest.createFunction(
 /** Re-score viewers who already saw a candidate after that candidate changes matching data. */
 export const refreshSocialGraphSuggestionsForCandidate = inngest.createFunction(
     { id: "social-graph-suggestions-for-candidate", retries: 1 },
-    { event: "workspace/connections.refresh_suggestions_for_candidate" },
+    [{ event: "connections/refresh_suggestions_for_candidate" }, { event: "workspace/connections.refresh_suggestions_for_candidate" }] /* old name drains for one release */,
     async ({ event, step }) => {
         const viewerRows = await step.run("find-candidate-suggestion-viewers", () =>
             db
@@ -182,7 +182,7 @@ export const refreshSocialGraphSuggestionsForCandidate = inngest.createFunction(
         // queue if candidate profiles routinely reach tens of thousands of viewers.
         for (let index = 0; index < viewerIds.length; index += 100) {
             await inngest.send(viewerIds.slice(index, index + 100).map((userId) => ({
-                name: "workspace/connections.sync_suggestions" as const,
+                name: "connections/sync_suggestions" as const,
                 data: { userId },
             })));
         }

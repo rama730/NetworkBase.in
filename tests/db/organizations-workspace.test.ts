@@ -31,7 +31,7 @@ before(async () => {
 
 const created: string[] = [];
 after(async () => {
-  for (const id of created.reverse()) await sql`DELETE FROM projects WHERE id = ${id}`;
+  for (const id of created.reverse()) await sql`DELETE FROM workspaces WHERE id = ${id}`;
   await sql.end();
   await closeAppDb();
 });
@@ -41,11 +41,11 @@ test("My work: masters never show, admins don't see copies, teammates see team c
   const org = await sql.begin((tx) => createProject(tx, owner!));
   created.push(org);
   const tag = org.slice(0, 6);
-  await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${org}, ${owner!}, 'owner'), (${org}, ${a!}, 'member'), (${org}, ${b!}, 'member')`;
-  await sql`UPDATE projects SET kind = 'organization', org_type = 'education', join_code = ${generateJoinCode()}, title = ${`Secret Org ${tag}`}, visibility = 'private', status = 'active' WHERE id = ${org}`;
-  const [master] = await sql`INSERT INTO tasks (project_id, title, kind, creator_id, due_date, assignment_settings) VALUES (${org}, ${`Lab ${tag}`}, 'assignment', ${owner!}, now() + interval '1 day',
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${org}, ${owner!}, 'owner'), (${org}, ${a!}, 'member'), (${org}, ${b!}, 'member')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', join_code = ${generateJoinCode()}, title = ${`Secret Org ${tag}`}, visibility = 'private', status = 'active' WHERE id = ${org}`;
+  const [master] = await sql`INSERT INTO tasks (workspace_id, title, kind, creator_id, due_date, assignment_settings) VALUES (${org}, ${`Lab ${tag}`}, 'assignment', ${owner!}, now() + interval '1 day',
     ${sql.json({ version: 1, submissionType: "none", lateRule: "none", target: { mode: "everyone" }, publishedAt: new Date().toISOString(), closedAt: null })}) RETURNING id`;
-  const [team] = await sql`INSERT INTO tasks (project_id, title, kind, assignment_id, assignee_id, creator_id, team_name, due_date, review_status, review_submitted_at) VALUES (${org}, ${`Lab ${tag}`}, 'task', ${master!.id}, ${a!}, ${owner!}, 'Team A', now() + interval '1 day', 'pending', now()) RETURNING id`;
+  const [team] = await sql`INSERT INTO tasks (workspace_id, title, kind, assignment_id, assignee_id, creator_id, team_name, due_date, review_status, review_submitted_at) VALUES (${org}, ${`Lab ${tag}`}, 'task', ${master!.id}, ${a!}, ${owner!}, 'Team A', now() + interval '1 day', 'pending', now()) RETURNING id`;
   await sql`INSERT INTO task_team_members (task_id, user_id, is_lead) VALUES (${team!.id}, ${a!}, true), (${team!.id}, ${b!}, false)`;
 
   viewerId = b!;

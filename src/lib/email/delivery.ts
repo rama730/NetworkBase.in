@@ -4,7 +4,7 @@ import { and, asc, desc, eq, gt, isNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
 import { getInngestExecutionRole } from "@/inngest/registry";
-import { emailOutbox, emailSuppressions, emailWebhookEvents, extensionDeviceSessions, profiles, projectMembers, projects, tasks, taskSubtasks, projectNodes, taskNodeLinks } from "@/lib/db/schema";
+import { emailOutbox, emailSuppressions, emailWebhookEvents, extensionDeviceSessions, profiles, workspaceMembers, workspaces, tasks, taskSubtasks, workspaceNodes, taskNodeLinks } from "@/lib/db/schema";
 import { createAdminClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
 import { normalizeNotificationPreferences } from "@/lib/notifications/preferences";
@@ -66,7 +66,7 @@ async function prepareOrgEmail(row: OutboxRow, userId: string, email: string, ra
   const data = row.data as OrgEmailData | null;
   if (!data?.org?.id) return { drop: "invalid_org_context" };
   // A suspended org sends nothing (report §30.3); the owner hears why in the tray.
-  const [orgState] = await db.select({ suspendedAt: projects.suspendedAt }).from(projects).where(eq(projects.id, data.org.id)).limit(1);
+  const [orgState] = await db.select({ suspendedAt: workspaces.suspendedAt }).from(workspaces).where(eq(workspaces.id, data.org.id)).limit(1);
   if (orgState?.suspendedAt) return { drop: "org_suspended" };
   const preferences = normalizeNotificationPreferences(rawPreferences);
   if (!ALWAYS_SENT_EMAILS.has(kind)) {
@@ -76,9 +76,9 @@ async function prepareOrgEmail(row: OutboxRow, userId: string, email: string, ra
     if (preferences.mutedScopes.some((scope) => scope.kind === "organization" && scope.value === data.org.id)) return { drop: "muted_scope" };
   }
   if (MEMBER_EMAILS.has(kind)) {
-    const [member] = await db.select({ ok: sql<number>`1` }).from(projects)
-      .leftJoin(projectMembers, and(eq(projectMembers.projectId, projects.id), eq(projectMembers.userId, userId)))
-      .where(and(eq(projects.id, data.org.id), isNull(projects.deletedAt), sql`(${projects.ownerId} = ${userId} OR ${projectMembers.userId} IS NOT NULL)`)).limit(1);
+    const [member] = await db.select({ ok: sql<number>`1` }).from(workspaces)
+      .leftJoin(workspaceMembers, and(eq(workspaceMembers.projectId, workspaces.id), eq(workspaceMembers.userId, userId)))
+      .where(and(eq(workspaces.id, data.org.id), isNull(workspaces.deletedAt), sql`(${workspaces.ownerId} = ${userId} OR ${workspaceMembers.userId} IS NOT NULL)`)).limit(1);
     if (!member) return { drop: "membership_changed" };
   }
   const token = orgMuteToken(userId, data.org.id);
@@ -165,10 +165,10 @@ async function prepareEmail(row: OutboxRow): Promise<Prepared> {
       dueDate: tasks.dueDate,
     },
     project: {
-      ownerId: projects.ownerId,
-      title: projects.title,
-      slug: projects.slug,
-      notificationPreferences: projects.notificationPreferences,
+      ownerId: workspaces.ownerId,
+      title: workspaces.title,
+      slug: workspaces.slug,
+      notificationPreferences: workspaces.notificationPreferences,
     },
     assignee: {
       id: assigneeProfile.id,
@@ -182,13 +182,13 @@ async function prepareEmail(row: OutboxRow): Promise<Prepared> {
       fullName: actorProfile.fullName,
       username: actorProfile.username,
     },
-    member: { role: projectMembers.role, notificationPreferences: projectMembers.notificationPreferences },
+    member: { role: workspaceMembers.role, notificationPreferences: workspaceMembers.notificationPreferences },
   })
-    .from(tasks).innerJoin(projects, eq(projects.id, tasks.projectId))
-    .leftJoin(projectMembers, and(eq(projectMembers.projectId, projects.id), eq(projectMembers.userId, userId)))
+    .from(tasks).innerJoin(workspaces, eq(workspaces.id, tasks.projectId))
+    .leftJoin(workspaceMembers, and(eq(workspaceMembers.projectId, workspaces.id), eq(workspaceMembers.userId, userId)))
     .leftJoin(assigneeProfile, eq(assigneeProfile.id, tasks.assigneeId))
     .leftJoin(actorProfile, row.actorId ? eq(actorProfile.id, row.actorId) : sql`false`)
-    .where(and(eq(tasks.id, row.taskId), eq(tasks.projectId, row.projectId), isNull(tasks.deletedAt), isNull(projects.deletedAt))).limit(1);
+    .where(and(eq(tasks.id, row.taskId), eq(tasks.projectId, row.projectId), isNull(tasks.deletedAt), isNull(workspaces.deletedAt))).limit(1);
   if (!context || context.task.assigneeId !== row.userId ||
     (context.project.ownerId !== row.userId && !context.member?.role) || !isWorkspaceMemberEligibleFor(
     context.project.ownerId === row.userId ? "owner" : context.member?.role, "assign",
@@ -231,22 +231,22 @@ async function prepareEmail(row: OutboxRow): Promise<Prepared> {
       .limit(20),
 
     db.select({
-      id: projectNodes.id,
-      name: projectNodes.name,
-      size: projectNodes.size,
-      mimeType: projectNodes.mimeType,
+      id: workspaceNodes.id,
+      name: workspaceNodes.name,
+      size: workspaceNodes.size,
+      mimeType: workspaceNodes.mimeType,
       annotation: taskNodeLinks.annotation,
-      metadata: projectNodes.metadata,
+      metadata: workspaceNodes.metadata,
     })
-      .from(projectNodes)
-      .leftJoin(taskNodeLinks, and(eq(taskNodeLinks.nodeId, projectNodes.id), eq(taskNodeLinks.taskId, row.taskId)))
+      .from(workspaceNodes)
+      .leftJoin(taskNodeLinks, and(eq(taskNodeLinks.nodeId, workspaceNodes.id), eq(taskNodeLinks.taskId, row.taskId)))
       .where(and(
-        eq(projectNodes.projectId, row.projectId),
-        isNull(projectNodes.deletedAt),
-        eq(projectNodes.type, "file"),
-        sql`(${projectNodes.taskId} = ${row.taskId} OR ${taskNodeLinks.id} IS NOT NULL)`
+        eq(workspaceNodes.projectId, row.projectId),
+        isNull(workspaceNodes.deletedAt),
+        eq(workspaceNodes.type, "file"),
+        sql`(${workspaceNodes.taskId} = ${row.taskId} OR ${taskNodeLinks.id} IS NOT NULL)`
       ))
-      .orderBy(asc(projectNodes.name))
+      .orderBy(asc(workspaceNodes.name))
       .limit(10),
   ]);
 

@@ -21,6 +21,6 @@ test("hydration reads the imported commit, verifies each blob, and does not fini
   assert.match(hydrate, /syncStatus: "failed"/);
 
   const runner = readFileSync("src/lib/github/workspace-import-runner.ts", "utf8");
-  assert.match(runner, /name: "project\/import\.hydrate",\s*\/\/[^\n]*\n\s*data: \{ projectId, userId, commitSha: latestSha/);
+  assert.match(runner, /name: "workspace\/import\.hydrate",\s*\/\/[^\n]*\n\s*data: \{ projectId, userId, commitSha: latestSha/);
   assert.match(runner, /hydrationDispatchError \? "failed" : "ready"/);
 });

@@ -146,7 +146,7 @@ test("workspace update media route authorizes normalized assets and streams byte
     const routeSource = readFileSync(path.join(process.cwd(), "src/app/api/v1/workspaces/[id]/update-media/route.ts"), "utf8");
     const accessSource = readFileSync(path.join(process.cwd(), "src/lib/data/workspace-access.ts"), "utf8");
 
-    assert.match(routeSource, /projectUpdateMediaAssets/);
+    assert.match(routeSource, /workspaceUpdateMediaAssets/);
     assert.match(routeSource, /eq\(storageAssets\.state, "verified"\)/);
     assert.match(routeSource, /createSignedUrl\(storageKey, 60\)/);
     assert.match(routeSource, /streamPrivateObject/);
@@ -154,7 +154,7 @@ test("workspace update media route authorizes normalized assets and streams byte
     assert.match(routeSource, /private, no-store/);
     assert.equal(routeSource.includes(".from(projects)"), false);
     assert.match(accessSource, /publicTabVisibility\?: unknown/);
-    assert.match(accessSource, /publicTabVisibility: projects\.publicTabVisibility/);
+    assert.match(accessSource, /publicTabVisibility: workspaces\.publicTabVisibility/);
 
     assert.match(routeSource, /etag:/);
 });
@@ -187,13 +187,13 @@ test("workspace update references and image upload contracts stay bounded", () =
 
 test("workspace update draft and schema contracts are stable", () => {
     assert.equal(projectUpdateDraftStorageKey("project-1", "user-1"), "nb.project-updates.draft.project-1.user-1");
-    assert.equal(WORKSPACE_UPDATE_SCHEMA_CONTRACT.tables.includes("project_updates"), true);
-    assert.equal(WORKSPACE_UPDATE_SCHEMA_CONTRACT.tables.includes("project_update_drafts"), true);
-    assert.equal(WORKSPACE_UPDATE_SCHEMA_CONTRACT.indexes.includes("project_updates_project_pinned_created_idx"), true);
-    assert.equal(WORKSPACE_UPDATE_SCHEMA_CONTRACT.indexes.includes("project_update_comments_parent_idx"), true);
-    assert.equal(WORKSPACE_UPDATE_SCHEMA_CONTRACT.indexes.includes("project_update_drafts_updated_at_idx"), true);
-    assert.equal(WORKSPACE_UPDATE_SCHEMA_CONTRACT.minPolicyCounts.project_updates, 3);
-    assert.equal(WORKSPACE_UPDATE_SCHEMA_CONTRACT.minPolicyCounts.project_update_drafts, 1);
+    assert.equal(WORKSPACE_UPDATE_SCHEMA_CONTRACT.tables.includes("workspace_updates"), true);
+    assert.equal(WORKSPACE_UPDATE_SCHEMA_CONTRACT.tables.includes("workspace_update_drafts"), true);
+    assert.equal(WORKSPACE_UPDATE_SCHEMA_CONTRACT.indexes.includes("workspace_updates_workspace_pinned_created_idx"), true);
+    assert.equal(WORKSPACE_UPDATE_SCHEMA_CONTRACT.indexes.includes("workspace_update_comments_parent_idx"), true);
+    assert.equal(WORKSPACE_UPDATE_SCHEMA_CONTRACT.indexes.includes("workspace_update_drafts_updated_at_idx"), true);
+    assert.equal(WORKSPACE_UPDATE_SCHEMA_CONTRACT.minPolicyCounts.workspace_updates, 3);
+    assert.equal(WORKSPACE_UPDATE_SCHEMA_CONTRACT.minPolicyCounts.workspace_update_drafts, 1);
 });
 
 test("workspace update comment threading schema is present in baseline and repair migrations", () => {
@@ -203,7 +203,7 @@ test("workspace update comment threading schema is present in baseline and repai
     const journal = readFileSync(path.join(process.cwd(), "drizzle/meta/_journal.json"), "utf8");
 
     assert.match(schemaSource, /parentId:\s*uuid\(["']parent_id["']\)/);
-    assert.match(schemaSource, /project_update_comments_parent_idx/);
+    assert.match(schemaSource, /workspace_update_comments_parent_idx/);
     assert.match(baselineMigration, /"parent_id"\s+uuid\s+REFERENCES\s+"project_update_comments"\("id"\)\s+ON DELETE set null/i);
     assert.match(baselineMigration, /project_update_comments_parent_idx/);
     assert.match(repairMigration, /ADD COLUMN IF NOT EXISTS "parent_id" uuid/);
@@ -258,8 +258,8 @@ test("workspace update comments share one project-scoped wildcard postgres bindi
 
     assert.equal(tabSource.includes('(["INSERT", "UPDATE", "DELETE"] as const).map'), false);
     assert.match(tabSource, /event: "\*"/);
-    assert.match(tabSource, /table: "project_update_comments"/);
-    assert.match(tabSource, /filter: `project_id=eq\.\$\{projectId\}`/);
+    assert.match(tabSource, /table: "workspace_update_comments"/);
+    assert.match(tabSource, /filter: `workspace_id=eq\.\$\{projectId\}`/);
     assert.match(tabSource, /resourceId: `updates:\$\{projectId\}`/);
     assert.match(subscriptionsSource, /const groupedBindings = new Map<string, ActiveResourceBinding\[\]>\(\)/);
     assert.match(subscriptionsSource, /const event = grouped\.length === 1 \? firstBinding\.event : "\*"/);
@@ -269,8 +269,8 @@ test("workspace update likes persist counters synchronously", () => {
     const actionSource = readFileSync(path.join(process.cwd(), "src/app/actions/workspace/updates.ts"), "utf8");
 
     assert.match(actionSource, /export async function toggleWorkspaceUpdateLikeAction/);
-    assert.match(actionSource, /\.update\(projectUpdates\)/);
-    assert.match(actionSource, /returning\(\{ likeCount: projectUpdates\.likeCount \}\)/);
+    assert.match(actionSource, /\.update\(workspaceUpdates\)/);
+    assert.match(actionSource, /returning\(\{ likeCount: workspaceUpdates\.likeCount \}\)/);
     assert.equal(actionSource.includes("project:updates:likes"), false);
     assert.equal(actionSource.includes("redis.hincrby"), false);
 });

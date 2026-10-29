@@ -110,12 +110,12 @@ test("round 2: legal links and the card avatar read cleanly", () => {
 
 test("round 2: cards get counts, not every role or member; filtered reads go through a cancellable GET", () => {
   const pub = read("src/lib/workspaces/public-feed-service.ts");
-  assert.match(pub, /sum\(greatest\(\$\{projectOpenRoles\.count\} - \$\{projectOpenRoles\.filled\}, 0\)\)/);
+  assert.match(pub, /sum\(greatest\(\$\{workspaceOpenRoles\.count\} - \$\{workspaceOpenRoles\.filled\}, 0\)\)/);
   assert.match(pub, /lte\(rankedSub\.memberRank, 8\)/);
   assert.doesNotMatch(pub, /const roleRows = projectIds/);
   const data = read("src/lib/data/discover.ts");
   assert.match(data, /lte\(ranked\.memberRank, 8\)/);
-  assert.match(data, /coalesce\(\$\{profiles\.visibility\}, 'public'\) = 'public' OR \$\{projectMembers\.userId\} = \$\{viewerId\}/);
+  assert.match(data, /coalesce\(\$\{profiles\.visibility\}, 'public'\) = 'public' OR \$\{workspaceMembers\.userId\} = \$\{viewerId\}/);
   const route = read("src/app/api/v1/discover/workspaces/route.ts");
   assert.match(route, /jsonSuccess\(\{ projects: result\.projects/);
   assert.match(route, /status = result\.code === "RATE_LIMITED" \? 429/);
@@ -138,7 +138,7 @@ test("round 2: following clears only its own project page, and the index migrati
 test("discover card hydration reads a bounded team preview and summed open seats (PERF-012)", () => {
   const discover = readFileSync("src/lib/data/discover.ts", "utf8");
   assert.match(discover, /lte\(ranked\.memberRank, 8\)/);
-  assert.match(discover, /count\(\*\) over \(partition by \$\{projectMembers\.projectId\}\)/);
-  assert.match(discover, /sum\(greatest\(\$\{projectOpenRoles\.count\} - \$\{projectOpenRoles\.filled\}, 0\)\)/);
+  assert.match(discover, /count\(\*\) over \(partition by \$\{workspaceMembers\.projectId\}\)/);
+  assert.match(discover, /sum\(greatest\(\$\{workspaceOpenRoles\.count\} - \$\{workspaceOpenRoles\.filled\}, 0\)\)/);
   assert.match(discover, /lte\(rankedConnectedMembers\.connectionRank, 3\)/);
 });

@@ -1,6 +1,6 @@
 import path from 'path';
 import { db } from '@/lib/db';
-import { projectNodes } from '@/lib/db/schema';
+import { workspaceNodes } from '@/lib/db/schema';
 import { eq, and, inArray, isNull, sql } from 'drizzle-orm';
 
 const ROOT_KEY = 'root';
@@ -40,23 +40,23 @@ async function fetchExistingNodes(
         const nonNullParents = parentIds.filter(p => p !== null) as string[];
 
         const conditions: any[] = [
-            eq(projectNodes.projectId, projectId),
-            eq(projectNodes.type, type),
-            isNull(projectNodes.deletedAt),
-            inArray(projectNodes.name, names),
+            eq(workspaceNodes.projectId, projectId),
+            eq(workspaceNodes.type, type),
+            isNull(workspaceNodes.deletedAt),
+            inArray(workspaceNodes.name, names),
         ];
 
         if (hasRoot && nonNullParents.length > 0) {
-            conditions.push(sql`(${inArray(projectNodes.parentId, nonNullParents)} OR ${isNull(projectNodes.parentId)})`);
+            conditions.push(sql`(${inArray(workspaceNodes.parentId, nonNullParents)} OR ${isNull(workspaceNodes.parentId)})`);
         } else if (hasRoot) {
-            conditions.push(isNull(projectNodes.parentId));
+            conditions.push(isNull(workspaceNodes.parentId));
         } else if (nonNullParents.length > 0) {
-            conditions.push(inArray(projectNodes.parentId, nonNullParents));
+            conditions.push(inArray(workspaceNodes.parentId, nonNullParents));
         } else {
             continue;
         }
 
-        const rows = await db.query.projectNodes.findMany({
+        const rows = await db.query.workspaceNodes.findMany({
             where: and(...conditions),
             columns: { id: true, parentId: true, name: true, path: true },
         });
@@ -151,10 +151,10 @@ export async function createDirectoryStructureFromPaths(
         }
 
         if (toInsert.length > 0) {
-            const inserted = await db.insert(projectNodes).values(toInsert).returning({
-                id: projectNodes.id,
-                parentId: projectNodes.parentId,
-                name: projectNodes.name,
+            const inserted = await db.insert(workspaceNodes).values(toInsert).returning({
+                id: workspaceNodes.id,
+                parentId: workspaceNodes.parentId,
+                name: workspaceNodes.name,
             });
             for (const row of inserted) {
                 const key = makeKey(row.parentId ?? null, row.name);
@@ -166,7 +166,7 @@ export async function createDirectoryStructureFromPaths(
         if (toPathUpdate.length > 0) {
             const values = toPathUpdate.map((u) => sql`(${u.id}, ${u.path})`);
             await db.execute(sql`
-                UPDATE ${projectNodes} AS t
+                UPDATE ${workspaceNodes} AS t
                 SET path = v.path,
                     updated_at = NOW()
                 FROM (VALUES ${sql.join(values, sql`,`)}) AS v(id, path)
@@ -205,5 +205,5 @@ export async function insertVirtualFileNodes(
     });
 
     const chunks = chunkArray(toInsert, DB_BATCH_SIZE);
-    await Promise.all(chunks.map(chunk => db.insert(projectNodes).values(chunk).onConflictDoNothing()));
+    await Promise.all(chunks.map(chunk => db.insert(workspaceNodes).values(chunk).onConflictDoNothing()));
 }

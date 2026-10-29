@@ -66,11 +66,11 @@ export async function prepareSubmissionsExport(input: { masterId: string }): Pro
   const entries = await db.transaction(async (tx) => {
     const rows = Array.from(await tx.execute<{ copy_id: string; who: string; id: string; name: string; asset_id: string | null; s3_key: string | null; size: number | null; bucket: string | null; storage_key: string | null; verified_size: number | null }>(sql`
       SELECT c.id AS copy_id,
-             coalesce(c.team_name, (SELECT p.title FROM projects p WHERE p.id = c.project_id AND p.id <> m.project_id),
+             coalesce(c.team_name, (SELECT p.title FROM workspaces p WHERE p.id = c.workspace_id AND p.id <> m.workspace_id),
                       (SELECT coalesce(pr.full_name, pr.username) FROM profiles pr WHERE pr.id = c.assignee_id), 'Member') AS who,
              n.id, n.name, n.asset_id, n.s3_key, n.size, a.bucket, a.storage_key, a.verified_size
       FROM tasks c JOIN tasks m ON m.id = c.assignment_id
-      JOIN project_nodes n ON n.task_id = c.id AND n.type = 'file' AND n.deleted_at IS NULL
+      JOIN workspace_nodes n ON n.task_id = c.id AND n.type = 'file' AND n.deleted_at IS NULL
       LEFT JOIN storage_assets a ON a.id = n.asset_id
       WHERE c.assignment_id = ${input.masterId} AND c.deleted_at IS NULL AND c.excused_at IS NULL
         AND (c.submission IS NOT NULL OR c.review_status IN ('pending', 'approved') OR c.status = 'done')
@@ -127,8 +127,8 @@ export async function prepareFolderExport(input: {
       WITH RECURSIVE export_tree AS (
         SELECT n.id, n.parent_id, n.type, n.name, n.s3_key, n.asset_id, n.size,
                n.task_id, n.path, 0 AS depth
-        FROM public.project_nodes n
-        WHERE n.project_id = ${input.projectId}
+        FROM public.workspace_nodes n
+        WHERE n.workspace_id = ${input.projectId}
           AND n.deleted_at IS NULL
           AND ${anchor}
           AND ${taskVisibility}
@@ -136,9 +136,9 @@ export async function prepareFolderExport(input: {
         UNION ALL
         SELECT child.id, child.parent_id, child.type, child.name, child.s3_key,
                child.asset_id, child.size, child.task_id, child.path, tree.depth + 1
-        FROM public.project_nodes child
+        FROM public.workspace_nodes child
         JOIN export_tree tree ON tree.id = child.parent_id
-        WHERE child.project_id = ${input.projectId}
+        WHERE child.workspace_id = ${input.projectId}
           AND child.deleted_at IS NULL
           AND tree.depth < ${FOLDER_EXPORT_MAX_DEPTH}
           AND ${childTaskVisibility}

@@ -31,7 +31,7 @@ async function withApplication(fn: (ctx: Ctx) => Promise<void>) {
     await addMember(tx, projectId, admin!, "admin");
     await addMember(tx, projectId, member!, "member");
   });
-  const [role] = await sql`INSERT INTO project_open_roles (project_id, role, count) VALUES (${projectId}, 'Designer', 3) RETURNING id`;
+  const [role] = await sql`INSERT INTO workspace_open_roles (workspace_id, role, count) VALUES (${projectId}, 'Designer', 3) RETURNING id`;
   try {
     viewerId = applicant!;
     const applied = await apps.applyToRoleAction(projectId, role!.id as string, "I would like to help");
@@ -42,18 +42,18 @@ async function withApplication(fn: (ctx: Ctx) => Promise<void>) {
       roleId: role!.id as string, applicationId: applied.applicationId!, channelId: channel!.id as string,
     });
   } finally {
-    await sql`DELETE FROM role_applications WHERE project_id = ${projectId}`;
-    await sql`DELETE FROM chat_channels WHERE project_id = ${projectId}`;
-    await sql`DELETE FROM project_members WHERE project_id = ${projectId}`;
-    await sql`DELETE FROM project_open_roles WHERE project_id = ${projectId}`;
-    await sql`DELETE FROM projects WHERE id = ${projectId}`;
+    await sql`DELETE FROM role_applications WHERE workspace_id = ${projectId}`;
+    await sql`DELETE FROM chat_channels WHERE workspace_id = ${projectId}`;
+    await sql`DELETE FROM workspace_members WHERE workspace_id = ${projectId}`;
+    await sql`DELETE FROM workspace_open_roles WHERE workspace_id = ${projectId}`;
+    await sql`DELETE FROM workspaces WHERE id = ${projectId}`;
   }
 }
 
 const inThread = async (channelId: string, userId: string) =>
   (await sql`SELECT 1 FROM chat_channel_members WHERE channel_id = ${channelId} AND user_id = ${userId}`).length === 1;
 const sync = (projectId: string, userId: string, op: string) =>
-  sql`SELECT app_private.chat_sync_project_members(${projectId}::uuid, ${userId}::uuid, ${op})`;
+  sql`SELECT app_private.chat_sync_workspace_members(${projectId}::uuid, ${userId}::uuid, ${op})`;
 const queue = async (userId: string) => {
   viewerId = userId;
   const result = await invitations.readNetworkInvitationsAction({ direction: "received", kind: "projects" });
@@ -74,11 +74,11 @@ test("the review queue follows project membership, not the owner at apply time",
     assert.equal(await requestCount(admin), 1);
     assert.equal(await requestCount(member), 0);
     // Ownership moves to the admin; the old owner stays on as admin.
-    await sql`UPDATE projects SET owner_id = ${admin} WHERE id = ${projectId}`;
-    await sql`UPDATE project_members SET role = 'owner' WHERE project_id = ${projectId} AND user_id = ${admin}`;
-    await sql`UPDATE project_members SET role = 'admin' WHERE project_id = ${projectId} AND user_id = ${owner}`;
+    await sql`UPDATE workspaces SET owner_id = ${admin} WHERE id = ${projectId}`;
+    await sql`UPDATE workspace_members SET role = 'admin' WHERE workspace_id = ${projectId} AND user_id = ${owner}`;
+    await sql`UPDATE workspace_members SET role = 'owner' WHERE workspace_id = ${projectId} AND user_id = ${admin}`;
     assert.equal(await queue(admin), 1, "the new owner holds the queue");
-    await sql`DELETE FROM project_members WHERE project_id = ${projectId} AND user_id = ${owner}`;
+    await sql`DELETE FROM workspace_members WHERE workspace_id = ${projectId} AND user_id = ${owner}`;
     assert.equal(await queue(owner), 0, "a removed owner no longer sees it");
   });
 });
@@ -88,20 +88,20 @@ test("thread membership follows reviewer changes; the applicant keeps their thre
     assert.ok(await inThread(channelId, owner) && await inThread(channelId, admin) && await inThread(channelId, applicant));
     assert.equal(await inThread(channelId, member), false, "a plain member is not a reviewer");
 
-    await sql`UPDATE project_members SET role = 'admin' WHERE project_id = ${projectId} AND user_id = ${member}`;
+    await sql`UPDATE workspace_members SET role = 'admin' WHERE workspace_id = ${projectId} AND user_id = ${member}`;
     await sync(projectId, member, "role");
     assert.equal(await inThread(channelId, member), true, "a promoted admin joins");
 
-    await sql`UPDATE project_members SET role = 'member' WHERE project_id = ${projectId} AND user_id = ${admin}`;
+    await sql`UPDATE workspace_members SET role = 'member' WHERE workspace_id = ${projectId} AND user_id = ${admin}`;
     await sync(projectId, admin, "role");
     assert.equal(await inThread(channelId, admin), false, "a demoted admin loses the thread");
 
-    await sql`DELETE FROM project_members WHERE project_id = ${projectId} AND user_id = ${member}`;
+    await sql`DELETE FROM workspace_members WHERE workspace_id = ${projectId} AND user_id = ${member}`;
     await sync(projectId, member, "remove");
     assert.equal(await inThread(channelId, member), false, "a removed admin leaves");
 
     await addMember(sql as never, projectId, applicant, "member");
-    await sql`DELETE FROM project_members WHERE project_id = ${projectId} AND user_id = ${applicant}`;
+    await sql`DELETE FROM workspace_members WHERE workspace_id = ${projectId} AND user_id = ${applicant}`;
     await sync(projectId, applicant, "remove");
     assert.equal(await inThread(channelId, applicant), true, "removing the applicant from the workspace keeps their own thread");
 
@@ -217,7 +217,7 @@ test("per-role counts are for reviewers only, and accepting several reports each
     assert.deepEqual((await apps.getRoleApplicationCountsAction(projectId)).counts, {}, "a plain member sees nothing");
 
     // One seat, two applicants: the first accept fills it, the second can no longer be accepted.
-    await sql`UPDATE project_open_roles SET count = 1 WHERE id = ${roleId}`;
+    await sql`UPDATE workspace_open_roles SET count = 1 WHERE id = ${roleId}`;
     const second = await sql.begin((tx) => createUser(tx));
     viewerId = second;
     const other = await apps.applyToRoleAction(projectId, roleId, "me too");

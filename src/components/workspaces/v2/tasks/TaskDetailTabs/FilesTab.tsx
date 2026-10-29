@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { TaskFilesExplorer } from "@/components/workspaces/v2/tasks/components/TaskFilesExplorer";
 import { TaskFilesActionMenu } from "@/components/workspaces/v2/tasks/components/TaskFilesActionMenu";
 import { SingleAttachmentPicker } from "@/components/workspaces/v2/files-tab/picker/SingleAttachmentPicker";
@@ -32,7 +32,7 @@ interface FilesTabProps {
   taskId: string;
   canEdit: boolean;
   canManageFiles?: boolean;
-  attachments: (ProjectNode & { annotation?: string | null; tags?: string[] | null })[];
+  attachments: (WorkspaceNode & { annotation?: string | null; tags?: string[] | null })[];
   isLoading: boolean;
   error: string | null;
   isUploading: boolean;
@@ -76,7 +76,7 @@ export default function FilesTab({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
-  const [historyNode, setHistoryNode] = useState<ProjectNode | null>(null);
+  const [historyNode, setHistoryNode] = useState<WorkspaceNode | null>(null);
   const [isDragActive, setIsDragActive] = useState(false);
   const [isProcessingDrop, setIsProcessingDrop] = useState(false);
   const [v3PickerOpen, setV3PickerOpen] = useState(false);
@@ -119,7 +119,7 @@ export default function FilesTab({
 
   // URL state routing for Universal Task File Preview (Ponytail Phase 4)
   const handleOpenFile = useCallback(
-    async (node: ProjectNode) => {
+    async (node: WorkspaceNode) => {
       const routeProject =
         projectSlug || pathname?.match(/^\/(?:workspaces|projects)\/([^/]+)/)?.[1] || projectId;
       router.push(

@@ -37,7 +37,7 @@ function route({ validBearer = true, publicProject = false } = {}) {
       eq: (...v: unknown[]) => v,
       isNull: (v: unknown) => v,
     },
-    "@/lib/db/schema": { projects: fields, storageAssets: fields },
+    "@/lib/db/schema": { workspaces: fields, storageAssets: fields },
     "@/lib/db": {
       db: {
         select: () => ({

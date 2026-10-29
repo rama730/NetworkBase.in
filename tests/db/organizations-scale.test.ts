@@ -41,7 +41,7 @@ before(async () => {
 let orgId = "";
 let userIds: string[] = [];
 after(async () => {
-  if (orgId) await sql`DELETE FROM projects WHERE id = ${orgId} OR parent_id = ${orgId}`;
+  if (orgId) await sql`DELETE FROM workspaces WHERE id = ${orgId} OR parent_id = ${orgId}`;
   if (userIds.length) await sql`DELETE FROM auth.users WHERE id = ANY(${userIds}::uuid[])`;
   await sql.end();
   await closeAppDb();
@@ -60,8 +60,8 @@ test("an org at 2,000 members: fan-out, roster, dashboard, projects and My work 
   const size = ORG_LIMITS.membersPerOrg;
   const owner = await sql.begin((tx) => createUser(tx));
   orgId = await sql.begin((tx) => createProject(tx, owner));
-  await sql`UPDATE projects SET kind = 'organization', org_type = 'education', join_code = ${generateJoinCode()}, slug = ${`scale-${orgId.slice(0, 8)}`} WHERE id = ${orgId}`;
-  await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${orgId}, ${owner}, 'owner')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', join_code = ${generateJoinCode()}, slug = ${`scale-${orgId.slice(0, 8)}`} WHERE id = ${orgId}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${orgId}, ${owner}, 'owner')`;
 
   // 1,999 members, bulk-inserted; 20 child projects of ~100 each, one unit per project.
   const rows = await sql<{ id: string }[]>`
@@ -71,13 +71,13 @@ test("an org at 2,000 members: fan-out, roster, dashboard, projects and My work 
     SELECT id, 'scale-' || id || '@test.local', 's' || replace(left(id::text, 13), '-', ''), 'Student ' || left(id::text, 6), 'public' FROM users RETURNING id`;
   userIds = [owner, ...rows.map((r) => r.id)];
   const memberIds = userIds.slice(1);
-  await sql`INSERT INTO project_members (project_id, user_id, role) SELECT ${orgId}, unnest(${memberIds}::uuid[]), 'member'`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) SELECT ${orgId}, unnest(${memberIds}::uuid[]), 'member'`;
   for (let i = 0; i < 20; i++) {
     const child = await sql.begin((tx) => createProject(tx, owner, { visibility: "private" }));
-    await sql`UPDATE projects SET parent_id = ${orgId}, title = ${`Team ${i}`} WHERE id = ${child}`;
-    const [unit] = await sql`INSERT INTO project_open_roles (project_id, role, count) VALUES (${child}, 'Unit', 100) RETURNING id`;
-    await sql`INSERT INTO project_members (project_id, user_id, role, unit_id) VALUES (${child}, ${owner}, 'owner', NULL)`;
-    await sql`INSERT INTO project_members (project_id, user_id, role, unit_id) SELECT ${child}, unnest(${memberIds.slice(i * 100, i * 100 + 100)}::uuid[]), 'member', ${unit!.id}`;
+    await sql`UPDATE workspaces SET parent_id = ${orgId}, title = ${`Team ${i}`} WHERE id = ${child}`;
+    const [unit] = await sql`INSERT INTO workspace_open_roles (workspace_id, role, count) VALUES (${child}, 'Unit', 100) RETURNING id`;
+    await sql`INSERT INTO workspace_members (workspace_id, user_id, role, unit_id) VALUES (${child}, ${owner}, 'owner', NULL)`;
+    await sql`INSERT INTO workspace_members (workspace_id, user_id, role, unit_id) SELECT ${child}, unnest(${memberIds.slice(i * 100, i * 100 + 100)}::uuid[]), 'member', ${unit!.id}`;
   }
 
   viewerId = owner;

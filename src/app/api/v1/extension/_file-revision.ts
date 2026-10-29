@@ -6,7 +6,7 @@ import { z } from "zod";
 import { jsonError } from "@/app/api/v1/_shared";
 import { leaseCredentialsSchema } from "@/app/api/v1/_file-lease-route";
 import { db } from "@/lib/db";
-import { fileVersions, projectNodes } from "@/lib/db/schema";
+import { fileVersions, workspaceNodes } from "@/lib/db/schema";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import type { ApplyFileRevisionResult } from "@/lib/files/apply-file-revision";
 import { buildWorkspaceFileKey } from "@/lib/storage/workspace-file-key";
@@ -14,7 +14,7 @@ import { assertWorkspaceUploadAccess,assertWorkspaceUploadAccessTx } from "@/lib
 
 export const checksumSchema = z.string().regex(/^[a-f0-9]{64}$/i);
 
-type ProjectNode = typeof projectNodes.$inferSelect;
+type ProjectNode = typeof workspaceNodes.$inferSelect;
 
 export async function resolveWritableExtensionFile(
   projectId: string,
@@ -31,12 +31,12 @@ export async function resolveWritableExtensionFile(
 
   const [access, existingNode] = await Promise.all([
     getWorkspaceAccessById(projectId, userId),
-    db.query.projectNodes.findFirst({
+    db.query.workspaceNodes.findFirst({
       where: and(
-        eq(projectNodes.projectId, projectId),
-        eq(projectNodes.path, path),
-        eq(projectNodes.type, "file"),
-        isNull(projectNodes.deletedAt),
+        eq(workspaceNodes.projectId, projectId),
+        eq(workspaceNodes.path, path),
+        eq(workspaceNodes.type, "file"),
+        isNull(workspaceNodes.deletedAt),
       ),
     }),
   ]);
@@ -63,12 +63,12 @@ export async function resolveWritableExtensionFile(
     await assertWorkspaceUploadAccessTx(tx,projectId,userId);
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`ext-create-node:${projectId}`}))`);
 
-    const recheck = await tx.query.projectNodes.findFirst({
+    const recheck = await tx.query.workspaceNodes.findFirst({
       where: and(
-        eq(projectNodes.projectId, projectId),
-        eq(projectNodes.path, path),
-        eq(projectNodes.type, "file"),
-        isNull(projectNodes.deletedAt),
+        eq(workspaceNodes.projectId, projectId),
+        eq(workspaceNodes.path, path),
+        eq(workspaceNodes.type, "file"),
+        isNull(workspaceNodes.deletedAt),
       ),
     });
     if (recheck) return recheck;
@@ -78,20 +78,20 @@ export async function resolveWritableExtensionFile(
     for (let i = 0; i < segments.length - 1; i++) {
       const folderName = segments[i]!;
       currentFolderPath += `/${folderName}`;
-      const existingFolder = await tx.query.projectNodes.findFirst({
+      const existingFolder = await tx.query.workspaceNodes.findFirst({
         where: and(
-          eq(projectNodes.projectId, projectId),
-          eq(projectNodes.path, currentFolderPath),
-          eq(projectNodes.type, "folder"),
-          isNull(projectNodes.deletedAt),
-          isNull(projectNodes.taskId),
+          eq(workspaceNodes.projectId, projectId),
+          eq(workspaceNodes.path, currentFolderPath),
+          eq(workspaceNodes.type, "folder"),
+          isNull(workspaceNodes.deletedAt),
+          isNull(workspaceNodes.taskId),
         ),
       });
       if (existingFolder) {
         parentId = existingFolder.id;
       } else {
         const newFolderRows: Array<{ id: string }> = await tx
-          .insert(projectNodes)
+          .insert(workspaceNodes)
           .values({
             projectId,
             parentId,
@@ -102,14 +102,14 @@ export async function resolveWritableExtensionFile(
             currentVersion: 1,
             syncStatus: "merged",
           })
-          .returning({ id: projectNodes.id });
+          .returning({ id: workspaceNodes.id });
         parentId = newFolderRows[0]!.id;
       }
     }
 
     const fileName = segments[segments.length - 1]!;
     const [newFile] = await tx
-      .insert(projectNodes)
+      .insert(workspaceNodes)
       .values({
         projectId,
         parentId,
@@ -212,8 +212,8 @@ export function extensionRevisionConflictResponse(error: unknown) {
 
 /** A durable committed receipt survives Redis expiry and later active-version replacement. */
 export async function readCommittedExtensionReceipt(projectId:string,nodeId:string,userId:string,operationId:string,contentHash:string) {
- const {projectNodeEvents}=await import("@/lib/db/schema");
- const committed=await db.query.projectNodeEvents.findFirst({where:and(eq(projectNodeEvents.projectId,projectId),eq(projectNodeEvents.actorId,userId),sql`${projectNodeEvents.metadata}->>'operationId' = ${operationId}`)});
+ const {workspaceNodeEvents}=await import("@/lib/db/schema");
+ const committed=await db.query.workspaceNodeEvents.findFirst({where:and(eq(workspaceNodeEvents.projectId,projectId),eq(workspaceNodeEvents.actorId,userId),sql`${workspaceNodeEvents.metadata}->>'operationId' = ${operationId}`)});
  if(!committed)return null;const metadata=committed.metadata || {};
  if((metadata.nodeId||committed.nodeId)!==nodeId)throw new Error("This operation already committed to a removed or different file");
  if(metadata.hash!==contentHash)throw new Error("Operation ID was already used for different contents");

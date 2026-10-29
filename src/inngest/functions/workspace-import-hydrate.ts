@@ -4,7 +4,7 @@ import { gitBlobSha } from "@/lib/github/git-blob";
 
 import { inngest } from "../client";
 import { db } from "@/lib/db";
-import { fileVersions, projectNodes, projects, storageAssets } from "@/lib/db/schema";
+import { fileVersions, workspaceNodes, workspaces, storageAssets } from "@/lib/db/schema";
 import { eq, and, isNull, sql } from "drizzle-orm";
 import { fetchAndParseTarball } from "@/lib/github/tarball-stream";
 import { resolveGithubRepoAccess } from "@/lib/github/auth-resolver";
@@ -23,9 +23,9 @@ export const projectImportHydrate = inngest.createFunction(
         // Retries exhausted with files still unhydrated: say so instead of leaving a "ready" project (COR-008).
         onFailure: async ({ event, error }) => {
             const projectId = event.data.event.data.projectId as string;
-            const project = await db.query.projects.findFirst({ where: eq(projects.id, projectId), columns: { importSource: true } });
+            const project = await db.query.workspaces.findFirst({ where: eq(workspaces.id, projectId), columns: { importSource: true } });
             const source = (project?.importSource ?? {}) as { metadata?: Record<string, unknown> };
-            await db.update(projects).set({
+            await db.update(workspaces).set({
                 syncStatus: "failed",
                 importSource: {
                     ...source,
@@ -36,10 +36,10 @@ export const projectImportHydrate = inngest.createFunction(
                     },
                 } as never,
                 updatedAt: new Date(),
-            }).where(eq(projects.id, projectId));
+            }).where(eq(workspaces.id, projectId));
         },
     },
-    { event: "project/import.hydrate" },
+    [{ event: "workspace/import.hydrate" }, { event: "project/import.hydrate" }] /* old name drains for one release */,
     async ({ event, step }) => {
         const { projectId, importSource, userId } = event.data;
 
@@ -49,13 +49,13 @@ export const projectImportHydrate = inngest.createFunction(
             const adminClient = await createAdminClient();
             
             // Get all virtual nodes for this project
-            const nodes = await db.query.projectNodes.findMany({
-                where: and(eq(projectNodes.projectId, projectId), eq(projectNodes.type, 'file')),
+            const nodes = await db.query.workspaceNodes.findMany({
+                where: and(eq(workspaceNodes.projectId, projectId), eq(workspaceNodes.type, 'file')),
                 columns: { id: true, path: true, mimeType: true, s3Key: true, gitHash: true }
             });
 
-            const project = await db.query.projects.findFirst({
-                where: eq(projects.id, projectId),
+            const project = await db.query.workspaces.findFirst({
+                where: eq(workspaces.id, projectId),
                 columns: { importSource: true }
             });
             // Current repository access from the project's sealed credential or the
@@ -70,7 +70,7 @@ export const projectImportHydrate = inngest.createFunction(
 
             if (project?.importSource) {
                 const currentSource = project.importSource as any;
-                await db.update(projects)
+                await db.update(workspaces)
                     .set({
                         importSource: {
                             ...currentSource,
@@ -84,7 +84,7 @@ export const projectImportHydrate = inngest.createFunction(
                             }
                         }
                     })
-                    .where(eq(projects.id, projectId));
+                    .where(eq(workspaces.id, projectId));
             }
 
             // Fast lookup by normalized path
@@ -178,12 +178,12 @@ export const projectImportHydrate = inngest.createFunction(
 
                         const published = await db.transaction(async (tx) => {
                             await tx.execute(sql`
-                                SELECT id FROM project_nodes
-                                WHERE id = ${node.id} AND project_id = ${projectId}
+                                SELECT id FROM workspace_nodes
+                                WHERE id = ${node.id} AND workspace_id = ${projectId}
                                 FOR UPDATE
                             `);
-                            const current = await tx.query.projectNodes.findFirst({
-                                where: and(eq(projectNodes.id, node.id), eq(projectNodes.projectId, projectId)),
+                            const current = await tx.query.workspaceNodes.findFirst({
+                                where: and(eq(workspaceNodes.id, node.id), eq(workspaceNodes.projectId, projectId)),
                             });
                             if (!current || current.deletedAt) return false;
                             if (current.s3Key) return current.assetId === verifiedIntent.assetId;
@@ -214,7 +214,7 @@ export const projectImportHydrate = inngest.createFunction(
                                 .onConflictDoNothing()
                                 .returning({ id: fileVersions.id });
                             if (!version) throw new Error("Hydration version already has different content");
-                            const updated = await tx.update(projectNodes)
+                            const updated = await tx.update(workspaceNodes)
                                 .set({
                                     s3Key: intent.storageKey,
                                     assetId: asset.id,
@@ -223,8 +223,8 @@ export const projectImportHydrate = inngest.createFunction(
                                     syncStatus: "merged",
                                     updatedAt: new Date(),
                                 })
-                                .where(and(eq(projectNodes.id, node.id), isNull(projectNodes.s3Key)))
-                                .returning({ id: projectNodes.id });
+                                .where(and(eq(workspaceNodes.id, node.id), isNull(workspaceNodes.s3Key)))
+                                .returning({ id: workspaceNodes.id });
                             if (updated.length !== 1) throw new Error("Hydration publication lost its node race");
                             return true;
                         });
@@ -244,17 +244,17 @@ export const projectImportHydrate = inngest.createFunction(
                     // Batch update progress every 100 files
                     if (uploaded - lastReportedUploadCount >= 100) {
                         lastReportedUploadCount = uploaded;
-                        const proj = await db.query.projects.findFirst({
-                            where: eq(projects.id, projectId),
+                        const proj = await db.query.workspaces.findFirst({
+                            where: eq(workspaces.id, projectId),
                             columns: { importSource: true }
                         });
                         if (proj?.importSource) {
                             const currentSource = proj.importSource as any;
                             if (currentSource.metadata?.hydration) {
                                 currentSource.metadata.hydration.completed = uploaded;
-                                await db.update(projects)
+                                await db.update(workspaces)
                                     .set({ importSource: currentSource })
-                                    .where(eq(projects.id, projectId));
+                                    .where(eq(workspaces.id, projectId));
                             }
                         }
                     }
@@ -265,8 +265,8 @@ export const projectImportHydrate = inngest.createFunction(
                 await Promise.all(inFlight);
             }
 
-            const finalProj = await db.query.projects.findFirst({
-                where: eq(projects.id, projectId),
+            const finalProj = await db.query.workspaces.findFirst({
+                where: eq(workspaces.id, projectId),
                 columns: { importSource: true }
             });
             const finalImportSource = finalProj?.importSource as any;
@@ -279,20 +279,20 @@ export const projectImportHydrate = inngest.createFunction(
             if (failed > 0) {
                 // Published files are skipped on the retry (their node already has bytes), so each
                 // attempt only redoes what failed. Exhausted retries land in onFailure.
-                await db.update(projects)
+                await db.update(workspaces)
                     .set({ importSource: finalImportSource, updatedAt: new Date() })
-                    .where(eq(projects.id, projectId));
+                    .where(eq(workspaces.id, projectId));
                 throw new Error(`Hydration incomplete: ${failed} file(s) failed to publish`);
             }
 
             // Mark project as fully synced and hydration done
-            await db.update(projects)
+            await db.update(workspaces)
                 .set({ 
                     syncStatus: "ready", 
                     importSource: finalImportSource,
                     updatedAt: new Date() 
                 })
-                .where(eq(projects.id, projectId));
+                .where(eq(workspaces.id, projectId));
 
             return { uploaded, failed };
         });

@@ -23,21 +23,21 @@ async function withProject(fn: (ctx: Ctx) => Promise<void>, options: { roleCount
   const owner = await sql.begin((tx) => createUser(tx));
   const applicant = await sql.begin((tx) => createUser(tx));
   const projectId = await sql.begin((tx) => createProject(tx, owner));
-  const [role] = await sql`INSERT INTO project_open_roles (project_id, role, count) VALUES (${projectId}, 'Designer', ${options.roleCount ?? 2}) RETURNING id`;
+  const [role] = await sql`INSERT INTO workspace_open_roles (workspace_id, role, count) VALUES (${projectId}, 'Designer', ${options.roleCount ?? 2}) RETURNING id`;
   try {
     viewerId = applicant;
     await fn({ owner, applicant, projectId, roleId: role!.id as string });
   } finally {
-    await sql`DELETE FROM project_invitations WHERE project_id = ${projectId}`;
-    await sql`DELETE FROM role_applications WHERE project_id = ${projectId}`;
-    await sql`DELETE FROM project_members WHERE project_id = ${projectId}`;
-    await sql`DELETE FROM project_open_roles WHERE project_id = ${projectId}`;
-    await sql`DELETE FROM projects WHERE id = ${projectId}`;
+    await sql`DELETE FROM workspace_invitations WHERE workspace_id = ${projectId}`;
+    await sql`DELETE FROM role_applications WHERE workspace_id = ${projectId}`;
+    await sql`DELETE FROM workspace_members WHERE workspace_id = ${projectId}`;
+    await sql`DELETE FROM workspace_open_roles WHERE workspace_id = ${projectId}`;
+    await sql`DELETE FROM workspaces WHERE id = ${projectId}`;
   }
 }
 
 const row = async (projectId: string, applicantId: string) => {
-  const [r] = await sql`SELECT id, status, message, role_id, decision_reason_code FROM role_applications WHERE project_id = ${projectId} AND applicant_id = ${applicantId}`;
+  const [r] = await sql`SELECT id, status, message, role_id, decision_reason_code FROM role_applications WHERE workspace_id = ${projectId} AND applicant_id = ${applicantId}`;
   return r;
 };
 
@@ -65,7 +65,7 @@ test("a removed member whose application was accepted can apply again; a current
     const asMember = await apps.applyToRoleAction(projectId, roleId, "again");
     assert.equal(asMember.success, false);
     assert.equal(asMember.errorCode, "ALREADY_MEMBER");
-    await sql`DELETE FROM project_members WHERE project_id = ${projectId} AND user_id = ${applicant}`;
+    await sql`DELETE FROM workspace_members WHERE workspace_id = ${projectId} AND user_id = ${applicant}`;
     const back = await apps.applyToRoleAction(projectId, roleId, "I'd like to return");
     assert.equal(back.success, true, JSON.stringify(back));
     assert.equal(back.outcome, "resubmitted");
@@ -84,7 +84,7 @@ test("applying while pending: identical is a no-op, a change inside the edit win
     assert.equal(edited.success, true, JSON.stringify(edited));
     assert.equal(edited.outcome, "updated");
     assert.equal((await row(projectId, applicant))!.message, "hello, with more detail");
-    await sql`UPDATE role_applications SET created_at = now() - interval '1 hour' WHERE project_id = ${projectId}`;
+    await sql`UPDATE role_applications SET created_at = now() - interval '1 hour' WHERE workspace_id = ${projectId}`;
     const late = await apps.applyToRoleAction(projectId, roleId, "a change after the window");
     assert.equal(late.success, false);
     assert.equal(late.errorCode, "ALREADY_PENDING");
@@ -99,7 +99,7 @@ test("two simultaneous first submits end as one application, never an error", as
       apps.applyToRoleAction(projectId, roleId, "tab two", { idempotencyKey: "b" }),
     ]);
     assert.deepEqual(results.map((r) => r.success), [true, true], JSON.stringify(results));
-    const [{ count }] = await sql`SELECT count(*)::int AS count FROM role_applications WHERE project_id = ${projectId} AND applicant_id = ${applicant}`;
+    const [{ count }] = await sql`SELECT count(*)::int AS count FROM role_applications WHERE workspace_id = ${projectId} AND applicant_id = ${applicant}`;
     assert.equal(count, 1);
   });
 });
@@ -107,11 +107,11 @@ test("two simultaneous first submits end as one application, never an error", as
 async function fillPendingCap(applicant: string) {
   const extra: string[] = [];
   for (let i = 0; i < 20; i++) extra.push(await sql.begin(async (tx) => createProject(tx, await createUser(tx))));
-  await sql`INSERT INTO role_applications (project_id, applicant_id, creator_id, status, message)
-    SELECT id, ${applicant}, owner_id, 'pending', 'x' FROM projects WHERE id = ANY(${extra})`;
+  await sql`INSERT INTO role_applications (workspace_id, applicant_id, creator_id, status, message)
+    SELECT id, ${applicant}, owner_id, 'pending', 'x' FROM workspaces WHERE id = ANY(${extra})`;
   return async () => {
-    await sql`DELETE FROM role_applications WHERE project_id = ANY(${extra})`;
-    await sql`DELETE FROM projects WHERE id = ANY(${extra})`;
+    await sql`DELETE FROM role_applications WHERE workspace_id = ANY(${extra})`;
+    await sql`DELETE FROM workspaces WHERE id = ANY(${extra})`;
   };
 }
 
@@ -142,11 +142,11 @@ test("the 20-pending cap reports CAP_REACHED for apply and for reapply", async (
 
 test("a deleted or archived project takes no applications", async () => {
   await withProject(async ({ projectId, roleId }) => {
-    await sql`UPDATE projects SET status = 'archived' WHERE id = ${projectId}`;
+    await sql`UPDATE workspaces SET status = 'archived' WHERE id = ${projectId}`;
     const closed = await apps.applyToRoleAction(projectId, roleId, "hi");
     assert.equal(closed.success, false);
     assert.equal(closed.errorCode, "PROJECT_CLOSED");
-    await sql`UPDATE projects SET status = 'active', deleted_at = now() WHERE id = ${projectId}`;
+    await sql`UPDATE workspaces SET status = 'active', deleted_at = now() WHERE id = ${projectId}`;
     const gone = await apps.applyToRoleAction(projectId, roleId, "hi");
     assert.equal(gone.success, false);
     assert.equal(gone.errorCode, "PROJECT_NOT_FOUND");
@@ -172,7 +172,7 @@ test("when a role fills, other pending applicants are closed as role_filled, tol
     const winner = await apps.applyToRoleAction(projectId, roleId, "me first");
     viewerId = second;
     const loser = await apps.applyToRoleAction(projectId, roleId, "me too");
-    await sql`UPDATE project_open_roles SET count = 1 WHERE id = ${roleId}`;
+    await sql`UPDATE workspace_open_roles SET count = 1 WHERE id = ${roleId}`;
     viewerId = owner;
     assert.equal((await apps.acceptApplicationAction(winner.applicationId!)).success, true);
     const lost = await row(projectId, second);
@@ -225,7 +225,7 @@ test("a profile's apply picker leaves out projects the viewer cannot apply to ri
   moduleStubs.set("@/lib/server/viewer-context", { getViewerAuthContext: async () => ({ userId: viewerId }) });
   const lifecycle = await loadAppModule(() => import("../../src/lib/workspaces/server/lifecycle"));
   await withProject(async ({ owner, projectId, roleId }) => {
-    await sql`UPDATE projects SET open_roles_count = 1 WHERE id = ${projectId}`;
+    await sql`UPDATE workspaces SET open_roles_count = 1 WHERE id = ${projectId}`;
     const offered = async () => (await lifecycle.getProfileWorkspacesWithOpenRolesAction(owner)).items.some((item: { id: string }) => item.id === projectId);
     assert.equal(await offered(), true, "offered before applying");
     const first = await apps.applyToRoleAction(projectId, roleId, "hello");
@@ -236,11 +236,11 @@ test("a profile's apply picker leaves out projects the viewer cannot apply to ri
     assert.equal(await offered(), false, "not offered inside the cooldown");
     await sql`UPDATE role_applications SET updated_at = now() - interval '25 hours' WHERE id = ${first.applicationId!}`;
     assert.equal(await offered(), true, "offered after the cooldown");
-    await sql`UPDATE projects SET status = 'archived' WHERE id = ${projectId}`;
+    await sql`UPDATE workspaces SET status = 'archived' WHERE id = ${projectId}`;
     assert.equal(await offered(), false, "not offered once archived");
-    await sql`UPDATE projects SET status = 'active' WHERE id = ${projectId}`;
+    await sql`UPDATE workspaces SET status = 'active' WHERE id = ${projectId}`;
     assert.equal(await offered(), true);
-    await sql`INSERT INTO project_invitations (project_id, inviter_id, candidate_id, kind, role_id, role_title, project_title, status, expires_at)
+    await sql`INSERT INTO workspace_invitations (workspace_id, inviter_id, candidate_id, kind, role_id, role_title, project_title, status, expires_at)
       VALUES (${projectId}, ${owner}, ${viewerId}, 'ordinary_role', ${roleId}, 'Designer', 'P', 'pending', now() + interval '1 day')`;
     assert.equal(await offered(), false, "not offered while an invitation to it is pending");
     assert.equal((await lifecycle.getProfileWorkspacesWithOpenRolesAction(owner)).capReached, false);
@@ -259,7 +259,7 @@ test("project cards can show your own application: applied, declined while cooli
     assert.deepEqual(await chips(), {}, "a decline the workspace caused is not shown as a decline");
     await sql`UPDATE role_applications SET decision_reason_code = 'other', updated_at = now() - interval '25 hours' WHERE id = ${first.applicationId!}`;
     assert.deepEqual(await chips(), {}, "after the cooldown the card is plain again");
-    await sql`INSERT INTO project_invitations (project_id, inviter_id, candidate_id, kind, role_id, role_title, project_title, status, expires_at)
+    await sql`INSERT INTO workspace_invitations (workspace_id, inviter_id, candidate_id, kind, role_id, role_title, project_title, status, expires_at)
       VALUES (${projectId}, ${owner}, ${applicant}, 'ordinary_role', ${roleId}, 'Designer', 'P', 'pending', now() + interval '1 day')`;
     assert.deepEqual(await chips(), { [projectId]: "invited" });
     viewerId = "";

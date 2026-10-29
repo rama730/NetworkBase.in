@@ -9,11 +9,11 @@ import { db } from "@/lib/db";
  */
 export function canReviewWorkspaceSql(userId: string, projectId: SQL): SQL {
   return sql`EXISTS (
-    SELECT 1 FROM projects rp
+    SELECT 1 FROM workspaces rp
     WHERE rp.id = ${projectId} AND rp.deleted_at IS NULL
       AND (rp.owner_id = ${userId}::uuid OR EXISTS (
-        SELECT 1 FROM project_members rpm
-        WHERE rpm.project_id = rp.id AND rpm.user_id = ${userId}::uuid AND rpm.role IN ('owner', 'admin')))
+        SELECT 1 FROM workspace_members rpm
+        WHERE rpm.workspace_id = rp.id AND rpm.user_id = ${userId}::uuid AND rpm.role IN ('owner', 'admin')))
   )`;
 }
 
@@ -27,7 +27,7 @@ export async function countReviewableApplications(userId: string): Promise<numbe
     FROM role_applications a
     JOIN profiles ap ON ap.id = a.applicant_id AND ap.deleted_at IS NULL
     WHERE a.status = 'pending' AND a.applicant_id <> ${userId}::uuid
-      AND ${canReviewWorkspaceSql(userId, sql`a.project_id`)}
+      AND ${canReviewWorkspaceSql(userId, sql`a.workspace_id`)}
       AND NOT EXISTS (
         SELECT 1 FROM connections b
         WHERE b.status = 'blocked'

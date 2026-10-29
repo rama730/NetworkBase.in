@@ -177,16 +177,16 @@ export async function getPersonContext(input: { userId: string }) {
     if (blocked) return { success: true as const, context: { timeZone: null, sharedProjects: [], sharedChannels: [] } satisfies PersonContext };
     const [sharedProjects, sharedChannels, profile, timeZone] = await Promise.all([
       chatRows<PersonContext["sharedProjects"][number]>(sql`
-        SELECT p.id, p.title, p.slug FROM project_members a
-        JOIN project_members b ON b.project_id = a.project_id AND b.user_id = ${input.userId}::uuid
-        JOIN projects p ON p.id = a.project_id
+        SELECT p.id, p.title, p.slug FROM workspace_members a
+        JOIN workspace_members b ON b.workspace_id = a.workspace_id AND b.user_id = ${input.userId}::uuid
+        JOIN workspaces p ON p.id = a.workspace_id
         WHERE a.user_id = ${user.id}::uuid AND p.deleted_at IS NULL ORDER BY p.title LIMIT 10
       `),
       chatRows<PersonContext["sharedChannels"][number]>(sql`
         SELECT c.id, c.name, p.title AS project_title FROM chat_channel_members a
         JOIN chat_channel_members b ON b.channel_id = a.channel_id AND b.user_id = ${input.userId}::uuid
         JOIN chat_channels c ON c.id = a.channel_id
-        LEFT JOIN projects p ON p.id = c.project_id
+        LEFT JOIN workspaces p ON p.id = c.workspace_id
         WHERE a.user_id = ${user.id}::uuid AND c.name IS NOT NULL AND c.archived_at IS NULL
         ORDER BY c.last_message_at DESC NULLS LAST LIMIT 10
       `),

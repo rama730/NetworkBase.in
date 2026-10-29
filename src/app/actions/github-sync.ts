@@ -5,10 +5,10 @@ import { and, count, eq, desc, inArray, isNull, sql } from "drizzle-orm";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import {
-  projects,
-  projectNodes,
+  workspaces,
+  workspaceNodes,
   profiles,
-  projectMembers,
+  workspaceMembers,
   tasks,
   githubSyncConnections,
   githubSyncFiles,
@@ -151,21 +151,21 @@ export async function getGitHubSyncState(projectId: string) {
           .where(eq(githubSyncFiles.projectId, projectId)),
         db
           .select({
-            userId: projectMembers.userId,
+            userId: workspaceMembers.userId,
             fullName: profiles.fullName,
             username: profiles.username,
             avatarUrl: profiles.avatarUrl,
-            membershipRole: projectMembers.role,
+            membershipRole: workspaceMembers.role,
             githubLogin: githubContributorIdentities.login,
             githubEmail: githubContributorIdentities.email,
           })
-          .from(projectMembers)
-          .innerJoin(profiles, eq(profiles.id, projectMembers.userId))
+          .from(workspaceMembers)
+          .innerJoin(profiles, eq(profiles.id, workspaceMembers.userId))
           .leftJoin(
             githubContributorIdentities,
-            eq(githubContributorIdentities.userId, projectMembers.userId),
+            eq(githubContributorIdentities.userId, workspaceMembers.userId),
           )
-          .where(eq(projectMembers.projectId, projectId))
+          .where(eq(workspaceMembers.projectId, projectId))
           .limit(12),
       ]);
     let identity = identityRow;
@@ -223,7 +223,7 @@ export async function connectGitHubSyncRepository(
     if (!normalized || !normalizedBranch)
       throw new Error("Choose a valid repository and branch");
     // No GitHub sync for organizations in v1: it could publish Admins-only files (report §23.9 #22).
-    const [target] = await db.select({ kind: projects.kind }).from(projects).where(eq(projects.id, projectId)).limit(1);
+    const [target] = await db.select({ kind: workspaces.kind }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
     if (target?.kind === "organization")
       throw new Error("Organizations can’t connect a GitHub repository.");
     const { user, token } = await session();
@@ -241,7 +241,7 @@ export async function connectGitHubSyncRepository(
       );
     await db.transaction(async (tx) => {
       await tx.execute(
-        sql`SELECT id FROM projects WHERE id = ${projectId} FOR UPDATE`,
+        sql`SELECT id FROM workspaces WHERE id = ${projectId} FOR UPDATE`,
       );
       const active = await tx.query.githubSyncRuns.findFirst({
         where: and(
@@ -278,12 +278,12 @@ export async function connectGitHubSyncRepository(
           },
         });
       await tx
-        .update(projects)
+        .update(workspaces)
         .set({
           githubRepoUrl: normalized,
           githubDefaultBranch: normalizedBranch,
         })
-        .where(eq(projects.id, projectId));
+        .where(eq(workspaces.id, projectId));
     });
     return { repository: normalized, branch: normalizedBranch };
   });
@@ -295,7 +295,7 @@ export async function disconnectGitHubSyncRepository(projectId: string) {
     await requireSyncOwner(projectId, user.id);
     await db.transaction(async (tx) => {
       await tx.execute(
-        sql`SELECT id FROM projects WHERE id = ${projectId} FOR UPDATE`,
+        sql`SELECT id FROM workspaces WHERE id = ${projectId} FOR UPDATE`,
       );
       if (
         await tx.query.githubSyncRuns.findFirst({
@@ -311,8 +311,8 @@ export async function disconnectGitHubSyncRepository(projectId: string) {
       await tx
         .delete(githubSyncConnections)
         .where(eq(githubSyncConnections.projectId, projectId));
-      const projectRecord = await tx.query.projects.findFirst({
-        where: eq(projects.id, projectId),
+      const projectRecord = await tx.query.workspaces.findFirst({
+        where: eq(workspaces.id, projectId),
         columns: { importSource: true },
       });
       const fallbackRepoUrl =
@@ -324,12 +324,12 @@ export async function disconnectGitHubSyncRepository(projectId: string) {
           ? projectRecord.importSource.branch || "main"
           : null;
       await tx
-        .update(projects)
+        .update(workspaces)
         .set({
           githubRepoUrl: fallbackRepoUrl,
           githubDefaultBranch: fallbackBranch,
         })
-        .where(eq(projects.id, projectId));
+        .where(eq(workspaces.id, projectId));
       await tx
         .update(githubSyncRuns)
         .set({
@@ -705,11 +705,11 @@ export async function getSingleFileDiff(
 
     if (!storageKey && params.nodeId) {
       idSchema.parse(params.nodeId);
-      const node = await db.query.projectNodes.findFirst({
+      const node = await db.query.workspaceNodes.findFirst({
         where: and(
-          eq(projectNodes.id, params.nodeId),
-          eq(projectNodes.projectId, projectId),
-          isNull(projectNodes.deletedAt),
+          eq(workspaceNodes.id, params.nodeId),
+          eq(workspaceNodes.projectId, projectId),
+          isNull(workspaceNodes.deletedAt),
         ),
         columns: { s3Key: true },
       });
@@ -1047,8 +1047,8 @@ export async function getWorkspaceSyncTasks(projectId: string) {
     const { user } = await session();
     // Task titles are Tasks-tab data, not Files data (COR-038).
     await assertWorkspaceTabReadAccess(projectId, user.id, "tasks");
-    const project = await db.query.projects.findFirst({
-      where: and(eq(projects.id, projectId), isNull(projects.deletedAt)),
+    const project = await db.query.workspaces.findFirst({
+      where: and(eq(workspaces.id, projectId), isNull(workspaces.deletedAt)),
       columns: { key: true },
     });
     const candidateTasks = await db.query.tasks.findMany({

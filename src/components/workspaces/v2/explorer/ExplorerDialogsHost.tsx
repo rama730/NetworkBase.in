@@ -23,7 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { getWorkspaceNodes } from "@/app/actions/files/nodes";
 import { createFolder } from "@/app/actions/files/mutations";
 import { readOrgFileUsageAction } from "@/app/actions/org-files";
@@ -44,13 +44,13 @@ export function FolderPicker({
   projectId: string;
   selectedFolderId: string | null;
   onSelectFolder: (folderId: string | null) => void;
-  sourceNodes?: ProjectNode[];
+  sourceNodes?: WorkspaceNode[];
   canCreateFolder?: boolean;
   allowTaskWorkingFiles?: boolean;
   className?: string;
 }) {
   type FolderPage = {
-    nodes: ProjectNode[];
+    nodes: WorkspaceNode[];
     nextCursor: string | null;
     loading: boolean;
     error: string | null;
@@ -58,7 +58,7 @@ export function FolderPicker({
   const [pages, setPages] = useState<Record<string, FolderPage>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [query, setQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<ProjectNode[]>([]);
+  const [searchResults, setSearchResults] = useState<WorkspaceNode[]>([]);
   const [searchNextCursor, setSearchNextCursor] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -67,7 +67,7 @@ export function FolderPicker({
   const [createError, setCreateError] = useState<string | null>(null);
 
   const keyFor = (parentId: string | null) => parentId ?? "__root__";
-  const eligibleFolders = (nodes: ProjectNode[]) =>
+  const eligibleFolders = (nodes: WorkspaceNode[]) =>
     nodes.filter(
       (node) =>
         node.type === "folder" && !isInternalTaskWorkingFilesNode(node),
@@ -183,7 +183,7 @@ export function FolderPicker({
     };
   }, [projectId, query]);
 
-  const disabledReason = (node: ProjectNode | null) => {
+  const disabledReason = (node: WorkspaceNode | null) => {
     if (!allowTaskWorkingFiles && sourceNodes.some((source) => source.taskId))
       return "Publish task draft files before relocating them";
     if (node && sourceNodes.some((source) => source.id === node.id))
@@ -229,7 +229,7 @@ export function FolderPicker({
     }
   };
 
-  const toggle = async (node: ProjectNode) => {
+  const toggle = async (node: WorkspaceNode) => {
     const isOpen = !!expanded[node.id];
     if (isOpen) {
       setExpanded((p) => ({ ...p, [node.id]: false }));
@@ -251,7 +251,7 @@ export function FolderPicker({
   };
 
   const renderNode = (
-    node: ProjectNode,
+    node: WorkspaceNode,
     level: number,
     position = 1,
     setSize = 1,
@@ -708,8 +708,8 @@ export function DeleteDialog({
   confirmDelete,
   canEdit,
 }: {
-  deleteDialog: { open: boolean; nodes: ProjectNode[] };
-  setDeleteDialog: React.Dispatch<React.SetStateAction<{ open: boolean; nodes: ProjectNode[] }>>;
+  deleteDialog: { open: boolean; nodes: WorkspaceNode[] };
+  setDeleteDialog: React.Dispatch<React.SetStateAction<{ open: boolean; nodes: WorkspaceNode[] }>>;
   confirmDelete: () => Promise<void>;
   canEdit: boolean;
 }) {
@@ -794,13 +794,13 @@ export function MoveDialog({
 }: {
   moveDialog: {
     open: boolean;
-    nodes: ProjectNode[];
+    nodes: WorkspaceNode[];
     targetFolderId: string | null;
   };
   setMoveDialog: React.Dispatch<
     React.SetStateAction<{
       open: boolean;
-      nodes: ProjectNode[];
+      nodes: WorkspaceNode[];
       targetFolderId: string | null;
     }>
   >;
@@ -924,12 +924,12 @@ interface ExplorerDialogsHostProps {
     React.SetStateAction<{ nodeId: string | null; value: string; original: string }>
   >;
   confirmRename: () => Promise<void>;
-  deleteDialog: { open: boolean; nodes: ProjectNode[] };
-  setDeleteDialog: React.Dispatch<React.SetStateAction<{ open: boolean; nodes: ProjectNode[] }>>;
+  deleteDialog: { open: boolean; nodes: WorkspaceNode[] };
+  setDeleteDialog: React.Dispatch<React.SetStateAction<{ open: boolean; nodes: WorkspaceNode[] }>>;
   confirmDelete: () => Promise<void>;
-  moveDialog: { open: boolean; nodes: ProjectNode[]; targetFolderId: string | null };
+  moveDialog: { open: boolean; nodes: WorkspaceNode[]; targetFolderId: string | null };
   setMoveDialog: React.Dispatch<
-    React.SetStateAction<{ open: boolean; nodes: ProjectNode[]; targetFolderId: string | null }>
+    React.SetStateAction<{ open: boolean; nodes: WorkspaceNode[]; targetFolderId: string | null }>
   >;
   confirmMove: () => Promise<void>;
 }

@@ -42,7 +42,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import {
   ancestorChain,
   type CurrentLocation,
@@ -94,8 +94,8 @@ type NodeInit = {
   type?: "folder" | "file";
 };
 
-/** Minimal ProjectNode satisfying the fields `ancestorChain` touches. */
-function makeNode(init: NodeInit): ProjectNode {
+/** Minimal WorkspaceNode satisfying the fields `ancestorChain` touches. */
+function makeNode(init: NodeInit): WorkspaceNode {
   return {
     id: init.id,
     projectId: "proj-1",
@@ -114,11 +114,11 @@ function makeNode(init: NodeInit): ProjectNode {
     createdAt: new Date("2026-01-01T00:00:00Z"),
     updatedAt: new Date("2026-01-01T00:00:00Z"),
     deletedAt: null,
-  } as unknown as ProjectNode;
+  } as unknown as WorkspaceNode;
 }
 
-function buildTree(inits: NodeInit[]): Record<string, ProjectNode> {
-  const out: Record<string, ProjectNode> = {};
+function buildTree(inits: NodeInit[]): Record<string, WorkspaceNode> {
+  const out: Record<string, WorkspaceNode> = {};
   for (const init of inits) out[init.id] = makeNode(init);
   return out;
 }
@@ -130,7 +130,7 @@ function buildTree(inits: NodeInit[]): Record<string, ProjectNode> {
  * `f0`, segment 1 is `f1` nested inside, etc.
  */
 function buildLinearFolders(depth: number): {
-  nodesById: Record<string, ProjectNode>;
+  nodesById: Record<string, WorkspaceNode>;
   leafId: string;
 } {
   assert.ok(depth > 0, "depth must be positive");
@@ -146,11 +146,11 @@ function buildLinearFolders(depth: number): {
   return { nodesById: buildTree(inits), leafId: `f${depth - 1}` };
 }
 
-function folderLocation(node: ProjectNode): CurrentLocation {
+function folderLocation(node: WorkspaceNode): CurrentLocation {
   return { type: "folder", id: node.id, node };
 }
 
-function fileLocation(node: ProjectNode): CurrentLocation {
+function fileLocation(node: WorkspaceNode): CurrentLocation {
   return { type: "file", id: node.id, node };
 }
 

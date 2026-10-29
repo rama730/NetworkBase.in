@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import {
   profileAuditEvents,
-  profileProjectContributions,
+  profileContributions,
   profiles,
 } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
@@ -143,22 +143,22 @@ export async function saveProfileContributionsAction(
       const existingRows = contributionIds.length > 0
         ? await tx
             .select({
-              id: profileProjectContributions.id,
-              projectId: profileProjectContributions.projectId,
-              externalKey: profileProjectContributions.externalKey,
-              version: profileProjectContributions.version,
-              visibility: profileProjectContributions.visibility,
-              summary: profileProjectContributions.summary,
-              repositoryUrl: profileProjectContributions.repositoryUrl,
-              projectUrl: profileProjectContributions.projectUrl,
-              projectTitle: profileProjectContributions.projectTitle,
-              roleTitle: profileProjectContributions.roleTitle,
+              id: profileContributions.id,
+              projectId: profileContributions.projectId,
+              externalKey: profileContributions.externalKey,
+              version: profileContributions.version,
+              visibility: profileContributions.visibility,
+              summary: profileContributions.summary,
+              repositoryUrl: profileContributions.repositoryUrl,
+              projectUrl: profileContributions.projectUrl,
+              projectTitle: profileContributions.projectTitle,
+              roleTitle: profileContributions.roleTitle,
             })
-            .from(profileProjectContributions)
+            .from(profileContributions)
             .where(and(
-              eq(profileProjectContributions.profileId, user.id),
-              inArray(profileProjectContributions.id, contributionIds),
-              isNull(profileProjectContributions.deletedAt),
+              eq(profileContributions.profileId, user.id),
+              inArray(profileContributions.id, contributionIds),
+              isNull(profileContributions.deletedAt),
             ))
         : [];
       const existingById = new Map(existingRows.map((row) => [row.id, row as ExistingContribution]));
@@ -174,16 +174,16 @@ export async function saveProfileContributionsAction(
             throw new ContributionSaveError("NOT_FOUND", "External contribution was not found", mutation.contributionId, mutationIndex);
           }
           const deleted = await tx
-            .update(profileProjectContributions)
-            .set({ deletedAt: now, updatedAt: now, version: sql`${profileProjectContributions.version} + 1` })
+            .update(profileContributions)
+            .set({ deletedAt: now, updatedAt: now, version: sql`${profileContributions.version} + 1` })
             .where(and(
-              eq(profileProjectContributions.id, current.id),
-              eq(profileProjectContributions.profileId, user.id),
-              eq(profileProjectContributions.version, mutation.expectedVersion),
-              isNull(profileProjectContributions.deletedAt),
-              isNull(profileProjectContributions.projectId),
+              eq(profileContributions.id, current.id),
+              eq(profileContributions.profileId, user.id),
+              eq(profileContributions.version, mutation.expectedVersion),
+              isNull(profileContributions.deletedAt),
+              isNull(profileContributions.projectId),
             ))
-            .returning({ id: profileProjectContributions.id, version: profileProjectContributions.version });
+            .returning({ id: profileContributions.id, version: profileContributions.version });
           if (!deleted[0]) {
             throw new ContributionSaveError("CONFLICT", "Contribution changed elsewhere. Refresh and try again.", mutation.contributionId, mutationIndex);
           }
@@ -198,7 +198,7 @@ export async function saveProfileContributionsAction(
             throw new ContributionSaveError("NOT_FOUND", "Platform contribution was not found", mutation.contributionId, mutationIndex);
           }
           const updated = await tx
-            .update(profileProjectContributions)
+            .update(profileContributions)
             .set({
               visibility: mutation.visibility,
               summary: mutation.summary,
@@ -207,16 +207,16 @@ export async function saveProfileContributionsAction(
               startedAt: contributionMonthToDate(mutation.dates.startedAt),
               endedAt: contributionMonthToDate(mutation.dates.endedAt),
               updatedAt: now,
-              version: sql`${profileProjectContributions.version} + 1`,
+              version: sql`${profileContributions.version} + 1`,
             })
             .where(and(
-              eq(profileProjectContributions.id, current.id),
-              eq(profileProjectContributions.profileId, user.id),
-              eq(profileProjectContributions.version, mutation.expectedVersion),
-              isNull(profileProjectContributions.deletedAt),
-              sql`${profileProjectContributions.projectId} IS NOT NULL`,
+              eq(profileContributions.id, current.id),
+              eq(profileContributions.profileId, user.id),
+              eq(profileContributions.version, mutation.expectedVersion),
+              isNull(profileContributions.deletedAt),
+              sql`${profileContributions.projectId} IS NOT NULL`,
             ))
-            .returning({ id: profileProjectContributions.id, version: profileProjectContributions.version });
+            .returning({ id: profileContributions.id, version: profileContributions.version });
           if (!updated[0]) {
             throw new ContributionSaveError("CONFLICT", "Contribution changed elsewhere. Refresh and try again.", mutation.contributionId, mutationIndex);
           }
@@ -236,7 +236,7 @@ export async function saveProfileContributionsAction(
             throw new ContributionSaveError("NOT_FOUND", "External contribution was not found", mutation.contributionId, mutationIndex);
           }
           const updated = await tx
-            .update(profileProjectContributions)
+            .update(profileContributions)
             .set({
               projectTitle: mutation.projectTitle,
               projectUrl: mutation.projectUrl,
@@ -248,16 +248,16 @@ export async function saveProfileContributionsAction(
               endedAt: contributionMonthToDate(mutation.dates.endedAt),
               visibility: mutation.visibility,
               updatedAt: now,
-              version: sql`${profileProjectContributions.version} + 1`,
+              version: sql`${profileContributions.version} + 1`,
             })
             .where(and(
-              eq(profileProjectContributions.id, current.id),
-              eq(profileProjectContributions.profileId, user.id),
-              eq(profileProjectContributions.version, mutation.expectedVersion!),
-              isNull(profileProjectContributions.deletedAt),
-              isNull(profileProjectContributions.projectId),
+              eq(profileContributions.id, current.id),
+              eq(profileContributions.profileId, user.id),
+              eq(profileContributions.version, mutation.expectedVersion!),
+              isNull(profileContributions.deletedAt),
+              isNull(profileContributions.projectId),
             ))
-            .returning({ id: profileProjectContributions.id, version: profileProjectContributions.version });
+            .returning({ id: profileContributions.id, version: profileContributions.version });
           if (!updated[0]) {
             throw new ContributionSaveError("CONFLICT", "Contribution changed elsewhere. Refresh and try again.", mutation.contributionId, mutationIndex);
           }
@@ -270,7 +270,7 @@ export async function saveProfileContributionsAction(
           });
         } else {
           const inserted = await tx
-            .insert(profileProjectContributions)
+            .insert(profileContributions)
             .values({
               profileId: user.id,
               projectId: null,
@@ -289,7 +289,7 @@ export async function saveProfileContributionsAction(
               version: 1,
               updatedAt: now,
             })
-            .returning({ id: profileProjectContributions.id, version: profileProjectContributions.version });
+            .returning({ id: profileContributions.id, version: profileContributions.version });
           const created = inserted[0]!;
           changed.push(created);
           skillsToSync.push({ contributionId: created.id, labels: mutation.skills });
@@ -308,7 +308,7 @@ export async function saveProfileContributionsAction(
           skills: resolvedSkills.map((s) => s.name),
         }));
         await tx.execute(sql`
-          UPDATE profile_project_contributions AS p
+          UPDATE profile_contributions AS p
           SET skills = COALESCE(v.skills_json, '[]'::jsonb)
           FROM (
             SELECT 

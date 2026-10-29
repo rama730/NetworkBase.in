@@ -3,7 +3,7 @@ import "server-only";
 import { and, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { orgEmailInvites, profiles, projectMembers, projects } from "@/lib/db/schema";
+import { orgEmailInvites, profiles, workspaceMembers, workspaces } from "@/lib/db/schema";
 import { createCopiesForNewMember, releaseCopiesOnLeave } from "@/lib/organizations/assignments";
 import { notifyNewCopies } from "@/lib/organizations/assignment-notify";
 import { namesOf, notifyOrg, orgLabel, queueOrgInviteSignupEmails, ROLE_LABEL } from "@/lib/organizations/notify";
@@ -23,8 +23,8 @@ export async function createOrgEmailInvites(orgId: string, actorId: string, inpu
 }) {
   const valid = [...new Set(input.emails.map((e) => e.trim().toLowerCase()).filter(Boolean))];
   if (valid.length === 0) return { invited: 0, existing: 0 };
-  const already = new Set((await db.select({ email: profiles.email }).from(projectMembers).innerJoin(profiles, eq(profiles.id, projectMembers.userId))
-    .where(and(eq(projectMembers.projectId, orgId), inArray(profiles.email, valid)))).map((r) => r.email.toLowerCase()));
+  const already = new Set((await db.select({ email: profiles.email }).from(workspaceMembers).innerJoin(profiles, eq(profiles.id, workspaceMembers.userId))
+    .where(and(eq(workspaceMembers.projectId, orgId), inArray(profiles.email, valid)))).map((r) => r.email.toLowerCase()));
   const toInvite = valid.filter((e) => !already.has(e));
   const expiresAt = new Date(Date.now() + INVITE_DAYS * 86_400_000);
   const invites: Array<{ id: string; email: string }> = [];
@@ -66,10 +66,10 @@ export async function notifyInvites(orgId: string, actorId: string, invites: Arr
 export async function acceptOrgInvite(userId: string, inviteId: string): Promise<{ orgId: string } | { full: true } | null> {
   const orgId = await db.transaction(async (tx) => {
     // Max members holds for invites too (report §20.5): a full org keeps the invite open until there's room.
-    const [target] = await tx.select({ orgId: orgEmailInvites.orgId, max: projects.maxCollaborators }).from(orgEmailInvites)
-      .innerJoin(projects, eq(projects.id, orgEmailInvites.orgId)).where(eq(orgEmailInvites.id, inviteId)).for("update", { of: projects }).limit(1);
+    const [target] = await tx.select({ orgId: orgEmailInvites.orgId, max: workspaces.maxCollaborators }).from(orgEmailInvites)
+      .innerJoin(workspaces, eq(workspaces.id, orgEmailInvites.orgId)).where(eq(orgEmailInvites.id, inviteId)).for("update", { of: workspaces }).limit(1);
     if (!target) return null;
-    const [{ n } = { n: 0 }] = await tx.select({ n: sql<number>`count(*)::int` }).from(projectMembers).where(eq(projectMembers.projectId, target.orgId));
+    const [{ n } = { n: 0 }] = await tx.select({ n: sql<number>`count(*)::int` }).from(workspaceMembers).where(eq(workspaceMembers.projectId, target.orgId));
     if (n >= orgMemberCap(target.max)) return "full" as const;
     const [invite] = await tx.update(orgEmailInvites)
       .set({ acceptedAt: new Date() })
@@ -79,12 +79,12 @@ export async function acceptOrgInvite(userId: string, inviteId: string): Promise
     await addWorkspaceMemberInternal(tx, { projectId: invite.orgId, userId, role: invite.role, actorId: userId, source: "email_invite" });
     if (invite.role === "member") await createCopiesForNewMember(tx, invite.orgId, userId);
     if (invite.title) {
-      await tx.update(projectMembers).set({ title: invite.title })
-        .where(and(eq(projectMembers.projectId, invite.orgId), eq(projectMembers.userId, userId)));
+      await tx.update(workspaceMembers).set({ title: invite.title })
+        .where(and(eq(workspaceMembers.projectId, invite.orgId), eq(workspaceMembers.userId, userId)));
     }
     if (invite.childProjectId) {
-      const [child] = await tx.select({ id: projects.id }).from(projects)
-        .where(and(eq(projects.id, invite.childProjectId), eq(projects.parentId, invite.orgId), isNull(projects.deletedAt))).limit(1);
+      const [child] = await tx.select({ id: workspaces.id }).from(workspaces)
+        .where(and(eq(workspaces.id, invite.childProjectId), eq(workspaces.parentId, invite.orgId), isNull(workspaces.deletedAt))).limit(1);
       if (child) await addWorkspaceMemberInternal(tx, { projectId: child.id, userId, role: "member", actorId: invite.invitedBy ?? userId, source: "email_invite", roleId: invite.unitId });
     }
     return invite.orgId;
@@ -98,21 +98,21 @@ export async function acceptOrgInvite(userId: string, inviteId: string): Promise
 export async function openInvitesFor(userId: string, orgId?: string) {
   const [profile] = await db.select({ email: profiles.email }).from(profiles).where(eq(profiles.id, userId)).limit(1);
   if (!profile?.email) return [];
-  return db.select({ id: orgEmailInvites.id, orgId: orgEmailInvites.orgId, role: orgEmailInvites.role, title: orgEmailInvites.title, orgTitle: projects.title, orgSlug: projects.slug })
-    .from(orgEmailInvites).innerJoin(projects, eq(projects.id, orgEmailInvites.orgId))
+  return db.select({ id: orgEmailInvites.id, orgId: orgEmailInvites.orgId, role: orgEmailInvites.role, title: orgEmailInvites.title, orgTitle: workspaces.title, orgSlug: workspaces.slug })
+    .from(orgEmailInvites).innerJoin(workspaces, eq(workspaces.id, orgEmailInvites.orgId))
     .where(and(
       eq(orgEmailInvites.email, profile.email.trim().toLowerCase()),
       isNull(orgEmailInvites.acceptedAt),
       gt(orgEmailInvites.expiresAt, sql`now()`),
-      isNull(projects.deletedAt),
+      isNull(workspaces.deletedAt),
       orgId ? eq(orgEmailInvites.orgId, orgId) : undefined,
     ));
 }
 
 /** Child projects of the org this person leads; they transfer or detach those before leaving (report §20.7). */
 export async function ledChildWorkspaces(executor: Executor, orgId: string, userId: string) {
-  return executor.select({ id: projects.id }).from(projects)
-    .where(and(eq(projects.parentId, orgId), eq(projects.ownerId, userId), isNull(projects.deletedAt)));
+  return executor.select({ id: workspaces.id }).from(workspaces)
+    .where(and(eq(workspaces.parentId, orgId), eq(workspaces.ownerId, userId), isNull(workspaces.deletedAt)));
 }
 
 /**
@@ -123,9 +123,9 @@ export type ReopenedSeat = { projectId: string; slug: string | null; leadId: str
 
 /** Returns the unit seats it opened, for the leads' "1 seat open in Frontend developers" after the commit. */
 export async function removeFromOrg(executor: Executor, orgId: string, userId: string, actorId: string): Promise<ReopenedSeat[]> {
-  const childMemberships = await executor.select({ projectId: projectMembers.projectId, leadId: projects.ownerId, slug: projects.slug, unit: sql<string | null>`(SELECT coalesce(r.title, r.role) FROM project_open_roles r WHERE r.id = ${projectMembers.unitId})` }).from(projectMembers)
-    .innerJoin(projects, eq(projects.id, projectMembers.projectId))
-    .where(and(eq(projects.parentId, orgId), eq(projectMembers.userId, userId), isNull(projects.deletedAt)));
+  const childMemberships = await executor.select({ projectId: workspaceMembers.projectId, leadId: workspaces.ownerId, slug: workspaces.slug, unit: sql<string | null>`(SELECT coalesce(r.title, r.role) FROM workspace_open_roles r WHERE r.id = ${workspaceMembers.unitId})` }).from(workspaceMembers)
+    .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.projectId))
+    .where(and(eq(workspaces.parentId, orgId), eq(workspaceMembers.userId, userId), isNull(workspaces.deletedAt)));
   const self = actorId === userId;
   await releaseCopiesOnLeave(executor, orgId, userId);
   for (const { projectId, leadId } of childMemberships) {

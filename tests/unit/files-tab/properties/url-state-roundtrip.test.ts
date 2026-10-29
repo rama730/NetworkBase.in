@@ -8,7 +8,7 @@
 //
 // Invariant (design.md § Property 3):
 //   For every `currentLocationId` that is either `null` or resolves to a
-//   `ProjectNode` in `nodesById`:
+//   `WorkspaceNode` in `nodesById`:
 //     (a) `mockFindNodeByPathAny(projectId, splitEncoded(encodePath(
 //             nodesById, id))).id === id` for every non-null id.
 //     (b) `encodePath(nodesById, null) === ""` — the root state carries no
@@ -31,7 +31,7 @@ import test from "node:test";
 import fc from "fast-check";
 import assert from "node:assert/strict";
 
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import {
   encodePath,
   splitEncoded,
@@ -101,20 +101,20 @@ const forestArb = fc.uniqueArray(treeArbs.genNode, {
 });
 
 // ---------------------------------------------------------------------------
-// Tree materialization: generated forest → flat ProjectNode maps
+// Tree materialization: generated forest → flat WorkspaceNode maps
 // ---------------------------------------------------------------------------
 
 type FlatTree = {
-  nodesById: Record<string, ProjectNode>;
+  nodesById: Record<string, WorkspaceNode>;
   // Map from parentId (`"root"` sentinel for top-level) to its children.
   // The mock walker uses this to avoid scanning nodesById on each step.
-  childrenByParentId: Record<string, ProjectNode[]>;
+  childrenByParentId: Record<string, WorkspaceNode[]>;
   nodeIds: string[];
 };
 
 function flatten(forest: readonly GenNode[], projectId: string): FlatTree {
-  const nodesById: Record<string, ProjectNode> = {};
-  const childrenByParentId: Record<string, ProjectNode[]> = { root: [] };
+  const nodesById: Record<string, WorkspaceNode> = {};
+  const childrenByParentId: Record<string, WorkspaceNode[]> = { root: [] };
   const nodeIds: string[] = [];
   let counter = 0;
 
@@ -126,7 +126,7 @@ function flatten(forest: readonly GenNode[], projectId: string): FlatTree {
     // contract (non-terminal segments must be folders) so the generated
     // tree is legal input for the property.
     const type: "file" | "folder" = gen.children.length > 0 ? "folder" : gen.type;
-    const node: ProjectNode = {
+    const node: WorkspaceNode = {
       id,
       projectId,
       parentId,
@@ -171,12 +171,12 @@ function flatten(forest: readonly GenNode[], projectId: string): FlatTree {
 // here because the mock only ever sees a single project's tree.
 function mockFindNodeByPathAny(
   _projectId: string,
-  childrenByParentId: Record<string, ProjectNode[]>,
+  childrenByParentId: Record<string, WorkspaceNode[]>,
   segments: string[],
-): ProjectNode | null {
+): WorkspaceNode | null {
   if (segments.length === 0) return null;
   let parentKey: string = "root";
-  let matched: ProjectNode | null = null;
+  let matched: WorkspaceNode | null = null;
   for (let i = 0; i < segments.length; i++) {
     const segment = segments[i];
     const isLast = i === segments.length - 1;

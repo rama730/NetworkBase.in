@@ -30,7 +30,7 @@ test("capabilities follow file authorization, including the member upload switch
       await addMember(tx, projectId, noUpload, "member");
       await addMember(tx, projectId, viewer, "viewer");
     });
-    await sql`UPDATE project_members SET file_upload_enabled = false WHERE project_id = ${projectId} AND user_id = ${noUpload}`;
+    await sql`UPDATE workspace_members SET file_upload_enabled = false WHERE workspace_id = ${projectId} AND user_id = ${noUpload}`;
 
     const ownerCaps = await forUser(projectId, owner);
     assert.deepEqual([ownerCaps.canReadFiles, ownerCaps.canCreateFiles, ownerCaps.canEditFiles, ownerCaps.canManageSettings], [true, true, true, true]);
@@ -52,6 +52,6 @@ test("capabilities follow file authorization, including the member upload switch
     assert.equal((await forUser(hiddenFilesProject, outsider)).canReadFiles, false);
     assert.equal((await forUser(hiddenFilesProject, owner)).canReadFiles, true);
   } finally {
-    await sql`DELETE FROM projects WHERE owner_id = ANY(${ids}::uuid[])`;
+    await sql`DELETE FROM workspaces WHERE owner_id = ANY(${ids}::uuid[])`;
   }
 });

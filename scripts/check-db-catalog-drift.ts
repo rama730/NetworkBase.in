@@ -16,14 +16,14 @@ const DATABASE_URL = process.env.DATABASE_URL;
 
 const REQUIRED_REALTIME_PUBLICATION_TABLES = [
   "profiles",
-  "projects",
+  "workspaces",
   "tasks",
   "task_comments",
   "task_subtasks",
   "task_comment_likes",
   "task_node_links",
-  "project_updates",
-  "project_update_comments",
+  "workspace_updates",
+  "workspace_update_comments",
 ] as const;
 
 const REQUIRED_TASK_COLUMNS = [
@@ -144,10 +144,10 @@ const ALLOWED_PUBLIC_RLS_NO_POLICY_TABLES = new Set([
   "github_sync_files",
   "github_sync_runs",
   "legal_acceptances",
-  "project_git_deltas",
+  "workspace_git_deltas",
   "github_sync_snapshot_assets",
-  "project_event_counters",
-  "project_node_conflicts",
+  "workspace_event_counters",
+  "workspace_node_conflicts",
   "project_node_events_2026_01",
   "project_node_events_2026_02",
   "project_node_events_2026_03",
@@ -162,12 +162,12 @@ const ALLOWED_PUBLIC_RLS_NO_POLICY_TABLES = new Set([
   "project_node_events_2026_12",
   "project_node_events_default",
   "reserved_usernames",
-  "project_update_draft_media_assets",
-  "project_update_media_assets",
+  "workspace_update_draft_media_assets",
+  "workspace_update_media_assets",
   "storage_asset_operations",
   "storage_asset_pins",
   // 0233: task completion policy history, written and read by the server only.
-  "project_task_policy_events",
+  "workspace_task_policy_events",
   // Organizations (0241, 0243, 0244, 0246): server-only tables; browser roles hold no grant on them.
   "org_handle_holds",
   "org_join_blocks",
@@ -183,7 +183,7 @@ const ALLOWED_PUBLIC_RLS_NO_POLICY_TABLES = new Set([
   "storage_repair_failures",
   // Lifecycle records are server-only; RLS without client policies
   // is intentional so task/Sprint history is accessed through authorized actions.
-  "project_sprint_events",
+  "workspace_sprint_events",
   "task_activity_events",
   "task_pushes",
   "task_read_receipts",
@@ -397,27 +397,27 @@ async function main() {
       COALESCE((
         SELECT p.proconfig @> ARRAY['search_path=""']::text[]
         FROM pg_proc p
-        WHERE p.oid = to_regprocedure('public.seed_project_workflow_columns()')
+        WHERE p.oid = to_regprocedure('public.seed_workspace_workflow_columns()')
       ), false) AS workflow_search_path,
-      has_function_privilege('anon', 'public.seed_project_workflow_columns()', 'EXECUTE') AS anon_can_execute_workflow_seed,
-      has_function_privilege('authenticated', 'public.seed_project_workflow_columns()', 'EXECUTE') AS authenticated_can_execute_workflow_seed
+      has_function_privilege('anon', 'public.seed_workspace_workflow_columns()', 'EXECUTE') AS anon_can_execute_workflow_seed,
+      has_function_privilege('authenticated', 'public.seed_workspace_workflow_columns()', 'EXECUTE') AS authenticated_can_execute_workflow_seed
   `;
   if (!nativeHardeningRow?.profile_auth_fk) errors.push("profiles is missing the auth.users identity FK invariant");
   if (!nativeHardeningRow?.archive_rls) errors.push("app_private.retired_domain_archive was dropped in 0204 and must not reappear");
-  if (!nativeHardeningRow?.workflow_search_path) errors.push("seed_project_workflow_columns must set an empty search_path");
+  if (!nativeHardeningRow?.workflow_search_path) errors.push("seed_workspace_workflow_columns must set an empty search_path");
   if (nativeHardeningRow?.anon_can_execute_workflow_seed || nativeHardeningRow?.authenticated_can_execute_workflow_seed) {
-    errors.push("client roles must not execute seed_project_workflow_columns directly");
+    errors.push("client roles must not execute seed_workspace_workflow_columns directly");
   }
 
   const mergedContributionPolicies = await sql<{ tablename: string; count: number }[]>`
     SELECT tablename, count(*)::int AS count
     FROM pg_policies
     WHERE schemaname = 'public'
-      AND tablename IN ('profile_project_contributions', 'profile_project_contribution_stages')
+      AND tablename IN ('profile_contributions', 'profile_contribution_stages')
       AND cmd = 'SELECT'
     GROUP BY tablename
   `;
-  for (const tableName of ["profile_project_contributions", "profile_project_contribution_stages"] as const) {
+  for (const tableName of ["profile_contributions", "profile_contribution_stages"] as const) {
     const count = mergedContributionPolicies.find((row) => row.tablename === tableName)?.count ?? 0;
     if (count !== 1) errors.push(`public.${tableName} must have one consolidated SELECT policy; found ${count}`);
   }

@@ -5,10 +5,10 @@ import { and, eq, isNull, isNotNull, inArray, desc, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { scheduleAssetDeletionIfUnreferenced } from "@/lib/storage/asset-deletion";
 import {
-  projects,
-  projectNodes,
-  projectEventCounters,
-  projectNodeEvents,
+  workspaces,
+  workspaceNodes,
+  workspaceEventCounters,
+  workspaceNodeEvents,
   fileVersions,
   profiles,
   githubSyncConnections,
@@ -98,12 +98,12 @@ export async function requireSyncOwner(
 ) {
   const needsSequence = options?.includeSequence ?? false;
   const [project, counter] = await Promise.all([
-    db.query.projects.findFirst({
-      where: and(eq(projects.id, projectId), isNull(projects.deletedAt)),
+    db.query.workspaces.findFirst({
+      where: and(eq(workspaces.id, projectId), isNull(workspaces.deletedAt)),
     }),
     needsSequence
-      ? db.query.projectEventCounters.findFirst({
-          where: eq(projectEventCounters.projectId, projectId),
+      ? db.query.workspaceEventCounters.findFirst({
+          where: eq(workspaceEventCounters.projectId, projectId),
           columns: { nextSequence: true },
         })
       : Promise.resolve(null),
@@ -190,9 +190,9 @@ export async function readSyncContributors(
     return new Map<string, Array<SyncContributor & { sequence: number }>>();
   const rows = await db
     .select({
-      nodeId: projectNodeEvents.nodeId,
-      actorId: projectNodeEvents.actorId,
-      sequence: projectNodeEvents.sequenceNumber,
+      nodeId: workspaceNodeEvents.nodeId,
+      actorId: workspaceNodeEvents.actorId,
+      sequence: workspaceNodeEvents.sequenceNumber,
       name: profiles.fullName,
       username: profiles.username,
       avatarUrl: profiles.avatarUrl,
@@ -200,25 +200,25 @@ export async function readSyncContributors(
       githubLogin: githubContributorIdentities.login,
       email: githubContributorIdentities.email,
     })
-    .from(projectNodeEvents)
-    .innerJoin(profiles, eq(profiles.id, projectNodeEvents.actorId))
+    .from(workspaceNodeEvents)
+    .innerJoin(profiles, eq(profiles.id, workspaceNodeEvents.actorId))
     .leftJoin(
       githubContributorIdentities,
       eq(githubContributorIdentities.userId, profiles.id),
     )
     .where(
       and(
-        eq(projectNodeEvents.projectId, projectId),
-        inArray(projectNodeEvents.nodeId, nodeIds),
-        inArray(projectNodeEvents.type, [
+        eq(workspaceNodeEvents.projectId, projectId),
+        inArray(workspaceNodeEvents.nodeId, nodeIds),
+        inArray(workspaceNodeEvents.type, [
           "file_content_contributed",
           "create_file",
         ]),
-        sql`${projectNodeEvents.metadata}->>'source' = 'edge' OR ${projectNodeEvents.type} = 'create_file'`,
+        sql`${workspaceNodeEvents.metadata}->>'source' = 'edge' OR ${workspaceNodeEvents.type} = 'create_file'`,
         isNull(profiles.deletedAt),
       ),
     )
-    .orderBy(desc(projectNodeEvents.sequenceNumber))
+    .orderBy(desc(workspaceNodeEvents.sequenceNumber))
     .limit(20_001);
   if (rows.length > 20_000)
     throw new Error(
@@ -258,18 +258,18 @@ export async function readSyncContributors(
   }>(sql`
     SELECT DISTINCT node.id AS node_id, p.id AS user_id, COALESCE(p.full_name, p.username, 'Contributor') AS name,
       p.username, p.avatar_url, identity.github_id, identity.login, identity.email
-    FROM project_nodes node
+    FROM workspace_nodes node
     JOIN profiles p ON p.id = node.created_by AND p.deleted_at IS NULL
     LEFT JOIN github_contributor_identities identity ON identity.user_id = p.id
-    WHERE node.project_id = ${projectId} AND ${inArray(sql`node.id`, nodeIds)}
+    WHERE node.workspace_id = ${projectId} AND ${inArray(sql`node.id`, nodeIds)}
       AND node.git_blob_hash IS NULL AND node.created_by IS NOT NULL
     UNION
     SELECT DISTINCT version.node_id, p.id AS user_id, COALESCE(p.full_name, p.username, 'Contributor') AS name,
       p.username, p.avatar_url, identity.github_id, identity.login, identity.email
-    FROM file_versions version JOIN project_nodes node ON node.id = version.node_id
+    FROM file_versions version JOIN workspace_nodes node ON node.id = version.node_id
     JOIN profiles p ON p.id = version.uploaded_by AND p.deleted_at IS NULL
     LEFT JOIN github_contributor_identities identity ON identity.user_id = p.id
-    WHERE node.project_id = ${projectId} AND ${inArray(sql`node.id`, nodeIds)}
+    WHERE node.workspace_id = ${projectId} AND ${inArray(sql`node.id`, nodeIds)}
       AND node.git_blob_hash IS NULL AND version.attribution = '{}'::jsonb
     LIMIT 20001
   `);
@@ -391,7 +391,7 @@ export async function compareSync(
     readGitHubTree(ctx.token, repository, headSha),
     db
       .select({
-        node: projectNodes,
+        node: workspaceNodes,
         version: fileVersions,
         updater: {
           name: profiles.fullName,
@@ -399,12 +399,12 @@ export async function compareSync(
           avatarUrl: profiles.avatarUrl,
         },
       })
-      .from(projectNodes)
+      .from(workspaceNodes)
       .leftJoin(
         fileVersions,
         and(
-          eq(fileVersions.nodeId, projectNodes.id),
-          eq(fileVersions.version, projectNodes.currentVersion),
+          eq(fileVersions.nodeId, workspaceNodes.id),
+          eq(fileVersions.version, workspaceNodes.currentVersion),
         ),
       )
       .leftJoin(
@@ -416,9 +416,9 @@ export async function compareSync(
       )
       .where(
         and(
-          eq(projectNodes.projectId, ctx.project.id),
-          isNull(projectNodes.taskId),
-          isNull(projectNodes.canonicalNodeId),
+          eq(workspaceNodes.projectId, ctx.project.id),
+          isNull(workspaceNodes.taskId),
+          isNull(workspaceNodes.canonicalNodeId),
         ),
       )
       .limit(SYNC_LIMITS.comparisonFiles + 1),
@@ -692,14 +692,14 @@ export async function compareSync(
   if (repo && headSha && matching.length && !input.newBranch)
     await db.transaction(async (tx) => {
       await tx
-        .insert(projectEventCounters)
+        .insert(workspaceEventCounters)
         .values({
           projectId: ctx.project.id,
           nextSequence: latest.currentSequenceNumber,
         })
         .onConflictDoNothing();
       const locked = await tx.execute<{ next_sequence: number }>(
-        sql`SELECT next_sequence FROM project_event_counters WHERE project_id=${ctx.project.id} FOR UPDATE`,
+        sql`SELECT next_sequence FROM workspace_event_counters WHERE workspace_id=${ctx.project.id} FOR UPDATE`,
       );
       if (Number(locked[0]?.next_sequence) !== latest.currentSequenceNumber)
         throw new Error("Files changed during comparison. Compare again.");
@@ -1072,9 +1072,9 @@ export async function cleanupReviewedSyncSnapshots() {
         .from(fileVersions)
         .where(inArray(fileVersions.s3Key, keys));
       const nodes = await db
-        .select({ key: projectNodes.s3Key })
-        .from(projectNodes)
-        .where(inArray(projectNodes.s3Key, keys));
+        .select({ key: workspaceNodes.s3Key })
+        .from(workspaceNodes)
+        .where(inArray(workspaceNodes.s3Key, keys));
       const retained = new Set([...versions, ...nodes].map((row) => row.key));
       const removable = keys.filter(
         (key) =>
@@ -1179,42 +1179,42 @@ export async function validateReviewedLocalFiles(
       ? db
           .select({
             node: {
-              id: projectNodes.id,
-              currentVersion: projectNodes.currentVersion,
-              s3Key: projectNodes.s3Key,
-              path: projectNodes.path,
-              mimeType: projectNodes.mimeType,
+              id: workspaceNodes.id,
+              currentVersion: workspaceNodes.currentVersion,
+              s3Key: workspaceNodes.s3Key,
+              path: workspaceNodes.path,
+              mimeType: workspaceNodes.mimeType,
             },
             version: {
               contentHash: fileVersions.contentHash,
             },
           })
-          .from(projectNodes)
+          .from(workspaceNodes)
           .leftJoin(
             fileVersions,
             and(
-              eq(fileVersions.nodeId, projectNodes.id),
-              eq(fileVersions.version, projectNodes.currentVersion),
+              eq(fileVersions.nodeId, workspaceNodes.id),
+              eq(fileVersions.version, workspaceNodes.currentVersion),
             ),
           )
           .where(
             and(
-              eq(projectNodes.projectId, projectId),
-              inArray(projectNodes.id, nodeIds),
-              isNull(projectNodes.deletedAt),
+              eq(workspaceNodes.projectId, projectId),
+              inArray(workspaceNodes.id, nodeIds),
+              isNull(workspaceNodes.deletedAt),
             ),
           )
       : [],
     collisionPaths.length
       ? db
-          .select({ path: projectNodes.path })
-          .from(projectNodes)
+          .select({ path: workspaceNodes.path })
+          .from(workspaceNodes)
           .where(
             and(
-              eq(projectNodes.projectId, projectId),
-              inArray(projectNodes.path, collisionPaths),
-              isNull(projectNodes.deletedAt),
-              isNull(projectNodes.taskId),
+              eq(workspaceNodes.projectId, projectId),
+              inArray(workspaceNodes.path, collisionPaths),
+              isNull(workspaceNodes.deletedAt),
+              isNull(workspaceNodes.taskId),
             ),
           )
       : [],

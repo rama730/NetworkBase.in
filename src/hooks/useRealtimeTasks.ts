@@ -48,7 +48,7 @@ export function useRealtimeTasks(projectId: string, deferredTaskId: string | nul
         {
           event: "*",
           table: "tasks",
-          filter: `project_id=eq.${projectId}`,
+          filter: `workspace_id=eq.${projectId}`,
           handler: (payload) => {
             // While a drag or its move is in flight, any refetch would replace the board under the
             // pointer with pre-move data; hold every reconcile until the move settles.

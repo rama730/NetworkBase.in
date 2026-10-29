@@ -19,13 +19,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 import { formatBytes } from "../../files-tab/folder/format";
 import { extOf } from "../../utils/fileKind";
 
 interface DocxViewerDriverProps {
-  node: ProjectNode;
+  node: WorkspaceNode;
   signedUrl: string;
 }
 

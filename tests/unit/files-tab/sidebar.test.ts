@@ -29,7 +29,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import {
   computeVisibleIdsForSearch,
   FILES_TAB_SIDEBAR_WIDTH_PX,
@@ -39,7 +39,7 @@ import { defaultFilesState } from "@/stores/files/types";
 
 // ─── Fixture builders ────────────────────────────────────────────────
 
-function makeFolder(id: string, name: string, parentId: string | null): ProjectNode {
+function makeFolder(id: string, name: string, parentId: string | null): WorkspaceNode {
   return {
     id,
     projectId: "proj-1",
@@ -58,10 +58,10 @@ function makeFolder(id: string, name: string, parentId: string | null): ProjectN
     createdAt: new Date(0),
     updatedAt: new Date(0),
     deletedAt: null,
-  } as unknown as ProjectNode;
+  } as unknown as WorkspaceNode;
 }
 
-function makeFile(id: string, name: string, parentId: string | null): ProjectNode {
+function makeFile(id: string, name: string, parentId: string | null): WorkspaceNode {
   return {
     id,
     projectId: "proj-1",
@@ -80,11 +80,11 @@ function makeFile(id: string, name: string, parentId: string | null): ProjectNod
     createdAt: new Date(0),
     updatedAt: new Date(0),
     deletedAt: null,
-  } as unknown as ProjectNode;
+  } as unknown as WorkspaceNode;
 }
 
-function buildTree(nodes: ProjectNode[]): Record<string, ProjectNode> {
-  const out: Record<string, ProjectNode> = {};
+function buildTree(nodes: WorkspaceNode[]): Record<string, WorkspaceNode> {
+  const out: Record<string, WorkspaceNode> = {};
   for (const n of nodes) out[n.id] = n;
   return out;
 }
@@ -193,9 +193,9 @@ describe("FilesTabSidebar / computeVisibleIdsForSearch — ancestor retention (R
 
   it("does not loop forever on a malformed cyclic parentId graph (safety guard)", () => {
     // Construct a cycle: a → b → a. The filter must terminate instead of
-    // walking forever. Real `ProjectNode` data should never contain this,
+    // walking forever. Real `WorkspaceNode` data should never contain this,
     // but the sidebar must not crash if the cache is corrupted.
-    const nodes: Record<string, ProjectNode> = buildTree([
+    const nodes: Record<string, WorkspaceNode> = buildTree([
       makeFolder("a", "a-matches", "b"),
       makeFolder("b", "b", "a"),
     ]);

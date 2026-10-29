@@ -24,7 +24,7 @@ test("quick-open and folder-picker type filtering happens in SQL before paginati
     for (const search of [undefined, "report"]) {
       const page = await captureNodePageQuery(project, "name", undefined, search, itemType);
       const query = new PgDialect().sqlToQuery(page.where);
-      assert.match(query.sql, /"project_nodes"\."type" = \$/);
+      assert.match(query.sql, /"workspace_nodes"\."type" = \$/);
       assert.ok(query.params.includes(itemType));
     }
   }

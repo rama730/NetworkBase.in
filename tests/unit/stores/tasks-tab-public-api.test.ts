@@ -133,11 +133,11 @@ import {
   defaultFilesState,
   FALLBACK_FILES_STATE,
 } from "../../../src/stores/filesStore";
-import type { ProjectNode } from "../../../src/lib/db/schema";
+import type { WorkspaceNode } from "../../../src/lib/db/schema";
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 
-function makeFile(id: string, parentId: string | null = null): ProjectNode {
+function makeFile(id: string, parentId: string | null = null): WorkspaceNode {
   return {
     id,
     projectId: "tasks-tab-api",
@@ -156,10 +156,10 @@ function makeFile(id: string, parentId: string | null = null): ProjectNode {
     createdAt: new Date(0),
     updatedAt: new Date(0),
     deletedAt: null,
-  } as unknown as ProjectNode;
+  } as unknown as WorkspaceNode;
 }
 
-function makeFolder(id: string, parentId: string | null = null): ProjectNode {
+function makeFolder(id: string, parentId: string | null = null): WorkspaceNode {
   return {
     id,
     projectId: "tasks-tab-api",
@@ -178,7 +178,7 @@ function makeFolder(id: string, parentId: string | null = null): ProjectNode {
     createdAt: new Date(0),
     updatedAt: new Date(0),
     deletedAt: null,
-  } as unknown as ProjectNode;
+  } as unknown as WorkspaceNode;
 }
 
 const PROJECT_ID = "tasks-tab-api";

@@ -22,7 +22,7 @@ import assert from "node:assert/strict";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import {
   runNavigateTo,
   useNavigateTo,
@@ -36,7 +36,7 @@ import { defaultFilesState } from "@/stores/files/types";
 
 const PROJECT_ID = "project-1";
 
-function makeFolder(id: string, parentId: string | null): ProjectNode {
+function makeFolder(id: string, parentId: string | null): WorkspaceNode {
   return {
     id,
     projectId: PROJECT_ID,
@@ -55,10 +55,10 @@ function makeFolder(id: string, parentId: string | null): ProjectNode {
     createdAt: new Date(0),
     updatedAt: new Date(0),
     deletedAt: null,
-  } as unknown as ProjectNode;
+  } as unknown as WorkspaceNode;
 }
 
-function makeFile(id: string, parentId: string | null): ProjectNode {
+function makeFile(id: string, parentId: string | null): WorkspaceNode {
   return {
     id,
     projectId: PROJECT_ID,
@@ -77,7 +77,7 @@ function makeFile(id: string, parentId: string | null): ProjectNode {
     createdAt: new Date(0),
     updatedAt: new Date(0),
     deletedAt: null,
-  } as unknown as ProjectNode;
+  } as unknown as WorkspaceNode;
 }
 
 // ─── Pure core — `runNavigateTo` ─────────────────────────────────────
@@ -191,7 +191,7 @@ function resetStore(): void {
  * hook under test only reads `nodesById`, so a direct seed is
  * behaviourally equivalent and hermetic.
  */
-function seedNodes(projectId: string, nodes: ProjectNode[]): void {
+function seedNodes(projectId: string, nodes: WorkspaceNode[]): void {
   useFilesStore.setState((state) => {
     const existing = state.byProjectId[projectId] ?? defaultFilesState();
     const nodesById = { ...existing.nodesById };

@@ -3,9 +3,9 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import {
-  projectMembers,
-  projectNodes,
-  projectWorkflowColumns,
+  workspaceMembers,
+  workspaceNodes,
+  workspaceWorkflowColumns,
   taskActivityEvents,
   taskNodeLinks,
   tasks,
@@ -98,7 +98,7 @@ export async function lockTaskForWrite(
     master_org_admin: boolean;
   }>(sql`
         SELECT
-            t.id, t.project_id, t.assignee_id, t.sprint_id, t.workflow_column_id,
+            t.id, t.workspace_id AS project_id, t.assignee_id, t.sprint_id, t.workflow_column_id,
             t.timeline_origin_sprint_id, t.creator_id, t.title, t.task_number,
             t.status, t.review_status, t.review_content_hash, t.updated_at, t.deleted_at AS task_deleted_at,
             p.owner_id, p.slug, p.key, p.deleted_at, p.task_review_required, p.task_completion_policy_version,
@@ -107,13 +107,13 @@ export async function lockTaskForWrite(
             mt.assignment_settings AS master_settings,
             EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = t.id AND tm.user_id = ${userId}) AS in_team,
             (mp.owner_id = ${userId} OR EXISTS (
-              SELECT 1 FROM project_members om WHERE om.project_id = mp.id AND om.user_id = ${userId} AND om.role = 'admin'
+              SELECT 1 FROM workspace_members om WHERE om.workspace_id = mp.id AND om.user_id = ${userId} AND om.role = 'admin'
             )) AS master_org_admin
         FROM tasks t
-        JOIN projects p ON p.id = t.project_id
-        LEFT JOIN project_members m ON m.project_id = p.id AND m.user_id = ${userId}
+        JOIN workspaces p ON p.id = t.workspace_id
+        LEFT JOIN workspace_members m ON m.workspace_id = p.id AND m.user_id = ${userId}
         LEFT JOIN tasks mt ON mt.id = t.assignment_id
-        LEFT JOIN projects mp ON mp.id = mt.project_id
+        LEFT JOIN workspaces mp ON mp.id = mt.workspace_id
         WHERE t.id = ${taskId}
         FOR UPDATE OF t, p
     `);
@@ -206,16 +206,16 @@ export async function transitionTaskTx(
     reviewReason?: string;
   },
 ): Promise<TaskTransitionResult> {
-  const column = await tx.query.projectWorkflowColumns.findFirst({
+  const column = await tx.query.workspaceWorkflowColumns.findFirst({
     where: input.columnId
       ? and(
-          eq(projectWorkflowColumns.id, input.columnId),
-          eq(projectWorkflowColumns.projectId, locked.projectId),
+          eq(workspaceWorkflowColumns.id, input.columnId),
+          eq(workspaceWorkflowColumns.projectId, locked.projectId),
         )
       : and(
-          eq(projectWorkflowColumns.projectId, locked.projectId),
-          eq(projectWorkflowColumns.status, input.status!),
-          eq(projectWorkflowColumns.isDefault, true),
+          eq(workspaceWorkflowColumns.projectId, locked.projectId),
+          eq(workspaceWorkflowColumns.status, input.status!),
+          eq(workspaceWorkflowColumns.isDefault, true),
         ),
     columns: { id: true, status: true, title: true },
   });
@@ -242,7 +242,7 @@ export async function transitionTaskTx(
     }
     if (locked.copySubmissionType === "file") {
       const [file] = await tx.execute<{ id: string }>(sql`
-        SELECT id FROM project_nodes WHERE task_id = ${input.taskId} AND deleted_at IS NULL AND type = 'file'
+        SELECT id FROM workspace_nodes WHERE task_id = ${input.taskId} AND deleted_at IS NULL AND type = 'file'
         UNION ALL SELECT node_id FROM task_node_links WHERE task_id = ${input.taskId}
         LIMIT 1`);
       if (!file) throw new Error("Attach your file to this task, then move it to Done.");
@@ -381,21 +381,21 @@ export async function afterTaskTransition(
     result.status === "done"
       ? await db
           .select({
-            id: projectNodes.id,
-            name: projectNodes.name,
-            type: projectNodes.type,
-            path: projectNodes.path,
+            id: workspaceNodes.id,
+            name: workspaceNodes.name,
+            type: workspaceNodes.type,
+            path: workspaceNodes.path,
             annotation: taskNodeLinks.annotation,
             tags: taskNodeLinks.tags,
-            canonicalNodeId: projectNodes.canonicalNodeId,
+            canonicalNodeId: workspaceNodes.canonicalNodeId,
           })
           .from(taskNodeLinks)
-          .innerJoin(projectNodes, eq(taskNodeLinks.nodeId, projectNodes.id))
+          .innerJoin(workspaceNodes, eq(taskNodeLinks.nodeId, workspaceNodes.id))
           .where(
             and(
               eq(taskNodeLinks.taskId, taskId),
-              eq(projectNodes.projectId, locked.projectId),
-              isNull(projectNodes.deletedAt),
+              eq(workspaceNodes.projectId, locked.projectId),
+              isNull(workspaceNodes.deletedAt),
             ),
           )
           .then((rows) =>
@@ -425,10 +425,10 @@ export async function afterTaskTransition(
     try {
       if (result.outcome === "submitted") {
         recipients.add(locked.ownerId);
-        const leads = await db.query.projectMembers.findMany({
+        const leads = await db.query.workspaceMembers.findMany({
           where: and(
-            eq(projectMembers.projectId, locked.projectId),
-            eq(projectMembers.role, "admin"),
+            eq(workspaceMembers.projectId, locked.projectId),
+            eq(workspaceMembers.role, "admin"),
           ),
           columns: { userId: true },
         });

@@ -4,7 +4,7 @@ import React, { useMemo, useEffect, useRef, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 import { FolderPlus } from "lucide-react";
 import { FileTreeItem, type FileTreeItemContext } from "./FileTreeItem";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 import type { VisibleRow } from "./utils/buildVisibleRows";
 import { buildVisibleRows } from "./utils/buildVisibleRows";
@@ -22,7 +22,7 @@ export function useVisibleRows(params: {
   projectId: string;
   treeVersion: number;
   explorerMode: string;
-  nodesById: Record<string, ProjectNode>;
+  nodesById: Record<string, WorkspaceNode>;
   childrenByParentId: Record<string, string[]>;
   loadedChildren: Record<string, boolean>;
   expandedFolderIds: Record<string, boolean>;
@@ -95,7 +95,7 @@ export function useVisibleRows(params: {
   }, [projectId, treeVersion, nodesById, childrenByParentId, sort, foldersFirst]);
 
   const includeFileByMode = useMemo(() => {
-    return (node: ProjectNode) => {
+    return (node: WorkspaceNode) => {
       if (node.type !== "file") return true;
       if (viewMode === "all") return true;
       if (viewMode === "assets") return isAssetLike(node);
@@ -143,12 +143,12 @@ export function useVisibleRows(params: {
 export function useRowsToRender(params: {
   effectiveMode: string;
   visibleRows: VisibleRow[];
-  searchResults?: ProjectNode[];
-  trashNodesState?: ProjectNode[];
+  searchResults?: WorkspaceNode[];
+  trashNodesState?: WorkspaceNode[];
   favorites?: Record<string, boolean>;
   recents?: string[];
-  nodesById?: Record<string, ProjectNode>;
-  includeFileByMode?: (node: ProjectNode) => boolean;
+  nodesById?: Record<string, WorkspaceNode>;
+  includeFileByMode?: (node: WorkspaceNode) => boolean;
 }) {
   return params.visibleRows;
 }
@@ -173,7 +173,7 @@ export function ExplorerTree({
 }: {
   rowsToRender: VisibleRow[];
   contextValue: FileTreeItemContext;
-  nodesById: Record<string, ProjectNode>;
+  nodesById: Record<string, WorkspaceNode>;
   childrenByParentId: Record<string, string[]>;
   effectiveSelectedNodeIds: string[];
   selectedNodeId: string | null | undefined;
@@ -182,8 +182,8 @@ export function ExplorerTree({
   isBooting: boolean;
   isTrashLoading: boolean;
   accessError: string | null;
-  onSelect: (node: ProjectNode, e?: React.MouseEvent) => void;
-  onToggleFolder: (node: ProjectNode) => void;
+  onSelect: (node: WorkspaceNode, e?: React.MouseEvent) => void;
+  onToggleFolder: (node: WorkspaceNode) => void;
   onDropOnFolder?: (folderId: string, draggedId: string) => void;
 }) {
   const safeRowsToRender = useMemo(

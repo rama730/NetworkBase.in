@@ -12,7 +12,7 @@ before(async () => {
 after(async () => { await sql.end(); await closeAppDb(); });
 
 async function verifiedAsset(tx: Tx, projectId: string, owner: string, key: string, hash = "h") {
-  const [row] = await tx`INSERT INTO public.storage_assets (project_id, owner_user_id, bucket, storage_key, purpose, state, declared_mime_type, declared_size, verified_mime_type, verified_size, verified_at, content_hash, expires_at)
+  const [row] = await tx`INSERT INTO public.storage_assets (workspace_id, owner_user_id, bucket, storage_key, purpose, state, declared_mime_type, declared_size, verified_mime_type, verified_size, verified_at, content_hash, expires_at)
     VALUES (${projectId}, ${owner}, 'project-updates-media', ${key}, 'project_update:media', 'verified', 'image/png', 1, 'image/png', 1, now(), ${hash}, now() - interval '1 hour') RETURNING id`;
   return row!.id as string;
 }
@@ -26,8 +26,8 @@ test("shared update media stays verified; referenced pending deletions are resto
     const shared = await verifiedAsset(tx, projectId, owner, `${projectId}/shared.png`);
     const lonely = await verifiedAsset(tx, projectId, owner, `${projectId}/lonely.png`);
     const stale = await verifiedAsset(tx, projectId, owner, `${projectId}/stale.png`);
-    const [update] = await tx`INSERT INTO public.project_updates (project_id, author_id, content) VALUES (${projectId}, ${owner}, 'u') RETURNING id`;
-    await tx`INSERT INTO public.project_update_media_assets (update_id, asset_id, ordinal) VALUES (${update!.id}, ${shared}, 0), (${update!.id}, ${stale}, 1)`;
+    const [update] = await tx`INSERT INTO public.workspace_updates (workspace_id, author_id, content) VALUES (${projectId}, ${owner}, 'u') RETURNING id`;
+    await tx`INSERT INTO public.workspace_update_media_assets (update_id, asset_id, ordinal) VALUES (${update!.id}, ${shared}, 0), (${update!.id}, ${stale}, 1)`;
     await tx`UPDATE public.storage_assets SET state = 'delete_pending', delete_after = now() WHERE id = ${stale}`;
     return { projectId, shared, lonely, stale };
   });
@@ -38,6 +38,6 @@ test("shared update media stays verified; referenced pending deletions are resto
     const [stale] = await sql`SELECT state FROM public.storage_assets WHERE id = ${fixture.stale}`;
     assert.equal(stale?.state, "verified");
   } finally {
-    await sql`DELETE FROM public.projects WHERE id = ${fixture.projectId}`;
+    await sql`DELETE FROM public.workspaces WHERE id = ${fixture.projectId}`;
   }
 });

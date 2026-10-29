@@ -17,7 +17,7 @@ before(async () => {
 
 const projects: string[] = [];
 after(async () => {
-  for (const id of projects) await sql`DELETE FROM projects WHERE id = ${id}`;
+  for (const id of projects) await sql`DELETE FROM workspaces WHERE id = ${id}`;
   await sql.end();
   await closeAppDb();
 });
@@ -26,7 +26,7 @@ test("realtime is true only for people the Realtime policy lets the viewer obser
   const [viewer, teammate, hidden, stranger] = await Promise.all([1, 2, 3, 4].map(() => sql.begin((tx) => createUser(tx))));
   const project = await sql.begin((tx) => createProject(tx, viewer!));
   projects.push(project);
-  await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${project}, ${viewer!}, 'owner'), (${project}, ${teammate!}, 'member'), (${project}, ${hidden!}, 'member')`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${project}, ${viewer!}, 'owner'), (${project}, ${teammate!}, 'member'), (${project}, ${hidden!}, 'member')`;
   await sql`UPDATE profiles SET show_activity = (id <> ${hidden!}) WHERE id IN (${viewer!}, ${teammate!}, ${hidden!}, ${stranger!})`;
 
   viewerId = viewer!;

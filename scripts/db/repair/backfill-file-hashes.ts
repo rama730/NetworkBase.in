@@ -31,7 +31,7 @@ import { createHash } from "node:crypto";
 import { and, asc, eq, gt, isNull, ne, or, sql } from "drizzle-orm";
 import {
   fileVersions,
-  projectNodes,
+  workspaceNodes,
   storageAssets,
   storageRepairFailures,
 } from "../../../src/lib/db/schema";
@@ -71,13 +71,13 @@ async function fetchBatch(afterId: string | null): Promise<Row[]> {
       version: fileVersions.version,
       size: fileVersions.size,
       mimeType: fileVersions.mimeType,
-      projectId: projectNodes.projectId,
+      projectId: workspaceNodes.projectId,
       contentHash: fileVersions.contentHash,
-      currentVersion: projectNodes.currentVersion,
-      currentS3Key: projectNodes.s3Key,
+      currentVersion: workspaceNodes.currentVersion,
+      currentS3Key: workspaceNodes.s3Key,
     })
     .from(fileVersions)
-    .innerJoin(projectNodes, eq(projectNodes.id, fileVersions.nodeId))
+    .innerJoin(workspaceNodes, eq(workspaceNodes.id, fileVersions.nodeId))
     .where(
       and(
         or(
@@ -182,14 +182,14 @@ async function quarantineMissingObject(row: Row, detail: string) {
       .returning({ id: fileVersions.id });
     if (attached.length !== 1) throw new Error("file version changed while missing content was quarantined");
     if (row.version === row.currentVersion && row.s3Key === row.currentS3Key) {
-      await tx.update(projectNodes)
+      await tx.update(workspaceNodes)
         .set({ assetId: asset.id, updatedAt: new Date() })
         .where(and(
-          eq(projectNodes.id, row.nodeId),
-          eq(projectNodes.projectId, row.projectId),
-          eq(projectNodes.currentVersion, row.version),
-          eq(projectNodes.s3Key, row.s3Key),
-          isNull(projectNodes.assetId),
+          eq(workspaceNodes.id, row.nodeId),
+          eq(workspaceNodes.projectId, row.projectId),
+          eq(workspaceNodes.currentVersion, row.version),
+          eq(workspaceNodes.s3Key, row.s3Key),
+          isNull(workspaceNodes.assetId),
         ));
     }
     await tx.insert(storageRepairFailures).values({
@@ -362,7 +362,7 @@ async function main() {
             .returning({ id: fileVersions.id });
           if (rows.length === 1) {
             if (isCurrentRevision) {
-              await tx.update(projectNodes)
+              await tx.update(workspaceNodes)
                 .set({
                   assetId: asset.id,
                   size: verified.size,
@@ -370,10 +370,10 @@ async function main() {
                   updatedAt: new Date(),
                 })
                 .where(and(
-                  eq(projectNodes.id, row.nodeId),
-                  eq(projectNodes.projectId, row.projectId),
-                  eq(projectNodes.currentVersion, row.version),
-                  eq(projectNodes.s3Key, row.s3Key),
+                  eq(workspaceNodes.id, row.nodeId),
+                  eq(workspaceNodes.projectId, row.projectId),
+                  eq(workspaceNodes.currentVersion, row.version),
+                  eq(workspaceNodes.s3Key, row.s3Key),
                 ));
             }
             await tx.update(storageRepairFailures)

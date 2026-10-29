@@ -3,7 +3,7 @@ import "server-only";
 import { and, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { profiles, projectMembers, projects, projectUpdates } from "@/lib/db/schema";
+import { profiles, workspaceMembers, workspaces, workspaceUpdates } from "@/lib/db/schema";
 import { emailEnabled, type OrgEmailKind } from "@/lib/email/contracts";
 import { queueEmail, queueEmails, wakeEmailWorker } from "@/lib/email/outbox";
 import type { OrgEmailData, OrgEmailPerson } from "@/lib/email/org-templates";
@@ -35,8 +35,8 @@ export type OrgNotice = {
 };
 
 export async function orgEmailBase(orgId: string, actorId?: string | null): Promise<Pick<OrgEmailData, "org" | "actor" | "orgTimeZone"> | null> {
-  const [org] = await db.select({ id: projects.id, title: projects.title, slug: projects.slug, type: projects.orgType, settings: projects.orgSettings, logoUrl: projects.coverImage, tagline: projects.shortDescription, timeZone: projects.timeZone })
-    .from(projects).where(eq(projects.id, orgId)).limit(1);
+  const [org] = await db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, type: workspaces.orgType, settings: workspaces.orgSettings, logoUrl: workspaces.coverImage, tagline: workspaces.shortDescription, timeZone: workspaces.timeZone })
+    .from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
   if (!org) return null;
   const [actor] = actorId ? await db.select({ id: profiles.id, name: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl, headline: profiles.headline })
     .from(profiles).where(eq(profiles.id, actorId)).limit(1) : [];
@@ -108,8 +108,8 @@ export const orgHref = (org: { slug: string | null; id: string }, query = "") =>
 
 /** Title, handle and welcome note for tray titles and links. */
 export async function orgLabel(orgId: string) {
-  const [org] = await db.select({ id: projects.id, title: projects.title, slug: projects.slug, welcomeNote: projects.welcomeNote, orgType: projects.orgType, orgSettings: projects.orgSettings })
-    .from(projects).where(eq(projects.id, orgId)).limit(1);
+  const [org] = await db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, welcomeNote: workspaces.welcomeNote, orgType: workspaces.orgType, orgSettings: workspaces.orgSettings })
+    .from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
   return org ? { id: org.id, title: org.title || "Organization", slug: org.slug, welcomeNote: org.welcomeNote, roleNames: orgRoleNames(org.orgType, org.orgSettings) } : null;
 }
 
@@ -131,20 +131,20 @@ export const ANNOUNCEMENT_EMAILS_PER_DAY = 5;
 export async function notifyAnnouncement(input: { orgId: string; updateId: string; actorId: string; content: string; audience: UpdateAudience | null; email: boolean; again?: boolean }) {
   const org = await orgLabel(input.orgId);
   if (!org) return;
-  const [owner] = await db.select({ ownerId: projects.ownerId }).from(projects).where(eq(projects.id, input.orgId)).limit(1);
-  const members = await db.select({ userId: projectMembers.userId, role: projectMembers.role }).from(projectMembers).where(eq(projectMembers.projectId, input.orgId));
+  const [owner] = await db.select({ ownerId: workspaces.ownerId }).from(workspaces).where(eq(workspaces.id, input.orgId)).limit(1);
+  const members = await db.select({ userId: workspaceMembers.userId, role: workspaceMembers.role }).from(workspaceMembers).where(eq(workspaceMembers.projectId, input.orgId));
   const childIds = input.audience?.projectIds ?? [];
-  const inChild = new Set(childIds.length ? (await db.select({ userId: projectMembers.userId }).from(projectMembers)
-    .innerJoin(projects, eq(projects.id, projectMembers.projectId))
-    .where(and(inArray(projectMembers.projectId, childIds), eq(projects.parentId, input.orgId)))).map((r) => r.userId) : []);
+  const inChild = new Set(childIds.length ? (await db.select({ userId: workspaceMembers.userId }).from(workspaceMembers)
+    .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.projectId))
+    .where(and(inArray(workspaceMembers.projectId, childIds), eq(workspaces.parentId, input.orgId)))).map((r) => r.userId) : []);
   const people = [{ userId: owner?.ownerId ?? "", role: "owner" }, ...members].filter((m) => m.userId && audienceAllows(input.audience, {
     isAdmin: m.role === "owner" || m.role === "admin", isAuthor: m.userId === input.actorId,
     role: m.role as "owner" | "admin" | "member" | "viewer", childProjectIds: inChild.has(m.userId) ? childIds : [],
   })).map((m) => m.userId);
   let email = input.email && !input.again;
   if (email) {
-    const [{ n } = { n: 0 }] = await db.select({ n: sql<number>`count(*)::int` }).from(projectUpdates)
-      .where(and(eq(projectUpdates.projectId, input.orgId), eq(projectUpdates.notifyLevel, "email"), sql`${projectUpdates.createdAt} > now() - interval '1 day'`));
+    const [{ n } = { n: 0 }] = await db.select({ n: sql<number>`count(*)::int` }).from(workspaceUpdates)
+      .where(and(eq(workspaceUpdates.projectId, input.orgId), eq(workspaceUpdates.notifyLevel, "email"), sql`${workspaceUpdates.createdAt} > now() - interval '1 day'`));
     // ponytail: a rolling 24 hours, not the org's calendar day. Upgrade: count from midnight in projects.time_zone.
     email = n <= ANNOUNCEMENT_EMAILS_PER_DAY;
   }

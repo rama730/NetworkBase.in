@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { and, eq, isNull } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { fileVersions, projectNodes, storageAssets } from "@/lib/db/schema";
+import { fileVersions, workspaceNodes, storageAssets } from "@/lib/db/schema";
 import { assertWorkspaceFileReadAccess, assertFileNodeVisible } from "@/lib/files/internal-helpers";
 import { parseWorkspaceFileKey } from "@/lib/storage/workspace-file-key";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
@@ -122,12 +122,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return noStore("You don’t have access to this", 403);
   }
 
-  const node = await db.query.projectNodes.findFirst({
+  const node = await db.query.workspaceNodes.findFirst({
     where: and(
-      eq(projectNodes.id, nodeId),
-      eq(projectNodes.projectId, projectId),
-      eq(projectNodes.type, "file"),
-      isNull(projectNodes.deletedAt),
+      eq(workspaceNodes.id, nodeId),
+      eq(workspaceNodes.projectId, projectId),
+      eq(workspaceNodes.type, "file"),
+      isNull(workspaceNodes.deletedAt),
     ),
     columns: {
       s3Key: true,

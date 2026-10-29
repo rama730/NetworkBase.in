@@ -1,4 +1,4 @@
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { filesParentKey } from "@/stores/filesStore";
 import { FILES_RUNTIME_BUDGETS } from "@/lib/files/runtime-budgets";
 
@@ -15,13 +15,13 @@ type BuildVisibleRowsParams = {
   sort: "name" | "updated" | "type";
   foldersFirst: boolean;
   viewMode: string;
-  nodesById: Record<string, ProjectNode>;
+  nodesById: Record<string, WorkspaceNode>;
   childrenByParentId: Record<string, string[]>;
   loadedChildren: Record<string, boolean>;
   expandedFolderIds: Record<string, boolean>;
   folderMeta: Record<string, { nextCursor: string | null; hasMore: boolean }>;
   sortedChildrenByParentId: Record<string, string[]>;
-  includeNode?: (node: ProjectNode) => boolean;
+  includeNode?: (node: WorkspaceNode) => boolean;
 };
 
 type RowCacheEntry = {

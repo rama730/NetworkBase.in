@@ -14,7 +14,7 @@ import { isInternalTaskWorkingFilesNode } from "@/lib/files/task-working-files";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useShallow } from "zustand/react/shallow";
 
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { useFilesStore } from "@/stores/filesStore";
 import {
   getTaskWorkingFilesDisplayName,
@@ -45,7 +45,7 @@ const DEBOUNCE_MS = 200;
  * the same resilience strategy used by the legacy implementation.
  */
 export function buildNodePathMap(
-  nodesById: Record<string, ProjectNode>,
+  nodesById: Record<string, WorkspaceNode>,
 ): Map<string, string> {
   const cache = new Map<string, string>();
   const resolve = (nodeId: string, seen: Set<string>): string => {
@@ -388,9 +388,9 @@ export function QuickOpenDialog({
 
 // Stable empty values so the shallow selector does not treat `{}`/`[]`
 // literals as fresh on every render.
-const EMPTY_NODES_BY_ID: Record<string, ProjectNode> = Object.freeze(
+const EMPTY_NODES_BY_ID: Record<string, WorkspaceNode> = Object.freeze(
   {},
-) as Record<string, ProjectNode>;
+) as Record<string, WorkspaceNode>;
 const EMPTY_RECENTS: readonly string[] = Object.freeze([]) as readonly string[];
 
 export default QuickOpenDialog;

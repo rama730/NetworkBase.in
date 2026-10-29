@@ -1,5 +1,5 @@
 import React from "react";
-import { ProjectNode } from "@/lib/db/schema";
+import { WorkspaceNode } from "@/lib/db/schema";
 import { type VisibleRow } from "./utils/buildVisibleRows";
 import { FileTreeRow } from "./FileTreeRow";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import { TaskLinkPopover } from "../files-tab/TaskLinkPopover";
 
 export interface FileTreeItemContext {
     projectId: string;
-    nodesById: Record<string, ProjectNode>;
+    nodesById: Record<string, WorkspaceNode>;
     selectedNodeId: string | null;
     selectedNodeIds: string[]; // For multi-select
     expandedFolderIds: Record<string, boolean>;
@@ -43,8 +43,8 @@ export interface FileTreeItemContext {
     >;
     
     // Handlers
-    onToggle: (node: ProjectNode) => void;
-    onSelect: (node: ProjectNode, e?: React.MouseEvent) => void;
+    onToggle: (node: WorkspaceNode) => void;
+    onSelect: (node: WorkspaceNode, e?: React.MouseEvent) => void;
     onDragStart: (nodeId: string) => void;
     onDragEnd: () => void;
     onDrop: (targetId: string, draggedId: string) => void;
@@ -54,13 +54,13 @@ export interface FileTreeItemContext {
     uploadToFolder: (folderId: string | null) => void;
     uploadFolderToFolder: (folderId: string | null) => void;
     downloadFolder: (folderId: string) => void;
-    openNode: (node: ProjectNode) => void;
-    renameNode: (node: ProjectNode) => void;
-    moveNode: (node: ProjectNode) => void;
-    deleteNode: (node: ProjectNode) => void;
+    openNode: (node: WorkspaceNode) => void;
+    renameNode: (node: WorkspaceNode) => void;
+    moveNode: (node: WorkspaceNode) => void;
+    deleteNode: (node: WorkspaceNode) => void;
     toggleFavorite: (nodeId: string) => void;
-    onTaskLinksClick: (node: ProjectNode) => void;
-    onContextMenu: (node: ProjectNode, e: React.MouseEvent) => void;
+    onTaskLinksClick: (node: WorkspaceNode) => void;
+    onContextMenu: (node: WorkspaceNode, e: React.MouseEvent) => void;
     isTrashMode: boolean;
     firstNodeId?: string;
 }

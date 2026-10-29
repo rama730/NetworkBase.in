@@ -4,8 +4,8 @@ import { db } from '@/lib/db'
 import {
     profileContributionSkills,
     profileSkills,
-    projectOpenRoles,
-    projectSkills,
+    workspaceOpenRoles,
+    workspaceSkills,
     roleSkills,
     skillAliases,
     skillCategories,
@@ -314,9 +314,9 @@ export async function syncWorkspaceSkills(
     submittedBy?: string | null,
 ): Promise<ResolvedSkill[]> {
     const resolved = await resolveSkillsForWrite(executor, labels, submittedBy)
-    await executor.delete(projectSkills).where(eq(projectSkills.projectId, projectId))
+    await executor.delete(workspaceSkills).where(eq(workspaceSkills.projectId, projectId))
     if (resolved.length > 0) {
-        await executor.insert(projectSkills).values(resolved.map((skill, displayOrder) => ({
+        await executor.insert(workspaceSkills).values(resolved.map((skill, displayOrder) => ({
             projectId,
             skillId: skill.id,
             displayOrder,
@@ -340,12 +340,12 @@ export async function syncRoleSkills(
     submittedBy?: string | null,
 ): Promise<ResolvedSkill[]> {
     const [role] = await executor
-        .select({ id: projectOpenRoles.id })
-        .from(projectOpenRoles)
-        .where(and(eq(projectOpenRoles.id, roleId), eq(projectOpenRoles.projectId, projectId)))
+        .select({ id: workspaceOpenRoles.id })
+        .from(workspaceOpenRoles)
+        .where(and(eq(workspaceOpenRoles.id, roleId), eq(workspaceOpenRoles.projectId, projectId)))
         .for('update')
         .limit(1)
-    if (!role) throw new Error('Role not found in this project')
+    if (!role) throw new Error('Role not found in this workspace')
     const resolved = await resolveSkillsForWrite(executor, labels, submittedBy)
     await executor.delete(roleSkills).where(eq(roleSkills.roleId, roleId))
     if (resolved.length > 0) {

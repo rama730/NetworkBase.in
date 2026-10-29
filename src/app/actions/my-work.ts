@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db";
 import { createClient } from "@/lib/supabase/server";
-import { projects, tasks, projectMembers } from "@/lib/db/schema";
+import { workspaces, tasks, workspaceMembers } from "@/lib/db/schema";
 import { countPendingInvitationsForCandidate } from "@/lib/workspaces/workspace-invitations";
 import { eq, and, isNull, sql, exists, ne, or, count } from "drizzle-orm";
 import { countReviewableApplications } from "@/lib/applications/reviewers";
@@ -18,7 +18,7 @@ import { readOrgPendingCountAction } from "@/app/actions/org-workspace";
 function orgCopyRules(userId: string) {
     return sql`${tasks.kind} <> 'assignment' AND ${tasks.excusedAt} IS NULL AND (
         ${tasks.assignmentId} IS NULL
-        OR EXISTS (SELECT 1 FROM projects cp WHERE cp.id = ${tasks.projectId} AND cp.kind <> 'organization')
+        OR EXISTS (SELECT 1 FROM workspaces cp WHERE cp.id = ${tasks.projectId} AND cp.kind <> 'organization')
         OR ${tasks.assigneeId} = ${userId}::uuid
         OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${tasks.id} AND tm.user_id = ${userId}::uuid))`;
 }
@@ -47,14 +47,14 @@ export async function getMyWorkSummaryAction() {
                 // Your open work, including assignment copies you or your team hold (report §29.2).
                 mineSql(user.id),
                 orgCopyRules(user.id),
-                exists(db.select({ id: projects.id }).from(projects).where(and(
-                    eq(projects.id, tasks.projectId),
-                    isNull(projects.deletedAt),
+                exists(db.select({ id: workspaces.id }).from(workspaces).where(and(
+                    eq(workspaces.id, tasks.projectId),
+                    isNull(workspaces.deletedAt),
                     or(
-                        eq(projects.ownerId, user.id),
-                        exists(db.select({ id: projectMembers.id }).from(projectMembers).where(and(
-                            eq(projectMembers.projectId, tasks.projectId),
-                            eq(projectMembers.userId, user.id),
+                        eq(workspaces.ownerId, user.id),
+                        exists(db.select({ id: workspaceMembers.id }).from(workspaceMembers).where(and(
+                            eq(workspaceMembers.projectId, tasks.projectId),
+                            eq(workspaceMembers.userId, user.id),
                         ))),
                     ),
                 ))),
@@ -103,19 +103,19 @@ export async function fetchMyWorkTasksAction(
         );
 
         const visibleProjectCheck = exists(
-            db.select({ id: projects.id })
-                .from(projects)
+            db.select({ id: workspaces.id })
+                .from(workspaces)
                 .where(and(
-                    eq(projects.id, tasks.projectId),
-                    isNull(projects.deletedAt),
+                    eq(workspaces.id, tasks.projectId),
+                    isNull(workspaces.deletedAt),
                     or(
-                        eq(projects.ownerId, user.id),
+                        eq(workspaces.ownerId, user.id),
                         exists(
-                            db.select({ id: projectMembers.id })
-                                .from(projectMembers)
+                            db.select({ id: workspaceMembers.id })
+                                .from(workspaceMembers)
                                 .where(and(
-                                    eq(projectMembers.projectId, tasks.projectId),
-                                    eq(projectMembers.userId, user.id),
+                                    eq(workspaceMembers.projectId, tasks.projectId),
+                                    eq(workspaceMembers.userId, user.id),
                                 )),
                         ),
                     ),
@@ -190,7 +190,7 @@ export async function fetchMyWorkTasksAction(
                 fl AS (
                     SELECT tnl.task_id, count(*)::int AS file_count
                     FROM task_node_links tnl
-                    JOIN project_nodes pn ON pn.id = tnl.node_id
+                    JOIN workspace_nodes pn ON pn.id = tnl.node_id
                     WHERE tnl.task_id = ANY(${taskIdArray}) AND pn.deleted_at IS NULL
                     GROUP BY tnl.task_id
                 ),
@@ -234,7 +234,7 @@ export async function fetchMyWorkTasksAction(
             SELECT t.id::text AS task_id, p.kind, p.title AS project_title, coalesce(o.id, CASE WHEN p.kind = 'organization' THEN p.id END)::text AS org_id,
               o.title AS org_title, t.team_name, t.review_submitted_at, t.completed_at, t.excused_at,
               (SELECT coalesce(pr.full_name, pr.username) FROM tasks m JOIN profiles pr ON pr.id = m.creator_id WHERE m.id = t.assignment_id) AS from_name
-            FROM tasks t JOIN projects p ON p.id = t.project_id LEFT JOIN projects o ON o.id = p.parent_id AND o.kind = 'organization'
+            FROM tasks t JOIN workspaces p ON p.id = t.workspace_id LEFT JOIN workspaces o ON o.id = p.parent_id AND o.kind = 'organization'
             WHERE t.id = ANY(${sql`ARRAY[${sql.join(taskIds.map((id) => sql`${id}::uuid`), sql`, `)}]::uuid[]`})`)) as unknown as Array<{
             task_id: string; kind: string; project_title: string; org_id: string | null; org_title: string | null; team_name: string | null;
             review_submitted_at: string | null; completed_at: string | null; excused_at: string | null; from_name: string | null;

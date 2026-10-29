@@ -4,8 +4,8 @@ import { and, eq, asc, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import {
-  projectNodeEvents,
-  projectNodes,
+  workspaceNodeEvents,
+  workspaceNodes,
   fileVersions,
   profiles,
 } from "@/lib/db/schema";
@@ -66,10 +66,10 @@ const schema = z.discriminatedUnion("kind", [
 ]);
 async function readable(projectId: string, nodeId: string, userId: string) {
   const access = await assertWorkspaceFileReadAccess(projectId, userId);
-  const node = await db.query.projectNodes.findFirst({
+  const node = await db.query.workspaceNodes.findFirst({
     where: and(
-      eq(projectNodes.id, nodeId),
-      eq(projectNodes.projectId, projectId),
+      eq(workspaceNodes.id, nodeId),
+      eq(workspaceNodes.projectId, projectId),
     ),
   });
   if (!node) throw new Error("File not found");
@@ -95,27 +95,27 @@ export async function GET(request: Request) {
     const { access } = await readable(projectId, nodeId, auth.user.id);
     const rows = await db
       .select({
-        id: projectNodeEvents.id,
-        sequence: projectNodeEvents.sequenceNumber,
-        actorId: projectNodeEvents.actorId,
-        metadata: projectNodeEvents.metadata,
-        createdAt: projectNodeEvents.createdAt,
+        id: workspaceNodeEvents.id,
+        sequence: workspaceNodeEvents.sequenceNumber,
+        actorId: workspaceNodeEvents.actorId,
+        metadata: workspaceNodeEvents.metadata,
+        createdAt: workspaceNodeEvents.createdAt,
         name: profiles.fullName,
       })
-      .from(projectNodeEvents)
-      .leftJoin(profiles, eq(profiles.id, projectNodeEvents.actorId))
+      .from(workspaceNodeEvents)
+      .leftJoin(profiles, eq(profiles.id, workspaceNodeEvents.actorId))
       .where(
         and(
-          eq(projectNodeEvents.projectId, projectId),
-          eq(projectNodeEvents.nodeId, nodeId),
-          eq(projectNodeEvents.type, "extension_review_comment"),
+          eq(workspaceNodeEvents.projectId, projectId),
+          eq(workspaceNodeEvents.nodeId, nodeId),
+          eq(workspaceNodeEvents.type, "extension_review_comment"),
           threadId
-            ? sql`${projectNodeEvents.metadata}->>'threadId' = ${threadId}`
+            ? sql`${workspaceNodeEvents.metadata}->>'threadId' = ${threadId}`
             : undefined,
-          after ? sql`${projectNodeEvents.sequenceNumber}>${after}` : undefined,
+          after ? sql`${workspaceNodeEvents.sequenceNumber}>${after}` : undefined,
         ),
       )
-      .orderBy(asc(projectNodeEvents.sequenceNumber))
+      .orderBy(asc(workspaceNodeEvents.sequenceNumber))
       .limit(201);
     return jsonSuccess({
       events: rows.slice(0, 200),
@@ -155,10 +155,10 @@ export async function POST(request: Request) {
         input.projectId,
         userId,
       );
-      const node = await tx.query.projectNodes.findFirst({
+      const node = await tx.query.workspaceNodes.findFirst({
         where: and(
-          eq(projectNodes.id, input.nodeId),
-          eq(projectNodes.projectId, input.projectId),
+          eq(workspaceNodes.id, input.nodeId),
+          eq(workspaceNodes.projectId, input.projectId),
         ),
       });
       if (!node || node.deletedAt) throw new Error("File not found");
@@ -167,16 +167,16 @@ export async function POST(request: Request) {
       if (input.kind !== "create") {
         const events = await tx
           .select()
-          .from(projectNodeEvents)
+          .from(workspaceNodeEvents)
           .where(
             and(
-              eq(projectNodeEvents.projectId, input.projectId),
-              eq(projectNodeEvents.nodeId, input.nodeId),
-              eq(projectNodeEvents.type, "extension_review_comment"),
-              sql`${projectNodeEvents.metadata}->>'threadId' = ${threadId}`,
+              eq(workspaceNodeEvents.projectId, input.projectId),
+              eq(workspaceNodeEvents.nodeId, input.nodeId),
+              eq(workspaceNodeEvents.type, "extension_review_comment"),
+              sql`${workspaceNodeEvents.metadata}->>'threadId' = ${threadId}`,
             ),
           )
-          .orderBy(asc(projectNodeEvents.sequenceNumber));
+          .orderBy(asc(workspaceNodeEvents.sequenceNumber));
         const first = events[0];
         if (!first) throw new Error("Comment thread not found");
         latestSequence = events.at(-1)!.sequenceNumber;

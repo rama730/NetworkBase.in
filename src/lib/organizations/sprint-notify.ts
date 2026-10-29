@@ -13,7 +13,7 @@ type Org = { id: string; title: string; slug: string | null; settings: unknown; 
 
 async function projectOf(projectId: string): Promise<Org | null> {
   const [row] = await db.execute<{ id: string; title: string | null; slug: string | null; settings: unknown; parent_id: string | null; kind: string | null }>(sql`
-    SELECT id, title, slug, org_settings AS settings, parent_id, kind FROM projects WHERE id = ${projectId} AND deleted_at IS NULL`);
+    SELECT id, title, slug, org_settings AS settings, parent_id, kind FROM workspaces WHERE id = ${projectId} AND deleted_at IS NULL`);
   return row ? { id: row.id, title: row.title || "Organization", slug: row.slug, settings: row.settings, parentId: row.parent_id, kind: row.kind } : null;
 }
 
@@ -31,7 +31,7 @@ export function notifyOrgSprintStarted(sprintId: string, projectId: string, acto
     const [sprint] = await db.execute<{ name: string; notify: boolean; assignments: number }>(sql`
       SELECT s.name, s.notify_on_start AS notify, (SELECT count(*)::int FROM tasks m WHERE m.sprint_id = s.id AND m.kind = 'assignment' AND m.deleted_at IS NULL
         AND m.assignment_settings->>'publishedAt' IS NOT NULL) AS assignments
-      FROM project_sprints s WHERE s.id = ${sprintId}`);
+      FROM workspace_sprints s WHERE s.id = ${sprintId}`);
     if (!sprint) return;
     const href = orgHref(org, "?tab=sprints");
     if (sprint.notify) {
@@ -40,9 +40,9 @@ export function notifyOrgSprintStarted(sprintId: string, projectId: string, acto
       await notifyOrg({ orgId: org.id, eventKey: "org_sprints.started", actorId, title: [`${sprint.name} started`, ...parts].join(" · "), href, sourceEventId: `sprint-started:${sprintId}` });
     }
     const leads = await db.execute<{ owner_id: string; title: string; slug: string | null; id: string }>(sql`
-      SELECT p.owner_id, p.title, p.slug, p.id FROM projects p
+      SELECT p.owner_id, p.title, p.slug, p.id FROM workspaces p
       WHERE p.parent_id = ${org.id} AND p.deleted_at IS NULL AND p.status <> 'archived'
-        AND NOT EXISTS (SELECT 1 FROM project_sprints c WHERE c.project_id = p.id AND c.parent_sprint_id = ${sprintId})`);
+        AND NOT EXISTS (SELECT 1 FROM workspace_sprints c WHERE c.workspace_id = p.id AND c.parent_sprint_id = ${sprintId})`);
     for (const lead of leads) {
       await notifyOrg({ orgId: org.id, eventKey: "org_sprints.notice", actorId, to: [lead.owner_id], title: `${sprint.name} started. Plan your sprint in ${lead.title}`,
         href: `/workspaces/${encodeURIComponent(lead.slug ?? lead.id)}?tab=sprints`, sourceEventId: `sprint-plan:${sprintId}:${lead.id}` });
@@ -55,16 +55,16 @@ export async function notifyOrgSprintCompleted(sprintId: string, projectId: stri
   const org = await projectOf(projectId).catch(() => null);
   if (!org || org.kind !== "organization") return false;
   await safely("completed", async () => {
-    const [sprint] = await db.execute<{ name: string }>(sql`SELECT name FROM project_sprints WHERE id = ${sprintId}`);
+    const [sprint] = await db.execute<{ name: string }>(sql`SELECT name FROM workspace_sprints WHERE id = ${sprintId}`);
     if (!sprint) return;
     // Per person: their own copies and their team's, of the assignments in this sprint.
     const counts = await db.execute<{ user_id: string; done: number; total: number }>(sql`
       SELECT pm.user_id, count(c.id) FILTER (WHERE c.status = 'done')::int AS done, count(c.id)::int AS total
-      FROM project_members pm
+      FROM workspace_members pm
       LEFT JOIN tasks c ON c.deleted_at IS NULL AND c.excused_at IS NULL
         AND c.assignment_id IN (SELECT m.id FROM tasks m WHERE m.sprint_id = ${sprintId} AND m.kind = 'assignment' AND m.deleted_at IS NULL)
         AND (c.assignee_id = pm.user_id OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = c.id AND tm.user_id = pm.user_id))
-      WHERE pm.project_id = ${org.id}
+      WHERE pm.workspace_id = ${org.id}
       GROUP BY pm.user_id`);
     // One notice per distinct line, so 2,000 members are a handful of fan-outs.
     const groups = new Map<string, string[]>();
@@ -87,8 +87,8 @@ export function notifyLinkedSprintsOutside(sprintId: string, projectId: string, 
     if (!org || org.kind !== "organization") return;
     const rows = await db.execute<{ id: string; name: string; parent: string; owner_id: string; slug: string | null; project_id: string; stamp: string }>(sql`
       SELECT c.id, c.name, o.name AS parent, p.owner_id, p.slug, p.id AS project_id, o.updated_at::text AS stamp
-      FROM project_sprints o JOIN project_sprints c ON c.parent_sprint_id = o.id AND c.status <> 'completed'
-      JOIN projects p ON p.id = c.project_id AND p.deleted_at IS NULL
+      FROM workspace_sprints o JOIN workspace_sprints c ON c.parent_sprint_id = o.id AND c.status <> 'completed'
+      JOIN workspaces p ON p.id = c.workspace_id AND p.deleted_at IS NULL
       WHERE o.id = ${sprintId} AND (c.start_date < o.start_date OR c.end_date > o.end_date)`);
     for (const r of rows) {
       await notifyOrg({ orgId: org.id, eventKey: "org_sprints.notice", actorId, to: [r.owner_id], title: `Your sprint ${r.name} is outside ${r.parent}'s new dates`,
@@ -103,12 +103,12 @@ export function notifyOrgSprintBlocked(sprintId: string, projectId: string) {
     const org = await projectOf(projectId);
     if (!org || org.kind !== "organization") return;
     const [row] = await db.execute<{ name: string; active: string }>(sql`
-      SELECT s.name, a.name AS active FROM project_sprints s JOIN project_sprints a ON a.project_id = s.project_id AND a.status = 'active'
+      SELECT s.name, a.name AS active FROM workspace_sprints s JOIN workspace_sprints a ON a.workspace_id = s.workspace_id AND a.status = 'active'
       WHERE s.id = ${sprintId} LIMIT 1`);
     if (!row) return;
     const admins = await db.execute<{ user_id: string }>(sql`
-      SELECT owner_id AS user_id FROM projects WHERE id = ${org.id}
-      UNION SELECT user_id FROM project_members WHERE project_id = ${org.id} AND role IN ('owner', 'admin')`);
+      SELECT owner_id AS user_id FROM workspaces WHERE id = ${org.id}
+      UNION SELECT user_id FROM workspace_members WHERE workspace_id = ${org.id} AND role IN ('owner', 'admin')`);
     await notifyOrg({ orgId: org.id, eventKey: "org_sprints.notice", to: admins.map((a) => a.user_id), title: `${row.name} couldn’t start: ${row.active} is still active`,
       href: orgHref(org, "?tab=sprints"), sourceEventId: `sprint-blocked:${sprintId}` });
   });
@@ -118,7 +118,7 @@ type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 /** A new org sprint's "Notify members when it starts", from the org's Work default (report §21); on otherwise. */
 export async function orgSprintNotifyDefault(executor: Executor, projectId: string) {
-  const [row] = await executor.execute<{ value: unknown }>(sql`SELECT org_settings->'sprintNotifyOnStart' AS value FROM projects WHERE id = ${projectId}`);
+  const [row] = await executor.execute<{ value: unknown }>(sql`SELECT org_settings->'sprintNotifyOnStart' AS value FROM workspaces WHERE id = ${projectId}`);
   return row?.value !== false;
 }
 
@@ -127,7 +127,7 @@ export type LinkedChildSprint = { sprintName: string; ownerId: string; projectId
 /** Read inside the cancel transaction, before the links go. */
 export async function readLinkedChildSprints(executor: Executor, orgSprintId: string): Promise<LinkedChildSprint[]> {
   return executor.execute<LinkedChildSprint>(sql`
-    SELECT c.name AS "sprintName", p.owner_id AS "ownerId", p.id AS "projectId", p.slug FROM project_sprints c JOIN projects p ON p.id = c.project_id
+    SELECT c.name AS "sprintName", p.owner_id AS "ownerId", p.id AS "projectId", p.slug FROM workspace_sprints c JOIN workspaces p ON p.id = c.workspace_id
     WHERE c.parent_sprint_id = ${orgSprintId} AND p.deleted_at IS NULL`);
 }
 
@@ -136,7 +136,7 @@ export function notifyChildSprintsUnlinked(orgId: string, orgSprintId: string, l
   return safely("unlinked", async () => {
     if (linked.length === 0) return;
     const [org] = await db.execute<{ kind: string | null; name: string }>(sql`
-      SELECT p.kind, s.name FROM projects p JOIN project_sprints s ON s.id = ${orgSprintId} WHERE p.id = ${orgId}`);
+      SELECT p.kind, s.name FROM workspaces p JOIN workspace_sprints s ON s.id = ${orgSprintId} WHERE p.id = ${orgId}`);
     if (org?.kind !== "organization") return;
     for (const child of linked) {
       await notifyOrg({ orgId, eventKey: "org_sprints.notice", actorId, to: [child.ownerId], title: `${org.name} was canceled. ${child.sprintName} is no longer linked to it`,
@@ -151,13 +151,13 @@ export function shiftOrgSprintDueDates(orgId: string, sprintId: string, shiftMs:
     const seconds = Math.round(shiftMs / 1000);
     const masters = await db.execute<{ id: string; title: string; due_date: string }>(sql`
       UPDATE tasks SET due_date = due_date + make_interval(secs => ${seconds}), updated_at = now()
-      WHERE project_id = ${orgId} AND sprint_id = ${sprintId} AND kind = 'assignment' AND deleted_at IS NULL AND due_date IS NOT NULL
+      WHERE workspace_id = ${orgId} AND sprint_id = ${sprintId} AND kind = 'assignment' AND deleted_at IS NULL AND due_date IS NOT NULL
       RETURNING id, title, due_date::text`);
     if (masters.length === 0) return;
     await db.execute(sql`
       UPDATE tasks SET due_date = due_date + make_interval(secs => ${seconds}), updated_at = now()
       WHERE assignment_id IN (${sql.join(masters.map((m) => sql`${m.id}::uuid`), sql`, `)}) AND deleted_at IS NULL AND due_date IS NOT NULL`);
-    const [org] = await db.execute<{ title: string | null; slug: string | null; time_zone: string | null }>(sql`SELECT title, slug, time_zone FROM projects WHERE id = ${orgId}`);
+    const [org] = await db.execute<{ title: string | null; slug: string | null; time_zone: string | null }>(sql`SELECT title, slug, time_zone FROM workspaces WHERE id = ${orgId}`);
     for (const master of masters) {
       const people = await db.execute<{ user_id: string }>(sql`
         SELECT c.assignee_id AS user_id FROM tasks c WHERE c.assignment_id = ${master.id} AND c.deleted_at IS NULL AND c.assignee_id IS NOT NULL

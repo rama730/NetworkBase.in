@@ -18,7 +18,7 @@ test("discussion page returns the newest 20 replies per thread, exact reply tota
   viewerId = userId;
   try {
     const projectId = await sql.begin((tx) => createProject(tx, userId));
-    const [task] = await sql`INSERT INTO tasks (project_id, title) VALUES (${projectId}, 't') RETURNING id`;
+    const [task] = await sql`INSERT INTO tasks (workspace_id, title) VALUES (${projectId}, 't') RETURNING id`;
     const taskId = task!.id as string;
     const parent = async (minute: number) => {
       const [row] = await sql`INSERT INTO task_comments (task_id, user_id, content, created_at) VALUES (${taskId}, ${userId}, ${`p${minute}`}, ${new Date(Date.UTC(2026, 0, 1, 0, minute))}) RETURNING id`;
@@ -55,6 +55,6 @@ test("discussion page returns the newest 20 replies per thread, exact reply tota
     assert.equal(result.data.totalCount, 30);
   } finally {
     await sql`DELETE FROM task_comments WHERE user_id = ${userId}`;
-    await sql`DELETE FROM projects WHERE owner_id = ${userId}`;
+    await sql`DELETE FROM workspaces WHERE owner_id = ${userId}`;
   }
 });

@@ -52,7 +52,7 @@ import { useFilesViews } from "../FilesViews";
 import { FilesViewsMenu, FilesHeaderSlot } from "../FilesHeader";
 import type { TaskFileRole } from "@/lib/workspaces/task-file-intelligence";
 import { isTextLike as isTextFile } from "../../utils/fileKind";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 import {
   isInternalTaskWorkingFilesNode,
@@ -254,7 +254,7 @@ export function FolderListView({
   // ── Store selectors ───────────────────────────────────────────────
   const nodesById = useFilesStore(
     (s) => s.byProjectId[projectId]?.nodesById || EMPTY_OBJECT,
-  ) as Record<string, ProjectNode>;
+  ) as Record<string, WorkspaceNode>;
   const childrenByParentId = useFilesStore(
     (s) => s.byProjectId[projectId]?.childrenByParentId || EMPTY_OBJECT,
   ) as Record<string, string[]>;

@@ -8,7 +8,7 @@ import { scheduleAssetDeletionIfUnreferenced } from "@/lib/storage/asset-deletio
 import {
   fileVersions,
   profiles,
-  projectNodes,
+  workspaceNodes,
   storageAssets,
   type FileVersion,
 } from "@/lib/db/schema";
@@ -67,8 +67,8 @@ const LIST_VERSIONS_MAX = 200;
 
 async function assertVersionNodeReadable(projectId: string, nodeId: string, actorId: string | null) {
   const access = await assertWorkspaceFileReadAccess(projectId, actorId);
-  const node = await db.query.projectNodes.findFirst({
-    where: and(eq(projectNodes.id, nodeId), eq(projectNodes.projectId, projectId)),
+  const node = await db.query.workspaceNodes.findFirst({
+    where: and(eq(workspaceNodes.id, nodeId), eq(workspaceNodes.projectId, projectId)),
     columns: { id: true, path: true, taskId: true, deletedAt: true },
   });
   if (!node) throw new Error("File not found");
@@ -112,8 +112,8 @@ export async function listFileVersionsPage(
   const access = await assertWorkspaceFileReadAccess(projectId, actorId);
 
   // Confirm the node belongs to the project (defense-in-depth on top of RLS).
-  const node = await db.query.projectNodes.findFirst({
-    where: and(eq(projectNodes.id, nodeId), eq(projectNodes.projectId, projectId)),
+  const node = await db.query.workspaceNodes.findFirst({
+    where: and(eq(workspaceNodes.id, nodeId), eq(workspaceNodes.projectId, projectId)),
     columns: { id: true, type: true, path: true, taskId: true, deletedAt: true },
   });
   if (!node) throw new Error("File not found");
@@ -202,7 +202,7 @@ export interface LockConflictError {
 }
 
 export type ReplaceNodeResult =
-  | { node: typeof projectNodes.$inferSelect; version: FileVersion }
+  | { node: typeof workspaceNodes.$inferSelect; version: FileVersion }
   | LockConflictError;
 
 /**
@@ -374,7 +374,7 @@ export async function restoreFileVersion(
   projectId: string,
   nodeId: string,
   targetVersion: number,
-): Promise<{ node: typeof projectNodes.$inferSelect; version: FileVersion }> {
+): Promise<{ node: typeof workspaceNodes.$inferSelect; version: FileVersion }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Sign in to continue");
@@ -473,7 +473,7 @@ export async function deleteFileVersionAction(
   projectId: string,
   nodeId: string,
   versionNumber: number,
-): Promise<{ success: boolean; nextActiveVersion?: number | null; node?: typeof projectNodes.$inferSelect }> {
+): Promise<{ success: boolean; nextActiveVersion?: number | null; node?: typeof workspaceNodes.$inferSelect }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Sign in to continue");
@@ -488,10 +488,10 @@ export async function deleteFileVersionAction(
     { projectId, nodeId, userId: user.id },
     (lease) => db.transaction(async (tx) => {
       await assertWorkspaceManageFilesAccessTx(tx, projectId, user.id);
-      await tx.execute(sql`SELECT id FROM project_nodes WHERE id = ${nodeId} FOR UPDATE`);
+      await tx.execute(sql`SELECT id FROM workspace_nodes WHERE id = ${nodeId} FOR UPDATE`);
       await assertOwnedFileLease(tx, { projectId, nodeId, userId: user.id, credentials: lease });
-      const node = await tx.query.projectNodes.findFirst({
-        where: and(eq(projectNodes.id, nodeId), eq(projectNodes.projectId, projectId)),
+      const node = await tx.query.workspaceNodes.findFirst({
+        where: and(eq(workspaceNodes.id, nodeId), eq(workspaceNodes.projectId, projectId)),
       });
       if (!node || node.deletedAt) throw new Error("File not found");
       // COR-013: the target is read directly (any age), and the last-version rule is a count.
@@ -508,7 +508,7 @@ export async function deleteFileVersionAction(
       await tx.delete(fileVersions).where(eq(fileVersions.id, target.id));
 
       let nextActiveVersion: number | null = null;
-      let updatedNode: typeof projectNodes.$inferSelect | undefined;
+      let updatedNode: typeof workspaceNodes.$inferSelect | undefined;
       if (node.currentVersion === versionNumber) {
         const [remaining] = await tx.select({
           version: fileVersions.version,
@@ -520,7 +520,7 @@ export async function deleteFileVersionAction(
         if (!remaining) throw new Error("No replacement version is available");
         nextActiveVersion = remaining.version;
         [updatedNode] = await tx
-          .update(projectNodes)
+          .update(workspaceNodes)
           .set({
             s3Key: remaining.s3Key,
             size: remaining.size,
@@ -529,7 +529,7 @@ export async function deleteFileVersionAction(
             currentVersion: remaining.version,
             updatedAt: new Date(),
           })
-          .where(eq(projectNodes.id, nodeId))
+          .where(eq(workspaceNodes.id, nodeId))
           .returning();
       }
       await scheduleAssetDeletionIfUnreferenced(tx, [target.assetId], { lastErrorCode: "FILE_VERSION_DETACHED" });

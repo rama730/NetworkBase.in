@@ -2,7 +2,7 @@ import "server-only";
 import { createHash } from "crypto";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { projectNodes, fileVersions, storageAssets } from "@/lib/db/schema";
+import { workspaceNodes, fileVersions, storageAssets } from "@/lib/db/schema";
 import {
   assertWorkspaceFileReadAccess,
   assertFileNodeVisible,
@@ -19,10 +19,10 @@ export async function readVersionBytes(input: {
     input.projectId,
     input.userId,
   );
-  const node = await db.query.projectNodes.findFirst({
+  const node = await db.query.workspaceNodes.findFirst({
     where: and(
-      eq(projectNodes.projectId, input.projectId),
-      eq(projectNodes.id, input.nodeId),
+      eq(workspaceNodes.projectId, input.projectId),
+      eq(workspaceNodes.id, input.nodeId),
     ),
   });
   if (!node) throw new Error("File not found");

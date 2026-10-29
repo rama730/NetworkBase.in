@@ -59,10 +59,10 @@ function fixture(
       },
     );
   const schema = {
-    projectNodes: table("nodes"),
+    workspaceNodes: table("nodes"),
     fileVersions: table("versions"),
-    projects: table("projects"),
-    projectDocs: table("docs"),
+    workspaces: table("projects"),
+    workspaceDocuments: table("docs"),
     taskNodeLinks: table("links"),
     storageAssets: table("assets"),
   };
@@ -74,7 +74,7 @@ function fixture(
           }))
         : nodes.map((n) => ({ id: n.id })),
     query: {
-      projectNodes: {
+      workspaceNodes: {
         findMany: async () => nodes,
         findFirst: async (input: unknown) =>
           JSON.stringify(input).includes("canonicalNodeId")

@@ -39,9 +39,9 @@ const checks: Array<{ name: string; hard: boolean; query: string }> = [
   {
     name: "roles whose filled count differs from accepted applicants who are still members",
     hard: false,
-    query: `SELECT count(*)::int AS n FROM project_open_roles r
+    query: `SELECT count(*)::int AS n FROM workspace_open_roles r
             WHERE r.filled <> (SELECT count(*) FROM role_applications a
-                               JOIN project_members m ON m.project_id = a.project_id AND m.user_id = a.applicant_id
+                               JOIN workspace_members m ON m.workspace_id = a.workspace_id AND m.user_id = a.applicant_id
                                WHERE a.role_id = r.id AND a.status = 'accepted')`,
   },
   {
@@ -57,7 +57,7 @@ const checks: Array<{ name: string; hard: boolean; query: string }> = [
   {
     name: "pending applications whose creator_id is not the current owner",
     hard: false,
-    query: "SELECT count(*)::int AS n FROM role_applications a JOIN projects p ON p.id = a.project_id WHERE a.status = 'pending' AND a.creator_id <> p.owner_id",
+    query: "SELECT count(*)::int AS n FROM role_applications a JOIN workspaces p ON p.id = a.workspace_id WHERE a.status = 'pending' AND a.creator_id <> p.owner_id",
   },
 ];
 

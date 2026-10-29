@@ -93,6 +93,6 @@ test("presence is app-wide and debounce markers follow persistence", () => {
 test("extension workspace bounds root files per project", () => {
   const workspace = source("src/app/api/v1/extension/workspace/route.ts");
 
-  assert.match(workspace, /CROSS JOIN LATERAL \(\s*SELECT id\s*FROM project_nodes\s*WHERE project_id = p\.id[\s\S]*?LIMIT 100\s*\) n/);
+  assert.match(workspace, /CROSS JOIN LATERAL \(\s*SELECT id\s*FROM workspace_nodes\s*WHERE workspace_id = p\.id[\s\S]*?LIMIT 100\s*\) n/);
   assert.doesNotMatch(workspace, /\.limit\(Math\.max\(100, projectIds\.length \* 100\)\)/);
 });

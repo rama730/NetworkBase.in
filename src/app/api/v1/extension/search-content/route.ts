@@ -3,10 +3,10 @@ import { z } from "zod";
 import { and, eq, isNull, gt, asc, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
-  projectNodes,
+  workspaceNodes,
   fileVersions,
   storageAssets,
-  projectEventCounters,
+  workspaceEventCounters,
 } from "@/lib/db/schema";
 import {
   requireAuthenticatedUser,
@@ -52,8 +52,8 @@ export async function GET(request: Request) {
       );
     const { projectId, q, cursor } = parsed.data;
     const access = await assertWorkspaceFileReadAccess(projectId, auth.user.id);
-    const counter = await db.query.projectEventCounters.findFirst({
-      where: eq(projectEventCounters.projectId, projectId),
+    const counter = await db.query.workspaceEventCounters.findFirst({
+      where: eq(workspaceEventCounters.projectId, projectId),
     });
     const sequence = counter?.nextSequence ?? 0;
     let after: string | undefined;
@@ -79,20 +79,20 @@ export async function GET(request: Request) {
     }
     const rows = await db
       .select({
-        id: projectNodes.id,
-        path: projectNodes.path,
+        id: workspaceNodes.id,
+        path: workspaceNodes.path,
         size: fileVersions.size,
         version: fileVersions.version,
         hash: fileVersions.contentHash,
         key: storageAssets.storageKey,
         mimeType: fileVersions.mimeType,
       })
-      .from(projectNodes)
+      .from(workspaceNodes)
       .innerJoin(
         fileVersions,
         and(
-          eq(fileVersions.nodeId, projectNodes.id),
-          eq(fileVersions.version, projectNodes.currentVersion),
+          eq(fileVersions.nodeId, workspaceNodes.id),
+          eq(fileVersions.version, workspaceNodes.currentVersion),
         ),
       )
       .innerJoin(
@@ -107,16 +107,16 @@ export async function GET(request: Request) {
       )
       .where(
         and(
-          eq(projectNodes.projectId, projectId),
-          isNull(projectNodes.deletedAt),
-          eq(projectNodes.type, "file"),
+          eq(workspaceNodes.projectId, projectId),
+          isNull(workspaceNodes.deletedAt),
+          eq(workspaceNodes.type, "file"),
           visibleFileNodesSql(access),
-          after ? gt(projectNodes.id, after) : undefined,
+          after ? gt(workspaceNodes.id, after) : undefined,
           sql`${fileVersions.size}<=65536`,
           sql`(${fileVersions.mimeType} LIKE 'text/%' OR ${fileVersions.mimeType} IN ('application/json','application/javascript','application/xml'))`,
         ),
       )
-      .orderBy(asc(projectNodes.id))
+      .orderBy(asc(workspaceNodes.id))
       .limit(21);
     const results: Array<{
       nodeId: string;

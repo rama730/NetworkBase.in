@@ -71,8 +71,8 @@ export function subscribeWorkspaceFilesChannel(
     const bindings = [
         {
             event: '*' as const,
-            table: 'project_node_locks',
-            filter: `project_id=eq.${projectId}`,
+            table: 'workspace_node_locks',
+            filter: `workspace_id=eq.${projectId}`,
             handler: () => onFileLeaseChange?.(),
         },
     ]

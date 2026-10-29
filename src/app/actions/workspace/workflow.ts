@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
-import { projectWorkflowColumns, tasks } from "@/lib/db/schema";
+import { workspaceWorkflowColumns, tasks } from "@/lib/db/schema";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { TASK_STATUS_PRESENTATION, TASK_WORKFLOW_STATUSES } from "@/lib/workspaces/task-workflow";
@@ -70,8 +70,8 @@ async function requireWorkflowUser() {
 async function lockWorkflowForLeader(tx: Tx, projectId: string, userId: string) {
     const rows = await tx.execute<{ owner_id: string; role: string | null }>(sql`
         SELECT p.owner_id, m.role
-        FROM projects p
-        LEFT JOIN project_members m ON m.project_id = p.id AND m.user_id = ${userId}
+        FROM workspaces p
+        LEFT JOIN workspace_members m ON m.workspace_id = p.id AND m.user_id = ${userId}
         WHERE p.id = ${projectId} AND p.deleted_at IS NULL
         FOR UPDATE OF p
     `);
@@ -81,10 +81,10 @@ async function lockWorkflowForLeader(tx: Tx, projectId: string, userId: string) 
 }
 
 async function ensureWorkflowColumns(projectId: string, tx: Tx | typeof db = db) {
-    await tx.insert(projectWorkflowColumns).values(defaultColumns(projectId)).onConflictDoNothing();
-    return tx.query.projectWorkflowColumns.findMany({
-        where: eq(projectWorkflowColumns.projectId, projectId),
-        orderBy: [asc(projectWorkflowColumns.position), asc(projectWorkflowColumns.id)],
+    await tx.insert(workspaceWorkflowColumns).values(defaultColumns(projectId)).onConflictDoNothing();
+    return tx.query.workspaceWorkflowColumns.findMany({
+        where: eq(workspaceWorkflowColumns.projectId, projectId),
+        orderBy: [asc(workspaceWorkflowColumns.position), asc(workspaceWorkflowColumns.id)],
     });
 }
 
@@ -116,8 +116,8 @@ export async function updateWorkspaceWorkflowColumnsAction(projectId: string, wo
             if (existing.length !== parsedWorkflow.data.length || !parsedWorkflow.data.every((column) => existing.some((row) => row.id === column.id))) {
                 return true;
             }
-            await tx.execute(sql`UPDATE project_workflow_columns c SET position = v.temporary_position FROM ${values} WHERE c.id = v.id AND c.project_id = ${parsedProjectId.data}::uuid`);
-            await tx.execute(sql`UPDATE project_workflow_columns c SET title = v.title, accent_class_name = v.accent_class_name, empty_title = v.empty_title, empty_description = v.empty_description, position = v.position, updated_at = now() FROM ${values} WHERE c.id = v.id AND c.project_id = ${parsedProjectId.data}::uuid`);
+            await tx.execute(sql`UPDATE workspace_workflow_columns c SET position = v.temporary_position FROM ${values} WHERE c.id = v.id AND c.workspace_id = ${parsedProjectId.data}::uuid`);
+            await tx.execute(sql`UPDATE workspace_workflow_columns c SET title = v.title, accent_class_name = v.accent_class_name, empty_title = v.empty_title, empty_description = v.empty_description, position = v.position, updated_at = now() FROM ${values} WHERE c.id = v.id AND c.workspace_id = ${parsedProjectId.data}::uuid`);
             return false;
         });
         if (changedElsewhere) return { success: false as const, error: "Workflow changed elsewhere. Reload and try again." };
@@ -139,7 +139,7 @@ export async function createWorkspaceWorkflowColumnAction(input: unknown) {
             await lockWorkflowForLeader(tx, parsed.data.projectId, user.id);
             const columns = await ensureWorkflowColumns(parsed.data.projectId, tx);
             if (columns.length >= 6) return null;
-            const [created] = await tx.insert(projectWorkflowColumns).values({
+            const [created] = await tx.insert(workspaceWorkflowColumns).values({
                 projectId: parsed.data.projectId,
                 status,
                 title: parsed.data.title,
@@ -164,12 +164,12 @@ export async function deleteWorkspaceWorkflowColumnAction(projectId: string, col
         const user = await requireWorkflowUser();
         const refusal = await db.transaction(async (tx) => {
             await lockWorkflowForLeader(tx, projectId, user.id);
-            const column = await tx.query.projectWorkflowColumns.findFirst({ where: and(eq(projectWorkflowColumns.id, columnId), eq(projectWorkflowColumns.projectId, projectId)) });
+            const column = await tx.query.workspaceWorkflowColumns.findFirst({ where: and(eq(workspaceWorkflowColumns.id, columnId), eq(workspaceWorkflowColumns.projectId, projectId)) });
             if (!column) return "Section not found";
             if (column.isDefault) return "Default sections cannot be removed";
             const [taskCount] = await tx.select({ count: sql<number>`count(*)::int` }).from(tasks).where(eq(tasks.workflowColumnId, columnId));
             if ((taskCount?.count ?? 0) > 0) return "Move tasks out of this section before deleting it";
-            await tx.delete(projectWorkflowColumns).where(eq(projectWorkflowColumns.id, columnId));
+            await tx.delete(workspaceWorkflowColumns).where(eq(workspaceWorkflowColumns.id, columnId));
             return null;
         });
         if (refusal) return { success: false as const, error: refusal };

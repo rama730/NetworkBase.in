@@ -38,7 +38,7 @@ import assert from "node:assert/strict";
 
 import fc from "fast-check";
 
-import type { ProjectNode, FileVersion } from "@/lib/db/schema";
+import type { WorkspaceNode, FileVersion } from "@/lib/db/schema";
 
 // ---------------------------------------------------------------------------
 // Generators
@@ -65,9 +65,9 @@ function makeFileVersion(nodeId: string, versionNumber: number): FileVersion {
 }
 
 /**
- * Generate a ProjectNode with the given currentVersion.
+ * Generate a WorkspaceNode with the given currentVersion.
  */
-function makeProjectNode(nodeId: string, currentVersion: number): ProjectNode {
+function makeProjectNode(nodeId: string, currentVersion: number): WorkspaceNode {
   return {
     id: nodeId,
     projectId: "proj-1",
@@ -86,7 +86,7 @@ function makeProjectNode(nodeId: string, currentVersion: number): ProjectNode {
     createdAt: new Date("2026-01-01T00:00:00Z"),
     updatedAt: new Date("2026-01-01T00:00:00Z"),
     deletedAt: null,
-  } as unknown as ProjectNode;
+  } as unknown as WorkspaceNode;
 }
 
 /**

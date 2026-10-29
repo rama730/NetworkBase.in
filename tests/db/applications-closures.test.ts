@@ -26,8 +26,8 @@ async function withTwoApplications(fn: (ctx: Ctx) => Promise<void>) {
   const [owner, admin, one, two] = await Promise.all([0, 1, 2, 3].map(() => sql.begin((tx) => createUser(tx))));
   const projectId = await sql.begin((tx) => createProject(tx, owner!));
   await sql.begin(async (tx) => { await addMember(tx, projectId, owner!, "owner"); await addMember(tx, projectId, admin!, "admin"); });
-  const [a] = await sql`INSERT INTO project_open_roles (project_id, role, count) VALUES (${projectId}, 'Designer', 3) RETURNING id`;
-  const [b] = await sql`INSERT INTO project_open_roles (project_id, role, count) VALUES (${projectId}, 'Engineer', 3) RETURNING id`;
+  const [a] = await sql`INSERT INTO workspace_open_roles (workspace_id, role, count) VALUES (${projectId}, 'Designer', 3) RETURNING id`;
+  const [b] = await sql`INSERT INTO workspace_open_roles (workspace_id, role, count) VALUES (${projectId}, 'Engineer', 3) RETURNING id`;
   try {
     viewerId = one!;
     const first = await apps.applyToRoleAction(projectId, a!.id as string, "designer here");
@@ -36,12 +36,12 @@ async function withTwoApplications(fn: (ctx: Ctx) => Promise<void>) {
     assert.ok(first.success && second.success, JSON.stringify([first, second]));
     await fn({ owner: owner!, admin: admin!, one: one!, two: two!, projectId, roleA: a!.id as string, roleB: b!.id as string, a1: first.applicationId!, a2: second.applicationId! });
   } finally {
-    await sql`DELETE FROM project_invitations WHERE project_id = ${projectId}`;
-    await sql`DELETE FROM role_applications WHERE project_id = ${projectId}`;
-    await sql`DELETE FROM chat_channels WHERE project_id = ${projectId}`;
-    await sql`DELETE FROM project_members WHERE project_id = ${projectId}`;
-    await sql`DELETE FROM project_open_roles WHERE project_id = ${projectId}`;
-    await sql`DELETE FROM projects WHERE id = ${projectId}`;
+    await sql`DELETE FROM workspace_invitations WHERE workspace_id = ${projectId}`;
+    await sql`DELETE FROM role_applications WHERE workspace_id = ${projectId}`;
+    await sql`DELETE FROM chat_channels WHERE workspace_id = ${projectId}`;
+    await sql`DELETE FROM workspace_members WHERE workspace_id = ${projectId}`;
+    await sql`DELETE FROM workspace_open_roles WHERE workspace_id = ${projectId}`;
+    await sql`DELETE FROM workspaces WHERE id = ${projectId}`;
   }
 }
 
@@ -73,7 +73,7 @@ test("removing a role closes only that role's applications; lowering a count to 
     assert.ok((await notices(one, a1)).some((title) => /role you applied for was removed/.test(title)));
 
     // The role fills (count lowered to what is filled): the remaining applicant is closed.
-    await sql`UPDATE project_open_roles SET filled = 1 WHERE id = ${roleB}`;
+    await sql`UPDATE workspace_open_roles SET filled = 1 WHERE id = ${roleB}`;
     const lowered = await lifecycle.updateWorkspace(projectId, { roles: [{ id: roleB, role: "Engineer", count: 1 }] });
     assert.equal(lowered.success, true, JSON.stringify(lowered));
     assert.deepEqual({ ...(await state(a2)) }, { status: "rejected", decision_reason_code: "role_filled" });
@@ -84,7 +84,7 @@ test("removing a role closes only that role's applications; lowering a count to 
 test("a pending invitation blocks applying; joining another way closes the pending application", async () => {
   await withTwoApplications(async ({ owner, one, projectId, roleA, a1 }) => {
     const stranger = await sql.begin((tx) => createUser(tx));
-    await sql`INSERT INTO project_invitations (project_id, inviter_id, candidate_id, kind, role_id, role_title, project_title, status, expires_at)
+    await sql`INSERT INTO workspace_invitations (workspace_id, inviter_id, candidate_id, kind, role_id, role_title, project_title, status, expires_at)
       VALUES (${projectId}, ${owner}, ${stranger}, 'ordinary_role', ${roleA}, 'Designer', 'P', 'pending', now() + interval '1 day')`;
     viewerId = stranger;
     const blocked = await apps.applyToRoleAction(projectId, roleA, "hello");
@@ -111,7 +111,7 @@ test("reopen refuses a closed role; a second reviewer is told who already decide
     assert.match(late.error ?? "", /Already declined/);
     assert.equal((await state(a1)).decision_reason_code, "skills_mismatch", "the first decision's reason stands");
 
-    await sql`UPDATE project_open_roles SET filled = count WHERE id = ${roleA}`;
+    await sql`UPDATE workspace_open_roles SET filled = count WHERE id = ${roleA}`;
     const reopen = await apps.reopenApplicationAction(a1);
     assert.equal(reopen.success, false);
     assert.equal(reopen.errorCode, "ROLE_FULL");
@@ -125,7 +125,7 @@ test("reopen refuses a closed role; a second reviewer is told who already decide
     assert.match(String(row!.decision_reason_text), /not this time/, "the note adds to the reason");
 
     // An admin cannot accept someone who blocked the workspace's lead.
-    await sql`UPDATE project_open_roles SET filled = 0 WHERE id = ${roleA}`;
+    await sql`UPDATE workspace_open_roles SET filled = 0 WHERE id = ${roleA}`;
     await sql`UPDATE role_applications SET status = 'pending', decision_at = NULL, decision_by = NULL, decision_reason_code = NULL, decision_reason_text = NULL WHERE id = ${a1}`;
     await sql`INSERT INTO connections (requester_id, addressee_id, status, blocked_by, blocked_at) VALUES (${one}, ${owner}, 'blocked', ${one}, now())`;
     viewerId = admin;

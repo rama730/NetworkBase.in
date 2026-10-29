@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 
 const FolderPicker = dynamic(() => import("@/components/workspaces/v2/explorer/ExplorerDialogsHost").then((mod) => mod.FolderPicker), { ssr: false });
@@ -24,7 +24,7 @@ export interface TaskFileUploadModalProps {
   isOpen: boolean;
   files: File[];
   folderCount?: number;
-  existingFiles: ProjectNode[];
+  existingFiles: WorkspaceNode[];
   onConfirm: (
     intent: UploadIntent,
     targetNodeId?: string,

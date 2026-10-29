@@ -34,8 +34,8 @@ test("COR-034/COR-035: doc reads honor draft status, hide task files and never d
   assert.equal((doc.match(/projectStatus: project\.status/g) ?? []).length, 2);
   assert.equal((doc.match(/fileScope\)/g) ?? []).length, 2);
   const readAction = fnBody(doc, "export async function readWorkspaceDocAction(");
-  assert.doesNotMatch(readAction, /db\.delete\(projectDocs\)/);
-  assert.match(readAction, /eq\(projectNodes\.projectId, projectId\)/);
+  assert.doesNotMatch(readAction, /db\.delete\(workspaceDocuments\)/);
+  assert.match(readAction, /eq\(workspaceNodes\.projectId, projectId\)/);
 });
 
 test("COR-003: Files task search returns nothing without Tasks visibility", () => {
@@ -77,7 +77,7 @@ test("COR-044: profile role picker is session-scoped and lists only publicly rea
   assert.match(picker, /\(\s*targetProfileId: string,\s*input:/);
   assert.match(picker, /getViewerAuthContext\(\)/);
   assert.match(picker, /relationship\?\.canViewProfile/);
-  assert.match(picker, /inArray\(projects\.visibility, \["public", "unlisted"\]\)/);
+  assert.match(picker, /inArray\(workspaces\.visibility, \["public", "unlisted"\]\)/);
   assert.match(picker, /<> 'draft'/);
 });
 

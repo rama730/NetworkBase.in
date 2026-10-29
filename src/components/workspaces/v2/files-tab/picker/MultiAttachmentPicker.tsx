@@ -14,7 +14,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 
 import { V3AttachmentPicker } from "./V3AttachmentPicker";
 
@@ -25,8 +25,8 @@ export interface MultiAttachmentPickerProps {
   projectName?: string;
   isOpen: boolean;
   onClose: () => void;
-  initialAttachments: ProjectNode[];
-  onConfirm: (nodes: ProjectNode[]) => void;
+  initialAttachments: WorkspaceNode[];
+  onConfirm: (nodes: WorkspaceNode[]) => void;
 }
 
 // ─── Component ───────────────────────────────────────────────────────
@@ -48,7 +48,7 @@ export function MultiAttachmentPicker({
 }: MultiAttachmentPickerProps): React.JSX.Element | null {
   // Track the current selection internally so we can commit only on confirm
   const [pendingSelection, setPendingSelection] =
-    useState<ProjectNode[]>(initialAttachments);
+    useState<WorkspaceNode[]>(initialAttachments);
 
   // Sync when picker opens with new initialAttachments
   useEffect(() => {
@@ -57,7 +57,7 @@ export function MultiAttachmentPicker({
     }
   }, [isOpen, initialAttachments]);
 
-  const handleSelectionChange = useCallback((nodes: ProjectNode[]) => {
+  const handleSelectionChange = useCallback((nodes: WorkspaceNode[]) => {
     setPendingSelection(nodes);
   }, []);
 

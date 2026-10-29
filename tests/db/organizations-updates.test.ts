@@ -30,7 +30,7 @@ before(async () => {
 
 const created: string[] = [];
 after(async () => {
-  for (const id of created.reverse()) await sql`DELETE FROM projects WHERE id = ${id}`;
+  for (const id of created.reverse()) await sql`DELETE FROM workspaces WHERE id = ${id}`;
   await sql.end();
   await closeAppDb();
 });
@@ -38,11 +38,11 @@ after(async () => {
 async function orgWithChild(memberUpdates = false) {
   const [owner, admin, member, other] = await Promise.all([1, 2, 3, 4].map(() => sql.begin((tx) => createUser(tx))));
   const org = await sql.begin((tx) => createProject(tx, owner!));
-  await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${org}, ${owner!}, 'owner'), (${org}, ${admin!}, 'admin'), (${org}, ${member!}, 'member'), (${org}, ${other!}, 'member')`;
-  await sql`UPDATE projects SET kind = 'organization', org_type = 'education', join_code = ${generateJoinCode()}, member_updates_enabled = ${memberUpdates} WHERE id = ${org}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${org}, ${owner!}, 'owner'), (${org}, ${admin!}, 'admin'), (${org}, ${member!}, 'member'), (${org}, ${other!}, 'member')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', join_code = ${generateJoinCode()}, member_updates_enabled = ${memberUpdates} WHERE id = ${org}`;
   const child = await sql.begin((tx) => createProject(tx, member!, { visibility: "org" }));
-  await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${child}, ${member!}, 'owner')`;
-  await sql`UPDATE projects SET parent_id = ${org} WHERE id = ${child}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${child}, ${member!}, 'owner')`;
+  await sql`UPDATE workspaces SET parent_id = ${org} WHERE id = ${child}`;
   created.push(org, child);
   return { org, child, owner: owner!, admin: admin!, member: member!, other: other! };
 }
@@ -62,7 +62,7 @@ test("announcements are for admins; discussion needs member posts on; neither ex
   const o = await orgWithChild(false);
   assert.equal((await post(o.org, o.admin, { updateType: "announcement" })).success, true);
   assert.equal((await post(o.org, o.member, { updateType: "discussion" })).success, false, "member posts are off");
-  await sql`UPDATE projects SET member_updates_enabled = true WHERE id = ${o.org}`;
+  await sql`UPDATE workspaces SET member_updates_enabled = true WHERE id = ${o.org}`;
   assert.equal((await post(o.org, o.member, { updateType: "discussion" })).success, true);
   assert.equal((await post(o.org, o.member, { updateType: "announcement" })).success, false);
   assert.equal((await post(o.child, o.member, { updateType: "announcement" })).success, false, "not in a normal or child project");
@@ -90,7 +90,7 @@ test("up to 3 pins in an org; an unpin date ends a pin; a normal project still s
   viewerId = o.admin;
   for (const id of ids.slice(0, 3)) assert.equal((await updates.toggleWorkspaceUpdatePinAction(o.org, id, true)).success, true);
   assert.equal((await updates.toggleWorkspaceUpdatePinAction(o.org, ids[3]!, true)).success, false, "a fourth pin is refused");
-  await sql`UPDATE project_updates SET pinned_until = now() - interval '1 minute' WHERE id = ${ids[0]!}`;
+  await sql`UPDATE workspace_updates SET pinned_until = now() - interval '1 minute' WHERE id = ${ids[0]!}`;
   assert.equal((await updates.toggleWorkspaceUpdatePinAction(o.org, ids[3]!, true)).success, true, "an expired pin no longer counts");
   const top = await feed(o.org, o.member);
   assert.equal(top!.updates.find((u) => u.id === ids[0])!.isPinned, false, "quietly unpinned");
@@ -100,7 +100,7 @@ test("up to 3 pins in an org; an unpin date ends a pin; a normal project still s
   viewerId = o.member;
   await updates.toggleWorkspaceUpdatePinAction(o.child, a.success ? a.data!.id : "", true);
   assert.equal((await updates.toggleWorkspaceUpdatePinAction(o.child, b.success ? b.data!.id : "", true)).success, true);
-  assert.equal((await sql`SELECT count(*)::int AS n FROM project_updates WHERE project_id = ${o.child} AND is_pinned`)[0]!.n, 1);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM workspace_updates WHERE workspace_id = ${o.child} AND is_pinned`)[0]!.n, 1);
 });
 
 test("comments off refuses replies", async () => {
@@ -116,12 +116,12 @@ test("share up: a child post appears under From workspaces; Private workspaces a
   const shared = await post(o.child, o.member, { content: "Parser passes all tests", shareToOrg: true });
   assert.equal(shared.success, true, JSON.stringify(shared));
   const fromProjects = await feed(o.org, o.other, "from_projects");
-  assert.deepEqual(fromProjects!.updates.map((u) => [u.content, u.fromProject?.title ?? null]), [["Parser passes all tests", (await sql`SELECT title FROM projects WHERE id = ${o.child}`)[0]!.title]]);
-  await sql`UPDATE projects SET visibility = 'private' WHERE id = ${o.child}`;
+  assert.deepEqual(fromProjects!.updates.map((u) => [u.content, u.fromProject?.title ?? null]), [["Parser passes all tests", (await sql`SELECT title FROM workspaces WHERE id = ${o.child}`)[0]!.title]]);
+  await sql`UPDATE workspaces SET visibility = 'private' WHERE id = ${o.child}`;
   assert.equal((await feed(o.org, o.other, "from_projects"))!.updates.length, 0, "a Private workspace's posts leave the org feed");
   assert.equal((await post(o.child, o.member, { shareToOrg: true })).success, false);
-  await sql`UPDATE projects SET visibility = 'org' WHERE id = ${o.child}`;
-  await sql`UPDATE projects SET org_settings = org_settings || '{"childShare": false}'::jsonb WHERE id = ${o.org}`;
+  await sql`UPDATE workspaces SET visibility = 'org' WHERE id = ${o.child}`;
+  await sql`UPDATE workspaces SET org_settings = org_settings || '{"childShare": false}'::jsonb WHERE id = ${o.org}`;
   assert.equal((await post(o.child, o.member, { shareToOrg: true })).success, false);
 });
 

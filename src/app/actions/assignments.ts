@@ -5,7 +5,7 @@ import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { db } from '@/lib/db';
-import { profiles, projects, projectSprints, projectWorkflowColumns, taskActivityEvents, taskTeamMembers, tasks } from '@/lib/db/schema';
+import { profiles, workspaces, workspaceSprints, workspaceWorkflowColumns, taskActivityEvents, taskTeamMembers, tasks } from '@/lib/db/schema';
 import { getWorkspaceAccessById, writeBlockedMessage } from '@/lib/data/workspace-access';
 import { createClient } from '@/lib/supabase/server';
 import { canStillSubmit, copyState, type AssignmentSettings, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules';
@@ -81,12 +81,12 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
     if (!viewer?.isAdmin) return DENIED;
     try {
         const result = await db.transaction(async (tx) => {
-            await tx.execute(sql`SELECT id FROM ${projects} WHERE id = ${data.projectId} FOR UPDATE`);
+            await tx.execute(sql`SELECT id FROM ${workspaces} WHERE id = ${data.projectId} FOR UPDATE`);
             if (data.sprintId) {
-                const [sprint] = await tx.select({ status: projectSprints.status }).from(projectSprints).where(and(eq(projectSprints.id, data.sprintId), eq(projectSprints.projectId, data.projectId))).limit(1);
+                const [sprint] = await tx.select({ status: workspaceSprints.status }).from(workspaceSprints).where(and(eq(workspaceSprints.id, data.sprintId), eq(workspaceSprints.projectId, data.projectId))).limit(1);
                 if (!sprint || (sprint.status !== 'planning' && sprint.status !== 'active')) throw new Error('Pick a planned or active sprint.');
             }
-            const [org] = await tx.select({ reviewDefault: projects.taskReviewRequired }).from(projects).where(eq(projects.id, data.projectId)).limit(1);
+            const [org] = await tx.select({ reviewDefault: workspaces.taskReviewRequired }).from(workspaces).where(eq(workspaces.id, data.projectId)).limit(1);
             const recipients = data.publish ? await resolveRecipients(tx, data.projectId, data.target) : [];
             const settings: AssignmentSettings = {
                 version: 1,
@@ -210,8 +210,8 @@ async function loadCopy(copyId: string) {
 }
 
 async function columnFor(projectId: string, status: 'in_progress' | 'done') {
-    const [column] = await db.select({ id: projectWorkflowColumns.id }).from(projectWorkflowColumns)
-        .where(and(eq(projectWorkflowColumns.projectId, projectId), eq(projectWorkflowColumns.status, status), eq(projectWorkflowColumns.isDefault, true))).limit(1);
+    const [column] = await db.select({ id: workspaceWorkflowColumns.id }).from(workspaceWorkflowColumns)
+        .where(and(eq(workspaceWorkflowColumns.projectId, projectId), eq(workspaceWorkflowColumns.status, status), eq(workspaceWorkflowColumns.isDefault, true))).limit(1);
     return column?.id ?? null;
 }
 
@@ -237,7 +237,7 @@ export async function submitAssignmentAction(copyId: string, input: z.input<type
     if (type === 'text' && !text) return { success: false, error: 'Write your answer first.' };
     if (type === 'file') {
         const [file] = await db.execute<{ id: string }>(sql`
-            SELECT id FROM project_nodes WHERE task_id = ${copyId} AND deleted_at IS NULL AND type = 'file'
+            SELECT id FROM workspace_nodes WHERE task_id = ${copyId} AND deleted_at IS NULL AND type = 'file'
             UNION ALL SELECT node_id FROM task_node_links WHERE task_id = ${copyId} LIMIT 1`);
         if (!file) return { success: false, error: 'Attach your file to this task first.' };
     }
@@ -400,7 +400,7 @@ export async function listAssignmentsAction(orgId: string): Promise<{ success: t
         const byCopy = new Map(reasons.map((r) => [r.task_id, r.reason]));
         for (const row of rows) if (row.mine && byCopy.has(row.mine.copyId)) row.mine.returnedReason = byCopy.get(row.mine.copyId) ?? null;
     }
-    const [org] = await db.select({ timeZone: projects.timeZone }).from(projects).where(eq(projects.id, orgId)).limit(1);
+    const [org] = await db.select({ timeZone: workspaces.timeZone }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
     return { success: true, isAdmin: viewer.isAdmin, rows: viewer.isAdmin || viewer.role === 'viewer' ? rows : rows.filter((r) => r.mine), timeZone: org?.timeZone ?? null };
 }
 
@@ -419,8 +419,8 @@ export async function readAssignmentRosterAction(masterId: string): Promise<{ su
     const copies = await db.select({
         id: tasks.id, projectId: tasks.projectId, assigneeId: tasks.assigneeId, teamName: tasks.teamName, status: tasks.status, reviewStatus: tasks.reviewStatus,
         dueDate: tasks.dueDate, reviewSubmittedAt: tasks.reviewSubmittedAt, completedAt: tasks.completedAt, excusedAt: tasks.excusedAt, excusedReason: tasks.excusedReason,
-        submission: tasks.submission, projectTitle: projects.title, projectParent: projects.parentId,
-    }).from(tasks).innerJoin(projects, eq(projects.id, tasks.projectId))
+        submission: tasks.submission, projectTitle: workspaces.title, projectParent: workspaces.parentId,
+    }).from(tasks).innerJoin(workspaces, eq(workspaces.id, tasks.projectId))
         .where(and(eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt)));
     const counts = emptyCounts();
     const now = new Date();
@@ -456,14 +456,14 @@ export async function readAssignmentComposerOptionsAction(orgId: string) {
     const viewer = await orgRole(orgId, 'read');
     if (!viewer?.isAdmin) return { success: false as const, error: DENIED.error };
     const [children, sprints, teamAssignments, [org]] = await Promise.all([
-        db.select({ id: projects.id, title: projects.title }).from(projects).where(and(eq(projects.parentId, orgId), isNull(projects.deletedAt))).orderBy(asc(projects.title)),
-        db.select({ id: projectSprints.id, name: projectSprints.name, status: projectSprints.status }).from(projectSprints)
-            .where(and(eq(projectSprints.projectId, orgId), inArray(projectSprints.status, ['planning', 'active']))).orderBy(asc(projectSprints.startDate)),
+        db.select({ id: workspaces.id, title: workspaces.title }).from(workspaces).where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt))).orderBy(asc(workspaces.title)),
+        db.select({ id: workspaceSprints.id, name: workspaceSprints.name, status: workspaceSprints.status }).from(workspaceSprints)
+            .where(and(eq(workspaceSprints.projectId, orgId), inArray(workspaceSprints.status, ['planning', 'active']))).orderBy(asc(workspaceSprints.startDate)),
         // "Copy teams from" (report §16.11): earlier team assignments, newest first.
         db.select({ id: tasks.id, title: tasks.title }).from(tasks)
             .where(and(eq(tasks.projectId, orgId), eq(tasks.kind, 'assignment'), isNull(tasks.deletedAt), sql`${tasks.assignmentSettings}->'target'->>'mode' = 'teams'`))
             .orderBy(sql`${tasks.createdAt} DESC`).limit(30),
-        db.select({ settings: projects.orgSettings, type: projects.orgType }).from(projects).where(eq(projects.id, orgId)).limit(1),
+        db.select({ settings: workspaces.orgSettings, type: workspaces.orgType }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1),
     ]);
     // Settings → Work defaults (report §21.2 #5); the composer can still change them per assignment.
     const work = readOrgWork(org?.settings, org?.type);
@@ -481,7 +481,7 @@ export async function listWorkspaceGroupCopiesAction(projectId: string): Promise
         id: tasks.id, assigneeId: tasks.assigneeId, status: tasks.status, reviewStatus: tasks.reviewStatus, dueDate: tasks.dueDate,
         reviewSubmittedAt: tasks.reviewSubmittedAt, completedAt: tasks.completedAt, excusedAt: tasks.excusedAt, title: tasks.title,
         settings: sql<AssignmentSettings>`(SELECT m.assignment_settings FROM ${tasks} m WHERE m.id = ${tasks.assignmentId})`,
-        orgTitle: sql<string>`(SELECT p.title FROM ${tasks} m JOIN ${projects} p ON p.id = m.project_id WHERE m.id = ${tasks.assignmentId})`,
+        orgTitle: sql<string>`(SELECT p.title FROM ${tasks} m JOIN ${workspaces} p ON p.id = m.workspace_id WHERE m.id = ${tasks.assignmentId})`,
     }).from(tasks).where(and(eq(tasks.projectId, projectId), sql`${tasks.assignmentId} IS NOT NULL`, isNull(tasks.deletedAt))).orderBy(asc(tasks.dueDate));
     const now = new Date();
     return {
@@ -613,11 +613,11 @@ export async function readReviewQueueAction(orgId: string): Promise<{ success: t
     const rows = await db.execute<{ copy_id: string; master_id: string; title: string; team_name: string | null; assignee: string | null; project: string | null; submitted_by: string | null; submitted_at: string; due_date: string | null }>(sql`
         SELECT c.id AS copy_id, m.id AS master_id, m.title, c.team_name,
                (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = c.assignee_id) AS assignee,
-               (SELECT pr.title FROM projects pr WHERE pr.id = c.project_id AND pr.id <> m.project_id) AS project,
+               (SELECT pr.title FROM workspaces pr WHERE pr.id = c.workspace_id AND pr.id <> m.workspace_id) AS project,
                (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = (c.submission->>'by')::uuid) AS submitted_by,
                c.review_submitted_at::text AS submitted_at, c.due_date::text AS due_date
         FROM tasks c JOIN tasks m ON m.id = c.assignment_id
-        WHERE m.project_id = ${orgId} AND m.deleted_at IS NULL AND c.deleted_at IS NULL AND c.review_status = 'pending'
+        WHERE m.workspace_id = ${orgId} AND m.deleted_at IS NULL AND c.deleted_at IS NULL AND c.review_status = 'pending'
         ORDER BY c.review_submitted_at ASC NULLS LAST LIMIT 200`);
     return { success: true, rows: rows.map((r) => ({
         copyId: r.copy_id, masterId: r.master_id, title: r.title,
@@ -637,21 +637,21 @@ export async function readOrgTabBadgesAction(orgId: string): Promise<OrgTabBadge
         SELECT
           ${viewer.isAdmin
             ? sql`(SELECT count(*)::int FROM tasks c JOIN tasks m ON m.id = c.assignment_id
-                   WHERE m.project_id = ${orgId} AND m.deleted_at IS NULL AND c.deleted_at IS NULL AND c.review_status = 'pending')`
+                   WHERE m.workspace_id = ${orgId} AND m.deleted_at IS NULL AND c.deleted_at IS NULL AND c.review_status = 'pending')`
             : sql`(SELECT count(DISTINCT c.id)::int FROM tasks c JOIN tasks m ON m.id = c.assignment_id
                    LEFT JOIN task_team_members tm ON tm.task_id = c.id AND tm.user_id = ${viewer.userId}
-                   WHERE m.project_id = ${orgId} AND m.deleted_at IS NULL AND m.assignment_settings->>'closedAt' IS NULL
+                   WHERE m.workspace_id = ${orgId} AND m.deleted_at IS NULL AND m.assignment_settings->>'closedAt' IS NULL
                      AND c.deleted_at IS NULL AND c.excused_at IS NULL AND (c.assignee_id = ${viewer.userId} OR tm.user_id IS NOT NULL)
                      AND c.due_date BETWEEN now() AND now() + interval '2 days'
                      AND NOT (c.review_status IN ('pending', 'approved') OR c.status = 'done' OR c.submission IS NOT NULL))`} AS tasks,
-          EXISTS (SELECT 1 FROM project_updates u
-                  WHERE u.project_id = ${orgId} AND u.update_type = 'announcement' AND u.deleted_at IS NULL AND u.author_id IS DISTINCT FROM ${viewer.userId}
-                    AND u.created_at > coalesce((SELECT last_seen_updates_at FROM project_members WHERE project_id = ${orgId} AND user_id = ${viewer.userId}), '-infinity'::timestamptz)
+          EXISTS (SELECT 1 FROM workspace_updates u
+                  WHERE u.workspace_id = ${orgId} AND u.update_type = 'announcement' AND u.deleted_at IS NULL AND u.author_id IS DISTINCT FROM ${viewer.userId}
+                    AND u.created_at > coalesce((SELECT last_seen_updates_at FROM workspace_members WHERE workspace_id = ${orgId} AND user_id = ${viewer.userId}), '-infinity'::timestamptz)
                     AND (${viewer.isAdmin} OR u.audience = '{}'::jsonb OR u.audience->'roles' @> to_jsonb(${viewer.role}::text)
-                      OR EXISTS (SELECT 1 FROM project_members c JOIN projects p ON p.id = c.project_id
+                      OR EXISTS (SELECT 1 FROM workspace_members c JOIN workspaces p ON p.id = c.workspace_id
                                  WHERE c.user_id = ${viewer.userId} AND p.parent_id = ${orgId} AND u.audience->'projectIds' @> to_jsonb(p.id::text)))) AS updates,
           ${viewer.isAdmin
-            ? sql`(SELECT count(*)::int FROM role_applications WHERE project_id = ${orgId} AND role_id IS NULL AND status = 'pending')`
+            ? sql`(SELECT count(*)::int FROM role_applications WHERE workspace_id = ${orgId} AND role_id IS NULL AND status = 'pending')`
             : sql`0`} AS members`);
     return row ? { tasks: row.tasks, updates: row.updates, members: row.members } : null;
 }

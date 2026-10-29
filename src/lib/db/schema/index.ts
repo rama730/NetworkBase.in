@@ -130,7 +130,7 @@ export const statusConnectionEnum = pgEnum("status_connection", [
   "disconnected",
   "blocked",
 ]);
-export const statusProjectEnum = pgEnum("status_project", [
+export const statusWorkspaceEnum = pgEnum("status_workspace", [
   "draft",
   "active",
   "completed",
@@ -263,7 +263,7 @@ export const profiles = pgTable(
       .notNull(),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     // Workspace dashboard layout customization (JSONB, NULL = default layout)
-    workspaceLayout: jsonb("workspace_layout")
+    workspaceLayout: jsonb("files_layout")
       .$type<{
         version: number;
         widgets: Array<{
@@ -290,16 +290,16 @@ export const profiles = pgTable(
       .default(null),
     // Pure Optimization: Denormalized counts for 1M+ Users Scalability
     connectionsCount: integer("connections_count").default(0).notNull(),
-    projectsCount: integer("projects_count").default(0).notNull(),
+    projectsCount: integer("workspaces_count").default(0).notNull(),
     followersCount: integer("followers_count").default(0).notNull(),
-    workspaceInboxCount: integer("workspace_inbox_count").default(0).notNull(),
-    workspaceDueTodayCount: integer("workspace_due_today_count")
+    workspaceInboxCount: integer("my_work_inbox_count").default(0).notNull(),
+    workspaceDueTodayCount: integer("my_work_due_today_count")
       .default(0)
       .notNull(),
-    workspaceOverdueCount: integer("workspace_overdue_count")
+    workspaceOverdueCount: integer("my_work_overdue_count")
       .default(0)
       .notNull(),
-    workspaceInProgressCount: integer("workspace_in_progress_count")
+    workspaceInProgressCount: integer("my_work_in_progress_count")
       .default(0)
       .notNull(),
     // Last activity timestamp (debounced, updated at most every 5 minutes via Redis guard)
@@ -345,7 +345,7 @@ export const profiles = pgTable(
     connectionsCountIdx: index("profiles_connections_count_idx").on(
       t.connectionsCount,
     ),
-    projectsCountIdx: index("profiles_projects_count_idx").on(t.projectsCount),
+    projectsCountIdx: index("profiles_workspaces_count_idx").on(t.projectsCount),
     // Index for "Active today/this week" filtering in discover
     lastActiveAtIdx: index("profiles_last_active_at_idx").on(t.lastActiveAt),
     avatarAssetIdx: index("profiles_avatar_asset_idx").on(t.avatarAssetId),
@@ -722,8 +722,8 @@ export const connectionSuggestions = pgTable(
 // ============================================================================
 // PROJECTS TABLE
 // ============================================================================
-export const projects = pgTable(
-  "projects",
+export const workspaces = pgTable(
+  "workspaces",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     ownerId: uuid("owner_id")
@@ -763,7 +763,7 @@ export const projects = pgTable(
     }).default("public"),
     // Organizations (0241): an org is a project with kind "organization"; children point to it with parentId.
     kind: text("kind", { enum: ["project", "organization"] }).default("project").notNull(),
-    parentId: uuid("parent_id").references((): AnyPgColumn => projects.id, { onDelete: "set null" }),
+    parentId: uuid("parent_id").references((): AnyPgColumn => workspaces.id, { onDelete: "set null" }),
     orgType: text("org_type", { enum: ["education", "company", "community", "research", "club", "other"] }),
     orgSettings: jsonb("org_settings").$type<Record<string, unknown>>().default({}).notNull(),
     termStart: date("term_start"),
@@ -806,7 +806,7 @@ export const projects = pgTable(
         rules: {},
       })
       .notNull(),
-    status: statusProjectEnum("status").default("draft"),
+    status: statusWorkspaceEnum("status").default("draft"),
 
     taskReviewRequired: boolean("task_review_required").default(false).notNull(),
     taskCompletionPolicyVersion: integer("task_completion_policy_version").default(0).notNull(),
@@ -861,58 +861,58 @@ export const projects = pgTable(
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (t) => ({
-    ownerIdx: index("projects_owner_idx").on(t.ownerId),
-    statusSetByIdx: index("projects_status_set_by_idx").on(t.statusSetBy),
-    coverImageAssetIdx: index("projects_cover_image_asset_idx").on(
+    ownerIdx: index("workspaces_owner_idx").on(t.ownerId),
+    statusSetByIdx: index("workspaces_status_set_by_idx").on(t.statusSetBy),
+    coverImageAssetIdx: index("workspaces_cover_image_asset_idx").on(
       t.coverImageAssetId,
     ),
     // Multi-column indexes for filtering (critical for 1M users)
-    statusVisibilityIdx: index("projects_status_visibility_idx").on(
+    statusVisibilityIdx: index("workspaces_status_visibility_idx").on(
       t.status,
       t.visibility,
     ),
-    categoryStatusIdx: index("projects_category_status_idx").on(
+    categoryStatusIdx: index("workspaces_category_status_idx").on(
       t.category,
       t.status,
     ),
     // Sort index for the main "Newest Projects" feed
-    createdAtStatusIdx: index("projects_created_at_status_idx").on(
+    createdAtStatusIdx: index("workspaces_created_at_status_idx").on(
       t.createdAt,
       t.status,
     ),
     // Optimization: GIN Index for fast project search (Hub Optimization)
     // Note: Requires pg_trgm extension. If fails, fallback to b-tree on title is suboptimal but works.
-    titleSearchIdx: index("projects_title_search_idx").using(
+    titleSearchIdx: index("workspaces_title_search_idx").using(
       "gin",
       sql`${t.title} gin_trgm_ops`,
     ),
-    descriptionSearchIdx: index("projects_description_search_idx").using(
+    descriptionSearchIdx: index("workspaces_description_search_idx").using(
       "gin",
       sql`${t.description} gin_trgm_ops`,
     ),
 
     // Pure Optimization: Composite Indices for Sorted Feeds (Avoids Sorting after Filtering)
     // 2. "Most Viewed Projects": Filter by Public Visibility + Status -> Sort by ViewCount
-    feedMostViewedIdx: index("projects_feed_most_viewed_idx").on(
+    feedMostViewedIdx: index("workspaces_feed_most_viewed_idx").on(
       t.visibility,
       t.status,
       t.viewCount,
     ),
 
     // 3. "My Projects": Filter by Owner -> Sort by CreatedAt
-    myProjectsIdx: index("projects_my_projects_idx").on(t.ownerId, t.createdAt),
+    myProjectsIdx: index("workspaces_my_workspaces_idx").on(t.ownerId, t.createdAt),
     // Discover's feed (0195): the predicate is exactly the feed's filter, so each sort reads in order.
-    discoverNewestIdx: index("projects_discover_newest_idx")
+    discoverNewestIdx: index("workspaces_discover_newest_idx")
       .on(t.createdAt.desc(), t.id.desc())
       .where(sql`${t.deletedAt} IS NULL AND ${t.visibility} IN ('public', 'unlisted') AND ${t.status} <> 'draft'`),
-    discoverMostViewedIdx: index("projects_discover_most_viewed_idx")
+    discoverMostViewedIdx: index("workspaces_discover_most_viewed_idx")
       .on(t.viewCount.desc(), t.createdAt.desc(), t.id.desc())
       .where(sql`${t.deletedAt} IS NULL AND ${t.visibility} IN ('public', 'unlisted') AND ${t.status} <> 'draft'`),
-    discoverMostFollowedIdx: index("projects_discover_most_followed_idx")
+    discoverMostFollowedIdx: index("workspaces_discover_most_followed_idx")
       .on(t.followersCount.desc(), t.createdAt.desc(), t.id.desc())
       .where(sql`${t.deletedAt} IS NULL AND ${t.visibility} IN ('public', 'unlisted') AND ${t.status} <> 'draft'`),
     publicFeedMostFollowedActiveIdx: index(
-      "projects_public_feed_most_followed_active_idx",
+      "workspaces_public_feed_most_followed_active_idx",
     )
       .on(
         t.visibility,
@@ -931,30 +931,30 @@ export const projects = pgTable(
 
     // 4. Composite index for profile project fetches
     ownerDeletedAtViewCountIdx: index(
-      "projects_owner_deleted_view_count_idx",
+      "workspaces_owner_deleted_view_count_idx",
     ).on(t.ownerId, t.deletedAt, t.viewCount),
-    parentIdx: index("projects_parent_idx").on(t.parentId).where(sql`${t.parentId} IS NOT NULL`),
-    deletionScheduledIdx: index("projects_deletion_scheduled_idx").on(t.deletionScheduledAt).where(sql`${t.deletionScheduledAt} IS NOT NULL`),
-    verificationRequestedIdx: index("projects_verification_requested_idx").on(t.verificationRequestedAt).where(sql`${t.verificationRequestedAt} IS NOT NULL`),
-    verifiedByIdx: index("projects_verified_by_idx").on(t.verifiedBy).where(sql`${t.verifiedBy} IS NOT NULL`),
-    joinCodeUnique: uniqueIndex("projects_join_code_unique").on(t.joinCode).where(sql`${t.joinCode} IS NOT NULL`),
-    kindCheck: check("projects_kind_check", sql`${t.kind} IN ('project', 'organization')`),
-    orgHasNoParent: check("projects_org_has_no_parent", sql`${t.kind} = 'project' OR ${t.parentId} IS NULL`),
-    orgTypeCheck: check("projects_org_type_check", sql`${t.orgType} IS NULL OR ${t.orgType} IN ('education', 'company', 'community', 'research', 'club', 'other')`),
-    termCheck: check("projects_term_check", sql`${t.termEnd} IS NULL OR ${t.termStart} IS NULL OR ${t.termEnd} >= ${t.termStart}`),
+    parentIdx: index("workspaces_parent_idx").on(t.parentId).where(sql`${t.parentId} IS NOT NULL`),
+    deletionScheduledIdx: index("workspaces_deletion_scheduled_idx").on(t.deletionScheduledAt).where(sql`${t.deletionScheduledAt} IS NOT NULL`),
+    verificationRequestedIdx: index("workspaces_verification_requested_idx").on(t.verificationRequestedAt).where(sql`${t.verificationRequestedAt} IS NOT NULL`),
+    verifiedByIdx: index("workspaces_verified_by_idx").on(t.verifiedBy).where(sql`${t.verifiedBy} IS NOT NULL`),
+    joinCodeUnique: uniqueIndex("workspaces_join_code_unique").on(t.joinCode).where(sql`${t.joinCode} IS NOT NULL`),
+    kindCheck: check("workspaces_kind_check", sql`${t.kind} IN ('project', 'organization')`),
+    orgHasNoParent: check("workspaces_org_has_no_parent", sql`${t.kind} = 'project' OR ${t.parentId} IS NULL`),
+    orgTypeCheck: check("workspaces_org_type_check", sql`${t.orgType} IS NULL OR ${t.orgType} IN ('education', 'company', 'community', 'research', 'club', 'other')`),
+    termCheck: check("workspaces_term_check", sql`${t.termEnd} IS NULL OR ${t.termStart} IS NULL OR ${t.termEnd} >= ${t.termStart}`),
   }),
 );
 
 // ============================================================================
 // PROJECT MEMBERS TABLE
 // ============================================================================
-export const projectMembers = pgTable(
-  "project_members",
+export const workspaceMembers = pgTable(
+  "workspace_members",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("project_id")
+    projectId: uuid("workspace_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     userId: uuid("user_id")
       .notNull()
       .references(() => profiles.id, { onDelete: "cascade" }),
@@ -977,23 +977,23 @@ export const projectMembers = pgTable(
     title: text("title"),
     showOnProfile: boolean("show_on_profile").default(true).notNull(),
     lastSeenUpdatesAt: timestamp("last_seen_updates_at", { withTimezone: true }),
-    unitId: uuid("unit_id").references((): AnyPgColumn => projectOpenRoles.id, { onDelete: "set null" }),
+    unitId: uuid("unit_id").references((): AnyPgColumn => workspaceOpenRoles.id, { onDelete: "set null" }),
   },
   (t) => ({
-    unitIdx: index("project_members_unit_idx").on(t.unitId).where(sql`${t.unitId} IS NOT NULL`),
-    titleLength: check("project_members_title_length", sql`${t.title} IS NULL OR char_length(${t.title}) <= 60`),
-    projectUserUnique: uniqueIndex("project_members_project_user_unique").on(
+    unitIdx: index("workspace_members_unit_idx").on(t.unitId).where(sql`${t.unitId} IS NOT NULL`),
+    titleLength: check("workspace_members_title_length", sql`${t.title} IS NULL OR char_length(${t.title}) <= 60`),
+    projectUserUnique: uniqueIndex("workspace_members_workspace_user_unique").on(
       t.projectId,
       t.userId,
     ),
-    userIdx: index("project_members_user_idx").on(t.userId),
-    userRoleIdx: index("project_members_user_role_idx").on(t.userId, t.role),
+    userIdx: index("workspace_members_user_idx").on(t.userId),
+    userRoleIdx: index("workspace_members_user_role_idx").on(t.userId, t.role),
     projectJoinedAtIdx: index("project_members_project_joined_at_idx").on(
       t.projectId,
       t.joinedAt.desc(),
       t.id.desc(),
     ),
-    fileUploadIdx: index("project_members_file_upload_idx").on(
+    fileUploadIdx: index("workspace_members_file_upload_idx").on(
       t.projectId,
       t.fileUploadEnabled,
     ),
@@ -1006,7 +1006,7 @@ export const projectMembers = pgTable(
 export const orgJoinBlocks = pgTable(
   "org_join_blocks",
   {
-    orgId: uuid("org_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+    orgId: uuid("org_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
     userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
     blockedBy: uuid("blocked_by").references(() => profiles.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -1023,12 +1023,12 @@ export const orgEmailInvites = pgTable(
   "org_email_invites",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    orgId: uuid("org_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+    orgId: uuid("org_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
     email: text("email").notNull(),
     role: text("role", { enum: ["admin", "member", "viewer"] }).default("member").notNull(),
     title: text("title"),
-    childProjectId: uuid("child_project_id").references(() => projects.id, { onDelete: "set null" }),
-    unitId: uuid("unit_id").references(() => projectOpenRoles.id, { onDelete: "set null" }),
+    childProjectId: uuid("child_workspace_id").references(() => workspaces.id, { onDelete: "set null" }),
+    unitId: uuid("unit_id").references(() => workspaceOpenRoles.id, { onDelete: "set null" }),
     invitedBy: uuid("invited_by").references(() => profiles.id, { onDelete: "set null" }),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     acceptedAt: timestamp("accepted_at", { withTimezone: true }),
@@ -1038,7 +1038,7 @@ export const orgEmailInvites = pgTable(
     openUnique: uniqueIndex("org_email_invites_open_unique").on(t.orgId, t.email).where(sql`${t.acceptedAt} IS NULL`),
     emailIdx: index("org_email_invites_email_idx").on(t.email).where(sql`${t.acceptedAt} IS NULL`),
     orgIdx: index("org_email_invites_org_idx").on(t.orgId),
-    childProjectIdx: index("org_email_invites_child_project_idx").on(t.childProjectId).where(sql`${t.childProjectId} IS NOT NULL`),
+    childProjectIdx: index("org_email_invites_child_workspace_idx").on(t.childProjectId).where(sql`${t.childProjectId} IS NOT NULL`),
     unitIdx: index("org_email_invites_unit_idx").on(t.unitId).where(sql`${t.unitId} IS NOT NULL`),
     invitedByIdx: index("org_email_invites_invited_by_idx").on(t.invitedBy).where(sql`${t.invitedBy} IS NOT NULL`),
     emailCheck: check("org_email_invites_email_check", sql`${t.email} = lower(${t.email}) AND char_length(${t.email}) <= 320`),
@@ -1052,7 +1052,7 @@ export const orgHandleHolds = pgTable(
   "org_handle_holds",
   {
     handle: text("handle").primaryKey(),
-    orgId: uuid("org_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+    orgId: uuid("org_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
     heldUntil: timestamp("held_until", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -1067,13 +1067,13 @@ export const orgHandleHolds = pgTable(
 // cannot be delivered. Guidance is an appointment layered on existing admin
 // membership, never a separate permission role.
 // ============================================================================
-export const projectInvitations = pgTable(
-  "project_invitations",
+export const workspaceInvitations = pgTable(
+  "workspace_invitations",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("project_id")
+    projectId: uuid("workspace_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     inviterId: uuid("inviter_id")
       .notNull()
       .references(() => profiles.id, { onDelete: "cascade" }),
@@ -1083,7 +1083,7 @@ export const projectInvitations = pgTable(
     kind: text("kind", {
       enum: ["ordinary_role", "guidance_appointment"],
     }).notNull(),
-    roleId: uuid("role_id").references(() => projectOpenRoles.id, {
+    roleId: uuid("role_id").references(() => workspaceOpenRoles.id, {
       onDelete: "set null",
     }),
     roleTitle: text("role_title"),
@@ -1110,67 +1110,67 @@ export const projectInvitations = pgTable(
       .notNull(),
   },
   (t) => ({
-    projectCandidateIdx: index("project_invitations_project_candidate_idx").on(
+    projectCandidateIdx: index("workspace_invitations_workspace_candidate_idx").on(
       t.projectId,
       t.candidateId,
       t.status,
       t.createdAt,
     ),
-    candidateInboxIdx: index("project_invitations_candidate_inbox_idx").on(
+    candidateInboxIdx: index("workspace_invitations_candidate_inbox_idx").on(
       t.candidateId,
       t.status,
       t.createdAt,
     ),
-    roleIdx: index("project_invitations_role_idx").on(t.roleId),
-    resolvedByIdx: index("project_invitations_resolved_by_idx").on(
+    roleIdx: index("workspace_invitations_role_idx").on(t.roleId),
+    resolvedByIdx: index("workspace_invitations_resolved_by_idx").on(
       t.resolvedBy,
     ),
-    expiresIdx: index("project_invitations_expires_idx").on(t.expiresAt),
-    inviterIdx: index("project_invitations_inviter_idx").on(t.inviterId),
-    idempotencyUnique: uniqueIndex("project_invitations_idempotency_unique")
+    expiresIdx: index("workspace_invitations_expires_idx").on(t.expiresAt),
+    inviterIdx: index("workspace_invitations_inviter_idx").on(t.inviterId),
+    idempotencyUnique: uniqueIndex("workspace_invitations_idempotency_unique")
       .on(t.inviterId, t.idempotencyKey)
       .where(sql`${t.idempotencyKey} IS NOT NULL`),
     pendingOrdinaryUnique: uniqueIndex(
-      "project_invitations_pending_ordinary_unique",
+      "workspace_invitations_pending_ordinary_unique",
     )
       .on(t.projectId, t.candidateId)
       .where(sql`${t.kind} = 'ordinary_role' AND ${t.status} = 'pending'`),
     pendingGuidanceUnique: uniqueIndex(
-      "project_invitations_pending_guidance_unique",
+      "workspace_invitations_pending_guidance_unique",
     )
       .on(t.projectId)
       .where(
         sql`${t.kind} = 'guidance_appointment' AND ${t.status} = 'pending'`,
       ),
     kindCheck: check(
-      "project_invitations_kind_check",
+      "workspace_invitations_kind_check",
       sql`${t.kind} IN ('ordinary_role', 'guidance_appointment')`,
     ),
     statusCheck: check(
-      "project_invitations_status_check",
+      "workspace_invitations_status_check",
       sql`${t.status} IN ('pending', 'accepted', 'declined', 'cancelled', 'expired')`,
     ),
     snapshotCheck: check(
-      "project_invitations_snapshot_check",
+      "workspace_invitations_snapshot_check",
       sql`(${t.kind} = 'ordinary_role' AND ${t.roleTitle} IS NOT NULL AND ${t.guidanceLabel} IS NULL)
             OR (${t.kind} = 'guidance_appointment' AND ${t.guidanceLabel} IS NOT NULL AND ${t.roleId} IS NULL)`,
     ),
   }),
 );
 
-export const projectGuidanceAppointments = pgTable(
-  "project_guidance_appointments",
+export const workspaceMentors = pgTable(
+  "workspace_mentors",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("project_id")
+    projectId: uuid("workspace_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     guideUserId: uuid("guide_user_id")
       .notNull()
       .references(() => profiles.id, { onDelete: "cascade" }),
     invitationId: uuid("invitation_id")
       .notNull()
-      .references(() => projectInvitations.id, { onDelete: "restrict" }),
+      .references(() => workspaceInvitations.id, { onDelete: "restrict" }),
     label: text("label").notNull(),
     status: text("status", { enum: ["active", "ended", "revoked"] })
       .notNull()
@@ -1199,25 +1199,25 @@ export const projectGuidanceAppointments = pgTable(
   },
   (t) => ({
     projectGuideIdx: index(
-      "project_guidance_appointments_project_guide_idx",
+      "workspace_mentors_workspace_guide_idx",
     ).on(t.projectId, t.guideUserId, t.status),
-    guideIdx: index("project_guidance_appointments_guide_idx").on(t.guideUserId),
-    guideActiveIdx: index("project_guidance_appointments_guide_active_idx")
+    guideIdx: index("workspace_mentors_guide_idx").on(t.guideUserId),
+    guideActiveIdx: index("workspace_mentors_guide_active_idx")
       .on(t.guideUserId, t.acceptedAt)
       .where(sql`${t.status} = 'active'`),
-    invitationIdx: index("project_guidance_appointments_invitation_idx").on(
+    invitationIdx: index("workspace_mentors_invitation_idx").on(
       t.invitationId,
     ),
-    endedByIdx: index("project_guidance_appointments_ended_by_idx").on(
+    endedByIdx: index("workspace_mentors_ended_by_idx").on(
       t.endedBy,
     ),
     activeProjectUnique: uniqueIndex(
-      "project_guidance_appointments_active_project_unique",
+      "workspace_mentors_active_workspace_unique",
     )
       .on(t.projectId)
       .where(sql`${t.status} = 'active'`),
     statusCheck: check(
-      "project_guidance_appointments_status_check",
+      "workspace_mentors_status_check",
       sql`${t.status} IN ('active', 'ended', 'revoked')`,
     ),
   }),
@@ -1226,14 +1226,14 @@ export const projectGuidanceAppointments = pgTable(
 // ============================================================================
 // PROFILE COLLABORATION PROJECTIONS
 // ============================================================================
-export const profileProjectContributions = pgTable(
-  "profile_project_contributions",
+export const profileContributions = pgTable(
+  "profile_contributions",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     profileId: uuid("profile_id")
       .notNull()
       .references(() => profiles.id, { onDelete: "cascade" }),
-    projectId: uuid("project_id").references(() => projects.id, {
+    projectId: uuid("workspace_id").references(() => workspaces.id, {
       onDelete: "cascade",
     }),
     externalKey: text("external_key"),
@@ -1280,56 +1280,56 @@ export const profileProjectContributions = pgTable(
   },
   (t) => ({
     profileProjectActiveUnique: uniqueIndex(
-      "profile_project_contributions_profile_project_active_unique",
+      "profile_contributions_profile_workspace_active_unique",
     )
       .on(t.profileId, t.projectId)
       .where(sql`${t.deletedAt} IS NULL AND ${t.projectId} IS NOT NULL`),
     profileExternalActiveUnique: uniqueIndex(
-      "profile_project_contributions_profile_external_active_unique",
+      "profile_contributions_profile_external_active_unique",
     )
       .on(t.profileId, t.externalKey)
       .where(sql`${t.deletedAt} IS NULL AND ${t.projectId} IS NULL`),
     profileVisibleIdx: index(
-      "profile_project_contributions_profile_visible_idx",
+      "profile_contributions_profile_visible_idx",
     )
       .on(t.profileId, t.visibility, t.updatedAt.desc())
       .where(sql`${t.deletedAt} IS NULL`),
-    profileIdx: index("profile_project_contributions_profile_idx").on(t.profileId),
-    projectRefIdx: index("profile_project_contributions_project_ref_idx").on(t.projectId).where(sql`${t.projectId} IS NOT NULL`),
-    projectIdx: index("profile_project_contributions_project_idx")
+    profileIdx: index("profile_contributions_profile_idx").on(t.profileId),
+    projectRefIdx: index("profile_contributions_workspace_ref_idx").on(t.projectId).where(sql`${t.projectId} IS NOT NULL`),
+    projectIdx: index("profile_contributions_workspace_idx")
       .on(t.projectId, t.updatedAt.desc())
       .where(sql`${t.deletedAt} IS NULL`),
-    verifiedIdx: index("profile_project_contributions_verified_idx")
+    verifiedIdx: index("profile_contributions_verified_idx")
       .on(t.profileId, t.verifiedAt.desc())
       .where(sql`${t.deletedAt} IS NULL AND ${t.verifiedAt} IS NOT NULL`),
-    verifiedByIdx: index("profile_project_contributions_verified_by_idx").on(
+    verifiedByIdx: index("profile_contributions_verified_by_idx").on(
       t.verifiedBy,
     ),
     presentationSizeCheck: check("profile_contribution_presentation_size",sql`${t.presentation} IS NULL OR octet_length(${t.presentation}::text) <= 150000`),
     authorityShapeCheck: check(
-      "profile_project_contributions_authority_shape_check",
+      "profile_contributions_authority_shape_check",
       sql`((${t.projectId} IS NOT NULL AND ${t.externalKey} IS NULL) OR (${t.projectId} IS NULL AND ${t.externalKey} IS NOT NULL AND NULLIF(BTRIM(${t.projectTitle}), '') IS NOT NULL))`,
     ),
     versionCheck: check(
-      "profile_project_contributions_version_check",
+      "profile_contributions_version_check",
       sql`${t.version} > 0`,
     ),
   }),
 );
 
-export const profileProjectContributionStages = pgTable(
-  "profile_project_contribution_stages",
+export const profileContributionStages = pgTable(
+  "profile_contribution_stages",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     contributionId: uuid("contribution_id")
       .notNull()
-      .references(() => profileProjectContributions.id, {
+      .references(() => profileContributions.id, {
         onDelete: "cascade",
       }),
     profileId: uuid("profile_id")
       .notNull()
       .references(() => profiles.id, { onDelete: "cascade" }),
-    projectId: uuid("project_id").references(() => projects.id, {
+    projectId: uuid("workspace_id").references(() => workspaces.id, {
       onDelete: "cascade",
     }),
     source: text("source", {
@@ -1376,30 +1376,30 @@ export const profileProjectContributionStages = pgTable(
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (t) => ({
-    contributionRefIdx: index("profile_project_contribution_stages_contribution_ref_idx").on(t.contributionId),
-    profileRefIdx: index("profile_project_contribution_stages_profile_ref_idx").on(t.profileId),
+    contributionRefIdx: index("profile_contribution_stages_contribution_ref_idx").on(t.contributionId),
+    profileRefIdx: index("profile_contribution_stages_profile_ref_idx").on(t.profileId),
     contributionIdx: index(
-      "profile_project_contribution_stages_contribution_idx",
+      "profile_contribution_stages_contribution_idx",
     )
       .on(t.contributionId, t.startedAt.desc(), t.createdAt.desc())
       .where(sql`${t.deletedAt} IS NULL`),
     profileProjectIdx: index(
-      "profile_project_contribution_stages_profile_project_idx",
+      "profile_contribution_stages_profile_workspace_idx",
     )
       .on(t.profileId, t.projectId, t.startedAt.desc())
       .where(sql`${t.deletedAt} IS NULL`),
     currentUnique: uniqueIndex(
-      "profile_project_contribution_stages_current_unique",
+      "profile_contribution_stages_current_unique",
     )
       .on(t.contributionId)
       .where(sql`${t.deletedAt} IS NULL AND ${t.endedAt} IS NULL`),
-    eventUnique: uniqueIndex("profile_project_contribution_stages_event_unique")
+    eventUnique: uniqueIndex("profile_contribution_stages_event_unique")
       .on(t.eventId)
       .where(sql`${t.eventId} IS NOT NULL`),
-    visibleIdx: index("profile_project_contribution_stages_visible_idx")
+    visibleIdx: index("profile_contribution_stages_visible_idx")
       .on(t.profileId, t.visibility, t.startedAt.desc())
       .where(sql`${t.deletedAt} IS NULL`),
-    projectFkIdx: index("profile_contribution_stages_project_idx").on(
+    projectFkIdx: index("profile_contribution_stages_workspace_idx").on(
       t.projectId,
     ),
     verifiedByIdx: index("profile_contribution_stages_verified_by_idx").on(
@@ -1429,8 +1429,8 @@ export const profileCollaborationSummaries = pgTable(
         },
       })
       .notNull(),
-    projectCount: integer("project_count").default(0).notNull(),
-    visibleProjectCount: integer("visible_project_count").default(0).notNull(),
+    projectCount: integer("workspace_count").default(0).notNull(),
+    visibleProjectCount: integer("visible_workspace_count").default(0).notNull(),
     contributionCount: integer("contribution_count").default(0).notNull(),
     stale: boolean("stale").default(false).notNull(),
     refreshedAt: timestamp("refreshed_at", { withTimezone: true })
@@ -1454,16 +1454,16 @@ export const profileCollaborationSummaries = pgTable(
 // ============================================================================
 // PROJECT MARKDOWNS
 // ============================================================================
-export const projectDocs = pgTable(
-  "project_docs",
+export const workspaceDocuments = pgTable(
+  "workspace_documents",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("project_id")
+    projectId: uuid("workspace_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
 
     publishedVersionId: uuid("published_version_id"),
-    linkedNodeId: uuid("linked_node_id").references(() => projectNodes.id, {
+    linkedNodeId: uuid("linked_node_id").references(() => workspaceNodes.id, {
       onDelete: "set null",
     }),
     filename: text("filename").default("README.md").notNull(),
@@ -1498,29 +1498,29 @@ export const projectDocs = pgTable(
       .notNull(),
   },
   (t) => ({
-    projectSlugUnique: uniqueIndex("project_docs_slug_unique").on(
+    projectSlugUnique: uniqueIndex("workspace_documents_slug_unique").on(
       t.projectId,
       t.slug,
     ),
-    publishedVersionIdx: index("project_docs_published_version_idx").on(
+    publishedVersionIdx: index("workspace_documents_published_version_idx").on(
       t.publishedVersionId,
     ),
-    linkedNodeIdx: index("project_docs_linked_node_idx").on(
+    linkedNodeIdx: index("workspace_documents_linked_node_idx").on(
       t.linkedNodeId,
     ),
   }),
 );
 
-export const projectDocVersions = pgTable(
-  "project_doc_versions",
+export const workspaceDocumentVersions = pgTable(
+  "workspace_document_versions",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("project_id")
+    projectId: uuid("workspace_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     docId: uuid("doc_id")
       .notNull()
-      .references(() => projectDocs.id, { onDelete: "cascade" }),
+      .references(() => workspaceDocuments.id, { onDelete: "cascade" }),
     versionNumber: integer("version_number").notNull(),
     content: text("content").notNull(),
     excerpt: text("excerpt"),
@@ -1545,12 +1545,12 @@ export const projectDocVersions = pgTable(
   },
   (t) => ({
     docVersionUnique: uniqueIndex(
-      "project_doc_versions_doc_id_version_number_key",
+      "workspace_document_versions_doc_id_version_number_key",
     ).on(t.docId, t.versionNumber),
     projectDeletedIdx: index(
-      "project_doc_versions_project_deleted_idx",
+      "workspace_document_versions_workspace_deleted_idx",
     ).on(t.projectId, t.deletedAt),
-    createdByIdx: index("project_doc_versions_created_by_idx").on(
+    createdByIdx: index("workspace_document_versions_created_by_idx").on(
       t.createdBy,
     ),
   }),
@@ -1559,13 +1559,13 @@ export const projectDocVersions = pgTable(
 // ============================================================================
 // OPEN ROLES TABLE
 // ============================================================================
-export const projectOpenRoles = pgTable(
-  "project_open_roles",
+export const workspaceOpenRoles = pgTable(
+  "workspace_open_roles",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("project_id")
+    projectId: uuid("workspace_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     role: text("role").notNull(), // e.g. "Frontend Developer"
     title: text("title"), // Display title
     description: text("description"),
@@ -1576,7 +1576,7 @@ export const projectOpenRoles = pgTable(
     experienceRequired: text("experience_required"),
     hoursPerWeek: text("hours_per_week"),
     // Unit lead ★ (0257, report §14.4)
-    leadUserId: uuid("lead_user_id").references((): AnyPgColumn => profiles.id, { onDelete: "set null" }),
+    leadUserId: uuid("team_lead_user_id").references((): AnyPgColumn => profiles.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -1585,21 +1585,21 @@ export const projectOpenRoles = pgTable(
       .notNull(),
   },
   (t) => ({
-    projectUpdatedIdx: index("project_open_roles_project_updated_idx").on(
+    projectUpdatedIdx: index("workspace_open_roles_workspace_updated_idx").on(
       t.projectId,
       t.updatedAt,
     ),
-    leadUserIdx: index("project_open_roles_lead_user_idx").on(t.leadUserId).where(sql`${t.leadUserId} IS NOT NULL`),
+    leadUserIdx: index("workspace_open_roles_lead_user_idx").on(t.leadUserId).where(sql`${t.leadUserId} IS NOT NULL`),
     countNonNegativeCheck: check(
-      "project_open_roles_count_non_negative_check",
+      "workspace_open_roles_count_non_negative_check",
       sql`${t.count} >= 0`,
     ),
     filledNonNegativeCheck: check(
-      "project_open_roles_filled_non_negative_check",
+      "workspace_open_roles_filled_non_negative_check",
       sql`${t.filled} >= 0`,
     ),
     filledWithinCountCheck: check(
-      "project_open_roles_filled_lte_count_check",
+      "workspace_open_roles_filled_lte_count_check",
       sql`${t.filled} <= ${t.count}`,
     ),
   }),
@@ -1612,10 +1612,10 @@ export const roleApplications = pgTable(
   "role_applications",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("project_id")
+    projectId: uuid("workspace_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
-    roleId: uuid("role_id").references(() => projectOpenRoles.id, {
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    roleId: uuid("role_id").references(() => workspaceOpenRoles.id, {
       onDelete: "set null",
     }),
     applicantId: uuid("applicant_id")
@@ -1669,7 +1669,7 @@ export const roleApplications = pgTable(
       t.status,
       t.updatedAt,
     ),
-    projectUpdatedIdx: index("role_applications_project_updated_idx").on(
+    projectUpdatedIdx: index("role_applications_workspace_updated_idx").on(
       t.projectId,
       t.updatedAt,
     ),
@@ -1678,7 +1678,7 @@ export const roleApplications = pgTable(
       t.applicantId,
     ),
     // A reviewer's queue: pending applications of their projects.
-    pendingProjectIdx: index("role_applications_pending_project_idx")
+    pendingProjectIdx: index("role_applications_pending_workspace_idx")
       .on(t.projectId)
       .where(sql`${t.status} = 'pending'`),
     decisionByIdx: index("role_applications_decision_by_idx").on(t.decisionBy),
@@ -1735,13 +1735,13 @@ export const applicationEvents = pgTable(
 // ============================================================================
 // PROJECT FOLLOWS TABLE
 // ============================================================================
-export const projectFollows = pgTable(
-  "project_follows",
+export const workspaceFollows = pgTable(
+  "workspace_follows",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("project_id")
+    projectId: uuid("workspace_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     userId: uuid("user_id")
       .notNull()
       .references(() => profiles.id, { onDelete: "cascade" }),
@@ -1750,8 +1750,8 @@ export const projectFollows = pgTable(
       .notNull(),
   },
   (t) => ({
-    userIdx: index("project_follows_user_id_idx").on(t.userId),
-    uniqueFollow: uniqueIndex("project_follows_unique_idx").on(
+    userIdx: index("workspace_follows_user_id_idx").on(t.userId),
+    uniqueFollow: uniqueIndex("workspace_follows_unique_idx").on(
       t.projectId,
       t.userId,
     ),
@@ -1762,13 +1762,13 @@ export const projectFollows = pgTable(
 // PROJECT UPDATES
 // Intentional, social-style progress posts on a project.
 // ============================================================================
-export const projectUpdates = pgTable(
-  "project_updates",
+export const workspaceUpdates = pgTable(
+  "workspace_updates",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("project_id")
+    projectId: uuid("workspace_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     authorId: uuid("author_id").references(() => profiles.id, {
       onDelete: "set null",
     }),
@@ -1828,15 +1828,15 @@ export const projectUpdates = pgTable(
   },
   (t) => ({
     projectPinnedCreatedIdx: index(
-      "project_updates_project_pinned_created_idx",
+      "workspace_updates_workspace_pinned_created_idx",
     ).on(t.projectId, t.isPinned, t.createdAt.desc(), t.id.desc()),
-    projectCreatedActiveIdx: index("project_updates_project_created_active_idx")
+    projectCreatedActiveIdx: index("workspace_updates_workspace_created_active_idx")
       .on(t.projectId, t.createdAt.desc(), t.id.desc())
       .where(sql`${t.deletedAt} IS NULL`),
-    memberFeedIdx: index("project_updates_member_feed_idx")
+    memberFeedIdx: index("workspace_updates_member_feed_idx")
       .on(t.projectId, t.isPinned.desc(), t.createdAt.desc(), t.id.desc())
       .where(sql`${t.deletedAt} IS NULL`),
-    publicFeedIdx: index("project_updates_public_feed_idx")
+    publicFeedIdx: index("workspace_updates_public_feed_idx")
       .on(
         t.projectId,
         t.visibility,
@@ -1845,29 +1845,29 @@ export const projectUpdates = pgTable(
         t.id.desc(),
       )
       .where(sql`${t.deletedAt} IS NULL`),
-    authorCreatedIdx: index("project_updates_author_created_idx").on(
+    authorCreatedIdx: index("workspace_updates_author_created_idx").on(
       t.authorId,
       t.createdAt.desc(),
     ),
-    deletedAtIdx: index("project_updates_deleted_at_idx").on(t.deletedAt),
+    deletedAtIdx: index("workspace_updates_deleted_at_idx").on(t.deletedAt),
     likeCountNonNegative: check(
-      "project_updates_like_count_nonnegative",
+      "workspace_updates_like_count_nonnegative",
       sql`${t.likeCount} >= 0`,
     ),
     commentCountNonNegative: check(
-      "project_updates_comment_count_nonnegative",
+      "workspace_updates_comment_count_nonnegative",
       sql`${t.commentCount} >= 0`,
     ),
   }),
 );
 
-export const projectUpdateMediaAssets = pgTable(
-  "project_update_media_assets",
+export const workspaceUpdateMediaAssets = pgTable(
+  "workspace_update_media_assets",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     updateId: uuid("update_id")
       .notNull()
-      .references(() => projectUpdates.id, { onDelete: "cascade" }),
+      .references(() => workspaceUpdates.id, { onDelete: "cascade" }),
     assetId: uuid("asset_id")
       .notNull()
       .references((): AnyPgColumn => storageAssets.id, { onDelete: "restrict" }),
@@ -1875,24 +1875,24 @@ export const projectUpdateMediaAssets = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
-    updateOrdinalUnique: uniqueIndex("project_update_media_assets_update_ordinal_unique").on(
+    updateOrdinalUnique: uniqueIndex("workspace_update_media_assets_update_ordinal_unique").on(
       t.updateId,
       t.ordinal,
     ),
-    updateAssetUnique: uniqueIndex("project_update_media_assets_update_asset_unique").on(
+    updateAssetUnique: uniqueIndex("workspace_update_media_assets_update_asset_unique").on(
       t.updateId,
       t.assetId,
     ),
-    assetIdx: index("project_update_media_assets_asset_idx").on(t.assetId),
+    assetIdx: index("workspace_update_media_assets_asset_idx").on(t.assetId),
   }),
 );
 
-export const projectUpdateDrafts = pgTable(
-  "project_update_drafts",
+export const workspaceUpdateDrafts = pgTable(
+  "workspace_update_drafts",
   {
-    projectId: uuid("project_id")
+    projectId: uuid("workspace_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     userId: uuid("user_id")
       .notNull()
       .references(() => profiles.id, { onDelete: "cascade" }),
@@ -1927,15 +1927,15 @@ export const projectUpdateDrafts = pgTable(
   },
   (t) => ({
     pk: primaryKey({ columns: [t.projectId, t.userId] }),
-    updatedAtIdx: index("project_update_drafts_updated_at_idx").on(t.updatedAt),
-    userIdx: index("project_update_drafts_user_idx").on(t.userId),
+    updatedAtIdx: index("workspace_update_drafts_updated_at_idx").on(t.updatedAt),
+    userIdx: index("workspace_update_drafts_user_idx").on(t.userId),
   }),
 );
 
-export const projectUpdateDraftMediaAssets = pgTable(
-  "project_update_draft_media_assets",
+export const workspaceUpdateDraftMediaAssets = pgTable(
+  "workspace_update_draft_media_assets",
   {
-    projectId: uuid("project_id").notNull(),
+    projectId: uuid("workspace_id").notNull(),
     userId: uuid("user_id").notNull(),
     assetId: uuid("asset_id")
       .notNull()
@@ -1945,26 +1945,26 @@ export const projectUpdateDraftMediaAssets = pgTable(
   },
   (t) => ({
     pk: primaryKey({ columns: [t.projectId, t.userId, t.assetId] }),
-    draftOrdinalUnique: uniqueIndex("project_update_draft_media_assets_ordinal_unique").on(
+    draftOrdinalUnique: uniqueIndex("workspace_update_draft_media_assets_ordinal_unique").on(
       t.projectId,
       t.userId,
       t.ordinal,
     ),
-    assetIdx: index("project_update_draft_media_assets_asset_idx").on(t.assetId),
+    assetIdx: index("workspace_update_draft_media_assets_asset_idx").on(t.assetId),
     draftFk: foreignKey({
       columns: [t.projectId, t.userId],
-      foreignColumns: [projectUpdateDrafts.projectId, projectUpdateDrafts.userId],
+      foreignColumns: [workspaceUpdateDrafts.projectId, workspaceUpdateDrafts.userId],
     }).onDelete("cascade"),
   }),
 );
 
-export const projectUpdateLikes = pgTable(
-  "project_update_likes",
+export const workspaceUpdateLikes = pgTable(
+  "workspace_update_likes",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     updateId: uuid("update_id")
       .notNull()
-      .references(() => projectUpdates.id, { onDelete: "cascade" }),
+      .references(() => workspaceUpdates.id, { onDelete: "cascade" }),
     userId: uuid("user_id")
       .notNull()
       .references(() => profiles.id, { onDelete: "cascade" }),
@@ -1973,25 +1973,25 @@ export const projectUpdateLikes = pgTable(
       .notNull(),
   },
   (t) => ({
-    updateIdx: index("project_update_likes_update_idx").on(t.updateId),
-    userIdx: index("project_update_likes_user_idx").on(t.userId),
-    uniqueLike: uniqueIndex("project_update_likes_unique").on(
+    updateIdx: index("workspace_update_likes_update_idx").on(t.updateId),
+    userIdx: index("workspace_update_likes_user_idx").on(t.userId),
+    uniqueLike: uniqueIndex("workspace_update_likes_unique").on(
       t.updateId,
       t.userId,
     ),
   }),
 );
 
-export const projectUpdateComments = pgTable(
-  "project_update_comments",
+export const workspaceUpdateComments = pgTable(
+  "workspace_update_comments",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     updateId: uuid("update_id")
       .notNull()
-      .references(() => projectUpdates.id, { onDelete: "cascade" }),
-    projectId: uuid("project_id")
+      .references(() => workspaceUpdates.id, { onDelete: "cascade" }),
+    projectId: uuid("workspace_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     parentId: uuid("parent_id"),
     userId: uuid("user_id").references(() => profiles.id, {
       onDelete: "set null",
@@ -2012,32 +2012,32 @@ export const projectUpdateComments = pgTable(
       .notNull(),
   },
   (t) => ({
-    updateCreatedIdx: index("project_update_comments_update_created_idx").on(
+    updateCreatedIdx: index("workspace_update_comments_update_created_idx").on(
       t.updateId,
       t.createdAt,
       t.id,
     ),
-    updateActiveIdx: index("project_update_comments_update_active_idx")
+    updateActiveIdx: index("workspace_update_comments_update_active_idx")
       .on(t.updateId, t.createdAt)
       .where(sql`${t.deletedAt} IS NULL`),
-    parentIdx: index("project_update_comments_parent_idx")
+    parentIdx: index("workspace_update_comments_parent_idx")
       .on(t.parentId, t.updateId)
       .where(sql`${t.parentId} IS NOT NULL`),
-    projectCreatedIdx: index("project_update_comments_project_created_idx").on(
+    projectCreatedIdx: index("workspace_update_comments_workspace_created_idx").on(
       t.projectId,
       t.createdAt.desc(),
     ),
-    userCreatedIdx: index("project_update_comments_user_created_idx").on(
+    userCreatedIdx: index("workspace_update_comments_user_created_idx").on(
       t.userId,
       t.createdAt.desc(),
     ),
-    activeParentIdx: index("project_update_comments_active_parent_idx")
+    activeParentIdx: index("workspace_update_comments_active_parent_idx")
       .on(t.updateId, t.parentId, t.createdAt.desc())
       .where(sql`${t.deletedAt} IS NULL`),
-    deletedByIdx: index("project_update_comments_deleted_by_idx").on(
+    deletedByIdx: index("workspace_update_comments_deleted_by_idx").on(
       t.deletedBy,
     ),
-    targetUserIdx: index("project_update_comments_target_user_idx").on(
+    targetUserIdx: index("workspace_update_comments_target_user_idx").on(
       t.targetUserId,
     ),
   }),
@@ -2046,13 +2046,13 @@ export const projectUpdateComments = pgTable(
 // ============================================================================
 // SPRINTS TABLE
 // ============================================================================
-export const projectSprints = pgTable(
-  "project_sprints",
+export const workspaceSprints = pgTable(
+  "workspace_sprints",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("project_id")
+    projectId: uuid("workspace_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     creatorId: uuid("creator_id").references(() => profiles.id, {
       onDelete: "set null",
     }),
@@ -2068,7 +2068,7 @@ export const projectSprints = pgTable(
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     // Org sprints (0243): a child project's sprint inside an org sprint; opt out of starting on the date.
-    parentSprintId: uuid("parent_sprint_id").references((): AnyPgColumn => projectSprints.id, { onDelete: "set null" }),
+    parentSprintId: uuid("parent_sprint_id").references((): AnyPgColumn => workspaceSprints.id, { onDelete: "set null" }),
     autoStart: boolean("auto_start").default(true).notNull(),
     showInChildren: boolean("show_in_children").default(true).notNull(),
     // Org sprints: tell members when it starts (0258, report §15.2).
@@ -2081,20 +2081,20 @@ export const projectSprints = pgTable(
       .notNull(),
   },
   (t) => ({
-    parentIdx: index("project_sprints_parent_idx").on(t.parentSprintId).where(sql`${t.parentSprintId} IS NOT NULL`),
-    projectNumberIdx: uniqueIndex("project_sprints_project_number_idx").on(
+    parentIdx: index("workspace_sprints_parent_idx").on(t.parentSprintId).where(sql`${t.parentSprintId} IS NOT NULL`),
+    projectNumberIdx: uniqueIndex("workspace_sprints_workspace_number_idx").on(
       t.projectId,
       t.sprintNumber,
     ),
-    oneActivePerProjectIdx: uniqueIndex("project_sprints_one_active_idx")
+    oneActivePerProjectIdx: uniqueIndex("workspace_sprints_one_active_idx")
       .on(t.projectId)
       .where(sql`${t.status} = 'active'`),
-    projectUpdatedIdx: index("project_sprints_project_updated_idx").on(
+    projectUpdatedIdx: index("workspace_sprints_workspace_updated_idx").on(
       t.projectId,
       t.updatedAt,
     ),
-    statusIdx: index("project_sprints_status_idx").on(t.status),
-    creatorIdx: index("project_sprints_creator_idx").on(t.creatorId),
+    statusIdx: index("workspace_sprints_status_idx").on(t.status),
+    creatorIdx: index("workspace_sprints_creator_idx").on(t.creatorId),
   }),
 );
 
@@ -2104,12 +2104,12 @@ export const sprintTaskMemberships = pgTable(
   "sprint_task_memberships",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("project_id")
+    projectId: uuid("workspace_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     sprintId: uuid("sprint_id")
       .notNull()
-      .references(() => projectSprints.id, { onDelete: "restrict" }),
+      .references(() => workspaceSprints.id, { onDelete: "restrict" }),
     taskId: uuid("task_id")
       .notNull()
       .references(() => tasks.id, { onDelete: "restrict" }),
@@ -2138,7 +2138,7 @@ export const sprintTaskMemberships = pgTable(
       .on(t.taskId)
       .where(sql`${t.removedAt} IS NULL`),
     addedByIdx: index("sprint_task_memberships_added_by_idx").on(t.addedBy),
-    projectIdIdx: index("sprint_task_memberships_project_id_idx").on(
+    projectIdIdx: index("sprint_task_memberships_workspace_id_idx").on(
       t.projectId,
     ),
     removedByIdx: index("sprint_task_memberships_removed_by_idx").on(
@@ -2150,16 +2150,16 @@ export const sprintTaskMemberships = pgTable(
 // A sprint is a project-level lifecycle, so its audit trail cannot live on a
 // task. Keep this deliberately narrow: only durable lifecycle transitions and
 // edits belong here; task activity remains in task_activity_events.
-export const projectSprintEvents = pgTable(
-  "project_sprint_events",
+export const workspaceSprintEvents = pgTable(
+  "workspace_sprint_events",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("project_id")
+    projectId: uuid("workspace_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     sprintId: uuid("sprint_id")
       .notNull()
-      .references(() => projectSprints.id, { onDelete: "cascade" }),
+      .references(() => workspaceSprints.id, { onDelete: "cascade" }),
     actorId: uuid("actor_id").references(() => profiles.id, {
       onDelete: "set null",
     }),
@@ -2173,26 +2173,26 @@ export const projectSprintEvents = pgTable(
       .notNull(),
   },
   (t) => ({
-    sprintCreatedIdx: index("project_sprint_events_sprint_created_idx").on(
+    sprintCreatedIdx: index("workspace_sprint_events_sprint_created_idx").on(
       t.sprintId,
       t.createdAt.desc(),
     ),
-    projectCreatedIdx: index("project_sprint_events_project_created_idx").on(
+    projectCreatedIdx: index("workspace_sprint_events_workspace_created_idx").on(
       t.projectId,
       t.createdAt.desc(),
     ),
-    actorIdx: index("project_sprint_events_actor_idx").on(t.actorId),
+    actorIdx: index("workspace_sprint_events_actor_idx").on(t.actorId),
   }),
 );
 
 // Project-owned columns provide flexible presentation while `tasks.status` remains the analytics category.
-export const projectWorkflowColumns = pgTable(
-  "project_workflow_columns",
+export const workspaceWorkflowColumns = pgTable(
+  "workspace_workflow_columns",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("project_id")
+    projectId: uuid("workspace_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     status: statusTaskEnum("status").notNull(),
     title: text("title").notNull(),
     accentClassName: text("accent_class_name").notNull(),
@@ -2209,10 +2209,10 @@ export const projectWorkflowColumns = pgTable(
   },
   (t) => ({
     projectPositionIdx: uniqueIndex(
-      "project_workflow_columns_project_position_idx",
+      "workspace_workflow_columns_workspace_position_idx",
     ).on(t.projectId, t.position),
     projectDefaultStatusIdx: uniqueIndex(
-      "project_workflow_columns_project_default_status_idx",
+      "workspace_workflow_columns_workspace_default_status_idx",
     )
       .on(t.projectId, t.status)
       .where(sql`${t.isDefault} = TRUE`),
@@ -2226,20 +2226,20 @@ export const tasks = pgTable(
   "tasks",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("project_id")
+    projectId: uuid("workspace_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     workflowColumnId: uuid("workflow_column_id").references(
-      () => projectWorkflowColumns.id,
+      () => workspaceWorkflowColumns.id,
       { onDelete: "set null" },
     ),
-    sprintId: uuid("sprint_id").references(() => projectSprints.id, {
+    sprintId: uuid("sprint_id").references(() => workspaceSprints.id, {
       onDelete: "set null",
     }),
     // Legacy first-Sprint snapshot retained for backwards compatibility.
     // New Sprint history reads and writes use sprint_task_memberships.
     timelineOriginSprintId: uuid("timeline_origin_sprint_id").references(
-      () => projectSprints.id,
+      () => workspaceSprints.id,
       { onDelete: "set null" },
     ),
     timelineOriginAt: timestamp("timeline_origin_at", { withTimezone: true }),
@@ -2310,19 +2310,19 @@ export const tasks = pgTable(
       t.dueDate,
     ),
     // Composite indexes for filtering
-    projectStatusIdx: index("tasks_project_status_idx").on(
+    projectStatusIdx: index("tasks_workspace_status_idx").on(
       t.projectId,
       t.status,
     ),
-    projectSprintIdx: index("tasks_project_sprint_idx").on(
+    projectSprintIdx: index("tasks_workspace_sprint_idx").on(
       t.projectId,
       t.sprintId,
     ),
-    projectAssigneeIdx: index("tasks_project_assignee_idx").on(
+    projectAssigneeIdx: index("tasks_workspace_assignee_idx").on(
       t.projectId,
       t.assigneeId,
     ),
-    projectUpdatedIdx: index("tasks_project_updated_idx").on(
+    projectUpdatedIdx: index("tasks_workspace_updated_idx").on(
       t.projectId,
       t.updatedAt,
     ),
@@ -2333,12 +2333,12 @@ export const tasks = pgTable(
     ),
     // Optimization: Creator Index for "My Tasks"
     creatorIdx: index("tasks_creator_id_idx").on(t.creatorId),
-    projectNumberIdx: index("tasks_project_number_idx").on(
+    projectNumberIdx: index("tasks_workspace_number_idx").on(
       t.projectId,
       t.taskNumber,
     ),
     activeProjectStatusPositionIdx: index(
-      "tasks_active_project_status_position_idx",
+      "tasks_active_workspace_status_position_idx",
     )
       .on(
         t.projectId,
@@ -2352,14 +2352,14 @@ export const tasks = pgTable(
 );
 
 // Durable task lifecycle events. The task itself is soft-deleted, so its audit trail remains available to owners.
-export const projectTaskPolicyEvents = pgTable("project_task_policy_events", {
+export const workspaceTaskPolicyEvents = pgTable("workspace_task_policy_events", {
   id: uuid("id").primaryKey().defaultRandom(),
-  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
   actorId: uuid("actor_id").references(() => profiles.id, { onDelete: "set null" }),
   reviewRequired: boolean("review_required").notNull(),
   policyVersion: integer("policy_version").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-}, (t) => ({ projectVersionIdx: uniqueIndex("project_task_policy_events_version_idx").on(t.projectId, t.policyVersion), actorIdx: index("project_task_policy_events_actor_idx").on(t.actorId) }));
+}, (t) => ({ projectVersionIdx: uniqueIndex("workspace_task_policy_events_version_idx").on(t.projectId, t.policyVersion), actorIdx: index("workspace_task_policy_events_actor_idx").on(t.actorId) }));
 
 export const taskActivityEvents = pgTable(
   "task_activity_events",
@@ -2368,12 +2368,12 @@ export const taskActivityEvents = pgTable(
     taskId: uuid("task_id")
       .notNull()
       .references(() => tasks.id, { onDelete: "cascade" }),
-    projectId: uuid("project_id")
+    projectId: uuid("workspace_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     // This is the sprint at the moment the event happened. Do not derive it
     // from tasks.sprint_id: tasks can move after the activity was recorded.
-    sprintId: uuid("sprint_id").references(() => projectSprints.id, {
+    sprintId: uuid("sprint_id").references(() => workspaceSprints.id, {
       onDelete: "set null",
     }),
     actorId: uuid("actor_id").references(() => profiles.id, {
@@ -2393,7 +2393,7 @@ export const taskActivityEvents = pgTable(
       t.taskId,
       t.createdAt.desc(),
     ),
-    projectCreatedIdx: index("task_activity_events_project_created_idx").on(
+    projectCreatedIdx: index("task_activity_events_workspace_created_idx").on(
       t.projectId,
       t.createdAt.desc(),
     ),
@@ -2761,7 +2761,7 @@ export const emailOutbox = pgTable("email_outbox", {
   toEmail: text("to_email"),
   data: jsonb("data").$type<Record<string, unknown>>(),
   actorId: uuid("actor_id"),
-  projectId: uuid("project_id"),
+  projectId: uuid("workspace_id"),
   taskId: uuid("task_id"),
   status: text("status").$type<"pending" | "processing" | "accepted" | "dropped" | "failed" | "needs_review">().default("pending").notNull(),
   dueAt: timestamp("due_at", { withTimezone: true }).defaultNow().notNull(),
@@ -2794,7 +2794,7 @@ export const contentReports = pgTable("content_reports", {
   reporterId: uuid("reporter_id").references(() => profiles.id, { onDelete: "set null" }),
   targetKind: text("target_kind").$type<"project" | "update" | "update_comment" | "doc" | "task_comment">().notNull(),
   targetId: uuid("target_id").notNull(),
-  projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
+  projectId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "cascade" }),
   reason: text("reason").$type<"impersonation" | "spam" | "harassment" | "inappropriate" | "other">().notNull(),
   details: text("details"),
   status: text("status").$type<"open" | "dismissed" | "actioned">().default("open").notNull(),
@@ -2807,7 +2807,7 @@ export const contentReports = pgTable("content_reports", {
   oneOpenIdx: uniqueIndex("content_reports_one_open_idx").on(t.reporterId, t.targetKind, t.targetId).where(sql`${t.status} = 'open'`),
   reporterIdx: index("content_reports_reporter_idx").on(t.reporterId).where(sql`${t.reporterId} IS NOT NULL`),
   targetIdx: index("content_reports_target_idx").on(t.targetKind, t.targetId),
-  projectIdx: index("content_reports_project_idx").on(t.projectId).where(sql`${t.projectId} IS NOT NULL`),
+  projectIdx: index("content_reports_workspace_idx").on(t.projectId).where(sql`${t.projectId} IS NOT NULL`),
   resolvedByIdx: index("content_reports_resolved_by_idx").on(t.resolvedBy).where(sql`${t.resolvedBy} IS NOT NULL`),
   kindCheck: check("content_reports_kind_check", sql`${t.targetKind} IN ('project', 'update', 'update_comment', 'doc', 'task_comment')`),
   reasonCheck: check("content_reports_reason_check", sql`${t.reason} IN ('impersonation', 'spam', 'harassment', 'inappropriate', 'other')`),
@@ -2861,17 +2861,17 @@ export const jobHeartbeats = pgTable("job_heartbeats", {
 // ============================================================================
 // PROJECT NODES (FILE SYSTEM)
 // ============================================================================
-export const projectNodes = pgTable(
-  "project_nodes",
+export const workspaceNodes = pgTable(
+  "workspace_nodes",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("project_id")
+    projectId: uuid("workspace_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     parentId: uuid("parent_id"),
     taskId: uuid("task_id").references(() => tasks.id, { onDelete: "cascade" }),
     canonicalNodeId: uuid("canonical_node_id").references(
-      (): AnyPgColumn => projectNodes.id,
+      (): AnyPgColumn => workspaceNodes.id,
       { onDelete: "set null" },
     ),
     path: text("path").notNull().default("/"),
@@ -2916,42 +2916,42 @@ export const projectNodes = pgTable(
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (t) => ({
-    parentIdx: index("project_nodes_parent_id_idx").on(t.parentId),
-    projectPathIdx: index("project_nodes_project_path_idx").on(
+    parentIdx: index("workspace_nodes_parent_id_idx").on(t.parentId),
+    projectPathIdx: index("workspace_nodes_workspace_path_idx").on(
       t.projectId,
       t.path,
     ),
     // Optimization: Covered Index for listing (Listing Optimization)
     // Allows "Index Only Scan" for getWorkspaceNodes which filters by (projectId, parentId) and sorts by (type, name)
-    listingIdx: index("project_nodes_listing_idx").on(
+    listingIdx: index("workspace_nodes_listing_idx").on(
       t.projectId,
       t.parentId,
       t.type,
       t.name,
     ),
-    projectUpdatedIdx: index("project_nodes_project_updated_idx").on(
+    projectUpdatedIdx: index("workspace_nodes_workspace_updated_idx").on(
       t.projectId,
       t.updatedAt,
     ),
-    taskStatusIdx: index("project_nodes_task_status_idx").on(
+    taskStatusIdx: index("workspace_nodes_task_status_idx").on(
       t.projectId,
       t.taskId,
       t.syncStatus,
     ),
-    canonicalIdx: index("project_nodes_canonical_idx").on(
+    canonicalIdx: index("workspace_nodes_canonical_idx").on(
       t.projectId,
       t.canonicalNodeId,
     ),
-    canonicalNodeFkIdx: index("project_nodes_canonical_node_idx").on(
+    canonicalNodeFkIdx: index("workspace_nodes_canonical_node_idx").on(
       t.canonicalNodeId,
     ),
-    taskFkIdx: index("project_nodes_task_idx").on(t.taskId),
-    syncGitIdx: index("project_nodes_sync_git_idx").on(
+    taskFkIdx: index("workspace_nodes_task_idx").on(t.taskId),
+    syncGitIdx: index("workspace_nodes_sync_git_idx").on(
       t.projectId,
       t.syncStatus,
       t.gitHash,
     ),
-    activeParentNameIdx: uniqueIndex("project_nodes_active_parent_name_unique")
+    activeParentNameIdx: uniqueIndex("workspace_nodes_active_parent_name_unique")
       .on(
         t.projectId,
         sql`COALESCE(${t.parentId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
@@ -2959,7 +2959,7 @@ export const projectNodes = pgTable(
         sql`COALESCE(${t.taskId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
       )
       .where(sql`${t.deletedAt} IS NULL`),
-    activeProjectPathIdx: uniqueIndex("project_nodes_active_project_path_unique")
+    activeProjectPathIdx: uniqueIndex("workspace_nodes_active_workspace_path_unique")
       .on(
         t.projectId,
         t.path,
@@ -2972,28 +2972,28 @@ export const projectNodes = pgTable(
       foreignColumns: [t.id],
     }).onDelete("cascade"),
     noSelfParentCheck: check(
-      "project_nodes_no_self_parent_check",
+      "workspace_nodes_no_self_parent_check",
       sql`${t.parentId} IS NULL OR ${t.parentId} <> ${t.id}`,
     ),
-    createdByIdx: index("project_nodes_created_by_idx").on(t.createdBy),
-    deletedByIdx: index("project_nodes_deleted_by_idx").on(t.deletedBy),
-    deletedAtPartialIdx: index("project_nodes_deleted_at_partial_idx")
+    createdByIdx: index("workspace_nodes_created_by_idx").on(t.createdBy),
+    deletedByIdx: index("workspace_nodes_deleted_by_idx").on(t.deletedBy),
+    deletedAtPartialIdx: index("workspace_nodes_deleted_at_partial_idx")
       .on(t.deletedAt)
       .where(sql`${t.deletedAt} IS NULL`),
     projectTrashedIdx: index("project_nodes_trashed_idx")
       .on(t.projectId, t.deletedAt.desc())
       .where(sql`${t.deletedAt} IS NOT NULL`),
-    activeParentIdx: index("project_nodes_active_parent_idx")
+    activeParentIdx: index("workspace_nodes_active_parent_idx")
       .on(t.projectId, t.parentId)
       .where(sql`${t.deletedAt} IS NULL`),
-    activeFileIdx: index("project_nodes_active_file_idx")
+    activeFileIdx: index("workspace_nodes_active_file_idx")
       .on(t.projectId, t.id)
       .where(sql`${t.type} = 'file' AND ${t.deletedAt} IS NULL`),
-    activeFileS3KeyIdx: index("project_nodes_active_file_s3_key_idx")
+    activeFileS3KeyIdx: index("workspace_nodes_active_file_s3_key_idx")
       .on(t.s3Key.op("text_pattern_ops"))
       .where(sql`${t.type} = 'file' AND ${t.deletedAt} IS NULL`),
-    assetIdx: index("project_nodes_asset_idx").on(t.assetId),
-    permanentDeleteRootIdx: index("project_nodes_permanent_delete_root_idx")
+    assetIdx: index("workspace_nodes_asset_idx").on(t.assetId),
+    permanentDeleteRootIdx: index("workspace_nodes_permanent_delete_root_idx")
       .on(t.updatedAt)
       .where(sql`${t.deletedAt} IS NOT NULL AND (${t.metadata}->>'permanentDeleteRoot') = ${t.id}::text`),
   }),
@@ -3013,7 +3013,7 @@ export const fileVersions = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     nodeId: uuid("node_id")
       .notNull()
-      .references(() => projectNodes.id, { onDelete: "cascade" }),
+      .references(() => workspaceNodes.id, { onDelete: "cascade" }),
     version: integer("version").notNull(),
     s3Key: text("s3_key").notNull(),
     assetId: uuid("asset_id").references(
@@ -3059,7 +3059,7 @@ export const storageAssets = pgTable(
     // Deliberately retained after profile/project deletion so cleanup and
     // quota evidence cannot disappear with the domain row.
     ownerUserId: uuid("owner_user_id"),
-    projectId: uuid("project_id"),
+    projectId: uuid("workspace_id"),
     bucket: text("bucket").notNull(),
     storageKey: text("storage_key").notNull(),
     purpose: text("purpose").notNull(),
@@ -3117,7 +3117,7 @@ export const storageAssets = pgTable(
       .on(t.deleteAfter, t.id)
       .where(sql`${t.state} = 'delete_pending'`),
     ownerIdx: index("storage_assets_owner_idx").on(t.ownerUserId, t.createdAt),
-    projectIdx: index("storage_assets_project_idx").on(t.projectId, t.createdAt),
+    projectIdx: index("storage_assets_workspace_idx").on(t.projectId, t.createdAt),
     sourceIdx: index("storage_assets_source_idx").on(t.sourceAssetId),
     declaredSizeCheck: check("storage_assets_declared_size_check", sql`${t.declaredSize} >= 0`),
     verifiedSizeCheck: check(
@@ -3246,7 +3246,7 @@ export const storageLegacyCleanupTargets = pgTable(
       enum: ["project_update_media", "project_update_draft_media"],
     }).notNull(),
     sourceId: uuid("source_id").notNull(),
-    sourceProjectId: uuid("source_project_id"),
+    sourceProjectId: uuid("source_workspace_id"),
     bucket: text("bucket").notNull(),
     storageKey: text("storage_key").notNull(),
     state: text("state", { enum: ["pending", "deleting", "retry", "deleted"] })
@@ -3315,7 +3315,7 @@ export const uploadIntents = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => profiles.id, { onDelete: "cascade" }),
-    projectId: uuid("project_id").references(() => projects.id, {
+    projectId: uuid("workspace_id").references(() => workspaces.id, {
       onDelete: "cascade",
     }),
     assetId: uuid("asset_id")
@@ -3347,7 +3347,7 @@ export const uploadIntents = pgTable(
   },
   (t) => ({
     userIdx: index("upload_intents_user_idx").on(t.userId, t.createdAt),
-    projectIdx: index("upload_intents_project_idx").on(
+    projectIdx: index("upload_intents_workspace_idx").on(
       t.projectId,
       t.createdAt,
     ),
@@ -3359,7 +3359,7 @@ export const uploadIntents = pgTable(
       t.status,
       t.expiresAt,
     ),
-    projectStatusIdx: index("upload_intents_project_status_idx").on(
+    projectStatusIdx: index("upload_intents_workspace_status_idx").on(
       t.projectId,
       t.status,
     ),
@@ -3404,7 +3404,7 @@ export const taskNodeLinks = pgTable(
       .references(() => tasks.id, { onDelete: "cascade" }),
     nodeId: uuid("node_id")
       .notNull()
-      .references(() => projectNodes.id, { onDelete: "cascade" }),
+      .references(() => workspaceNodes.id, { onDelete: "cascade" }),
     order: integer("order").default(0).notNull(),
     annotation: text("annotation"),
     tags: jsonb("tags").$type<string[]>().default([]).notNull(),
@@ -3433,26 +3433,26 @@ export const taskNodeLinks = pgTable(
 // ============================================================================
 // PROJECT FILE INDEX (Find-in-project)
 // ============================================================================
-export const projectFileIndex = pgTable(
-  "project_file_index",
+export const workspaceFileIndex = pgTable(
+  "workspace_file_index",
   {
     nodeId: uuid("node_id")
       .primaryKey()
       .notNull()
-      .references(() => projectNodes.id, { onDelete: "cascade" }),
-    projectId: uuid("project_id")
+      .references(() => workspaceNodes.id, { onDelete: "cascade" }),
+    projectId: uuid("workspace_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     content: text("content").default("").notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
   },
   (t) => ({
-    projectIdx: index("project_file_index_project_id_idx").on(t.projectId),
+    projectIdx: index("workspace_file_index_workspace_id_idx").on(t.projectId),
     // Optimization: GIN Index for fast trigram search (Search Optimization)
     // Needs `CREATE EXTENSION IF NOT EXISTS pg_trgm;` in migration
-    contentSearchIdx: index("project_file_index_content_search_idx").using(
+    contentSearchIdx: index("workspace_file_index_content_search_idx").using(
       "gin",
       sql`${t.content} gin_trgm_ops`,
     ),
@@ -3462,16 +3462,16 @@ export const projectFileIndex = pgTable(
 // ============================================================================
 // PROJECT NODE LOCKS (Soft locks for multi-user editing)
 // ============================================================================
-export const projectNodeLocks = pgTable(
-  "project_node_locks",
+export const workspaceNodeLocks = pgTable(
+  "workspace_node_locks",
   {
     nodeId: uuid("node_id")
       .primaryKey()
       .notNull()
-      .references(() => projectNodes.id, { onDelete: "cascade" }),
-    projectId: uuid("project_id")
+      .references(() => workspaceNodes.id, { onDelete: "cascade" }),
+    projectId: uuid("workspace_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     lockedBy: uuid("locked_by")
       .notNull()
       .references(() => profiles.id, { onDelete: "cascade" }),
@@ -3491,17 +3491,17 @@ export const projectNodeLocks = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   },
   (t) => ({
-    projectIdx: index("project_node_locks_project_id_idx").on(t.projectId),
-    expiresIdx: index("project_node_locks_expires_idx").on(t.expiresAt),
-    projectExpiresIdx: index("project_node_locks_project_expires_idx").on(
+    projectIdx: index("workspace_node_locks_workspace_id_idx").on(t.projectId),
+    expiresIdx: index("workspace_node_locks_expires_idx").on(t.expiresAt),
+    projectExpiresIdx: index("workspace_node_locks_workspace_expires_idx").on(
       t.projectId,
       t.expiresAt,
     ),
-    ownerSessionIdx: index("project_node_locks_owner_session_idx").on(
+    ownerSessionIdx: index("workspace_node_locks_owner_session_idx").on(
       t.lockedBy,
       t.sessionId,
     ),
-    deviceSessionIdx: index("project_node_locks_device_session_idx").on(
+    deviceSessionIdx: index("workspace_node_locks_device_session_idx").on(
       t.deviceSessionId,
     ),
   }),
@@ -3510,24 +3510,24 @@ export const projectNodeLocks = pgTable(
 // ============================================================================
 // PROJECT NODE EVENTS (Audit trail)
 // ============================================================================
-export const projectEventCounters = pgTable("project_event_counters", {
-  projectId: uuid("project_id")
+export const workspaceEventCounters = pgTable("workspace_event_counters", {
+  projectId: uuid("workspace_id")
     .primaryKey()
-    .references(() => projects.id, { onDelete: "cascade" }),
+    .references(() => workspaces.id, { onDelete: "cascade" }),
   nextSequence: bigint("next_sequence", { mode: "number" }).default(0).notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
-  nextSequenceCheck: check("project_event_counters_next_sequence_check", sql`${t.nextSequence} >= 0`),
+  nextSequenceCheck: check("workspace_event_counters_next_sequence_check", sql`${t.nextSequence} >= 0`),
 }));
 
-export const projectNodeEvents = pgTable(
-  "project_node_events",
+export const workspaceNodeEvents = pgTable(
+  "workspace_node_events",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("project_id")
+    projectId: uuid("workspace_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
-    nodeId: uuid("node_id").references(() => projectNodes.id, {
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    nodeId: uuid("node_id").references(() => workspaceNodes.id, {
       onDelete: "set null",
     }),
     actorId: uuid("actor_id").references(() => profiles.id, {
@@ -3543,19 +3543,19 @@ export const projectNodeEvents = pgTable(
       .notNull(),
   },
   (t) => ({
-    projectIdx: index("project_node_events_project_idx").on(
+    projectIdx: index("workspace_node_events_workspace_idx").on(
       t.projectId,
       t.createdAt,
     ),
-    nodeIdx: index("project_node_events_node_idx").on(t.nodeId, t.createdAt),
-    operationIdx: index("project_node_events_operation_idx").on(t.projectId,t.actorId,sql`(${t.metadata}->>'operationId')`),
-    actorIdx: index("project_node_events_actor_id_idx").on(t.actorId),
-    seqIdx: uniqueIndex("project_node_events_seq_idx").on(
+    nodeIdx: index("workspace_node_events_node_idx").on(t.nodeId, t.createdAt),
+    operationIdx: index("workspace_node_events_operation_idx").on(t.projectId,t.actorId,sql`(${t.metadata}->>'operationId')`),
+    actorIdx: index("workspace_node_events_actor_id_idx").on(t.actorId),
+    seqIdx: uniqueIndex("workspace_node_events_seq_idx").on(
       t.projectId,
       t.sequenceNumber,
       t.createdAt,
     ),
-    reconciliationKeyIdx: index("project_node_events_reconciliation_key_idx").on(
+    reconciliationKeyIdx: index("workspace_node_events_reconciliation_key_idx").on(
       t.projectId,
       sql`(${t.metadata}->>'reconciliationKey')`,
     ),
@@ -3564,7 +3564,7 @@ export const projectNodeEvents = pgTable(
 
 // Reviewed sync operations and per-file baselines. Credentials never leave the server.
 export const githubSyncConnections = pgTable("github_sync_connections", {
-  projectId: uuid("project_id").primaryKey().references(() => projects.id, { onDelete: "cascade" }),
+  projectId: uuid("workspace_id").primaryKey().references(() => workspaces.id, { onDelete: "cascade" }),
   repository: text("repository").notNull(),
   repositoryId: bigint("repository_id", { mode: "number" }).notNull(),
   branch: text("branch").notNull(),
@@ -3580,7 +3580,7 @@ export const githubSyncConnections = pgTable("github_sync_connections", {
 }));
 export const githubSyncRuns = pgTable("github_sync_runs", {
   id: uuid("id").primaryKey().defaultRandom(),
-  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
   actorId: uuid("actor_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
   status: text("status").$type<SyncStatus>().notNull().default("review"),
   stage: text("stage").notNull().default("Ready for review"),
@@ -3592,7 +3592,7 @@ export const githubSyncRuns = pgTable("github_sync_runs", {
   leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-}, t => ({ projectIdx: index("github_sync_runs_project_idx").on(t.projectId, t.createdAt.desc()), queueIdx: index("github_sync_runs_queue_idx").on(t.status, t.updatedAt), activeIdx: uniqueIndex("github_sync_runs_active_idx").on(t.projectId).where(sql`${t.status} IN ('queued', 'running')`), actorIdx: index("github_sync_runs_actor_idx").on(t.actorId) }));
+}, t => ({ projectIdx: index("github_sync_runs_workspace_idx").on(t.projectId, t.createdAt.desc()), queueIdx: index("github_sync_runs_queue_idx").on(t.status, t.updatedAt), activeIdx: uniqueIndex("github_sync_runs_active_idx").on(t.projectId).where(sql`${t.status} IN ('queued', 'running')`), actorIdx: index("github_sync_runs_actor_idx").on(t.actorId) }));
 export const githubSyncSnapshotAssets = pgTable("github_sync_snapshot_assets", {
   runId: uuid("run_id").notNull().references(() => githubSyncRuns.id, { onDelete: "cascade" }),
   assetId: uuid("asset_id").notNull().references(() => storageAssets.id, { onDelete: "restrict" }),
@@ -3604,11 +3604,11 @@ export const githubSyncSnapshotAssets = pgTable("github_sync_snapshot_assets", {
   assetIdx: index("github_sync_snapshot_assets_asset_idx").on(t.assetId),
 }));
 export const githubSyncFiles = pgTable("github_sync_files", {
-  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
   repositoryId: bigint("repository_id", { mode: "number" }).notNull(),
   branch: text("branch").notNull(),
   path: text("path").notNull(),
-  nodeId: uuid("node_id").references(() => projectNodes.id, { onDelete: "set null" }),
+  nodeId: uuid("node_id").references(() => workspaceNodes.id, { onDelete: "set null" }),
   blobSha: text("blob_sha"),
   localHash: text("local_hash"),
   localBlobSha: text("local_blob_sha"),
@@ -3636,9 +3636,9 @@ export const githubContributorIdentities = pgTable("github_contributor_identitie
 export const profilesRelations = relations(profiles, ({ many, one }) => ({
   sentConnections: many(connections, { relationName: "requester" }),
   receivedConnections: many(connections, { relationName: "addressee" }),
-  projects: many(projects),
-  projectMemberships: many(projectMembers),
-  followedProjects: many(projectFollows),
+  projects: many(workspaces),
+  projectMemberships: many(workspaceMembers),
+  followedProjects: many(workspaceFollows),
   receivedNotifications: many(userNotifications, {
     relationName: "notification_recipient",
   }),
@@ -3647,16 +3647,16 @@ export const profilesRelations = relations(profiles, ({ many, one }) => ({
   }),
   securityState: one(profileSecurityStates),
   collaborationSummary: one(profileCollaborationSummaries),
-  projectContributions: many(profileProjectContributions, {
+  projectContributions: many(profileContributions, {
     relationName: "profile_project_contributor",
   }),
-  projectContributionStages: many(profileProjectContributionStages, {
+  projectContributionStages: many(profileContributionStages, {
     relationName: "profile_project_stage_profile",
   }),
-  verifiedProjectContributions: many(profileProjectContributions, {
+  verifiedProjectContributions: many(profileContributions, {
     relationName: "profile_project_verifier",
   }),
-  verifiedProjectContributionStages: many(profileProjectContributionStages, {
+  verifiedProjectContributionStages: many(profileContributionStages, {
     relationName: "profile_project_stage_verifier",
   }),
   tasks: many(tasks, { relationName: "assignee" }),
@@ -3666,7 +3666,7 @@ export const profilesRelations = relations(profiles, ({ many, one }) => ({
     relationName: "applicationCreator",
   }),
   taskComments: many(taskComments),
-  projectNodes: many(projectNodes),
+  projectNodes: many(workspaceNodes),
 }));
 
 export const profileSecurityStatesRelations = relations(
@@ -3692,32 +3692,32 @@ export const connectionsRelations = relations(connections, ({ one }) => ({
   }),
 }));
 
-export const projectsRelations = relations(projects, ({ one, many }) => ({
+export const workspacesRelations = relations(workspaces, ({ one, many }) => ({
   owner: one(profiles, {
-    fields: [projects.ownerId],
+    fields: [workspaces.ownerId],
     references: [profiles.id],
   }),
-  members: many(projectMembers),
-  followers: many(projectFollows),
-  updates: many(projectUpdates),
+  members: many(workspaceMembers),
+  followers: many(workspaceFollows),
+  updates: many(workspaceUpdates),
 
-  sprints: many(projectSprints),
+  sprints: many(workspaceSprints),
   tasks: many(tasks),
-  openRoles: many(projectOpenRoles),
-  nodes: many(projectNodes),
+  openRoles: many(workspaceOpenRoles),
+  nodes: many(workspaceNodes),
   applications: many(roleApplications),
-  profileContributions: many(profileProjectContributions),
-  profileContributionStages: many(profileProjectContributionStages),
-  docs: many(projectDocs),
-  docVersions: many(projectDocVersions),
+  profileContributions: many(profileContributions),
+  profileContributionStages: many(profileContributionStages),
+  docs: many(workspaceDocuments),
+  docVersions: many(workspaceDocumentVersions),
 }));
 
-export const projectOpenRolesRelations = relations(
-  projectOpenRoles,
+export const workspaceOpenRolesRelations = relations(
+  workspaceOpenRoles,
   ({ one, many }) => ({
-    project: one(projects, {
-      fields: [projectOpenRoles.projectId],
-      references: [projects.id],
+    project: one(workspaces, {
+      fields: [workspaceOpenRoles.projectId],
+      references: [workspaces.id],
     }),
     applications: many(roleApplications),
   }),
@@ -3726,13 +3726,13 @@ export const projectOpenRolesRelations = relations(
 export const roleApplicationsRelations = relations(
   roleApplications,
   ({ one }) => ({
-    project: one(projects, {
+    project: one(workspaces, {
       fields: [roleApplications.projectId],
-      references: [projects.id],
+      references: [workspaces.id],
     }),
-    role: one(projectOpenRoles, {
+    role: one(workspaceOpenRoles, {
       fields: [roleApplications.roleId],
-      references: [projectOpenRoles.id],
+      references: [workspaceOpenRoles.id],
     }),
     applicant: one(profiles, {
       fields: [roleApplications.applicantId],
@@ -3752,56 +3752,56 @@ export const roleApplicationsRelations = relations(
   }),
 );
 
-export const projectMembersRelations = relations(projectMembers, ({ one }) => ({
-  project: one(projects, {
-    fields: [projectMembers.projectId],
-    references: [projects.id],
+export const workspaceMembersRelations = relations(workspaceMembers, ({ one }) => ({
+  project: one(workspaces, {
+    fields: [workspaceMembers.projectId],
+    references: [workspaces.id],
   }),
   user: one(profiles, {
-    fields: [projectMembers.userId],
+    fields: [workspaceMembers.userId],
     references: [profiles.id],
   }),
 }));
 
-export const profileProjectContributionsRelations = relations(
-  profileProjectContributions,
+export const profileContributionsRelations = relations(
+  profileContributions,
   ({ many, one }) => ({
     profile: one(profiles, {
-      fields: [profileProjectContributions.profileId],
+      fields: [profileContributions.profileId],
       references: [profiles.id],
       relationName: "profile_project_contributor",
     }),
-    project: one(projects, {
-      fields: [profileProjectContributions.projectId],
-      references: [projects.id],
+    project: one(workspaces, {
+      fields: [profileContributions.projectId],
+      references: [workspaces.id],
     }),
     verifier: one(profiles, {
-      fields: [profileProjectContributions.verifiedBy],
+      fields: [profileContributions.verifiedBy],
       references: [profiles.id],
       relationName: "profile_project_verifier",
     }),
-    stages: many(profileProjectContributionStages),
+    stages: many(profileContributionStages),
   }),
 );
 
-export const profileProjectContributionStagesRelations = relations(
-  profileProjectContributionStages,
+export const profileContributionStagesRelations = relations(
+  profileContributionStages,
   ({ one }) => ({
-    contribution: one(profileProjectContributions, {
-      fields: [profileProjectContributionStages.contributionId],
-      references: [profileProjectContributions.id],
+    contribution: one(profileContributions, {
+      fields: [profileContributionStages.contributionId],
+      references: [profileContributions.id],
     }),
     profile: one(profiles, {
-      fields: [profileProjectContributionStages.profileId],
+      fields: [profileContributionStages.profileId],
       references: [profiles.id],
       relationName: "profile_project_stage_profile",
     }),
-    project: one(projects, {
-      fields: [profileProjectContributionStages.projectId],
-      references: [projects.id],
+    project: one(workspaces, {
+      fields: [profileContributionStages.projectId],
+      references: [workspaces.id],
     }),
     verifier: one(profiles, {
-      fields: [profileProjectContributionStages.verifiedBy],
+      fields: [profileContributionStages.verifiedBy],
       references: [profiles.id],
       relationName: "profile_project_stage_verifier",
     }),
@@ -3818,107 +3818,107 @@ export const profileCollaborationSummariesRelations = relations(
   }),
 );
 
-export const projectDocsRelations = relations(
-  projectDocs,
+export const workspaceDocumentsRelations = relations(
+  workspaceDocuments,
   ({ one, many }) => ({
-    project: one(projects, {
-      fields: [projectDocs.projectId],
-      references: [projects.id],
+    project: one(workspaces, {
+      fields: [workspaceDocuments.projectId],
+      references: [workspaces.id],
     }),
 
-    publishedVersion: one(projectDocVersions, {
-      fields: [projectDocs.publishedVersionId],
-      references: [projectDocVersions.id],
+    publishedVersion: one(workspaceDocumentVersions, {
+      fields: [workspaceDocuments.publishedVersionId],
+      references: [workspaceDocumentVersions.id],
     }),
-    linkedNode: one(projectNodes, {
-      fields: [projectDocs.linkedNodeId],
-      references: [projectNodes.id],
+    linkedNode: one(workspaceNodes, {
+      fields: [workspaceDocuments.linkedNodeId],
+      references: [workspaceNodes.id],
     }),
-    versions: many(projectDocVersions),
+    versions: many(workspaceDocumentVersions),
   }),
 );
 
-export const projectDocVersionsRelations = relations(
-  projectDocVersions,
+export const workspaceDocumentVersionsRelations = relations(
+  workspaceDocumentVersions,
   ({ one, many }) => ({
-    project: one(projects, {
-      fields: [projectDocVersions.projectId],
-      references: [projects.id],
+    project: one(workspaces, {
+      fields: [workspaceDocumentVersions.projectId],
+      references: [workspaces.id],
     }),
-    doc: one(projectDocs, {
-      fields: [projectDocVersions.docId],
-      references: [projectDocs.id],
+    doc: one(workspaceDocuments, {
+      fields: [workspaceDocumentVersions.docId],
+      references: [workspaceDocuments.id],
     }),
     author: one(profiles, {
-      fields: [projectDocVersions.createdBy],
+      fields: [workspaceDocumentVersions.createdBy],
       references: [profiles.id],
     }),
   }),
 );
 
-export const projectFollowsRelations = relations(projectFollows, ({ one }) => ({
-  project: one(projects, {
-    fields: [projectFollows.projectId],
-    references: [projects.id],
+export const workspaceFollowsRelations = relations(workspaceFollows, ({ one }) => ({
+  project: one(workspaces, {
+    fields: [workspaceFollows.projectId],
+    references: [workspaces.id],
   }),
   user: one(profiles, {
-    fields: [projectFollows.userId],
+    fields: [workspaceFollows.userId],
     references: [profiles.id],
   }),
 }));
 
-export const projectUpdatesRelations = relations(
-  projectUpdates,
+export const workspaceUpdatesRelations = relations(
+  workspaceUpdates,
   ({ one, many }) => ({
-    project: one(projects, {
-      fields: [projectUpdates.projectId],
-      references: [projects.id],
+    project: one(workspaces, {
+      fields: [workspaceUpdates.projectId],
+      references: [workspaces.id],
     }),
     author: one(profiles, {
-      fields: [projectUpdates.authorId],
+      fields: [workspaceUpdates.authorId],
       references: [profiles.id],
     }),
     deletedByProfile: one(profiles, {
-      fields: [projectUpdates.deletedBy],
+      fields: [workspaceUpdates.deletedBy],
       references: [profiles.id],
       relationName: "project_update_deleted_by",
     }),
-    likes: many(projectUpdateLikes),
-    comments: many(projectUpdateComments),
+    likes: many(workspaceUpdateLikes),
+    comments: many(workspaceUpdateComments),
   }),
 );
 
-export const projectUpdateLikesRelations = relations(
-  projectUpdateLikes,
+export const workspaceUpdateLikesRelations = relations(
+  workspaceUpdateLikes,
   ({ one }) => ({
-    update: one(projectUpdates, {
-      fields: [projectUpdateLikes.updateId],
-      references: [projectUpdates.id],
+    update: one(workspaceUpdates, {
+      fields: [workspaceUpdateLikes.updateId],
+      references: [workspaceUpdates.id],
     }),
     user: one(profiles, {
-      fields: [projectUpdateLikes.userId],
+      fields: [workspaceUpdateLikes.userId],
       references: [profiles.id],
     }),
   }),
 );
 
-export const projectUpdateCommentsRelations = relations(
-  projectUpdateComments,
+export const workspaceUpdateCommentsRelations = relations(
+  workspaceUpdateComments,
   ({ one }) => ({
-    update: one(projectUpdates, {
-      fields: [projectUpdateComments.updateId],
-      references: [projectUpdates.id],
+    update: one(workspaceUpdates, {
+      fields: [workspaceUpdateComments.updateId],
+      references: [workspaceUpdates.id],
     }),
-    project: one(projects, {
-      fields: [projectUpdateComments.projectId],
-      references: [projects.id],
+    project: one(workspaces, {
+      fields: [workspaceUpdateComments.projectId],
+      references: [workspaces.id],
     }),
     user: one(profiles, {
-      fields: [projectUpdateComments.userId],
+      fields: [workspaceUpdateComments.userId],
       references: [profiles.id],
     }),
     deletedByProfile: one(profiles, {
-      fields: [projectUpdateComments.deletedBy],
+      fields: [workspaceUpdateComments.deletedBy],
       references: [profiles.id],
       relationName: "project_update_comment_deleted_by",
     }),
@@ -3944,7 +3944,7 @@ export const taskTeamMembers = pgTable(
 export const docOpens = pgTable(
   "doc_opens",
   {
-    docId: uuid("doc_id").notNull().references(() => projectDocs.id, { onDelete: "cascade" }),
+    docId: uuid("doc_id").notNull().references(() => workspaceDocuments.id, { onDelete: "cascade" }),
     userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
     version: integer("version").default(0).notNull(),
     openedAt: timestamp("opened_at", { withTimezone: true }).defaultNow().notNull(),
@@ -3960,9 +3960,9 @@ export const sprintMaterials = pgTable(
   "sprint_materials",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    sprintId: uuid("sprint_id").notNull().references(() => projectSprints.id, { onDelete: "cascade" }),
-    nodeId: uuid("node_id").references(() => projectNodes.id, { onDelete: "cascade" }),
-    docId: uuid("doc_id").references(() => projectDocs.id, { onDelete: "cascade" }),
+    sprintId: uuid("sprint_id").notNull().references(() => workspaceSprints.id, { onDelete: "cascade" }),
+    nodeId: uuid("node_id").references(() => workspaceNodes.id, { onDelete: "cascade" }),
+    docId: uuid("doc_id").references(() => workspaceDocuments.id, { onDelete: "cascade" }),
     addedBy: uuid("added_by").references(() => profiles.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -3977,19 +3977,19 @@ export const sprintMaterials = pgTable(
   }),
 );
 
-export const projectSprintsRelations = relations(
-  projectSprints,
+export const workspaceSprintsRelations = relations(
+  workspaceSprints,
   ({ one, many }) => ({
-    project: one(projects, {
-      fields: [projectSprints.projectId],
-      references: [projects.id],
+    project: one(workspaces, {
+      fields: [workspaceSprints.projectId],
+      references: [workspaces.id],
     }),
     tasks: many(tasks),
     creator: one(profiles, {
-      fields: [projectSprints.creatorId],
+      fields: [workspaceSprints.creatorId],
       references: [profiles.id],
     }),
-    lifecycleEvents: many(projectSprintEvents),
+    lifecycleEvents: many(workspaceSprintEvents),
     taskMemberships: many(sprintTaskMemberships),
   }),
 );
@@ -3997,13 +3997,13 @@ export const projectSprintsRelations = relations(
 export const sprintTaskMembershipsRelations = relations(
   sprintTaskMemberships,
   ({ one }) => ({
-    project: one(projects, {
+    project: one(workspaces, {
       fields: [sprintTaskMemberships.projectId],
-      references: [projects.id],
+      references: [workspaces.id],
     }),
-    sprint: one(projectSprints, {
+    sprint: one(workspaceSprints, {
       fields: [sprintTaskMemberships.sprintId],
-      references: [projectSprints.id],
+      references: [workspaceSprints.id],
     }),
     task: one(tasks, {
       fields: [sprintTaskMemberships.taskId],
@@ -4022,32 +4022,32 @@ export const sprintTaskMembershipsRelations = relations(
   }),
 );
 
-export const projectSprintEventsRelations = relations(
-  projectSprintEvents,
+export const workspaceSprintEventsRelations = relations(
+  workspaceSprintEvents,
   ({ one }) => ({
-    project: one(projects, {
-      fields: [projectSprintEvents.projectId],
-      references: [projects.id],
+    project: one(workspaces, {
+      fields: [workspaceSprintEvents.projectId],
+      references: [workspaces.id],
     }),
-    sprint: one(projectSprints, {
-      fields: [projectSprintEvents.sprintId],
-      references: [projectSprints.id],
+    sprint: one(workspaceSprints, {
+      fields: [workspaceSprintEvents.sprintId],
+      references: [workspaceSprints.id],
     }),
     actor: one(profiles, {
-      fields: [projectSprintEvents.actorId],
+      fields: [workspaceSprintEvents.actorId],
       references: [profiles.id],
     }),
   }),
 );
 
 export const tasksRelations = relations(tasks, ({ one, many }) => ({
-  project: one(projects, {
+  project: one(workspaces, {
     fields: [tasks.projectId],
-    references: [projects.id],
+    references: [workspaces.id],
   }),
-  sprint: one(projectSprints, {
+  sprint: one(workspaceSprints, {
     fields: [tasks.sprintId],
-    references: [projectSprints.id],
+    references: [workspaceSprints.id],
   }),
   assignee: one(profiles, {
     fields: [tasks.assigneeId],
@@ -4059,9 +4059,9 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
     references: [profiles.id],
     relationName: "creator",
   }),
-  workflowColumn: one(projectWorkflowColumns, {
+  workflowColumn: one(workspaceWorkflowColumns, {
     fields: [tasks.workflowColumnId],
-    references: [projectWorkflowColumns.id],
+    references: [workspaceWorkflowColumns.id],
   }),
   attachments: many(taskNodeLinks),
   subtasks: many(taskSubtasks),
@@ -4070,12 +4070,12 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
   sprintMemberships: many(sprintTaskMemberships),
 }));
 
-export const projectWorkflowColumnsRelations = relations(
-  projectWorkflowColumns,
+export const workspaceWorkflowColumnsRelations = relations(
+  workspaceWorkflowColumns,
   ({ one, many }) => ({
-    project: one(projects, {
-      fields: [projectWorkflowColumns.projectId],
-      references: [projects.id],
+    project: one(workspaces, {
+      fields: [workspaceWorkflowColumns.projectId],
+      references: [workspaces.id],
     }),
     tasks: many(tasks),
   }),
@@ -4158,34 +4158,34 @@ export const taskSubtasksRelations = relations(taskSubtasks, ({ one }) => ({
   }),
 }));
 
-export const projectNodesRelations = relations(
-  projectNodes,
+export const workspaceNodesRelations = relations(
+  workspaceNodes,
   ({ one, many }) => ({
-    project: one(projects, {
-      fields: [projectNodes.projectId],
-      references: [projects.id],
+    project: one(workspaces, {
+      fields: [workspaceNodes.projectId],
+      references: [workspaces.id],
     }),
-    parent: one(projectNodes, {
-      fields: [projectNodes.parentId],
-      references: [projectNodes.id],
+    parent: one(workspaceNodes, {
+      fields: [workspaceNodes.parentId],
+      references: [workspaceNodes.id],
       relationName: "children",
     }),
-    children: many(projectNodes, {
+    children: many(workspaceNodes, {
       relationName: "children",
     }),
     creator: one(profiles, {
-      fields: [projectNodes.createdBy],
+      fields: [workspaceNodes.createdBy],
       references: [profiles.id],
     }),
     deleter: one(profiles, {
-      fields: [projectNodes.deletedBy],
+      fields: [workspaceNodes.deletedBy],
       references: [profiles.id],
       relationName: "deleter",
     }),
     linkedTasks: many(taskNodeLinks),
-    fileIndex: one(projectFileIndex),
-    lock: one(projectNodeLocks),
-    events: many(projectNodeEvents),
+    fileIndex: one(workspaceFileIndex),
+    lock: one(workspaceNodeLocks),
+    events: many(workspaceNodeEvents),
   }),
 );
 
@@ -4194,9 +4194,9 @@ export const uploadIntentsRelations = relations(uploadIntents, ({ one }) => ({
     fields: [uploadIntents.userId],
     references: [profiles.id],
   }),
-  project: one(projects, {
+  project: one(workspaces, {
     fields: [uploadIntents.projectId],
-    references: [projects.id],
+    references: [workspaces.id],
   }),
   asset: one(storageAssets, {
     fields: [uploadIntents.assetId],
@@ -4209,9 +4209,9 @@ export const storageAssetsRelations = relations(storageAssets, ({ one, many }) =
     fields: [storageAssets.ownerUserId],
     references: [profiles.id],
   }),
-  project: one(projects, {
+  project: one(workspaces, {
     fields: [storageAssets.projectId],
-    references: [projects.id],
+    references: [workspaces.id],
   }),
   source: one(storageAssets, {
     fields: [storageAssets.sourceAssetId],
@@ -4250,9 +4250,9 @@ export const taskNodeLinksRelations = relations(taskNodeLinks, ({ one }) => ({
     fields: [taskNodeLinks.taskId],
     references: [tasks.id],
   }),
-  node: one(projectNodes, {
+  node: one(workspaceNodes, {
     fields: [taskNodeLinks.nodeId],
-    references: [projectNodes.id],
+    references: [workspaceNodes.id],
   }),
   creator: one(profiles, {
     fields: [taskNodeLinks.createdBy],
@@ -4260,51 +4260,51 @@ export const taskNodeLinksRelations = relations(taskNodeLinks, ({ one }) => ({
   }),
 }));
 
-export const projectFileIndexRelations = relations(
-  projectFileIndex,
+export const workspaceFileIndexRelations = relations(
+  workspaceFileIndex,
   ({ one }) => ({
-    project: one(projects, {
-      fields: [projectFileIndex.projectId],
-      references: [projects.id],
+    project: one(workspaces, {
+      fields: [workspaceFileIndex.projectId],
+      references: [workspaces.id],
     }),
-    node: one(projectNodes, {
-      fields: [projectFileIndex.nodeId],
-      references: [projectNodes.id],
+    node: one(workspaceNodes, {
+      fields: [workspaceFileIndex.nodeId],
+      references: [workspaceNodes.id],
     }),
   }),
 );
 
-export const projectNodeLocksRelations = relations(
-  projectNodeLocks,
+export const workspaceNodeLocksRelations = relations(
+  workspaceNodeLocks,
   ({ one }) => ({
-    project: one(projects, {
-      fields: [projectNodeLocks.projectId],
-      references: [projects.id],
+    project: one(workspaces, {
+      fields: [workspaceNodeLocks.projectId],
+      references: [workspaces.id],
     }),
-    node: one(projectNodes, {
-      fields: [projectNodeLocks.nodeId],
-      references: [projectNodes.id],
+    node: one(workspaceNodes, {
+      fields: [workspaceNodeLocks.nodeId],
+      references: [workspaceNodes.id],
     }),
     user: one(profiles, {
-      fields: [projectNodeLocks.lockedBy],
+      fields: [workspaceNodeLocks.lockedBy],
       references: [profiles.id],
     }),
   }),
 );
 
-export const projectNodeEventsRelations = relations(
-  projectNodeEvents,
+export const workspaceNodeEventsRelations = relations(
+  workspaceNodeEvents,
   ({ one }) => ({
-    project: one(projects, {
-      fields: [projectNodeEvents.projectId],
-      references: [projects.id],
+    project: one(workspaces, {
+      fields: [workspaceNodeEvents.projectId],
+      references: [workspaces.id],
     }),
-    node: one(projectNodes, {
-      fields: [projectNodeEvents.nodeId],
-      references: [projectNodes.id],
+    node: one(workspaceNodes, {
+      fields: [workspaceNodeEvents.nodeId],
+      references: [workspaceNodes.id],
     }),
     actor: one(profiles, {
-      fields: [projectNodeEvents.actorId],
+      fields: [workspaceNodeEvents.actorId],
       references: [profiles.id],
     }),
   }),
@@ -4354,18 +4354,18 @@ export type ConnectionSuggestionDismissal =
   typeof connectionSuggestionDismissals.$inferSelect;
 export type NewConnectionSuggestionDismissal =
   typeof connectionSuggestionDismissals.$inferInsert;
-export type Workspace = typeof projects.$inferSelect;
-export type NewProject = typeof projects.$inferInsert;
-export type ProjectMember = typeof projectMembers.$inferSelect;
-export type NewProjectMember = typeof projectMembers.$inferInsert;
-export type ProjectFollow = typeof projectFollows.$inferSelect;
-export type NewProjectFollow = typeof projectFollows.$inferInsert;
-export type ProjectUpdate = typeof projectUpdates.$inferSelect;
-export type NewProjectUpdate = typeof projectUpdates.$inferInsert;
-export type ProjectUpdateLike = typeof projectUpdateLikes.$inferSelect;
-export type NewProjectUpdateLike = typeof projectUpdateLikes.$inferInsert;
-export type ProjectUpdateComment = typeof projectUpdateComments.$inferSelect;
-export type NewProjectUpdateComment = typeof projectUpdateComments.$inferInsert;
+export type Workspace = typeof workspaces.$inferSelect;
+export type NewWorkspace = typeof workspaces.$inferInsert;
+export type WorkspaceMember = typeof workspaceMembers.$inferSelect;
+export type NewWorkspaceMember = typeof workspaceMembers.$inferInsert;
+export type WorkspaceFollow = typeof workspaceFollows.$inferSelect;
+export type NewWorkspaceFollow = typeof workspaceFollows.$inferInsert;
+export type WorkspaceUpdate = typeof workspaceUpdates.$inferSelect;
+export type NewWorkspaceUpdate = typeof workspaceUpdates.$inferInsert;
+export type WorkspaceUpdateLike = typeof workspaceUpdateLikes.$inferSelect;
+export type NewWorkspaceUpdateLike = typeof workspaceUpdateLikes.$inferInsert;
+export type WorkspaceUpdateComment = typeof workspaceUpdateComments.$inferSelect;
+export type NewWorkspaceUpdateComment = typeof workspaceUpdateComments.$inferInsert;
 // ============================================================================
 // COLLECTIONS TABLE
 // ============================================================================
@@ -4459,8 +4459,8 @@ export type NewLegalAcceptance = typeof legalAcceptances.$inferInsert;
 export type TaskSubtask = typeof taskSubtasks.$inferSelect;
 export type NewTaskSubtask = typeof taskSubtasks.$inferInsert;
 
-export type ProjectNode = typeof projectNodes.$inferSelect;
-export type NewProjectNode = typeof projectNodes.$inferInsert;
+export type WorkspaceNode = typeof workspaceNodes.$inferSelect;
+export type NewWorkspaceNode = typeof workspaceNodes.$inferInsert;
 export type TaskNodeLink = typeof taskNodeLinks.$inferSelect;
 export type NewTaskNodeLink = typeof taskNodeLinks.$inferInsert;
 export type TaskComment = typeof taskComments.$inferSelect;
@@ -4748,13 +4748,13 @@ export const profileSkills = pgTable(
   }),
 );
 
-export const projectSkills = pgTable(
-  "project_skills",
+export const workspaceSkills = pgTable(
+  "workspace_skills",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("project_id")
+    projectId: uuid("workspace_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     skillId: uuid("skill_id")
       .notNull()
       .references(() => skills.id, { onDelete: "cascade" }),
@@ -4774,12 +4774,12 @@ export const projectSkills = pgTable(
       .notNull(),
   },
   (t) => ({
-    uniqueProjectSkill: uniqueIndex("project_skills_unique_idx").on(
+    uniqueProjectSkill: uniqueIndex("workspace_skills_unique_idx").on(
       t.projectId,
       t.skillId,
     ),
-    skillIdx: index("project_skills_skill_idx").on(t.skillId),
-    projectOrderIdx: index("project_skills_project_order_idx").on(
+    skillIdx: index("workspace_skills_skill_idx").on(t.skillId),
+    projectOrderIdx: index("workspace_skills_workspace_order_idx").on(
       t.projectId,
       t.displayOrder,
     ),
@@ -4792,7 +4792,7 @@ export const roleSkills = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     roleId: uuid("role_id")
       .notNull()
-      .references(() => projectOpenRoles.id, { onDelete: "cascade" }),
+      .references(() => workspaceOpenRoles.id, { onDelete: "cascade" }),
     skillId: uuid("skill_id")
       .notNull()
       .references(() => skills.id, { onDelete: "cascade" }),
@@ -4826,7 +4826,7 @@ export const profileContributionSkills = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     contributionId: uuid("contribution_id")
       .notNull()
-      .references(() => profileProjectContributions.id, {
+      .references(() => profileContributions.id, {
         onDelete: "cascade",
       }),
     skillId: uuid("skill_id")
@@ -4881,13 +4881,13 @@ export const tags = pgTable(
   }),
 );
 
-export const projectTags = pgTable(
-  "project_tags",
+export const workspaceTags = pgTable(
+  "workspace_tags",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("project_id")
+    projectId: uuid("workspace_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     tagId: uuid("tag_id")
       .notNull()
       .references(() => tags.id, { onDelete: "cascade" }),
@@ -4896,11 +4896,11 @@ export const projectTags = pgTable(
       .notNull(),
   },
   (t) => ({
-    uniqueProjectTag: uniqueIndex("project_tags_unique_idx").on(
+    uniqueProjectTag: uniqueIndex("workspace_tags_unique_idx").on(
       t.projectId,
       t.tagId,
     ),
-    tagIdx: index("project_tags_tag_idx").on(t.tagId),
+    tagIdx: index("workspace_tags_tag_idx").on(t.tagId),
   }),
 );
 
@@ -4913,14 +4913,14 @@ export type NewRecoveryCodeRedemption =
   typeof recoveryCodeRedemptions.$inferInsert;
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type NewPushSubscription = typeof pushSubscriptions.$inferInsert;
-export type ProfileProjectContribution =
-  typeof profileProjectContributions.$inferSelect;
-export type NewProfileProjectContribution =
-  typeof profileProjectContributions.$inferInsert;
-export type ProfileProjectContributionStage =
-  typeof profileProjectContributionStages.$inferSelect;
-export type NewProfileProjectContributionStage =
-  typeof profileProjectContributionStages.$inferInsert;
+export type ProfileContribution =
+  typeof profileContributions.$inferSelect;
+export type NewProfileContribution =
+  typeof profileContributions.$inferInsert;
+export type ProfileContributionStage =
+  typeof profileContributionStages.$inferSelect;
+export type NewProfileContributionStage =
+  typeof profileContributionStages.$inferInsert;
 export type ProfileCollaborationSummary =
   typeof profileCollaborationSummaries.$inferSelect;
 export type NewProfileCollaborationSummary =
@@ -5052,10 +5052,10 @@ export const extensionRecoveryDrafts = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => profiles.id, { onDelete: "cascade" }),
-    projectId: uuid("project_id")
+    projectId: uuid("workspace_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
-    nodeId: uuid("node_id").references(() => projectNodes.id, {
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    nodeId: uuid("node_id").references(() => workspaceNodes.id, {
       onDelete: "set null",
     }),
     deviceId: text("device_id").notNull(),
@@ -5101,7 +5101,7 @@ export const extensionRecoveryDrafts = pgTable(
       t.userId,
       t.updatedAt.desc(),
     ),
-    projectPathIdx: index("extension_recovery_drafts_project_path_idx").on(
+    projectPathIdx: index("extension_recovery_drafts_workspace_path_idx").on(
       t.projectId,
       t.filePath,
       t.updatedAt.desc(),
@@ -5127,13 +5127,13 @@ export const extensionRecoveryDrafts = pgTable(
 // ============================================================================
 // PROJECT GIT DELTAS
 // ============================================================================
-export const projectGitDeltas = pgTable(
-  "project_git_deltas",
+export const workspaceGitDeltas = pgTable(
+  "workspace_git_deltas",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("project_id")
+    projectId: uuid("workspace_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     taskId: uuid("task_id").references(() => tasks.id, {
       onDelete: "set null",
     }),
@@ -5141,7 +5141,7 @@ export const projectGitDeltas = pgTable(
     sequenceNumber: bigint("sequence_number", { mode: "number" }).notNull(),
     deltaOrder: integer("delta_order").notNull(),
     action: text("action").notNull(),
-    nodeId: uuid("node_id").references(() => projectNodes.id, {
+    nodeId: uuid("node_id").references(() => workspaceNodes.id, {
       onDelete: "set null",
     }),
     path: text("path").notNull(),
@@ -5161,22 +5161,22 @@ export const projectGitDeltas = pgTable(
       .notNull(),
   },
   (t) => ({
-    uniqueSeq: unique("project_git_deltas_seq_unique").on(
+    uniqueSeq: unique("workspace_git_deltas_seq_unique").on(
       t.projectId,
       t.targetBranch,
       t.sequenceNumber,
       t.deltaOrder,
     ),
-    syncIdx: index("project_git_deltas_sync_idx").on(
+    syncIdx: index("workspace_git_deltas_sync_idx").on(
       t.projectId,
       t.targetBranch,
       t.status,
       t.sequenceNumber,
       t.deltaOrder,
     ),
-    taskIdx: index("project_git_deltas_task_idx").on(t.taskId),
-    nodeIdx: index("project_git_deltas_node_idx").on(t.nodeId),
-    fileVersionIdx: index("project_git_deltas_file_version_idx").on(
+    taskIdx: index("workspace_git_deltas_task_idx").on(t.taskId),
+    nodeIdx: index("workspace_git_deltas_node_idx").on(t.nodeId),
+    fileVersionIdx: index("workspace_git_deltas_file_version_idx").on(
       t.fileVersionId,
     ),
   }),
@@ -5189,9 +5189,9 @@ export const importJobs = pgTable(
   "import_jobs",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("project_id")
+    projectId: uuid("workspace_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     status: text("status").default("pending").notNull(),
     totalFiles: integer("total_files").default(0).notNull(),
     processedFiles: integer("processed_files").default(0).notNull(),
@@ -5213,7 +5213,7 @@ export const importJobs = pgTable(
       .notNull(),
   },
   (t) => ({
-    projectIdx: index("import_jobs_project_idx").on(t.projectId),
+    projectIdx: index("import_jobs_workspace_idx").on(t.projectId),
     manifestAssetUnique: uniqueIndex("import_jobs_manifest_asset_unique")
       .on(t.manifestAssetId)
       .where(sql`${t.manifestAssetId} IS NOT NULL`),
@@ -5259,16 +5259,16 @@ export const importJobFiles = pgTable(
 // ============================================================================
 // PROJECT NODE CONFLICTS
 // ============================================================================
-export const projectNodeConflicts = pgTable(
-  "project_node_conflicts",
+export const workspaceNodeConflicts = pgTable(
+  "workspace_node_conflicts",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("project_id")
+    projectId: uuid("workspace_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     nodeId: uuid("node_id")
       .notNull()
-      .references(() => projectNodes.id, { onDelete: "cascade" }),
+      .references(() => workspaceNodes.id, { onDelete: "cascade" }),
     taskId: uuid("task_id").references(() => tasks.id, { onDelete: "cascade" }),
     gitBranch: text("git_branch").notNull(),
     canonicalContent: text("canonical_content"),
@@ -5280,9 +5280,9 @@ export const projectNodeConflicts = pgTable(
       .notNull(),
   },
   (t) => ({
-    nodeIdx: index("project_node_conflicts_node_idx").on(t.nodeId),
-    projectIdx: index("project_node_conflicts_project_idx").on(t.projectId),
-    taskIdx: index("project_node_conflicts_task_idx").on(t.taskId),
+    nodeIdx: index("workspace_node_conflicts_node_idx").on(t.nodeId),
+    projectIdx: index("workspace_node_conflicts_workspace_idx").on(t.projectId),
+    taskIdx: index("workspace_node_conflicts_task_idx").on(t.taskId),
   }),
 );
 
@@ -5302,14 +5302,14 @@ export type ExtensionRecoverySession =
   typeof extensionRecoverySessions.$inferSelect;
 export type NewExtensionRecoverySession =
   typeof extensionRecoverySessions.$inferInsert;
-export type ProjectGitDelta = typeof projectGitDeltas.$inferSelect;
-export type NewProjectGitDelta = typeof projectGitDeltas.$inferInsert;
+export type WorkspaceGitDelta = typeof workspaceGitDeltas.$inferSelect;
+export type NewWorkspaceGitDelta = typeof workspaceGitDeltas.$inferInsert;
 export type ImportJob = typeof importJobs.$inferSelect;
 export type NewImportJob = typeof importJobs.$inferInsert;
 export type ImportJobFile = typeof importJobFiles.$inferSelect;
 export type NewImportJobFile = typeof importJobFiles.$inferInsert;
-export type ProjectNodeConflict = typeof projectNodeConflicts.$inferSelect;
-export type NewProjectNodeConflict = typeof projectNodeConflicts.$inferInsert;
+export type WorkspaceNodeConflict = typeof workspaceNodeConflicts.$inferSelect;
+export type NewWorkspaceNodeConflict = typeof workspaceNodeConflicts.$inferInsert;
 
 // ============================================================================
 // TASK PUSHES
@@ -5321,9 +5321,9 @@ export const taskPushes = pgTable(
     taskId: uuid("task_id")
       .notNull()
       .references(() => tasks.id, { onDelete: "cascade" }),
-    projectId: uuid("project_id")
+    projectId: uuid("workspace_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     message: text("message"),
     filesCount: integer("files_count").default(0).notNull(),
     pushedBy: uuid("pushed_by").references(() => profiles.id, {
@@ -5340,16 +5340,16 @@ export const taskPushes = pgTable(
       t.taskId,
       t.pushedAt.desc(),
     ),
-    projectIdx: index("task_pushes_project_idx").on(t.projectId),
+    projectIdx: index("task_pushes_workspace_idx").on(t.projectId),
     pushedByIdx: index("task_pushes_pushed_by_idx").on(t.pushedBy),
   }),
 );
 
 export type TaskPush = typeof taskPushes.$inferSelect;
 export type NewTaskPush = typeof taskPushes.$inferInsert;
-export type ProjectWorkflowColumn = typeof projectWorkflowColumns.$inferSelect;
-export type NewProjectWorkflowColumn =
-  typeof projectWorkflowColumns.$inferInsert;
+export type WorkspaceWorkflowColumn = typeof workspaceWorkflowColumns.$inferSelect;
+export type NewWorkspaceWorkflowColumn =
+  typeof workspaceWorkflowColumns.$inferInsert;
 
 // ============================================================================
 // CHAT (Slack-style rebuild). Tables, partitions, constraints, indexes, RLS and
@@ -5365,7 +5365,7 @@ export const chatChannels = pgTable("chat_channels", {
   name: text("name"),
   topic: text("topic"),
   description: text("description"),
-  projectId: uuid("project_id"),
+  projectId: uuid("workspace_id"),
   applicationId: uuid("application_id"),
   isDefault: boolean("is_default").default(false).notNull(),
   dmKey: text("dm_key"),
@@ -5519,12 +5519,12 @@ export type ChatMessageCard = typeof chatMessageCards.$inferSelect;
 export type ChatAttachment = typeof chatAttachments.$inferSelect;
 
 export const profileContributionDrafts = pgTable("profile_contribution_drafts", {
-  contributionId: uuid("contribution_id").primaryKey().references(() => profileProjectContributions.id, {onDelete:"cascade"}),
+  contributionId: uuid("contribution_id").primaryKey().references(() => profileContributions.id, {onDelete:"cascade"}),
   profileId: uuid("profile_id").notNull().references(() => profiles.id,{onDelete:"cascade"}),
   document: jsonb("document").$type<import("@/lib/profile/contribution-story").ContributionStory>().notNull(),
   updatedAt: timestamp("updated_at",{withTimezone:true}).defaultNow().notNull(),
 },t=>({profileIdx:index("profile_contribution_drafts_profile_idx").on(t.profileId)}));
 export const profileContributionMediaAssets = pgTable("profile_contribution_media_assets", {
-  contributionId: uuid("contribution_id").notNull().references(() => profileProjectContributions.id,{onDelete:"cascade"}),
+  contributionId: uuid("contribution_id").notNull().references(() => profileContributions.id,{onDelete:"cascade"}),
   assetId: uuid("asset_id").notNull().references(() => storageAssets.id),
 },t=>({pk:primaryKey({columns:[t.contributionId,t.assetId]}),assetIdx:index("profile_contribution_media_assets_asset_idx").on(t.assetId)}));

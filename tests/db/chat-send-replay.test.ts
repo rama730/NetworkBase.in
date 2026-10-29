@@ -31,7 +31,7 @@ moduleStubs.set("@/app/actions/workspace", {
   createTaskAction: async (data: { title: string }) => {
     taskCreates += 1;
     if (failTaskCreates > 0) { failTaskCreates -= 1; return { success: false, error: "boom" }; }
-    const [task] = await sql`INSERT INTO tasks (project_id, title) VALUES (${projectId}, ${data.title}) RETURNING id`;
+    const [task] = await sql`INSERT INTO tasks (workspace_id, title) VALUES (${projectId}, ${data.title}) RETURNING id`;
     return { success: true, task: { id: task!.id } };
   },
 });
@@ -52,7 +52,7 @@ async function projectChannel() {
   const channel = { id: channelId as string };
   const cleanup = async () => {
     await sql`DELETE FROM chat_channels WHERE id = ${channel.id}`;
-    await sql`DELETE FROM tasks WHERE project_id = ${projectId}`;
+    await sql`DELETE FROM tasks WHERE workspace_id = ${projectId}`;
   };
   return { owner, other, channelId: channel.id, cleanup };
 }
@@ -73,7 +73,7 @@ test("repeating a /task with the same operation id creates one task and one card
     assert.equal(again.success, true, JSON.stringify(again));
     assert.equal(taskCreates, 1);
     assert.equal(await messageCount(f.channelId), base + 1);
-    assert.equal((await sql`SELECT count(*)::int AS n FROM tasks WHERE project_id = ${projectId}`)[0]!.n, 1);
+    assert.equal((await sql`SELECT count(*)::int AS n FROM tasks WHERE workspace_id = ${projectId}`)[0]!.n, 1);
   } finally { await f.cleanup(); }
 });
 

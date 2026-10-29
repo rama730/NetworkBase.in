@@ -9,10 +9,10 @@ after(() => sql.end());
 // MIG-002: the replay gate compares effective authority, so every one of
 // these changes must show up even when all names stay the same.
 const CHANGES: Record<string, string> = {
-  "same policy name on another table": `CREATE POLICY tasks_update_project_writer ON public.projects FOR UPDATE TO authenticated USING (true)`,
+  "same policy name on another table": `CREATE POLICY tasks_update_workspace_writer ON public.workspaces FOR UPDATE TO authenticated USING (true)`,
   "changed USING": `ALTER POLICY profiles_select_visible ON public.profiles USING (true)`,
-  "changed WITH CHECK": `ALTER POLICY tasks_insert_project_writer ON public.tasks WITH CHECK (true)`,
-  "changed policy roles": `ALTER POLICY tasks_update_project_writer ON public.tasks TO anon, authenticated`,
+  "changed WITH CHECK": `ALTER POLICY tasks_insert_workspace_writer ON public.tasks WITH CHECK (true)`,
+  "changed policy roles": `ALTER POLICY tasks_update_workspace_writer ON public.tasks TO anon, authenticated`,
   "extra permissive policy": `CREATE POLICY extra_open ON public.tasks FOR SELECT TO anon USING (true)`,
   "table grant": `GRANT INSERT ON public.tasks TO authenticated`,
   "column grant": `GRANT UPDATE (title) ON public.tasks TO authenticated`,

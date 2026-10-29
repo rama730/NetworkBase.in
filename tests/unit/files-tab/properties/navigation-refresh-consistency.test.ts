@@ -43,7 +43,7 @@ import assert from "node:assert/strict";
 
 import fc from "fast-check";
 
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import {
   encodePath,
   evaluateDeepLinkPath,
@@ -69,8 +69,8 @@ interface FlatNode {
 }
 
 interface GeneratedTree {
-  nodes: ProjectNode[];
-  nodesById: Record<string, ProjectNode>;
+  nodes: WorkspaceNode[];
+  nodesById: Record<string, WorkspaceNode>;
 }
 
 // ─── Tree shape generator (bounded, per design § Property 4) ─────────
@@ -143,7 +143,7 @@ function assembleTree(flat: FlatNode[], prefixes: string[]): GeneratedTree {
   const projectId = "proj-1";
   const now = new Date("2026-01-01T00:00:00Z");
 
-  const nodes: ProjectNode[] = flat.map((f, i) => ({
+  const nodes: WorkspaceNode[] = flat.map((f, i) => ({
     id: `n${i}`,
     projectId,
     parentId: f.parent === null ? null : `n${f.parent}`,
@@ -163,7 +163,7 @@ function assembleTree(flat: FlatNode[], prefixes: string[]): GeneratedTree {
     deletedAt: null,
   }));
 
-  const nodesById: Record<string, ProjectNode> = Object.create(null);
+  const nodesById: Record<string, WorkspaceNode> = Object.create(null);
   for (const n of nodes) nodesById[n.id] = n;
   return { nodes, nodesById };
 }
@@ -186,7 +186,7 @@ const treeArb: fc.Arbitrary<GeneratedTree> = forestArb.chain((forest) => {
  * "current location" after the sequence is the final action's target.
  */
 function navigationSequenceArb(
-  nodes: ProjectNode[],
+  nodes: WorkspaceNode[],
 ): fc.Arbitrary<Array<string | null>> {
   const ids = nodes.map((n) => n.id);
   const stepArb: fc.Arbitrary<string | null> =
@@ -214,9 +214,9 @@ function navigationSequenceArb(
  * deterministic. Taking the first sibling match by name is safe.
  */
 function makeMockWalker(
-  nodesById: Record<string, ProjectNode>,
+  nodesById: Record<string, WorkspaceNode>,
 ): ResolveDeepLinkDeps["findNodeByPathAny"] {
-  const childrenByParent = new Map<string | null, ProjectNode[]>();
+  const childrenByParent = new Map<string | null, WorkspaceNode[]>();
   for (const node of Object.values(nodesById)) {
     const bucket = childrenByParent.get(node.parentId) ?? [];
     bucket.push(node);
@@ -225,12 +225,12 @@ function makeMockWalker(
   return async (_projectId, pathParts) => {
     if (pathParts.length === 0) return null;
     let parentId: string | null = null;
-    let current: ProjectNode | null = null;
+    let current: WorkspaceNode | null = null;
     for (let i = 0; i < pathParts.length; i++) {
       const segment = pathParts[i];
       const isLast = i === pathParts.length - 1;
-      const siblings: ProjectNode[] = childrenByParent.get(parentId) ?? [];
-      const match: ProjectNode | undefined = siblings.find((n: ProjectNode) =>
+      const siblings: WorkspaceNode[] = childrenByParent.get(parentId) ?? [];
+      const match: WorkspaceNode | undefined = siblings.find((n: WorkspaceNode) =>
         isLast ? n.name === segment : n.name === segment && n.type === "folder",
       );
       if (!match) return null;

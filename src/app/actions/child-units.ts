@@ -3,7 +3,7 @@
 import { and, asc, eq, isNull, ne, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
-import { profiles, projectMembers, projectOpenRoles, projects } from '@/lib/db/schema';
+import { profiles, workspaceMembers, workspaceOpenRoles, workspaces } from '@/lib/db/schema';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { notifyOrg } from '@/lib/organizations/notify';
 import { insertTask } from '@/lib/organizations/assignments';
@@ -33,11 +33,11 @@ async function manager(projectId: string) {
 export async function readChildUnitsAction(projectId: string): Promise<ChildUnits | Failure> {
     if (!(await manager(projectId))) return DENIED;
     const [units, people] = await Promise.all([
-        db.select({ id: projectOpenRoles.id, role: projectOpenRoles.role, title: projectOpenRoles.title, count: projectOpenRoles.count, filled: projectOpenRoles.filled, leadUserId: projectOpenRoles.leadUserId })
-            .from(projectOpenRoles).where(eq(projectOpenRoles.projectId, projectId)).orderBy(asc(projectOpenRoles.createdAt)),
-        db.select({ userId: projectMembers.userId, unitId: projectMembers.unitId, role: projectMembers.role, name: sql<string>`coalesce(${profiles.fullName}, ${profiles.username}, 'Member')` })
-            .from(projectMembers).innerJoin(profiles, eq(profiles.id, projectMembers.userId))
-            .where(and(eq(projectMembers.projectId, projectId), ne(projectMembers.role, 'owner'))).orderBy(asc(profiles.fullName)),
+        db.select({ id: workspaceOpenRoles.id, role: workspaceOpenRoles.role, title: workspaceOpenRoles.title, count: workspaceOpenRoles.count, filled: workspaceOpenRoles.filled, leadUserId: workspaceOpenRoles.leadUserId })
+            .from(workspaceOpenRoles).where(eq(workspaceOpenRoles.projectId, projectId)).orderBy(asc(workspaceOpenRoles.createdAt)),
+        db.select({ userId: workspaceMembers.userId, unitId: workspaceMembers.unitId, role: workspaceMembers.role, name: sql<string>`coalesce(${profiles.fullName}, ${profiles.username}, 'Member')` })
+            .from(workspaceMembers).innerJoin(profiles, eq(profiles.id, workspaceMembers.userId))
+            .where(and(eq(workspaceMembers.projectId, projectId), ne(workspaceMembers.role, 'owner'))).orderBy(asc(profiles.fullName)),
     ]);
     return {
         success: true,
@@ -51,14 +51,14 @@ export async function readChildUnitsAction(projectId: string): Promise<ChildUnit
 export async function updateUnitAction(projectId: string, unitId: string, patch: { title?: string; count?: number; leadUserId?: string | null }): Promise<{ success: true } | Failure> {
     const m = await manager(projectId);
     if (!m) return DENIED;
-    const [unit] = await db.select().from(projectOpenRoles).where(and(eq(projectOpenRoles.id, unitId), eq(projectOpenRoles.projectId, projectId))).limit(1);
+    const [unit] = await db.select().from(workspaceOpenRoles).where(and(eq(workspaceOpenRoles.id, unitId), eq(workspaceOpenRoles.projectId, projectId))).limit(1);
     if (!unit) return { success: false, error: 'That team is gone.' };
-    const set: Partial<typeof projectOpenRoles.$inferInsert> = { updatedAt: new Date() };
+    const set: Partial<typeof workspaceOpenRoles.$inferInsert> = { updatedAt: new Date() };
     if (patch.title !== undefined) {
         const title = patch.title.trim().slice(0, 100);
         if (!title) return { success: false, error: 'A team needs a name.' };
-        const [clash] = await db.select({ id: projectOpenRoles.id }).from(projectOpenRoles)
-            .where(and(eq(projectOpenRoles.projectId, projectId), ne(projectOpenRoles.id, unitId), sql`lower(coalesce(${projectOpenRoles.title}, ${projectOpenRoles.role})) = lower(${title})`)).limit(1);
+        const [clash] = await db.select({ id: workspaceOpenRoles.id }).from(workspaceOpenRoles)
+            .where(and(eq(workspaceOpenRoles.projectId, projectId), ne(workspaceOpenRoles.id, unitId), sql`lower(coalesce(${workspaceOpenRoles.title}, ${workspaceOpenRoles.role})) = lower(${title})`)).limit(1);
         if (clash) return { success: false, error: 'Another team already has that name.' };
         set.role = title;
         set.title = title;
@@ -71,14 +71,14 @@ export async function updateUnitAction(projectId: string, unitId: string, patch:
     let newLead: string | null = null;
     if (patch.leadUserId !== undefined) {
         if (patch.leadUserId) {
-            const [member] = await db.select({ id: projectMembers.id }).from(projectMembers)
-                .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, patch.leadUserId), eq(projectMembers.unitId, unitId))).limit(1);
+            const [member] = await db.select({ id: workspaceMembers.id }).from(workspaceMembers)
+                .where(and(eq(workspaceMembers.projectId, projectId), eq(workspaceMembers.userId, patch.leadUserId), eq(workspaceMembers.unitId, unitId))).limit(1);
             if (!member) return { success: false, error: 'The team lead must be in the team.' };
             if (patch.leadUserId !== unit.leadUserId) newLead = patch.leadUserId;
         }
         set.leadUserId = patch.leadUserId;
     }
-    await db.update(projectOpenRoles).set(set).where(eq(projectOpenRoles.id, unitId));
+    await db.update(workspaceOpenRoles).set(set).where(eq(workspaceOpenRoles.id, unitId));
     if (newLead && m.project.parentId) {
         await notifyOrg({ orgId: m.project.parentId, eventKey: 'org.role_changed', actorId: m.userId, to: [newLead], title: `You’re team lead of ${set.title ?? unit.title ?? unit.role}`,
             href: `/workspaces/${encodeURIComponent(m.project.slug ?? projectId)}`, sourceEventId: `unit-lead:${projectId}:${unitId}:${newLead}:${Date.now()}`, refs: { projectId } });
@@ -91,25 +91,25 @@ export async function moveMemberToUnitAction(projectId: string, userId: string, 
     if (!(await manager(projectId))) return DENIED;
     try {
         await db.transaction(async (tx) => {
-            const [member] = await tx.select({ unitId: projectMembers.unitId }).from(projectMembers)
-                .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, userId))).for('update').limit(1);
+            const [member] = await tx.select({ unitId: workspaceMembers.unitId }).from(workspaceMembers)
+                .where(and(eq(workspaceMembers.projectId, projectId), eq(workspaceMembers.userId, userId))).for('update').limit(1);
             if (!member) throw new Error('That person is no longer in the workspace.');
             if (member.unitId === unitId) return;
             if (unitId) {
-                const [target] = await tx.select({ filled: projectOpenRoles.filled, count: projectOpenRoles.count }).from(projectOpenRoles)
-                    .where(and(eq(projectOpenRoles.id, unitId), eq(projectOpenRoles.projectId, projectId))).for('update').limit(1);
+                const [target] = await tx.select({ filled: workspaceOpenRoles.filled, count: workspaceOpenRoles.count }).from(workspaceOpenRoles)
+                    .where(and(eq(workspaceOpenRoles.id, unitId), eq(workspaceOpenRoles.projectId, projectId))).for('update').limit(1);
                 if (!target) throw new Error('That team is gone.');
                 if (target.filled >= target.count) throw new Error('That team is full. Add a seat first.');
-                await tx.update(projectOpenRoles).set({ filled: sql`${projectOpenRoles.filled} + 1`, updatedAt: new Date() }).where(eq(projectOpenRoles.id, unitId));
+                await tx.update(workspaceOpenRoles).set({ filled: sql`${workspaceOpenRoles.filled} + 1`, updatedAt: new Date() }).where(eq(workspaceOpenRoles.id, unitId));
             }
             if (member.unitId) {
-                await tx.update(projectOpenRoles).set({
-                    filled: sql`GREATEST(0, ${projectOpenRoles.filled} - 1)`,
-                    leadUserId: sql`CASE WHEN ${projectOpenRoles.leadUserId} = ${userId}::uuid THEN NULL ELSE ${projectOpenRoles.leadUserId} END`,
+                await tx.update(workspaceOpenRoles).set({
+                    filled: sql`GREATEST(0, ${workspaceOpenRoles.filled} - 1)`,
+                    leadUserId: sql`CASE WHEN ${workspaceOpenRoles.leadUserId} = ${userId}::uuid THEN NULL ELSE ${workspaceOpenRoles.leadUserId} END`,
                     updatedAt: new Date(),
-                }).where(eq(projectOpenRoles.id, member.unitId));
+                }).where(eq(workspaceOpenRoles.id, member.unitId));
             }
-            await tx.update(projectMembers).set({ unitId }).where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, userId)));
+            await tx.update(workspaceMembers).set({ unitId }).where(and(eq(workspaceMembers.projectId, projectId), eq(workspaceMembers.userId, userId)));
         });
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Couldn’t move them.' };
@@ -123,11 +123,11 @@ export async function readWorkspaceUnitsAction(projectId: string): Promise<Array
     const access = await getWorkspaceAccessById(projectId, userId);
     if (!access.canRead || !access.project?.parentId) return [];
     const [units, members] = await Promise.all([
-        db.select({ id: projectOpenRoles.id, role: projectOpenRoles.role, title: projectOpenRoles.title, leadUserId: projectOpenRoles.leadUserId, count: projectOpenRoles.count, filled: projectOpenRoles.filled }).from(projectOpenRoles)
-            .where(eq(projectOpenRoles.projectId, projectId)).orderBy(asc(projectOpenRoles.createdAt)),
-        db.select({ userId: projectMembers.userId, unitId: projectMembers.unitId }).from(projectMembers)
-            .innerJoin(projects, eq(projects.id, projectMembers.projectId))
-            .where(and(eq(projectMembers.projectId, projectId), isNull(projects.deletedAt))),
+        db.select({ id: workspaceOpenRoles.id, role: workspaceOpenRoles.role, title: workspaceOpenRoles.title, leadUserId: workspaceOpenRoles.leadUserId, count: workspaceOpenRoles.count, filled: workspaceOpenRoles.filled }).from(workspaceOpenRoles)
+            .where(eq(workspaceOpenRoles.projectId, projectId)).orderBy(asc(workspaceOpenRoles.createdAt)),
+        db.select({ userId: workspaceMembers.userId, unitId: workspaceMembers.unitId }).from(workspaceMembers)
+            .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.projectId))
+            .where(and(eq(workspaceMembers.projectId, projectId), isNull(workspaces.deletedAt))),
     ]);
     return units.map((u) => ({ id: u.id, title: u.title || u.role, memberIds: members.filter((m) => m.unitId === u.id).map((m) => m.userId), leadUserId: u.leadUserId, count: u.count, filled: u.filled }));
 }
@@ -147,12 +147,12 @@ export async function createTeamTasksAction(projectId: string, input: {
     const due = input.dueDate ? new Date(input.dueDate) : null;
     if (due && !Number.isFinite(due.getTime())) return { success: false, error: 'Pick a valid due date.' };
 
-    const members = await db.select({ userId: projectMembers.userId, unitId: projectMembers.unitId }).from(projectMembers).where(eq(projectMembers.projectId, projectId));
+    const members = await db.select({ userId: workspaceMembers.userId, unitId: workspaceMembers.unitId }).from(workspaceMembers).where(eq(workspaceMembers.projectId, projectId));
     const inProject = new Set([...members.map((x) => x.userId), m.project.ownerId]);
     let teams: Array<{ name: string; userIds: string[]; leadId: string }>;
     if (input.mode === 'units') {
-        const units = await db.select({ id: projectOpenRoles.id, role: projectOpenRoles.role, title: projectOpenRoles.title, leadUserId: projectOpenRoles.leadUserId })
-            .from(projectOpenRoles).where(eq(projectOpenRoles.projectId, projectId)).orderBy(asc(projectOpenRoles.createdAt));
+        const units = await db.select({ id: workspaceOpenRoles.id, role: workspaceOpenRoles.role, title: workspaceOpenRoles.title, leadUserId: workspaceOpenRoles.leadUserId })
+            .from(workspaceOpenRoles).where(eq(workspaceOpenRoles.projectId, projectId)).orderBy(asc(workspaceOpenRoles.createdAt));
         teams = units.flatMap((u) => {
             const people = members.filter((x) => x.unitId === u.id).map((x) => x.userId);
             return people.length ? [{ name: u.title || u.role, userIds: people, leadId: u.leadUserId && people.includes(u.leadUserId) ? u.leadUserId : people[0]! }] : [];

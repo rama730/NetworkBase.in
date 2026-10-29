@@ -5,7 +5,7 @@
 import * as React from "react";
 import { MoreHorizontal, Star, X } from "lucide-react";
 
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 import { getTaskWorkingFilesDisplayName } from "@/lib/files/task-working-files";
 import { extractFoldersFromDataTransfer } from "@/lib/files/folder-drop";
@@ -22,7 +22,7 @@ import { FOLDER_LIST_GRID_TEMPLATE, FOLDER_LIST_ROW_HEIGHT_PX } from "./layout";
 export type GitChangeStatus = "modified" | "added" | "deleted";
 
 /** Optional enrichment on `ProjectNode` supplied by the parent view. */
-export type FolderListRowNode = ProjectNode & {
+export type FolderListRowNode = WorkspaceNode & {
   /** Latest version uploader id when this row is a file. */
   updatedById?: string | null;
   /** Upstream-resolved display label for the "By" column. */

@@ -21,8 +21,8 @@ before(async () => {
 const created: string[] = [];
 after(async () => {
   for (const id of created.reverse()) {
-    await sql`DELETE FROM email_outbox WHERE project_id = ${id}`;
-    await sql`DELETE FROM projects WHERE id = ${id}`;
+    await sql`DELETE FROM email_outbox WHERE workspace_id = ${id}`;
+    await sql`DELETE FROM workspaces WHERE id = ${id}`;
   }
   await sql.end();
   await closeAppDb();
@@ -32,25 +32,25 @@ async function org(timeZone = "UTC") {
   const [owner, admin, a, b] = await Promise.all([1, 2, 3, 4].map(() => sql.begin((tx) => createUser(tx))));
   await sql`UPDATE profiles SET notification_preferences = ${sql.json({ quietHours: { enabled: false, startMinute: 0, endMinute: 0, timeZone: "UTC" } })} WHERE id IN (${a!}, ${b!})`;
   const id = await sql.begin((tx) => createProject(tx, owner!));
-  await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${id}, ${owner!}, 'owner'), (${id}, ${admin!}, 'admin'), (${id}, ${a!}, 'member'), (${id}, ${b!}, 'member')`;
-  await sql`UPDATE projects SET kind = 'organization', org_type = 'education', join_code = ${generateJoinCode()}, title = 'CSE-3A', time_zone = ${timeZone} WHERE id = ${id}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${owner!}, 'owner'), (${id}, ${admin!}, 'admin'), (${id}, ${a!}, 'member'), (${id}, ${b!}, 'member')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', join_code = ${generateJoinCode()}, title = 'CSE-3A', time_zone = ${timeZone} WHERE id = ${id}`;
   created.push(id);
   return { id, owner: owner!, admin: admin!, a: a!, b: b! };
 }
 
 async function master(orgId: string, owner: string, settings: Record<string, unknown> = {}) {
-  const [row] = await sql`INSERT INTO tasks (project_id, title, kind, creator_id, assignment_settings)
+  const [row] = await sql`INSERT INTO tasks (workspace_id, title, kind, creator_id, assignment_settings)
     VALUES (${orgId}, 'Lab 2', 'assignment', ${owner}, ${sql.json({ version: 1, submissionType: "file", reviewRequired: true, lateRule: "always", target: { mode: "everyone" }, publishedAt: new Date().toISOString(), closedAt: null, ...settings })}) RETURNING id`;
   return row!.id as string;
 }
 
 async function copy(orgId: string, masterId: string, assignee: string, due: Date, extra: { reviewStatus?: string } = {}) {
-  const [row] = await sql`INSERT INTO tasks (project_id, title, kind, assignment_id, assignee_id, creator_id, due_date, review_status, review_submitted_at)
+  const [row] = await sql`INSERT INTO tasks (workspace_id, title, kind, assignment_id, assignee_id, creator_id, due_date, review_status, review_submitted_at)
     VALUES (${orgId}, 'Lab 2', 'task', ${masterId}, ${assignee}, ${assignee}, ${due}, ${extra.reviewStatus ?? "none"}, ${extra.reviewStatus === "pending" ? new Date() : null}) RETURNING id`;
   return row!.id as string;
 }
 
-const outbox = (orgId: string, kind: string) => sql`SELECT user_id, data FROM email_outbox WHERE project_id = ${orgId} AND kind = ${kind} ORDER BY created_at`;
+const outbox = (orgId: string, kind: string) => sql`SELECT user_id, data FROM email_outbox WHERE workspace_id = ${orgId} AND kind = ${kind} ORDER BY created_at`;
 const tray = (orgId: string, userId: string) => sql`SELECT title FROM user_notifications WHERE user_id = ${userId} AND entity_refs->>'orgId' = ${orgId}`;
 
 test("due soon: one combined email and tray row per person per org per day at 9:00 local; overdue once; a rerun adds nothing", async () => {
@@ -94,8 +94,8 @@ test("admin digest: skipped when empty, sent to the owner and admins at 8:00 org
   assert.deepEqual(sent.map((r) => r.user_id).sort(), [o.owner, o.admin].sort());
   assert.deepEqual((sent[0]!.data as { digest: { toReview: unknown } }).digest.toReview, [{ title: "Lab 2", count: 1 }]);
 
-  await sql`UPDATE projects SET org_settings = org_settings || '{"adminDigest": "instant"}'::jsonb WHERE id = ${o.id}`;
-  await sql`DELETE FROM email_outbox WHERE project_id = ${o.id}`;
+  await sql`UPDATE workspaces SET org_settings = org_settings || '{"adminDigest": "instant"}'::jsonb WHERE id = ${o.id}`;
+  await sql`DELETE FROM email_outbox WHERE workspace_id = ${o.id}`;
   await digests.runOrgAdminDigest(now);
   assert.equal((await outbox(o.id, "org_digest")).length, 0, "instant orgs get no digest");
 });
@@ -103,7 +103,7 @@ test("admin digest: skipped when empty, sent to the owner and admins at 8:00 org
 test("E5 lists only materials the members can open, and each person only their own team", async () => {
   const o = await org();
   const m = await master(o.id, o.owner);
-  const insertNode = (path: string, type: string, access: string | null, taskId: string | null) => sql`INSERT INTO project_nodes (project_id, task_id, path, type, name, metadata, current_version)
+  const insertNode = (path: string, type: string, access: string | null, taskId: string | null) => sql`INSERT INTO workspace_nodes (workspace_id, task_id, path, type, name, metadata, current_version)
     VALUES (${o.id}, ${taskId}, ${path}, ${type}, ${path.split("/").at(-1)!}, ${sql.json(access ? { access } : {})}, 1)`;
   await insertNode("/Staff", "folder", "admins", null);
   await insertNode("/Staff/answer-key.pdf", "file", null, m);
@@ -126,7 +126,7 @@ test("E5 lists only materials the members can open, and each person only their o
 test("announcements reach their audience only; the sixth emailed one in a day goes to the tray alone", async () => {
   const o = await org();
   const post = async (audience: unknown, email = false) => {
-    const [row] = await sql`INSERT INTO project_updates (project_id, author_id, content, update_type, visibility, notify_level, audience)
+    const [row] = await sql`INSERT INTO workspace_updates (workspace_id, author_id, content, update_type, visibility, notify_level, audience)
       VALUES (${o.id}, ${o.owner}, 'Midterm moved', 'announcement', 'members', ${email ? "email" : "in_app"}, ${sql.json(audience ?? {})}) RETURNING id`;
     return notify.notifyAnnouncement({ orgId: o.id, updateId: row!.id, actorId: o.owner, content: "Midterm moved", audience: audience as never, email });
   };
@@ -170,7 +170,7 @@ test("§21 Work → Reminders: due-day only skips the day-before email; off send
   const m = await master(o.id, o.owner);
   await copy(o.id, m, o.a, new Date(now.getTime() + 24 * 3600 * 1000));
   await copy(o.id, m, o.b, new Date(now.getTime() + 3 * 3600 * 1000));
-  await sql`UPDATE projects SET org_settings = coalesce(org_settings, '{}'::jsonb) || '{"assignmentReminders":"due_day"}'::jsonb WHERE id = ${o.id}`;
+  await sql`UPDATE workspaces SET org_settings = coalesce(org_settings, '{}'::jsonb) || '{"assignmentReminders":"due_day"}'::jsonb WHERE id = ${o.id}`;
   await digests.runOrgDueSoon(now);
   assert.equal((await outbox(o.id, "org_due_soon")).length, 0, "no day-before email");
   assert.ok((await tray(o.id, o.b)).some((r) => r.title.startsWith("Lab 2 is due today")));
@@ -179,7 +179,7 @@ test("§21 Work → Reminders: due-day only skips the day-before email; off send
   const m2 = await master(o2.id, o2.owner);
   await copy(o2.id, m2, o2.b, new Date(now.getTime() + 3 * 3600 * 1000));
   await copy(o2.id, m2, o2.a, new Date(now.getTime() - 2 * 3600 * 1000));
-  await sql`UPDATE projects SET org_settings = coalesce(org_settings, '{}'::jsonb) || '{"assignmentReminders":"off"}'::jsonb WHERE id = ${o2.id}`;
+  await sql`UPDATE workspaces SET org_settings = coalesce(org_settings, '{}'::jsonb) || '{"assignmentReminders":"off"}'::jsonb WHERE id = ${o2.id}`;
   await digests.runOrgDueSoon(now);
   assert.equal((await tray(o2.id, o2.b)).length, 0, "off: no due-today notice");
   assert.equal((await tray(o2.id, o2.a)).length, 1, "overdue is not a reminder");

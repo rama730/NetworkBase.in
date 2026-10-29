@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import type { FileTreeItemContext } from "./FileTreeItem";
 import type { ExplorerOperation } from "./explorerTypes";
 
@@ -12,7 +12,7 @@ import type { ExplorerOperation } from "./explorerTypes";
  */
 export function useTreeContext(options: {
   projectId: string;
-  nodesById: Record<string, ProjectNode>;
+  nodesById: Record<string, WorkspaceNode>;
   selectedNodeId: string | null | undefined;
   effectiveSelectedNodeIds: string[];
   expandedFolderIds: Record<string, boolean>;
@@ -41,8 +41,8 @@ export function useTreeContext(options: {
     string,
     { ariaLevel: number; ariaPosInSet: number; ariaSetSize: number }
   >;
-  handleSelect: (node: ProjectNode, e?: React.MouseEvent) => void;
-  handleToggleFolder: (node: ProjectNode) => Promise<void>;
+  handleSelect: (node: WorkspaceNode, e?: React.MouseEvent) => void;
+  handleToggleFolder: (node: WorkspaceNode) => Promise<void>;
   handleDropOnFolder: (targetId: string, draggedId: string) => Promise<void>;
   handleLoadMore: (pid: string | null) => void;
   openCreate: (kind: "file" | "folder") => void;
@@ -50,17 +50,17 @@ export function useTreeContext(options: {
   handleUploadToFolder: (folderId: string | null) => void;
   handleUploadFolderToFolder: (folderId: string | null) => void;
   handleDownloadFolder: (folderId: string) => void;
-  openRename: (node: ProjectNode) => void;
-  handleMoveFromMenu: (node: ProjectNode) => void;
-  handleDeleteFromMenu: (node: ProjectNode) => void;
-  handleTaskLinksClick: (node: ProjectNode) => void;
+  openRename: (node: WorkspaceNode) => void;
+  handleMoveFromMenu: (node: WorkspaceNode) => void;
+  handleDeleteFromMenu: (node: WorkspaceNode) => void;
+  handleTaskLinksClick: (node: WorkspaceNode) => void;
   toggleFavorite: (projectId: string, nodeId: string) => void;
   loadFolderContent: (parentId: string | null, mode: "refresh" | "append") => Promise<void>;
   runUniqueMutation: <T>(key: string, fn: () => Promise<T>) => Promise<T | null>;
   showToast: (msg: string, type: "success" | "error" | "info") => void;
   recordOperation: (op: Omit<ExplorerOperation, "id" | "at">) => void;
-  setTrashNodesState: React.Dispatch<React.SetStateAction<ProjectNode[]>>;
-  onContextMenu: (node: ProjectNode, e: React.MouseEvent) => void;
+  setTrashNodesState: React.Dispatch<React.SetStateAction<WorkspaceNode[]>>;
+  onContextMenu: (node: WorkspaceNode, e: React.MouseEvent) => void;
 }): FileTreeItemContext {
   const {
     projectId,
@@ -110,7 +110,7 @@ export function useTreeContext(options: {
   } = options;
 
   const handleOpenNodeFromMenu = useCallback(
-    (node: ProjectNode) => {
+    (node: WorkspaceNode) => {
       handleSelect(node);
       if (node.type === "folder" && !expandedFolderIds[node.id]) {
         void handleToggleFolder(node);
@@ -150,8 +150,8 @@ export function useTreeContext(options: {
       folderSizes,
       treeItemMetaByNodeId,
 
-      onToggle: (node: ProjectNode) => void handleToggleFolder(node),
-      onSelect: (node: ProjectNode, e?: React.MouseEvent) => handleSelect(node, e),
+      onToggle: (node: WorkspaceNode) => void handleToggleFolder(node),
+      onSelect: (node: WorkspaceNode, e?: React.MouseEvent) => handleSelect(node, e),
       onContextMenu,
       onDragStart: () => {},
       onDragEnd: () => {},
@@ -164,12 +164,12 @@ export function useTreeContext(options: {
       uploadToFolder: (folderId: string | null) => handleUploadToFolder(folderId),
       uploadFolderToFolder: (folderId: string | null) => handleUploadFolderToFolder(folderId),
       downloadFolder: (folderId: string) => handleDownloadFolder(folderId),
-      openNode: (node: ProjectNode) => handleOpenNodeFromMenu(node),
-      renameNode: (node: ProjectNode) => openRename(node),
-      moveNode: (node: ProjectNode) => handleMoveFromMenu(node),
-      deleteNode: (node: ProjectNode) => handleDeleteFromMenu(node),
+      openNode: (node: WorkspaceNode) => handleOpenNodeFromMenu(node),
+      renameNode: (node: WorkspaceNode) => openRename(node),
+      moveNode: (node: WorkspaceNode) => handleMoveFromMenu(node),
+      deleteNode: (node: WorkspaceNode) => handleDeleteFromMenu(node),
       toggleFavorite: (nodeId: string) => toggleFavorite(projectId, nodeId),
-      onTaskLinksClick: (node: ProjectNode) => handleTaskLinksClick(node),
+      onTaskLinksClick: (node: WorkspaceNode) => handleTaskLinksClick(node),
     }),
     [
       nodesById,

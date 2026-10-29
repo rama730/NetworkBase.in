@@ -27,7 +27,7 @@ import {
     requireAuthenticatedUser,
 } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
-import { profiles, projectMembers, projects } from "@/lib/db/schema";
+import { profiles, workspaceMembers, workspaces } from "@/lib/db/schema";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { isWorkspaceMemberEligibleFor } from "@/lib/workspaces/collaborator-lifecycle";
 import { isLooseUuid } from "@/lib/validations/uuid";
@@ -107,10 +107,10 @@ export async function GET(
             avatarUrl: profiles.avatarUrl,
         })
         .from(profiles)
-        .innerJoin(projects, eq(projects.ownerId, profiles.id))
+        .innerJoin(workspaces, eq(workspaces.ownerId, profiles.id))
         .where(
             and(
-                eq(projects.id, projectId),
+                eq(workspaces.id, projectId),
                 likePattern
                     ? or(
                           ilike(profiles.fullName, likePattern),
@@ -124,16 +124,16 @@ export async function GET(
     const memberPromise = db
         .select({
             id: profiles.id,
-            role: projectMembers.role,
+            role: workspaceMembers.role,
             username: profiles.username,
             fullName: profiles.fullName,
             avatarUrl: profiles.avatarUrl,
         })
-        .from(projectMembers)
-        .innerJoin(profiles, eq(projectMembers.userId, profiles.id))
+        .from(workspaceMembers)
+        .innerJoin(profiles, eq(workspaceMembers.userId, profiles.id))
         .where(
             and(
-                eq(projectMembers.projectId, projectId),
+                eq(workspaceMembers.projectId, projectId),
                 likePattern
                     ? or(
                           ilike(profiles.fullName, likePattern),

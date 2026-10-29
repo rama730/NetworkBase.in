@@ -33,7 +33,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { filesParentKey, useFilesStore } from "@/stores/filesStore";
 
 // ─── Public types ────────────────────────────────────────────────────
@@ -42,7 +42,7 @@ export type FolderContentsStatus = "loading" | "ready" | "error";
 
 export interface FolderContents {
   status: FolderContentsStatus;
-  children: ProjectNode[];
+  children: WorkspaceNode[];
   retry: () => void;
   refreshError?: boolean;
 }
@@ -62,7 +62,7 @@ export interface FilesTabBootContextValue {
   loadFolderContent: LoadFolderContent;
   isBooting: boolean;
   accessError: string | null;
-  handleToggleFolder: (node: ProjectNode) => Promise<void>;
+  handleToggleFolder: (node: WorkspaceNode) => Promise<void>;
   handleLoadMore: (folderId: string | null) => void;
 }
 
@@ -76,7 +76,7 @@ export interface DeriveFolderContentsInput {
   /** `ws.childrenByParentId[parentKey(folderId)]` or an empty list. */
   childIds: readonly string[];
   /** `ws.nodesById`. Children missing from this map are filtered out. */
-  nodesById: Record<string, ProjectNode>;
+  nodesById: Record<string, WorkspaceNode>;
   /** Local error flag managed by the hook (sticky until retry). */
   hasError: boolean;
   /** Retry callback surfaced unchanged on the result. */
@@ -157,7 +157,7 @@ export async function runFolderLoad(args: RunFolderLoadArgs): Promise<void> {
 // Stable empty references keep selectors from triggering re-renders on every
 // store write. Zustand compares selector output with `Object.is`.
 const EMPTY_IDS: readonly string[] = Object.freeze([]);
-const EMPTY_NODES: Record<string, ProjectNode> = Object.freeze({}) as Record<string, ProjectNode>;
+const EMPTY_NODES: Record<string, WorkspaceNode> = Object.freeze({}) as Record<string, WorkspaceNode>;
 
 export function useFolderContents(
   projectId: string,

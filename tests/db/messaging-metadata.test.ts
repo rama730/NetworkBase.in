@@ -39,8 +39,8 @@ before(async () => {
     'metadata-reply-' || n::text, ${root}::bigint, '[]'::jsonb, NULL) FROM generate_series(1, 605) AS n`;
 });
 after(async () => {
-  await sql`DELETE FROM chat_channels WHERE id = ${channel} OR project_id = ${project || null}::uuid`;
-  if (project) await sql`DELETE FROM projects WHERE id = ${project}`;
+  await sql`DELETE FROM chat_channels WHERE id = ${channel} OR workspace_id = ${project || null}::uuid`;
+  if (project) await sql`DELETE FROM workspaces WHERE id = ${project}`;
   await sql`DELETE FROM profiles WHERE id = ANY(${[owner, outsider]}::uuid[])`;
   await sql`DELETE FROM auth.users WHERE id = ANY(${[owner, outsider]}::uuid[])`;
   await sql.end();
@@ -115,14 +115,14 @@ test("task sources contain their own preview and thread identity, and omit delet
 test("project members can resolve public-channel messages before joining; other users cannot", async () => {
   project = await sql.begin((tx) => createProject(tx, owner));
   await sql.begin((tx) => addMember(tx, project, outsider));
-  const publicChannel = (await sql`INSERT INTO chat_channels(kind, name, project_id, created_by) VALUES ('public', 'metadata-public', ${project}, ${owner}) RETURNING id`)[0]!.id;
+  const publicChannel = (await sql`INSERT INTO chat_channels(kind, name, workspace_id, created_by) VALUES ('public', 'metadata-public', ${project}, ${owner}) RETURNING id`)[0]!.id;
   await sql`INSERT INTO chat_channel_members(channel_id, user_id, role) VALUES (${publicChannel}, ${owner}, 'owner')`;
   const sent = await send.sendAs({ id: owner }, { channelId: publicChannel, body: "public preview" }, null);
   assert.ok(sent.success);
   viewer = outsider;
   const located = await messages.resolveMessageTarget({ channelId: publicChannel, seq: sent.message.seq });
   assert.ok(located.success);
-  await sql`DELETE FROM project_members WHERE project_id = ${project} AND user_id = ${outsider}`;
+  await sql`DELETE FROM workspace_members WHERE workspace_id = ${project} AND user_id = ${outsider}`;
   assert.deepEqual(await messages.resolveMessageTarget({ channelId: publicChannel, seq: sent.message.seq }), { success: false, error: "chat_message_not_found" });
   viewer = owner;
 });

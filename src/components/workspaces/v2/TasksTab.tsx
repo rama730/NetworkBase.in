@@ -34,7 +34,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import type { ProjectWorkflowColumn as WorkflowColumn } from "@/lib/db/schema";
+import type { WorkspaceWorkflowColumn as WorkflowColumn } from "@/lib/db/schema";
 import KanbanBoard from "@/components/workspaces/v2/tasks/KanbanBoard";
 import TaskFilters from "@/components/workspaces/v2/tasks/TaskFilters";
 import {
@@ -367,8 +367,8 @@ export default function TasksTab({
       bindings: [
         {
           event: "*",
-          table: "project_workflow_columns",
-          filter: `project_id=eq.${projectId}`,
+          table: "workspace_workflow_columns",
+          filter: `workspace_id=eq.${projectId}`,
           handler: scheduleWorkflowRefresh,
         },
       ],

@@ -3,7 +3,7 @@ import "server-only";
 import { and, eq } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { githubSyncConnections, projectNodes, projects, storageAssets } from "@/lib/db/schema";
+import { githubSyncConnections, workspaceNodes, workspaces, storageAssets } from "@/lib/db/schema";
 import type { WorkspaceAccess } from "@/lib/data/workspace-access";
 import { assertFileNodeVisible } from "@/lib/files/internal-helpers";
 import { resolveGithubRepoAccess } from "@/lib/github/auth-resolver";
@@ -33,8 +33,8 @@ export async function readWorkspaceFileText(
     projectId: string,
     nodeId: string,
 ): Promise<string> {
-    const node = await db.query.projectNodes.findFirst({
-        where: and(eq(projectNodes.id, nodeId), eq(projectNodes.projectId, projectId)),
+    const node = await db.query.workspaceNodes.findFirst({
+        where: and(eq(workspaceNodes.id, nodeId), eq(workspaceNodes.projectId, projectId)),
         columns: { s3Key: true, assetId: true, size: true, gitHash: true, path: true, taskId: true, deletedAt: true }
     });
 
@@ -142,10 +142,10 @@ async function tryRecoverFromGitHub(projectId: string, gitBlobSha: string): Prom
     if (!/^[0-9a-f]{40}(?:[0-9a-f]{24})?$/i.test(gitBlobSha)) return null;
     try {
         const [project] = await db
-            .select({ importSource: projects.importSource, installationId: githubSyncConnections.installationId })
-            .from(projects)
-            .leftJoin(githubSyncConnections, eq(githubSyncConnections.projectId, projects.id))
-            .where(eq(projects.id, projectId))
+            .select({ importSource: workspaces.importSource, installationId: githubSyncConnections.installationId })
+            .from(workspaces)
+            .leftJoin(githubSyncConnections, eq(githubSyncConnections.projectId, workspaces.id))
+            .where(eq(workspaces.id, projectId))
             .limit(1);
         const importSource = project?.importSource as { type?: string; repoUrl?: string; metadata?: Record<string, unknown> } | null;
         if (importSource?.type !== "github" || !importSource.repoUrl) return null;

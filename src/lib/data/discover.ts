@@ -3,7 +3,7 @@ import { canonicalSkillKey } from '@/lib/skills/matching';
 import { normalizeSkillLookup } from '@/lib/skills/normalization';
 import { FILTER_VIEWS, SORT_OPTIONS, type FilterView } from '@/constants/discover';
 import { db } from '@/lib/db';
-import { connections, profiles, projectFollows, projectMembers, projectOpenRoles, projects, roleApplications } from '@/lib/db/schema';
+import { connections, profiles, workspaceFollows, workspaceMembers, workspaceOpenRoles, workspaces, roleApplications } from '@/lib/db/schema';
 import { recordDiscoverMetric } from '@/lib/discover/observability';
 import { DISCOVER_RANKING_SCHEMA_VERSION, DISCOVER_RANKING_WEIGHTS } from '@/lib/discover/ranking-config';
 import { buildDiscoverSnapshotKey } from '@/lib/discover/snapshot-cache';
@@ -183,16 +183,16 @@ const buildScoreCursor = (fingerprint: string, score: number, cursorAt: string, 
     `s:${fingerprint}|${Number.isFinite(score) ? String(score) : '0'}|${cursorAt}|${id}|${now}`;
 
 /** created_at as UTC text with microseconds: a cursor built from it compares exactly. */
-const cursorAtSql = sql<string>`to_char(${projects.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
+const cursorAtSql = sql<string>`to_char(${workspaces.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
 
 /** The trending score at a fixed moment (the first page's), so later pages rank the same way. */
 const trendingScoreSql = (nowMs: number) => {
     const weights = DISCOVER_RANKING_WEIGHTS;
     const now = new Date(nowMs).toISOString();
     return sql<number>`(
-        (ln(1 + greatest(coalesce(${projects.viewCount}, 0), 0)) * ${weights.trending.views}) +
-        (ln(1 + greatest(coalesce(${projects.followersCount}, 0), 0)) * ${weights.trending.follows}) +
-        (greatest(0, 72 - (extract(epoch from (${now}::timestamptz - ${projects.updatedAt})) / 3600.0)) * ${weights.trending.recency})
+        (ln(1 + greatest(coalesce(${workspaces.viewCount}, 0), 0)) * ${weights.trending.views}) +
+        (ln(1 + greatest(coalesce(${workspaces.followersCount}, 0), 0)) * ${weights.trending.follows}) +
+        (greatest(0, 72 - (extract(epoch from (${now}::timestamptz - ${workspaces.updatedAt})) / 3600.0)) * ${weights.trending.recency})
     )`;
 };
 
@@ -210,14 +210,14 @@ const getViewerPersonalizationTerms = async (viewerId: string | null | undefined
             .limit(1),
         db
             .select({
-                category: projects.category,
-                skills: projects.skills,
-                tags: projects.tags,
+                category: workspaces.category,
+                skills: workspaces.skills,
+                tags: workspaces.tags,
             })
-            .from(projectFollows)
-            .innerJoin(projects, eq(projectFollows.projectId, projects.id))
-            .where(eq(projectFollows.userId, viewerId))
-            .orderBy(desc(projectFollows.createdAt))
+            .from(workspaceFollows)
+            .innerJoin(workspaces, eq(workspaceFollows.projectId, workspaces.id))
+            .where(eq(workspaceFollows.userId, viewerId))
+            .orderBy(desc(workspaceFollows.createdAt))
             .limit(20)
             .catch(() => []),
     ]);
@@ -240,13 +240,13 @@ const getViewerPersonalizationTerms = async (viewerId: string | null | undefined
 const buildTermMatchConditions = (terms: string[]) => terms.map((term) => {
         const pattern = likePattern(term);
         return or(
-            ilike(projects.title, pattern),
-            ilike(projects.description, pattern),
-            sql<boolean>`EXISTS (SELECT 1 FROM project_skills ps JOIN skills s ON ps.skill_id = s.id WHERE ps.project_id = ${projects.id} AND s.name ILIKE ${pattern})`,
-            sql<boolean>`EXISTS (SELECT 1 FROM project_tags pt JOIN tags t ON pt.tag_id = t.id WHERE pt.project_id = ${projects.id} AND t.name ILIKE ${pattern})`,
-            sql<boolean>`lower(coalesce(${projects.category}, '')) LIKE ${pattern}`,
+            ilike(workspaces.title, pattern),
+            ilike(workspaces.description, pattern),
+            sql<boolean>`EXISTS (SELECT 1 FROM workspace_skills ps JOIN skills s ON ps.skill_id = s.id WHERE ps.workspace_id = ${workspaces.id} AND s.name ILIKE ${pattern})`,
+            sql<boolean>`EXISTS (SELECT 1 FROM workspace_tags pt JOIN tags t ON pt.tag_id = t.id WHERE pt.workspace_id = ${workspaces.id} AND t.name ILIKE ${pattern})`,
+            sql<boolean>`lower(coalesce(${workspaces.category}, '')) LIKE ${pattern}`,
             // An org's @handle (report §24.3).
-            ilike(projects.slug, pattern),
+            ilike(workspaces.slug, pattern),
         )!;
     });
 
@@ -257,24 +257,24 @@ const buildSearchRelevanceExpr = (terms: string[]) => {
         const prefix = `${escapeLikePattern(term)}%`;
         return sql<number>`(
             CASE
-                WHEN ${projects.title} ILIKE ${term} THEN 100
-                WHEN ${projects.title} ILIKE ${prefix} THEN 80
-                WHEN ${projects.title} ILIKE ${contains} THEN 50
+                WHEN ${workspaces.title} ILIKE ${term} THEN 100
+                WHEN ${workspaces.title} ILIKE ${prefix} THEN 80
+                WHEN ${workspaces.title} ILIKE ${contains} THEN 50
                 ELSE 0
             END
             + CASE WHEN EXISTS (
-                SELECT 1 FROM project_skills ps
+                SELECT 1 FROM workspace_skills ps
                 JOIN skills s ON ps.skill_id = s.id
                 LEFT JOIN skill_aliases sa ON sa.skill_id = s.id
-                WHERE ps.project_id = ${projects.id}
+                WHERE ps.workspace_id = ${workspaces.id}
                   AND (s.name ILIKE ${term} OR sa.normalized_alias ILIKE ${term})
             ) THEN 70 ELSE 0 END
             + CASE WHEN EXISTS (
-                SELECT 1 FROM project_tags pt JOIN tags t ON pt.tag_id = t.id
-                WHERE pt.project_id = ${projects.id} AND t.name ILIKE ${term}
+                SELECT 1 FROM workspace_tags pt JOIN tags t ON pt.tag_id = t.id
+                WHERE pt.workspace_id = ${workspaces.id} AND t.name ILIKE ${term}
             ) THEN 60 ELSE 0 END
-            + CASE WHEN ${projects.category} ILIKE ${term} THEN 55 ELSE 0 END
-            + CASE WHEN ${projects.description} ILIKE ${contains} THEN 20 ELSE 0 END
+            + CASE WHEN ${workspaces.category} ILIKE ${term} THEN 55 ELSE 0 END
+            + CASE WHEN ${workspaces.description} ILIKE ${contains} THEN 20 ELSE 0 END
         )`;
     }), sql` + `)})`;
 };
@@ -289,18 +289,18 @@ const buildRecommendationRelevanceExpr = (terms: string[]) => {
     const clauses = terms.map((term) => {
         const pattern = likePattern(term);
         return sql<number>`(
-            CASE WHEN lower(coalesce(${projects.title}, '')) LIKE ${pattern} THEN ${weights.recommendation.titleMatch} ELSE 0 END +
-            CASE WHEN lower(coalesce(${projects.description}, '')) LIKE ${pattern} THEN ${weights.recommendation.descriptionMatch} ELSE 0 END +
+            CASE WHEN lower(coalesce(${workspaces.title}, '')) LIKE ${pattern} THEN ${weights.recommendation.titleMatch} ELSE 0 END +
+            CASE WHEN lower(coalesce(${workspaces.description}, '')) LIKE ${pattern} THEN ${weights.recommendation.descriptionMatch} ELSE 0 END +
             CASE WHEN EXISTS (
                 SELECT 1
-                FROM project_skills ps
+                FROM workspace_skills ps
                 JOIN skills s ON ps.skill_id = s.id
                 LEFT JOIN skill_aliases sa ON sa.skill_id = s.id
-                WHERE ps.project_id = ${projects.id}
+                WHERE ps.workspace_id = ${workspaces.id}
                   AND (s.name ILIKE ${pattern} OR sa.normalized_alias ILIKE ${pattern})
             ) THEN ${weights.recommendation.skillsMatch} ELSE 0 END +
-            CASE WHEN EXISTS (SELECT 1 FROM project_tags pt JOIN tags t ON pt.tag_id = t.id WHERE pt.project_id = ${projects.id} AND t.name ILIKE ${pattern}) THEN ${weights.recommendation.tagsMatch} ELSE 0 END +
-            CASE WHEN lower(coalesce(${projects.category}, '')) LIKE ${pattern} THEN ${weights.recommendation.categoryMatch} ELSE 0 END
+            CASE WHEN EXISTS (SELECT 1 FROM workspace_tags pt JOIN tags t ON pt.tag_id = t.id WHERE pt.workspace_id = ${workspaces.id} AND t.name ILIKE ${pattern}) THEN ${weights.recommendation.tagsMatch} ELSE 0 END +
+            CASE WHEN lower(coalesce(${workspaces.category}, '')) LIKE ${pattern} THEN ${weights.recommendation.categoryMatch} ELSE 0 END
         )`;
     });
 
@@ -326,27 +326,27 @@ export const buildBaseConditions = (
     const conditions: SQL<unknown>[] = [
         // CRITICAL: Always exclude soft-deleted projects from every hub query
         // Literal values, written exactly like the 0195 partial indexes' predicate, so the planner uses them.
-        sql<boolean>`${projects.deletedAt} IS NULL AND ${projects.visibility} IN ('public', 'unlisted') AND ${projects.status} <> 'draft'`,
+        sql<boolean>`${workspaces.deletedAt} IS NULL AND ${workspaces.visibility} IN ('public', 'unlisted') AND ${workspaces.status} <> 'draft'`,
         // A deleted account's projects leave Discover with it.
-        sql<boolean>`EXISTS (SELECT 1 FROM ${profiles} owner WHERE owner.id = ${projects.ownerId} AND owner.deleted_at IS NULL)`,
+        sql<boolean>`EXISTS (SELECT 1 FROM ${profiles} owner WHERE owner.id = ${workspaces.ownerId} AND owner.deleted_at IS NULL)`,
         // Decision 160: a new org reaches Discover after 3+ members and 7+ days, or once verified (profile-rules.ts).
-        sql<boolean>`(${projects.kind} <> 'organization' OR ${projects.verifiedAt} IS NOT NULL OR (
-            ${projects.createdAt} <= now() - interval '7 days'
-            AND (SELECT count(*) FROM project_members m WHERE m.project_id = ${projects.id}) >= 3
+        sql<boolean>`(${workspaces.kind} <> 'organization' OR ${workspaces.verifiedAt} IS NOT NULL OR (
+            ${workspaces.createdAt} <= now() - interval '7 days'
+            AND (SELECT count(*) FROM workspace_members m WHERE m.workspace_id = ${workspaces.id}) >= 3
         ))`,
         // Report §30.3, §30.5: hidden by a platform admin, suspended or deleting projects and orgs (and the child
         // projects of a suspended or deleting org) leave Discover and search; an archived org leaves the feed.
-        sql<boolean>`${projects.discoverHiddenAt} IS NULL AND ${projects.suspendedAt} IS NULL AND ${projects.deletionScheduledAt} IS NULL
-            AND NOT (${projects.kind} = 'organization' AND ${projects.status} = 'archived')
-            AND (${projects.parentId} IS NULL OR NOT EXISTS (SELECT 1 FROM projects o WHERE o.id = ${projects.parentId}
+        sql<boolean>`${workspaces.discoverHiddenAt} IS NULL AND ${workspaces.suspendedAt} IS NULL AND ${workspaces.deletionScheduledAt} IS NULL
+            AND NOT (${workspaces.kind} = 'organization' AND ${workspaces.status} = 'archived')
+            AND (${workspaces.parentId} IS NULL OR NOT EXISTS (SELECT 1 FROM workspaces o WHERE o.id = ${workspaces.parentId}
                 AND (o.suspended_at IS NOT NULL OR o.deletion_scheduled_at IS NOT NULL)))`,
     ];
     const show = showKeeps(filters.show ?? 'all');
-    if (show.projectKind) conditions.push(eq(projects.kind, show.projectKind as 'project' | 'organization'));
+    if (show.projectKind) conditions.push(eq(workspaces.kind, show.projectKind as 'project' | 'organization'));
     if (filters.org) {
         // "Show everything from CSE-3A": the org itself and its public child projects.
-        conditions.push(sql<boolean>`(${projects.slug} = ${filters.org} AND ${projects.kind} = 'organization'
-            OR ${projects.parentId} = (SELECT o.id FROM projects o WHERE o.slug = ${filters.org} AND o.kind = 'organization' AND o.deleted_at IS NULL LIMIT 1))`);
+        conditions.push(sql<boolean>`(${workspaces.slug} = ${filters.org} AND ${workspaces.kind} = 'organization'
+            OR ${workspaces.parentId} = (SELECT o.id FROM workspaces o WHERE o.slug = ${filters.org} AND o.kind = 'organization' AND o.deleted_at IS NULL LIMIT 1))`);
     }
 
     // Neither side of a block sees the other's projects.
@@ -354,28 +354,28 @@ export const buildBaseConditions = (
         conditions.push(sql<boolean>`NOT EXISTS (
             SELECT 1 FROM ${connections} blocked
             WHERE blocked.status = 'blocked'
-              AND ((blocked.requester_id = ${viewerId} AND blocked.addressee_id = ${projects.ownerId})
-                OR (blocked.requester_id = ${projects.ownerId} AND blocked.addressee_id = ${viewerId}))
+              AND ((blocked.requester_id = ${viewerId} AND blocked.addressee_id = ${workspaces.ownerId})
+                OR (blocked.requester_id = ${workspaces.ownerId} AND blocked.addressee_id = ${viewerId}))
         )`);
     }
 
     if (view === FILTER_VIEWS.FOLLOWING && viewerId) {
         const followed = db
-            .select({ projectId: projectFollows.projectId })
-            .from(projectFollows)
-            .where(eq(projectFollows.userId, viewerId));
+            .select({ projectId: workspaceFollows.projectId })
+            .from(workspaceFollows)
+            .where(eq(workspaceFollows.userId, viewerId));
         // Following an org adds its public child projects (report §24.3); the public rules above still apply.
         conditions.push(options.followedOrgChildren === false
-            ? inArray(projects.id, followed)
-            : or(inArray(projects.id, followed), inArray(projects.parentId, followed))!);
+            ? inArray(workspaces.id, followed)
+            : or(inArray(workspaces.id, followed), inArray(workspaces.parentId, followed))!);
     }
 
     if (filters.status && filters.status !== 'all') {
-        conditions.push(eq(projects.status, filters.status as 'active' | 'completed' | 'archived'));
+        conditions.push(eq(workspaces.status, filters.status as 'active' | 'completed' | 'archived'));
     }
 
     if (filters.type && filters.type !== 'all') {
-        conditions.push(eq(projects.category, filters.type));
+        conditions.push(eq(workspaces.category, filters.type));
     }
 
     conditions.push(...buildSearchConditions(filters.search));
@@ -389,10 +389,10 @@ export const buildBaseConditions = (
         const names = selectedTech.map((value) => value.toLowerCase());
         const textArray = (values: string[]) => sql`ARRAY[${sql.join(values.map((value) => sql`${value}`), sql`, `)}]::text[]`;
         conditions.push(sql<boolean>`EXISTS (
-            SELECT 1 FROM project_skills ps
+            SELECT 1 FROM workspace_skills ps
             JOIN skills s ON ps.skill_id = s.id
             LEFT JOIN skill_aliases sa ON sa.skill_id = s.id
-            WHERE ps.project_id = ${projects.id}
+            WHERE ps.workspace_id = ${workspaces.id}
               AND (s.canonical_key = ANY(${textArray(keys)}) OR lower(s.name) = ANY(${textArray(names)}) OR sa.normalized_alias = ANY(${textArray(lookups)}))
         )`);
     }
@@ -565,24 +565,24 @@ const fetchSnapshotCandidates = async (
     order: SQL<number>,
 ): Promise<CandidateProject[]> => db
     .select({
-        id: projects.id,
-        ownerId: projects.ownerId,
-        title: projects.title,
-        description: projects.description,
-        shortDescription: projects.shortDescription,
-        category: projects.category,
-        skills: projects.skills,
-        tags: projects.tags,
-        coverImage: projects.coverImage,
-        lifecycleStages: projects.lifecycleStages,
-        viewCount: projects.viewCount,
-        followersCount: projects.followersCount,
-        updatedAt: projects.updatedAt,
-        createdAt: projects.createdAt,
+        id: workspaces.id,
+        ownerId: workspaces.ownerId,
+        title: workspaces.title,
+        description: workspaces.description,
+        shortDescription: workspaces.shortDescription,
+        category: workspaces.category,
+        skills: workspaces.skills,
+        tags: workspaces.tags,
+        coverImage: workspaces.coverImage,
+        lifecycleStages: workspaces.lifecycleStages,
+        viewCount: workspaces.viewCount,
+        followersCount: workspaces.followersCount,
+        updatedAt: workspaces.updatedAt,
+        createdAt: workspaces.createdAt,
     })
-    .from(projects)
+    .from(workspaces)
     .where(and(...conditions))
-    .orderBy(sql`${order} DESC`, desc(projects.id))
+    .orderBy(sql`${order} DESC`, desc(workspaces.id))
     .limit(DISCOVER_RANKING_WEIGHTS.candidateLimit);
 
 const getFeedSnapshot = async (
@@ -648,40 +648,40 @@ const getFeedSnapshot = async (
 };
 
 const projectSelectFields = {
-    id: projects.id,
-    ownerId: projects.ownerId,
-    title: projects.title,
-    slug: projects.slug,
+    id: workspaces.id,
+    ownerId: workspaces.ownerId,
+    title: workspaces.title,
+    slug: workspaces.slug,
     // A card shows two lines: no whole READMEs in a feed (the shared feed does the same).
-    description: sql<string | null>`left(${projects.description}, 280)`,
-    shortDescription: projects.shortDescription,
-    coverImage: projects.coverImage,
-    category: projects.category,
-    viewCount: projects.viewCount,
-    followersCount: projects.followersCount,
-    tags: projects.tags,
-    skills: projects.skills,
-    visibility: projects.visibility,
-    status: projects.status,
-    lifecycleStages: projects.lifecycleStages,
-    leadFocus: sql<string | null>`${projects.importSource}->'metadata'->>'leadFocus'`,
-    externalLinks: projects.externalLinks,
-    githubRepoUrl: projects.githubRepoUrl,
-    kind: projects.kind,
-    orgType: projects.orgType,
-    orgCard: sql<{ typeLabel?: string | null; partOf?: string | null } | null>`CASE WHEN ${projects.kind} = 'organization' THEN jsonb_build_object('typeLabel', ${projects.orgSettings}->>'typeLabel', 'partOf', ${projects.orgSettings}->>'partOf') END`,
-    parentId: projects.parentId,
-    createdAt: projects.createdAt,
+    description: sql<string | null>`left(${workspaces.description}, 280)`,
+    shortDescription: workspaces.shortDescription,
+    coverImage: workspaces.coverImage,
+    category: workspaces.category,
+    viewCount: workspaces.viewCount,
+    followersCount: workspaces.followersCount,
+    tags: workspaces.tags,
+    skills: workspaces.skills,
+    visibility: workspaces.visibility,
+    status: workspaces.status,
+    lifecycleStages: workspaces.lifecycleStages,
+    leadFocus: sql<string | null>`${workspaces.importSource}->'metadata'->>'leadFocus'`,
+    externalLinks: workspaces.externalLinks,
+    githubRepoUrl: workspaces.githubRepoUrl,
+    kind: workspaces.kind,
+    orgType: workspaces.orgType,
+    orgCard: sql<{ typeLabel?: string | null; partOf?: string | null } | null>`CASE WHEN ${workspaces.kind} = 'organization' THEN jsonb_build_object('typeLabel', ${workspaces.orgSettings}->>'typeLabel', 'partOf', ${workspaces.orgSettings}->>'partOf') END`,
+    parentId: workspaces.parentId,
+    createdAt: workspaces.createdAt,
     cursorAt: cursorAtSql,
-    updatedAt: projects.updatedAt,
+    updatedAt: workspaces.updatedAt,
 };
 
 const fetchProjectsByIds = async (projectIds: string[], conditions: SQL<unknown>[] = []): Promise<RawProjectRow[]> => {
     if (projectIds.length === 0) return [];
     const rows = await db
         .select({ ...projectSelectFields, feedScore: sql<number>`0` })
-        .from(projects)
-        .where(and(inArray(projects.id, projectIds), ...conditions));
+        .from(workspaces)
+        .where(and(inArray(workspaces.id, projectIds), ...conditions));
     const rank = new Map(projectIds.map((id, index) => [id, index]));
     rows.sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
     return rows as RawProjectRow[];
@@ -710,15 +710,15 @@ const hydrateProjects = async (
         // A card shows open seats, not the roles themselves: one summed row per project.
         db
             .select({
-                projectId: projectOpenRoles.projectId,
-                open: sql<number>`coalesce(sum(greatest(${projectOpenRoles.count} - ${projectOpenRoles.filled}, 0)), 0)`.mapWith(Number),
+                projectId: workspaceOpenRoles.projectId,
+                open: sql<number>`coalesce(sum(greatest(${workspaceOpenRoles.count} - ${workspaceOpenRoles.filled}, 0)), 0)`.mapWith(Number),
             })
-            .from(projectOpenRoles)
-            .where(inArray(projectOpenRoles.projectId, projectIds))
-            .groupBy(projectOpenRoles.projectId)
+            .from(workspaceOpenRoles)
+            .where(inArray(workspaceOpenRoles.projectId, projectIds))
+            .groupBy(workspaceOpenRoles.projectId)
             .catch((error) => {
                 const message = error instanceof Error ? error.message : String(error);
-                if (message.toLowerCase().includes('project_open_roles') && message.toLowerCase().includes('does not exist')) {
+                if (message.toLowerCase().includes('workspace_open_roles') && message.toLowerCase().includes('does not exist')) {
                     return [];
                 }
                 throw error;
@@ -729,83 +729,83 @@ const hydrateProjects = async (
             ? Promise.resolve([])
             : (() => {
                 const ranked = db.select({
-                    id: projectMembers.id,
-                    projectId: projectMembers.projectId,
-                    userId: projectMembers.userId,
-                    role: projectMembers.role,
-                    joinedAt: projectMembers.joinedAt,
+                    id: workspaceMembers.id,
+                    projectId: workspaceMembers.projectId,
+                    userId: workspaceMembers.userId,
+                    role: workspaceMembers.role,
+                    joinedAt: workspaceMembers.joinedAt,
                     username: profiles.username,
                     fullName: profiles.fullName,
                     avatarUrl: profiles.avatarUrl,
-                    memberRank: sql<number>`row_number() over (partition by ${projectMembers.projectId} order by ${projectMembers.joinedAt}, ${projectMembers.userId})`.mapWith(Number).as('member_rank'),
-                    teamSize: sql<number>`count(*) over (partition by ${projectMembers.projectId})`.mapWith(Number).as('team_size'),
+                    memberRank: sql<number>`row_number() over (partition by ${workspaceMembers.projectId} order by ${workspaceMembers.joinedAt}, ${workspaceMembers.userId})`.mapWith(Number).as('member_rank'),
+                    teamSize: sql<number>`count(*) over (partition by ${workspaceMembers.projectId})`.mapWith(Number).as('team_size'),
                 })
-                    .from(projectMembers)
-                    .innerJoin(profiles, and(eq(projectMembers.userId, profiles.id), isNull(profiles.deletedAt)))
+                    .from(workspaceMembers)
+                    .innerJoin(profiles, and(eq(workspaceMembers.userId, profiles.id), isNull(profiles.deletedAt)))
                     // The team size counts only members a stranger may see (as the shared feed does), so a private
                     // member's existence isn't revealed by the number; a viewer always counts themselves.
                     .where(and(
-                        inArray(projectMembers.projectId, projectIds),
-                        sql`(coalesce(${profiles.visibility}, 'public') = 'public' OR ${projectMembers.userId} = ${viewerId})`,
+                        inArray(workspaceMembers.projectId, projectIds),
+                        sql`(coalesce(${profiles.visibility}, 'public') = 'public' OR ${workspaceMembers.userId} = ${viewerId})`,
                     ))
                     .as('ranked_members');
                 return db.select().from(ranked).where(lte(ranked.memberRank, 8)).catch((error) => {
                     const message = error instanceof Error ? error.message : String(error);
-                    if (message.toLowerCase().includes('project_members') && message.toLowerCase().includes('does not exist')) return [];
+                    if (message.toLowerCase().includes('workspace_members') && message.toLowerCase().includes('does not exist')) return [];
                     throw error;
                 });
             })(),
         surface === 'preview' && viewerId
             ? (() => {
                 const rankedConnectedMembers = db.select({
-                    projectId: projectMembers.projectId,
-                    userId: projectMembers.userId,
+                    projectId: workspaceMembers.projectId,
+                    userId: workspaceMembers.userId,
                     username: profiles.username,
                     fullName: profiles.fullName,
-                    membershipRole: projectMembers.role,
-                    isProjectOwner: sql<boolean>`${projectMembers.userId} = ${projects.ownerId}`.as('is_project_owner'),
+                    membershipRole: workspaceMembers.role,
+                    isProjectOwner: sql<boolean>`${workspaceMembers.userId} = ${workspaces.ownerId}`.as('is_project_owner'),
                     acceptedRoleTitle: sql<string | null>`(
                         select coalesce(
                             nullif(${roleApplications.acceptedRoleTitle}, ''),
-                            nullif(${projectOpenRoles.title}, ''),
-                            nullif(${projectOpenRoles.role}, '')
+                            nullif(${workspaceOpenRoles.title}, ''),
+                            nullif(${workspaceOpenRoles.role}, '')
                         )
                         from ${roleApplications}
-                        left join ${projectOpenRoles}
-                            on ${projectOpenRoles.id} = ${roleApplications.roleId}
-                        where ${roleApplications.projectId} = ${projectMembers.projectId}
-                          and ${roleApplications.applicantId} = ${projectMembers.userId}
+                        left join ${workspaceOpenRoles}
+                            on ${workspaceOpenRoles.id} = ${roleApplications.roleId}
+                        where ${roleApplications.projectId} = ${workspaceMembers.projectId}
+                          and ${roleApplications.applicantId} = ${workspaceMembers.userId}
                           and ${roleApplications.status} = 'accepted'
                         order by ${roleApplications.updatedAt} desc, ${roleApplications.id} desc
                         limit 1
                     )`.as('accepted_role_title'),
                     connectionRank: sql<number>`row_number() over (
-                        partition by ${projectMembers.projectId}
+                        partition by ${workspaceMembers.projectId}
                         order by
-                            case when ${projectMembers.userId} = ${projects.ownerId} then 0 else 1 end,
-                            ${projectMembers.joinedAt} desc,
-                            ${projectMembers.userId}
+                            case when ${workspaceMembers.userId} = ${workspaces.ownerId} then 0 else 1 end,
+                            ${workspaceMembers.joinedAt} desc,
+                            ${workspaceMembers.userId}
                     )`.mapWith(Number).as('connection_rank'),
                     connectedCount: sql<number>`count(*) over (
-                        partition by ${projectMembers.projectId}
+                        partition by ${workspaceMembers.projectId}
                     )`.mapWith(Number).as('connected_count'),
                 })
-                    .from(projectMembers)
-                    .innerJoin(projects, eq(projects.id, projectMembers.projectId))
-                    .innerJoin(profiles, eq(projectMembers.userId, profiles.id))
+                    .from(workspaceMembers)
+                    .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.projectId))
+                    .innerJoin(profiles, eq(workspaceMembers.userId, profiles.id))
                     .innerJoin(
                         connections,
                         and(
                             eq(connections.status, 'accepted'),
                             or(
-                                and(eq(connections.requesterId, viewerId), eq(connections.addresseeId, projectMembers.userId)),
-                                and(eq(connections.addresseeId, viewerId), eq(connections.requesterId, projectMembers.userId)),
+                                and(eq(connections.requesterId, viewerId), eq(connections.addresseeId, workspaceMembers.userId)),
+                                and(eq(connections.addresseeId, viewerId), eq(connections.requesterId, workspaceMembers.userId)),
                             ),
                         ),
                     )
                     .where(and(
-                        inArray(projectMembers.projectId, projectIds),
-                        ne(projectMembers.userId, viewerId),
+                        inArray(workspaceMembers.projectId, projectIds),
+                        ne(workspaceMembers.userId, viewerId),
                         isNull(profiles.deletedAt),
                     ))
                     .as('ranked_connected_members');
@@ -815,8 +815,8 @@ const hydrateProjects = async (
             : Promise.resolve([]),
         // Members-only links show to the viewer's own projects (any size of team, not just the 8 read above).
         viewerId
-            ? db.select({ projectId: projectMembers.projectId }).from(projectMembers)
-                .where(and(eq(projectMembers.userId, viewerId), inArray(projectMembers.projectId, projectIds)))
+            ? db.select({ projectId: workspaceMembers.projectId }).from(workspaceMembers)
+                .where(and(eq(workspaceMembers.userId, viewerId), inArray(workspaceMembers.projectId, projectIds)))
             : Promise.resolve([] as Array<{ projectId: string }>),
     ]);
 
@@ -824,10 +824,10 @@ const hydrateProjects = async (
     const orgIds = rawProjects.filter((project) => project.kind === 'organization').map((project) => project.id);
     const parentIds = Array.from(new Set(rawProjects.map((project) => project.parentId).filter((id): id is string => Boolean(id))));
     const [childCounts, parentOrgs] = await Promise.all([
-        orgIds.length ? db.select({ parentId: projects.parentId, n: sql<number>`count(*)::int` }).from(projects)
-            .where(and(inArray(projects.parentId, orgIds), isNull(projects.deletedAt))).groupBy(projects.parentId) : Promise.resolve([]),
-        parentIds.length ? db.select({ id: projects.id, title: projects.title, slug: projects.slug }).from(projects)
-            .where(and(inArray(projects.id, parentIds), eq(projects.kind, 'organization'), isNull(projects.deletedAt), inArray(projects.visibility, ['public', 'unlisted']))) : Promise.resolve([]),
+        orgIds.length ? db.select({ parentId: workspaces.parentId, n: sql<number>`count(*)::int` }).from(workspaces)
+            .where(and(inArray(workspaces.parentId, orgIds), isNull(workspaces.deletedAt))).groupBy(workspaces.parentId) : Promise.resolve([]),
+        parentIds.length ? db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug }).from(workspaces)
+            .where(and(inArray(workspaces.id, parentIds), eq(workspaces.kind, 'organization'), isNull(workspaces.deletedAt), inArray(workspaces.visibility, ['public', 'unlisted']))) : Promise.resolve([]),
     ]);
     const childCountMap = new Map(childCounts.map((row) => [row.parentId, row.n]));
     const parentOrgMap = new Map(parentOrgs.map((row) => [row.id, { title: row.title, slug: row.slug }]));
@@ -1108,10 +1108,10 @@ export const getDiscoverWorkspaces = async (
     if (activeSearchTerms.length > 0 && normalizedSort === SORT_OPTIONS.NEWEST) {
         scoreExpr = buildSearchRelevanceExpr(activeSearchTerms);
     } else if (normalizedSort === SORT_OPTIONS.MOST_VIEWED) {
-        scoreExpr = sql<number>`${projects.viewCount}`;
+        scoreExpr = sql<number>`${workspaces.viewCount}`;
         scoreType = 'integer';
     } else if (normalizedSort === SORT_OPTIONS.MOST_FOLLOWED) {
-        scoreExpr = sql<number>`${projects.followersCount}`;
+        scoreExpr = sql<number>`${workspaces.followersCount}`;
         scoreType = 'integer';
     } else if (normalizedSort === SORT_OPTIONS.OLDEST) {
         isOldestSort = true;
@@ -1123,14 +1123,14 @@ export const getDiscoverWorkspaces = async (
 
     if (scoreExpr && parsedCursor?.kind === 'score') {
         conditions.push(sql<boolean>`(
-            (${scoreExpr}, ${projects.createdAt}, ${projects.id})
+            (${scoreExpr}, ${workspaces.createdAt}, ${workspaces.id})
             < (${parsedCursor.score}::${sql.raw(scoreType)}, ${parsedCursor.createdAt}::timestamptz, ${parsedCursor.id}::uuid)
         )`);
     } else if (!scoreExpr && parsedCursor?.kind === 'time') {
         const operator = isOldestSort ? sql`>` : sql`<`;
         conditions.push(
             sql<boolean>`(
-                (${projects.createdAt}, ${projects.id})
+                (${workspaces.createdAt}, ${workspaces.id})
                 ${operator}
                 (${parsedCursor.createdAt}::timestamptz, ${parsedCursor.id}::uuid)
             )`,
@@ -1138,10 +1138,10 @@ export const getDiscoverWorkspaces = async (
     }
 
     const orderByClauses: SQL<unknown>[] = scoreExpr
-        ? [sql`${scoreExpr} DESC`, desc(projects.createdAt), desc(projects.id)]
+        ? [sql`${scoreExpr} DESC`, desc(workspaces.createdAt), desc(workspaces.id)]
         : isOldestSort
-            ? [asc(projects.createdAt), asc(projects.id)]
-            : [desc(projects.createdAt), desc(projects.id)];
+            ? [asc(workspaces.createdAt), asc(workspaces.id)]
+            : [desc(workspaces.createdAt), desc(workspaces.id)];
 
     // The preview (global search) skips the heavy text columns it never shows.
     const selectFields = surface === 'preview'
@@ -1159,7 +1159,7 @@ export const getDiscoverWorkspaces = async (
 
     const rawProjects = await db
         .select(selectFields)
-        .from(projects)
+        .from(workspaces)
         .where(and(...conditions))
         .orderBy(...orderByClauses)
         .limit(pageSize + 1) as RawProjectRow[];

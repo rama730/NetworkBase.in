@@ -35,14 +35,14 @@ function fakeRedis() {
   };
 }
 const applyViews = async (tx: Parameters<Parameters<typeof import("../../src/lib/db").db.transaction>[0]>[0], deltas: Array<{ id: string; delta: number }>) => {
-  for (const { id, delta } of deltas) await tx.execute((await import("drizzle-orm")).sql`UPDATE projects SET view_count = view_count + ${delta} WHERE id = ${id}::uuid`);
+  for (const { id, delta } of deltas) await tx.execute((await import("drizzle-orm")).sql`UPDATE workspaces SET view_count = view_count + ${delta} WHERE id = ${id}::uuid`);
 };
 
 test("a flush applies each buffered batch exactly once, even when the acknowledgement is lost", async () => {
   const owner = await sql.begin((tx) => createUser(tx));
   const projectId = await sql.begin((tx) => createProject(tx, owner));
   try {
-    const views = async () => Number((await sql`SELECT view_count FROM projects WHERE id = ${projectId}`)[0]!.view_count);
+    const views = async () => Number((await sql`SELECT view_count FROM workspaces WHERE id = ${projectId}`)[0]!.view_count);
     const before = await views();
     const redis = fakeRedis();
     redis.hashes.set("t:views", { [projectId]: "5", "not-a-uuid": "9", [owner]: "0" });
@@ -68,8 +68,8 @@ test("a flush applies each buffered batch exactly once, even when the acknowledg
     assert.equal(empty.batches, 0);
   } finally {
     await sql`DELETE FROM counter_flush_batches WHERE kind = 'test'`;
-    await sql`DELETE FROM project_members WHERE project_id = ${projectId}`;
-    await sql`DELETE FROM projects WHERE id = ${projectId}`;
+    await sql`DELETE FROM workspace_members WHERE workspace_id = ${projectId}`;
+    await sql`DELETE FROM workspaces WHERE id = ${projectId}`;
   }
 });
 

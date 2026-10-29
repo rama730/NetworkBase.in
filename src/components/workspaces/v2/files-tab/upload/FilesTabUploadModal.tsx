@@ -25,7 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 import type { TaskFileRole } from "@/lib/workspaces/task-file-intelligence";
 import { useFilesStore } from "@/stores/filesStore";
@@ -57,7 +57,7 @@ export interface FilesTabUploadModalProps {
   files: File[];
   currentFolderId: string | null;
   currentFolderName?: string;
-  existingFiles: ProjectNode[];
+  existingFiles: WorkspaceNode[];
   activeTaskId?: string | null;
   activeTaskTitle?: string | null;
   isProcessing?: boolean;

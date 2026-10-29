@@ -29,15 +29,15 @@ async function withProject(fn: (ids: { owner: string; projectId: string }) => Pr
   try {
     await fn({ owner, projectId });
   } finally {
-    await sql`DELETE FROM project_update_comments WHERE project_id = ${projectId}`;
-    await sql`DELETE FROM project_updates WHERE project_id = ${projectId}`;
-    await sql`DELETE FROM project_members WHERE project_id = ${projectId}`;
-    await sql`DELETE FROM projects WHERE id = ${projectId}`;
+    await sql`DELETE FROM workspace_update_comments WHERE workspace_id = ${projectId}`;
+    await sql`DELETE FROM workspace_updates WHERE workspace_id = ${projectId}`;
+    await sql`DELETE FROM workspace_members WHERE workspace_id = ${projectId}`;
+    await sql`DELETE FROM workspaces WHERE id = ${projectId}`;
   }
 }
 
 async function createUpdate(projectId: string, authorId: string) {
-  const [row] = await sql`INSERT INTO project_updates (project_id, author_id, content, visibility)
+  const [row] = await sql`INSERT INTO workspace_updates (workspace_id, author_id, content, visibility)
     VALUES (${projectId}, ${authorId}, 'body', 'public') RETURNING id`;
   return row!.id as string;
 }
@@ -57,7 +57,7 @@ test("replies reject a parent comment from another update", async () => {
     assert.equal(crossed.success, false);
     const ok = await updates.createWorkspaceUpdateCommentAction(projectId, first, "reply", parentId);
     assert.equal(ok.success, true, JSON.stringify(ok));
-    const [{ count }] = await sql`SELECT comment_count AS count FROM project_updates WHERE id = ${second}`;
+    const [{ count }] = await sql`SELECT comment_count AS count FROM workspace_updates WHERE id = ${second}`;
     assert.equal(Number(count), 0, "a rejected reply never bumps the count");
   });
 });
@@ -73,7 +73,7 @@ test("deleting a comment twice at once decrements the count once", async () => {
       updates.deleteWorkspaceUpdateCommentAction(projectId, commentId),
       updates.deleteWorkspaceUpdateCommentAction(projectId, commentId),
     ]);
-    const [{ count }] = await sql`SELECT comment_count AS count FROM project_updates WHERE id = ${updateId}`;
+    const [{ count }] = await sql`SELECT comment_count AS count FROM workspace_updates WHERE id = ${updateId}`;
     assert.equal(Number(count), 1);
   });
 });
@@ -85,16 +85,16 @@ test("pins: an invalid target never unpins, and concurrent pins leave one", asyn
     const b = await createUpdate(projectId, owner);
     const c = await createUpdate(projectId, owner);
     assert.equal((await updates.toggleWorkspaceUpdatePinAction(projectId, a, true)).success, true);
-    await sql`UPDATE project_updates SET deleted_at = now() WHERE id = ${c}`;
+    await sql`UPDATE workspace_updates SET deleted_at = now() WHERE id = ${c}`;
     const invalid = await updates.toggleWorkspaceUpdatePinAction(projectId, c, true);
     assert.equal(invalid.success, false);
-    const [{ pinned: aPinned }] = await sql`SELECT is_pinned AS pinned FROM project_updates WHERE id = ${a}`;
+    const [{ pinned: aPinned }] = await sql`SELECT is_pinned AS pinned FROM workspace_updates WHERE id = ${a}`;
     assert.equal(aPinned, true, "the existing pin survives an invalid request");
     await Promise.all([
       updates.toggleWorkspaceUpdatePinAction(projectId, a, true),
       updates.toggleWorkspaceUpdatePinAction(projectId, b, true),
     ]);
-    const [{ pins }] = await sql`SELECT count(*)::int AS pins FROM project_updates WHERE project_id = ${projectId} AND is_pinned AND deleted_at IS NULL`;
+    const [{ pins }] = await sql`SELECT count(*)::int AS pins FROM workspace_updates WHERE workspace_id = ${projectId} AND is_pinned AND deleted_at IS NULL`;
     assert.equal(pins, 1);
   });
 });

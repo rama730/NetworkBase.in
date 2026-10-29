@@ -19,7 +19,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import type { ProjectNode } from "../../../src/lib/db/schema";
+import type { WorkspaceNode } from "../../../src/lib/db/schema";
 import {
   deriveFolderContents,
   runFolderLoad,
@@ -29,7 +29,7 @@ import {
 
 // ─── Fixtures ────────────────────────────────────────────────────────
 
-function makeNode(id: string, parentId: string | null): ProjectNode {
+function makeNode(id: string, parentId: string | null): WorkspaceNode {
   return {
     id,
     projectId: "project-1",
@@ -48,7 +48,7 @@ function makeNode(id: string, parentId: string | null): ProjectNode {
     createdAt: new Date(0),
     updatedAt: new Date(0),
     deletedAt: null,
-  } as unknown as ProjectNode;
+  } as unknown as WorkspaceNode;
 }
 
 const NOOP = () => {};

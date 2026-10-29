@@ -6,7 +6,7 @@
 // URL-state roundtrip property (Task 2.9, Property 3) pull every piece from
 // the same surface.
 
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import {
   isInternalTaskWorkingFilesNode,
 } from "@/lib/files/task-working-files";
@@ -31,7 +31,7 @@ export const DEEP_LINK_MAX_LENGTH = 4096;
  *   `splitEncoded` + `findNodeByPathAny` (Req 20.1 property).
  */
 export function encodePath(
-  nodesById: Record<string, ProjectNode>,
+  nodesById: Record<string, WorkspaceNode>,
   nodeId: string | null,
 ): string {
   if (nodeId === null) return "";
@@ -45,13 +45,13 @@ export function encodePath(
 
   const parts: string[] = [];
   const seen = new Set<string>();
-  let cursor: ProjectNode | undefined = start;
+  let cursor: WorkspaceNode | undefined = start;
   let missingAncestor = false;
   while (cursor && !seen.has(cursor.id)) {
     seen.add(cursor.id);
     parts.unshift(encodeURIComponent(cursor.name));
     if (cursor.parentId === null || cursor.parentId === undefined) break;
-    const parentNode: ProjectNode | undefined = nodesById[cursor.parentId];
+    const parentNode: WorkspaceNode | undefined = nodesById[cursor.parentId];
     if (!parentNode) {
       missingAncestor = true;
       break;
@@ -65,7 +65,7 @@ export function encodePath(
   return parts.join("/");
 }
 
-function encodeMaterializedPath(node: ProjectNode): string {
+function encodeMaterializedPath(node: WorkspaceNode): string {
   const rawPath = typeof node.path === "string" ? node.path.trim() : "";
   if (!rawPath || rawPath === "/") return encodeURIComponent(node.name);
   const segments = rawPath.split("/").filter(Boolean);

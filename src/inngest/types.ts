@@ -85,18 +85,30 @@ type ConnectionsRefreshSuggestionCandidateEvent = {
 };
 
 export const schemas = new EventSchemas().fromRecord<{
+    "workspace/import": ProjectImportEvent;
+    /** Old name (report §12.5): queued before the rename; drop after one release. */
     "project/import": ProjectImportEvent;
+    "workspace/import.hydrate": ProjectImportEvent;
+    /** Old name (report §12.5): queued before the rename; drop after one release. */
     "project/import.hydrate": ProjectImportEvent;
     "git/push": GitPushEvent;
     "git/pull": GitPullEvent;
     "account/cleanup": AccountCleanupEvent;
+    "my-work/counters.refresh": MyWorkCountersRefreshEvent;
+    /** Old name (report §12.5): queued before the rename; drop after one release. */
     "workspace/counters.refresh": MyWorkCountersRefreshEvent;
+    "connections/sync_suggestions": ConnectionsSyncSuggestionsEvent;
+    /** Old name (report §12.5): queued before the rename; drop after one release. */
     "workspace/connections.sync_suggestions": ConnectionsSyncSuggestionsEvent;
+    "connections/refresh_suggestions_for_candidate": ConnectionsRefreshSuggestionCandidateEvent;
+    /** Old name (report §12.5): queued before the rename; drop after one release. */
     "workspace/connections.refresh_suggestions_for_candidate": ConnectionsRefreshSuggestionCandidateEvent;
     "notification/fanout": NotificationFanoutInngestEvent;
     "email/outbox.wake": { data: Record<string, never> };
     /** Organizations P15: Duplicate runs in the background (report §30.5). */
     "org/duplicate.requested": { data: { sourceId: string; actorId: string; options: import("@/lib/organizations/lifecycle").DuplicateOptions } };
+    "workspace/updates.cleanup": ProjectUpdateCleanupEvent;
+    /** Old name (report §12.5): queued before the rename; drop after one release. */
     "project/updates.cleanup": ProjectUpdateCleanupEvent;
     "storage/profile-image.cleanup": ProfileImageCleanupEvent;
 }>();

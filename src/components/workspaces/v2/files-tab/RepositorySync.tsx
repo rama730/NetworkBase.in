@@ -454,7 +454,7 @@ export function RepositorySync({
         {
           event: "*",
           table: "github_sync_runs",
-          filter: `project_id=eq.${projectId}`,
+          filter: `workspace_id=eq.${projectId}`,
           handler: (payload) => {
             const updated = payload.new as { id?: string; status?: string } | undefined | null;
             if (updated?.id && activeRunRef.current?.id === updated.id) {

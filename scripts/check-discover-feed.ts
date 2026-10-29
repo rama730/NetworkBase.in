@@ -97,7 +97,7 @@ async function main() {
       { id: "mem", platform: "website", url: "https://members.example.test", audience: "members" },
     ]);
     const project = (id: string, ownerId: string, title: string, extra: { status?: string; createdAt?: string; views?: number; visibility?: string } = {}) => sql`
-      INSERT INTO projects (id, owner_id, title, status, visibility, external_links, view_count, created_at, updated_at)
+      INSERT INTO workspaces (id, owner_id, title, status, visibility, external_links, view_count, created_at, updated_at)
       VALUES (${id}, ${ownerId}, ${`${run} ${title}`}, ${extra.status ?? "active"}, ${extra.visibility ?? "public"}, ${links}::jsonb,
               ${extra.views ?? 0}, ${extra.createdAt ?? new Date().toISOString()}::timestamptz, now())`;
     await project(ids.open, owner, "Open", { views: 50 });
@@ -111,20 +111,20 @@ async function main() {
     await project(ids.privateProject, owner, "Private project", { views: 60, visibility: "private" });
     // Legacy "unlisted" rows are publicly readable (workspace-visibility.ts), so Discover lists them like public ones.
     await project(ids.unlistedProject, owner, "Unlisted project", { views: 3, visibility: "unlisted" });
-    await sql`UPDATE projects SET cover_image = 'https://cdn.example.test/open.png' WHERE id = ${ids.open}`;
+    await sql`UPDATE workspaces SET cover_image = 'https://cdn.example.test/open.png' WHERE id = ${ids.open}`;
     for (const [index, id] of sameMillisecond.entries()) {
       // .123000 to .123011: one millisecond, twelve microseconds. Equal view counts tie the score sorts too.
       await project(id, owner, `Tie ${index}`, { createdAt: `2020-01-01T00:00:00.${String(123000 + index).padStart(6, "0")}Z`, views: 5 });
     }
-    await sql`INSERT INTO project_members (project_id, user_id, role) VALUES
+    await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES
       (${ids.open}, ${owner}, 'owner'), (${ids.open}, ${privateMember}, 'member'), (${ids.open}, ${publicMember}, 'member')`;
     await sql`INSERT INTO skills (id, name, slug, canonical_key) VALUES
       (${skillIds.c}, ${`C${run}`}, ${`c-${run}`}, ${`lang.c${run}`}),
       (${skillIds.javascript}, ${`JavaScript${run}`}, ${`javascript-${run}`}, ${`lang.javascript${run}`}),
       (${skillIds.java}, ${`Java${run}`}, ${`java-${run}`}, ${`lang.java${run}`})`;
-    await sql`INSERT INTO project_skills (project_id, skill_id) VALUES (${ids.cLang}, ${skillIds.c}), (${ids.javascript}, ${skillIds.javascript})`;
+    await sql`INSERT INTO workspace_skills (workspace_id, skill_id) VALUES (${ids.cLang}, ${skillIds.c}), (${ids.javascript}, ${skillIds.javascript})`;
     // Four seats, one filled: the card counts three open, and the team size comes from SQL, not a member list.
-    await sql`INSERT INTO project_open_roles (project_id, role, count, filled) VALUES (${ids.open}, 'Designer', 4, 1), (${ids.open}, 'Writer', 2, 2)`;
+    await sql`INSERT INTO workspace_open_roles (workspace_id, role, count, filled) VALUES (${ids.open}, 'Designer', 4, 1), (${ids.open}, 'Writer', 2, 2)`;
 
     // ---- Shared (public) feed: one payload for everyone, shaped for a signed-out viewer.
     const fullPublic = await feed.queryAndCachePublicWorkspacesFeed(100, null);
@@ -144,7 +144,7 @@ async function main() {
       const members = byId.get(ids.open)?.collaborators.map((member) => member.user_id) ?? [];
       return members.includes(publicMember) && !members.includes(privateMember);
     });
-    await check("public feed drops deleted accounts' projects and drafts", async () => !byId.has(ids.deletedOwned) && !byId.has(ids.draft));
+    await check("public feed drops deleted accounts' workspaces and drafts", async () => !byId.has(ids.deletedOwned) && !byId.has(ids.draft));
     await check("a viewer never gets a project of someone they blocked", async () => {
       const visible = await feed.forViewer(fullPublic.projects, viewer);
       return !visible.some((item) => item.id === ids.blockedOwned) && visible.some((item) => item.id === ids.open);
@@ -235,7 +235,7 @@ async function main() {
       return shared?.open_seats === 3 && shared?.team_size === 2 && shared?.open_roles.length === 0
         && filtered?.openRolesCount === 3 && filtered?.collaboratorsCount === 2 && (filtered?.openRoles?.length ?? 0) === 0;
     });
-    await check("public feed hides a masked creator's id (no linking their projects)", async () => {
+    await check("public feed hides a masked creator's id (no linking their workspaces)", async () => {
       const item = (await feed.forViewer(fullPublic.projects, null)).find((project) => project.id === ids.privateOwned);
       return Boolean(item) && item!.owner_id === "" && item!.profiles.id === "";
     });
@@ -283,12 +283,12 @@ async function main() {
       const first = await data.getDiscoverWorkspaces(base, undefined, 4, { view: "trending", viewerId: viewer });
       const lastId = first.projects.at(-1)?.id;
       if (!first.nextCursor || !lastId || !seeded.has(lastId)) return false;
-      await sql`UPDATE projects SET visibility = 'private' WHERE id = ${lastId}`;
+      await sql`UPDATE workspaces SET visibility = 'private' WHERE id = ${lastId}`;
       try {
         const next = await data.getDiscoverWorkspaces(base, first.nextCursor, 4, { view: "trending", viewerId: viewer });
         return next.projects.length > 0 && !next.projects.some((project) => first.projects.some((seen) => seen.id === project.id));
       } finally {
-        await sql`UPDATE projects SET visibility = 'public' WHERE id = ${lastId}`;
+        await sql`UPDATE workspaces SET visibility = 'public' WHERE id = ${lastId}`;
       }
     });
     await check("the feed's newest, most viewed and most followed sorts read the 0195 indexes", async () => {
@@ -301,13 +301,13 @@ async function main() {
         await tx`SET LOCAL enable_bitmapscan = off`;
         await tx`SET LOCAL enable_sort = off`;
         return [
-          await tx`EXPLAIN SELECT id FROM projects WHERE deleted_at IS NULL AND visibility IN ('public', 'unlisted') AND status <> 'draft' ORDER BY created_at DESC, id DESC LIMIT 25`,
-          await tx`EXPLAIN SELECT id FROM projects WHERE deleted_at IS NULL AND visibility IN ('public', 'unlisted') AND status <> 'draft' ORDER BY view_count DESC, created_at DESC, id DESC LIMIT 25`,
-          await tx`EXPLAIN SELECT id FROM projects WHERE deleted_at IS NULL AND visibility IN ('public', 'unlisted') AND status <> 'draft' ORDER BY followers_count DESC, created_at DESC, id DESC LIMIT 25`,
+          await tx`EXPLAIN SELECT id FROM workspaces WHERE deleted_at IS NULL AND visibility IN ('public', 'unlisted') AND status <> 'draft' ORDER BY created_at DESC, id DESC LIMIT 25`,
+          await tx`EXPLAIN SELECT id FROM workspaces WHERE deleted_at IS NULL AND visibility IN ('public', 'unlisted') AND status <> 'draft' ORDER BY view_count DESC, created_at DESC, id DESC LIMIT 25`,
+          await tx`EXPLAIN SELECT id FROM workspaces WHERE deleted_at IS NULL AND visibility IN ('public', 'unlisted') AND status <> 'draft' ORDER BY followers_count DESC, created_at DESC, id DESC LIMIT 25`,
         ];
       });
       const text = plans.map((rows) => rows.map((row) => Object.values(row)[0]).join("\n"));
-      return text[0]!.includes("projects_discover_newest_idx") && text[1]!.includes("projects_discover_most_viewed_idx") && text[2]!.includes("projects_discover_most_followed_idx");
+      return text[0]!.includes("workspaces_discover_newest_idx") && text[1]!.includes("workspaces_discover_most_viewed_idx") && text[2]!.includes("workspaces_discover_most_followed_idx");
     });
 
     await check("a garbage cursor is a cursor error, not page 1", async () => {
@@ -319,11 +319,11 @@ async function main() {
       }
     });
   } finally {
-    await sql`DELETE FROM project_skills WHERE project_id IN ${sql([...seeded])}`;
+    await sql`DELETE FROM workspace_skills WHERE workspace_id IN ${sql([...seeded])}`;
     await sql`DELETE FROM skills WHERE id IN ${sql(Object.values(skillIds))}`;
-    await sql`DELETE FROM project_open_roles WHERE project_id IN ${sql([...seeded])}`;
-    await sql`DELETE FROM project_members WHERE project_id IN ${sql([...seeded])}`;
-    await sql`DELETE FROM projects WHERE id IN ${sql([...seeded])}`;
+    await sql`DELETE FROM workspace_open_roles WHERE workspace_id IN ${sql([...seeded])}`;
+    await sql`DELETE FROM workspace_members WHERE workspace_id IN ${sql([...seeded])}`;
+    await sql`DELETE FROM workspaces WHERE id IN ${sql([...seeded])}`;
     await sql`DELETE FROM connections WHERE requester_id IN ${sql([viewer, blocker])}`;
     await sql`DELETE FROM profiles WHERE id IN ${sql(profileRows.map(([id]) => id))}`;
     await sql.end();

@@ -64,7 +64,7 @@ export async function searchMessages(input: SearchInput) {
              ) END AS author
       FROM chat_channel_members mem
       JOIN chat_channels c ON c.id = mem.channel_id
-      LEFT JOIN projects p ON p.id = c.project_id
+      LEFT JOIN workspaces p ON p.id = c.workspace_id
       JOIN chat_messages m ON m.channel_id = mem.channel_id
       LEFT JOIN profiles pr ON pr.id = m.author_id
       WHERE mem.user_id = ${user.id}::uuid

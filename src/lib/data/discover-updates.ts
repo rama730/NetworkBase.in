@@ -1,6 +1,6 @@
 import { and, desc, eq, ilike, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { profiles, projectMembers, projectUpdateLikes, projectUpdates, projects } from "@/lib/db/schema";
+import { profiles, workspaceMembers, workspaceUpdateLikes, workspaceUpdates, workspaces } from "@/lib/db/schema";
 import { buildBaseConditions, buildSearchConditions, DEFAULT_FILTERS } from "@/lib/data/discover";
 import { readableProfileIdentitySql } from "@/lib/privacy/resolver";
 import { getWorkspaceMemberRoleLabel, normalizeWorkspaceMemberRole } from "@/lib/workspaces/settings-policies";
@@ -58,18 +58,18 @@ function decodeCursor(value: string): Cursor {
  * team always sees it.
  */
 function updatesTabVisible(viewerId: string | null): SQL<unknown> {
-    const publicOn = sql`${projects.publicTabVisibility}->'updates' IS DISTINCT FROM 'false'::jsonb`;
+    const publicOn = sql`${workspaces.publicTabVisibility}->'updates' IS DISTINCT FROM 'false'::jsonb`;
     if (!viewerId) return publicOn;
     return sql`(${publicOn}
-        OR ${projects.ownerId} = ${viewerId}
-        OR EXISTS (SELECT 1 FROM project_members tab_member WHERE tab_member.project_id = ${projects.id} AND tab_member.user_id = ${viewerId}))`;
+        OR ${workspaces.ownerId} = ${viewerId}
+        OR EXISTS (SELECT 1 FROM workspace_members tab_member WHERE tab_member.workspace_id = ${workspaces.id} AND tab_member.user_id = ${viewerId}))`;
 }
 
 /** Everything that decides whether an update may appear: used by the list and by the single read alike. */
 function visibilityConditions(filters: DiscoverFilters, view: FilterView, viewerId: string | null): SQL<unknown>[] {
     const conditions: SQL<unknown>[] = [
-        eq(projectUpdates.visibility, "public"),
-        isNull(projectUpdates.deletedAt),
+        eq(workspaceUpdates.visibility, "public"),
+        isNull(workspaceUpdates.deletedAt),
         // The project's own rules: visibility, status, deleted owner, a block with the owner, status/type/skill/Following filters.
         ...buildBaseConditions({ ...filters, search: undefined }, view, viewerId, { followedOrgChildren: false }),
         updatesTabVisible(viewerId),
@@ -79,8 +79,8 @@ function visibilityConditions(filters: DiscoverFilters, view: FilterView, viewer
         conditions.push(sql<boolean>`NOT EXISTS (
             SELECT 1 FROM connections blocked_author
             WHERE blocked_author.status = 'blocked'
-              AND ((blocked_author.requester_id = ${viewerId} AND blocked_author.addressee_id = ${projectUpdates.authorId})
-                OR (blocked_author.requester_id = ${projectUpdates.authorId} AND blocked_author.addressee_id = ${viewerId}))
+              AND ((blocked_author.requester_id = ${viewerId} AND blocked_author.addressee_id = ${workspaceUpdates.authorId})
+                OR (blocked_author.requester_id = ${workspaceUpdates.authorId} AND blocked_author.addressee_id = ${viewerId}))
         )`);
     }
     return conditions;
@@ -90,47 +90,47 @@ function searchCondition(search: string | undefined): SQL<unknown> | null {
     const text = search?.trim();
     if (!text) return null;
     const projectMatch = buildSearchConditions(text);
-    const inUpdate = ilike(projectUpdates.content, containsLikePattern(text));
+    const inUpdate = ilike(workspaceUpdates.content, containsLikePattern(text));
     return projectMatch.length > 0 ? or(and(...projectMatch), inUpdate)! : inUpdate;
 }
 
 function selectUpdateRows(viewerId: string | null) {
     return db
         .select({
-            id: projectUpdates.id,
-            projectId: projectUpdates.projectId,
-            authorId: projectUpdates.authorId,
-            content: projectUpdates.content,
-            updateType: projectUpdates.updateType,
-            replyPolicy: projectUpdates.replyPolicy,
-            media: projectUpdates.media,
-            metadata: projectUpdates.metadata,
-            isPinned: projectUpdates.isPinned,
-            likeCount: projectUpdates.likeCount,
-            commentCount: projectUpdates.commentCount,
-            editedAt: projectUpdates.editedAt,
-            createdAt: projectUpdates.createdAt,
+            id: workspaceUpdates.id,
+            projectId: workspaceUpdates.projectId,
+            authorId: workspaceUpdates.authorId,
+            content: workspaceUpdates.content,
+            updateType: workspaceUpdates.updateType,
+            replyPolicy: workspaceUpdates.replyPolicy,
+            media: workspaceUpdates.media,
+            metadata: workspaceUpdates.metadata,
+            isPinned: workspaceUpdates.isPinned,
+            likeCount: workspaceUpdates.likeCount,
+            commentCount: workspaceUpdates.commentCount,
+            editedAt: workspaceUpdates.editedAt,
+            createdAt: workspaceUpdates.createdAt,
             // Microseconds as Postgres stores them: the cursor must name the exact row.
-            cursorAt: sql<string>`${projectUpdates.createdAt}::text`,
-            projectTitle: projects.title,
-            projectSlug: projects.slug,
-            projectCoverImage: projects.coverImage,
-            projectOwnerId: projects.ownerId,
+            cursorAt: sql<string>`${workspaceUpdates.createdAt}::text`,
+            projectTitle: workspaces.title,
+            projectSlug: workspaces.slug,
+            projectCoverImage: workspaces.coverImage,
+            projectOwnerId: workspaces.ownerId,
             authorFullName: profiles.fullName,
             authorUsername: profiles.username,
             authorAvatarUrl: profiles.avatarUrl,
-            authorMembershipRole: projectMembers.role,
+            authorMembershipRole: workspaceMembers.role,
             authorReadable: sql<boolean>`coalesce(${readableProfileIdentitySql(viewerId)}, false)`,
             viewerIsTeam: viewerId
-                ? sql<boolean>`(${projects.ownerId} = ${viewerId} OR EXISTS (SELECT 1 FROM project_members viewer_member WHERE viewer_member.project_id = ${projects.id} AND viewer_member.user_id = ${viewerId}))`
+                ? sql<boolean>`(${workspaces.ownerId} = ${viewerId} OR EXISTS (SELECT 1 FROM workspace_members viewer_member WHERE viewer_member.workspace_id = ${workspaces.id} AND viewer_member.user_id = ${viewerId}))`
                 : sql<boolean>`false`,
         })
-        .from(projectUpdates)
-        .innerJoin(projects, eq(projects.id, projectUpdates.projectId))
-        .leftJoin(profiles, eq(profiles.id, projectUpdates.authorId))
+        .from(workspaceUpdates)
+        .innerJoin(workspaces, eq(workspaces.id, workspaceUpdates.projectId))
+        .leftJoin(profiles, eq(profiles.id, workspaceUpdates.authorId))
         .leftJoin(
-            projectMembers,
-            and(eq(projectMembers.projectId, projectUpdates.projectId), eq(projectMembers.userId, projectUpdates.authorId)),
+            workspaceMembers,
+            and(eq(workspaceMembers.projectId, workspaceUpdates.projectId), eq(workspaceMembers.userId, workspaceUpdates.authorId)),
         );
 }
 
@@ -141,9 +141,9 @@ async function hydrate(rows: Row[], viewerId: string | null): Promise<DiscoverUp
     const [likedRows, roleTitles] = await Promise.all([
         viewerId
             ? db
-                .select({ updateId: projectUpdateLikes.updateId })
-                .from(projectUpdateLikes)
-                .where(and(eq(projectUpdateLikes.userId, viewerId), inArray(projectUpdateLikes.updateId, rows.map((row) => row.id))))
+                .select({ updateId: workspaceUpdateLikes.updateId })
+                .from(workspaceUpdateLikes)
+                .where(and(eq(workspaceUpdateLikes.userId, viewerId), inArray(workspaceUpdateLikes.updateId, rows.map((row) => row.id))))
             : Promise.resolve([] as Array<{ updateId: string }>),
         // A masked author's role is not looked up at all.
         readWorkspaceRoleTitles(rows.filter((row) => row.authorReadable).map((row) => ({ projectId: row.projectId, userId: row.authorId }))),
@@ -225,13 +225,13 @@ export async function getDiscoverUpdatesPage(options: DiscoverUpdatesQueryOption
     if (search) conditions.push(search);
     if (cursor) {
         const after = decodeCursor(cursor);
-        conditions.push(sql<boolean>`(${projectUpdates.createdAt}, ${projectUpdates.id}) < (${after.at}::timestamptz, ${after.id}::uuid)`);
+        conditions.push(sql<boolean>`(${workspaceUpdates.createdAt}, ${workspaceUpdates.id}) < (${after.at}::timestamptz, ${after.id}::uuid)`);
     }
 
     // One row past the page says whether there is more, and where the next page starts.
     const rows = await selectUpdateRows(viewerId)
         .where(and(...conditions))
-        .orderBy(desc(projectUpdates.createdAt), desc(projectUpdates.id))
+        .orderBy(desc(workspaceUpdates.createdAt), desc(workspaceUpdates.id))
         .limit(limit + 1);
     const page = rows.slice(0, limit);
     const last = page[page.length - 1];
@@ -246,7 +246,7 @@ export async function getDiscoverUpdate(updateId: string, viewerId: string | nul
     if (!UUID.test(updateId)) return null;
     // A single update is reachable even when the viewer's filters wouldn't list it, so only the visibility rules apply.
     const rows = await selectUpdateRows(viewerId)
-        .where(and(...visibilityConditions(DEFAULT_FILTERS, FILTER_VIEWS.ALL, viewerId), eq(projectUpdates.id, updateId)))
+        .where(and(...visibilityConditions(DEFAULT_FILTERS, FILTER_VIEWS.ALL, viewerId), eq(workspaceUpdates.id, updateId)))
         .limit(1);
     return (await hydrate(rows, viewerId))[0] ?? null;
 }
