@@ -2,11 +2,14 @@ import type { Metadata } from "next";
 import { genericSharePreview, shareOrigin } from "@/lib/sharing/presentation";
 import { shareMetadata } from "@/lib/sharing/metadata";
 import Link from "next/link";
-import { ArrowRight, BarChart3, Code2, FileText, FolderOpen, KeyRound, ListChecks, Lock, Megaphone, MessagesSquare, Download, ShieldCheck, Users } from "lucide-react";
+import { ArrowRight, BarChart2, BarChart3, Bell, Code2, MapPin, FileText, FolderOpen, KeyRound, ListChecks, Lock, Megaphone, MessagesSquare, Download, ShieldCheck, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Logo from "@/components/layout/header/Logo";
 import { LegalLinks } from "@/components/legal/LegalLinks";
 import { buildAuthPageHref } from "@/lib/auth/redirects";
+import { SkillIcon } from "@/components/skills/SkillIcon";
+import { findCatalogSkill } from "@/lib/skills/catalog";
+import { toSkillSummary } from "@/lib/skills/presentation";
 
 export const metadata: Metadata = {
   ...shareMetadata(genericSharePreview({ kind: "application", identifier: "", url: shareOrigin() + "/" }, "ready")),
@@ -27,12 +30,19 @@ const steps = [
 ];
 
 // Example content only: labelled as such on the page, never presented as real people or counts.
+// Drawn with the Network page's person card classes (components/network/PersonCardContent.tsx).
 const exampleProfiles = [
-  { initials: "AK", role: "Frontend developer", level: "Mid-level", hours: "10–20 h / week", skills: ["React", "TypeScript", "Accessibility Testing"] },
-  { initials: "MR", role: "Product designer", level: "Senior", hours: "5–10 h / week", skills: ["Figma", "Design Systems", "UX Research"] },
-  { initials: "JS", role: "Data engineer", level: "Student", hours: "20–40 h / week", skills: ["Python", "SQL", "Apache Airflow"] },
-  { initials: "LT", role: "Mobile developer", level: "Junior", hours: "10–20 h / week", skills: ["Flutter", "Firebase", "Swift"] },
-];
+  { initials: "AK", name: "Aisha K.", headline: "Frontend developer", location: "Bengaluru", skills: ["React", "TypeScript", "Accessibility Testing"], shared: 3 },
+  { initials: "MR", name: "Marco R.", headline: "Product designer", location: "Lisbon", skills: ["Figma", "Design Systems", "UX Research"], shared: 5 },
+  { initials: "JS", name: "Jun S.", headline: "Data engineer", location: "Singapore", skills: ["Python", "SQL", "Apache Airflow"], shared: 2 },
+  { initials: "LT", name: "Lena T.", headline: "Mobile developer", location: "Berlin", skills: ["Flutter", "Firebase", "Swift"], shared: 4 },
+].map((person) => ({
+  ...person,
+  skills: person.skills.flatMap((name) => {
+    const skill = findCatalogSkill(name);
+    return skill ? [toSkillSummary(skill)] : [];
+  }),
+}));
 
 const modules = [
   { icon: ListChecks, title: "Tasks and sprints", body: "Plan the work, assign it, and see what moves each sprint." },
@@ -61,37 +71,43 @@ function SectionHeading({ id, eyebrow, title, body }: { id: string; eyebrow: str
   );
 }
 
-function ExampleProject() {
+// Same parts as the app's project card (components/projects/ProjectCard.tsx), drawn statically and labelled as examples.
+const exampleProjects = [
+  { title: "Campus food-share app", body: "Helping students share leftover meals before they go to waste.", skills: ["Flutter", "Firebase", "TypeScript", "Figma"], team: ["RN", "SK", "PD"], openRoles: 3, views: 128, followers: 24 },
+  { title: "Open-source study planner", body: "A shared planner for study groups, with reminders and progress tracking.", skills: ["Next.js", "React", "PostgreSQL", "Tailwind CSS"], team: ["AM", "JT"], openRoles: 1, views: 64, followers: 11 },
+].map((project) => ({
+  ...project,
+  skills: project.skills.flatMap((name) => {
+    const skill = findCatalogSkill(name);
+    return skill ? [toSkillSummary(skill)] : [];
+  }),
+}));
+
+function ExampleProjects() {
   return (
-    <div className="nb-site-preview" role="img" aria-label="Example of a project on NetworkBase: open roles, team and tasks">
-      <div className="flex items-center justify-between border-b border-border px-5 py-4">
-        <span className="nb-micro">Example project</span>
-        <span className="nb-status" data-status="active">Open</span>
-      </div>
-      <div className="space-y-5 p-5" aria-hidden="true">
-        <div className="space-y-2">
-          <p className="text-xl font-semibold leading-snug">Campus food-share app</p>
-          <p className="text-sm text-muted-foreground">Helping students share leftover meals before they go to waste.</p>
-        </div>
-        <div className="space-y-2">
-          <p className="nb-micro">Open roles</p>
-          <div className="flex flex-wrap gap-1.5"><span className="nb-tag">Mobile developer</span><span className="nb-tag">Designer</span><span className="nb-tag">Backend</span></div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex -space-x-2">
-            {["RN", "SK", "PD"].map((initials) => <span key={initials} className="flex size-8 items-center justify-center rounded-full border-2 border-card bg-muted font-mono text-[11px] font-medium">{initials}</span>)}
+    <div className="w-full space-y-3" role="img" aria-label="Example project cards: skills, team, open roles, views and followers">
+      <p className="nb-micro">Example projects</p>
+      {exampleProjects.map(({ title, body, skills, team, openRoles, views, followers }) => (
+        <div key={title} className="nb-project-card" aria-hidden="true">
+          <p className="nb-project-card-title">{title}</p>
+          <p className="-mt-[7px] text-sm leading-normal text-muted-foreground">{body}</p>
+          <div className="flex flex-wrap gap-1.5">
+            {skills.map((skill) => <span key={skill.canonicalKey} className="nb-tag"><SkillIcon skill={skill} size={14} />{skill.name}</span>)}
           </div>
-          <span className="text-xs text-muted-foreground">3 people on the team</span>
+          <div className="nb-project-card-footer">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex -space-x-1.5">
+                {team.map((initials) => <span key={initials} className="flex size-[26px] items-center justify-center rounded-md border-2 border-card bg-secondary text-[11px] font-semibold">{initials}</span>)}
+              </div>
+              <span className="nb-meta text-primary">{openRoles} open {openRoles === 1 ? "role" : "roles"}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="nb-meta flex items-center gap-1 px-1"><BarChart2 size={14} />{views}</span>
+              <span className="nb-icon-button gap-1 px-1.5 font-mono text-xs"><Bell size={16} />{followers}</span>
+            </div>
+          </div>
         </div>
-        <ul className="divide-y divide-border border-t border-border">
-          {[["Design the onboarding screens", "In review", "active"], ["Set up the meals API", "In progress", "draft"], ["Write the launch post", "To do", "archived"]].map(([task, state, tone]) => (
-            <li key={task} className="flex items-center justify-between gap-3 py-3 text-sm">
-              <span className="truncate">{task}</span>
-              <span className="nb-status shrink-0" data-status={tone}>{state}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
+      ))}
     </div>
   );
 }
@@ -124,7 +140,7 @@ export default function HomePage() {
               <Button variant="outline" size="lg" asChild><a href="#how-it-works">See how it works</a></Button>
             </div>
           </div>
-          <ExampleProject />
+          <ExampleProjects />
         </div>
       </section>
 
@@ -155,17 +171,27 @@ export default function HomePage() {
           <div role="img" aria-label="Example profiles showing role, experience, weekly hours and skills">
             <p className="nb-micro mb-3">Example profiles</p>
             <div className="grid gap-3 sm:grid-cols-2" aria-hidden="true">
-              {exampleProfiles.map(({ initials, role, level, hours, skills }) => (
-                <div key={initials} className="nb-site-preview space-y-4 p-4">
-                  <div className="flex items-center gap-3">
-                    <span className="flex size-10 items-center justify-center rounded-md bg-muted font-mono text-sm font-medium">{initials}</span>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{role}</p>
-                      <p className="text-xs text-muted-foreground">{level} · {hours}</p>
+              {exampleProfiles.map(({ initials, name, headline, location, skills, shared }) => (
+                <div key={initials} className="nb-person-card-host">
+                  <div className="nb-person-card">
+                    <div className="nb-person-identity">
+                      <span className="nb-person-avatar flex items-center justify-center rounded-md bg-secondary text-sm font-semibold">{initials}</span>
+                      <div className="nb-person-identity-text">
+                        <p className="nb-person-name-line"><span className="nb-person-name">{name}</span><span className="nb-person-collaboration">Open to collaborate</span></p>
+                        <div className="nb-person-subtitle"><span className="nb-compact block truncate text-muted-foreground">{headline}</span></div>
+                      </div>
                     </div>
+                    <div className="nb-person-action"><button type="button" tabIndex={-1} className="nb-person-connect">Connect</button></div>
+                    <div className="nb-person-context"><span className="nb-meta nb-person-location"><MapPin className="size-3.5 shrink-0" /><span>{location}</span></span></div>
+                    <div className="nb-person-skills-row">
+                      <div className="nb-person-skill-strip">
+                        {/* Two skills and a "+N" chip, as the live strip shows when space runs out. */}
+                        {skills.slice(0, 2).map((skill) => <span key={skill.canonicalKey} className="nb-tag nb-person-skill"><SkillIcon skill={skill} size={14} /><span className="nb-person-skill-label">{skill.name}</span></span>)}
+                        {skills.length > 2 ? <span className="nb-tag nb-person-skill nb-person-more">+{skills.length - 2}</span> : null}
+                      </div>
+                    </div>
+                    <div className="nb-person-relationship"><span className="nb-meta nb-person-shared"><Users className="size-3 shrink-0" />{shared} shared connections</span></div>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">{skills.map((skill) => <span key={skill} className="nb-tag">{skill}</span>)}</div>
-                  <span className="nb-status" data-status="completed">Open to collaborate</span>
                 </div>
               ))}
             </div>
