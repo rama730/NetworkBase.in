@@ -321,7 +321,7 @@ function ProjectSettingsContent({
 
         const leadRole: ProjectRoleFormValue = {
             id: "lead-role",
-            role: leadFocus || "Lead",
+            role: leadFocus || "Owner",
             count: 1,
             description: metadata.leadDescription || "",
             skills: [],
@@ -502,7 +502,7 @@ function ProjectSettingsContent({
         } catch (error) {
             if (!mountedRef.current || seq !== collaboratorRequestSeqRef.current) return;
             setLoadError("collaborators", "Unable to load these settings. Please retry.");
-            console.error("Failed to load collaborators", error);
+            console.error("Couldn’t load members", error);
 
             toast.error("Couldn’t load members");
         } finally {
@@ -1188,9 +1188,9 @@ function ProjectSettingsContent({
             return;
         }
         setConfirmAction({
-            title: `Change role to ${getProjectMemberRoleLabel(nextRole)}`,
-            description: `${getProjectMemberDisplayName(member)} will move from ${getProjectMemberRoleLabel(currentRole as ProjectMemberRole)} to ${getProjectMemberRoleLabel(nextRole)}. This updates collaborator permissions, task/file access, application review affordances, notifications, and project audit history.`,
-            confirmLabel: "Change role",
+            title: `Change access level to ${getProjectMemberRoleLabel(nextRole)}`,
+            description: `${getProjectMemberDisplayName(member)} will move from ${getProjectMemberRoleLabel(currentRole as ProjectMemberRole)} to ${getProjectMemberRoleLabel(nextRole)}. Their tasks, files, applications and notifications change to match.`,
+            confirmLabel: "Change access level",
             variant: nextRole === "viewer" ? "destructive" : "default",
             action: async () => {
                 const result = await updateProjectMemberRoleAction(projectId, member.id, nextRole);
@@ -1291,9 +1291,9 @@ function ProjectSettingsContent({
                 <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-lg bg-muted">
                     <Lock className="h-8 w-8 text-muted-foreground" />
                 </div>
-                <h3 className="nb-section-title text-foreground">Settings require collaborator management access</h3>
+                <h3 className="nb-section-title text-foreground">Only the owner and admins can change settings</h3>
                 <p className="nb-compact mt-2 text-sm leading-6 text-muted-foreground">
-                    Leads can manage every setting. Co-leaders can manage member and viewer lifecycle. Ask the lead for access if you need to change collaborators.
+                    The owner can change every setting. Admins can manage members and viewers. Ask the owner if you need access.
                 </p>
             </div>
         );
@@ -1319,7 +1319,7 @@ function ProjectSettingsContent({
                     {([
                         ["preserve_history", "Preserve history", "Keep active assignments in place and label them Removed from project · Needs reassignment."],
                         ["unassign_active_tasks", "Unassign active tasks", "Clear this member from active task assignee fields while preserving creator/comment/file history."],
-                        ["reassign_active_tasks", "Reassign active tasks", "Move active assigned tasks to another eligible active collaborator."],
+                        ["reassign_active_tasks", "Reassign active tasks", "Give their tasks to another member."],
                     ] as const).map(([mode, label, detail]) => (
                         <label key={mode} className="flex cursor-pointer gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:border-foreground/20">
                             <input
@@ -1428,7 +1428,7 @@ function ProjectSettingsContent({
                                         <div className="mb-4">
                                             <h3 className="nb-ui-label text-sm font-semibold text-foreground">Project visibility</h3>
                                             <p className="nb-compact mt-0.5 text-xs text-muted-foreground">
-                                                Control whether this project is discoverable across the platform or restricted to workspace collaborators.
+                                                Choose who can find and see this workspace.
                                             </p>
                                         </div>
                                         {project?.parentOrg ? (
@@ -1467,9 +1467,9 @@ function ProjectSettingsContent({
                                             </div>
                                         ) : (
                                             <div className="rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
-                                                <p className="font-medium text-foreground">Visibility is managed by the project lead</p>
+                                                <p className="font-medium text-foreground">Only the owner can change visibility</p>
                                                 <p className="mt-1 nb-compact">
-                                                    This project is currently <strong className="text-foreground">{visibility === "public" ? "Public" : "Private"}</strong>. Only the project owner can change visibility.
+                                                    This project is currently <strong className="text-foreground">{visibility === "public" ? "Public" : "Private"}</strong>. Only the owner can change visibility.
                                                 </p>
                                             </div>
                                         )}
@@ -1479,7 +1479,7 @@ function ProjectSettingsContent({
                                         <div className="mb-4">
                                             <h3 className="nb-ui-label text-sm font-semibold text-foreground">Public surface visibility</h3>
                                             <p className="nb-compact mt-0.5 text-xs text-muted-foreground">
-                                                Choose which project tabs public visitors can see. Members, leaders, and Co-leaders keep access to their workspace tabs.
+                                                Choose which tabs visitors can see. Members always see every tab.
                                             </p>
                                         </div>
                                         <PublicTabVisibilityEditor
@@ -1506,14 +1506,14 @@ function ProjectSettingsContent({
                         <div className="space-y-6">
                         {project?.parentOrg ? <ChildUnitsPanel projectId={projectId} /> : null}
                         <SettingsCard
-                            title="Collaborators"
+                            title="Members"
                                 headingLevel={2}
                                 loadState={{ allowInteractionWhileLoading: true, loading: collaboratorLoading || collaboratorRefreshing || collaboratorLoadingMore, hasData: Boolean(collaboratorData), error: settingsErrors.collaborators ?? null, retry: () => void loadCollaborators("refresh") }}
-                            description="Manage project leadership, team members, roles, and permissions in one place."
+                            description="Manage members and their access levels."
                             footer={
                                 <>
                                     <p className="nb-compact text-muted-foreground">
-                                        {filteredCollaborators.length} {filteredCollaborators.length === 1 ? "collaborator" : "collaborators"} loaded · {1 + rolePolicy.coLeaders.length} in leadership · Permissions active
+                                        {filteredCollaborators.length} {filteredCollaborators.length === 1 ? "member" : "members"} · {1 + rolePolicy.coLeaders.length} {rolePolicy.coLeaders.length === 0 ? "owner" : "owner and admins"}
                                     </p>
                                     <div className="flex items-center gap-2">
                                         <Button
@@ -1537,11 +1537,11 @@ function ProjectSettingsContent({
                                 <div className="flex items-center gap-2">
                                     <div
                                         className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar [scrollbar-width:none]"
-                                        aria-label="Filter collaborators by role"
+                                        aria-label="Filter members by access level"
                                     >
                                         {([
                                             ["all", "All"],
-                                            ["admin", "Co-leaders"],
+                                            ["admin", "Admins"],
                                             ["member", "Members"],
                                             ["viewer", "Viewers"],
                                         ] as const).map(([id, label]) => (
@@ -1570,7 +1570,7 @@ function ProjectSettingsContent({
                                     <div className="flex items-center justify-between pb-2 border-b border-border/60">
                                         <div className="flex items-center gap-2">
                                             <span className="nb-ui-label text-foreground">
-                                                Project Leadership
+                                                Owner and admins
                                             </span>
                                         </div>
                                         <span className="nb-meta text-xs text-muted-foreground">
@@ -1615,10 +1615,10 @@ function ProjectSettingsContent({
                                             <div className="flex flex-col justify-center rounded-lg border border-dashed border-border/80 bg-card/60 nb-grid-ground p-5 text-left" role="status">
                                                 <div className="flex items-center gap-2 text-foreground">
                                                     <Shield className="h-4 w-4 text-muted-foreground" />
-                                                    <p className="nb-ui-label text-sm font-semibold">No co-leaders assigned</p>
+                                                    <p className="nb-ui-label text-sm font-semibold">No admins yet</p>
                                                 </div>
                                                 <p className="nb-compact mt-1.5 text-xs text-muted-foreground leading-relaxed">
-                                                    Promote a trusted member to co-leader when they need full project workflow permissions without receiving destructive lead actions.
+                                                    Make a trusted member an admin when they need to manage members and work. Only the owner can archive, delete or transfer the workspace.
                                                 </p>
                                             </div>
                                         )}
@@ -1659,10 +1659,10 @@ function ProjectSettingsContent({
                                             return (
                                                 <div className="nb-empty-state nb-grid-ground flex flex-col items-center justify-center py-12 text-center rounded-lg border border-dashed border-border/80 p-6">
                                                     <Users className="h-8 w-8 text-muted-foreground/70 mb-2.5" />
-                                                    <p className="nb-card-title text-foreground">No collaborators found</p>
+                                                    <p className="nb-card-title text-foreground">No members found</p>
                                                     <p className="nb-compact mt-1 text-muted-foreground">
                                                         {collaboratorSearch.trim()
-                                                            ? `No collaborators matched "${collaboratorSearch}". Try a different name or role.`
+                                                            ? `No members match "${collaboratorSearch}". Try another name.`
                                                             : `No ${collaboratorFilter === "all" ? "" : collaboratorFilter} members loaded yet.`}
                                                     </p>
                                                 </div>
@@ -1711,7 +1711,7 @@ function ProjectSettingsContent({
                                             className="nb-touch-target h-[34px] gap-2 rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground"
                                         >
                                             {collaboratorLoadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                                            Load more collaborators
+                                            Load more members
                                         </Button>
                                     </div>
                                 ) : null}
@@ -1726,7 +1726,7 @@ function ProjectSettingsContent({
                             <SettingsCard
                                 title="Project roles"
                                 headingLevel={2}
-                                description="Define open positions for collaborators, set target headcounts, and customize skill profiles for application intake."
+                                description="Add open roles, how many people each needs, and the skills you’re looking for."
                                 footer={
                                     !isProjectOwner ? (
                                         <p className="nb-compact text-xs text-muted-foreground italic">
@@ -1856,7 +1856,7 @@ function ProjectSettingsContent({
 
                                                 </div>
                                                 <p className="nb-compact mt-1 text-xs text-muted-foreground leading-relaxed">
-                                                    When enabled, all verified project members can author and publish progress updates. When disabled, update authoring is restricted exclusively to the Project Owner and Co-leaders.
+                                                    On: every member can post updates. Off: only the owner and admins can.
                                                 </p>
                                                 {!isProjectOwner ? (
                                                     <p className="nb-compact mt-1 text-xs text-muted-foreground italic">
@@ -2087,7 +2087,7 @@ function ProjectSettingsContent({
                 {sections.some((s) => s.id === "danger") && (
                     <section id="project-settings-danger" data-project-settings-section className="space-y-6">
                         {organization ? <OrgDangerZone orgId={projectId} organization={organization} handle={project?.slug ?? null} /> : <SettingsCard
-                            title="Danger Zone"
+                            title="Workspace management"
                                 headingLevel={2}
                                 loadState={{ loading: dangerPreflightLoading, hasData: Boolean(dangerPreflight), error: settingsErrors.danger ?? null, retry: () => void loadDangerPreflight(true) }}
                             description="Irreversible and sensitive project operations. Archive to preserve read-only history, transfer ownership to a team member, or permanently delete."
@@ -2236,7 +2236,7 @@ function ProjectSettingsContent({
 
                                     {!isProjectOwner ? (
                                         <p className="nb-compact text-xs text-muted-foreground">
-                                            Only the current project owner can transfer ownership.
+                                            Only the owner can transfer ownership.
                                         </p>
                                     ) : rolePolicy.transferCandidates.length === 0 ? (
                                         <p className="nb-compact text-xs text-amber-700 dark:text-amber-400">
@@ -2269,7 +2269,7 @@ function ProjectSettingsContent({
                                         ) : null}
                                         {!isProjectOwner ? (
                                             <p className="nb-compact text-xs text-muted-foreground mt-1">
-                                                Only the project owner can delete this project.
+                                                Only the owner can delete this workspace.
                                             </p>
                                         ) : null}
                                     </div>
@@ -2314,7 +2314,7 @@ function ProjectSettingsContent({
                 {confirmDialogContent}
             </ConfirmDialog>
 
-            {/* Danger Zone Specific High-Stakes Confirmation Modals */}
+            {/* Workspace management Specific High-Stakes Confirmation Modals */}
             <ProjectArchiveModal
                 open={archiveModalOpen}
                 onOpenChange={setArchiveModalOpen}

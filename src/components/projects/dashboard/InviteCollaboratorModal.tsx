@@ -189,7 +189,7 @@ export default function InviteCollaboratorModal({
     const [searchQuery, setSearchQuery] = useState("");
     const [roleId, setRoleId] = useState(preselectedRoleId || "");
     const [inviteKind, setInviteKind] = useState<InvitationKind>("ordinary_role");
-    const [guidanceLabel, setGuidanceLabel] = useState("Guide");
+    const [guidanceLabel, setGuidanceLabel] = useState("Mentor");
     const [reviewAt, setReviewAt] = useState("");
     const [note, setNote] = useState("");
     const [applicationMessage, setApplicationMessage] = useState("");
@@ -271,7 +271,7 @@ export default function InviteCollaboratorModal({
             completedRef.current = false;
             setRoleId(editing?.roleId || preselectedRoleId || "");
             setInviteKind("ordinary_role");
-            setGuidanceLabel("Guide");
+            setGuidanceLabel("Mentor");
             setReviewAt("");
             setNote("");
             setApplicationMessage(editing?.message ?? "");
@@ -444,7 +444,7 @@ export default function InviteCollaboratorModal({
     useEffect(() => {
         if (!selectedCandidate || !selectedProject || mode !== "invite" || inviteKind === "guidance_appointment") return;
         const role = activeRoles.find((item) => item.id === roleId);
-        setNote(`Hey ${displayName(selectedCandidate)}, I think you'd be a great fit for the ${role ? roleLabel(role) : "collaborator"} role on ${selectedProject.title}. Let's build this together!`);
+        setNote(`Hey ${displayName(selectedCandidate)}, I think you'd be a great fit for the ${role ? roleLabel(role) : "member"} role on ${selectedProject.title}. Let's build this together!`);
     }, [activeRoles, inviteKind, mode, roleId, selectedCandidate, selectedProject]);
 
     useEffect(() => {
@@ -482,7 +482,7 @@ export default function InviteCollaboratorModal({
             if (!result.success) {
                 logger.metric("recruitment.composer.guidance_preflight", { module: "recruitment-composer", projectId: selectedProject.id, outcome: "failure", durationMs: Math.round(performance.now() - startedAt) });
                 setGuidancePreflight(null);
-                showError(result.error || "Unable to verify the Guide appointment");
+                showError(result.error || "Couldn’t check the mentor invitation");
                 return;
             }
             const preflight = { activeGuide: result.activeGuide, capacity: result.capacity };
@@ -492,7 +492,7 @@ export default function InviteCollaboratorModal({
         }).catch(() => {
             if (!cancelled && request === guidanceSequence.current) {
                 logger.metric("recruitment.composer.guidance_preflight", { module: "recruitment-composer", projectId: selectedProject.id, outcome: "failure", durationMs: Math.round(performance.now() - startedAt) });
-                showError("Unable to verify the Guide appointment");
+                showError("Couldn’t check the mentor invitation");
             }
         }).finally(() => {
             if (!cancelled && request === guidanceSequence.current) setGuidanceLoading(false);
@@ -513,8 +513,8 @@ export default function InviteCollaboratorModal({
         if ((mode === "apply" || inviteKind === "ordinary_role") && !roleId) return showError("Select an available role", roleSelectRef);
         if (mode === "invite" && hasPendingApplication) return showError("Review the existing application before sending an invitation");
         if (mode === "invite" && hasPendingInvitation) return showError("An invitation is already pending for this person");
-        if (mode === "invite" && inviteKind === "guidance_appointment" && !guidanceLabel.trim()) return showError("Enter a guidance label", guidanceLabelRef);
-        if (mode === "invite" && inviteKind === "guidance_appointment" && guidanceUnavailable) return showError(guidancePreflight?.activeGuide ? "This project already has an active Guide" : "This person has reached the active Guide limit");
+        if (mode === "invite" && inviteKind === "guidance_appointment" && !guidanceLabel.trim()) return showError("Enter a mentor focus", guidanceLabelRef);
+        if (mode === "invite" && inviteKind === "guidance_appointment" && guidanceUnavailable) return showError(guidancePreflight?.activeGuide ? "This workspace already has a mentor" : "This person has reached their mentor limit");
         if (mode === "apply" && !applicationMessage.trim()) return showError("Add a short application message", applicationMessageRef);
 
         const startedAt = performance.now();
@@ -630,7 +630,7 @@ export default function InviteCollaboratorModal({
                 <DialogHeader className="border-b border-border px-6 py-4 text-left">
                     <DialogTitle className={plainContentHeadings ? "nb-card-title text-foreground" : "nb-card-title flex items-center gap-2 text-foreground"}>
                         {!plainContentHeadings && (mode === "apply" ? <Briefcase aria-hidden="true" className="size-5 text-primary" /> : <Users aria-hidden="true" className="size-5 text-primary" />)}
-                        {mode === "apply" ? (isEditing ? "Edit application" : "Apply to Join") : "Invite Collaborator"}
+                        {mode === "apply" ? (isEditing ? "Edit application" : "Apply to Join") : "Invite members"}
                     </DialogTitle>
                 </DialogHeader>
 
@@ -645,9 +645,9 @@ export default function InviteCollaboratorModal({
                     {mode === "invite" && !candidateIsFixed && selectedProjectId ? <div className="space-y-2">{step("Select person")}<label className="sr-only" htmlFor="recruitment-person-search">Search people</label>{!selectedCandidate ? <><div className="relative"><Search aria-hidden="true" className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><input ref={searchInputRef} id="recruitment-person-search" value={searchQuery} onChange={(event) => { setSearchQuery(event.target.value); setFormError(null); }} placeholder="Search connections or people..." className="w-full rounded-[5px] border border-border bg-muted/30 py-2 pl-9 pr-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" /></div><div role="status" aria-live="polite" className="sr-only">{searching ? "Searching people." : `${people.length} eligible ${people.length === 1 ? "person" : "people"} found.`}</div><div aria-busy={loadingOptions || searching} className="h-[230px] overflow-hidden rounded-[5px] border border-border">{loadingOptions || searching ? <div className="flex h-full items-center justify-center"><Loader2 aria-label="Loading people" className="size-5 animate-spin text-primary" /></div> : people.length === 0 ? <div className="flex h-full items-center justify-center px-4 text-center text-sm text-muted-foreground">{searchQuery.trim().length === 1 ? "Type at least two characters to search people." : "No eligible people found."}</div> : <Virtuoso style={{ height: 230 }} data={people} itemContent={(_, candidate) => <button type="button" onClick={() => selectCandidate(candidate)} aria-label={`Select ${displayName(candidate)}`} className="flex w-full items-center gap-3 border-b border-border px-3 py-2.5 text-left transition-colors hover:bg-muted"><UserAvatar identity={candidate} size={34} roundedClassName="rounded-[5px]" fallbackClassName="font-mono text-xs" /><span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium text-foreground">{displayName(candidate)} {candidate.username && candidate.fullName ? <span className="font-normal text-muted-foreground">@{candidate.username}</span> : null}</span><span className="block truncate text-xs text-muted-foreground">{candidate.headline || ""}</span></span>{candidate.state === "application_pending" ? <span className="rounded-[3px] border border-primary/20 bg-primary/10 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-primary">APPLIED</span> : null}{candidate.state === "invitation_pending" ? <span className="rounded-[3px] border border-amber-500/25 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-amber-700 dark:text-amber-300">INVITED</span> : null}</button>} />}</div></> : <div className="flex items-center justify-between rounded-[5px] border border-border bg-muted/30 p-3 text-foreground"><span className="text-sm font-medium">Candidate: {displayName(selectedCandidate)}</span><Button type="button" size="sm" variant="ghost" onClick={() => { setSelectedCandidate(null); setFormError(null); window.requestAnimationFrame(() => searchInputRef.current?.focus()); }}>Change</Button></div>}</div> : null}
 
                     {(mode === "apply" || selectedCandidate) && selectedProjectId ? <>
-                        {mode === "invite" ? <div className="space-y-2">{step("Invite as")}<label className="sr-only" htmlFor="recruitment-invite-kind">Invitation type</label><select id="recruitment-invite-kind" value={inviteKind} onChange={(event) => { setInviteKind(event.target.value as InvitationKind); setFormError(null); }} className="w-full rounded-[5px] border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus-visible:ring-1 focus-visible:ring-primary"><option value="ordinary_role">Open role</option>{canAppointSelectedGuidance ? <option value="guidance_appointment">Invite as Guide</option> : null}</select></div> : null}
+                        {mode === "invite" ? <div className="space-y-2">{step("Invite as")}<label className="sr-only" htmlFor="recruitment-invite-kind">Invitation type</label><select id="recruitment-invite-kind" value={inviteKind} onChange={(event) => { setInviteKind(event.target.value as InvitationKind); setFormError(null); }} className="w-full rounded-[5px] border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus-visible:ring-1 focus-visible:ring-primary"><option value="ordinary_role">Open role</option>{canAppointSelectedGuidance ? <option value="guidance_appointment">Invite as mentor</option> : null}</select></div> : null}
 
-                        {mode === "invite" && inviteKind === "guidance_appointment" ? <div className="space-y-3"><div className="grid gap-3 sm:grid-cols-2"><div className="space-y-2"><label htmlFor="recruitment-guidance-label" className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">Guidance label</label><input ref={guidanceLabelRef} id="recruitment-guidance-label" value={guidanceLabel} onChange={(event) => setGuidanceLabel(event.target.value.slice(0, 60))} maxLength={60} className="w-full rounded-[5px] border border-border bg-card px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" /></div><div className="space-y-2"><label htmlFor="recruitment-review-date" className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">Review date <span className="normal-case font-normal">(optional)</span></label><input id="recruitment-review-date" type="date" value={reviewAt} onChange={(event) => setReviewAt(event.target.value)} className="w-full rounded-[5px] border border-border bg-card px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" /></div></div>{guidanceLoading ? <p className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="size-3.5 animate-spin" />Checking Guide availability…</p> : guidancePreflight?.activeGuide ? <div className="rounded-[5px] border border-amber-500/25 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200">{guidancePreflight.activeGuide.label}: {guidancePreflight.activeGuide.name} is already active on this project.</div> : guidancePreflight?.capacity === "blocked" ? <div className="rounded-[5px] border border-amber-500/25 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200">This person has reached the active Guide appointment limit.</div> : guidancePreflight?.capacity === "warning" ? <div className="rounded-[5px] border border-amber-500/25 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200">This person is nearing their active Guide appointment capacity.</div> : <p className="text-xs text-muted-foreground">On acceptance, this appointment uses the project’s existing Co-leader access.</p>}</div> : <div className="space-y-3">
+                        {mode === "invite" && inviteKind === "guidance_appointment" ? <div className="space-y-3"><div className="grid gap-3 sm:grid-cols-2"><div className="space-y-2"><label htmlFor="recruitment-guidance-label" className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">Mentor focus</label><input ref={guidanceLabelRef} id="recruitment-guidance-label" value={guidanceLabel} onChange={(event) => setGuidanceLabel(event.target.value.slice(0, 60))} maxLength={60} className="w-full rounded-[5px] border border-border bg-card px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" /></div><div className="space-y-2"><label htmlFor="recruitment-review-date" className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">Review date <span className="normal-case font-normal">(optional)</span></label><input id="recruitment-review-date" type="date" value={reviewAt} onChange={(event) => setReviewAt(event.target.value)} className="w-full rounded-[5px] border border-border bg-card px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" /></div></div>{guidanceLoading ? <p className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="size-3.5 animate-spin" />Checking mentor availability…</p> : guidancePreflight?.activeGuide ? <div className="rounded-[5px] border border-amber-500/25 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200">{guidancePreflight.activeGuide.label}: {guidancePreflight.activeGuide.name} is already a mentor here.</div> : guidancePreflight?.capacity === "blocked" ? <div className="rounded-[5px] border border-amber-500/25 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200">This person has reached their mentor limit.</div> : guidancePreflight?.capacity === "warning" ? <div className="rounded-[5px] border border-amber-500/25 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200">This person is close to their mentor limit.</div> : <p className="text-xs text-muted-foreground">When they accept, they become an admin of this workspace.</p>}</div> : <div className="space-y-3">
                             <div className="space-y-1.5">
                                 <label htmlFor="recruitment-role" className="nb-ui-label block text-[13px] font-medium text-foreground">
                                     {mode === "apply" ? "Select role" : "Assign role"}

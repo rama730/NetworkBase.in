@@ -205,7 +205,7 @@ export function ProjectRolesEditor({
                     <UserCog className="h-8 w-8 text-muted-foreground/70 mb-2.5" />
                     <p className="nb-card-title text-foreground">No roles configured</p>
                     <p className="nb-compact mt-1 text-xs text-muted-foreground">
-                        Add one or more roles to publish positions and invite collaborators.
+                        Add roles to show what you’re looking for and invite people.
                     </p>
                     <Button
                         type="button"
@@ -313,7 +313,7 @@ export function ProjectRolesEditor({
                                                 {entry.member.fullName || entry.member.username}
                                             </span>
                                             <span className="text-[10px] max-md:text-[11px] text-muted-foreground leading-tight truncate max-w-[120px]">
-                                                {entry.field.role || "Lead"}
+                                                {entry.field.role || "Owner"}
                                             </span>
                                         </div>
                                         <span
@@ -327,9 +327,9 @@ export function ProjectRolesEditor({
                                             )}
                                         >
                                             {entry.member.membershipRole === "owner"
-                                                ? "Lead"
+                                                ? "Owner"
                                                 : entry.member.membershipRole === "admin"
-                                                    ? "Co-lead"
+                                                    ? "Admin"
                                                     : "Member"}
                                         </span>
                                     </button>
@@ -440,9 +440,9 @@ export function ProjectRolesEditor({
                                             )}
                                         >
                                             {selectedOccupant.membershipRole === "owner"
-                                                ? "Project Lead"
+                                                ? "Owner"
                                                 : selectedOccupant.membershipRole === "admin"
-                                                    ? "Co-leader"
+                                                    ? "Admin"
                                                     : "Member"}
                                         </span>
                                     </div>
@@ -466,7 +466,7 @@ export function ProjectRolesEditor({
                                 <div className="flex items-center justify-between text-muted-foreground">
                                     <span className="nb-meta text-[11px]">Assigned Role</span>
                                     <span className="nb-meta text-[11px] text-foreground font-medium truncate max-w-[160px]">
-                                        {activeField.role || "Lead"}
+                                        {activeField.role || "Owner"}
                                     </span>
                                 </div>
                                 <div className="flex items-center justify-between text-muted-foreground">

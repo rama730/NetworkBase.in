@@ -120,7 +120,7 @@ export async function GET(request: Request) {
         filesCount: row.filesCount,
         pushedAt: row.pushedAt.toISOString(),
         files: row.filesJson,
-        pushedByName: row.pushedByName || "Collaborator",
+        pushedByName: row.pushedByName || "Member",
       })),
     });
   } catch (error) {

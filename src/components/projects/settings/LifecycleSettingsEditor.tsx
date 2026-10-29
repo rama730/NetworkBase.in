@@ -119,7 +119,7 @@ export function LifecycleSettingsEditor({
                     <div className="space-y-1">
                         <p className="nb-ui-label text-foreground">Lifecycle roadmap alignment</p>
                         <p className="nb-compact text-muted-foreground">
-                            Stages define the progression milestones shown on your project overview and roadmap. As your team completes deliverables, project leads can advance through these stages directly from the project dashboard header.
+                            Stages are the steps this workspace moves through. The owner and admins move between them from the Overview.
                         </p>
                     </div>
                 </div>

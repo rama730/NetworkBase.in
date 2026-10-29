@@ -14,7 +14,7 @@ import { toSkillSummary } from "@/lib/skills/presentation";
 export const metadata: Metadata = {
   ...shareMetadata(genericSharePreview({ kind: "application", identifier: "", url: shareOrigin() + "/" }, "ready")),
   title: "NetworkBase — Find your people. Build something together.",
-  description: "Discover projects, find collaborators by skill, and bring tasks, files and conversations together in one workspace.",
+  description: "Discover workspaces, find people by skill, and bring tasks, files and conversations together.",
 };
 
 const anchors = [
@@ -25,7 +25,7 @@ const anchors = [
 
 const steps = [
   { label: "01 / Discover", title: "Find work you want to be part of.", body: "Browse projects by skills and interests. See the idea, the team and the roles they still need.", href: buildAuthPageHref("/signup", "/discover"), action: "Explore projects" },
-  { label: "02 / Connect", title: "Meet people through what they do.", body: "Profiles are built around skills and contributions. Find collaborators and start a conversation.", href: buildAuthPageHref("/signup", "/network"), action: "Meet people" },
+  { label: "02 / Connect", title: "Meet people through what they do.", body: "Profiles are built around skills and contributions. Find people and start a conversation.", href: buildAuthPageHref("/signup", "/network"), action: "Meet people" },
   { label: "03 / Build", title: "Give your project a place to grow.", body: "Tasks, sprints, documents, files and messages live together, with clear roles for everyone.", href: buildAuthPageHref("/signup", "/projects/new"), action: "Start a project" },
 ];
 
@@ -220,7 +220,7 @@ export default function HomePage() {
             <p className="nb-inverse-muted max-w-[36ch]">Start small, find the people who care about the same problem, and build your way forward.</p>
           </div>
           <ol className="space-y-6">
-            {["Set up your profile and add your skills.", "Find a project or create one of your own.", "Invite collaborators and agree on the next steps.", "Share your progress as the work takes shape."].map((text, index) => (
+            {["Set up your profile and add your skills.", "Find a project or create one of your own.", "Invite members and agree on the next steps.", "Share your progress as the work takes shape."].map((text, index) => (
               <li key={text} className="flex gap-4 border-b border-white/15 pb-5"><span className="font-mono text-sm text-[var(--accent-inverse)]">0{index + 1}</span><span>{text}</span></li>
             ))}
           </ol>
@@ -253,7 +253,7 @@ export default function HomePage() {
       <div className="nb-site-section !py-10 grid gap-8 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
         <div className="space-y-2">
           <Logo />
-          <p className="max-w-[36ch] text-sm text-muted-foreground">Find collaborators, join projects, and build together in one workspace.</p>
+          <p className="max-w-[36ch] text-sm text-muted-foreground">Find people, join workspaces and work together.</p>
         </div>
         <nav aria-label="Product" className="space-y-2 text-sm">
           <p className="nb-micro">Product</p>

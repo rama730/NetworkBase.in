@@ -604,7 +604,7 @@ function InterestsEditor({ interests, onChange }: { interests: string[]; onChang
             <div>
                 <h3 id="profile-interests-heading" className="nb-card-title text-foreground">Interests</h3>
                 <p className="nb-compact mt-0.5 max-w-[64ch] text-muted-foreground">
-                    Optional topics that help refine project and collaborator recommendations.
+                    Topics help us suggest workspaces and people.
                 </p>
             </div>
             <ChipSelector options={options} selected={new Set(interests)} onToggle={toggle} labelledBy="profile-interests-heading" maxVisible={options.length} />

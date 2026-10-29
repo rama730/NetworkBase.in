@@ -72,9 +72,19 @@ export function ruleHits(text: string): Rule[] {
   return RULES.filter(([, test]) => test(text)).map(([rule]) => rule);
 }
 
+/** Words the report keeps on purpose (§7.2, §12.5): proper names in the skill catalog, "Lead" as seniority. */
+const KEPT: Array<[RegExp, RegExp]> = [
+  [/src\/lib\/skills\//, /./],
+  [/src\/lib\/profile\/role-preferences\.ts$/, /^Lead$/],
+];
+
 export function countFile(source: string, fileName: string) {
   const counts: Partial<Record<Rule, number>> = {};
-  for (const text of copyStrings(source, fileName)) for (const rule of ruleHits(text)) counts[rule] = (counts[rule] ?? 0) + 1;
+  const file = fileName.split(path.sep).join("/");
+  for (const text of copyStrings(source, fileName)) {
+    if (KEPT.some(([where, what]) => where.test(file) && what.test(text))) continue;
+    for (const rule of ruleHits(text)) counts[rule] = (counts[rule] ?? 0) + 1;
+  }
   return counts;
 }
 

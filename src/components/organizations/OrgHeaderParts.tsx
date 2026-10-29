@@ -162,7 +162,7 @@ export function ChildOrgChips({ parentOrg, visibility, archived }: { parentOrg: 
     return (
         <p className="flex flex-wrap items-center gap-1.5" data-testid="child-org-chips">
             {visibilityChip ? <span className="nb-status" data-status="draft">{visibilityChip}</span> : null}
-            {parentOrg.viewerIsInheritedAdmin ? <span className="nb-status" data-status="active">{parentOrg.title} admin</span> : null}
+            {parentOrg.viewerIsInheritedAdmin ? <span className="nb-status" data-status="active">Admin · from {parentOrg.title}</span> : null}
             {archived && parentOrg.archived ? <span className="nb-status" data-status="archived">Archived with {parentOrg.title}</span> : null}
         </p>
     )

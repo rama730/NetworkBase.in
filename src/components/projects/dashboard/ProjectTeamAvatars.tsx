@@ -78,7 +78,7 @@ const ProjectTeamAvatars = memo(function ProjectTeamAvatars({
                     isActiveMember: true,
                 });
                 const role = member.id === guidance?.guideUserId
-                    ? `${guidance.label || "Guide"} · Co-leader`
+                    ? `${guidance.label || "Mentor"} · Admin`
                     : formatProjectTeamRole({
                         membershipRole: isOwner ? "owner" : member.membershipRole,
                         projectRoleTitle: member.projectRoleTitle,

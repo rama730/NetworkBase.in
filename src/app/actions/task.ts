@@ -121,7 +121,7 @@ export async function updateTaskFieldAction(
       } else if (field === "sprintId") {
         if (!locked.isOwner) {
           throw new Error(
-            "Only the project owner can change sprint assignments",
+            "Only the owner can change sprint assignments",
           );
         }
         const sprintId = requestedSprintId;
@@ -409,7 +409,7 @@ export async function moveTaskToWorkflowColumnAction(
         throw new Error("Task does not belong to this project");
       // Members move their own or unassigned tasks; leads move any (the board mirrors this).
       if (!locked.isLeader && locked.previousAssigneeId && locked.previousAssigneeId !== user.id)
-        throw new Error("Only the assignee or a project lead can move this task.");
+        throw new Error("Only the assignee, the owner or an admin can move this task.");
       if (expectedVersion && new Date(locked.currentUpdatedAt).getTime() !== expectedVersion.getTime())
         throw new Error("This task changed elsewhere. Reload and try again.");
       return { locked, result: await transitionTaskTx(tx, locked, { taskId, userId: user.id, columnId: workflowColumnId, position }) };
@@ -619,7 +619,7 @@ export async function approveTaskReviewAction(
       if (locked.projectId !== projectId) throw new Error("Task mismatch");
       if(expectedUpdatedAt && new Date(locked.currentUpdatedAt).getTime()!==new Date(expectedUpdatedAt).getTime()) throw new Error("Task changed elsewhere. Reload before approving.");
       if (!locked.isLeader)
-        return { error: "Only project leads can approve tasks" } as const;
+        return { error: "Only the owner and admins can approve tasks" } as const;
       if (locked.reviewStatus !== "pending" || locked.currentStatus !== "done")
         throw new Error("Task is not pending review");
 

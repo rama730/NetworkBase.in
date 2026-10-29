@@ -37,7 +37,7 @@ export function ChildUnitsPanel({ projectId }: { projectId: string }) {
         <section aria-labelledby="child-units-heading" className="space-y-3 rounded-lg border border-border bg-card p-4">
             <div>
                 <h3 id="child-units-heading" className="nb-card-title text-foreground">Units</h3>
-                <p className="nb-compact text-muted-foreground">The team by unit. The unit lead ★ gets the unit&apos;s mentions and reminders.</p>
+                <p className="nb-compact text-muted-foreground">Members by team. The team lead ★ gets the team&apos;s mentions and reminders.</p>
             </div>
             <ul className="space-y-4">
                 {data.units.map((unit) => (
@@ -50,9 +50,9 @@ export function ChildUnitsPanel({ projectId }: { projectId: string }) {
                                     onBlur={(e) => { const count = Number(e.target.value); if (Number.isFinite(count) && count !== unit.count) run(() => updateUnitAction(projectId, unit.id, { count })) }} />
                             </label>
                             <span className="text-xs text-muted-foreground">{unit.filled} of {unit.count}{unit.count > unit.filled ? ` · ${unit.count - unit.filled} open` : ''}</span>
-                            <select aria-label={`Unit lead of ${unit.title}`} className={select} value={unit.leadUserId ?? ''} disabled={pending || unit.members.length === 0}
-                                onChange={(e) => run(() => updateUnitAction(projectId, unit.id, { leadUserId: e.target.value || null }), 'Unit lead saved')}>
-                                <option value="">No unit lead</option>
+                            <select aria-label={`Team lead of ${unit.title}`} className={select} value={unit.leadUserId ?? ''} disabled={pending || unit.members.length === 0}
+                                onChange={(e) => run(() => updateUnitAction(projectId, unit.id, { leadUserId: e.target.value || null }), 'Team lead saved')}>
+                                <option value="">No team lead</option>
                                 {unit.members.map((m) => <option key={m.userId} value={m.userId}>★ {m.name}</option>)}
                             </select>
                         </div>
@@ -60,7 +60,7 @@ export function ChildUnitsPanel({ projectId }: { projectId: string }) {
                             <ul className="flex flex-wrap gap-2">
                                 {unit.members.map((m) => (
                                     <li key={m.userId} className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-0.5 text-sm">
-                                        {m.userId === unit.leadUserId ? <span aria-label="Unit lead">★</span> : null}{m.name}{moveTo(m.userId, unit.id)}
+                                        {m.userId === unit.leadUserId ? <span aria-label="Team lead">★</span> : null}{m.name}{moveTo(m.userId, unit.id)}
                                     </li>
                                 ))}
                             </ul>

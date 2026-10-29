@@ -1481,7 +1481,7 @@ async function resolveOrgPostOptions(access: ProjectUpdateAccess, updateType: Pr
     if (updateType === "announcement" && !orgAdmin) return { error: "Only organization admins post announcements." };
     if (updateType === "discussion" && !inOrg) return { error: "Discussions are for organizations." };
     if (input.shareToOrg) {
-        if (access.org?.kind !== "child") return { error: "Only child projects share to their organization." };
+        if (access.org?.kind !== "child") return { error: "Only workspaces in an organization can share to it." };
         if (access.org.shareBlockedReason) return { error: access.org.shareBlockedReason };
     }
     let audience: UpdateAudience = {};
@@ -1880,7 +1880,7 @@ export async function toggleProjectUpdatePinAction(projectId: string, updateId: 
         const viewer = await getViewerAuthContext();
         if (!viewer.userId) return { success: false as const, error: "Please log in to pin updates." };
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
-        if (!access.canManage || !access.project) return { success: false as const, error: "Only project leaders can pin updates." };
+        if (!access.canManage || !access.project) return { success: false as const, error: "Only the owner and admins can pin updates." };
         const found = await db.transaction(async (tx) => {
             // COR-046: the project row lock serializes pin swaps, and the target is validated before
             // anything is unpinned, so a bad request never clears the current pin.

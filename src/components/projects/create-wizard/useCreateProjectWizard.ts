@@ -93,7 +93,6 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
             lifecycle_stages: [],
             current_stage_index: 0,
             creator_role: {
-                role_type: 'lead',
                 title: '',
             },
             roles: [],
@@ -764,7 +763,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
             if (readmeIntent.mode !== 'skip' && data.doc_edit_policy === 'members') {
                 const { updateProjectDocSettingsAction } = await import('@/app/actions/project/doc');
                 const result = await updateProjectDocSettingsAction(projectId, { editPolicy: 'members' });
-                if (!result.success) warnCreation('Docs stay leaders-only.');
+                if (!result.success) warnCreation('Documents stay visible to the owner and admins only.');
             }
         };
 

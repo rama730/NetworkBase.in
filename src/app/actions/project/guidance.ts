@@ -84,7 +84,7 @@ export async function createProjectInvitationAction(input: CreateInvitationActio
                 kind: "chat_invite",
                 category: "workflows",
                 importance: "important",
-                title: `${user.user_metadata?.full_name || user.user_metadata?.username || "A project Lead"} invited you to ${invitation.projectTitle}`,
+                title: `${user.user_metadata?.full_name || user.user_metadata?.username || "The owner"} invited you to ${invitation.projectTitle}`,
                 body: `Role: ${roleTitle}`,
                 href: chatChannelId ? conversationHref(chatChannelId) : "/messages",
                 entityRefs: {
@@ -96,7 +96,7 @@ export async function createProjectInvitationAction(input: CreateInvitationActio
                 preview: {
                     contextLabel: invitation.projectTitle,
                     contextKind: "workflow",
-                    secondaryText: invitation.kind === "guidance_appointment" ? "Leadership appointment" : "Project invitation",
+                    secondaryText: invitation.kind === "guidance_appointment" ? "Mentor invitation" : "Project invitation",
                 },
                 dedupeKey: `project-invitation:${invitation.id}:created`,
             });
@@ -122,7 +122,7 @@ export async function getProjectGuidancePreflightAction(input: { projectId: stri
         .from(projects)
         .where(and(eq(projects.id, input.projectId), isNull(projects.deletedAt)))
         .limit(1);
-    if (!project || project.ownerId !== user.id) return { success: false as const, error: "Only the project Lead can appoint a Guide" };
+    if (!project || project.ownerId !== user.id) return { success: false as const, error: "Only the owner can invite a mentor" };
 
     const [[active], [capacity]] = await Promise.all([
         db.select({
@@ -148,7 +148,7 @@ export async function getProjectGuidancePreflightAction(input: { projectId: stri
         success: true as const,
         activeGuide: active ? {
             label: active.label,
-            name: active.fullName || active.username || "A collaborator",
+            name: active.fullName || active.username || "A member",
         } : null,
         capacity: getGuidanceCapacityState(capacity?.count ?? 0),
     };

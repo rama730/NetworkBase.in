@@ -30,7 +30,7 @@ const chip = 'inline-flex min-h-8 items-center gap-1.5 rounded-[5px] border bord
 const ROLE_OPTIONS = [
     { value: 'admin', label: 'Admins' },
     { value: 'member', label: 'Members' },
-    { value: 'viewer', label: 'Guests' },
+    { value: 'viewer', label: 'Viewers' },
 ] as const
 
 /** What the next post carries on top of the composer's own fields. Admins in an org get the full set. */

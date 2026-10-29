@@ -8,7 +8,7 @@ function source(relativePath: string) {
     return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
-test("all recruitment entry points use the Invite Collaborator surface", () => {
+test("all recruitment entry points use the Invite members surface", () => {
     const composer = source("src/components/projects/dashboard/InviteCollaboratorModal.tsx");
     const applicationEntry = source("src/components/projects/ApplyRoleModal.tsx");
     const profileInviteEntry = source("src/components/profile/v2/ProfileInviteModal.tsx");
@@ -18,7 +18,7 @@ test("all recruitment entry points use the Invite Collaborator surface", () => {
     assert.match(composer, /createProjectInvitationAction/);
     assert.match(composer, /applyToRoleAction/);
     assert.match(composer, /Search connections or people/);
-    assert.match(composer, /Invite as Guide/);
+    assert.match(composer, /Invite as mentor/);
     assert.match(composer, /query\.length < 2/);
     assert.match(composer, /recruitment-application-draft:v2:\$\{user\?\.id/);
     assert.match(composer, /crypto\.subtle\.digest\("SHA-256"/);
@@ -84,7 +84,7 @@ test("guidance invitations use the existing Open Roles invitation lifecycle", ()
     assert.match(statusAction, /db\.query\.projectInvitations\.findFirst/);
     assert.match(statusAction, /invitationKind: durableInvitation\.kind/);
     assert.match(statusAction, /invitationId: durableInvitation\.id/);
-    assert.match(statusAction, /guidanceLabel \|\| 'Guide'/);
+    assert.match(statusAction, /guidanceLabel \|\| "Mentor"/);
     assert.match(dashboard, /resolveProjectInvitationAction/);
     assert.match(dashboard, /applicationStatus\.invitationId/);
     assert.doesNotMatch(dashboard, /rolesWithFilled\.length === 0\) return/);

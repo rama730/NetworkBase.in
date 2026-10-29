@@ -16,7 +16,7 @@ const LEVELS: Array<{ value: OrgNotificationChoice["level"]; label: string }> = 
 
 /**
  * Settings › Notifications › Organizations (report §26.8): per org All / Important only / Off, Email, and
- * Include child projects. Off still keeps the emails about your access (removal, ownership, deletion).
+ * Include its workspaces. Off still keeps the emails about your access (removal, ownership, deletion).
  */
 export function OrgNotificationChoices({ preferences, disabled, onSave }: { preferences: NotificationPreferences; disabled: boolean; onSave: (next: NotificationPreferences) => void }) {
   const { data: orgs = [] } = useQuery({ queryKey: ["my-organizations"], queryFn: () => listMyOrganizationsAction(), staleTime: 60_000 });
@@ -47,7 +47,7 @@ export function OrgNotificationChoices({ preferences, disabled, onSave }: { pref
                   <input type="checkbox" checked={choice.email} disabled={disabled} onChange={(e) => set(org.id, { email: e.target.checked })} /> Email
                 </label>
                 <label className="inline-flex items-center gap-1.5">
-                  <input type="checkbox" checked={choice.includeChildren} disabled={disabled} onChange={(e) => set(org.id, { includeChildren: e.target.checked })} /> Include child projects
+                  <input type="checkbox" checked={choice.includeChildren} disabled={disabled} onChange={(e) => set(org.id, { includeChildren: e.target.checked })} /> Include its workspaces
                 </label>
               </div>
             </div>

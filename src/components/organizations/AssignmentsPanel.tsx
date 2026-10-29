@@ -149,8 +149,8 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
         : mode === 'role' ? 'One copy per admin'
             : mode === 'people' ? `Creates ${people.length} ${people.length === 1 ? 'copy' : 'copies'}`
                 : mode === 'teams' ? `Creates ${teams.length + individuals.length} copies: ${teams.length} team ${teams.length === 1 ? 'copy' : 'copies'} (${placed.size} people) + ${individuals.length} individual`
-                    : mode === 'each_child' ? `Creates ${options.children.length} copies · one per project lead`
-                        : `Creates ${childIds.length} copies · one per project lead`
+                    : mode === 'each_child' ? `Creates ${options.children.length} assignments · one per workspace`
+                        : `Creates ${childIds.length} assignments · one per workspace`
 
     const target = (): AssignmentTarget => mode === 'everyone' ? { mode }
         : mode === 'role' ? { mode, role: 'admin' }

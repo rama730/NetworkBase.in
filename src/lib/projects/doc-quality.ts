@@ -126,9 +126,9 @@ export function evaluateProjectDocQuality(content: string): ProjectDocQualityRep
     };
 
     if (!sectionPresence.overview) add("missing-overview", "warning", "Missing overview", "Add a short explanation of what this project does and why it matters.");
-    if (!sectionPresence.setup) add("missing-setup", "warning", "Missing getting started", "Add install, setup, or first-run instructions for new collaborators.");
+    if (!sectionPresence.setup) add("missing-setup", "warning", "Missing getting started", "Add setup instructions for new members.");
     if (!sectionPresence.usage) add("missing-usage", "info", "Missing usage", "Show how someone should use or run the project after setup.");
-    if (!sectionPresence.contributing) add("missing-contributing", "info", "Missing contribution guide", "Explain how collaborators should participate, apply, or ask for help.");
+    if (!sectionPresence.contributing) add("missing-contributing", "info", "Missing contribution guide", "Explain how people can take part, apply or ask for help.");
     if (!sectionPresence.screenshots) add("missing-demo", "info", "Missing demo or screenshot", "Add a visual preview when the project benefits from one.");
     if (!sectionPresence.commands) add("missing-command", "info", "No command block", "Add copyable terminal commands for setup, test, or run steps.");
     if (UNSAFE_URL_PATTERN.test(content)) add("unsafe-url", "error", "Unsafe link", "Remove javascript:, data:, or other unsafe link protocols.");

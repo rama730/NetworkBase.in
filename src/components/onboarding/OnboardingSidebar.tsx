@@ -19,7 +19,7 @@ export function OnboardingSidebar({ currentStep, stepLabels, completedThrough, o
         <BrandMark size={17} />
         <p className="onb-wordmark-kicker mt-5">Profile setup</p>
         <p className="mt-2 max-w-[19ch] text-[13px] leading-5 text-muted-foreground">
-          Build a profile that helps the right collaborators find you.
+          Build a profile that helps the right people find you.
         </p>
       </div>
 

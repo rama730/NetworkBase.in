@@ -52,7 +52,7 @@ export function TeamTaskDialog({ projectId, members, open, onOpenChange, onCreat
                             <label className="flex items-center gap-1.5"><input type="radio" name="team-task-mode" checked={mode === 'teams'} onChange={() => setMode('teams')} /> Teams</label>
                         </div>
                     </fieldset>
-                    {mode === 'units' ? <p className="text-sm text-muted-foreground">Each unit with people gets one task, led by its unit lead.</p> : (
+                    {mode === 'units' ? <p className="text-sm text-muted-foreground">Each team with people gets one task, led by its team lead.</p> : (
                         <div className="space-y-2">
                             {teams.map((team, ti) => (
                                 <div key={ti} className="space-y-2 rounded-md border border-border p-2">

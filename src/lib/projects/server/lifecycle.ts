@@ -412,7 +412,6 @@ function withLeadFocusMetadata(
   creatorRole: CreateProjectInput["creator_role"],
 ): ImportSourcePayload | null {
   const leadFocus = (creatorRole?.title || "").trim();
-  const roleType = creatorRole?.role_type || "lead";
   const timeCommitment = typeof creatorRole?.time_commitment === "number" ? creatorRole.time_commitment : null;
   if (!importSource && !leadFocus && !timeCommitment) {
     return null;
@@ -427,9 +426,6 @@ function withLeadFocusMetadata(
     delete metadata.leadFocus;
   }
 
-  if (roleType) {
-    metadata.creatorRoleType = roleType;
-  }
   if (timeCommitment !== null) {
     metadata.creatorTimeCommitment = timeCommitment;
   }
@@ -1097,11 +1093,11 @@ export async function createProjectAction(
             kind: "chat_invite",
             category: "workflows",
             importance: "important",
-            title: `You lead ${result.title}`,
+            title: `You own ${result.title}`,
             body: child ? `Created in ${child.orgTitle}` : "",
             href: `/projects/${result.slug || result.id}`,
             entityRefs: { projectId: result.id, projectSlug: result.slug, targetUserId: ownerId },
-            preview: { contextLabel: result.title, contextKind: "workflow", secondaryText: "Project lead" },
+            preview: { contextLabel: result.title, contextKind: "workflow", secondaryText: "Owner" },
             dedupeKey: `project-lead:${result.id}:${ownerId}`,
           }).catch(() => undefined);
         }
@@ -1117,7 +1113,7 @@ export async function createProjectAction(
                 await notifyOrg({ orgId: parentOrgId, eventKey: "org.child_added", actorId: user.id, to: [person.user_id], title: `You were added to ${result.title} · ${unit.role}`, href, sourceEventId: `added:${result.id}:${person.user_id}`, refs: { projectId: result.id } });
               }
               if (unit.lead_user_id && !outsiders.has(unit.lead_user_id)) {
-                await notifyOrg({ orgId: parentOrgId, eventKey: "org.role_changed", actorId: user.id, to: [unit.lead_user_id], title: `You're unit lead of ${unit.role}`, href, sourceEventId: `unit-lead:${result.id}:${unit.role}:${unit.lead_user_id}`, refs: { projectId: result.id } });
+                await notifyOrg({ orgId: parentOrgId, eventKey: "org.role_changed", actorId: user.id, to: [unit.lead_user_id], title: `You’re team lead of ${unit.role}`, href, sourceEventId: `unit-lead:${result.id}:${unit.role}:${unit.lead_user_id}`, refs: { projectId: result.id } });
               }
             }
             for (const userId of unassignedPeople) {
@@ -1897,7 +1893,7 @@ export async function updateProjectExternalLinksAction(
     if (project.ownerId !== user.id && membership?.role !== "admin") {
       return {
         success: false as const,
-        error: "Only the Lead or a Co-leader can update project links.",
+        error: "Only the owner and admins can change links.",
       };
     }
 
@@ -2196,7 +2192,7 @@ export async function deleteProject(
       return {
         success: false,
         errorCode: "FORBIDDEN",
-        message: "Only the project owner can delete this project.",
+        message: "Only the owner can delete this workspace.",
       };
     }
 
@@ -2250,7 +2246,7 @@ export async function deleteProject(
         success: false,
         errorCode: blocked,
         message: blocked === "FORBIDDEN"
-          ? "Only the project owner can delete this project."
+          ? "Only the owner can delete this workspace."
           : "Project deletion is waiting for storage references to be registered.",
       };
     }

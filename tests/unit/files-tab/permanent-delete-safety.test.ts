@@ -199,7 +199,7 @@ for (const [options, message] of [
   [{ foreignKey: true }, /storage key/],
   [{ alias: true }, /depends on this original/],
   [{ missingIntent: true }, /not authorized/],
-  [{ scopeChanged: true }, /scope changed/],
+  [{ scopeChanged: true }, /would be deleted has changed/],
   [{ unregistered: true }, /registration is still pending/],
   [{ count: 501 }, /more than 500/],
 ] as const)

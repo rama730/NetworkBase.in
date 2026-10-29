@@ -352,7 +352,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     </div>
                 </LaunchSection>
 
-                <LaunchSection {...sectionProps('access')} title="Choose project visibility" description="Controls who can find the project now, and which tabs outsiders see." summary={visibility === 'private' ? 'Private · collaborators only' : visibility === 'org' ? `Org only · members of ${childOrg?.title ?? 'the organization'}` : `Public · ${publicTabCount} public ${publicTabCount === 1 ? 'tab' : 'tabs'}`}>
+                <LaunchSection {...sectionProps('access')} title="Choose project visibility" description="Controls who can find the project now, and which tabs outsiders see." summary={visibility === 'private' ? 'Private · members only' : visibility === 'org' ? `Org only · members of ${childOrg?.title ?? 'the organization'}` : `Public · ${publicTabCount} public ${publicTabCount === 1 ? 'tab' : 'tabs'}`}>
                     <fieldset className="border-y border-border" aria-describedby="create-project-visibility-help">
                         <legend className="sr-only">Project visibility</legend>
                         {(childOrg
@@ -363,7 +363,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                             ]
                             : [
                                 { id: 'public' as const, label: 'Public', icon: Globe, description: 'Anyone can discover the project and view its public tabs.' },
-                                { id: 'private' as const, label: 'Private', icon: Lock, description: 'Only collaborators can access the project until you make it public.' },
+                                { id: 'private' as const, label: 'Private', icon: Lock, description: 'Only members can see this workspace until you make it public.' },
                             ]).map((option) => {
                             const Icon = option.icon;
                             const isSelected = visibility === option.id;
@@ -408,7 +408,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                         <span className="font-medium text-foreground">Visible at launch: </span>
                         {visibility === 'public' || visibility === 'org'
                             ? PUBLIC_TAB_ORDER.filter((tab) => publicTabs[tab]).map((tab) => PROJECT_PUBLIC_TAB_LABELS[tab]).join(' · ') || 'Project title and card only'
-                            : 'Collaborators only. Public-tab choices take effect after you make the project public.'}
+                            : 'Members only. Tab choices apply once you make the workspace public.'}
                     </p>
                 </LaunchSection>
 
@@ -441,7 +441,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     {docMode === 'starter' ? (
                         <div className="mt-4 border-y border-border">
                             <SwitchRow label="Publish the doc at launch" description="Off keeps it as a draft only leaders can see." checked={Boolean(readme?.publishOnCreate)} onCheckedChange={(checked) => set('readme', { ...readme, publishOnCreate: checked } as CreateProjectInput['readme'])} />
-                            <SwitchRow label="Members can edit the doc" description="Off keeps editing to project leaders." checked={docEditPolicy === 'members'} onCheckedChange={(checked) => set('doc_edit_policy', checked ? 'members' : 'leaders')} />
+                            <SwitchRow label="Members can edit the doc" description="Off: only the owner and admins can edit." checked={docEditPolicy === 'members'} onCheckedChange={(checked) => set('doc_edit_policy', checked ? 'members' : 'leaders')} />
                         </div>
                     ) : null}
                 </LaunchSection>
@@ -502,7 +502,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                 </LaunchSection>
 
                 <aside className="border-l-2 border-border pl-4 text-[13px] leading-[1.5] text-muted-foreground">
-                    After creation, in Project settings: team members and invites, privacy policies, and the danger zone.
+                    After creation, in workspace settings: members and invitations, privacy and workspace management.
                 </aside>
             </div>
         </div>

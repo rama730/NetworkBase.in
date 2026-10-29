@@ -139,7 +139,7 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
         </div>}
         <div className="nb-project-card-footer">
             <div className="flex min-w-0 items-center gap-3">
-                <div className="flex -space-x-1.5" role="group" aria-label={`${teamSize} ${teamSize === 1 ? "collaborator" : "collaborators"}`}>
+                <div className="flex -space-x-1.5" role="group" aria-label={`${teamSize} ${teamSize === 1 ? "member" : "members"}`}>
                     {collaborators.slice(0, 4).map((person, index) => <UserAvatar key={person.username || index} identity={person} size={26} className="border-2 border-card" fallbackClassName="text-[11px]" />)}
                     {teamSize > 4 && <span className="flex size-[26px] items-center justify-center rounded-md border-2 border-card bg-secondary font-mono text-[11px]">+{teamSize - 4}</span>}
                 </div>

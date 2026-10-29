@@ -914,7 +914,7 @@ const hydrateProjects = async (
         if (connectedOwnerName && !connectedCluster?.includesOwner) {
             connectedFriends.unshift({
                 name: connectedOwnerName,
-                role: leadFocus ? `Lead / ${leadFocus}` : 'Lead',
+                role: leadFocus ? `Owner / ${leadFocus}` : 'Owner',
             });
             connectedFriendsCount += 1;
         }

@@ -87,7 +87,7 @@ function parseLockConflictError(error: unknown): LockConflictInfo | undefined {
   }
 
   // Check for the plain-text lock error message
-  if (msg.includes("locked by another")) {
+  if (msg.includes("locked by another") || msg.includes("being edited by another")) {
     return {
       lockedBy: {
         userId: "",
@@ -189,7 +189,7 @@ export async function saveFileRevision(params: {
     if ("error" in result) {
       return {
         success: false,
-        error: "File is locked by another collaborator",
+        error: "Another member is editing this file",
         lockConflict: { lockedBy: result.lockedBy },
       };
     }

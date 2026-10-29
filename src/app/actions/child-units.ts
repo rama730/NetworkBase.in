@@ -73,14 +73,14 @@ export async function updateUnitAction(projectId: string, unitId: string, patch:
         if (patch.leadUserId) {
             const [member] = await db.select({ id: projectMembers.id }).from(projectMembers)
                 .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, patch.leadUserId), eq(projectMembers.unitId, unitId))).limit(1);
-            if (!member) return { success: false, error: 'The unit lead must be in the unit.' };
+            if (!member) return { success: false, error: 'The team lead must be in the team.' };
             if (patch.leadUserId !== unit.leadUserId) newLead = patch.leadUserId;
         }
         set.leadUserId = patch.leadUserId;
     }
     await db.update(projectOpenRoles).set(set).where(eq(projectOpenRoles.id, unitId));
     if (newLead && m.project.parentId) {
-        await notifyOrg({ orgId: m.project.parentId, eventKey: 'org.role_changed', actorId: m.userId, to: [newLead], title: `You're unit lead of ${set.title ?? unit.title ?? unit.role}`,
+        await notifyOrg({ orgId: m.project.parentId, eventKey: 'org.role_changed', actorId: m.userId, to: [newLead], title: `You’re team lead of ${set.title ?? unit.title ?? unit.role}`,
             href: `/projects/${encodeURIComponent(m.project.slug ?? projectId)}`, sourceEventId: `unit-lead:${projectId}:${unitId}:${newLead}:${Date.now()}`, refs: { projectId } });
     }
     return { success: true };

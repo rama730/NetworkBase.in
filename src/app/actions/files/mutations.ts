@@ -212,7 +212,7 @@ async function assertSubtreeNotLockedByAnotherUser(
         .limit(1);
 
     if (lock) {
-        throw new Error("This folder or one of its contents is currently locked by another collaborator");
+        throw new Error("This folder or one of its contents is being edited by another member");
     }
 }
 

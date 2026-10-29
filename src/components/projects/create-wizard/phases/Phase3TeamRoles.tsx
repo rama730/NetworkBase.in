@@ -85,18 +85,9 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
         return items;
     });
 
-    useEffect(() => {
-        const currentRole = getValues('creator_role');
-        if (!currentRole || currentRole.role_type !== 'lead') {
-            setValue('creator_role', {
-                role_type: 'lead', title: currentRole?.title || '', time_commitment: currentRole?.time_commitment,
-            }, { shouldDirty: !!currentRole && currentRole.role_type !== 'lead' });
-        }
-    }, [getValues, setValue]);
-
     const updateLeadFocus = (title: string) => {
         setValue('creator_role', {
-            role_type: 'lead', title, time_commitment: creatorRole?.time_commitment,
+            title, time_commitment: creatorRole?.time_commitment,
         }, { shouldDirty: true, shouldValidate: true });
     };
 
@@ -148,19 +139,19 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
             <section aria-labelledby="project-lead-heading" className="border-t border-border pt-6">
                 <SectionHeading
                     id="project-lead-heading"
-                    eyebrow="Leadership"
-                    title="Project lead"
-                    description="You are the project lead. Add a focus area if it helps collaborators understand how you will guide the work."
+                    eyebrow="Access"
+                    title="Owner"
+                    description="You’ll own this workspace. You can make others admins later, or transfer ownership."
                 />
                 <div className="mt-5 grid gap-5 border-y border-border py-5 md:grid-cols-[minmax(11rem,0.42fr)_minmax(0,1fr)] md:gap-6">
                     <div>
-                        <p className="nb-label">Your role</p>
-                        <p className="nb-card-title mt-2 text-foreground">Lead</p>
-                        <p className="nb-compact mt-1 max-w-[34ch] text-muted-foreground">You set direction, make decisions, and align the team.</p>
+                        <p className="nb-label">Access level</p>
+                        <p className="nb-card-title mt-2 text-foreground">Owner · 1 person</p>
+                        <p className="nb-compact mt-1 max-w-[34ch] text-muted-foreground">You can change every setting, transfer ownership, or archive and delete the workspace.</p>
                     </div>
                     <div>
                         <div className="flex items-end justify-between gap-3">
-                            <FieldLabel htmlFor="create-project-lead-focus">Lead focus</FieldLabel>
+                            <FieldLabel htmlFor="create-project-lead-focus">Your role in this workspace</FieldLabel>
                             <span className="nb-meta mb-2 shrink-0 tabular-nums text-muted-foreground">{leadFocus.length}/80</span>
                         </div>
                         <Input
@@ -172,7 +163,7 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
                             className={fieldClass}
                             aria-describedby="create-project-lead-focus-help"
                         />
-                        <p id="create-project-lead-focus-help" className="mt-1.5 text-[13px] leading-[1.5] text-muted-foreground">Optional. This appears with your lead role in the project summary.</p>
+                        <p id="create-project-lead-focus-help" className="mt-1.5 text-[13px] leading-[1.5] text-muted-foreground">Optional. What you do here, for example Product design.</p>
                     </div>
                 </div>
             </section>
@@ -182,7 +173,7 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
                     <SectionHeading
                         id="open-roles-heading"
                         eyebrow="Open roles"
-                        title="Invite the right collaborators"
+                        title="Set up your team"
                         description="Openings are optional. Define a role only when you are ready to make it visible to potential contributors."
                     />
                     <div className="flex items-center gap-3">

@@ -12,6 +12,7 @@ import { enqueueProjectNotificationEvent } from "@/lib/notifications/project-eve
 import type { OrgNotificationEventKey } from "@/lib/notifications/project-policy";
 import type { NotificationEntityRefs } from "@/lib/notifications/types";
 import { audienceAllows, type UpdateAudience } from "@/lib/organizations/update-rules";
+import { ACCESS_LEVEL_LABELS } from "@/lib/copy/terms";
 import { orgRoleNames, orgTypeLabel } from "@/lib/organizations/config";
 
 // One door for organization notifications (report §26): the tray goes through the project event pipeline
@@ -112,7 +113,7 @@ export async function orgLabel(orgId: string) {
   return org ? { id: org.id, title: org.title || "Organization", slug: org.slug, welcomeNote: org.welcomeNote, roleNames: orgRoleNames(org.orgType, org.orgSettings) } : null;
 }
 
-export const ROLE_LABEL: Record<string, string> = { owner: "Owner", admin: "Admin", member: "Member", viewer: "Guest" };
+export const ROLE_LABEL: Record<string, string> = ACCESS_LEVEL_LABELS;
 
 /** Someone joined (code, invite, approval elsewhere): a combined "N people joined" for admins, E4 to them (report §26.3 A). */
 export async function notifyJoined(orgId: string, userId: string, eventId: string) {

@@ -1160,7 +1160,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                         <Lock className="nb-empty-state-icon mx-auto text-muted-foreground" aria-hidden="true" />
                         <p className="nb-card-title mt-4 text-foreground">Tab unavailable</p>
                         <p className="nb-compact mt-2 text-muted-foreground">
-                            This tab is not visible to public visitors or has been restricted by the project leaders.
+                            You don’t have access to this tab. The owner or admins limit who can see it.
                         </p>
                     </div>
                 </div>

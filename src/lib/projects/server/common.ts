@@ -458,7 +458,7 @@ export async function loadOwnedProjectForSettings(projectId: string, userId: str
     return {
       ok: false as const,
       errorCode: "FORBIDDEN" as const,
-      message: "Only the project owner can change settings.",
+      message: "Only the owner can change these settings.",
     };
   }
   return { ok: true as const, project };

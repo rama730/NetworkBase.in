@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
+import { ACCESS_LEVEL_LABELS, accessLevelLabel, type AccessLevel } from '@/lib/copy/terms'
 import Link from 'next/link'
 
 import {
@@ -48,7 +49,8 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
     const [selected, setSelected] = useState<Set<string>>(new Set())
     const [open, setOpen] = useState<Row | null>(null)
     const [pending, startTransition] = useTransition()
-    const label = (role: string) => roleNames?.[role as keyof RoleNames] ?? { owner: 'Owner', admin: 'Admin', member: 'Member', viewer: 'Guest' }[role] ?? role
+    // Report §4.3: the organization's own name beside the base access level ("TA · Admin").
+    const label = (role: string) => (role in ACCESS_LEVEL_LABELS ? accessLevelLabel(role as AccessLevel, roleNames?.[role as keyof RoleNames]) : role)
 
     const load = useCallback(() => void readOrgMembersAction(orgId).then((r) => {
         if (r.success) { setData(r); setError(null) } else setError(r.error)
@@ -75,7 +77,7 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
                 <div className="flex flex-wrap items-center gap-2">
                     <Input value={filter.q ?? ''} onChange={(e) => setFilter({ ...filter, q: e.target.value })} placeholder="Search members…" aria-label="Search members" className="h-9 w-full sm:w-56" />
                     <select aria-label="Role" className={select} value={filter.role ?? 'all'} onChange={(e) => setFilter({ ...filter, role: e.target.value as RosterFilter['role'] })}>
-                        <option value="all">All roles</option><option value="admins">Admins</option><option value="members">Members</option><option value="guests">Guests</option>
+                        <option value="all">All roles</option><option value="admins">Admins</option><option value="members">Members</option><option value="guests">Viewers</option>
                     </select>
                     <select aria-label="Project" className={select} value={filter.project ?? 'all'} onChange={(e) => setFilter({ ...filter, project: e.target.value })}>
                         <option value="all">All projects</option><option value="none">Not in a project</option>
@@ -96,11 +98,11 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
 
                 {data.requests.length > 0 ? <div className="lg:hidden"><Requests orgId={orgId} data={data} pending={pending} run={run} /></div> : null}
 
-                {ids.length > 0 ? <BulkBar orgId={orgId} data={data} ids={ids} pending={pending} run={run} onClear={() => setSelected(new Set())} /> : null}
+                {ids.length > 0 ? <BulkBar label={label} orgId={orgId} data={data} ids={ids} pending={pending} run={run} onClear={() => setSelected(new Set())} /> : null}
 
                 {filter.outside ? (
                     <ul className="divide-y divide-border rounded-lg border border-border" aria-label="Outside people">
-                        {data.outside.length === 0 ? <li className="p-4 text-sm text-muted-foreground">No outside people in child projects.</li> : null}
+                        {data.outside.length === 0 ? <li className="p-4 text-sm text-muted-foreground">No outside people in this organization’s workspaces.</li> : null}
                         {data.outside.map((o) => (
                             <li key={o.userId} className="flex flex-wrap items-center gap-x-3 gap-y-1 p-3 text-sm">
                                 <span className="font-medium">{o.name}</span>
@@ -155,7 +157,7 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
 
             <aside className="space-y-5">
                 <div className={data.requests.length > 0 ? 'hidden lg:block' : undefined}><Requests orgId={orgId} data={data} pending={pending} run={run} /></div>
-                <InviteBox orgId={orgId} data={data} pending={pending} run={run} onCode={(joinCode) => setData({ ...data, joinCode })} />
+                <InviteBox label={label} orgId={orgId} data={data} pending={pending} run={run} onCode={(joinCode) => setData({ ...data, joinCode })} />
                 <section aria-label="Summary" className="space-y-1 text-sm">
                     <button type="button" className="block hover:underline" onClick={() => setFilter({ sort: 'name' })}>{s.members} members</button>
                     <button type="button" className="block hover:underline" onClick={() => setFilter({ role: 'admins' })}>{s.admins} owners and admins · {s.guests} guests</button>
@@ -177,7 +179,7 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
 
 type Run = (work: () => Promise<{ success: boolean; error?: string }>, done: string) => void
 
-function BulkBar({ orgId, data, ids, pending, run, onClear }: { orgId: string; data: OrgMembersData; ids: string[]; pending: boolean; run: Run; onClear: () => void }) {
+function BulkBar({ orgId, data, label, ids, pending, run, onClear }: { orgId: string; data: OrgMembersData; label: (role: string) => string; ids: string[]; pending: boolean; run: Run; onClear: () => void }) {
     const [childId, setChildId] = useState('')
     const [unitId, setUnitId] = useState('')
     const [block, setBlock] = useState(false)
@@ -186,15 +188,15 @@ function BulkBar({ orgId, data, ids, pending, run, onClear }: { orgId: string; d
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/30 p-2 text-sm" role="group" aria-label="Bulk actions">
             <span className="font-medium">{ids.length} selected</span>
             <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => remindMembersAction(orgId, ids), 'Reminders sent to people with open work')}>Remind</Button>
-            <select aria-label="Change role" className={select} value="" disabled={pending} onChange={(e) => {
+            <select aria-label="Change access level" className={select} value="" disabled={pending} onChange={(e) => {
                 const role = e.target.value as 'admin' | 'member' | 'viewer'
                 if (role) run(() => changeMemberRoleAction(orgId, ids, role), 'Roles changed')
             }}>
-                <option value="">Change role…</option>
-                <option value="member">Member</option><option value="viewer">Guest</option>
+                <option value="">Change access level…</option>
+                <option value="member">{label('member')}</option><option value="viewer">{label('viewer')}</option>
                 {data.viewerRole === 'owner' ? <option value="admin">Admin</option> : null}
             </select>
-            <select aria-label="Child project" className={select} value={childId} onChange={(e) => { setChildId(e.target.value); setUnitId('') }}>
+            <select aria-label="Workspace" className={select} value={childId} onChange={(e) => { setChildId(e.target.value); setUnitId('') }}>
                 <option value="">Add to project…</option>
                 {data.children.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
             </select>
@@ -241,7 +243,7 @@ function Requests({ orgId, data, pending, run }: { orgId: string; data: OrgMembe
     )
 }
 
-function InviteBox({ orgId, data, pending, run, onCode }: { orgId: string; data: OrgMembersData; pending: boolean; run: Run; onCode: (code: string) => void }) {
+function InviteBox({ orgId, data, label, pending, run, onCode }: { orgId: string; data: OrgMembersData; label: (role: string) => string; pending: boolean; run: Run; onCode: (code: string) => void }) {
     const [emails, setEmails] = useState('')
     const [role, setRole] = useState<'member' | 'admin' | 'viewer'>('member')
     const [title, setTitle] = useState('')
@@ -274,13 +276,13 @@ function InviteBox({ orgId, data, pending, run, onCode }: { orgId: string; data:
                 <textarea value={emails} onChange={(e) => setEmails(e.target.value)} rows={3} placeholder="Emails, comma or one per line" aria-label="Emails to invite" className="w-full rounded-md border border-border bg-background p-2 text-sm" />
                 <div className="flex gap-1.5">
                     <select aria-label="Invite as" className={cn(select, 'flex-1')} value={role} onChange={(e) => setRole(e.target.value as typeof role)}>
-                        <option value="member">Member</option><option value="viewer">Guest</option>
+                        <option value="member">{label('member')}</option><option value="viewer">{label('viewer')}</option>
                         {data.viewerRole === 'owner' ? <option value="admin">Admin</option> : null}
                     </select>
                     <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={60} placeholder="Title (optional)" aria-label="Title" className="h-9 flex-1" />
                 </div>
                 <div className="flex gap-1.5">
-                    <select aria-label="Child project" className={cn(select, 'flex-1')} value={childId} onChange={(e) => { setChildId(e.target.value); setUnitId('') }}>
+                    <select aria-label="Workspace" className={cn(select, 'flex-1')} value={childId} onChange={(e) => { setChildId(e.target.value); setUnitId('') }}>
                         <option value="">No project</option>
                         {data.children.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
                     </select>

@@ -74,7 +74,7 @@ function minuteOfDayIn(now: Date, timeZone: string | null | undefined) {
 
 export const NOTIFICATION_PREFERENCE_CATEGORIES = [
     { key: "mentions", title: "Mentions", description: "Mentions in task discussions and chat that need your attention." },
-    { key: "workflows", title: "Invitations", description: "Project invitations and leadership appointments." },
+    { key: "workflows", title: "Invitations", description: "Workspace and mentor invitations." },
     { key: "projects", title: "Project activity", description: "Project-level updates that are important but not noisy." },
     { key: "tasks", title: "Task updates", description: "Assignments and attention states on work tied to you." },
     { key: "applications", title: "Applications", description: "Incoming applications and decisions on applications you submitted." },

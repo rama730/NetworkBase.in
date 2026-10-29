@@ -126,7 +126,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                 <p className="nb-micro text-primary">Phase 2 · {orgCopy ? 'details' : 'information'}</p>
                 <h2 className="nb-section-title mt-1 text-foreground">{orgCopy ? 'Organization details' : 'Project details'}</h2>
                 <p className="nb-compact mt-1.5 text-muted-foreground">
-                    {orgCopy ? "Tell people what this organization is, who it's for and what happens in it." : 'Describe what you are building so collaborators can understand its purpose and find it later.'}
+                    {orgCopy ? "Tell people what this organization is, who it's for and what happens in it." : 'Describe what you’re building so people understand it and can find it later.'}
                 </p>
             </div>
 
@@ -231,7 +231,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                             aria-describedby="create-project-title-help create-project-title-error"
                             required
                         />
-                        <p id="create-project-title-help" className="mt-1.5 text-[13px] leading-[1.5] text-muted-foreground">{orgCopy ? 'The name members know it by.' : 'Use a clear, specific name that collaborators can recognize.'}</p>
+                        <p id="create-project-title-help" className="mt-1.5 text-[13px] leading-[1.5] text-muted-foreground">{orgCopy ? 'The name members know it by.' : 'Use a clear, specific name people will recognize.'}</p>
                         <FieldError id="create-project-title-error" message={errors.title?.message} />
                         {titleTaken && org ? <p role="status" className="mt-1.5 text-[13px] leading-[1.5] text-[var(--status-warning)]">Another project in {org.title} is already called this. You can keep it.</p> : null}
                     </div>
@@ -262,7 +262,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                     id="project-story-heading"
                     eyebrow={orgCopy ? 'About' : 'Project story'}
                     title={orgCopy ? 'What happens here' : 'Explain the work'}
-                    description={orgCopy ? 'What future members want to know before they join.' : 'Give future collaborators enough context to decide whether the project is a fit.'}
+                    description={orgCopy ? 'What future members want to know before they join.' : 'Give future members enough context to decide whether this workspace is a fit.'}
                 />
 
                 <div className="mt-5 space-y-5">

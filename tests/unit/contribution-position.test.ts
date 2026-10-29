@@ -11,45 +11,41 @@ import {
 } from "@/lib/profile/contribution-story";
 import type { ProfileCollaborationRoleStage } from "@/lib/profile/collaboration";
 
-test("actual project position precedes membership and generic legacy duplicates cannot replace it", () => {
+test("a contribution shows the role title, never the access level; legacy decorations are stripped", () => {
   assert.equal(
     formatContributionPosition({
-      roleKind: "owner",
       title: "Lead - Lead",
       projectPosition: "Product Designer",
     }),
-    "Product Designer · Lead",
+    "Product Designer",
   );
   assert.equal(
-    formatContributionPosition({ roleKind: "owner", title: "Lead / Tester" }),
-    "Tester · Lead",
+    formatContributionPosition({ title: "Lead / Tester" }),
+    "Tester",
   );
   assert.equal(
     formatContributionPosition({
-      roleKind: "owner",
       title: "Lead",
       projectPosition: "Full stack developer",
     }),
-    "Full stack developer · Lead",
+    "Full stack developer",
   );
   assert.equal(
     formatContributionPosition({
-      roleKind: "admin",
       title: "Co-lead",
       projectPosition: "QA Engineer",
     }),
-    "QA Engineer · Co-lead",
+    "QA Engineer",
   );
   assert.equal(
     formatContributionPosition({
-      roleKind: "member",
       title: "Engineer · Member",
     }),
-    "Engineer · Member",
+    "Engineer",
   );
   assert.equal(
-    formatContributionPosition({ roleKind: "owner", title: "Lead - Lead" }),
-    "Lead",
+    formatContributionPosition({ title: "Lead - Lead" }),
+    "Contributor",
   );
   assert.equal(
     contributionPositionName("Full-stack Developer"),

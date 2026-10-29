@@ -74,7 +74,7 @@ export async function updateTaskCompletionPolicyAction(input: {
         WHERE p.id = ${data.projectId} AND p.deleted_at IS NULL FOR UPDATE OF p
       `);
       if (!row || (row.owner_id !== user.id && row.role !== "admin"))
-        throw new Error("Only project leads can change completion settings");
+        throw new Error("Only the owner and admins can change completion settings");
       if (row.task_completion_policy_version !== data.expectedVersion)
         throw new Error("Settings changed elsewhere. Reload and try again.");
       if (row.task_review_required === data.reviewRequired)

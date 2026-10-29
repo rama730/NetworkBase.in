@@ -202,7 +202,7 @@ export function FileTreeItem({
                   {lock ? (
                     <span
                       className="text-[11px] px-1 rounded-[3px] border border-[#F6E7C2] bg-[#FBF4E2] text-[#9A6B00] dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60 flex-shrink-0 font-mono"
-                      title={`Being edited ${lock.clientKind === "vscode" ? "in VS Code " : ""}by ${lock.lockedByName?.trim() || "a collaborator"}`}
+                      title={`Being edited ${lock.clientKind === "vscode" ? "in VS Code " : ""}by ${lock.lockedByName?.trim() || "another member"}`}
                     >
                       {lock.clientKind === "vscode" ? "VS Code" : "editing"}
                     </span>

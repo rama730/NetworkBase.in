@@ -384,7 +384,7 @@ export async function changeProjectMemberRoleInternal(
     const actorRole = await readMembershipRole(executor, params.projectId, params.actorId, project.ownerId, true);
     const previousRole = await readMembershipRole(executor, params.projectId, params.targetUserId, project.ownerId, true);
     if (!canProjectRoleManageTarget({ actorRole, targetRole: previousRole, nextRole: params.nextRole })) {
-        throw new ForbiddenError("You do not have permission to manage this collaborator");
+        throw new ForbiddenError("You can’t manage this member");
     }
     if (previousRole === params.nextRole) {
         return { eventId: null, changed: false, project, target: await readProfileSnapshot(executor, params.targetUserId), previousRole, nextRole: params.nextRole };
@@ -586,7 +586,7 @@ export async function removeProjectMemberInternal(
     const previousRole = await readMembershipRole(executor, params.projectId, params.targetUserId, project.ownerId, true);
     const isLeaving = params.allowSelf === true && params.actorId === params.targetUserId && previousRole !== null && previousRole !== "owner";
     if (!isLeaving && !canProjectRoleManageTarget({ actorRole, targetRole: previousRole })) {
-        throw new ForbiddenError("You do not have permission to remove this collaborator");
+        throw new ForbiddenError("You can’t remove this member");
     }
     const target = await readProfileSnapshot(executor, params.targetUserId);
     const impact = await readProjectMemberRemovalImpact(executor, params.projectId, params.targetUserId);

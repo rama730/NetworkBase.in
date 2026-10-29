@@ -117,10 +117,10 @@ export function ChildOrgSection({ project, isLead, canManage }: { project: Proje
                         </fieldset>
                     ) : null}
                     <div>
-                        <p className="nb-ui-label text-sm font-semibold text-foreground">Inherited admins</p>
-                        <p className="nb-compact mt-0.5 text-muted-foreground">They can open, archive and detach this project. Only the lead deletes it or transfers it.</p>
+                        <p className="nb-ui-label text-sm font-semibold text-foreground">Admins from the organization</p>
+                        <p className="nb-compact mt-0.5 text-muted-foreground">They can open, archive and remove this workspace from the organization. Only the owner can delete or transfer it.</p>
                         <ul className="mt-2 space-y-1 text-sm">
-                            {parentOrg.inheritedAdmins.map((admin) => <li key={`${admin.name}-${admin.roleName}`}>{admin.name}, {admin.roleName} · Set by {parentOrg.title}</li>)}
+                            {parentOrg.inheritedAdmins.map((admin) => <li key={`${admin.name}-${admin.roleName}`}>{admin.name}, {admin.roleName} · Admin · from {parentOrg.title}</li>)}
                         </ul>
                     </div>
                     <div className="space-y-3 border-t border-border pt-4">

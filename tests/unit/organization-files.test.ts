@@ -26,6 +26,6 @@ test("access is only stricter going down", () => {
 
 test("starter folders by type end with an Admins-only folder", () => {
   assert.deepEqual(starterFolders("education").map((f) => f.name), ["Course materials", "Docs", "Templates", "Staff"]);
-  assert.deepEqual(starterFolders("company").map((f) => f.name), ["Shared", "Docs", "Templates", "Leadership"]);
+  assert.deepEqual(starterFolders("company").map((f) => f.name), ["Shared", "Docs", "Templates", "Managers"]);
   assert.equal(starterFolders("club").at(-1)?.access, "admins");
 });

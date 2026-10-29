@@ -186,7 +186,7 @@ export async function POST(request: Request) {
           !authority.isOwner
         )
           throw new Error(
-            "Only the thread author or project owner can change its state or anchor",
+            "Only the comment’s author or the workspace owner can change it",
           );
         if (
           "expectedSequence" in input &&

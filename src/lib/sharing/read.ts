@@ -105,7 +105,7 @@ async function readProjectTeam(projectId: string, ownerId: string, viewerId: str
     ORDER BY roster.priority, (guidance.id IS NOT NULL) DESC, roster.joined ASC NULLS FIRST, profiles.id LIMIT 5
   `);
   return { team: Array.from(rows, row => ({ id: row.id, name: shareText(row.name).slice(0,160) || (row.username ? '@'+row.username : 'Member'),
-    username: row.username, avatarUrl: normalizeSafeExternalUrl(row.avatar ?? ''), avatarRevision:createHash('sha256').update(JSON.stringify([row.asset,row.avatarHash,row.avatarKey,row.avatar])).digest('hex').slice(0,16), role: row.guidanceLabel !== null ? `${shareText(row.guidanceLabel) || 'Guide'} · Co-leader` : formatProjectTeamRole({membershipRole:row.role, projectRoleTitle:shareText(row.roleTitle), leadFocus:row.id === ownerId ? shareText(row.leadFocus) : null}) })),
+    username: row.username, avatarUrl: normalizeSafeExternalUrl(row.avatar ?? ''), avatarRevision:createHash('sha256').update(JSON.stringify([row.asset,row.avatarHash,row.avatarKey,row.avatar])).digest('hex').slice(0,16), role: row.guidanceLabel !== null ? `${shareText(row.guidanceLabel) || 'Mentor'} · Admin` : formatProjectTeamRole({membershipRole:row.role, projectRoleTitle:shareText(row.roleTitle), leadFocus:row.id === ownerId ? shareText(row.leadFocus) : null}) })),
     teamOverflow: Math.max(0, Number(rows[0]?.total ?? 0) - rows.length) };
 }
 

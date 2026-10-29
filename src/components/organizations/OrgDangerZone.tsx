@@ -42,7 +42,7 @@ export function OrgDangerZone({ orgId, organization, handle }: { orgId: string; 
 
     if (organization.deletionScheduledAt) return <RestoreCard orgId={orgId} at={organization.deletionScheduledAt} />
     return (
-        <SettingsCard title="Danger zone" headingLevel={2} danger description="Ownership, archive, duplicate and delete. Each one asks before it changes anything.">
+        <SettingsCard title="Organization management" headingLevel={2} danger description="Ownership, archive, duplicate and delete. Each one asks before it changes anything.">
             <div className="space-y-8">
                 <TransferRow orgId={orgId} admins={admins} />
                 <ArchiveRow orgId={orgId} archived={organization.archived} preview={preview} />
@@ -176,7 +176,7 @@ function DeleteRow({ orgId, handle, preview }: { orgId: string; handle: string |
                     {preview ? <p className="text-sm text-foreground">{preview.children} child {preview.children === 1 ? 'project' : 'projects'} · {preview.members} members · {preview.files} files</p> : null}
                     {preview && preview.children > 0 ? (
                         <fieldset className="space-y-1.5 text-sm">
-                            <legend className={label}>Child projects</legend>
+                            <legend className={label}>Workspaces in this organization</legend>
                             <label className="flex items-center gap-2"><input type="radio" name="org-delete-children" checked={childMode === 'detach'} onChange={() => setChildMode('detach')} /> Give them to their leads as personal projects (now)</label>
                             <label className="flex items-center gap-2"><input type="radio" name="org-delete-children" checked={childMode === 'delete'} onChange={() => setChildMode('delete')} /> Delete them with the organization (same 30 days)</label>
                         </fieldset>

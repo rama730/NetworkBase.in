@@ -19,7 +19,7 @@ const BLOCK_COPY: Record<ProjectDocSmartBlock["kind"], { title: string; icon: ty
         title: "Contributors",
         icon: Users,
         tab: "dashboard",
-        description: "Active project contributors and collaborators.",
+        description: "People working in this workspace.",
     },
     files: {
         title: "Referenced files",
@@ -93,7 +93,7 @@ export function ProjectDocSmartBlock({
         block.kind === "roles"
             ? `${roles.length} role${roles.length === 1 ? "" : "s"} listed`
             : block.kind === "contributors"
-                ? `${collaborators.length} collaborator${collaborators.length === 1 ? "" : "s"} visible`
+                ? `${collaborators.length} member${collaborators.length === 1 ? "" : "s"}`
                 : block.kind === "files" || block.kind === "tasks"
                 ? block.ids.length > 0 ? `${block.ids.length} specific item${block.ids.length === 1 ? "" : "s"} linked` : "Open the project surface for current items"
                     : block.kind === "sprints"

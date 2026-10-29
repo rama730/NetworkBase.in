@@ -70,7 +70,7 @@ test("co-leader retains ordinary settings access without owner-only danger check
   const { run, calls } = loadBootstrap(false);
   const result = await run("project-id", {});
   assert.equal(result.dangerPreflight.errorCode, "FORBIDDEN");
-  assert.match(result.dangerPreflight.message, /danger zone/);
+  assert.match(result.dangerPreflight.message, /manage the workspace/);
   assert.ok(!calls.includes("danger"));
   assert.equal(result.collaboratorSettings.success, true);
   assert.equal(result.fileAccess.success, true);

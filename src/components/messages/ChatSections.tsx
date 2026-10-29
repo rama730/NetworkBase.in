@@ -458,7 +458,7 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
             {projects.map((project) => (
               <DropdownMenuRadioItem key={project.id} value={project.id} data-testid={`chat-project-${project.id}`}>
                 <span className="relative inline-flex flex-none"><ProjectBadge project={project} size="sm" /><ProjectPresenceBadge projectId={project.id} size={10} className="absolute" style={{ right: -3, bottom: -3 }} /></span>
-                <span className="min-w-0 flex-1 truncate">{project.guestOf ? `${project.guestOf} · Guest` : project.title}</span>
+                <span className="min-w-0 flex-1 truncate">{project.guestOf ? `${project.guestOf} · Viewer` : project.title}</span>
                 <Count value={badges.get(project.id) ?? 0} noun="mentions" />
               </DropdownMenuRadioItem>
             ))}

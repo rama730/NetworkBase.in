@@ -257,7 +257,7 @@ export function ProjectTransferOwnershipModal({
                         <ul className="space-y-1 nb-compact text-xs leading-5">
                             <li className="flex items-start gap-1.5">
                                 <span className="font-bold">•</span>
-                                <span>You will be demoted to <strong>Administrator</strong> and surrender owner privileges.</span>
+                                <span>You’ll become an <strong>admin</strong> and lose owner permissions.</span>
                             </li>
                             <li className="flex items-start gap-1.5">
                                 <span className="font-bold">•</span>

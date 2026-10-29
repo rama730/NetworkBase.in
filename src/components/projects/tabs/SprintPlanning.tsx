@@ -368,7 +368,7 @@ export default function SprintPlanning({
         <p className="nb-empty-state-desc">
           {permissions.canCreate
             ? "Create the first sprint and this space will turn into a clean execution timeline for the work inside it."
-            : "No sprints have been planned yet. Sprints created by project leads will appear here."}
+            : "No sprints have been planned yet. Sprints created by the owner or admins appear here."}
         </p>
         {orgContext ? <RunningOrgSprintPrompt org={orgContext} canCreate={canManageSprints} onCreateLinked={(parentSprintId) => setEditorState({ mode: "create", sprint: null, parentSprintId })} /> : null}
         {orgContext?.kind === "org" && canManageSprints ? <div className="mb-3"><PlanSeriesButton projectId={projectId} suggestedPrefix="Sprint " onPlanned={refreshSprints} /></div> : null}

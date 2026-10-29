@@ -130,7 +130,7 @@ test("pending review survives policy disable and only an explicit lead request r
   assert.equal(unchanged.reviewStatus, "pending");
   assert.equal(changes[0].values.completedAt, undefined);
   tx.query.projectWorkflowColumns.findFirst = async () => ({ id: "progress", status: "in_progress", title: "In progress" });
-  await assert.rejects(service.transitionTaskTx(tx, { ...pending, isLeader: false }, { taskId: "t", userId: "u", status: "in_progress", reviewReason: "Fix keyboard focus" }), /Only project leads/);
+  await assert.rejects(service.transitionTaskTx(tx, { ...pending, isLeader: false }, { taskId: "t", userId: "u", status: "in_progress", reviewReason: "Fix keyboard focus" }), /Only the owner and admins/);
   await assert.rejects(service.transitionTaskTx(tx, pending, { taskId: "t", userId: "lead", status: "in_progress" }), /provide a reason/);
   const requested = await service.transitionTaskTx(tx, pending, { taskId: "t", userId: "lead", status: "in_progress", reviewReason: "Fix keyboard focus" });
   assert.equal(requested.reviewStatus, "rejected");

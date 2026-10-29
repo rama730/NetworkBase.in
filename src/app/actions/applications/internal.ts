@@ -702,8 +702,8 @@ export async function getApplicationStatusAction(projectId: string): Promise<App
 
         if (durableInvitation) {
             const invitationTitle = durableInvitation.kind === 'guidance_appointment'
-                ? durableInvitation.guidanceLabel || 'Guide'
-                : durableInvitation.roleTitle || 'Collaborator';
+                ? durableInvitation.guidanceLabel || "Mentor"
+                : durableInvitation.roleTitle || 'Member';
             return {
                 status: 'proposed',
                 roleId: durableInvitation.roleId || undefined,
@@ -1120,7 +1120,7 @@ export async function acceptApplicationAction(
                 application.project?.ownerId
             );
             if (!canReview) {
-                return toApplicationFailure(traceId, 'FORBIDDEN', 'Only the project owner or admins can accept applications');
+                return toApplicationFailure(traceId, 'FORBIDDEN', 'Only the owner and admins can accept applications');
             }
 
             if (application.status === 'accepted') {
@@ -1432,7 +1432,7 @@ export async function rejectApplicationAction(
                 application.project?.ownerId || application.creatorId
             );
             if (!canReview) {
-                return toApplicationFailure(traceId, 'FORBIDDEN', 'Only the project owner or admins can reject applications');
+                return toApplicationFailure(traceId, 'FORBIDDEN', 'Only the owner and admins can decline applications');
             }
 
             if (application.status === 'rejected') {
@@ -1775,7 +1775,7 @@ export async function reopenApplicationAction(
             application.project?.ownerId || application.creatorId
         );
         if (!canReview) {
-            return toApplicationFailure(traceId, 'FORBIDDEN', 'Only project owner or admins can reopen applications');
+            return toApplicationFailure(traceId, 'FORBIDDEN', 'Only the owner and admins can reopen applications');
         }
 
         if (application.status === 'pending') {
@@ -1989,7 +1989,7 @@ export async function getIncomingApplicationsAction(
                 projectId: invite.projectId,
                 projectTitle: invite.projectTitle || 'Unknown Project',
                 projectSlug: invite.projectSlug,
-                roleTitle: invite.roleTitle || invite.guidanceLabel || 'Collaborator',
+                roleTitle: invite.roleTitle || invite.guidanceLabel || 'Member',
                 actor,
                 applicant: actor,
                 status: invitationLifecycle(invite.status).status,
@@ -2291,7 +2291,7 @@ export async function getSentProjectInvitationsAction(options?: { limit?: number
                 projectId: direct.projectId,
                 projectTitle: direct.projectTitle,
                 projectSlug: direct.projectSlug,
-                roleTitle: direct.roleTitle || direct.guidanceLabel || 'Collaborator',
+                roleTitle: direct.roleTitle || direct.guidanceLabel || 'Member',
                 candidate: {
                     id: direct.candidateId,
                     username: direct.candidateUsername,

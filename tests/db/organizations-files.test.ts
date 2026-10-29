@@ -161,7 +161,7 @@ test("new orgs get starter folders by type, the last one Admins only", async () 
   created.push(fresh);
   await orgFilesLib.createStarterFolders(db, fresh, o.owner, "company");
   const rows = await sql`SELECT path, metadata->>'access' AS access FROM project_nodes WHERE project_id = ${fresh} ORDER BY created_at, path`;
-  assert.deepEqual(rows.map((r) => [r.path, r.access]), [["/Docs", null], ["/Leadership", "admins"], ["/Shared", null], ["/Templates", null]].sort((x, y) => x[0]!.localeCompare(y[0]!)));
+  assert.deepEqual(rows.map((r) => [r.path, r.access]), [["/Docs", null], ["/Managers", "admins"], ["/Shared", null], ["/Templates", null]].sort((x, y) => x[0]!.localeCompare(y[0]!)));
 });
 
 test("From <org> in a child project: org members browse the org tree read-only; copies remember their source", async () => {

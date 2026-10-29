@@ -75,7 +75,7 @@ test("the current extension uses single-flight activation sessions and lease cre
 test("background writers defer instead of overwriting active editors", () => {
   const gitSync = read("src/inngest/functions/git-sync.ts");
   const sandboxMerge = read("src/lib/projects/merge-sandbox.ts");
-  assert.match(gitSync, /Git pull deferred because a collaborator is editing a file/);
-  assert.match(sandboxMerge, /Task merge deferred because a collaborator is editing an affected file/);
+  assert.match(gitSync, /Repository sync waits because a member is editing a file/);
+  assert.match(sandboxMerge, /The task waits because a member is editing one of its files/);
   assert.doesNotMatch(sandboxMerge, /DELETE FROM project_node_locks/);
 });
