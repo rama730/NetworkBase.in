@@ -531,7 +531,7 @@ export function TextViewer({
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error";
         setSaveError(message);
-        toast.error(`Failed to save: ${message}`);
+        toast.error('Couldn’t save the file');
       } finally {
         setIsSaving(false);
       }

@@ -340,7 +340,7 @@ export function FileView({
           const expectedExt = extOf(node.name);
           const uploadedExt = extOf(droppedFile.name);
           if (expectedExt !== uploadedExt) {
-            toast.error(`Extension mismatch: Expected .${expectedExt} but received .${uploadedExt}`);
+            toast.warning(`Extension mismatch: Expected .${expectedExt} but received .${uploadedExt}`);
             return;
           }
 
@@ -426,7 +426,7 @@ export function FileView({
     const expectedExt = extOf(node.name);
     const uploadedExt = extOf(file.name);
     if (expectedExt !== uploadedExt) {
-      toast.error(`Extension mismatch: Expected .${expectedExt} but received .${uploadedExt}`);
+      toast.warning(`Extension mismatch: Expected .${expectedExt} but received .${uploadedExt}`);
       return;
     }
 

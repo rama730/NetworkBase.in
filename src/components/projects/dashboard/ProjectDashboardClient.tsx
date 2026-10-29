@@ -946,7 +946,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                 return;
             }
             if (applicationStatus.status === 'rejected' && !applicationStatus.canReapply) {
-                toast.error(`You can apply again in ${applicationStatus.waitTime}`);
+                toast.warning(`You can apply again in ${applicationStatus.waitTime}`);
                 return;
             }
 

@@ -570,7 +570,7 @@ export function ProjectUpdateComposer({
             return;
         }
         if (media.length >= PROJECT_UPDATE_MAX_MEDIA_ITEMS) {
-            toast.error(`You can attach up to ${PROJECT_UPDATE_MAX_MEDIA_ITEMS} items.`);
+            toast.warning(`You can attach up to ${PROJECT_UPDATE_MAX_MEDIA_ITEMS} items.`);
             return;
         }
         const effectiveLabel = mediaLabel.trim() || linkPreview?.title || linkPreview?.domain || url;
@@ -598,11 +598,11 @@ export function ProjectUpdateComposer({
             return;
         }
         if (originalFile.size > PROJECT_UPDATE_MEDIA_MAX_BYTES) {
-            toast.error(`Update images must be ${formatFileSize(PROJECT_UPDATE_MEDIA_MAX_BYTES)} or smaller.`);
+            toast.warning(`Update images must be ${formatFileSize(PROJECT_UPDATE_MEDIA_MAX_BYTES)} or smaller.`);
             return;
         }
         if (media.length + pendingMediaUploads.length >= PROJECT_UPDATE_MAX_MEDIA_ITEMS) {
-            toast.error(`You can attach up to ${PROJECT_UPDATE_MAX_MEDIA_ITEMS} items.`);
+            toast.warning(`You can attach up to ${PROJECT_UPDATE_MAX_MEDIA_ITEMS} items.`);
             return;
         }
         setExpanded(true);
@@ -682,14 +682,14 @@ export function ProjectUpdateComposer({
         if (selectedFiles.length === 0) return;
         const remainingSlots = PROJECT_UPDATE_MAX_MEDIA_ITEMS - media.length - pendingMediaUploads.length;
         if (remainingSlots <= 0) {
-            toast.error(`You can attach up to ${PROJECT_UPDATE_MAX_MEDIA_ITEMS} items.`);
+            toast.warning(`You can attach up to ${PROJECT_UPDATE_MAX_MEDIA_ITEMS} items.`);
             return;
         }
         selectedFiles.slice(0, remainingSlots).forEach((file) => {
             void uploadImageFile(file);
         });
         if (selectedFiles.length > remainingSlots) {
-            toast.error(`Only ${remainingSlots} more ${remainingSlots === 1 ? "image" : "images"} can be attached.`);
+            toast.warning(`Only ${remainingSlots} more ${remainingSlots === 1 ? "image" : "images"} can be attached.`);
         }
     };
 

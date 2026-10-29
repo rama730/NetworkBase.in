@@ -110,7 +110,7 @@ export default function PrivacySettings() {
       if (!result.success) throw new Error("Failed to update activity visibility");
     },
     onSuccess: async (_data, show) => { toast.success(show ? "Others can see when you’re active" : "Your activity is hidden"); await refreshPresence(); },
-    onError: () => toast.error("Failed to update activity visibility"),
+    onError: () => toast.error("Couldn’t update activity visibility"),
   });
   const unblockMutation = useMutation({
     mutationFn: unblockAccount,

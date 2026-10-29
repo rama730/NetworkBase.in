@@ -178,10 +178,9 @@ export function EditProfileTabs({
             updateForm("avatarUrl", finalized.publicUrl);
             onImageFinalized?.(finalized.publicUrl, finalized.updatedAt);
             toast.message("Avatar ready to save");
-        } catch (error: any) {
+        } catch {
             updateForm("avatarUrl", previousAvatarUrl);
-            const message = error?.message || "Unknown error";
-            toast.error(`Failed to upload avatar: ${message}`);
+            toast.error('Couldn’t upload the photo');
         } finally {
             URL.revokeObjectURL(localPreview);
             setAvatarUploading(false);
@@ -595,7 +594,7 @@ function InterestsEditor({ interests, onChange }: { interests: string[]; onChang
     const toggle = (value: string) => {
         if (interests.includes(value)) return onChange(interests.filter((item) => item !== value));
         if (interests.length >= PROFILE_FIELD_LIMITS.tagMaxItems) {
-            toast.error(`You can add up to ${PROFILE_FIELD_LIMITS.tagMaxItems} interests.`);
+            toast.warning(`You can add up to ${PROFILE_FIELD_LIMITS.tagMaxItems} interests.`);
             return;
         }
         onChange([...interests, value]);
@@ -645,7 +644,7 @@ function RolePreferencesEditor({ profile, onChange }: { profile: any; onChange: 
         }
 
         if (customRoles.length >= PROFILE_LIMITS.listMaxItems) {
-            toast.error(`You can add up to ${PROFILE_LIMITS.listMaxItems} desired roles.`);
+            toast.warning(`You can add up to ${PROFILE_LIMITS.listMaxItems} desired roles.`);
             return;
         }
 
@@ -672,7 +671,7 @@ function RolePreferencesEditor({ profile, onChange }: { profile: any; onChange: 
             });
         } else {
             if (categories.length >= PROFILE_LIMITS.listMaxItems) {
-                toast.error(`You can add up to ${PROFILE_LIMITS.listMaxItems} categories.`);
+                toast.warning(`You can add up to ${PROFILE_LIMITS.listMaxItems} categories.`);
                 return;
             }
             onChange({
@@ -699,7 +698,7 @@ function RolePreferencesEditor({ profile, onChange }: { profile: any; onChange: 
         }
 
         if (categories.length >= PROFILE_LIMITS.listMaxItems) {
-            toast.error(`You can add up to ${PROFILE_LIMITS.listMaxItems} categories.`);
+            toast.warning(`You can add up to ${PROFILE_LIMITS.listMaxItems} categories.`);
             return;
         }
 

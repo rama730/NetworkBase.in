@@ -504,7 +504,7 @@ export function FolderListView({
         const uploadedExt = extOf(file.name);
         if (expectedExt !== uploadedExt) {
           const label = (ext: string) => (ext ? `.${ext}` : "no extension");
-          toast.error(`Extension mismatch: expected ${label(expectedExt)} but received ${label(uploadedExt)}`);
+          toast.warning(`Extension mismatch: expected ${label(expectedExt)} but received ${label(uploadedExt)}`);
           return;
         }
 
@@ -727,7 +727,7 @@ export function FolderListView({
               }
               window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId, taskId } }));
               if (failed.length === 0) return;
-              toast.error(`${failed.length} of ${nodes.length} uploaded file${nodes.length === 1 ? "" : "s"} could not be linked to the task.`, {
+              toast.warning(`${failed.length} of ${nodes.length} uploaded file${nodes.length === 1 ? "" : "s"} could not be linked to the task.`, {
                 action: { label: "Retry", onClick: () => void linkAll(failed) },
               });
             };

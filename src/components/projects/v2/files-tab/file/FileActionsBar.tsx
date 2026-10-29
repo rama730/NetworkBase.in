@@ -232,7 +232,7 @@ export function FileActionsBar({
       const expectedExt = extOf(fileName || "");
       const uploadedExt = extOf(file.name);
       if (expectedExt !== uploadedExt) {
-        toast.error(`Extension mismatch: Expected .${expectedExt} but received .${uploadedExt}`);
+        toast.warning(`Extension mismatch: Expected .${expectedExt} but received .${uploadedExt}`);
         return;
       }
 

@@ -22,7 +22,7 @@ export function OrgBrowseProjects({ orgId, onOpen, onJoined }: { orgId: string; 
     if (!row.channelId) return;
     if (!row.joined) {
       const result = await joinChannel({ channelId: row.channelId });
-      if (!result.success) return void toast.error("Couldn't open that project's channel.");
+      if (!result.success) return void toast.error('Couldn’t open that channel');
       setRows((current) => current?.map((r) => (r.projectId === row.projectId ? { ...r, joined: true } : r)) ?? null);
       onJoined();
     }

@@ -2,6 +2,15 @@ import type { FeedbackType } from './store';
 
 /** Reviewed copy contracts. Runtime object names, counts, dates and limits stay at their call sites. */
 export const FEEDBACK_COPY: Record<string, { title: string; description?: string; type?: FeedbackType }> = {
+  "Couldn’t copy the hex dump": { "title": "Couldn’t copy the hex dump" },
+  "Couldn’t copy the cell": { "title": "Couldn’t copy the cell" },
+  "Couldn’t copy the table": { "title": "Couldn’t copy the table" },
+  "Couldn’t copy the image": { "title": "Couldn’t copy the image" },
+  "Couldn’t copy the SVG code": { "title": "Couldn’t copy the SVG code" },
+  "Couldn’t update activity visibility": { "title": "Couldn’t update activity visibility", "description": "Try again." },
+  "Couldn’t upload the photo": { "title": "Couldn’t upload the photo", "description": "Try again." },
+  "Couldn’t save the file": { "title": "Couldn’t save the file", "description": "Your changes are kept. Try again." },
+  "Couldn’t open that channel": { "title": "Couldn’t open that channel", "description": "Try again." },
   "Invalid move destination": { "title": "Invalid move destination", "description": "Choose a folder outside this item.", "type": "warning" },
   "Deletion wasn’t confirmed": {
     "title": "Deletion wasn’t confirmed"
