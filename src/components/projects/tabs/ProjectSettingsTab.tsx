@@ -2168,10 +2168,10 @@ function ProjectSettingsContent({
                                         <div className="flex flex-wrap items-center gap-2">
                                             <span className="nb-ui-label text-sm font-semibold text-foreground">Transfer ownership</span>
                                             <span className="inline-flex h-5 items-center rounded-[3px] border border-amber-500/20 bg-amber-500/10 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-amber-700 dark:text-amber-400">
-                                                OWNER ONLY
+                                                Owner only
                                             </span>
                                             <span className="inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/40 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-muted-foreground">
-                                                STEP-UP PROTECTED
+                                                Two-step verification
                                             </span>
                                         </div>
                                         <p className="nb-compact text-[13px] leading-[1.5] text-muted-foreground max-w-[64ch]">

@@ -162,7 +162,7 @@ test("redesigned task email renders open layout, Ponytail avatar, subtasks and f
   assert.match(emailA.html, /table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="left"/);
 
   // Verify assignee is Rama Rao (account profile picture), decoupled from recipient Supervisor
-  assert.match(emailA.html, /ASSIGNED TO/);
+  assert.match(emailA.html, /Assigned to/);
   assert.match(emailA.html, /Rama Rao/);
   assert.match(emailA.html, /@ramarao/);
   assert.match(emailA.html, /Lead Quality Engineer/);
@@ -293,7 +293,7 @@ test("redesigned welcome email renders Ponytail avatar, profile identity, skills
   // Ponytail avatar rendered directly
   assert.match(welcomeWithAvatar.html, /<img src="https:\/\/example\.supabase\.co\/storage\/v1\/object\/public\/avatars\/sarah\.jpg"/);
   assert.match(welcomeWithAvatar.html, /width:44px;height:44px;border-radius:6px/);
-  assert.match(welcomeWithAvatar.html, /MEMBER PROFILE/);
+  assert.match(welcomeWithAvatar.html, /Member profile/);
   assert.match(welcomeWithAvatar.html, /Sarah Connor/);
   assert.match(welcomeWithAvatar.html, /@sconnor/);
   assert.match(welcomeWithAvatar.html, /Autonomous Systems Lead/);

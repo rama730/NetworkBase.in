@@ -45,7 +45,7 @@ function partsFor(kind: SecurityEmailKind, data: SecurityEmailData, url: (path: 
   switch (kind) {
     case "security_password_changed":
       return {
-        subject: "Your NetworkBase password was changed", preview: "Your password changed. If this wasn’t you, act now.", label: "ACCOUNT SECURITY",
+        subject: "Your NetworkBase password was changed", preview: "Your password changed. If this wasn’t you, act now.", label: "Account security",
         headline: "Your password was changed",
         paragraphs: [`${when ? `On ${when}, the` : "The"} password for your NetworkBase account was changed. Your editor tokens were signed out, so reconnect your editor when you next use it.`, notMeLine],
         primary: review, secondary: notMe,
@@ -53,7 +53,7 @@ function partsFor(kind: SecurityEmailKind, data: SecurityEmailData, url: (path: 
     case "security_mfa_changed": {
       const change = data.detail === "removed" ? "An authenticator app was removed from" : data.detail === "regenerated" ? "Your recovery codes were regenerated for" : "An authenticator app was added to";
       return {
-        subject: "Two-step verification changed on your NetworkBase account", preview: `${change} your account.`, label: "ACCOUNT SECURITY",
+        subject: "Two-step verification changed on your NetworkBase account", preview: `${change} your account.`, label: "Account security",
         headline: data.detail === "removed" ? "An authenticator app was removed" : data.detail === "regenerated" ? "Your recovery codes were regenerated" : "An authenticator app was added",
         paragraphs: [`${when ? `On ${when}: ` : ""}${change} your account. ${data.detail === "regenerated" ? "Older recovery codes no longer work." : ""}`.trim(), notMeLine],
         primary: review, secondary: notMe,
@@ -61,14 +61,14 @@ function partsFor(kind: SecurityEmailKind, data: SecurityEmailData, url: (path: 
     }
     case "security_token_created":
       return {
-        subject: "A new editor token was created", preview: "A token that signs in to your account from an editor was created.", label: "ACCOUNT SECURITY",
+        subject: "A new editor token was created", preview: "A token that signs in to your account from an editor was created.", label: "Account security",
         headline: "A new editor token was created",
         paragraphs: [`${when ? `On ${when}, a` : "A"} manual editor token${data.detail ? ` (“${oneLine(data.detail, 80)}”)` : ""} was created. It signs in to your account from an editor for a year, until you revoke it.`, "If you didn’t create it, revoke it in Settings > Integrations, then change your password."],
         primary: { label: "Review editor connections", href: url("/settings#settings-integrations-editors") }, secondary: notMe,
       };
     case "security_sign_in_method_changed":
       return {
-        subject: "A sign-in method was changed on your NetworkBase account", preview: data.detail ?? "A way to sign in to your account changed.", label: "ACCOUNT SECURITY",
+        subject: "A sign-in method was changed on your NetworkBase account", preview: data.detail ?? "A way to sign in to your account changed.", label: "Account security",
         headline: "A sign-in method was changed",
         paragraphs: [`${when ? `On ${when}: ` : ""}${oneLine(data.detail ?? "A sign-in method was changed", 120)}.`, notMeLine],
         primary: review, secondary: notMe,
@@ -76,7 +76,7 @@ function partsFor(kind: SecurityEmailKind, data: SecurityEmailData, url: (path: 
     case "security_sessions_revoked": {
       const count = Number(data.detail);
       return {
-        subject: "Your other devices were signed out", preview: "Every other device was signed out of your NetworkBase account.", label: "ACCOUNT SECURITY",
+        subject: "Your other devices were signed out", preview: "Every other device was signed out of your NetworkBase account.", label: "Account security",
         headline: "Your other devices were signed out",
         paragraphs: [`${when ? `On ${when}, ` : ""}${Number.isFinite(count) && count > 0 ? `${count} other session${count === 1 ? " was" : "s were"}` : "Your other sessions were"} signed out, and editor tokens were revoked. You are still signed in here.`, notMeLine],
         primary: review, secondary: notMe,
@@ -85,7 +85,7 @@ function partsFor(kind: SecurityEmailKind, data: SecurityEmailData, url: (path: 
     case "account_deletion_scheduled": {
       const date = formatDate(data.hardDeleteAt);
       return {
-        subject: "Your NetworkBase account is scheduled for deletion", preview: date ? `It will be permanently deleted on ${date}.` : "You can cancel before it is deleted.", label: "ACCOUNT DELETION",
+        subject: "Your NetworkBase account is scheduled for deletion", preview: date ? `It will be permanently deleted on ${date}.` : "You can cancel before it is deleted.", label: "Account deletion",
         headline: date ? `Your account will be deleted on ${date}` : "Your account is scheduled for deletion",
         paragraphs: ["Your profile is hidden and you were signed out everywhere. Nothing has been permanently removed yet.", "Changed your mind? Sign in before that date and choose Reactivate account. If you didn’t ask for this, sign in now to cancel it, then change your password."],
         primary: { label: "Cancel deletion", href: url(`/login?redirect=${encodeURIComponent("/settings#settings-delete-account")}`) },
@@ -93,14 +93,14 @@ function partsFor(kind: SecurityEmailKind, data: SecurityEmailData, url: (path: 
     }
     case "account_deletion_completed":
       return {
-        subject: "Your NetworkBase account was deleted", preview: "Your account and its data have been permanently deleted.", label: "ACCOUNT DELETION",
+        subject: "Your NetworkBase account was deleted", preview: "Your account and its data have been permanently deleted.", label: "Account deletion",
         headline: "Your account was deleted",
         paragraphs: ["Your NetworkBase account and its data have been permanently deleted, as you asked. This is the last email you will get about it.", "We keep only your email address and username for 180 days, so they can’t be taken over, and then remove them. If you didn’t ask for this, write to support@networkbase.in."],
         primary: { label: "Contact support", href: url("/support") },
       };
     case "account_deletion_cancelled":
       return {
-        subject: "Your NetworkBase account was reactivated", preview: "Deletion was canceled and your profile is visible again.", label: "ACCOUNT DELETION",
+        subject: "Your NetworkBase account was reactivated", preview: "Deletion was canceled and your profile is visible again.", label: "Account deletion",
         headline: "Your account was reactivated",
         paragraphs: [`${when ? `On ${when}, deletion` : "Deletion"} was canceled and your profile is visible again.`, "If you didn’t do this, change your password and review your sign-in activity."],
         primary: review,
@@ -109,7 +109,7 @@ function partsFor(kind: SecurityEmailKind, data: SecurityEmailData, url: (path: 
       const date = formatDate(data.hardDeleteAt);
       const days = data.daysLeft ?? 0;
       return {
-        subject: days <= 1 ? "Your NetworkBase account is deleted tomorrow" : `Your NetworkBase account is deleted in ${days} days`, preview: date ? `Permanent deletion on ${date}.` : "Sign in to cancel.", label: "ACCOUNT DELETION",
+        subject: days <= 1 ? "Your NetworkBase account is deleted tomorrow" : `Your NetworkBase account is deleted in ${days} days`, preview: date ? `Permanent deletion on ${date}.` : "Sign in to cancel.", label: "Account deletion",
         headline: days <= 1 ? "Your account is deleted tomorrow" : `Your account is deleted in ${days} days`,
         paragraphs: [`${date ? `On ${date}, your` : "Your"} account and its data will be permanently deleted. After that it cannot be recovered.`, "To keep it, sign in and choose Reactivate account."],
         primary: { label: "Keep my account", href: url(`/login?redirect=${encodeURIComponent("/settings#settings-delete-account")}`) },

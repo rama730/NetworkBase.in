@@ -472,7 +472,7 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
         title: "Welcome to NetworkBase",
         preview: previewSnippet,
         identity: {
-          avatarHtml: userAvatarHtml, label: "MEMBER PROFILE", name: displayName, handle: username,
+          avatarHtml: userAvatarHtml, label: "Member profile", name: displayName, handle: username,
           subHtml: headline ? `<span>${escapeHtml(headline)}</span>` : null,
         },
         contentHtml: `          <tr>
@@ -697,7 +697,7 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
       preview: previewSnippet,
       crumb: { label: projectTitle, href: projectUrl },
       identity: {
-        avatarHtml: assigneeAvatarHtml, label: "ASSIGNED TO", name: assigneeDisplayName, handle: assigneeUsername,
+        avatarHtml: assigneeAvatarHtml, label: "Assigned to", name: assigneeDisplayName, handle: assigneeUsername,
         subHtml: (assignerText || assigneeHeadline) ? `${assignerText ? `<span style="color:#4B5563;font-weight:500;">${escapeHtml(assignerText)}</span>` : ""}
                       ${(assignerText && assigneeHeadline) ? ` &bull; ` : ""}
                       ${assigneeHeadline ? `<span>${escapeHtml(assigneeHeadline)}</span>` : ""}` : null,
