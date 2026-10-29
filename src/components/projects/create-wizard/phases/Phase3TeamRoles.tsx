@@ -31,7 +31,7 @@ const EXPERIENCE_OPTIONS = [
 ] as const;
 
 const COMPENSATION_OPTIONS = [
-    { value: 'unpaid', label: 'Unpaid / volunteer' },
+    { value: 'unpaid', label: 'Unpaid (volunteer)' },
     { value: 'equity', label: 'Equity' },
     { value: 'paid', label: 'Paid' },
     { value: 'rev_share', label: 'Revenue share' },

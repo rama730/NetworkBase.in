@@ -227,7 +227,7 @@ export function PlanSeriesButton({ projectId, suggestedPrefix, onPlanned }: { pr
     )
 }
 
-const STATE: Record<string, string> = { not_started: 'not started', in_progress: 'in progress', submitted: 'Submitted', returned: 'Returned', done: 'Done', missing: 'Missing', excused: 'Excused' }
+const STATE: Record<string, string> = { not_started: 'Not started', in_progress: 'In progress', submitted: 'Submitted', returned: 'Returned for changes', done: 'Completed', missing: 'Missing', excused: 'Excused' }
 const dueText = (iso: string | null) => (iso ? `due ${DAY.format(new Date(iso))}` : 'no due date')
 
 /**

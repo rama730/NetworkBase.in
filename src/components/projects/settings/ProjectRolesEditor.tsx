@@ -406,7 +406,7 @@ export function ProjectRolesEditor({
                         {/* Occupant Profile Column */}
                         <div className="lg:col-span-4 space-y-4 border-b lg:border-b-0 lg:border-r border-border pb-5 lg:pb-0 lg:pr-5">
                             <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                <span>Occupant profile</span>
+                                <span>Filled by</span>
                             </div>
                             <div className="flex items-start gap-3.5">
                                 <UserAvatar
@@ -470,7 +470,7 @@ export function ProjectRolesEditor({
                                     </span>
                                 </div>
                                 <div className="flex items-center justify-between text-muted-foreground">
-                                    <span className="nb-meta text-[11px]">Seat allocation</span>
+                                    <span className="nb-meta text-[11px]">Number of people</span>
                                     <span className="nb-meta text-[11px] text-foreground font-medium">
                                         {isLeadRole
                                             ? "1 occupied (Fixed)"

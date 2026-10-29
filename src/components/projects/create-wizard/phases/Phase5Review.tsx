@@ -317,7 +317,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                     {projectType?.description ? <p className="nb-compact mt-1 text-muted-foreground">{projectType.description}</p> : null}
                 </ReviewRow>
                 {formData.short_description ? (
-                    <ReviewRow label="Tagline">
+                    <ReviewRow label="Summary">
                         <p className="nb-body text-foreground">{formData.short_description}</p>
                     </ReviewRow>
                 ) : null}
@@ -377,7 +377,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                 </ReviewRow>
             </ReviewSection>
 
-            <ReviewSection eyebrow="Step 4 · Settings" title="Launch settings" onEdit={() => goToPhase(4)}>
+            <ReviewSection eyebrow="Step 4 · Settings" title="Starting settings" onEdit={() => goToPhase(4)}>
                 <ReviewRow label="Workspace picture">
                     <p className="nb-compact text-foreground">{projectImage ? `${projectImage.name} · uploads after creation` : 'Initials until a picture is added.'}</p>
                 </ReviewRow>
@@ -416,7 +416,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                     <p className="nb-compact text-foreground">
                         {docSkipped
                             ? 'No doc yet.'
-                            : `Starter template, ${formData.readme?.publishOnCreate ? 'published at launch' : 'kept as a draft'}. ${formData.doc_edit_policy === 'members' ? 'Members can edit.' : 'Leaders edit.'}`}
+                            : `Starter template, ${formData.readme?.publishOnCreate ? 'published when the workspace is created' : 'kept as a draft'}. ${formData.doc_edit_policy === 'members' ? 'Members can edit.' : 'The owner and admins edit.'}`}
                     </p>
                 </ReviewRow>
                 <ReviewRow label="Workspace journey">

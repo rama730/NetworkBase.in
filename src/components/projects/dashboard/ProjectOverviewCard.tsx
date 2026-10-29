@@ -65,7 +65,7 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
     project,
     isCreator,
     onEdit,
-    labels = { description: "About this workspace", problem: "The problem", solution: "The solution" },
+    labels = { description: "About this workspace", problem: "Problem", solution: "Approach" },
 }: ProjectOverviewCardProps) {
     const [statement, setStatement] = useState<StatementSelection>(null);
     const [descriptionExpanded, setDescriptionExpanded] = useState(false);

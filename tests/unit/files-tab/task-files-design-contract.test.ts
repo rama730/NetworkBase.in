@@ -214,7 +214,7 @@ test("Task Files Design Specification Conformance Contract", async (t) => {
     );
     assert.match(
       taskFilesCollection,
-      /\{ id: "todo", label: "Todo" \}/,
+      /\{ id: "todo", label: "To do" \}/,
       "TaskFilesCollection must include 'todo' filter option",
     );
     assert.match(
@@ -224,12 +224,12 @@ test("Task Files Design Specification Conformance Contract", async (t) => {
     );
     assert.match(
       taskFilesCollection,
-      /\{ id: "done", label: "Done" \}/,
+      /\{ id: "done", label: "Completed" \}/,
       "TaskFilesCollection must include 'done' filter option",
     );
     assert.match(
       taskFilesCollection,
-      /\{ id: "review", label: "Needs review" \}/,
+      /\{ id: "review", label: "In review" \}/,
       "TaskFilesCollection must include 'review' filter option",
     );
     assert.match(

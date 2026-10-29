@@ -49,7 +49,7 @@ function AnnouncementCard({ view }: { view: AnnouncementCardView }) {
   );
 }
 
-const COPY_STATE_LABEL: Record<string, string> = { not_started: "Not started", in_progress: "In progress", submitted: "Submitted", returned: "Returned", done: "Done", missing: "Missing", excused: "Excused" };
+const COPY_STATE_LABEL: Record<string, string> = { not_started: "Not started", in_progress: "In progress", submitted: "Submitted", returned: "Returned for changes", done: "Completed", missing: "Missing", excused: "Excused" };
 
 /** An assignment shared in #general: your own status, or counts for owners and admins (report §25.5). */
 function AssignmentCard({ view }: { view: AssignmentCardView }) {

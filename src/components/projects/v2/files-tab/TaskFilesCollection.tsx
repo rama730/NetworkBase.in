@@ -631,10 +631,10 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
                 {(
                   [
                     { id: "all", label: "All" },
-                    { id: "todo", label: "Todo" },
+                    { id: "todo", label: "To do" },
                     { id: "in_progress", label: "In progress" },
-                    { id: "done", label: "Done" },
-                    { id: "review", label: "Needs review" },
+                    { id: "done", label: "Completed" },
+                    { id: "review", label: "In review" },
                   ] as const
                 ).map((item) => (
                   <button

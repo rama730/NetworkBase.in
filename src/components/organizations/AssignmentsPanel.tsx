@@ -41,7 +41,7 @@ import { splitIntoTeams, type AssignmentTarget, type CopyState } from '@/lib/org
 
 const DUE = new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 const STATE_LABEL: Record<CopyState, string> = {
-    not_started: 'Not started', in_progress: 'In progress', submitted: 'Submitted', returned: 'Returned', done: 'Done', missing: 'Missing', excused: 'Excused',
+    not_started: 'Not started', in_progress: 'In progress', submitted: 'Submitted', returned: 'Returned for changes', done: 'Completed', missing: 'Missing', excused: 'Excused',
 }
 const due = (iso: string | null) => (iso ? `due ${DUE.format(new Date(iso))}` : 'no due date')
 const area = 'w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'

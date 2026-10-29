@@ -9,7 +9,7 @@ export const ROLE_PREFERENCE_OPTIONS = [
   { value: 'Consulting workspaces', label: 'Consulting' },
   { value: 'Fractional leadership', label: 'Fractional' },
   { value: 'Board member roles', label: 'Board member' },
-  { value: 'Volunteer / Pro bono', label: 'Volunteer' },
+  { value: 'Volunteer / Pro bono', label: 'Unpaid (volunteer)' },
   { value: 'Temporary / Seasonal', label: 'Temporary' },
 ] as const
 

@@ -89,8 +89,8 @@ test("project detail keeps identity and team in the header while the dashboard s
   assert.doesNotMatch(overview, /project\?\.title/);
   assert.doesNotMatch(overview, /project\?\.shortDescription/);
   assert.match(overview, /About this workspace/);
-  assert.match(overview, /The problem/);
-  assert.match(overview, /The solution/);
+  assert.match(overview, /problem: "Problem"/);
+  assert.match(overview, /solution: "Approach"/);
 });
 
 test("project journey windows around the current stage", () => {

@@ -779,7 +779,7 @@ export function GeneralSettingsSection({
                 </div>
                 <div className="py-6">
                     <TextField
-                        label="Short description"
+                        label="Summary"
                         description="A one-line workspace summary for cards and search previews (recommended under 160 characters)."
                         value={shortDescription}
                         onChange={setShortDescription}
