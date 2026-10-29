@@ -32,7 +32,7 @@ const fixture = (window as any).railsFixture = {
     if (params.get('activity') === 'loading') return new Promise<never>(() => {});
     if (fixture.activityFails) throw new Error('Fixture activity failure');
     if (empty) return [];
-    return [{ id: 'member-1', type: 'member', text: 'Ada joined the project', href: '/projects/example?tab=team', occurredAt: '2026-10-14T12:00:00.000Z' }];
+    return [{ id: 'member-1', type: 'member', text: 'Ada joined the workspace', href: '/workspaces/example?tab=team', occurredAt: '2026-10-14T12:00:00.000Z' }];
   },
 };
 const record = (event: string) => () => fixture.events.push(event);

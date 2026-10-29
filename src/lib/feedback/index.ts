@@ -44,11 +44,6 @@ export function compactFeedback(message: ReactNode, type: FeedbackType, options:
     const limit = message.match(/\b\d+(?:\.\d+)?\s*(?:KB|MB|GB)\b/i)?.[0];
     return { message: 'File too large', type: 'warning' as const, options: { ...options, description: limit ? `Upload limit: ${limit}.` : undefined } };
   }
-  if (/^Project created[,\.]/.test(message)) {
-    const count = message.match(/(\d+) file/);
-    const description = /picture|image/i.test(message) ? 'Image upload failed.' : /leaders only/i.test(message) ? 'Documents stay visible to the owner and admins only.' : count ? `${count[1]} files failed.` : undefined;
-    if (description) return { message: 'Workspace created', type: 'warning' as const, options: { ...options, description } };
-  }
   const progress = message.match(/^Uploading (\d+) (?:of|\/) (\d+) files?[….]*$/i);
   if (progress) return { message: `Uploading ${progress[2]} files`, type, options: { ...options, progress: { completed: Number(progress[1]), total: Number(progress[2]) } } };
   // Backend diagnostics never become visible notification copy. Known contracts keep their useful specifics.
