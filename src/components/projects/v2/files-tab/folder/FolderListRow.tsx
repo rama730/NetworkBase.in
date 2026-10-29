@@ -407,7 +407,7 @@ export const FolderListRow = React.memo(function FolderListRow({
             <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
               {subtitle && (
                 <span title={subtitle} className="inline-flex items-center truncate text-xs">
-                  {subtitle.startsWith("Deliverable") ? (
+                  {subtitle.startsWith("Final file") ? (
                     <span
                       data-testid="file-role-badge-deliverable"
                       className={cn(
@@ -419,12 +419,12 @@ export const FolderListRow = React.memo(function FolderListRow({
                     >
                       {subtitle}
                     </span>
-                  ) : subtitle === "Working file" ? (
+                  ) : subtitle === "Draft file" ? (
                     <span
                       data-testid="file-role-badge-working"
                       className="inline-flex items-center rounded-[3px] bg-[#EEF4FD] px-1.5 py-0.5 text-[10px] max-md:text-[11px] font-medium tracking-wide text-[#2563C9] dark:bg-[#2563C9]/20 dark:text-[#EEF4FD]"
                     >
-                      Working file
+                      Draft file
                     </span>
                   ) : subtitle === "Reference" ? (
                     <span

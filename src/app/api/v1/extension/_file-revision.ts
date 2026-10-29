@@ -204,7 +204,7 @@ export function extensionRevisionData(result: ApplyFileRevisionResult, contentHa
 }
 
 export function extensionRevisionConflictResponse(error: unknown) {
-  const message = error instanceof Error ? error.message : "Couldn’t apply revision";
+  const message = error instanceof Error ? error.message : "Couldn’t apply version";
   return /changed on the server|locked by|editing lease|lease expired|lease was replaced/i.test(message)
     ? jsonError(message, 409, "CONFLICT")
     : null;

@@ -147,7 +147,7 @@ export function TaskFileUploadModal({
               />
               <div className="flex-1">
                 <div className="text-[13px] font-medium text-foreground">
-                  Working file
+                  Draft file
                 </div>
                 <div className="text-xs text-muted-foreground">
                   Active drafts and intermediate work produced while completing the task.
@@ -193,7 +193,7 @@ export function TaskFileUploadModal({
               />
               <div className="flex-1">
                 <div className="text-[13px] font-medium text-foreground">
-                  Final deliverable
+                  Final file
                 </div>
                 <div className="text-xs text-muted-foreground">
                   The completed output of this task. Optionally choose its

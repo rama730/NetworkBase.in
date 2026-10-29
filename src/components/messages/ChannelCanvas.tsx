@@ -178,7 +178,7 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
   };
 
   const copyLink = () => {
-    void copyWithToast(`${window.location.origin}${conversationHref(channelId, { tab: "canvas" })}`, "Canvas link copied").then((ok) => {
+    void copyWithToast(`${window.location.origin}${conversationHref(channelId, { tab: "canvas" })}`, "Note link copied").then((ok) => {
       if (!ok) return;
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -187,7 +187,7 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
 
   const copyMarkdown = () => {
     const body = bodyRef.current.replace(/\]\(\/api\//g, `](${window.location.origin}/api/`);
-    void copyWithToast(`${titleRef.current.trim() ? `# ${titleRef.current.trim()}\n\n` : ""}${body}`, "Canvas copied as Markdown");
+    void copyWithToast(`${titleRef.current.trim() ? `# ${titleRef.current.trim()}\n\n` : ""}${body}`, "Note copied as Markdown");
   };
 
   const canvas = query.data;
@@ -210,7 +210,7 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
           {/* "Saving…" and "Not saved" show on phones too; the edit time only where there's room. */}
           {edited ? <span className={`truncate text-[12px] ${status === "error" ? "text-destructive" : "text-muted-foreground"} ${status === "idle" ? "hidden sm:inline" : ""}`}>· {edited}</span> : null}
           {/* Only a failed save is announced (not every "Saving…" while you type). */}
-          <span className="sr-only" aria-live="polite">{status === "error" ? "Canvas not saved" : ""}</span>
+          <span className="sr-only" aria-live="polite">{status === "error" ? "Note not saved" : ""}</span>
         </div>
         <div className="flex items-center gap-2">
           <Button type="button" variant="outline" size="sm" onClick={copyLink} className="pointer-coarse:h-11">
@@ -218,7 +218,7 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
             <span>{copied ? "Copied" : "Copy link"}</span>
           </Button>
           <DropdownMenu>
-            <DropdownMenuTrigger className="nb-icon-button nb-touch-target size-7" aria-label="More canvas options">
+            <DropdownMenuTrigger className="nb-icon-button nb-touch-target size-7" aria-label="More note options">
               <MoreHorizontal size={16} />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
@@ -229,8 +229,8 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
               <DropdownMenuItem onSelect={() => editor && printCanvas(titleRef.current.trim(), editor.getHTML())}><FileDown /> Download as PDF</DropdownMenuItem>
               <DropdownMenuSeparator />
               {/* Clearing wipes it for everyone: it reads as destructive, but isn't Delete. */}
-              <DropdownMenuItem variant="destructive" onSelect={() => setPendingReplace({ kind: "clear" })}><Eraser /> Clear canvas</DropdownMenuItem>
-              {onDelete ? <DropdownMenuItem variant="destructive" onSelect={onDelete}><Trash2 /> Delete canvas</DropdownMenuItem> : null}
+              <DropdownMenuItem variant="destructive" onSelect={() => setPendingReplace({ kind: "clear" })}><Eraser /> Clear note</DropdownMenuItem>
+              {onDelete ? <DropdownMenuItem variant="destructive" onSelect={onDelete}><Trash2 /> Delete note</DropdownMenuItem> : null}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -249,8 +249,8 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
             type="text"
             value={title}
             maxLength={CANVAS_MAX_TITLE}
-            placeholder="Your canvas title"
-            aria-label="Canvas title"
+            placeholder="Your note title"
+            aria-label="Note title"
             onChange={(event) => {
               titleRef.current = event.target.value;
               setTitle(event.target.value);
@@ -323,9 +323,9 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
       <ConfirmDialog
         open={pendingReplace !== null}
         onOpenChange={(open) => !open && setPendingReplace(null)}
-        title={pendingReplace?.kind === "clear" ? "Clear the canvas for everyone?" : "Replace the canvas?"}
+        title={pendingReplace?.kind === "clear" ? "Clear the note for everyone?" : "Replace the note?"}
         description="Everyone in the channel sees the change. Copy it first if you want to keep it."
-        confirmLabel={pendingReplace?.kind === "clear" ? "Clear canvas" : "Replace"}
+        confirmLabel={pendingReplace?.kind === "clear" ? "Clear note" : "Replace"}
         variant="destructive"
         onConfirm={confirmReplace}
       />

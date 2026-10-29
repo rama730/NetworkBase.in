@@ -69,7 +69,7 @@ function ProjectSocialImage({preview,avatar,teamAvatars}:{preview:SharePreview;a
       {ready&&preview.skills.length&&projectImageSkillsFit(preview)?<div style={{display:'flex',flexWrap:'wrap',gap:8}}>{preview.skills.map(skill=><div key={skill} style={{...chip,fontSize:skill.length>40?14:18}}>{skill.length>70?skill.slice(0,67)+'…':skill}</div>)}{preview.skillOverflow?<div style={chip}>{'+'+preview.skillOverflow}</div>:null}</div>:null}
       {project?.roles?.length&&projectRolesFitImage(preview)?<div style={{display:'flex',flexDirection:'column',gap:6}}><div style={{fontSize:16,color:'#637078'}}>Open roles</div><div style={{display:'flex',flexWrap:'wrap',gap:8}}>{project.roles.slice(0,-1).map(role=><div key={role.id} style={chip}>{role.title}</div>)}<div style={{display:'flex',gap:8}}><div style={chip}>{project.roles.at(-1)!.title}</div>{project.roleOverflow?<div style={chip}>{'+'+project.roleOverflow}</div>:null}</div></div></div>:null}
     </div>
-    <div style={{display:'flex',justifyContent:'space-between',fontFamily:'JetBrains Mono',fontSize:16,color:'#637078'}}><div>{new URL(preview.url).hostname+(ready&&preview.identity?new URL(preview.url).pathname:'')}</div><div>Professional network for builders</div></div>
+    <div style={{display:'flex',justifyContent:'space-between',fontFamily:'JetBrains Mono',fontSize:16,color:'#637078'}}><div>{new URL(preview.url).hostname+(ready&&preview.identity?new URL(preview.url).pathname:'')}</div><div>Professional network for people</div></div>
   </div>;
 }
 
@@ -106,7 +106,7 @@ export function SocialShareImage({ preview, avatar, teamAvatars = {} }: { previe
       {preview.portfolio ? <div style={{ fontSize:preview.portfolio.length>110?17:22,color:'#637078',lineHeight:1.25 }}>{preview.portfolio.length>180 ? preview.portfolio.slice(0,177)+'…':preview.portfolio}</div> : null}
       {skills.length ? <div style={{display:'flex',flexWrap:'wrap',gap:8}}>{skills.map(skill=><div key={skill} style={{display:'flex',fontSize:skill.length>40?15:18,border:'1px solid #DDD6CB',borderRadius:4,padding:'4px 8px',color:'#637078',maxWidth:510,background:'white'}}>{skill}</div>)}{preview.skillOverflow>0?<div style={{fontSize:18,border:'1px solid #DDD6CB',borderRadius:4,padding:'4px 8px',background:'#EFEAE2',color:'#637078'}}>{`+${preview.skillOverflow}`}</div>:null}</div>:null}
     </div> : null}
-    <div style={{display:'flex',justifyContent:'space-between',fontFamily:'JetBrains Mono',fontSize:17,color:'#637078'}}><div>{new URL(preview.url).hostname + (identity ? new URL(preview.url).pathname : '')}</div><div>Professional network for builders</div></div>
+    <div style={{display:'flex',justifyContent:'space-between',fontFamily:'JetBrains Mono',fontSize:17,color:'#637078'}}><div>{new URL(preview.url).hostname + (identity ? new URL(preview.url).pathname : '')}</div><div>Professional network for people</div></div>
   </div>;
 }
 

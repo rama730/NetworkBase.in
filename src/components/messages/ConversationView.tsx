@@ -139,7 +139,7 @@ function Intro({ channel, meId, isMember, hasCanvas, onDetails, onAddPeople, onC
           {!channel.description ? <IntroButton onClick={onDetails}>Add a description</IntroButton> : null}
           <IntroButton onClick={onAddPeople}><UserPlus size={16} /> Add people</IntroButton>
           {/* Once a canvas exists its tab is right above; the intro only offers to start one. */}
-          {onCanvas && !hasCanvas ? <IntroButton onClick={onCanvas}>Create a canvas</IntroButton> : null}
+          {onCanvas && !hasCanvas ? <IntroButton onClick={onCanvas}>Create a note</IntroButton> : null}
         </div>
       ) : null}
     </div>
@@ -328,7 +328,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
   const hasCanvas = isChannel && (Boolean(canvasQuery.data) || tab === "canvas");
   const tabs = useMemo(() => conversationTabs({
     pinCount,
-    canvasTitle: hasCanvas ? canvasQuery.data?.title?.trim() || "Canvas" : null,
+    canvasTitle: hasCanvas ? canvasQuery.data?.title?.trim() || "Channel notes" : null,
     canvasHidden,
     active: tab,
     shared: sharedTabs.data ?? [],
@@ -380,14 +380,14 @@ export function ConversationView({ channelId, around = null, surface = "page", o
     }
     refreshTabs();
     if (kind !== "link" && !quiet) setTab(result.tab.id);
-    if (kind === "link" && !quiet) toast.success(`"${title}" bookmark added for everyone`);
+    if (kind === "link" && !quiet) toast.success(`"${title}" link added for everyone`);
     return result.tab;
   };
   const closeTab = async (item: ChannelTabItem) => {
     if (item.kind === "canvas") {
       hideCanvas(true);
       setTab("messages");
-      toast("Canvas tab hidden for you", { action: { label: "Undo", onClick: () => hideCanvas(false) } });
+      toast("Note tab hidden for you", { action: { label: "Undo", onClick: () => hideCanvas(false) } });
       return;
     }
     if (tab === item.id) setTab("messages");
@@ -724,7 +724,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                     {/* A DM without its tab bar: bookmarks and files start here. */}
                     {isMember && !showTabBar ? (
                       <>
-                        {isApplication ? null : <DropdownMenuItem onSelect={() => setDialog("bookmark")}><Bookmark /> Add a bookmark</DropdownMenuItem>}
+                        {isApplication ? null : <DropdownMenuItem onSelect={() => setDialog("bookmark")}><Bookmark /> Add a link</DropdownMenuItem>}
                         {!isApplication && !(sharedTabs.data ?? []).some((t) => t.kind === "files") ? <DropdownMenuItem onSelect={() => void addTab("files", "Files")}><FileText /> Show files</DropdownMenuItem> : null}
                       </>
                     ) : null}
@@ -902,15 +902,15 @@ export function ConversationView({ channelId, around = null, surface = "page", o
       <ConfirmDialog
         open={confirm !== null}
         onOpenChange={(open) => !open && setConfirm(null)}
-        title={confirm === "replace" ? "Replace the canvas?" : confirm === "canvas" ? "Delete this canvas?" : confirm === "archive" ? `Archive ${displayName}?` : `Leave ${isChannel ? displayName : "this conversation"}?`}
+        title={confirm === "replace" ? "Replace the note?" : confirm === "canvas" ? "Delete this note?" : confirm === "archive" ? `Archive ${displayName}?` : `Leave ${isChannel ? displayName : "this conversation"}?`}
         description={confirm === "replace"
-          ? "The current canvas is replaced for everyone in the channel. Copy it first if you want to keep it."
+          ? "The current note is replaced for everyone in the channel. Copy it first if you want to keep it."
           : confirm === "canvas"
           ? "It’s removed for everyone in the channel. Copy it first if you want to keep it."
           : confirm === "archive"
             ? "Nobody can post in an archived channel. History stays readable, and admins can unarchive it."
             : channel.kind === "public" ? "You can rejoin a public channel at any time." : "You’ll need to be added again to come back."}
-        confirmLabel={confirm === "replace" ? "Replace" : confirm === "canvas" ? "Delete canvas" : confirm === "archive" ? "Archive" : "Leave"}
+        confirmLabel={confirm === "replace" ? "Replace" : confirm === "canvas" ? "Delete note" : confirm === "archive" ? "Archive" : "Leave"}
         variant="destructive"
         onConfirm={async () => {
           if (confirm === "replace") {

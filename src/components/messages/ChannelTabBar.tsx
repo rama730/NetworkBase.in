@@ -79,8 +79,8 @@ export function ChannelTabBar({ activeTab, tabs, pinCount, onSelectTab, onCloseT
         e.stopPropagation();
         onCloseTab(tab);
       }}
-      aria-label={tab.kind === "canvas" ? "Hide canvas tab" : `Remove ${tab.title} ${tab.kind === "link" ? "bookmark" : "tab"}`}
-      title={tab.kind === "canvas" ? "Hide for you (the canvas stays)" : "Remove for everyone"}
+      aria-label={tab.kind === "canvas" ? "Hide note tab" : `Remove ${tab.title} ${tab.kind === "link" ? "bookmark" : "tab"}`}
+      title={tab.kind === "canvas" ? "Hide for you (the note stays)" : "Remove for everyone"}
       className="absolute right-0.5 top-1/2 -mt-1 grid size-5 -translate-y-1/2 place-items-center rounded-sm bg-card text-muted-foreground opacity-0 shadow-[-6px_0_6px_var(--card)] transition-opacity hover:bg-muted hover:text-foreground focus:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:size-8 pointer-coarse:opacity-100"
     >
       <X size={14} />
@@ -161,7 +161,7 @@ export function ChannelTabBar({ activeTab, tabs, pinCount, onSelectTab, onCloseT
           <DropdownMenuContent align="start" className="w-60">
             {onAddCanvas ? (
               <>
-                <DropdownMenuItem onSelect={() => onAddCanvas("blank")}><FileText /> {hasCanvas ? "Open canvas" : "New canvas"}</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onAddCanvas("blank")}><FileText /> {hasCanvas ? "Open note" : "New note"}</DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => onAddCanvas("template")}><LayoutTemplate /> Templates…</DropdownMenuItem>
                 {canCopyCanvas ? <DropdownMenuItem onSelect={() => onAddCanvas("existing")}><Copy /> Copy from another channel…</DropdownMenuItem> : null}
                 <DropdownMenuSeparator />
@@ -173,7 +173,7 @@ export function ChannelTabBar({ activeTab, tabs, pinCount, onSelectTab, onCloseT
             {onAddTasks ? (
               <DropdownMenuItem onSelect={onAddTasks}><CheckSquare /> Add Tasks tab</DropdownMenuItem>
             ) : null}
-            <DropdownMenuItem onSelect={onAddBookmark}><Link2 /> Add bookmark…</DropdownMenuItem>
+            <DropdownMenuItem onSelect={onAddBookmark}><Link2 /> Add link…</DropdownMenuItem>
             {onEditTabs ? (
               <>
                 <DropdownMenuSeparator />

@@ -39,7 +39,7 @@ export function useUploadCollisionDecision() {
         <ul className="max-h-40 overflow-y-auto font-mono text-xs text-zinc-700 dark:text-zinc-300 divide-y divide-[#E8E3D9] dark:divide-white/5 border border-[#DBD5C8] dark:border-white/10 rounded-[5px] px-3">
           {[...(pending?.summary.existingFiles ?? []), ...(pending?.summary.existingFolders ?? [])].slice(0, 20).map(name => <li key={name} className="truncate py-1.5" title={name}>{name}</li>)}
         </ul>
-        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">To revise an existing file, use its “Upload revision” action instead.</p>
+        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">To revise an existing file, use its “Upload version” action instead.</p>
         <DialogFooter className="bg-[#F3F0EA] dark:bg-white/5 border-t border-[#DBD5C8] dark:border-white/10 -mx-6 -mb-6 px-6 py-3 rounded-b-[12px] flex-wrap gap-2">
           <Button variant="outline" className="nb-touch-target h-[34px] rounded-[5px] text-xs font-medium" onClick={() => finish("cancel")}>Cancel</Button>
           <Button variant="outline" className="nb-touch-target h-[34px] rounded-[5px] text-xs font-medium" onClick={() => finish("skip")}>{pending?.copies ? "Skip existing" : "Continue"}</Button>

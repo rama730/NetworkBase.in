@@ -149,7 +149,7 @@ export default function PrivacySettings() {
   };
   const handleConnectionPrivacyChange = (connectionPrivacy: ConnectionPrivacySetting) => {
     if (connectionPrivacy === "nobody") {
-      setConfirmation({ title: "Turn off new connection requests?", description: "People will no longer be able to send you new requests. Existing connections are not affected.", confirmLabel: "Turn off", run: () => change("/api/v1/privacy", { connectionPrivacy }, "Connection request privacy updated") });
+      setConfirmation({ title: "Mute new connection requests?", description: "People will no longer be able to send you new requests. Existing connections are not affected.", confirmLabel: "Turn off", run: () => change("/api/v1/privacy", { connectionPrivacy }, "Connection request privacy updated") });
       return;
     }
     change("/api/v1/privacy", { connectionPrivacy }, "Connection request privacy updated");

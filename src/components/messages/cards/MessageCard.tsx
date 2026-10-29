@@ -64,7 +64,7 @@ function AssignmentCard({ view }: { view: AssignmentCardView }) {
         {status ? ` · ${status}` : ""}
       </p>
       <Actions>
-        <Link href={view.own ? `${base}&drawerType=task&drawerId=${view.own.copy_id}` : base} className={primary}>{view.own ? "Open my copy" : "Open assignments"}</Link>
+        <Link href={view.own ? `${base}&drawerType=task&drawerId=${view.own.copy_id}` : base} className={primary}>{view.own ? "Open assignment" : "Open assignments"}</Link>
       </Actions>
     </Shell>
   );

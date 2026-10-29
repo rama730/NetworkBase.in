@@ -121,7 +121,7 @@ function OrgPeoplePicker({ open, onOpenChange, target, limit, onAdd }: { open: b
                     })}
                 </ul>
                 <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs text-muted-foreground" aria-live="polite">{limit < 1 ? 'This unit is full.' : `${ticked.length} of up to ${limit} picked.`}</p>
+                    <p className="text-xs text-muted-foreground" aria-live="polite">{limit < 1 ? 'This team is full.' : `${ticked.length} of up to ${limit} picked.`}</p>
                     <Button type="button" disabled={ticked.length === 0} onClick={() => { onAdd(ticked); setTicked([]); onOpenChange(false) }}>
                         Add {ticked.length || ''} to {target}
                     </Button>
@@ -157,7 +157,7 @@ function PeopleChips({ people, from, leadId, onLead, onRemove, isAdmin }: {
                             onChange={(e) => { const to = e.target.value; if (to) move(person, from, to === UNASSIGNED ? UNASSIGNED : Number(to)) }}>
                             <option value="">Move to…</option>
                             {roles.map((unit, i) => (i === from || !unit.role.trim() ? null : <option key={i} value={String(i)} disabled={(unit.people?.length ?? 0) >= UNIT_SEATS}>{unit.role}</option>))}
-                            {isAdmin && from !== UNASSIGNED ? <option value={UNASSIGNED}>Not in a unit</option> : null}
+                            {isAdmin && from !== UNASSIGNED ? <option value={UNASSIGNED}>Not in a team</option> : null}
                         </select>
                         <button type="button" onClick={() => onRemove(person.user_id)} aria-label={`Remove ${name}`} className="nb-icon-button size-6 rounded-full">
                             <X className="size-3" aria-hidden="true" />
@@ -183,7 +183,7 @@ export function UnitPeople({ index, unitName }: { index: number; unitName: strin
         const count = getValues(`roles.${index}.count`) ?? 1
         if (next.length > count) setValue(`roles.${index}.count`, Math.min(UNIT_SEATS, next.length), { shouldDirty: true, shouldValidate: true })
     }
-    const name = unitName.trim() || 'this unit'
+    const name = unitName.trim() || 'this team'
     return (
         <div className="space-y-2 pt-3">
             <PeopleChips people={people} from={index} leadId={leadId} isAdmin={org.isAdmin}
@@ -227,8 +227,8 @@ export function ChildLeadAndUnassigned() {
                 </select>
             </div>
             <div className="space-y-2">
-                <h3 className="nb-card-title text-foreground">Not in a unit</h3>
-                <p className="nb-compact text-muted-foreground">For small workspaces: people added without a unit.</p>
+                <h3 className="nb-card-title text-foreground">Not in a team</h3>
+                <p className="nb-compact text-muted-foreground">For small workspaces: people added without a team.</p>
                 <PeopleChips people={unassigned} from={UNASSIGNED} isAdmin onRemove={(userId) => setValue('unassigned_people', unassigned.filter((p) => p.user_id !== userId), { shouldDirty: true })} />
                 <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}><UserPlus className="size-4" aria-hidden="true" />Add people</Button>
                 <OrgPeoplePicker open={open} onOpenChange={setOpen} target="the project" limit={100 - unassigned.length} onAdd={(added) => setValue('unassigned_people', [...unassigned, ...added], { shouldDirty: true })} />

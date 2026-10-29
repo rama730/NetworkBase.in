@@ -251,8 +251,8 @@ async function fetchProfilePreviews(query: string, scope: NetworkSearchScope): P
         id: `profile:${profile.id}`,
         kind: "profile" as const,
         userId: profile.id,
-        title: profile.fullName || profile.username || "Builder",
-        subtitle: profile.headline || profile.location || profile.recommendationReason || "Builder profile",
+        title: profile.fullName || profile.username || "Person",
+        subtitle: profile.headline || profile.location || profile.recommendationReason || "Profile",
         href: profileHref(profile),
         avatarUrl: profile.avatarUrl,
         username: profile.username,
@@ -264,7 +264,7 @@ async function fetchProfilePreviews(query: string, scope: NetworkSearchScope): P
         canConnect: profile.canConnect !== false,
         isLockedProfile: Boolean(profile.isLockedProfile),
         matchReason: textIncludes(profile.username, query) || textIncludes(profile.fullName, query)
-            ? "Matched builder name"
+            ? "Matched name"
             : matchedSkill
                 ? `Matched skill: ${matchedSkill}`
                 : textIncludes(profile.location, query)

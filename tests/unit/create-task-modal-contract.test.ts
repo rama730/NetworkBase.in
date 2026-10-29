@@ -39,7 +39,7 @@ test("CreateTaskModal enforces drafting-table control geometry and token complia
 test("CreateTaskModal supports story points estimation and subtask addition", () => {
   const content = fs.readFileSync(CREATE_TASK_MODAL_PATH, "utf8");
 
-  // Story points input and presets
+  // Estimate input and presets
   assert.match(content, /name="storyPoints"/);
   assert.match(content, /\[1, 2, 3, 5, 8, 13\]/);
 

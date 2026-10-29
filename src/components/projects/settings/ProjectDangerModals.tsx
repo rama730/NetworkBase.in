@@ -422,7 +422,7 @@ export function ProjectDeleteModal({
                         <ul className="space-y-1 nb-compact text-[11px] text-muted-foreground pt-1">
                             <li className="flex items-center gap-1.5">
                                 <span>•</span>
-                                <span>All repository files, folders, and S3 file revisions</span>
+                                <span>All repository files, folders, and S3 file versions</span>
                             </li>
                             <li className="flex items-center gap-1.5">
                                 <span>•</span>

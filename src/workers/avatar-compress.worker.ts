@@ -28,7 +28,7 @@ async function compressInWorker(file: File, size = AVATAR_SIZE, quality = 0.85):
 
     const canvas = new OffscreenCanvas(size, size)
     const ctx = canvas.getContext('2d')
-    if (!ctx) throw new Error('Canvas not available')
+    if (!ctx) throw new Error('Note not available')
 
     ctx.drawImage(bitmap, sx, sy, minDim, minDim, 0, 0, size, size)
     bitmap.close()

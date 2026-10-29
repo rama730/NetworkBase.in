@@ -98,7 +98,7 @@ export function useTaskLinks(projectId: string, nodeId: string): UseTaskLinksRet
         notifyChanged();
         return { success: true };
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Couldn’t update annotation";
+        const message = err instanceof Error ? err.message : "Couldn’t update note";
         return { success: false, error: message };
       }
     },

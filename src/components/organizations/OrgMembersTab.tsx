@@ -202,8 +202,8 @@ function BulkBar({ orgId, data, label, ids, pending, run, onClear }: { orgId: st
             </select>
             {childId ? (
                 <>
-                    <select aria-label="Unit" className={select} value={unitId} onChange={(e) => setUnitId(e.target.value)}>
-                        <option value="">No unit</option>
+                    <select aria-label="Team" className={select} value={unitId} onChange={(e) => setUnitId(e.target.value)}>
+                        <option value="">No team</option>
                         {units.map((u) => <option key={u.id} value={u.id}>{u.title}</option>)}
                     </select>
                     <Button type="button" size="sm" disabled={pending} onClick={() => run(() => addMembersToChildAction(orgId, childId, ids, unitId || null), 'Added to the workspace')}>Add</Button>
@@ -213,7 +213,7 @@ function BulkBar({ orgId, data, label, ids, pending, run, onClear }: { orgId: st
             <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => verifyOrgContributionsAction(orgId, ids), 'Contributions verified')}>Verify contributions</Button>
             <label className="ml-auto flex items-center gap-1.5 text-[12px]"><input type="checkbox" checked={block} onChange={(e) => setBlock(e.target.checked)} /> Block from rejoining</label>
             <Button type="button" size="sm" variant="destructive" disabled={pending} onClick={() => {
-                if (window.confirm(`Remove ${ids.length} ${ids.length === 1 ? 'person' : 'people'}? They leave every workspace here; handed-in work stays.`)) run(() => removeMembersAction(orgId, ids, { block }), 'Removed')
+                if (window.confirm(`Remove ${ids.length} ${ids.length === 1 ? 'person' : 'people'}? They leave every workspace here; submitted work stays.`)) run(() => removeMembersAction(orgId, ids, { block }), 'Removed')
             }}>Remove</Button>
             <Button type="button" size="sm" variant="ghost" onClick={onClear}>Clear</Button>
         </div>
@@ -287,8 +287,8 @@ function InviteBox({ orgId, data, label, pending, run, onCode }: { orgId: string
                         {data.children.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
                     </select>
                     {childId ? (
-                        <select aria-label="Unit" className={cn(select, 'flex-1')} value={unitId} onChange={(e) => setUnitId(e.target.value)}>
-                            <option value="">No unit</option>
+                        <select aria-label="Team" className={cn(select, 'flex-1')} value={unitId} onChange={(e) => setUnitId(e.target.value)}>
+                            <option value="">No team</option>
                             {units.map((u) => <option key={u.id} value={u.id}>{u.title}</option>)}
                         </select>
                     ) : null}
@@ -343,7 +343,7 @@ function MemberDrawer({ orgId, row, data, label, pending, run }: { orgId: string
                 </div>
             </section>
             <section className="space-y-1">
-                <h4 className="font-semibold">Workspaces and units</h4>
+                <h4 className="font-semibold">Workspaces and teams</h4>
                 {row.projects.length === 0 ? <p className="text-muted-foreground">Not in a workspace.</p> : row.projects.map((p) => <p key={p.id}>{p.title}{p.unit ? ` · ${p.unit}` : ''}</p>)}
             </section>
             <section className="space-y-1.5">
@@ -372,7 +372,7 @@ function MemberDrawer({ orgId, row, data, label, pending, run }: { orgId: string
                             {data.viewerRole === 'owner' ? <option value="admin">{label('admin')}</option> : null}
                         </select>
                         <Button type="button" size="sm" variant="destructive" disabled={pending} onClick={() => {
-                            if (window.confirm(`Remove ${row.name}? They leave every workspace here; handed-in work stays.`)) run(() => removeMembersAction(orgId, [row.userId], { block: false }), 'Removed')
+                            if (window.confirm(`Remove ${row.name}? They leave every workspace here; submitted work stays.`)) run(() => removeMembersAction(orgId, [row.userId], { block: false }), 'Removed')
                         }}>Remove</Button>
                     </div>
                 ) : null}

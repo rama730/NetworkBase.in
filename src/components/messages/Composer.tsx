@@ -804,7 +804,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
       ...(coarse ? [{ label: "Camera", icon: Camera, onSelect: () => cameraInput.current?.click() }] : []),
     ]),
     { label: "Code block", icon: Code2, onSelect: () => startCodeBlock(null) },
-    ...(onOpenCanvas && !threadRootSeq ? [{ label: "Open canvas", icon: FileText, onSelect: onOpenCanvas }] : []),
+    ...(onOpenCanvas && !threadRootSeq ? [{ label: "Open note", icon: FileText, onSelect: onOpenCanvas }] : []),
     ...(canCreateTask && !threadRootSeq ? [{ label: "Create task", icon: SquareCheck, onSelect: () => prefix("/task ") }] : []),
     { label: "Poll", icon: BarChart3, onSelect: () => prefix("/poll ") },
   ];

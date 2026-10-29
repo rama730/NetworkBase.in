@@ -185,7 +185,7 @@ export function FolderPicker({
 
   const disabledReason = (node: ProjectNode | null) => {
     if (!allowTaskWorkingFiles && sourceNodes.some((source) => source.taskId))
-      return "Publish task working files before relocating them";
+      return "Publish task draft files before relocating them";
     if (node && sourceNodes.some((source) => source.id === node.id))
       return "An item cannot be moved into itself";
     if (
@@ -858,7 +858,7 @@ export function MoveDialog({
           <DialogDescription>
             {mode === "publish"
               ? "Choose a folder in Files. The file stays a draft on the task."
-              : "Choose a new location in Workspace Files. Task role and final-deliverable status are unchanged."}
+              : "Choose a new location in Workspace Files. Task role and final-file status are unchanged."}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">

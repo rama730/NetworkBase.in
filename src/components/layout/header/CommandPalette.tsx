@@ -52,7 +52,7 @@ type CommandPaletteProps = {
 const CONTEXT_PRESENTATION = {
     default: { label: "Discover / Workspaces", hints: ["Workspace name", "Technology", "Category"] },
     discover: { label: "Discover / Workspaces", hints: ["Workspace name", "Technology", "Category"] },
-    network: { label: "Network / Builders", hints: ["Name", "Skill", "Location"] },
+    network: { label: "Network / People", hints: ["Name", "Skill", "Location"] },
     project: { label: "Workspace / Work and Links", hints: ["Task title", "Destination name", "Link purpose"] },
     settings: { label: "Settings", hints: ["Theme", "Privacy", "Integrations"] },
     messages: { label: "Messages", hints: [] },
@@ -314,7 +314,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
     const resultLabel = projectResults.length
         ? `Workspaces · ${projectResults.length}`
         : profileResults.length
-            ? `Builders · ${profileResults.length}`
+            ? `People · ${profileResults.length}`
             : taskResults.length
                 ? `Tasks · ${taskResults.length}`
                 : linkResults.length

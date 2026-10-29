@@ -249,7 +249,7 @@ export function OrgAccessSection({ orgId, organization, maxMembers }: SectionPro
                     <div className="flex items-start justify-between gap-4">
                         <div>
                             <p className={labelClass}>Code works</p>
-                            <p className={helpClass}>Turn off to stop new joins by code without changing it.</p>
+                            <p className={helpClass}>Mute to stop new joins by code without changing it.</p>
                         </div>
                         <SettingsSwitch checked={codeOn} onCheckedChange={setCodeOn} aria-label="Join code works" />
                     </div>
@@ -401,7 +401,7 @@ export function OrgProjectsSection({ orgId, organization }: SectionProps) {
                         <SettingsSwitch checked={childShare} onCheckedChange={setChildShare} aria-label="Workspaces can share updates to the organization" />
                     </div>
                     <div>
-                        <label htmlFor="org-default-units" className={labelClass}>Default units</label>
+                        <label htmlFor="org-default-units" className={labelClass}>Default teams</label>
                         <p className={helpClass}>Pre-fill the team of every new workspace, one per line, for example Frontend, Backend, Testing. Still editable per workspace.</p>
                         <textarea id="org-default-units" value={defaultUnits} onChange={(e) => setDefaultUnits(e.target.value)} rows={3} className="mt-2 w-full rounded-md border border-border bg-background p-2 text-sm" />
                     </div>
@@ -449,13 +449,13 @@ export function OrgWorkSection({ orgId, organization }: SectionProps) {
                     </div>
                     <div>
                         <label htmlFor="org-reminders" className={labelClass}>Reminders</label>
-                        <p className={helpClass}>Sent at 9:00 in each person’s time zone to people who haven’t handed in yet.</p>
+                        <p className={helpClass}>Sent at 9:00 in each person’s time zone to people who haven’t submitted yet.</p>
                         <select id="org-reminders" className={select} value={work.reminders} onChange={(e) => set('reminders', e.target.value as typeof work.reminders)}>
                             <option value="both">24 hours before and on the due day</option><option value="day_before">24 hours before</option><option value="due_day">On the due day</option><option value="off">Off</option>
                         </select>
                     </div>
                     <div>
-                        <label htmlFor="org-story-points" className={labelClass}>Story points</label>
+                        <label htmlFor="org-story-points" className={labelClass}>Estimate</label>
                         <p className={helpClass}>Hidden for Education, where work is counted by assignment, shown for other types.</p>
                         <select id="org-story-points" className={select} value={work.storyPoints} onChange={(e) => set('storyPoints', e.target.value as typeof work.storyPoints)}>
                             <option value="shown">Shown</option><option value="hidden">Hidden</option>

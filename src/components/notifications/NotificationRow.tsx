@@ -147,7 +147,7 @@ export function NotificationRow(props: {
                     if (isNew) focusTimerRef.current = setTimeout(markViewed, FOCUS_VIEW_MS);
                 }}
                 onBlur={clearViewTimers}
-                aria-label={`${isNew ? "New" : "Seen"} ${reasonLabel}: ${item.title}${relativeTime ? `, ${relativeTime}` : ""}`}
+                aria-label={`${isNew ? "New" : "Read"} ${reasonLabel}: ${item.title}${relativeTime ? `, ${relativeTime}` : ""}`}
                 className="flex min-w-0 flex-1 items-start gap-3 rounded-sm text-left outline-none active:translate-y-px"
             >
                 <div className="relative mt-0.5 shrink-0">

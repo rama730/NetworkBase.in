@@ -215,7 +215,7 @@ function ProjectSettingsContent({
     const sections = useMemo(() => {
         // A child project's role boxes are its units (report §21 #6, "Units & open seats").
         const visible = getVisibleProjectSettingsSections().map((section) => (project?.parentOrg && section.id === "roles-applications"
-            ? { ...section, label: "Units and open seats", description: "Units, their seats and unit leads; open seats org members can apply to." } : section));
+            ? { ...section, label: "Teams and open seats", description: "Teams, their seats and team leads; open seats org members can apply to." } : section));
         if (organization) {
             // Report §21.4: You sections for everyone, org sections for admins, owner extras for the owner.
             return orgSettingsSectionIds(orgRole).flatMap((id) => {
@@ -1690,7 +1690,7 @@ function ProjectSettingsContent({
                                                 <div className="space-y-4">
                                                     {units.map((unit) => (
                                                         <div key={unit || "none"}>
-                                                            <p className="nb-meta pb-1 text-xs text-muted-foreground">{unit || "No unit"}</p>
+                                                            <p className="nb-meta pb-1 text-xs text-muted-foreground">{unit || "No team"}</p>
                                                             <div className="divide-y divide-border">{displayMembers.filter((m) => (m.unitTitle ?? "") === unit).map(card)}</div>
                                                         </div>
                                                     ))}

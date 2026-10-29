@@ -56,7 +56,7 @@ describe("Files tab revision experience", () => {
     const largeRoute = source("src/app/api/v1/extension/file-upload/route.ts");
 
     for (const route of [inlineRoute, largeRoute]) {
-      assert.match(route, /Couldn’t save file revision\. Refresh the file and try again\./);
+      assert.match(route, /Couldn’t save file version\. Refresh the file and try again\./);
       assert.doesNotMatch(route, /jsonError\(\s*error instanceof Error \? error\.message/);
     }
   });

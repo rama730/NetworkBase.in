@@ -261,7 +261,7 @@ export async function PUT(request: Request) {
     const savePayload = await readExtensionSavePayload(request);
     const revisionModeHeader = request.headers.get("x-nb-revision-mode")?.trim();
     if (revisionModeHeader && !isFileRevisionMode(revisionModeHeader)) {
-      return jsonError("Invalid revision mode", 400, "BAD_REQUEST");
+      return jsonError("Invalid version mode", 400, "BAD_REQUEST");
     }
     const revisionMode = parseFileRevisionMode(revisionModeHeader);
     const revisionComment = normalizeRevisionComment(
@@ -456,7 +456,7 @@ export async function PUT(request: Request) {
       error: error instanceof Error ? error.message : String(error)
     });
     return jsonError(
-      "Couldn’t save file revision. Refresh the file and try again.",
+      "Couldn’t save file version. Refresh the file and try again.",
       500,
       "INTERNAL_ERROR"
     );

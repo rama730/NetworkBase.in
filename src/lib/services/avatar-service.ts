@@ -14,7 +14,7 @@ export async function compressAvatar(file: File): Promise<Blob> {
         const ctx = canvas.getContext('2d')
 
         if (!ctx) {
-            reject(new Error('Canvas not supported'))
+            reject(new Error('Note not supported'))
             return
         }
 

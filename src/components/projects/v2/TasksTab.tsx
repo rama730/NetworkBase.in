@@ -785,9 +785,9 @@ export default function TasksTab({
             {/* Filter */}
             <TaskFilters scope={scope} setScope={setScope} />
             {units.length ? (
-              <select aria-label="Unit" value={unitFilter} onChange={(e) => setUnitFilter(e.target.value)}
+              <select aria-label="Team" value={unitFilter} onChange={(e) => setUnitFilter(e.target.value)}
                 className="nb-touch-target h-[34px] rounded-[5px] border border-border bg-card px-2 text-[13px] text-foreground max-md:h-11">
-                <option value="">All units</option>
+                <option value="">All teams</option>
                 {units.map((unit) => <option key={unit.id} value={unit.id}>{unit.title}</option>)}
               </select>
             ) : null}

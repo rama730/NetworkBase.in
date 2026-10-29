@@ -157,7 +157,7 @@ function partsFor(kind: OrgEmailKind, d: OrgEmailData, url: (path: string) => st
           a?.materials?.length ? { title: `Materials (${a.materials.length})`, rows: a.materials.map((m) => `${m.name}${formatSize(m.size)}`) } : null,
           a?.team?.length ? { title: "Your team", rows: a.team } : null,
         ].filter((s): s is { title: string; rows: string[] } => Boolean(s)),
-        primary: { label: d.child ? "Open the copy →" : "Open my copy →", href: copyHref }, secondary: { label: `View in ${org}`, href: url(`${orgPath}?tab=assignments`) },
+        primary: { label: d.child ? "Open assignment →" : "Open assignment →", href: copyHref }, secondary: { label: `View in ${org}`, href: url(`${orgPath}?tab=assignments`) },
         reason: member,
       };
     }
@@ -186,7 +186,7 @@ function partsFor(kind: OrgEmailKind, d: OrgEmailData, url: (path: string) => st
         preview: d.reason ? oneLine(d.reason) : `${actor} returned ${a?.title ?? "your work"}.`,
         identity: "actor", label: "RETURNED BY", headline: `${a?.title ?? "Your work"} was returned`,
         quote: d.reason ?? null, pills: a?.version ? [`v${a.version}`] : [],
-        primary: { label: "Open my copy →", href: copyHref }, reason: member,
+        primary: { label: "Open assignment →", href: copyHref }, reason: member,
       };
     case "org_announcement": {
       const content = d.post?.content ?? "";

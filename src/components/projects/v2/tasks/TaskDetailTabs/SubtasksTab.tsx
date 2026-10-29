@@ -364,7 +364,7 @@ export default function SubtasksTab({
         </div>
 
         <p className="text-xs text-muted-foreground">
-          Decompose this task into deliverable checkpoints.
+          Decompose this task into steps.
         </p>
 
         {/* Filter Segmented Control */}

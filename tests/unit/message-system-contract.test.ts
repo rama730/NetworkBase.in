@@ -530,20 +530,20 @@ test("Section 6 (Slack-Parity Canvas Redesign) contracts", () => {
     );
     assert.match(
         tabBarSource,
-        /New canvas[\s\S]*Templates…[\s\S]*Copy from another channel…/,
+        /New note[\s\S]*Templates…[\s\S]*Copy from another channel…/,
         "ChannelTabBar + menu offers a new canvas, a template or a copy of another channel's (round 2 #54)",
     );
     assert.match(
         canvasSource,
-        /Delete canvas/,
+        /Delete note/,
         "Deleting a canvas is an explicit action in its own menu",
     );
 
     // 6.3 Image 3 Parity: Document workspace, grips, placeholders & live title sync
     assert.match(
         canvasSource,
-        /placeholder="Your canvas title"/,
-        "ChannelCanvas must render 'Your canvas title' placeholder",
+        /placeholder="Your note title"/,
+        "ChannelCanvas must render 'Your note title' placeholder",
     );
     const canvasEditorSource = fs.readFileSync(
         path.join(process.cwd(), "src/components/messages/CanvasEditor.tsx"),
@@ -639,7 +639,7 @@ test("Section 6 (Slack-Parity Canvas Redesign) contracts", () => {
     );
     assert.match(
         existingModalSource,
-        /placeholder="Search canvases…"/,
+        /placeholder="Search channel notes…"/,
         "ExistingCanvasModal must provide search input for filtering existing canvases",
     );
     assert.match(
@@ -759,7 +759,7 @@ test("Section 8 (Comprehensive UI/UX Enhancements & Consolidation) contracts", (
     );
     assert.match(
         conversationViewSource,
-        /Add a description[\s\S]*Add people[\s\S]*Create a canvas/,
+        /Add a description[\s\S]*Add people[\s\S]*Create a note/,
         "Channel Intro offers its real next steps (plan item 45)",
     );
     assert.doesNotMatch(
@@ -790,7 +790,7 @@ test("Section 8 (Comprehensive UI/UX Enhancements & Consolidation) contracts", (
         "The ⋯ menu keeps only Add people, Copy link, Mark as read, Leave/Close and Archive",
     );
     // Except a DM without its tab bar (one tab only): bookmarks and files start from ⋯ (round 3 #100).
-    assert.match(conversationViewSource, /isMember && !showTabBar \? \([\s\S]*?Add a bookmark/);
+    assert.match(conversationViewSource, /isMember && !showTabBar \? \([\s\S]*?Add a link/);
 
     // 8.3 Composer plus menu rich creation options (code snippet, media)
     assert.match(
@@ -830,7 +830,7 @@ test("Section 8 (Comprehensive UI/UX Enhancements & Consolidation) contracts", (
     // 8.6 Canvas and Poll in the composer plus menu; Send later beside Send
     assert.match(
         composerSource,
-        /label: "Open canvas"[\s\S]*label: "Poll"/,
+        /label: "Open note"[\s\S]*label: "Poll"/,
         "Composer plus menu must include Canvas and Poll",
     );
     assert.match(
@@ -839,11 +839,11 @@ test("Section 8 (Comprehensive UI/UX Enhancements & Consolidation) contracts", (
         "Composer offers Schedule message, off (with the reason) while files are attached (plan #111)",
     );
 
-    // 8.7 Pre-cards removed: no Open canvas action pill in channel Intro
+    // 8.7 Pre-cards removed: no Open note action pill in channel Intro
     assert.doesNotMatch(
         conversationViewSource,
-        /Open canvas/,
-        "Channel Intro must not render Open canvas pre-card action pill",
+        /Open note/,
+        "Channel Intro must not render Open note pre-card action pill",
     );
 
     // 8.8 Debounced draft auto-saving in composer
@@ -1058,7 +1058,7 @@ test("Section 12 (Messages reorganization, 96-item plan) contracts", () => {
     // C/D. Search, shared tabs, Files.
     assert.match(conversation, /\/messages\/search\?in=\$\{channelId\}/, "Search in this conversation from the header");
     assert.match(conversation, /<FilesView channelId=\{channelId\}/, "Files tab");
-    assert.match(conversation, /hideCanvas\(true\)[\s\S]*Canvas tab hidden for you/, "Closing the canvas tab hides it for you only");
+    assert.match(conversation, /hideCanvas\(true\)[\s\S]*Note tab hidden for you/, "Closing the canvas tab hides it for you only");
 
     // E/F. Timeline and message actions.
     assert.match(timeline, /new message\{unreadAtOpen\.count === 1 && !unreadAtOpen\.more \? "" : "s"\} since \{formatChatTime\(unreadAtOpen\.since, "at"\)\}/, "Unread banner: N (or N+) new messages since a day and time (round 2 #129, #130)");

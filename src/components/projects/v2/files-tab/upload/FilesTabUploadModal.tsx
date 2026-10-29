@@ -508,7 +508,7 @@ export function FilesTabUploadModal({
             {expandedCard === "project"
               ? "Select the destination folder for these workspace files."
               : expandedCard === "deliverable"
-                ? "Select the destination folder for this deliverable."
+                ? "Select the destination folder for this final file."
                 : "What are these files for?"}
           </DialogDescription>
         </DialogHeader>
@@ -744,7 +744,7 @@ export function FilesTabUploadModal({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-semibold text-foreground">
-                      Working file
+                      Draft file
                     </div>
                     {intent === "working" && (
                       <span className="flex size-4 items-center justify-center rounded-[3px] bg-[#D14E24] text-white">
@@ -797,7 +797,7 @@ export function FilesTabUploadModal({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-semibold text-foreground">
-                      Final deliverable
+                      Final file
                     </div>
                     {intent === "deliverable" && (
                       <span className="flex size-4 items-center justify-center rounded-[3px] bg-[#D14E24] text-white">
@@ -987,7 +987,7 @@ export function FilesTabUploadModal({
                   <FolderUp className="size-5 text-[#D14E24] shrink-0" />
                   <div className="min-w-0">
                     <div className="text-sm font-semibold text-foreground">
-                      Final deliverable
+                      Final file
                     </div>
                     <div className="text-xs text-muted-foreground truncate">
                       Destination folder: <span className="font-medium text-[#D14E24]">{destinationFolderName}</span>
@@ -1006,7 +1006,7 @@ export function FilesTabUploadModal({
                     <Search className="absolute left-2.5 top-2 size-3.5 text-muted-foreground" />
                     <input
                       type="text"
-                      placeholder="Search workspace task for this deliverable…"
+                      placeholder="Search workspace task for this final file…"
                       value={taskQuery}
                       onChange={(e) => setTaskQuery(e.target.value)}
                       className="w-full rounded-md border border-border bg-background pl-8 pr-3 py-1 text-xs text-foreground"

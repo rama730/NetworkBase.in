@@ -15,7 +15,7 @@ test("task creation persists selected files as reference links", () => {
 test("task files render reference, deliverable, and working sections without duplicating roles", () => {
   const explorer = read("src/components/projects/v2/tasks/components/TaskFilesExplorer.tsx");
   const referencePosition = explorer.indexOf("Task references");
-  const deliverablePosition = explorer.indexOf("Final deliverables");
+  const deliverablePosition = explorer.indexOf("Final files");
   const workingPosition = explorer.lastIndexOf("TASK_WORKING_FILES_TITLE");
 
   assert.ok(referencePosition >= 0 && referencePosition < deliverablePosition);

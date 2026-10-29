@@ -148,7 +148,7 @@ export function TaskFilesExplorer({
         await updateTaskNodeLink(taskId, nodeId, { annotation: value });
       } catch (e: unknown) {
         const message =
-          e instanceof Error ? e.message : "Couldn’t save annotation";
+          e instanceof Error ? e.message : "Couldn’t save note";
         toast.error(feedbackError(message, "Action couldn’t finish"));
       }
     },
@@ -350,7 +350,7 @@ export function TaskFilesExplorer({
       <div className="flex flex-col">
         <div className="mb-3 px-2">
           <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-foreground">
-            Final deliverables
+            Final files
           </h3>
           <p className="mt-0.5 text-xs text-muted-foreground">
             The finished output resolving this task.
@@ -362,7 +362,7 @@ export function TaskFilesExplorer({
         >
           {deliverableRoots.length === 0 ? (
             <div className="rounded-[5px] border border-dashed border-border bg-card/60 nb-grid-ground py-6 text-center text-xs font-medium text-muted-foreground" role="status">
-              No final deliverables confirmed yet.
+              No final files confirmed yet.
             </div>
           ) : (
             renderNodeList(deliverableRoots, 0, "deliverable")
@@ -386,7 +386,7 @@ export function TaskFilesExplorer({
         >
           {workingRoots.length === 0 ? (
             <div className="rounded-[5px] border border-dashed border-border bg-card/60 nb-grid-ground py-6 text-center text-xs font-medium text-muted-foreground" role="status">
-              No working files attached.
+              No draft files attached.
             </div>
           ) : (
             renderNodeList(workingRoots, 0, "working")

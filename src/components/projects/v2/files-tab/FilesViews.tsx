@@ -39,7 +39,7 @@ export type FilesViewId =
 export const fileCollectionViews = [
   { id: "project", label: "All files", Icon: Folder },
   { id: "tasks", label: "Task files", Icon: ListTodo },
-  { id: "deliverables", label: "Deliverables", Icon: FileOutput },
+  { id: "deliverables", label: "Final files", Icon: FileOutput },
   { id: "github", label: "GitHub Sync", Icon: Github },
   { id: "recent", label: "Recent", Icon: Clock3 },
   { id: "starred", label: "Starred", Icon: Star },

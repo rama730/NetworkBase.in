@@ -1928,7 +1928,7 @@ export async function rejectAllIncomingConnectionRequests(
         return { success: true, count: rejected.length };
     } catch (error) {
         console.error('Error rejecting all requests:', error);
-        return { success: false, error: 'Couldn’t reject all requests' };
+        return { success: false, error: 'Couldn’t decline all requests' };
     }
 }
 
@@ -2276,7 +2276,7 @@ export async function rejectConnectionRequest(
             return { success: false, error: 'Already working on it. Wait a moment.' };
         }
         console.error('Error rejecting request:', error);
-        return { success: false, error: 'Couldn’t reject request' };
+        return { success: false, error: 'Couldn’t decline request' };
     }
 }
 
@@ -2322,7 +2322,7 @@ export async function undoRejectConnectionRequest(
         return { success: true };
     } catch (error) {
         console.error('Error undoing reject request:', error);
-        return { success: false, error: 'Couldn’t undo reject' };
+        return { success: false, error: 'Couldn’t undo decline' };
     }
 }
 

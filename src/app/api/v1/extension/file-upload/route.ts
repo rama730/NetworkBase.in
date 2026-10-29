@@ -370,7 +370,7 @@ async function handleFinalize(userId: string, body: z.infer<typeof finalizeSchem
   } catch (error) {
     await markIntentFailed(
       intent.id,
-      error instanceof Error ? error.message : "Couldn’t apply revision",
+      error instanceof Error ? error.message : "Couldn’t apply version",
     );
     const conflictResponse = extensionRevisionConflictResponse(error);
     if (conflictResponse) return conflictResponse;
@@ -424,7 +424,7 @@ export async function POST(request: Request) {
       error: error instanceof Error ? error.message : String(error),
     });
     return jsonError(
-      "Couldn’t save file revision. Refresh the file and try again.",
+      "Couldn’t save file version. Refresh the file and try again.",
       500,
       "INTERNAL_ERROR",
     );

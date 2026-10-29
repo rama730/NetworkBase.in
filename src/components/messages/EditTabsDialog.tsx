@@ -83,14 +83,14 @@ export function EditTabsDialog({ open, onOpenChange, tabs, onSaveTabs }: Props) 
             <DialogTitle>Edit tabs</DialogTitle>
           </div>
           <DialogDescription>
-            Rename, reorder or remove Files, Tasks and bookmarks. Changes apply for everyone in the channel.
+            Rename, reorder or remove Files, Tasks and channel links. Changes apply for everyone in the channel.
           </DialogDescription>
         </DialogHeader>
 
         <div className="max-h-[360px] overflow-y-auto py-2 space-y-2">
           {draftTabs.length === 0 ? (
             <p className="py-6 text-center text-[13px] text-muted-foreground">
-              No shared tabs yet. Use + in the tab bar to add Files, Tasks or a bookmark.
+              No shared tabs yet. Use + in the tab bar to add Files, Tasks or a link.
             </p>
           ) : (
             draftTabs.map((item, index) => (

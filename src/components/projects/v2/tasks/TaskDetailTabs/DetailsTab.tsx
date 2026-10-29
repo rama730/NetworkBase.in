@@ -1018,7 +1018,7 @@ export default function DetailsTab({
           <div className="space-y-1.5" data-story-point>
             <label htmlFor="task-story-points" className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
               <Zap className="size-3 text-muted-foreground" />
-              Story points
+              Estimate
             </label>
             <input
               id="task-story-points"
@@ -1034,7 +1034,7 @@ export default function DetailsTab({
                   commitPoints();
                 }
               }}
-              placeholder="Unestimated"
+              placeholder="No estimate"
               disabled={!canEdit || isMutating}
               className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-background px-3 font-mono text-[13px] text-foreground outline-none transition focus:border-primary disabled:opacity-50"
             />

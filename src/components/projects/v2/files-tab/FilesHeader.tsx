@@ -401,9 +401,9 @@ const collectionInfo = {
   project:
     "Workspace files are stored in folders. Search finds accessible filenames across the workspace, not just the currently loaded rows. Upload and New use the open folder.",
   tasks:
-    "Working files and references are grouped by task. Linked files stay in their original location. Open a task to add or link files with an explicit role.",
+    "Draft files and references are grouped by task. Linked files stay in their original location. Open a task to add or link files with an explicit role.",
   deliverables:
-    "Submitted outputs with version-specific review status. New revisions require a new approval; a completed task does not automatically approve every file.",
+    "Submitted outputs with version-specific review status. New versions require a new approval; a completed task does not automatically approve every file.",
   recent:
     "Recent files are shortcuts saved in this browser, ordered by when you opened them. Deleted files and files you can no longer access are excluded.",
   starred:

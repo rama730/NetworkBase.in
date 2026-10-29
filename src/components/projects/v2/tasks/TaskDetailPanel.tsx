@@ -722,7 +722,7 @@ export default function TaskDetailPanel({
         open={showDeleteConfirm}
         onOpenChange={setShowDeleteConfirm}
         title="Delete task"
-        description="The task is removed from the board. Its working files move to a “Recovered task files” folder in Workspace Files."
+        description="The task is removed from the board. Its draft files move to a “Recovered task files” folder in Workspace Files."
         confirmLabel="Delete"
         variant="destructive"
         overlayClassName="z-[300] bg-black/60"

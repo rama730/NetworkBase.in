@@ -25,7 +25,7 @@ test("CommandPalette enforces canonical max-w-640px geometry, rounded-12px radiu
     // Monospace Micro-Label Section Headers
     assert.match(palette, /className="nb-micro uppercase tracking-\[0\.09em\] text-muted-foreground"/);
     assert.match(palette, /Workspaces · \$\{projectResults\.length\}/);
-    assert.match(palette, /Builders · \$\{profileResults\.length\}/);
+    assert.match(palette, /People · \$\{profileResults\.length\}/);
 
     // Related Skills as Drafting-Table Chips
     assert.match(palette, /Skills in these workspaces/);

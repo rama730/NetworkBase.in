@@ -562,7 +562,7 @@ export async function moveTeamMemberAction(masterId: string, userId: string, toC
             const to = toCopyId ? copies.find((c) => c.id === toCopyId && c.teamName) : null;
             if (toCopyId && !to) throw new Error('That team is gone.');
             if (from && to && from.id === to.id) return to.teamName ?? '';
-            if ((from && locked(from)) || (to && locked(to))) throw new Error('That team already handed in, so it is locked.');
+            if ((from && locked(from)) || (to && locked(to))) throw new Error('That team already submitted, so it is locked.');
             if (from?.teamName) {
                 await tx.delete(taskTeamMembers).where(and(eq(taskTeamMembers.taskId, from.id), eq(taskTeamMembers.userId, userId)));
                 const left = members.filter((m) => m.taskId === from.id && m.userId !== userId);
@@ -587,7 +587,7 @@ export async function moveTeamMemberAction(masterId: string, userId: string, toC
     touch(ctx.viewer.slug, ctx.master.projectId);
     const [copy] = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt),
         toCopyId ? eq(tasks.id, toCopyId) : eq(tasks.assigneeId, userId))).limit(1);
-    if (copy) await notifyAssignmentDueChanged(copy.id, ctx.viewer.userId, (t) => (title ? `You moved to ${title} for ${t}` : `You now have your own copy of ${t}`), `team-move:${masterId}:${userId}:${Date.now()}`);
+    if (copy) await notifyAssignmentDueChanged(copy.id, ctx.viewer.userId, (t) => (title ? `You moved to ${title} for ${t}` : `You now have your own assignment of ${t}`), `team-move:${masterId}:${userId}:${Date.now()}`);
     return { success: true };
 }
 

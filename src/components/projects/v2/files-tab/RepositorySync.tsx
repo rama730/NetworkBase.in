@@ -2070,7 +2070,7 @@ export function RepositorySync({
                     <span className={styles.provenance}>
                       Updated by:{" "}
                       {manifest.direction === "push"
-                        ? "latest workspace-file revision"
+                        ? "latest workspace-file version"
                         : "GitHub author of the source change"}
                     </span>
                     <span>{selected.length.toLocaleString()} selected</span>
@@ -2293,7 +2293,7 @@ export function RepositorySync({
             <dd>{value.message}</dd>
           </div>
           <div>
-            <dt>{push ? "Publish via" : "Source revision"}</dt>
+            <dt>{push ? "Publish via" : "Source version"}</dt>
             <dd>
               {push
                 ? value.mode === "pr"
@@ -3233,7 +3233,7 @@ export function RepositorySync({
           <>
             <DialogTitle>File comparison</DialogTitle>
             <DialogDescription>
-              {inspectPath} · NetworkBase and the reviewed GitHub revision
+              {inspectPath} · NetworkBase and the reviewed GitHub version
             </DialogDescription>
             {diff ? (
               <>
@@ -3366,7 +3366,7 @@ export function RepositorySync({
           projectName={projectName}
         />
         <p role="status" className={styles.info}>
-          Reading the branch and workspace file revisions. Keep this page open
+          Reading the branch and workspace file versions. Keep this page open
           until the comparison returns.
         </p>
         <div

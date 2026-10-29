@@ -91,7 +91,7 @@ test("Files Tab Design Specification Conformance Contract (Section 23 & Sections
   await t.test("All 6 standard file row actions are present in FolderListView", () => {
     assert.match(folderListView, />\s*Details\s*<\/DropdownMenuItem>/, "Details action must be present");
     assert.match(folderListView, />\s*Edit\s*<\/DropdownMenuItem>/, "Edit action must be present");
-    assert.match(folderListView, />\s*Upload revision…\s*<\/DropdownMenuItem>/, "Upload revision action must be present");
+    assert.match(folderListView, />\s*Upload version…\s*<\/DropdownMenuItem>/, "Upload revision action must be present");
     assert.match(folderListView, />\s*Attach task…\s*<\/DropdownMenuItem>/, "Attach task action must be present");
     assert.doesNotMatch(folderListView, /Use as a doc/, "docs are added from the Docs tab only");
     assert.match(folderListView, />\s*Link the task\s*<\/DropdownMenuItem>/, "Link the task action must be present");
