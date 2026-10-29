@@ -343,7 +343,7 @@ function MemberDrawer({ orgId, row, data, label, pending, run }: { orgId: string
                 </div>
             </section>
             <section className="space-y-1">
-                <h4 className="font-semibold">Projects &amp; units</h4>
+                <h4 className="font-semibold">Projects and units</h4>
                 {row.projects.length === 0 ? <p className="text-muted-foreground">Not in a project.</p> : row.projects.map((p) => <p key={p.id}>{p.title}{p.unit ? ` · ${p.unit}` : ''}</p>)}
             </section>
             <section className="space-y-1.5">

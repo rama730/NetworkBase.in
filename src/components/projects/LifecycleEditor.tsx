@@ -60,7 +60,7 @@ export function LifecycleEditor({ stages, onChange: emitChange, currentStageInde
         
         let msg = "";
         if (cleaned !== val) {
-            msg = "Only letters, numbers, spaces, and & are allowed";
+            msg = "Only letters, numbers, spaces and “&” are allowed";
         } else {
             const trimmed = cleaned.trim().replace(/\s+/g, " ");
             if (trimmed && stages.some((s) => s.toLowerCase() === trimmed.toLowerCase())) {
@@ -108,7 +108,7 @@ export function LifecycleEditor({ stages, onChange: emitChange, currentStageInde
         let msg = "";
         const trimmed = cleaned.trim().replace(/\s+/g, " ");
         if (cleaned !== value) {
-            msg = "Only letters, numbers, spaces, and & are allowed";
+            msg = "Only letters, numbers, spaces and “&” are allowed";
         } else if (trimmed && stages.some((stage, i) => i !== index && stage.toLowerCase() === trimmed.toLowerCase())) {
             msg = "Stage name already exists";
         }

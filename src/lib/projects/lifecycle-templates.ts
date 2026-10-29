@@ -13,9 +13,9 @@ export type LifecycleTemplateId =
   | "gameDev";
 
 export const LIFECYCLE_TEMPLATES: Record<LifecycleTemplateId, readonly string[]> = {
-  productWeb: ["Discovery", "Design", "MVP Build", "Beta", "Launch & Iterate"],
+  productWeb: ["Discovery", "Design", "MVP Build", "Beta", "Launch and Iterate"],
   openSourceTool: ["Scope", "Prototype", "Alpha Release", "Community Feedback", "Stable Release"],
-  clientFreelance: ["Requirements", "Design", "Implementation", "QA & Review", "Delivery"],
+  clientFreelance: ["Requirements", "Design", "Implementation", "QA and Review", "Delivery"],
   hackathonLearning: ["Plan", "Build", "Iterate", "Polish", "Ship"],
   creativeArt: ["Concept", "Create", "Feedback", "Finalize", "Publish"],
   media: ["Plan", "Produce", "Edit", "Publish", "Promote"],

@@ -439,7 +439,7 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
     welcomeText += `Your profile is ready.\n`;
     welcomeText += `Name: ${displayName}${username ? ` (@${username})` : ""}${headline ? ` • ${headline}` : ""}\n`;
     if (input.skills && input.skills.length > 0) {
-      welcomeText += `Focus & Skills: ${input.skills.join(", ")}\n`;
+      welcomeText += `Focus and Skills: ${input.skills.join(", ")}\n`;
     }
     welcomeText += `\nExplore Projects: ${discoverUrl}\n`;
     welcomeText += `View Profile: ${profileUrl}\n\n`;
@@ -453,7 +453,7 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
       const pills = input.skills.slice(0, 6).map((skill) =>
         `<span style="display:inline-block;padding:4px 9px;background:#F3F4F6;color:#374151;border-radius:4px;font-size:11px;font-weight:500;margin:0 6px 6px 0;white-space:nowrap;">${escapeHtml(skill)}</span>`
       ).join("");
-      skillsHtml = `<div style="margin:16px 0 0 0;"><div style="font-size:11px;font-weight:700;letter-spacing:0.05em;color:#6B7280;text-transform:uppercase;margin-bottom:8px;">Focus &amp; Skills</div>${pills}</div>`;
+      skillsHtml = `<div style="margin:16px 0 0 0;"><div style="font-size:11px;font-weight:700;letter-spacing:0.05em;color:#6B7280;text-transform:uppercase;margin-bottom:8px;">Focus and Skills</div>${pills}</div>`;
     }
 
     const previewSnippet = `Welcome to NetworkBase, ${displayName} — Your profile is live. Explore projects, connect with developers, and collaborate seamlessly.`;
@@ -560,7 +560,7 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
   }
 
   if (files.length > 0) {
-    text += `\nReferenced Files & Assets (${files.length}):\n`;
+    text += `\nReferenced Files and Assets (${files.length}):\n`;
     files.forEach((f) => {
       text += `  • ${f.name}${f.size ? ` (${formatFileSize(f.size)})` : ""}${f.url ? `: ${f.url}` : ""}\n`;
     });
@@ -605,7 +605,7 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
     subtasksHtml = `
       <div style="margin:28px 0 0 0;padding-top:20px;border-top:1px solid #E5E7EB;">
         <div style="font-size:11px;font-weight:700;letter-spacing:0.05em;color:#6B7280;text-transform:uppercase;margin-bottom:12px;">
-          Subtasks &amp; Scope <span style="font-weight:normal;color:#9CA3AF;">(${completedSubtasks} of ${subtasks.length} completed)</span>
+          Subtasks and Scope <span style="font-weight:normal;color:#9CA3AF;">(${completedSubtasks} of ${subtasks.length} completed)</span>
         </div>
         ${subtaskItems}
       </div>
@@ -634,7 +634,7 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
     filesHtml = `
       <div style="margin:24px 0 0 0;padding-top:20px;border-top:1px solid #E5E7EB;">
         <div style="font-size:11px;font-weight:700;letter-spacing:0.05em;color:#6B7280;text-transform:uppercase;margin-bottom:12px;">
-          Referenced Files &amp; Assets <span style="font-weight:normal;color:#9CA3AF;">(${files.length})</span>
+          Referenced Files and Assets <span style="font-weight:normal;color:#9CA3AF;">(${files.length})</span>
         </div>
         ${fileItems}
       </div>

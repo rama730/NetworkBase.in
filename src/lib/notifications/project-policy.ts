@@ -148,14 +148,14 @@ export const PROJECT_NOTIFICATION_GROUPS: Array<{
     description: string;
     visible: boolean;
 }> = [
-    { id: "membership_access", title: "Membership & Access", description: "Role, access, visibility, and membership changes.", visible: true },
-    { id: "roles_applications", title: "Roles & Applications", description: "Open roles, application intake, decisions, and review routing.", visible: true },
+    { id: "membership_access", title: "Membership and Access", description: "Role, access, visibility, and membership changes.", visible: true },
+    { id: "roles_applications", title: "Roles and Applications", description: "Open roles, application intake, decisions, and review routing.", visible: true },
     { id: "project_lifecycle", title: "Project Lifecycle", description: "Sprint and lifecycle changes that affect project momentum.", visible: true },
-    { id: "tasks_workflow", title: "Tasks & Workflow", description: "Assignments, mentions, status attention, and workflow responsibility.", visible: true },
-    { id: "files_workspace", title: "Files & Workspace", description: "Uploads, versions, reviews, organization, and sync status.", visible: true },
+    { id: "tasks_workflow", title: "Tasks and Workflow", description: "Assignments, mentions, status attention, and workflow responsibility.", visible: true },
+    { id: "files_workspace", title: "Files and Workspace", description: "Uploads, versions, reviews, organization, and sync status.", visible: true },
     { id: "readme", title: "Doc", description: "Documentation publishing and major documentation changes.", visible: true },
     { id: "updates", title: "Updates", description: "Project progress posts, follower notifications, and update discussions.", visible: true },
-    { id: "security_audit", title: "Security & Audit", description: "Protected actions, exports, archive/delete, and access-sensitive events.", visible: true },
+    { id: "security_audit", title: "Security and Audit", description: "Protected actions, exports, archive/delete, and access-sensitive events.", visible: true },
     { id: "future", title: "Future Surfaces", description: "Updates and follower digest triggers hidden until enforceable.", visible: false },
     { id: "org_membership", title: "Organization", description: "Join requests, invitations, access changes and removals.", visible: true },
     { id: "org_assignments", title: "Assignments", description: "Published work, submissions, reviews and due dates.", visible: true },
@@ -775,7 +775,7 @@ export const PROJECT_NOTIFICATION_EVENT_REGISTRY = {
         key: "readme.published",
         group: "readme",
         label: "Doc published",
-        description: "Notify members when an admin publishes a Doc with Publish & notify.",
+        description: "Notify members when an admin publishes a Doc with Publish and notify.",
         category: "projects",
         notificationKind: "project_update_activity",
         // Org Docs' Publish & notify is the producer (report §19.3): an explicit admin action, members only.

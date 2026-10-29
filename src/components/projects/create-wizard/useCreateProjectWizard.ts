@@ -998,7 +998,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                 await applyReadmeSetup(createdProjectId);
             }
             if (createdProjectId) await applyLaunchSettingsAfterCreate(createdProjectId);
-            if (!creationWarnings.length) toast.success(importType === 'upload' ? 'Project & files ready' : 'Workspace created', { id: creationToastId });
+            if (!creationWarnings.length) toast.success(importType === 'upload' ? 'Project and files ready' : 'Workspace created', { id: creationToastId });
 
             const { draftStore } = await import('@/lib/storage/draft-store');
             await draftStore.clear(userId);

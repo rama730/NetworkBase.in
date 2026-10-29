@@ -102,7 +102,7 @@ export const SUPPORTED_IDES: Record<SupportedIde, IdeDefinition> = {
     name: "IntelliJ IDEA",
     scheme: "idea",
     icon: "/ide-icons/intellij-idea.svg",
-    description: "JetBrains Java & Kotlin IDE",
+    description: "JetBrains Java and Kotlin IDE",
     category: "jetbrains",
   },
   pycharm: {
@@ -118,7 +118,7 @@ export const SUPPORTED_IDES: Record<SupportedIde, IdeDefinition> = {
     name: "WebStorm",
     scheme: "webstorm",
     icon: "/ide-icons/webstorm.svg",
-    description: "JetBrains JavaScript & TypeScript IDE",
+    description: "JetBrains JavaScript and TypeScript IDE",
     category: "jetbrains",
   },
   "android-studio": {
@@ -190,7 +190,7 @@ export const SUPPORTED_IDES: Record<SupportedIde, IdeDefinition> = {
     name: "RubyMine",
     scheme: "rubymine",
     icon: "/ide-icons/rubymine.svg",
-    description: "JetBrains Ruby & Rails IDE",
+    description: "JetBrains Ruby and Rails IDE",
     category: "jetbrains",
   },
 };

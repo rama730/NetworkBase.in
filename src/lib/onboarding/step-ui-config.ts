@@ -32,7 +32,7 @@ export const STEP_UI_CONFIG: readonly StepConfig[] = [
   },
   {
     id: 4,
-    title: 'Privacy & visibility',
+    title: 'Privacy and visibility',
     subtitle: 'Choose who can find you and start a conversation. You can change these later.',
     sidebarLabel: 'Privacy',
     railHint: 'Visibility and messages',

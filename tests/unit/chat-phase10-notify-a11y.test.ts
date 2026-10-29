@@ -16,11 +16,11 @@ function channel(patch: Partial<ChatChannelSummary> = {}): ChatChannelSummary {
   };
 }
 
-test("#152 project channels offer Mentions & threads or Mute; DMs and groups keep All", () => {
+test("#152 project channels offer Mentions and threads or Mute; DMs and groups keep All", () => {
   const projectChannel = channel();
   assert.deepEqual(notifyChoices(projectChannel).map((c) => c.value), ["mentions", "mute"]);
   assert.equal(notifyChoice(projectChannel, "all"), "mentions", "all behaves as mentions in channels");
-  assert.equal(notifyLabel(projectChannel, "all"), "Mentions & threads");
+  assert.equal(notifyLabel(projectChannel, "all"), "Mentions and threads");
   const dm = channel({ kind: "dm", name: null, project_id: null });
   const group = channel({ kind: "private", name: null, project_id: null });
   // Round 2 #194: a 1:1 DM has no @mentions to wait for, so it's All or Mute.

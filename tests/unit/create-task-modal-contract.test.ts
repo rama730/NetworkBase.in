@@ -12,9 +12,9 @@ test("CreateTaskModal implements canonical SectionDividers matching Sprint tab s
   const content = fs.readFileSync(CREATE_TASK_MODAL_PATH, "utf8");
 
   assert.match(content, /title="Basics"/);
-  assert.match(content, /title="Planning & Assignment"/);
-  assert.match(content, /title="Schedule & Estimate"/);
-  assert.match(content, /title="Subtasks & References"/);
+  assert.match(content, /title="Planning and Assignment"/);
+  assert.match(content, /title="Schedule and Estimate"/);
+  assert.match(content, /title="Subtasks and References"/);
 });
 
 test("CreateTaskModal enforces drafting-table control geometry and token compliance", () => {

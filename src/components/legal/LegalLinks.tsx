@@ -72,7 +72,7 @@ export function LegalLinks({
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link href="/cookies" className="cursor-pointer">
-              Cookies &amp; Storage
+              Cookies and Storage
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
@@ -103,7 +103,7 @@ export function LegalLinks({
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link href="/grievances" className="cursor-pointer">
-              Grievances &amp; Redressal
+              Grievances and Redressal
             </Link>
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -136,7 +136,7 @@ export function LegalLinks({
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link href="/copyright" className="cursor-pointer">
-              Copyright &amp; IP Complaints
+              Copyright and IP Complaints
             </Link>
           </DropdownMenuItem>
         </DropdownMenuContent>

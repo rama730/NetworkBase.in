@@ -215,7 +215,7 @@ function ProjectSettingsContent({
     const sections = useMemo(() => {
         // A child project's role boxes are its units (report §21 #6, "Units & open seats").
         const visible = getVisibleProjectSettingsSections().map((section) => (project?.parentOrg && section.id === "roles-applications"
-            ? { ...section, label: "Units & open seats", description: "Units, their seats and unit leads; open seats org members can apply to." } : section));
+            ? { ...section, label: "Units and open seats", description: "Units, their seats and unit leads; open seats org members can apply to." } : section));
         if (organization) {
             // Report §21.4: You sections for everyone, org sections for admins, owner extras for the owner.
             return orgSettingsSectionIds(orgRole).flatMap((id) => {
@@ -1419,7 +1419,7 @@ function ProjectSettingsContent({
                     <section id="project-settings-access" data-project-settings-section className="space-y-6">
                         <div className="space-y-6">
                             <SettingsCard
-                                title="Project access & visibility"
+                                title="Project access and visibility"
                                 headingLevel={2}
                                 description="This one owner-controlled policy is used by project cards, detail pages, search, files, applications, notifications, and public surfaces."
                             >
@@ -1890,7 +1890,7 @@ function ProjectSettingsContent({
                 )}
                 {sections.some((s) => s.id === "tasks-workflow") && (
                     <section id="project-settings-tasks-workflow" data-project-settings-section className="space-y-8">
-                        <SettingsPageHeader level={2} title="Lifecycle & Workflow" description="Manage task completion and your project’s lifecycle stages." />
+                        <SettingsPageHeader level={2} title="Lifecycle and Workflow" description="Manage task completion and your project’s lifecycle stages." />
                         <TaskCompletionSettings projectId={projectId} />
                         <div className="space-y-6">
                             <LifecycleSettingsEditor

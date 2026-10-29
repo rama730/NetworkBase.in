@@ -911,7 +911,7 @@ export function DraftsView() {
   // Decided from loaded data only, so the section never flashes a skeleton and then disappears.
   const showScheduled = scheduled.isError || Boolean(scheduled.data && (scheduled.data.length || !drafts.length));
   return (
-    <ViewScreen title="Drafts & scheduled">
+    <ViewScreen title="Drafts and scheduled">
       <section aria-labelledby="drafts-heading">
         <h2 id="drafts-heading" className="nb-micro flex items-center gap-2 border-b border-border px-4 py-2"><Pencil size={14} aria-hidden="true" /> Drafts on this device</h2>
         {!drafts.length ? <p className="border-b border-border px-4 py-4 text-[13px] text-muted-foreground">No drafts. Anything you start typing and leave is kept here.</p> : null}

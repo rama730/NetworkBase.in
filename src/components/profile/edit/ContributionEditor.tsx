@@ -1260,9 +1260,9 @@ export function ContributionEditor({
             {[
               ...(!active.projectId ? [["identity", "Project identity"]] : []),
               ["summary", "Summary"],
-              ["positions", "Positions & dates"],
+              ["positions", "Positions and dates"],
               ["work", "Work examples"],
-              ["skills", "Skills & links"],
+              ["skills", "Skills and links"],
             ].map(([id, label]) => (
               <button
                 key={id}
@@ -1338,7 +1338,7 @@ export function ContributionEditor({
             />
           </section>
           <section className="nb-story-section" id="contribution-positions">
-            <h3 className="nb-section-title">Positions & dates</h3>
+            <h3 className="nb-section-title">Positions and dates</h3>
             <p className="nb-compact mt-1 mb-5 text-muted-foreground">
               Show how your contribution evolved over time.
             </p>
@@ -1581,7 +1581,7 @@ export function ContributionEditor({
                               ongoing.
                             </p>
                             <Field
-                              label="Responsibilities & outcomes"
+                              label="Responsibilities and outcomes"
                               help="Optional. Describe this period without repeating the whole project summary."
                             >
                               <textarea
@@ -1678,7 +1678,7 @@ export function ContributionEditor({
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h3 className="nb-section-title">
-                  Images & work examples{" "}
+                  Images and work examples{" "}
                   <span className="nb-meta ml-2 text-muted-foreground">
                     {d.images.length} / 8
                   </span>
@@ -2094,7 +2094,7 @@ export function ContributionEditor({
             </div>
           </section>
           <section className="nb-story-section" id="contribution-skills">
-            <h3 className="nb-section-title">Skills & supporting links</h3>
+            <h3 className="nb-section-title">Skills and supporting links</h3>
             <div className="mt-5">
               <SkillPicker
                 value={d.skills}
@@ -2619,7 +2619,7 @@ export function ContributionEditor({
             disabled={!linkTarget || busy || (!!duplicateId && !mergeConsent)}
             onClick={() => void save("link")}
           >
-            {duplicateId ? "Merge into private draft" : "Link & keep my story"}
+            {duplicateId ? "Merge into private draft" : "Link and keep my story"}
           </Button>
         </DialogContent>
       </Dialog>

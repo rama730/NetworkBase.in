@@ -45,9 +45,9 @@ test('designated categories list contains curated disciplines', () => {
   assert.ok(DESIGNATED_CATEGORIES.includes('Design'))
   assert.ok(DESIGNATED_CATEGORIES.includes('Product'))
   assert.ok(DESIGNATED_CATEGORIES.includes('Growth'))
-  assert.ok(DESIGNATED_CATEGORIES.includes('AI & Machine Learning'))
-  assert.ok(DESIGNATED_CATEGORIES.includes('Data & Analytics'))
-  assert.ok(DESIGNATED_CATEGORIES.includes('Security & DevOps'))
+  assert.ok(DESIGNATED_CATEGORIES.includes('AI and Machine Learning'))
+  assert.ok(DESIGNATED_CATEGORIES.includes('Data and Analytics'))
+  assert.ok(DESIGNATED_CATEGORIES.includes('Security and DevOps'))
 })
 
 test('role aliases normalize extended role types', () => {

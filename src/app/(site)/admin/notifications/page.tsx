@@ -141,7 +141,7 @@ async function ResolvedAdminNotifications() {
 
             <section>
                 <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">
-                    Throughput & success rate
+                    Throughput and success rate
                 </h2>
                 <div className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
                     <table className="w-full text-sm">

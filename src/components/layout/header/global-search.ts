@@ -184,8 +184,8 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     { id: "terms-of-service", title: "Terms of Service", section: "Legal and data", description: "Review the NetworkBase™ Terms of Service.", href: "/terms", keywords: "legal terms conditions agreement contract rules" },
     { id: "privacy-policy", title: "Privacy Policy", section: "Legal and data", description: "Review NetworkBase™ data protection and privacy policies.", href: "/privacy", keywords: "legal privacy notice data rights protection gdpr" },
     { id: "security-reporting", title: "Security reporting", section: "Legal and data", description: "Official security disclosure and vulnerability reporting.", href: "/security-reporting", keywords: "security bug vulnerability report incident disclose" },
-    { id: "grievances", title: "Grievances & Redressal", section: "Legal and data", description: "Statutory grievance officer and dispute redressal.", href: "/grievances", keywords: "grievance officer complaint dispute nodal officer redressal" },
-    { id: "trademark-ip", title: "Trademark & Copyright", section: "Legal and data", description: "NetworkBase™ trademark, copyright, and intellectual property notices.", href: "/copyright", keywords: "trademark brand copyright intellectual property ownership" },
+    { id: "grievances", title: "Grievances and Redressal", section: "Legal and data", description: "Statutory grievance officer and dispute redressal.", href: "/grievances", keywords: "grievance officer complaint dispute nodal officer redressal" },
+    { id: "trademark-ip", title: "Trademark and Copyright", section: "Legal and data", description: "NetworkBase™ trademark, copyright, and intellectual property notices.", href: "/copyright", keywords: "trademark brand copyright intellectual property ownership" },
 ] as const;
 
 export function normalizeGlobalSearchQuery(query: string) {
