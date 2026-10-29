@@ -54,7 +54,8 @@ export async function fileAppeal(userId: string, number: number, body: string, f
     if (!rows.length) return false;
     // A workspace or org is never deleted while its appeal is open (10.4).
     await tx.execute(sql`UPDATE workspaces w SET deletion_scheduled_at = NULL FROM moderation_actions a
-      WHERE a.case_id = ${ctx.caseId} AND a.action = 'remove_workspace' AND a.undone_at IS NULL AND a.reversed_at IS NULL AND w.id = a.target_id`);
+      WHERE a.case_id = ${ctx.caseId} AND a.action = 'remove_workspace' AND a.undone_at IS NULL AND a.reversed_at IS NULL
+        AND (w.id = a.target_id OR w.id::text IN (SELECT jsonb_array_elements_text(coalesce(a.restore->'children', '[]'::jsonb))))`);
     await logModerationEvent(tx, { caseId: ctx.caseId, actorId: userId, kind: "appealed", data: { fixed } });
     return true;
   });
@@ -65,10 +66,14 @@ export async function fileAppeal(userId: string, number: number, body: string, f
   return { ok: true, decideBy };
 }
 
-/** Removal waits again after an appeal ends without reversing it. */
+/**
+ * Removal resumes after an appeal ends without reversing it: the original clock, but at least a day left (the purge
+ * runs 30 days after deletion_scheduled_at).
+ */
 async function rescheduleRemoval(caseId: string) {
-  await db.execute(sql`UPDATE workspaces w SET deletion_scheduled_at = greatest(a.ends_at, now() + interval '1 day') FROM moderation_actions a
-    WHERE a.case_id = ${caseId} AND a.action = 'remove_workspace' AND a.undone_at IS NULL AND a.reversed_at IS NULL AND a.lifted_at IS NULL AND w.id = a.target_id`);
+  await db.execute(sql`UPDATE workspaces w SET deletion_scheduled_at = greatest(a.created_at, now() - interval '29 days') FROM moderation_actions a
+    WHERE a.case_id = ${caseId} AND a.action = 'remove_workspace' AND a.undone_at IS NULL AND a.reversed_at IS NULL AND a.lifted_at IS NULL
+      AND (w.id = a.target_id OR w.id::text IN (SELECT jsonb_array_elements_text(coalesce(a.restore->'children', '[]'::jsonb))))`);
 }
 
 /** Withdraw, until a reviewer has picked it up (10.3). */

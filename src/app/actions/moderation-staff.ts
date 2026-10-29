@@ -26,18 +26,29 @@ type Result<T = object> = ({ success: true } & T) | { success: false; error: str
 const DENIED = { success: false as const, error: 'You don’t have permission to do this.' };
 const uuid = z.string().uuid();
 
+/** Staff, signed in with their authenticator (F16): every console action checks this again. */
 async function staff(): Promise<{ id: string; role: StaffRole } | null> {
-    const { user } = await getViewerAuthContext();
+    const { user, snapshot } = await getViewerAuthContext();
     const role = staffRoleOf(user);
-    return user && role ? { id: user.id, role } : null;
+    return user && role && snapshot?.aal === 'aal2' ? { id: user.id, role } : null;
 }
 const refresh = () => revalidatePath('/admin/trust', 'layout');
 
 /** The avatar menu's "Trust & safety" entry: null for everyone but staff (C1). */
 export async function staffBadgeAction(): Promise<{ count: number } | null> {
-    if (!(await staff())) return null;
+    const { user } = await getViewerAuthContext();
+    if (!staffRoleOf(user)) return null;
+    // Without the authenticator the entry still shows (it leads to the setup screen), with no counts.
+    if (!(await staff())) return { count: 0 };
     const c = await consoleCounts();
     return { count: c.urgent + c.overdue };
+}
+
+/** A fresh check of who's at the keyboard (F16), or null when it's recent enough. */
+async function needsStepUp(error: string): Promise<StepUpRequired | null> {
+    const { supabase, user } = await getViewerAuthContext();
+    const state = await stepUpState(supabase, user!);
+    return state.fresh ? null : { success: false, error, stepUp: { methods: state.methods, factorId: state.factorId } };
 }
 
 const ACTIONS = ['hide', 'remove', 'reset_profile', 'hold_handle', 'remove_verified', 'hide_discover', 'restrict', 'suspend_workspace', 'remove_workspace'] as const satisfies readonly ModerationActionKind[];
@@ -116,9 +127,11 @@ export async function addNoteAction(caseId: string, body: string): Promise<Resul
     return { success: true };
 }
 
-export async function legalHoldAction(caseId: string, hold: boolean): Promise<Result> {
+export async function legalHoldAction(caseId: string, hold: boolean): Promise<Result | StepUpRequired> {
     const me = await staff();
     if (!me || !uuid.safeParse(caseId).success) return DENIED;
+    // Releasing a hold lets retention delete the evidence: it needs a fresh check (F16).
+    if (!hold) { const stepUp = await needsStepUp('Verify it’s you to release the legal hold.'); if (stepUp) return stepUp; }
     await setLegalHold(caseId, me.id, hold);
     refresh();
     return { success: true };
@@ -255,9 +268,11 @@ export async function evidenceShownAction(caseId: string): Promise<Result> {
     return { success: true };
 }
 
-export async function auditExportedAction(rows: number): Promise<Result> {
+export async function auditExportedAction(rows: number): Promise<Result | StepUpRequired> {
     const me = await staff();
     if (!me) return DENIED;
+    const stepUp = await needsStepUp('Verify it’s you to export the audit log.');
+    if (stepUp) return stepUp;
     await logModerationEvent(db, { caseId: null, actorId: me.id, kind: 'audit_exported', data: { rows } });
     return { success: true };
 }

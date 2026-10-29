@@ -80,7 +80,10 @@ export function HealthTab({ h, days, counts, staff, role }: { h: Health; days: n
                     <StaffList staff={staff} canEdit={role === 'admin'} />
                 </Panel>
             </div>
-            <p className="nb-meta">{h.newCases} new cases and {h.decided} decided in {days} days · {h.pileOns} pile-on flags</p>
+            <p className="nb-meta">
+                {h.newCases} new cases and {h.decided} decided in {days} days · {h.pileOns} pile-on flags ·{' '}
+                <Link href="/admin/notifications" className="underline underline-offset-4">Notification delivery</Link>
+            </p>
         </div>
     )
 }

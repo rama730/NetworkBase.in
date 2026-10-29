@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
-import { Bell, Link2, Lock, MessageSquare, MoreHorizontal, Search, ShieldCheck, ShieldOff, Star, User, UserMinus, UserPlus, Users, X } from "lucide-react";
+import { Bell, Flag, Link2, Lock, MessageSquare, MoreHorizontal, Search, ShieldCheck, ShieldOff, Star, User, UserMinus, UserPlus, Users, X } from "lucide-react";
 import { toast } from "@/lib/feedback";
 
 import { joinChannel, renameGroup, setChannelPrivacy, updateChannel, type ChannelDetails } from "@/app/actions/chat/channels";
@@ -333,6 +333,8 @@ function PersonDetails({ channel, meId, setState, onClose }: { channel: ChannelD
   const self = person?.id === meId;
   const presence = usePersonPresence(person?.id);
   const context = usePersonContext(person?.id, !self);
+  // Report the person from the DM's details (trust and safety §5.1); messages are reported from their own "⋯".
+  const reporting = useReportDialog({ kind: "person", targetId: person?.id ?? "", noun: "person", personName: person ? personName(person) : null });
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60_000);
@@ -381,8 +383,10 @@ function PersonDetails({ channel, meId, setState, onClose }: { channel: ChannelD
       {/* Notes to self: nothing to notify or close. */}
       {self ? null : <NotifyRow channel={channel} onChange={(notify) => setState({ notify })} />}
       {self ? null : (
-        <div className="p-4">
+        <div className="flex flex-wrap items-center gap-2 p-4">
           <Button type="button" variant="outline" onClick={onClose} className="pointer-coarse:h-11"><X size={16} /> Close conversation</Button>
+          {person ? <Button type="button" variant="ghost" onClick={reporting.open} className="text-muted-foreground pointer-coarse:h-11"><Flag size={16} /> Report {personName(person)}</Button> : null}
+          {reporting.dialog}
         </div>
       )}
     </div>

@@ -108,9 +108,17 @@ async function applyAction(tx: Tx, c: CaseRow, action: ModerationActionKind, mes
     if (action === "hide_discover") await tx.execute(sql`UPDATE workspaces SET discover_hidden_at = now() WHERE id = ${c.target_id}`);
     if (action === "restrict") await tx.execute(sql`UPDATE workspaces SET restricted_at = now(), visibility = 'private', join_code_enabled = false WHERE id = ${c.target_id}`);
     if (action === "suspend_workspace") await tx.execute(sql`UPDATE workspaces SET suspended_at = now(), suspend_reason = ${message ?? "Suspended by NetworkBase"} WHERE id = ${c.target_id}`);
-    if (action === "remove_workspace") await tx.execute(sql`UPDATE workspaces SET deletion_scheduled_at = ${endsAt!.toISOString()}::timestamptz WHERE id = ${c.target_id}`);
+    // Removal uses the org deletion clock (lib/organizations/lifecycle): deletion_scheduled_at is when it was asked
+    // for, and the purge runs 30 days later. An org's own workspaces go with it; join codes stop at once.
+    let children: string[] = [];
+    if (action === "remove_workspace") {
+      await tx.execute(sql`UPDATE workspaces SET deletion_scheduled_at = now(), join_code_enabled = false WHERE id = ${c.target_id}`);
+      const rows = await tx.execute<{ id: string }>(sql`
+        UPDATE workspaces SET deletion_scheduled_at = now() WHERE parent_id = ${c.target_id} AND deleted_at IS NULL AND deletion_scheduled_at IS NULL RETURNING id`);
+      children = [...rows].map((r) => r.id);
+    }
     if (action === "remove_verified") await tx.execute(sql`UPDATE workspaces SET verified_at = NULL WHERE id = ${c.target_id}`);
-    return { restore: { workspace: w ?? null }, endsAt };
+    return { restore: { workspace: w ?? null, ...(children.length ? { children } : {}) }, endsAt };
   }
   // Account actions apply to the person responsible.
   const subject = c.subject_id!;
@@ -171,7 +179,11 @@ async function revertAction(tx: Tx, a: { action: ModerationActionKind; target_ki
     if (a.action === "hide_discover") await tx.execute(sql`UPDATE workspaces SET discover_hidden_at = ${ts(w.discover_hidden_at)}::timestamptz WHERE id = ${a.target_id}`);
     if (a.action === "restrict") await tx.execute(sql`UPDATE workspaces SET restricted_at = ${ts(w.restricted_at)}::timestamptz, visibility = ${String(w.visibility ?? "private")}, join_code_enabled = ${Boolean(w.join_code_enabled)} WHERE id = ${a.target_id}`);
     if (a.action === "suspend_workspace") await tx.execute(sql`UPDATE workspaces SET suspended_at = ${ts(w.suspended_at)}::timestamptz, suspend_reason = ${(w.suspend_reason as string | null) ?? null} WHERE id = ${a.target_id}`);
-    if (a.action === "remove_workspace") await tx.execute(sql`UPDATE workspaces SET deletion_scheduled_at = ${ts(w.deletion_scheduled_at)}::timestamptz WHERE id = ${a.target_id}`);
+    if (a.action === "remove_workspace") {
+      await tx.execute(sql`UPDATE workspaces SET deletion_scheduled_at = ${ts(w.deletion_scheduled_at)}::timestamptz, join_code_enabled = ${Boolean(w.join_code_enabled)} WHERE id = ${a.target_id}`);
+      const children = Array.isArray(r.children) ? (r.children as string[]) : [];
+      if (children.length) await tx.execute(sql`UPDATE workspaces SET deletion_scheduled_at = NULL WHERE id IN (${sql.join(children.map((id) => sql`${id}`), sql`, `)})`);
+    }
     if (a.action === "remove_verified") await tx.execute(sql`UPDATE workspaces SET verified_at = ${ts(w.verified_at)}::timestamptz WHERE id = ${a.target_id}`);
   }
   if (a.action === "ban" && a.subject_id) {

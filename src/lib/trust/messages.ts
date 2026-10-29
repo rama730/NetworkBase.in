@@ -173,7 +173,7 @@ export function dailySummaryEmail(rows: { label: string; detail: string }[], cou
     subject: `Trust & safety: ${counts.open} open, ${counts.overdue} overdue, ${counts.appeals} appeals`, preview: "Your morning summary.", label: "Trust & safety",
     headline: "Morning summary",
     paragraphs: [`${counts.open} open cases (${counts.urgent} urgent), ${counts.overdue} overdue, ${counts.appeals} appeals waiting.`,
-      counts.jobsOk ? "Background checks: all ran." : `Background checks: ${counts.failedJobs.join(", ")} failed.`],
+      counts.jobsOk ? "Background checks: all ran." : `Background checks need attention: ${counts.failedJobs.join("; ")}.`],
     bullets: rows.map((r) => `${r.label}: ${r.detail}`),
     primary: { label: "Open the queue", href: "/admin/trust" },
   };

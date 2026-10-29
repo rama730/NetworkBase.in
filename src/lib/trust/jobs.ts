@@ -50,6 +50,8 @@ export async function runTrustDeadlines() {
       AND a.action IN ('limit', 'suspension') AND a.paused_at IS NULL AND a.lifted_at IS NULL AND a.reversed_at IS NULL AND a.undone_at IS NULL
     RETURNING a.case_id`);
   for (const c of paused) await logModerationEvent(db, { caseId: c.case_id, actorId: null, kind: "paused_for_appeal" });
+  // A heartbeat for the morning summary's "Background checks" line (F24): silence means the jobs stopped.
+  await logModerationEvent(db, { caseId: null, actorId: null, kind: "job_heartbeat", data: { job: "trust-deadlines" } });
   return { handed: handed.length, released: released.length, paused: paused.length };
 }
 
@@ -73,12 +75,17 @@ export async function runTrustRestrictions() {
   return { soon: soon.length, ended: ended.length };
 }
 
-/** Email delivery health for the "Background checks" line (F24). */
+/** The "Background checks" line (F24): the trust jobs' heartbeat and email delivery. */
 async function jobHealth() {
-  const [row] = await db.execute<{ failed: number; stuck: number }>(sql`
+  const [row] = await db.execute<{ failed: number; stuck: number; beat: boolean }>(sql`
     SELECT count(*) FILTER (WHERE status = 'failed' AND updated_at > now() - interval '24 hours')::int AS failed,
-           count(*) FILTER (WHERE status = 'pending' AND due_at < now() - interval '1 hour')::int AS stuck FROM email_outbox`);
-  const failedJobs = [...(row?.failed ? [`${row.failed} emails failed`] : []), ...(row?.stuck ? [`${row.stuck} emails waiting over an hour`] : [])];
+           count(*) FILTER (WHERE status = 'pending' AND due_at < now() - interval '1 hour')::int AS stuck,
+           EXISTS (SELECT 1 FROM moderation_events WHERE kind = 'job_heartbeat' AND created_at > now() - interval '1 hour') AS beat
+    FROM email_outbox`);
+  const failedJobs = [
+    ...(row?.beat ? [] : ["trust-deadlines hasn't run in the last hour"]),
+    ...(row?.failed ? [`${row.failed} emails failed`] : []), ...(row?.stuck ? [`${row.stuck} emails waiting over an hour`] : []),
+  ];
   return { jobsOk: failedJobs.length === 0, failedJobs };
 }
 
