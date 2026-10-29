@@ -8,6 +8,8 @@ import { toPrivacySafeRouteMetric } from "@/lib/routing/route-metric";
 const CSP_NONCE_HEADER = "x-nonce";
 const ROUTE_METRIC_HEADER = "x-route-metric";
 const REQUEST_TARGET_HEADER = "x-networkbase-request-target";
+// The method, set here so a client can't claim one: the moderation gate treats every non-GET as a write.
+const REQUEST_METHOD_HEADER = "x-networkbase-request-method";
 const CSRF_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 12;
 const AUTH_PROTECTED_PREFIXES = ["/discover", "/settings", "/messages", "/my-profile", "/network", "/my-work", "/u/", "/workspaces", "/org/", "/admin", "/authorize"];
 // /legal/accept resolves the session so an unfinished two-step sign-in is sent to the code step first.
@@ -158,6 +160,7 @@ export async function proxy(request: NextRequest) {
     REQUEST_TARGET_HEADER,
     `${request.nextUrl.pathname}${request.nextUrl.search}`,
   );
+  requestHeaders.set(REQUEST_METHOD_HEADER, request.method);
 
   if (request.nextUrl.pathname.startsWith("/api/")) {
     return NextResponse.next({

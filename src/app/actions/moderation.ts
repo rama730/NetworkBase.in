@@ -10,6 +10,7 @@ import { logger } from '@/lib/logger';
 import { setUserBlocked } from '@/lib/privacy/blocks';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
+import { getAppealViewer } from '@/lib/supabase/server';
 import { fileAppeal, withdrawAppeal } from '@/lib/trust/appeals';
 import { fileReport, listMyReports, openReportsOf } from '@/lib/trust/cases';
 import { caseLabel, parseCaseLabel, REPORT_REASONS, type ReportTargetKind } from '@/lib/trust/rules';
@@ -84,7 +85,8 @@ const appealSchema = z.object({ caseNumber: z.string().max(20), body: z.string()
 
 /** One appeal per decision (§10.3). */
 export async function appealAction(input: z.input<typeof appealSchema>): Promise<{ success: true; decideBy: string } | Failure> {
-    const { userId } = await getViewerAuthContext();
+    // The one write a suspended or banned account may make, so it reads the sign-in past the moderation gate.
+    const userId = (await getAppealViewer())?.id ?? null;
     if (!userId) return { success: false, error: 'Sign in to appeal.' };
     const parsed = appealSchema.safeParse(input);
     const number = parsed.success ? parseCaseLabel(parsed.data.caseNumber) : null;
@@ -96,7 +98,7 @@ export async function appealAction(input: z.input<typeof appealSchema>): Promise
 }
 
 export async function withdrawAppealAction(caseNumber: string): Promise<{ success: true } | Failure> {
-    const { userId } = await getViewerAuthContext();
+    const userId = (await getAppealViewer())?.id ?? null;
     const number = parseCaseLabel(caseNumber);
     if (!userId || !number) return { success: false, error: 'Appeal not found.' };
     const result = await withdrawAppeal(userId, number);

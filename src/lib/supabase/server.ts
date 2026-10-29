@@ -41,15 +41,14 @@ export async function createClient() {
 
     let route = '/unknown'
     let userAgent: string | null = null
-    // For the moderation gate: the page a server action posts to, and whether this is one.
-    let requestTarget = ''
-    let serverAction = false
+    // For the moderation gate: whether this request writes (the proxy sets the method; a server action always does).
+    let writes = false
     try {
         const requestHeaders = await headers()
         // Sign-in runs here, so Supabase would record the server's runtime ("node") as the session's device.
         userAgent = requestHeaders.get('user-agent')
-        requestTarget = requestHeaders.get('x-networkbase-request-target') ?? ''
-        serverAction = requestHeaders.has('next-action')
+        const method = requestHeaders.get('x-networkbase-request-method')
+        writes = method ? !['GET', 'HEAD'].includes(method.toUpperCase()) : requestHeaders.has('next-action')
         route = toPrivacySafeRouteMetric(
             requestHeaders.get('x-route-metric')
                 ?? requestHeaders.get('x-matched-path')
@@ -90,7 +89,7 @@ export async function createClient() {
         if (!authResolutionPromise) {
             const startedAt = Date.now()
             authResolutionPromise = resolveAuthSnapshot(client).then(withSecondFactorGate)
-                .then(async (resolution) => (await import('@/lib/trust/session-gate')).withModerationGate(resolution, { target: requestTarget, serverAction }))
+                .then(async (resolution) => (await import('@/lib/trust/session-gate')).withModerationGate(resolution, { writes }))
                 .then((resolution) => {
                 logger.metric('auth.server.resolution', {
                     module: 'auth',
@@ -151,6 +150,17 @@ async function withSecondFactorGate(resolution: AuthSnapshotResolution): Promise
     const { isSecondFactorDue } = await import('@/lib/auth/mfa-gate')
     if (!(await isSecondFactorDue(resolution.user.id, resolution.snapshot?.aal))) return resolution
     return { ...resolution, session: null, snapshot: null, user: null }
+}
+
+/**
+ * The signed-in person for the appeal and its withdrawal only: the one write a suspended or banned account may make.
+ * Same checks as every request (second factor, a token from before the restriction) except the write rule.
+ */
+export async function getAppealViewer() {
+    const client = await createClient()
+    const resolution = await resolveAuthSnapshot(client).then(withSecondFactorGate)
+    const { withModerationGate } = await import('@/lib/trust/session-gate')
+    return (await withModerationGate(resolution, { writes: false })).user
 }
 
 export async function createAdminClient() {

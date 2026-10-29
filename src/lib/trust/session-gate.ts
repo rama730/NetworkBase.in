@@ -24,9 +24,10 @@ async function restrictedSince() {
 
 /**
  * A suspended or banned person is signed out when their token predates the restriction. After signing in again
- * they see only the restricted screen: their server actions count as signed out, except the appeal.
+ * they can read (the restricted screen, their data export) but every write counts as signed out; the appeal reads
+ * the sign-in through getAppealViewer instead.
  */
-export async function withModerationGate(resolution: AuthSnapshotResolution, request: { target: string; serverAction: boolean }): Promise<AuthSnapshotResolution> {
+export async function withModerationGate(resolution: AuthSnapshotResolution, request: { writes: boolean }): Promise<AuthSnapshotResolution> {
   if (!resolution.user || !resolution.snapshot) return resolution;
   let since: number | undefined;
   try {
@@ -39,8 +40,7 @@ export async function withModerationGate(resolution: AuthSnapshotResolution, req
   if (since === undefined) return resolution;
   const issuedMs = (resolution.snapshot.issuedAt ?? 0) * 1000;
   const oldToken = issuedMs < since;
-  const blockedWrite = request.serverAction && !request.target.startsWith("/appeal/");
-  return oldToken || blockedWrite ? { ...resolution, session: null, snapshot: null, user: null } : resolution;
+  return oldToken || request.writes ? { ...resolution, session: null, snapshot: null, user: null } : resolution;
 }
 
 /** Tests and a decision that just changed the list read it fresh. */

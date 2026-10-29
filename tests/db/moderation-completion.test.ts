@@ -67,18 +67,17 @@ test("removed posts show only to their author", async () => {
   assert.equal((await placeholders.moderatedInWorkspace(t.workspace, t.reporter)).length, 0);
 });
 
-test("a suspended person's old token counts as signed out, and a new sign-in can only appeal", async () => {
+test("a suspended person's old token counts as signed out, and a new sign-in can read but not write", async () => {
   const t = await decided("remove");
   const [c] = await sql`SELECT id FROM moderation_cases WHERE target_id = ${t.postId}`;
   const issuedBefore = Math.floor(Date.now() / 1000) - 60;
   await sql`INSERT INTO moderation_actions (case_id, subject_id, target_kind, action, ends_at) VALUES (${c!.id}, ${t.author}, 'account', 'suspension', now() + interval '14 days')`;
   gate.resetModerationGateCache();
   const signedIn = (issuedAt: number) => ({ session: null, error: null, user: { id: t.author } as never, snapshot: { issuedAt } as never });
-  assert.equal((await gate.withModerationGate(signedIn(issuedBefore), { target: "/discover", serverAction: false })).user, null, "old token");
+  assert.equal((await gate.withModerationGate(signedIn(issuedBefore), { writes: false })).user, null, "old token");
   const fresh = signedIn(Math.floor(Date.now() / 1000) + 5);
-  assert.notEqual((await gate.withModerationGate(fresh, { target: "/discover", serverAction: false })).user, null, "pages still open, to show the restricted screen");
-  assert.equal((await gate.withModerationGate(fresh, { target: "/settings", serverAction: true })).user, null, "no writes");
-  assert.notEqual((await gate.withModerationGate(fresh, { target: "/appeal/NB-1", serverAction: true })).user, null, "except the appeal");
+  assert.notEqual((await gate.withModerationGate(fresh, { writes: false })).user, null, "pages still open, to show the restricted screen");
+  assert.equal((await gate.withModerationGate(fresh, { writes: true })).user, null, "no writes");
   gate.resetModerationGateCache();
 });
 
