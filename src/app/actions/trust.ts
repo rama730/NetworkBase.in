@@ -57,7 +57,7 @@ const reportSchema = z.object({
 /** Report what you can see. One open report per person per thing; the platform admins review it. */
 export async function reportContentAction(input: z.input<typeof reportSchema>): Promise<{ success: true } | Failure> {
     const user = await signedInUser();
-    if (!user) return { success: false, error: 'Log in to report.' };
+    if (!user) return { success: false, error: 'Sign in to report.' };
     const parsed = reportSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: 'Pick a reason.' };
     const rate = await consumeRateLimit(`report:create:${user.id}`, 20, 3600);

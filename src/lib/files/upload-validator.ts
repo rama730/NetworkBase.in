@@ -159,7 +159,7 @@ export function validateUploadSelection(
   if (filesArray.length === 0) {
     return {
       valid: false,
-      error: "No files were selected for upload. Please select a specific file or folder.",
+      error: "No files were selected for upload. Select a specific file or folder.",
       files: [],
     };
   }
@@ -178,7 +178,7 @@ export function validateUploadSelection(
   if (cleanFiles.length > maxFiles) {
     return {
       valid: false,
-      error: `Folder contains too many files (${cleanFiles.length.toLocaleString()}). Upload limit is ${maxFiles.toLocaleString()} files at a time. Please select a smaller, specific folder.`,
+      error: `Folder contains too many files (${cleanFiles.length.toLocaleString()}). Upload limit is ${maxFiles.toLocaleString()} files at a time. Select a smaller, specific folder.`,
       files: [],
     };
   }
@@ -233,7 +233,7 @@ export function validateUploadSelection(
       if (hasSystemDir) {
         return {
           valid: false,
-          error: "Cannot upload root disk or system directories (such as Macintosh HD, Applications, or System). Please select a specific project folder.",
+          error: "Cannot upload root disk or system directories (such as Macintosh HD, Applications, or System). Select a specific project folder.",
           files: [],
         };
       }
@@ -245,7 +245,7 @@ export function validateUploadSelection(
       if (FORBIDDEN_ROOT_DIRS.has(lower)) {
         return {
           valid: false,
-          error: `Cannot upload system directory "${folder}". Please select a specific project folder.`,
+          error: `Cannot upload system directory "${folder}". Select a specific project folder.`,
           files: [],
         };
       }
@@ -278,7 +278,7 @@ export function validateUploadSelection(
     ) {
       return {
         valid: false,
-        error: `Cannot upload user home directory (${detectedFolderName || "User home"}). Please select a specific folder inside your project.`,
+        error: `Cannot upload user home directory (${detectedFolderName || "User home"}). Select a specific folder inside your project.`,
         files: [],
       };
     }
@@ -291,7 +291,7 @@ export function validateUploadSelection(
         if (segments[0] === "users" && segments.length > 2 && FORBIDDEN_ROOT_DIRS.has(segments[2] || "")) {
           return {
             valid: false,
-            error: "Cannot upload operating system directories. Please select a specific project folder.",
+            error: "Cannot upload operating system directories. Select a specific project folder.",
             files: [],
           };
         }
@@ -324,7 +324,7 @@ export function validateUploadSelection(
         valid: false,
         error: cleanFiles.length === 1
           ? `"${file.name}" exceeds the maximum upload size limit of ${mb}MB.`
-          : `"${file.name}" exceeds the maximum upload size limit of ${mb}MB. Please select files smaller than ${mb}MB.`,
+          : `"${file.name}" exceeds the maximum upload size limit of ${mb}MB. Select files smaller than ${mb}MB.`,
         files: [],
       };
     }

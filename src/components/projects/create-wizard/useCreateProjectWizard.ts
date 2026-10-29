@@ -770,7 +770,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
         try {
             if (importType === 'upload') {
                 if (!uploadFiles || uploadFiles.length === 0) {
-                    throw new Error('Please select a folder to upload.');
+                    throw new Error('Select a folder to upload.');
                 }
                 if (uploadMetadata.uploadValidationStatus !== 'ok') {
                     throw new Error(String(uploadMetadata.uploadValidationError || 'The selected folder contains blocked files.'));
@@ -791,7 +791,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
             // Upload flow (Folder Upload import)
             if (importType === 'upload') {
                 if (!uploadFiles || uploadFiles.length === 0) {
-                    throw new Error('Please select a folder to upload.');
+                    throw new Error('Select a folder to upload.');
                 }
                 setUploadProgress({ percent: 0, currentFile: '', isUploading: true });
                 toast.loading('Uploading folder…', { id: creationToastId });

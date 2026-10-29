@@ -121,10 +121,10 @@ export async function DELETE(request: Request) {
         // Failing open here would let a stolen session retry without limit, so a limiter outage refuses instead.
         try {
             const rateLimitResult = await consumeRateLimit(`account-delete:${user.id}`, 3, 3600);
-            if (!rateLimitResult.allowed) return fail('Too many deletion attempts. Please try again later.', 429, 'RATE_LIMITED');
+            if (!rateLimitResult.allowed) return fail('Too many deletion attempts. Try again later.', 429, 'RATE_LIMITED');
         } catch (rlErr) {
             logger.warn('Rate limit check error:', { module: 'api', error: rlErr instanceof Error ? rlErr.message : String(rlErr) });
-            return fail('Account deletion is temporarily unavailable. Please try again shortly.', 503, 'UNAVAILABLE');
+            return fail('Account deletion is temporarily unavailable. Try again shortly.', 503, 'UNAVAILABLE');
         }
 
         const result = await scheduleAccountDeletionForUser({

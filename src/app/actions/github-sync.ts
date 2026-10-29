@@ -362,7 +362,7 @@ export async function compareGitHubSync(
     const { user, token } = await session();
     const limit = await consumeRateLimit(`github:compare:${user.id}`, 30, 60);
     if (!limit.allowed)
-      throw new Error("Too many comparisons. Please try again shortly.");
+      throw new Error("Too many comparisons. Try again shortly.");
     return redactSyncManifest(
       await compareSync(
         await resolveSyncContext(
@@ -410,7 +410,7 @@ export async function prepareGitHubSync(
     );
     const limit = await consumeRateLimit(`github:prepare:${user.id}`, 15, 60);
     if (!limit.allowed)
-      throw new Error("Too many prepared reviews. Please try again shortly.");
+      throw new Error("Too many prepared reviews. Try again shortly.");
     const manifest = await compareSync(ctx, parsed);
     for (const choice of choices) {
       const file = manifest.files.find((f) => f.path === choice.path);
@@ -912,7 +912,7 @@ export async function getGitHubCommitIdentityOptions() {
   return result(async () => {
     const { user, token } = await session();
     // Each call may ask GitHub for the person's emails: bounded per person.
-    if (!(await consumeRateLimit(`github:commit-identity-options:${user.id}`, 30, 3600)).allowed) throw new Error("Too many requests. Please try again later.");
+    if (!(await consumeRateLimit(`github:commit-identity-options:${user.id}`, 30, 3600)).allowed) throw new Error("Too many requests. Try again later.");
 
     // If an active GitHub token is available, query live verified emails from GitHub API
     if (token) {
@@ -1016,7 +1016,7 @@ export async function getGitHubCommitIdentityOptions() {
 export async function approveGitHubCommitIdentity(email: string) {
   return result(async () => {
     const { user } = await session();
-    if (!(await consumeRateLimit(`github:commit-identity-approve:${user.id}`, 20, 3600)).allowed) throw new Error("Too many requests. Please try again later.");
+    if (!(await consumeRateLimit(`github:commit-identity-approve:${user.id}`, 20, 3600)).allowed) throw new Error("Too many requests. Try again later.");
     const options = await getGitHubCommitIdentityOptions();
     if (!options.success) throw new Error(options.error);
     if (!options.data.emails.includes(email))

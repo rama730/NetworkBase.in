@@ -273,7 +273,7 @@ export function ProjectTransferOwnershipModal({
                     {/* Verification Barrier */}
                     <div className="space-y-1.5">
                         <label htmlFor="confirm-transfer-input" className="block nb-ui-label text-xs font-medium text-foreground">
-                            To confirm transfer, please type <span className="font-mono font-semibold text-foreground">&ldquo;{verificationTarget}&rdquo;</span> below:
+                            To confirm transfer, type <span className="font-mono font-semibold text-foreground">&ldquo;{verificationTarget}&rdquo;</span> below:
                         </label>
                         <input
                             id="confirm-transfer-input"
@@ -438,7 +438,7 @@ export function ProjectDeleteModal({
                     {/* Strict Slug Type-to-Confirm Barrier */}
                     <div className="space-y-1.5">
                         <label htmlFor="confirm-delete-slug-input" className="block nb-ui-label text-xs font-medium text-foreground">
-                            To confirm deletion, please type <span className="font-mono font-semibold text-destructive">&ldquo;{requiredSlug}&rdquo;</span> below:
+                            To confirm deletion, type <span className="font-mono font-semibold text-destructive">&ldquo;{requiredSlug}&rdquo;</span> below:
                         </label>
                         <input
                             id="confirm-delete-slug-input"

@@ -58,7 +58,7 @@ export function ProjectOnboardingModal({
                             <Rocket className="w-6 h-6 text-primary" />
                         </div>
                         <DialogTitle className="text-center text-xl font-semibold text-foreground">
-                            Welcome to the Team!
+                            Welcome to the Team
                         </DialogTitle>
                         <DialogDescription className="text-center text-muted-foreground mt-2">
                             You are now an official member of <span className="font-semibold text-foreground">{projectTitle}</span>

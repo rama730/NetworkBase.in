@@ -87,7 +87,7 @@ export function DocxViewerDriver({
 
         // Decompression safety guard: max 60 MB buffer
         if (buffer.byteLength > 60 * 1024 * 1024) {
-          throw new Error("File exceeds client-side preview safety limit (60 MB). Please download to view.");
+          throw new Error("File exceeds client-side preview safety limit (60 MB). Download to view.");
         }
 
         bufferCacheRef.current = { url: signedUrl, buffer };

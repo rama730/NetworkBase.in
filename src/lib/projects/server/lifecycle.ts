@@ -558,7 +558,7 @@ export async function createProjectAction(
     if (!rateLimitAllowed) {
       return {
         success: false,
-        error: "You have created too many projects recently. Please wait a while before creating another.",
+        error: "You have created too many projects recently. Wait a while before creating another.",
       };
     }
 
@@ -570,7 +570,7 @@ export async function createProjectAction(
         if (!lockRes) {
           return {
             success: false,
-            error: "A project creation is already in progress. Please wait a moment.",
+            error: "A project creation is already in progress. Wait a moment.",
           };
         }
         acquiredLock = true;
@@ -1214,7 +1214,7 @@ export async function createProjectAction(
     }
 
     throw new Error(
-      "Failed to generate a unique project ID. Please try again.",
+      "Failed to generate a unique project ID. Try again.",
     );
   } catch (error) {
     console.error("Error creating project:", error);
@@ -1625,7 +1625,7 @@ export async function createProjectCoverImageUploadUrlAction(input: {
       return {
         success: false,
         error:
-          "Too many project image upload attempts. Please try again later.",
+          "Too many project image upload attempts. Try again later.",
       };
     }
 
@@ -2263,7 +2263,7 @@ export async function deleteProject(
     revalidatePath(`/projects/${project.slug || projectId}`);
     return {
       success: true,
-      message: "Project deleted successfully.",
+      message: "Project deleted.",
       data: { redirectTo: "/discover" },
     };
   } catch (error) {
@@ -2372,7 +2372,7 @@ export async function toggleProjectFollowAction(
     if (!followRate.allowed) {
       return {
         success: false,
-        error: "Too many follow actions. Please wait and try again.",
+        error: "Too many follow actions. Wait and try again.",
       };
     }
     const access = await getProjectAccessById(projectId, user.id);

@@ -169,11 +169,11 @@ export function useUsernameAvailability(params: {
                 }
                 if (payload.available) return done('valid', 'Username is available')
                 if (typeof payload.available !== 'boolean') {
-                    return done('error', payload.message || responseText || 'Unable to verify username right now. Please retry.')
+                    return done('error', payload.message || responseText || 'Unable to verify username right now. Retry.')
                 }
                 return done('invalid', resolveUsernameAvailabilityMessage(payload, responseText) || 'Username is unavailable')
             } catch {
-                done('error', 'Unable to verify username right now. Please retry.')
+                done('error', 'Unable to verify username right now. Retry.')
             }
         }, debounceMs)
 

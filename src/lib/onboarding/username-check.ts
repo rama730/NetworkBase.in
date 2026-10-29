@@ -78,7 +78,7 @@ export async function consumeUsernameCheckBudget(params: {
 
 export const USERNAME_CHECK_LIMITED = onboardingError(
     'RATE_LIMITED',
-    'Too many checks. Please wait and try again.',
+    'Too many checks. Wait and try again.',
     true,
 )
 

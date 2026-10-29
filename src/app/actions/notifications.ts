@@ -303,7 +303,7 @@ export async function updateNotificationPreferencesAction(preferences: Notificat
         }
         const limit = await consumeRateLimit(`notification-preferences:${user.id}`, 60, 60);
         if (!limit.allowed) {
-            return { success: false as const, error: "Too many changes. Please wait a moment.", preferences: null };
+            return { success: false as const, error: "Too many changes. Wait a moment.", preferences: null };
         }
 
         const saved = await db.transaction(async (tx) => {

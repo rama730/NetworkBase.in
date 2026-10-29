@@ -320,7 +320,7 @@ async function submitPasswordChangeRequest({
   } catch (error) {
     return {
       success: false as const,
-      message: error instanceof Error ? error.message : "Unable to change password. Please try again.",
+      message: error instanceof Error ? error.message : "Unable to change password. Try again.",
       errorCode: error instanceof Error && "errorCode" in error ? String(error.errorCode) : undefined,
     };
   }

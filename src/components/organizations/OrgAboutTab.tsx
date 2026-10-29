@@ -60,7 +60,7 @@ export function OrgAboutTab({ project, isCreator, onEdit, visitorActions }: { pr
                     </p>
                 ) : null}
                 {data?.projects.length ? (
-                    <RailSection title="Projects" action={data.card.kind !== 'visitor' ? <Link href={`${base}?tab=projects`} className="text-[12px] underline underline-offset-4">See all →</Link> : undefined}>
+                    <RailSection title="Projects" action={data.card.kind !== 'visitor' ? <Link href={`${base}?tab=projects`} className="text-[12px] underline underline-offset-4">See all</Link> : undefined}>
                         <p className="text-sm">
                             {data.projects.map((p, i) => <span key={p.id}>{i ? ' · ' : ''}<Link href={`/projects/${encodeURIComponent(p.slug ?? p.id)}`} className="hover:underline">{p.title}</Link></span>)}
                         </p>

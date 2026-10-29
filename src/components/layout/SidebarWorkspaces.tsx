@@ -63,8 +63,8 @@ function OrgRow({ org, active }: { org: SidebarOrg; active: (href: string) => bo
                             <span className="truncate">{child.title}</span>
                         </Link>
                     ))}
-                    {org.moreChildren > 0 ? <Link href={`${href}?tab=projects`} className="block px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground">See all →</Link> : null}
-                    {org.isAdmin ? <Link href={`${href}?tab=projects`} className="block px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground">All projects →</Link> : null}
+                    {org.moreChildren > 0 ? <Link href={`${href}?tab=projects`} className="block px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground">See all</Link> : null}
+                    {org.isAdmin ? <Link href={`${href}?tab=projects`} className="block px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground">All projects</Link> : null}
                 </div>
             ) : null}
         </div>

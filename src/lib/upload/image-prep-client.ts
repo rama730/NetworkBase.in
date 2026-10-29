@@ -161,5 +161,5 @@ export async function prepareProjectImageForUpload(
         }
     }
 
-    throw new Error("Image is too large to upload. Please choose a smaller image.");
+    throw new Error("Image is too large to upload. Choose a smaller image.");
 }

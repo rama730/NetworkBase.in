@@ -839,7 +839,7 @@ export async function applyToRoleAction(
         return await runInFlightDeduped(dedupeKey, async () => {
             const applyRate = await consumeRateLimit(`applications:apply:${user.id}`, 30, APPLICATION_APPLY_COOLDOWN_GLOBAL_SECONDS);
             if (!applyRate.allowed) {
-                return toApplicationFailure(traceId, 'RATE_LIMITED', 'Too many application attempts. Please wait a moment.');
+                return toApplicationFailure(traceId, 'RATE_LIMITED', 'Too many application attempts. Wait a moment.');
             }
             const projectApplyRate = await consumeRateLimit(
                 `applications:apply:${user.id}:${projectId}`,
@@ -847,7 +847,7 @@ export async function applyToRoleAction(
                 APPLICATION_APPLY_COOLDOWN_PER_PROJECT_SECONDS
             );
             if (!projectApplyRate.allowed) {
-                return toApplicationFailure(traceId, 'RATE_LIMITED', 'Too many attempts for this project. Please retry shortly.');
+                return toApplicationFailure(traceId, 'RATE_LIMITED', 'Too many attempts for this project. Retry shortly.');
             }
 
             const [project, role, existingMember, existingApp] = await Promise.all([
@@ -1090,7 +1090,7 @@ export async function acceptApplicationAction(
         return await runInFlightDeduped(dedupeKey, async () => {
             const acceptRate = await consumeRateLimit(`applications:accept:${user.id}`, 40, 60);
             if (!acceptRate.allowed) {
-                return toApplicationFailure(traceId, 'RATE_LIMITED', 'Too many decisions. Please wait a moment.');
+                return toApplicationFailure(traceId, 'RATE_LIMITED', 'Too many decisions. Wait a moment.');
             }
 
             const acceptNote = applicationNoteSchema.safeParse(message);
@@ -1401,7 +1401,7 @@ export async function rejectApplicationAction(
         return await runInFlightDeduped(dedupeKey, async () => {
             const rejectRate = await consumeRateLimit(`applications:reject:${user.id}`, 50, 60);
             if (!rejectRate.allowed) {
-                return toApplicationFailure(traceId, 'RATE_LIMITED', 'Too many decisions. Please wait a moment.');
+                return toApplicationFailure(traceId, 'RATE_LIMITED', 'Too many decisions. Wait a moment.');
             }
 
             const rejectNote = applicationNoteSchema.safeParse(message);
@@ -1530,7 +1530,7 @@ export async function editPendingApplicationAction(
 
         const editRate = await consumeRateLimit(`applications:edit:${user.id}`, 20, 60);
         if (!editRate.allowed) {
-            return toApplicationFailure(traceId, 'RATE_LIMITED', 'Too many edits. Please wait a moment.');
+            return toApplicationFailure(traceId, 'RATE_LIMITED', 'Too many edits. Wait a moment.');
         }
 
         const normalizedMessage = normalizeApplicationMessageText(parsed.data.message);
@@ -1642,7 +1642,7 @@ export async function withdrawApplicationAction(
 
         const withdrawRate = await consumeRateLimit(`applications:withdraw:${user.id}`, 20, 60);
         if (!withdrawRate.allowed) {
-            return toApplicationFailure(traceId, 'RATE_LIMITED', 'Too many requests. Please wait a moment.');
+            return toApplicationFailure(traceId, 'RATE_LIMITED', 'Too many requests. Wait a moment.');
         }
 
         const application = await db.query.roleApplications.findFirst({
@@ -1741,7 +1741,7 @@ export async function reopenApplicationAction(
 
         const reopenRate = await consumeRateLimit(`applications:reopen:${user.id}`, 20, 60);
         if (!reopenRate.allowed) {
-            return toApplicationFailure(traceId, 'RATE_LIMITED', 'Too many reopen requests. Please wait a moment.');
+            return toApplicationFailure(traceId, 'RATE_LIMITED', 'Too many reopen requests. Wait a moment.');
         }
 
         const application = await db.query.roleApplications.findFirst({
@@ -2334,7 +2334,7 @@ export async function cancelSentProjectInvitationAction(input: {
     if (!user) return { success: false as const, error: 'Unauthorized' };
 
     const { allowed } = await consumeRateLimit(`project-invitation-cancel:${user.id}`, 60, 60);
-    if (!allowed) return { success: false as const, error: 'Too many requests. Please try again later.' };
+    if (!allowed) return { success: false as const, error: 'Too many requests. Try again later.' };
 
     try {
         let didCancel = false;

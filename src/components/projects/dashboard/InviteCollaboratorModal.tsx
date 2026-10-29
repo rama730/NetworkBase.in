@@ -444,7 +444,7 @@ export default function InviteCollaboratorModal({
     useEffect(() => {
         if (!selectedCandidate || !selectedProject || mode !== "invite" || inviteKind === "guidance_appointment") return;
         const role = activeRoles.find((item) => item.id === roleId);
-        setNote(`Hey ${displayName(selectedCandidate)}, I think you’d be a great fit for the ${role ? roleLabel(role) : "member"} role on ${selectedProject.title}. Let’s build this together!`);
+        setNote(`Hey ${displayName(selectedCandidate)}, I think you’d be a great fit for the ${role ? roleLabel(role) : "member"} role on ${selectedProject.title}. Let’s build this together`);
     }, [activeRoles, inviteKind, mode, roleId, selectedCandidate, selectedProject]);
 
     useEffect(() => {

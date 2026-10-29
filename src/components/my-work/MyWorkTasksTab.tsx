@@ -316,7 +316,7 @@ export default function MyWorkTasksTab({ isActive = true }: MyWorkTasksTabProps)
         return (
             <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-center">
                 <p className="text-xs font-medium text-destructive">
-                    Failed to load tasks. Please try again later.
+                    Failed to load tasks. Try again later.
                 </p>
                 <button type="button" onClick={() => void query.refetch()} className="mt-2 text-xs font-semibold text-destructive underline underline-offset-2">Try again</button>
             </div>

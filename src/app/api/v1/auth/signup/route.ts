@@ -100,7 +100,7 @@ export async function POST(request: Request) {
       status: 429,
       errorCode: "RATE_LIMITED",
     });
-    return jsonError("Too many signup attempts. Please wait and try again.", 429, "RATE_LIMITED");
+    return jsonError("Too many signup attempts. Wait and try again.", 429, "RATE_LIMITED");
   }
 
   return withIdempotentRoute(request, { namespace: "auth-signup", scopeId: ipAddress, replayBody: false }, async () => {
@@ -148,7 +148,7 @@ export async function POST(request: Request) {
       errorCode: "BAD_REQUEST",
     });
     return jsonError(
-      "Disposable or temporary email addresses are not permitted. Please use a permanent email.",
+      "Disposable or temporary email addresses are not permitted. Use a permanent email.",
       400,
       "BAD_REQUEST",
     );
@@ -183,7 +183,7 @@ export async function POST(request: Request) {
         errorCode: "BAD_REQUEST",
       });
       return jsonError(
-        turnstile.error || "Captcha verification failed. Please try again.",
+        turnstile.error || "Captcha verification failed. Try again.",
         400,
         "BAD_REQUEST",
       );
@@ -221,7 +221,7 @@ export async function POST(request: Request) {
     }
   } catch {
     return jsonError(
-      "Password safety check is temporarily unavailable. Please try again.",
+      "Password safety check is temporarily unavailable. Try again.",
       503,
       "PASSWORD_SAFETY_UNAVAILABLE",
     );

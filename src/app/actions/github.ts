@@ -108,7 +108,7 @@ async function getAuthorizedGithubSession() {
     supabase.auth.getSession(),
   ]);
   if (!snapshotUser) {
-    return { ok: false as const, error: 'Unauthorized. Please sign in first.' };
+    return { ok: false as const, error: 'Unauthorized. Sign in first.' };
   }
   const user = await loadGithubLinkedUser(snapshotUser);
   const rateLimit = await consumeRateLimit(
@@ -117,7 +117,7 @@ async function getAuthorizedGithubSession() {
     RATE_LIMIT_WINDOW_SECONDS,
   );
   if (!rateLimit.allowed) {
-    return { ok: false as const, error: 'Too many GitHub requests. Please wait a minute and retry.' };
+    return { ok: false as const, error: 'Too many GitHub requests. Wait a minute and retry.' };
   }
   return {
     ok: true as const,
@@ -261,7 +261,7 @@ export async function listGithubRepositories(input?: {
       if (!login) {
         return {
           success: false as const,
-          error: 'Could not determine GitHub username for search. Please try again.',
+          error: 'Could not determine GitHub username for search. Try again.',
         };
       }
 

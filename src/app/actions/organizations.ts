@@ -44,7 +44,7 @@ export type OrgJoinPreview = {
 };
 
 const NO_MATCH: Failure = { success: false, error: ORG_JOIN_MESSAGES.no_match };
-const TOO_MANY: Failure = { success: false, error: 'Too many attempts. Please wait a minute and try again.' };
+const TOO_MANY: Failure = { success: false, error: 'Too many attempts. Wait a minute and try again.' };
 
 async function viewerId() {
     const supabase = await createClient();
@@ -88,7 +88,7 @@ export async function joinOrganizationAction(
     note?: string | null,
 ): Promise<{ success: true; outcome: OrgJoinOutcome; org: { id: string; title: string; slug: string | null } } | Failure> {
     const userId = await viewerId();
-    if (!userId) return { success: false, error: 'Log in to join an organization.' };
+    if (!userId) return { success: false, error: 'Sign in to join an organization.' };
     if (!(await allowLookup(userId))) return TOO_MANY;
     const code = normalizeJoinCode(rawCode);
     // An invite waiting for this person is accepted instead, with its role (report §20.11).
@@ -281,7 +281,7 @@ export async function joinPublicOrgAction(
     note?: string | null,
 ): Promise<{ success: true; outcome: OrgJoinOutcome } | Failure> {
     const userId = await viewerId();
-    if (!userId) return { success: false, error: 'Log in to join an organization.' };
+    if (!userId) return { success: false, error: 'Sign in to join an organization.' };
     if (!(await allowLookup(userId))) return TOO_MANY;
     const result = await joinPublicOrg(userId, orgId, note);
     if (!result) return { success: false, error: 'This organization can be joined only with its code.' };

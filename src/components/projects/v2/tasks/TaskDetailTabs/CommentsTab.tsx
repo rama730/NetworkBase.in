@@ -259,7 +259,7 @@ function DiscussionEntry({
                   ) : (
                     <LinkIcon className="size-3.5" />
                   )}
-                  <span>{copiedLink ? "Link copied!" : "Copy link"}</span>
+                  <span>{copiedLink ? "Link copied" : "Copy link"}</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={handleCopyText}
@@ -270,7 +270,7 @@ function DiscussionEntry({
                   ) : (
                     <Copy className="size-3.5" />
                   )}
-                  <span>{copiedText ? "Text copied!" : "Copy text"}</span>
+                  <span>{copiedText ? "Text copied" : "Copy text"}</span>
                 </DropdownMenuItem>
                 {/* Only the author can delete (the server enforces the same), after a confirm. */}
                 {currentUserId === entry.userId ? (
@@ -637,13 +637,13 @@ export default function CommentsTab({
         }
         void onSendTyping({ isTyping: false, parentCommentId: parentCommentId ?? null });
       } else {
-        setComposerError(result.error || "Could not post comment. Please retry.");
+        setComposerError(result.error || "Could not post comment. Retry.");
       }
     } catch (error) {
       setComposerError(
         error instanceof Error
           ? error.message
-          : "Could not post comment. Please retry.",
+          : "Could not post comment. Retry.",
       );
     } finally {
       if (parentCommentId) setSubmittingReplyParentId(null); else setSubmittingRoot(false);

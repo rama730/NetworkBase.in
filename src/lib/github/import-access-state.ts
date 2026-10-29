@@ -25,7 +25,7 @@ export async function getGithubImportAccessState() {
   if (!snapshotUser?.id) {
     return {
       success: false as const,
-      error: 'Unauthorized. Please sign in first.',
+      error: 'Unauthorized. Sign in first.',
     };
   }
 
@@ -33,7 +33,7 @@ export async function getGithubImportAccessState() {
   try {
     user = await loadGithubLinkedUser(snapshotUser);
   } catch {
-    return { success: false as const, error: 'Could not check your linked GitHub account. Please retry.' };
+    return { success: false as const, error: 'Could not check your linked GitHub account. Retry.' };
   }
 
   const githubConnection = buildGithubAccountConnectionState(user);

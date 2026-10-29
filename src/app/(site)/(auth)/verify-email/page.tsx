@@ -92,7 +92,7 @@ function VerifyEmailPageInner() {
         try {
             await signOut()
         } catch (signOutError) {
-            setError(signOutError instanceof Error ? signOutError.message : 'Failed to sign out. Please try again.')
+            setError(signOutError instanceof Error ? signOutError.message : 'Failed to sign out. Try again.')
             setIsSigningOut(false)
         }
     }

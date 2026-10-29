@@ -328,7 +328,7 @@ export default function Phase1SourceSelection({
             const returnUrl = new URL(window.location.href);
             const resume = saveGithubOAuthResume(getValues(), getCreateProjectReturnPath(returnUrl));
             if (!resume) {
-                throw new Error('Your project setup could not be saved before connecting GitHub. Please allow session storage and try again.');
+                throw new Error('Your project setup could not be saved before connecting GitHub. Allow session storage and try again.');
             }
             resumeId = resume.id;
             returnUrl.searchParams.set('createProject', '1');

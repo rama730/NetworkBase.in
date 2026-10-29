@@ -155,7 +155,7 @@ export async function generateExtensionToken(
         if (!rateLimitResult.allowed) {
             return {
                 success: false as const,
-                error: "Too many extension tokens generated recently. Please wait before creating another.",
+                error: "Too many extension tokens generated recently. Wait before creating another.",
             };
         }
 

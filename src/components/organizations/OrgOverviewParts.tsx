@@ -86,7 +86,7 @@ export function OrgDashboard({ orgId, orgSlug }: { orgId: string; orgSlug: strin
                 </RailSection>
             </div>
             <aside aria-label="Organization details" className="min-w-0 space-y-6 lg:col-span-4">
-                <RailSection title="Projects" action={<Link href={`${base}?tab=projects`} className="text-[12px] underline underline-offset-4">See all →</Link>}>
+                <RailSection title="Projects" action={<Link href={`${base}?tab=projects`} className="text-[12px] underline underline-offset-4">See all</Link>}>
                     {data.projects.length ? <ul>{data.projects.map((p) => <li key={p.id} className={row}><Link href={`/projects/${encodeURIComponent(p.slug ?? p.id)}`} className="truncate hover:underline">{p.title}</Link><span className="shrink-0 font-mono text-[11px] text-muted-foreground">{ago(p.lastActivityAt)}</span></li>)}</ul>
                         : <p className="text-sm text-muted-foreground">{data.role === 'admin' ? 'No projects yet.' : "You’re not in a project yet."}</p>}
                 </RailSection>

@@ -76,7 +76,7 @@ export function OrgRequestsSection({ joinRequests = 'decide', onNavigate, enable
                                 </div>
                             ))}
                         </div>
-                        <Link href={members} onClick={onNavigate} className="mt-2 inline-block pl-1 text-xs font-semibold text-primary hover:underline">Review all →</Link>
+                        <Link href={members} onClick={onNavigate} className="mt-2 inline-block pl-1 text-xs font-semibold text-primary hover:underline">Review all</Link>
                     </section>
                 )
             })}

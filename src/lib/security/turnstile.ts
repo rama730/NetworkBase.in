@@ -81,7 +81,7 @@ export async function verifyTurnstileToken(params: {
         if (!data.success) {
             return {
                 success: false,
-                error: 'Turnstile verification failed. Please try again.',
+                error: 'Turnstile verification failed. Try again.',
                 errorCodes: data['error-codes'],
             };
         }

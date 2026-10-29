@@ -53,7 +53,7 @@ export function FinishScreen({ fullName, username, headline, avatarUrl, skills, 
       </div>
 
       <Button type="button" onClick={onContinue} className="min-h-11 px-6">
-        {continueLabel} &rarr;
+        {continueLabel} 
       </Button>
     </div>
   )

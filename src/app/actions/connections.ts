@@ -643,7 +643,7 @@ async function getConnectionsFeedImpl(
                 success: false as const,
                 code: 'RATE_LIMITED' as const,
                 retryAfterMs: 1_000,
-                error: 'Too many searches. Please wait and try again.',
+                error: 'Too many searches. Wait and try again.',
                 items: [],
                 nextCursor: null,
                 hasMore: false,
@@ -1541,7 +1541,7 @@ async function sendConnectionRequestNow(
             try {
                 const held = await redis.get(perTargetHoldKey);
                 if (held) {
-                    return await returnFailure('You have recently contacted this person. Please wait before trying again.');
+                    return await returnFailure('You have recently contacted this person. Wait before trying again.');
                 }
             } catch {
                 // Fall through — Redis hiccup should not block legit flow.
@@ -1550,7 +1550,7 @@ async function sendConnectionRequestNow(
 
         const requestRate = await consumeRateLimit(`connections-send:${user.id}`, 30, 60);
         if (!requestRate.allowed) {
-            return await returnFailure('Too many requests. Please wait and try again.');
+            return await returnFailure('Too many requests. Wait and try again.');
         }
         const dailyRate = await consumeRateLimit(
             `connections-send-daily:${user.id}`,
@@ -1562,7 +1562,7 @@ async function sendConnectionRequestNow(
         }
         const targetRate = await consumeRateLimit(`connections-send-target:${user.id}:${addresseeId}`, 3, 3600);
         if (!targetRate.allowed) {
-            return await returnFailure('You have sent too many requests to this person. Please wait before trying again.');
+            return await returnFailure('You have sent too many requests to this person. Wait before trying again.');
         }
 
         const txResult = await db.transaction(async (tx) => {
@@ -1657,7 +1657,7 @@ async function sendConnectionRequestNow(
                             eq(connections.addresseeId, conn.addresseeId),
                         ))
                         .returning({ id: connections.id });
-                    if (!reactivated) return { error: 'Connection changed while retrying. Please try again.' };
+                    if (!reactivated) return { error: 'Connection changed while retrying. Try again.' };
                     return { connectionId: conn.id, status: 'created' as const };
                 }
             }
@@ -1748,7 +1748,7 @@ export async function dismissConnectionSuggestion(
 
         const dismissRate = await consumeRateLimit(`connections-dismiss:${user.id}`, 200, 60);
         if (!dismissRate.allowed) {
-            return { success: false, error: 'Too many actions. Please wait and try again.' };
+            return { success: false, error: 'Too many actions. Wait and try again.' };
         }
 
         // Validate and clamp dismiss feedback reason.
@@ -1784,7 +1784,7 @@ export async function acceptAllIncomingConnectionRequests(
         const effectiveLimit = Math.max(1, Math.min(limit, 200));
         const bulkAcceptRate = await consumeRateLimit(`connections-accept-all:${user.id}`, 6, 60);
         if (!bulkAcceptRate.allowed) {
-            return { success: false, error: 'Too many bulk actions. Please wait and try again.' };
+            return { success: false, error: 'Too many bulk actions. Wait and try again.' };
         }
 
         const accepted = await db.transaction(async (tx) => {
@@ -1878,7 +1878,7 @@ export async function rejectAllIncomingConnectionRequests(
         const effectiveLimit = Math.max(1, Math.min(limit, 200));
         const bulkRejectRate = await consumeRateLimit(`connections-reject-all:${user.id}`, 6, 60);
         if (!bulkRejectRate.allowed) {
-            return { success: false, error: 'Too many bulk actions. Please wait and try again.' };
+            return { success: false, error: 'Too many bulk actions. Wait and try again.' };
         }
 
         const rejected = await db.transaction(async (tx) => {
@@ -1951,7 +1951,7 @@ export async function cancelConnectionRequest(
         if (!user) return { success: false, error: 'Not authenticated' };
         const cancelRate = await consumeRateLimit(`connections-cancel:${user.id}`, 60, 60);
         if (!cancelRate.allowed) {
-            return { success: false, error: 'Too many actions. Please wait and try again.' };
+            return { success: false, error: 'Too many actions. Wait and try again.' };
         }
 
         const cancelled = await db.transaction(async (tx) => {
@@ -2069,7 +2069,7 @@ export async function acceptConnectionRequest(
         if (!user) return { success: false, error: 'Not authenticated' };
         const acceptRate = await consumeRateLimit(`connections-accept:${user.id}`, 60, 60);
         if (!acceptRate.allowed) {
-            return { success: false, error: 'Too many actions. Please wait and try again.' };
+            return { success: false, error: 'Too many actions. Wait and try again.' };
         }
 
         const { result } = await runIdempotent<{ success: boolean; error?: string; requesterId?: string; addresseeId?: string }>(
@@ -2175,7 +2175,7 @@ export async function acceptConnectionRequest(
         return result;
     } catch (error) {
         if (error instanceof IdempotencyConflictError) {
-            return { success: false, error: 'Request already in progress. Please wait.' };
+            return { success: false, error: 'Already working on it. Wait a moment.' };
         }
         console.error('Error accepting request:', error);
         return { success: false, error: 'Failed to accept request' };
@@ -2203,7 +2203,7 @@ export async function rejectConnectionRequest(
 
         const rejectRate = await consumeRateLimit(`connections-reject:${user.id}`, 60, 60);
         if (!rejectRate.allowed) {
-            return { success: false, error: 'Too many actions. Please wait and try again.' };
+            return { success: false, error: 'Too many actions. Wait and try again.' };
         }
 
         const { result } = await runIdempotent<{
@@ -2273,7 +2273,7 @@ export async function rejectConnectionRequest(
         return result;
     } catch (error) {
         if (error instanceof IdempotencyConflictError) {
-            return { success: false, error: 'Request already in progress. Please wait.' };
+            return { success: false, error: 'Already working on it. Wait a moment.' };
         }
         console.error('Error rejecting request:', error);
         return { success: false, error: 'Failed to reject request' };
@@ -2288,7 +2288,7 @@ export async function undoRejectConnectionRequest(
         if (!user) return { success: false, error: 'Not authenticated' };
         const undoRate = await consumeRateLimit(`connections-undo-reject:${user.id}`, 60, 60);
         if (!undoRate.allowed) {
-            return { success: false, error: 'Too many actions. Please wait and try again.' };
+            return { success: false, error: 'Too many actions. Wait and try again.' };
         }
 
         const cutoff = new Date(Date.now() - 15_000);
@@ -2338,7 +2338,7 @@ export async function removeConnection(
         if (!user) return { success: false, error: 'Not authenticated' };
         const removeRate = await consumeRateLimit(`connections-remove:${user.id}`, 60, 60);
         if (!removeRate.allowed) {
-            return { success: false, error: 'Too many actions. Please wait and try again.' };
+            return { success: false, error: 'Too many actions. Wait and try again.' };
         }
 
         const removed = await db.transaction(async (tx) => {
@@ -2454,7 +2454,7 @@ export async function getAcceptedConnections(
     if (user?.id) {
         const rate = await consumeRateLimit(`connections-accepted:${user.id}`, 60, 60);
         if (!rate.allowed) {
-            return { success: false as const, error: 'Too many requests. Please try again shortly.', connections: [], hasMore: false, nextCursor: null, totalConnections: null };
+            return { success: false as const, error: 'Too many requests. Try again shortly.', connections: [], hasMore: false, nextCursor: null, totalConnections: null };
         }
     }
 
@@ -2627,7 +2627,7 @@ export async function checkConnectionStatus(
         // C2: Rate limit to prevent relationship enumeration
         const rate = await consumeRateLimit(`connections-status:${user.id}`, 120, 60);
         if (!rate.allowed) {
-            return { success: false, error: 'Too many requests. Please wait and try again.' };
+            return { success: false, error: 'Too many requests. Wait and try again.' };
         }
 
         const [privacy, activeApplications] = await Promise.all([
@@ -2732,7 +2732,7 @@ export async function withdrawAllSentConnectionRequests(): Promise<{ success: bo
 
         const withdrawRate = await consumeRateLimit(`connections-withdraw-all:${user.id}`, 6, 60);
         if (!withdrawRate.allowed) {
-            return { success: false, error: 'Too many bulk actions. Please wait and try again.' };
+            return { success: false, error: 'Too many bulk actions. Wait and try again.' };
         }
 
         const withdrawn = await db
@@ -2794,7 +2794,7 @@ export async function readPersonSharedConnectionsAction(input: { targetId: strin
     if (!user || !parsed.success || parsed.data.targetId === user.id) return { success: false as const, error: 'Shared connections are unavailable.' };
     try {
         const rate = await consumeRateLimit(`person-shared:${user.id}`, 60, 60);
-        if (!rate.allowed) return { success: false as const, error: 'Please wait before trying again.' };
+        if (!rate.allowed) return { success: false as const, error: 'Wait before trying again.' };
         const relationship = await resolvePrivacyRelationship(user.id, parsed.data.targetId);
         if (!relationship?.canViewProfile) return { success: false as const, error: 'This profile is no longer available.' };
         const summary = await readSharedConnections(user.id, [parsed.data.targetId], { limit: 20, offset: parsed.data.offset });

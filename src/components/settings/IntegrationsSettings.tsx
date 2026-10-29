@@ -251,7 +251,7 @@ export default function IntegrationsSettings() {
       toast.info(`This ${label} account is already linked`);
     } else if (outcome === "error") {
       const desc = searchParams.get("githubErrorDesc");
-      toast.error(feedbackError(desc || `Could not link ${label} account. Please try again.`, `Could not link ${label} account. Please try again.`));
+      toast.error(feedbackError(desc || `Could not link ${label} account. Try again.`, `Could not link ${label} account. Try again.`));
     }
     const next = new URLSearchParams(searchParams.toString());
     next.delete("identityProvider");

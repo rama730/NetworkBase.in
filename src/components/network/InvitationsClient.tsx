@@ -516,7 +516,7 @@ export default function InvitationsClient({
                     Invitations could not be loaded.
                 </h2>
                 <p className="mt-1 text-sm max-md:text-[13px] text-muted-foreground">
-                    Please try again.
+                    Try again.
                 </p>
                 <button
                     type="button"

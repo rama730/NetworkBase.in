@@ -52,5 +52,5 @@ export function validateUsername(username: string): UsernameValidationResult {
         }
     }
 
-    return { valid: true, message: 'Looks good!' }
+    return { valid: true, message: 'Looks good' }
 }

@@ -102,7 +102,7 @@ export default function CreateProjectWizard({ onClose, onSuccess, initialSource 
             }
             return null;
         };
-        const firstMsg = getFirstError(errors) || 'Please complete all required fields before creating.';
+        const firstMsg = getFirstError(errors) || 'Complete all required fields before creating.';
         toast.error('Complete required fields before creating', { description: firstMsg });
     }, []);
     // Subscribe, don't watch(): Phase 1 replaces the whole import_source object, which react-hook-form

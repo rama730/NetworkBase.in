@@ -117,7 +117,7 @@ export function LegalAndDataRightsSection() {
           <h4 className="nb-ui-label text-foreground">Terms of Service and EULA</h4>
           <p className="nb-compact mt-0.5 text-muted-foreground">
             {fetchError
-              ? "Unable to verify current agreement status. Please retry."
+              ? "Unable to verify current agreement status. Retry."
               : state?.current
                 ? `You accepted Terms of Service (${state.latest?.termsVersion ?? LEGAL_VERSIONS.terms}), the EULA (${state.latest?.eulaVersion ?? LEGAL_VERSIONS.eula}) and acknowledged the Privacy Policy (${state.latest?.privacyNoticeVersion ?? LEGAL_VERSIONS.privacy})${
                     state.latest?.acceptedAt ? ` on ${formatCalendarDate(state.latest.acceptedAt)}` : ""

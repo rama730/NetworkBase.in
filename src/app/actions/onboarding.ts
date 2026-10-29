@@ -91,7 +91,7 @@ function writeEvents(executor: Pick<typeof db, 'insert'>, userId: string, events
 
 function describeInvalid(error: unknown): string {
     const issue = (error as { issues?: Array<{ path: PropertyKey[]; message: string }> })?.issues?.[0]
-    if (!issue) return 'Some details look invalid. Please review and try again.'
+    if (!issue) return 'Some details look invalid. Review and try again.'
     const field = issue.path.length > 0 ? `${String(issue.path[0])}: ` : ''
     return `${field}${issue.message}`
 }
@@ -133,7 +133,7 @@ async function ensureOnboardingProfileShell(params: {
     if (result.error === 'missing_email') {
         return {
             success: false,
-            error: onboardingError('INVALID_INPUT', 'Account email is missing. Please re-authenticate.'),
+            error: onboardingError('INVALID_INPUT', 'Account email is missing. Re-authenticate.'),
         }
     }
     return { success: false, error: onboardingError('DB_ERROR', 'Unable to prepare your account profile', true) }
@@ -191,7 +191,7 @@ export async function completeOnboarding(
     try {
         // Auth first: nothing is parsed for a caller who is not signed in.
         const { user, ipAddress, userAgent } = await getViewer()
-        if (!user) return failed(onboardingError('NOT_AUTHENTICATED', 'Session expired. Please login again.'))
+        if (!user) return failed(onboardingError('NOT_AUTHENTICATED', 'Your session ended. Sign in again.'))
         userId = user.id
         if (!isEmailVerified(user as unknown as Record<string, unknown>)) {
             return finish(failed(onboardingError('INVALID_INPUT', 'Verify your email before completing onboarding.')), {
@@ -222,13 +222,13 @@ export async function completeOnboarding(
             ),
         ])
         if (!userRate.allowed || !ipRate.allowed || !fingerprintRate.allowed) {
-            return finish(failed(onboardingError('RATE_LIMITED', 'Too many attempts. Please wait a minute and try again.', true)), {
+            return finish(failed(onboardingError('RATE_LIMITED', 'Too many attempts. Wait a minute and try again.', true)), {
                 reason: 'RATE_LIMITED',
             })
         }
 
         if (!user.email) {
-            return finish(failed(onboardingError('INVALID_INPUT', 'Account email is missing. Please re-authenticate.')), {
+            return finish(failed(onboardingError('INVALID_INPUT', 'Account email is missing. Re-authenticate.')), {
                 reason: 'INVALID_INPUT',
             })
         }
@@ -370,7 +370,7 @@ export async function commitOnboardingStep(input: {
 }): Promise<CommitResult> {
     try {
         const { user, ipAddress, userAgent } = await getViewer()
-        if (!user) return failed(onboardingError('NOT_AUTHENTICATED', 'Session expired. Please sign in again.'))
+        if (!user) return failed(onboardingError('NOT_AUTHENTICATED', 'Session expired. Sign in again.'))
         if (!isEmailVerified(user as unknown as Record<string, unknown>)) {
             return failed(onboardingError('INVALID_INPUT', 'Verify your email to continue.'))
         }
@@ -393,7 +393,7 @@ export async function commitOnboardingStep(input: {
             }
             const budget = await consumeUsernameCheckBudget({ viewerKey: user.id, viewerId: user.id, ipAddress, userAgent })
             if (!budget.allowed) {
-                return failed(onboardingError('RATE_LIMITED', 'Too many checks. Please wait and try again.', true))
+                return failed(onboardingError('RATE_LIMITED', 'Too many checks. Wait and try again.', true))
             }
             const availability = await ensureUsernameIsAvailable({ username, userId: user.id })
             if (!availability.ok) return failed(availability.error)

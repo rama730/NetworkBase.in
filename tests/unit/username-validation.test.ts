@@ -20,7 +20,7 @@ test('sanitizeUsernameInput strips invalid chars and enforces max length', () =>
 test('validateUsername only enforces local format rules', () => {
     const result = validateUsername('onboarding')
     assert.equal(result.valid, true)
-    assert.equal(result.message, 'Looks good!')
+    assert.equal(result.message, 'Looks good')
 })
 
 test('validateUsername accepts valid usernames', () => {

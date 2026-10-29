@@ -53,7 +53,7 @@ export async function POST(request: Request) {
     return jsonSuccess({ safe: true });
   } catch {
     return jsonError(
-      "Password safety check is temporarily unavailable. Please try again.",
+      "Password safety check is temporarily unavailable. Try again.",
       503,
       "PASSWORD_SAFETY_UNAVAILABLE",
     );

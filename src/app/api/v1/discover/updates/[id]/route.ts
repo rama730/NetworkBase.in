@@ -17,7 +17,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const ip = getTrustedRequestIp(request)
     ?? `fp:${createHash("sha1").update(`${request.headers.get("user-agent") ?? ""}|${request.headers.get("accept-language") ?? ""}`).digest("hex").slice(0, 16)}`;
   const limit = await consumeRateLimitForRoute("publicRead", `discover-update:${user?.id ?? `anon:${ip}`}`, 120, 60);
-  if (!limit.allowed && !limit.degraded) return jsonError("Too many requests. Please wait a moment and try again.", 429, "RATE_LIMITED");
+  if (!limit.allowed && !limit.degraded) return jsonError("Too many requests. Wait a moment and try again.", 429, "RATE_LIMITED");
 
   try {
     const update = await getDiscoverUpdate(id, user?.id ?? null);
