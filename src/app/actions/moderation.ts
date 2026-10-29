@@ -1,0 +1,67 @@
+'use server';
+
+import { headers } from 'next/headers';
+import { z } from 'zod';
+
+import { logger } from '@/lib/logger';
+import { setUserBlocked } from '@/lib/privacy/blocks';
+import { consumeRateLimit } from '@/lib/security/rate-limit';
+import { getViewerAuthContext } from '@/lib/server/viewer-context';
+import { fileReport, listMyReports } from '@/lib/trust/cases';
+import { caseLabel, REPORT_REASONS, type ReportTargetKind } from '@/lib/trust/rules';
+import { resolveReportTarget } from '@/lib/trust/targets';
+
+// Reporting (docs/trust-and-safety-concept.md §5, C17): anyone signed in reports what they can see. Staff work in
+// actions/moderation-staff.ts.
+
+type Failure = { success: false; error: string; caseNumber?: number };
+
+const KINDS = ['project', 'person', 'update', 'update_comment', 'doc', 'task', 'task_comment', 'file', 'chat_message', 'chat_channel',
+    'role', 'application', 'invitation', 'connection_request', 'contribution'] as const satisfies readonly ReportTargetKind[];
+
+const reportSchema = z.object({
+    kind: z.enum(KINDS),
+    targetId: z.string().uuid(),
+    seq: z.number().int().positive().nullable().optional(),
+    reason: z.enum(REPORT_REASONS as [string, ...string[]]),
+    details: z.string().trim().max(2000).optional(),
+    alsoBlock: z.boolean().optional(),
+}).strict();
+
+/** Report what you can see. One open report per person per thing; it joins or opens a case (T1–T5). */
+export async function reportAction(input: z.input<typeof reportSchema>): Promise<{ success: true; caseNumber: string; deadlineHours: number; blocked: boolean } | Failure> {
+    const { userId } = await getViewerAuthContext();
+    if (!userId) return { success: false, error: 'Sign in to report.' };
+    const parsed = reportSchema.safeParse(input);
+    if (!parsed.success) return { success: false, error: 'Pick a reason.' };
+    const rate = await consumeRateLimit(`report:create:${userId}`, 20, 3600);
+    if (!rate.allowed) return { success: false, error: 'Too many reports. Try again later.' };
+    const data = parsed.data as z.infer<typeof reportSchema> & { reason: (typeof REPORT_REASONS)[number] };
+    const result = await fileReport(userId, { kind: data.kind, targetId: data.targetId, seq: data.seq ?? null, reason: data.reason, details: data.details, alsoBlock: data.alsoBlock });
+    if (!result.ok) return { success: false, error: result.error, caseNumber: result.caseNumber };
+    logger.info('trust.report.created', { module: 'trust', kind: data.kind, severity: result.severity });
+
+    // "Also block" (T3): only people and their messages, and never yourself.
+    let blocked = false;
+    if (data.alsoBlock && (data.kind === 'person' || data.kind === 'chat_message')) {
+        const target = await resolveReportTarget(data.kind, data.targetId, data.seq ?? null, null);
+        if (target?.subjectId && target.subjectId !== userId) {
+            try {
+                const h = await headers();
+                await setUserBlocked({ blockerId: userId, targetUserId: target.subjectId, blocked: true, request: new Request('https://networkbase.in/report', { headers: new Headers(h) }) });
+                blocked = true;
+            } catch (error) {
+                logger.warn('trust.report.block_failed', { module: 'trust', error: error instanceof Error ? error.message : String(error) });
+            }
+        }
+    }
+    return { success: true, caseNumber: caseLabel(result.caseNumber), deadlineHours: result.deadlineHours, blocked };
+}
+
+/** Settings → Privacy → Your reports (C18). */
+export async function listMyReportsAction() {
+    const { userId } = await getViewerAuthContext();
+    if (!userId) return { success: false as const, error: 'Sign in to see your reports.' };
+    const rows = await listMyReports(userId);
+    return { success: true as const, reports: rows.map((r) => ({ ...r, caseNumber: caseLabel(r.caseNumber) })) };
+}

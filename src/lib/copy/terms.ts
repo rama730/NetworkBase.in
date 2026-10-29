@@ -52,13 +52,19 @@ export const DELIVERY_LEVEL_LABELS = { mandatory: 'Required', important: 'Import
 export const MESSAGE_LEVEL_LABELS = { all: 'All', mentions_threads: 'Mentions and threads', mentions: 'Mentions', mute: 'Off' } as const;
 export const REACH_LEVEL_LABELS = { all: 'All', important: 'Important only', off: 'Off' } as const;
 
-/** Decision 41. */
+/** Decision 41; 12 reasons since the trust and safety concept (F8). Severity and hints live in lib/trust/rules. */
 export const REPORT_REASONS = [
-  { id: 'spam', label: 'Spam' },
-  { id: 'harassment', label: 'Harassment' },
+  { id: 'threat', label: 'Threat of violence' },
+  { id: 'self_harm', label: 'Self-harm or suicide' },
+  { id: 'child_safety', label: 'Sexual content involving a minor' },
+  { id: 'intimate_images', label: 'Intimate images shared without consent' },
+  { id: 'private_info', label: 'Sharing private information' },
+  { id: 'harassment', label: 'Harassment or bullying' },
   { id: 'hate_speech', label: 'Hate speech' },
   { id: 'impersonation', label: 'Impersonation' },
+  { id: 'scam', label: 'Scam or fraud' },
   { id: 'inappropriate', label: 'Inappropriate content' },
+  { id: 'spam', label: 'Spam' },
   { id: 'other', label: 'Other' },
 ] as const;
 

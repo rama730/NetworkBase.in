@@ -1,13 +1,6 @@
 // Trust and safety rules (report §30.3), pure so the server and tests agree.
-import { REPORT_REASONS as TERMS_REPORT_REASONS } from "@/lib/copy/terms";
-
-export const REPORT_REASONS = ["impersonation", "spam", "harassment", "hate_speech", "inappropriate", "other"] as const;
-export type ReportReason = (typeof REPORT_REASONS)[number];
-// Decision 41: labels from the one list.
-export const REPORT_REASON_LABEL = Object.fromEntries(
-  REPORT_REASONS.map((id) => [id, TERMS_REPORT_REASONS.find((r) => r.id === id)!.label]),
-) as Record<ReportReason, string>;
-export type ReportTargetKind = "project" | "update" | "update_comment" | "doc" | "task_comment";
+// The reasons, kinds and labels moved to lib/trust/rules (docs/trust-and-safety-concept.md).
+export { REPORT_REASONS, REPORT_REASON_LABEL, type ReportReason, type ReportTargetKind } from "@/lib/trust/rules";
 
 /** Free email providers never verify an org by domain. */
 const FREE_EMAIL = new Set([

@@ -9,6 +9,7 @@ import type { AttributeAlignment } from "@/app/actions/matchmaking/resolver";
 import { DecisionForm, type DecisionInput } from "@/components/applications/DecisionDialog";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useReportDialog } from "@/components/reports/ReportDialog";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { conversationHref } from "@/lib/messaging/routes";
 import { reopenState, safeHttpUrl } from "@/lib/applications/utils";
@@ -70,6 +71,7 @@ export function ApplicationReview({
     /** Resolves to an error message to show in the dialog, or null once the decision was saved. */
     onDecide: (mode: "accept" | "decline", input: DecisionInput) => Promise<string | null>;
 }) {
+    const reporting = useReportDialog({ kind: "application", targetId: applicationId, noun: "application", personName: applicantName });
     const phone = useMediaQuery("(max-width: 639px)");
     const [open, setOpen] = useState(false);
     const [step, setStep] = useState<"review" | "accept" | "decline">("review");
@@ -110,6 +112,8 @@ export function ApplicationReview({
                             <Link href={profileHref} className="text-primary hover:underline">View profile</Link>
                             {portfolio ? <a href={portfolio} target="_blank" rel="noopener noreferrer nofollow" className="text-primary hover:underline">Portfolio ↗</a> : null}
                             {channelId ? <Link href={conversationHref(channelId)} className="text-primary hover:underline">Open conversation</Link> : null}
+                            {/* Report the application's note (C15); only the people who receive it can. */}
+                            <button type="button" className="text-muted-foreground hover:text-foreground hover:underline" onClick={reporting.open}>Report application</button>
                         </div>
                         <div className="flex gap-2">
                             <button type="button" className="nb-person-connect" onClick={() => setStep("accept")}>Accept</button>
@@ -129,6 +133,7 @@ export function ApplicationReview({
                         }}
                     />
                 )}
+                {reporting.dialog}
             </DialogContent>
         </Dialog>
     );

@@ -26,6 +26,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ReportMenuItem, useReportDialog } from "@/components/reports/ReportDialog";
 import { useAuth } from "@/hooks/useAuth";
 import type { ChannelMember } from "@/app/actions/chat/channels";
 import { canAddPeople, notifyChoice, notifyChoices, notifyHelp, personName } from "@/lib/messaging/channel-view";
@@ -152,6 +153,8 @@ function NotifyRow({ channel, onChange }: { channel: ChannelDetails; onChange: (
 }
 
 function MemberRow({ member, channel, meId, onRemove }: { member: ChannelMember; channel: ChannelDetails; meId: string | null; onRemove: (member: ChannelMember) => void }) {
+  // Report a person from a channel or DM (C15): the last item of their "⋯".
+  const reporting = useReportDialog({ kind: "person", targetId: member.id, noun: "person", personName: personName(member) });
   const router = useRouter();
   const queryClient = useQueryClient();
   const presence = usePersonPresence(member.id);
@@ -213,9 +216,11 @@ function MemberRow({ member, channel, meId, onRemove }: { member: ChannelMember;
                 {channel.is_default ? null : <DropdownMenuItem variant="destructive" onSelect={() => onRemove(member)}><UserMinus /> Remove from channel</DropdownMenuItem>}
               </>
             ) : null}
+            <ReportMenuItem noun="person" onReport={reporting.open} />
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}
+      {reporting.dialog}
     </div>
   );
 }

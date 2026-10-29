@@ -106,6 +106,10 @@ export const schemas = new EventSchemas().fromRecord<{
     "notification/fanout": NotificationFanoutInngestEvent;
     "email/outbox.wake": { data: Record<string, never> };
     /** Organizations P15: Duplicate runs in the background (report §30.5). */
+    /** Reporting (docs/trust-and-safety-concept.md §11): an Urgent case alerts staff at once. */
+    "trust/urgent.reported": { data: { caseId: string } };
+    /** A decision's notices go out once its 10-second Undo has passed (C8). */
+    "trust/decision.made": { data: { caseId: string } };
     "org/duplicate.requested": { data: { sourceId: string; actorId: string; options: import("@/lib/organizations/lifecycle").DuplicateOptions } };
     "workspace/updates.cleanup": ProjectUpdateCleanupEvent;
     /** Old name (report §12.5): queued before the rename; drop after one release. */

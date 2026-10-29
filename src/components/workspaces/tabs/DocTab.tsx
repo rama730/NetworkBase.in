@@ -12,7 +12,7 @@ import { useWorkspaceDoc } from "@/hooks/workspaces/useWorkspaceDocData";
 import { normalizeWorkspaceDocSlug } from "@/lib/workspaces/doc";
 import type { Workspace } from "@/types/discover";
 import { OrgDocBanner, useMarkOrgDocOpened, useOrgDocs } from "@/components/organizations/OrgDocParts";
-import { ReportButton } from "@/components/reports/ReportDialog";
+import { ItemMenu } from "@/components/reports/ItemMenu";
 
 export default function DocTab({
     projectId,
@@ -111,9 +111,9 @@ function OwnDocs({ projectId, project, paramDoc }: { projectId: string; project:
                 project={project}
                 payload={readmeQuery.data}
                 docSlug={docSlug}
-                inPlaceBanner={isOrg && !canEdit && reportDocId ? (
-                    // Report an org doc (report §30.3); editors fix their own docs instead.
-                    <div className="mb-3 flex justify-end"><ReportButton kind="doc" targetId={reportDocId} noun="doc" /></div>
+                inPlaceBanner={!canEdit && reportDocId ? (
+                    // Report a doc from its "⋯" menu (C15); editors fix their own docs instead.
+                    <div className="mb-3 flex justify-end"><ItemMenu label="Doc actions" report={{ kind: "doc", targetId: reportDocId, noun: "doc" }} /></div>
                 ) : undefined}
             />
         );

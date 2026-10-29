@@ -88,8 +88,10 @@ test("Project Updates Tab Design Specification Conformance Contract (Section 25 
     });
 
     await t.test("Comment rows provide unambiguous reply actions and adequate touch spacing for delete controls", () => {
-        // Delete button must have minimum size-7 touch target and ml-2 margin clearance
-        assert.match(updatesTab, /ml-2 flex size-7 shrink-0 items-center justify-center rounded-\[4px\] text-muted-foreground transition-colors hover:bg-destructive\/10 hover:text-destructive/, "Delete button must have size-7 touch target and ml-2 clearance");
+        // Delete and Report live in one "⋯" per comment (trust and safety C15): a size-7 trigger with ml-2 clearance.
+        assert.match(updatesTab, /<ItemMenu label="Comment actions" className="ml-2"/, "Comment actions menu must keep ml-2 clearance");
+        assert.match(updatesTab, /Delete comment<\/DropdownMenuItem>/, "Delete stays a named destructive menu item");
+        assert.match(fs.readFileSync(path.join(process.cwd(), "src/components/reports/ItemMenu.tsx"), "utf-8"), /nb-touch-target flex size-7 shrink-0/, "The menu trigger keeps the size-7 touch target");
 
         // Reply button must have clear pill styling, icon, and distinct vertical spacing
         assert.match(updatesTab, /mt-2 flex items-center gap-2 pt-0.5/, "Reply button must have distinct top spacing");
