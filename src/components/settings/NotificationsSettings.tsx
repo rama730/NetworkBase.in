@@ -80,11 +80,15 @@ export default function NotificationsPage() {
     { ...next, quietHours: { ...next.quietHours, timeZone: quiet || !next.quietHours.timeZone ? Intl.DateTimeFormat().resolvedOptions().timeZone : next.quietHours.timeZone } },
     { onError: () => toast.error("Couldn’t save preferences") },
   );
-  const toggleCategory = (key: NotificationPreferenceCategory) => { if (preferences) save({ ...preferences, [key]: !preferences[key] }); };
+  const toggleCategory = (keys: readonly NotificationPreferenceCategory[]) => {
+    if (!preferences) return;
+    const on = !keys.every((key) => preferences[key]);
+    save({ ...preferences, ...Object.fromEntries(keys.map((key) => [key, on])) });
+  };
   const setAllCategories = (enabled: boolean) => {
     if (!preferences) return;
     const next = { ...preferences };
-    for (const { key } of NOTIFICATION_PREFERENCE_CATEGORIES) next[key] = enabled;
+    for (const { keys } of NOTIFICATION_PREFERENCE_CATEGORIES) for (const key of keys) next[key] = enabled;
     save(next);
   };
   // "Tomorrow" means 9 AM tomorrow (not 24 hours from now).
@@ -171,11 +175,11 @@ export default function NotificationsPage() {
   const pausedByStatus = pauseActive && Boolean(presence.data?.status?.pausesNotifications);
   // A copy cached before this setting existed has no chat part yet: the defaults.
   const chat = preferences.chat ?? { threadReplies: true, showPreview: true };
-  const enabledCategoryCount = NOTIFICATION_PREFERENCE_CATEGORIES.filter(({ key }) => preferences[key]).length;
+  const enabledCategoryCount = NOTIFICATION_PREFERENCE_CATEGORIES.filter(({ keys }) => keys.every((key) => preferences[key])).length;
   const allCategoriesEnabled = enabledCategoryCount === NOTIFICATION_PREFERENCE_CATEGORIES.length;
   const deliveryDescriptions = {
-    browser: permissionState === "unsupported" ? "This browser doesn’t support notifications." : permissionState === "denied" ? "Blocked in browser settings." : "Show a system notification for new notifications while this tab is in the background. Chat messages use push notifications.",
-    push: pushStatus === "unsupported" ? "This browser doesn’t support web push." : pushStatus === "denied" ? "Push permission is blocked in browser settings." : "Deliver important updates and chat messages even when this tab is closed.",
+    browser: permissionState === "unsupported" ? "This browser doesn’t support notifications." : permissionState === "denied" ? "Blocked in browser settings." : "While NetworkBase is open in this browser.",
+    push: pushStatus === "unsupported" ? "This browser doesn’t support web push." : pushStatus === "denied" ? "Push permission is blocked in browser settings." : "Even when NetworkBase is closed.",
   };
 
   return <div className="space-y-8">
@@ -190,7 +194,7 @@ export default function NotificationsPage() {
       {/* What these switches don't cover, said once. */}
       <p className="pt-3 nb-compact text-muted-foreground">Direct messages, group chats and threads you follow still notify you. Mute a conversation, or change what notifies you there, from its bell menu in Messages.</p>
       <div className="divide-y divide-border">
-        {NOTIFICATION_PREFERENCE_CATEGORIES.map((category) => <PreferenceSwitch key={category.key} id={category.key} title={category.title} description={category.description} checked={preferences[category.key]} disabled={isSaving} onToggle={() => toggleCategory(category.key)} />)}
+        {NOTIFICATION_PREFERENCE_CATEGORIES.map((category) => <PreferenceSwitch key={category.key} id={category.key} title={category.title} description={category.description} checked={category.keys.every((key) => preferences[key])} disabled={isSaving} onToggle={() => toggleCategory(category.keys)} />)}
       </div>
       <div id="settings-notifications-quiet-hours" className="mt-4 scroll-mt-6 border-t border-border pt-4">
         <h4 className="nb-ui-label text-foreground">Pause and quiet hours</h4>
@@ -228,8 +232,8 @@ export default function NotificationsPage() {
     <SettingsSectionCard id="settings-notifications-delivery" title="Delivery" description="Choose where important updates can reach you.">
       <div className="divide-y divide-border">
         <PreferenceSwitch id="delivery-email" title="Email" description="Email me when someone assigns me a task, and organization emails such as assignments and announcements. Mutes and the Organizations choices above also apply." checked={preferences.delivery.email ?? true} disabled={isSaving} onToggle={() => save({ ...preferences, delivery: { ...preferences.delivery, email: !(preferences.delivery.email ?? true) } })} />
-        <PreferenceSwitch id="delivery-browser" title="Desktop notifications on this device" description={deliveryDescriptions.browser} checked={preferences.delivery.browser && permissionState === "granted"} disabled={isSaving || permissionState === "unsupported" || permissionState === "denied"} onToggle={() => void toggleBrowser()} />
-        <PreferenceSwitch id="delivery-push" title="Push notifications on this device" description={deliveryDescriptions.push} checked={preferences.delivery.push && pushStatus === "subscribed"} disabled={isSaving || pushBusy || pushStatus === "unsupported" || pushStatus === "denied"} onToggle={() => void togglePush()} />
+        <PreferenceSwitch id="delivery-browser" title="Browser notifications" description={deliveryDescriptions.browser} checked={preferences.delivery.browser && permissionState === "granted"} disabled={isSaving || permissionState === "unsupported" || permissionState === "denied"} onToggle={() => void toggleBrowser()} />
+        <PreferenceSwitch id="delivery-push" title="Push notifications" description={deliveryDescriptions.push} checked={preferences.delivery.push && pushStatus === "subscribed"} disabled={isSaving || pushBusy || pushStatus === "unsupported" || pushStatus === "denied"} onToggle={() => void togglePush()} />
       </div>
       <p className="mt-3 nb-meta text-muted-foreground">Emails about the security of your account (a changed password, a new editor token, an authenticator change, account deletion) are always sent. They can’t be turned off here.</p>
     </SettingsSectionCard>

@@ -50,8 +50,8 @@ export const REASON_LABELS: Record<NotificationReason, string> = {
     application: "Application",
     connection: "Connection",
     blocked: "Blocked",
-    done: "Done",
-    workflow: "Workflow",
+    done: "Completed",
+    workflow: "In review",
     file: "File",
     update: "Update",
 };

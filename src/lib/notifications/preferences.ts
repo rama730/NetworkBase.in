@@ -72,14 +72,14 @@ function minuteOfDayIn(now: Date, timeZone: string | null | undefined) {
     return pick("hour") * 60 + pick("minute");
 }
 
+/** Decision 38: the personal switches use the one category list; a category may cover several stored keys. */
 export const NOTIFICATION_PREFERENCE_CATEGORIES = [
-    { key: "mentions", title: "Mentions", description: "Mentions in task discussions and chat that need your attention." },
-    { key: "workflows", title: "Invitations", description: "Workspace and mentor invitations." },
-    { key: "projects", title: "Workspace activity", description: "Workspace-level updates that are important but not noisy." },
-    { key: "tasks", title: "Task updates", description: "Assignments and attention states on work tied to you." },
-    { key: "applications", title: "Applications", description: "Incoming applications and decisions on applications you submitted." },
-    { key: "connections", title: "Connections", description: "Incoming and accepted connection requests." },
-] as const satisfies ReadonlyArray<{ key: NotificationPreferenceCategory; title: string; description: string }>;
+    { key: "mentions", keys: ["mentions"], title: "Mentions and replies", description: "When someone mentions you or replies to you." },
+    { key: "workflows", keys: ["workflows", "connections"], title: "Invitations and requests", description: "Workspace and mentor invitations, and connection requests." },
+    { key: "applications", keys: ["applications"], title: "Applications and roles", description: "New applications and decisions." },
+    { key: "tasks", keys: ["tasks"], title: "Tasks", description: "Tasks assigned to you, reviews and due dates." },
+    { key: "projects", keys: ["projects"], title: "Updates and announcements", description: "Posts from workspaces and organizations you follow." },
+] as const satisfies ReadonlyArray<{ key: NotificationPreferenceCategory; keys: readonly NotificationPreferenceCategory[]; title: string; description: string }>;
 
 const NOTIFICATION_MUTE_SCOPE_KINDS = [
     "notification_type",

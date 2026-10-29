@@ -96,7 +96,11 @@ test("Settings › Organizations: Important only and Off filter the tray; child 
 });
 
 test("org event groups show for organizations only", () => {
-  const ids = (isOrg: boolean) => groupProjectNotificationEntries(getVisibleProjectNotificationEntries(isOrg)).map((g) => g.id);
-  assert.ok(!ids(false).some((id) => id.startsWith("org_")));
-  assert.deepEqual(ids(true).filter((id) => id.startsWith("org_")), ["org_membership", "org_assignments", "org_announcements", "org_credit", "org_sprints"]);
+  const sections = (isOrg: boolean) => groupProjectNotificationEntries(getVisibleProjectNotificationEntries(isOrg));
+  const orgGroups = (isOrg: boolean) => new Set(sections(isOrg).flatMap((s) => s.entries.map((e) => e.group)).filter((g) => g.startsWith("org_")));
+  assert.equal(orgGroups(false).size, 0);
+  assert.deepEqual([...orgGroups(true)].sort(), ["org_announcements", "org_assignments", "org_credit", "org_membership", "org_sprints"]);
+  // Decision 38: one category list, each category once.
+  const titles = sections(true).map((s) => s.title);
+  assert.equal(new Set(titles).size, titles.length);
 });

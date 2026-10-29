@@ -1,5 +1,6 @@
 "use client";
 
+import { DELIVERY_LEVEL_LABELS } from "@/lib/copy/terms";
 import { ChevronDown, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -101,9 +102,9 @@ function formatProjectNotificationRecipients(
 function formatProjectNotificationAggregate(
   entry: ProjectNotificationRegistryEntry,
 ) {
-  if (entry.aggregate === "burst_10m") return "10m burst";
-  if (entry.aggregate === "digest_only") return "Digest";
-  return "Realtime";
+  if (entry.aggregate === "burst_10m") return "Grouped every 10 minutes";
+  if (entry.aggregate === "digest_only") return DELIVERY_LEVEL_LABELS.digest;
+  return DELIVERY_LEVEL_LABELS.realtime;
 }
 function ProjectNotificationRuleRow({
   entry,
@@ -127,15 +128,15 @@ function ProjectNotificationRuleRow({
         <p className="nb-compact text-muted-foreground">{entry.description}</p>
         <p className="nb-meta text-muted-foreground">
           {policy.rules[entry.key]?.importance === "important"
-            ? "Important"
-            : "Standard"}{" "}
+            ? DELIVERY_LEVEL_LABELS.important
+            : DELIVERY_LEVEL_LABELS.standard}{" "}
           · {formatProjectNotificationAggregate(entry)} ·{" "}
           {formatProjectNotificationRecipients(entry)}
         </p>
         {entry.mandatory ? (
           <p className="nb-meta flex items-center gap-1.5 text-muted-foreground">
             <Lock className="size-3 shrink-0" aria-hidden="true" />
-            Mandatory event · always enabled
+            {DELIVERY_LEVEL_LABELS.mandatory} · Always on
           </p>
         ) : null}
       </div>
