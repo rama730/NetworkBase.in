@@ -71,6 +71,8 @@ interface ProjectLayoutProps {
     canOpenSettings?: boolean;
     metadataExtra?: React.ReactNode;
     actionsStart?: React.ReactNode;
+    /** The overflow "⋯", always the last header action (after Share). */
+    actionsEnd?: React.ReactNode;
     showFollow?: boolean;
     /** Org tab badges (report §18.3): a count, or a dot for something unseen. */
     tabBadges?: Partial<Record<string, number | "dot">>;
@@ -134,6 +136,7 @@ export default function WorkspaceLayout({
     canOpenSettings = false,
     metadataExtra = null,
     actionsStart = null,
+    actionsEnd = null,
     showFollow = true,
     tabBadges = {},
     compactChip,
@@ -442,6 +445,7 @@ export default function WorkspaceLayout({
                             >
                                 <Share2 className="size-4" aria-hidden="true" />
                             </button>
+                            {actionsEnd}
 
                             {!(isOwnerOrMember ?? isOwner) && (openRolesCount > 0 || applicationLabel) && activeTab === "dashboard" ? (
                                 <a href="#open-roles" className="nb-touch-target nb-ui-label inline-flex items-center px-1 text-primary md:hidden">

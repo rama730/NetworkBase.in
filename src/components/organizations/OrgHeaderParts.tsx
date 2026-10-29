@@ -3,11 +3,10 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
-import { Archive, Building2, ChevronDown, Flag, FolderKanban, IterationCcw, ListTodo, Megaphone, MoreHorizontal, Plus, UserPlus } from 'lucide-react'
+import { Archive, Building2, ChevronDown, FolderKanban, IterationCcw, ListTodo, Megaphone, Plus, UserPlus } from 'lucide-react'
 
 import { cancelJoinRequestAction, joinPublicOrgAction, regenerateJoinCodeAction } from '@/app/actions/organizations'
 import { restoreOrgAction } from '@/app/actions/org-lifecycle'
-import { ReportDialog } from '@/components/reports/ReportDialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -189,24 +188,6 @@ export function OrgStatusBanner({ orgId, organization, isOwner }: { orgId: strin
         )
     }
     return null
-}
-
-/** The org header's ⋯ menu: Report (report §30.3). */
-export function OrgHeaderMenu({ orgId }: { orgId: string }) {
-    const [open, setOpen] = useState(false)
-    return (
-        <>
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <button type="button" aria-label="Organization actions" className="nb-icon-button nb-touch-target"><MoreHorizontal className="size-4" aria-hidden="true" /></button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem onSelect={() => setOpen(true)}><Flag className="size-4" aria-hidden="true" />Report organization</DropdownMenuItem>
-                </DropdownMenuContent>
-            </DropdownMenu>
-            {open ? <ReportDialog kind="project" targetId={orgId} noun="organization" open={open} onOpenChange={setOpen} /> : null}
-        </>
-    )
 }
 
 export type OrgNewKind = 'assignment' | 'announcement' | 'sprint' | 'project'

@@ -42,8 +42,8 @@ import { OrgFilesPanel, OrgSprintMaterials } from '@/components/organizations/Or
 import { OrgMembersTab } from '@/components/organizations/OrgMembersTab';
 import { ChildOrgLine, ChildUnitsLine, OrgDashboard, OrgWorkspacesTab } from '@/components/organizations/OrgOverviewParts';
 import { OrgInviteBanner } from '@/components/organizations/OrgInviteBanner';
-import { ItemMenu } from '@/components/reports/ItemMenu';
-import { ChildOrgChips, OrgBreadcrumb, OrgCompactMark, OrgHeaderMenu, OrgIdentityLine, OrgInviteDialog, OrgNewItems, OrgNewMenu, OrgStatusBanner, OrgVisitorActions, type OrgNewKind } from '@/components/organizations/OrgHeaderParts';
+import { HeaderReportMenu } from '@/components/reports/ItemMenu';
+import { ChildOrgChips, OrgBreadcrumb, OrgCompactMark, OrgIdentityLine, OrgInviteDialog, OrgNewItems, OrgNewMenu, OrgStatusBanner, OrgVisitorActions, type OrgNewKind } from '@/components/organizations/OrgHeaderParts';
 import { readOrgTabBadgesAction, type OrgTabBadges } from '@/app/actions/assignments';
 import { isWorkspacePubliclyReadableVisibility } from '@/lib/workspaces/workspace-visibility';
 import { confirmFileNavigation } from '@/lib/files/unsaved-navigation';
@@ -1153,7 +1153,8 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             compactChip={organization ? (activeSprintName ? <span className="nb-status shrink-0" data-status="active">{activeSprintName}</span> : null) : undefined}
             compactPrefix={parentOrg ? <OrgCompactMark parentOrg={parentOrg} /> : null}
             compactMenuItems={canStartNew ? <OrgNewItems onNew={startNew} prefix="New " /> : null}
-            actionsStart={organization ? <>{canStartNew ? <OrgNewMenu onNew={startNew} /> : null}{!isOwnerOrMember && currentUserId ? <OrgInviteBanner orgId={project.id} /> : null}{!isOwnerOrMember && isWorkspacePubliclyReadableVisibility(project.visibility) && project.status !== 'archived' && !organization.suspended ? <OrgVisitorActions orgId={project.id} href={canonicalProjectHref} joinMode={organization.joinMode} requestPending={organization.viewerRequestPending} loggedIn={Boolean(currentUserId)} /> : null}{currentUserId && !isOwner ? <OrgHeaderMenu orgId={project.id} /> : null}</> : currentUserId && !isOwner ? <ItemMenu label="Workspace actions" className="size-[var(--ui-control-height)] rounded-[5px] border border-border" report={{ kind: 'project', targetId: project.id, noun: 'workspace' }} /> : null}
+            actionsStart={organization ? <>{canStartNew ? <OrgNewMenu onNew={startNew} /> : null}{!isOwnerOrMember && currentUserId ? <OrgInviteBanner orgId={project.id} /> : null}{!isOwnerOrMember && isWorkspacePubliclyReadableVisibility(project.visibility) && project.status !== 'archived' && !organization.suspended ? <OrgVisitorActions orgId={project.id} href={canonicalProjectHref} joinMode={organization.joinMode} requestPending={organization.viewerRequestPending} loggedIn={Boolean(currentUserId)} /> : null}</> : null}
+            actionsEnd={currentUserId && !isOwner ? <HeaderReportMenu targetId={project.id} noun={organization ? 'organization' : 'workspace'} /> : null}
             showFollow={!organization || (!isOwnerOrMember && isWorkspacePubliclyReadableVisibility(project.visibility))} onTabHover={handleTabHover} members={allMembers} loadingMembers={loadingMembers} stageLabel={lifecycleStageNames[optimisticStageIndex] ?? null} stageIndex={optimisticStageIndex} stageCount={lifecycleStageNames.length} applicationLabel={applicationHeaderLabel} openRolesCount={rolesWithFilled.filter((role: any) => (role?.count || 0) - (role?.filled || 0) > 0).length}>
             {!activeTab && (
                 <div className="w-full h-full min-h-[40vh] flex items-center justify-center p-8">

@@ -33,10 +33,34 @@ export function ItemMenu({ label, report, isOwn, reported, children, className, 
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align={align} className="w-52">
                     {children}
-                    {hasReport ? <ReportMenuItem noun={report!.noun} reported={reported} onReport={reporting.open} /> : null}
+                    {hasReport ? <ReportMenuItem noun={report!.noun} reported={reported} onReport={reporting.open} first={!children} /> : null}
                 </DropdownMenuContent>
             </DropdownMenu>
             {hasReport ? reporting.dialog : null}
+        </>
+    )
+}
+
+/**
+ * The page header's "⋯" for a workspace or organization you don't own (C15): the last header action, drawn like
+ * Share beside it, with Report as its item.
+ */
+export function HeaderReportMenu({ targetId, noun }: { targetId: string; noun: 'workspace' | 'organization' }) {
+    const reporting = useReportDialog({ kind: 'project', targetId, noun })
+    return (
+        <>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <button type="button" aria-label={`${noun === 'organization' ? 'Organization' : 'Workspace'} actions`} title="More actions"
+                        className="nb-icon-button h-[var(--ui-control-height)] w-[var(--ui-control-height)] rounded-[5px] border border-border bg-card text-muted-foreground transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:bg-muted hover:text-foreground">
+                        <MoreHorizontal className="size-4" aria-hidden="true" />
+                    </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                    <ReportMenuItem first noun={noun} onReport={reporting.open} />
+                </DropdownMenuContent>
+            </DropdownMenu>
+            {reporting.dialog}
         </>
     )
 }
