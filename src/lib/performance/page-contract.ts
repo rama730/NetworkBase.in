@@ -403,7 +403,8 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     invalidationOwner: "none",
     hydrationBoundary: "minimal",
     bootstrapReadModel: "auth_snapshot",
-    maxInitialPayloadKb: 200,
+    // Same auth shell as /join, /forgot-password and the other account pages.
+    maxInitialPayloadKb: 220,
   }),
   "/open-source": buildPublicContract("/open-source", "src/app/(legal)/open-source/page.tsx", {
     renderingMode: "static",
