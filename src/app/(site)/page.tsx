@@ -71,7 +71,7 @@ function SectionHeading({ id, eyebrow, title, body }: { id: string; eyebrow: str
   );
 }
 
-// Same parts as the app's project card (components/projects/ProjectCard.tsx), drawn statically and labelled as examples.
+// Same parts as the app’s workspace card (components/workspaces/WorkspaceCard.tsx), drawn statically and labelled as examples.
 const exampleProjects = [
   { title: "Campus food-share app", body: "Helping students share leftover meals before they go to waste.", skills: ["Flutter", "Firebase", "TypeScript", "Figma"], team: ["RN", "SK", "PD"], openRoles: 3, views: 128, followers: 24 },
   { title: "Open-source study planner", body: "A shared planner for study groups, with reminders and progress tracking.", skills: ["Next.js", "React", "PostgreSQL", "Tailwind CSS"], team: ["AM", "JT"], openRoles: 1, views: 64, followers: 11 },
