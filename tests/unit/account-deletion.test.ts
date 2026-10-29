@@ -77,14 +77,14 @@ describe("account deletion API contract", () => {
         // Mapping function extracted for testing
         function toStatusCode(error?: string): number {
             if (!error) return 500;
-            if (error === "Not authenticated") return 401;
+            if (error === "Sign in to continue") return 401;
             if (error === "Confirmation required") return 400;
             if (error.includes("re-authenticate")) return 403;
             if (error.includes("already scheduled")) return 409;
             return 500;
         }
 
-        assert.equal(toStatusCode("Not authenticated"), 401);
+        assert.equal(toStatusCode("Sign in to continue"), 401);
         assert.equal(toStatusCode("Confirmation required"), 400);
         assert.equal(toStatusCode("Please re-authenticate and retry"), 403);
         assert.equal(toStatusCode("Account deletion is already scheduled"), 409);

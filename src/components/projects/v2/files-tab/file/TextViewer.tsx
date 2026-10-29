@@ -563,7 +563,7 @@ export function TextViewer({
         data-testid="files-tab-text-viewer-error"
         className="flex h-full min-h-0 w-full flex-col items-center justify-center gap-2 p-4 text-center text-xs text-muted-foreground"
       >
-        <p className="font-medium text-foreground">Failed to load file content</p>
+        <p className="font-medium text-foreground">Couldn’t load file content</p>
         <Button variant="outline" onClick={() => setLoadAttempt(value => value + 1)}>Retry preview</Button>
         {loadError ? (
           <p className="max-w-md break-words text-muted-foreground">

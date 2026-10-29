@@ -147,7 +147,7 @@ export async function saveFileRevision(params: {
     ]);
 
     if ("error" in uploadSession) {
-      throw new Error(uploadSession.error || "Failed to prepare upload");
+      throw new Error(uploadSession.error || "Couldn’t prepare upload");
     }
     storagePath = uploadSession.storageKey;
 

@@ -157,7 +157,7 @@ export async function signUpWithPassword(
         });
         const body = await response.json().catch(() => null) as SignUpApiResponse | null;
         if (!response.ok || body?.success === false) {
-            return { data: null, error: { message: body?.message || 'Unable to create account' } };
+            return { data: null, error: { message: body?.message || 'Couldn’t create account' } };
         }
 
         const sessionPayload = body?.data?.session;
@@ -168,7 +168,7 @@ export async function signUpWithPassword(
                 refresh_token: sessionPayload.refreshToken,
             });
             if (result.error) {
-                return { data: null, error: { message: result.error.message || 'Unable to establish session' } };
+                return { data: null, error: { message: result.error.message || 'Couldn’t establish session' } };
             }
             if (result.data.session) await syncBrowserSessionToServer(result.data.session).catch(() => null);
             return result;
@@ -183,7 +183,7 @@ export async function signUpWithPassword(
         };
     } catch (error) {
         const message = error instanceof Error ? error.message : '';
-        return { data: null, error: { message: isConnectivityMessage(message) ? AUTH_UNREACHABLE_MESSAGE : 'Unable to create account' } };
+        return { data: null, error: { message: isConnectivityMessage(message) ? AUTH_UNREACHABLE_MESSAGE : 'Couldn’t create account' } };
     }
 }
 
@@ -219,11 +219,11 @@ export async function signInWithGoogleIdToken(token: string, nonce: string): Pro
         const supabase = await loadBrowserSupabase();
         const result = await supabase.auth.signInWithIdToken({ provider: 'google', token, nonce });
         if (result.error) {
-            return { data: result.data, error: { message: result.error.message || 'Unable to complete Google sign-in' } };
+            return { data: result.data, error: { message: result.error.message || 'Couldn’t complete Google sign-in' } };
         }
         if (result.data.session) await syncBrowserSessionToServer(result.data.session);
         return { data: result.data, error: null };
     } catch {
-        return { data: null, error: { message: 'Unable to complete Google sign-in' } };
+        return { data: null, error: { message: 'Couldn’t complete Google sign-in' } };
     }
 }

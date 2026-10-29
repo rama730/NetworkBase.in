@@ -87,7 +87,7 @@ async function verifyPasswordCredentialWithVerifier(
           ? "Confirm your email address before verifying your password"
           : invalidCredentials
             ? "Current password is incorrect"
-            : "Unable to verify password"
+            : "Couldn’t verify password"
       ),
     };
   }

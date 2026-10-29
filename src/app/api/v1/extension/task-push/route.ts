@@ -13,10 +13,10 @@ const schema=z.object({taskId:z.string().uuid(),projectId:z.string().uuid(),task
 export async function POST(request:Request){
  const csrfError=validateCsrf(request);if(csrfError)return csrfError;
  try{
-  const auth=await requireAuthenticatedUser();if(auth.response)return auth.response;if(!auth.user)return jsonError('Not authenticated',401,'UNAUTHORIZED');const user=auth.user;
+  const auth=await requireAuthenticatedUser();if(auth.response)return auth.response;if(!auth.user)return jsonError('Sign in to continue',401,'UNAUTHORIZED');const user=auth.user;
   const parsed=schema.safeParse(await request.json());if(!parsed.success)return jsonError('Invalid task file receipt request',400,'BAD_REQUEST');const {taskId,projectId,taskAction,files,message}=parsed.data;
   const operationId=request.headers.get('idempotency-key')?.trim();if(!operationId||operationId.length>200)return jsonError('A stable operation id is required',400,'BAD_REQUEST');
-  if(!(await consumeRateLimit(`extension-task-push:${user.id}`,60,60)).allowed)return jsonError('Rate limit exceeded',429,'RATE_LIMITED');
+  if(!(await consumeRateLimit(`extension-task-push:${user.id}`,60,60)).allowed)return jsonError('Too many attempts. Try again in a minute.',429,'RATE_LIMITED');
   const pushRow=await db.transaction(async tx=>{
    await assertProjectWriteAccessTx(tx,projectId,user.id);
    // The project lock serializes receipts even when Redis is unavailable or a response is lost.
@@ -28,10 +28,10 @@ export async function POST(request:Request){
    const links=await tx.select({nodeId:taskNodeLinks.nodeId,order:taskNodeLinks.order}).from(taskNodeLinks).where(eq(taskNodeLinks.taskId,taskId));const linked=new Set(links.map(l=>l.nodeId));const additions=nodes.filter(n=>!linked.has(n.id));if(links.length+additions.length>200)throw new Error('A task can have at most 200 linked files');
    for(const file of files){const node=nodes.find(n=>n.id===file.nodeId)!;if(file.version!==undefined&&node.currentVersion!==file.version||file.contentHash!==undefined&&node.contentHash!==file.contentHash)throw new Error('A file changed after publication. Inspect its current revision before retrying task effects.');}
    if(additions.length)await tx.insert(taskNodeLinks).values(additions.map((node,index)=>({taskId,nodeId:node.id,createdBy:user.id,order:Math.max(0,...links.map(link=>link.order))+index+1,annotation:'#editor_working',tags:replaceTaskFileRoleTag([],'working')}))).onConflictDoNothing({target:[taskNodeLinks.taskId,taskNodeLinks.nodeId]});
-   const [created]=await tx.insert(taskPushes).values({taskId,projectId,message:message||'Linked reviewed editor file revisions',filesCount:nodes.length,pushedBy:user.id,filesJson:nodes.map(node=>({nodeId:node.id,path:node.path,name:node.name,version:node.currentVersion,contentHash:node.contentHash,taskAction,operationId}))}).returning();if(!created)throw new Error('Could not record task receipt');
+   const [created]=await tx.insert(taskPushes).values({taskId,projectId,message:message||'Linked reviewed editor file revisions',filesCount:nodes.length,pushedBy:user.id,filesJson:nodes.map(node=>({nodeId:node.id,path:node.path,name:node.name,version:node.currentVersion,contentHash:node.contentHash,taskAction,operationId}))}).returning();if(!created)throw new Error('Couldn’t record task receipt');
    await recordNodeEventsBatch(projectId,user.id,nodeIds,'extension_task_push',{taskId,taskAction,filesCount:nodes.length,nodeIds,operationId,pushId:created.id},tx);
    return created;
   });
   return jsonSuccess({pushId:pushRow.id,timestamp:pushRow.pushedAt.toISOString(),filesCount:pushRow.filesCount});
- }catch(error){return routeErrorResponse(error,{requestId:getRequestId(request),scope:'api/v1/extension/task-push',fallback:'Could not link task file revisions'});}
+ }catch(error){return routeErrorResponse(error,{requestId:getRequestId(request),scope:'api/v1/extension/task-push',fallback:'Couldn’t link task file revisions'});}
 }

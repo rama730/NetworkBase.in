@@ -234,7 +234,7 @@ export async function createProjectInvitation(input: CreateProjectInvitationInpu
             })
             .returning();
 
-        if (!invitation) throw new Error("Failed to create invitation");
+        if (!invitation) throw new Error("Couldn’t create invitation");
         return {
             invitation,
             created: true,

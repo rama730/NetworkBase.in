@@ -116,7 +116,7 @@ export function FolderPicker({
           nextCursor: current[key]?.nextCursor ?? null,
           loading: false,
           error:
-            error instanceof Error ? error.message : "Could not load folders",
+            error instanceof Error ? error.message : "Couldn’t load folders",
         },
       }));
     }
@@ -383,7 +383,7 @@ export function FolderPicker({
       await loadPage(selectedFolderId);
       onSelectFolder(created.id);
     } catch (error) {
-      setCreateError(error instanceof Error ? error.message : "Could not create folder");
+      setCreateError(error instanceof Error ? error.message : "Couldn’t create folder");
     } finally {
       setCreating(false);
     }

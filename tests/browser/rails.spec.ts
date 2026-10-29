@@ -704,7 +704,7 @@ test('Network first-load errors reveal recovery instead of leaving the skeleton 
  await expect(page.getByRole('status',{name:'Loading network',exact:true})).toHaveCount(0);
  await page.goto(origin+'/?surface=network-layout&render-error');
  await expect(page.getByRole('heading',{name:'Network',exact:true})).toBeVisible();
- await expect(page.getByText('Failed to load suggested people.',{exact:true})).toBeVisible();
+ await expect(page.getByText('Couldn’t load suggested people.',{exact:true})).toBeVisible();
  await expect(page.getByRole('status',{name:'Loading network',exact:true})).toHaveCount(0);
  await page.evaluate(()=>{(window as any).railsFixture.renderRecovered=true;});
  await page.getByRole('button',{name:'Retry',exact:true}).click();

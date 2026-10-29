@@ -11,8 +11,8 @@ export function mapAuthProviderError(
   const status = Number(error.status);
   const code = String(error.code ?? "").toLowerCase();
   if (status === 404 || code.includes("not_found")) return { status: 404, errorCode: "NOT_FOUND", message: "Not found" };
-  if (status === 401) return { status: 401, errorCode: "UNAUTHORIZED", message: "Not authenticated" };
-  if (status === 403) return { status: 403, errorCode: "FORBIDDEN", message: "Forbidden" };
+  if (status === 401) return { status: 401, errorCode: "UNAUTHORIZED", message: "Sign in to continue" };
+  if (status === 403) return { status: 403, errorCode: "FORBIDDEN", message: "You don’t have access to this" };
   if (status >= 400 && status < 500) return { status, errorCode: "BAD_REQUEST", message: error.message || fallbackMessage };
   return { status: 500, errorCode: "INTERNAL_ERROR", message: fallbackMessage };
 }

@@ -60,7 +60,7 @@ describe("parseLockConflictError (internal logic)", () => {
 
   it("returns undefined for unrelated errors", () => {
     assert.equal(parseLockConflictError(new Error("Upload failed")), undefined);
-    assert.equal(parseLockConflictError(new Error("Rate limit exceeded")), undefined);
+    assert.equal(parseLockConflictError(new Error("Too many attempts. Try again in a minute.")), undefined);
   });
 
   it("detects plain-text lock conflict error", () => {
@@ -98,7 +98,7 @@ describe("parseLockConflictError (internal logic)", () => {
   });
 
   it("returns undefined for JSON that is not a lock_conflict", () => {
-    const other = JSON.stringify({ error: "rate_limit", message: "Too many requests" });
+    const other = JSON.stringify({ error: "rate_limit", message: "Too many attempts. Try again in a minute." });
     const result = parseLockConflictError(new Error(other));
     assert.equal(result, undefined);
   });

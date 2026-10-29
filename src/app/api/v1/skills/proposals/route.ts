@@ -11,7 +11,7 @@ import { validateCsrf } from '@/lib/security/csrf'
 export async function GET(request: Request) {
     const auth = await requireAuthenticatedUser()
     if (auth.response) return auth.response
-    if (!auth.user) return jsonError('Not authenticated', 401, 'UNAUTHORIZED')
+    if (!auth.user) return jsonError('Sign in to continue', 401, 'UNAUTHORIZED')
     const userId = auth.user.id
 
     const proposals = await db
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     if (limited) return limited
     const auth = await requireAuthenticatedUser()
     if (auth.response) return auth.response
-    if (!auth.user) return jsonError('Not authenticated', 401, 'UNAUTHORIZED')
+    if (!auth.user) return jsonError('Sign in to continue', 401, 'UNAUTHORIZED')
     const userId = auth.user.id
 
     let body: unknown
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     if (!normalized) return jsonError('A valid skill label is required', 400, 'BAD_REQUEST')
 
     const [skill] = await db.transaction((tx) => resolveSkillsForWrite(tx, [normalized], userId))
-    if (!skill) return jsonError('Unable to submit skill', 500, 'INTERNAL_ERROR')
+    if (!skill) return jsonError('Couldn’t submit skill', 500, 'INTERNAL_ERROR')
 
     const [proposal] = await db
         .select({ id: skillProposals.id, label: skillProposals.label, status: skillProposals.status })

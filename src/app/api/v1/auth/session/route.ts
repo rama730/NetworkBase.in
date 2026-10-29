@@ -102,7 +102,7 @@ export async function POST(request: Request) {
           status: 500,
           errorCode: "INTERNAL_ERROR",
         });
-        return jsonError("Failed to bootstrap browser session", 500, "INTERNAL_ERROR");
+        return jsonError("Couldn’t bootstrap browser session", 500, "INTERNAL_ERROR");
       }
 
       const {
@@ -160,7 +160,7 @@ export async function POST(request: Request) {
         status: 400,
         errorCode: "BAD_REQUEST",
       });
-      return jsonError("Failed to sync browser session", 400, "BAD_REQUEST");
+      return jsonError("Couldn’t sync browser session", 400, "BAD_REQUEST");
     }
 
     const syncedSessionId = data.session ? getSessionIdentifier(data.session) : null;
@@ -190,7 +190,7 @@ export async function POST(request: Request) {
       status: 500,
       errorCode: "INTERNAL_ERROR",
     });
-    return jsonError("Failed to bridge browser session", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t bridge browser session", 500, "INTERNAL_ERROR");
   }
 }
 

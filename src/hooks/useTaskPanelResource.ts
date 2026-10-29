@@ -421,7 +421,7 @@ export function useTaskPanelResource(params: {
     } catch (error) {
       if (taskIdRef.current !== requestedTaskId) return [];
       const message =
-        error instanceof Error ? error.message : "Failed to load subtasks";
+        error instanceof Error ? error.message : "Couldn’t load subtasks";
       setErrors((current) => ({ ...current, subtasks: message }));
       recordSubtaskMetric({
         action: "load",
@@ -490,7 +490,7 @@ export function useTaskPanelResource(params: {
     } catch (error) {
       if (taskIdRef.current !== requestedTaskId) return [];
       const message =
-        error instanceof Error ? error.message : "Failed to load files";
+        error instanceof Error ? error.message : "Couldn’t load files";
       setErrors((current) => ({ ...current, attachments: message }));
       return [] as ProjectNode[];
     } finally {
@@ -924,7 +924,7 @@ export function useTaskPanelResource(params: {
         taskId: task.id,
       });
       if (!result.success) {
-        const error = result.error || "Failed to add subtask";
+        const error = result.error || "Couldn’t add subtask";
         setErrors((current) => ({ ...current, subtasks: error }));
         return { success: false as const, error };
       }
@@ -978,7 +978,7 @@ export function useTaskPanelResource(params: {
         taskId: task.id,
       });
       if (!result.success) {
-        const error = result.error || "Failed to update subtask";
+        const error = result.error || "Couldn’t update subtask";
         setErrors((current) => ({ ...current, subtasks: error }));
         void loadSubtasks();
         return { success: false as const, error };
@@ -1017,7 +1017,7 @@ export function useTaskPanelResource(params: {
         taskId: task.id,
       });
       if (!result.success) {
-        const error = result.error || "Failed to delete subtask";
+        const error = result.error || "Couldn’t delete subtask";
         setErrors((current) => ({ ...current, subtasks: error }));
         void loadSubtasks();
         return { success: false as const, error };
@@ -1063,7 +1063,7 @@ export function useTaskPanelResource(params: {
         taskId: task.id,
       });
       if (!result.success) {
-        const error = result.error || "Failed to update subtask";
+        const error = result.error || "Couldn’t update subtask";
         setErrors((current) => ({ ...current, subtasks: error }));
         void loadSubtasks();
         return { success: false as const, error };

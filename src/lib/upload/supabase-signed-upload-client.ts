@@ -223,7 +223,7 @@ export async function readSupabaseUploadOperation(operationId: string) {
     cache: "no-store",
     credentials: "same-origin",
   });
-  if (!response.ok) throw new Error(`Failed to read upload operation (${response.status})`);
+  if (!response.ok) throw new Error(`Couldn’t read upload operation (${response.status})`);
   return response.json() as Promise<{
     success: true;
     data: {
@@ -242,7 +242,7 @@ export async function cancelSupabaseUploadOperation(operationId: string) {
     keepalive: true,
   });
   if (!response.ok && response.status !== 409 && response.status !== 404) {
-    throw new Error(`Failed to cancel upload operation (${response.status})`);
+    throw new Error(`Couldn’t cancel upload operation (${response.status})`);
   }
 }
 
@@ -379,7 +379,7 @@ export async function uploadToSupabaseSignedUrl(
         contentType: session.contentType,
       });
     if (options.signal?.aborted) throw new DOMException("Upload canceled", "AbortError");
-    if (error) throw new Error(error.message || "Failed to upload file.");
+    if (error) throw new Error(error.message || "Couldn’t upload file.");
     if (!data || (!data.path && !data.fullPath)) throw new Error("Upload succeeded with no data returned.");
     options.onProgress?.(file.size, file.size);
     options.onPhase?.("complete");

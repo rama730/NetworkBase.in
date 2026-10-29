@@ -162,7 +162,7 @@ export function EditProfileTabs({
                 kind: "avatar",
             });
             if (!uploadSession.success) {
-                throw new Error(uploadSession.error || "Failed to prepare image upload");
+                throw new Error(uploadSession.error || "Couldn’t prepare image upload");
             }
 
             await uploadToSupabaseSignedUrl(uploadSession, preparedAvatar, { cacheProfile: "public" });
@@ -172,7 +172,7 @@ export function EditProfileTabs({
                 commitToProfile: false,
             });
             if (!finalized.success) {
-                throw new Error(finalized.error || "Failed to finalize image upload");
+                throw new Error(finalized.error || "Couldn’t finalize image upload");
             }
 
             updateForm("avatarUrl", finalized.publicUrl);

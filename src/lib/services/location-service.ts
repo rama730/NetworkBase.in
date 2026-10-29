@@ -82,7 +82,7 @@ export async function getUserLocation(): Promise<{
             }
         }
 
-        return { location: null, error: 'Failed to get location' }
+        return { location: null, error: 'Couldn’t get location' }
     }
 }
 
@@ -118,7 +118,7 @@ export async function getLocationFromIP(): Promise<{
             error: null,
         }
     } catch {
-        return { location: null, error: 'Failed to detect location' }
+        return { location: null, error: 'Couldn’t detect location' }
     }
 }
 
@@ -144,5 +144,5 @@ export async function detectLocation(): Promise<{
         return { ...ipResult, source: 'ip' }
     }
 
-    return { location: null, error: 'Could not detect location', source: 'none' }
+    return { location: null, error: 'Couldn’t detect location', source: 'none' }
 }

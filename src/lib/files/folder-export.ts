@@ -263,7 +263,7 @@ export function streamFolderExport(input: {
             .from(entry.bucket!)
             .createSignedUrls(signingWindow.map((candidate) => candidate.storageKey!), 10 * 60);
           if (error || !data || data.length !== signingWindow.length) {
-            throw new Error("Failed to authorize export content");
+            throw new Error("Couldn’t authorize export content");
           }
           signedUrls = new Map(data.map((signed, signedIndex) => {
             if (signed.error || !signed.signedUrl) throw new Error("A file is missing from storage");
@@ -272,7 +272,7 @@ export function streamFolderExport(input: {
         }
         const signedUrl = signedUrls.get(entry.id);
         signedUrls.delete(entry.id);
-        if (!signedUrl) throw new Error("Failed to authorize an export file");
+        if (!signedUrl) throw new Error("Couldn’t authorize an export file");
 
         const fetchController = new AbortController();
         const forwardAbort = () => fetchController.abort(abortController.signal.reason);

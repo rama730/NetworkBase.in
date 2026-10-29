@@ -104,7 +104,7 @@ function applyErrorCopy(code: ApplicationActionErrorCode | undefined, fallback?:
         case "ROLE_FULL": return "That role was just filled. Choose another role.";
         case "ROLE_NOT_FOUND": return "That role was removed. Choose another role.";
         case "ALREADY_PENDING": return "You already have a pending application for this project. Nothing was changed.";
-        default: return fallback || "Could not submit the application.";
+        default: return fallback || "Couldn’t submit the application.";
     }
 }
 
@@ -321,7 +321,7 @@ export default function InviteCollaboratorModal({
             if (cancelled) return;
             if (!result.success) {
                 logger.metric("recruitment.composer.options", { module: "recruitment-composer", projectId: selectedProjectId, kind: mode, outcome: "failure", durationMs: Math.round(performance.now() - startedAt) });
-                showError(result.error || "Failed to load project options", projectPickerRef);
+                showError(result.error || "Couldn’t load project options", projectPickerRef);
                 setProjectRoles([]);
                 return;
             }
@@ -341,7 +341,7 @@ export default function InviteCollaboratorModal({
         }).catch(() => {
             if (!cancelled) {
                 logger.metric("recruitment.composer.options", { module: "recruitment-composer", projectId: selectedProjectId, kind: mode, outcome: "failure", durationMs: Math.round(performance.now() - startedAt) });
-                showError("Failed to load project options", projectPickerRef);
+                showError("Couldn’t load project options", projectPickerRef);
             }
         }).finally(() => {
             if (!cancelled) setLoadingOptions(false);
@@ -371,7 +371,7 @@ export default function InviteCollaboratorModal({
                 if (request !== searchSequence.current) return;
                 if (!result.success) {
                     logger.metric("recruitment.composer.search", { module: "recruitment-composer", projectId: selectedProjectId, queryLengthBucket: queryBucket(query), durationMs: Math.round(performance.now() - startedAt), outcome: "failure" });
-                    showError(result.error || "Unable to search people", searchInputRef);
+                    showError(result.error || "Couldn’t search people", searchInputRef);
                     return;
                 }
                 const items = result.items.map((person) => ({ ...person, state: person.state as Candidate["state"] }));
@@ -388,7 +388,7 @@ export default function InviteCollaboratorModal({
             }).catch(() => {
                 if (request === searchSequence.current) {
                     logger.metric("recruitment.composer.search", { module: "recruitment-composer", projectId: selectedProjectId, queryLengthBucket: queryBucket(query), durationMs: Math.round(performance.now() - startedAt), outcome: "failure" });
-                    showError("Unable to search people", searchInputRef);
+                    showError("Couldn’t search people", searchInputRef);
                 }
             }).finally(() => {
                 if (request === searchSequence.current) setSearching(false);
@@ -574,7 +574,7 @@ export default function InviteCollaboratorModal({
                 if (!result.success) {
                     logger.metric("recruitment.composer.submit", { module: "recruitment-composer", projectId: selectedProject.id, kind: mode, outcome: "failure", errorCode: "INVITATION_FAILED", durationMs: Math.round(performance.now() - startedAt) });
                     if (/role is no longer available|guidance appointment/i.test(result.error || "")) refreshProjectOptions(selectedProject.id);
-                    return showError(result.error || "Failed to send invitation");
+                    return showError(result.error || "Couldn’t send invitation");
                 }
                 toast.success(result.capacityWarning ? "Invitation sent" : "Invitation sent");
             }
@@ -582,7 +582,7 @@ export default function InviteCollaboratorModal({
             onSuccess?.(applied);
             closeComposer("completed");
         } catch (error) {
-            const message = error instanceof Error ? error.message : "Failed to complete this action";
+            const message = error instanceof Error ? error.message : "Couldn’t complete this action";
             logger.metric("recruitment.composer.submit", { module: "recruitment-composer", projectId: selectedProject.id, kind: mode, outcome: "failure", durationMs: Math.round(performance.now() - startedAt) });
             showError(message);
         } finally {

@@ -46,7 +46,7 @@ export async function readNotificationsAction(limit = 20, cursor?: string | null
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-            return { success: false as const, error: "Unauthorized", page: null };
+            return { success: false as const, error: "Sign in to continue", page: null };
         }
 
         const page = await readNotificationsPage(user.id, limit, cursor ?? null, db);
@@ -58,7 +58,7 @@ export async function readNotificationsAction(limit = 20, cursor?: string | null
         });
         return {
             success: false as const,
-            error: (error instanceof Error && error.message) || "Failed to load notifications",
+            error: (error instanceof Error && error.message) || "Couldn’t load notifications",
             ...(error instanceof InvalidNotificationCursorError ? { code: "INVALID_CURSOR" as const } : {}),
             page: null,
         };
@@ -70,7 +70,7 @@ export async function readNotificationUnreadCountAction() {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-            return { success: false as const, error: "Unauthorized", unreadCount: 0, unreadImportantCount: 0 };
+            return { success: false as const, error: "Sign in to continue", unreadCount: 0, unreadImportantCount: 0 };
         }
 
         const redis = getRedisClient();
@@ -113,7 +113,7 @@ export async function readNotificationUnreadCountAction() {
         });
         return {
             success: false as const,
-            error: (error instanceof Error && error.message) || "Failed to load notification count",
+            error: (error instanceof Error && error.message) || "Couldn’t load notification count",
             unreadCount: 0,
             unreadImportantCount: 0,
         };
@@ -125,7 +125,7 @@ export async function markNotificationReadAction(notificationId: string) {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-            return { success: false as const, error: "Unauthorized", item: null };
+            return { success: false as const, error: "Sign in to continue", item: null };
         }
 
         const row = await markNotificationRead(user.id, notificationId, db);
@@ -149,7 +149,7 @@ export async function markNotificationsSeenAction(notificationIds: string[]) {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-            return { success: false as const, error: "Unauthorized", items: [] as ReturnType<typeof toNotificationItem>[] };
+            return { success: false as const, error: "Sign in to continue", items: [] as ReturnType<typeof toNotificationItem>[] };
         }
 
         const rows = await markNotificationsSeen(user.id, notificationIds, db);
@@ -168,7 +168,7 @@ export async function markNotificationsSeenAction(notificationIds: string[]) {
         });
         return {
             success: false as const,
-            error: (error instanceof Error && error.message) || "Failed to mark notifications seen",
+            error: (error instanceof Error && error.message) || "Couldn’t mark notifications seen",
             items: [] as ReturnType<typeof toNotificationItem>[],
         };
     }
@@ -179,7 +179,7 @@ export async function markNotificationUnreadAction(notificationId: string) {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-            return { success: false as const, error: "Unauthorized", item: null };
+            return { success: false as const, error: "Sign in to continue", item: null };
         }
 
         const row = await markNotificationUnread(user.id, notificationId, db);
@@ -202,7 +202,7 @@ export async function dismissNotificationAction(notificationId: string) {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-            return { success: false as const, error: "Unauthorized", item: null };
+            return { success: false as const, error: "Sign in to continue", item: null };
         }
 
         const row = await dismissNotification(user.id, notificationId, db);
@@ -225,7 +225,7 @@ export async function dismissAllNotificationsAction() {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-            return { success: false as const, error: "Unauthorized" };
+            return { success: false as const, error: "Sign in to continue" };
         }
 
         await withDbRetry("notifications.dismiss_all", () => dismissAllNotifications(user.id, db));
@@ -245,7 +245,7 @@ export async function readNotificationPreferencesAction() {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-            return { success: false as const, error: "Unauthorized", preferences: DEFAULT_NOTIFICATION_PREFERENCES };
+            return { success: false as const, error: "Sign in to continue", preferences: DEFAULT_NOTIFICATION_PREFERENCES };
         }
 
         const [row] = await withDbRetry("notifications.preferences.read", async () => {
@@ -281,7 +281,7 @@ export async function readNotificationPreferencesAction() {
         });
         return {
             success: false as const,
-            error: (error instanceof Error && error.message) || "Failed to read notification preferences",
+            error: (error instanceof Error && error.message) || "Couldn’t read notification preferences",
             preferences: DEFAULT_NOTIFICATION_PREFERENCES,
         };
     }
@@ -299,7 +299,7 @@ export async function updateNotificationPreferencesAction(preferences: Notificat
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-            return { success: false as const, error: "Unauthorized", preferences: null };
+            return { success: false as const, error: "Sign in to continue", preferences: null };
         }
         const limit = await consumeRateLimit(`notification-preferences:${user.id}`, 60, 60);
         if (!limit.allowed) {
@@ -333,7 +333,7 @@ export async function updateNotificationPreferencesAction(preferences: Notificat
             module: "notifications",
             error: error instanceof Error ? error.message : String(error),
         });
-        return { success: false as const, error: "Failed to update notification preferences", preferences: null };
+        return { success: false as const, error: "Couldn’t update notification preferences", preferences: null };
     }
 }
 
@@ -342,7 +342,7 @@ export async function muteNotificationScopeAction(scope: NotificationMuteScope) 
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-            return { success: false as const, error: "Unauthorized", preferences: null };
+            return { success: false as const, error: "Sign in to continue", preferences: null };
         }
 
         const preferences = await muteNotificationScope(user.id, scope, db);
@@ -352,7 +352,7 @@ export async function muteNotificationScopeAction(scope: NotificationMuteScope) 
             module: "notifications",
             error: error instanceof Error ? error.message : String(error),
         });
-        return { success: false as const, error: (error instanceof Error && error.message) || "Failed to mute notification type", preferences: null };
+        return { success: false as const, error: (error instanceof Error && error.message) || "Couldn’t mute notification type", preferences: null };
     }
 }
 
@@ -361,7 +361,7 @@ export async function snoozeNotificationAction(notificationId: string, snoozedUn
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-            return { success: false as const, error: "Unauthorized", item: null };
+            return { success: false as const, error: "Sign in to continue", item: null };
         }
 
         const until = new Date(snoozedUntil);

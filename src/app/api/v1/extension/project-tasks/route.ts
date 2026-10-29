@@ -50,7 +50,7 @@ export async function GET(request: Request) {
     const authResult = await requireAuthenticatedUser();
     if (authResult.response) return authResult.response;
     const user = authResult.user;
-    if (!user) return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+    if (!user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
 
     const searchParams = new URL(request.url).searchParams;
     const parsed = querySchema.safeParse({
@@ -71,7 +71,7 @@ export async function GET(request: Request) {
     if (!access.project)
       return jsonError("Project not found", 404, "NOT_FOUND");
     // Task data follows the project's Tasks visibility (AUTH-002).
-    if (!canReadProjectTab(access, "tasks")) return jsonError("Forbidden", 403, "FORBIDDEN");
+    if (!canReadProjectTab(access, "tasks")) return jsonError("You don’t have access to this", 403, "FORBIDDEN");
 
     const cursorDate = cursor ? new Date(cursor.updatedAt) : null;
     const [taskRows, summary] = await Promise.all([
@@ -147,6 +147,6 @@ export async function GET(request: Request) {
         error: error instanceof Error ? error.message : String(error),
       },
     );
-    return jsonError("Failed to get project tasks", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t get project tasks", 500, "INTERNAL_ERROR");
   }
 }

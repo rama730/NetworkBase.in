@@ -322,7 +322,7 @@ export function ProfileV2Client({
             toast.success(checked ? 'Open to collaboration' : 'Collaboration turned off')
         } catch (error) {
             applyOptimisticProfileUpdate({ openToCollaborate: previous })
-            toast.error(feedbackError(error instanceof Error ? error.message : 'Could not update availability', "Could not update availability"))
+            toast.error(feedbackError(error instanceof Error ? error.message : 'Couldn’t update availability', "Couldn’t update availability"))
             router.refresh()
         } finally {
             availabilityInFlight.current = false
@@ -473,7 +473,7 @@ export function ProfileV2Client({
             case 'overview':
                 return (
                     <div id="profile-panel-overview" role="tabpanel" aria-labelledby="profile-tab-overview">
-                        <ComponentErrorBoundary fallbackMessage="Failed to load about section.">
+                        <ComponentErrorBoundary fallbackMessage="Couldn’t load about section.">
                             <AboutCard
                                 profile={safeProfile}
                                 isOwner={isOwner}
@@ -519,7 +519,7 @@ export function ProfileV2Client({
     const renderMainBottom = () => {
         if (lockedShell || (activeTab !== 'overview' && activeTab !== 'portfolio')) return null
         return (
-            <ComponentErrorBoundary fallbackMessage="Failed to load project contributions.">
+            <ComponentErrorBoundary fallbackMessage="Couldn’t load project contributions.">
                 <ProjectContributionsCard
                     contributions={collaborationContributions}
                     profileId={profile.id}
@@ -675,7 +675,7 @@ export function ProfileV2Client({
                 highlights={lockedShell ? null : (
                     <>
                     <OrgChipsRow contributions={collaborationContributions} />
-                    <ComponentErrorBoundary fallbackMessage="Failed to load role preferences.">
+                    <ComponentErrorBoundary fallbackMessage="Couldn’t load role preferences.">
                         <OpenToRolesCard
                             openTo={safeProfile.openTo}
                             openToCollaborate={safeProfile.openToCollaborate}

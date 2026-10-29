@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     const auth = await requireAuthenticatedUser();
     if (auth.response || !auth.user) {
-      return auth.response ?? jsonError('Unauthorized', 401, 'UNAUTHORIZED');
+      return auth.response ?? jsonError('Sign in to continue', 401, 'UNAUTHORIZED');
     }
     const user = auth.user;
 
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
 
     const parsed = batchFileIntentSchema.safeParse(body);
     if (!parsed.success) {
-      return jsonError('Invalid request body', 400, 'BAD_REQUEST');
+      return jsonError('This request isn’t valid', 400, 'BAD_REQUEST');
     }
 
     const { jobId } = parsed.data;
@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
             .createSignedUploadUrl(item.storageKey, { upsert: false });
 
           if (error || !session?.signedUrl) {
-            throw new Error(`Failed to generate signed URL for ${item.file.path}: ${error?.message || 'unknown'}`);
+            throw new Error(`Couldn’t generate signed URL for ${item.file.path}: ${error?.message || 'unknown'}`);
           }
           return {
             ...item,

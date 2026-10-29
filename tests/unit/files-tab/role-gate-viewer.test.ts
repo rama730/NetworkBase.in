@@ -9,17 +9,17 @@
 //        authenticated callers without write access (Req 19.6).
 //        Implemented as a source-level audit of `src/app/actions/files/*`:
 //        every mutation server action SHALL contain the canonical pair
-//        `if (!user) throw new Error("Unauthorized")` +
+//        `if (!user) throw new Error("Sign in to continue")` +
 //        a project write/upload access assertion so unauthorized callers are
 //        refused before any DB mutation runs. The shared helper
 //        `assertProjectWriteAccess` (in `_shared.ts`) is itself asserted
-//        to throw `"Forbidden"` on no-access paths, matching the
+//        to throw `"You don’t have access to this"` on no-access paths, matching the
 //        `requireProjectCapability("upload_files")` rule which rejects
 //        the viewer role via `projectMemberCan`.
 //   (iii) Unauthenticated arrival via deep link redirects to sign-in
 //        without disclosing target name / path / content / metadata:
 //        `findNodeByPathAny` refuses anonymous callers at the source
-//        level (`if (!user) throw new Error("Unauthorized")`), and the
+//        level (`if (!user) throw new Error("Sign in to continue")`), and the
 //        shared `resolveDeepLinkFromSearch` coordinator classifies the
 //        thrown auth error as `not_found` — the segments echoed back to
 //        the caller come only from the URL the user arrived with, never
@@ -243,7 +243,7 @@ describe("Server-side mutation authorization (Req 19.6)", () => {
   // pattern across this codebase is:
   //
   //    const { data: { user } } = await supabase.auth.getUser();
-  //    if (!user) throw new Error("Unauthorized");
+  //    if (!user) throw new Error("Sign in to continue");
   //    await assertProjectWriteAccess(projectId, user.id);
   //    // Upload-specific mutations use assertProjectUploadAccess instead.
   //
@@ -281,7 +281,7 @@ describe("Server-side mutation authorization (Req 19.6)", () => {
     const delegated = extractFunctionBody(MUTATIONS_SRC, "deleteNode");
     assert.match(delegated, /permanentlyDeleteTrashedNode\(projectId, nodeId, expectedFingerprint\)/);
     const source = readFileSync(path.resolve(process.cwd(), "src/app/actions/files/trash.ts"), "utf8");
-    assert.match(source, /if \(!user\) throw new Error\("Unauthorized"\)/);
+    assert.match(source, /if \(!user\) throw new Error\("Sign in to continue"\)/);
     for (const action of ["getPermanentDeleteImpact", "permanentlyDeleteTrashedNode"]) {
       const body = extractFunctionBody(source, action);
       assert.match(body, /await actor\(projectId, nodeId\)/);
@@ -304,8 +304,8 @@ describe("Server-side mutation authorization (Req 19.6)", () => {
       // Step 1: the unauthenticated-caller guard must be present.
       assert.match(
         body,
-        /if\s*\(!user\)\s*throw\s+new\s+Error\(\s*["']Unauthorized["']\s*\)|await\s+requireUser\(\)|await\s+requireLinkWriter\(/,
-        `${fn} must reject anonymous callers with an "Unauthorized" error (Req 19.6)`,
+        /if\s*\(!user\)\s*throw\s+new\s+Error\(\s*["']Sign in to continue["']\s*\)|await\s+requireUser\(\)|await\s+requireLinkWriter\(/,
+        `${fn} must reject anonymous callers with an "Sign in to continue" error (Req 19.6)`,
       );
 
       // Step 2: write/upload-access assertion. File upload/version
@@ -358,7 +358,7 @@ describe("Server-side mutation authorization (Req 19.6)", () => {
     }
   });
 
-  it("assertProjectWriteAccess helper throws 'Forbidden' for callers without write capability", () => {
+  it("assertProjectWriteAccess helper throws 'You don’t have access to this' for callers without write capability", () => {
     // The shared helper is the single choke-point where the viewer
     // role is refused. This source-level assertion pins the contract
     // so a refactor cannot silently drop the capability gate.
@@ -370,7 +370,7 @@ describe("Server-side mutation authorization (Req 19.6)", () => {
     // fails closed for the `viewer` role.
     assert.match(
       helperBody,
-      /if\s*\(!access\.canWrite\)\s*throw\s+new\s+(?:Forbidden)?Error\(\s*["']Forbidden["']\s*\)/,
+      /if\s*\(!access\.canWrite\)\s*throw\s+new\s+(?:Forbidden)?Error\(\s*["']You don’t have access to this["']\s*\)/,
       "must fail closed with Forbidden when the caller lacks write access",
     );
     assert.match(
@@ -401,7 +401,7 @@ describe("Server-side mutation authorization (Req 19.6)", () => {
     );
     assert.match(
       helperBody,
-      /throw\s+new\s+(?:Forbidden)?Error\(\s*["']Forbidden["']\s*\)/,
+      /throw\s+new\s+(?:Forbidden)?Error\(\s*["']You don’t have access to this["']\s*\)/,
       "must throw Forbidden when capability check fails (Req 19.6)",
     );
   });
@@ -414,7 +414,7 @@ describe("Server-side mutation authorization (Req 19.6)", () => {
     assert.ok(body);
     assert.match(
       body,
-      /if\s*\(!user\)\s*throw\s+new\s+Error\(\s*["']Unauthorized["']\s*\)/,
+      /if\s*\(!user\)\s*throw\s+new\s+Error\(\s*["']Sign in to continue["']\s*\)/,
     );
     // Folder trees create upload rows, so they need upload access, not just membership.
     assert.match(body, /await\s+assertProjectUploadAccess\(/);
@@ -448,7 +448,7 @@ describe("Unauthenticated deep-link arrival (Req 19.7, Req 19.5)", () => {
         projectId: "proj-1",
         findNodeByPathAny: async () => {
           // Simulates the production path: anonymous caller → throw.
-          throw new Error("Unauthorized");
+          throw new Error("Sign in to continue");
         },
       }),
     );

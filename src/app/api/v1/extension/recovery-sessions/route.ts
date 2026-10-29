@@ -161,6 +161,6 @@ export async function POST(request: Request) {
       userId: user.id,
       error: error instanceof Error ? error.message : String(error),
     });
-    return jsonError("Could not update recovery session", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t update recovery session", 500, "INTERNAL_ERROR");
   }
 }

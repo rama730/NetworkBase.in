@@ -20,7 +20,7 @@ export async function getProfileToRoleAlignmentAction(
   roleId: string
 ): Promise<AttributeAlignment> {
   const viewer = await getAuthUser();
-  if (!viewer) throw new Error('Unauthorized');
+  if (!viewer) throw new Error('Sign in to continue');
 
   const role = await db.query.projectOpenRoles.findFirst({
     where: eq(projectOpenRoles.id, roleId),

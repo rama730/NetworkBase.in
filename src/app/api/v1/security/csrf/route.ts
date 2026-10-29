@@ -45,6 +45,6 @@ export async function GET(): Promise<NextResponse> {
     });
     return response;
   } catch {
-    return jsonError("Unable to issue CSRF token", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t issue CSRF token", 500, "INTERNAL_ERROR");
   }
 }

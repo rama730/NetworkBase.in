@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   );
 
   if (!result.success) {
-    const message = result.error || "Failed to preview repository folder.";
+    const message = result.error || "Couldn’t preview repository folder.";
     return jsonError(
       message,
       /unauthorized/i.test(message) ? 401 : 400,

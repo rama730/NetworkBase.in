@@ -295,7 +295,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
             }
         } catch (e: any) {
             if (latestGithubPreviewRequestRef.current !== requestKey) return;
-            const message = typeof e?.message === 'string' ? e.message : 'Failed to preview repository.';
+            const message = typeof e?.message === 'string' ? e.message : 'Couldn’t preview repository.';
             setGithubPreview((prev) => ({
                 ...prev,
                 status: 'error',
@@ -975,7 +975,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                             : '';
                         toast.loading('Registering uploaded files…', { id: creationToastId });
                     } else {
-                        throw new Error('Failed to register uploaded files.');
+                        throw new Error('Couldn’t register uploaded files.');
                     }
                 }
 

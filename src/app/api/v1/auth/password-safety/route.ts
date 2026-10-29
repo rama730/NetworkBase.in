@@ -25,10 +25,10 @@ export async function POST(request: Request) {
 
   const auth = await requireAuthenticatedUser();
   if (auth.response) return auth.response;
-  if (!auth.user) return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+  if (!auth.user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
 
   const parsed = schema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return jsonError("Invalid request body", 400, "BAD_REQUEST");
+  if (!parsed.success) return jsonError("This request isn’t valid", 400, "BAD_REQUEST");
 
   const policy = getPasswordPolicyResult(parsed.data.password);
   if (!policy.ok) return jsonError(policy.error || "Password does not meet security requirements", 400, "BAD_REQUEST");

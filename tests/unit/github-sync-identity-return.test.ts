@@ -26,7 +26,7 @@ test("a current empty identity list overrides stale metadata and earlier identit
   assert.equal(buildGithubAccountConnectionState(user).linked, false);
 });
 test("identity lookup failure remains an error instead of pretending the account is unlinked", async () => {
-  await assert.rejects(loadGithubLinkedUser(snapshot, async () => { throw new Error("DB detail"); }), /Could not check your linked GitHub account/);
+  await assert.rejects(loadGithubLinkedUser(snapshot, async () => { throw new Error("DB detail"); }), /Couldn’t check your linked GitHub account/);
 });
 test("the screenshot's identity conflict fragment takes precedence over a misleading cancellation", () => {
   const url = new URL("https://app.test/projects/test?tab=files&filesView=github&githubAuth=cancelled#error=server_error&error_code=identity_already_exists&error_description=Identity+is+already+linked");

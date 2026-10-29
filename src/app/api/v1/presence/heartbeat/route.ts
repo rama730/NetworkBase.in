@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
         if (rlResponse) return rlResponse;
 
         const auth = await getViewerAuthContext();
-        if (!auth.userId || !auth.user) return jsonError('Not authenticated', 401, 'UNAUTHORIZED');
+        if (!auth.userId || !auth.user) return jsonError('Sign in to continue', 401, 'UNAUTHORIZED');
 
         const userId = auth.userId;
         // Hidden activity: record nothing (no live key, no last-active).
@@ -83,7 +83,7 @@ export async function DELETE(request: NextRequest) {
         const csrfError = validateCsrf(request);
         if (csrfError) return csrfError;
         const auth = await getViewerAuthContext();
-        if (!auth.userId) return jsonError('Not authenticated', 401, 'UNAUTHORIZED');
+        if (!auth.userId) return jsonError('Sign in to continue', 401, 'UNAUTHORIZED');
         await getRedisClient()?.del(`presence:live:${auth.userId}`).catch(() => undefined);
         return jsonSuccess({ live: false });
     } catch (error) {

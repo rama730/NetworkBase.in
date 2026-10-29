@@ -48,7 +48,7 @@ export async function loadProfileContributionsPage(
     data?: Partial<ProfileContributionPage>;
   } | null;
   if (!response.ok || body?.success !== true) {
-    throw new Error(body?.message || "Could not load project contributions");
+    throw new Error(body?.message || "Couldn’t load project contributions");
   }
   const contributions = body.data?.contributions ?? [];
   const total = Number(body.data?.total ?? contributions.length);

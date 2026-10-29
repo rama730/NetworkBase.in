@@ -58,7 +58,7 @@ export async function GET(request: Request) {
       status: 401,
       errorCode: "UNAUTHORIZED",
     });
-    return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+    return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
   }
 
   // "Load older" on the activity list asks for just the next page, not the whole tab again.
@@ -71,7 +71,7 @@ export async function GET(request: Request) {
       return jsonSuccess({ securityActivity: rows.slice(0, ACTIVITY_PAGE), securityActivityHasMore: rows.length > ACTIVITY_PAGE });
     } catch (error) {
       logger.error("[api/v1/security] activity page failed", { module: "api", error: error instanceof Error ? error.message : String(error) });
-      return jsonError("Failed to load security activity", 500, "INTERNAL_ERROR");
+      return jsonError("Couldn’t load security activity", 500, "INTERNAL_ERROR");
     }
   }
 
@@ -163,7 +163,7 @@ export async function GET(request: Request) {
       status: 500,
       errorCode: "INTERNAL_ERROR",
     });
-    return jsonError("Failed to load security data", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t load security data", 500, "INTERNAL_ERROR");
   }
 }
 
@@ -175,7 +175,7 @@ export async function DELETE(request: Request) {
 
   const auth = await requireAuthenticatedUser();
   if (auth.response) return auth.response;
-  if (!auth.user) return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+  if (!auth.user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
   // The activity log is the evidence of a break-in: a stolen editor token must not be able to erase it.
   if (auth.extensionSessionId) return jsonError("This needs a browser session", 403, "FORBIDDEN");
   const deleteLimit = await enforceRouteLimit(request, "api:v1:security:delete", 30, 60, "default", auth.user.id);
@@ -223,6 +223,6 @@ export async function DELETE(request: Request) {
       module: "api",
       error: error instanceof Error ? error.message : String(error),
     });
-    return jsonError("Failed to delete security activity", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t delete security activity", 500, "INTERNAL_ERROR");
   }
 }

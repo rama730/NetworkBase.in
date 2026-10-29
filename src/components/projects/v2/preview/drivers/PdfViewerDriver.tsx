@@ -171,7 +171,7 @@ export function PdfViewerDriver({
       } catch (err: any) {
         if (cancelled) return;
         setIsCanvasLoading(false);
-        setCanvasError(err?.message || "Failed to parse PDF document");
+        setCanvasError(err?.message || "Couldn’t parse PDF document");
       }
     }
 
@@ -505,7 +505,7 @@ export function PdfViewerDriver({
               <div className="flex flex-col items-center justify-center gap-3 p-8 text-center">
                 <AlertTriangle className="h-8 w-8 text-amber-500" />
                 <p className="text-sm font-medium text-foreground">
-                  Could not parse PDF in browser canvas
+                  Couldn’t parse PDF in browser canvas
                 </p>
                 <p className="max-w-md text-xs text-muted-foreground">
                   {canvasError}. You can open the file in a new browser tab or download it directly.

@@ -104,7 +104,7 @@ export default function SubtasksTab({
           inputRef.current?.focus();
         });
       } else {
-        setLocalError(result.error || "Could not add subtask.");
+        setLocalError(result.error || "Couldn’t add subtask.");
       }
     } finally {
       setIsSubmitting(false);
@@ -122,7 +122,7 @@ export default function SubtasksTab({
           `Subtask marked ${subtask.completed ? "incomplete" : "complete"}.`,
         );
       } else {
-        setLocalError(result.error || "Could not update subtask.");
+        setLocalError(result.error || "Couldn’t update subtask.");
       }
     } finally {
       setPending(subtask.id, false);
@@ -147,7 +147,7 @@ export default function SubtasksTab({
         setEditingId(null);
         setAnnouncement("Subtask title updated.");
       } else {
-        setLocalError(result.error || "Could not rename subtask.");
+        setLocalError(result.error || "Couldn’t rename subtask.");
       }
     } finally {
       setPending(subtask.id, false);
@@ -161,13 +161,13 @@ export default function SubtasksTab({
     try {
       const result = await onDeleteSubtask(subtask.id);
       if (!result.success) {
-        setLocalError(result.error || "Could not delete subtask.");
+        setLocalError(result.error || "Couldn’t delete subtask.");
       } else {
         setAnnouncement("Subtask deleted.");
       }
     } catch (error) {
       setLocalError(
-        error instanceof Error ? error.message : "Could not delete subtask.",
+        error instanceof Error ? error.message : "Couldn’t delete subtask.",
       );
     } finally {
       setPending(subtask.id, false);

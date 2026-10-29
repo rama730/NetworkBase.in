@@ -184,7 +184,7 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
         queryFn: async () => {
             const result = await readShellPart("notificationUnreadCount");
             if (!result.success) {
-                throw new Error(result.error || "Failed to load notification count");
+                throw new Error(result.error || "Couldn’t load notification count");
             }
             return { total: result.unreadCount, important: result.unreadImportantCount };
         },
@@ -200,7 +200,7 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
         queryFn: async ({ pageParam }) => {
             const result = await readNotificationsAction(limit, pageParam);
             if (!result.success || !result.page) {
-                throw new Error(result.error || "Failed to fetch notifications");
+                throw new Error(result.error || "Couldn’t fetch notifications");
             }
             queryClient.setQueryData<UnreadCounts>(unreadCountQueryKey, {
                 total: result.page.unreadCount,
@@ -458,7 +458,7 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
         mutationFn: async (notificationIds: string[]) => {
             const result = await markNotificationsSeenAction(notificationIds);
             if (!result.success) {
-                throw new Error(result.error || "Failed to mark notifications seen");
+                throw new Error(result.error || "Couldn’t mark notifications seen");
             }
             return result;
         },

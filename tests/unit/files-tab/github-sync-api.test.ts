@@ -205,7 +205,7 @@ test("syncGithub retries once on secondary rate limit 429 and succeeds", async (
     globalThis.fetch = async () => {
       attempts++;
       if (attempts === 1) {
-        return new Response(JSON.stringify({ message: "Rate limit exceeded" }), {
+        return new Response(JSON.stringify({ message: "Too many attempts. Try again in a minute." }), {
           status: 429,
           headers: { "retry-after": "0" },
         });

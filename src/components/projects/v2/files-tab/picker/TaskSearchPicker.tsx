@@ -267,7 +267,7 @@ export function TaskSearchPicker({
         >
           {error ? (
             <div role="alert" className="px-4 py-6 text-sm text-muted-foreground">
-              Could not load tasks. <button type="button" onClick={() => setRetry(value => value + 1)} className="underline outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0">Try again</button>
+              Couldn’t load tasks. <button type="button" onClick={() => setRetry(value => value + 1)} className="underline outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0">Try again</button>
             </div>
           ) : isLoading || query !== debouncedQuery || isSaving ? (
             <div role="status" className="flex items-center gap-2 px-4 py-6 text-sm text-muted-foreground">

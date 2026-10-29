@@ -20,7 +20,7 @@ export async function GET(request: Request) {
                 status: 401,
                 errorCode: 'UNAUTHORIZED',
             });
-            return auth.response ?? jsonError('Not authenticated', 401, 'UNAUTHORIZED');
+            return auth.response ?? jsonError('Sign in to continue', 401, 'UNAUTHORIZED');
         }
         const user = auth.user;
 
@@ -76,6 +76,6 @@ export async function GET(request: Request) {
             status: 500,
             errorCode: 'INTERNAL_ERROR',
         });
-        return jsonError('Failed to export account data', 500, 'INTERNAL_ERROR');
+        return jsonError('Couldn’t export account data', 500, 'INTERNAL_ERROR');
     }
 }

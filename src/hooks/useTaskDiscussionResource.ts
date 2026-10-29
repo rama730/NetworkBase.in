@@ -110,7 +110,7 @@ export function useTaskDiscussionResource(params: {
             queryFn: () => readTaskDiscussionAction(projectId, taskId, null),
           });
       if (!result.success) {
-        throw new Error(result.error || "Failed to load discussion");
+        throw new Error(result.error || "Couldn’t load discussion");
       }
 
       let nextPage = createEmptyTaskDiscussionPage();
@@ -123,7 +123,7 @@ export function useTaskDiscussionResource(params: {
       setIsLoaded(true);
       return nextPage;
     } catch (loadError) {
-      const message = loadError instanceof Error ? loadError.message : "Failed to load discussion";
+      const message = loadError instanceof Error ? loadError.message : "Couldn’t load discussion";
       setError(message);
       return createEmptyTaskDiscussionPage();
     } finally {
@@ -281,7 +281,7 @@ export function useTaskDiscussionResource(params: {
 
   const addComment = useCallback(async (content: string, parentCommentId?: string | null): Promise<CreateCommentResult> => {
     if (!canEdit) {
-      return { success: false, error: "Forbidden" };
+      return { success: false, error: "You don’t have access to this" };
     }
     const trimmed = content.trim();
     if (!trimmed) {
@@ -290,7 +290,7 @@ export function useTaskDiscussionResource(params: {
       return { success: false, error: message };
     }
     if (!currentUserId) {
-      return { success: false, error: "Unauthorized" };
+      return { success: false, error: "Sign in to continue" };
     }
 
     setError(null);
@@ -337,10 +337,10 @@ export function useTaskDiscussionResource(params: {
 
   const toggleLike = useCallback(async (commentId: string) => {
     if (!canEdit) {
-      return { success: false as const, error: "Forbidden" };
+      return { success: false as const, error: "You don’t have access to this" };
     }
     if (!currentUserId) {
-      return { success: false as const, error: "Unauthorized" };
+      return { success: false as const, error: "Sign in to continue" };
     }
 
     const target = page.comments.find((comment) => comment.id === commentId)
@@ -372,7 +372,7 @@ export function useTaskDiscussionResource(params: {
           currentUserId,
         }),
       );
-      const message = result.error || "Failed to update like";
+      const message = result.error || "Couldn’t update like";
       setError(message);
       return { success: false as const, error: message };
     }
@@ -383,7 +383,7 @@ export function useTaskDiscussionResource(params: {
 
   const deleteComment = useCallback(async (commentId: string) => {
     if (!canEdit) {
-      return { success: false as const, error: "Forbidden" };
+      return { success: false as const, error: "You don’t have access to this" };
     }
     const target = page.comments.find((comment) => comment.id === commentId)
       ?? page.comments.flatMap((comment) => comment.replies).find((reply) => reply.id === commentId)

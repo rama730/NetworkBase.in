@@ -96,7 +96,7 @@ export function SheetViewerDriver({
     async function loadSpreadsheet() {
       try {
         const res = await fetch(signedUrl);
-        if (!res.ok) throw new Error("Failed to fetch spreadsheet file");
+        if (!res.ok) throw new Error("Couldn’t fetch spreadsheet file");
 
         // CSV / TSV text parsing
         if (ext === "csv" || ext === "tsv") {
@@ -413,7 +413,7 @@ export function SheetViewerDriver({
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
         <AlertTriangle className="h-8 w-8 text-amber-500" />
-        <p className="text-sm font-semibold text-foreground">Unable to render spreadsheet preview</p>
+        <p className="text-sm font-semibold text-foreground">Couldn’t render spreadsheet preview</p>
         <p className="max-w-md text-xs text-muted-foreground">{error}</p>
         <Button asChild size="sm" variant="outline" className="mt-2">
           <a href={signedUrl} download={node.name}>

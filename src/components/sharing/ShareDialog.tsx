@@ -120,7 +120,7 @@ export function ShareDialog({ kind, path, onClose, ownerUsernameSetup, returnFoc
     if (!publicPreview || !canonicalUrl) return;
     try { await navigator.share({ title: publicPreview.title, text: publicPreview.description, url: canonicalUrl });
       if (alive.current) setMessage('Returned from device sharing.'); }
-    catch (error) { if (alive.current) setMessage(error instanceof Error && error.name === 'AbortError' ? 'Device sharing canceled.' : 'Could not share with that app. Copy the link instead.'); }
+    catch (error) { if (alive.current) setMessage(error instanceof Error && error.name === 'AbortError' ? 'Device sharing canceled.' : 'Couldn’t share with that app. Copy the link instead.'); }
   };
   const send = async (retryOriginal = false) => {
     if(receiptState!=='none'&&!retryOriginal)return;
@@ -172,9 +172,9 @@ export function ShareDialog({ kind, path, onClose, ownerUsernameSetup, returnFoc
       const result = await saveShareUsername({ username: normalized, expectedSenderId:account,
         expectedUpdatedAt: ownerUsernameSetup.updatedAt ? new Date(ownerUsernameSetup.updatedAt).toISOString() : undefined });
       if (!alive.current || currentUser.current !== account) return;
-      if (!result.success) return setMessage(result.error || 'Could not save the username.');
+      if (!result.success) return setMessage(result.error || 'Couldn’t save the username.');
       setNewPath(profileSharePath(normalized)); ownerUsernameSetup.onSaved(normalized); await refreshProfile(); setStep('share'); setMessage('Username saved. Your sharing link is ready.');
-    } catch { if (alive.current) setMessage('Could not save the username. Try again.'); }
+    } catch { if (alive.current) setMessage('Couldn’t save the username. Try again.'); }
     finally { pending.current = false; if (alive.current) setBusy(false); }
   };
   const title = `Share ${kind === 'application' ? 'NetworkBase' : kind}`;

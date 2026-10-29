@@ -410,7 +410,7 @@ export async function markTaskAsReadAction(taskId: string) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "Unauthorized" };
+    if (!user) return { success: false, error: "Sign in to continue" };
     if (!isLooseUuid(taskId)) return { success: false, error: "Task not found" };
     const [task] = await db
       .select({ projectId: tasks.projectId })
@@ -433,7 +433,7 @@ export async function markTaskAsReadAction(taskId: string) {
     return { success: true };
   } catch (error) {
     console.error("Failed to mark task as read:", error);
-    return { success: false, error: "Failed to mark task as read" };
+    return { success: false, error: "Couldn’t mark task as read" };
   }
 }
 
@@ -460,7 +460,7 @@ export async function fetchProjectTasksAction(
     );
   } catch (error) {
     console.error("Failed to fetch tasks:", error);
-    return { success: false as const, error: "Failed to fetch tasks" };
+    return { success: false as const, error: "Couldn’t fetch tasks" };
   }
 }
 
@@ -484,7 +484,7 @@ export async function fetchProjectLinkPreviewsAction(input: {
     const actorId = user?.id ?? null;
     const access = await getProjectAccessByIdentifier(parsed.slugOrId, actorId);
     if (!access.project) return { success: false as const, code: "NOT_FOUND" as const, error: "Project not found" };
-    if (!access.canRead) return { success: false as const, code: "FORBIDDEN" as const, error: "Forbidden" };
+    if (!access.canRead) return { success: false as const, code: "FORBIDDEN" as const, error: "You don’t have access to this" };
 
     const [project] = await db
       .select({ id: projects.id, externalLinks: projects.externalLinks, githubRepoUrl: projects.githubRepoUrl })
@@ -520,7 +520,7 @@ export async function fetchProjectLinkPreviewsAction(input: {
     return {
       success: false as const,
       code: error instanceof z.ZodError ? "VALIDATION" as const : "TRANSIENT" as const,
-      error: "Failed to fetch project link previews",
+      error: "Couldn’t fetch project link previews",
     };
   }
 }
@@ -552,7 +552,7 @@ export async function fetchProjectTaskPreviewsAction(input: {
       return {
         success: false as const,
         code: "FORBIDDEN" as const,
-        error: "Forbidden",
+        error: "You don’t have access to this",
       };
     const cacheKey = `search:preview:tasks:${actorId ?? "anon"}:${parsed.slugOrId}:${parsed.search.toLowerCase()}`;
     const cached = await getCachedData<any>(cacheKey);
@@ -614,7 +614,7 @@ export async function fetchProjectTaskPreviewsAction(input: {
     const code =
       error instanceof z.ZodError
         ? ("VALIDATION" as const)
-        : message === "Forbidden"
+        : message === "You don’t have access to this"
           ? ("FORBIDDEN" as const)
           : message === "Project not found"
             ? ("NOT_FOUND" as const)
@@ -624,7 +624,7 @@ export async function fetchProjectTaskPreviewsAction(input: {
       code,
       error:
         code === "TRANSIENT"
-          ? "Failed to fetch task previews"
+          ? "Couldn’t fetch task previews"
           : code === "VALIDATION"
             ? "Invalid task preview request"
             : message,
@@ -753,7 +753,7 @@ export async function getProjectTaskDetailAction(
     return { success: true as const, task: normalizeTaskSurfaceRecord(task) };
   } catch (error) {
     console.error("Failed to fetch task detail:", error);
-    return { success: false as const, error: "Failed to fetch task detail" };
+    return { success: false as const, error: "Couldn’t fetch task detail" };
   }
 }
 
@@ -895,7 +895,7 @@ export async function getProjectMembersAction(
     console.error("Failed to fetch project members:", error);
     return {
       success: false as const,
-      error: "Failed to fetch project members",
+      error: "Couldn’t fetch project members",
     };
   }
 }
@@ -919,7 +919,7 @@ const createTaskSchema = baseCreateTaskSchema.extend({
 export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
   try {
     const { user } = await requireAuthenticatedUser();
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Sign in to continue");
 
     const validated = createTaskSchema.parse(data);
     await requireProjectCapability(
@@ -1023,7 +1023,7 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
         })
         .returning({ id: tasks.id });
 
-      if (!newTask) throw new Error("Failed to create task");
+      if (!newTask) throw new Error("Couldn’t create task");
 
       if (validated.assigneeId && validated.assigneeId !== user.id) {
         await queueEmail(tx, {
@@ -1190,7 +1190,7 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
       },
     });
     if (!hydratedTask) {
-      throw new Error("Failed to load created task");
+      throw new Error("Couldn’t load created task");
     }
 
     // Note: We don't need to manually revalidate if we are using Realtime
@@ -1237,11 +1237,11 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
   } catch (error) {
     console.error("Failed to create task:", error);
     const message =
-      error instanceof Error ? error.message : "Failed to create task";
+      error instanceof Error ? error.message : "Couldn’t create task";
     return {
       success: false,
       error: message.includes("Failed query:")
-        ? "Failed to create task"
+        ? "Couldn’t create task"
         : message,
     };
   }
@@ -1254,7 +1254,7 @@ export async function deleteTaskAction(taskId: string, projectId: string) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Sign in to continue");
 
     // Access Check - Only project owner can delete tasks
     const project = await db.query.projects.findFirst({
@@ -1373,7 +1373,7 @@ export async function deleteTaskAction(taskId: string, projectId: string) {
     console.error("Failed to delete task:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Failed to delete task",
+      error: error instanceof Error ? error.message : "Couldn’t delete task",
     };
   }
 }

@@ -101,7 +101,7 @@ function mapOnboardingPersistenceError(error: unknown): OnboardingError {
     if (usernameError.code !== 'DB_ERROR') return usernameError
     const code = (error as { code?: string })?.code
     if (code === '22P02') return onboardingError('INVALID_INPUT', 'Invalid onboarding input')
-    return onboardingError('DB_ERROR', 'Unable to complete onboarding right now', true)
+    return onboardingError('DB_ERROR', 'Couldn’t complete onboarding right now', true)
 }
 
 async function ensureUsernameIsAvailable(params: { username: string; userId: string }) {
@@ -118,7 +118,7 @@ async function ensureUsernameIsAvailable(params: { username: string; userId: str
         console.error('Error checking username availability:', error)
         return {
             ok: false as const,
-            error: onboardingError('DB_ERROR', 'Unable to verify username availability', true),
+            error: onboardingError('DB_ERROR', 'Couldn’t verify username availability', true),
         }
     }
 }
@@ -136,7 +136,7 @@ async function ensureOnboardingProfileShell(params: {
             error: onboardingError('INVALID_INPUT', 'Account email is missing. Re-authenticate.'),
         }
     }
-    return { success: false, error: onboardingError('DB_ERROR', 'Unable to prepare your account profile', true) }
+    return { success: false, error: onboardingError('DB_ERROR', 'Couldn’t prepare your account profile', true) }
 }
 
 function profileValues(params: { userEmail: string; payload: OnboardingPayload; avatarUrl: string | null }) {
@@ -510,7 +510,7 @@ export async function commitOnboardingStep(input: {
     } catch (error) {
         console.error('Error committing onboarding step:', error)
         return failed(
-            onboardingError('DB_ERROR', 'Unable to save this step right now. Your entries are still available in this browser.', true),
+            onboardingError('DB_ERROR', 'Couldn’t save this step right now. Your entries are still available in this browser.', true),
         )
     }
 }

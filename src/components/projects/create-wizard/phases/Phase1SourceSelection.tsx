@@ -362,7 +362,7 @@ export default function Phase1SourceSelection({
         } catch (error: any) {
             setIsConnectingGithub(false);
             clearGithubOAuthResume(resumeId);
-            toast.error(feedbackError(`Failed to connect GitHub: ${error?.message || 'Unknown error'}`, "Unknown error"));
+            toast.error(feedbackError(`Couldn’t connect GitHub: ${error?.message || 'Unknown error'}`, "Unknown error"));
         }
     };
 
@@ -458,7 +458,7 @@ export default function Phase1SourceSelection({
             setRepoRefreshRequired(false);
             setHasGithubRepoAccess(true);
         } catch (error: any) {
-            const message = error?.message || 'Failed to load repositories';
+            const message = error?.message || 'Couldn’t load repositories';
             setRepoLoadError(message);
             const needsRefresh = hasGithubIdentity && isGithubAccessRefreshError(message);
             setRepoRefreshRequired(needsRefresh);

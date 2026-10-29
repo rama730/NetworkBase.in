@@ -110,7 +110,7 @@ export function useExplorerBoot(options: {
               nextCursor ?? cursor,
             );
             if (!payload.success) {
-              throw new Error(payload.message || "Failed to load files");
+              throw new Error(payload.message || "Couldn’t load files");
             }
             newNodes.push(...payload.data.nodes);
             nextCursor = payload.data.nextCursor;
@@ -150,7 +150,7 @@ export function useExplorerBoot(options: {
         } catch (e: unknown) {
           console.error("Load folder failed", e);
           if (mode === "refresh") {
-            setAccessError(getErrorMessage(e, "Failed to load files"));
+            setAccessError(getErrorMessage(e, "Couldn’t load files"));
           } else {
             showToast("Couldn’t load more files", "error");
           }

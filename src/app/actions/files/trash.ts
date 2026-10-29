@@ -39,7 +39,7 @@ async function actor(projectId: string, nodeId: string) {
   const {
     data: { user },
   } = await client.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  if (!user) throw new Error("Sign in to continue");
   const { allowed } = await consumeRateLimit(`files:purge:${user.id}`, 30, 60);
   if (!allowed) throw new Error("Too many requests. Try again shortly.");
   return user;
@@ -137,7 +137,7 @@ async function bulkActor(projectId: string) {
   if (!UUID_RE.test(projectId)) throw new Error("Invalid project");
   const client = await createClient();
   const { data: { user } } = await client.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  if (!user) throw new Error("Sign in to continue");
   // One charge per batch: Empty Trash is one user action, not one per item.
   const { allowed } = await consumeRateLimit(`files:purge:${user.id}`, 30, 60);
   if (!allowed) throw new Error("Too many requests. Try again shortly.");

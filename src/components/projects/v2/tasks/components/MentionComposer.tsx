@@ -484,7 +484,7 @@ export const MentionComposer = React.forwardRef<MentionComposerHandle, MentionCo
                 if (cancelled) return;
                 if (!payload.success) {
                     setCandidates([]);
-                    setError("Could not load teammates.");
+                    setError("Couldn’t load teammates.");
                     return;
                 }
                 const members = (payload.data?.members ?? []).slice(0, MAX_RESULTS);

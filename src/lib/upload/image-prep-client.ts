@@ -40,7 +40,7 @@ function loadImage(file: Blob): Promise<HTMLImageElement> {
         };
         image.onerror = () => {
             URL.revokeObjectURL(objectUrl);
-            reject(new Error("Failed to read image."));
+            reject(new Error("Couldn’t read image."));
         };
         image.src = objectUrl;
     });
@@ -50,7 +50,7 @@ function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number):
     return new Promise((resolve, reject) => {
         canvas.toBlob((blob) => {
             if (!blob) {
-                reject(new Error("Failed to optimize image."));
+                reject(new Error("Couldn’t optimize image."));
                 return;
             }
             resolve(blob);

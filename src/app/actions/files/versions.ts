@@ -239,9 +239,9 @@ export async function applyUploadedFileRevision(input: {
 }): Promise<ReplaceNodeResult> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  if (!user) throw new Error("Sign in to continue");
   const { allowed } = await consumeRateLimit(`files-versions:${user.id}`, 30, 60);
-  if (!allowed) throw new Error("Rate limit exceeded");
+  if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
   await assertProjectUploadAccess(input.projectId, user.id);
 
   const finalizedIntent = await finalizeUploadIntent({
@@ -377,9 +377,9 @@ export async function restoreFileVersion(
 ): Promise<{ node: typeof projectNodes.$inferSelect; version: FileVersion }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  if (!user) throw new Error("Sign in to continue");
   const { allowed } = await consumeRateLimit(`files-versions:${user.id}`, 30, 60);
-  if (!allowed) throw new Error("Rate limit exceeded");
+  if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
   await assertProjectWriteAccess(projectId, user.id);
 
   const result = await withTransientFileLease(
@@ -476,10 +476,10 @@ export async function deleteFileVersionAction(
 ): Promise<{ success: boolean; nextActiveVersion?: number | null; node?: typeof projectNodes.$inferSelect }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  if (!user) throw new Error("Sign in to continue");
   
   const { allowed } = await consumeRateLimit(`delete-version:${user.id}`, 30, 60);
-  if (!allowed) throw new Error("Rate limit exceeded");
+  if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
 
   // Deleting a version destroys history: the same capability as permanent delete.
   await assertProjectManageFilesAccess(projectId, user.id);

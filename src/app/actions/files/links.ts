@@ -27,9 +27,9 @@ async function requireLinkWriter(annotation: string | null | undefined) {
         throw new Error(`Notes are limited to ${MAX_ANNOTATION_LENGTH} characters.`);
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Sign in to continue");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
-    if (!allowed) throw new Error("Rate limit exceeded");
+    if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
     return user;
 }
 
@@ -192,7 +192,7 @@ export async function linkNodeToTask(
         }
         const [existing] = await tx.select().from(taskNodeLinks)
             .where(and(eq(taskNodeLinks.taskId, taskId), eq(taskNodeLinks.nodeId, nodeId))).limit(1);
-        if (!existing) throw new Error("Failed to link file to task");
+        if (!existing) throw new Error("Couldn’t link file to task");
         return { row: existing, changed: false };
     });
 
@@ -211,7 +211,7 @@ export async function linkNodeToTask(
 export async function unlinkNodeFromTask(taskId: string, nodeId: string) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Sign in to continue");
 
     const projectId = await getTaskProjectId(taskId);
     await assertProjectWriteAccess(projectId, user.id);
@@ -246,7 +246,7 @@ export async function unlinkNodeFromTask(taskId: string, nodeId: string) {
 export async function getTaskAttachments(projectId: string, taskId: string) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Sign in to continue");
 
     const access = await assertProjectFileReadAccess(projectId, user.id);
     if (!canReadProjectTaskFiles(access)) throw new Error("Task files are not available to this viewer.");

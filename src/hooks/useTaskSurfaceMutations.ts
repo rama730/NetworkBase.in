@@ -189,14 +189,14 @@ export function useTaskSurfaceMutations(params: {
           projectId,
         );
         if (!result.success) {
-          throw new Error(result.error || "Failed to update task");
+          throw new Error(result.error || "Couldn’t update task");
         }
         // The server's version replaces the optimistic clock, so the next drag's version check matches.
         if (result.updatedAt) applyOptimisticTask({ ...nextTask, updatedAt: result.updatedAt }, field);
         return { success: true as const };
       } catch (error) {
         const message =
-          error instanceof Error ? error.message : "Failed to update task";
+          error instanceof Error ? error.message : "Couldn’t update task";
         rollbackOptimisticTask(snapshots, previousTask, field);
         setMutationError(message);
         return { success: false as const, error: message };
@@ -246,7 +246,7 @@ export function useTaskSurfaceMutations(params: {
       try {
         const result = await updateTaskStatusAction(task.id, status, projectId, undefined, previousTask.updatedAt);
         if (!result.success) {
-          throw new Error(result.error || "Failed to update task status");
+          throw new Error(result.error || "Couldn’t update task status");
         }
         syncTaskCompletionPolicy(queryClient, projectId, result);
         setStatusWarnings(
@@ -273,7 +273,7 @@ export function useTaskSurfaceMutations(params: {
         const message =
           error instanceof Error
             ? error.message
-            : "Failed to update task status";
+            : "Couldn’t update task status";
         rollbackOptimisticTask(snapshots, previousTask, "status");
         setMutationError(message);
         return { success: false as const, error: message };
@@ -319,13 +319,13 @@ export function useTaskSurfaceMutations(params: {
       try {
         const result = await assignTaskAction(task.id, assigneeId, projectId);
         if (!result.success) {
-          throw new Error(result.error || "Failed to assign task");
+          throw new Error(result.error || "Couldn’t assign task");
         }
         if (result.updatedAt) applyOptimisticTask({ ...nextTask, updatedAt: result.updatedAt }, "assigneeId");
         return { success: true as const };
       } catch (error) {
         const message =
-          error instanceof Error ? error.message : "Failed to assign task";
+          error instanceof Error ? error.message : "Couldn’t assign task";
         rollbackOptimisticTask(snapshots, previousTask, "assigneeId");
         setMutationError(message);
         return { success: false as const, error: message };

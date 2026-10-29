@@ -263,7 +263,7 @@ export default function CreateTaskModal({
         attachments,
       });
       if (!result.success) {
-        setSubmitError(result.error || "Failed to create task");
+        setSubmitError(result.error || "Couldn’t create task");
         return;
       }
 

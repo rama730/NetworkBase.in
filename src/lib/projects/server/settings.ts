@@ -819,7 +819,7 @@ export async function readFileAccessSettings(
     return {
       success: false,
       errorCode: "INTERNAL_ERROR",
-      message: "Failed to load file workspace settings.",
+      message: "Couldn’t load file workspace settings.",
     };
   }
 }
@@ -969,7 +969,7 @@ export async function updateProjectMemberFileUploadAction(
     return {
       success: false,
       errorCode: "INTERNAL_ERROR",
-      message: "Failed to update member upload permission.",
+      message: "Couldn’t update member upload permission.",
     };
   }
 }
@@ -1218,7 +1218,7 @@ export async function updateProjectNotificationSettingsAction(
     return {
       success: false,
       errorCode: "INTERNAL_ERROR",
-      message: "Failed to update project notification settings.",
+      message: "Couldn’t update project notification settings.",
     };
   }
 }
@@ -1420,7 +1420,7 @@ export async function updateProjectMemberNotificationSettingsAction(
     return {
       success: false,
       errorCode: "INTERNAL_ERROR",
-      message: "Failed to update member notification settings.",
+      message: "Couldn’t update member notification settings.",
     };
   }
 }
@@ -1716,7 +1716,7 @@ export async function getProjectMemberRemovalPreflightAction(
     return {
       success: false,
       errorCode: "INTERNAL_ERROR",
-      message: "Failed to load removal preflight.",
+      message: "Couldn’t load removal preflight.",
     };
   }
 }
@@ -1950,7 +1950,7 @@ export async function readDangerZonePreflight(
     return {
       success: false,
       errorCode: "INTERNAL_ERROR",
-      message: "Failed to prepare danger-zone checks.",
+      message: "Couldn’t prepare danger-zone checks.",
     };
   }
 }

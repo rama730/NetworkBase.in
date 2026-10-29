@@ -33,7 +33,7 @@ export async function getGithubImportAccessState() {
   try {
     user = await loadGithubLinkedUser(snapshotUser);
   } catch {
-    return { success: false as const, error: 'Could not check your linked GitHub account. Retry.' };
+    return { success: false as const, error: 'Couldn’t check your linked GitHub account. Retry.' };
   }
 
   const githubConnection = buildGithubAccountConnectionState(user);

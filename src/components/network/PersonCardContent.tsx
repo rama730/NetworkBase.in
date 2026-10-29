@@ -129,7 +129,7 @@ function SharedConnections({ person, count }: { person: PersonCardIdentity; coun
             if (version.current !== current) return;
             if (!response.success) { setResult(null); setError(response.error); return; }
             setResult(response.summary); setOffset(nextOffset);
-        } catch { if (version.current === current) { setResult(null); setError('Could not load shared connections. Try again.'); } }
+        } catch { if (version.current === current) { setResult(null); setError('Couldn’t load shared connections. Try again.'); } }
         finally { if (version.current === current) setLoading(false); }
     }
     return <Dialog open={open} onOpenChange={next => { setOpen(next); setResult(null); setError(null); if (next) void load(0); else version.current++; }}>

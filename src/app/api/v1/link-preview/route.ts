@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
         if (rlResponse) return rlResponse;
 
         const { user, response } = await requireAuthenticatedUser();
-        if (response || !user) return response ?? jsonError('Not authenticated', 401, 'UNAUTHORIZED');
+        if (response || !user) return response ?? jsonError('Sign in to continue', 401, 'UNAUTHORIZED');
 
         const rawUrl = request.nextUrl.searchParams.get('url');
         const origin = shareOrigin(request.url);

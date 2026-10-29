@@ -35,7 +35,7 @@ export async function POST(
       rateLimit: { key: `api:v1:files:lock:${nodeId}`, limit: 120, windowSeconds: 60 },
     });
     if (auth.response) return auth.response;
-    const parsed = await parseFileLeaseBody(request, acquireSchema, "Invalid request body");
+    const parsed = await parseFileLeaseBody(request, acquireSchema, "This request isn’t valid");
     if (parsed.response) return parsed.response;
     await assertProjectWriteAccess(parsed.data.projectId, auth.user!.id);
 
@@ -49,7 +49,7 @@ export async function POST(
     });
     return jsonSuccess(lease);
   } catch (error) {
-    return fileLeaseErrorResponse(error, "Failed to acquire file lease");
+    return fileLeaseErrorResponse(error, "Couldn’t acquire file lease");
   }
 }
 
@@ -64,7 +64,7 @@ export async function DELETE(
       rateLimit: { key: `api:v1:files:lock-release:${nodeId}`, limit: 120, windowSeconds: 60 },
     });
     if (auth.response) return auth.response;
-    const parsed = await parseFileLeaseBody(request, releaseSchema, "Invalid request body");
+    const parsed = await parseFileLeaseBody(request, releaseSchema, "This request isn’t valid");
     if (parsed.response) return parsed.response;
     await assertProjectWriteAccess(parsed.data.projectId, auth.user!.id);
     const released = await releaseFileLease({
@@ -75,6 +75,6 @@ export async function DELETE(
     });
     return jsonSuccess({ released });
   } catch (error) {
-    return fileLeaseErrorResponse(error, "Failed to release file lease");
+    return fileLeaseErrorResponse(error, "Couldn’t release file lease");
   }
 }

@@ -153,7 +153,7 @@ export async function createContributionStoryAction() {
       error:
         error instanceof StoryError
           ? error.message
-          : "Could not create a contribution.",
+          : "Couldn’t create a contribution.",
     };
   }
 }
@@ -839,7 +839,7 @@ export async function saveContributionStoryAction(
       error:
         error instanceof StoryError
           ? error.message
-          : "Could not save this contribution. Your draft is kept.",
+          : "Couldn’t save this contribution. Your draft is kept.",
       code: error instanceof StoryError ? error.code : "SAVE_FAILED",
       ...(error instanceof StoryError
         ? { latestVersion: error.latestVersion, duplicateId: error.duplicateId }
@@ -918,7 +918,7 @@ export async function createContributionImageUploadAction(
   const { data, error } = await admin.storage
     .from("contribution-images")
     .createSignedUploadUrl(storageKey, { upsert: false });
-  if (error || !data) throw new StoryError("Could not prepare image upload.");
+  if (error || !data) throw new StoryError("Couldn’t prepare image upload.");
   return { uploadIntentId: intent.id, uploadUrl: data.signedUrl };
 }
 export async function finalizeContributionImageAction(
@@ -1014,7 +1014,7 @@ export async function importContributionProjectImageAction(
     headers: { "Content-Type": file.verified_mime_type },
     body: new Uint8Array(bytes),
   });
-  if (!uploaded.ok) throw new StoryError("Could not copy the project image.");
+  if (!uploaded.ok) throw new StoryError("Couldn’t copy the project image.");
   return finalizeContributionImageAction(
     contributionId,
     prepared.uploadIntentId,

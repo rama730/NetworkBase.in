@@ -74,7 +74,7 @@ export async function POST(request: Request) {
   }
   const user = auth.user;
   if (!user) {
-    return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+    return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
   }
 
   // Recovery codes are secrets: the response is never stored for replay, duplicates get 409 while the marker lives.
@@ -248,7 +248,7 @@ export async function POST(request: Request) {
       status: 500,
       errorCode: "INTERNAL_ERROR",
     });
-    return jsonError("Failed to manage recovery codes", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t manage recovery codes", 500, "INTERNAL_ERROR");
   }
   });
 }

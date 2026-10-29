@@ -82,6 +82,6 @@ export async function GET(
       status: 500,
       errorCode: "INTERNAL_ERROR",
     });
-    return jsonError("Failed to load profile projects", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t load profile projects", 500, "INTERNAL_ERROR");
   }
 }

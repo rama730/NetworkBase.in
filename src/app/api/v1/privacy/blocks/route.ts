@@ -26,7 +26,7 @@ export async function POST(request: Request) {
 
   const auth = await requireAuthenticatedUser();
   if (auth.response || !auth.user) {
-    return auth.response ?? jsonError("Not authenticated", 401, "UNAUTHORIZED");
+    return auth.response ?? jsonError("Sign in to continue", 401, "UNAUTHORIZED");
   }
 
   try {
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
       status: 500,
       errorCode: "INTERNAL_ERROR",
     });
-    return jsonError("Failed to block account", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t block account", 500, "INTERNAL_ERROR");
   }
 }
 
@@ -83,7 +83,7 @@ export async function GET(request: Request) {
 
   const auth = await requireAuthenticatedUser();
   if (auth.response || !auth.user) {
-    return auth.response ?? jsonError("Not authenticated", 401, "UNAUTHORIZED");
+    return auth.response ?? jsonError("Sign in to continue", 401, "UNAUTHORIZED");
   }
 
   try {
@@ -93,6 +93,6 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     logger.error("[api/v1/privacy/blocks] list failed", { error });
-    return jsonError("Failed to load blocked accounts", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t load blocked accounts", 500, "INTERNAL_ERROR");
   }
 }

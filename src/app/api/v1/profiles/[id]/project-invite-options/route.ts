@@ -18,7 +18,7 @@ export async function GET(
 
   const auth = await requireAuthenticatedUser();
   if (auth.response || !auth.user) {
-    return auth.response ?? jsonError("Not authenticated", 401, "UNAUTHORIZED");
+    return auth.response ?? jsonError("Sign in to continue", 401, "UNAUTHORIZED");
   }
 
   try {
@@ -66,6 +66,6 @@ export async function GET(
       status: 500,
       errorCode: "INTERNAL_ERROR",
     });
-    return jsonError("Failed to load invite options", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t load invite options", 500, "INTERNAL_ERROR");
   }
 }

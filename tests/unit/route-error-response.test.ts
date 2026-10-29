@@ -10,7 +10,7 @@ const ctx = { requestId: "req-1", scope: "test", fallback: "Failed to do the thi
 // API-005: authorization and conflict outcomes keep their meaning; internal detail never reaches clients.
 test("domain errors keep their status and safe message", async () => {
   for (const [error, status, code] of [
-    [new ForbiddenError("Forbidden"), 403, "FORBIDDEN"],
+    [new ForbiddenError("You don’t have access to this"), 403, "FORBIDDEN"],
     [new NotFoundError("Project not found"), 404, "NOT_FOUND"],
     [new ConflictError("File has an active editing lease"), 409, "CONFLICT"],
   ] as const) {

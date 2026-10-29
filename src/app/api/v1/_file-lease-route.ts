@@ -41,7 +41,7 @@ export async function requireFileLeaseUser(
   const auth = await requireAuthenticatedUser();
   if (auth.response || !auth.user) {
     return {
-      response: auth.response ?? jsonError("Not authenticated", 401, "UNAUTHORIZED"),
+      response: auth.response ?? jsonError("Sign in to continue", 401, "UNAUTHORIZED"),
       user: null,
       extensionSessionId: null,
     };

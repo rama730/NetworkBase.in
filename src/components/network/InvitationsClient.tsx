@@ -280,7 +280,7 @@ export default function InvitationsClient({
                 error: (error) =>
                     error instanceof Error
                         ? error.message
-                        : "Failed to cancel request",
+                        : "Couldn’t cancel request",
             })
             .unwrap()
             .catch(() => undefined);
@@ -320,7 +320,7 @@ export default function InvitationsClient({
                         if (!res.success)
                             throw new Error(
                                 res.error ||
-                                    "Failed to cancel project invitation",
+                                    "Couldn’t cancel project invitation",
                             );
                         return res;
                     }),
@@ -330,7 +330,7 @@ export default function InvitationsClient({
                         error: (error) =>
                             error instanceof Error
                                 ? error.message
-                                : "Failed to cancel project invitation",
+                                : "Couldn’t cancel project invitation",
                     },
                 )
                 .unwrap();
@@ -362,7 +362,7 @@ export default function InvitationsClient({
             }).then((result) => {
                 if (!result.success)
                     throw new Error(
-                        result.error || "Failed to update project invitation",
+                        result.error || "Couldn’t update project invitation",
                     );
                 return result;
             });
@@ -379,7 +379,7 @@ export default function InvitationsClient({
                     error: (error) =>
                         error instanceof Error
                             ? error.message
-                            : "Failed to update project invitation",
+                            : "Couldn’t update project invitation",
                 })
                 .unwrap();
             await refreshInvitationSurfaces();
@@ -396,7 +396,7 @@ export default function InvitationsClient({
         const target = withdrawingApplication;
         if (!target) return "This application is no longer available.";
         const result = await withdrawApplicationAction(target.id, note || undefined);
-        if (!result.success) return result.error || "Could not withdraw the application.";
+        if (!result.success) return result.error || "Couldn’t withdraw the application.";
         setWithdrawingApplication(null);
         toast.success("Application withdrawn");
         await refreshInvitationSurfaces();
@@ -427,7 +427,7 @@ export default function InvitationsClient({
                         onClick: () => {
                             void reopenApplicationAction(id).then((undone) => {
                                 if (undone.success) toast.success("Decline undone");
-                                else toast.error(feedbackError(undone.error || "Could not undo", "Could not undo"));
+                                else toast.error(feedbackError(undone.error || "Couldn’t undo", "Couldn’t undo"));
                                 void refreshInvitationSurfaces();
                             });
                         },
@@ -443,7 +443,7 @@ export default function InvitationsClient({
     async function reopenDecided(id: string) {
         const result = await reopenApplicationAction(id);
         if (result.success) toast.success("Application reopened");
-        else toast.error(feedbackError(result.error || "Could not reopen the application", "Could not reopen the application"));
+        else toast.error(feedbackError(result.error || "Couldn’t reopen the application", "Couldn’t reopen the application"));
         await refreshInvitationSurfaces();
     }
 

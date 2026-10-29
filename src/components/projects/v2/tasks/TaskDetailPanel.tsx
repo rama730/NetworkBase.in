@@ -266,7 +266,7 @@ export default function TaskDetailPanel({
     try {
       const result = await deleteTaskAction(resource.task.id, projectId);
       if (!result.success) {
-        throw new Error(result.error || "Failed to delete task");
+        throw new Error(result.error || "Couldn’t delete task");
       }
 
       removeTaskFromProjectTaskCaches(queryClient, projectId, resource.task.id);

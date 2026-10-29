@@ -67,7 +67,7 @@ export function ApplicationActions({ view, layout = "card" }: { view: Applicatio
             label: "Undo",
             onClick: () => void reopenApplicationAction(view.id).then((undone) => {
               refresh();
-              if (!undone.success) toast.error(feedbackError(undone.error || "Could not undo", "Could not undo"));
+              if (!undone.success) toast.error(feedbackError(undone.error || "Couldn’t undo", "Couldn’t undo"));
             }),
           },
         });
@@ -106,7 +106,7 @@ export function ApplicationActions({ view, layout = "card" }: { view: Applicatio
         onClose={() => setDialog(null)}
         onConfirm={async (note) => {
           const result = await withdrawApplicationAction(view.id, note || undefined);
-          if (!result.success) return result.error || "Could not withdraw the application.";
+          if (!result.success) return result.error || "Couldn’t withdraw the application.";
           setDialog(null);
           refresh();
           toast.success("Application withdrawn");
@@ -197,7 +197,7 @@ export function ApplicationCard({ view }: { view: ApplicationCardView }) {
 export function ApplicationStatusBar({ applicationId }: { applicationId: string }) {
   const query = useCardQuery("application", applicationId);
   const view = query.data && !("restricted" in query.data) && query.data.kind === "application" ? query.data : null;
-  if (query.isError) return <div className="border-b border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground sm:px-4">Could not load the application status. <button type="button" className="text-primary hover:underline" onClick={() => void query.refetch()}>Retry</button></div>;
+  if (query.isError) return <div className="border-b border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground sm:px-4">Couldn’t load the application status. <button type="button" className="text-primary hover:underline" onClick={() => void query.refetch()}>Retry</button></div>;
   if (!view) return null;
   const outcome = applicationOutcome(view);
   const role = view.role_removed ? "Role removed" : view.role_title ?? "Role";

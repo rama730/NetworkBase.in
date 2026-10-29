@@ -151,12 +151,12 @@ function LinkedTaskRow({
     try {
       const result = await onUpdateAnnotation(task.taskId, annotationDraft.trim());
       if (!result.success) {
-        setSaveError(result.error || "Could not save this note. Your draft is still here.");
+        setSaveError(result.error || "Couldn’t save this note. Your draft is still here.");
         return;
       }
       setIsEditing(false);
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "Could not save this note. Retry.");
+      setSaveError(error instanceof Error ? error.message : "Couldn’t save this note. Retry.");
     } finally {
       setIsSaving(false);
     }

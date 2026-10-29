@@ -242,7 +242,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
       reconcile();
     } catch (error) {
       toast.error(
-        feedbackError(error instanceof Error ? error.message : "Could not restore file", "Could not restore file"),
+        feedbackError(error instanceof Error ? error.message : "Couldn’t restore file", "Couldn’t restore file"),
       );
     } finally {
       setBusy(null);
@@ -275,7 +275,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
       setDeletion({ id, ...(await getPermanentDeleteImpact(projectId, id)) });
     } catch (error) {
       toast.error(
-        feedbackError(error instanceof Error ? error.message : "Could not review deletion", "Could not review deletion"),
+        feedbackError(error instanceof Error ? error.message : "Couldn’t review deletion", "Couldn’t review deletion"),
       );
     } finally {
       setBusy(null);
@@ -323,7 +323,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
       const impact = await getBulkPermanentDeleteImpact(projectId, scope === "all" ? "all" : Array.from(selectedIds));
       setBulk((current) => (current?.scope === scope ? { scope, impact } : current));
     } catch (error) {
-      toast.error(feedbackError(error instanceof Error ? error.message : "Could not review deletion", "Could not review deletion"));
+      toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t review deletion", "Couldn’t review deletion"));
       setBulk(null);
     }
   }

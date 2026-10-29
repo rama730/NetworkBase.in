@@ -21,7 +21,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ user
 
   const auth = await requireAuthenticatedUser();
   if (auth.response || !auth.user) {
-    return auth.response ?? jsonError("Not authenticated", 401, "UNAUTHORIZED");
+    return auth.response ?? jsonError("Sign in to continue", 401, "UNAUTHORIZED");
   }
 
   const { userId } = await context.params;

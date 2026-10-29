@@ -45,7 +45,7 @@ export function identityLinkError(error: unknown, provider = "GitHub") {
   }
   return error instanceof Error
     ? error
-    : new Error(`Failed to link ${provider}`);
+    : new Error(`Couldn’t link ${provider}`);
 }
 
 /**
@@ -161,7 +161,7 @@ export async function startGithubSyncAuthorization({
   if (!isCurrent()) return;
   if (result.error) throw result.error;
   if (!result.data || !Array.isArray(result.data.identities))
-    throw new Error("Could not check your linked accounts. Try again.");
+    throw new Error("Couldn’t check your linked accounts. Try again.");
   const github = result.data.identities.find((identity: UserIdentity) => identity.provider === "github");
   if (github) {
     const data = github.identity_data;

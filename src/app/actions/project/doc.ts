@@ -131,7 +131,7 @@ async function getOptionalUserId() {
 
 async function requireUserId() {
     const userId = await getOptionalUserId();
-    if (!userId) throw new Error("Unauthorized");
+    if (!userId) throw new Error("Sign in to continue");
     return userId;
 }
 
@@ -245,7 +245,7 @@ async function getOrCreateMarkdown(projectId: string, userId: string, docSlug: s
             settings,
         })
         .returning();
-    if (!created) throw new Error("Failed to create markdown document");
+    if (!created) throw new Error("Couldn’t create markdown document");
     return created;
 }
 
@@ -620,7 +620,7 @@ export async function readProjectDocAction(projectId: string, requestedSlug: str
             projectId,
             error: error instanceof Error ? error.message : String(error),
         });
-        return { success: false, error: "Failed to load document." };
+        return { success: false, error: "Couldn’t load document." };
     }
 }
 
@@ -906,7 +906,7 @@ export async function readProjectDocSmartBlockPreviewsAction(projectId: string, 
             projectId,
             error: error instanceof Error ? error.message : String(error),
         });
-        return { success: false, error: "Failed to load document project references." };
+        return { success: false, error: "Couldn’t load document project references." };
     }
 }
 
@@ -944,7 +944,7 @@ export async function updateProjectDocSettingsAction(projectId: string, input: u
             projectId,
             error: error instanceof Error ? error.message : String(error),
         });
-        return { success: false as const, error: "Failed to update document settings." };
+        return { success: false as const, error: "Couldn’t update document settings." };
     }
 }
 
@@ -1020,7 +1020,7 @@ export async function listProjectDocsAction(projectId: string) {
         return { success: true as const, docs: visibleDocs(base, actorUserId) };
     } catch (error) {
         logger.error("project_readme.list_markdowns_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
-        return { success: false as const, error: "Failed to list documents." };
+        return { success: false as const, error: "Couldn’t list documents." };
     }
 }
 
@@ -1060,7 +1060,7 @@ export async function applyCreationIntentAction(projectId: string, input: unknow
                         where: and(eq(projectDocs.projectId, projectId), eq(projectDocs.slug, "readme")),
                     }));
                 }
-                if (!readme) throw new Error("Failed to initialize readme record");
+                if (!readme) throw new Error("Couldn’t initialize readme record");
 
                 const metadata = getOrBuildProjectDocPublishMetadata(starterText);
                 let versionId: string | null = null;
@@ -1106,7 +1106,7 @@ export async function applyCreationIntentAction(projectId: string, input: unknow
             projectId,
             error: error instanceof Error ? error.message : String(error),
         });
-        return { success: false as const, error: error instanceof Error ? error.message : "Failed to apply document creation intent." };
+        return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t apply document creation intent." };
     }
 }
 

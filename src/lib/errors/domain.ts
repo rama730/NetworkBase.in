@@ -6,7 +6,7 @@
 export class ForbiddenError extends Error {
   readonly status = 403 as const;
   readonly errorCode = "FORBIDDEN" as const;
-  constructor(message = "Forbidden") {
+  constructor(message = "You don’t have access to this") {
     super(message);
     this.name = "ForbiddenError";
   }

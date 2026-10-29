@@ -248,7 +248,7 @@ export default function DetailsTab({
     queryFn: async () => {
       const result = await listTaskSourceMessages({ taskId: task.id });
       if (!result.success)
-        throw new Error("Failed to load source message");
+        throw new Error("Couldn’t load source message");
       return result.links;
     },
   });
@@ -269,7 +269,7 @@ export default function DetailsTab({
         void queryClient.invalidateQueries({
           queryKey: ["files-task-collections", task.projectId],
         });
-      } else setReviewError(res.error || "Failed to approve task review");
+      } else setReviewError(res.error || "Couldn’t approve task review");
     } finally {
       setIsApproving(false);
     }
@@ -289,7 +289,7 @@ export default function DetailsTab({
       setChangesReason("");
       void reviewState.refetch();
       void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(task.projectId) });
-    } catch (error) { setReviewError(error instanceof Error ? error.message : "Unable to update review"); }
+    } catch (error) { setReviewError(error instanceof Error ? error.message : "Couldn’t update review"); }
     finally { setIsApproving(false); }
   };
 
@@ -319,7 +319,7 @@ export default function DetailsTab({
                 <p className="text-xs text-destructive">{reviewError}</p>
               ) : null}
               {reviewState.data?.changed ? <p className="text-xs text-amber-700 dark:text-amber-300">Requirements, subtasks or linked files changed. Resubmit the current work before approval.</p> : null}
-              {reviewState.isError ? <p role="alert" className="text-xs text-destructive">Unable to check this submission. <button type="button" className="underline" onClick={() => void reviewState.refetch()}>Retry</button></p> : null}
+              {reviewState.isError ? <p role="alert" className="text-xs text-destructive">Couldn’t check this submission. <button type="button" className="underline" onClick={() => void reviewState.refetch()}>Retry</button></p> : null}
               {canReview ? (
                 <div className="flex items-center gap-2 pt-2">
                   <button
@@ -478,7 +478,7 @@ export default function DetailsTab({
         <div className="rounded-[5px] border border-destructive/20 bg-destructive/10 px-4 py-3 font-mono text-xs text-destructive">
           {sourceLinksQuery.error instanceof Error
             ? sourceLinksQuery.error.message
-            : "Failed to load source messages"}
+            : "Couldn’t load source messages"}
         </div>
       ) : null}
 

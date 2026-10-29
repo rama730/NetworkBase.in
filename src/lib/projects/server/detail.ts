@@ -649,7 +649,7 @@ async function readProjectDetailShellForActor(input: {
           return {
             success: false,
             errorCode: "FORBIDDEN" as const,
-            message: "Forbidden",
+            message: "You don’t have access to this",
           };
         }
 
@@ -862,7 +862,7 @@ async function readProjectDetailShellForActor(input: {
     return {
       success: false,
       errorCode: "INTERNAL_ERROR",
-      message: "Failed to load project detail.",
+      message: "Couldn’t load project detail.",
     };
   }
 }

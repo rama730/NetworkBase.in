@@ -225,7 +225,7 @@ export async function fetchDiscoverProjectsAction(
             projects: [],
             hasMore: false,
             code: 'TRANSIENT' as const,
-            error: 'Failed to fetch projects'
+            error: 'Couldn’t fetch projects'
         };
     }
 }

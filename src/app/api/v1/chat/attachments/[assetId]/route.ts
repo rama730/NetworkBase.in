@@ -17,7 +17,7 @@ export async function GET(request: Request, context: { params: Promise<{ assetId
   const startedAt = Date.now();
   const requestId = getRequestId(request);
   const { user, response: authResponse } = await requireAuthenticatedUser();
-  if (!user) return authResponse ?? jsonError("Not authenticated", 401, "UNAUTHORIZED");
+  if (!user) return authResponse ?? jsonError("Sign in to continue", 401, "UNAUTHORIZED");
   const { assetId } = await context.params;
   if (!isUuid(assetId)) return jsonError("Attachment not found", 404, "NOT_FOUND");
 

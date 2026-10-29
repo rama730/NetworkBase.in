@@ -48,7 +48,7 @@ export async function POST(
 
         const { user, response } = await requireAuthenticatedUser();
         if (response) return response;
-        if (!user) return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+        if (!user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
 
         let body;
         try {
@@ -59,7 +59,7 @@ export async function POST(
 
         const parsed = mergeBodySchema.safeParse(body);
         if (!parsed.success) {
-            return jsonError("Invalid request body", 400, "BAD_REQUEST");
+            return jsonError("This request isn’t valid", 400, "BAD_REQUEST");
         }
 
         const { sessionId } = parsed.data;

@@ -35,7 +35,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const limited = await enforceRouteLimit(request, "files:export", 10, 600, "default", user?.id);
   if (limited) return limited;
   const access = await assertProjectFileReadAccess(projectId, user?.id ?? null).catch(() => null);
-  if (!access) return jsonError("Forbidden", 403, "FORBIDDEN");
+  if (!access) return jsonError("You don’t have access to this", 403, "FORBIDDEN");
   // In an organization the zip holds only what this viewer may open: no Admins-only folders or other people's copies.
   const nodeFilter = orgFileAccessSql(access)
     ? (alias: "n" | "child") => orgFileAccessSql(access, { projectId: sql.raw(`${alias}.project_id`), path: sql.raw(`${alias}.path`), taskId: sql.raw(`${alias}.task_id`) })
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       nodeFilter,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to prepare folder export";
+    const message = error instanceof Error ? error.message : "Couldn’t prepare folder export";
     const status = message.includes("limited") ? 413 : message.includes("not found") ? 404 : 409;
     const errorCode = status === 404 ? "NOT_FOUND" : status === 409 ? "CONFLICT" : "BAD_REQUEST";
     return jsonError(message, status, errorCode);

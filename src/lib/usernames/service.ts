@@ -366,7 +366,7 @@ function postgresError(error: unknown): { code?: string; message: string; constr
 
 export function mapUsernamePersistenceError(
     error: unknown,
-    fallbackMessage = 'Unable to update username right now.',
+    fallbackMessage = 'Couldn’t update username right now.',
 ): OnboardingError {
     if (error instanceof UsernamePersistenceError) {
         return error.usernameError

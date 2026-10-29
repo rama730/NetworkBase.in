@@ -67,6 +67,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       status: 500,
       errorCode: "INTERNAL_ERROR",
     });
-    return jsonError("Failed to load profile contributions", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t load profile contributions", 500, "INTERNAL_ERROR");
   }
 }

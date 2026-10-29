@@ -87,7 +87,7 @@ export async function saveProfileContributionsAction(
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    return { success: false, error: "Unauthorized", errorCode: "UNAUTHORIZED" };
+    return { success: false, error: "Sign in to continue", errorCode: "UNAUTHORIZED" };
   }
 
   const rate = await consumeRateLimit(`profile:contributions:${user.id}`, 20, 60);
@@ -369,6 +369,6 @@ export async function saveProfileContributionsAction(
       userId: user.id,
       error: error instanceof Error ? error.message : String(error),
     });
-    return { success: false, error: "Could not save contributions", errorCode: "SAVE_FAILED" };
+    return { success: false, error: "Couldn’t save contributions", errorCode: "SAVE_FAILED" };
   }
 }

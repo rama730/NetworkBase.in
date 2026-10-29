@@ -30,7 +30,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const userId = await orgAdminOf(orgId);
   const limited = await enforceRouteLimit(request, "files:export", 10, 600, "default", userId ?? undefined);
   if (limited) return limited;
-  if (!userId) return jsonError("Forbidden", 403, "FORBIDDEN");
+  if (!userId) return jsonError("You don’t have access to this", 403, "FORBIDDEN");
   const [master] = await db.select({ title: tasks.title }).from(tasks)
     .where(and(eq(tasks.id, taskId), eq(tasks.projectId, orgId), eq(tasks.kind, "assignment"), isNull(tasks.deletedAt))).limit(1);
   if (!master) return jsonError("Not found", 404, "NOT_FOUND");
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   try {
     prepared = await prepareSubmissionsExport({ masterId: taskId });
   } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "Failed to prepare the download", 409, "CONFLICT");
+    return jsonError(error instanceof Error ? error.message : "Couldn’t prepare the download", 409, "CONFLICT");
   }
   const reauthorize = async () => {
     if ((await orgAdminOf(orgId)) !== userId) throw new Error("Export session expired");

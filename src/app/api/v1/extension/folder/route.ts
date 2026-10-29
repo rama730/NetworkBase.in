@@ -42,7 +42,7 @@ export async function GET(request: Request) {
     }
     const user = authResult.user;
     if (!user) {
-      return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+      return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
     }
 
     const { searchParams } = new URL(request.url);
@@ -67,7 +67,7 @@ export async function GET(request: Request) {
     }
     // Files visibility for the listing; task-owned and /.system nodes also need Tasks (AUTH-002).
     if (!canReadProjectTab(access, "files")) {
-      return jsonError("Forbidden", 403, "FORBIDDEN");
+      return jsonError("You don’t have access to this", 403, "FORBIDDEN");
     }
 
     if(parsedQuery.data.parentPath&&parsedQuery.data.parentPath!=="/"){
@@ -168,6 +168,6 @@ export async function GET(request: Request) {
     logger.error("[api/v1/extension/folder] Failed to get folder content", {
       error: error instanceof Error ? error.message : String(error)
     });
-    return jsonError("Failed to get folder content", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t get folder content", 500, "INTERNAL_ERROR");
   }
 }

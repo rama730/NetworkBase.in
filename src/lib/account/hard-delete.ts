@@ -56,7 +56,7 @@ export async function executeHardDelete(
         userId,
         deletionId,
       });
-      return { success: false, error: "Unauthorized" };
+      return { success: false, error: "Sign in to continue" };
     }
 
     // Phase 1 (destructive, transactional): only from storage_scheduled, past
@@ -196,6 +196,6 @@ export async function executeHardDelete(
       // Best effort
     }
 
-    return { success: false, error: "Failed to execute hard delete" };
+    return { success: false, error: "Couldn’t execute hard delete" };
   }
 }

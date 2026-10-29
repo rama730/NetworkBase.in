@@ -24,8 +24,8 @@ const deleteSchema = z.object({
 async function requireAdmin() {
     const auth = await requireAuthenticatedUser()
     const user = auth.user
-    if (!user) return { ok: false as const, status: 401 as const, errorCode: 'UNAUTHORIZED' as const, message: 'Not authenticated' }
-    if (!isAdminUser(user)) return { ok: false as const, status: 403 as const, errorCode: 'FORBIDDEN' as const, message: 'Forbidden' }
+    if (!user) return { ok: false as const, status: 401 as const, errorCode: 'UNAUTHORIZED' as const, message: 'Sign in to continue' }
+    if (!isAdminUser(user)) return { ok: false as const, status: 403 as const, errorCode: 'FORBIDDEN' as const, message: 'You don’t have access to this' }
     return { ok: true as const, user }
 }
 
@@ -48,7 +48,7 @@ export async function GET(request: Request) {
     // H10: Rate limit admin endpoints to prevent abuse from compromised admin accounts
     const rate = await consumeRateLimit(`admin-reserved-usernames:${admin.user.id}`, 30, 60)
     if (!rate.allowed) {
-        return jsonError('Rate limit exceeded', 429, 'RATE_LIMITED')
+        return jsonError('Too many attempts. Try again in a minute.', 429, 'RATE_LIMITED')
     }
 
     const { searchParams } = new URL(request.url)
@@ -270,6 +270,6 @@ export async function DELETE(request: Request) {
             status: 500,
             errorCode: 'INTERNAL_ERROR',
         })
-        return jsonError('Failed to delete reserved username', 500, 'INTERNAL_ERROR')
+        return jsonError('Couldn’t delete reserved username', 500, 'INTERNAL_ERROR')
     }
 }

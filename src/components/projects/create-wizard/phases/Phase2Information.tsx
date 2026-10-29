@@ -204,7 +204,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                                 {...register('custom_project_type', {
                                     required: 'Custom category is required',
                                     minLength: { value: 2, message: 'Custom category must be at least 2 characters' },
-                                    maxLength: { value: 50, message: 'Custom category must be less than 50 characters' },
+                                    maxLength: { value: 50, message: 'Use 50 characters or fewer' },
                                 })}
                                 className={fieldClass}
                                 placeholder="For example, Research, hardware, or biotech"

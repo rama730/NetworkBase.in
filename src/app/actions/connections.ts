@@ -61,7 +61,7 @@ export interface ConnectionStats {
 export async function readNetworkPendingCountsAction() {
     try {
         const user = await getAuthUser();
-        if (!user) return { success: false as const, error: 'Not authenticated', pendingConnections: 0, pendingInvites: 0, pendingApplications: 0, totalConnections: 0 };
+        if (!user) return { success: false as const, error: 'Sign in to continue', pendingConnections: 0, pendingInvites: 0, pendingApplications: 0, totalConnections: 0 };
 
         const [stats, pendingInvites, pendingApplications, orgInvites] = await Promise.all([
             getConnectionStatsForUser(user.id),
@@ -82,7 +82,7 @@ export async function readNetworkPendingCountsAction() {
             module: 'connections',
             error: error instanceof Error ? error.message : String(error),
         });
-        return { success: false as const, error: 'Failed to load pending requests', pendingConnections: 0, pendingInvites: 0, pendingApplications: 0, totalConnections: 0 };
+        return { success: false as const, error: 'Couldn’t load pending requests', pendingConnections: 0, pendingInvites: 0, pendingApplications: 0, totalConnections: 0 };
     }
 }
 
@@ -610,7 +610,7 @@ async function getConnectionsFeedImpl(
         return {
             success: false as const,
             code: 'UNAUTHENTICATED' as const,
-            error: 'Not authenticated',
+            error: 'Sign in to continue',
             items: [],
             nextCursor: null,
             hasMore: false,
@@ -1464,7 +1464,7 @@ export async function sendConnectionRequest(
         return { success: false, error: 'Invalid user ID' };
     }
     const user = await getAuthUser();
-    if (!user) return { success: false, error: 'Not authenticated' };
+    if (!user) return { success: false, error: 'Sign in to continue' };
     try {
         const outcome = await runIdempotent(
             { namespace: 'connection-request', scopeId: `${user.id}:${addresseeId}`, key: idempotencyKey, resultTtlSeconds: CONNECTION_REQUEST_IDEMPOTENCY_TTL_SECONDS },
@@ -1743,7 +1743,7 @@ export async function dismissConnectionSuggestion(
 ): Promise<{ success: boolean; error?: string }> {
     try {
         const user = await getAuthUser();
-        if (!user) return { success: false, error: 'Not authenticated' };
+        if (!user) return { success: false, error: 'Sign in to continue' };
         if (dismissedProfileId === user.id) return { success: false, error: 'Invalid target profile' };
 
         const dismissRate = await consumeRateLimit(`connections-dismiss:${user.id}`, 200, 60);
@@ -1770,7 +1770,7 @@ export async function dismissConnectionSuggestion(
         return { success: true };
     } catch (error) {
         console.error('Error dismissing suggestion:', error);
-        return { success: false, error: 'Failed to dismiss suggestion' };
+        return { success: false, error: 'Couldn’t dismiss suggestion' };
     }
 }
 
@@ -1779,7 +1779,7 @@ export async function acceptAllIncomingConnectionRequests(
 ): Promise<{ success: boolean; count?: number; error?: string }> {
     try {
         const user = await getAuthUser();
-        if (!user) return { success: false, error: 'Not authenticated' };
+        if (!user) return { success: false, error: 'Sign in to continue' };
 
         const effectiveLimit = Math.max(1, Math.min(limit, 200));
         const bulkAcceptRate = await consumeRateLimit(`connections-accept-all:${user.id}`, 6, 60);
@@ -1864,7 +1864,7 @@ export async function acceptAllIncomingConnectionRequests(
         return { success: true, count: accepted.length };
     } catch (error) {
         console.error('Error accepting all requests:', error);
-        return { success: false, error: 'Failed to accept all requests' };
+        return { success: false, error: 'Couldn’t accept all requests' };
     }
 }
 
@@ -1873,7 +1873,7 @@ export async function rejectAllIncomingConnectionRequests(
 ): Promise<{ success: boolean; count?: number; error?: string }> {
     try {
         const user = await getAuthUser();
-        if (!user) return { success: false, error: 'Not authenticated' };
+        if (!user) return { success: false, error: 'Sign in to continue' };
 
         const effectiveLimit = Math.max(1, Math.min(limit, 200));
         const bulkRejectRate = await consumeRateLimit(`connections-reject-all:${user.id}`, 6, 60);
@@ -1928,7 +1928,7 @@ export async function rejectAllIncomingConnectionRequests(
         return { success: true, count: rejected.length };
     } catch (error) {
         console.error('Error rejecting all requests:', error);
-        return { success: false, error: 'Failed to reject all requests' };
+        return { success: false, error: 'Couldn’t reject all requests' };
     }
 }
 
@@ -1948,7 +1948,7 @@ export async function cancelConnectionRequest(
 }> {
     try {
         const user = await getAuthUser();
-        if (!user) return { success: false, error: 'Not authenticated' };
+        if (!user) return { success: false, error: 'Sign in to continue' };
         const cancelRate = await consumeRateLimit(`connections-cancel:${user.id}`, 60, 60);
         if (!cancelRate.allowed) {
             return { success: false, error: 'Too many actions. Wait and try again.' };
@@ -2047,7 +2047,7 @@ export async function cancelConnectionRequest(
         };
     } catch (error) {
         console.error('Error cancelling request:', error);
-        return { success: false, error: 'Failed to withdraw request' };
+        return { success: false, error: 'Couldn’t withdraw request' };
     }
 }
 
@@ -2066,7 +2066,7 @@ export async function acceptConnectionRequest(
 ): Promise<{ success: boolean; error?: string; requesterId?: string; addresseeId?: string }> {
     try {
         const user = await getAuthUser();
-        if (!user) return { success: false, error: 'Not authenticated' };
+        if (!user) return { success: false, error: 'Sign in to continue' };
         const acceptRate = await consumeRateLimit(`connections-accept:${user.id}`, 60, 60);
         if (!acceptRate.allowed) {
             return { success: false, error: 'Too many actions. Wait and try again.' };
@@ -2178,7 +2178,7 @@ export async function acceptConnectionRequest(
             return { success: false, error: 'Already working on it. Wait a moment.' };
         }
         console.error('Error accepting request:', error);
-        return { success: false, error: 'Failed to accept request' };
+        return { success: false, error: 'Couldn’t accept request' };
     }
 }
 
@@ -2196,7 +2196,7 @@ export async function rejectConnectionRequest(
 ): Promise<{ success: boolean; error?: string; undoUntil?: string; serverNow?: string }> {
     try {
         const user = await getAuthUser();
-        if (!user) return { success: false, error: 'Not authenticated' };
+        if (!user) return { success: false, error: 'Sign in to continue' };
         if (reason && !(CONNECTION_REJECTION_REASONS as readonly string[]).includes(reason)) {
             return { success: false, error: `Invalid rejection reason. Must be one of: ${CONNECTION_REJECTION_REASONS.join(', ')}` };
         }
@@ -2276,7 +2276,7 @@ export async function rejectConnectionRequest(
             return { success: false, error: 'Already working on it. Wait a moment.' };
         }
         console.error('Error rejecting request:', error);
-        return { success: false, error: 'Failed to reject request' };
+        return { success: false, error: 'Couldn’t reject request' };
     }
 }
 
@@ -2285,7 +2285,7 @@ export async function undoRejectConnectionRequest(
 ): Promise<{ success: boolean; error?: string }> {
     try {
         const user = await getAuthUser();
-        if (!user) return { success: false, error: 'Not authenticated' };
+        if (!user) return { success: false, error: 'Sign in to continue' };
         const undoRate = await consumeRateLimit(`connections-undo-reject:${user.id}`, 60, 60);
         if (!undoRate.allowed) {
             return { success: false, error: 'Too many actions. Wait and try again.' };
@@ -2322,7 +2322,7 @@ export async function undoRejectConnectionRequest(
         return { success: true };
     } catch (error) {
         console.error('Error undoing reject request:', error);
-        return { success: false, error: 'Failed to undo reject' };
+        return { success: false, error: 'Couldn’t undo reject' };
     }
 }
 
@@ -2335,7 +2335,7 @@ export async function removeConnection(
 ): Promise<{ success: boolean; error?: string }> {
     try {
         const user = await getAuthUser();
-        if (!user) return { success: false, error: 'Not authenticated' };
+        if (!user) return { success: false, error: 'Sign in to continue' };
         const removeRate = await consumeRateLimit(`connections-remove:${user.id}`, 60, 60);
         if (!removeRate.allowed) {
             return { success: false, error: 'Too many actions. Wait and try again.' };
@@ -2419,7 +2419,7 @@ export async function removeConnection(
         return { success: true };
     } catch (error) {
         console.error('Error removing connection:', error);
-        return { success: false, error: 'Failed to remove connection' };
+        return { success: false, error: 'Couldn’t remove connection' };
     }
 }
 
@@ -2448,7 +2448,7 @@ export async function getAcceptedConnections(
     const user = await getAuthUser();
     const userIdToFetch = targetUserId || user?.id;
 
-    if (!userIdToFetch) return { success: false as const, error: 'Not authenticated', connections: [], hasMore: false, nextCursor: null, totalConnections: null };
+    if (!userIdToFetch) return { success: false as const, error: 'Sign in to continue', connections: [], hasMore: false, nextCursor: null, totalConnections: null };
 
     // C1: Rate limit to prevent enumeration
     if (user?.id) {
@@ -2622,7 +2622,7 @@ export async function checkConnectionStatus(
 }> {
     try {
         const user = await getAuthUser();
-        if (!user) return { success: false, error: 'Not authenticated' };
+        if (!user) return { success: false, error: 'Sign in to continue' };
 
         // C2: Rate limit to prevent relationship enumeration
         const rate = await consumeRateLimit(`connections-status:${user.id}`, 120, 60);
@@ -2721,14 +2721,14 @@ export async function checkConnectionStatus(
         return { success: true, status: 'none' };
     } catch (error) {
         console.error('Error checking connection status:', error);
-        return { success: false, error: 'Failed to check connection status' };
+        return { success: false, error: 'Couldn’t check connection status' };
     }
 }
 
 export async function withdrawAllSentConnectionRequests(): Promise<{ success: boolean; count?: number; error?: string }> {
     try {
         const user = await getAuthUser();
-        if (!user) return { success: false, error: 'Not authenticated' };
+        if (!user) return { success: false, error: 'Sign in to continue' };
 
         const withdrawRate = await consumeRateLimit(`connections-withdraw-all:${user.id}`, 6, 60);
         if (!withdrawRate.allowed) {
@@ -2770,7 +2770,7 @@ export async function withdrawAllSentConnectionRequests(): Promise<{ success: bo
         return { success: true, count: withdrawn.length };
     } catch (error) {
         console.error('connections.withdraw_all_sent_failed', { error });
-        return { success: false, error: 'Failed to withdraw requests' };
+        return { success: false, error: 'Couldn’t withdraw requests' };
     }
 }
 
@@ -2782,7 +2782,7 @@ export async function getProfileConnectionCountAction(profileId: string) {
     const relationship = await resolvePrivacyRelationship(viewer?.id ?? null, profileId);
     if (!relationship?.canViewProfile) return { success: false as const, error: 'Profile unavailable' };
     const rate = await consumeRateLimit(`profile:connection-count:${viewer?.id ?? profileId}`, 60, 60);
-    if (!rate.allowed) return { success: false as const, error: 'Too many requests' };
+    if (!rate.allowed) return { success: false as const, error: 'Too many attempts. Try again in a minute.' };
     const stats = await getConnectionStatsForUser(profileId);
     return { success: true as const, connectionsCount: stats.totalConnections };
 }
@@ -2804,6 +2804,6 @@ export async function readPersonSharedConnectionsAction(input: { targetId: strin
         return { success: true as const, summary };
     } catch (error) {
         logger.warn('connections.shared_people_failed', { error: error instanceof Error ? error.message : String(error) });
-        return { success: false as const, error: 'Could not load shared connections. Try again.' };
+        return { success: false as const, error: 'Couldn’t load shared connections. Try again.' };
     }
 }

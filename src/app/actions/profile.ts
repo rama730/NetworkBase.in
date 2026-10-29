@@ -125,7 +125,7 @@ export async function createProfileImageUploadUrlAction(input: {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-        return { success: false, error: 'Unauthorized', errorCode: 'UNAUTHORIZED' }
+        return { success: false, error: 'Sign in to continue', errorCode: 'UNAUTHORIZED' }
     }
 
     // SEC-H6: per-kind throttle BEFORE we do any work. We consume a token
@@ -183,7 +183,7 @@ export async function createProfileImageUploadUrlAction(input: {
     if (error || !data?.signedUrl || !data?.token) {
         return {
             success: false,
-            error: 'Failed to create upload URL',
+            error: 'Couldn’t create upload URL',
             errorCode: 'UPLOAD_URL_FAILED',
         }
     }
@@ -210,7 +210,7 @@ export async function finalizeProfileImageUploadAction(input: {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-        return { success: false, error: 'Unauthorized', errorCode: 'UNAUTHORIZED' }
+        return { success: false, error: 'Sign in to continue', errorCode: 'UNAUTHORIZED' }
     }
 
     // SEC-H6: defence-in-depth — cap finalize storms. Legit use finalizes
@@ -366,7 +366,7 @@ export async function finalizeProfileImageUploadAction(input: {
         })
         return {
             success: false,
-            error: 'Failed to finalize image upload',
+            error: 'Couldn’t finalize image upload',
             errorCode: 'FINALIZE_FAILED',
         }
     }
@@ -384,7 +384,7 @@ export async function updateProfileAction(data: UpdateProfileInput): Promise<Upd
         const { data: { user } } = await supabase.auth.getUser()
 
         if (!user) {
-            return { success: false, error: 'Unauthorized', errorCode: 'UNAUTHORIZED' }
+            return { success: false, error: 'Sign in to continue', errorCode: 'UNAUTHORIZED' }
         }
 
         const updateRate = await consumeRateLimit(
@@ -505,7 +505,7 @@ export async function updateProfileAction(data: UpdateProfileInput): Promise<Upd
                 })
                 return {
                     success: false,
-                    error: 'Unable to verify username change history right now. Try again shortly.',
+                    error: 'Couldn’t verify username change history right now. Try again shortly.',
                     errorCode: 'USERNAME_HISTORY_UNAVAILABLE',
                 }
             }
@@ -801,7 +801,7 @@ export async function updateProfileAction(data: UpdateProfileInput): Promise<Upd
             }
         }
         console.error('Error updating profile:', error)
-        return { success: false, error: 'Failed to update profile', errorCode: 'PROFILE_UPDATE_FAILED' }
+        return { success: false, error: 'Couldn’t update profile', errorCode: 'PROFILE_UPDATE_FAILED' }
     }
 }
 
@@ -815,7 +815,7 @@ export async function getProfileViewerOverlayAction(profileId: string) {
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {
-            return { success: false as const, error: 'Not authenticated' };
+            return { success: false as const, error: 'Sign in to continue' };
         }
 
         const privacyRelationship = await resolvePrivacyRelationship(user.id, profileId);
@@ -842,7 +842,7 @@ export async function getProfileViewerOverlayAction(profileId: string) {
     } catch (error) {
         return {
             success: false as const,
-            error: error instanceof Error ? error.message : 'Failed to load profile viewer state',
+            error: error instanceof Error ? error.message : 'Couldn’t load profile viewer state',
         };
     }
 }

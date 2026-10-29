@@ -507,7 +507,7 @@ export function GeneralSettingsSection({
         try {
             const result = await clearProjectCoverImageAction(projectId);
             if (!result?.success) {
-                throw new Error(result.error || "Failed to remove project avatar");
+                throw new Error(result.error || "Couldn’t remove project avatar");
             }
             setCoverImage("");
             toast.success("Workspace avatar removed");

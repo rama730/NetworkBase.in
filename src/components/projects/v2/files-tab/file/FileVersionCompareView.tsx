@@ -69,7 +69,7 @@ export function FileVersionCompareView({
         if (!active) return;
 
         if (!baseRes.success || !targetRes.success) {
-          throw new Error("Failed to retrieve file contents for comparison.");
+          throw new Error("Couldn’t retrieve file contents for comparison.");
         }
 
         const baseContent = baseRes.content;

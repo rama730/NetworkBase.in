@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
     return jsonSuccess({ notified, requiresReview: true });
   } catch {
     return jsonError(
-      "Unable to record notification; retry delivery",
+      "Couldn’t record notification; retry delivery",
       503,
       "UNAVAILABLE",
     );

@@ -94,7 +94,7 @@ export default function ResetPasswordPage() {
             })
             const safetyBody = (await safetyResponse.json().catch(() => null)) as { message?: string } | null
             if (!safetyResponse.ok) {
-                throw new Error(safetyBody?.message || 'Unable to verify password safety.')
+                throw new Error(safetyBody?.message || 'Couldn’t verify password safety.')
             }
 
             const supabase = await loadBrowserSupabase()
@@ -113,7 +113,7 @@ export default function ResetPasswordPage() {
                 router.replace('/login')
             }, SUCCESS_REDIRECT_MS)
         } catch (submitError) {
-            setError(submitError instanceof Error ? submitError.message : 'Unable to update password.')
+            setError(submitError instanceof Error ? submitError.message : 'Couldn’t update password.')
         } finally {
             setSubmitting(false)
         }

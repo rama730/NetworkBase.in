@@ -46,7 +46,7 @@ export async function* fetchAndParseTarball(
     try {
         const res = await fetch(apiUrl, { headers, signal: controller.signal });
         if (!res.ok || !res.body) {
-            throw new Error(`Failed to fetch tarball: ${res.statusText}`);
+            throw new Error(`Couldn’t fetch tarball: ${res.statusText}`);
         }
 
         let ready: TarballFile | null = null; // the one file extracted ahead of the consumer

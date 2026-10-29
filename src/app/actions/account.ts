@@ -37,7 +37,7 @@ export async function cancelAccountDeletion(): Promise<{ success: boolean; error
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-            return { success: false, error: 'Not authenticated' };
+            return { success: false, error: 'Sign in to continue' };
         }
         // A cancel is cheap but it undoes a deletion: a stolen session shouldn't be able to flip it back and forth.
         const limit = await consumeRateLimit(`account-cancel-deletion:${user.id}`, 10, 3600);
@@ -51,7 +51,7 @@ export async function cancelAccountDeletion(): Promise<{ success: boolean; error
         return { success: true };
     } catch (error) {
         logger.error('account.cancel-deletion.failed', { module: 'account', error: error instanceof Error ? error.message : String(error) });
-        return { success: false, error: 'Failed to cancel account deletion' };
+        return { success: false, error: 'Couldn’t cancel account deletion' };
     }
 }
 
@@ -104,7 +104,7 @@ export async function transferProjectOwnership(
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {
-            return { success: false, error: 'Not authenticated', errorCode: 'UNAUTHORIZED' };
+            return { success: false, error: 'Sign in to continue', errorCode: 'UNAUTHORIZED' };
         }
 
         if (newOwnerId === user.id) {
@@ -391,7 +391,7 @@ export async function transferProjectOwnership(
         logger.error('account.transfer-ownership.failed', { module: 'account', error: error instanceof Error ? error.message : String(error) });
         return {
             success: false,
-            error: error instanceof Error ? error.message : 'Failed to transfer ownership',
+            error: error instanceof Error ? error.message : 'Couldn’t transfer ownership',
             errorCode: 'INTERNAL_ERROR',
         };
     }

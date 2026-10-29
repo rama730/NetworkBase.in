@@ -30,7 +30,7 @@ export async function GET(request: Request) {
             success: false,
             errorCode: 'UNAUTHORIZED',
         })
-        return auth.response ?? jsonError('Not authenticated', 401, 'UNAUTHORIZED')
+        return auth.response ?? jsonError('Sign in to continue', 401, 'UNAUTHORIZED')
     }
 
     if (!isAdminUser(user)) {
@@ -43,7 +43,7 @@ export async function GET(request: Request) {
             userId: user?.id ?? null,
             errorCode: 'FORBIDDEN',
         })
-        return jsonError('Forbidden', 403, 'FORBIDDEN')
+        return jsonError('You don’t have access to this', 403, 'FORBIDDEN')
     }
 
     logApiRoute(request, {

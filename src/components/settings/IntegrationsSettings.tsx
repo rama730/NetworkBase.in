@@ -251,7 +251,7 @@ export default function IntegrationsSettings() {
       toast.info(`This ${label} account is already linked`);
     } else if (outcome === "error") {
       const desc = searchParams.get("githubErrorDesc");
-      toast.error(feedbackError(desc || `Could not link ${label} account. Try again.`, `Could not link ${label} account. Try again.`));
+      toast.error(feedbackError(desc || `Couldn’t link ${label} account. Try again.`, `Couldn’t link ${label} account. Try again.`));
     }
     const next = new URLSearchParams(searchParams.toString());
     next.delete("identityProvider");
@@ -318,7 +318,7 @@ export default function IntegrationsSettings() {
       }
       await startGoogleIdentityLink();
     } catch (linkError) {
-      toast.error(feedbackError(linkError instanceof Error ? linkError.message : `Failed to link ${provider}`, "Action couldn’t finish"));
+      toast.error(feedbackError(linkError instanceof Error ? linkError.message : `Couldn’t link ${provider}`, "Action couldn’t finish"));
       setLinking(null);
     }
   };
@@ -328,7 +328,7 @@ export default function IntegrationsSettings() {
       const response = await fetch("/api/v1/auth/security-step-up");
       const payload = await response.json().catch(() => null);
       if (!response.ok || payload?.success === false) {
-        throw new Error(payload?.message || "Could not load verification options");
+        throw new Error(payload?.message || "Couldn’t load verification options");
       }
       const methods = Array.isArray(payload?.data?.availableMethods)
         ? payload.data.availableMethods.filter(
@@ -350,7 +350,7 @@ export default function IntegrationsSettings() {
       setReplacementConfirmOpen(false);
       setStepUpOpen(true);
     } catch (error) {
-      toast.error(feedbackError(error instanceof Error ? error.message : "Could not start verification", "Could not start verification"));
+      toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t start verification", "Couldn’t start verification"));
     }
   };
   const requestReplacementVerification = () => requestStepUp("replace");
@@ -388,7 +388,7 @@ export default function IntegrationsSettings() {
         },
       });
     } catch (error) {
-      toast.error(feedbackError(error instanceof Error ? error.message : "Could not replace GitHub account", "Could not replace GitHub account"));
+      toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t replace GitHub account", "Couldn’t replace GitHub account"));
       setReplacingGithub(false);
       void refetch();
     }
@@ -418,7 +418,7 @@ export default function IntegrationsSettings() {
         if (previousSessions) {
           queryClient.setQueryData(queryKeys.settings.extensionSessions(), previousSessions);
         }
-        toast.error(feedbackError(result.error || "Could not revoke editor session", "Could not revoke editor session"));
+        toast.error(feedbackError(result.error || "Couldn’t revoke editor session", "Couldn’t revoke editor session"));
       }
     } catch {
       if (previousSessions) {

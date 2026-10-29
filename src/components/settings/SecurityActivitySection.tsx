@@ -105,13 +105,13 @@ export default function SecurityActivitySection({ activity, hasMore = false, ava
     try {
       const res = await fetch(`/api/v1/security?activityBefore=${encodeURIComponent(last.createdAt)}`, { cache: "no-store" });
       const json = await res.json().catch(() => null);
-      if (!res.ok || json?.success === false) throw new Error(json?.message || "Failed to load older activity");
+      if (!res.ok || json?.success === false) throw new Error(json?.message || "Couldn’t load older activity");
       const page = json.data as { securityActivity: SecurityActivityEntry[]; securityActivityHasMore: boolean };
       setItems((prev) => [...prev, ...page.securityActivity.filter((next) => !prev.some((known) => known.id === next.id))]);
       setMore(page.securityActivityHasMore);
       setShowAll(true);
     } catch (error) {
-      toast.error(feedbackError(error instanceof Error ? error.message : "Failed to load older activity", "Failed to load older activity"));
+      toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t load older activity", "Couldn’t load older activity"));
     } finally {
       setLoadingOlder(false);
     }
@@ -128,12 +128,12 @@ export default function SecurityActivitySection({ activity, hasMore = false, ava
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || data?.success === false) {
-        throw new Error(data?.message || "Failed to delete activity log");
+        throw new Error(data?.message || "Couldn’t delete activity log");
       }
       toast.success("Security activity record removed");
     } catch (error) {
       setItems(previous);
-      toast.error(feedbackError(error instanceof Error ? error.message : "Failed to delete record", "Failed to delete record"));
+      toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t delete record", "Couldn’t delete record"));
     } finally {
       setBusy(false);
     }
@@ -153,14 +153,14 @@ export default function SecurityActivitySection({ activity, hasMore = false, ava
         return;
       }
       if (!res.ok || data?.success === false) {
-        throw new Error(data?.message || "Failed to clear activity logs");
+        throw new Error(data?.message || "Couldn’t clear activity logs");
       }
       // Cleared only once the server says so; the list then shows the note it left behind.
       setItems([]);
       toast.success("Security activity logs cleared");
       void queryClient.invalidateQueries({ queryKey: queryKeys.settings.security() });
     } catch (error) {
-      toast.error(feedbackError(error instanceof Error ? error.message : "Failed to clear activity", "Failed to clear activity"));
+      toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t clear activity", "Couldn’t clear activity"));
     } finally {
       setBusy(false);
       setConfirmClearOpen(false);

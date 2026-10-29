@@ -176,7 +176,7 @@ export function EditProfileEditor({
             })
             .catch((error) => {
                 if (openGenerationRef.current !== generation) return;
-                const message = error instanceof Error ? error.message : "Could not load all project contributions";
+                const message = error instanceof Error ? error.message : "Couldn’t load all project contributions";
                 setSaveErrorMessage(message);
                 toast.error(feedbackError(message, "Action couldn’t finish"));
             })
@@ -297,7 +297,7 @@ export function EditProfileEditor({
                     }
                     const message = code === "PROFILE_CONFLICT"
                         ? "Your profile changed in another session. Review the latest changes before saving again."
-                        : ((response as any).error || "Could not update profile");
+                        : ((response as any).error || "Couldn’t update profile");
                     throw new Error(message);
                 }
                 lastKnownUpdatedAtRef.current = typeof (response as any).updatedAt === "string"
@@ -404,7 +404,7 @@ export function EditProfileEditor({
                 baseEntries.length + additions.length < Math.min(page.total, 500) && page.hasMore,
             );
         } catch (error) {
-            const message = error instanceof Error ? error.message : "Could not load more project contributions";
+            const message = error instanceof Error ? error.message : "Couldn’t load more project contributions";
             setSaveErrorMessage(message);
             toast.error(feedbackError(message, "Action couldn’t finish"));
         } finally {

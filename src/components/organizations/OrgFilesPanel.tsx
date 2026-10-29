@@ -122,7 +122,7 @@ function FromOrgFiles({ projectId, canCopy }: { projectId: string; canCopy: bool
         setCopying(c.nodeId)
         try {
             const response = await fetch(`/api/v1/projects/${data.org.id}/files/${c.sourceNodeId}/preview?download=1`)
-            if (!response.ok) throw new Error('Could not read the file')
+            if (!response.ok) throw new Error('Couldn’t read the file')
             const blob = await response.blob()
             const { saveFileRevision } = await import('@/hooks/useFileVersions')
             const saved = await saveFileRevision({ projectId, nodeId: c.nodeId, file: new File([blob], c.name, { type: blob.type }), mode: 'new_revision', comment: `Updated from ${data.org.title} v${c.sourceVersion}`, baseVersion: null })
@@ -143,7 +143,7 @@ function FromOrgFiles({ projectId, canCopy }: { projectId: string; canCopy: bool
         setCopying(file.id)
         try {
             const response = await fetch(`/api/v1/projects/${data.org.id}/files/${file.id}/preview?download=1`)
-            if (!response.ok) throw new Error('Could not read the file')
+            if (!response.ok) throw new Error('Couldn’t read the file')
             const created = await uploadProjectFile(projectId, null, file.name, await response.blob())
             const recorded = await recordOrgCopyAction(projectId, created.id, file.id)
             if (!recorded.success) throw new Error(recorded.error)

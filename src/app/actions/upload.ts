@@ -61,7 +61,7 @@ export async function getUploadPresignedUrl(
         const authClient = await createClient();
         const { data: { user } } = await authClient.auth.getUser();
         if (!user) {
-            return { error: 'Unauthorized' };
+            return { error: 'Sign in to continue' };
         }
 
         const projectId = await assertUploadAccessForKey(key, user.id);
@@ -89,7 +89,7 @@ export async function getUploadPresignedUrl(
 
         if (error) {
             console.error('Failed to create signed URL:', error);
-            return { error: 'Failed to generate upload URL' };
+            return { error: 'Couldn’t generate upload URL' };
         }
 
         logger.metric('upload.presign.single', {
@@ -138,7 +138,7 @@ export async function getBatchUploadUrls(
         const authClient = await createClient();
         const { data: { user } } = await authClient.auth.getUser();
         if (!user) {
-            return { error: 'Unauthorized' };
+            return { error: 'Sign in to continue' };
         }
 
         if (!keys || keys.length === 0) {

@@ -55,7 +55,7 @@ async function fetchSidebarProjects(profileId: string): Promise<SidebarProject[]
     });
     const body = await response.json().catch(() => null) as SidebarProjectsEnvelope | null;
     if (!response.ok || body?.success === false) {
-        throw new Error(body?.message || "Unable to load projects");
+        throw new Error(body?.message || "Couldn’t load projects");
     }
     return (body?.data?.projects ?? []).filter((project) => project.id && project.title && project.href);
 }

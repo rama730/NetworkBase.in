@@ -155,7 +155,7 @@ export default function MyWorkRequestsTab({ isActive = true }: MyWorkRequestsTab
                 label: "Undo",
                 onClick: () => void reopenApplicationAction(app.id).then((undone) => {
                     if (undone.success) toast.success("Decline undone");
-                    else toast.error(feedbackError(undone.error || "Could not undo", "Could not undo"));
+                    else toast.error(feedbackError(undone.error || "Couldn’t undo", "Couldn’t undo"));
                     invalidate();
                 }),
             },
@@ -257,7 +257,7 @@ export default function MyWorkRequestsTab({ isActive = true }: MyWorkRequestsTab
         return (
             <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-center">
                 <p className="text-xs font-medium text-destructive">
-                    Failed to load invitations. Try again later.
+                    Couldn’t load invitations. Try again later.
                 </p>
                 <button type="button" onClick={() => void query.refetch()} className="mt-2 text-xs font-semibold text-destructive underline underline-offset-2">Try again</button>
             </div>

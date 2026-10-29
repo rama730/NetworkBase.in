@@ -951,7 +951,7 @@ export function MediaViewerDriver({
         </div>
         <div className="space-y-1.5 max-w-md">
           <p className="text-base font-semibold text-foreground">
-            {isMovFile ? "QuickTime (.mov) Codec Not Supported in Browser" : "Unable to play media stream"}
+            {isMovFile ? "QuickTime (.mov) Codec Not Supported in Browser" : "Couldn’t play media stream"}
           </p>
           <p className="text-xs text-muted-foreground leading-relaxed">
             {isMovFile

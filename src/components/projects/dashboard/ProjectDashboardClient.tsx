@@ -824,7 +824,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
             // Revert
             setIsFollowing(!newIsFollowing);
             setFollowersCount(Math.max(0, baselineFollowersCount));
-            const message = error instanceof Error ? error.message : 'Failed to update follow status';
+            const message = error instanceof Error ? error.message : 'Couldn’t update follow status';
             toast.error(feedbackError(message, "Action couldn’t finish"));
             logger.metric('project.detail.follow.result', {
                 projectId: project.id,
@@ -915,7 +915,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
     const withdrawApplication = useCallback(async (note: string) => {
         if (!applicationStatus.applicationId) return 'This application is no longer available.';
         const result = await withdrawApplicationAction(applicationStatus.applicationId, note || undefined);
-        if (!result.success) return result.error || 'Could not withdraw the application.';
+        if (!result.success) return result.error || 'Couldn’t withdraw the application.';
         setIsWithdrawOpen(false);
         toast.success('Application withdrawn');
         await refreshApplicationStatus();
@@ -934,7 +934,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                 return;
             }
             if (applicationLoad !== 'ready') {
-                toast.error(feedbackError(applicationLoad === 'error' ? 'Could not check your application. Try again.' : 'Checking your application…', "Checking your application…"));
+                toast.error(feedbackError(applicationLoad === 'error' ? 'Couldn’t check your application. Try again.' : 'Checking your application…', "Checking your application…"));
                 return;
             }
             if (applicationStatus.status === 'pending') {

@@ -177,8 +177,8 @@ function AuthorizePageInner({ viewerEmail }: { viewerEmail?: string | null }) {
                 return
             }
 
-            const nextError = 'error' in res ? res.error : 'Failed to authorize extension.'
-            if (nextError === 'Not authenticated') {
+            const nextError = 'error' in res ? res.error : 'Couldn’t authorize extension.'
+            if (nextError === 'Sign in to continue') {
                 setNeedsSignIn(true)
                 setStatus('idle')
                 return
@@ -315,7 +315,7 @@ function AuthorizePageInner({ viewerEmail }: { viewerEmail?: string | null }) {
                             </span>
                             <div className="min-w-0">
                                 <p className="text-xs text-muted-foreground">Account</p>
-                                <p className="truncate text-sm font-medium">{needsSignIn ? 'Not signed in' : viewerEmail || 'Active browser session'}</p>
+                                <p className="truncate text-sm font-medium">{needsSignIn ? 'Sign in to continue' : viewerEmail || 'Active browser session'}</p>
                             </div>
                         </div>
                         {!needsSignIn && status !== 'success' ? (

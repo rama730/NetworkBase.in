@@ -90,7 +90,7 @@ async function requireProjectAccess(projectId: string, userId: string, write: bo
   const access = await getProjectAccessById(projectId, userId);
   if (!access.project) return jsonError("Project not found", 404, "NOT_FOUND");
   if (write ? !access.canWrite : !access.canRead) {
-    return jsonError("Forbidden", 403, "FORBIDDEN");
+    return jsonError("You don’t have access to this", 403, "FORBIDDEN");
   }
   return null;
 }
@@ -178,7 +178,7 @@ async function createIntent(userId: string, body: z.infer<typeof intentSchema>) 
     .createSignedUploadUrl(storageKey, { upsert: false });
   if (error || !data) {
     await db.delete(extensionRecoveryDrafts).where(eq(extensionRecoveryDrafts.id, draftId));
-    return jsonError("Could not prepare recovery upload", 503, "UNAVAILABLE");
+    return jsonError("Couldn’t prepare recovery upload", 503, "UNAVAILABLE");
   }
 
   recordExtensionMetric("extension.recovery.intent", {
@@ -374,7 +374,7 @@ export async function POST(request: Request) {
   const limited = await enforceRouteLimit(request, "api:v1:extension:recovery-drafts:write", 180, 60);
   if (limited) return limited;
   const auth = await requireAuthenticatedUser();
-  if (auth.response || !auth.user) return auth.response ?? jsonError("Not authenticated", 401, "UNAUTHORIZED");
+  if (auth.response || !auth.user) return auth.response ?? jsonError("Sign in to continue", 401, "UNAUTHORIZED");
 
   try {
     const payload = await request.json();
@@ -394,13 +394,13 @@ export async function POST(request: Request) {
       userId: auth.user.id,
       error: error instanceof Error ? error.message : String(error),
     });
-    return jsonError("Could not save recovery draft", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t save recovery draft", 500, "INTERNAL_ERROR");
   }
 }
 
 export async function GET(request: Request) {
   const auth = await requireAuthenticatedUser();
-  if (auth.response || !auth.user) return auth.response ?? jsonError("Not authenticated", 401, "UNAUTHORIZED");
+  if (auth.response || !auth.user) return auth.response ?? jsonError("Sign in to continue", 401, "UNAUTHORIZED");
 
   const url = new URL(request.url);
   const draftId = url.searchParams.get("draftId");
@@ -518,7 +518,7 @@ export async function DELETE(request: Request) {
   const limited = await enforceRouteLimit(request, "api:v1:extension:recovery-drafts:delete", 60, 60);
   if (limited) return limited;
   const auth = await requireAuthenticatedUser();
-  if (auth.response || !auth.user) return auth.response ?? jsonError("Not authenticated", 401, "UNAUTHORIZED");
+  if (auth.response || !auth.user) return auth.response ?? jsonError("Sign in to continue", 401, "UNAUTHORIZED");
 
   const parsed = deleteSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return jsonError("Invalid recovery draft delete request", 400, "BAD_REQUEST");
@@ -562,7 +562,7 @@ export async function DELETE(request: Request) {
 
 export async function HEAD(request: Request) {
   const auth = await requireAuthenticatedUser();
-  if (auth.response || !auth.user) return auth.response ?? jsonError("Not authenticated", 401, "UNAUTHORIZED");
+  if (auth.response || !auth.user) return auth.response ?? jsonError("Sign in to continue", 401, "UNAUTHORIZED");
   const draftId = new URL(request.url).searchParams.get("draftId");
   if (!draftId || !z.string().uuid().safeParse(draftId).success) {
     return jsonError("Invalid draft id", 400, "BAD_REQUEST");

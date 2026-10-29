@@ -22,7 +22,7 @@ export async function GET(request: Request) {
   });
 
   if (!result.success) {
-    const message = result.error || "Failed to load repositories.";
+    const message = result.error || "Couldn’t load repositories.";
     return jsonError(
       message,
       /unauthorized/i.test(message) ? 401 : 400,

@@ -37,7 +37,7 @@ test("all primary sign-out entry points share precise copy and behavior", () => 
   assert.match(signOut, /title="Sign out on this device\?"/);
   assert.match(signOut, /You’ll need to sign in again to use NetworkBase on this device\./);
   assert.match(signOut, /pendingLabel="Signing out…"/);
-  assert.match(signOut, /errorMessage="Failed to sign out\. Try again\."/);
+  assert.match(signOut, /errorMessage="Couldn’t sign out\. Try again\."/);
   assert.match(signOut, /variant="destructive"/);
 
   assert.match(topNav, /<SignOutConfirmDialog/);

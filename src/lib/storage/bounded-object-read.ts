@@ -16,7 +16,7 @@ export async function readBoundedStorageBytes(input: {
     .from(input.bucket)
     .createSignedUrl(input.storageKey, 60);
   if (error || !data?.signedUrl)
-    throw error ?? new Error("Unable to authorize storage read");
+    throw error ?? new Error("Couldn’t authorize storage read");
   const controller = new AbortController();
   const abort = () => controller.abort();
   input.signal?.addEventListener("abort", abort, { once: true });
