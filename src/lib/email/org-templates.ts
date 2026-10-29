@@ -133,7 +133,8 @@ function partsFor(kind: OrgEmailKind, d: OrgEmailData, url: (path: string) => st
         quote: d.note ?? null,
         primary: kind === "org_invite" ? { label: "Accept invitation →", href: url("/network?tab=invitations") } : { label: "Create your account →", href: url("/signup") },
         secondary: kind === "org_invite" ? { label: "View organization", href: url(orgPath) } : { label: "What is NetworkBase", href: url("/") },
-        reason: `You’re receiving this because ${actor} invited this address to ${org}.`,
+        // "Report this invite" (trust and safety F21): unwanted invitations are reportable from the invitation itself.
+        reason: `You’re receiving this because ${actor} invited this address to ${org}. Not expecting it? ${kind === "org_invite" ? "Choose Report on the invitation in NetworkBase, or reply" : "Reply"} to this email to report it.`,
       };
     case "org_welcome":
       return {

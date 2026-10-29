@@ -33,6 +33,7 @@ function getWorkerOnlyFunctions() {
   const { dataLifecycleRetention } = loadModule("./functions/data-lifecycle-retention");
   const { storageAssetDeletion } = loadModule("./functions/storage-asset-deletion");
   const { storageAssetBackup } = loadModule("./functions/storage-asset-backup");
+  const { trustUrgentAlert, trustDecisionNotices, trustDeadlines, trustRestrictions, trustDailySummary, trustRetention } = loadModule("./functions/trust-safety");
 
   return [
     projectImport,
@@ -73,6 +74,12 @@ function getWorkerOnlyFunctions() {
     dataLifecycleRetention,
     storageAssetDeletion,
     storageAssetBackup,
+    trustUrgentAlert,
+    trustDecisionNotices,
+    trustDeadlines,
+    trustRestrictions,
+    trustDailySummary,
+    trustRetention,
   ] as const;
 }
 

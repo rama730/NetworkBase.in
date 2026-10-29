@@ -135,3 +135,23 @@ test("reduced keeps the strike with a lighter limit; upheld changes nothing", as
   assert.equal((await appeals.decideAppeal(u.caseId, reviewer, "upheld", "It stays.", "")).ok, true);
   assert.equal((await sql`SELECT app_private.moderation_restriction(${u.author}::uuid) AS r`)[0]!.r, "limit");
 });
+
+test("a ban signs out everywhere, blocks the email, and a new account with it is banned at setup", async () => {
+  // The disposable database has a minimal auth schema; these two tables stand in for Supabase's.
+  await sql`CREATE TABLE IF NOT EXISTS auth.sessions (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid)`;
+  await sql`CREATE TABLE IF NOT EXISTS auth.identities (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid, provider text, provider_id text, identity_data jsonb, last_sign_in_at timestamptz, created_at timestamptz DEFAULT now())`;
+  const t = await reportedPost();
+  const admin = await sql.begin((tx) => createUser(tx));
+  await sql`INSERT INTO auth.sessions (user_id) VALUES (${t.author})`;
+  await sql`INSERT INTO auth.identities (user_id, provider, provider_id) VALUES (${t.author}, 'github', ${`gh-${t.author}`})`;
+  const result = await decide.decideCase(t.caseId, staffActor(admin, "admin"), { outcome: "actioned", content: "remove", account: { action: "ban" }, rule: 4 });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal((await sql`SELECT count(*)::int AS n FROM auth.sessions WHERE user_id = ${t.author}`)[0]!.n, 0);
+  assert.equal((await sql`SELECT app_private.moderation_restriction(${t.author}::uuid) AS r`)[0]!.r, "ban");
+
+  const standing = await loadAppModule(() => import("../../src/lib/trust/standing"));
+  const evader = await sql.begin((tx) => createUser(tx));
+  await sql`INSERT INTO auth.identities (user_id, provider, provider_id) VALUES (${evader}, 'github', ${`gh-${t.author}`})`;
+  assert.equal(await standing.banIfBlockedIdentity(evader), true);
+  assert.equal((await sql`SELECT app_private.moderation_restriction(${evader}::uuid) AS r`)[0]!.r, "ban");
+});

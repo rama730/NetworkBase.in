@@ -173,7 +173,7 @@ async function revertAction(tx: Tx, a: { action: ModerationActionKind; target_ki
   }
   if (a.action === "ban" && a.subject_id) {
     const hashes = Array.isArray(r.hashes) ? (r.hashes as string[]) : [];
-    if (hashes.length) await tx.execute(sql`DELETE FROM moderation_blocked_identities WHERE hash = ANY(${hashes}::text[])`);
+    if (hashes.length) await tx.execute(sql`DELETE FROM moderation_blocked_identities WHERE hash IN (${sql.join(hashes.map((h) => sql`${h}`), sql`, `)})`);
     if (typeof r.visibility === "string") await tx.execute(sql`UPDATE profiles SET visibility = ${r.visibility} WHERE id = ${a.subject_id}`);
   }
 }

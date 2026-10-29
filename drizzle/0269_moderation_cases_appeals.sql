@@ -278,7 +278,7 @@ CREATE FUNCTION app_private.moderation_staff() RETURNS TABLE (id uuid, role text
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = '' AS $$
 BEGIN
   RETURN QUERY SELECT u.id, u.raw_app_meta_data->>'role' FROM auth.users u
-    WHERE u.raw_app_meta_data->>'role' IN ('admin', 'moderator') AND u.deleted_at IS NULL;
+    WHERE u.raw_app_meta_data->>'role' IN ('admin', 'moderator');
 END;
 $$;
 --> statement-breakpoint
