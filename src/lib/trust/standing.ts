@@ -27,7 +27,7 @@ export async function banIfBlockedIdentity(userId: string) {
   const identities = await db.execute<{ provider: string; provider_id: string }>(sql`SELECT provider, provider_id FROM app_private.nb_user_identities(${userId}::uuid)`);
   const hashes = [...(p?.email ? [sha(`email:${p.email.toLowerCase()}`)] : []), ...[...identities].map((i) => sha(`identity:${i.provider}:${i.provider_id}`))];
   if (!hashes.length) return false;
-  const [hit] = await db.execute<{ ok: boolean }>(sql`SELECT EXISTS (SELECT 1 FROM moderation_blocked_identities WHERE hash = ANY(${hashes}::text[])) AS ok`);
+  const [hit] = await db.execute<{ ok: boolean }>(sql`SELECT EXISTS (SELECT 1 FROM moderation_blocked_identities WHERE hash IN (${sql.join(hashes.map((h) => sql`${h}`), sql`, `)})) AS ok`);
   if (!hit?.ok) return false;
   await db.execute(sql`INSERT INTO moderation_actions (subject_id, target_kind, target_id, action, rule, message, notified_at)
     VALUES (${userId}, 'account', ${userId}, 'ban', 15, 'This account is linked to an account we banned.', now())`);

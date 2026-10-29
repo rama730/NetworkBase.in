@@ -8,6 +8,8 @@ import { db } from '@/lib/db';
 import { workspaces } from '@/lib/db/schema';
 import { buildTrustEmail } from '@/lib/email/trust-templates';
 import { notifyOrg, orgHref, orgLabel } from '@/lib/organizations/notify';
+import { stepUpState } from '@/lib/security/fresh-verification';
+import type { SecurityStepUpMethod } from '@/lib/security/step-up-methods';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 import { claimAppeal, decideAppeal } from '@/lib/trust/appeals';
 import { logModerationEvent } from '@/lib/trust/cases';
@@ -48,11 +50,19 @@ const decisionSchema = z.object({
     note: z.string().trim().max(4000).nullable().optional(),
 }).strict();
 
-export async function decideCaseAction(caseId: string, input: Decision): Promise<Result<{ label: string }>> {
+export type StepUpRequired = { success: false; error: string; stepUp: { methods: SecurityStepUpMethod[]; factorId?: string } };
+
+export async function decideCaseAction(caseId: string, input: Decision): Promise<Result<{ label: string }> | StepUpRequired> {
     const me = await staff();
     if (!me) return DENIED;
     const parsed = decisionSchema.safeParse(input);
     if (!uuid.safeParse(caseId).success || !parsed.success) return { success: false, error: 'Check the decision and try again.' };
+    // The riskiest decisions need a fresh check of who's at the keyboard (F16).
+    if (parsed.data.account?.action === 'ban' || parsed.data.content === 'remove_workspace') {
+        const { supabase, user } = await getViewerAuthContext();
+        const state = await stepUpState(supabase, user!);
+        if (!state.fresh) return { success: false, error: 'Verify it’s you to send this decision.', stepUp: { methods: state.methods, factorId: state.factorId } };
+    }
     const result = await decideCase(caseId, { id: me.id, scope: 'staff', role: me.role }, parsed.data as Decision);
     if (!result.ok) return { success: false, error: result.error };
     const c = await readCase(caseId);
@@ -274,4 +284,18 @@ export async function claimAppealAction(caseId: string): Promise<Result> {
     const ok = await claimAppeal(caseId, me.id);
     refresh();
     return ok ? { success: true } : { success: false, error: 'This appeal was already decided.' };
+}
+
+/** Staff list (F17): admins add or remove staff. A role change applies at the person's next sign-in. */
+export async function setStaffRoleAction(who: string, role: 'admin' | 'moderator' | null): Promise<Result> {
+    const me = await staff();
+    if (!me || me.role !== 'admin') return DENIED;
+    const key = who.trim().replace(/^@/, '').toLowerCase();
+    const [p] = await db.execute<{ id: string }>(sql`SELECT id FROM profiles WHERE (username = ${key} OR lower(email) = ${key} OR id::text = ${key}) AND deleted_at IS NULL LIMIT 1`);
+    if (!p) return { success: false, error: 'No account with that @handle or email.' };
+    if (p.id === me.id && role !== 'admin') return { success: false, error: 'You can’t remove your own admin role.' };
+    await db.execute(sql`SELECT app_private.moderation_set_staff_role(${p.id}::uuid, ${role})`);
+    await logModerationEvent(db, { caseId: null, actorId: me.id, kind: 'staff_role_changed', data: { userId: p.id, role } });
+    refresh();
+    return { success: true };
 }

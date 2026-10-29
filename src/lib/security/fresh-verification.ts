@@ -16,15 +16,20 @@ import { buildSecurityStepUpMethods } from "@/lib/security/step-up-methods";
  * must not be enough to sign everyone else out or erase the evidence.
  */
 export async function isFreshlyVerified(supabase: Parameters<typeof listSecurityMfaFactors>[0], user: User): Promise<boolean> {
-  const hasVerifiedTotp = getVerifiedTotpFactors(await listSecurityMfaFactors(supabase)).length > 0;
+  return (await stepUpState(supabase, user)).fresh;
+}
+
+/** The same check, plus what the step-up dialog needs when it fails. */
+export async function stepUpState(supabase: Parameters<typeof listSecurityMfaFactors>[0], user: User) {
+  const totp = getVerifiedTotpFactors(await listSecurityMfaFactors(supabase));
   const remainingRecoveryCodes = countRemainingRecoveryCodes(
     (await getProtectedRecoveryCodes(user.id, { authorized: true }))?.securityRecoveryCodes ?? [],
   );
-  const availableMethods = buildSecurityStepUpMethods({
-    hasTotp: hasVerifiedTotp,
+  const methods = buildSecurityStepUpMethods({
+    hasTotp: totp.length > 0,
     hasRecoveryCodes: remainingRecoveryCodes > 0,
     hasPassword: await accountHasPassword(user),
   });
-  if (availableMethods.length === 0) return true;
-  return (await resolveDestructiveStepUp(supabase, user.id)).ok;
+  const fresh = methods.length === 0 || (await resolveDestructiveStepUp(supabase, user.id)).ok;
+  return { fresh, methods, factorId: totp[0]?.id };
 }

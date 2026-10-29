@@ -4,14 +4,15 @@ import { Scale, UserRound } from 'lucide-react'
 import { CaseView } from '@/components/trust/CaseView'
 import { ActiveTable, AuditTable, VerificationList } from '@/components/trust/ConsoleTabs'
 import { Deadline, ago } from '@/components/trust/format'
+import { HealthTab } from '@/components/trust/HealthTab'
 import { QueueList } from '@/components/trust/QueueList'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { getViewerAuthContext } from '@/lib/server/viewer-context'
 import { readAppeals } from '@/lib/trust/appeals'
-import { caseIdByNumber, readActive, readAudit, readCase, readQueue, readVerification, searchPeople, type QueueFilters } from '@/lib/trust/console'
+import { caseIdByNumber, consoleCounts, readActive, readAudit, readCase, readHealth, readQueue, readVerification, searchPeople, type QueueFilters } from '@/lib/trust/console'
 import { caseLabel, parseCaseLabel, type ReportTargetKind, type Severity } from '@/lib/trust/rules'
-import { staffRoleOf } from '@/lib/trust/staff'
+import { listStaff, staffRoleOf } from '@/lib/trust/staff'
 
 type Search = Record<string, string | string[] | undefined>
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) || undefined
@@ -51,6 +52,11 @@ export default async function TrustConsolePage({ searchParams }: { searchParams:
                 ) : <EmptyState icon={Scale} title={decided ? 'No decided appeals yet' : 'No appeals waiting'} />}
             </section>
         )
+    }
+    if (tab === 'health') {
+        const days = [7, 30, 90].includes(Number(one(params.days))) ? Number(one(params.days)) : 30
+        const [h, counts, staff] = await Promise.all([readHealth(days), consoleCounts(), listStaff()])
+        return <HealthTab h={h} days={days} counts={counts} staff={staff} role={role} />
     }
     if (tab === 'active') return <ActiveTable data={await readActive()} />
     if (tab === 'verification') return <VerificationList rows={await readVerification()} />

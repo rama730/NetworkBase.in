@@ -280,3 +280,46 @@ export async function readOrgCases(orgId: string, viewerId: string) {
     ORDER BY c.org_deadline_at NULLS LAST LIMIT 100`);
   return [...rows];
 }
+
+/** Health tab and the weekly email (17.10, 11.4). Missing numbers are null, shown as "—". */
+export async function readHealth(days: number) {
+  const since = sql`now() - make_interval(days => ${days})`;
+  const [m] = await db.execute<{ new_cases: number; decided: number; urgent_h: number | null; high_h: number | null; normal_h: number | null; actioned: number; appealed: number;
+    appeals_decided: number; reversed: number; pile_ons: number; repeat_offenders: number }>(sql`
+    SELECT (SELECT count(*)::int FROM moderation_cases WHERE created_at > ${since}) AS new_cases,
+           (SELECT count(*)::int FROM moderation_cases WHERE decided_at > ${since}) AS decided,
+           ${median("urgent", since)} AS urgent_h, ${median("high", since)} AS high_h, ${median("normal", since)} AS normal_h,
+           (SELECT count(*)::int FROM moderation_cases WHERE decided_at > ${since} AND outcome = 'actioned') AS actioned,
+           (SELECT count(*)::int FROM moderation_appeals WHERE created_at > ${since}) AS appealed,
+           (SELECT count(*)::int FROM moderation_appeals WHERE decided_at > ${since} AND state IN ('upheld', 'reduced', 'reversed')) AS appeals_decided,
+           (SELECT count(*)::int FROM moderation_appeals WHERE decided_at > ${since} AND state = 'reversed') AS reversed,
+           (SELECT count(*)::int FROM moderation_cases WHERE created_at > ${since} AND pile_on) AS pile_ons,
+           (SELECT count(*)::int FROM (SELECT subject_id FROM moderation_actions WHERE strike AND strike_expires_at > now() AND undone_at IS NULL AND reversed_at IS NULL
+              GROUP BY subject_id HAVING count(DISTINCT case_id) >= 3) s) AS repeat_offenders`);
+  const perDay = await db.execute<{ day: string; urgent: number; high: number; normal: number }>(sql`
+    SELECT to_char(date_trunc('day', created_at AT TIME ZONE 'Asia/Kolkata'), 'YYYY-MM-DD') AS day,
+           count(*) FILTER (WHERE severity = 'urgent')::int AS urgent, count(*) FILTER (WHERE severity = 'high')::int AS high, count(*) FILTER (WHERE severity = 'normal')::int AS normal
+    FROM moderation_cases WHERE created_at > ${since} GROUP BY 1 ORDER BY 1`);
+  const actions = await db.execute<{ action: string; n: number }>(sql`
+    SELECT action, count(*)::int AS n FROM moderation_actions WHERE created_at > ${since} AND undone_at IS NULL GROUP BY action ORDER BY n DESC`);
+  const reasons = await db.execute<{ reason: ReportReason; n: number }>(sql`
+    SELECT reason, count(*)::int AS n FROM content_reports WHERE created_at > ${since} GROUP BY reason ORDER BY n DESC LIMIT 8`);
+  const places = await db.execute<{ id: string; title: string; slug: string | null; kind: string; n: number }>(sql`
+    SELECT w.id, w.title, w.slug, w.kind, count(*)::int AS n FROM content_reports r JOIN moderation_cases c ON c.id = r.case_id JOIN workspaces w ON w.id = c.workspace_id
+    WHERE r.created_at > ${since} GROUP BY w.id ORDER BY n DESC LIMIT 8`);
+  const reporters = await db.execute<{ id: string; name: string | null; username: string | null; decided: number; actioned: number }>(sql`
+    SELECT p.id, p.full_name AS name, p.username, count(*)::int AS decided, count(*) FILTER (WHERE r.status = 'actioned')::int AS actioned
+    FROM content_reports r JOIN profiles p ON p.id = r.reporter_id WHERE r.status IN ('actioned', 'dismissed') AND r.created_at > now() - interval '90 days'
+    GROUP BY p.id HAVING count(*) >= 5 AND count(*) FILTER (WHERE r.status = 'actioned') * 10 < count(*) * 3 ORDER BY decided DESC LIMIT 10`);
+  const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : null);
+  return {
+    newCases: m?.new_cases ?? 0, decided: m?.decided ?? 0, pileOns: m?.pile_ons ?? 0, repeatOffenders: m?.repeat_offenders ?? 0,
+    medianHours: { urgent: m?.urgent_h ?? null, high: m?.high_h ?? null, normal: m?.normal_h ?? null },
+    appealRate: pct(m?.appealed ?? 0, m?.actioned ?? 0), reversalRate: pct(m?.reversed ?? 0, m?.appeals_decided ?? 0),
+    perDay: [...perDay], actions: [...actions], reasons: [...reasons], places: [...places], reporters: [...reporters],
+  };
+}
+function median(severity: Severity, since: ReturnType<typeof sql>) {
+  return sql`(SELECT round((percentile_cont(0.5) WITHIN GROUP (ORDER BY extract(epoch FROM decided_at - created_at)) / 3600)::numeric, 1)::float
+    FROM moderation_cases WHERE severity = ${severity} AND decided_at > ${since})`;
+}
