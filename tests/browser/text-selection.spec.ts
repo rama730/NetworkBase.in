@@ -25,7 +25,7 @@ test.beforeAll(async () => {
         callback => {window.addEventListener('fixture-theme', callback); return () => window.removeEventListener('fixture-theme', callback);},
         () => document.documentElement.classList.contains('dark') ? 'dark' : 'light'
       )}; }`,
-    "@/stores/filesWorkspaceStore": "const state = {upsertNodes() {}}; export const useFilesWorkspaceStore = selector => selector(state);",
+    "@/stores/filesStore": "const state = {upsertNodes() {}}; export const useFilesStore = selector => selector(state);",
     "@/hooks/useFileVersions": "export async function saveFileRevision() {throw new Error('Fixture cannot save');}",
     "@/app/actions/files/content": `export async function getProjectFileContent() {return ${JSON.stringify(fileText)};}`,
     "@/app/actions/files/versions": "export async function listFileVersions() {return [];}",

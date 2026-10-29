@@ -66,8 +66,8 @@ export async function getProjectCollaboratorSettingsAction(...args: Parameters<t
   return settingsImpl.getProjectCollaboratorSettingsAction(...args);
 }
 
-export async function getProjectFileWorkspaceSettingsAction(...args: Parameters<typeof settingsImpl.getProjectFileWorkspaceSettingsAction>): ReturnType<typeof settingsImpl.getProjectFileWorkspaceSettingsAction> {
-  return settingsImpl.getProjectFileWorkspaceSettingsAction(...args);
+export async function getProjectFileAccessSettingsAction(...args: Parameters<typeof settingsImpl.getProjectFileAccessSettingsAction>): ReturnType<typeof settingsImpl.getProjectFileAccessSettingsAction> {
+  return settingsImpl.getProjectFileAccessSettingsAction(...args);
 }
 
 export async function updateProjectMemberFileUploadAction(...args: Parameters<typeof settingsImpl.updateProjectMemberFileUploadAction>): ReturnType<typeof settingsImpl.updateProjectMemberFileUploadAction> {

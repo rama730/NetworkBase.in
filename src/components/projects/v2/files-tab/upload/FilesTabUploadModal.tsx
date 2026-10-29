@@ -28,7 +28,7 @@ import {
 import type { ProjectNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 import type { TaskFileRole } from "@/lib/projects/task-file-intelligence";
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
+import { useFilesStore } from "@/stores/filesStore";
 import { formatBytes } from "../folder/format";
 import { DEFAULT_PROJECT_UPLOAD_MAX_FILE_BYTES } from "@/lib/files/upload-validator";
 
@@ -245,7 +245,7 @@ export function FilesTabUploadModal({
     }
     const cachedNode =
       existingFiles.find((f) => f.id === destinationFolderId) ??
-      useFilesWorkspaceStore.getState().byProjectId[projectId]?.nodesById[destinationFolderId];
+      useFilesStore.getState().byProjectId[projectId]?.nodesById[destinationFolderId];
     return cachedNode?.name ?? currentFolderName ?? "Selected folder";
   }, [destinationFolderId, currentFolderId, currentFolderName, existingFiles, projectId]);
 

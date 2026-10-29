@@ -40,7 +40,7 @@ test("large reviewed selections are prepared in bounded failure-safe batches", (
 test("the action and UI use the shared selection limit with readable errors", () => {
   const action = readFileSync("src/app/actions/github-sync.ts", "utf8");
   const workspace = readFileSync(
-    "src/components/projects/v2/files-tab/GitHubSyncWorkspace.tsx",
+    "src/components/projects/v2/files-tab/RepositorySync.tsx",
     "utf8",
   );
 

@@ -259,7 +259,7 @@ export function DesktopIdePicker({
         </div>
       )}
       <div className="flex items-center justify-between gap-2 border-t border-border bg-background px-3.5 py-2.5 text-[11px] text-muted-foreground">
-        <span>NetworkBase Workspace extension</span>
+        <span>NetworkBase for VS Code</span>
         <button
           type="button"
           onClick={onSetupHelp}

@@ -15,7 +15,7 @@ import {
   getUploadCollisionSummary,
 } from "@/app/actions/files/mutations";
 import { getBatchUploadUrls, getUploadPresignedUrl } from "@/app/actions/upload";
-import { filesParentKey, useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
+import { filesParentKey, useFilesStore } from "@/stores/filesStore";
 import type { ExplorerOperation } from "./explorerTypes";
 import { getErrorMessage } from "./explorerTypes";
 import { buildProjectFileKey } from "@/lib/storage/project-file-key";
@@ -439,7 +439,7 @@ function isNonRetryableUploadError(message?: string): boolean {
       if (outcome === null) return [];
       if (createdNodes.length) {
         upsertNodes(projectId, createdNodes);
-        const current = useFilesWorkspaceStore.getState().byProjectId[projectId]?.childrenByParentId[filesParentKey(parentId)] ?? [];
+        const current = useFilesStore.getState().byProjectId[projectId]?.childrenByParentId[filesParentKey(parentId)] ?? [];
         setChildren(projectId, parentId, [...new Set([...current, ...createdNodes.map(node => node.id)])]);
         if (parentId) toggleExpanded(projectId, parentId, true);
         void loadFolderContent(parentId, "refresh").catch(() => showToast("Saved · refreshing list", "warning"));
@@ -598,7 +598,7 @@ function isNonRetryableUploadError(message?: string): boolean {
 
   const resolveActionNodes = useCallback(
     (node: ProjectNode) => {
-      const currentSelected = useFilesWorkspaceStore.getState().byProjectId[projectId]?.selectedNodeIds || [];
+      const currentSelected = useFilesStore.getState().byProjectId[projectId]?.selectedNodeIds || [];
       if (currentSelected.length > 1 && currentSelected.includes(node.id)) {
         return currentSelected.map((id) => nodesById[id]).filter(Boolean) as ProjectNode[];
       }
@@ -708,7 +708,7 @@ function isNonRetryableUploadError(message?: string): boolean {
         const trashedIds: string[] = response.trashedIds || [];
 
         for (const nodeId of trashedIds) {
-          useFilesWorkspaceStore.getState().removeNodeFromCaches(projectId, nodeId, { keepFavorite: true });
+          useFilesStore.getState().removeNodeFromCaches(projectId, nodeId, { keepFavorite: true });
           onNodeDeleted?.(nodeId);
         }
 

@@ -7,11 +7,11 @@ const read = (path: string) =>
 
 test("collection navigation lives in the sidebar, not a second project header", () => {
   const sidebar = read("FilesTabSidebar.tsx"),
-    workspace = read("FilesWorkspaceViews.tsx");
+    workspace = read("FilesViews.tsx");
   assert.match(sidebar, /aria-label="File collections"/);
   assert.match(sidebar, /Back to Files/);
-  assert.match(sidebar, /workspaceView\.showCollections/);
-  assert.match(sidebar, /workspaceView\.selectView/);
+  assert.match(sidebar, /filesView\.showCollections/);
+  assert.match(sidebar, /filesView\.selectView/);
   assert.doesNotMatch(workspace, /<nav/);
   for (const collection of [
     "project",
@@ -25,7 +25,7 @@ test("collection navigation lives in the sidebar, not a second project header", 
     assert.ok(workspace.includes(`id: "${collection}"`));
   assert.match(
     sidebar,
-    /item\.id !== "github" \|\| workspaceView\.canOpenGitHub/,
+    /item\.id !== "github" \|\| filesView\.canOpenGitHub/,
   );
   assert.match(workspace, /value !== "github" \|\| canOpenGitHub/);
 });
@@ -44,7 +44,7 @@ test("row actions are shared across project, task and saved collections; selecti
 });
 
 test("collection return retains search and scroll and asks before discarding edits", () => {
-  const workspace = read("FilesWorkspaceViews.tsx");
+  const workspace = read("FilesViews.tsx");
   assert.match(workspace, /filesGroupQuery/);
   assert.match(workspace, /scrollOffsets/);
   assert.match(workspace, /dirtyFileId/);
@@ -76,8 +76,8 @@ test("small-screen inspectors use the shared focus-contained dialog", () => {
     read("file/FileInspectorContainer.tsx"),
     /presentation="right-drawer"/,
   );
-  assert.match(read("GitHubSyncWorkspace.tsx"), /<Dialog open=|<Dialog\s/);
-  assert.match(read("FilesTabMain.tsx"), /<GitHubSyncWorkspace/);
+  assert.match(read("RepositorySync.tsx"), /<Dialog open=|<Dialog\s/);
+  assert.match(read("FilesTabMain.tsx"), /<RepositorySync/);
   assert.doesNotMatch(read("FilesTabRoot.tsx"), /FilesWorkspaceGitHubDrawer/);
   assert.match(read("file/FileView.tsx"), /FileInspectorContainer/);
   assert.doesNotMatch(
@@ -155,7 +155,7 @@ test("the sidebar has one navigation model and no second legacy Trash reader", (
 
 test("GitHub Sync is a linked-account collection with state-driven, reviewed actions", () => {
   const root = read("FilesTabRoot.tsx");
-  const main = read("GitHubSyncWorkspace.tsx");
+  const main = read("RepositorySync.tsx");
   assert.match(root, /fetchGithubImportAccessState/);
   assert.match(root, /githubAccess\?\.linked === true/);
   assert.match(main, /Create (new|a repository)/);

@@ -57,12 +57,12 @@ export type EditorSymbol = {
 };
 
 // ─── Workspace ───────────────────────────────────────────────────────
-export type WorkspaceTab = {
+export type EditorTab = {
   id: string; // nodeId
   pinned: boolean;
 };
 
-export type WorkspacePane = {
+export type EditorPane = {
   id: "left" | "right";
   openTabIds: string[];
   activeTabId: string | null;
@@ -157,7 +157,7 @@ export interface Problem {
 }
 
 // ─── Per-project workspace state ─────────────────────────────────────
-export type ProjectWorkspaceState = {
+export type ProjectFilesState = {
   treeVersion: number;
   tabsVersion: number;
   selectionVersion: number;
@@ -196,7 +196,7 @@ export type ProjectWorkspaceState = {
   // Workspace (tabs / split)
   splitEnabled: boolean;
   splitRatio: number;
-  panes: Record<WorkspacePane["id"], WorkspacePane>;
+  panes: Record<EditorPane["id"], EditorPane>;
   pinnedByTabId: Record<string, boolean>;
 
   // Editor prefs
@@ -224,12 +224,12 @@ export type ProjectWorkspaceState = {
 };
 
 // ─── Top-level store state ───────────────────────────────────────────
-export type FilesWorkspaceState = {
-  byProjectId: Record<string, ProjectWorkspaceState>;
+export type FilesStoreState = {
+  byProjectId: Record<string, ProjectFilesState>;
 
   // getters
-  _get: (projectId: string) => ProjectWorkspaceState;
-  ensureProjectWorkspace: (projectId: string) => void;
+  _get: (projectId: string) => ProjectFilesState;
+  ensureProjectFilesState: (projectId: string) => void;
 
   // explorer actions
   setExplorerMode: (projectId: string, mode: ExplorerMode) => void;
@@ -370,7 +370,7 @@ export const DEFAULT_UI_STATE: UiState = {
 export const ROOT_KEY = "__root__";
 export const parentKey = (parentId: string | null) => parentId ?? ROOT_KEY;
 
-export function defaultWorkspace(): ProjectWorkspaceState {
+export function defaultFilesState(): ProjectFilesState {
   return {
     treeVersion: 0,
     tabsVersion: 0,
@@ -450,6 +450,6 @@ export function symbolsEqual(a: EditorSymbol[], b: EditorSymbol[]): boolean {
  * React 19 + useSyncExternalStore requires selector results to be stable.
  * This fallback must be a stable reference — never mutate it.
  */
-export const FALLBACK_WORKSPACE: ProjectWorkspaceState = Object.freeze(
-  defaultWorkspace()
-) as ProjectWorkspaceState;
+export const FALLBACK_FILES_STATE: ProjectFilesState = Object.freeze(
+  defaultFilesState()
+) as ProjectFilesState;

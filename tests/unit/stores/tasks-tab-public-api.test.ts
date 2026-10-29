@@ -6,12 +6,12 @@
 // make any accidental breakage of that public API surface fail loudly.
 //
 // ─── Audit ────────────────────────────────────────────────────────────
-// Consumers of `@/stores/filesWorkspaceStore` that are on the Tasks tab
+// Consumers of `@/stores/filesStore` that are on the Tasks tab
 // code path (discovered via `grep_search` over the two audit entry points
 // named in tasks.md § 8.4):
 //
 //   Entry point A — src/components/projects/v2/TasksTab.tsx
-//     • Does NOT import `@/stores/filesWorkspaceStore` directly, but mounts
+//     • Does NOT import `@/stores/filesStore` directly, but mounts
 //       `<CreateTaskModal>` and `<TaskDetailPanel>`, which transitively
 //       render the files-store consumers listed below.
 //
@@ -123,16 +123,16 @@ console.warn = (...args: unknown[]) => {
 // must come after the shim above. We use a relative path because `@/`
 // aliases are not resolved under `node:test`.
 import {
-  useFilesWorkspaceStore,
+  useFilesStore,
   useFilesActions,
   useFilesProjectSlice,
   filesParentKey,
   FILES_ROOT_KEY,
   ROOT_KEY,
   parentKey,
-  defaultWorkspace,
-  FALLBACK_WORKSPACE,
-} from "../../../src/stores/filesWorkspaceStore";
+  defaultFilesState,
+  FALLBACK_FILES_STATE,
+} from "../../../src/stores/filesStore";
 import type { ProjectNode } from "../../../src/lib/db/schema";
 
 // ─── Helpers ─────────────────────────────────────────────────────────
@@ -233,22 +233,22 @@ const WORKSPACE_STATE_KEYS = [
 
 describe("filesWorkspaceStore — Tasks tab public API lock (Task 8.4)", () => {
   describe("module exports", () => {
-    it("exports the store hook `useFilesWorkspaceStore`", () => {
-      assert.equal(typeof useFilesWorkspaceStore, "function");
+    it("exports the store hook `useFilesStore`", () => {
+      assert.equal(typeof useFilesStore, "function");
       assert.equal(
-        typeof (useFilesWorkspaceStore as unknown as { getState?: unknown })
+        typeof (useFilesStore as unknown as { getState?: unknown })
           .getState,
         "function",
         "zustand store must expose getState",
       );
       assert.equal(
-        typeof (useFilesWorkspaceStore as unknown as { setState?: unknown })
+        typeof (useFilesStore as unknown as { setState?: unknown })
           .setState,
         "function",
         "zustand store must expose setState",
       );
       assert.equal(
-        typeof (useFilesWorkspaceStore as unknown as { subscribe?: unknown })
+        typeof (useFilesStore as unknown as { subscribe?: unknown })
           .subscribe,
         "function",
         "zustand store must expose subscribe",
@@ -282,47 +282,47 @@ describe("filesWorkspaceStore — Tasks tab public API lock (Task 8.4)", () => {
       assert.equal(parentKey("abc"), "abc");
     });
 
-    it("exports the `defaultWorkspace` factory and the frozen `FALLBACK_WORKSPACE`", () => {
-      assert.equal(typeof defaultWorkspace, "function");
-      const ws = defaultWorkspace();
+    it("exports the `defaultFilesState` factory and the frozen `FALLBACK_FILES_STATE`", () => {
+      assert.equal(typeof defaultFilesState, "function");
+      const ws = defaultFilesState();
       assert.equal(typeof ws, "object");
       assert.ok(ws !== null);
-      // FALLBACK_WORKSPACE is the stable selector fallback; it must be
+      // FALLBACK_FILES_STATE is the stable selector fallback; it must be
       // a frozen object, not a fresh one per call.
-      assert.equal(Object.isFrozen(FALLBACK_WORKSPACE), true);
-      assert.equal(typeof FALLBACK_WORKSPACE, "object");
+      assert.equal(Object.isFrozen(FALLBACK_FILES_STATE), true);
+      assert.equal(typeof FALLBACK_FILES_STATE, "object");
     });
   });
 
   describe("top-level store state shape", () => {
     it("exposes `byProjectId` as a plain object map", () => {
-      const state = useFilesWorkspaceStore.getState();
+      const state = useFilesStore.getState();
       assert.equal(typeof state.byProjectId, "object");
       assert.ok(state.byProjectId !== null);
     });
 
-    it("exposes `ensureProjectWorkspace` with arity 1", () => {
-      const state = useFilesWorkspaceStore.getState();
-      assert.equal(typeof state.ensureProjectWorkspace, "function");
-      assert.equal(state.ensureProjectWorkspace.length, 1);
+    it("exposes `ensureProjectFilesState` with arity 1", () => {
+      const state = useFilesStore.getState();
+      assert.equal(typeof state.ensureProjectFilesState, "function");
+      assert.equal(state.ensureProjectFilesState.length, 1);
     });
 
     it("exposes `_get` with arity 1 and it returns a workspace", () => {
-      const state = useFilesWorkspaceStore.getState();
+      const state = useFilesStore.getState();
       assert.equal(typeof state._get, "function");
       assert.equal(state._get.length, 1);
       const ws = state._get("nonexistent-project");
       assert.equal(typeof ws, "object");
-      // Missing projects fall back to FALLBACK_WORKSPACE so selectors stay
+      // Missing projects fall back to FALLBACK_FILES_STATE so selectors stay
       // stable under React 19's useSyncExternalStore contract.
-      assert.equal(ws, FALLBACK_WORKSPACE);
+      assert.equal(ws, FALLBACK_FILES_STATE);
     });
   });
 
   describe("cache actions (design § Audit Note — must preserve public API)", () => {
     for (const name of CACHE_ACTIONS) {
       it(`exposes \`${name}\` as a function`, () => {
-        const state = useFilesWorkspaceStore.getState();
+        const state = useFilesStore.getState();
         const fn = state[name] as unknown;
         assert.equal(
           typeof fn,
@@ -333,41 +333,41 @@ describe("filesWorkspaceStore — Tasks tab public API lock (Task 8.4)", () => {
     }
 
     it("`upsertNodes(projectId, nodes)` populates `nodesById` (signature + behaviour lock)", () => {
-      const store = useFilesWorkspaceStore.getState();
-      store.ensureProjectWorkspace(PROJECT_ID);
+      const store = useFilesStore.getState();
+      store.ensureProjectFilesState(PROJECT_ID);
       store.upsertNodes(PROJECT_ID, [makeFile("upsert-node-a")]);
 
-      const ws = useFilesWorkspaceStore.getState()._get(PROJECT_ID);
+      const ws = useFilesStore.getState()._get(PROJECT_ID);
       assert.equal(typeof ws.nodesById, "object");
       assert.ok(ws.nodesById["upsert-node-a"]);
       assert.equal(ws.nodesById["upsert-node-a"].id, "upsert-node-a");
     });
 
     it("`setChildren(projectId, parentId, childIds)` keys root children by `ROOT_KEY`", () => {
-      const store = useFilesWorkspaceStore.getState();
-      store.ensureProjectWorkspace(PROJECT_ID);
+      const store = useFilesStore.getState();
+      store.ensureProjectFilesState(PROJECT_ID);
       store.upsertNodes(PROJECT_ID, [makeFile("child-a")]);
       store.setChildren(PROJECT_ID, null, ["child-a"]);
 
-      const ws = useFilesWorkspaceStore.getState()._get(PROJECT_ID);
+      const ws = useFilesStore.getState()._get(PROJECT_ID);
       assert.deepEqual(ws.childrenByParentId[ROOT_KEY], ["child-a"]);
     });
 
     it("`markChildrenLoaded(projectId, parentId)` toggles `loadedChildren`", () => {
-      const store = useFilesWorkspaceStore.getState();
-      store.ensureProjectWorkspace(PROJECT_ID);
+      const store = useFilesStore.getState();
+      store.ensureProjectFilesState(PROJECT_ID);
       store.markChildrenLoaded(PROJECT_ID, null);
 
-      const ws = useFilesWorkspaceStore.getState()._get(PROJECT_ID);
+      const ws = useFilesStore.getState()._get(PROJECT_ID);
       assert.equal(ws.loadedChildren[ROOT_KEY], true);
     });
 
     it("`setFolderMeta(projectId, folderId, meta)` writes into `folderMeta`", () => {
-      const store = useFilesWorkspaceStore.getState();
-      store.ensureProjectWorkspace(PROJECT_ID);
+      const store = useFilesStore.getState();
+      store.ensureProjectFilesState(PROJECT_ID);
       store.setFolderMeta(PROJECT_ID, null, { nextCursor: "cursor-1", hasMore: true });
 
-      const ws = useFilesWorkspaceStore.getState()._get(PROJECT_ID);
+      const ws = useFilesStore.getState()._get(PROJECT_ID);
       const meta = ws.folderMeta[ROOT_KEY];
       assert.ok(meta);
       assert.equal(meta.nextCursor, "cursor-1");
@@ -375,21 +375,21 @@ describe("filesWorkspaceStore — Tasks tab public API lock (Task 8.4)", () => {
     });
 
     it("`setTaskLinkCounts(projectId, counts)` replaces the `taskLinkCounts` map", () => {
-      const store = useFilesWorkspaceStore.getState();
-      store.ensureProjectWorkspace(PROJECT_ID);
+      const store = useFilesStore.getState();
+      store.ensureProjectFilesState(PROJECT_ID);
       store.setTaskLinkCounts(PROJECT_ID, { "node-a": 3 });
 
-      const ws = useFilesWorkspaceStore.getState()._get(PROJECT_ID);
+      const ws = useFilesStore.getState()._get(PROJECT_ID);
       assert.equal(ws.taskLinkCounts["node-a"], 3);
     });
 
     it("`removeNodeFromCaches(projectId, nodeId)` drops the id from `nodesById`", () => {
-      const store = useFilesWorkspaceStore.getState();
-      store.ensureProjectWorkspace(PROJECT_ID);
+      const store = useFilesStore.getState();
+      store.ensureProjectFilesState(PROJECT_ID);
       store.upsertNodes(PROJECT_ID, [makeFile("to-remove")]);
       store.removeNodeFromCaches(PROJECT_ID, "to-remove");
 
-      const ws = useFilesWorkspaceStore.getState()._get(PROJECT_ID);
+      const ws = useFilesStore.getState()._get(PROJECT_ID);
       assert.equal(ws.nodesById["to-remove"], undefined);
     });
   });
@@ -397,7 +397,7 @@ describe("filesWorkspaceStore — Tasks tab public API lock (Task 8.4)", () => {
   describe("explorer actions (design § Audit Note — must preserve public API)", () => {
     for (const name of EXPLORER_ACTIONS) {
       it(`exposes \`${name}\` as a function`, () => {
-        const state = useFilesWorkspaceStore.getState();
+        const state = useFilesStore.getState();
         const fn = state[name] as unknown;
         assert.equal(
           typeof fn,
@@ -408,69 +408,69 @@ describe("filesWorkspaceStore — Tasks tab public API lock (Task 8.4)", () => {
     }
 
     it("`toggleExpanded(projectId, folderId, expanded?)` writes into `expandedFolderIds`", () => {
-      const store = useFilesWorkspaceStore.getState();
-      store.ensureProjectWorkspace(PROJECT_ID);
+      const store = useFilesStore.getState();
+      store.ensureProjectFilesState(PROJECT_ID);
       store.upsertNodes(PROJECT_ID, [makeFolder("expand-me")]);
       store.toggleExpanded(PROJECT_ID, "expand-me", true);
 
-      const ws = useFilesWorkspaceStore.getState()._get(PROJECT_ID);
+      const ws = useFilesStore.getState()._get(PROJECT_ID);
       assert.equal(ws.expandedFolderIds["expand-me"], true);
     });
 
     it("`addRecent(projectId, nodeId)` pushes into `recents` (LRU)", () => {
-      const store = useFilesWorkspaceStore.getState();
-      store.ensureProjectWorkspace(PROJECT_ID);
+      const store = useFilesStore.getState();
+      store.ensureProjectFilesState(PROJECT_ID);
       store.addRecent(PROJECT_ID, "recent-a");
 
-      const ws = useFilesWorkspaceStore.getState()._get(PROJECT_ID);
+      const ws = useFilesStore.getState()._get(PROJECT_ID);
       assert.ok(Array.isArray(ws.recents));
       assert.ok(ws.recents.includes("recent-a"));
     });
 
     it("`toggleFavorite(projectId, nodeId)` flips `favorites[nodeId]`", () => {
-      const store = useFilesWorkspaceStore.getState();
-      store.ensureProjectWorkspace(PROJECT_ID);
+      const store = useFilesStore.getState();
+      store.ensureProjectFilesState(PROJECT_ID);
       store.toggleFavorite(PROJECT_ID, "fav-a");
 
-      const ws = useFilesWorkspaceStore.getState()._get(PROJECT_ID);
+      const ws = useFilesStore.getState()._get(PROJECT_ID);
       assert.equal(ws.favorites["fav-a"], true);
     });
 
     it("`setSelectedNode(projectId, nodeId, parentId?)` updates `selectedNodeId`", () => {
-      const store = useFilesWorkspaceStore.getState();
-      store.ensureProjectWorkspace(PROJECT_ID);
+      const store = useFilesStore.getState();
+      store.ensureProjectFilesState(PROJECT_ID);
       store.setSelectedNode(PROJECT_ID, "sel-a", null);
 
-      const ws = useFilesWorkspaceStore.getState()._get(PROJECT_ID);
+      const ws = useFilesStore.getState()._get(PROJECT_ID);
       assert.equal(ws.selectedNodeId, "sel-a");
     });
 
     it("`setSelectedNodeIds(projectId, nodeIds)` replaces `selectedNodeIds`", () => {
-      const store = useFilesWorkspaceStore.getState();
-      store.ensureProjectWorkspace(PROJECT_ID);
+      const store = useFilesStore.getState();
+      store.ensureProjectFilesState(PROJECT_ID);
       store.setSelectedNodeIds(PROJECT_ID, ["sel-a", "sel-b"]);
 
-      const ws = useFilesWorkspaceStore.getState()._get(PROJECT_ID);
+      const ws = useFilesStore.getState()._get(PROJECT_ID);
       assert.deepEqual(ws.selectedNodeIds, ["sel-a", "sel-b"]);
     });
 
     it("`setSort(projectId, sort)` and `setFoldersFirst(projectId, value)` persist the preference", () => {
-      const store = useFilesWorkspaceStore.getState();
-      store.ensureProjectWorkspace(PROJECT_ID);
+      const store = useFilesStore.getState();
+      store.ensureProjectFilesState(PROJECT_ID);
       store.setSort(PROJECT_ID, "updated");
       store.setFoldersFirst(PROJECT_ID, false);
 
-      const ws = useFilesWorkspaceStore.getState()._get(PROJECT_ID);
+      const ws = useFilesStore.getState()._get(PROJECT_ID);
       assert.equal(ws.sort, "updated");
       assert.equal(ws.foldersFirst, false);
     });
   });
 
   describe("per-project state keys (design § Audit Note — must preserve public API)", () => {
-    it("`defaultWorkspace()` and `FALLBACK_WORKSPACE` expose every audited state key", () => {
+    it("`defaultFilesState()` and `FALLBACK_FILES_STATE` expose every audited state key", () => {
       const shapes: ReadonlyArray<Record<string, unknown>> = [
-        defaultWorkspace() as unknown as Record<string, unknown>,
-        FALLBACK_WORKSPACE as unknown as Record<string, unknown>,
+        defaultFilesState() as unknown as Record<string, unknown>,
+        FALLBACK_FILES_STATE as unknown as Record<string, unknown>,
       ];
 
       for (const shape of shapes) {
@@ -484,12 +484,12 @@ describe("filesWorkspaceStore — Tasks tab public API lock (Task 8.4)", () => {
     });
 
     it("fresh project workspace exposes every audited state key with the expected type", () => {
-      const store = useFilesWorkspaceStore.getState();
+      const store = useFilesStore.getState();
       // A dedicated project id so earlier tests' writes do not interfere.
       const projectId = "tasks-tab-api-shape";
-      store.ensureProjectWorkspace(projectId);
+      store.ensureProjectFilesState(projectId);
 
-      const ws = useFilesWorkspaceStore.getState()._get(projectId);
+      const ws = useFilesStore.getState()._get(projectId);
 
       // Objects: node caches, metadata maps, indicator maps
       assert.equal(typeof ws.nodesById, "object");
@@ -527,7 +527,7 @@ describe("filesWorkspaceStore — Tasks tab public API lock (Task 8.4)", () => {
       // selector directly by calling the zustand selector path used inside
       // `useFilesActions`. Here we just assert the names exist on the
       // store state — the hook wiring is covered by component tests.
-      const state = useFilesWorkspaceStore.getState();
+      const state = useFilesStore.getState();
       const required = [
         "upsertNodes",
         "setChildren",

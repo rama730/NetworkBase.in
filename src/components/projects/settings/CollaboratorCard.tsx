@@ -27,7 +27,7 @@ import {
     type ProjectMemberRole,
     type ProjectSettingsMember,
 } from "@/lib/projects/settings-policies";
-import { formatJoinedAt } from '@/components/projects/settings/FileWorkspaceMembers';
+import { formatJoinedAt } from '@/components/projects/settings/FileAccessMembers';
 
 export function projectMemberRole(member: ProjectSettingsMember, ownerId: string | null) {
     if (member.membershipRole) return member.membershipRole;

@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   getProjectNodesWithCounts,
-  initializeProjectWorkspaceRoot,
+  initializeProjectFilesRoot,
 } from "@/app/actions/files/nodes";
-import { filesParentKey, useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
+import { filesParentKey, useFilesStore } from "@/stores/filesStore";
 import type { ProjectNode } from "@/lib/db/schema";
 import { getErrorMessage } from "./explorerTypes";
 import { FILES_RUNTIME_BUDGETS } from "@/lib/files/runtime-budgets";
@@ -25,17 +25,17 @@ export function useExplorerBoot(options: {
   const [isBooting, setIsBooting] = useState(true);
   const [accessError, setAccessError] = useState<string | null>(null);
 
-  const expandedFolderIds = useFilesWorkspaceStore(
+  const expandedFolderIds = useFilesStore(
     (s) => s.byProjectId[projectId]?.expandedFolderIds || EMPTY_OBJ
   );
-  const loadedChildren = useFilesWorkspaceStore(
+  const loadedChildren = useFilesStore(
     (s) => s.byProjectId[projectId]?.loadedChildren || EMPTY_OBJ
   );
 
-  const upsertNodes = useFilesWorkspaceStore((s) => s.upsertNodes);
-  const setNodesAndChildren = useFilesWorkspaceStore((s) => s.setNodesAndChildren);
-  const setTaskLinkCounts = useFilesWorkspaceStore((s) => s.setTaskLinkCounts);
-  const toggleExpanded = useFilesWorkspaceStore((s) => s.toggleExpanded);
+  const upsertNodes = useFilesStore((s) => s.upsertNodes);
+  const setNodesAndChildren = useFilesStore((s) => s.setNodesAndChildren);
+  const setTaskLinkCounts = useFilesStore((s) => s.setTaskLinkCounts);
+  const toggleExpanded = useFilesStore((s) => s.toggleExpanded);
 
   const bootedRef = useRef(false);
   const batchLoadedRef = useRef(false);
@@ -81,7 +81,7 @@ export function useExplorerBoot(options: {
         const startedAt = performance.now();
         try {
           const parentKey = filesParentKey(parentId);
-          const currentWs = useFilesWorkspaceStore.getState().byProjectId[projectId];
+          const currentWs = useFilesStore.getState().byProjectId[projectId];
 
           let cursor: string | undefined = undefined;
           const limit = 100;
@@ -120,7 +120,7 @@ export function useExplorerBoot(options: {
 
           if (!isActiveRef.current) return;
 
-          const latestWs = useFilesWorkspaceStore.getState().byProjectId[projectId];
+          const latestWs = useFilesStore.getState().byProjectId[projectId];
           const currentChildrenIds = latestWs?.childrenByParentId?.[parentKey] || [];
           const mergedChildIds =
             mode === "refresh"
@@ -191,7 +191,7 @@ export function useExplorerBoot(options: {
       return;
     }
     const key = filesParentKey(null);
-    const currentWs = useFilesWorkspaceStore.getState().byProjectId[projectId];
+    const currentWs = useFilesStore.getState().byProjectId[projectId];
     const alreadyLoaded = currentWs?.loadedChildren?.[key];
 
     if (!bootedRef.current && !alreadyLoaded) {
@@ -200,16 +200,16 @@ export function useExplorerBoot(options: {
       await loadFolderContent(null, "refresh");
       if (!isActiveRef.current) return;
 
-      const rootAfterLoad = useFilesWorkspaceStore.getState()
+      const rootAfterLoad = useFilesStore.getState()
         .byProjectId[projectId]?.childrenByParentId[filesParentKey(null)] ?? [];
       if (rootAfterLoad.length === 0 && canEdit) {
-        const createdRoot = await initializeProjectWorkspaceRoot(projectId);
+        const createdRoot = await initializeProjectFilesRoot(projectId);
         if (createdRoot) await loadFolderContent(null, "refresh");
       }
 
       if (!isActiveRef.current) return;
 
-      const updatedWs = useFilesWorkspaceStore.getState().byProjectId[projectId];
+      const updatedWs = useFilesStore.getState().byProjectId[projectId];
       const rootChildren = updatedWs?.childrenByParentId[filesParentKey(null)] || [];
       if (rootChildren.length === 1) {
         const rootId = rootChildren[0];
@@ -256,7 +256,7 @@ export function useExplorerBoot(options: {
   useEffect(() => {
     if (!isActive || batchLoadedRef.current) return;
     batchLoadedRef.current = true;
-    const ws = useFilesWorkspaceStore.getState().byProjectId[projectId];
+    const ws = useFilesStore.getState().byProjectId[projectId];
     const expanded = ws?.expandedFolderIds ?? {};
     const loaded = ws?.loadedChildren ?? {};
     const ids = Object.keys(expanded).filter(id => expanded[id] && !loaded[filesParentKey(id === "root" ? null : id)]);

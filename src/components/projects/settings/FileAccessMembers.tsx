@@ -15,7 +15,7 @@ import {
 } from "@/lib/projects/settings-policies";
 import type { FilePermissionFilter } from "@/lib/projects/file-permission-pagination";
 
-export type FileWorkspaceSettingsData = {
+export type FileAccessSettingsData = {
   members: Array<
     ProjectSettingsMember & {
       fileUploadEnabled: boolean;
@@ -40,7 +40,7 @@ export function formatJoinedAt(value?: string | null) {
     : `Joined ${new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(date)}`;
 }
 
-export function FileWorkspaceMembers({
+export function FileAccessMembers({
   data,
   isLoading,
   savingMemberId,
@@ -54,12 +54,12 @@ export function FileWorkspaceMembers({
   onLoadMore,
   loadingMore,
 }: {
-  data: FileWorkspaceSettingsData | null;
+  data: FileAccessSettingsData | null;
   isLoading: boolean;
   savingMemberId: string | null;
   bulkSaving: boolean;
   onToggle: (
-    member: FileWorkspaceSettingsData["members"][number],
+    member: FileAccessSettingsData["members"][number],
     enabled: boolean,
   ) => void | Promise<void>;
   onBulkToggle: (enabled: boolean) => boolean | void | Promise<boolean | void>;

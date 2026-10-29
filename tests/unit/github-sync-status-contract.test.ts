@@ -22,7 +22,7 @@ test("account integrations keeps repository synchronization on project surfaces"
 test("review and queued synchronization survive workspace remounts", () => {
   const action = source("src/app/actions/github-sync.ts");
   const workspace = source(
-    "src/components/projects/v2/files-tab/GitHubSyncWorkspace.tsx",
+    "src/components/projects/v2/files-tab/RepositorySync.tsx",
   );
 
   assert.match(action, /process\.env\.NODE_ENV !== "production"/);
@@ -31,7 +31,7 @@ test("review and queued synchronization survive workspace remounts", () => {
     action,
     /\["completed", "running", "queued"\]\.includes\(run\.status\)/,
   );
-  const model = source("src/lib/github/sync-workspace.ts");
+  const model = source("src/lib/github/repository-sync.ts");
   assert.match(
     model,
     /"review",\s*"queued",\s*"running",\s*"failed",\s*"needs_review"/,
@@ -45,7 +45,7 @@ test("workflow files request GitHub's dedicated permission and retain a retry pa
   const oauth = source("src/lib/github/oauth-client.ts");
   const action = source("src/app/actions/github-sync.ts");
   const workspace = source(
-    "src/components/projects/v2/files-tab/GitHubSyncWorkspace.tsx",
+    "src/components/projects/v2/files-tab/RepositorySync.tsx",
   );
 
   assert.match(oauth, /repo workflow user:email read:org/);

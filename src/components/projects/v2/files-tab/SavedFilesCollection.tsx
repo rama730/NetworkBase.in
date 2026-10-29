@@ -1,18 +1,18 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
 import { getNodeMetadataBatch } from "@/app/actions/files/nodes";
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
-import { useFilesWorkspaceView } from "./FilesWorkspaceViews";
+import { useFilesStore } from "@/stores/filesStore";
+import { useFilesViews } from "./FilesViews";
 import { FolderListView } from "./folder/FolderListView";
 import { useFilesTabRole } from "./FilesTabRoleContext";
 const EMPTY_RECENTS: string[] = [];
 const EMPTY_FAVORITES: Record<string, boolean> = {};
 export function SavedFilesCollection({ projectId }: { projectId: string }) {
-  const view = useFilesWorkspaceView()!;
-  const recents = useFilesWorkspaceStore(
+  const view = useFilesViews()!;
+  const recents = useFilesStore(
     (s) => s.byProjectId[projectId]?.recents ?? EMPTY_RECENTS,
   );
-  const favorites = useFilesWorkspaceStore(
+  const favorites = useFilesStore(
     (s) => s.byProjectId[projectId]?.favorites ?? EMPTY_FAVORITES,
   );
   const ids =

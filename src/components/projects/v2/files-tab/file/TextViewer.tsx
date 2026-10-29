@@ -50,7 +50,7 @@ import { useTheme } from "@/components/providers/theme-provider";
 import type { ProjectNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
+import { useFilesStore } from "@/stores/filesStore";
 import { saveFileRevision } from "@/hooks/useFileVersions";
 import { getProjectFileContent } from "@/app/actions/files/content";
 import { listFileVersions } from "@/app/actions/files/versions";
@@ -275,7 +275,7 @@ export function TextViewer({
   onRetryLease,
 }: TextViewerProps): React.JSX.Element {
   const { resolvedTheme } = useTheme();
-  const upsertNodes = useFilesWorkspaceStore((s) => s.upsertNodes);
+  const upsertNodes = useFilesStore((s) => s.upsertNodes);
 
   type LoadStatus = "loading" | "ready" | "error";
   const [status, setStatus] = React.useState<LoadStatus>("loading");

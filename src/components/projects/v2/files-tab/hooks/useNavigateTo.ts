@@ -23,7 +23,7 @@
 //     Unit-testable without a React renderer; same pattern used by
 //     `useFolderContents.runFolderLoad` and `useCurrentLocation.selectCurrentLocation`.
 //   * `useNavigateTo` — thin React hook that reads the store actions via
-//     `useFilesWorkspaceStore.getState()` and wraps `runNavigateTo` in a
+//     `useFilesStore.getState()` and wraps `runNavigateTo` in a
 //     `useCallback` keyed strictly on `projectId`. This yields callback
 //     identity stability across re-renders while always observing the
 //     freshest `nodesById` at invocation time.
@@ -32,7 +32,7 @@
 
 import { useCallback } from "react";
 
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
+import { useFilesStore } from "@/stores/filesStore";
 
 export type NavigateTo = (nodeId: string | null, options?: { preserveQuery?: boolean }) => void;
 export const FILES_NAVIGATED_EVENT = "project:files-navigated";
@@ -98,8 +98,8 @@ export function runNavigateTo(
  * `React.memo` children and event handlers without triggering spurious
  * re-renders downstream.
  *
- * Store reads happen via `useFilesWorkspaceStore.getState()` at invocation
- * time, not via `useFilesWorkspaceStore(...)` selectors. This has two
+ * Store reads happen via `useFilesStore.getState()` at invocation
+ * time, not via `useFilesStore(...)` selectors. This has two
  * deliberate effects:
  *   1. The callback's identity does NOT depend on the current store
  *      snapshot, so unrelated store writes (e.g. `upsertNodes` during
@@ -111,7 +111,7 @@ export function runNavigateTo(
 export function useNavigateTo(projectId: string): NavigateTo {
   return useCallback<NavigateTo>(
     (nodeId, options = {}) => {
-      const state = useFilesWorkspaceStore.getState();
+      const state = useFilesStore.getState();
       const dirtyFileId = state.byProjectId[projectId]?.dirtyFileId ?? null;
       if (dirtyFileId && dirtyFileId !== nodeId) {
         state.setPendingNavigation(projectId, { nodeId, preserveQuery: options?.preserveQuery });

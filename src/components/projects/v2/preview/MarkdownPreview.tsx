@@ -5,8 +5,8 @@ import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import type { Project } from "@/types/discover";
 import { isTrustedPublicReadmeImageHost } from "@/lib/projects/doc-media";
-import { useFilesWorkspaceStore } from "@/stores/files";
-import type { FilesWorkspaceState } from "@/stores/files/types";
+import { useFilesStore } from "@/stores/files";
+import type { FilesStoreState } from "@/stores/files/types";
 
 const ProjectDocRenderer = dynamic(
   () => import("@/components/projects/doc/ProjectDocRenderer").then((mod) => mod.ProjectDocRenderer),
@@ -42,11 +42,11 @@ export default function MarkdownPreview({
   const [allowRemoteImages, setAllowRemoteImages] = useState(false);
   const handleAllowRemoteImages = useCallback(() => setAllowRemoteImages(true), []);
 
-  const gitRepoUrl = useFilesWorkspaceStore(
-    (s: FilesWorkspaceState) => (projectId ? s.byProjectId[projectId]?.git?.repoUrl : null)
+  const gitRepoUrl = useFilesStore(
+    (s: FilesStoreState) => (projectId ? s.byProjectId[projectId]?.git?.repoUrl : null)
   );
-  const gitBranch = useFilesWorkspaceStore(
-    (s: FilesWorkspaceState) => (projectId ? s.byProjectId[projectId]?.git?.branch : null)
+  const gitBranch = useFilesStore(
+    (s: FilesStoreState) => (projectId ? s.byProjectId[projectId]?.git?.branch : null)
   );
 
   const projectObject = useMemo<Project>(() => {

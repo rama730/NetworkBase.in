@@ -9,7 +9,7 @@ import { queryKeys } from "@/lib/query-keys";
 import { useRealtime } from "@/components/providers/RealtimeProvider";
 import type { UserNotificationEvent } from "@/lib/realtime/subscriptions";
 
-const WORKSPACE_NOTIFICATION_KINDS = new Set([
+const MY_WORK_NOTIFICATION_KINDS = new Set([
   "connection_request_received",
   "connection_request_accepted",
   "task_assigned",
@@ -28,21 +28,21 @@ const WORKSPACE_NOTIFICATION_KINDS = new Set([
   "project_member_joined",
 ]);
 
-type WorkspaceInvalidationDomain = "connections" | "requests" | "tasks";
+type MyWorkInvalidationDomain = "connections" | "requests" | "tasks";
 
-function workspaceInvalidationDomains(kind: string): WorkspaceInvalidationDomain[] {
+function myWorkInvalidationDomains(kind: string): MyWorkInvalidationDomain[] {
   if (kind.startsWith("connection_request_")) return ["connections", "requests"];
   if (kind.startsWith("task_")) return ["tasks"];
   if (kind.startsWith("workflow_") || kind.startsWith("application_") || kind === "project_application_activity" || kind === "project_member_joined") return ["requests"];
   return [];
 }
 
-function workspaceNotificationKind(event: UserNotificationEvent) {
+function myWorkNotificationKind(event: UserNotificationEvent) {
   if (event.kind === "connection") return "connection_request_change";
   if (event.kind !== "notification") return null;
   const payload = (event.payload.new ?? event.payload.old) as Record<string, unknown> | undefined;
   const kind = typeof payload?.kind === "string" ? payload.kind : null;
-  return kind && WORKSPACE_NOTIFICATION_KINDS.has(kind) ? kind : null;
+  return kind && MY_WORK_NOTIFICATION_KINDS.has(kind) ? kind : null;
 }
 
 interface NetworkNotificationsContextValue {
@@ -69,7 +69,7 @@ export function NetworkNotificationsProvider({ children, enabled = true }: { chi
   const { subscribeUserNotifications } = useRealtime();
   const queryClient = useQueryClient();
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingInvalidationDomainsRef = useRef(new Set<WorkspaceInvalidationDomain>());
+  const pendingInvalidationDomainsRef = useRef(new Set<MyWorkInvalidationDomain>());
 
   const query = useQuery({
     queryKey: queryKeys.connections.pending(),
@@ -97,9 +97,9 @@ export function NetworkNotificationsProvider({ children, enabled = true }: { chi
   useEffect(() => {
     if (!enabled || !user?.id) return;
     const unsubscribe = subscribeUserNotifications((event) => {
-      const kind = workspaceNotificationKind(event);
+      const kind = myWorkNotificationKind(event);
       if (!kind) return;
-      for (const domain of workspaceInvalidationDomains(kind)) {
+      for (const domain of myWorkInvalidationDomains(kind)) {
         pendingInvalidationDomainsRef.current.add(domain);
       }
       if (refreshTimerRef.current) return;

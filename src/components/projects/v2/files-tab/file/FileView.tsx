@@ -72,7 +72,7 @@ import type { ProjectNode } from "@/lib/db/schema";
 import { computeContentHash } from "@/lib/files/content-hash";
 import { normalizeProjectDocSlug } from "@/lib/projects/doc-slug";
 import { cn } from "@/lib/utils";
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
+import { useFilesStore } from "@/stores/filesStore";
 import { useFileVersions } from "@/hooks/useFileVersions";
 
 import { fileKind, type FileKind } from "../../utils/fileKind";
@@ -88,7 +88,7 @@ import { useFilePreviewMutations } from "./useFilePreviewMutations";
 import { FilesTabRoleContext } from "../FilesTabRoleContext";
 import { TextViewer, type TextViewerMode } from "./TextViewer";
 import { isAssetKind, isEmptyMedia, isMarkdownNode } from "./previewPicker";
-import { useFilesWorkspaceView } from "../FilesWorkspaceViews";
+import { useFilesViews } from "../FilesViews";
 import { FileInspectorContainer } from "./FileInspectorContainer";
 import { FileInspectorPanelHeader } from "./FileInspectorPanelHeader";
 import { formatBytes, formatFileTimestamp, formatFileActor } from "../folder/format";
@@ -153,7 +153,7 @@ export function FileView({
   // Attribution is provided directly on version rows (item 159)
 
   // ── Task link count from store (Req 7.1, 7.4) ──────────────────────
-  const taskLinkCount = useFilesWorkspaceStore(
+  const taskLinkCount = useFilesStore(
     (s) => s.byProjectId[projectId]?.taskLinkCounts?.[node.id] ?? 0,
   );
 
@@ -173,7 +173,7 @@ export function FileView({
   const [pendingMode, setPendingMode] = React.useState<FileViewMode | null>(
     null,
   );
-  const setDirtyFile = useFilesWorkspaceStore((state) => state.setDirtyFile);
+  const setDirtyFile = useFilesStore((state) => state.setDirtyFile);
   React.useEffect(() => {
     setDirtyFile(projectId, node.id, editorDirty);
     return () => setDirtyFile(projectId, node.id, false);
@@ -213,7 +213,7 @@ export function FileView({
   }, [router, projectSlug, projectId]);
 
   // ── LinkedTasksPanel toggle state (Req 8.1, 8.6) ───────────────────
-  const workspace = useFilesWorkspaceView();
+  const workspace = useFilesViews();
   const [localPanel, setLocalPanel] = React.useState<FileInspectorPanel>(null);
   const activeInspectorPanel = workspace?.inspector ?? localPanel;
   const setActiveInspectorPanel = workspace?.setInspector ?? setLocalPanel;
@@ -387,7 +387,7 @@ export function FileView({
           if (result.success) {
             toast.success(`New version committed`);
             // Set node in store
-            useFilesWorkspaceStore.getState().setNodes(projectId, [result.node]);
+            useFilesStore.getState().setNodes(projectId, [result.node]);
           } else {
             toast.error(feedbackError(result.error || "Couldn’t commit version", "Couldn’t commit version"));
           }
@@ -403,7 +403,7 @@ export function FileView({
           });
 
           if (result.success) {
-            useFilesWorkspaceStore.getState().setNodes(projectId, [result.node]);
+            useFilesStore.getState().setNodes(projectId, [result.node]);
             toast.success("Active version updated");
           } else {
             throw new Error(result.error || "Failed to update active revision");

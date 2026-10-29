@@ -10,7 +10,7 @@ describe("GitHub Sync Fast Diff & Query Architecture Contract", () => {
   );
   const workspacePath = path.resolve(
     process.cwd(),
-    "src/components/projects/v2/files-tab/GitHubSyncWorkspace.tsx",
+    "src/components/projects/v2/files-tab/RepositorySync.tsx",
   );
 
   it("github-sync.ts exports getSingleFileDiff with 1MB ceiling and precomputed SHA fast-path", () => {
@@ -43,7 +43,7 @@ describe("GitHub Sync Fast Diff & Query Architecture Contract", () => {
     assert.match(source, /status:\s*githubSyncRuns\.status/);
   });
 
-  it("GitHubSyncWorkspace.tsx routes inspectFile through getSingleFileDiff", () => {
+  it("RepositorySync.tsx routes inspectFile through getSingleFileDiff", () => {
     const source = readFileSync(workspacePath, "utf-8");
 
     // Must call getSingleFileDiff with pre-computed SHAs

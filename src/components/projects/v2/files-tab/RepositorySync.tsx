@@ -52,7 +52,7 @@ import {
   type SyncChoices,
   type SyncDraft,
   type SyncSetup,
-} from "@/lib/github/sync-workspace";
+} from "@/lib/github/repository-sync";
 import { cn } from "@/lib/utils";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import {
@@ -62,7 +62,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
+import { useFilesStore } from "@/stores/filesStore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonGitHubSync } from "@/components/projects/skeletons/SkeletonGitHubSync";
 import { ContributorIdentitySection } from "./github-sync/ContributorIdentitySection";
@@ -78,12 +78,12 @@ import {
   SyncHeading,
   TransferRoute,
 } from "./github-sync/SyncPrimitives";
-import styles from "./github-sync/SyncWorkspace.module.css";
+import styles from "./github-sync/RepositorySync.module.css";
 import { formatRelativeTime } from "./folder/format";
 
 type Success<T> =
   Extract<T, { success: true }> extends { data: infer D } ? D : never;
-type WorkspaceState = Success<
+type RepositorySyncState = Success<
   Awaited<ReturnType<typeof sync.getGitHubSyncState>>
 >;
 type View =
@@ -148,7 +148,7 @@ function DiffContentPane({
   );
 }
 
-export function GitHubSyncWorkspace({
+export function RepositorySync({
   projectId,
   canManage,
   access,
@@ -161,7 +161,7 @@ export function GitHubSyncWorkspace({
   projectName?: string;
   projectSlug?: string;
 }) {
-  const [state, setState] = useState<WorkspaceState | null>(null);
+  const [state, setState] = useState<RepositorySyncState | null>(null);
   const [view, setView] = useState<View>("overview");
   const [setup, setSetup] = useState<SyncSetup>({
     repository: "",
@@ -246,7 +246,7 @@ export function GitHubSyncWorkspace({
   const authAttempt = useRef(0);
   const authReturnedError = useRef(false);
   const applied = useRef(new Set<string>());
-  const setBadge = useFilesWorkspaceStore((s) => s.setGitSyncBadge);
+  const setBadge = useFilesStore((s) => s.setGitSyncBadge);
   const creating = Boolean(setup.newRepository);
   const activeRun =
     state?.runs.find(isActiveRun) || (isActiveRun(run) ? run : null);
@@ -449,7 +449,7 @@ export function GitHubSyncWorkspace({
       supabase,
       resourceType: "project_workflow",
       resourceId: projectId,
-      subscriberId: "github-sync-workspace",
+      subscriberId: "repository-sync",
       bindings: [
         {
           event: "*",

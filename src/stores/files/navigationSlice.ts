@@ -1,7 +1,7 @@
 import type { StateCreator } from "zustand";
-import type { FilesWorkspaceState } from "./types";
-import { defaultWorkspace } from "./types";
-export interface WorkspaceSlice {
+import type { FilesStoreState } from "./types";
+import { defaultFilesState } from "./types";
+export interface NavigationSlice {
   /**
    * Files tab v3 navigation write path. Coexists with `setSelectedNode`
    * so the Tasks tab's file picker is unaffected (Req 21.7).
@@ -22,13 +22,13 @@ export interface WorkspaceSlice {
 
 }
 
-export const createWorkspaceSlice: StateCreator<FilesWorkspaceState, [], [], WorkspaceSlice> = (set) => ({
+export const createNavigationSlice: StateCreator<FilesStoreState, [], [], NavigationSlice> = (set) => ({
   // Files tab v3: navigation source of truth. Coexists with `setSelectedNode`
   // (Tasks tab continues to read/write `selectedNodeId`). See design.md
   // § Store Changes / ADDED.
   setCurrentLocation: (projectId, nodeId) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
 
       // Walk the strict ancestor chain of `nodeId` in `nodesById` and
       // collect every folder that should be expanded so the node is
@@ -86,7 +86,7 @@ export const createWorkspaceSlice: StateCreator<FilesWorkspaceState, [], [], Wor
     }),
   setDirtyFile: (projectId, nodeId, dirty) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       const dirtyFileId = dirty
         ? nodeId
         : ws.dirtyFileId === nodeId
@@ -102,7 +102,7 @@ export const createWorkspaceSlice: StateCreator<FilesWorkspaceState, [], [], Wor
     }),
   setPendingNavigation: (projectId, pending) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       if (
         ws.pendingNavigation?.nodeId === pending?.nodeId &&
         ws.pendingNavigation?.preserveQuery === pending?.preserveQuery &&
@@ -120,7 +120,7 @@ export const createWorkspaceSlice: StateCreator<FilesWorkspaceState, [], [], Wor
     }),
   setQuickOpenOpen: (projectId, open) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       return {
         byProjectId: {
           ...state.byProjectId,
@@ -133,7 +133,7 @@ export const createWorkspaceSlice: StateCreator<FilesWorkspaceState, [], [], Wor
     }),
   toggleSidebar: (projectId) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       return {
         byProjectId: {
           ...state.byProjectId,

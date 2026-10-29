@@ -10,7 +10,7 @@ import {
   type BrowserFileLease,
   type FileLeaseView,
 } from "@/lib/files/file-lease-client";
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
+import { useFilesStore } from "@/stores/filesStore";
 
 export type FileLeaseStatus = "idle" | "acquiring" | "owned" | "conflict" | "lost";
 
@@ -20,12 +20,12 @@ export function useFileLease(projectId: string, nodeId: string, keepAliveWhenHid
   const [status, setStatus] = React.useState<FileLeaseStatus>("idle");
   const [conflict, setConflict] = React.useState<FileLeaseView | null>(null);
   const leaseRef = React.useRef<BrowserFileLease | null>(null);
-  const setLocks = useFilesWorkspaceStore((state) => state.setLocks);
+  const setLocks = useFilesStore((state) => state.setLocks);
 
   const publishLock = React.useCallback((next: FileLeaseView | null) => {
     const targetNodeId = next?.nodeId ?? nodeId;
     const currentLocks = Object.values(
-      useFilesWorkspaceStore.getState().byProjectId[projectId]?.locksByNodeId ?? {},
+      useFilesStore.getState().byProjectId[projectId]?.locksByNodeId ?? {},
     ).filter((lock) => lock.nodeId !== targetNodeId);
     setLocks(projectId, next ? [...currentLocks, next] : currentLocks);
   }, [nodeId, projectId, setLocks]);

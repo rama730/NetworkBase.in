@@ -404,7 +404,7 @@ describe("QuickOpen — Enter + click → navigateTo + close (Req 9.5, source-le
 // 9.6 — Selected-node-gone → inline error + dialog stays open.
 
 describe("QuickOpen — selected-node-gone error (Req 9.6, source-level)", () => {
-  it("re-reads the cache at commit time via useFilesWorkspaceStore.getState()", () => {
+  it("re-reads the cache at commit time via useFilesStore.getState()", () => {
     // The memoized `results` array can outlive the node it points at
     // (concurrent delete / cache eviction between memoization and
     // click). Req 9.6 requires a fresh cache read at commit time so the
@@ -412,7 +412,7 @@ describe("QuickOpen — selected-node-gone error (Req 9.6, source-level)", () =>
     // blindly calling navigateTo on a dead id.
     assert.match(
       DIALOG_SOURCE,
-      /useFilesWorkspaceStore\s*\.getState\(\)\s*\.byProjectId\[projectId\]\?\.nodesById\[candidate\.id\]/,
+      /useFilesStore\s*\.getState\(\)\s*\.byProjectId\[projectId\]\?\.nodesById\[candidate\.id\]/,
       "selectByIndex must re-read the freshest node snapshot before navigating",
     );
   });

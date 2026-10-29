@@ -11,7 +11,7 @@
 //      intentionally distinct from sidebar.test.ts: deep chains, sibling
 //      of an ancestor, match at the root, whole-subtree match when the
 //      root name matches, query-trimming behaviour.
-//   3. Collapse toggle calls `useFilesWorkspaceStore.getState().toggleSidebar(projectId)`
+//   3. Collapse toggle calls `useFilesStore.getState().toggleSidebar(projectId)`
 //      and the resulting `ui.sidebarCollapsed` boolean flips per project
 //      (Req 2.4, 2.5) without bleeding across projects.
 //   4. The expanded sidebar width constant is always 240px (Req 2.6,
@@ -28,8 +28,8 @@ import {
   FILES_TAB_SIDEBAR_WIDTH_PX,
   computeVisibleIdsForSearch,
 } from "@/components/projects/v2/files-tab/sidebarSearch";
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
-import { defaultWorkspace } from "@/stores/files/types";
+import { useFilesStore } from "@/stores/filesStore";
+import { defaultFilesState } from "@/stores/files/types";
 
 // ─── Fixture builders ────────────────────────────────────────────────
 //
@@ -281,16 +281,16 @@ describe("sidebar search — non-empty query filters with ancestor retention (Re
 
 describe("sidebar collapse toggle — `toggleSidebar(projectId)` flips `ui.sidebarCollapsed` (Req 2.4, 2.5)", () => {
   function resetWorkspaces(projectIds: readonly string[]): void {
-    useFilesWorkspaceStore.setState((state) => {
+    useFilesStore.setState((state) => {
       const next = { ...state.byProjectId };
-      for (const id of projectIds) next[id] = defaultWorkspace();
+      for (const id of projectIds) next[id] = defaultFilesState();
       return { byProjectId: next };
     });
   }
 
   function readCollapsed(projectId: string): boolean {
     return (
-      useFilesWorkspaceStore.getState().byProjectId[projectId]?.ui
+      useFilesStore.getState().byProjectId[projectId]?.ui
         .sidebarCollapsed ?? false
     );
   }
@@ -304,7 +304,7 @@ describe("sidebar collapse toggle — `toggleSidebar(projectId)` flips `ui.sideb
     // Flip 6 times — the boolean-only invariant must hold at every step.
     const observed: boolean[] = [];
     for (let i = 0; i < 6; i += 1) {
-      useFilesWorkspaceStore.getState().toggleSidebar(projectId);
+      useFilesStore.getState().toggleSidebar(projectId);
       const value = readCollapsed(projectId);
       assert.equal(
         typeof value,
@@ -329,7 +329,7 @@ describe("sidebar collapse toggle — `toggleSidebar(projectId)` flips `ui.sideb
     assert.equal(readCollapsed(target), false);
     assert.equal(readCollapsed(other), false);
 
-    useFilesWorkspaceStore.getState().toggleSidebar(target);
+    useFilesStore.getState().toggleSidebar(target);
 
     assert.equal(
       readCollapsed(target),
@@ -346,15 +346,15 @@ describe("sidebar collapse toggle — `toggleSidebar(projectId)` flips `ui.sideb
   it("creates a workspace entry for an unknown project on first toggle", () => {
     const projectId = "proj-never-seen-before";
     // Intentionally skip `resetWorkspaces` — the action should materialise
-    // a fresh workspace from `defaultWorkspace()` (which starts expanded),
+    // a fresh workspace from `defaultFilesState()` (which starts expanded),
     // then flip `sidebarCollapsed` to `true`.
-    useFilesWorkspaceStore.setState((state) => {
+    useFilesStore.setState((state) => {
       const next = { ...state.byProjectId };
       delete next[projectId];
       return { byProjectId: next };
     });
 
-    useFilesWorkspaceStore.getState().toggleSidebar(projectId);
+    useFilesStore.getState().toggleSidebar(projectId);
 
     assert.equal(
       readCollapsed(projectId),

@@ -5,7 +5,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { filesReturnQuery, taskFilesHref } from "@/lib/files/task-navigation";
 import { confirmFileNavigation } from "@/lib/files/unsaved-navigation";
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
+import { useFilesStore } from "@/stores/filesStore";
 import {
   formatBytes,
   formatFileActor,
@@ -124,8 +124,8 @@ test("FileIcon provides accurate license and readme iconography adhering to desi
 
 test("cancelled cross-tab navigation preserves the draft; discard targets only this file", () => {
   const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
-  const originalStorage = useFilesWorkspaceStore.persist.getOptions().storage;
-  useFilesWorkspaceStore.persist.setOptions({
+  const originalStorage = useFilesStore.persist.getOptions().storage;
+  useFilesStore.persist.setOptions({
     storage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
   });
   const events: CustomEvent[] = [];
@@ -140,21 +140,21 @@ test("cancelled cross-tab navigation preserves the draft; discard targets only t
       },
     },
   });
-  const store = useFilesWorkspaceStore.getState();
+  const store = useFilesStore.getState();
   const projectId = "recovery-test";
   try {
-    store.ensureProjectWorkspace(projectId);
+    store.ensureProjectFilesState(projectId);
     store.setDirtyFile(projectId, "file-1", true);
     assert.equal(confirmFileNavigation(projectId), false);
     assert.equal(
-      useFilesWorkspaceStore.getState().byProjectId[projectId]?.dirtyFileId,
+      useFilesStore.getState().byProjectId[projectId]?.dirtyFileId,
       "file-1",
     );
     assert.equal(events.length, 0);
     accept = true;
     assert.equal(confirmFileNavigation(projectId), true);
     assert.equal(
-      useFilesWorkspaceStore.getState().byProjectId[projectId]?.dirtyFileId,
+      useFilesStore.getState().byProjectId[projectId]?.dirtyFileId,
       null,
     );
     assert.equal(events[0]?.type, "project:discard-file-edits");
@@ -162,7 +162,7 @@ test("cancelled cross-tab navigation preserves the draft; discard targets only t
     assert.equal(confirmFileNavigation(projectId), true);
     assert.equal(events.length, 1);
   } finally {
-    useFilesWorkspaceStore.persist.setOptions({ storage: originalStorage });
+    useFilesStore.persist.setOptions({ storage: originalStorage });
     if (originalWindow)
       Object.defineProperty(globalThis, "window", originalWindow);
     else Reflect.deleteProperty(globalThis, "window");

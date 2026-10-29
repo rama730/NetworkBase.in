@@ -135,7 +135,7 @@ async function readPersistedByProjectId(
 
 /**
  * Resolves the canonical projectId for the current session by reading
- * the zustand-persist blob. The V3 root's `ensureProjectWorkspace`
+ * the zustand-persist blob. The V3 root's `ensureProjectFilesState`
  * effect installs a single entry keyed by the resolved id on mount, so
  * selecting `Object.keys(byProjectId)[0]` is deterministic for a
  * single-project page.

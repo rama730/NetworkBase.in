@@ -225,18 +225,18 @@ describe("Files Tab Trash Redesign Specification Conformance Contract", () => {
   it("suppresses Git Sync and Desktop IDE buttons in header when viewing Trash", () => {
     const workspaceHeaderPath = path.resolve(
       process.cwd(),
-      "src/components/projects/v2/files-tab/FilesWorkspaceHeader.tsx",
+      "src/components/projects/v2/files-tab/FilesHeader.tsx",
     );
     const headerCode = readFileSync(workspaceHeaderPath, "utf-8");
     assert.match(
       headerCode,
       /workspace\?\.view !== "trash"[\s\S]*?<HeaderGitHubSyncButton/,
-      "FilesWorkspaceHeader must suppress Git Sync button when view is trash",
+      "FilesHeader must suppress Git Sync button when view is trash",
     );
     assert.match(
       headerCode,
       /workspace\?\.view !== "trash"[\s\S]*?<OpenInIdeButton/,
-      "FilesWorkspaceHeader must suppress OpenInIdeButton when view is trash",
+      "FilesHeader must suppress OpenInIdeButton when view is trash",
     );
   });
 

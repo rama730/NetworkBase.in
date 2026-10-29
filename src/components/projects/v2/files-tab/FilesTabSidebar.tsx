@@ -17,13 +17,13 @@ import { ArrowLeft, PanelLeftClose } from "lucide-react";
 
 const EMPTY_FOLDER_SIZES: Record<string, number> = {};
 import {
-  useFilesWorkspaceView,
+  useFilesViews,
   fileCollectionViews,
-} from "./FilesWorkspaceViews";
+} from "./FilesViews";
 
 import type { ProjectNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
+import { useFilesStore } from "@/stores/filesStore";
 import { isInternalTaskWorkingFilesNode } from "@/lib/files/task-working-files";
 import {
   DropdownMenu,
@@ -101,84 +101,84 @@ export function FilesTabSidebar({
   projectName,
 }: FilesTabSidebarProps): React.JSX.Element {
   // ── Store selectors ───────────────────────────────────────────────
-  const sidebarCollapsed = useFilesWorkspaceStore(
+  const sidebarCollapsed = useFilesStore(
     (s) => s.byProjectId[projectId]?.ui?.sidebarCollapsed ?? false,
   );
-  const toggleSidebar = useFilesWorkspaceStore((s) => s.toggleSidebar);
+  const toggleSidebar = useFilesStore((s) => s.toggleSidebar);
 
-  const nodesById = useFilesWorkspaceStore(
+  const nodesById = useFilesStore(
     (s) => s.byProjectId[projectId]?.nodesById || EMPTY_OBJECT,
   );
-  const childrenByParentId = useFilesWorkspaceStore(
+  const childrenByParentId = useFilesStore(
     (s) => s.byProjectId[projectId]?.childrenByParentId || EMPTY_OBJECT,
   );
-  const loadedChildren = useFilesWorkspaceStore(
+  const loadedChildren = useFilesStore(
     (s) => s.byProjectId[projectId]?.loadedChildren || EMPTY_OBJECT,
   );
-  const expandedFolderIds = useFilesWorkspaceStore(
+  const expandedFolderIds = useFilesStore(
     (s) => s.byProjectId[projectId]?.expandedFolderIds || EMPTY_OBJECT,
   );
-  const folderMeta = useFilesWorkspaceStore(
+  const folderMeta = useFilesStore(
     (s) => s.byProjectId[projectId]?.folderMeta || EMPTY_OBJECT,
   );
-  const treeVersion = useFilesWorkspaceStore(
+  const treeVersion = useFilesStore(
     (s) => s.byProjectId[projectId]?.treeVersion || 0,
   );
-  const sort = useFilesWorkspaceStore(
+  const sort = useFilesStore(
     (s) => s.byProjectId[projectId]?.sort || "name",
   );
-  const foldersFirst = useFilesWorkspaceStore(
+  const foldersFirst = useFilesStore(
     (s) => s.byProjectId[projectId]?.foldersFirst ?? true,
   );
-  const favorites = useFilesWorkspaceStore(
+  const favorites = useFilesStore(
     (s) => s.byProjectId[projectId]?.favorites || EMPTY_OBJECT,
   );
-  const recents = useFilesWorkspaceStore(
+  const recents = useFilesStore(
     (s) => s.byProjectId[projectId]?.recents || EMPTY_ARRAY,
   );
-  const taskLinkCounts = useFilesWorkspaceStore(
+  const taskLinkCounts = useFilesStore(
     (s) => s.byProjectId[projectId]?.taskLinkCounts || EMPTY_OBJECT,
   );
-  const locksByNodeId = useFilesWorkspaceStore(
+  const locksByNodeId = useFilesStore(
     (s) => s.byProjectId[projectId]?.locksByNodeId || EMPTY_OBJECT,
   );
-  const currentLocationId = useFilesWorkspaceStore(
+  const currentLocationId = useFilesStore(
     (s) => s.byProjectId[projectId]?.currentLocationId ?? null,
   );
-  const selectedFolderId = useFilesWorkspaceStore(
+  const selectedFolderId = useFilesStore(
     (s) => s.byProjectId[projectId]?.selectedFolderId ?? null,
   );
-  const storeSelectedNodeIds = useFilesWorkspaceStore(
+  const storeSelectedNodeIds = useFilesStore(
     (s) => s.byProjectId[projectId]?.selectedNodeIds || EMPTY_ARRAY,
   );
 
-  const upsertNodes = useFilesWorkspaceStore((s) => s.upsertNodes);
-  const setChildren = useFilesWorkspaceStore((s) => s.setChildren);
-  const setSelectedNode = useFilesWorkspaceStore((s) => s.setSelectedNode);
-  const setSelectedNodeIds = useFilesWorkspaceStore(
+  const upsertNodes = useFilesStore((s) => s.upsertNodes);
+  const setChildren = useFilesStore((s) => s.setChildren);
+  const setSelectedNode = useFilesStore((s) => s.setSelectedNode);
+  const setSelectedNodeIds = useFilesStore(
     (s) => s.setSelectedNodeIds,
   );
-  const toggleExpanded = useFilesWorkspaceStore((s) => s.toggleExpanded);
-  const toggleFavorite = useFilesWorkspaceStore((s) => s.toggleFavorite);
+  const toggleExpanded = useFilesStore((s) => s.toggleExpanded);
+  const toggleFavorite = useFilesStore((s) => s.toggleFavorite);
 
   // ── Navigation (single write path) ────────────────────────────────
   const navigateTo = useNavigateTo(projectId);
 
-  const workspaceView = useFilesWorkspaceView();
+  const filesView = useFilesViews();
   const renderNodesById = nodesById as Record<string, ProjectNode>;
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 767px)");
     const closeOnSmallScreen = () => {
       const collapsed =
-        useFilesWorkspaceStore.getState().byProjectId[projectId]?.ui
+        useFilesStore.getState().byProjectId[projectId]?.ui
           .sidebarCollapsed;
       if (collapsed !== undefined && collapsed !== media.matches)
         toggleSidebar(projectId);
     };
     closeOnSmallScreen();
     const stopHydration =
-      useFilesWorkspaceStore.persist.onFinishHydration(closeOnSmallScreen);
+      useFilesStore.persist.onFinishHydration(closeOnSmallScreen);
     media.addEventListener("change", closeOnSmallScreen);
     return () => {
       stopHydration();
@@ -402,7 +402,7 @@ export function FilesTabSidebar({
       if (window.matchMedia("(max-width: 767px)").matches)
         toggleSidebar(projectId);
     },
-    [navigateTo, toggleSidebar, projectId, workspaceView],
+    [navigateTo, toggleSidebar, projectId, filesView],
   );
 
   // ── Drag & drop (preserved — Q4 keep) ─────────────────────────────
@@ -564,10 +564,10 @@ export function FilesTabSidebar({
         className="shrink-0 flex flex-col h-full border-r border-[#DBD5C8] dark:border-white/10 bg-card dark:bg-background max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-30 max-md:max-w-[85vw] max-md:shadow-xl md:resize-x md:overflow-auto md:min-w-52 md:max-w-[40vw]"
       >
         <div className="flex min-h-12 shrink-0 items-center gap-2 border-b border-[#DBD5C8] px-3 dark:border-white/10">
-          {workspaceView?.sidebarMode === "tree" ? (
+          {filesView?.sidebarMode === "tree" ? (
             <button
               type="button"
-              onClick={workspaceView.showCollections}
+              onClick={filesView.showCollections}
               className="flex min-h-9 flex-1 items-center gap-2 rounded-[5px] text-xs font-medium text-[#374349] dark:text-muted-foreground hover:text-[#141A1E] dark:hover:text-foreground focus-visible:ring-2 focus-visible:ring-[#D14E24]"
             >
               <ArrowLeft aria-hidden="true" className="size-4" />
@@ -587,7 +587,7 @@ export function FilesTabSidebar({
             <PanelLeftClose aria-hidden="true" className="size-4" />
           </button>
         </div>
-        {workspaceView?.sidebarMode === "collections" ? (
+        {filesView?.sidebarMode === "collections" ? (
           <nav
             aria-label="File collections"
             className="flex-1 space-y-1 overflow-y-auto p-2"
@@ -597,20 +597,20 @@ export function FilesTabSidebar({
                 (item) =>
                   item.id !== "deliverables" &&
                   (canEdit || item.id !== "trash") &&
-                  (workspaceView.canReadTasks ||
+                  (filesView.canReadTasks ||
                      !["tasks", "deliverables"].includes(item.id)) &&
-                  (item.id !== "github" || workspaceView.canOpenGitHub),
+                  (item.id !== "github" || filesView.canOpenGitHub),
               )
               .map(({ id, Icon }) => {
-                const label = workspaceView.viewLabel(id);
-                const isActive = workspaceView.view === id;
+                const label = filesView.viewLabel(id);
+                const isActive = filesView.view === id;
                 return (
                   <button
                     key={id}
                     type="button"
                     aria-current={isActive ? "page" : undefined}
                     onClick={() => {
-                      workspaceView.selectView(id);
+                      filesView.selectView(id);
                       if (
                         id !== "project" &&
                         window.matchMedia("(max-width: 767px)").matches
@@ -729,7 +729,7 @@ export function FilesTabSidebar({
                       onClick={() => {
                         if (contextMenuState.node) {
                           contextValue.openNode(contextMenuState.node);
-                          workspaceView?.setInspector("details");
+                          filesView?.setInspector("details");
                         }
                       }}
                     >
@@ -752,7 +752,7 @@ export function FilesTabSidebar({
                         onClick={() => {
                           if (contextMenuState.node) {
                             contextValue.openNode(contextMenuState.node);
-                            workspaceView?.setInspector("version_history");
+                            filesView?.setInspector("version_history");
                           }
                         }}
                       >
@@ -765,7 +765,7 @@ export function FilesTabSidebar({
                         onClick={() => {
                           if (contextMenuState.node) {
                             contextValue.openNode(contextMenuState.node);
-                            workspaceView?.setInspector("linked_tasks");
+                            filesView?.setInspector("linked_tasks");
                           }
                         }}
                       >
@@ -777,19 +777,19 @@ export function FilesTabSidebar({
                       onClick={() => {
                         if (contextMenuState.node) {
                           contextValue.openNode(contextMenuState.node);
-                          workspaceView?.setInspector("version_history");
+                          filesView?.setInspector("version_history");
                         }
                       }}
                     >
                       <History className="w-4 h-4 mr-2" />
                       Version history
                     </DropdownMenuItem>
-                    {workspaceView && (
+                    {filesView && (
                       <DropdownMenuItem
                         onClick={() => {
                           if (contextMenuState.node) {
                             contextValue.openNode(contextMenuState.node);
-                            workspaceView?.setInspector("linked_tasks");
+                            filesView?.setInspector("linked_tasks");
                           }
                         }}
                       >

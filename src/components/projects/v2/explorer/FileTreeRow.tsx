@@ -194,7 +194,7 @@ export const FileTreeRow = React.memo(function FileTreeRow({
 
     return (
         <div
-            data-workspace-file-item="true"
+            data-file-item="true"
             data-node-id={node.id}
             role="treeitem"
             aria-level={ariaLevel}
@@ -220,7 +220,7 @@ export const FileTreeRow = React.memo(function FileTreeRow({
                 if (isRenaming) return;
                 const tree = e.currentTarget.closest('[role="tree"]');
                 const items = Array.from(
-                    tree?.querySelectorAll<HTMLElement>('[data-workspace-file-item="true"]') ?? []
+                    tree?.querySelectorAll<HTMLElement>('[data-file-item="true"]') ?? []
                 );
                 const index = items.indexOf(e.currentTarget as HTMLElement);
                 if (e.key === "ArrowDown") {

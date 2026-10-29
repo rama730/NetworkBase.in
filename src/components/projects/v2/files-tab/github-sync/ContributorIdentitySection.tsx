@@ -4,7 +4,7 @@ import { useState } from "react";
 import * as sync from "@/app/actions/github-sync";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { button, primaryButton, quietButton } from "./sync-styles";
-import styles from "./SyncWorkspace.module.css";
+import styles from "./RepositorySync.module.css";
 
 export function ContributorIdentitySection({
   identity,

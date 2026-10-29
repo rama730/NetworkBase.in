@@ -1,4 +1,4 @@
-// Android-style intent & protocol dispatcher for NetworkBase WorkSpace extension.
+// Android-style intent & protocol dispatcher for NetworkBase for VS Code.
 // Governed by Ponytail: native platform APIs, 0 dependencies, 0ms server overhead.
 
 export type SupportedIde =

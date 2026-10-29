@@ -22,7 +22,7 @@ const FilesTabUploadModal = dynamic(
   () => import("./upload/FilesTabUploadModal").then((mod) => mod.FilesTabUploadModal),
   { ssr: false }
 );
-import { FilesWorkspaceMenu, FilesHeaderSlot } from "./FilesWorkspaceHeader";
+import { FilesViewsMenu, FilesHeaderSlot } from "./FilesHeader";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useFilesTabRole } from "./FilesTabRoleContext";
 import { taskFilesHref } from "@/lib/files/task-navigation";
-import { useFilesWorkspaceView } from "./FilesWorkspaceViews";
+import { useFilesViews } from "./FilesViews";
 import { formatRelativeTime } from "./folder/format";
 import type { ProjectNode } from "@/lib/db/schema";
 import { uploadToSupabaseSignedUrl } from "@/lib/upload/supabase-signed-upload-client";
@@ -84,7 +84,7 @@ function getTaskStatusBadgeClass(status: string) {
 type TaskStatusFilter = "all" | "todo" | "in_progress" | "done" | "review";
 
 export function TaskFilesCollection({ projectId }: { projectId: string }) {
-  const workspace = useFilesWorkspaceView()!;
+  const workspace = useFilesViews()!;
   const { taskId, query, view, selectTask } = workspace;
   const search = query;
   const role = workspace.fileRole;
@@ -508,9 +508,9 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
       />
 
       {(!selected || initialLoading) && (
-        <FilesWorkspaceMenu projectId={projectId}>
+        <FilesViewsMenu projectId={projectId}>
           {taskMenuItems}
-        </FilesWorkspaceMenu>
+        </FilesViewsMenu>
       )}
       {result.isError && (
         <div

@@ -131,7 +131,7 @@ function Field({
     </label>
   );
 }
-export function ContributionWorkspace({
+export function ContributionEditor({
   items,
   profileId,
   profileVisibility = "public",
@@ -969,7 +969,7 @@ export function ContributionWorkspace({
     ) : null;
   if (active && !d)
     return (
-      <div className="nb-contribution-workspace">
+      <div className="nb-contribution-editor">
         <Button type="button" variant="ghost" onClick={() => nav(null)}>
           <ArrowLeft className="size-4" />
           Project contributions
@@ -980,7 +980,7 @@ export function ContributionWorkspace({
       </div>
     );
   return (
-    <div className="nb-contribution-workspace">
+    <div className="nb-contribution-editor">
       {error && (
         <div
           role="alert"

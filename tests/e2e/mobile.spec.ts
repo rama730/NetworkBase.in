@@ -118,7 +118,7 @@ test.describe("mobile 375px", () => {
     await page.goto(`${project}?tab=files`);
     await settle(page);
     const offscreen = await page.evaluate(() =>
-      [...document.querySelectorAll('[data-testid="files-workspace-header"] button')]
+      [...document.querySelectorAll('[data-testid="files-header"] button')]
         .filter((b) => b.getBoundingClientRect().width && b.getBoundingClientRect().right > window.innerWidth + 1).length);
     expect(offscreen).toBe(0);
 

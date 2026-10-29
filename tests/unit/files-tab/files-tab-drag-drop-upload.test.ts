@@ -167,15 +167,15 @@ describe("Files Tab Drag & Drop Upload Integration", () => {
     assert.doesNotMatch(deliverableSection, /Working File/);
   });
 
-  it("10 Ponytail Enhancements: FolderPicker ancestral auto-expansion & useFilesWorkspaceStore parent resolution", () => {
+  it("10 Ponytail Enhancements: FolderPicker ancestral auto-expansion & useFilesStore parent resolution", () => {
     const dialogsHostPath = path.resolve(
       process.cwd(),
       "src/components/projects/v2/explorer/ExplorerDialogsHost.tsx",
     );
     const source = readFileSync(dialogsHostPath, "utf-8");
 
-    // Must import useFilesWorkspaceStore
-    assert.match(source, /useFilesWorkspaceStore/);
+    // Must import useFilesStore
+    assert.match(source, /useFilesStore/);
 
     // Must traverse parent chain to auto-expand selected folder's ancestors on mount
     assert.match(source, /initialExpanded/);
@@ -241,6 +241,6 @@ describe("Files Tab Drag & Drop Upload Integration", () => {
 
     // Deterministic task linking: uses createdNodes directly from uploadFilesDirectly without scanning nodesById
     assert.match(source, /uploadFilesDirectly\(filesToUpload, target\)\s*\.then\(async \(createdNodes\) => \{[\s\S]*?for \(const node of nodes\) \{[\s\S]*?await linkNodeToTask\(taskId, node\.id[\s\S]*?await linkAll\(createdNodes\)/);
-    assert.doesNotMatch(source, /currentNodes = useFilesWorkspaceStore\.getState\(\)/);
+    assert.doesNotMatch(source, /currentNodes = useFilesStore\.getState\(\)/);
   });
 });

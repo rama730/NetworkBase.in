@@ -6,18 +6,18 @@ import * as React from "react";
 import { AlertTriangle, Loader2 } from "lucide-react";
 
 import type { ProjectNode } from "@/lib/db/schema";
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
+import { useFilesStore } from "@/stores/filesStore";
 
 import { useFilesTabRole } from "./FilesTabRoleContext";
 import { useCurrentLocation } from "./hooks/useCurrentLocation";
 import { FilesTabBootContext } from "./hooks/useFolderContents";
 import {
-  FilesWorkspaceHeader,
-  FilesWorkspaceMenu,
-} from "./FilesWorkspaceHeader";
+  FilesHeader,
+  FilesViewsMenu,
+} from "./FilesHeader";
 import { FolderListView } from "./folder/FolderListView";
 import { FileView } from "./file/FileView";
-import { useFilesWorkspaceView } from "./FilesWorkspaceViews";
+import { useFilesViews } from "./FilesViews";
 import { TaskFilesCollection } from "./TaskFilesCollection";
 import { SavedFilesCollection } from "./SavedFilesCollection";
 import { TrashFilesCollection } from "./TrashFilesCollection";
@@ -26,8 +26,8 @@ import type { GithubImportAccessState } from "@/lib/github/import-types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonGitHubSync } from "@/components/projects/skeletons/SkeletonGitHubSync";
 
-const GitHubSyncWorkspace = dynamic(
-  () => import("./GitHubSyncWorkspace").then((mod) => mod.GitHubSyncWorkspace),
+const RepositorySync = dynamic(
+  () => import("./RepositorySync").then((mod) => mod.RepositorySync),
   {
     ssr: false,
     loading: () => <SkeletonGitHubSync />,
@@ -71,10 +71,10 @@ export function FilesTabMain({
 }: FilesTabMainProps): React.JSX.Element {
   const { canEdit, canManageFiles } = useFilesTabRole();
   const location = useCurrentLocation(projectId);
-  const workspaceView = useFilesWorkspaceView();
+  const filesView = useFilesViews();
   const isCollection =
-    workspaceView &&
-    workspaceView.view !== "project" &&
+    filesView &&
+    filesView.view !== "project" &&
     (!location || location.type === "root");
 
   // Read the booting state from the explorer context (injected via FilesTabRoot)
@@ -85,10 +85,10 @@ export function FilesTabMain({
   // Req 1.8 "id set but unresolved" case independently of
   // `useCurrentLocation` (which masks it as `{ type: "root" }` to keep
   // the read selector total — surfaces handle their own error UX).
-  const currentLocationId = useFilesWorkspaceStore(
+  const currentLocationId = useFilesStore(
     (s) => s.byProjectId[projectId]?.currentLocationId ?? null,
   );
-  const nodesById = useFilesWorkspaceStore(
+  const nodesById = useFilesStore(
     (s) => s.byProjectId[projectId]?.nodesById ?? EMPTY_NODES,
   ) as Record<string, ProjectNode>;
 
@@ -100,7 +100,7 @@ export function FilesTabMain({
       data-testid="files-tab-main"
       className="flex-1 flex flex-col min-w-0 h-full relative"
     >
-      <FilesWorkspaceHeader
+      <FilesHeader
         projectId={projectId}
         location={location}
         projectSlug={projectSlug}
@@ -124,11 +124,11 @@ export function FilesTabMain({
           </div>
         ) : null}
         {!isCollection && (isBooting || unresolved) && (
-          <FilesWorkspaceMenu projectId={projectId} />
+          <FilesViewsMenu projectId={projectId} />
         )}
         {isCollection ? (
-          workspaceView.view === "github" ? (
-            <GitHubSyncWorkspace
+          filesView.view === "github" ? (
+            <RepositorySync
               key={projectId}
               projectId={projectId}
               projectSlug={projectSlug}
@@ -136,13 +136,13 @@ export function FilesTabMain({
               canManage={Boolean(isOwner)}
               access={githubAccess ?? null}
             />
-          ) : workspaceView.view === "tasks" ||
-            workspaceView.view === "deliverables" ? (
+          ) : filesView.view === "tasks" ||
+            filesView.view === "deliverables" ? (
             <TaskFilesCollection
-              key={`${projectId}:${workspaceView.view}:${workspaceView.taskId ?? "all"}`}
+              key={`${projectId}:${filesView.view}:${filesView.taskId ?? "all"}`}
               projectId={projectId}
             />
-          ) : workspaceView.view === "trash" ? (
+          ) : filesView.view === "trash" ? (
             <TrashFilesCollection projectId={projectId} />
           ) : (
             <SavedFilesCollection projectId={projectId} />
@@ -188,7 +188,7 @@ export function FilesTabMain({
             canEdit={canEdit}
           />
         )}
-      </FilesWorkspaceHeader>
+      </FilesHeader>
     </div>
   );
 }

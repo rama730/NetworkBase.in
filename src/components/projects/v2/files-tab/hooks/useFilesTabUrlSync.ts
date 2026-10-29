@@ -31,7 +31,7 @@ import {
   type ResolveDeepLinkResult,
 } from "./useDeepLinkResolver";
 import { useNavigateTo, type NavigateTo } from "./useNavigateTo";
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
+import { useFilesStore } from "@/stores/filesStore";
 import { isInternalTaskWorkingFilesNode } from "@/lib/files/task-working-files";
 
 // ─── Pure/imperative helpers (tested without React) ──────────────────
@@ -190,7 +190,7 @@ export function useFilesTabUrlSync(
 ): void {
   const location = useCurrentLocation(projectId);
   const navigateTo = useNavigateTo(projectId);
-  const nodesById = useFilesWorkspaceStore(
+  const nodesById = useFilesStore(
     (s) => s.byProjectId[projectId]?.nodesById ?? EMPTY_NODES,
   );
 
@@ -237,13 +237,13 @@ export function useFilesTabUrlSync(
         win,
         navigateTo: async (nodeId) => {
           if (nodeId) {
-            const currentNodes = useFilesWorkspaceStore.getState().byProjectId[projectId]?.nodesById || {};
+            const currentNodes = useFilesStore.getState().byProjectId[projectId]?.nodesById || {};
             if (!currentNodes[nodeId]) {
               try {
                 const { getNodeMetadataBatch } = await import("@/app/actions/files/nodes");
                 const batchResult = await getNodeMetadataBatch(projectId, [nodeId], { includeBreadcrumbs: true });
                 if (batchResult.success && batchResult.data.nodes.length > 0) {
-                  const upsertNodes = useFilesWorkspaceStore.getState().upsertNodes;
+                  const upsertNodes = useFilesStore.getState().upsertNodes;
                   upsertNodes(projectId, batchResult.data.nodes);
                 }
               } catch (e) {

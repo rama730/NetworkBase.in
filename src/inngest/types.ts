@@ -48,7 +48,7 @@ type AccountCleanupEvent = {
     };
 };
 
-type WorkspaceCountersRefreshEvent = {
+type MyWorkCountersRefreshEvent = {
     data: {
         userId: string;
     };
@@ -90,7 +90,7 @@ export const schemas = new EventSchemas().fromRecord<{
     "git/push": GitPushEvent;
     "git/pull": GitPullEvent;
     "account/cleanup": AccountCleanupEvent;
-    "workspace/counters.refresh": WorkspaceCountersRefreshEvent;
+    "workspace/counters.refresh": MyWorkCountersRefreshEvent;
     "workspace/connections.sync_suggestions": ConnectionsSyncSuggestionsEvent;
     "workspace/connections.refresh_suggestions_for_candidate": ConnectionsRefreshSuggestionCandidateEvent;
     "notification/fanout": NotificationFanoutInngestEvent;

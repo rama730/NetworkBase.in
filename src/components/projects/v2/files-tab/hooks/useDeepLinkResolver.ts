@@ -23,7 +23,7 @@ import { useEffect, useRef } from "react";
 import type { StartupStage } from "./useFilesTabStartupStage";
 import { useNavigateTo, type NavigateTo } from "./useNavigateTo";
 import { evaluateDeepLinkPath, type DeepLinkEvaluation } from "../url";
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
+import { useFilesStore } from "@/stores/filesStore";
 
 // ─── Public result type ──────────────────────────────────────────────
 
@@ -178,7 +178,7 @@ export function useDeepLinkResolver(
     }).then(async (result) => {
       switch (result.kind) {
         case "ok": {
-          const currentNodes = useFilesWorkspaceStore.getState().byProjectId[projectId]?.nodesById || {};
+          const currentNodes = useFilesStore.getState().byProjectId[projectId]?.nodesById || {};
           if (currentNodes[result.nodeId]) {
             navigateRef.current(result.nodeId, { preserveQuery: true });
           } else {
@@ -186,7 +186,7 @@ export function useDeepLinkResolver(
               const { getNodeMetadataBatch } = await import("@/app/actions/files/nodes");
               const batchResult = await getNodeMetadataBatch(projectId, [result.nodeId], { includeBreadcrumbs: true });
               if (batchResult.success && batchResult.data.nodes.length > 0) {
-                const upsertNodes = useFilesWorkspaceStore.getState().upsertNodes;
+                const upsertNodes = useFilesStore.getState().upsertNodes;
                 upsertNodes(projectId, batchResult.data.nodes);
               }
             } catch (e) {

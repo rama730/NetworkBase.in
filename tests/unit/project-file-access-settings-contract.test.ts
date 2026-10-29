@@ -50,11 +50,11 @@ test("project files-workspace tab eliminates duplicate header and redundant card
         "Fragmented Enforced file behavior card must be removed",
     );
 
-    // 4. Exactly 1 canonical SettingsCard with title "Files and workspace"
+    // 4. Exactly 1 canonical SettingsCard with title "Files"
     assert.match(
         filesWorkspaceBlock,
-        /<SettingsCard[\s\S]*?title="Files and workspace"/,
-        "Must render canonical Files and workspace SettingsCard",
+        /<SettingsCard[\s\S]*?title="Files"/,
+        "Must render canonical Files SettingsCard",
     );
     const cardMatches = filesWorkspaceBlock.match(/<SettingsCard/g) || [];
     assert.equal(
@@ -92,7 +92,7 @@ test("project files-workspace tab eliminates duplicate header and redundant card
 });
 
 test("file permissions provide compact identity rows, server filters, pagination, and explicit bulk scope", () => {
-    const members = source("src/components/projects/settings/FileWorkspaceMembers.tsx");
+    const members = source("src/components/projects/settings/FileAccessMembers.tsx");
     assert.match(members, /<UserAvatar/);
     assert.match(members, /getProjectMemberRoleLabel/);
     assert.match(members, /label="Search file permissions"/);
@@ -116,8 +116,8 @@ test("files-workspace permissions enforce optimistic in-memory updates for 1M+ s
     assert.ok(toggleDef.length > 0, "handleToggleMemberFileUpload definition must exist");
     assert.match(
         toggleDef,
-        /setFileWorkspaceData\(\{[\s\S]*?members: nextMembers/,
-        "handleToggleMemberFileUpload must update fileWorkspaceData optimistically before server mutation",
+        /setFileAccessData\(\{[\s\S]*?members: nextMembers/,
+        "handleToggleMemberFileUpload must update fileAccessData optimistically before server mutation",
     );
 
     // Bulk toggle optimistic update
@@ -126,7 +126,7 @@ test("files-workspace permissions enforce optimistic in-memory updates for 1M+ s
     assert.ok(bulkDef.length > 0, "handleBulkFileUploadPermission definition must exist");
     assert.match(
         bulkDef,
-        /setFileWorkspaceData\(\{[\s\S]*?members: nextMembers/,
-        "handleBulkFileUploadPermission must update fileWorkspaceData optimistically before server mutation",
+        /setFileAccessData\(\{[\s\S]*?members: nextMembers/,
+        "handleBulkFileUploadPermission must update fileAccessData optimistically before server mutation",
     );
 });

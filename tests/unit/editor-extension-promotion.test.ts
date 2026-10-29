@@ -11,7 +11,7 @@ import {
   EXTENSION_URI_AUTHORITY,
 } from "@/lib/extension/ide-protocol";
 
-describe("WorkSpace Extension Desktop Deep-Linking & Promotion Contract", () => {
+describe("Editor extension Desktop Deep-Linking & Promotion Contract", () => {
   describe("Protocol Scheme & URI Builder", () => {
     const projectId = "11111111-2222-3333-4444-555555555555";
     const projectSlug = "test-project";
@@ -135,11 +135,11 @@ describe("WorkSpace Extension Desktop Deep-Linking & Promotion Contract", () => 
       );
       assert.doesNotMatch(content, /confirmModalOpen|Always allow|AlwaysOpenDirect/);
       assert.doesNotMatch(content, /toast\.info\(`Opening/);
-      assert.match(content, /If nothing opened, install the NetworkBase WorkSpace extension/);
+      assert.match(content, /If nothing opened, install NetworkBase for VS Code/);
     });
   });
 
-  describe("Tasks Tab WorkSpace Extension Promotion Removal Contract", () => {
+  describe("Tasks Tab Editor extension Promotion Removal Contract", () => {
     it("does not render WorkspaceExtensionPromotionCard in TasksTab.tsx", () => {
       const tasksTabPath = path.resolve(
         process.cwd(),
@@ -155,24 +155,24 @@ describe("WorkSpace Extension Desktop Deep-Linking & Promotion Contract", () => 
   });
 
   describe("Files Tab Open in IDE Tool & State-Aware Flow Contract", () => {
-    it("renders OpenInIdeButton in FilesWorkspaceHeader.tsx", () => {
+    it("renders OpenInIdeButton in FilesHeader.tsx", () => {
       const headerPath = path.resolve(
         process.cwd(),
-        "src/components/projects/v2/files-tab/FilesWorkspaceHeader.tsx",
+        "src/components/projects/v2/files-tab/FilesHeader.tsx",
       );
       const content = fs.readFileSync(headerPath, "utf-8");
 
       assert.ok(
         content.includes("OpenInIdeButton"),
-        "FilesWorkspaceHeader must import and render OpenInIdeButton",
+        "FilesHeader must import and render OpenInIdeButton",
       );
       assert.ok(
         content.includes("<OpenInIdeButton"),
-        "FilesWorkspaceHeader must include JSX element for OpenInIdeButton",
+        "FilesHeader must include JSX element for OpenInIdeButton",
       );
     });
 
-    it("FilesTabMain passes projectSlug down to FilesWorkspaceHeader", () => {
+    it("FilesTabMain passes projectSlug down to FilesHeader", () => {
       const mainPath = path.resolve(
         process.cwd(),
         "src/components/projects/v2/files-tab/FilesTabMain.tsx",
@@ -181,7 +181,7 @@ describe("WorkSpace Extension Desktop Deep-Linking & Promotion Contract", () => 
 
       assert.ok(
         content.includes("projectSlug={projectSlug}"),
-        "FilesTabMain must forward projectSlug to FilesWorkspaceHeader",
+        "FilesTabMain must forward projectSlug to FilesHeader",
       );
     });
 

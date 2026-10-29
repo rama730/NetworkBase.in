@@ -14,8 +14,8 @@ test.describe("compact Files workspace", () => {
   test("sidebar collapse retains exactly one location row", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`/projects/${slug}?tab=files&filesNav=tree`);
-    const header = page.getByTestId("files-workspace-header");
-    await expect(page.getByTestId("files-workspace-menu")).toBeVisible();
+    const header = page.getByTestId("files-header");
+    await expect(page.getByTestId("files-views-menu")).toBeVisible();
     const hide = page.getByRole("button", { name: "Hide sidebar", exact: true });
     if (!(await hide.isVisible())) await page.getByRole("button", { name: "Show sidebar", exact: true }).click();
     const before = await header.boundingBox();
@@ -35,10 +35,10 @@ test.describe("compact Files workspace", () => {
   test("mobile search has focus, fits the viewport and releases pointer/focus locks", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`/projects/${slug}?tab=files`);
-    await expect(page.getByTestId("files-workspace-menu")).toBeVisible();
+    await expect(page.getByTestId("files-views-menu")).toBeVisible();
     const hide = page.getByRole("button", { name: "Hide sidebar", exact: true });
     if (await hide.isVisible()) await hide.click();
-    const menu = page.getByTestId("files-workspace-menu");
+    const menu = page.getByTestId("files-views-menu");
     await menu.click();
     await page.getByRole("menuitem", { name: "Search…", exact: true }).click();
     const input = page.getByRole("combobox", { name: "Search project files", exact: true });
@@ -48,7 +48,7 @@ test.describe("compact Files workspace", () => {
     expect((await dialog.boundingBox())!.width).toBeLessThanOrEqual(390);
     await input.fill("README");
     await page.getByRole("button", { name: "Show results in file list", exact: true }).click();
-    await expect(page.getByTestId("files-workspace-header")).toContainText("Search results");
+    await expect(page.getByTestId("files-header")).toContainText("Search results");
     await page.getByRole("button", { name: "Clear search: README", exact: true }).click();
     await menu.click();
     await page.getByRole("menuitem", { name: "Search…", exact: true }).click();
@@ -64,16 +64,16 @@ test.describe("compact Files workspace", () => {
 
   test("collection search is on demand without adding a toolbar", async ({ page }) => {
     await page.goto(`/projects/${slug}?tab=files&filesView=recent`);
-    const menu = page.getByTestId("files-workspace-menu");
+    const menu = page.getByTestId("files-views-menu");
     await expect(menu).toBeVisible();
-    await expect(page.getByTestId("files-workspace-header")).toContainText("Recent");
+    await expect(page.getByTestId("files-header")).toContainText("Recent");
     await menu.click();
     await page.getByRole("menuitem", { name: "Search…", exact: true }).click();
     await expect(page.getByRole("searchbox")).toBeFocused();
     await page.getByRole("searchbox").fill("README");
     await page.getByRole("button", { name: "Show results", exact: true }).click();
     await page.getByRole("button", { name: "Clear search: README", exact: true }).click();
-    await expect(page.getByTestId("files-workspace-header")).toHaveCount(1);
+    await expect(page.getByTestId("files-header")).toHaveCount(1);
     await expect(page.getByTestId("files-tab-root").locator("input:visible")).toHaveCount(0);
     await menu.click();
     await page.getByRole("menuitem", { name: "About recent…", exact: true }).click();
@@ -85,7 +85,7 @@ test.describe("compact Files workspace", () => {
 
   test("search results can be revisited, while a breadcrumb opens the unfiltered folder", async ({ page }) => {
     await page.goto(`/projects/${slug}?tab=files&filesQuery=README`);
-    const header = page.getByTestId("files-workspace-header");
+    const header = page.getByTestId("files-header");
     const file = page.getByTestId("files-tab-folder-list-row").filter({ has: page.getByTestId("files-tab-folder-list-name").filter({ hasText: /^README\.md$/ }) }).first();
     await expect(file).toBeVisible();
     await file.click();
@@ -105,7 +105,7 @@ test.describe("compact Files workspace", () => {
   test("Transfers is on demand and leaves the compact header usable", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`/projects/${slug}?tab=files`);
-    const menu = page.getByTestId("files-workspace-menu");
+    const menu = page.getByTestId("files-views-menu");
     await menu.click();
     await page.getByRole("menuitem", { name: "Transfers…", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Transfers", exact: true });
@@ -117,6 +117,6 @@ test.describe("compact Files workspace", () => {
     await menu.click();
     await expect(page.getByRole("menuitem", { name: "Search…", exact: true })).toBeVisible();
     await page.keyboard.press("Escape");
-    await expect(page.getByTestId("files-workspace-header")).toHaveCount(1);
+    await expect(page.getByTestId("files-header")).toHaveCount(1);
   });
 });

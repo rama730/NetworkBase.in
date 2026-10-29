@@ -116,8 +116,8 @@ export class CacheManager {
     async getDetailedBreakdown(): Promise<StorageCategoryUsage[]> {
         const breakdown: StorageCategoryUsage[] = [];
 
-        // 1. User Workspace (LocalStorage - Offline Queues & Drafts)
-        let workspaceSize = 0;
+        // 1. Drafts and queued changes (LocalStorage - Offline Queues & Drafts)
+        let userDataSize = 0;
         let hasPendingWork = false;
         if (typeof localStorage !== "undefined") {
             try {
@@ -125,7 +125,7 @@ export class CacheManager {
                     const key = localStorage.key(i);
                     if (key && USER_DATA_PREFIXES.some(p => key.startsWith(p))) {
                         const value = localStorage.getItem(key) || "";
-                        workspaceSize += key.length + value.length;
+                        userDataSize += key.length + value.length;
                         if (key.includes("queue")) hasPendingWork = true;
                     }
                 }
@@ -146,7 +146,7 @@ export class CacheManager {
         }
 
         // Cache size is total usage minus workspace size
-        const cacheSize = Math.max(0, totalUsage - workspaceSize);
+        const cacheSize = Math.max(0, totalUsage - userDataSize);
 
         breakdown.push({
             id: "app-cache",
@@ -160,7 +160,7 @@ export class CacheManager {
             id: "user-workspace",
             label: "Workspace Data",
             description: hasPendingWork ? "Contains unsaved offline changes." : "Local drafts and workspace history.",
-            size: workspaceSize,
+            size: userDataSize,
             isPrimary: true,
         });
 

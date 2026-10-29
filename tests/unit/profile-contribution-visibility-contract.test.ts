@@ -247,8 +247,8 @@ test("the contribution editor loads real pages and preserves the loaded baseline
   assert.match(browserProfile, /options\.offset/);
   assert.match(modal, /offset: baseEntries\.length/);
   assert.match(modal, /experience: \[\.\.\.baseEntries, \.\.\.additions\]/);
-  const workspace = read("src/components/profile/edit/ContributionWorkspace.tsx");
-  assert.match(editor, /<ContributionWorkspace/);
+  const workspace = read("src/components/profile/edit/ContributionEditor.tsx");
+  assert.match(editor, /<ContributionEditor/);
   assert.match(workspace, /Load more contributions/);
   assert.match(workspace, /createContributionStoryAction/);
   assert.match(workspace, /draftStorage/);
@@ -265,8 +265,8 @@ test("parent visibility is the UI and read authority while owners retain a priva
   assert.doesNotMatch(collaboration, /updateProfileProjectContributionStage/);
   assert.doesNotMatch(collaboration, /stage\.visibility/);
   assert.doesNotMatch(collaboration, /legacy_skills/);
-  const workspace = read("src/components/profile/edit/ContributionWorkspace.tsx");
-  assert.match(editor, /<ContributionWorkspace/);
+  const workspace = read("src/components/profile/edit/ContributionEditor.tsx");
+  assert.match(editor, /<ContributionEditor/);
   assert.match(workspace, /Show this contribution on profile/);
   assert.match(workspace, /Preview private draft/);
   assert.match(workspace, /Draft save failed/);

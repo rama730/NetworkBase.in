@@ -34,7 +34,7 @@ import { cn } from "@/lib/utils";
 import { logger } from "@/lib/logger";
 import { useFileVersions } from "@/hooks/useFileVersions";
 import { getVersionPreviewUrl } from "@/app/actions/files/versions";
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
+import { useFilesStore } from "@/stores/filesStore";
 import type { FileVersion } from "@/lib/db/schema";
 import { VersionPill } from "../VersionPill";
 import { FileInspectorPanelHeader } from "./FileInspectorPanelHeader";
@@ -164,7 +164,7 @@ export function FileVersionHistoryPanel({
         if (result.success) {
           toast.success(`Restored v${version.version}`);
           
-          useFilesWorkspaceStore.getState().setNodes(projectId, [result.node]);
+          useFilesStore.getState().setNodes(projectId, [result.node]);
           window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId } }));
 
           // Emit telemetry (Req 16.4) — Task 7.5 wires this
@@ -237,7 +237,7 @@ export function FileVersionHistoryPanel({
           toast.success(`Deleted version ${version.version}`);
           
           if (result.node) {
-            useFilesWorkspaceStore.getState().setNodes(projectId, [result.node]);
+            useFilesStore.getState().setNodes(projectId, [result.node]);
           }
           window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId } }));
           await listVersions();

@@ -13,7 +13,7 @@ const { parseFragment } = require("parse5");
 const root = process.cwd();
 const workspace = path.join(
   root,
-  "src/components/projects/v2/files-tab/GitHubSyncWorkspace.tsx",
+  "src/components/projects/v2/files-tab/RepositorySync.tsx",
 );
 const source = readFileSync(workspace, "utf8");
 const stateNames = [...source.matchAll(/const \[(\w+),/g)].map(
@@ -64,9 +64,9 @@ function load(filename: string): Record<string, unknown> {
         useMemo: (fn: () => unknown) => fn(),
       };
     if (name === "@/app/actions/github-sync") return {};
-    if (name === "@/stores/filesWorkspaceStore")
+    if (name === "@/stores/filesStore")
       return {
-        useFilesWorkspaceStore: (fn: (store: unknown) => unknown) =>
+        useFilesStore: (fn: (store: unknown) => unknown) =>
           fn({ setGitSyncBadge: () => {} }),
       };
     if (name === "@/lib/github/oauth-client") return {};
@@ -117,7 +117,7 @@ function load(filename: string): Record<string, unknown> {
   });
   return cjsModule.exports;
 }
-const component = load(workspace).GitHubSyncWorkspace as (
+const component = load(workspace).RepositorySync as (
   props: unknown,
 ) => React.ReactNode;
 const file = {

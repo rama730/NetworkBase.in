@@ -31,8 +31,8 @@ import { describe, it, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import fc from "fast-check";
 
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
-import { defaultWorkspace } from "@/stores/files/types";
+import { useFilesStore } from "@/stores/filesStore";
+import { defaultFilesState } from "@/stores/files/types";
 
 // ─── Constants ───────────────────────────────────────────────────────
 
@@ -42,18 +42,18 @@ const PROJECT_ID = "proj-convergence";
 
 function seedWorkspace() {
   const ws = {
-    ...defaultWorkspace(),
+    ...defaultFilesState(),
     nodesById: {},
     childrenByParentId: {},
     treeVersion: 0,
   };
-  useFilesWorkspaceStore.setState((state) => ({
+  useFilesStore.setState((state) => ({
     byProjectId: { ...state.byProjectId, [PROJECT_ID]: ws },
   }));
 }
 
 function getTaskLinkCounts(): Record<string, number> {
-  return useFilesWorkspaceStore.getState().byProjectId[PROJECT_ID]!.taskLinkCounts;
+  return useFilesStore.getState().byProjectId[PROJECT_ID]!.taskLinkCounts;
 }
 
 // ─── Mutation types ──────────────────────────────────────────────────
@@ -152,7 +152,7 @@ function mutationSequenceArb(
 // ─── Reset ───────────────────────────────────────────────────────────
 
 beforeEach(() => {
-  useFilesWorkspaceStore.setState({ byProjectId: {} });
+  useFilesStore.setState({ byProjectId: {} });
 });
 
 // ─── Property 5 — TaskLinkCounts Realtime Convergence ────────────────
@@ -172,7 +172,7 @@ describe("Property 5 — TaskLinkCounts Realtime Convergence", () => {
         ),
         ({ nodeIds, mutations }) => {
           // Reset store for each property run
-          useFilesWorkspaceStore.setState({ byProjectId: {} });
+          useFilesStore.setState({ byProjectId: {} });
           seedWorkspace();
 
           // 1. Build server state by applying all mutations
@@ -192,7 +192,7 @@ describe("Property 5 — TaskLinkCounts Realtime Convergence", () => {
           //    this by applying mutations one at a time and updating
           //    the store after each one (mimicking the handler).
           const intermediateServer = new ServerState();
-          const setTaskLinkCounts = useFilesWorkspaceStore.getState().setTaskLinkCounts;
+          const setTaskLinkCounts = useFilesStore.getState().setTaskLinkCounts;
 
           for (const mutation of mutations) {
             intermediateServer.applyMutation(mutation);
@@ -245,10 +245,10 @@ describe("Property 5 — TaskLinkCounts Realtime Convergence", () => {
         ),
         ({ nodeIds, taskIds }) => {
           // Reset store
-          useFilesWorkspaceStore.setState({ byProjectId: {} });
+          useFilesStore.setState({ byProjectId: {} });
           seedWorkspace();
 
-          const setTaskLinkCounts = useFilesWorkspaceStore.getState().setTaskLinkCounts;
+          const setTaskLinkCounts = useFilesStore.getState().setTaskLinkCounts;
           const server = new ServerState();
 
           // First, link all combinations

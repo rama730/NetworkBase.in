@@ -125,7 +125,7 @@ async function importStore() {
 }
 
 type StoreModule = Awaited<ReturnType<typeof importStore>>;
-type Store = StoreModule["useFilesWorkspaceStore"];
+type Store = StoreModule["useFilesStore"];
 
 type PersistOptions = {
   name?: string;
@@ -141,8 +141,8 @@ function getPersistOptions(store: Store & { persist: { getOptions: () => Persist
 
 describe("files workspace store — persist migration v2 → v3 (Task 1.5)", () => {
   it("uses `files-workspace-v3` as the persist key (v2 blob under v2 key is orphaned)", async () => {
-    const { useFilesWorkspaceStore } = await importStore();
-    const store = useFilesWorkspaceStore as unknown as Store & {
+    const { useFilesStore } = await importStore();
+    const store = useFilesStore as unknown as Store & {
       persist: { getOptions: () => PersistOptions };
     };
 
@@ -158,8 +158,8 @@ describe("files workspace store — persist migration v2 → v3 (Task 1.5)", () 
     const projectId = "project-legacy-ignored";
     const legacyBlob = buildLegacyV2Blob(projectId);
 
-    const { useFilesWorkspaceStore } = await importStore();
-    const store = useFilesWorkspaceStore as unknown as Store & {
+    const { useFilesStore } = await importStore();
+    const store = useFilesStore as unknown as Store & {
       persist: { getOptions: () => PersistOptions };
       setState: (partial: { byProjectId: Record<string, unknown> }) => void;
       getState: () => { byProjectId: Record<string, unknown | undefined> };
@@ -178,8 +178,8 @@ describe("files workspace store — persist migration v2 → v3 (Task 1.5)", () 
   it("falls back to fresh defaults when the v3 key is present but empty-ish", async () => {
     const projectId = "project-fresh-defaults";
 
-    const { useFilesWorkspaceStore, defaultWorkspace } = await importStore();
-    const store = useFilesWorkspaceStore as unknown as Store & {
+    const { useFilesStore, defaultFilesState } = await importStore();
+    const store = useFilesStore as unknown as Store & {
       persist: { getOptions: () => PersistOptions };
       getState: () => {
         byProjectId: Record<string, Record<string, unknown> | undefined>;
@@ -195,7 +195,7 @@ describe("files workspace store — persist migration v2 → v3 (Task 1.5)", () 
     const ws = merged.byProjectId[projectId];
     assert.ok(ws, "workspace entry is created for the empty partial");
 
-    const fresh = defaultWorkspace();
+    const fresh = defaultFilesState();
     // Every dropped key keeps its default value — nothing from v2 leaks
     // through (and there is nothing to leak since v2 uses a different
     // storage key).
@@ -220,12 +220,12 @@ describe("files workspace store — persist migration v2 → v3 (Task 1.5)", () 
   it("partialize only persists the eight allowed keys (no dropped key is readable)", async () => {
     const projectId = "project-partialize";
 
-    const { useFilesWorkspaceStore } = await importStore();
-    const store = useFilesWorkspaceStore as unknown as Store & {
+    const { useFilesStore } = await importStore();
+    const store = useFilesStore as unknown as Store & {
       persist: { getOptions: () => PersistOptions };
       setState: (partial: { byProjectId: Record<string, unknown> }) => void;
       getState: () => {
-        ensureProjectWorkspace: (projectId: string) => void;
+        ensureProjectFilesState: (projectId: string) => void;
         setCurrentLocation: (projectId: string, nodeId: string | null) => void;
         toggleExpanded: (projectId: string, folderId: string, expanded?: boolean) => void;
         setSort: (projectId: string, sort: "name" | "updated" | "type") => void;
@@ -242,7 +242,7 @@ describe("files workspace store — persist migration v2 → v3 (Task 1.5)", () 
     store.setState({ byProjectId: {} });
 
     const s = store.getState();
-    s.ensureProjectWorkspace(projectId);
+    s.ensureProjectFilesState(projectId);
     s.setCurrentLocation(projectId, null);
     s.toggleExpanded(projectId, "folder-keep", true);
     s.setSort(projectId, "updated");
@@ -301,8 +301,8 @@ describe("files workspace store — persist migration v2 → v3 (Task 1.5)", () 
   it("currentLocationId round-trips through persist across a fresh rehydrate", async () => {
     const projectId = "project-roundtrip";
 
-    const { useFilesWorkspaceStore } = await importStore();
-    const store = useFilesWorkspaceStore as unknown as Store & {
+    const { useFilesStore } = await importStore();
+    const store = useFilesStore as unknown as Store & {
       persist: { getOptions: () => PersistOptions };
       setState: (partial: { byProjectId: Record<string, unknown> }) => void;
       getState: () => {

@@ -34,8 +34,8 @@ import {
   computeVisibleIdsForSearch,
   FILES_TAB_SIDEBAR_WIDTH_PX,
 } from "@/components/projects/v2/files-tab/sidebarSearch";
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
-import { defaultWorkspace } from "@/stores/files/types";
+import { useFilesStore } from "@/stores/filesStore";
+import { defaultFilesState } from "@/stores/files/types";
 
 // ─── Fixture builders ────────────────────────────────────────────────
 
@@ -220,27 +220,27 @@ describe("FilesTabSidebar — collapse toggle store action (Req 2.4, 2.5)", () =
     const projectId = "proj-toggle-test";
 
     // Reset the slice for this project.
-    useFilesWorkspaceStore.setState((state) => ({
+    useFilesStore.setState((state) => ({
       byProjectId: {
         ...state.byProjectId,
-        [projectId]: defaultWorkspace(),
+        [projectId]: defaultFilesState(),
       },
     }));
 
     const initial =
-      useFilesWorkspaceStore.getState().byProjectId[projectId]!.ui
+      useFilesStore.getState().byProjectId[projectId]!.ui
         .sidebarCollapsed;
     assert.equal(initial, false, "defaults to expanded");
 
-    useFilesWorkspaceStore.getState().toggleSidebar(projectId);
+    useFilesStore.getState().toggleSidebar(projectId);
     const afterFirst =
-      useFilesWorkspaceStore.getState().byProjectId[projectId]!.ui
+      useFilesStore.getState().byProjectId[projectId]!.ui
         .sidebarCollapsed;
     assert.equal(afterFirst, true, "first toggle collapses the sidebar");
 
-    useFilesWorkspaceStore.getState().toggleSidebar(projectId);
+    useFilesStore.getState().toggleSidebar(projectId);
     const afterSecond =
-      useFilesWorkspaceStore.getState().byProjectId[projectId]!.ui
+      useFilesStore.getState().byProjectId[projectId]!.ui
         .sidebarCollapsed;
     assert.equal(afterSecond, false, "second toggle re-expands the sidebar");
   });

@@ -47,7 +47,7 @@ function loadBootstrap(isOwner: boolean, signedIn = true) {
     } : null,
     UNAUTHORIZED_SETTINGS: { success: false, errorCode: "UNAUTHORIZED", message: "You must be signed in." },
     readCollaboratorSettings: read("collaborators"),
-    readFileWorkspaceSettings: read("files"),
+    readFileAccessSettings: read("files"),
     readNotificationSettings: read("notifications"),
     readProjectDocSettingsAction: read("documentation"),
     readDangerZonePreflight: read("danger"),
@@ -61,7 +61,7 @@ test("project leader gets danger checks when the page supplies only project and 
   assert.equal(result.dangerPreflight.success, true);
   assert.equal(calls[0], "verified-access");
   assert.ok(calls.includes("danger"));
-  for (const section of ["collaboratorSettings", "fileWorkspace", "notifications", "docSettings"]) {
+  for (const section of ["collaboratorSettings", "fileAccess", "notifications", "docSettings"]) {
     assert.equal(result[section].success, true);
   }
 });
@@ -73,7 +73,7 @@ test("co-leader retains ordinary settings access without owner-only danger check
   assert.match(result.dangerPreflight.message, /danger zone/);
   assert.ok(!calls.includes("danger"));
   assert.equal(result.collaboratorSettings.success, true);
-  assert.equal(result.fileWorkspace.success, true);
+  assert.equal(result.fileAccess.success, true);
   assert.equal(result.notifications.success, true);
 });
 

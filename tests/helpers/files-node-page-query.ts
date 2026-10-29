@@ -8,7 +8,7 @@ import { MAX_TREE_PAGE_SIZE, UUID_RE, normalizeSearchQuery, escapeLikePattern } 
 // Exercise the actual action's query builder without auth cookies or DB writes.
 const source = readFileSync("src/app/actions/files/nodes.ts", "utf8");
 const start = source.indexOf("export async function getProjectNodes(");
-const end = source.indexOf("export async function initializeProjectWorkspaceRoot(", start);
+const end = source.indexOf("export async function initializeProjectFilesRoot(", start);
 const compiled = ts.transpileModule(source.slice(start, end), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 export async function captureNodePageQuery(projectId: string, sort: "name" | "updated" | "type", cursor?: string, query?: string, itemType?: "file" | "folder") {
   let captured: { where: orm.SQL; orderBy: orm.SQL[]; limit: number } | undefined;

@@ -49,7 +49,7 @@ async function main() {
     source("drizzle/0208_native_auth_uid.sql"),
   ]);
 
-  const workspace = await source("src/components/profile/edit/ContributionWorkspace.tsx");
+  const workspace = await source("src/components/profile/edit/ContributionEditor.tsx");
   const storyCommand = await source("src/app/actions/contribution-stories.ts");
   const storyView = await source("src/components/profile/ContributionStoryView.tsx");
   requireContract("schema has platform-or-external authority constraint", schema.includes("profile_project_contributions_authority_shape_check"));
@@ -90,7 +90,7 @@ async function main() {
   requireContract("API distinguishes owner private reads", route.includes("includePrivate"));
   requireContract("privacy-sensitive API responses are not reusable", route.includes('"Cache-Control": "private, no-store"'));
 
-  requireContract("editor opens a dedicated contribution page", editor.includes("<ContributionWorkspace") && workspace.includes("contribution-summary"));
+  requireContract("editor opens a dedicated contribution page", editor.includes("<ContributionEditor") && workspace.includes("contribution-summary"));
   requireContract("editor exposes incremental pagination", workspace.includes("Load more contributions") && modal.includes("handleLoadMoreContributions"));
   requireContract("editor has per-item dirty state", workspace.includes("bases.current") && workspace.includes("mergeContributionStory"));
   requireContract("editor has per-item save and error state", workspace.includes("Draft save failed") && workspace.includes("Saving…") && workspace.includes('role="alert"'));

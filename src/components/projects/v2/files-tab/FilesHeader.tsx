@@ -28,11 +28,11 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
+import { useFilesStore } from "@/stores/filesStore";
 import {
   fileCollectionViews,
-  useFilesWorkspaceView,
-} from "./FilesWorkspaceViews";
+  useFilesViews,
+} from "./FilesViews";
 import { BreadcrumbBar } from "./breadcrumb/BreadcrumbBar";
 import type { CurrentLocation } from "./navigation";
 import { useFileTransfers } from "./FileTransfers";
@@ -43,7 +43,7 @@ import { FilesHeaderContext, FilesHeaderSlot } from "./FilesHeaderSlot";
 export { FilesHeaderSlot } from "./FilesHeaderSlot";
 import { OpenInIdeButton, OpenInIdeSheet } from "./OpenInIdeButton";
 
-export function FilesWorkspaceHeader({
+export function FilesHeader({
   projectId,
   projectSlug,
   location,
@@ -56,12 +56,12 @@ export function FilesWorkspaceHeader({
   canOpenGitHub?: boolean;
   children: React.ReactNode;
 }) {
-  const workspace = useFilesWorkspaceView();
+  const workspace = useFilesViews();
   const transfers = useFileTransfers();
-  const collapsed = useFilesWorkspaceStore(
+  const collapsed = useFilesStore(
     (s) => s.byProjectId[projectId]?.ui.sidebarCollapsed ?? false,
   );
-  const toggleSidebar = useFilesWorkspaceStore((s) => s.toggleSidebar);
+  const toggleSidebar = useFilesStore((s) => s.toggleSidebar);
   const [actions, setActions] = useState<HTMLDivElement | null>(null);
   const [status, setStatus] = useState<HTMLDivElement | null>(null);
   const found = fileCollectionViews.find(
@@ -74,7 +74,7 @@ export function FilesWorkspaceHeader({
   return (
     <FilesHeaderContext.Provider value={{ actions, status, canOpenGitHub, ide: { projectId, projectSlug, location, taskId: workspace?.taskId } }}>
       <header
-        data-testid="files-workspace-header"
+        data-testid="files-header"
         className="flex h-12 min-h-12 shrink-0 items-center gap-2 border-b border-border bg-card px-2"
       >
         {collapsed && (
@@ -226,7 +226,7 @@ type HeaderStatus = {
 };
 
 function HeaderGitHubSyncButton({ projectId }: { projectId: string }) {
-  const workspace = useFilesWorkspaceView();
+  const workspace = useFilesViews();
   const [status, setStatus] = useState<HeaderStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -387,7 +387,7 @@ function HeaderGitHubSyncButton({ projectId }: { projectId: string }) {
             onClick={openGitHubSync}
             className="flex w-full items-center justify-between border-t border-border pt-2 text-xs font-medium text-[#2563C9] hover:underline dark:text-[#DCE7F8] transition-colors cursor-pointer group/link"
           >
-            <span>Open GitHub Sync workspace</span>
+            <span>Open repository sync</span>
             <span aria-hidden="true" className="transition-transform group-hover/link:translate-x-0.5">&rarr;</span>
           </button>
         </div>
@@ -412,7 +412,7 @@ const collectionInfo = {
     "Restore an item and the contents deleted with it. Earlier deletions stay in Trash. Permanent deletion cannot be undone and does not delete anything from GitHub.",
 };
 
-export function FilesWorkspaceMenu({
+export function FilesViewsMenu({
   projectId,
   children,
   selectionMode = false,
@@ -421,7 +421,7 @@ export function FilesWorkspaceMenu({
   children?: React.ReactNode;
   selectionMode?: boolean;
 }) {
-  const workspace = useFilesWorkspaceView();
+  const workspace = useFilesViews();
   const transfers = useFileTransfers();
   const header = useContext(FilesHeaderContext);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -452,7 +452,7 @@ export function FilesWorkspaceMenu({
                 selectionMode ? "Selected file actions" : "Files actions"
               }
               title={selectionMode ? "Selected file actions" : "Files actions"}
-              data-testid="files-workspace-menu"
+              data-testid="files-views-menu"
               className="nb-touch-target flex size-8 items-center justify-center rounded-[5px] border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-[#D14E24]"
             >
               <MoreHorizontal className="size-4" aria-hidden="true" />

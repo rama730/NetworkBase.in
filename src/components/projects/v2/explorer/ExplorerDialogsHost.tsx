@@ -28,7 +28,7 @@ import { getProjectNodes } from "@/app/actions/files/nodes";
 import { createFolder } from "@/app/actions/files/mutations";
 import { readOrgFileUsageAction } from "@/app/actions/org-files";
 import { isInternalTaskWorkingFilesNode } from "@/lib/files/task-working-files";
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
+import { useFilesStore } from "@/stores/filesStore";
 
 // --- FolderPicker (standalone sub-component) ---
 
@@ -127,7 +127,7 @@ export function FolderPicker({
     const initialExpanded: Record<string, boolean> = {};
     if (selectedFolderId) {
       const nodesById =
-        useFilesWorkspaceStore.getState().byProjectId[projectId]?.nodesById ??
+        useFilesStore.getState().byProjectId[projectId]?.nodesById ??
         {};
       const visited = new Set<string>();
       let curr = nodesById[selectedFolderId];
@@ -646,8 +646,8 @@ export function RenameDialog({
           onCloseAutoFocus={(e) => {
             e.preventDefault();
             const nextTarget =
-              document.querySelector<HTMLElement>('[data-workspace-file-item="true"][tabindex="0"]') ??
-              document.querySelector<HTMLElement>('[data-workspace-file-item="true"]') ??
+              document.querySelector<HTMLElement>('[data-file-item="true"][tabindex="0"]') ??
+              document.querySelector<HTMLElement>('[data-file-item="true"]') ??
               document.querySelector<HTMLElement>('[role="tree"]');
             nextTarget?.focus();
           }}
@@ -737,8 +737,8 @@ export function DeleteDialog({
         onCloseAutoFocus={(e) => {
           e.preventDefault();
           const nextTarget =
-            document.querySelector<HTMLElement>('[data-workspace-file-item="true"][tabindex="0"]') ??
-            document.querySelector<HTMLElement>('[data-workspace-file-item="true"]') ??
+            document.querySelector<HTMLElement>('[data-file-item="true"][tabindex="0"]') ??
+            document.querySelector<HTMLElement>('[data-file-item="true"]') ??
             document.querySelector<HTMLElement>('[role="tree"]');
           nextTarget?.focus();
         }}

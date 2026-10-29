@@ -17,7 +17,7 @@ test("Files Tab Design Specification Conformance Contract (Section 23 & Sections
   const folderListRow = fs.readFileSync(path.join(folderDir, "FolderListRow.tsx"), "utf-8");
   const folderListHeader = fs.readFileSync(path.join(folderDir, "FolderListHeader.tsx"), "utf-8");
   const folderListStates = fs.readFileSync(path.join(folderDir, "FolderListStates.tsx"), "utf-8");
-  const workspaceHeader = fs.readFileSync(path.join(filesTabDir, "FilesWorkspaceHeader.tsx"), "utf-8");
+  const workspaceHeader = fs.readFileSync(path.join(filesTabDir, "FilesHeader.tsx"), "utf-8");
   const sidebar = fs.readFileSync(path.join(filesTabDir, "FilesTabSidebar.tsx"), "utf-8");
   const openInIdeButton = fs.readFileSync(path.join(filesTabDir, "OpenInIdeButton.tsx"), "utf-8");
   const quickOpenDialog = fs.readFileSync(path.join(quickOpenDir, "QuickOpenDialog.tsx"), "utf-8");
@@ -37,7 +37,7 @@ test("Files Tab Design Specification Conformance Contract (Section 23 & Sections
     assert.doesNotMatch(folderListView, /rounded-full/, "FolderListView must not have rounded-full controls");
     assert.doesNotMatch(folderListRow, /rounded-full/, "FolderListRow must not have rounded-full controls");
     assert.doesNotMatch(folderListHeader, /rounded-full/, "FolderListHeader must not have rounded-full controls");
-    assert.doesNotMatch(workspaceHeader, /rounded-full/, "FilesWorkspaceHeader must not have rounded-full controls");
+    assert.doesNotMatch(workspaceHeader, /rounded-full/, "FilesHeader must not have rounded-full controls");
     assert.doesNotMatch(sidebar, /rounded-full/, "FilesTabSidebar must not have rounded-full controls");
     assert.doesNotMatch(openInIdeButton, /rounded-full/, "OpenInIdeButton must not have rounded-full controls");
     assert.doesNotMatch(quickOpenDialog, /rounded-full/, "QuickOpenDialog must not have rounded-full controls");
@@ -55,7 +55,7 @@ test("Files Tab Design Specification Conformance Contract (Section 23 & Sections
     assert.doesNotMatch(folderListRow, zincRegex, "FolderListRow must have zero raw zinc token leaks");
     assert.doesNotMatch(folderListHeader, zincRegex, "FolderListHeader must have zero raw zinc token leaks");
     assert.doesNotMatch(folderListStates, zincRegex, "FolderListStates must have zero raw zinc token leaks");
-    assert.doesNotMatch(workspaceHeader, zincRegex, "FilesWorkspaceHeader must have zero raw zinc token leaks");
+    assert.doesNotMatch(workspaceHeader, zincRegex, "FilesHeader must have zero raw zinc token leaks");
     assert.doesNotMatch(sidebar, zincRegex, "FilesTabSidebar must have zero raw zinc token leaks");
     assert.doesNotMatch(openInIdeButton, zincRegex, "OpenInIdeButton must have zero raw zinc token leaks");
     assert.doesNotMatch(quickOpenDialog, zincRegex, "QuickOpenDialog must have zero raw zinc token leaks");
@@ -77,7 +77,7 @@ test("Files Tab Design Specification Conformance Contract (Section 23 & Sections
 
     assert.doesNotMatch(folderListView, blueIndigoRegex, "FolderListView must have zero raw blue/indigo token leaks");
     assert.doesNotMatch(folderListRow, blueIndigoRegex, "FolderListRow must have zero raw blue/indigo token leaks");
-    assert.doesNotMatch(workspaceHeader, blueIndigoRegex, "FilesWorkspaceHeader must have zero raw blue/indigo token leaks");
+    assert.doesNotMatch(workspaceHeader, blueIndigoRegex, "FilesHeader must have zero raw blue/indigo token leaks");
     assert.doesNotMatch(sidebar, blueIndigoRegex, "FilesTabSidebar must have zero raw blue/indigo token leaks");
     assert.doesNotMatch(openInIdeButton, blueIndigoRegex, "OpenInIdeButton must have zero raw blue/indigo token leaks");
     assert.doesNotMatch(quickOpenDialog, blueIndigoRegex, "QuickOpenDialog must have zero raw blue/indigo token leaks");
@@ -109,8 +109,8 @@ test("Files Tab Design Specification Conformance Contract (Section 23 & Sections
     assert.match(folderListView, /<RevisionControlModal/, "RevisionControlModal must be mounted for Upload revision action");
   });
 
-  await t.test("GitHubSyncWorkspace uses one progressive, state-driven GitHub workflow", () => {
-    const gitHubSyncWorkspace = fs.readFileSync(path.join(filesTabDir, "GitHubSyncWorkspace.tsx"), "utf-8");
+  await t.test("RepositorySync uses one progressive, state-driven GitHub workflow", () => {
+    const gitHubSyncWorkspace = fs.readFileSync(path.join(filesTabDir, "RepositorySync.tsx"), "utf-8");
 
     assert.match(gitHubSyncWorkspace, /Connect GitHub|Restore GitHub access/, "Authorization state must have one clear next step");
     assert.match(gitHubSyncWorkspace, /Permissions and data access/, "Permissions must remain available through progressive disclosure");
@@ -124,7 +124,7 @@ test("Files Tab Design Specification Conformance Contract (Section 23 & Sections
 
   await t.test("GitHub header distinguishes a project connection from the current user's authorization", () => {
     const githubActions = fs.readFileSync(path.join(process.cwd(), "src/app/actions/github-sync.ts"), "utf-8");
-    const gitHubSyncWorkspace = fs.readFileSync(path.join(filesTabDir, "GitHubSyncWorkspace.tsx"), "utf-8");
+    const gitHubSyncWorkspace = fs.readFileSync(path.join(filesTabDir, "RepositorySync.tsx"), "utf-8");
 
     assert.match(githubActions, /authorized: Boolean\(token\)/, "Header status must report current-user GitHub authorization");
     assert.match(workspaceHeader, /GitHub needs access/, "Header must not show a stale branch as ready when access is missing");

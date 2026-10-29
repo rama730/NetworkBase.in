@@ -4,7 +4,7 @@ import test from "node:test";
 import type { User } from "@supabase/supabase-js";
 import { buildGithubAccountConnectionState } from "../../src/lib/github/connection-state";
 import { clearGithubOAuthReturn, githubOAuthFailureCode, githubOAuthReturnFailure } from "../../src/lib/github/oauth-errors";
-import { authFailureText } from "../../src/lib/github/sync-workspace";
+import { authFailureText } from "../../src/lib/github/repository-sync";
 
 const loader = Module as unknown as { _load: (request: string, ...args: unknown[]) => unknown };
 const original = loader._load;

@@ -52,7 +52,7 @@ describe("FilesTabMain — structural contract (Req 1.2, 1.3, 1.5-1.8)", () => {
   });
 
   it("always renders the shared location header around the body", () => {
-    assert.match(SRC, /<FilesWorkspaceHeader\s+projectId=\{projectId\}\s+location=\{location\}/);
+    assert.match(SRC, /<FilesHeader\s+projectId=\{projectId\}\s+location=\{location\}/);
   });
 
   it("folder branch: location null | root | folder → <FolderListView ...> (Req 1.3)", () => {
@@ -71,7 +71,7 @@ describe("FilesTabMain — structural contract (Req 1.2, 1.3, 1.5-1.8)", () => {
   });
 
   it("imports the shared header and real folder/file surfaces", () => {
-    assert.match(SRC, /from\s+"\.\/FilesWorkspaceHeader"/);
+    assert.match(SRC, /from\s+"\.\/FilesHeader"/);
     assert.match(SRC, /from\s+"\.\/folder\/FolderListView"/);
     assert.match(SRC, /from\s+"\.\/file\/FileView"/);
   });

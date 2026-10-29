@@ -288,7 +288,7 @@ export async function getProjectNodes(
  * Reads remain side-effect free; callers invoke this only when an editable,
  * scratch-style project needs its initial system root.
  */
-export async function initializeProjectWorkspaceRoot(projectId: string) {
+export async function initializeProjectFilesRoot(projectId: string) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Unauthorized");
@@ -297,14 +297,14 @@ export async function initializeProjectWorkspaceRoot(projectId: string) {
     const importType = access.project.importSource?.type;
     const isScratchLike = !importType || importType === "scratch";
     const isReady = access.project.syncStatus === "ready";
-    const canCreateWorkspaceRoot =
+    const canCreateFilesRoot =
         access.project.ownerId === user.id
         || ("member" in access && !!access.member && canProjectMemberUploadFiles({
             role: access.member.role,
             fileUploadEnabled: access.member.fileUploadEnabled,
         }));
 
-    if (!canCreateWorkspaceRoot || !isScratchLike || !isReady) return null;
+    if (!canCreateFilesRoot || !isScratchLike || !isReady) return null;
 
     const [project] = await db
         .select({ title: projects.title })

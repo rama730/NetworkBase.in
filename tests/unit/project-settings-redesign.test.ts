@@ -216,7 +216,7 @@ test("file permission cursors round-trip complete ordering keys and reject malfo
 test("pagination remains scoped to project capabilities with project-wide totals and explicit bulk scope", () => {
   const server = source("src/lib/projects/server/settings.ts");
   const read = server
-    .split("export async function readFileWorkspaceSettings")[1]!
+    .split("export async function readFileAccessSettings")[1]!
     .split("export async function updateProjectMemberFileUploadAction")[0]!;
   assert.match(read, /capabilityFromAccess[\s\S]*?"manage_files"/);
   assert.match(
@@ -234,7 +234,7 @@ test("pagination remains scoped to project capabilities with project-wide totals
     /count\(\*\) filter[\s\S]*?\.where\(eq\(projectMembers.projectId, projectId\)\)/,
   );
   const members = source(
-    "src/components/projects/settings/FileWorkspaceMembers.tsx",
+    "src/components/projects/settings/FileAccessMembers.tsx",
   );
   assert.match(members, /outside the current filter or loaded pages/);
   assert.match(members, /default for future members/);
@@ -254,7 +254,7 @@ test("independent drafts and pending states survive section navigation and unrel
   assert.match(tab, /savingRoles/);
   assert.match(tab, /savingNotifications/);
   assert.doesNotMatch(tab, /setSavingSettings/);
-  assert.match(tab, /seq !== fileWorkspaceRequestRef.current/);
+  assert.match(tab, /seq !== fileAccessRequestRef.current/);
   assert.match(tab, /!mountedRef.current/);
   assert.match(
     tab,

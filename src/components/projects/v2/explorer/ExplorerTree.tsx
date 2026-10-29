@@ -9,8 +9,8 @@ import { cn } from "@/lib/utils";
 import type { VisibleRow } from "./utils/buildVisibleRows";
 import { buildVisibleRows } from "./utils/buildVisibleRows";
 import { isTextLike, isAssetLike } from "../utils/fileKind";
-import type { FilesViewMode } from "@/stores/filesWorkspaceStore";
-import { filesParentKey } from "@/stores/filesWorkspaceStore";
+import type { FilesViewMode } from "@/stores/filesStore";
+import { filesParentKey } from "@/stores/filesStore";
 
 
 
