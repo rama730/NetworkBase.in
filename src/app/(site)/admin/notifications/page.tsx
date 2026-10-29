@@ -133,19 +133,19 @@ async function ResolvedAdminNotifications() {
     return (
         <div className="mx-auto max-w-5xl space-y-8 px-6 py-10">
             <header>
-                <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">Notifications ops</h1>
-                <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                <h1 className="text-2xl font-semibold text-foreground">Notifications ops</h1>
+                <p className="mt-1 text-sm text-muted-foreground">
                     Per-channel throughput, failure rate, and retention backlog.
                 </p>
             </header>
 
             <section>
-                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">
+                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                     Throughput and success rate
                 </h2>
-                <div className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
+                <div className="overflow-hidden rounded-[8px] border border-border">
                     <table className="w-full text-sm">
-                        <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500 dark:bg-zinc-900">
+                        <thead className="bg-muted text-left text-xs uppercase tracking-wide text-muted-foreground">
                             <tr>
                                 <th className="px-4 py-2">Channel</th>
                                 <th className="px-4 py-2">Window</th>
@@ -156,10 +156,10 @@ async function ResolvedAdminNotifications() {
                                 <th className="px-4 py-2">Success rate</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                        <tbody className="divide-y divide-border">
                             {channels.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="px-4 py-6 text-center text-zinc-500">
+                                    <td colSpan={7} className="px-4 py-6 text-center text-muted-foreground">
                                         No delivery attempts logged yet.
                                     </td>
                                 </tr>
@@ -170,14 +170,14 @@ async function ResolvedAdminNotifications() {
                                 return [
                                     <tr key={`${channel}-24h`}>
                                         <td className="px-4 py-2 font-medium">{channel}</td>
-                                        <td className="px-4 py-2 text-zinc-500">24h</td>
+                                        <td className="px-4 py-2 text-muted-foreground">24h</td>
                                         <td className="px-4 py-2">{w24.total}</td>
-                                        <td className="px-4 py-2 text-emerald-600 dark:text-emerald-400">{w24.delivered}</td>
-                                        <td className="px-4 py-2 text-red-600 dark:text-red-400">{w24.failed}</td>
-                                        <td className="px-4 py-2 text-amber-600 dark:text-amber-400">{w24.dropped}</td>
+                                        <td className="px-4 py-2 text-[var(--status-success)]">{w24.delivered}</td>
+                                        <td className="px-4 py-2 text-[var(--status-danger)]">{w24.failed}</td>
+                                        <td className="px-4 py-2 text-[var(--status-warning)]">{w24.dropped}</td>
                                         <td className="px-4 py-2 font-mono">{formatRate(w24.delivered, w24.total)}</td>
                                     </tr>,
-                                    <tr key={`${channel}-7d`} className="text-zinc-500">
+                                    <tr key={`${channel}-7d`} className="text-muted-foreground">
                                         <td className="px-4 py-2"></td>
                                         <td className="px-4 py-2">7d</td>
                                         <td className="px-4 py-2">{w7.total}</td>
@@ -194,22 +194,22 @@ async function ResolvedAdminNotifications() {
             </section>
 
             <section>
-                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">
+                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                     Top failure / drop reasons (7d)
                 </h2>
-                <div className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
+                <div className="overflow-hidden rounded-[8px] border border-border">
                     <table className="w-full text-sm">
-                        <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500 dark:bg-zinc-900">
+                        <thead className="bg-muted text-left text-xs uppercase tracking-wide text-muted-foreground">
                             <tr>
                                 <th className="px-4 py-2">Channel</th>
                                 <th className="px-4 py-2">Error code</th>
                                 <th className="px-4 py-2">Count</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                        <tbody className="divide-y divide-border">
                             {errorRollup.length === 0 ? (
                                 <tr>
-                                    <td colSpan={3} className="px-4 py-6 text-center text-zinc-500">
+                                    <td colSpan={3} className="px-4 py-6 text-center text-muted-foreground">
                                         No failures or drops in last 7 days.
                                     </td>
                                 </tr>
@@ -226,38 +226,38 @@ async function ResolvedAdminNotifications() {
             </section>
 
             <section>
-                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">
+                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                     Retention backlog
                 </h2>
                 <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
-                    <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-                        <dt className="text-xs uppercase tracking-wide text-zinc-500">Total notifications</dt>
+                    <div className="rounded-[8px] border border-border bg-card p-4">
+                        <dt className="text-xs uppercase tracking-wide text-muted-foreground">Total notifications</dt>
                         <dd className="mt-1 text-2xl font-semibold">{retention.total.toLocaleString()}</dd>
                     </div>
-                    <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-                        <dt className="text-xs uppercase tracking-wide text-zinc-500">Dismissed &gt; 30d (pending purge)</dt>
-                        <dd className={`mt-1 text-2xl font-semibold ${retention.dismissedBacklog > 10000 ? "text-red-600 dark:text-red-400" : ""}`}>
+                    <div className="rounded-[8px] border border-border bg-card p-4">
+                        <dt className="text-xs uppercase tracking-wide text-muted-foreground">Dismissed &gt; 30d (pending purge)</dt>
+                        <dd className={`mt-1 text-2xl font-semibold ${retention.dismissedBacklog > 10000 ? "text-[var(--status-danger)]" : ""}`}>
                             {retention.dismissedBacklog.toLocaleString()}
                         </dd>
                     </div>
-                    <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-                        <dt className="text-xs uppercase tracking-wide text-zinc-500">Read &gt; 90d (pending purge)</dt>
-                        <dd className={`mt-1 text-2xl font-semibold ${retention.readBacklog > 10000 ? "text-red-600 dark:text-red-400" : ""}`}>
+                    <div className="rounded-[8px] border border-border bg-card p-4">
+                        <dt className="text-xs uppercase tracking-wide text-muted-foreground">Read &gt; 90d (pending purge)</dt>
+                        <dd className={`mt-1 text-2xl font-semibold ${retention.readBacklog > 10000 ? "text-[var(--status-danger)]" : ""}`}>
                             {retention.readBacklog.toLocaleString()}
                         </dd>
                     </div>
-                    <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-                        <dt className="text-xs uppercase tracking-wide text-zinc-500">Push subscriptions</dt>
+                    <div className="rounded-[8px] border border-border bg-card p-4">
+                        <dt className="text-xs uppercase tracking-wide text-muted-foreground">Push subscriptions</dt>
                         <dd className="mt-1 text-2xl font-semibold">{retention.pushSubs.toLocaleString()}</dd>
                     </div>
-                    <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-                        <dt className="text-xs uppercase tracking-wide text-zinc-500">Stale subs (pending prune)</dt>
-                        <dd className={`mt-1 text-2xl font-semibold ${retention.stalePushSubs > 500 ? "text-amber-600 dark:text-amber-400" : ""}`}>
+                    <div className="rounded-[8px] border border-border bg-card p-4">
+                        <dt className="text-xs uppercase tracking-wide text-muted-foreground">Stale subs (pending prune)</dt>
+                        <dd className={`mt-1 text-2xl font-semibold ${retention.stalePushSubs > 500 ? "text-[var(--status-warning)]" : ""}`}>
                             {retention.stalePushSubs.toLocaleString()}
                         </dd>
                     </div>
                 </dl>
-                <p className="mt-3 text-xs text-zinc-500">
+                <p className="mt-3 text-xs text-muted-foreground">
                     Backlog should be near-zero if the nightly retention job is running. Large numbers mean the job is failing — check Inngest.
                 </p>
             </section>
@@ -274,7 +274,7 @@ export default async function AdminNotificationsPage() {
     }
 
     return (
-        <Suspense fallback={<div role="status" aria-live="polite" aria-label="Loading notifications ops" className="mx-auto max-w-5xl space-y-4 px-6 py-10"><span className="sr-only">Loading admin notifications…</span><div aria-hidden="true" className="nb-skeleton h-8 w-56 rounded" /><div aria-hidden="true" className="nb-skeleton h-64 rounded-lg border border-border" /></div>}>
+        <Suspense fallback={<div role="status" aria-live="polite" aria-label="Loading notifications ops" className="mx-auto max-w-5xl space-y-4 px-6 py-10"><span className="sr-only">Loading admin notifications…</span><div aria-hidden="true" className="nb-skeleton h-8 w-56 rounded" /><div aria-hidden="true" className="nb-skeleton h-64 rounded-[8px] border border-border" /></div>}>
             <ResolvedAdminNotifications />
         </Suspense>
     );
