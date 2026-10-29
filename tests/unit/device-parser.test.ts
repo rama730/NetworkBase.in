@@ -69,7 +69,7 @@ describe("device parser & IP cleaner", () => {
 
   it("gracefully falls back on Unknown device placeholder", () => {
     const res = parseUserAgent("Unknown device");
-    assert.equal(res.browser, "Unknown Browser");
+    assert.equal(res.browser, "Unknown browser");
     assert.equal(res.os, "Unknown OS");
   });
 });

@@ -55,7 +55,7 @@ const completionOptions: Array<{
   },
   {
     value: "next_sprint",
-    title: "Move to a Planning Sprint",
+    title: "Move to a planning sprint",
     description: "Carry unfinished work into a sprint that has not started yet.",
   },
 ];
@@ -197,7 +197,7 @@ export function SprintLifecycleModals({
 
             {requiresTargetSprint ? (
               <label className="block space-y-2 font-mono text-xs font-medium uppercase tracking-[0.09em] text-foreground">
-                Destination Sprint
+                Destination sprint
                 <select
                   className="nb-touch-target h-[34px] w-full rounded-[5px] border border-input bg-background px-3 font-mono text-xs uppercase tracking-[0.09em] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   disabled={isMutating || carryOverSprints.length === 0}
@@ -206,8 +206,8 @@ export function SprintLifecycleModals({
                 >
                   <option value="">
                     {carryOverSprints.length === 0
-                      ? "No Planning or active Sprint available"
-                      : "Select a Sprint"}
+                      ? "No planning or active sprint available"
+                      : "Select a sprint"}
                   </option>
                   {carryOverSprints.map((sprint) => (
                     <option key={sprint.id} value={sprint.id}>

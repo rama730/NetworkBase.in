@@ -62,9 +62,9 @@ interface EditProjectModalProps {
 const TABS = [
     { id: "essentials", label: "Essentials", icon: Layout },
     { id: "details", label: "Details", icon: FileText },
-    { id: "stack", label: "Stack and Links", icon: Layers },
+    { id: "stack", label: "Stack and links", icon: Layers },
     { id: "journey", label: "Journey", icon: CheckCircle },
-    { id: "roles", label: "Team and Roles", icon: Users },
+    { id: "roles", label: "Team and roles", icon: Users },
 ] as const;
 
 // --- Components ---
@@ -73,7 +73,7 @@ function StatusSelector({ value, onChange }: { value: string; onChange: (val: st
     const options = [
         { id: "draft", label: "Forming", desc: "Just getting started", color: "bg-blue-50 border-blue-200 text-blue-700" },
         { id: "active", label: "Building", desc: "Actively building", color: "bg-emerald-50 border-emerald-200 text-emerald-700" },
-        { id: "completed", label: "Shipped", desc: "Finished and Live", color: "bg-purple-50 border-purple-200 text-purple-700" },
+        { id: "completed", label: "Shipped", desc: "Finished and live", color: "bg-purple-50 border-purple-200 text-purple-700" },
     ];
 
     return (
@@ -122,7 +122,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
     const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
     const projectLinksRef = useRef<ProjectLinkEditorHandle>(null);
 
-    const initialStages: string[] = project.lifecycleStages ?? ["Concept", "Team Formation", "MVP", "Beta", "Launch"];
+    const initialStages: string[] = project.lifecycleStages ?? ["Concept", "Team formation", "MVP", "Beta", "Launch"];
     const currentStageIndex: number = project.currentStageIndex ?? 0;
     const [currentStageName, setCurrentStageName] = useState<string | null>(initialStages[currentStageIndex] ?? null);
 
@@ -255,7 +255,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                     {/* Header */}
                     <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
                         <div>
-                            <DialogTitle className="text-xl font-semibold text-foreground">Edit Project</DialogTitle>
+                            <DialogTitle className="text-xl font-semibold text-foreground">Edit project</DialogTitle>
                             <DialogDescription className="text-xs text-muted-foreground font-medium">Make your project stand out</DialogDescription>
                         </div>
                         <button 
@@ -335,7 +335,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                                     name="status"
                                                     render={({ field }) => (
                                                         <div>
-                                                            <label className="block text-sm font-medium mb-3 text-zinc-900 dark:text-zinc-100">Project Status</label>
+                                                            <label className="block text-sm font-medium mb-3 text-zinc-900 dark:text-zinc-100">Project status</label>
                                                             <StatusSelector value={field.value} onChange={field.onChange} />
                                                         </div>
                                                     )}
@@ -344,7 +344,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
 
                                             <div className="space-y-4">
                                                 <div>
-                                                    <label htmlFor="edit-project-title" className="block text-sm font-medium mb-1.5 text-foreground">Project Title</label>
+                                                    <label htmlFor="edit-project-title" className="block text-sm font-medium mb-1.5 text-foreground">Project title</label>
                                                     <input
                                                         id="edit-project-title"
                                                         {...register("title")}
@@ -371,7 +371,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                     {activeTab === "details" && (
                                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-[260ms]">
                                             <div>
-                                                <label htmlFor="edit-project-description" className="block text-sm font-medium mb-2 text-foreground">Full Description</label>
+                                                <label htmlFor="edit-project-description" className="block text-sm font-medium mb-2 text-foreground">Full description</label>
                                                 <textarea
                                                     id="edit-project-description"
                                                     {...register("description")}
@@ -382,7 +382,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                             </div>
                                             <div className="grid gap-6">
                                                 <div>
-                                                    <label htmlFor="edit-project-problem" className="block text-sm font-medium mb-2 text-foreground">{isOrg ? "Who it’s for" : "Problem Statement"}</label>
+                                                    <label htmlFor="edit-project-problem" className="block text-sm font-medium mb-2 text-foreground">{isOrg ? "Who it’s for" : "Problem statement"}</label>
                                                     <textarea
                                                         id="edit-project-problem"
                                                         {...register("problemStatement")}
@@ -500,7 +500,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                             errors={errors}
                                             disabled={isPending}
                                             className="animate-in fade-in slide-in-from-bottom-2 duration-[260ms]"
-                                            onAddRole={() => appendRole({ role: "New Role", count: 1, description: "", skills: [] })}
+                                            onAddRole={() => appendRole({ role: "New role", count: 1, description: "", skills: [] })}
                                             onRemoveRole={handleDeleteRole}
                                             applicationCounts={roleApplicationCounts}
                                         />
@@ -530,7 +530,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                 className="px-6 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-medium text-sm shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                             >
                                 {isPending && <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />}
-                                {isPending ? "Saving..." : "Save Changes"}
+                                {isPending ? "Saving..." : "Save changes"}
                             </button>
                         </div>
                 </DialogContent>

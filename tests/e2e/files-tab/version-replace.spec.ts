@@ -37,8 +37,8 @@ test.describe("Files revision upload", () => {
       await (await chooser).setFiles({
         name, mimeType: "text/plain", buffer: Buffer.from("Revision acceptance fixture"),
       });
-      const revision = page.getByRole("dialog", { name: "Confirm Changes Application" });
-      await expect(revision.getByRole("radio", { name: "Commit as New Revision" })).toBeChecked();
+      const revision = page.getByRole("dialog", { name: "Confirm changes application" });
+      await expect(revision.getByRole("radio", { name: "Commit as new revision" })).toBeChecked();
       await revision.getByRole("button", { name: "Confirm", exact: true }).click();
       const strip = page.getByTestId("files-tab-metadata-strip");
       await expect(strip.getByTestId("files-tab-version-pill")).toHaveText("v2", { timeout: 30_000 });

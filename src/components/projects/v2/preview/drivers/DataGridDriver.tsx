@@ -266,7 +266,7 @@ export function DataGridDriver({
     <tr role="row" className="bg-muted border-b border-border text-left shadow-xs">
       <th
         role="columnheader"
-        aria-label="Row Number"
+        aria-label="Row number"
         className="sticky left-0 z-40 w-12 border-b border-r border-border bg-muted p-2 text-center font-mono text-[10px] font-semibold text-muted-foreground select-none"
       >
         #

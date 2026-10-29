@@ -648,7 +648,7 @@ function ProjectSettingsContent({
 
     const handleAddSettingsRole = useCallback(() => {
         if (!isProjectOwner) return;
-        appendRole({ role: "New Role", count: 1, description: "", skills: [] });
+        appendRole({ role: "New role", count: 1, description: "", skills: [] });
     }, [appendRole, isProjectOwner]);
 
     const handleRemoveSettingsRole = useCallback((index: number, roleId?: string) => {
@@ -1635,7 +1635,7 @@ function ProjectSettingsContent({
                                     <div className="flex items-center justify-between pb-2 border-b border-border/60">
                                         <div className="flex items-center gap-2">
                                             <span className="nb-ui-label text-foreground">
-                                                Team Directory
+                                                Team directory
                                             </span>
                                         </div>
                                         <span className="nb-meta text-xs text-muted-foreground">
@@ -1890,7 +1890,7 @@ function ProjectSettingsContent({
                 )}
                 {sections.some((s) => s.id === "tasks-workflow") && (
                     <section id="project-settings-tasks-workflow" data-project-settings-section className="space-y-8">
-                        <SettingsPageHeader level={2} title="Lifecycle and Workflow" description="Manage task completion and your project’s lifecycle stages." />
+                        <SettingsPageHeader level={2} title="Lifecycle and workflow" description="Manage task completion and your project’s lifecycle stages." />
                         <TaskCompletionSettings projectId={projectId} />
                         <div className="space-y-6">
                             <LifecycleSettingsEditor
@@ -2080,7 +2080,7 @@ function ProjectSettingsContent({
                 )}
                 {sections.some((s) => s.id === "privacy-policies" || s.id === "privacy-terms") && (
                     <section id="project-settings-privacy-policies" data-project-settings-section className="space-y-6">
-                        <SettingsPageHeader level={2} title="Privacy and Policies" description="These agreements and data rights apply to your signed-in account, not everyone on this project." />
+                        <SettingsPageHeader level={2} title="Privacy and policies" description="These agreements and data rights apply to your signed-in account, not everyone on this project." />
                         <LegalAndDataRightsSection />
                     </section>
                 )}

@@ -148,15 +148,15 @@ export const PROJECT_NOTIFICATION_GROUPS: Array<{
     description: string;
     visible: boolean;
 }> = [
-    { id: "membership_access", title: "Membership and Access", description: "Role, access, visibility, and membership changes.", visible: true },
-    { id: "roles_applications", title: "Roles and Applications", description: "Open roles, application intake, decisions, and review routing.", visible: true },
-    { id: "project_lifecycle", title: "Project Lifecycle", description: "Sprint and lifecycle changes that affect project momentum.", visible: true },
-    { id: "tasks_workflow", title: "Tasks and Workflow", description: "Assignments, mentions, status attention, and workflow responsibility.", visible: true },
-    { id: "files_workspace", title: "Files and Workspace", description: "Uploads, versions, reviews, organization, and sync status.", visible: true },
+    { id: "membership_access", title: "Membership and access", description: "Role, access, visibility, and membership changes.", visible: true },
+    { id: "roles_applications", title: "Roles and applications", description: "Open roles, application intake, decisions, and review routing.", visible: true },
+    { id: "project_lifecycle", title: "Project lifecycle", description: "Sprint and lifecycle changes that affect project momentum.", visible: true },
+    { id: "tasks_workflow", title: "Tasks and workflow", description: "Assignments, mentions, status attention, and workflow responsibility.", visible: true },
+    { id: "files_workspace", title: "Files and workspace", description: "Uploads, versions, reviews, organization, and sync status.", visible: true },
     { id: "readme", title: "Doc", description: "Documentation publishing and major documentation changes.", visible: true },
     { id: "updates", title: "Updates", description: "Project progress posts, follower notifications, and update discussions.", visible: true },
-    { id: "security_audit", title: "Security and Audit", description: "Protected actions, exports, archive/delete, and access-sensitive events.", visible: true },
-    { id: "future", title: "Future Surfaces", description: "Updates and follower digest triggers hidden until enforceable.", visible: false },
+    { id: "security_audit", title: "Security and audit", description: "Protected actions, exports, archive/delete, and access-sensitive events.", visible: true },
+    { id: "future", title: "Future surfaces", description: "Updates and follower digest triggers hidden until enforceable.", visible: false },
     { id: "org_membership", title: "Organization", description: "Join requests, invitations, access changes and removals.", visible: true },
     { id: "org_assignments", title: "Assignments", description: "Published work, submissions, reviews and due dates.", visible: true },
     { id: "org_announcements", title: "Announcements", description: "Announcements for each post’s audience.", visible: true },

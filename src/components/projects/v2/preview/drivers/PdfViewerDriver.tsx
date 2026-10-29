@@ -346,7 +346,7 @@ export function PdfViewerDriver({
               onClick={handlePrevPage}
               disabled={pageNumber <= 1}
               className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-              title="Previous Page"
+              title="Previous page"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -359,7 +359,7 @@ export function PdfViewerDriver({
               onClick={handleNextPage}
               disabled={pageNumber >= numPages}
               className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-              title="Next Page"
+              title="Next page"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
@@ -372,7 +372,7 @@ export function PdfViewerDriver({
               onClick={handleZoomOut}
               disabled={zoom <= 0.6}
               className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-              title="Zoom Out"
+              title="Zoom out"
             >
               <ZoomOut className="h-3.5 w-3.5" />
             </Button>
@@ -380,7 +380,7 @@ export function PdfViewerDriver({
               type="button"
               onClick={handleResetZoom}
               className="text-xs font-mono text-muted-foreground hover:text-foreground px-1 select-none"
-              title="Reset Zoom"
+              title="Reset zoom"
             >
               {Math.round(zoom * 100)}%
             </button>
@@ -390,7 +390,7 @@ export function PdfViewerDriver({
               onClick={handleZoomIn}
               disabled={zoom >= 2.4}
               className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-              title="Zoom In"
+              title="Zoom in"
             >
               <ZoomIn className="h-3.5 w-3.5" />
             </Button>
@@ -419,7 +419,7 @@ export function PdfViewerDriver({
           variant="ghost"
           onClick={() => setViewMode((m) => (m === "native" ? "canvas" : "native"))}
           className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
-          title={viewMode === "native" ? "Switch to Client-Side Canvas Viewer" : "Switch to Browser Native Viewer"}
+          title={viewMode === "native" ? "Switch to Client-Side Canvas Viewer" : "Switch to browser native viewer"}
         >
           {viewMode === "native" ? (
             <>
@@ -592,7 +592,7 @@ export function PdfViewerDriver({
             <div className="flex items-center gap-2 pt-2">
               <Button size="sm" variant="default" onClick={() => setViewMode("canvas")}>
                 <Layers className="mr-1.5 h-4 w-4" />
-                Try Canvas Viewer
+                Try canvas viewer
               </Button>
               <Button asChild size="sm" variant="outline">
                 <a href={signedUrl || previewUrl} target="_blank" rel="noreferrer">

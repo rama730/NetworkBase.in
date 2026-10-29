@@ -33,7 +33,7 @@ export async function generateMetadata() {
     const { user, profileData } = await readOwnerProfileRoute()
     if (!user) {
         return buildRouteMetadata({
-            title: 'My Profile | NetworkBase',
+            title: 'My profile | NetworkBase',
             description: 'Your personal profile and presence on NetworkBase.',
             path: '/my-profile',
             robots: { index: false, follow: false },

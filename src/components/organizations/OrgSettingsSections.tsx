@@ -277,7 +277,7 @@ export function OrgAccessSection({ orgId, organization, maxMembers }: SectionPro
 
 // The plain-language table of what each role can do: a few rows from the permissions matrix.
 const PEOPLE_ROWS: Array<[OrgAction, string]> = [
-    ['open_dashboard', 'Open the Dashboard'],
+    ['open_dashboard', 'Open the dashboard'],
     ['post_discussion', 'Post discussions'],
     ['submit_own', 'Submit their own work'],
     ['create_child_project', 'Create projects'],

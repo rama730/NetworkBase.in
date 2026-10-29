@@ -259,7 +259,7 @@ export function FileActionsBar({
           nodeId,
           file,
           mode: choice.option === "commit" ? "new_revision" : "active_revision",
-          comment: choice.comment || (choice.option === "commit" ? "Uploaded via Files Tab" : null),
+          comment: choice.comment || (choice.option === "commit" ? "Uploaded via Files tab" : null),
           baseVersion: node?.currentVersion,
         });
 
@@ -408,7 +408,7 @@ export function FileActionsBar({
           {canReadmeOption && (
             <DropdownMenuItem onSelect={handleRemoveFromDocs} className="gap-2 cursor-pointer">
               <BookOpenText className="h-4 w-4 opacity-70" />
-              <span>Remove from Docs</span>
+              <span>Remove from docs</span>
             </DropdownMenuItem>
           )}
 

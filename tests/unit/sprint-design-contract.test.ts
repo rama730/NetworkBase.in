@@ -70,7 +70,7 @@ test("Sprints Tab Design Specification Conformance Contract (Sections 03, 04, 05
     assert.match(
       sprintLeftRail,
       /h-\[34px\].*rounded-\[5px\]/,
-      "New Sprint button must adhere to Section 05 h-[34px] rounded-[5px] desktop height",
+      "New sprint button must adhere to Section 05 h-[34px] rounded-[5px] desktop height",
     );
     assert.match(
       sprintLeftRail,

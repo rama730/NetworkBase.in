@@ -203,9 +203,9 @@ test('Org header (§18): + New ▾ by keyboard, tab badges with spoken text, and
     await open(page, 'header&active=tasks');
     await expect(page.getByText('CO1')).toBeVisible();
     await page.getByRole('button', { name: 'Project actions' }).click();
-    await expect(page.getByRole('menuitem', { name: 'New Sprint' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'New sprint' })).toBeVisible();
     await expect(page.getByRole('menuitem', { name: 'Org overview' })).toBeVisible();
-    await page.getByRole('menuitem', { name: 'New Sprint' }).click();
+    await page.getByRole('menuitem', { name: 'New sprint' }).click();
     await expect(page.getByTestId('picked')).toHaveText('sprint');
     await noSideScroll(page);
 });

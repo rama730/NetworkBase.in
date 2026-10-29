@@ -25,7 +25,7 @@ test("Empty state architectural contract: Workspace surfaces", () => {
     assert.match(tasksTab, /className=["'][^"']*nb-empty-state nb-grid-ground/);
 });
 
-test("Empty state architectural contract: My Profile surfaces", () => {
+test("Empty state architectural contract: My profile surfaces", () => {
     const projectsGrid = readFileSync(resolve(ROOT, "src/components/profile/v2/sections/ProjectsGridCard.tsx"), "utf-8");
     const contributions = readFileSync(resolve(ROOT, "src/components/profile/v2/sections/ProjectContributionsCard.tsx"), "utf-8");
     const connectionsModal = readFileSync(resolve(ROOT, "src/components/profile/v2/UserConnectionsModal.tsx"), "utf-8");

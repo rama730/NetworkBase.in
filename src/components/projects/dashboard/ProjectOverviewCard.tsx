@@ -65,7 +65,7 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
     project,
     isCreator,
     onEdit,
-    labels = { description: "Vision and Description", problem: "The Problem", solution: "The Solution" },
+    labels = { description: "Vision and description", problem: "The problem", solution: "The solution" },
 }: ProjectOverviewCardProps) {
     const [statement, setStatement] = useState<StatementSelection>(null);
     const [descriptionExpanded, setDescriptionExpanded] = useState(false);
@@ -207,7 +207,7 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
 
                         {projectSkills.length > 0 ? (
                             <div className="space-y-3">
-                                <h2 className="nb-micro">{"Skills and Tech"}</h2>
+                                <h2 className="nb-micro">{"Skills and tech"}</h2>
                                 <SkillList skills={projectSkills} maxVisible={12} size="sm" className="max-md:hidden" />
                                 <SkillList skills={projectSkills} maxVisible={6} size="sm" className="md:hidden" />
                             </div>

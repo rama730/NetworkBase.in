@@ -201,7 +201,7 @@ export async function getGitHubSyncState(projectId: string) {
       filesCount: filesCountResult[0]?.count ?? 0,
       teamMembers: membersResult.map((m) => ({
         userId: m.userId,
-        name: m.fullName || m.username || "Team Member",
+        name: m.fullName || m.username || "Team member",
         avatarUrl: m.avatarUrl,
         membershipRole: m.membershipRole,
         githubLogin: m.githubLogin,

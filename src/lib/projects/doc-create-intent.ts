@@ -21,7 +21,7 @@ export function buildProjectDocStarterDraft(input: {
     roles?: OpenRoleInput[];
     includeRoles?: boolean;
 }) {
-    const title = cleanLine(input.title, "Project Doc") || "Project Doc";
+    const title = cleanLine(input.title, "Project doc") || "Project doc";
     const summary = cleanLine(input.shortDescription) || cleanLine(input.description) || "Describe what this project does, who it helps, and why it exists.";
     const type = cleanLine(input.projectType);
     const technologies = uniqueList(input.technologies);

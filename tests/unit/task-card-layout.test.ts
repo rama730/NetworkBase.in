@@ -47,13 +47,13 @@ function renderTask(
 test("task cards omit status badge when showStatus is false (Kanban board) and retain it when true (Workspace panel)", () => {
   // Kanban board view (showStatus: false)
   const kanbanHtml = renderTask({}, { showStatus: false });
-  assert.doesNotMatch(kanbanHtml, />To Do<\/span>/);
+  assert.doesNotMatch(kanbanHtml, />To do<\/span>/);
   assert.match(kanbanHtml, />High<\/span>/);
-  assert.match(kanbanHtml, /In Review/);
+  assert.match(kanbanHtml, /In review/);
 
   // Workspace panel / default view (showStatus: true)
   const workspaceHtml = renderTask({ reviewStatus: "none" });
-  assert.match(workspaceHtml, />To Do<\/span>/);
+  assert.match(workspaceHtml, />To do<\/span>/);
   assert.match(workspaceHtml, />High<\/span>/);
 });
 
@@ -67,8 +67,8 @@ test("task cards wrap titles and badges without hiding workflow information", ()
   assert.match(html, /h-6/);
   assert.match(html, /line-clamp-3 text-left (?:text-sm font-semibold leading-5|text-\[13px\] font-medium leading-\[18px\])/);
   assert.doesNotMatch(html, /overflow-x-auto/);
-  assert.doesNotMatch(html, /To Do/);
-  assert.match(html, /In Review/);
+  assert.doesNotMatch(html, /To do/);
+  assert.match(html, /In review/);
   assert.match(html, /Overtime/);
   assert.match(html, /Needs reassignment/);
   assert.doesNotMatch(

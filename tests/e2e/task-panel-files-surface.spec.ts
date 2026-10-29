@@ -54,7 +54,7 @@ test.describe("Task panel files surface", () => {
     const overflow = page.getByTestId("task-file-row-overflow").first();
     await overflow.click();
     await expect(page.getByText(/Version history/).first()).toBeVisible();
-    const editLabel = page.getByText("Edit Label");
+    const editLabel = page.getByText("Edit label");
     if ((await editLabel.count()) > 0) {
       await editLabel.first().click();
       await expect(

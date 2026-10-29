@@ -158,7 +158,7 @@ export function SheetViewerDriver({
           if (/^[\x20-\x7E\s\r\n\t]+$/.test(text.slice(0, 1024))) {
             const parsed = parseDelimitedText(text, ",");
             if (active) {
-              setSheets([{ name: "Text Content", headers: parsed.headers, rows: parsed.rows }]);
+              setSheets([{ name: "Text content", headers: parsed.headers, rows: parsed.rows }]);
               setLoading(false);
             }
             return;
@@ -386,7 +386,7 @@ export function SheetViewerDriver({
             <Button asChild size="sm" className="h-9 px-4 text-xs font-medium">
               <a href={signedUrl} download={node.name}>
                 <Download className="mr-1.5 h-3.5 w-3.5" />
-                Download Spreadsheet
+                Download spreadsheet
               </a>
             </Button>
 
@@ -418,7 +418,7 @@ export function SheetViewerDriver({
         <Button asChild size="sm" variant="outline" className="mt-2">
           <a href={signedUrl} download={node.name}>
             <Download className="mr-1.5 h-4 w-4" />
-            Download Spreadsheet
+            Download spreadsheet
           </a>
         </Button>
       </div>

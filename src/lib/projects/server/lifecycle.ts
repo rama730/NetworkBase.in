@@ -3000,7 +3000,7 @@ export async function getProfileProjectsWithOpenRolesAction(
       if (!listMap.has(p.id)) {
         listMap.set(p.id, {
           id: p.id,
-          title: p.title || "Untitled Project",
+          title: p.title || "Untitled project",
           slug: p.slug,
           openRoles: [],
         });

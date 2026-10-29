@@ -150,7 +150,7 @@ export class CacheManager {
 
         breakdown.push({
             id: "app-cache",
-            label: "Application Bundle",
+            label: "Application bundle",
             description: "Static assets, fonts, icons, and code chunks for faster loading.",
             size: cacheSize,
             isPrimary: false,

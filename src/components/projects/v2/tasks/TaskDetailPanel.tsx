@@ -721,7 +721,7 @@ export default function TaskDetailPanel({
       <ConfirmDialog
         open={showDeleteConfirm}
         onOpenChange={setShowDeleteConfirm}
-        title="Delete Task"
+        title="Delete task"
         description="The task is removed from the board. Its working files move to a “Recovered task files” folder in Project Files."
         confirmLabel="Delete"
         variant="destructive"

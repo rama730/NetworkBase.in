@@ -30,11 +30,11 @@ test("top-nav profile picture opens accessible dropdown with My profile and Sign
   // Header displays user info
   assert.match(topNav, /profile\?\.fullName \|\| profile\?\.username \|\| "Account"/);
 
-  // My Profile option
+  // My profile option
   assert.match(topNav, /<DropdownMenuItem asChild>/);
   assert.match(topNav, /href=\{ROUTES\.MY_PROFILE\}/);
   assert.match(topNav, /<UserRound/);
-  assert.match(topNav, />My Profile<\/span>/);
+  assert.match(topNav, />My profile<\/span>/);
 
   // Sign out option
   assert.match(topNav, /<DropdownMenuItem[^>]*variant="destructive"[^>]*onSelect=\{[^}]*setShowSignOutConfirm\(true\)[^}]*\}/);

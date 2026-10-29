@@ -105,7 +105,7 @@ function parseXlsxInWorker(buffer: ArrayBuffer): { sheets: SheetData[]; isLegacy
     const text = textDecoder.decode(buffer);
     if (/^[\x20-\x7E\s\r\n\t]+$/.test(text.slice(0, 1024))) {
       const parsed = parseDelimitedText(text, ",");
-      return { sheets: [{ name: "Text Content", headers: parsed.headers, rows: parsed.rows }] };
+      return { sheets: [{ name: "Text content", headers: parsed.headers, rows: parsed.rows }] };
     }
     return { sheets: [], isLegacy: true };
   }

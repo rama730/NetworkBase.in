@@ -721,11 +721,11 @@ function RolePreferencesEditor({ profile, onChange }: { profile: any; onChange: 
     );
 
     const POPULAR_ROLE_SUGGESTIONS = [
-        "Frontend Developer",
-        "Full Stack Engineer",
-        "Product Designer",
+        "Frontend developer",
+        "Full stack engineer",
+        "Product designer",
         "AI / ML Engineer",
-        "Backend Developer",
+        "Backend developer",
         "DevOps Engineer",
     ] as const;
 

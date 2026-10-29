@@ -336,7 +336,7 @@ export function TaskFileRow({
                 }}
               >
                 <Pencil className="mr-2 h-4 w-4" />
-                Edit Label
+                Edit label
               </DropdownMenuItem>
             ) : null}
 
@@ -348,7 +348,7 @@ export function TaskFileRow({
                 }}
               >
                 <FolderUp className="mr-2 h-4 w-4" />
-                Move to Deliverables
+                Mark as final
               </DropdownMenuItem>
             ) : null}
 
@@ -360,7 +360,7 @@ export function TaskFileRow({
                 }}
               >
                 <FolderDown className="mr-2 h-4 w-4" />
-                Move to Task References
+                Mark as reference
               </DropdownMenuItem>
             ) : null}
 
@@ -372,7 +372,7 @@ export function TaskFileRow({
                 }}
               >
                 <FolderDown className="mr-2 h-4 w-4" />
-                Move to Working Files
+                Mark as draft
               </DropdownMenuItem>
             ) : null}
 
@@ -384,7 +384,7 @@ export function TaskFileRow({
                 }}
               >
                 <FolderInput className="mr-2 h-4 w-4" />
-                Move in Project Files
+                Move in project Files
               </DropdownMenuItem>
             ) : null}
 
@@ -396,7 +396,7 @@ export function TaskFileRow({
                 }}
               >
                 <UploadCloud className="mr-2 h-4 w-4" />
-                Publish to Project Files
+                Publish to project Files
               </DropdownMenuItem>
             ) : null}
 

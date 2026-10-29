@@ -336,7 +336,7 @@ export function ImageViewerDriver({
               variant={flipH ? "secondary" : "ghost"}
               onClick={handleFlipH}
               className="h-7 px-1.5 text-xs font-mono"
-              title="Flip Horizontal"
+              title="Flip horizontal"
             >
               Flip H
             </Button>
@@ -345,7 +345,7 @@ export function ImageViewerDriver({
               variant={flipV ? "secondary" : "ghost"}
               onClick={handleFlipV}
               className="h-7 px-1.5 text-xs font-mono"
-              title="Flip Vertical"
+              title="Flip vertical"
             >
               Flip V
             </Button>

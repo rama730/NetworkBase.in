@@ -625,7 +625,7 @@ test("Files tab Linked Doc Ecosystem synchronization", () => {
 
     assert.doesNotMatch(fileActions, /\blinkProjectDocAction\(/, "docs are added only from the Docs tab");
     assert.match(fileActions, /unlinkProjectDocAction\(/, "Files tab can remove a linked doc");
-    assert.match(fileActions, /Remove from Docs/, "Files tab labels the remove action");
+    assert.match(fileActions, /Remove from docs/, "Files tab labels the remove action");
 
     assert.match(docTab, /ProjectDocViewer/, "linked documents should resolve through the canonical published Doc viewer");
 });

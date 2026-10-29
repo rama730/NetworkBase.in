@@ -22,15 +22,15 @@ test("Canonical route metadata contract: Network route has updated title and pat
     assert.doesNotMatch(networkSource, /title:\s*['"]Connections \| NetworkBase['"]/);
 });
 
-test("Canonical route metadata contract: My Profile has updated title fallback and canonical path", () => {
+test("Canonical route metadata contract: My profile has updated title fallback and canonical path", () => {
     const myProfileSource = readFileSync(resolve(ROOT, "src/app/(site)/(main)/my-profile/page.tsx"), "utf-8");
 
-    assert.match(myProfileSource, /title:\s*['"]My Profile \| NetworkBase['"]/);
+    assert.match(myProfileSource, /title:\s*['"]My profile \| NetworkBase['"]/);
     assert.match(myProfileSource, /path:\s*['"]\/my-profile['"]/);
     assert.doesNotMatch(myProfileSource, /title:\s*['"]Your Profile \| NetworkBase['"]/);
     assert.doesNotMatch(myProfileSource, /path:\s*['"]\/profile['"]/);
 
-    assert.equal(buildOwnerProfileTitle({}), "My Profile | NetworkBase");
+    assert.equal(buildOwnerProfileTitle({}), "My profile | NetworkBase");
     assert.equal(buildOwnerProfileTitle({ fullName: "Alice" }), "Alice | NetworkBase");
     assert.equal(buildOwnerProfileTitle({ fullName: "Alice", username: "alice" }), "Alice (@alice) | NetworkBase");
 });

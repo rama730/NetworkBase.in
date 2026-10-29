@@ -146,7 +146,7 @@ export const SPRINT_STATUS_PRESENTATION: Record<
     toneClassName: "nb-sprint-tone-info",
   },
   active: {
-    label: "In Progress",
+    label: "In progress",
     dotClassName: "nb-sprint-dot-success",
     toneClassName: "nb-sprint-tone-success",
   },
@@ -175,11 +175,11 @@ export const SPRINT_TASK_STATUS_PRESENTATION: Record<
   }
 > = {
   todo: {
-    label: "To Do",
+    label: "To do",
     toneClassName: "nb-sprint-tone-muted",
   },
   in_progress: {
-    label: "In Progress",
+    label: "In progress",
     toneClassName: "nb-sprint-tone-info",
   },
   done: {

@@ -531,7 +531,7 @@ export function FolderListView({
           nodeId: node.id,
           file,
           mode: choice.option === "commit" ? "new_revision" : "active_revision",
-          comment: choice.comment || (choice.option === "commit" ? "Uploaded via Files Tab" : null),
+          comment: choice.comment || (choice.option === "commit" ? "Uploaded via Files tab" : null),
           baseVersion: node.currentVersion,
         });
 
@@ -1274,8 +1274,8 @@ export function FolderListView({
           currentFolderId={targetDropFolderId ?? folderId}
           currentFolderName={
             targetDropFolderId && targetDropFolderId !== folderId
-              ? (nodesById[targetDropFolderId]?.name ?? selectedNode?.name ?? "Project Root")
-              : (selectedNode ? selectedNode.name : "Project Root")
+              ? (nodesById[targetDropFolderId]?.name ?? selectedNode?.name ?? "Project root")
+              : (selectedNode ? selectedNode.name : "Project root")
           }
           existingFiles={sortedChildren}
           activeTaskId={workspace?.taskId ?? null}

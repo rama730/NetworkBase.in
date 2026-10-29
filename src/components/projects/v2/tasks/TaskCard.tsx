@@ -186,7 +186,7 @@ export const TaskCard = memo(function TaskCard({
           {taskRecord.reviewStatus === "pending" && (
             <span className="inline-flex shrink-0 items-center gap-1 rounded-[3px] border border-border bg-muted/60 px-2 py-0.5 font-mono text-[11px] font-semibold text-foreground">
               <Lock className="size-3" />
-              In Review
+              In review
             </span>
           )}
           {timeHealth.state === "overdue" && (

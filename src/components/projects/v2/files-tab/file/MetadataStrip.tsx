@@ -250,7 +250,7 @@ export function MetadataStrip({
               className="font-semibold text-foreground underline-offset-4 hover:underline"
               data-field="used-as-doc"
             >
-              Used as a Doc
+              Used as a doc
             </button>
           </>
         )}

@@ -310,7 +310,7 @@ export default function DetailsTab({
           <div className="flex items-start gap-3">
             <Lock className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
             <div className="space-y-2 flex-1">
-              <div className="font-semibold text-foreground">In Review</div>
+              <div className="font-semibold text-foreground">In review</div>
               <div className="text-xs text-muted-foreground">
                 Waiting for an owner or admin to approve. Final files are added to Files separately.
                 {reviewState.data?.submittedAt ? ` Submitted ${formatDistanceToNow(new Date(reviewState.data.submittedAt), { addSuffix: true })}.` : ""}
@@ -878,7 +878,7 @@ export default function DetailsTab({
             </DropdownMenu>
             {currentAssigneeUnavailable ? (
               <p className="text-xs text-amber-600 dark:text-amber-400">
-                Removed from project · Needs reassignment
+                Removed from project · needs reassignment
               </p>
             ) : null}
           </div>

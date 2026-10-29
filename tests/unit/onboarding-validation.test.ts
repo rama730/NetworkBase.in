@@ -8,12 +8,12 @@ test('normalizeOnboardingPayload sanitizes optional fields and dedupes tags', ()
     const payload = normalizeOnboardingPayload({
         username: 'Builder_42',
         fullName: '  Builder User  ',
-        headline: '  Full Stack Developer  ',
+        headline: '  Full stack developer  ',
         bio: '  Building useful products.  ',
         location: '  San Francisco  ',
         website: 'https://example.com',
         skills: ['React', 'react', 'TypeScript'],
-        interests: ['AI', 'ai', 'Open Source'],
+        interests: ['AI', 'ai', 'Open source'],
         openTo: ['Freelance', 'freelance', 'Mentorship'],
         socialLinks: { github: 'github.com/builder', portfolio: 'https://builder.dev' },
         pronouns: '  they/them  ',
@@ -23,7 +23,7 @@ test('normalizeOnboardingPayload sanitizes optional fields and dedupes tags', ()
     assert.equal(payload.username, 'builder_42')
     assert.equal(payload.fullName, 'Builder User')
     assert.deepEqual(payload.skills, ['React', 'TypeScript'])
-    assert.deepEqual(payload.interests, ['AI', 'Open Source'])
+    assert.deepEqual(payload.interests, ['AI', 'Open source'])
     assert.deepEqual(payload.openTo, ['Freelance projects'])
     assert.equal(payload.pronouns, 'they/them')
 })

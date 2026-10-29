@@ -56,7 +56,7 @@ export function AboutCard({ profile, isOwner, onEdit }: AboutCardProps) {
                                 onClick={onEdit}
                                 className="nb-ui-label mt-2 text-primary hover:text-primary/80 transition-colors max-md:inline-flex max-md:min-h-11 max-md:items-center"
                             >
-                                Add Bio
+                                Add bio
                             </button>
                         ) : null}
                     </div>

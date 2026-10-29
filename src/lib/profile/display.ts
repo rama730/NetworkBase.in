@@ -69,7 +69,7 @@ export function buildOwnerProfileTitle(input: ProfileMetadataInput): string {
     if (username) {
         return `@${username} | NetworkBase`;
     }
-    return "My Profile | NetworkBase";
+    return "My profile | NetworkBase";
 }
 
 export function buildPublicProfileTitle(input: ProfileMetadataInput): string {

@@ -13,13 +13,13 @@ export type LifecycleTemplateId =
   | "gameDev";
 
 export const LIFECYCLE_TEMPLATES: Record<LifecycleTemplateId, readonly string[]> = {
-  productWeb: ["Discovery", "Design", "MVP Build", "Beta", "Launch and Iterate"],
-  openSourceTool: ["Scope", "Prototype", "Alpha Release", "Community Feedback", "Stable Release"],
+  productWeb: ["Discovery", "Design", "MVP Build", "Beta", "Launch and iterate"],
+  openSourceTool: ["Scope", "Prototype", "Alpha release", "Community feedback", "Stable release"],
   clientFreelance: ["Requirements", "Design", "Implementation", "QA and Review", "Delivery"],
   hackathonLearning: ["Plan", "Build", "Iterate", "Polish", "Ship"],
   creativeArt: ["Concept", "Create", "Feedback", "Finalize", "Publish"],
   media: ["Plan", "Produce", "Edit", "Publish", "Promote"],
-  gameDev: ["Concept", "Prototype", "Vertical Slice", "Beta", "Release"],
+  gameDev: ["Concept", "Prototype", "Vertical slice", "Beta", "Release"],
 } as const;
 
 /**

@@ -15,9 +15,9 @@ test("a contribution shows the role title, never the access level; legacy decora
   assert.equal(
     formatContributionPosition({
       title: "Lead - Lead",
-      projectPosition: "Product Designer",
+      projectPosition: "Product designer",
     }),
-    "Product Designer",
+    "Product designer",
   );
   assert.equal(
     formatContributionPosition({ title: "Lead / Tester" }),
@@ -72,10 +72,10 @@ test("generated recorded titles reconcile while custom personal titles and histo
     ],
   };
   const stages = [
-    { id, roleTitle: "Product Designer · Lead" },
+    { id, roleTitle: "Product designer · Lead" },
   ] as ProfileCollaborationRoleStage[];
   const result = reconcileRecordedPositionTitles(story, stages)!;
-  assert.equal(result.positions[0]!.title, "Product Designer · Lead");
+  assert.equal(result.positions[0]!.title, "Product designer · Lead");
   assert.equal(result.positions[0]!.start, "2026-05");
   assert.equal(result.positions[0]!.description, "Designed the product.");
   assert.equal(story.positions[0]!.title, "Lead - Lead");

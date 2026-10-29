@@ -316,7 +316,7 @@ export function FileVersionHistoryPanel({
       )}
     >
       <FileInspectorPanelHeader
-        title="Version History"
+        title="Version history"
         onClose={onClose}
         closeLabel="Close version history"
         closeTestId="files-tab-version-history-close"

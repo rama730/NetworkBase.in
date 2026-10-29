@@ -57,7 +57,7 @@ describe("sprint tab target architecture contract", () => {
     assert.doesNotMatch(sprintHeaderSource, /Start sprint|Reopen sprint/);
     assert.match(sprintLifecycleModalsSource, /unfinishedChoice/);
     assert.match(sprintLifecycleModalsSource, /Move to backlog/);
-    assert.match(sprintLifecycleModalsSource, /Move to a Planning Sprint/);
+    assert.match(sprintLifecycleModalsSource, /Move to a planning sprint/);
     assert.match(sprintLifecycleModalsSource, /DialogContent/);
     assert.match(sprintLifecycleModalsSource, /DialogTitle/);
     assert.doesNotMatch(sprintLifecycleModalsSource, /role="alertdialog"/);
@@ -76,8 +76,8 @@ describe("sprint tab target architecture contract", () => {
     assert.match(sprintTimelineSource, /role === "deliverable"/);
     assert.match(sprintTimelineSource, /role === "working"/);
     assert.match(sprintTimelineSource, /role === "reference"/);
-    assert.match(sprintTimelineSource, /Final Deliverables/);
-    assert.match(sprintTimelineSource, /Task References/);
+    assert.match(sprintTimelineSource, /Final deliverables/);
+    assert.match(sprintTimelineSource, /Task references/);
     assert.match(sprintTimelineSource, /TASK_WORKING_FILES_TITLE/);
     assert.doesNotMatch(
       sprintTimelineSource,

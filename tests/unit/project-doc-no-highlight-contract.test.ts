@@ -50,5 +50,5 @@ test("Docs are added only from the Docs tab", () => {
         assert.doesNotMatch(source, /Use as (a )?doc|\blinkProjectDocAction\(/i, `${file} must not add docs`);
     }
     assert.match(read("src/components/projects/doc/AddDocDialog.tsx"), /\blinkProjectDocAction\(/);
-    assert.match(read("src/components/projects/v2/files-tab/file/FileActionsBar.tsx"), /Remove from Docs/);
+    assert.match(read("src/components/projects/v2/files-tab/file/FileActionsBar.tsx"), /Remove from docs/);
 });

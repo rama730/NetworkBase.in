@@ -162,11 +162,11 @@ test('mobile preferences save custom roles without overflow; new users can enabl
   await page.getByRole('button', {name:'Edit role preferences',exact:true}).click();
   const dialog=page.getByRole('region', {name:'Edit profile',exact:true});
   await expect(dialog.getByRole('tab', {name:'Role preferences'})).toHaveAttribute('data-state','active');
-  await dialog.getByPlaceholder('e.g. Next.js Developer, Rust Dev').fill('Game Developer');
+  await dialog.getByPlaceholder('e.g. Next.js Developer, Rust Dev').fill('Game developer');
   await dialog.getByRole('button', {name:'Add role',exact:true}).click();
   await dialog.getByRole('button', {name:'Save changes',exact:true}).click();
   await expect(dialog).not.toBeVisible();
-  await expect(page.getByText('Game Developer',{exact:true})).toBeVisible();
+  await expect(page.getByText('Game developer',{exact:true})).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
 });
 

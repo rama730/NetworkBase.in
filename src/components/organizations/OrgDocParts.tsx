@@ -193,7 +193,7 @@ export function OrgDocAdminTools({ data, doc, visibility }: { data: OrgDocsData;
                 <label className={box}><input type="checkbox" checked={reread} onChange={(e) => setReread(e.target.checked)} /> Ask members to re-read</label>
                 <div className="flex flex-wrap gap-1.5">
                     <Button type="button" size="sm" disabled={pending} onClick={() => run(() => publishOrgDocAction(data.orgId, doc.id, { summary, reread, notify: true }), 'Members notified')}>Publish and notify</Button>
-                    {reread ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => publishOrgDocAction(data.orgId, doc.id, { summary, reread: true, notify: false }), 'Marked New for everyone')}>Re-read only</Button> : null}
+                    {reread ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => publishOrgDocAction(data.orgId, doc.id, { summary, reread: true, notify: false }), 'Marked new for everyone')}>Re-read only</Button> : null}
                 </div>
             </div>
             <button type="button" className="text-muted-foreground underline underline-offset-4 hover:text-foreground" onClick={() => setEditingGroups((v) => !v)}>{editingGroups ? 'Close groups' : 'Edit groups'}</button>

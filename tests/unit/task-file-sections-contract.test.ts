@@ -14,8 +14,8 @@ test("task creation persists selected files as reference links", () => {
 
 test("task files render reference, deliverable, and working sections without duplicating roles", () => {
   const explorer = read("src/components/projects/v2/tasks/components/TaskFilesExplorer.tsx");
-  const referencePosition = explorer.indexOf("Task References");
-  const deliverablePosition = explorer.indexOf("Final Deliverables");
+  const referencePosition = explorer.indexOf("Task references");
+  const deliverablePosition = explorer.indexOf("Final deliverables");
   const workingPosition = explorer.lastIndexOf("TASK_WORKING_FILES_TITLE");
 
   assert.ok(referencePosition >= 0 && referencePosition < deliverablePosition);
@@ -29,10 +29,10 @@ test("task file actions expose all safe role transitions", () => {
   const row = read("src/components/projects/v2/tasks/components/TaskFileRow.tsx");
   const upload = read("src/components/projects/v2/tasks/components/TaskFileUploadModal.tsx");
 
-  assert.match(row, /Move to Task References/);
-  assert.match(row, /Move to Working Files/);
-  assert.match(row, /Move to Deliverables/);
-  assert.match(upload, /Task Reference/);
+  assert.match(row, /Mark as reference/);
+  assert.match(row, /Mark as draft/);
+  assert.match(row, /Mark as final/);
+  assert.match(upload, /Task reference/);
   assert.match(upload, /UploadIntent = "reference" \| "working" \| "deliverable" \| "version"/);
 });
 

@@ -46,7 +46,7 @@ export function UpdatesRightRail({
     <section aria-label="Update shortcuts" className="space-y-5">
       <div className="border-b border-border pb-3">
         <h3 className="nb-ui-label text-foreground">
-          Recent Activity
+          Recent activity
         </h3>
       </div>
 

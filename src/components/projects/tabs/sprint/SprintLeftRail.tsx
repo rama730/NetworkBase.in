@@ -191,7 +191,7 @@ export function SprintLeftRail({
               className="nb-touch-target nb-ui-label inline-flex h-[34px] w-full items-center justify-center gap-2 rounded-[5px] border border-primary bg-primary px-3 text-primary-foreground transition-[background-color,border-color,transform] duration-150 hover:border-[var(--primary-hover)] hover:bg-[var(--primary-hover)] active:translate-y-px active:border-[var(--primary-active)] active:bg-[var(--primary-active)]"
             >
               <Plus aria-hidden="true" className="h-3.5 w-3.5" />
-              New Sprint
+              New sprint
             </button>
           ) : null}
 

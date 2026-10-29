@@ -35,7 +35,7 @@ test("project dashboard keeps journey connectors, statements, and skills stable"
   assert.match(overview, /project\?\.skills/);
   assert.match(overview, /project\?\.technologies_used/);
   assert.match(overview, /project\?\.techStack/);
-  assert.match(overview, /Skills and Tech/);
+  assert.match(overview, /Skills and tech/);
 });
 
 test("project detail keeps identity and team in the header while the dashboard starts with project substance", () => {
@@ -88,9 +88,9 @@ test("project detail keeps identity and team in the header while the dashboard s
   assert.doesNotMatch(overview, /JourneyTimeline/);
   assert.doesNotMatch(overview, /project\?\.title/);
   assert.doesNotMatch(overview, /project\?\.shortDescription/);
-  assert.match(overview, /Vision and Description/);
-  assert.match(overview, /The Problem/);
-  assert.match(overview, /The Solution/);
+  assert.match(overview, /Vision and description/);
+  assert.match(overview, /The problem/);
+  assert.match(overview, /The solution/);
 });
 
 test("project journey windows around the current stage", () => {

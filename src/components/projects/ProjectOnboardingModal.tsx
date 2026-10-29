@@ -72,7 +72,7 @@ export function ProjectOnboardingModal({
                                 <CheckCircle2 className="w-5 h-5 text-emerald-500" />
                             </div>
                             <div>
-                                <h4 className="font-medium text-sm text-foreground">Access Granted</h4>
+                                <h4 className="font-medium text-sm text-foreground">Access granted</h4>
                                 <p className="text-xs text-muted-foreground mt-1">
                                     You can now view internal documents, tasks, and sprint boards.
                                 </p>
@@ -98,7 +98,7 @@ export function ProjectOnboardingModal({
                                 <div className="w-8 h-8 bg-amber-500/10 rounded-lg flex items-center justify-center mb-3 group-hover:bg-amber-500/20 transition-colors">
                                     <FileText className="w-4 h-4 text-amber-500" />
                                 </div>
-                                <span className="font-semibold text-sm text-foreground block">Read Docs</span>
+                                <span className="font-semibold text-sm text-foreground block">Read docs</span>
                                 <span className="text-xs text-muted-foreground">Get up to speed</span>
                             </button>
                         </div>

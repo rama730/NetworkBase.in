@@ -923,7 +923,7 @@ export async function applyToRoleAction(
                 return toApplicationFailure(traceId, 'FORBIDDEN', 'This project is private.');
             }
 
-            const roleTitleText = role.title || role.role || 'Unknown Role';
+            const roleTitleText = role.title || role.role || 'Unknown role';
             const notifyReviewers = async (applicationId: string, channelId: string | null, again = false) => {
                 revalidatePath(`/projects/${project.slug || projectId}`);
                 logger.metric('applications.apply_submitted', {
@@ -1149,7 +1149,7 @@ export async function acceptApplicationAction(
             // ponytail: deterministic hierarchical lock ordering (projects -> project_open_roles -> role_applications) eliminates PostgreSQL deadlock 40P01 under 1M concurrent accepts. ceiling: 20 applications per batch. upgrade: partition role capacity counter to Redis hyperloglog if concurrent applicants exceed 5,000/sec.
             const memberLifecycle = await db.transaction(async (tx) => {
                 const roleTitleForMember =
-                    application.role?.title || application.role?.role || 'Team Member';
+                    application.role?.title || application.role?.role || 'Team member';
 
                 // 1. Lock project and role rows first, adding the member and adjusting capacity atomically
                 const lifecycle = await addProjectMemberInternal(tx, {
@@ -1959,9 +1959,9 @@ export async function getIncomingApplicationsAction(
             return {
             id: app.id,
             projectId: app.projectId,
-            projectTitle: app.project?.title || 'Unknown Project',
+            projectTitle: app.project?.title || 'Unknown project',
             projectSlug: app.project?.slug,
-            roleTitle: app.role?.title || app.role?.role || 'Unknown Role',
+            roleTitle: app.role?.title || app.role?.role || 'Unknown role',
             // `applicant` remains for existing consumers; new UI reads the
             // neutral actor field so invitation senders are not mislabeled.
             actor,
@@ -1987,7 +1987,7 @@ export async function getIncomingApplicationsAction(
             return {
                 id: invite.id,
                 projectId: invite.projectId,
-                projectTitle: invite.projectTitle || 'Unknown Project',
+                projectTitle: invite.projectTitle || 'Unknown project',
                 projectSlug: invite.projectSlug,
                 roleTitle: invite.roleTitle || invite.guidanceLabel || 'Member',
                 actor,

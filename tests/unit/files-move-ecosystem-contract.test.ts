@@ -52,9 +52,9 @@ test("the shared picker hides internal storage and supports root, paging, search
 });
 
 test("task files separate role changes, relocation, and publishing", () => {
-  assert.match(taskRow, /Move to Deliverables/);
-  assert.match(taskRow, /Move in Project Files/);
-  assert.match(taskRow, /Publish to Project Files/);
+  assert.match(taskRow, /Mark as final/);
+  assert.match(taskRow, /Move in project Files/);
+  assert.match(taskRow, /Publish to project Files/);
   assert.doesNotMatch(taskRow, /<Dialog/);
   assert.doesNotMatch(taskRow, /Open with/);
   assert.match(taskExplorer, /TASK_WORKING_FILES_TITLE/);

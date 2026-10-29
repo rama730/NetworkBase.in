@@ -27,7 +27,7 @@ type CreationCopy = {
 };
 
 const SHARED: CreationCopy = {
-  name: "Bangalore Rust Meetup",
+  name: "Bangalore rust meetup",
   tagline: "Monthly meetups and shared projects for Rust developers",
   about: "What the group is about and how to take part",
   audience: "Rust developers in Bangalore, beginners welcome",
@@ -68,7 +68,7 @@ export const ORG_CREATION_COPY: Record<OrgType, CreationCopy> = {
     starterDoc: "Team handbook",
   },
   research: {
-    name: "Vision Lab",
+    name: "Vision lab",
     tagline: "Computer vision research at RVCE",
     about: "The lab’s focus and how projects run",
     audience: "PhD and master’s students in the lab",
@@ -81,7 +81,7 @@ export const ORG_CREATION_COPY: Record<OrgType, CreationCopy> = {
     starterDoc: "Lab guide",
   },
   community: SHARED,
-  club: { ...SHARED, name: "Robotics Club", tagline: "Build robots, enter competitions, learn together", subjectLabel: "Activity", subjects: ["Robotics", "Coding", "Music", "Sports", "Debate"] },
+  club: { ...SHARED, name: "Robotics club", tagline: "Build robots, enter competitions, learn together", subjectLabel: "Activity", subjects: ["Robotics", "Coding", "Music", "Sports", "Debate"] },
   other: { ...SHARED, name: "Name of your organization", tagline: "One line about what it does", about: "What this organization is and what happens in it", subjectLabel: "Focus", termLabel: "Period", starterDoc: "Blank" },
 };
 

@@ -630,7 +630,7 @@ export default function InviteCollaboratorModal({
                 <DialogHeader className="border-b border-border px-6 py-4 text-left">
                     <DialogTitle className={plainContentHeadings ? "nb-card-title text-foreground" : "nb-card-title flex items-center gap-2 text-foreground"}>
                         {!plainContentHeadings && (mode === "apply" ? <Briefcase aria-hidden="true" className="size-5 text-primary" /> : <Users aria-hidden="true" className="size-5 text-primary" />)}
-                        {mode === "apply" ? (isEditing ? "Edit application" : "Apply to Join") : "Invite members"}
+                        {mode === "apply" ? (isEditing ? "Edit application" : "Apply to join") : "Invite members"}
                     </DialogTitle>
                 </DialogHeader>
 
@@ -680,7 +680,7 @@ export default function InviteCollaboratorModal({
                                     </div>
                                     {selectedRole.description ? (
                                         <div className="space-y-1">
-                                            <p className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">Role Description</p>
+                                            <p className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">Role description</p>
                                             <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-foreground/85">
                                                 {selectedRole.description}
                                             </p>
@@ -688,7 +688,7 @@ export default function InviteCollaboratorModal({
                                     ) : null}
                                     {selectedRole.skills && selectedRole.skills.length > 0 ? (
                                         <div className="space-y-1.5">
-                                            <p className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">Required Skills</p>
+                                            <p className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">Required skills</p>
                                             <div className="flex flex-wrap gap-1.5">
                                                 {selectedRole.skills.map((skill) => (
                                                     <span
@@ -781,7 +781,7 @@ export default function InviteCollaboratorModal({
                         onClick={mode === "apply" && submitBlocker ? () => showError(submitBlocker, !roleId ? roleSelectRef : applicationMessageRef) : submit}
                         aria-describedby={submitBlocker ? "recruitment-submit-hint" : undefined}
                         aria-disabled={mode === "apply" ? Boolean(submitBlocker) || undefined : undefined}
-                        disabled={submitting || (mode === "apply" ? false : !selectedProject || !selectedCandidate || hasPendingApplication || hasPendingInvitation || (inviteKind === "ordinary_role" && !roleId) || (inviteKind === "guidance_appointment" && (!guidanceLabel.trim() || guidanceLoading || guidanceUnavailable)))} className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2] aria-disabled:cursor-not-allowed aria-disabled:opacity-60">{submitting ? <Loader2 aria-label="Submitting" className="size-4 animate-spin" /> : null}{submitting ? "Sending..." : mode === "apply" ? (isEditing ? "Save changes" : "Submit Application") : "Send Invitation"}</Button>
+                        disabled={submitting || (mode === "apply" ? false : !selectedProject || !selectedCandidate || hasPendingApplication || hasPendingInvitation || (inviteKind === "ordinary_role" && !roleId) || (inviteKind === "guidance_appointment" && (!guidanceLabel.trim() || guidanceLoading || guidanceUnavailable)))} className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2] aria-disabled:cursor-not-allowed aria-disabled:opacity-60">{submitting ? <Loader2 aria-label="Submitting" className="size-4 animate-spin" /> : null}{submitting ? "Sending..." : mode === "apply" ? (isEditing ? "Save changes" : "Submit application") : "Send invitation"}</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
