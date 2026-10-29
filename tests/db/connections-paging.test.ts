@@ -13,6 +13,7 @@ moduleStubs.set("@/lib/security/rate-limit", { consumeRateLimit: async () => ({ 
 let viewerId = "";
 moduleStubs.set("@/lib/supabase/auth-user", { getAuthUser: async () => ({ id: viewerId }) });
 moduleStubs.set("next/server", { after: () => undefined, NextResponse: class {}, NextRequest: class {} });
+moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: () => undefined, unstable_cache: (fn: unknown) => fn, updateTag: () => undefined });
 
 let connections: typeof import("../../src/app/actions/connections");
 before(async () => {
@@ -196,4 +197,16 @@ test("pausing collaboration removes role recommendation boosts immediately, with
   } finally {
     await sql`DELETE FROM auth.users WHERE id IN (${viewer},${active},${generic})`;
   }
+});
+
+// Undo used a raw Date inside sql``, which the driver could not encode, so every undo failed.
+test("a just-declined request can be undone back to pending", async () => {
+  const requester = await sql.begin(tx => createUser(tx));
+  const addressee = await sql.begin(tx => createUser(tx));
+  const [row] = await sql`INSERT INTO connections(requester_id,addressee_id,status) VALUES(${requester},${addressee},'rejected') RETURNING id`;
+  viewerId = addressee;
+  const result = await connections.undoRejectConnectionRequest(row!.id);
+  assert.deepEqual(result, { success: true });
+  const [after] = await sql`SELECT status FROM connections WHERE id = ${row!.id}`;
+  assert.equal(after!.status, "pending");
 });

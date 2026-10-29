@@ -1,7 +1,7 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, inArray, lt, or, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, lt, or, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import {
@@ -151,7 +151,7 @@ export async function scheduleAbandonedStorageAssets() {
           SELECT 1 FROM ${uploadIntents}
           WHERE ${uploadIntents.assetId} = ${storageAssets.id}
             AND ${uploadIntents.status} = 'pending'
-            AND ${uploadIntents.expiresAt} > ${graceCutoff}
+            AND ${gt(uploadIntents.expiresAt, graceCutoff)}
         )`,
         hasNoLiveReference(),
       ))
