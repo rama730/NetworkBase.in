@@ -1,3 +1,4 @@
+import { MESSAGE_LEVEL_LABELS } from "@/lib/copy/terms";
 import type { ChatBootstrap, ChatChannelSummary, ChatNotify, ChatPerson } from "@/lib/messaging/types";
 import { formatAbsoluteTimestamp, formatRelativeTimestamp } from "@/lib/notifications/presentation";
 
@@ -13,11 +14,11 @@ export function notifiesEveryMessage(channel: NotifyChannel) {
 }
 
 export function notifyChoices(channel: NotifyChannel): { value: ChatNotify; label: string }[] {
-  // A 1:1 DM: nobody @mentions you in your own DM, so "Mentions only" would mean "never".
-  if (channel.kind === "dm") return [{ value: "all", label: "All messages" }, { value: "mute", label: "Mute" }];
+  // A 1:1 DM: nobody @mentions you in your own DM, so "Mentions" would mean "never".
+  if (channel.kind === "dm") return [{ value: "all", label: MESSAGE_LEVEL_LABELS.all }, { value: "mute", label: MESSAGE_LEVEL_LABELS.mute }];
   return notifiesEveryMessage(channel)
-    ? [{ value: "all", label: "All messages" }, { value: "mentions", label: "Mentions only" }, { value: "mute", label: "Mute" }]
-    : [{ value: "mentions", label: "Mentions and threads" }, { value: "mute", label: "Mute" }];
+    ? [{ value: "all", label: MESSAGE_LEVEL_LABELS.all }, { value: "mentions", label: MESSAGE_LEVEL_LABELS.mentions }, { value: "mute", label: MESSAGE_LEVEL_LABELS.mute }]
+    : [{ value: "mentions", label: MESSAGE_LEVEL_LABELS.mentions_threads }, { value: "mute", label: MESSAGE_LEVEL_LABELS.mute }];
 }
 
 /** The selected choice: in channels "all" behaves (and shows) as mentions & threads; a DM is all or muted. */

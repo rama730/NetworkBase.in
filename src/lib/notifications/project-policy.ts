@@ -1,3 +1,4 @@
+import { NOTIFICATION_CATEGORIES, type NotificationCategory } from "@/lib/copy/terms";
 import type {
     NotificationImportance,
     NotificationKind,
@@ -142,27 +143,25 @@ export type ProjectNotificationRegistryEntry = {
     visible: boolean;
 };
 
+/** Decision 38: every group belongs to one category of the single list in src/lib/copy/terms.ts. */
+const GROUP_CATEGORY: Record<ProjectNotificationGroupId, NotificationCategory | null> = {
+    membership_access: "members", roles_applications: "applications", project_lifecycle: "sprints", tasks_workflow: "tasks",
+    files_workspace: "files", readme: "files", updates: "updates", security_audit: "security", future: null,
+    org_membership: "members", org_assignments: "assignments", org_announcements: "updates", org_credit: "members", org_sprints: "sprints",
+};
+const categoryOf = (id: ProjectNotificationGroupId) => NOTIFICATION_CATEGORIES.find((c) => c.id === GROUP_CATEGORY[id]);
+
 export const PROJECT_NOTIFICATION_GROUPS: Array<{
     id: ProjectNotificationGroupId;
     title: string;
     description: string;
     visible: boolean;
-}> = [
-    { id: "membership_access", title: "Membership and access", description: "Role, access, visibility, and membership changes.", visible: true },
-    { id: "roles_applications", title: "Roles and applications", description: "Open roles, application intake, decisions, and review routing.", visible: true },
-    { id: "project_lifecycle", title: "Stages", description: "Sprint and lifecycle changes that affect workspace momentum.", visible: true },
-    { id: "tasks_workflow", title: "Tasks and workflow", description: "Assignments, mentions, status attention, and workflow responsibility.", visible: true },
-    { id: "files_workspace", title: "Files", description: "Uploads, versions, reviews, organization, and sync status.", visible: true },
-    { id: "readme", title: "Doc", description: "Documentation publishing and major documentation changes.", visible: true },
-    { id: "updates", title: "Updates", description: "Workspace progress posts, follower notifications, and update discussions.", visible: true },
-    { id: "security_audit", title: "Security and audit", description: "Protected actions, exports, archive/delete, and access-sensitive events.", visible: true },
-    { id: "future", title: "Future surfaces", description: "Updates and follower digest triggers hidden until enforceable.", visible: false },
-    { id: "org_membership", title: "Organization", description: "Join requests, invitations, access changes and removals.", visible: true },
-    { id: "org_assignments", title: "Assignments", description: "Published work, submissions, reviews and due dates.", visible: true },
-    { id: "org_announcements", title: "Announcements", description: "Announcements for each post’s audience.", visible: true },
-    { id: "org_credit", title: "Contribution credit", description: "Verified roles and removed verification.", visible: true },
-    { id: "org_sprints", title: "Sprints", description: "Org sprints starting and closing, and sprint steps for leads and admins.", visible: true },
-];
+}> = (Object.keys(GROUP_CATEGORY) as ProjectNotificationGroupId[]).map((id) => ({
+    id,
+    title: categoryOf(id)?.label ?? "",
+    description: categoryOf(id)?.description ?? "",
+    visible: GROUP_CATEGORY[id] !== null,
+}));
 
 const ORG_GROUP_IDS = new Set<ProjectNotificationGroupId>(["org_membership", "org_assignments", "org_announcements", "org_credit", "org_sprints"]);
 
@@ -990,13 +989,16 @@ export function getVisibleProjectNotificationEntries(isOrg = false) {
 }
 
 export function groupProjectNotificationEntries(entries = getVisibleProjectNotificationEntries()) {
-    return PROJECT_NOTIFICATION_GROUPS
-        .filter((group) => group.visible)
-        .map((group) => ({
-            ...group,
-            entries: entries.filter((entry) => entry.group === group.id),
-        }))
-        .filter((group) => group.entries.length > 0);
+    // Groups in the same category (workspace and organization rules) show as one section.
+    const sections = new Map<string, (typeof PROJECT_NOTIFICATION_GROUPS)[number] & { entries: typeof entries }>();
+    for (const group of PROJECT_NOTIFICATION_GROUPS.filter((g) => g.visible)) {
+        const own = entries.filter((entry) => entry.group === group.id);
+        const section = sections.get(group.title);
+        if (section) section.entries.push(...own);
+        else sections.set(group.title, { ...group, entries: own });
+    }
+    const order = (title: string) => NOTIFICATION_CATEGORIES.findIndex((c) => c.label === title);
+    return [...sections.values()].filter((group) => group.entries.length > 0).sort((x, y) => order(x.title) - order(y.title));
 }
 
 export function summarizeProjectNotificationPolicy(policy: ProjectNotificationPolicy, isOrg = false) {

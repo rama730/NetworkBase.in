@@ -61,7 +61,7 @@ test("#155 #156 settings say what quiet hours and desktop notifications really d
   const settings = read("src/components/settings/NotificationsSettings.tsx");
   assert.doesNotMatch(settings, /Delivery is delayed/);
   assert.match(settings, /chat messages don’t push/);
-  assert.match(settings, /Chat messages use push notifications/);
+  assert.match(settings, /While NetworkBase is open in this browser/);
 });
 
 test("#162 #164 #165 errors with Retry, one list skeleton, a Messages error boundary", () => {
