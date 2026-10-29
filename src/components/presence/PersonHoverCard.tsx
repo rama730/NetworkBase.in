@@ -3,6 +3,7 @@
 import * as Popover from "@radix-ui/react-popover";
 import Link from "next/link";
 import { useRef, useState } from "react";
+import { Flag } from "lucide-react";
 
 import { messageUserInWindow } from "@/components/messages/message-user";
 import { usePersonContext } from "@/components/messages/useConversation";
@@ -12,6 +13,7 @@ import { StatusInline } from "@/components/presence/StatusInline";
 import { usePersonPresence } from "@/components/presence/usePresence";
 import { useAuth } from "@/hooks/useAuth";
 import { profileHref } from "@/lib/routing/identifiers";
+import { ReportDialog } from "@/components/reports/ReportDialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -22,7 +24,7 @@ type Person = { id: string; username: string | null; full_name: string | null; a
  * (location, else headline, else @username), then status, presence and their local time, and two
  * compact actions. A plain card: no inner wells.
  */
-function CardBody({ person }: { person: Person }) {
+function CardBody({ person, onReport }: { person: Person; onReport: () => void }) {
   const { user } = useAuth();
   const presence = usePersonPresence(person.id);
   const context = usePersonContext(person.id);
@@ -65,6 +67,12 @@ function CardBody({ person }: { person: Person }) {
         <Button asChild variant="outline" size="sm" className="flex-1 pointer-coarse:h-11">
           <Link href={profileHref({ id: person.id, username: person.username })}>View profile</Link>
         </Button>
+        {/* Report the person from their card (trust and safety §5.1); never yourself, never signed out. */}
+        {user && user.id !== person.id ? (
+          <Button type="button" variant="ghost" size="icon-sm" onClick={onReport} aria-label={`Report ${name}`} title="Report" className="shrink-0 text-muted-foreground pointer-coarse:size-11">
+            <Flag className="size-4" aria-hidden="true" />
+          </Button>
+        ) : null}
       </div>
     </div>
   );
@@ -78,6 +86,8 @@ function CardBody({ person }: { person: Person }) {
  */
 export function PersonHoverCard({ person, children, label, className, focusable = true }: { person: Person | null; children: React.ReactNode; label?: string; className?: string; focusable?: boolean }) {
   const [open, setOpen] = useState(false);
+  // The dialog lives beside the card, not in it, so closing the card doesn't close the report.
+  const [reporting, setReporting] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   if (!person) return <>{children}</>;
   const schedule = (next: boolean, delay: number) => {
@@ -85,6 +95,7 @@ export function PersonHoverCard({ person, children, label, className, focusable 
     timer.current = setTimeout(() => setOpen(next), delay);
   };
   return (
+    <>
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger
         className={cn("rounded-md text-left", className)}
@@ -106,9 +117,11 @@ export function PersonHoverCard({ person, children, label, className, focusable 
           onPointerLeave={() => schedule(false, 200)}
           className="z-50 rounded-lg border border-border bg-popover text-popover-foreground shadow-md outline-none"
         >
-          <CardBody person={person} />
+          <CardBody person={person} onReport={() => { setOpen(false); setReporting(true); }} />
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>
+    {reporting ? <ReportDialog kind="person" targetId={person.id} noun="person" personName={person.full_name || person.username} open onOpenChange={setReporting} /> : null}
+    </>
   );
 }

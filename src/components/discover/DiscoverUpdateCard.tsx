@@ -14,6 +14,7 @@ import {
 import { WorkspaceUpdateContent } from "@/components/workspaces/updates/UpdateContent";
 import { WorkspaceUpdateMediaViewer } from "@/components/workspaces/updates/WorkspaceUpdateMediaFrame";
 import { UpdateTime, isUpdateCardControl } from "@/components/workspaces/updates/update-helpers";
+import { ReportMenuItem, useReportDialog } from "@/components/reports/ReportDialog";
 import { useToggleUpdateLike } from "@/hooks/useToggleUpdateLike";
 import { cn } from "@/lib/utils";
 import type { DiscoverUpdateMedia, DiscoverUpdateView } from "@/types/discover";
@@ -118,6 +119,8 @@ function ProjectLink({ update, onVisit }: { update: DiscoverUpdateView; onVisit:
 
 export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHide, onVisitProject }: DiscoverUpdateCardProps) {
     const like = useToggleUpdateLike(update.projectId, update.id);
+    // Report, last in the menu (trust and safety C15); not on your own update, not signed out.
+    const reporting = useReportDialog({ kind: "update", targetId: update.id, noun: update.updateType === "announcement" ? "announcement" : "post" });
     const [expanded, setExpanded] = useState(false);
     const author = update.author;
     const masked = !author || author.masked;
@@ -255,8 +258,10 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
                                 <Link href={directHref} onClick={() => onVisitProject(update.projectId)}>View in workspace</Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => onHide(update.id)}>Hide update</DropdownMenuItem>
+                            {viewerId ? <ReportMenuItem isOwn={viewerId === update.author?.id} noun={reporting.target.noun} target={reporting.target} onReport={reporting.open} /> : null}
                         </DropdownMenuContent>
                     </DropdownMenu>
+                    {reporting.dialog}
                 </div>
             </div>
         </article>

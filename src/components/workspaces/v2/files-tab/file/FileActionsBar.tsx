@@ -449,7 +449,7 @@ export function FileActionsBar({
             {roleCtx?.canManageFiles && organizationActions?.move && <DropdownMenuItem onSelect={organizationActions.move}><FolderInput className="size-4" />Move…</DropdownMenuItem>}
             <DropdownMenuItem className="text-red-600" onSelect={organizationActions?.trash}><Trash2 className="size-4" />Move to Trash</DropdownMenuItem>
           </>}
-          {nodeId && !canOrganize ? <ReportMenuItem noun="file" onReport={reportFile.open} /> : null}
+          {nodeId && !canOrganize ? <ReportMenuItem noun="file" target={reportFile.target} onReport={reportFile.open} /> : null}
         </DropdownMenuContent>
       </DropdownMenu>
       {reportFile.dialog}

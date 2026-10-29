@@ -100,8 +100,8 @@ export async function decideAppeal(caseId: string, staffId: string, outcome: "up
     if ((await listStaff()).length > 1) return { ok: false, error: "You made this decision. Ask someone else on the team to review the appeal." };
     if (!note.trim()) return { ok: false, error: "You made this decision. Add a note explaining the second look." };
   }
-  const actions = [...await db.execute<ActionRow & { strike: boolean }>(sql`
-    SELECT id, action, ends_at::text, appeal_until::text, target_id, created_at::text, strike FROM moderation_actions
+  const actions = [...await db.execute<ActionRow & { strike: boolean; restore: { visibility?: string } | null }>(sql`
+    SELECT id, action, ends_at::text, appeal_until::text, target_id, created_at::text, strike, restore FROM moderation_actions
     WHERE case_id = ${caseId} AND undone_at IS NULL AND reversed_at IS NULL ORDER BY created_at`)];
 
   if (outcome === "reversed") {
@@ -113,6 +113,8 @@ export async function decideAppeal(caseId: string, staffId: string, outcome: "up
     if (!reduceTo) return { ok: false, error: "Pick the lighter step." };
     const target = reduceTo.action === "hide" ? actions.find((a) => a.action === "remove") : actions.find((a) => ["ban", "suspension", "limit"].includes(a.action));
     if (!target) return { ok: false, error: "There's nothing to reduce to that." };
+    // A suspension reduced to a limit puts the profile back in search.
+    if (target.action === "suspension") await db.execute(sql`UPDATE profiles SET visibility = coalesce(${target.restore?.visibility ?? null}, visibility) WHERE id = ${row.subject_id}`);
     if (target.action === "ban") {
       // Undo the ban's own effects; the lighter step replaces it in place, strike kept.
       await reverseAction(target.id, staffId, "reversed", "Reduced on appeal");

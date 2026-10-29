@@ -1,15 +1,19 @@
 'use server';
 
 import { headers } from 'next/headers';
+import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 
+import { db } from '@/lib/db';
+import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { logger } from '@/lib/logger';
 import { setUserBlocked } from '@/lib/privacy/blocks';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 import { fileAppeal, withdrawAppeal } from '@/lib/trust/appeals';
-import { fileReport, listMyReports } from '@/lib/trust/cases';
+import { fileReport, listMyReports, openReportsOf } from '@/lib/trust/cases';
 import { caseLabel, parseCaseLabel, REPORT_REASONS, type ReportTargetKind } from '@/lib/trust/rules';
+import { moderatedInChannel, moderatedInWorkspace, type ModeratedItem } from '@/lib/trust/placeholders';
 import { readStanding } from '@/lib/trust/standing';
 import { resolveReportTarget } from '@/lib/trust/targets';
 
@@ -28,6 +32,7 @@ const reportSchema = z.object({
     reason: z.enum(REPORT_REASONS as [string, ...string[]]),
     details: z.string().trim().max(2000).optional(),
     alsoBlock: z.boolean().optional(),
+    joinCode: z.string().trim().max(32).optional(),
 }).strict();
 
 /** Report what you can see. One open report per person per thing; it joins or opens a case (T1–T5). */
@@ -39,7 +44,7 @@ export async function reportAction(input: z.input<typeof reportSchema>): Promise
     const rate = await consumeRateLimit(`report:create:${userId}`, 20, 3600);
     if (!rate.allowed) return { success: false, error: 'Too many reports. Try again later.' };
     const data = parsed.data as z.infer<typeof reportSchema> & { reason: (typeof REPORT_REASONS)[number] };
-    const result = await fileReport(userId, { kind: data.kind, targetId: data.targetId, seq: data.seq ?? null, reason: data.reason, details: data.details, alsoBlock: data.alsoBlock });
+    const result = await fileReport(userId, { kind: data.kind, targetId: data.targetId, seq: data.seq ?? null, reason: data.reason, details: data.details, alsoBlock: data.alsoBlock, joinCode: data.joinCode });
     if (!result.ok) return { success: false, error: result.error, caseNumber: result.caseNumber };
     logger.info('trust.report.created', { module: 'trust', kind: data.kind, severity: result.severity });
 
@@ -96,4 +101,24 @@ export async function withdrawAppealAction(caseNumber: string): Promise<{ succes
     if (!userId || !number) return { success: false, error: 'Appeal not found.' };
     const result = await withdrawAppeal(userId, number);
     return result.ok ? { success: true } : { success: false, error: result.error };
+}
+
+/** What you've reported that's still in review, as "kind:id:seq" keys with the case number (C16). */
+export async function myOpenReportsAction(): Promise<Record<string, string>> {
+    const { userId } = await getViewerAuthContext();
+    if (!userId) return {};
+    return Object.fromEntries((await openReportsOf(userId)).map((r) => [`${r.kind}:${r.targetId}:${r.seq ?? 0}`, caseLabel(r.caseNumber)]));
+}
+
+/** Hidden and removed content to show in place (§7.1): one workspace's posts and comments, or one conversation. */
+export async function moderatedItemsAction(scope: { workspaceId: string } | { channelId: string }): Promise<ModeratedItem[]> {
+    const { userId } = await getViewerAuthContext();
+    if (!userId) return [];
+    if ('workspaceId' in scope) {
+        if (!z.string().uuid().safeParse(scope.workspaceId).success || !(await getWorkspaceAccessById(scope.workspaceId, userId)).canRead) return [];
+        return moderatedInWorkspace(scope.workspaceId, userId);
+    }
+    if (!z.string().uuid().safeParse(scope.channelId).success) return [];
+    const [member] = await db.execute<{ ok: boolean }>(sql`SELECT app_private.chat_is_member(${scope.channelId}::uuid, ${userId}::uuid) AS ok`);
+    return member?.ok ? moderatedInChannel(scope.channelId, userId) : [];
 }

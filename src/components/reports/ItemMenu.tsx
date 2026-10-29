@@ -10,11 +10,10 @@ import { cn } from '@/lib/utils'
 // The "⋯" menu for one item (C15): its own actions first, then a divider and Report as the last item. It shows on
 // hover or focus of the row on pointer screens and always on touch.
 
-export function ItemMenu({ label, report, isOwn, reported, children, className, align = 'end' }: {
+export function ItemMenu({ label, report, isOwn, children, className, align = 'end' }: {
     label: string
     report?: ReportTarget
     isOwn?: boolean
-    reported?: string | null
     children?: ReactNode
     className?: string
     align?: 'start' | 'end'
@@ -33,7 +32,7 @@ export function ItemMenu({ label, report, isOwn, reported, children, className, 
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align={align} className="w-52">
                     {children}
-                    {hasReport ? <ReportMenuItem noun={report!.noun} reported={reported} onReport={reporting.open} first={!children} /> : null}
+                    {hasReport ? <ReportMenuItem noun={report!.noun} target={reporting.target} onReport={reporting.open} first={!children} /> : null}
                 </DropdownMenuContent>
             </DropdownMenu>
             {hasReport ? reporting.dialog : null}
@@ -57,7 +56,7 @@ export function HeaderReportMenu({ targetId, noun }: { targetId: string; noun: '
                     </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
-                    <ReportMenuItem first noun={noun} onReport={reporting.open} />
+                    <ReportMenuItem first noun={noun} target={reporting.target} onReport={reporting.open} />
                 </DropdownMenuContent>
             </DropdownMenu>
             {reporting.dialog}

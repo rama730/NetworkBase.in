@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Flag } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -23,13 +24,15 @@ export type ReportTarget = {
     noun: string
     /** For people and messages: offers "Also block <name>". */
     personName?: string | null
+    /** The join page's code: lets someone report an org they can only see through it. */
+    joinCode?: string | null
 }
 
 type Sent = { caseNumber: string; deadlineHours: number; blocked: boolean }
 
 const deadlineText = (hours: number) => (hours <= 1 ? 'within 1 hour' : hours <= 24 ? 'within 24 hours' : 'within 3 days')
 
-export function ReportDialog({ kind, targetId, seq, noun, personName, open, onOpenChange }: ReportTarget & { open: boolean; onOpenChange: (open: boolean) => void }) {
+export function ReportDialog({ kind, targetId, seq, noun, personName, joinCode, open, onOpenChange }: ReportTarget & { open: boolean; onOpenChange: (open: boolean) => void }) {
     const [reason, setReason] = useState<ReportReason | null>(null)
     const [details, setDetails] = useState('')
     const [alsoBlock, setAlsoBlock] = useState(false)
@@ -38,6 +41,7 @@ export function ReportDialog({ kind, targetId, seq, noun, personName, open, onOp
     const [sent, setSent] = useState<Sent | null>(null)
     const [pending, start] = useTransition()
     const pathname = usePathname()
+    const queryClient = useQueryClient()
     const canBlock = Boolean(personName) && (kind === 'person' || kind === 'chat_message')
     const urgent = reason ? REASON_RULES[reason].severity === 'urgent' : false
 
@@ -55,9 +59,10 @@ export function ReportDialog({ kind, targetId, seq, noun, personName, open, onOp
         if (!reason) return setError('Pick a reason first.')
         // Loaded on send, so screens that only show the menu don't pull in the server action.
         const { reportAction } = await import('@/app/actions/moderation')
-        const result = await reportAction({ kind, targetId, seq: seq ?? null, reason, details: details.trim() || undefined, alsoBlock: canBlock && alsoBlock })
+        const result = await reportAction({ kind, targetId, seq: seq ?? null, reason, details: details.trim() || undefined, alsoBlock: canBlock && alsoBlock, joinCode: joinCode ?? undefined })
         if (!result.success) return setError(result.error)
         setSent({ caseNumber: result.caseNumber, deadlineHours: result.deadlineHours, blocked: result.blocked })
+        queryClient.setQueryData<Record<string, string>>(MY_OPEN_REPORTS, (keys) => ({ ...keys, [reportKey({ kind, targetId, seq })]: result.caseNumber }))
     })
 
     return (
@@ -142,7 +147,22 @@ export function ReportDialog({ kind, targetId, seq, noun, personName, open, onOp
  * The "⋯" menu's last item (C15, C16): a divider, then "Report <noun>". Hidden on your own things; signed out, the
  * dialog says "Sign in to report" with a link back to the same page; already reported, it says so.
  */
-export function ReportMenuItem({ isOwn, reported, onReport, noun, first = false }: { isOwn?: boolean; reported?: string | null; onReport: () => void; noun: string; first?: boolean }) {
+const MY_OPEN_REPORTS = ['my-open-reports'] as const
+const reportKey = (t: Pick<ReportTarget, 'kind' | 'targetId' | 'seq'>) => `${t.kind}:${t.targetId}:${t.seq ?? 0}`
+
+/** Your reports still in review, fetched once when a Report item first shows (menus mount their items on open). */
+export function useOpenReportCase(target: Pick<ReportTarget, 'kind' | 'targetId' | 'seq'> | undefined) {
+    const { data } = useQuery({
+        queryKey: MY_OPEN_REPORTS,
+        queryFn: async () => (await import('@/app/actions/moderation')).myOpenReportsAction(),
+        enabled: Boolean(target?.targetId),
+        staleTime: 5 * 60_000,
+    })
+    return target ? data?.[reportKey(target)] ?? null : null
+}
+
+export function ReportMenuItem({ isOwn, onReport, noun, target, first = false }: { isOwn?: boolean; onReport: () => void; noun: string; target?: Pick<ReportTarget, 'kind' | 'targetId' | 'seq'>; first?: boolean }) {
+    const reported = useOpenReportCase(isOwn ? undefined : target)
     if (isOwn) return null
     return (
         <>
@@ -164,6 +184,7 @@ export function useReportDialog(target: ReportTarget) {
     const [open, setOpen] = useState(false)
     return {
         open: () => setOpen(true),
+        target,
         dialog: open ? <ReportDialog {...target} open={open} onOpenChange={setOpen} /> : null,
     }
 }

@@ -41,10 +41,15 @@ export async function createClient() {
 
     let route = '/unknown'
     let userAgent: string | null = null
+    // For the moderation gate: the page a server action posts to, and whether this is one.
+    let requestTarget = ''
+    let serverAction = false
     try {
         const requestHeaders = await headers()
         // Sign-in runs here, so Supabase would record the server's runtime ("node") as the session's device.
         userAgent = requestHeaders.get('user-agent')
+        requestTarget = requestHeaders.get('x-networkbase-request-target') ?? ''
+        serverAction = requestHeaders.has('next-action')
         route = toPrivacySafeRouteMetric(
             requestHeaders.get('x-route-metric')
                 ?? requestHeaders.get('x-matched-path')
@@ -84,7 +89,9 @@ export async function createClient() {
     const resolveClientAuthSnapshot = () => {
         if (!authResolutionPromise) {
             const startedAt = Date.now()
-            authResolutionPromise = resolveAuthSnapshot(client).then(withSecondFactorGate).then((resolution) => {
+            authResolutionPromise = resolveAuthSnapshot(client).then(withSecondFactorGate)
+                .then(async (resolution) => (await import('@/lib/trust/session-gate')).withModerationGate(resolution, { target: requestTarget, serverAction }))
+                .then((resolution) => {
                 logger.metric('auth.server.resolution', {
                     module: 'auth',
                     route,

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 
 import { getJoinPreviewAction } from '@/app/actions/organizations'
 import { JoinOrgButton } from '@/components/organizations/JoinOrgButton'
+import { JoinReportLink } from '@/components/organizations/JoinReportLink'
 import { WorkspaceAvatar } from '@/components/workspaces/WorkspaceAvatar'
 import { AUTH_LINK, AuthShell } from '@/components/auth/AuthShell'
 import { Button } from '@/components/ui/button'
@@ -68,6 +69,7 @@ export default async function JoinOrganizationPage({ params }: { params: Promise
                 ) : (
                     <JoinOrgButton code={code!} joinMode={preview.joinMode} orgHref={orgHref} />
                 )}
+                {user && preview.viewer !== 'member' ? <JoinReportLink orgId={preview.id} code={code!} /> : null}
             </div>
         </AuthShell>
     )

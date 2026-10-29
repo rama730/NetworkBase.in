@@ -454,7 +454,7 @@ export default function TaskDetailPanel({
                         </DropdownMenuItem>
                       </>
                     ) : null}
-                    <ReportMenuItem noun="task" onReport={reportTask.open} />
+                    <ReportMenuItem noun="task" target={reportTask.target} onReport={reportTask.open} />
                   </DropdownMenuContent>
                 </DropdownMenu>
                 {reportTask.dialog}
@@ -640,6 +640,7 @@ export default function TaskDetailPanel({
               >
                 <CommentsTab
                   projectId={projectId}
+                  taskId={resource.task?.id}
                   comments={resource.comments}
                   totalCount={resource.counts.comments}
                   hasMore={Boolean(resource.commentNextCursor)}

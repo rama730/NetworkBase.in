@@ -142,6 +142,12 @@ async function applyAction(tx: Tx, c: CaseRow, action: ModerationActionKind, mes
     await tx.execute(sql`UPDATE profiles SET visibility = 'private' WHERE id = ${subject}`);
     return { restore: { visibility: p?.visibility ?? null, hashes: hashes.map((h) => h.hash) }, endsAt };
   }
+  if (action === "suspension") {
+    // Out of search, Discover and suggestions while suspended (F13); restored when it ends.
+    const [p] = await tx.execute<{ visibility: string | null }>(sql`SELECT visibility FROM profiles WHERE id = ${subject}`);
+    await tx.execute(sql`UPDATE profiles SET visibility = 'private' WHERE id = ${subject}`);
+    return { restore: { visibility: p?.visibility ?? null }, endsAt };
+  }
   return { restore: {}, endsAt };
 }
 
@@ -185,6 +191,9 @@ async function revertAction(tx: Tx, a: { action: ModerationActionKind; target_ki
       if (children.length) await tx.execute(sql`UPDATE workspaces SET deletion_scheduled_at = NULL WHERE id IN (${sql.join(children.map((id) => sql`${id}`), sql`, `)})`);
     }
     if (a.action === "remove_verified") await tx.execute(sql`UPDATE workspaces SET verified_at = ${ts(w.verified_at)}::timestamptz WHERE id = ${a.target_id}`);
+  }
+  if (a.action === "suspension" && a.subject_id && typeof r.visibility === "string") {
+    await tx.execute(sql`UPDATE profiles SET visibility = ${r.visibility} WHERE id = ${a.subject_id} AND app_private.moderation_restriction(${a.subject_id}::uuid) IS DISTINCT FROM 'ban'`);
   }
   if (a.action === "ban" && a.subject_id) {
     const hashes = Array.isArray(r.hashes) ? (r.hashes as string[]) : [];
