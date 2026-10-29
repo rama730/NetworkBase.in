@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useMemo, useState, useTransition, type ReactNode } from 'react'
 import { MoreHorizontal } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/feedback'
 
 import {
     addNoteAction, changeSeverityAction, claimCaseAction, decideCaseAction, evidenceShownAction, legalHoldAction, mergeCaseAction, previewDecisionEmailAction, undoDecisionAction,

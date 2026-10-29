@@ -263,3 +263,20 @@ export async function readVerification() {
     ORDER BY w.verification_requested_at`);
   return [...rows];
 }
+
+/**
+ * Members → Reports for an org's owners and admins (11.6): their open cases, never reporters' names, urgent cases,
+ * DMs or anything about the viewer.
+ */
+export async function readOrgCases(orgId: string, viewerId: string) {
+  const rows = await db.execute<{ id: string; number: number; reason: ReportReason; target_kind: ReportTargetKind; label: string | null; href: string | null; reports: number; org_deadline_at: string | null; created_at: string; details: string | null; content: string | null }>(sql`
+    SELECT c.id, c.number::int AS number, c.reason, c.target_kind, c.snapshot->>'label' AS label, c.snapshot->>'href' AS href, c.org_deadline_at::text, c.created_at::text,
+           (SELECT count(*)::int FROM content_reports r WHERE r.case_id = c.id) AS reports,
+           (SELECT string_agg(r.details, ' · ') FROM content_reports r WHERE r.case_id = c.id AND r.details IS NOT NULL) AS details,
+           coalesce(c.snapshot->>'content', c.snapshot->>'message', c.snapshot->>'description') AS content
+    FROM moderation_cases c
+    WHERE c.org_id = ${orgId} AND c.routed_to = 'org' AND c.state IN ('open', 'in_review') AND c.severity <> 'urgent'
+      AND coalesce((c.snapshot->>'privateConversation')::boolean, false) = false AND c.subject_id IS DISTINCT FROM ${viewerId} AND c.merged_into IS NULL
+    ORDER BY c.org_deadline_at NULLS LAST LIMIT 100`);
+  return [...rows];
+}
