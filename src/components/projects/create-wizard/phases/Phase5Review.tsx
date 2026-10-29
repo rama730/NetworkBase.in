@@ -12,6 +12,9 @@ import { resolveSocialPresence, socialLinkItemsFromStorage } from '@/lib/profile
 import { CREATE_PROJECT_NOTIFICATION_ROWS } from '@/lib/notifications/project-policy';
 import { DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY, PROJECT_PUBLIC_TAB_LABELS, type ProjectPublicTabId } from '@/lib/projects/settings-policies';
 import ProjectCard from '@/components/projects/ProjectCard';
+import { orgTypeLabel } from '@/lib/organizations/config';
+import { ORG_CREATION_COPY, orgTypeDefaults } from '@/lib/organizations/creation';
+import { parseInviteEmails } from '@/lib/organizations/member-rules';
 import { useAuth } from '@/hooks/useAuth';
 import type { Project } from '@/types/discover';
 
@@ -113,7 +116,16 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
     const openPositionCount = openRoles.reduce((total, role) => total + role.count, 0);
     const projectLinks = socialLinkItemsFromStorage(formData.external_links);
     const projectType = PROJECT_TYPE_OPTIONS.find((type) => type.id === formData.project_type);
-    const projectTypeLabel = formData.project_type === 'other'
+    // Organizations (report §34.7): their own words, the type's label and gentle checks that never block.
+    const org = formData.organization;
+    const orgRoles = org ? org.role_names ?? orgTypeDefaults(org.org_type ?? 'other').roleNames : null;
+    const orgInvites = org?.invite_emails ? parseInviteEmails(org.invite_emails).valid.length : 0;
+    const orgChecks = org ? [
+        !org.co_admins?.length ? "You're the only admin. Add a co-admin in People?" : null,
+        !formData.problem_statement?.trim() ? "Visitors won't see who it's for (Who it's for is empty)." : null,
+        formData.visibility === 'public' && !(formData.tags || []).length ? 'Public, but no topics: it will be hard to find.' : null,
+    ].filter((c): c is string => Boolean(c)) : [];
+    const projectTypeLabel = org ? formData.custom_project_type?.trim() || 'No subject added' : formData.project_type === 'other'
         ? formData.custom_project_type || 'Custom category'
         : projectType?.label || 'No category selected';
     const sourceType = formData.import_source?.type || 'scratch';
@@ -186,6 +198,12 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
             })),
             collaboratorsCount: 1,
             followersCount: 0,
+            // An organization previews as its Discover card (report §34.7).
+            ...(formData.organization ? {
+                kind: 'organization', orgType: formData.organization.org_type ?? null, orgPartOf: formData.organization.part_of || null,
+                orgTypeLabel: orgTypeLabel(formData.organization.org_type, { typeLabel: formData.organization.type_label }),
+                category: formData.custom_project_type || null, skills: formData.tags || [], childProjectCount: 0,
+            } : {}),
             // The card preview shows the org chip (report §14.3 Phase 5).
             cardOrg: childOrg ? { id: childOrg.id, title: childOrg.title, slug: childOrg.slug } : undefined,
             createdAt: new Date().toISOString(),
@@ -199,7 +217,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                 <p className="nb-meta font-mono uppercase tracking-[0.12em] text-muted-foreground">Phase 5 · review</p>
                 <h3 className="nb-section-title mt-2 text-foreground">Review before creating</h3>
                 <p className="nb-body mt-2 text-muted-foreground">
-                    Confirm what collaborators will see at launch. Use Edit to return to the relevant phase; the project is created only when you choose Create project in the footer.
+                    {org ? 'Confirm what members will see. Use Edit to return to a step; the organization is created only when you choose Create organization in the footer.' : 'Confirm what collaborators will see at launch. Use Edit to return to the relevant phase; the project is created only when you choose Create project in the footer.'}
                 </p>
             </header>
 
@@ -263,17 +281,38 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                         <p className="nb-compact text-foreground">{formData.follow_org_sprints ? `Yes · sprints stay inside ${childOrg.title}'s` : 'No'}</p>
                     </ReviewRow>
                 ) : null}
-                {formData.organization ? (
-                    <ReviewRow label="Organization">
-                        <p className="nb-body text-foreground">@{formData.organization.handle} · {formData.organization.org_type}</p>
-                        <p className="nb-compact mt-1 text-muted-foreground">
-                            {formData.organization.join_mode === 'approval' ? 'Joining needs approval' : 'Anyone with the code joins'} ·{' '}
-                            {formData.organization.child_creation === 'admins' ? 'Admins create projects' : 'All members create projects'}
-                            {formData.organization.term_start || formData.organization.term_end ? ` · Term ${formData.organization.term_start || '…'} to ${formData.organization.term_end || '…'}` : ''}
-                        </p>
-                    </ReviewRow>
+                {org && orgRoles ? (
+                    <>
+                        <ReviewRow label="Organization">
+                            <p className="nb-body text-foreground">@{org.handle} · {orgTypeLabel(org.org_type, { typeLabel: org.type_label })}</p>
+                            <p className="nb-compact mt-1 text-muted-foreground">
+                                {[org.part_of ? `Part of ${org.part_of}` : null, org.location || null, org.time_zone || null].filter(Boolean).join(' · ') || 'No place added'}
+                            </p>
+                        </ReviewRow>
+                        <ReviewRow label="People">
+                            <p className="nb-compact text-foreground">{orgRoles.owner} · {orgRoles.admin} · {orgRoles.member} · {orgRoles.viewer}{org.creator_title ? ` · you're ${org.creator_title}` : ''}</p>
+                            <p className="nb-compact mt-1 text-muted-foreground">
+                                {[org.co_admins?.length ? `${org.co_admins.length} ${org.co_admins.length === 1 ? 'co-admin' : 'co-admins'} invited` : null,
+                                    orgInvites ? `${orgInvites} member ${orgInvites === 1 ? 'invite' : 'invites'}` : null,
+                                    org.join_mode === 'approval' ? 'Joining needs approval' : 'Anyone with the code joins',
+                                    org.max_members ? `up to ${org.max_members} members` : null].filter(Boolean).join(' · ')}
+                            </p>
+                        </ReviewRow>
+                        <ReviewRow label="Setup">
+                            <p className="nb-compact text-foreground">
+                                {org.child_creation === 'admins' ? 'Admins create projects' : 'All members create projects'}
+                                {org.term_start || org.term_end ? ` · ${ORG_CREATION_COPY[org.org_type ?? 'other'].termLabel} ${org.term_start || '…'} to ${org.term_end || '…'}` : ''}
+                                {org.plan_sprints ? ` · ${org.plan_sprints.count} sprints planned` : ''}
+                            </p>
+                        </ReviewRow>
+                        {orgChecks.length ? (
+                            <ReviewRow label="Worth a look">
+                                <ul className="nb-compact space-y-1 text-muted-foreground" data-testid="create-org-soft-checks">{orgChecks.map((c) => <li key={c}>{c}</li>)}</ul>
+                            </ReviewRow>
+                        ) : null}
+                    </>
                 ) : null}
-                <ReviewRow label="Category">
+                <ReviewRow label={org ? ORG_CREATION_COPY[org.org_type ?? 'other'].subjectLabel : 'Category'}>
                     <p className="nb-body text-foreground">{projectTypeLabel}</p>
                     {projectType?.description ? <p className="nb-compact mt-1 text-muted-foreground">{projectType.description}</p> : null}
                 </ReviewRow>
@@ -282,20 +321,20 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                         <p className="nb-body text-foreground">{formData.short_description}</p>
                     </ReviewRow>
                 ) : null}
-                <ReviewRow label="Description">
+                <ReviewRow label={org ? 'About' : 'Description'}>
                     <p className="nb-body whitespace-pre-wrap text-foreground">{formData.description || 'No description added.'}</p>
                 </ReviewRow>
                 {formData.problem_statement || formData.solution_statement ? (
                     <div className="grid border-b border-border md:grid-cols-2">
                         {formData.problem_statement ? (
                             <div className="border-b border-border px-0 py-3.5 md:border-b-0 md:border-r md:px-4 md:first:pl-0">
-                                <p className="nb-meta text-muted-foreground">Problem</p>
+                                <p className="nb-meta text-muted-foreground">{org ? "Who it's for" : 'Problem'}</p>
                                 <p className="nb-compact mt-1 whitespace-pre-wrap text-foreground">{formData.problem_statement}</p>
                             </div>
                         ) : null}
                         {formData.solution_statement ? (
                             <div className="px-0 py-3.5 md:px-4 md:last:pr-0">
-                                <p className="nb-meta text-muted-foreground">Solution</p>
+                                <p className="nb-meta text-muted-foreground">{org ? 'What members do here' : 'Solution'}</p>
                                 <p className="nb-compact mt-1 whitespace-pre-wrap text-foreground">{formData.solution_statement}</p>
                             </div>
                         ) : null}
@@ -408,7 +447,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
 
                     <aside className="border-l-2 border-primary bg-secondary/35 px-4 py-3.5" aria-label="Creation confirmation">
                         <p className="nb-ui-label text-foreground">Ready to create</p>
-                        <p className="nb-compact mt-1 text-muted-foreground">Nothing has been created yet. Create the project only when you select Create project in the footer.</p>
+                        <p className="nb-compact mt-1 text-muted-foreground">{org ? 'Nothing has been created yet. Create the organization only when you select Create organization in the footer.' : 'Nothing has been created yet. Create the project only when you select Create project in the footer.'}</p>
                     </aside>
                 </div>
 

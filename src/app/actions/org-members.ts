@@ -13,7 +13,7 @@ import { copyState } from '@/lib/organizations/assignment-rules';
 import { createCopiesForNewMember } from '@/lib/organizations/assignments';
 import { ORG_LIMITS } from '@/lib/organizations/config';
 import { orgMemberCap } from '@/lib/organizations/join-rules';
-import { acceptOrgInvite, ledChildProjects, notifySeatsReopened, openInvitesFor, removeFromOrg } from '@/lib/organizations/members';
+import { acceptOrgInvite, createOrgEmailInvites, INVITE_DAYS, ledChildProjects, notifyInvites, notifySeatsReopened, openInvitesFor, removeFromOrg } from '@/lib/organizations/members';
 import { memberChangeBlock, memberStatus, parseInviteEmails, workSummary, type OrgMemberRole, type RosterRow } from '@/lib/organizations/member-rules';
 import { addProjectMemberInternal, changeProjectMemberRoleInternal } from '@/lib/projects/collaborator-lifecycle';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
@@ -24,7 +24,6 @@ import { namesOf, notifyJoined, notifyOrg, orgHref, orgLabel, queueOrgInviteSign
 
 type Failure = { success: false; error: string };
 const DENIED: Failure = { success: false, error: "You don't have permission to do this." };
-const INVITE_DAYS = 14;
 
 /** Owners and admins of the org (the Members tab is theirs alone in v1, report §20.8). */
 async function orgManager(orgId: string, mode: 'read' | 'write' = 'write'): Promise<{ userId: string; role: 'owner' | 'admin'; slug: string | null; ownerId: string } | null> {
@@ -234,41 +233,9 @@ export async function inviteByEmailAction(orgId: string, input: z.input<typeof i
             unitId = unit?.id ?? null;
         }
     } else unitId = null;
-    // People already in the org are skipped.
-    const already = new Set((await db.select({ email: profiles.email }).from(projectMembers).innerJoin(profiles, eq(profiles.id, projectMembers.userId))
-        .where(and(eq(projectMembers.projectId, orgId), inArray(profiles.email, valid)))).map((r) => r.email.toLowerCase()));
-    const toInvite = valid.filter((e) => !already.has(e));
-    const expiresAt = new Date(Date.now() + INVITE_DAYS * 86_400_000);
-    const invites: Array<{ id: string; email: string }> = [];
-    for (const email of toInvite) {
-        const [row] = await db.insert(orgEmailInvites).values({ orgId, email, role: parsed.data.role, title: parsed.data.title || null, childProjectId: parsed.data.childProjectId ?? null, unitId, invitedBy: viewer.userId, expiresAt })
-            .onConflictDoUpdate({ target: [orgEmailInvites.orgId, orgEmailInvites.email], targetWhere: sql`${orgEmailInvites.acceptedAt} IS NULL`, set: { role: parsed.data.role, title: parsed.data.title || null, childProjectId: parsed.data.childProjectId ?? null, unitId, invitedBy: viewer.userId, expiresAt } })
-            .returning({ id: orgEmailInvites.id });
-        if (row) invites.push({ id: row.id, email });
-    }
-    const accounts = toInvite.length === 0 ? [] : await db.select({ id: profiles.id, email: profiles.email }).from(profiles).where(inArray(profiles.email, toInvite));
+    const sent = await createOrgEmailInvites(orgId, viewer.userId, { emails: valid, role: parsed.data.role, title: parsed.data.title || null, childProjectId: parsed.data.childProjectId ?? null, unitId });
     touch(viewer.slug, orgId);
-    await notifyInvites(orgId, viewer.userId, invites, accounts, { role: parsed.data.role, title: parsed.data.title || null, expiresAt });
-    return { success: true, invited: toInvite.length, existing: accounts.length, invalid };
-}
-
-/** E2 for people with an account (plus the tray), E3 for addresses without one (report §26.3 A). */
-async function notifyInvites(orgId: string, actorId: string, invites: Array<{ id: string; email: string }>, accounts: Array<{ id: string; email: string }>,
-    details: { role: string; title: string | null; expiresAt: Date }, eventSuffix = '') {
-    const org = await orgLabel(orgId);
-    if (!org || invites.length === 0) return;
-    const byEmail = new Map(accounts.map((a) => [a.email.toLowerCase(), a.id]));
-    const inviter = (await namesOf([actorId])).get(actorId) ?? 'Someone';
-    const data = { role: ROLE_LABEL[details.role] ?? details.role, memberTitle: details.title, expiresAt: details.expiresAt.toISOString() };
-    for (const invite of invites) {
-        const userId = byEmail.get(invite.email.toLowerCase());
-        if (!userId) continue;
-        await notifyOrg({
-            orgId, eventKey: 'org.invited', actorId, to: [userId], title: `${inviter} invited you to ${org.title} as ${data.role}`,
-            href: '/network?tab=invitations', sourceEventId: `${invite.id}${eventSuffix}`, refs: { invitationId: invite.id }, email: { kind: 'org_invite', data },
-        });
-    }
-    await queueOrgInviteSignupEmails(orgId, actorId, invites.filter((i) => !byEmail.has(i.email.toLowerCase())).map((i) => ({ id: `${i.id}${eventSuffix}`, email: i.email, data })));
+    return { success: true, invited: sent.invited, existing: sent.existing, invalid };
 }
 
 /** Resend: another 14 days (the email itself goes out with P14). */

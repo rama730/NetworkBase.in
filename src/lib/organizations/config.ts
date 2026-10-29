@@ -22,7 +22,7 @@ export const ORG_LIMITS = {
   orgChatChannels: 200,
   joinCodeAttemptsPerMinutePerAccount: 5,
   joinCodeAttemptsPerMinutePerIp: 20,
-  emailInvitesPerPaste: 200,
+  emailInvitesPerPaste: 500,
   emailInvitesPerOrgPerDay: 1_000,
   remindSamePersonHours: 12,
   downloadAllZipBytes: 2 * 1024 ** 3,
@@ -30,12 +30,24 @@ export const ORG_LIMITS = {
   handleHoldDays: 90,
 } as const;
 
-export const ORG_TYPES = ["education", "company", "community", "research", "club"] as const;
+export const ORG_TYPES = ["education", "company", "community", "research", "club", "other"] as const;
 export type OrgType = (typeof ORG_TYPES)[number];
 
-/** Default role names by org type (report §5, §21.5): owner / admin / member / viewer (Guest). Editable in Settings. */
+/** Default role names by org type (report §5, §21.5, §34.2): owner / admin / member / viewer (Guest). Editable in Settings. */
 export function defaultOrgRoleNames(type: OrgType) {
   if (type === "education") return { owner: "Teacher", admin: "TA", member: "Student", viewer: "Guest" };
   if (type === "company") return { owner: "Owner", admin: "Manager", member: "Member", viewer: "Guest" };
+  if (type === "research") return { owner: "PI", admin: "Researcher", member: "Member", viewer: "Guest" };
+  if (type === "club") return { owner: "President", admin: "Coordinator", member: "Member", viewer: "Guest" };
   return { owner: "Owner", admin: "Admin", member: "Member", viewer: "Guest" };
+}
+
+const TYPE_NAMES: Record<OrgType, string> = { education: "Education", company: "Company", community: "Community", research: "Research", club: "Club", other: "Other" };
+
+/** The type as people read it; "Other" shows the creator's own label ("Nonprofit"), report §34.2. */
+export function orgTypeLabel(type: string | null | undefined, orgSettings?: unknown) {
+  if (!type) return null;
+  const custom = (orgSettings as { typeLabel?: unknown } | null | undefined)?.typeLabel;
+  if (type === "other" && typeof custom === "string" && custom.trim()) return custom.trim();
+  return TYPE_NAMES[type as OrgType] ?? null;
 }

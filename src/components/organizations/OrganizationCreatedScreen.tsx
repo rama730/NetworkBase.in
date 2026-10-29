@@ -3,11 +3,29 @@
 import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/hooks/useAuth'
+import { orgInviteMessage } from '@/lib/organizations/creation'
 
-/** After creating an org (report §6): the join code large, Copy code, Copy invite message, then Go to organization. */
-export function OrganizationCreatedScreen({ title, joinCode, onContinue }: { title: string; joinCode: string; onContinue: () => void }) {
+export type CreatedOrganization = {
+    title: string
+    joinCode: string
+    /** Invites sent at creation (report §34.8). */
+    invites?: { coAdmins: number; members: number; skipped: number }
+    creatorTitle?: string | null
+}
+
+/** After creating an org (report §34.8): the join code large, Copy code, Copy invite message, what was sent, then Go to organization. */
+export function OrganizationCreatedScreen({ title, joinCode, invites, creatorTitle, onContinue }: CreatedOrganization & { onContinue: () => void }) {
     const [copied, setCopied] = useState<string | null>(null)
-    const invite = `Join ${title} on NetworkBase with code ${joinCode}: ${typeof window === 'undefined' ? '' : `${window.location.origin}/join/${joinCode}`}`
+    const { user } = useAuth()
+    const name = (user?.user_metadata?.full_name as string | undefined)?.trim()
+    const signedBy = [name, creatorTitle?.trim()].filter(Boolean).join(', ') || null
+    const link = typeof window === 'undefined' ? '' : ` ${window.location.origin}/join/${joinCode}`
+    const invite = `${orgInviteMessage({ title, joinCode, signedBy })}${link}`
+    const sent = [
+        invites?.coAdmins ? `${invites.coAdmins} co-admin ${invites.coAdmins === 1 ? 'invite' : 'invites'}` : null,
+        invites?.members ? `${invites.members} member ${invites.members === 1 ? 'invite' : 'invites'}` : null,
+    ].filter(Boolean).join(' and ')
 
     const copy = async (text: string, label: string) => {
         try {
@@ -33,6 +51,7 @@ export function OrganizationCreatedScreen({ title, joinCode, onContinue }: { tit
                     <Button type="button" variant="outline" className="min-h-11" onClick={() => copy(invite, 'Invite message copied')}>Copy invite message</Button>
                 </div>
                 <p role="status" aria-live="polite" className="min-h-5 text-sm text-muted-foreground">{copied}</p>
+                {sent ? <p className="text-sm text-foreground" data-testid="org-created-invites">{sent} sent.</p> : null}
                 <Button type="button" className="min-h-11 w-full" onClick={onContinue}>Go to organization</Button>
             </div>
         </main>

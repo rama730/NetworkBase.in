@@ -14,6 +14,8 @@ import { formatDistanceToNow } from '@/lib/utils/date'
 import type { Project } from '@/types/discover'
 
 const MONTH = new Intl.DateTimeFormat('en', { month: 'short', year: 'numeric' })
+// The project columns, read as an organization's (report §34.11).
+const ORG_LABELS = { description: 'About', problem: "Who it's for", solution: 'What happens here' }
 const month = (iso: string | null) => (iso ? MONTH.format(new Date(`${iso}T00:00:00`)) : null)
 
 /**
@@ -29,6 +31,8 @@ export function OrgAboutTab({ project, isCreator, onEdit, visitorActions }: { pr
     const memberCount = org?.memberCount ?? 0
     const term = org && (org.termStart || org.termEnd) ? `Term ${month(org.termStart) ?? '…'} – ${month(org.termEnd) ?? '…'}` : null
     const facts = [
+        org?.partOf ? `Part of ${org.partOf}` : null,
+        org?.location ?? null,
         `${memberCount} ${memberCount === 1 ? 'member' : 'members'}`,
         org?.childProjectCount ? `${org.childProjectCount} ${org.childProjectCount === 1 ? 'project' : 'projects'}` : null,
         project.createdAt ? `since ${MONTH.format(new Date(project.createdAt))}` : null,
@@ -47,12 +51,12 @@ export function OrgAboutTab({ project, isCreator, onEdit, visitorActions }: { pr
                         <p className="nb-body whitespace-pre-line text-foreground">{org.welcomeNote}</p>
                     </section>
                 ) : null}
-                <ProjectOverviewCard project={project} isCreator={isCreator} onEdit={onEdit} />
+                <ProjectOverviewCard project={project} isCreator={isCreator} onEdit={onEdit} labels={ORG_LABELS} />
                 {/* Empty-state prompts for admins (report §22.3). */}
                 {isCreator && (!statements.problemStatement || !statements.solutionStatement) ? (
                     <p className="flex flex-wrap gap-3 text-sm">
-                        {!statements.problemStatement ? <button type="button" onClick={onEdit} className="underline underline-offset-4">Add the problem {project.title} solves</button> : null}
-                        {!statements.solutionStatement ? <button type="button" onClick={onEdit} className="underline underline-offset-4">Add how {project.title} solves it</button> : null}
+                        {!statements.problemStatement ? <button type="button" onClick={onEdit} className="underline underline-offset-4">Add who {project.title} is for</button> : null}
+                        {!statements.solutionStatement ? <button type="button" onClick={onEdit} className="underline underline-offset-4">Add what members do here</button> : null}
                     </p>
                 ) : null}
                 {data?.projects.length ? (

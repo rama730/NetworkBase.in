@@ -4,7 +4,7 @@ import { and, count, eq, gt, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { orgHandleHolds, profiles, projectMembers, projects, roleApplications } from "@/lib/db/schema";
-import { defaultOrgRoleNames, type OrgType } from "@/lib/organizations/config";
+import { defaultOrgRoleNames, orgTypeLabel, type OrgType } from "@/lib/organizations/config";
 import { childCreationBlock, type VisibilityCap } from "@/lib/organizations/child-rules";
 import { readOrgRules, readOrgWork, type OrgWork } from "@/lib/organizations/settings";
 import { isProjectPubliclyReadableVisibility } from "@/lib/projects/project-visibility";
@@ -29,6 +29,11 @@ export function readDefaultUnits(settings: unknown): string[] {
 /** What the org header, About and Settings need, on top of the project read model (report §18.9). */
 export type OrgDetail = {
   type: OrgType | null;
+  /** The type as people read it; Other shows its own label (report §34.2). */
+  typeLabel: string | null;
+  /** "RV College of Engineering" and "Bengaluru" (report §34.3). */
+  partOf: string | null;
+  location: string | null;
   roleNames: Record<"owner" | "admin" | "member" | "viewer", string>;
   joinMode: "instant" | "approval";
   childCreation: "members" | "admins";
@@ -111,8 +116,12 @@ export async function readOrgDetail(
   const settings = (org.orgSettings ?? {}) as OrgSettingsRecord;
   const type = (org.orgType as OrgType | null) ?? null;
   const renameAt = settings.handleChangedAt ? new Date(new Date(settings.handleChangedAt).getTime() + 7 * 24 * 3600 * 1000) : null;
+  const text = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : null);
   return {
     type,
+    typeLabel: orgTypeLabel(type, settings),
+    partOf: text((settings as { partOf?: unknown }).partOf),
+    location: text((settings as { location?: unknown }).location),
     roleNames: { ...defaultOrgRoleNames(type ?? "community"), ...settings.roleNames },
     joinMode: settings.joinMode === "approval" ? "approval" : "instant",
     childCreation: settings.childCreation === "admins" ? "admins" : "members",

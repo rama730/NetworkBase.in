@@ -30,7 +30,7 @@ export interface WizardContextType {
 
 interface UseCreateProjectWizardProps {
     onClose: () => void;
-    onSuccess?: (projectId: string, organization?: { title: string; joinCode: string }) => void;
+    onSuccess?: (projectId: string, organization?: import('@/components/organizations/OrganizationCreatedScreen').CreatedOrganization) => void;
     initialValues?: CreateProjectInput;
     initialPhase?: WizardPhaseId;
 }
@@ -562,6 +562,11 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                         return;
                     }
                 }
+                const organization = getValues('organization');
+                if (organization && (!organization.org_type || (organization.org_type === 'other' && !organization.type_label?.trim()))) {
+                    toast.error(organization.org_type ? 'Say what you call it, for example Nonprofit.' : 'Choose what kind of organization this is.');
+                    return;
+                }
 
                 isValid = true;
             } else if (phase === 2) {
@@ -653,7 +658,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
             toast.warning('Project created', { id: creationToastId, description: creationWarnings.join(' ') });
         };
         let createdProjectId: string | null = null;
-        let createdOrganization: { title: string; joinCode: string } | undefined;
+        let createdOrganization: import('@/components/organizations/OrganizationCreatedScreen').CreatedOrganization | undefined;
         let uploadSessionContext: { sessionId?: string; manifestHash?: string } | null = null;
         const resolvedRoles = (data.roles || []).filter((role) => (role.role || '').trim().length > 0);
         const readmeIntent = data.readme ?? {
@@ -678,7 +683,11 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                     ? await import('@/app/actions/org-docs').then((m) => m.readOrgTemplateCopyAction(projectId, readmeIntent.orgTemplateDocId!))
                     : null;
                 if (fromTemplate && !fromTemplate.success) warnCreation('The org template could not be copied; the starter doc was used instead.');
-                const starterContent = fromTemplate?.success ? fromTemplate.content : buildProjectDocStarterDraft({
+                // Organizations start from their type's template (report §34.5).
+                const orgDoc = data.organization?.org_type
+                    ? (await import('@/lib/organizations/creation')).orgStarterDoc(data.organization.org_type, { title: data.title, description: data.description, audience: data.problem_statement, activities: data.solution_statement })
+                    : null;
+                const starterContent = fromTemplate?.success ? fromTemplate.content : orgDoc ?? buildProjectDocStarterDraft({
                     title: data.title,
                     shortDescription: data.short_description,
                     description: data.description,
@@ -776,7 +785,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
 
             if (!result.success || !result.project) throw Object.assign(new Error(result.error || 'Creation failed'), { code: (result as { code?: string }).code });
             createdProjectId = result.project.id;
-            if (result.project.joinCode) createdOrganization = { title: result.project.title, joinCode: result.project.joinCode };
+            if (result.project.joinCode) createdOrganization = { title: result.project.title, joinCode: result.project.joinCode, invites: result.project.invites, creatorTitle: data.organization?.creator_title || null };
             // Things that didn't happen but didn't stop creation, e.g. an invitation refused by privacy rules.
             for (const notice of result.notices ?? []) warnCreation(notice);
 

@@ -119,6 +119,9 @@ export interface Project {
   /** Cards (report §24.1, §24.2): org cards show their type and projects; child cards an org line. */
   kind?: "project" | "organization";
   orgType?: string | null;
+  /** The type as people read it and the body it belongs to (report §34.11). */
+  orgTypeLabel?: string | null;
+  orgPartOf?: string | null;
   childProjectCount?: number;
   cardOrg?: { title: string; slug: string | null } | null;
   /** Organizations only: header, About and Settings data (null or absent for other projects). */

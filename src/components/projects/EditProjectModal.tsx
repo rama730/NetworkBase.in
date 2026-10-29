@@ -115,6 +115,8 @@ function StatusSelector({ value, onChange }: { value: string; onChange: (val: st
 // --- Main Component ---
 
 export default function EditProjectModal({ project, isOpen, onClose, onSaved }: EditProjectModalProps) {
+    // Organizations keep the same columns under their own words (report §34.11).
+    const isOrg = (project as { kind?: string }).kind === "organization";
     const [activeTab, setActiveTab] = useState("essentials");
     const [isPending, startTransition] = useTransition();
     const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
@@ -380,23 +382,23 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                             </div>
                                             <div className="grid gap-6">
                                                 <div>
-                                                    <label htmlFor="edit-project-problem" className="block text-sm font-medium mb-2 text-foreground">Problem Statement</label>
+                                                    <label htmlFor="edit-project-problem" className="block text-sm font-medium mb-2 text-foreground">{isOrg ? "Who it's for" : "Problem Statement"}</label>
                                                     <textarea
                                                         id="edit-project-problem"
                                                         {...register("problemStatement")}
                                                         onInput={(e: any) => adjustHeight(e)}
                                                         className="w-full px-4 py-3 min-h-[100px] rounded-lg border border-border bg-transparent outline-none transition-[color,background-color,border-color,box-shadow,opacity,transform] resize-none text-foreground"
-                                                        placeholder="What problem are you solving?"
+                                                        placeholder={isOrg ? "Who joins this organization?" : "What problem are you solving?"}
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label htmlFor="edit-project-solution" className="block text-sm font-medium mb-2 text-foreground">Solution Overview</label>
+                                                    <label htmlFor="edit-project-solution" className="block text-sm font-medium mb-2 text-foreground">{isOrg ? "What members do here" : "Solution Overview"}</label>
                                                     <textarea
                                                         id="edit-project-solution"
                                                         {...register("solutionStatement")}
                                                         onInput={(e: any) => adjustHeight(e)}
                                                         className="w-full px-4 py-3 min-h-[100px] rounded-lg border border-border bg-transparent outline-none transition-[color,background-color,border-color,box-shadow,opacity,transform] resize-none text-foreground"
-                                                        placeholder="How does your project solve it?"
+                                                        placeholder={isOrg ? "What do members do here?" : "How does your project solve it?"}
                                                     />
                                                 </div>
                                             </div>

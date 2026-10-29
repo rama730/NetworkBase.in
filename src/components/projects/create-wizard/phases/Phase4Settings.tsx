@@ -2,7 +2,8 @@
 
 import { useCreateLocation } from '@/components/organizations/CreateLocation';
 import { allowedChildVisibilities, type VisibilityCap } from '@/lib/organizations/child-rules';
-import { OrgSettingsFields } from '@/components/organizations/OrgWizardFields';
+import { OrgCalendarFields, OrgSettingsFields } from '@/components/organizations/OrgWizardFields';
+import { ORG_CREATION_COPY } from '@/lib/organizations/creation';
 import { readOrgDocsAction } from '@/app/actions/org-docs';
 import { listOrgTemplateFoldersAction } from '@/app/actions/org-files';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
@@ -137,11 +138,11 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
         if (childOrg.followSprintsDefault !== undefined && !getFieldState('follow_org_sprints').isDirty) setValue('follow_org_sprints', childOrg.followSprintsDefault);
     }, [childOrg, getFieldState, setValue]);
     const followOrgSprints = useWatch({ control, name: 'follow_org_sprints' });
-    // Report §17.10: members post updates by default in companies, not in Education orgs.
+    // The type's member-updates default is applied in Phase 1 (applyOrgTypeDefaults); here only its doc name.
     const orgType = useWatch({ control, name: 'organization.org_type' });
-    useEffect(() => {
-        if (isOrganization && orgType && !getFieldState('member_updates_enabled').isDirty) setValue('member_updates_enabled', orgType !== 'education');
-    }, [getFieldState, isOrganization, orgType, setValue]);
+    const orgStarterDoc = isOrganization ? ORG_CREATION_COPY[orgType ?? 'other'].starterDoc : null;
+    // Orgs don't use manual Journey stages: their Journey is built from sprints (report §22.1).
+    const sections = isOrganization ? SECTIONS.filter((s) => s.id !== 'lifecycle') : SECTIONS;
     const [
         visibilityValue, publicTabsValue, externalLinksValue, readme, docEditPolicy, lifecycleStagesValue,
         memberUpdatesEnabled, memberFileUploadDefault, notificationRowsValue,
@@ -263,7 +264,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     <p className="nb-compact mt-1 text-muted-foreground">Jump to any section. All start at the Settings defaults.</p>
                 </div>
                 <nav aria-label="Launch settings sections" className="mt-1 space-y-1">
-                    {SECTIONS.map((section) => {
+                    {sections.map((section) => {
                         const Icon = section.icon;
                         const active = activeSection === section.id;
                         return (
@@ -290,14 +291,21 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
 
             <div className="min-w-0 w-full space-y-8 pb-6">
                 <div className="max-w-[65ch]">
-                    <p className="nb-micro text-primary">Phase 4 · settings</p>
-                    <h2 className="nb-section-title mt-1 text-foreground">Set up how the project launches</h2>
-                    <p className="nb-compact mt-1.5 text-muted-foreground">Every choice has a sensible default and can be changed later in Project settings.</p>
+                    <p className="nb-micro text-primary">Phase 4 · {isOrganization ? 'setup' : 'settings'}</p>
+                    <h2 className="nb-section-title mt-1 text-foreground">{isOrganization ? 'Setup' : 'Set up how the project launches'}</h2>
+                    <p className="nb-compact mt-1.5 text-muted-foreground">{isOrganization ? 'Who can see it and how it runs. Everything here is in Settings later.' : 'Every choice has a sensible default and can be changed later in Project settings.'}</p>
                 </div>
                 {isOrganization ? (
-                    <section aria-label="Organization projects" className="border-t border-border pt-6">
-                        <OrgSettingsFields />
-                    </section>
+                    <>
+                        <section aria-labelledby="create-org-calendar" className="border-t border-border pt-6">
+                            <h3 id="create-org-calendar" className="nb-card-title mb-4 text-foreground">Calendar</h3>
+                            <OrgCalendarFields />
+                        </section>
+                        <section aria-labelledby="create-org-inside" className="border-t border-border pt-6">
+                            <h3 id="create-org-inside" className="nb-card-title mb-4 text-foreground">Projects inside and work</h3>
+                            <OrgSettingsFields />
+                        </section>
+                    </>
                 ) : null}
 
                 {showValidationSummary && validationMessages.length > 0 ? (
@@ -417,14 +425,14 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     {externalLinksError ? <p role="alert" className="mt-2 text-[13px] leading-[1.5] text-destructive">{externalLinksError}</p> : null}
                 </LaunchSection>
 
-                <LaunchSection {...sectionProps('documentation')} title="Starter doc" description="The project Doc tab: setup notes, guidance, and how to contribute." summary={docMode === 'skip' ? 'No doc yet' : `${orgTemplates.find((t) => t.id === readme?.orgTemplateDocId)?.filename.replace(/\.md$/i, '') ?? 'Starter template'} · ${readme?.publishOnCreate ? 'published' : 'draft'}`}>
+                <LaunchSection {...sectionProps('documentation')} title="Starter doc" description="The project Doc tab: setup notes, guidance, and how to contribute." summary={docMode === 'skip' ? 'No doc yet' : `${orgTemplates.find((t) => t.id === readme?.orgTemplateDocId)?.filename.replace(/\.md$/i, '') ?? (orgStarterDoc ? `${orgStarterDoc} template` : 'Starter template')} · ${readme?.publishOnCreate ? 'published' : 'draft'}`}>
                     <div className="flex flex-wrap gap-2" role="group" aria-label="Starter doc">
                         {orgTemplates.map((t) => (
                             <ChoiceChip key={t.id} selected={docMode === 'starter' && readme?.orgTemplateDocId === t.id} onClick={() => set('readme', { ...readme, mode: 'starter', orgTemplateDocId: t.id } as CreateProjectInput['readme'])}>
                                 {childOrg?.title}: {t.filename.replace(/\.md$/i, '')}
                             </ChoiceChip>
                         ))}
-                        <ChoiceChip selected={docMode === 'starter' && !readme?.orgTemplateDocId} onClick={() => set('readme', { ...readme, mode: 'starter', orgTemplateDocId: null } as CreateProjectInput['readme'])}>Starter template</ChoiceChip>
+                        <ChoiceChip selected={docMode === 'starter' && !readme?.orgTemplateDocId} onClick={() => set('readme', { ...readme, mode: 'starter', orgTemplateDocId: null } as CreateProjectInput['readme'])}>{orgStarterDoc ? `${orgStarterDoc} template` : 'Starter template'}</ChoiceChip>
                         <ChoiceChip selected={docMode === 'skip'} onClick={() => set('readme', { ...readme, mode: 'skip', publishOnCreate: false } as CreateProjectInput['readme'])}>No doc yet</ChoiceChip>
                     </div>
                     {sourceType !== 'scratch' ? (
@@ -438,13 +446,13 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     ) : null}
                 </LaunchSection>
 
-                <LaunchSection {...sectionProps('lifecycle')} title="Journey stages" description="Stages are suggested from the category. Rename, reorder, or add them to match how the work will progress." summary={lifecycleStages.length ? `${lifecycleStages.length} stages` : 'No stages yet'}>
+                {isOrganization ? null : <LaunchSection {...sectionProps('lifecycle')} title="Journey stages" description="Stages are suggested from the category. Rename, reorder, or add them to match how the work will progress." summary={lifecycleStages.length ? `${lifecycleStages.length} stages` : 'No stages yet'}>
                     <LifecycleEditor
                         stages={lifecycleStages}
                         onChange={(stages) => set('lifecycle_stages', stages)}
                         showCurrentStage={false}
                     />
-                </LaunchSection>
+                </LaunchSection>}
 
                 <LaunchSection {...sectionProps('permissions')} title="What members can do" description="Leaders can always do both. These apply to members who join later." summary={`Updates: ${memberUpdatesEnabled !== false ? 'members' : 'leaders only'} · Uploads: ${memberFileUploadDefault !== false ? 'members' : 'leaders only'}`}>
                     <div className="border-y border-border">

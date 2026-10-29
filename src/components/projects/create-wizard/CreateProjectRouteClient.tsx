@@ -1,6 +1,6 @@
 'use client'
 
-import { OrganizationCreatedScreen } from '@/components/organizations/OrganizationCreatedScreen'
+import { OrganizationCreatedScreen, type CreatedOrganization } from '@/components/organizations/OrganizationCreatedScreen'
 import type { CreateLocation } from '@/components/organizations/CreateLocation'
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -40,7 +40,7 @@ export function CreateProjectRouteClient({
     // The wizard mounts once, with restored values, so it waits for the GitHub hand-off to be read.
     const [handoff, setHandoff] = useState<Handoff | null>(null)
     // A new org shows its join code once before going to it (report §6, After creation).
-    const [createdOrg, setCreatedOrg] = useState<{ projectId: string; title: string; joinCode: string } | null>(null)
+    const [createdOrg, setCreatedOrg] = useState<(CreatedOrganization & { projectId: string }) | null>(null)
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search)
@@ -74,7 +74,7 @@ export function CreateProjectRouteClient({
         router.replace(readCreateProjectReturnPath() ?? '/discover')
     }, [router])
 
-    const handleSuccess = useCallback((projectId: string, organization?: { title: string; joinCode: string }) => {
+    const handleSuccess = useCallback((projectId: string, organization?: CreatedOrganization) => {
         void queryClient.invalidateQueries({ queryKey: queryKeys.discover.projectsSimpleRoot() })
         void queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.discoverRoot() })
         void queryClient.invalidateQueries({ queryKey: queryKeys.profile.root() })
