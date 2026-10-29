@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, Suspense } from "react";
-import { LogOut, Menu, Plus, Scale, Search, Settings, Share2, ShieldCheck, Smile, UserRound } from "lucide-react";
+import { LogOut, Menu, Plus, Search, ShieldCheck, Smile, UserRound } from "lucide-react";
 import Logo from "./Logo";
 import {
     DropdownMenu,
@@ -283,9 +283,6 @@ export default function TopNav() {
                                         </div>
                                         <DropdownMenuSeparator className="-mx-1 my-1 bg-border" />
                                         <StatusMenuItem userId={user?.id ?? null} />
-                                        <DropdownMenuItem onSelect={() => { setShareReturnFocus(profileMenuTriggerRef.current); setShareApplication(true); }}>
-                                            <Share2 className="size-4" aria-hidden="true" />Share NetworkBase
-                                        </DropdownMenuItem>
                                         <DropdownMenuItem asChild>
                                             <Link
                                                 href={ROUTES.MY_PROFILE}
@@ -308,24 +305,6 @@ export default function TopNav() {
                                                 </Link>
                                             </DropdownMenuItem>
                                         ) : null}
-                                        <DropdownMenuItem asChild>
-                                            <Link
-                                                href={ROUTES.SETTINGS}
-                                                className="nb-touch-target flex h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-[5px] px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted focus:bg-muted focus:text-foreground"
-                                            >
-                                                <Settings className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                                                <span>Settings</span>
-                                            </Link>
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem asChild>
-                                            <Link
-                                                href="/settings#settings-privacy-policies"
-                                                className="nb-touch-target flex h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-[5px] px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted focus:bg-muted focus:text-foreground"
-                                            >
-                                                <Scale className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                                                <span>Legal and data</span>
-                                            </Link>
-                                        </DropdownMenuItem>
                                         <DropdownMenuItem
                                             variant="destructive"
                                             onSelect={() => setShowSignOutConfirm(true)}
@@ -334,10 +313,6 @@ export default function TopNav() {
                                             <LogOut className="size-4 shrink-0" aria-hidden="true" />
                                             <span>Sign out</span>
                                         </DropdownMenuItem>
-                                        <DropdownMenuSeparator className="-mx-1 my-1 bg-border" />
-                                        <div className="px-2.5 py-1 text-[10px] text-muted-foreground/80">
-                                            NetworkBase™ v0.1.0
-                                        </div>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             ) : (
