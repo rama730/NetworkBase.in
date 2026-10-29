@@ -192,7 +192,7 @@ export default function NotificationsPage() {
         <Button type="button" variant="outline" size="sm" onClick={() => setAllCategories(!allCategoriesEnabled)} disabled={isSaving}>{allCategoriesEnabled ? "Turn all off" : "Turn all on"}</Button>
       </div>
       {/* What these switches don't cover, said once. */}
-      <p className="pt-3 nb-compact text-muted-foreground">Direct messages, group chats and threads you follow still notify you. Mute a conversation, or change what notifies you there, from its bell menu in Messages.</p>
+      <p className="pt-3 nb-compact text-muted-foreground">Direct messages, group messages and threads you follow still notify you. Mute a conversation, or change what notifies you there, from its bell menu in Messages.</p>
       <div className="divide-y divide-border">
         {NOTIFICATION_PREFERENCE_CATEGORIES.map((category) => <PreferenceSwitch key={category.key} id={category.key} title={category.title} description={category.description} checked={category.keys.every((key) => preferences[key])} disabled={isSaving} onToggle={() => toggleCategory(category.keys)} />)}
       </div>
@@ -205,7 +205,7 @@ export default function NotificationsPage() {
             description={pauseActive && preferences.pausedUntil ? `Delivery resumes ${formatDateTime(preferences.pausedUntil)}.` : "Updates remain available in Notifications while delivery is paused."}
             right={<div className="flex flex-wrap gap-2">{pauseActive ? <Button type="button" size="sm" className="pointer-coarse:h-11" onClick={() => void resume()} disabled={isSaving || resuming}>{resuming ? "Resuming…" : "Resume now"}</Button> : null}{([["1h", "1 hour"], ["8h", "8 hours"], ["tomorrow", "Until tomorrow 9 AM"]] as const).map(([choice, label]) => <Button key={choice} type="button" variant="outline" size="sm" className="pointer-coarse:h-11" onClick={() => pause(choice)} disabled={isSaving} aria-label={pauseActive ? `Pause for ${label} instead` : undefined}>{label}</Button>)}</div>}
           />
-          <SettingsRow title="Quiet hours" description={preferences.quietHours.enabled ? `From ${formatMinuteOfDay(preferences.quietHours.startMinute)} to ${formatMinuteOfDay(preferences.quietHours.endMinute)} each day, updates wait in Notifications until it ends and chat messages don’t push (they stay unread in Messages).` : "Set a daily time when you won’t be interrupted."} right={<SettingsSwitch showLabel aria-label="Enable quiet hours" checked={preferences.quietHours.enabled} onCheckedChange={() => save({ ...preferences, quietHours: { ...preferences.quietHours, enabled: !preferences.quietHours.enabled } }, { quiet: true })} disabled={isSaving} />} />
+          <SettingsRow title="Quiet hours" description={preferences.quietHours.enabled ? `Each day from ${formatMinuteOfDay(preferences.quietHours.startMinute)} to ${formatMinuteOfDay(preferences.quietHours.endMinute)}, notifications wait and messages don’t send push alerts.` : "Set a daily time when you won’t be interrupted."} right={<SettingsSwitch showLabel aria-label="Enable quiet hours" checked={preferences.quietHours.enabled} onCheckedChange={() => save({ ...preferences, quietHours: { ...preferences.quietHours, enabled: !preferences.quietHours.enabled } }, { quiet: true })} disabled={isSaving} />} />
           {preferences.quietHours.enabled ? <div className="space-y-2 py-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <QuietTimeField label="From" minute={preferences.quietHours.startMinute} onCommit={(value) => setQuietTime("startMinute", value)} />
@@ -238,7 +238,7 @@ export default function NotificationsPage() {
       <p className="mt-3 nb-meta text-muted-foreground">Emails about the security of your account (a changed password, a new editor token, an authenticator change, account deletion) are always sent. They can’t be turned off here.</p>
     </SettingsSectionCard>
 
-    <SettingsSectionCard title="Messages" description="How chat messages reach you as push notifications.">
+    <SettingsSectionCard title="Messages" description="How messages reach you as push notifications.">
       <div className="divide-y divide-border">
         <PreferenceSwitch id="chat-thread-replies" title="Replies in threads you follow" description="Push a notification for each new reply. Off: replies still show in your Inbox; @mentions always notify." checked={chat.threadReplies} disabled={isSaving} onToggle={() => save({ ...preferences, chat: { ...chat, threadReplies: !chat.threadReplies } })} />
         <PreferenceSwitch id="chat-show-preview" title="Show message text in notifications" description="Off: notifications say who and where, but only “New message”, so the text never shows on a locked screen." checked={chat.showPreview} disabled={isSaving} onToggle={() => save({ ...preferences, chat: { ...chat, showPreview: !chat.showPreview } })} />

@@ -99,7 +99,7 @@ function ArchiveRow({ orgId, archived, preview }: { orgId: string; archived: boo
             <p className={label}>{archived ? 'Unarchive' : 'Archive'}</p>
             <p className={help}>{archived
                 ? 'Everything opens again with a new join code (off until you switch it on). Sprints never start late.'
-                : 'Everything becomes read-only: the join code turns off, reminders and digests stop, and chat is read-only. Members keep read access and you are asked to verify contributions.'}</p>
+                : 'Everything becomes read-only: the join code turns off, reminders and digests stop, and messages are read-only. Members keep read access and you are asked to verify contributions.'}</p>
             {!archived && confirming && preview ? (
                 <p className="mt-2 text-sm text-foreground">{preview.children} {preview.children === 1 ? 'workspace is' : 'workspaces are'} archived with it; {preview.sprints} planned or active {preview.sprints === 1 ? 'sprint stops' : 'sprints stop'}; {preview.members} members are told by email.</p>
             ) : null}

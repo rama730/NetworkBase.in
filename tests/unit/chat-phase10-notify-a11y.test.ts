@@ -60,7 +60,7 @@ test("#154 service worker: no push for the open conversation; clicks route in-ap
 test("#155 #156 settings say what quiet hours and desktop notifications really do", () => {
   const settings = read("src/components/settings/NotificationsSettings.tsx");
   assert.doesNotMatch(settings, /Delivery is delayed/);
-  assert.match(settings, /chat messages don’t push/);
+  assert.match(settings, /messages don’t send push alerts/);
   assert.match(settings, /While NetworkBase is open in this browser/);
 });
 

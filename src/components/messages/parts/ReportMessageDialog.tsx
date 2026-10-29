@@ -7,14 +7,8 @@ import { toast } from '@/lib/feedback';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { chatErrorMessage } from '@/lib/messaging/errors';
+import { REPORT_REASONS } from '@/lib/copy/terms';
 
-const REPORT_REASONS = [
-    { id: 'spam', label: 'Spam' },
-    { id: 'harassment', label: 'Harassment' },
-    { id: 'hate_speech', label: 'Hate speech' },
-    { id: 'inappropriate', label: 'Inappropriate content' },
-    { id: 'other', label: 'Other' },
-] as const;
 
 export type ReportReason = (typeof REPORT_REASONS)[number]['id'];
 

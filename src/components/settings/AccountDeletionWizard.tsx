@@ -124,7 +124,7 @@ export default function AccountDeletionWizard({ onClose, onDeleted }: Props) {
                     <p className="font-medium">What happens to your data</p>
                     <ul className="list-disc space-y-1 pl-4 text-muted-foreground">
                         <li>Workspaces you own are deleted, including for the people working in them.</li>
-                        <li>Your direct messages are deleted. Your messages in group chats stay, without your name.</li>
+                        <li>Your direct messages are deleted. Your messages in group messages and channels stay, without your name.</li>
                         <li>We keep a record of your email and username for 180 days so they can’t be taken over.</li>
                     </ul>
                     {owned === null && !ownedFailed ? (

@@ -529,7 +529,7 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
               )}
               {channel.is_default ? (
                 <p className="flex items-center gap-2 px-4 py-2 text-[13px] text-muted-foreground">
-                  <span className="nb-tag">Default channel</span>
+                  <span className="nb-tag">General channel</span>
                   Everyone in the workspace is a member.
                 </p>
               ) : null}

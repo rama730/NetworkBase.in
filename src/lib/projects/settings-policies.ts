@@ -989,7 +989,7 @@ export function buildProjectMemberRemovalPreflight(
       ? `${formatCount(acceptedApplications, "accepted role")} may update role capacity after removal.`
       : "No accepted role capacity impact found.",
     projectGroupParticipant
-      ? "Workspace group conversation access will be removed."
+      ? "Their access to the general channel will be removed."
       : "No workspace group conversation participant row found.",
     visibility === "private"
       ? "Private workspace access is revoked immediately."

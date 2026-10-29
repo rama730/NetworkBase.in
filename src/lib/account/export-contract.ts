@@ -13,7 +13,7 @@ export type AccountExportMessageRow = {
 export function toAccountExportMessage(row: AccountExportMessageRow) {
   const channel = row.channelKind === "dm"
     ? "Direct message"
-    : row.channelName ? `#${row.channelName}` : "Group chat";
+    : row.channelName ? `#${row.channelName}` : "Group message";
   return {
     channel,
     channelId: row.channelId,

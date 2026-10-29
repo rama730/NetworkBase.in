@@ -988,8 +988,8 @@ test("Section 11 (Slack-Exact About Section Layout & Channel Name Editing) contr
     );
     assert.match(
         detailsPaneSource,
-        /Default channel/,
-        "DetailsPane must display Default channel badge when channel.is_default is true",
+        /General channel/,
+        "DetailsPane must display General channel badge when channel.is_default is true",
     );
 
     // 11.2 Each row edits in place; admins rename (including default channels), validated

@@ -125,7 +125,7 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Tasks can only be created in workspace channels.": { "title": "Workspace channel required", "description": "Create tasks in a workspace.", "type": "warning" },
   "That task is still being created. Try again in a moment.": { "title": "Task is being created", "description": "Wait to try again.", "type": "warning" },
   "An attachment is still uploading.": { "title": "Attachment still uploading", "description": "Wait before sending.", "type": "warning" },
-  "Group chats have up to 9 people.": { "title": "Group chat is full", "description": "9 people maximum.", "type": "warning" },
+  "Group messages have up to 9 people.": { "title": "Group message is full", "description": "9 people maximum.", "type": "warning" },
   "Only channel admins can delete a canvas that has content.": { "title": "Note has content", "description": "Only admins can delete it.", "type": "warning" },
   "Someone else just edited this canvas. Showing the latest version.": { "title": "Note changed elsewhere", "description": "Latest version is shown.", "type": "warning" },
   "Enter the 6-digit code from your authenticator app": { "title": "Enter the 6-digit code", "description": "Use your authenticator.", "type": "warning" },

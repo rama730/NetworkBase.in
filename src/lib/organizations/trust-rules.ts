@@ -1,14 +1,12 @@
 // Trust and safety rules (report §30.3), pure so the server and tests agree.
+import { REPORT_REASONS as TERMS_REPORT_REASONS } from "@/lib/copy/terms";
 
 export const REPORT_REASONS = ["impersonation", "spam", "harassment", "inappropriate", "other"] as const;
 export type ReportReason = (typeof REPORT_REASONS)[number];
-export const REPORT_REASON_LABEL: Record<ReportReason, string> = {
-  impersonation: "Impersonation",
-  spam: "Spam",
-  harassment: "Harassment",
-  inappropriate: "Inappropriate content",
-  other: "Something else",
-};
+// Decision 41: labels from the one list. "hate_speech" joins once the content_reports check allows it (Phase 10).
+export const REPORT_REASON_LABEL = Object.fromEntries(
+  REPORT_REASONS.map((id) => [id, TERMS_REPORT_REASONS.find((r) => r.id === id)!.label]),
+) as Record<ReportReason, string>;
 export type ReportTargetKind = "project" | "update" | "update_comment" | "doc" | "task_comment";
 
 /** Free email providers never verify an org by domain. */

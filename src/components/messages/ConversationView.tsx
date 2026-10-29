@@ -125,7 +125,7 @@ function Intro({ channel, meId, isMember, hasCanvas, onDetails, onAddPeople, onC
         </h2>
         <p className="nb-body mt-2 max-w-2xl text-muted-foreground">
           {channel.description || (isDefault
-            ? `${channel.project_title ?? "The workspace"}'s home channel. Everyone on the team is here: share updates, decisions and wins.`
+            ? `The general channel of ${channel.project_title ?? "this workspace"}. Every member is here: share updates, decisions and wins.`
             : `Everything about #${channel.name} lives here: conversations, files and decisions.`)}
         </p>
         {channel.created_at ? (

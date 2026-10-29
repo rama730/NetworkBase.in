@@ -60,7 +60,7 @@ test("New message: listbox keys, Backspace removes a chip, cap explained (#145)"
   assert.match(source, /role="combobox"/);
   assert.match(source, /aria-activedescendant=/);
   assert.match(source, /event\.key === "Backspace" && !query && to\.length/);
-  assert.match(source, /A group chat holds up to/);
+  assert.match(source, /A group message holds up to/);
 });
 
 test("window: one header, Inbox inside, focus in and back, ⋯ menu, ⌘K (#147-151)", () => {
