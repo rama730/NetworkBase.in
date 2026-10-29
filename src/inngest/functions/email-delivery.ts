@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { jobHeartbeats } from "@/lib/db/schema";
 
 export const emailDelivery = inngest.createFunction(
-  { id: "email-outbox-delivery", name: "Transactional Email Delivery", concurrency: { limit: 1 }, retries: 2 },
+  { id: "email-outbox-delivery", name: "Transactional email delivery", concurrency: { limit: 1 }, retries: 2 },
   [{ event: "email/outbox.wake" }, { cron: "*/5 * * * *" }],
   async ({ step }) => {
     const result = await step.run("drain-email-outbox", drainEmailOutbox);

@@ -641,7 +641,7 @@ export default function UpdatesTab({
 
       <aside className="hidden w-full min-w-0 xl:block xl:w-[440px] shrink-0 border-l border-border pl-6">
         <div
-          className="sticky top-[calc(var(--project-tabs-height,42px)+1rem)] max-h-[calc(100dvh-var(--project-tabs-height,42px)-2rem)] overflow-y-auto pr-2 space-y-6"
+          className="sticky top-[calc(var(--workspace-tabs-height,42px)+1rem)] max-h-[calc(100dvh-var(--workspace-tabs-height,42px)-2rem)] overflow-y-auto pr-2 space-y-6"
         >
           {detailUpdate ? (
             <UpdateDetailPanel

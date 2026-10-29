@@ -483,7 +483,7 @@ function inferCommandRisk(command: string): { riskLevel: WorkspaceDocCommandRisk
         return { riskLevel: "caution", riskLabel: "Credential environment" };
     }
     if (/\b(?:gh|vercel|npm|pnpm|yarn|docker|supabase|claude|gemini)\s+(?:auth\s+)?login\b/.test(value)) {
-        return { riskLevel: "caution", riskLabel: "Account login" };
+        return { riskLevel: "caution", riskLabel: "Account sign-in" };
     }
     if (/\b(?:\.zshrc|\.bashrc|\.bash_profile|\.profile)\b/.test(value) && /(?:>>|>|tee)/.test(value)) {
         return { riskLevel: "caution", riskLabel: "Shell profile update" };

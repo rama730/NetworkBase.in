@@ -87,7 +87,7 @@ export function WorkspaceOnboardingModal({
                                 <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mb-3 group-hover:bg-primary/20 transition-colors">
                                     <CheckCircle2 className="w-4 h-4 text-primary" />
                                 </div>
-                                <span className="font-semibold text-sm text-foreground block">My Tasks</span>
+                                <span className="font-semibold text-sm text-foreground block">My tasks</span>
                                 <span className="text-xs text-muted-foreground">View your assignments</span>
                             </button>
 

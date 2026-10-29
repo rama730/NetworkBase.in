@@ -46,7 +46,7 @@ export const ORG_CREATION_COPY: Record<OrgType, CreationCopy> = {
     tagline: "Data Structures for 3rd-semester CSE, Section A",
     about: "What the course covers, how it runs, and what students should know first",
     audience: "Students of B.Tech CSE, 3rd semester, Section A",
-    activities: "Weekly labs, two group workspaces, a mini-project proposal by Oct 15",
+    activities: "Weekly labs, two group workspaces, a short proposal by Oct 15",
     welcome: "Read the syllabus first. Labs are due Sundays at 11 pm.",
     subjectLabel: "Subject",
     subjects: ["Computer science", "Electronics", "Mechanical", "Mathematics", "Business"],

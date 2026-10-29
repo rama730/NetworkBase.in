@@ -99,7 +99,7 @@ test.describe("mobile 375px", () => {
     await page.goto(`${project}?tab=dashboard`);
     await settle(page);
     const headerOverlap = await page.evaluate(() => {
-      const id = document.querySelector(".nb-project-identity");
+      const id = document.querySelector(".nb-workspace-identity");
       const h1 = id?.querySelector("h1")?.getBoundingClientRect();
       if (!id || !h1) return "missing";
       const hit = [...id.querySelectorAll("button,a")].find((el) => {

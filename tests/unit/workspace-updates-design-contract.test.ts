@@ -26,7 +26,7 @@ test("Project Updates Tab Design Specification Conformance Contract (Section 25 
 
     await t.test("UpdatesTab aside conforms to scroll-pinned tabs-height docking with unbroken divider", () => {
         assert.match(updatesTab, /border-l border-border pl-6/, "Aside must have unbroken vertical border and padding");
-        assert.match(updatesTab, /top-\[calc\(var\(--project-tabs-height,42px\)\+1rem\)\]/, "Sticky container must dock cleanly below sticky tabs header");
+        assert.match(updatesTab, /top-\[calc\(var\(--workspace-tabs-height,42px\)\+1rem\)\]/, "Sticky container must dock cleanly below sticky tabs header");
         assert.doesNotMatch(updatesTab, /sticky top-4/, "Sticky container must not use hardcoded top-4");
     });
 

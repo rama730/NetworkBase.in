@@ -162,7 +162,7 @@ function ExtensionSessionRow({ session, revoking, onRevoke }: { session: Extensi
                 Active {formatDistanceToNow(new Date(session.lastSeenAt), { addSuffix: true })} · v{session.clientVersion || "unknown"}
               </p>
               <p className="nb-meta mt-1 truncate text-muted-foreground">
-                {session.authMethod === "web_login" ? "Web login" : "Manual token"}
+                {session.authMethod === "web_login" ? "Web sign-in" : "Manual token"}
                 {session.editorVersion ? ` · ${session.editorVersion}` : ""}
               </p>
             </>

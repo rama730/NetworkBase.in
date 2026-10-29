@@ -254,7 +254,7 @@ export default function WorkspaceLayout({
     };
     const projectUpdatedLabel = formatWorkspaceUpdatedLabel(project.updatedAt);
     const layoutStyle = useMemo(() => ({
-        "--project-tabs-height": `${projectTabsHeight}px`,
+        "--workspace-tabs-height": `${projectTabsHeight}px`,
     } as CSSProperties), [projectTabsHeight]);
 
     return (
@@ -269,7 +269,7 @@ export default function WorkspaceLayout({
             {/* Top Row: Context & Actions (NOT sticky; scrolls away) */}
             <div className="shrink-0 bg-card">
                 <div className="w-full">
-                    <div ref={projectIdentityRef} className={cn("nb-project-identity flex flex-wrap items-start justify-between gap-4 px-4 pb-4 pt-5 sm:px-6 max-md:gap-3 max-md:pt-4", isToolTab && "max-md:hidden")}>
+                    <div ref={projectIdentityRef} className={cn("nb-workspace-identity flex flex-wrap items-start justify-between gap-4 px-4 pb-4 pt-5 sm:px-6 max-md:gap-3 max-md:pt-4", isToolTab && "max-md:hidden")}>
                         {/* Left: Project Identity */}
                         {(() => {
                             const hasProjectAvatar = Boolean(getWorkspaceAvatarUrl(project));
@@ -566,7 +566,7 @@ export default function WorkspaceLayout({
                 aria-labelledby={`project-tab-${activeTab}`}
                 className={cn(
                     isFilesTab
-                            ? "flex h-[calc(100dvh-var(--ui-topnav-height)-var(--project-tabs-height))] min-h-[28rem] w-full flex-col overflow-hidden max-md:h-[calc(100dvh-var(--ui-topnav-height)-var(--project-tabs-height)-3rem)] max-md:min-h-0"
+                            ? "flex h-[calc(100dvh-var(--ui-topnav-height)-var(--workspace-tabs-height))] min-h-[28rem] w-full flex-col overflow-hidden max-md:h-[calc(100dvh-var(--ui-topnav-height)-var(--workspace-tabs-height)-3rem)] max-md:min-h-0"
                             : isSettingsTab
                                 ? "w-full"
                                 : isUpdatesTab

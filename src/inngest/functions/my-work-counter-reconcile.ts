@@ -4,7 +4,7 @@ import { sql } from 'drizzle-orm'
 import { buildMyWorkTaskCounterFilters, getMyWorkCounterWindow } from '@/lib/my-work/counter-logic'
 
 export const reconcileMyWorkProfileCounters = inngest.createFunction(
-    { id: 'reconcile-workspace-profile-counters', name: 'Reconcile Workspace Profile Counters' },
+    { id: 'reconcile-workspace-profile-counters', name: 'Reconcile My work counters' },
     { cron: '0 4 * * *' },
     async ({ step }) => {
         const { now, todayEnd } = getMyWorkCounterWindow()

@@ -356,7 +356,7 @@ export default function Phase1SourceSelection({
             });
             if (result.error) throw result.error;
             if (!result.data?.url) {
-                throw new Error('GitHub login redirect could not be started.');
+                throw new Error('Couldn’t start GitHub sign-in. Try again.');
             }
             continueBrowserOAuthRedirect(result);
         } catch (error: any) {

@@ -89,9 +89,9 @@ function Fixture() {
           highlights={<div data-testid="detail-rail-content" style={{ height: params.has('short') ? 200 : 1100 }} className="flex flex-col justify-between border border-border p-4">
             <h2>Role preferences</h2><a href="/my-profile/edit">Edit preferences</a>
           </div>} rail={null} />
-          : <div data-testid="project-layout" style={{ '--project-tabs-height': '56px' } as React.CSSProperties}>
+          : <div data-testid="project-layout" style={{ '--workspace-tabs-height': '56px' } as React.CSSProperties}>
             <h1 className="nb-page-title px-6" style={{ height: 100 }}>Example project</h1>
-            <nav data-testid="project-tabs" className="sticky top-0 z-30 bg-card px-6" style={{ height: 'var(--project-tabs-height)' }}>Dashboard · Docs</nav>
+            <nav data-testid="project-tabs" className="sticky top-0 z-30 bg-card px-6" style={{ height: 'var(--workspace-tabs-height)' }}>Dashboard · Docs</nav>
             <div data-testid="dashboard-fixture" className="p-6">
               <style>{`[data-testid="dashboard-fixture"] > div > div { min-height: 3000px; } [data-testid="dashboard-fixture"] aside[aria-label="Project details"] { min-height: ${params.has('short') ? 0 : 1100}px; }`}</style>
               <DashboardTab project={{ id: 'project-1', description: 'Project description' }}

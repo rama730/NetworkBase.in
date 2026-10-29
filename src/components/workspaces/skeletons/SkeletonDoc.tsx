@@ -16,7 +16,7 @@ export function SkeletonDoc() {
                     <Skeleton className="h-4 w-4/5 rounded-[4px]" />
                 </div>
                 <aside className="hidden w-full xl:block xl:w-[260px] shrink-0 border-l border-border pl-6">
-                    <div className="sticky top-[calc(var(--project-tabs-height,42px)+1rem)] space-y-2">
+                    <div className="sticky top-[calc(var(--workspace-tabs-height,42px)+1rem)] space-y-2">
                         <div className="flex items-center justify-between pb-2">
                             <Skeleton className="h-3.5 w-20 rounded-[3px]" />
                             <Skeleton className="h-4 w-4 rounded-[3px]" />

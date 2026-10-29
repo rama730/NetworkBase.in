@@ -665,7 +665,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
         {channelRows.map(row)}
         {empty ? (
           <p className="px-2.5 py-1 text-[13px] text-muted-foreground">
-            No channels yet{inPage ? null : <> · <Link href={`/messages/w/${id}/browse`} className="font-medium text-primary hover:underline">Open Messages</Link></>}
+            No channels yet{inPage ? null : <> · <Link href={`/messages/w/${id}/browse`} className="font-medium text-primary hover:underline">Open messages</Link></>}
           </p>
         ) : null}
         {unreadsOnly ? null : browseRow(id)}

@@ -104,7 +104,7 @@ export default function SupportPage() {
                 </a>{" "}
                 in accordance with our{" "}
                 <Link href="/security-reporting" className="underline">
-                  Security Reporting Policy
+                  Security reporting
                 </Link>
                 .
               </p>

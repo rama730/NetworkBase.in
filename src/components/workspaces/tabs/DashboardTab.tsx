@@ -45,7 +45,7 @@ export function DashboardTab({
     application,
     pendingApplications,
 }: DashboardTabProps) {
-    const stickyRail = useBottomStickyRail({ topInset: "calc(var(--project-tabs-height, 0px) + 24px)" });
+    const stickyRail = useBottomStickyRail({ topInset: "calc(var(--workspace-tabs-height, 0px) + 24px)" });
     const stages = lifecycleStages.map((stage: any) => stage?.name ?? stage).filter(Boolean);
 
     return (

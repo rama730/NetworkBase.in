@@ -85,7 +85,7 @@ test("project settings implements 60fps RAF ScrollSpy and non-thrashing navigati
     assert.doesNotMatch(settingsTab, /target\.scrollIntoView/, "Section navigation must not move the shared project route scroller");
     assert.match(settingsTab, /stickyTabsHeight/, "Section navigation must account for the sticky project tab height");
     assert.match(settingsTab, /scrollRoot\.scrollTo\(/, "Section navigation must scroll the route explicitly without scrollIntoView side effects");
-    assert.doesNotMatch(settingsTab, /scroll-mt-\[var\(--project-tabs-height\)\]/, "Contained sections must not reserve a second project-tab offset");
+    assert.doesNotMatch(settingsTab, /scroll-mt-\[var\(--workspace-tabs-height\)\]/, "Contained sections must not reserve a second project-tab offset");
     assert.match(settingsTab, /settingsScrollTop/, "File picker interactions must preserve the contained Settings scroll position");
 
     // Must have navigation lock to prevent URL thrashing during programmatic smooth scrolling
