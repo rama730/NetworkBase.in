@@ -78,7 +78,7 @@ export function WorkspaceStatusControl({ projectId, canManage }: { projectId: st
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
-          <DialogTitle>Removed</DialogTitle>
+          <DialogTitle>Team status</DialogTitle>
           <form
             className="space-y-4"
             onSubmit={(event) => {
@@ -93,7 +93,7 @@ export function WorkspaceStatusControl({ projectId, canManage }: { projectId: st
                 maxLength={STATUS_TEXT_MAX}
                 onChange={(event) => setText(event.target.value)}
                 placeholder="What’s the team doing?"
-                aria-label="Removed"
+                aria-label="Team status"
                 className="min-w-0 flex-1 bg-transparent text-[15px] outline-none"
               />
             </div>

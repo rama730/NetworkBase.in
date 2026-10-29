@@ -43,7 +43,7 @@ describe("privacy resolver", () => {
         assert.equal(state.shouldHideFromDiscovery, true);
     });
 
-    it("enforces mutual-only connection request *(keep)* rules", () => {
+    it("enforces mutual-only connection request rules", () => {
         const denied = derivePrivacyRelationshipState({
             viewerId: "viewer",
             targetUserId: "target",
