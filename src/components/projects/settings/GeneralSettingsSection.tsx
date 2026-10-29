@@ -374,7 +374,7 @@ export function GeneralSettingsSection({
         }
 
         if (file.size > PROJECT_IMAGE_UPLOAD_MAX_BYTES) {
-            toast.warning(`Image must be under 2MB. Selected file is ${(file.size / (1024 * 1024)).toFixed(1)}MB.`);
+            toast.warning(`Image must be under 2 MB. Selected file is ${(file.size / (1024 * 1024)).toFixed(1)} MB.`);
             return;
         }
 
@@ -564,7 +564,7 @@ export function GeneralSettingsSection({
                             <div className="nb-meta mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
                                 <span>JPG, PNG, WebP, GIF</span>
                                 <span>•</span>
-                                <span>Under 2MB</span>
+                                <span>Under 2 MB</span>
                                 <span>•</span>
                                 <span>Square 1:1</span>
                             </div>

@@ -47,11 +47,11 @@ export const EXPERIENCE_LEVEL_OPTIONS = [
 // Decision 34: "Founder" is not a level. Saved 'founder' rows read as Lead until the Phase 10 migration rewrites them.
 
 export const WEEKLY_CAPACITY_OPTIONS = [
-  { value: 'lt_5', label: 'Less than 5 hours per week', compactLabel: '<5 hrs/week' },
-  { value: 'h_5_10', label: '5–10 hours per week', compactLabel: '5–10 hrs/week' },
-  { value: 'h_10_20', label: '10–20 hours per week', compactLabel: '10–20 hrs/week' },
-  { value: 'h_20_40', label: '20–40 hours per week', compactLabel: '20–40 hrs/week' },
-  { value: 'h_40_plus', label: '40+ hours per week', compactLabel: '40+ hrs/week' },
+  { value: 'lt_5', label: 'Less than 5 hours a week', compactLabel: '<5 h/week' },
+  { value: 'h_5_10', label: '5–10 hours a week', compactLabel: '5–10 h/week' },
+  { value: 'h_10_20', label: '10–20 hours a week', compactLabel: '10–20 h/week' },
+  { value: 'h_20_40', label: '20–40 hours a week', compactLabel: '20–40 h/week' },
+  { value: 'h_40_plus', label: '40+ hours a week', compactLabel: '40+ h/week' },
 ] as const
 
 const roleAliases = new Map<string, RolePreferenceValue>([

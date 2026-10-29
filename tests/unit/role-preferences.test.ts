@@ -17,7 +17,7 @@ test('role preferences normalize legacy aliases into stable display order', () =
     ['Full-time roles', 'Freelance projects', 'Co-founder opportunities'],
   )
   assert.equal(rolePreferenceLabel('contract'), 'Contract')
-  assert.equal(weeklyCapacityLabel('h_10_20'), '10–20 hours per week')
+  assert.equal(weeklyCapacityLabel('h_10_20'), '10–20 hours a week')
 })
 
 test('updating roles retains unrelated legacy collaboration interests', () => {

@@ -150,7 +150,7 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Fix the highlighted workspace contribution before saving": { "title": "Fix the highlighted workspace contribution before saving", "type": "warning" },
   "Profile updated": { "title": "Profile updated" },
   "Latest version loaded": { "title": "Latest version loaded", "description": "Draft edits kept." },
-  "Image must be 2MB or smaller": { "title": "Image must be 2MB or smaller", "type": "warning" },
+  "Image must be 2MB or smaller": { "title": "Image must be 2 MB or smaller", "type": "warning" },
   "You have 20 pending applications. Withdraw one to apply.": { "title": "You have 20 pending applications. Withdraw one to apply." },
   "Workspace updated": { "title": "Workspace updated" },
   "Couldn’t update workspace": { "title": "Couldn’t update workspace" },

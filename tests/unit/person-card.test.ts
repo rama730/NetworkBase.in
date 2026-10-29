@@ -27,7 +27,7 @@ test('connections use acceptance dates and invitation ages are relative at every
     assert.equal(personRequestDate('2026-10-20T10:59:00Z', now)?.compactText, '1 minute ago');
     assert.equal(personRequestDate('2026-10-20T10:59:59Z', now)?.compactText, 'Just now');
     assert.equal(personRequestDate('2026-10-19T12:20:54+02:00', now)?.compactText, '1 day ago');
-    assert.equal(personRequestDate('2026-10-21T10:00:00Z', now)?.compactText, '21 Oct 2026');
+    assert.equal(personRequestDate('2026-10-21T10:00:00Z', now)?.compactText, 'Oct 21, 2026');
     assert.equal(personRequestDate(null, now), null);
     assert.equal(personRequestDate('invalid', now), null);
     assert.equal(personConnectedDate('2026-01-01T00:30:00+02:00').text, 'Connected since Dec 2025');

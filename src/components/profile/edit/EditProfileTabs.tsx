@@ -145,7 +145,7 @@ export function EditProfileTabs({
         if (!file) return;
 
         if (file.size > 2 * 1024 * 1024) {
-            toast.error("Image must be 2MB or smaller");
+            toast.error("Image must be 2 MB or smaller");
             return;
         }
 
@@ -273,7 +273,7 @@ export function EditProfileTabs({
                                             <div className="nb-meta mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
                                                 <span>JPG, PNG, or WebP</span>
                                                 <span>•</span>
-                                                <span>Up to 2MB</span>
+                                                <span>Up to 2 MB</span>
                                                 <span>•</span>
                                                 <span>Recommended 400×400</span>
                                             </div>

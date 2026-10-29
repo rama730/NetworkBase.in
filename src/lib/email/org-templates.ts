@@ -66,7 +66,7 @@ export function formatEmailWhen(iso: string | null | undefined, timeZone?: strin
   if (Number.isNaN(date.getTime())) return null;
   const fmt = (tz?: string | null) => {
     try {
-      return new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true, timeZone: tz || "UTC" }).format(date).replace(/ (am|pm)$/i, (m) => m.toUpperCase());
+      return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true, timeZone: tz || "UTC" }).format(date).replace(/ (am|pm)$/i, (m) => m.toUpperCase());
     } catch {
       return null;
     }

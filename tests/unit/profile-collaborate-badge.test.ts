@@ -49,5 +49,5 @@ test('collaboration preference mappings resolve canonical values correctly', () 
     assert.equal(experienceLevelLabel('senior'), 'Senior');
 
     const capacity = WEEKLY_CAPACITY_OPTIONS.find((o) => o.value === 'h_10_20');
-    assert.equal(capacity?.compactLabel, '10–20 hrs/week');
+    assert.equal(capacity?.compactLabel, '10–20 h/week');
 });

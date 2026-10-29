@@ -760,7 +760,7 @@ export default function InviteCollaboratorModal({
                                         value={availability}
                                         onChange={(event) => setAvailability(event.target.value.slice(0, AVAILABILITY_LIMIT))}
                                         maxLength={AVAILABILITY_LIMIT}
-                                        placeholder="e.g. 15 hrs/week"
+                                        placeholder="e.g. 15 h/week"
                                         className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
                                     />
                                 </div>
