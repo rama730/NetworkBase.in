@@ -1849,6 +1849,13 @@
       "when": 1793059226000,
       "tag": "0266_workflow_column_words",
       "breakpoints": true
+    },
+    {
+      "idx": 264,
+      "version": "7",
+      "when": 1793059227000,
+      "tag": "0267_connection_acceptance_time_fix",
+      "breakpoints": true
     }
   ]
 }

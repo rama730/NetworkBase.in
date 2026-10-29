@@ -69,4 +69,6 @@ test('acceptance time is captured once per accepted relationship and never inven
     assert.equal(changed!.accepted_at.toISOString(), accepted!.accepted_at.toISOString());
     const [disconnected] = await sql`UPDATE connections SET status='disconnected' WHERE id=${pending!.id} RETURNING accepted_at`;
     assert.equal(disconnected!.accepted_at, null);
+    const [fn] = await sql`SELECT proconfig FROM pg_proc WHERE proname='set_connection_acceptance_time'`;
+    assert.deepEqual(fn!.proconfig, ['search_path=public, pg_temp']);
 });
