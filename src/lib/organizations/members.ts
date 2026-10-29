@@ -1,16 +1,63 @@
 import "server-only";
 
-import { and, eq, gt, isNull, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { orgEmailInvites, profiles, projectMembers, projects } from "@/lib/db/schema";
 import { createCopiesForNewMember, releaseCopiesOnLeave } from "@/lib/organizations/assignments";
 import { notifyNewCopies } from "@/lib/organizations/assignment-notify";
-import { notifyOrg } from "@/lib/organizations/notify";
+import { namesOf, notifyOrg, orgLabel, queueOrgInviteSignupEmails, ROLE_LABEL } from "@/lib/organizations/notify";
 import { addProjectMemberInternal, removeProjectMemberInternal } from "@/lib/projects/collaborator-lifecycle";
 import { orgMemberCap } from "@/lib/organizations/join-rules";
 
 type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+export const INVITE_DAYS = 14;
+
+/**
+ * Org invites by email (report §20.5, §34.4): one open invite per address, skipping people already in the org.
+ * Shared by Members → Invite and by creation (co-admins and a pasted roster). The caller checks who may invite.
+ */
+export async function createOrgEmailInvites(orgId: string, actorId: string, input: {
+  emails: string[]; role: "member" | "admin" | "viewer"; title: string | null; childProjectId: string | null; unitId: string | null;
+}) {
+  const valid = [...new Set(input.emails.map((e) => e.trim().toLowerCase()).filter(Boolean))];
+  if (valid.length === 0) return { invited: 0, existing: 0 };
+  const already = new Set((await db.select({ email: profiles.email }).from(projectMembers).innerJoin(profiles, eq(profiles.id, projectMembers.userId))
+    .where(and(eq(projectMembers.projectId, orgId), inArray(profiles.email, valid)))).map((r) => r.email.toLowerCase()));
+  const toInvite = valid.filter((e) => !already.has(e));
+  const expiresAt = new Date(Date.now() + INVITE_DAYS * 86_400_000);
+  const invites: Array<{ id: string; email: string }> = [];
+  // ponytail: one upsert per address (500 at most per paste); batch it if pastes ever grow past that.
+  for (const email of toInvite) {
+    const [row] = await db.insert(orgEmailInvites).values({ orgId, email, role: input.role, title: input.title, childProjectId: input.childProjectId, unitId: input.unitId, invitedBy: actorId, expiresAt })
+      .onConflictDoUpdate({ target: [orgEmailInvites.orgId, orgEmailInvites.email], targetWhere: sql`${orgEmailInvites.acceptedAt} IS NULL`, set: { role: input.role, title: input.title, childProjectId: input.childProjectId, unitId: input.unitId, invitedBy: actorId, expiresAt } })
+      .returning({ id: orgEmailInvites.id });
+    if (row) invites.push({ id: row.id, email });
+  }
+  const accounts = toInvite.length === 0 ? [] : await db.select({ id: profiles.id, email: profiles.email }).from(profiles).where(inArray(profiles.email, toInvite));
+  await notifyInvites(orgId, actorId, invites, accounts, { role: input.role, title: input.title, expiresAt });
+  return { invited: toInvite.length, existing: accounts.length };
+}
+
+/** E2 for people with an account (plus the tray), E3 for addresses without one (report §26.3 A). */
+export async function notifyInvites(orgId: string, actorId: string, invites: Array<{ id: string; email: string }>, accounts: Array<{ id: string; email: string }>,
+  details: { role: string; title: string | null; expiresAt: Date }, eventSuffix = "") {
+  const org = await orgLabel(orgId);
+  if (!org || invites.length === 0) return;
+  const byEmail = new Map(accounts.map((a) => [a.email.toLowerCase(), a.id]));
+  const inviter = (await namesOf([actorId])).get(actorId) ?? "Someone";
+  const data = { role: ROLE_LABEL[details.role] ?? details.role, memberTitle: details.title, expiresAt: details.expiresAt.toISOString() };
+  for (const invite of invites) {
+    const userId = byEmail.get(invite.email.toLowerCase());
+    if (!userId) continue;
+    await notifyOrg({
+      orgId, eventKey: "org.invited", actorId, to: [userId], title: `${inviter} invited you to ${org.title} as ${data.role}`,
+      href: "/network?tab=invitations", sourceEventId: `${invite.id}${eventSuffix}`, refs: { invitationId: invite.id }, email: { kind: "org_invite", data },
+    });
+  }
+  await queueOrgInviteSignupEmails(orgId, actorId, invites.filter((i) => !byEmail.has(i.email.toLowerCase())).map((i) => ({ id: `${i.id}${eventSuffix}`, email: i.email, data })));
+}
 
 /**
  * Accepts one open org invite for this person (report §20.5): the invited role and title apply, and the

@@ -12,6 +12,7 @@ import { enqueueProjectNotificationEvent } from "@/lib/notifications/project-eve
 import type { OrgNotificationEventKey } from "@/lib/notifications/project-policy";
 import type { NotificationEntityRefs } from "@/lib/notifications/types";
 import { audienceAllows, type UpdateAudience } from "@/lib/organizations/update-rules";
+import { orgTypeLabel } from "@/lib/organizations/config";
 
 // One door for organization notifications (report §26): the tray goes through the project event pipeline
 // (org rules, member overrides, bursts, push for Important), email through the outbox. Best effort: the
@@ -33,13 +34,13 @@ export type OrgNotice = {
 };
 
 export async function orgEmailBase(orgId: string, actorId?: string | null): Promise<Pick<OrgEmailData, "org" | "actor" | "orgTimeZone"> | null> {
-  const [org] = await db.select({ id: projects.id, title: projects.title, slug: projects.slug, type: projects.orgType, logoUrl: projects.coverImage, tagline: projects.shortDescription, timeZone: projects.timeZone })
+  const [org] = await db.select({ id: projects.id, title: projects.title, slug: projects.slug, type: projects.orgType, settings: projects.orgSettings, logoUrl: projects.coverImage, tagline: projects.shortDescription, timeZone: projects.timeZone })
     .from(projects).where(eq(projects.id, orgId)).limit(1);
   if (!org) return null;
   const [actor] = actorId ? await db.select({ id: profiles.id, name: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl, headline: profiles.headline })
     .from(profiles).where(eq(profiles.id, actorId)).limit(1) : [];
   return {
-    org: { id: org.id, title: org.title || "Organization", slug: org.slug, type: org.type, logoUrl: org.logoUrl, tagline: org.tagline },
+    org: { id: org.id, title: org.title || "Organization", slug: org.slug, type: orgTypeLabel(org.type, org.settings), logoUrl: org.logoUrl, tagline: org.tagline },
     actor: actor ? { id: actor.id, name: actor.name || actor.username || "Someone", username: actor.username, avatarUrl: actor.avatarUrl, headline: actor.headline } satisfies OrgEmailPerson : null,
     orgTimeZone: org.timeZone,
   };

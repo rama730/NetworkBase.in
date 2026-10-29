@@ -16,8 +16,6 @@ import type { OrgDetail, ParentOrgLink } from '@/lib/organizations/detail'
 // The organization parts of the project header (report §18.1–18.2, §18.6). ProjectLayout keeps its layout;
 // these fill the identity line, the facts and the visitor's actions.
 
-const TYPE_LABEL: Record<string, string> = { education: 'Education', company: 'Company', community: 'Community', research: 'Research', club: 'Club' }
-
 /** `@handle · Education · Teacher`, plus the archived line (report §18.1, §18.6). */
 export function OrgIdentityLine({ handle, organization, memberRole, archived }: {
     handle: string | null
@@ -25,7 +23,7 @@ export function OrgIdentityLine({ handle, organization, memberRole, archived }: 
     memberRole: 'owner' | 'admin' | 'member' | 'viewer' | null
     archived: boolean
 }) {
-    const parts = [handle ? `@${handle}` : null, organization.type ? TYPE_LABEL[organization.type] : null, memberRole ? organization.roleNames[memberRole] : null].filter(Boolean)
+    const parts = [handle ? `@${handle}` : null, organization.typeLabel, memberRole ? organization.roleNames[memberRole] : null].filter(Boolean)
     return (
         <div className="space-y-1">
             <p className="nb-compact text-muted-foreground" data-testid="org-identity-line">{parts.join(' · ')}</p>

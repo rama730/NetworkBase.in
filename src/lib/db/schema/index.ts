@@ -764,7 +764,7 @@ export const projects = pgTable(
     // Organizations (0241): an org is a project with kind "organization"; children point to it with parentId.
     kind: text("kind", { enum: ["project", "organization"] }).default("project").notNull(),
     parentId: uuid("parent_id").references((): AnyPgColumn => projects.id, { onDelete: "set null" }),
-    orgType: text("org_type", { enum: ["education", "company", "community", "research", "club"] }),
+    orgType: text("org_type", { enum: ["education", "company", "community", "research", "club", "other"] }),
     orgSettings: jsonb("org_settings").$type<Record<string, unknown>>().default({}).notNull(),
     termStart: date("term_start"),
     termEnd: date("term_end"),
@@ -940,7 +940,7 @@ export const projects = pgTable(
     joinCodeUnique: uniqueIndex("projects_join_code_unique").on(t.joinCode).where(sql`${t.joinCode} IS NOT NULL`),
     kindCheck: check("projects_kind_check", sql`${t.kind} IN ('project', 'organization')`),
     orgHasNoParent: check("projects_org_has_no_parent", sql`${t.kind} = 'project' OR ${t.parentId} IS NULL`),
-    orgTypeCheck: check("projects_org_type_check", sql`${t.orgType} IS NULL OR ${t.orgType} IN ('education', 'company', 'community', 'research', 'club')`),
+    orgTypeCheck: check("projects_org_type_check", sql`${t.orgType} IS NULL OR ${t.orgType} IN ('education', 'company', 'community', 'research', 'club', 'other')`),
     termCheck: check("projects_term_check", sql`${t.termEnd} IS NULL OR ${t.termStart} IS NULL OR ${t.termEnd} >= ${t.termStart}`),
   }),
 );

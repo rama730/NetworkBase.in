@@ -121,6 +121,8 @@ export const updateProjectSchema = z.object({
 }).strict();
 export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;
 
+const orgRoleName = z.string().trim().min(1, 'Give every role a name.').max(30);
+
 export const createProjectSchema = z.object({
     title: z.string().trim().min(3, 'Title must be at least 3 characters').max(100, 'Title must be less than 100 characters'),
     description: z.string().trim().min(20, 'Description must be at least 20 characters').max(5000, 'Description must be 5000 characters or fewer'),
@@ -175,7 +177,28 @@ export const createProjectSchema = z.object({
     org_template_folder_id: z.string().uuid().nullable().optional(),
     // Present only when creating an organization (report §6); the server checks the feature flag.
     organization: z.object({
-        org_type: z.enum(ORG_TYPES),
+        org_type: z.enum(ORG_TYPES, { error: 'Choose what kind of organization this is.' }),
+        // Report §34: Other's own label, identity, roles and the people invited at creation.
+        type_label: z.string().trim().max(30).optional(),
+        part_of: z.string().trim().max(100).optional(),
+        location: z.string().trim().max(100).optional(),
+        time_zone: z.string().trim().max(64).optional(),
+        welcome_note: z.string().trim().max(500).optional(),
+        role_names: z.object({ owner: orgRoleName, admin: orgRoleName, member: orgRoleName, viewer: orgRoleName }).optional(),
+        co_admins: z.array(z.object({
+            user_id: z.string().uuid().optional(),
+            email: z.string().trim().toLowerCase().email().optional(),
+            label: z.string().trim().max(120),
+        }).refine((a) => Boolean(a.user_id || a.email), 'Pick a person or type an email.')).max(10, 'Up to 10 co-admins here; add more later from Members.').optional(),
+        invite_emails: z.string().max(40_000).optional(),
+        max_members: z.number().int().min(1).max(2_000).nullable().optional(),
+        // Setup → Work defaults (report §34.5); unset keys keep the type's defaults.
+        work: z.object({
+            review_required: z.boolean(),
+            late_rule: z.enum(['none', 'until', 'always']),
+            reminders: z.enum(['both', 'day_before', 'due_day', 'off']),
+            story_points: z.enum(['shown', 'hidden']),
+        }).partial().optional(),
         handle: z.string().trim().max(60),
         term_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal('')),
         term_end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal('')),
@@ -197,6 +220,9 @@ export const createProjectSchema = z.object({
     }
     if (val.visibility === 'org' && !val.parent_org_id) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['visibility'], message: 'Org only is for projects inside an organization.' });
+    }
+    if (val.organization?.org_type === 'other' && !val.organization.type_label?.trim()) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['organization', 'type_label'], message: 'Say what you call it, for example Nonprofit.' });
     }
     const term = val.organization;
     if (term?.term_start && term.term_end && term.term_end < term.term_start) {

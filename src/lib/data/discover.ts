@@ -15,6 +15,7 @@ import { getProjectMemberRoleLabel } from '@/lib/projects/settings-policies';
 import { filterProjectLinksForAudience } from '@/lib/projects/social-links';
 import { DiscoverFilters, Project } from '@/types/discover';
 import { showKeeps } from '@/lib/organizations/profile-rules';
+import { orgTypeLabel } from '@/lib/organizations/config';
 import { countCanonicalSkillMatches } from '@/lib/skills/matching';
 import { containsLikePattern, escapeLikePattern, normalizeSearchQuery, tokenizeSearchQuery } from '@/lib/search/query';
 
@@ -79,6 +80,8 @@ type RawProjectRow = {
     githubRepoUrl: string | null;
     kind: 'project' | 'organization';
     orgType: string | null;
+    /** Other's own label and "Part of" for the org card (report §34.11). */
+    orgCard: { typeLabel?: string | null; partOf?: string | null } | null;
     parentId: string | null;
     createdAt: Date;
     /** created_at as text with microseconds, for cursors. */
@@ -666,6 +669,7 @@ const projectSelectFields = {
     githubRepoUrl: projects.githubRepoUrl,
     kind: projects.kind,
     orgType: projects.orgType,
+    orgCard: sql<{ typeLabel?: string | null; partOf?: string | null } | null>`CASE WHEN ${projects.kind} = 'organization' THEN jsonb_build_object('typeLabel', ${projects.orgSettings}->>'typeLabel', 'partOf', ${projects.orgSettings}->>'partOf') END`,
     parentId: projects.parentId,
     createdAt: projects.createdAt,
     cursorAt: cursorAtSql,
@@ -979,6 +983,8 @@ const hydrateProjects = async (
             followers: [],
             kind: project.kind,
             orgType: project.orgType,
+            orgTypeLabel: orgTypeLabel(project.orgType, project.orgCard),
+            orgPartOf: project.orgCard?.partOf ?? null,
             childProjectCount: project.kind === 'organization' ? childCountMap.get(project.id) ?? 0 : undefined,
             cardOrg: project.parentId ? parentOrgMap.get(project.parentId) ?? null : null,
             createdAt: project.createdAt.toISOString(),

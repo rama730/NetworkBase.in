@@ -16,7 +16,7 @@ import { SettingsSwitch } from '@/components/settings/ui/SettingsSwitch'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Input } from '@/components/ui/input'
-import { ORG_TYPES } from '@/lib/organizations/config'
+import { ORG_TYPES, orgTypeLabel } from '@/lib/organizations/config'
 import { orgChatSettings } from '@/lib/organizations/chat-rules'
 import { updateOrgChatSettingsAction } from '@/app/actions/org-chat'
 import { requestOrgVerificationAction } from '@/app/actions/trust'
@@ -30,7 +30,6 @@ import type { OrgMemberRole, OrgSettingsSection } from '@/lib/organizations/sett
 type SectionProps = { orgId: string; organization: OrgDetail; role: OrgMemberRole }
 
 const DATE = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' })
-const TYPE_LABEL: Record<string, string> = { education: 'Education', company: 'Company', community: 'Community', research: 'Research', club: 'Club' }
 const labelClass = 'nb-ui-label text-sm font-semibold text-foreground'
 const helpClass = 'nb-compact mt-0.5 text-xs text-muted-foreground'
 const OWNER_ONLY = 'Only the owner can change this.'
@@ -137,6 +136,9 @@ export function OrgProfileSection({ orgId, organization, role, handle }: Section
     const [termEnd, setTermEnd] = useState(organization.termEnd ?? '')
     const [timeZone, setTimeZone] = useState(organization.timeZone ?? '')
     const [welcome, setWelcome] = useState(organization.welcomeNote ?? '')
+    const [typeLabel, setTypeLabel] = useState(organization.type === 'other' ? organization.typeLabel ?? '' : '')
+    const [partOf, setPartOf] = useState(organization.partOf ?? '')
+    const [location, setLocation] = useState(organization.location ?? '')
     const [newHandle, setNewHandle] = useState(handle ?? '')
     const { pending, save, status } = useSave()
     const rename = useSave()
@@ -165,8 +167,25 @@ export function OrgProfileSection({ orgId, organization, role, handle }: Section
                         <label htmlFor="org-type" className={labelClass}>Type</label>
                         <p className={helpClass}>Sets the role names for new organizations; changing it later keeps your role names.</p>
                         <select id="org-type" value={type} onChange={(e) => setType(e.target.value as typeof type)} className="mt-2 h-[var(--ui-control-height)] rounded-md border border-input bg-background px-2 text-sm">
-                            {ORG_TYPES.map((t) => <option key={t} value={t}>{TYPE_LABEL[t]}</option>)}
+                            {ORG_TYPES.map((t) => <option key={t} value={t}>{orgTypeLabel(t)}</option>)}
                         </select>
+                        {type === 'other' ? (
+                            <label className="mt-3 block max-w-sm text-xs text-muted-foreground">What do you call it?
+                                <Input value={typeLabel} onChange={(e) => setTypeLabel(e.target.value)} placeholder="Nonprofit" maxLength={30} className="mt-1" />
+                            </label>
+                        ) : null}
+                    </div>
+                    <div className="grid max-w-2xl gap-4 sm:grid-cols-2">
+                        <label className="block">
+                            <span className={labelClass}>Part of</span>
+                            <span className={`block ${helpClass}`}>The bigger body it belongs to, for example RV College of Engineering.</span>
+                            <Input value={partOf} onChange={(e) => setPartOf(e.target.value)} maxLength={100} className="mt-2" />
+                        </label>
+                        <label className="block">
+                            <span className={labelClass}>Where</span>
+                            <span className={`block ${helpClass}`}>A city, or Online.</span>
+                            <Input value={location} onChange={(e) => setLocation(e.target.value)} maxLength={100} className="mt-2" />
+                        </label>
                     </div>
                     <fieldset>
                         <legend className={labelClass}>Term or period</legend>
@@ -187,7 +206,10 @@ export function OrgProfileSection({ orgId, organization, role, handle }: Section
                         <textarea id="org-welcome" value={welcome} onChange={(e) => setWelcome(e.target.value)} rows={4} maxLength={2000} className="mt-2 w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
                     </div>
                     <div className="flex items-center gap-3">
-                        <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'profile', { org_type: type, term_start: termStart || null, term_end: termEnd || null, time_zone: timeZone.trim() || null, welcome_note: welcome.trim() || null }))}>Save</Button>
+                        <Button disabled={pending || (type === 'other' && !typeLabel.trim())} onClick={() => save(() => updateOrgSettingsAction(orgId, 'profile', {
+                            org_type: type, type_label: type === 'other' ? typeLabel.trim() : null, part_of: partOf.trim() || null, location: location.trim() || null,
+                            term_start: termStart || null, term_end: termEnd || null, time_zone: timeZone.trim() || null, welcome_note: welcome.trim() || null,
+                        }))}>Save</Button>
                         {status}
                     </div>
                 </div>

@@ -44,7 +44,9 @@ import { isOrgHandleAvailable } from "@/lib/organizations/join";
 import { generateJoinCode } from "@/lib/organizations/join-rules";
 import { capChildVisibility, childCreationBlock } from "@/lib/organizations/child-rules";
 import { readViewerOrgRole } from "@/lib/organizations/detail";
-import { readOrgRules } from "@/lib/organizations/settings";
+import { isTimeZone, readOrgRules } from "@/lib/organizations/settings";
+import { createOrgEmailInvites } from "@/lib/organizations/members";
+import { parseInviteEmails } from "@/lib/organizations/member-rules";
 import { createStarterFolders } from "@/lib/organizations/org-files";
 import { namesOf, notifyOrg } from "@/lib/organizations/notify";
 import { createCopiesForNewChild } from "@/lib/organizations/assignments";
@@ -154,6 +156,8 @@ interface CreateProjectResult {
     slug?: string;
     /** Organizations only: the code shown on the success screen. */
     joinCode?: string | null;
+    /** Organizations only: invites sent at creation (report §34.8). */
+    invites?: { coAdmins: number; members: number; skipped: number };
   };
   error?: string;
   /** ORG_BLOCKED: the org no longer lets this person create there; the wizard offers a personal project instead. */
@@ -825,7 +829,8 @@ export async function createProjectAction(
             (input as any).solution_statement ||
             (input as any).solution_overview ||
             null,
-          category:
+          // An organization's category is its Subject / Department label, or nothing (report §34.3).
+          category: organization ? input.custom_project_type?.trim() || null :
             input.project_type === "other"
               ? input.custom_project_type || "Other"
               : input.project_type || null,
@@ -880,13 +885,24 @@ export async function createProjectAction(
                   joinMode: organization.join_mode,
                   childCreation: organization.child_creation,
                   outsidePeople: organization.outside_people,
-                  roleNames: defaultOrgRoleNames(organization.org_type),
+                  roleNames: organization.role_names ?? defaultOrgRoleNames(organization.org_type),
+                  // Report §34: Other's label, identity, and the Work defaults chosen in Setup (unset keys keep the type's).
+                  ...(organization.org_type === "other" ? { typeLabel: organization.type_label?.trim() } : {}),
+                  ...(organization.part_of ? { partOf: organization.part_of } : {}),
+                  ...(organization.location ? { location: organization.location } : {}),
+                  ...(organization.work?.review_required !== undefined ? { assignmentReview: organization.work.review_required } : {}),
+                  ...(organization.work?.late_rule ? { assignmentLateRule: organization.work.late_rule } : {}),
+                  ...(organization.work?.reminders ? { assignmentReminders: organization.work.reminders } : {}),
+                  ...(organization.work?.story_points ? { storyPoints: organization.work.story_points } : {}),
                 },
                 termStart: organization.term_start || null,
                 termEnd: organization.term_end || null,
+                timeZone: organization.time_zone && isTimeZone(organization.time_zone) ? organization.time_zone : null,
+                welcomeNote: organization.welcome_note || null,
+                maxCollaborators: organization.max_members ? String(organization.max_members) : null,
                 joinCode,
-                // Education reviews assignments by default (report §21.5).
-                taskReviewRequired: organization.org_type === "education",
+                // Education reviews assignments by default (report §21.5), unless Setup changed it.
+                taskReviewRequired: organization.work?.review_required ?? organization.org_type === "education",
               }
             : {}),
         };
@@ -1127,6 +1143,27 @@ export async function createProjectAction(
           if (!planned.success) notices.push(`The first sprints weren't planned: ${planned.error}`);
         }
 
+        // Co-admins and the pasted roster (report §34.4, §34.10): invited after the org exists, so a failed
+        // email never undoes creation. The creator's own address is skipped.
+        const invites = { coAdmins: 0, members: 0, skipped: 0 };
+        if (organization && (organization.co_admins?.length || organization.invite_emails?.trim())) {
+          try {
+            const ids = (organization.co_admins ?? []).flatMap((a) => (a.user_id ? [a.user_id] : []));
+            const idEmails = ids.length ? (await db.select({ email: profiles.email }).from(profiles).where(inArray(profiles.id, ids))).map((r) => r.email.toLowerCase()) : [];
+            const self = (user.email ?? "").toLowerCase();
+            const admins = [...new Set([...idEmails, ...(organization.co_admins ?? []).flatMap((a) => (a.email ? [a.email] : []))])].filter((e) => e !== self).slice(0, 10);
+            if (admins.length) invites.coAdmins = (await createOrgEmailInvites(result.id, ownerId, { emails: admins, role: "admin", title: null, childProjectId: null, unitId: null })).invited;
+            const { valid, invalid } = parseInviteEmails(organization.invite_emails ?? "");
+            const members = valid.filter((e) => e !== self && !admins.includes(e));
+            invites.skipped = invalid.length + Math.max(0, members.length - ORG_LIMITS.emailInvitesPerPaste);
+            if (members.length) invites.members = (await createOrgEmailInvites(result.id, ownerId, { emails: members.slice(0, ORG_LIMITS.emailInvitesPerPaste), role: "member", title: null, childProjectId: null, unitId: null })).invited;
+            if (invites.skipped) notices.push(`${invites.skipped} ${invites.skipped === 1 ? "address wasn't" : "addresses weren't"} invited (not an email, or over ${ORG_LIMITS.emailInvitesPerPaste}). Invite them from Members.`);
+          } catch (error) {
+            notices.push("Some invites weren't sent. Send them again from Members.");
+            logger.warn("org.create_invites_failed", { projectId: result.id, error: error instanceof Error ? error.message : String(error) });
+          }
+        }
+
         // E1 (report §26.3 A): the owner gets the join code by email too; always sent.
         if (organization) {
           await notifyOrg({
@@ -1142,6 +1179,7 @@ export async function createProjectAction(
             title: result.title,
             slug: result.slug || result.id,
             joinCode: result.joinCode,
+            invites,
           },
           notices,
         };

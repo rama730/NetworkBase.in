@@ -39,7 +39,7 @@ const Phase5Review = dynamic(() => import('./phases/Phase5Review'), { loading: P
 
 interface Props {
     onClose: () => void;
-    onSuccess?: (projectId: string, organization?: { title: string; joinCode: string }) => void;
+    onSuccess?: (projectId: string, organization?: import('@/components/organizations/OrganizationCreatedScreen').CreatedOrganization) => void;
     initialSource?: 'scratch' | 'github' | 'upload' | null;
     onSourceChange?: (source: 'scratch' | 'github' | 'upload' | null) => void;
     githubOAuthResume?: CreateProjectGithubOAuthResume | null;
@@ -112,6 +112,10 @@ export default function CreateProjectWizard({ onClose, onSuccess, initialSource 
         name: ['import_source.type', 'import_source.repoUrl', 'import_source.metadata'],
     });
     const sourceMetadata = rawSourceMetadata as Record<string, unknown> | undefined;
+    const [organization, orgType, orgTypeLabel] = useWatch({ control: methods.control, name: ['organization', 'organization.org_type', 'organization.type_label'] });
+    const isOrganization = Boolean(organization);
+    // Report §34.2: no type is picked for you; Other needs its own name.
+    const orgStartBlock = !isOrganization ? null : !orgType ? 'Choose what kind of organization this is.' : orgType === 'other' && !orgTypeLabel?.trim() ? 'Say what you call it, for example Nonprofit.' : null;
 
     useEffect(() => {
         if (!githubOAuthResume || restoredGithubOAuthResumeRef.current === githubOAuthResume.id) return;
@@ -144,11 +148,13 @@ export default function CreateProjectWizard({ onClose, onSuccess, initialSource 
             return !uploadFiles || uploadFiles.length === 0 || sourceMetadata?.uploadValidationStatus !== 'ok';
         }
 
-        return false;
+        return Boolean(orgStartBlock);
     })();
 
     const phase1NextDisabledReason = phase !== 1 || !phase1NextDisabled
         ? undefined
+        : orgStartBlock
+            ? orgStartBlock
         : sourceType === 'github'
             ? sourceRepoUrl?.trim()
                 ? 'Load a valid repository preview to continue.'
@@ -215,6 +221,7 @@ export default function CreateProjectWizard({ onClose, onSuccess, initialSource 
                             onStepSelect={goToPhase}
                             stepsDisabled={isSubmitting || isPhaseTransitioning}
                             headingRef={headingRef}
+                            isOrganization={isOrganization}
                         />
 
                         {/* Draft recovery: a choice to make before starting, so it sits above the form, not above the footer. */}
@@ -337,6 +344,7 @@ export default function CreateProjectWizard({ onClose, onSuccess, initialSource 
                                 nextLabel={phase1NextLabel}
                                 nextDisabled={phase1NextDisabled}
                                 nextDisabledReason={phase1NextDisabledReason}
+                                createLabel={isOrganization ? 'Create organization' : undefined}
                             />
                         </div>
                     </CreateLocationProvider>

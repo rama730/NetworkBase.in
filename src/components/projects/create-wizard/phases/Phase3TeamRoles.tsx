@@ -106,6 +106,7 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
                 <div className="max-w-[65ch]">
                     <p className="nb-micro text-primary">Phase 3 · people</p>
                     <h2 className="nb-section-title mt-1 text-foreground">People and joining</h2>
+                    <p className="nb-compact mt-1.5 text-muted-foreground">Who runs it, what the roles are called, and how people get in.</p>
                 </div>
                 <OrgPeopleFields />
             </div>

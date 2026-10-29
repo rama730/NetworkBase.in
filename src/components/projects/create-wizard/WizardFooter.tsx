@@ -22,9 +22,11 @@ interface WizardFooterProps {
   isReviewReady?: boolean;
   saveStatus: "idle" | "saving" | "saved" | "error";
   lastSaved: Date | null;
+  /** "Create organization" when the starting point is Organization (report §34.7). */
+  createLabel?: string;
 }
 
-export default function WizardFooter({ phase, totalPhases, onNext, onBack, onSaveDraft, isSubmitting, isSavingDraft, nextLabel, nextDisabled, nextDisabledReason, isPhaseTransitioning = false, isReviewReady = false, saveStatus, lastSaved }: WizardFooterProps) {
+export default function WizardFooter({ phase, totalPhases, onNext, onBack, onSaveDraft, isSubmitting, isSavingDraft, nextLabel, nextDisabled, nextDisabledReason, isPhaseTransitioning = false, isReviewReady = false, saveStatus, lastSaved, createLabel = "Create project" }: WizardFooterProps) {
   const isLastPhase = phase === totalPhases;
   const phaseMessage = nextDisabledReason ?? (isLastPhase && !isReviewReady ? "Preparing review…" : `Phase ${phase} of ${totalPhases}`);
   const saveMessage = saveStatus === "saving"
@@ -85,7 +87,7 @@ export default function WizardFooter({ phase, totalPhases, onNext, onBack, onSav
               className="w-full min-w-[140px] sm:w-auto"
             >
               {isSubmitting ? <Loader2 className="animate-spin" aria-hidden="true" /> : null}
-              {isSubmitting ? "Creating…" : isReviewReady ? "Create project" : "Preparing review…"}
+              {isSubmitting ? "Creating…" : isReviewReady ? createLabel : "Preparing review…"}
             </Button>
           ) : (
             <Button

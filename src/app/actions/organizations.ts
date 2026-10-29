@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/server';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
 import { getTrustedHeadersIp } from '@/lib/security/request-ip';
 import { z } from 'zod';
-import { ORG_LIMITS } from '@/lib/organizations/config';
+import { ORG_LIMITS, orgTypeLabel } from '@/lib/organizations/config';
 import { validateOrgHandle } from '@/lib/organizations/handle';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 
@@ -33,6 +33,7 @@ type Failure = { success: false; error: string };
 export type OrgJoinPreview = {
     title: string;
     slug: string | null;
+    /** The type as people read it ("Education", or Other's own label). */
     orgType: string | null;
     coverImage: string | null;
     /** Null for private orgs: they show only logo, name and type (decision 131). */
@@ -73,7 +74,7 @@ export async function getJoinPreviewAction(rawCode: string): Promise<{ success: 
         preview: {
             title: org.title,
             slug: org.slug,
-            orgType: org.orgType,
+            orgType: orgTypeLabel(org.orgType, org.orgSettings),
             coverImage: org.coverImage,
             memberCount: isPublic ? await countOrgMembers(org.id) : null,
             joinMode: (org.orgSettings as { joinMode?: unknown })?.joinMode === 'approval' ? 'approval' : 'instant',
@@ -172,6 +173,10 @@ export async function updateOrgSettingsAction(orgId: string, section: OrgSetting
         if ('term_end' in value) columns.termEnd = (value.term_end as string) || null;
         if ('time_zone' in value) columns.timeZone = (value.time_zone as string) || null;
         if ('welcome_note' in value) columns.welcomeNote = (value.welcome_note as string) || null;
+        if (value.org_type === 'other' && !value.type_label) return { success: false, error: 'Say what you call this organization.' };
+        if ('type_label' in value) settingsPatch.typeLabel = (value.type_label as string) || null;
+        if ('part_of' in value) settingsPatch.partOf = (value.part_of as string) || null;
+        if ('location' in value) settingsPatch.location = (value.location as string) || null;
     } else if (section === 'access') {
         if ('join_mode' in value) settingsPatch.joinMode = value.join_mode;
         if ('join_code_enabled' in value) columns.joinCodeEnabled = value.join_code_enabled as boolean;

@@ -10,6 +10,8 @@ interface ProjectOverviewCardProps {
     project: any;
     isCreator?: boolean;
     onEdit?: () => void;
+    /** Organizations read the same columns as About / Who it's for / What happens here (report §34.11). */
+    labels?: { description: string; problem: string; solution: string };
 }
 
 const StatementBox = memo(function StatementBox({
@@ -63,6 +65,7 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
     project,
     isCreator,
     onEdit,
+    labels = { description: "Vision & Description", problem: "The Problem", solution: "The Solution" },
 }: ProjectOverviewCardProps) {
     const [statement, setStatement] = useState<StatementSelection>(null);
     const [descriptionExpanded, setDescriptionExpanded] = useState(false);
@@ -77,15 +80,15 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
 
     const handleOpenProblem = useCallback(() => {
         if (problemStatement) {
-            setStatement({ title: "The Problem", content: problemStatement, tone: "problem" });
+            setStatement({ title: labels.problem, content: problemStatement, tone: "problem" });
         }
-    }, [problemStatement]);
+    }, [labels.problem, problemStatement]);
 
     const handleOpenSolution = useCallback(() => {
         if (solutionStatement) {
-            setStatement({ title: "The Solution", content: solutionStatement, tone: "solution" });
+            setStatement({ title: labels.solution, content: solutionStatement, tone: "solution" });
         }
-    }, [solutionStatement]);
+    }, [labels.solution, solutionStatement]);
 
     const isEmpty = !project?.description && !problemStatement && !solutionStatement && (!project?.tags || project.tags.length === 0) && projectSkills.length === 0 && !categoryLabel && openRoleTitles.length === 0;
 
@@ -131,7 +134,7 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
                     {project?.description ? (
                         <section>
                             <h2 className="nb-section-title mb-3 text-foreground">
-                                Vision & Description
+                                {labels.description}
                             </h2>
                             <p className={cn("whitespace-pre-wrap text-[15px] leading-relaxed text-foreground/85", !descriptionExpanded && "max-md:line-clamp-6")}>
                                 {project.description}
@@ -151,7 +154,7 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
                         <div className="grid items-stretch gap-6 max-md:hidden md:grid-cols-2">
                             {project.problemStatement ? (
                                 <StatementBox
-                                    title="The Problem"
+                                    title={labels.problem}
                                     content={project.problemStatement}
                                     tone="problem"
                                     onOpen={handleOpenProblem}
@@ -159,7 +162,7 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
                             ) : null}
                             {project.solutionStatement ? (
                                 <StatementBox
-                                    title="The Solution"
+                                    title={labels.solution}
                                     content={project.solutionStatement}
                                     tone="solution"
                                     onOpen={handleOpenSolution}
@@ -170,7 +173,7 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
 
                     {(project?.problemStatement || project?.solutionStatement) ? (
                         <div className="divide-y divide-border rounded-[5px] border border-border md:hidden">
-                            {[["The problem", project.problemStatement], ["The solution", project.solutionStatement]].filter(([, text]) => text).map(([title, text]) => (
+                            {[[labels.problem, project.problemStatement], [labels.solution, project.solutionStatement]].filter(([, text]) => text).map(([title, text]) => (
                                 <details key={title} className="group">
                                     <summary className="nb-ui-label flex min-h-11 cursor-pointer list-none items-center justify-between px-3 text-foreground">
                                         {title}

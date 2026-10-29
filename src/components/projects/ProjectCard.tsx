@@ -58,13 +58,15 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
     // Org cards open the org's About tab at /org/<handle> (report §24.1, §24.7).
     const isOrg = project.kind === "organization";
     const href = isOrg ? `/org/${project.slug || project.id}` : `/projects/${project.slug || project.id}`;
-    const orgTypeLabel = project.orgType ? project.orgType.charAt(0).toUpperCase() + project.orgType.slice(1) : "Organization";
+    const orgTypeLabel = project.orgTypeLabel ?? (project.orgType ? project.orgType.charAt(0).toUpperCase() + project.orgType.slice(1) : "Organization");
     // A child project's org line, its own link above the card link (report §24.2).
     const orgLine = project.cardOrg ? (
         <Link href={`/org/${encodeURIComponent(project.cardOrg.slug ?? "")}`} className="relative z-10 -mb-1 inline-flex w-fit items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground hover:underline">
             <span aria-hidden="true" className="inline-block size-2 rounded-[2px] bg-foreground/60" />{project.cardOrg.title} /
         </Link>
     ) : null;
+    // "Part of RV College of Engineering" under an org's name (report §34.11).
+    const partOfLine = isOrg && project.orgPartOf ? <p className="nb-compact mt-0.5 truncate text-muted-foreground" data-testid="org-card-part-of">{project.orgPartOf}</p> : null;
     const typeChip = isOrg ? <span className="nb-status relative z-10 ml-auto shrink-0" data-status="active">{orgTypeLabel}</span> : null;
     const linkHref = (link: (typeof links)[number]) => `/go/project/${encodeURIComponent(project.id)}/${encodeURIComponent(link.id || link.canonicalKey)}`;
 
@@ -104,6 +106,7 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
                     <h3 className="nb-project-card-title min-w-0">
                         <Link href={href} onClick={(event) => { if (!event.metaKey && !event.ctrlKey && !event.shiftKey) onOpenProject?.(project.id); }} className="after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none">{project.title}</Link>
                     </h3>
+                    {partOfLine}
                     {(project.shortDescription || project.description) && (
                         // 5px under the title (spec), in both header layouts.
                         <p className={`mt-[5px] text-sm leading-normal text-muted-foreground line-clamp-2`}>
@@ -118,6 +121,7 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
                     <h3 className="nb-project-card-title min-w-0">
                         <Link href={href} onClick={(event) => { if (!event.metaKey && !event.ctrlKey && !event.shiftKey) onOpenProject?.(project.id); }} className="after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none">{project.title}</Link>
                     </h3>
+                    {partOfLine}
                     {typeChip}
                 </div>
                 {project.shortDescription || project.description ? (

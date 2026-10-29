@@ -9,7 +9,7 @@ test("create-project shell keeps progress in a compact centered header and save 
     readFile("src/components/projects/create-wizard/CreateProjectWizard.tsx", "utf8"),
   ]);
 
-  assert.match(header, /<h1[^>]*>Create project<\/h1>/);
+  assert.match(header, /<h1[^>]*>\{isOrganization \? "Create organization" : "Create project"\}<\/h1>/);
   assert.match(header, /grid-cols-\[minmax\(0,1fr\)_minmax\(0,1fr\)_minmax\(0,1fr\)\]/);
   assert.match(header, /md:grid-cols-\[minmax\(9rem,1fr\)_auto_minmax\(9rem,1fr\)\]/);
   assert.match(header, /justify-self-center/);
@@ -20,7 +20,7 @@ test("create-project shell keeps progress in a compact centered header and save 
   assert.match(footer, /sm:grid-cols-\[minmax\(8rem,1fr\)_auto_minmax\(8rem,1fr\)\]/);
   assert.match(footer, /sm:col-start-2 sm:row-start-1 sm:justify-self-center/);
 
-  assert.match(wizard, /<WizardHeader\s+currentPhase=\{phase\}\s+onClose=\{handleCloseAttempt\}[\s\S]*?headingRef=\{headingRef\}\s*\/>/);
+  assert.match(wizard, /<WizardHeader\s+currentPhase=\{phase\}\s+onClose=\{handleCloseAttempt\}[\s\S]*?headingRef=\{headingRef\}\s*(?:isOrganization=\{isOrganization\}\s*)?\/>/);
   assert.match(wizard, /<WizardFooter[\s\S]*saveStatus=\{saveStatus\}[\s\S]*lastSaved=\{lastSaved\}/);
 });
 

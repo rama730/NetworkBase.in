@@ -20,8 +20,6 @@ export const metadata = buildRouteMetadata({
 
 const JOIN_PANEL = { eyebrow: 'Organizations', title: 'Your class or team, in one place.' }
 
-const TYPE_LABEL: Record<string, string> = { education: 'Education', company: 'Company', community: 'Community', research: 'Research', club: 'Club' }
-
 /** Join preview (report §6.1, §29.1): the same page for a typed code, a shared link and a logged-out visitor. */
 export default async function JoinOrganizationPage({ params }: { params: Promise<{ code: string }> }) {
     const code = normalizeJoinCode((await params).code)
@@ -40,7 +38,7 @@ export default async function JoinOrganizationPage({ params }: { params: Promise
     }
 
     const { preview } = result
-    const facts = [preview.orgType ? TYPE_LABEL[preview.orgType] : null, preview.memberCount !== null ? `${preview.memberCount} ${preview.memberCount === 1 ? 'member' : 'members'}` : null]
+    const facts = [preview.orgType, preview.memberCount !== null ? `${preview.memberCount} ${preview.memberCount === 1 ? 'member' : 'members'}` : null]
         .filter(Boolean)
         .join(' · ')
     const orgHref = `/projects/${preview.slug ?? ''}`

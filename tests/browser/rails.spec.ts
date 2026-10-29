@@ -13,7 +13,7 @@ let mono: Buffer;
 test.use({ reducedMotion: 'reduce' });
 test.beforeAll(async () => {
   const mocks: Record<string, string> = {
-    '@/components/presence/usePresence': `export const usePersonPresence=()=>({loaded:true,availability:'now',label:'Active now'});export const useProjectPresence=()=>({availability:'offline',label:'Offline'});`,
+    '@/components/presence/usePresence': `export const usePersonPresence=()=>({loaded:true,availability:'now',label:'Active now'});export const useProjectPresence=()=>({availability:'offline',label:'Offline'});export const useNow=()=>Date.now();`,
     '@/app/actions/connections': `export const readPersonSharedConnectionsAction=async()=>({success:false,error:'Unavailable in this rail-only fixture'});`,
     'next/link': `import React from 'react';export default ({href,children,...props})=>React.createElement('a',{href,...props},children);`,
     'next/image': `import React from 'react';export default ({priority,fill,unoptimized,...props})=>React.createElement('img',props);`,
@@ -27,6 +27,8 @@ test.beforeAll(async () => {
     '@/components/network/PersonCard': `import React from 'react';export {PersonCardLayout,PersonCardGrid} from ${JSON.stringify(path.resolve('src/components/network/PersonCard.tsx'))};export default ({profile})=>React.createElement('div',{className:'rounded-lg border border-border bg-card p-4'},'Suggested person '+profile.id);`,
     '@/components/messages/message-user': `export const messageUserInWindow=()=>false;`,
     '@/components/network/PersonPresenceDot': `export const PersonPresenceDot=()=>null;export const PersonPresenceText=()=>null;`,
+    '@/app/actions/connections': `export const readPersonSharedConnectionsAction=async()=>({success:true,total:0,people:[]});`,
+    '@/app/actions/org-workspace': `export const readSharedOrgsAction=async()=>[];`,
   };
   const bundle = await build({ entryPoints: [path.resolve('tests/browser/rails.fixture.tsx')], bundle: true, write: false, platform: 'browser', format: 'iife', define: { 'process.env.NODE_ENV': '"test"' }, plugins: [{ name: 'isolated-rails', setup(b) {
     b.onResolve({ filter: /.*/ }, args => {

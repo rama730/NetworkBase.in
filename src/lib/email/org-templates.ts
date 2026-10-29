@@ -13,6 +13,7 @@ export const ALWAYS_SENT_EMAILS: ReadonlySet<OrgEmailKind> = new Set(["org_ready
 export type OrgEmailPerson = { id: string; name: string; username?: string | null; avatarUrl?: string | null; headline?: string | null };
 
 export type OrgEmailData = {
+  /** `type` is the label people read ("Education", or Other's own label). */
   org: { id: string; title: string; slug: string | null; type?: string | null; logoUrl?: string | null; tagline?: string | null };
   child?: { title: string } | null;
   actor?: OrgEmailPerson | null;
@@ -53,8 +54,6 @@ type Parts = {
   secondary?: Link | null;
   reason: string;
 };
-
-const TYPE_LABEL: Record<string, string> = { education: "EDUCATION", company: "COMPANY", community: "COMMUNITY", research: "RESEARCH", club: "CLUB" };
 
 function oneLine(value: string, max = 160) {
   return value.replace(/[\r\n]+/g, " ").trim().slice(0, max);
@@ -110,7 +109,7 @@ function partsFor(kind: OrgEmailKind, d: OrgEmailData, url: (path: string) => st
   const member = `You're receiving this because you're a member of ${org}.`;
   const a = d.assignment;
   const copyHref = url(a?.copyId ? `${orgPath}?tab=assignments&copy=${encodeURIComponent(a.copyId)}` : `${orgPath}?tab=assignments`);
-  const orgLabel = `ORGANIZATION${d.org.type && TYPE_LABEL[d.org.type] ? ` · ${TYPE_LABEL[d.org.type]}` : ""}`;
+  const orgLabel = `ORGANIZATION${d.org.type ? ` · ${d.org.type.toUpperCase()}` : ""}`;
 
   switch (kind) {
     case "org_ready":

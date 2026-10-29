@@ -1,4 +1,5 @@
-import { OrgInformationFields } from '@/components/organizations/OrgWizardFields';
+import { OrgIdentityFields, OrgSubjectField, OrgWelcomeField } from '@/components/organizations/OrgWizardFields';
+import { ORG_CREATION_COPY } from '@/lib/organizations/creation';
 import { type ReactNode, useEffect, useState } from 'react';
 import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import { Plus, X } from 'lucide-react';
@@ -63,6 +64,8 @@ function SectionHeading({ eyebrow, title, description, id }: { eyebrow: string; 
 export default function Phase2Information({ showValidationSummary = false }: Phase2InformationProps) {
     const { register, setValue, watch, control, formState: { errors } } = useFormContext<CreateProjectInput>();
     const isOrganization = Boolean(watch('organization'));
+    // Report §34.3: an organization's words and examples follow its type.
+    const orgCopy = isOrganization ? ORG_CREATION_COPY[watch('organization.org_type') ?? 'other'] : null;
     // A child project (report §14.3 Phase 2): the org's category by default, its tags suggested first, and a
     // warning (never a block) when the title matches another project in the org.
     const { org } = useCreateLocation();
@@ -79,7 +82,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
         const timer = setTimeout(() => void childTitleTakenAction(org.id, childTitle).then((taken) => { if (!cancelled) setTitleTaken(taken); }), 400);
         return () => { cancelled = true; clearTimeout(timer); };
     }, [org, childTitle]);
-    const suggestedTags = [...new Set([...(org?.tags ?? []), ...POPULAR_PROJECT_TAGS])];
+    const suggestedTags = [...new Set([...(orgCopy?.topics ?? []), ...(org?.tags ?? []), ...POPULAR_PROJECT_TAGS])];
     const [tagInput, setTagInput] = useState('');
     const [tagError, setTagError] = useState('');
 
@@ -120,10 +123,10 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
     return (
         <div className="min-w-0 w-full space-y-8 pb-6">
             <div className="max-w-[65ch]">
-                <p className="nb-micro text-primary">Phase 2 · information</p>
-                <h2 className="nb-section-title mt-1 text-foreground">Project details</h2>
+                <p className="nb-micro text-primary">Phase 2 · {orgCopy ? 'details' : 'information'}</p>
+                <h2 className="nb-section-title mt-1 text-foreground">{orgCopy ? 'Organization details' : 'Project details'}</h2>
                 <p className="nb-compact mt-1.5 text-muted-foreground">
-                    Describe what you are building so collaborators can understand its purpose and find it later.
+                    {orgCopy ? "Tell people what this organization is, who it's for and what happens in it." : 'Describe what you are building so collaborators can understand its purpose and find it later.'}
                 </p>
             </div>
 
@@ -155,12 +158,12 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                 <SectionHeading
                     id="project-identity-heading"
                     eyebrow="Identity"
-                    title="Name and classify the project"
-                    description="Start with the information people see first when they encounter your project."
+                    title={orgCopy ? 'Name your organization' : 'Name and classify the project'}
+                    description={orgCopy ? 'What people see first on cards, search and the About tab.' : 'Start with the information people see first when they encounter your project.'}
                 />
 
                 <div className="mt-5 space-y-5">
-                    <div>
+                    {orgCopy ? <OrgSubjectField /> : <div>
                         <FieldLabel htmlFor="create-project-category" required>Project category</FieldLabel>
                         <Controller
                             name="project_type"
@@ -191,9 +194,9 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                             {selectedProjectType?.description || (projectType === 'other' ? 'Use a category that is not represented in the list.' : 'Choose the format that best describes this work.')}
                         </p>
                         <FieldError id="create-project-category-error" message={errors.project_type?.message} />
-                    </div>
+                    </div>}
 
-                    {projectType === 'other' ? (
+                    {!orgCopy && projectType === 'other' ? (
                         <div className="border-l-2 border-border pl-4">
                             <FieldLabel htmlFor="create-project-custom-category" required>Custom category</FieldLabel>
                             <Input
@@ -215,25 +218,24 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
 
                     <div>
                         <div className="flex items-end justify-between gap-3">
-                            <FieldLabel htmlFor="create-project-title" required>Project title</FieldLabel>
+                            <FieldLabel htmlFor="create-project-title" required>{orgCopy ? 'Name' : 'Project title'}</FieldLabel>
                             <TitleCount />
                         </div>
                         <Input
                             id="create-project-title"
                             {...register('title')}
                             className={fieldClass}
-                            placeholder="Name your project"
+                            placeholder={orgCopy?.name ?? 'Name your project'}
                             maxLength={100}
                             aria-invalid={Boolean(errors.title)}
                             aria-describedby="create-project-title-help create-project-title-error"
                             required
                         />
-                        <p id="create-project-title-help" className="mt-1.5 text-[13px] leading-[1.5] text-muted-foreground">Use a clear, specific name that collaborators can recognize.</p>
+                        <p id="create-project-title-help" className="mt-1.5 text-[13px] leading-[1.5] text-muted-foreground">{orgCopy ? 'The name members know it by.' : 'Use a clear, specific name that collaborators can recognize.'}</p>
                         <FieldError id="create-project-title-error" message={errors.title?.message} />
                         {titleTaken && org ? <p role="status" className="mt-1.5 text-[13px] leading-[1.5] text-[var(--status-warning)]">Another project in {org.title} is already called this. You can keep it.</p> : null}
                     </div>
 
-                    {isOrganization ? <OrgInformationFields /> : null}
 
                     <div>
                         <div className="flex items-end justify-between gap-3">
@@ -244,27 +246,29 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                             id="create-project-tagline"
                             {...register('short_description')}
                             className={fieldClass}
-                            placeholder="A short sentence that explains the project"
+                            placeholder={orgCopy?.tagline ?? 'A short sentence that explains the project'}
                             maxLength={200}
                             aria-describedby="create-project-tagline-help"
                         />
-                        <p id="create-project-tagline-help" className="mt-1.5 text-[13px] leading-[1.5] text-muted-foreground">Optional. This appears beside the project name in compact contexts.</p>
+                        <p id="create-project-tagline-help" className="mt-1.5 text-[13px] leading-[1.5] text-muted-foreground">{orgCopy ? 'Optional. One line people see on cards and search results.' : 'Optional. This appears beside the project name in compact contexts.'}</p>
                     </div>
+
+                    {orgCopy ? <OrgIdentityFields /> : null}
                 </div>
             </section>
 
             <section aria-labelledby="project-story-heading" className="border-t border-border pt-6">
                 <SectionHeading
                     id="project-story-heading"
-                    eyebrow="Project story"
-                    title="Explain the work"
-                    description="Give future collaborators enough context to decide whether the project is a fit."
+                    eyebrow={orgCopy ? 'About' : 'Project story'}
+                    title={orgCopy ? 'What happens here' : 'Explain the work'}
+                    description={orgCopy ? 'What future members want to know before they join.' : 'Give future collaborators enough context to decide whether the project is a fit.'}
                 />
 
                 <div className="mt-5 space-y-5">
                     <div>
                         <div className="flex items-end justify-between gap-3">
-                            <FieldLabel htmlFor="create-project-description" required>Description</FieldLabel>
+                            <FieldLabel htmlFor="create-project-description" required>{orgCopy ? 'About' : 'Description'}</FieldLabel>
                             <DescriptionCount />
                         </div>
                         <textarea
@@ -272,38 +276,39 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                             {...register('description')}
                             rows={6}
                             className={textAreaClass}
-                            placeholder="Describe the problem, the project’s goals, and what a contributor should understand before joining."
+                            placeholder={orgCopy?.about ?? 'Describe the problem, the project’s goals, and what a contributor should understand before joining.'}
                             maxLength={5000}
                             aria-invalid={Boolean(errors.description)}
                             aria-describedby="create-project-description-help create-project-description-error"
                             required
                         />
-                        <p id="create-project-description-help" className="mt-1.5 max-w-[65ch] text-[13px] leading-[1.5] text-muted-foreground">A short, concrete explanation is more useful than a product pitch.</p>
+                        <p id="create-project-description-help" className="mt-1.5 max-w-[65ch] text-[13px] leading-[1.5] text-muted-foreground">{orgCopy ? 'Shown first on the About tab.' : 'A short, concrete explanation is more useful than a product pitch.'}</p>
                         <FieldError id="create-project-description-error" message={errors.description?.message} />
                     </div>
 
                     <div className="grid grid-cols-1 gap-6 border-t border-border pt-5 md:grid-cols-2">
                         <div>
-                            <FieldLabel htmlFor="create-project-problem">Problem statement</FieldLabel>
+                            <FieldLabel htmlFor="create-project-problem">{orgCopy ? "Who it's for" : 'Problem statement'}</FieldLabel>
                             <textarea
                                 id="create-project-problem"
                                 {...register('problem_statement')}
                                 rows={4}
                                 className={`${textAreaClass} min-h-32`}
-                                placeholder="What problem are you solving?"
+                                placeholder={orgCopy?.audience ?? 'What problem are you solving?'}
                             />
                         </div>
                         <div>
-                            <FieldLabel htmlFor="create-project-solution">Solution overview</FieldLabel>
+                            <FieldLabel htmlFor="create-project-solution">{orgCopy ? 'What members do here' : 'Solution overview'}</FieldLabel>
                             <textarea
                                 id="create-project-solution"
                                 {...register('solution_statement')}
                                 rows={4}
                                 className={`${textAreaClass} min-h-32`}
-                                placeholder="How does this project address it?"
+                                placeholder={orgCopy?.activities ?? 'How does this project address it?'}
                             />
                         </div>
                     </div>
+                    {orgCopy ? <OrgWelcomeField /> : null}
                 </div>
             </section>
 
@@ -311,14 +316,14 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                 <SectionHeading
                     id="project-discovery-heading"
                     eyebrow="Discovery"
-                    title="Make the project easier to find"
-                    description="Add concise topics and the skills people will use while contributing."
+                    title={orgCopy ? 'Help the right people find it' : 'Make the project easier to find'}
+                    description={orgCopy ? 'Shown on Discover only when the organization is public (Setup step).' : 'Add concise topics and the skills people will use while contributing.'}
                 />
 
                 <div className="mt-5 space-y-6">
                     <div>
                         <div className="flex items-end justify-between gap-3">
-                            <FieldLabel htmlFor="create-project-tag-input">Tags</FieldLabel>
+                            <FieldLabel htmlFor="create-project-tag-input">{orgCopy ? 'Topics' : 'Tags'}</FieldLabel>
                             <span className="nb-compact mb-2 shrink-0 text-muted-foreground" aria-live="polite">{tags.length}/{projectTagLimit}</span>
                         </div>
                         <p id="create-project-tags-help" className="mb-2 text-[13px] leading-[1.5] text-muted-foreground">Keyword tags used for search indexing and discovery filters (up to {projectTagLimit} tags).</p>
@@ -371,7 +376,8 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                         </div>
                     </div>
 
-                    <div className="border-t border-border pt-5">
+                    {/* Organizations find people by topic; skills belong to the projects inside (decision 182). */}
+                    {orgCopy ? null : <div className="border-t border-border pt-5">
                         <SkillPicker
                             value={technologies}
                             onChange={(next) => setValue('technologies_used', next, { shouldDirty: true, shouldValidate: true })}
@@ -382,7 +388,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                             controlSize="large"
                             className="space-y-3"
                         />
-                    </div>
+                    </div>}
                 </div>
             </section>
 

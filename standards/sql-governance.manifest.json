@@ -263,7 +263,8 @@
     "drizzle/0259_subtask_completed_by.sql",
     "drizzle/0260_contribution_work_record.sql",
     "drizzle/0261_org_chat_defaults.sql",
-    "drizzle/0262_contribution_browser_grants.sql"
+    "drizzle/0262_contribution_browser_grants.sql",
+    "drizzle/0263_org_type_other.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",

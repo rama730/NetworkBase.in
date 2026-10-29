@@ -13,5 +13,8 @@ export const WIZARD_PHASES = [
 
 export type WizardPhaseId = typeof WIZARD_PHASES[number]['id'];
 
+/** Organizations keep the positions with their own words (report §34.1, decision 178). */
+export const ORG_PHASE_LABELS: Record<WizardPhaseId, string> = { 1: 'Start', 2: 'Details', 3: 'People', 4: 'Setup', 5: 'Review' };
+
 export const TOTAL_PHASES = WIZARD_PHASES.length;
 

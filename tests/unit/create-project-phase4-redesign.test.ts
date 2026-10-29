@@ -14,7 +14,7 @@ test('Phase 4 uses the flat launch-settings hierarchy and removes creation-time 
     const schema = source('src/lib/validations/project.ts');
     const wizard = source('src/components/projects/create-wizard/useCreateProjectWizard.ts');
 
-    assert.match(phase, /Phase 4 · settings/);
+    assert.match(phase, /Phase 4 · \{isOrganization \? 'setup' : 'settings'\}/);
     assert.match(phase, /Set up how the project launches/);
     assert.match(phase, /Choose project visibility/);
     // Roles are reviewed in step 5; step 4 is launch settings only.
