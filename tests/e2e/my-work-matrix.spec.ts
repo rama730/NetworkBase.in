@@ -11,7 +11,7 @@ test.describe("Workspace matrix @critical", () => {
     const monitor = attachPageMonitoring(page);
 
     await login(page);
-    await page.goto("/workspace");
+    await page.goto("/my-work");
 
     const tabs = ["tasks", "requests"] as const;
 

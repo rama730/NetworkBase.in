@@ -20,7 +20,7 @@ test("Empty state architectural contract: global CSS ground and typography defin
 });
 
 test("Empty state architectural contract: Workspace surfaces", () => {
-    const tasksTab = readFileSync(resolve(ROOT, "src/components/workspace/WorkspaceTasksTab.tsx"), "utf-8");
+    const tasksTab = readFileSync(resolve(ROOT, "src/components/my-work/MyWorkTasksTab.tsx"), "utf-8");
 
     assert.match(tasksTab, /className=["'][^"']*nb-empty-state nb-grid-ground/);
 });

@@ -35,7 +35,7 @@ export default function robots(): MetadataRoute.Robots {
         "/settings/",
         "/signup",
         "/verify-email",
-        "/workspace/",
+        "/my-work/",
       ],
     },
     sitemap: `${SITE_ORIGIN}/sitemap.xml`,

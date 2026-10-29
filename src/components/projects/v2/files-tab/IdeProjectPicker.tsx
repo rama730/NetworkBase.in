@@ -55,7 +55,7 @@ export function IdeProjectPicker({
   const { user } = useAuth();
   const [search, setSearch] = useState("");
   const query = useInfiniteQuery({
-    queryKey: queryKeys.workspace.ideProjects(user?.id ?? null),
+    queryKey: queryKeys.myWork.ideProjects(user?.id ?? null),
     queryFn: ({ pageParam, signal }) => loadProjects(pageParam, signal),
     initialPageParam: null as string | null,
     getNextPageParam: (page) =>

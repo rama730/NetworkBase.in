@@ -26,7 +26,7 @@ function mineSql(userId: string) {
     return sql`(${tasks.assigneeId} = ${userId}::uuid OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${tasks.id} AND tm.user_id = ${userId}::uuid))`;
 }
 
-function normalizeWorkspaceLimit(rawLimit: unknown, fallback = 24) {
+function normalizeMyWorkLimit(rawLimit: unknown, fallback = 24) {
     const parsed = typeof rawLimit === "number" ? rawLimit : Number(rawLimit);
     return Number.isFinite(parsed)
         ? Math.max(1, Math.min(Math.trunc(parsed), 100))
@@ -34,7 +34,7 @@ function normalizeWorkspaceLimit(rawLimit: unknown, fallback = 24) {
 }
 
 /** Small drawer badges deliberately use scalar counts rather than task lists. */
-export async function getWorkspaceSummaryAction() {
+export async function getMyWorkSummaryAction() {
     try {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
@@ -83,7 +83,7 @@ export async function getWorkspaceSummaryAction() {
  * includes the team's open work so a collaborator can still see a project's
  * workload when nothing is assigned to them personally.
  */
-export async function fetchWorkspaceTasksAction(
+export async function fetchMyWorkTasksAction(
     limit: number = 24,
     scope: "my" | "team" | "all" = "all"
 ) {
@@ -94,7 +94,7 @@ export async function fetchWorkspaceTasksAction(
             return { success: false as const, error: "Not authenticated" };
         }
 
-        const safeLimit = normalizeWorkspaceLimit(limit);
+        const safeLimit = normalizeMyWorkLimit(limit);
 
         const baseWhere = and(
             isNull(tasks.deletedAt),

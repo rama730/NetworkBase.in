@@ -6,19 +6,21 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { useUIStore } from "@/stores/ui-store";
 
-const WorkspaceDrawer = dynamic(() => import("./WorkspaceDrawer"), { ssr: false });
+const MyWorkDrawer = dynamic(() => import("../my-work/MyWorkDrawer"), { ssr: false });
 
-export function WorkspaceDrawerHost() {
-    const isOpen = useUIStore((state) => state.isWorkspaceOpen);
-    const setWorkspaceOpen = useUIStore((state) => state.setWorkspaceOpen);
-    const setWorkspaceTab = useUIStore((state) => state.setWorkspaceTab);
+export function MyWorkDrawerHost() {
+    const isOpen = useUIStore((state) => state.isMyWorkOpen);
+    const setMyWorkOpen = useUIStore((state) => state.setMyWorkOpen);
+    const setMyWorkTab = useUIStore((state) => state.setMyWorkTab);
     const pathname = usePathname();
     const router = useRouter();
     const searchParams = useSearchParams();
-    const drawerDeepLink = searchParams?.get("drawerType") === "workspace";
-    const workspaceDeepLink = searchParams?.get("workspace");
-    const isDeepLinked = drawerDeepLink || Boolean(workspaceDeepLink);
-    const requestedTab = workspaceDeepLink || searchParams?.get("workspaceTab");
+    const drawerType = searchParams?.get("drawerType");
+    const drawerDeepLink = drawerType === "my-work" || drawerType === "workspace";
+    // "workspace" is the old parameter name; links already sent keep working.
+    const myWorkDeepLink = searchParams?.get("my-work") ?? searchParams?.get("workspace");
+    const isDeepLinked = drawerDeepLink || Boolean(myWorkDeepLink);
+    const requestedTab = myWorkDeepLink || searchParams?.get("workspaceTab");
     const [hasMounted, setHasMounted] = useState(isOpen || isDeepLinked);
 
     useEffect(() => {
@@ -27,13 +29,13 @@ export function WorkspaceDrawerHost() {
 
     useEffect(() => {
         if (!isDeepLinked) return;
-        setWorkspaceTab(requestedTab === "requests" ? "requests" : "tasks");
-        setWorkspaceOpen(true);
+        setMyWorkTab(requestedTab === "requests" ? "requests" : "tasks");
+        setMyWorkOpen(true);
         // Legacy links need one ephemeral instruction to open the drawer; the
         // URL is immediately returned to the clean hub route.
         if (isDeepLinked) {
             const params = new URLSearchParams(searchParams?.toString());
-            if (workspaceDeepLink) params.delete("workspace");
+            if (myWorkDeepLink) { params.delete("my-work"); params.delete("workspace"); }
             if (drawerDeepLink) {
                 params.delete("drawerType");
                 params.delete("workspaceTab");
@@ -41,7 +43,7 @@ export function WorkspaceDrawerHost() {
             const query = params.toString();
             router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
         }
-    }, [drawerDeepLink, isDeepLinked, pathname, requestedTab, router, searchParams, setWorkspaceOpen, setWorkspaceTab, workspaceDeepLink]);
+    }, [drawerDeepLink, isDeepLinked, pathname, requestedTab, router, searchParams, setMyWorkOpen, setMyWorkTab, myWorkDeepLink]);
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
@@ -50,23 +52,23 @@ export function WorkspaceDrawerHost() {
                 const isInput = target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable;
                 if (!isInput) {
                     event.preventDefault();
-                    setWorkspaceOpen(!isOpen);
+                    setMyWorkOpen(!isOpen);
                 }
             }
         };
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [isOpen, setWorkspaceOpen]);
+    }, [isOpen, setMyWorkOpen]);
 
     // Below md the drawer is full screen, so a route change (including browser Back) must not leave it covering the new page.
     const previousPathnameRef = useRef(pathname);
     useEffect(() => {
         if (previousPathnameRef.current === pathname) return;
         previousPathnameRef.current = pathname;
-        if (window.matchMedia("(max-width: 767px)").matches) setWorkspaceOpen(false);
-    }, [pathname, setWorkspaceOpen]);
+        if (window.matchMedia("(max-width: 767px)").matches) setMyWorkOpen(false);
+    }, [pathname, setMyWorkOpen]);
 
     // Keep the lazily loaded host after its first open so Radix can
     // play the closed-state animation instead of being unmounted immediately.
-    return hasMounted ? <WorkspaceDrawer /> : null;
+    return hasMounted ? <MyWorkDrawer /> : null;
 }

@@ -29,9 +29,9 @@ import { normalizeProjectDocSlug } from '@/lib/projects/doc-slug';
 import { canProjectMemberUploadFiles, isProjectTabVisibleToViewer, normalizeProjectMemberRole, normalizeProjectPublicTabVisibility, PROJECT_MEMBER_ROLE_LABELS, resolveAllowedProjectTab, type ProjectMemberRole } from '@/lib/projects/settings-policies';
 import {
     useUIStore,
-    WORKSPACE_TASK_HANDOFF_STORAGE_KEY,
-    readWorkspaceTaskHandoff,
-    type WorkspaceTaskHandoff,
+    MY_WORK_TASK_HANDOFF_STORAGE_KEY,
+    readMyWorkTaskHandoff,
+    type MyWorkTaskHandoff,
 } from '@/stores/ui-store';
 
 import { DashboardTab, DocTab, UpdatesTab, TasksTab, FilesTab, SprintPlanning, ProjectSettingsTab } from '@/components/projects/dashboard/ProjectTabsRegistry';
@@ -165,49 +165,49 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
     const pathname = usePathname();
     const queryClient = useQueryClient();
     const searchParams = useSearchParams();
-    const workspaceTaskHandoff = useUIStore((state) => state.workspaceTaskHandoff);
-    const setWorkspaceTaskHandoff = useUIStore((state) => state.setWorkspaceTaskHandoff);
-    const [sessionTaskHandoff, setSessionTaskHandoff] = useState<WorkspaceTaskHandoff | null>(() => {
+    const myWorkTaskHandoff = useUIStore((state) => state.myWorkTaskHandoff);
+    const setMyWorkTaskHandoff = useUIStore((state) => state.setMyWorkTaskHandoff);
+    const [sessionTaskHandoff, setSessionTaskHandoff] = useState<MyWorkTaskHandoff | null>(() => {
         if (typeof window === 'undefined') return null;
-        const handoff = readWorkspaceTaskHandoff(window.sessionStorage.getItem(WORKSPACE_TASK_HANDOFF_STORAGE_KEY));
+        const handoff = readMyWorkTaskHandoff(window.sessionStorage.getItem(MY_WORK_TASK_HANDOFF_STORAGE_KEY));
         return handoff?.projectId === project.id ? handoff : null;
     });
     useEffect(() => {
-        if (workspaceTaskHandoff || typeof window === 'undefined') return;
+        if (myWorkTaskHandoff || typeof window === 'undefined') return;
         try {
-            const stored = readWorkspaceTaskHandoff(
-                window.sessionStorage.getItem(WORKSPACE_TASK_HANDOFF_STORAGE_KEY),
+            const stored = readMyWorkTaskHandoff(
+                window.sessionStorage.getItem(MY_WORK_TASK_HANDOFF_STORAGE_KEY),
             );
             if (stored?.projectId === project.id) setSessionTaskHandoff(stored);
-            else window.sessionStorage.removeItem(WORKSPACE_TASK_HANDOFF_STORAGE_KEY);
+            else window.sessionStorage.removeItem(MY_WORK_TASK_HANDOFF_STORAGE_KEY);
         } catch {
             try {
-                window.sessionStorage.removeItem(WORKSPACE_TASK_HANDOFF_STORAGE_KEY);
+                window.sessionStorage.removeItem(MY_WORK_TASK_HANDOFF_STORAGE_KEY);
             } catch {
                 // Storage is unavailable; no persisted handoff can be used.
             }
         }
-    }, [project.id, workspaceTaskHandoff]);
-    const pendingWorkspaceTaskHandoff = workspaceTaskHandoff ?? sessionTaskHandoff;
-    const workspaceInitialTaskId =
-        pendingWorkspaceTaskHandoff?.projectId === project.id
-            ? pendingWorkspaceTaskHandoff.taskId
+    }, [project.id, myWorkTaskHandoff]);
+    const pendingMyWorkTaskHandoff = myWorkTaskHandoff ?? sessionTaskHandoff;
+    const myWorkInitialTaskId =
+        pendingMyWorkTaskHandoff?.projectId === project.id
+            ? pendingMyWorkTaskHandoff.taskId
             : null;
     const applyRoleIdFromUrl = searchParams?.get('applyRole') || null;
 
     // Keep the handoff alive until TasksTab has actually opened the panel.
     // Clearing it on dashboard mount races the lazy task-tab mount.
-    const consumeWorkspaceTaskHandoff = useCallback(() => {
-        if (pendingWorkspaceTaskHandoff?.projectId === project.id) {
-            setWorkspaceTaskHandoff(null);
+    const consumeMyWorkTaskHandoff = useCallback(() => {
+        if (pendingMyWorkTaskHandoff?.projectId === project.id) {
+            setMyWorkTaskHandoff(null);
             setSessionTaskHandoff(null);
             try {
-                window.sessionStorage.removeItem(WORKSPACE_TASK_HANDOFF_STORAGE_KEY);
+                window.sessionStorage.removeItem(MY_WORK_TASK_HANDOFF_STORAGE_KEY);
             } catch {
                 // The in-memory handoff is already consumed.
             }
         }
-    }, [pendingWorkspaceTaskHandoff, project.id, setWorkspaceTaskHandoff]);
+    }, [pendingMyWorkTaskHandoff, project.id, setMyWorkTaskHandoff]);
     // The detail shell already resolves viewer-safe guidance in parallel with
     // the rest of the project header. Avoid a second client POST on every open.
     const guidance = (project as { guidance?: unknown }).guidance ?? null;
@@ -1237,7 +1237,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                         {/* Assignments (report §16.5) and, in child projects, the org's group copies (§16.6). */}
                         {isOrganization ? <AssignmentsPanel orgId={project.id} onBoardChanged={() => refreshProjectData('tasks')} startComposing={newIntent === 'assignment'} onComposingStarted={() => setNewIntent(null)} /> : null}
                         {parentOrg ? <GroupCopiesPanel projectId={project.id} onBoardChanged={() => refreshProjectData('tasks')} /> : null}
-                        <TasksTab projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} currentUserId={currentUserId || undefined} currentUserName={currentUserName} currentUserAvatarUrl={currentUserAvatarUrl} isOwner={isOwner} canEditTasks={canEditTasks} isProjectMember={isOwnerOrMember} canManageFiles={canManageFiles} canManageWorkflow={canManageProjectSettings} isChildProject={Boolean(parentOrg)} initialTasks={tasks} members={allMembers} sprints={sprints} initialOpenTaskId={initialTaskDrawerId ?? workspaceInitialTaskId} initialPanelTab={initialTaskPanelTab} initialCommentId={searchParams?.get('commentId')} initialFileId={searchParams?.get('fileId')} onInitialTaskOpened={workspaceInitialTaskId ? consumeWorkspaceTaskHandoff : undefined} />
+                        <TasksTab projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} currentUserId={currentUserId || undefined} currentUserName={currentUserName} currentUserAvatarUrl={currentUserAvatarUrl} isOwner={isOwner} canEditTasks={canEditTasks} isProjectMember={isOwnerOrMember} canManageFiles={canManageFiles} canManageWorkflow={canManageProjectSettings} isChildProject={Boolean(parentOrg)} initialTasks={tasks} members={allMembers} sprints={sprints} initialOpenTaskId={initialTaskDrawerId ?? myWorkInitialTaskId} initialPanelTab={initialTaskPanelTab} initialCommentId={searchParams?.get('commentId')} initialFileId={searchParams?.get('fileId')} onInitialTaskOpened={myWorkInitialTaskId ? consumeMyWorkTaskHandoff : undefined} />
                     </TabErrorBoundary>
                 </div>
             )}

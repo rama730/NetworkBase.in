@@ -27,8 +27,8 @@ test("application sidebar supports a persisted accessible icon-only state", () =
   assert.match(sidebar, /<h2[^>]*>Workspaces<\/h2>/);
   assert.match(sidebar, /<div className="flex items-center gap-3 px-2">\s*<h2 id="sidebar-workspace-heading" className="nb-micro whitespace-nowrap">Workspaces<\/h2>\s*<div className="h-px min-w-0 flex-1 bg-border" aria-hidden="true" \/>/);
   assert.ok(
-    sidebar.indexOf("<WorkspaceIndicator />") > sidebar.indexOf('aria-label="My profile"')
-      && sidebar.indexOf("<WorkspaceIndicator />") < sidebar.indexOf('className="nb-sidebar-workspace'),
+    sidebar.indexOf("<MyWorkIndicator />") > sidebar.indexOf('aria-label="My profile"')
+      && sidebar.indexOf("<MyWorkIndicator />") < sidebar.indexOf('className="nb-sidebar-workspace'),
     "My Work should appear directly after My Profile and before the Workspaces project list",
   );
   assert.match(sidebar, /data-layout=\{preferenceReady \? \(collapsed \? "stacked" : "inline"\) : undefined\}/);

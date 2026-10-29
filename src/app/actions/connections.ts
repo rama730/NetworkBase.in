@@ -34,7 +34,7 @@ import {
     invalidateDiscoverCacheForUsers,
     revalidateConnectionsPaths,
 } from '@/lib/connections/internal-helpers';
-import { queueCounterRefreshBestEffort } from '@/lib/workspace/counter-buffer';
+import { queueCounterRefreshBestEffort } from '@/lib/my-work/counter-buffer';
 import { recordPrivacyReadEvents } from '@/lib/privacy/audit';
 import { buildViewerScopedProfileView } from '@/lib/privacy/profile-views';
 import {

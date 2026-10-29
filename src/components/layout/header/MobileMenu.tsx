@@ -37,7 +37,7 @@ export default function MobileMenu(props: {
 
     // Any navigation inside the drawer closes it; "My work" opens its own drawer.
     const closeOnNavigate = (event: MouseEvent<HTMLElement>) => {
-        if ((event.target as HTMLElement).closest("a[href], #workspace-launcher")) props.onClose();
+        if ((event.target as HTMLElement).closest("a[href], #my-work-launcher")) props.onClose();
     };
 
     return (

@@ -5,7 +5,7 @@ const END_OF_DAY_MINUTES = 59
 const END_OF_DAY_SECONDS = 59
 const END_OF_DAY_MILLISECONDS = 999
 
-export function getWorkspaceCounterWindow(referenceNow: Date = new Date()) {
+export function getMyWorkCounterWindow(referenceNow: Date = new Date()) {
     const now = new Date(referenceNow)
     const todayEnd = new Date(Date.UTC(
         now.getUTCFullYear(),
@@ -19,11 +19,11 @@ export function getWorkspaceCounterWindow(referenceNow: Date = new Date()) {
     return { now, todayEnd }
 }
 
-export function serializeWorkspaceCounterTimestamp(value: Date | string) {
+export function serializeMyWorkCounterTimestamp(value: Date | string) {
     return typeof value === 'string' ? value : value.toISOString()
 }
 
-export function buildWorkspaceTaskCounterFilters(
+export function buildMyWorkTaskCounterFilters(
     deletedAtExpression: SQL,
     statusExpression: SQL,
     dueDateExpression: SQL,
@@ -31,8 +31,8 @@ export function buildWorkspaceTaskCounterFilters(
     todayEnd: Date | string,
     reviewStatusExpression: SQL = sql`'none'`,
 ) {
-    const nowParam = sql`${serializeWorkspaceCounterTimestamp(now)}::timestamptz`
-    const todayEndParam = sql`${serializeWorkspaceCounterTimestamp(todayEnd)}::timestamptz`
+    const nowParam = sql`${serializeMyWorkCounterTimestamp(now)}::timestamptz`
+    const todayEndParam = sql`${serializeMyWorkCounterTimestamp(todayEnd)}::timestamptz`
 
     return {
         dueToday: sql`${deletedAtExpression} IS NULL

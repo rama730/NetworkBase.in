@@ -17,7 +17,7 @@ moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: 
 delete process.env.UPSTASH_REDIS_REST_URL;
 delete process.env.UPSTASH_REDIS_REST_TOKEN;
 
-let workspace: typeof import("../../src/app/actions/workspace");
+let workspace: typeof import("../../src/app/actions/my-work");
 let orgWorkspace: typeof import("../../src/app/actions/org-workspace");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
@@ -25,7 +25,7 @@ before(async () => {
     ...viewerContext,
     getViewerAuthContext: async () => ({ supabase: null, snapshot: null, user: viewerId ? { id: viewerId } : null, userId: viewerId || null, emailVerified: true }),
   });
-  workspace = await loadAppModule(() => import("../../src/app/actions/workspace"));
+  workspace = await loadAppModule(() => import("../../src/app/actions/my-work"));
   orgWorkspace = await loadAppModule(() => import("../../src/app/actions/org-workspace"));
 });
 
@@ -49,7 +49,7 @@ test("My work: masters never show, admins don't see copies, teammates see team c
   await sql`INSERT INTO task_team_members (task_id, user_id, is_lead) VALUES (${team!.id}, ${a!}, true), (${team!.id}, ${b!}, false)`;
 
   viewerId = b!;
-  const mine = await workspace.fetchWorkspaceTasksAction(50, "my");
+  const mine = await workspace.fetchMyWorkTasksAction(50, "my");
   assert.ok(mine.success);
   const row = mine.success ? mine.tasks.find((t) => t.id === team!.id) : undefined;
   assert.ok(row, "a teammate sees the team copy in My tasks");
@@ -58,7 +58,7 @@ test("My work: masters never show, admins don't see copies, teammates see team c
   assert.ok(mine.success && !mine.tasks.some((t) => t.id === master!.id), "never the master");
 
   viewerId = owner!;
-  const all = await workspace.fetchWorkspaceTasksAction(50, "all");
+  const all = await workspace.fetchMyWorkTasksAction(50, "all");
   assert.ok(all.success && !all.tasks.some((t) => t.id === team!.id || t.id === master!.id), "admins see neither copies nor masters here");
   const review = await orgWorkspace.fetchToReviewAction();
   assert.ok(review?.some((r) => r.id === team!.id && r.who === "Team A"), "the submission waits in To review");

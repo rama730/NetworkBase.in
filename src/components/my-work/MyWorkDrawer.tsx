@@ -7,24 +7,24 @@ import { useUIStore } from "@/stores/ui-store";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
-import { getWorkspaceSummaryAction } from "@/app/actions/workspace";
+import { getMyWorkSummaryAction } from "@/app/actions/my-work";
 import { useNetworkNotifications } from "@/hooks/useNetworkNotifications";
 
-import WorkspaceTasksTab from "./WorkspaceTasksTab";
-import WorkspaceRequestsTab from "./WorkspaceRequestsTab";
+import MyWorkTasksTab from "./MyWorkTasksTab";
+import MyWorkRequestsTab from "./MyWorkRequestsTab";
 import { OpenInIdeButton } from "@/components/projects/v2/files-tab/OpenInIdeButton";
 
-export default function WorkspaceDrawer() {
-  const isWorkspaceOpen = useUIStore((s) => s.isWorkspaceOpen);
-  const setWorkspaceOpen = useUIStore((s) => s.setWorkspaceOpen);
-  const activeTab = useUIStore((s) => s.workspaceTab);
-  const setActiveTab = useUIStore((s) => s.setWorkspaceTab);
+export default function MyWorkDrawer() {
+  const isMyWorkOpen = useUIStore((s) => s.isMyWorkOpen);
+  const setMyWorkOpen = useUIStore((s) => s.setMyWorkOpen);
+  const activeTab = useUIStore((s) => s.myWorkTab);
+  const setActiveTab = useUIStore((s) => s.setMyWorkTab);
   const { pendingConnections } = useNetworkNotifications();
 
   const { data: summary } = useQuery({
-    queryKey: queryKeys.workspace.summary(),
-    queryFn: getWorkspaceSummaryAction,
-    enabled: isWorkspaceOpen,
+    queryKey: queryKeys.myWork.summary(),
+    queryFn: getMyWorkSummaryAction,
+    enabled: isMyWorkOpen,
     staleTime: 30_000,
   });
   const taskCount = summary?.success ? summary.taskCount : 0;
@@ -46,10 +46,10 @@ export default function WorkspaceDrawer() {
   };
 
   return (
-    <Dialog open={isWorkspaceOpen} onOpenChange={setWorkspaceOpen}>
+    <Dialog open={isMyWorkOpen} onOpenChange={setMyWorkOpen}>
       <DialogContent
-        data-testid="workspace-drawer"
-        id="workspace-drawer"
+        data-testid="my-work-drawer"
+        id="my-work-drawer"
         presentation="right-drawer"
         showCloseButton={false}
         overlayClassName="z-[200] bg-black/60 backdrop-blur-none"
@@ -57,7 +57,7 @@ export default function WorkspaceDrawer() {
           event.preventDefault();
         }}
         onCloseAutoFocus={(event) => {
-          const launcher = document.getElementById("workspace-launcher");
+          const launcher = document.getElementById("my-work-launcher");
           if (!launcher) return;
           event.preventDefault();
           launcher.focus();
@@ -77,7 +77,7 @@ export default function WorkspaceDrawer() {
             <div className="flex min-w-0 items-center gap-2">
               <OpenInIdeButton className="min-w-0 shrink" />
               <DialogClose
-                aria-label="Close workspace"
+                aria-label="Close My work"
                 className="nb-icon-button min-h-8 min-w-8 shrink-0 rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
@@ -120,9 +120,9 @@ export default function WorkspaceDrawer() {
           "relative flex-1 overflow-y-auto bg-card px-4 pb-6 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:px-6",
         )}>
           {activeTab === "tasks" ? (
-            <WorkspaceTasksTab isActive={activeTab === "tasks"} />
+            <MyWorkTasksTab isActive={activeTab === "tasks"} />
           ) : (
-            <WorkspaceRequestsTab isActive={activeTab === "requests"} />
+            <MyWorkRequestsTab isActive={activeTab === "requests"} />
           )}
         </div>
       </DialogContent>

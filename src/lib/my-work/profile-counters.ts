@@ -1,9 +1,9 @@
 import { sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { buildWorkspaceTaskCounterFilters, getWorkspaceCounterWindow } from '@/lib/workspace/counter-logic'
+import { buildMyWorkTaskCounterFilters, getMyWorkCounterWindow } from '@/lib/my-work/counter-logic'
 import { isLooseUuid } from '@/lib/validations/uuid'
 
-type WorkspaceCounterExecutor = Pick<typeof db, 'execute'>
+type MyWorkCounterExecutor = Pick<typeof db, 'execute'>
 
 function normalizeUserIds(userIds: Array<string | null | undefined>) {
     return [...new Set(
@@ -13,18 +13,18 @@ function normalizeUserIds(userIds: Array<string | null | undefined>) {
     )]
 }
 
-export async function refreshWorkspaceCountersForUsers(
-    executor: WorkspaceCounterExecutor,
+export async function refreshMyWorkCountersForUsers(
+    executor: MyWorkCounterExecutor,
     userIds: Array<string | null | undefined>,
 ) {
     const targetUserIds = normalizeUserIds(userIds)
     if (targetUserIds.length === 0) return
 
-    const { now, todayEnd } = getWorkspaceCounterWindow()
+    const { now, todayEnd } = getMyWorkCounterWindow()
     const deletedAtColumn = sql.raw('"deleted_at"')
     const statusColumn = sql.raw('"status"')
     const dueDateColumn = sql.raw('"due_date"')
-    const taskCounterFilters = buildWorkspaceTaskCounterFilters(
+    const taskCounterFilters = buildMyWorkTaskCounterFilters(
         deletedAtColumn,
         statusColumn,
         dueDateColumn,

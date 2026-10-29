@@ -24,7 +24,7 @@ let assignments: typeof import("../../src/app/actions/assignments");
 let dash: typeof import("../../src/app/actions/org-dashboard");
 let members: typeof import("../../src/app/actions/org-members");
 let orgWorkspace: typeof import("../../src/app/actions/org-workspace");
-let workspace: typeof import("../../src/app/actions/workspace");
+let workspace: typeof import("../../src/app/actions/my-work");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
   moduleStubs.set("@/lib/server/viewer-context", {
@@ -35,7 +35,7 @@ before(async () => {
   dash = await loadAppModule(() => import("../../src/app/actions/org-dashboard"));
   members = await loadAppModule(() => import("../../src/app/actions/org-members"));
   orgWorkspace = await loadAppModule(() => import("../../src/app/actions/org-workspace"));
-  workspace = await loadAppModule(() => import("../../src/app/actions/workspace"));
+  workspace = await loadAppModule(() => import("../../src/app/actions/my-work"));
 });
 
 let orgId = "";
@@ -102,7 +102,7 @@ test("an org at 2,000 members: fan-out, roster, dashboard, projects and My work 
 
   viewerId = memberIds[42]!;
   assert.ok((await timed("Sidebar (member)", 1_500, () => orgWorkspace.readSidebarWorkspacesAction()))?.orgs.some((o) => o.id === orgId));
-  const mine = await timed("My work (member)", 1_500, () => workspace.fetchWorkspaceTasksAction(50, "my"));
+  const mine = await timed("My work (member)", 1_500, () => workspace.fetchMyWorkTasksAction(50, "my"));
   assert.ok(mine.success && mine.tasks.some((t) => t.org));
   viewerId = "";
   console.log("org-scale timings (ms):", JSON.stringify(timings));

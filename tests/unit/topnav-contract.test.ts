@@ -236,7 +236,7 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.match(realtime, /resourceType: 'profile'/);
   assert.doesNotMatch(realtime, /table: 'tasks'/);
   assert.match(chat, /usePublishOnlinePresence\(\)/);
-  assert.match(layout, /WorkspaceDrawerHost/);
+  assert.match(layout, /MyWorkDrawerHost/);
   assert.match(people, /searchParams\?\.get\("q"\)/);
   assert.match(people, /searchQuery=\{routeQuery\}/);
   assert.doesNotMatch(discoverPeople, /type="search"|Search people by name/);

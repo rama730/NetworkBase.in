@@ -1,10 +1,10 @@
 import { inngest } from '../client';
 import { db } from '@/lib/db';
 import { getRedisClient } from '@/lib/redis';
-import { counterRefreshMarkerKey } from '@/lib/workspace/counter-buffer';
-import { refreshWorkspaceCountersForUsers } from '@/lib/workspace/profile-counters';
+import { counterRefreshMarkerKey } from '@/lib/my-work/counter-buffer';
+import { refreshMyWorkCountersForUsers } from '@/lib/my-work/profile-counters';
 
-export const workspaceCountersRefresh = inngest.createFunction(
+export const myWorkCountersRefresh = inngest.createFunction(
     { 
         id: 'workspace-counters-refresh', 
         name: 'Workspace Counters Refresh',
@@ -26,7 +26,7 @@ export const workspaceCountersRefresh = inngest.createFunction(
             }
 
             // Perform batched refresh
-            await refreshWorkspaceCountersForUsers(db, userIds);
+            await refreshMyWorkCountersForUsers(db, userIds);
         });
 
         return {

@@ -21,7 +21,7 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
 
 test("one dispatch per window; a failed dispatch clears the marker so the next mutation retries", async () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { queueCounterRefresh, counterRefreshMarkerKey } = require("../../src/lib/workspace/counter-buffer") as typeof import("../../src/lib/workspace/counter-buffer");
+  const { queueCounterRefresh, counterRefreshMarkerKey } = require("../../src/lib/my-work/counter-buffer") as typeof import("../../src/lib/my-work/counter-buffer");
   await queueCounterRefresh("u1");
   await queueCounterRefresh("u1");
   await settle();
@@ -41,6 +41,6 @@ test("one dispatch per window; a failed dispatch clears the marker so the next m
 
 test("markers expire by themselves", async () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { COUNTER_REFRESH_MARKER_TTL_SECONDS } = require("../../src/lib/workspace/counter-buffer") as typeof import("../../src/lib/workspace/counter-buffer");
+  const { COUNTER_REFRESH_MARKER_TTL_SECONDS } = require("../../src/lib/my-work/counter-buffer") as typeof import("../../src/lib/my-work/counter-buffer");
   assert.ok(COUNTER_REFRESH_MARKER_TTL_SECONDS > 0 && COUNTER_REFRESH_MARKER_TTL_SECONDS <= 600);
 });

@@ -22,7 +22,7 @@ import { requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { requireProjectCapability, isProjectMemberEligibleFor } from "@/lib/projects/collaborator-lifecycle";
 import { queueEmail, wakeEmailWorker } from "@/lib/email/outbox";
 import { replaceTaskFileRoleTag } from "@/lib/projects/task-file-intelligence";
-import { queueCounterRefreshBestEffort } from "@/lib/workspace/counter-buffer";
+import { queueCounterRefreshBestEffort } from "@/lib/my-work/counter-buffer";
 import { revalidatePath } from "next/cache";
 import { actorNotificationSnapshot, enqueueProjectNotificationBestEffort } from "./common";
 

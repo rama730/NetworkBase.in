@@ -6,7 +6,7 @@ import {
   OpenInIdeSheet,
 } from "@/components/projects/v2/files-tab/OpenInIdeButton";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import WorkspaceDrawer from "@/components/workspace/WorkspaceDrawer";
+import MyWorkDrawer from "@/components/my-work/MyWorkDrawer";
 import { useUIStore } from "@/stores/ui-store";
 
 const params = new URLSearchParams(location.search);
@@ -33,7 +33,7 @@ document.addEventListener(
   true,
 );
 if (params.get("surface") === "work")
-  useUIStore.getState().setWorkspaceOpen(true);
+  useUIStore.getState().setMyWorkOpen(true);
 
 function Fixture() {
   const [sheet, setSheet] = useState(false);
@@ -102,7 +102,7 @@ function Fixture() {
             </DialogContent>
           </Dialog>
         )}
-        {params.get("surface") === "work" && <WorkspaceDrawer />}
+        {params.get("surface") === "work" && <MyWorkDrawer />}
       </main>
     </QueryClientProvider>
   );

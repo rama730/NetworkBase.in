@@ -44,8 +44,8 @@ test("Canonical route metadata contract: Messages, Settings, and Workspace have 
     assert.match(settingsSource, /title:\s*['"]Settings \| NetworkBase['"]/);
     assert.match(settingsSource, /path:\s*['"]\/settings['"]/);
 
-    const workspaceSource = readFileSync(resolve(ROOT, "src/app/(site)/(main)/workspace/page.tsx"), "utf-8");
-    assert.match(workspaceSource, /title:\s*['"]Workspace \| NetworkBase['"]/);
-    assert.match(workspaceSource, /path:\s*['"]\/workspace['"]/);
-    assert.match(workspaceSource, /redirect\(['"]\/discover\?workspace=tasks['"]\)/);
+    const workspaceSource = readFileSync(resolve(ROOT, "src/app/(site)/(main)/my-work/page.tsx"), "utf-8");
+    assert.match(workspaceSource, /title:\s*['"]My work \| NetworkBase['"]/);
+    assert.match(workspaceSource, /path:\s*['"]\/my-work['"]/);
+    assert.match(workspaceSource, /redirect\(['"]\/discover\?my-work=tasks['"]\)/);
 });

@@ -9,7 +9,7 @@ import { inngest } from '@/inngest/client';
 import { createSignedJobRequestToken } from '@/lib/security/job-request';
 import { resolveDestructiveStepUp } from '@/lib/security/destructive-step-up';
 import { resolveStepUpCapabilities } from '@/lib/security/step-up-capabilities';
-import { queueCounterRefreshBestEffort } from '@/lib/workspace/counter-buffer';
+import { queueCounterRefreshBestEffort } from '@/lib/my-work/counter-buffer';
 import { revokeAllExtensionSessionsForUser } from '@/lib/security/extension-token-revocation';
 import { queueSecurityEmail } from '@/lib/email/security-queue';
 import { recordSecurityEvent } from '@/lib/security/audit';

@@ -515,6 +515,16 @@
   "src/components/messages/upload.ts": {
    "apostrophe": 2
   },
+  "src/components/my-work/MyWorkRequestsTab.tsx": {
+   "apostrophe": 1,
+   "project": 5,
+   "please": 1,
+   "ellipsis": 2
+  },
+  "src/components/my-work/MyWorkTasksTab.tsx": {
+   "project": 9,
+   "please": 1
+  },
   "src/components/network/ConnectionsClient.tsx": {
    "apostrophe": 1,
    "project": 1
@@ -1211,16 +1221,6 @@
    "title-case": 1,
    "ellipsis": 1
   },
-  "src/components/workspace/WorkspaceRequestsTab.tsx": {
-   "apostrophe": 1,
-   "project": 5,
-   "please": 1,
-   "ellipsis": 2
-  },
-  "src/components/workspace/WorkspaceTasksTab.tsx": {
-   "project": 9,
-   "please": 1
-  },
   "src/hooks/discover/useDiscoverProjects.ts": {
    "apostrophe": 2,
    "project": 1
@@ -1263,17 +1263,17 @@
   "src/inngest/functions/git-sync.ts": {
    "banned": 1
   },
+  "src/inngest/functions/my-work-counter-reconcile.ts": {
+   "title-case": 1
+  },
+  "src/inngest/functions/my-work-counter-refresh.ts": {
+   "title-case": 1
+  },
   "src/inngest/functions/notification-fanout.ts": {
    "title-case": 1
   },
   "src/inngest/functions/project-files-reconciliation.ts": {
    "project": 1
-  },
-  "src/inngest/functions/workspace-counter-reconcile.ts": {
-   "title-case": 1
-  },
-  "src/inngest/functions/workspace-counter-refresh.ts": {
-   "title-case": 1
   },
   "src/lib/account/export-stream.ts": {
    "british": 1,

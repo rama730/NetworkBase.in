@@ -13,11 +13,11 @@ stubNextAfter();
 
 let apps: typeof import("../../src/app/actions/applications");
 let invitations: typeof import("../../src/app/actions/network-invitations");
-let workspace: typeof import("../../src/app/actions/workspace");
+let workspace: typeof import("../../src/app/actions/my-work");
 before(async () => {
   apps = await loadAppModule(() => import("../../src/app/actions/applications"));
   invitations = await loadAppModule(() => import("../../src/app/actions/network-invitations"));
-  workspace = await loadAppModule(() => import("../../src/app/actions/workspace"));
+  workspace = await loadAppModule(() => import("../../src/app/actions/my-work"));
 });
 after(async () => { await sql.end(); await closeAppDb(); });
 
@@ -68,7 +68,7 @@ test("the review queue follows project membership, not the owner at apply time",
     assert.equal(await queue(member), 0, "a plain member does not");
     const requestCount = async (userId: string) => {
       viewerId = userId;
-      const summary = await workspace.getWorkspaceSummaryAction();
+      const summary = await workspace.getMyWorkSummaryAction();
       return summary.success ? summary.requestCount : -1;
     };
     assert.equal(await requestCount(admin), 1);

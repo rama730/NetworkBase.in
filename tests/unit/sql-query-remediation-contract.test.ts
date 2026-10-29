@@ -72,9 +72,9 @@ describe("SQL audit query remediations", () => {
   });
 
   it("bounds workspace pages and consolidates project task aggregates", () => {
-    const workspace = read("src/app/actions/workspace.ts");
+    const workspace = read("src/app/actions/my-work.ts");
     const projects = projectActionsSource();
-    assert.match(workspace, /function normalizeWorkspaceLimit/);
+    assert.match(workspace, /function normalizeMyWorkLimit/);
     assert.match(workspace, /Number\.isFinite\(parsed\)/);
     assert.match(workspace, /const visibleProjectCheck = exists\(/);
     assert.match(workspace, /eq\(projectMembers\.userId, user\.id\)/);

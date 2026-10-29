@@ -11,7 +11,7 @@ import {
   tasks,
 } from "@/lib/db/schema";
 import { enqueueProjectNotificationEvent } from "@/lib/notifications/project-events";
-import { queueCounterRefreshBestEffort } from "@/lib/workspace/counter-buffer";
+import { queueCounterRefreshBestEffort } from "@/lib/my-work/counter-buffer";
 import { getTaskFileWarnings } from "@/lib/projects/task-file-intelligence";
 import { logger } from "@/lib/logger";
 import { projectTaskHref } from "@/lib/projects/task-presentation";

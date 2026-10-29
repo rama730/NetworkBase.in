@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { AppSidebar } from './AppSidebar'
 import TopNav from '@/components/layout/header/TopNav'
 import { PendingDeletionNotice } from './PendingDeletionNotice'
-import { WorkspaceDrawerHost } from '@/components/workspace/WorkspaceDrawerHost'
+import { MyWorkDrawerHost } from '@/components/my-work/MyWorkDrawerHost'
 import { CREATE_PROJECT_PATH, rememberCreateProjectReturnPath } from '@/components/projects/create-wizard/create-project-return'
 import { noteNavigation } from '@/lib/navigation/in-app-history'
 
@@ -42,7 +42,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                 {children}
             </main>
             </div>
-            <WorkspaceDrawerHost />
+            <MyWorkDrawerHost />
         </div>
     )
 }

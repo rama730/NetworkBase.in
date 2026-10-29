@@ -1,15 +1,15 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
-    getWorkspaceCounterWindow,
-    buildWorkspaceTaskCounterFilters,
-    serializeWorkspaceCounterTimestamp,
-} from '@/lib/workspace/counter-logic'
+    getMyWorkCounterWindow,
+    buildMyWorkTaskCounterFilters,
+    serializeMyWorkCounterTimestamp,
+} from '@/lib/my-work/counter-logic'
 import { sql } from 'drizzle-orm'
 
 test('workspace counter window ends at UTC end of day', () => {
     const reference = new Date('2026-03-20T10:15:30.000Z')
-    const { now, todayEnd } = getWorkspaceCounterWindow(reference)
+    const { now, todayEnd } = getMyWorkCounterWindow(reference)
 
     assert.equal(now.toISOString(), '2026-03-20T10:15:30.000Z')
     assert.equal(todayEnd.getUTCFullYear(), 2026)
@@ -23,9 +23,9 @@ test('workspace counter window ends at UTC end of day', () => {
 
 test('workspace counter timestamps serialize dates to ISO strings', () => {
     const now = new Date('2026-03-20T15:00:00.000Z')
-    assert.equal(serializeWorkspaceCounterTimestamp(now), '2026-03-20T15:00:00.000Z')
+    assert.equal(serializeMyWorkCounterTimestamp(now), '2026-03-20T15:00:00.000Z')
     assert.equal(
-        serializeWorkspaceCounterTimestamp('2026-03-20T23:59:59.999Z'),
+        serializeMyWorkCounterTimestamp('2026-03-20T23:59:59.999Z'),
         '2026-03-20T23:59:59.999Z',
     )
 })
@@ -33,7 +33,7 @@ test('workspace counter timestamps serialize dates to ISO strings', () => {
 test('workspace task counter filters do not embed raw Date instances in SQL params', () => {
     const now = new Date('2026-03-20T15:00:00.000Z')
     const todayEnd = new Date('2026-03-20T23:59:59.999Z')
-    const filters = buildWorkspaceTaskCounterFilters(
+    const filters = buildMyWorkTaskCounterFilters(
         sql.raw('"deleted_at"'),
         sql.raw('"status"'),
         sql.raw('"due_date"'),

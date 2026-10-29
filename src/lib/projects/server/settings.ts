@@ -12,7 +12,7 @@ import { canProjectMemberUploadFiles } from "@/lib/projects/settings-policies";
 import { logger } from "@/lib/logger";
 import { enqueueProjectNotificationEvent, enqueueProjectNotificationEvents } from "@/lib/notifications/project-events";
 import { z } from "zod";
-import { queueCounterRefreshBestEffort } from "@/lib/workspace/counter-buffer";
+import { queueCounterRefreshBestEffort } from "@/lib/my-work/counter-buffer";
 import { wakeEmailWorker } from "@/lib/email/outbox";
 import { getProjectAccessById, type ProjectAccess } from "@/lib/data/project-access";
 import { readProjectDocSettingsAction } from "@/app/actions/project/doc";
