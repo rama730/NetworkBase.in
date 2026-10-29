@@ -623,7 +623,7 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
             toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t snooze notification", "Couldn’t snooze notification"));
         },
         onSuccess: () => {
-            toast.success("Snoozed — we'll bring it back");
+            toast.success("Snoozed — we’ll bring it back");
         },
     });
 

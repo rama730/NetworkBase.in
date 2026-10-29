@@ -157,7 +157,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
     const presentation = searchContext === "network" && peopleScope === "network"
         ? { label: "Connections / Network", hints: ["Connection name", "Username"] }
         : CONTEXT_PRESENTATION[searchContext];
-    const palettePlaceholder = `Search ${presentation.label}...`;
+    const palettePlaceholder = `Search ${presentation.label}…`;
     const normalizedQuery = query.trim();
     const settingsResults = useMemo(
         () => searchContext === "settings" ? searchSettings(query).slice(0, 10) : [],

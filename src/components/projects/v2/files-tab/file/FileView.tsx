@@ -1003,7 +1003,7 @@ function BinaryFallback({
         <FileQuestion className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
       </div>
       <div className="max-w-md text-xs text-muted-foreground">
-        This file type doesn&apos;t have an inline preview. Open it in a new
+        This file type doesn’t have an inline preview. Open it in a new
         tab to view.
       </div>
       {signedUrl ? (

@@ -112,7 +112,7 @@ export function TaskFileUploadModal({
               <div className="mt-3 pl-8">
                 <input
                   type="text"
-                  placeholder="Optional description or tag..."
+                  placeholder="Optional description or tag…"
                   aria-label="Task reference description or tag"
                   value={label}
                   onChange={(e) => setLabel(e.target.value)}
@@ -158,7 +158,7 @@ export function TaskFileUploadModal({
               <div className="mt-3 pl-8">
                 <input
                   type="text"
-                  placeholder="Optional description or tag..."
+                  placeholder="Optional description or tag…"
                   aria-label="File description or tag"
                   value={label}
                   onChange={(e) => setLabel(e.target.value)}
@@ -246,7 +246,7 @@ export function TaskFileUploadModal({
                     New Version of Existing File
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    Add this upload to an attached file&apos;s version history.
+                    Add this upload to an attached file’s version history.
                   </div>
                 </div>
               </button>
@@ -263,7 +263,7 @@ export function TaskFileUploadModal({
                     onChange={(e) => setVersionNodeId(e.target.value)}
                   >
                     <option value="" disabled>
-                      Select an existing file...
+                      Select an existing file…
                     </option>
                     {versionCandidates.map((node) => (
                       <option key={node.id} value={node.id}>

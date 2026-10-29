@@ -50,7 +50,7 @@ export function OrgRequestsSection({ joinRequests = 'decide', onNavigate, enable
                                 <Button size="sm" onClick={async () => {
                                     const result = await acceptOrgInviteAction(invite.id)
                                     if (!result.success) return void toast.error(result.error)
-                                    toast.success(`You're in ${invite.orgTitle}`)
+                                    toast.success(`You’re in ${invite.orgTitle}`)
                                     refresh()
                                 }}>Accept</Button>
                                 <Button size="sm" variant="outline" onClick={() => declineInvite(invite.id, invite.orgTitle)}>Decline</Button>

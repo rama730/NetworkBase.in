@@ -20,7 +20,7 @@ import {
 } from "@/lib/presence/model";
 
 const CLEAR_AFTER: Array<{ value: ClearAfter; label: string }> = [
-  { value: "never", label: "Don't clear" },
+  { value: "never", label: "Don’t clear" },
   { value: "30m", label: "30 minutes" },
   { value: "1h", label: "1 hour" },
   { value: "4h", label: "4 hours" },
@@ -161,7 +161,7 @@ export function StatusPicker() {
                 id="nb-status-text"
                 value={text}
                 maxLength={STATUS_TEXT_MAX}
-                placeholder="What's your status?"
+                placeholder="What’s your status?"
                 onChange={(event) => setText(event.target.value)}
                 className="min-w-0 flex-1 bg-transparent text-[15px] outline-none"
               />
@@ -224,10 +224,10 @@ export function StatusPicker() {
             <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Who sees it</span>
             <div className="flex min-h-11 items-center gap-3">
               <div className="flex flex-1 flex-col gap-0.5">
-                <span className="text-[15px] font-medium">Show when I&apos;m active</span>
+                <span className="text-[15px] font-medium">Show when I’m active</span>
                 <span className="text-[13px] text-muted-foreground">Off: everyone sees you as Offline, and you see others&apos; activity only as Offline too.</span>
               </div>
-              <Switch checked={showActivity} onChange={setShowActivityState} label="Show when I'm active" />
+              <Switch checked={showActivity} onChange={setShowActivityState} label="Show when I’m active" />
             </div>
             <div className="flex flex-col gap-1.5">
               <label htmlFor="nb-status-audience" className="text-[13px] font-semibold">Status visible to</label>

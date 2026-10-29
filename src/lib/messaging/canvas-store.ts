@@ -129,9 +129,9 @@ _A short welcome and what the first week should achieve._
       title: "Retrospective",
       content: `## What went well
 - 
-## What didn't go well
+## What didn’t go well
 - 
-## What we'll try next
+## What we’ll try next
 - 
 ## Action items
 - [ ] Change — owner`,
@@ -149,7 +149,7 @@ _Who has the problem, and why it matters now._
 
 ## Goals
 - 
-## How we'll measure success
+## How we’ll measure success
 - 
 ## In scope
 - 
@@ -202,7 +202,7 @@ _What happened, in two sentences._
 ## Timeline
 - 00:00 — 
 ## Root cause
-_What caused it and why it wasn't caught._
+_What caused it and why it wasn’t caught._
 
 ## Follow-ups
 - [ ] Fix — owner`,

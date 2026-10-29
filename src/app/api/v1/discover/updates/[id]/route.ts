@@ -21,7 +21,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
   try {
     const update = await getDiscoverUpdate(id, user?.id ?? null);
-    if (!update) return jsonError("That update isn't available", 404, "NOT_FOUND");
+    if (!update) return jsonError("That update isn’t available", 404, "NOT_FOUND");
     return jsonSuccess({ update }, undefined, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     logger.warn("discover_updates.single_read_failed", { resourceType: "project_update", resourceId: id, error: error instanceof Error ? error.message : String(error) });

@@ -214,7 +214,7 @@ export function ExplorerTree({
         <div className="font-semibold text-zinc-900 dark:text-zinc-100">Files unavailable</div>
         <div className="mt-1">
           {accessError === "Forbidden"
-            ? "You don't have permission to view this project's files."
+            ? "You don’t have permission to view this project’s files."
             : accessError}
         </div>
       </div>

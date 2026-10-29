@@ -191,7 +191,7 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
                 <Link href={`${ROUTES.LOGIN}?redirect=${encodeURIComponent(href)}`} className="font-medium text-primary hover:underline">Sign in</Link> to follow projects.
             </p>
         ) : error === "failed" ? (
-            <ErrorNotice message="Couldn't update your follow." onRetry={() => void toggleFollow()} className="relative z-10" />
+            <ErrorNotice message="Couldn’t update your follow." onRetry={() => void toggleFollow()} className="relative z-10" />
         ) : null}
     </article>;
 });

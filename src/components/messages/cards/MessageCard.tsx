@@ -24,7 +24,7 @@ export function MessageCard({ card }: { card: ChatCardRef }) {
   if (query.isLoading) return <div role="status" className="nb-skeleton mt-2 h-20 max-w-[480px] rounded-lg border border-border"><span className="sr-only">Loading {card.kind}…</span></div>;
   if (query.isError) return <ErrorNotice what={`This ${card.kind}`} onRetry={() => void query.refetch()} className="mt-2 max-w-[480px]" />;
   if (!view || "restricted" in view) {
-    return <div className="mt-2 max-w-[480px] rounded-lg border border-border bg-card px-4 py-3 text-[13px] text-muted-foreground">You don&apos;t have access to this {card.kind}.</div>;
+    return <div className="mt-2 max-w-[480px] rounded-lg border border-border bg-card px-4 py-3 text-[13px] text-muted-foreground">You don’t have access to this {card.kind}.</div>;
   }
   return <CardBody view={view} />;
 }

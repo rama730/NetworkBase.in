@@ -21,7 +21,7 @@ export function canSeeNode(viewer: "admin" | "member" | "visitor", effective: Fo
 export function folderAccessBlock(parentEffective: FolderAccess | null, next: FolderAccess | null): string | null {
   const floor = parentEffective ?? null;
   if (!floor || !next) return null;
-  return RANK[next] < RANK[floor] ? `A folder inside ${floor === "admins" ? "Admins only" : "Members"} can't be more open than it.` : null;
+  return RANK[next] < RANK[floor] ? `A folder inside ${floor === "admins" ? "Admins only" : "Members"} can’t be more open than it.` : null;
 }
 
 export function readFolderAccess(metadata: unknown): FolderAccess | null {

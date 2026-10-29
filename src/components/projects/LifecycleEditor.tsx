@@ -144,7 +144,7 @@ export function LifecycleEditor({ stages, onChange: emitChange, currentStageInde
                                 onKeyDown={handleKeyDown}
                                 maxLength={35}
                                 aria-describedby={errorMsg ? "lifecycle-stage-error" : undefined}
-                                placeholder="Add a stage (e.g. 'Beta Testing', 'Design Review')..."
+                                placeholder="Add a stage (e.g. 'Beta Testing', 'Design Review')…"
                                 className="nb-touch-target h-[34px] flex-1 rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                             />
                             <Button

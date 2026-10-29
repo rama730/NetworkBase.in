@@ -416,7 +416,7 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
   const button = welcome ? "Explore NetworkBase" : "View Task →";
   const footer = welcome
     ? "Need help? Reply to this email."
-    : `You're receiving task updates for ${projectTitle} on NetworkBase.`;
+    : `You’re receiving task updates for ${projectTitle} on NetworkBase.`;
 
   if (welcome) {
     const displayName = input.name || "there";
@@ -496,7 +496,7 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
                       View Your Profile &#8599;
                     </a>
                   </td>`,
-        footer: { reasonHtml: "You're receiving this email because you created an account on NetworkBase.", settingsUrl },
+        footer: { reasonHtml: "You’re receiving this email because you created an account on NetworkBase.", settingsUrl },
       }),
     };
   }
@@ -726,7 +726,7 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
                     </a>
                   </td>
                   ${desktopIdeButtonHtml}`,
-      footer: { reasonHtml: `You're receiving task updates for ${escapeHtml(projectTitle)} on NetworkBase.`, settingsUrl },
+      footer: { reasonHtml: `You’re receiving task updates for ${escapeHtml(projectTitle)} on NetworkBase.`, settingsUrl },
     }),
   };
 }

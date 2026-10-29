@@ -138,7 +138,7 @@ export default function Step2Details({
           <label htmlFor="bio" className="onb-field-label">Bio</label>
           <textarea
             id="bio"
-            placeholder="Tell us about yourself..."
+            placeholder="Tell us about yourself…"
             value={data.bio}
             onChange={(event) => onChange({ bio: event.target.value })}
             className={cn('onb-textarea w-full text-[15px] leading-[1.5] text-foreground placeholder:text-muted-foreground')}

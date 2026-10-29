@@ -912,7 +912,7 @@ export function ProjectUpdateComposer({
                             "block truncate text-[13px]",
                             draftPreview ? "text-foreground font-medium" : "text-muted-foreground",
                         )}>
-                            {draftPreview || `Share a project update for ${projectName}...`}
+                            {draftPreview || `Share a project update for ${projectName}…`}
                         </span>
                         {draftPreview ? (
                             <span className="mt-1 inline-block font-mono text-[10px] max-md:text-[11px] font-semibold uppercase tracking-[0.09em] text-primary">Draft saved</span>
@@ -933,7 +933,7 @@ export function ProjectUpdateComposer({
                         <div className="rounded-[8px] border border-border bg-card p-3 transition focus-within:border-foreground/30">
                             <ProjectUpdateRichTextEditor
                                 content={content}
-                                placeholder={`Share a project update for ${projectName}...`}
+                                placeholder={`Share a project update for ${projectName}…`}
                                 onChange={setContent}
                                 onCommand={openPanel}
                                 onMention={() => openPanel("task")}

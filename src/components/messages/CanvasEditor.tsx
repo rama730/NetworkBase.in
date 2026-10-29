@@ -121,7 +121,7 @@ export function insertCanvasImages(editor: Editor, channelId: string, files: Fil
       .then((assetId) => patch({ src: canvasAssetUrl(assetId), uploading: false }))
       .catch(() => {
         patch(null);
-        toast.warning(`${file.name} couldn't upload.`);
+        toast.warning(`${file.name} couldn’t upload.`);
       });
   }
   return images.length > 0;

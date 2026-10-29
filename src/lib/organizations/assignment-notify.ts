@@ -75,7 +75,7 @@ export async function notifyAssignmentPublished(masterId: string, actorId: strin
     const childTitle = children.get(copy.projectId);
     if (childTitle || copy.teamName) {
       // Team and group copies each get their own line ("You're in Team A for Lab 2").
-      const title = childTitle ? `${org.title} assigned ${master.title} to ${childTitle}` : `You're in ${copy.teamName} for ${master.title}`;
+      const title = childTitle ? `${org.title} assigned ${master.title} to ${childTitle}` : `You’re in ${copy.teamName} for ${master.title}`;
       await notifyOrg({ orgId: org.id, eventKey: "assignments.published", actorId, to: people, title, href, sourceEventId: `published:${copy.id}`, refs: { taskId: copy.id } });
       // The group copy also lands in the project's own channel (report §25.5): "CSE-3A assigned Mini-project proposal".
       if (childTitle) {

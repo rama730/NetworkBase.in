@@ -98,7 +98,7 @@ export function RevisionControlModal({
               id="commit-comment"
               rows={2}
               maxLength={200}
-              placeholder="E.g., Updated section 4 layout improvements..."
+              placeholder="E.g., Updated section 4 layout improvements…"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               className="w-full text-xs p-2 rounded-[6px] border border-border bg-muted/50 text-foreground focus:outline-none resize-none"

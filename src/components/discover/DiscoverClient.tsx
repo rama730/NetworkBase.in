@@ -107,14 +107,14 @@ const FeedFooter: Components<DiscoverFeedItem, FeedContext>['Footer'] = ({ conte
                 </>
             ) : context.failed ? (
                 <>
-                    <span role="status" className="nb-meta">More didn&apos;t load.</span>
+                    <span role="status" className="nb-meta">More didn’t load.</span>
                     <Button type="button" variant="outline" size="sm" onClick={context.retry} className="pointer-coarse:h-11">Retry</Button>
                 </>
             ) : context.loadingMore ? (
                 <span role="status" className="nb-meta">Loading more…</span>
             ) : !context.hasMore ? (
                 // Trending and For you are a ranked top list, not every project.
-                <span role="status" className="nb-meta">{context.ranked ? "That's the top of this list for now." : "You've seen everything here."}</span>
+                <span role="status" className="nb-meta">{context.ranked ? "That’s the top of this list for now." : "You’ve seen everything here."}</span>
             ) : null}
         </div>
     );
@@ -364,7 +364,7 @@ export default function DiscoverClient({
             return (
                 <div className="pb-4">
                     {/* One card that throws must not take the whole list down with it. */}
-                    <ComponentErrorBoundary fallbackMessage="This update couldn't be shown.">
+                    <ComponentErrorBoundary fallbackMessage="This update couldn’t be shown.">
                         <DiscoverUpdateCard
                             update={item.data}
                             viewerId={viewerId}
@@ -432,7 +432,7 @@ export default function DiscoverClient({
             <ErrorNotice message={error.message} onRetry={clearAll} actionLabel="Clear filters" />
         ) : (
             <ErrorNotice
-                message={error instanceof DiscoverFeedError ? error.message : "Projects didn't load. Check your connection and try again."}
+                message={error instanceof DiscoverFeedError ? error.message : "Projects didn’t load. Check your connection and try again."}
                 onRetry={() => void refetch()}
             />
         )

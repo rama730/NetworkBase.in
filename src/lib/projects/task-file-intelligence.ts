@@ -445,7 +445,7 @@ function resolveFolderCandidate(input: {
       linkedFolderId: firstOverlapTarget.id,
       linkedFolderName: firstOverlapTarget.name,
       linkedFolderPath: firstOverlapTarget.path,
-      reason: `${childOverlapCount} of the dropped folder's files look like updates to files already linked under ${firstOverlapTarget.name}. We can merge, attach as a subfolder, or attach as a new folder.`,
+      reason: `${childOverlapCount} of the dropped folder’s files look like updates to files already linked under ${firstOverlapTarget.name}. We can merge, attach as a subfolder, or attach as a new folder.`,
     });
   }
 
@@ -459,7 +459,7 @@ function resolveFolderCandidate(input: {
       linkedFolderId: firstLinkedFolder.id,
       linkedFolderName: firstLinkedFolder.name,
       linkedFolderPath: firstLinkedFolder.path,
-      reason: `${input.candidateName} doesn't match anything linked yet, but ${firstLinkedFolder.name} is the task's working folder. Add it as a subfolder, or attach it as a new folder at the task's root.`,
+      reason: `${input.candidateName} doesn’t match anything linked yet, but ${firstLinkedFolder.name} is the task’s working folder. Add it as a subfolder, or attach it as a new folder at the task’s root.`,
     });
   }
 
@@ -468,7 +468,7 @@ function resolveFolderCandidate(input: {
     confidence: "low",
     recommendedChoice: "attach_new",
     reason:
-      "No linked folders match this drop — we'll create it as a new folder attached to the task.",
+      "No linked folders match this drop — we’ll create it as a new folder attached to the task.",
   });
 }
 

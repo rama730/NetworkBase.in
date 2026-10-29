@@ -10,7 +10,7 @@ export default function MessagesError({ error, reset }: { error: Error & { diges
   return (
     <div role="alert" className="grid h-full place-items-center bg-card p-6 text-center">
       <div className="max-w-sm space-y-2">
-        <h1 className="nb-card-title">This screen couldn&apos;t load</h1>
+        <h1 className="nb-card-title">This screen couldn’t load</h1>
         <p className="text-[13px] text-muted-foreground">{error.digest ? `Something went wrong (ref ${error.digest}).` : "Something went wrong."} Try again, or go back to Messages.</p>
         <div className="flex flex-wrap justify-center gap-2">
           <Button type="button" onClick={reset} className="pointer-coarse:h-11">

@@ -62,9 +62,9 @@ export function decideOrgJoin(state: OrgJoinState): OrgJoinOutcome {
 }
 
 export const ORG_JOIN_MESSAGES = {
-  no_match: "That code doesn't match an organization.",
-  blocked: "You can't join this organization.",
+  no_match: "That code doesn’t match an organization.",
+  blocked: "You can’t join this organization.",
   full: "This organization is full.",
-  unavailable: "This organization isn't accepting new members.",
+  unavailable: "This organization isn’t accepting new members.",
   cooldown: "Your last request was declined. You can ask again tomorrow.",
 } as const;

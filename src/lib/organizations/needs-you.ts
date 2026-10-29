@@ -128,7 +128,7 @@ async function adminStateRows(orgId: string, base: string, now: Date): Promise<N
     for (const t of teams) rows.push({ kind: 'team', label: `${plural(t.n, 'new member')} not in a team · ${t.title}`, href: `${base}?tab=tasks` });
     if (unplaced && unplaced.children > 0 && unplaced.n > 0) rows.push({ kind: 'unplaced', label: `${plural(unplaced.n, 'member')} not in a project`, href: `${base}?tab=projects` });
     if (unplaced && unplaced.children === 0 && unplaced.group_title) rows.push({ kind: 'needs_projects', label: `${unplaced.group_title} needs projects · Create one`, href: `/projects/new?org=${encodeURIComponent(base.slice('/org/'.length))}` });
-    for (const b of blocked) rows.push({ kind: 'autostart', label: `${b.name} couldn't start: ${b.active} is still active`, href: `${base}?tab=sprints` });
+    for (const b of blocked) rows.push({ kind: 'autostart', label: `${b.name} couldn’t start: ${b.active} is still active`, href: `${base}?tab=sprints` });
     return rows;
 }
 

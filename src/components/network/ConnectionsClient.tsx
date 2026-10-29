@@ -256,7 +256,7 @@ export default function ConnectionsClient({
                         ? `Remove connection with ${pendingDisconnect.name}?`
                         : "Remove connection?"
                 }
-                description="They will not be notified, but you will no longer see each other's connection updates."
+                description="They will not be notified, but you will no longer see each other’s connection updates."
                 confirmLabel="Disconnect"
                 variant="destructive"
                 loading={disconnect.isPending}

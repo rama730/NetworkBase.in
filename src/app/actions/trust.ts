@@ -18,7 +18,7 @@ import { createClient } from '@/lib/supabase/server';
 // review on /admin/reports (dismiss · hide from Discover · remove content · suspend org) and the Verified badge.
 
 type Failure = { success: false; error: string };
-const DENIED: Failure = { success: false, error: "You don't have permission to do this." };
+const DENIED: Failure = { success: false, error: "You don’t have permission to do this." };
 
 /** Every URL in a project's links (stored as a map or a list). */
 function linkUrls(links: unknown): string[] {
@@ -186,7 +186,7 @@ export async function decideOrgVerificationAction(orgId: string, approve: boolea
     const org = await orgLabel(orgId);
     const [row] = await db.select({ ownerId: projects.ownerId }).from(projects).where(eq(projects.id, orgId)).limit(1);
     if (org && row) {
-        await notifyOrg({ orgId, eventKey: 'org.lifecycle', to: [row.ownerId], title: approve ? `${org.title} is verified` : `${org.title} wasn't verified this time`, href: orgHref(org, '?tab=settings'), sourceEventId: `verification:${orgId}:${Date.now()}` });
+        await notifyOrg({ orgId, eventKey: 'org.lifecycle', to: [row.ownerId], title: approve ? `${org.title} is verified` : `${org.title} wasn’t verified this time`, href: orgHref(org, '?tab=settings'), sourceEventId: `verification:${orgId}:${Date.now()}` });
     }
     revalidatePath('/admin/reports');
     return { success: true };

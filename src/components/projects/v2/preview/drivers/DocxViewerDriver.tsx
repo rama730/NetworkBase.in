@@ -508,7 +508,7 @@ export function DocxViewerDriver({
               <Search className="h-3 w-3 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="Find in doc..."
+                placeholder="Find in doc…"
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
                 className="h-6 w-28 border-0 bg-transparent p-0 text-xs focus-visible:ring-0"

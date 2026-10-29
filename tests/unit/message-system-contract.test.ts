@@ -835,7 +835,7 @@ test("Section 8 (Comprehensive UI/UX Enhancements & Consolidation) contracts", (
     );
     assert.match(
         composerSource,
-        /: uploads\.length \? "Scheduled messages can't carry files yet"/,
+        /: uploads\.length \? "Scheduled messages can’t carry files yet"/,
         "Composer offers Schedule message, off (with the reason) while files are attached (plan #111)",
     );
 

@@ -261,8 +261,8 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.threads() });
     const muted = shell.data?.channels.find((c) => c.id === channelId)?.notify === "mute";
     toast.success(on
-      ? (muted ? "Following. This conversation is muted, so new replies won't notify you or show as new. Unmute it to hear about them." : "You'll be notified about new replies")
-      : "You won't be notified about this thread");
+      ? (muted ? "Following. This conversation is muted, so new replies won’t notify you or show as new. Unmute it to hear about them." : "You’ll be notified about new replies")
+      : "You won’t be notified about this thread");
   };
 
   const join = async () => {
@@ -402,7 +402,7 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
           type="button"
           onClick={() => void follow(!thread.data!.following)}
           aria-pressed={thread.data.following}
-          title={thread.data.following ? "You're notified about new replies. Click to stop." : "Get notified about new replies"}
+          title={thread.data.following ? "You’re notified about new replies. Click to stop." : "Get notified about new replies"}
           className={`inline-flex h-7 flex-none items-center gap-1.5 rounded-md border px-2 text-[12px] font-medium hover:bg-muted pointer-coarse:h-11 ${thread.data.following ? "border-primary/40 bg-accent text-accent-foreground" : "border-border"}`}
         >
           {thread.data.following ? <><Check size={14} aria-hidden="true" /> Following</> : "Follow"}
@@ -454,7 +454,7 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
             <div className="space-y-3 bg-card p-4">
               {thread.isError
                 ? <ErrorNotice what="This thread" onRetry={() => void thread.refetch()} />
-                : <p role="alert" className="text-center text-[13px] text-muted-foreground">This thread isn&apos;t available. It may have been deleted.</p>}
+                : <p role="alert" className="text-center text-[13px] text-muted-foreground">This thread isn’t available. It may have been deleted.</p>}
               <div className="flex justify-center">
                 {onClose
                   ? <Button type="button" variant="outline" size="sm" onClick={onClose}>Back to conversation</Button>
@@ -557,7 +557,7 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
                 <Button type="button" size="sm" onClick={() => void join()} className="pointer-coarse:h-11">Join</Button>
               </>
             ) : (
-              <span>You&apos;re not in this conversation.</span>
+              <span>You’re not in this conversation.</span>
             )}
           </div>
         ) : null}

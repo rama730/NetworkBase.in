@@ -135,7 +135,7 @@ export function FileTreeItem({
             <div className="w-4 h-full" />
             <div className="ml-2 flex items-center gap-1 text-xs font-mono font-medium">
             <ChevronDown className="w-3 h-3 opacity-70" />
-                Load more...
+                Load more…
             </div>
         </div>
         );

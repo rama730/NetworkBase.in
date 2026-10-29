@@ -216,7 +216,7 @@ export function ProjectDocMobileBar({
             {rail.isLoading ? (
                 <div className="flex h-[32px] items-center justify-center px-3 text-muted-foreground text-xs gap-1.5 shrink-0">
                     <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
-                    Loading documents...
+                    Loading documents…
                 </div>
             ) : (
                 rail.docs.map((doc) => {

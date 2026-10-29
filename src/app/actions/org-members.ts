@@ -23,7 +23,7 @@ import { namesOf, notifyJoined, notifyOrg, orgHref, orgLabel, queueOrgInviteSign
 // and adding people to child projects. Each change notifies the person it is about (report §26.3 A, B).
 
 type Failure = { success: false; error: string };
-const DENIED: Failure = { success: false, error: "You don't have permission to do this." };
+const DENIED: Failure = { success: false, error: "You don’t have permission to do this." };
 
 /** Owners and admins of the org (the Members tab is theirs alone in v1, report §20.8). */
 async function orgManager(orgId: string, mode: 'read' | 'write' = 'write'): Promise<{ userId: string; role: 'owner' | 'admin'; slug: string | null; ownerId: string } | null> {
@@ -171,7 +171,7 @@ export async function approveJoinRequestsAction(orgId: string, applicationIds: s
     if (org) {
         for (const request of result.pending) {
             await notifyOrg({
-                orgId, eventKey: 'org.join_decided', actorId: viewer.userId, to: [request.userId], title: `You're in ${org.title}`,
+                orgId, eventKey: 'org.join_decided', actorId: viewer.userId, to: [request.userId], title: `You’re in ${org.title}`,
                 href: orgHref(org), sourceEventId: `${request.id}:accepted`, email: { kind: 'org_welcome', data: { note: org.welcomeNote } },
             });
             await notifyNewCopies(orgId, { userId: request.userId });

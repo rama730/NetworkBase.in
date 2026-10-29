@@ -60,7 +60,7 @@ export function ShareDialog({ channelId, seq, onClose }: { channelId: string; se
       <DialogContent className="sm:max-w-[460px]">
         <DialogHeader>
           <DialogTitle>Share message</DialogTitle>
-          <DialogDescription>Mentions in the shared copy won&apos;t notify anyone again.</DialogDescription>
+          <DialogDescription>Mentions in the shared copy won’t notify anyone again.</DialogDescription>
         </DialogHeader>
         <Input
           autoFocus

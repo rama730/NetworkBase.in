@@ -76,7 +76,7 @@ export function AddPeopleDialog({ channelId, title, onClose }: { channelId: stri
       <DialogContent className="sm:max-w-[460px]">
         <DialogHeader>
           <DialogTitle>Add people to {title}</DialogTitle>
-          <DialogDescription>They&apos;ll see the conversation history.</DialogDescription>
+          <DialogDescription>They’ll see the conversation history.</DialogDescription>
         </DialogHeader>
         <AddPeople channelId={channelId} autoFocus />
       </DialogContent>

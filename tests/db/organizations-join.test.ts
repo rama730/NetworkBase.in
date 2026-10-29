@@ -86,10 +86,10 @@ test("blocked, full, archived, disabled and unknown codes are refused with plain
   const disabled = await org();
   await sql`UPDATE projects SET join_code_enabled = false WHERE id = ${disabled.id}`;
   const disabledResult = await orgs.joinOrganizationAction(disabled.code);
-  assert.equal(!disabledResult.success && disabledResult.error, "That code doesn't match an organization.");
+  assert.equal(!disabledResult.success && disabledResult.error, "That code doesn’t match an organization.");
 
   const unknown = await orgs.joinOrganizationAction("ZZZZZZ");
-  assert.equal(!unknown.success && unknown.error, "That code doesn't match an organization.");
+  assert.equal(!unknown.success && unknown.error, "That code doesn’t match an organization.");
 });
 
 test("the preview shows a private org's name and type only", async () => {

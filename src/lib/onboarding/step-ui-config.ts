@@ -11,7 +11,7 @@ export interface StepConfig {
 export const STEP_UI_CONFIG: readonly StepConfig[] = [
   {
     id: 1,
-    title: "Let's set up your profile",
+    title: "Let’s set up your profile",
     subtitle: 'Choose a username and confirm your name',
     sidebarLabel: 'Identity',
     railHint: 'Name, username, photo',

@@ -21,7 +21,7 @@ export function NetworkRouteSkeleton() {
                             <Skeleton className="nb-page-title h-[1.28em] w-36 rounded-[5px]" />
                             <div className="nb-body relative mt-1">
                                 <p className="invisible">
-                                    People you&apos;ve worked with, and people
+                                    People you’ve worked with, and people
                                     worth working with.
                                 </p>
                                 <Skeleton className="absolute inset-y-0 left-0 w-80 max-w-full rounded-md" />

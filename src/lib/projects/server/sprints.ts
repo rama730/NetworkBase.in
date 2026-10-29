@@ -2185,7 +2185,7 @@ export async function addSprintMaterialAction(input: { projectId: string; sprint
     const target = input.nodeId
       ? await db.select({ id: projectNodes.id }).from(projectNodes).where(and(eq(projectNodes.id, input.nodeId), eq(projectNodes.projectId, input.projectId), isNull(projectNodes.deletedAt))).limit(1)
       : await db.select({ id: projectDocs.id }).from(projectDocs).where(and(eq(projectDocs.id, input.docId!), eq(projectDocs.projectId, input.projectId))).limit(1);
-    if (target.length === 0) throw new Error("That file or doc isn't in this project.");
+    if (target.length === 0) throw new Error("That file or doc isn’t in this project.");
     await db.insert(sprintMaterials).values({ sprintId: input.sprintId, nodeId: input.nodeId ?? null, docId: input.docId ?? null, addedBy: user.id }).onConflictDoNothing();
     await revalidateProjectPaths(input.projectId);
     return { success: true as const };

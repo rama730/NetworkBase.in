@@ -255,7 +255,7 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.match(commandPalette, /h-dvh w-screen/);
   assert.match(commandPalette, /aria-activedescendant/);
   assert.match(commandPalette, /data-testid="global-search-enter-hint"/);
-  assert.match(commandPalette, /const palettePlaceholder = `Search \$\{presentation\.label\}\.\.\.`/);
+  assert.match(commandPalette, /const palettePlaceholder = `Search \$\{presentation\.label\}…`/);
   assert.match(commandPalette, /normalizedQuery \? \(/);
   assert.match(commandPalette, /<kbd>Esc<\/kbd>/);
   assert.match(commandPalette, /Recent searches/);

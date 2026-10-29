@@ -184,7 +184,7 @@ function useRowActions(channel: ChatChannelSummary) {
       open={confirmLeave}
       onOpenChange={setConfirmLeave}
       title={`Leave #${channel.name}?`}
-      description={channel.kind === "private" ? "You'll need an invite to come back." : "You can rejoin a public channel at any time."}
+      description={channel.kind === "private" ? "You’ll need an invite to come back." : "You can rejoin a public channel at any time."}
       confirmLabel="Leave"
       variant="destructive"
       onConfirm={leave}
@@ -741,7 +741,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
       ) : null}
 
       {unreadsOnly && !starred.length && !others.length && !applications.length && (open ? !sections.channels.some(keep) : !anyProjectRows) ? (
-        <EmptyState compact icon={CheckCheck} title="You're all caught up" description="Nothing unread here." className="px-3 py-6" />
+        <EmptyState compact icon={CheckCheck} title="You’re all caught up" description="Nothing unread here." className="px-3 py-6" />
       ) : null}
 
       {starred.length ? (

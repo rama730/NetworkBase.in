@@ -97,7 +97,7 @@ export default function AccountDeletionWizard({ onClose, onDeleted }: Props) {
         return <SecurityStepUpDialog
             open
             onOpenChange={(open) => { if (!open) setStepUp(null); }}
-            title="Confirm it's you"
+            title="Confirm it’s you"
             description="Verify your identity to schedule your account for deletion."
             availableMethods={stepUp.methods}
             factorId={stepUp.factorId}

@@ -554,7 +554,7 @@ export function ProjectRolesEditor({
                                 <textarea
                                     {...register(`roles.${activeIndex}.description`)}
                                     disabled={disabled}
-                                    placeholder="Describe responsibilities and requirements for this role..."
+                                    placeholder="Describe responsibilities and requirements for this role…"
                                     className="min-h-[80px] w-full rounded-[5px] border border-border bg-background px-3 py-2.5 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground outline-none transition focus:border-foreground focus:ring-1 focus:ring-foreground/20 disabled:cursor-not-allowed disabled:opacity-60 resize-y"
                                 />
                             </div>
@@ -667,7 +667,7 @@ export function ProjectRolesEditor({
                                 <textarea
                                     {...register(`roles.${activeIndex}.description`)}
                                     disabled={disabled}
-                                    placeholder="Describe the responsibilities, expected impact, and requirements for this position..."
+                                    placeholder="Describe the responsibilities, expected impact, and requirements for this position…"
                                     className="min-h-[80px] w-full rounded-[5px] border border-border bg-background px-3 py-2.5 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground outline-none transition focus:border-foreground focus:ring-1 focus:ring-foreground/20 disabled:cursor-not-allowed disabled:opacity-60 resize-y"
                                 />
                             </div>

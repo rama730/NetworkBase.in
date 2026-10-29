@@ -12,9 +12,9 @@ const NOTE_LIMIT = 500;
 
 /** The reasons a reviewer can pick; the others (role filled, withdrawn, reopened) are written by the system. */
 const DECLINE_REASONS: { code: ApplicationDecisionReasonCode; label: string }[] = [
-    { code: "skills_mismatch", label: "Skills don't match this role" },
+    { code: "skills_mismatch", label: "Skills don’t match this role" },
     { code: "experience", label: "Needs more experience" },
-    { code: "availability", label: "Availability doesn't line up" },
+    { code: "availability", label: "Availability doesn’t line up" },
     { code: "other", label: "Another direction" },
 ];
 

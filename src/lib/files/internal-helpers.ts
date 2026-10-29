@@ -118,7 +118,7 @@ async function assertOrgWrite(executor: Executor, projectId: string, userId: str
           AND (t.assignee_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = t.id AND tm.user_id = ${userId}::uuid))
         LIMIT 1
     `));
-    if (rows.length === 0) throw new ForbiddenError("Only organization owners and admins can change the organization's files.");
+    if (rows.length === 0) throw new ForbiddenError("Only organization owners and admins can change the organization’s files.");
 }
 
 export async function assertProjectWriteAccess(projectId: string, userId: string, target?: OwnCopyTarget) {

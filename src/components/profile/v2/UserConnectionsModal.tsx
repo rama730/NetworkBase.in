@@ -159,7 +159,7 @@ export function UserConnectionsModal({ isOpen, onClose, userId, userName }: User
                         <input
                             type="text"
                             aria-label="Search connections"
-                            placeholder="Search connections..."
+                            placeholder="Search connections…"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="nb-body w-full rounded-[3px] border border-border bg-background py-2 pl-9 pr-4 text-foreground outline-none focus:border-primary/50"

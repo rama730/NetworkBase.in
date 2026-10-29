@@ -172,7 +172,7 @@ test("a child project's org line: the org, its current sprint and the project's 
   assert.deepEqual(line && { org: line.orgTitle, sprint: line.sprint?.name, due: line.dueCount }, { org: "CSE-3A", sprint: "CO2", due: 1 });
 });
 
-test("§27 pass: the child Dashboard's What's happening (group copy, own sprint inside the org sprint, lead's plan item); the archived summary line", async () => {
+test("§27 pass: the child Dashboard's What’s happening (group copy, own sprint inside the org sprint, lead's plan item); the archived summary line", async () => {
   const o = await org();
   await o.copy(o.a, { project: o.child });
   viewerId = o.a;

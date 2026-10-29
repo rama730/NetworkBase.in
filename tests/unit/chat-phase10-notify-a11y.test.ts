@@ -60,7 +60,7 @@ test("#154 service worker: no push for the open conversation; clicks route in-ap
 test("#155 #156 settings say what quiet hours and desktop notifications really do", () => {
   const settings = read("src/components/settings/NotificationsSettings.tsx");
   assert.doesNotMatch(settings, /Delivery is delayed/);
-  assert.match(settings, /chat messages don't push/);
+  assert.match(settings, /chat messages don’t push/);
   assert.match(settings, /Chat messages use push notifications/);
 });
 
@@ -72,7 +72,7 @@ test("#162 #164 #165 errors with Retry, one list skeleton, a Messages error boun
   assert.doesNotMatch(views, /return result\.success \? result\.(items|threads) : \[\]/);
   // One error look and phrase everywhere (round 3 #160): the shared ErrorNotice.
   assert.match(read("src/components/messages/HomePane.tsx"), /<ErrorNotice what="Your conversations"/);
-  assert.match(read("src/components/ui/ErrorNotice.tsx"), /couldn&apos;t load/);
+  assert.match(read("src/components/ui/ErrorNotice.tsx"), /couldn’t load/);
   for (const page of ["inbox", "saved", "drafts", "search"]) {
     assert.match(read(`src/app/(site)/(main)/messages/(lists)/${page}/page.tsx`), /<Suspense fallback=\{<ListSkeleton/);
   }
@@ -87,7 +87,7 @@ test("#163 ⌘/ opens the shortcuts dialog", () => {
 
 test("#166 #167 #170 #171 timeline: older-page Retry, connection banner, quiet log, keyboard date picker", () => {
   const timeline = read("src/components/messages/Timeline.tsx");
-  assert.match(timeline, /Earlier messages couldn&apos;t load/);
+  assert.match(timeline, /Earlier messages couldn’t load/);
   assert.match(timeline, /role="log"\s+aria-live="off"/);
   assert.match(timeline, /<p className="sr-only" aria-live="polite">\{announcement\}<\/p>/);
   assert.match(timeline, /typeof field\.showPicker === "function"/);

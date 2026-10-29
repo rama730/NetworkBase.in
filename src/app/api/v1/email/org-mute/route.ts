@@ -21,7 +21,7 @@ async function resolve(request: NextRequest) {
   return parsed && org ? { ...parsed, title: org.title } : null;
 }
 
-const invalid = () => page(`<h1 style="font-size:20px;">This link doesn't work</h1><p style="color:#4B5563;">Change your email choices in <a href="/settings#settings-notifications" style="color:#C24720;">notification settings</a>.</p>`, 400);
+const invalid = () => page(`<h1 style="font-size:20px;">This link doesn’t work</h1><p style="color:#4B5563;">Change your email choices in <a href="/settings#settings-notifications" style="color:#C24720;">notification settings</a>.</p>`, 400);
 
 export async function GET(request: NextRequest) {
   const limited = await enforceRouteLimit(request, "api:v1:email:org-mute", 60, 60);
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   const target = await resolve(request);
   if (!target) return invalid();
   return page(`<h1 style="font-size:20px;">Mute emails from ${escapeHtml(target.title)}?</h1>
-<p style="color:#4B5563;line-height:1.6;">You'll still see its notifications in NetworkBase. Emails about your access, like removal or ownership, still arrive.</p>
+<p style="color:#4B5563;line-height:1.6;">You’ll still see its notifications in NetworkBase. Emails about your access, like removal or ownership, still arrive.</p>
 <form method="post"><button type="submit" style="padding:9px 18px;font-size:14px;font-weight:600;color:#fff;background:#C24720;border:0;border-radius:6px;cursor:pointer;">Mute emails</button></form>`);
 }
 

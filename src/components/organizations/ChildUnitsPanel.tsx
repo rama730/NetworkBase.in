@@ -37,7 +37,7 @@ export function ChildUnitsPanel({ projectId }: { projectId: string }) {
         <section aria-labelledby="child-units-heading" className="space-y-3 rounded-lg border border-border bg-card p-4">
             <div>
                 <h3 id="child-units-heading" className="nb-card-title text-foreground">Units</h3>
-                <p className="nb-compact text-muted-foreground">Members by team. The team lead ★ gets the team&apos;s mentions and reminders.</p>
+                <p className="nb-compact text-muted-foreground">Members by team. The team lead ★ gets the team’s mentions and reminders.</p>
             </div>
             <ul className="space-y-4">
                 {data.units.map((unit) => (

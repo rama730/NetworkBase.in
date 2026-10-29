@@ -188,5 +188,5 @@ export function useUsernameAvailability(params: {
     if (remote && remote.forValue === normalizedValue) {
         return { status: remote.status, message: remote.message, checkedValue: normalizedValue }
     }
-    return { status: 'checking' as const, message: 'Checking availability...', checkedValue: normalizedValue }
+    return { status: 'checking' as const, message: 'Checking availability…', checkedValue: normalizedValue }
 }

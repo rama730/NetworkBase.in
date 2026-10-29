@@ -126,7 +126,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                 <p className="nb-micro text-primary">Phase 2 · {orgCopy ? 'details' : 'information'}</p>
                 <h2 className="nb-section-title mt-1 text-foreground">{orgCopy ? 'Organization details' : 'Project details'}</h2>
                 <p className="nb-compact mt-1.5 text-muted-foreground">
-                    {orgCopy ? "Tell people what this organization is, who it's for and what happens in it." : 'Describe what you’re building so people understand it and can find it later.'}
+                    {orgCopy ? "Tell people what this organization is, who it’s for and what happens in it." : 'Describe what you’re building so people understand it and can find it later.'}
                 </p>
             </div>
 
@@ -288,7 +288,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
 
                     <div className="grid grid-cols-1 gap-6 border-t border-border pt-5 md:grid-cols-2">
                         <div>
-                            <FieldLabel htmlFor="create-project-problem">{orgCopy ? "Who it's for" : 'Problem statement'}</FieldLabel>
+                            <FieldLabel htmlFor="create-project-problem">{orgCopy ? "Who it’s for" : 'Problem statement'}</FieldLabel>
                             <textarea
                                 id="create-project-problem"
                                 {...register('problem_statement')}

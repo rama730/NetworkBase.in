@@ -57,30 +57,15 @@
    "british": 1,
    "log-in": 1
   },
-  "src/app/(site)/(auth)/error.tsx": {
-   "apostrophe": 1
-  },
-  "src/app/(site)/(auth)/forgot-password/page.tsx": {
-   "apostrophe": 1
-  },
   "src/app/(site)/(auth)/join/[code]/page.tsx": {
-   "apostrophe": 2,
    "project": 1
   },
   "src/app/(site)/(auth)/login/page.tsx": {
    "project": 1
   },
-  "src/app/(site)/(auth)/reset-password/page.tsx": {
-   "apostrophe": 1
-  },
-  "src/app/(site)/(auth)/signup/page.tsx": {
-   "banned": 1,
-   "project": 1
-  },
   "src/app/(site)/(auth)/verify-email/page.tsx": {
    "project": 1,
-   "please": 1,
-   "apostrophe": 1
+   "please": 1
   },
   "src/app/(site)/(main)/discover/page.tsx": {
    "project": 1
@@ -115,20 +100,14 @@
   "src/app/(site)/(main)/my-profile/page.tsx": {
    "please": 1
   },
-  "src/app/(site)/(main)/network/page.tsx": {
-   "banned": 1
-  },
   "src/app/(site)/(main)/projects/[slug]/loading.tsx": {
    "project": 2
   },
   "src/app/(site)/(main)/projects/[slug]/project-route.tsx": {
-   "banned": 1,
-   "project": 5,
-   "title-case": 1
+   "project": 4
   },
   "src/app/(site)/(main)/projects/new/page.tsx": {
-   "project": 4,
-   "apostrophe": 1
+   "project": 4
   },
   "src/app/(site)/(onboarding)/onboarding/page.tsx": {
    "please": 1,
@@ -137,32 +116,21 @@
   "src/app/(site)/admin/notifications/page.tsx": {
    "ampersand": 1
   },
-  "src/app/(site)/legal/accept/page.tsx": {
-   "apostrophe": 3
-  },
   "src/app/(site)/page.tsx": {
-   "banned": 4,
-   "project": 17,
+   "project": 15,
    "title-case": 3
   },
   "src/app/actions/account.ts": {
    "please": 2,
-   "project": 12,
-   "banned": 2,
-   "apostrophe": 1
+   "project": 11
   },
   "src/app/actions/applications/internal.ts": {
-   "project": 24,
-   "banned": 7,
+   "project": 21,
+   "banned": 1,
    "please": 8,
    "title-case": 5
   },
-  "src/app/actions/assignments.ts": {
-   "apostrophe": 4
-  },
   "src/app/actions/child-units.ts": {
-   "apostrophe": 3,
-   "banned": 2,
    "project": 3
   },
   "src/app/actions/connections.ts": {
@@ -186,7 +154,6 @@
    "project": 2
   },
   "src/app/actions/files/mutations.ts": {
-   "banned": 1,
    "project": 11
   },
   "src/app/actions/files/nodes.ts": {
@@ -200,7 +167,6 @@
   },
   "src/app/actions/github-sync.ts": {
    "title-case": 1,
-   "apostrophe": 1,
    "please": 4,
    "british": 1
   },
@@ -219,29 +185,11 @@
   "src/app/actions/onboarding.ts": {
    "please": 1
   },
-  "src/app/actions/org-chat.ts": {
-   "apostrophe": 1
-  },
   "src/app/actions/org-dashboard.ts": {
-   "apostrophe": 1,
-   "project": 5,
-   "banned": 2
-  },
-  "src/app/actions/org-docs.ts": {
-   "apostrophe": 2
-  },
-  "src/app/actions/org-files.ts": {
-   "apostrophe": 2
-  },
-  "src/app/actions/org-lifecycle.ts": {
-   "apostrophe": 1
-  },
-  "src/app/actions/org-members.ts": {
-   "apostrophe": 2,
    "project": 5
   },
-  "src/app/actions/org-profile.ts": {
-   "apostrophe": 1
+  "src/app/actions/org-members.ts": {
+   "project": 5
   },
   "src/app/actions/org-updates.ts": {
    "please": 1,
@@ -253,7 +201,6 @@
   "src/app/actions/organizations.ts": {
    "please": 1,
    "log-in": 2,
-   "apostrophe": 4,
    "project": 2
   },
   "src/app/actions/profile-contributions.ts": {
@@ -263,12 +210,10 @@
    "please": 6
   },
   "src/app/actions/project/doc.ts": {
-   "project": 16,
-   "banned": 1
+   "project": 16
   },
   "src/app/actions/project/guidance.ts": {
-   "banned": 4,
-   "project": 7,
+   "project": 5,
    "please": 2
   },
   "src/app/actions/project/recent-activity.ts": {
@@ -276,14 +221,12 @@
    "title-case": 1
   },
   "src/app/actions/project/task-completion.ts": {
-   "project": 2,
-   "banned": 1
+   "project": 1
   },
   "src/app/actions/project/updates.ts": {
-   "project": 36,
+   "project": 34,
    "please": 13,
    "log-in": 9,
-   "banned": 2,
    "apostrophe": 1
   },
   "src/app/actions/project/workflow.ts": {
@@ -296,11 +239,9 @@
    "project": 7
   },
   "src/app/actions/task.ts": {
-   "project": 10,
-   "banned": 3
+   "project": 7
   },
   "src/app/actions/trust.ts": {
-   "apostrophe": 2,
    "log-in": 1
   },
   "src/app/actions/upload-import.ts": {
@@ -315,18 +256,8 @@
   "src/app/api/v1/auth/signup/route.ts": {
    "please": 1
   },
-  "src/app/api/v1/email/org-mute/route.ts": {
-   "apostrophe": 2
-  },
-  "src/app/api/v1/extension/comments/route.ts": {
-   "banned": 1,
-   "project": 1
-  },
   "src/app/api/v1/extension/file-upload/route.ts": {
    "project": 1
-  },
-  "src/app/api/v1/extension/task-detail/route.ts": {
-   "banned": 1
   },
   "src/app/api/v1/extension/task-push/route.ts": {
    "project": 1
@@ -367,32 +298,24 @@
    "project": 2
   },
   "src/components/applications/DecisionDialog.tsx": {
-   "apostrophe": 2,
    "project": 1
-  },
-  "src/components/auth/AuthShell.tsx": {
-   "apostrophe": 1
   },
   "src/components/auth/GoogleOneTap.tsx": {
    "please": 1
   },
   "src/components/auth/LoginForm.tsx": {
-   "project": 1,
-   "apostrophe": 2
+   "project": 1
   },
   "src/components/auth/SignOutConfirmDialog.tsx": {
    "please": 1
   },
   "src/components/auth/SignupForm.tsx": {
-   "project": 4,
-   "apostrophe": 2,
-   "banned": 1
+   "project": 3
   },
   "src/components/brand/BrandMark.tsx": {
    "title-case": 1
   },
   "src/components/discover/DiscoverClient.tsx": {
-   "apostrophe": 4,
    "project": 10
   },
   "src/components/discover/DiscoverFiltersPanel.tsx": {
@@ -415,7 +338,6 @@
   "src/components/layout/header/CommandPalette.tsx": {
    "project": 10,
    "ampersand": 1,
-   "ellipsis": 1,
    "please": 1
   },
   "src/components/layout/header/GlobalSearch.tsx": {
@@ -436,68 +358,44 @@
    "project": 12,
    "log-in": 5,
    "british": 1,
-   "ampersand": 3,
-   "ellipsis": 8,
-   "apostrophe": 1,
-   "banned": 1
+   "ampersand": 2
   },
   "src/components/legal/LegalLinks.tsx": {
    "title-case": 2,
    "british": 1
   },
-  "src/components/messages/CanvasEditor.tsx": {
-   "apostrophe": 1
-  },
   "src/components/messages/CanvasTemplateModal.tsx": {
    "project": 1
   },
   "src/components/messages/ChatSections.tsx": {
-   "apostrophe": 2,
    "project": 19,
    "title-case": 1
   },
   "src/components/messages/Composer.tsx": {
-   "project": 1,
-   "apostrophe": 4
-  },
-  "src/components/messages/ConnectionBanner.tsx": {
-   "apostrophe": 1
+   "project": 1
   },
   "src/components/messages/ConversationView.tsx": {
-   "project": 3,
-   "apostrophe": 3
+   "project": 3
   },
   "src/components/messages/CreateChannelDialog.tsx": {
    "project": 2
   },
   "src/components/messages/DetailsPane.tsx": {
-   "apostrophe": 4,
    "project": 7
   },
   "src/components/messages/ExistingCanvasModal.tsx": {
    "project": 1
   },
   "src/components/messages/HomePane.tsx": {
-   "apostrophe": 1,
    "project": 2
-  },
-  "src/components/messages/MessageRow.tsx": {
-   "apostrophe": 2
   },
   "src/components/messages/MessagesViews.tsx": {
    "project": 2,
-   "apostrophe": 3,
    "title-case": 2,
    "ampersand": 1
   },
-  "src/components/messages/NewMessage.tsx": {
-   "apostrophe": 2
-  },
   "src/components/messages/OrgBrowseProjects.tsx": {
    "project": 2
-  },
-  "src/components/messages/ThreadPane.tsx": {
-   "apostrophe": 4
   },
   "src/components/messages/cards/ApplicationCard.tsx": {
    "project": 8
@@ -506,34 +404,21 @@
    "project": 2,
    "british": 1
   },
-  "src/components/messages/cards/card-parts.tsx": {
-   "apostrophe": 1
-  },
-  "src/components/messages/parts/ReportMessageDialog.tsx": {
-   "apostrophe": 1
-  },
-  "src/components/messages/upload.ts": {
-   "apostrophe": 2
-  },
   "src/components/my-work/MyWorkRequestsTab.tsx": {
-   "apostrophe": 1,
    "project": 5,
-   "please": 1,
-   "ellipsis": 2
+   "please": 1
   },
   "src/components/my-work/MyWorkTasksTab.tsx": {
    "project": 9,
    "please": 1
   },
   "src/components/network/ConnectionsClient.tsx": {
-   "apostrophe": 1,
    "project": 1
   },
   "src/components/network/IncomingProjectApplicationRow.tsx": {
    "project": 3
   },
   "src/components/network/InvitationsClient.tsx": {
-   "ellipsis": 6,
    "british": 7,
    "project": 22,
    "please": 1
@@ -556,60 +441,33 @@
   "src/components/network/SentApplicationMenu.tsx": {
    "project": 1
   },
-  "src/components/notifications/NotificationList.tsx": {
-   "apostrophe": 1,
-   "ellipsis": 1
-  },
   "src/components/onboarding/FinishScreen.tsx": {
    "project": 2
   },
-  "src/components/onboarding/OnboardingSidebar.tsx": {
-   "banned": 1
-  },
   "src/components/onboarding/steps/Step1Identity.tsx": {
-   "title-case": 1,
-   "banned": 1
-  },
-  "src/components/onboarding/steps/Step2Details.tsx": {
-   "banned": 1,
-   "british": 1,
-   "ellipsis": 1
-  },
-  "src/components/onboarding/steps/Step3Skills.tsx": {
-   "banned": 1,
-   "project": 1
+   "title-case": 1
   },
   "src/components/organizations/AssignmentsPanel.tsx": {
-   "project": 12,
-   "banned": 2
+   "project": 10
   },
   "src/components/organizations/ChildOrgSection.tsx": {
-   "project": 7,
+   "project": 6,
    "british": 2
   },
   "src/components/organizations/ChildTeamFields.tsx": {
-   "project": 7,
-   "banned": 7
-  },
-  "src/components/organizations/ChildUnitsPanel.tsx": {
-   "banned": 5
+   "project": 3
   },
   "src/components/organizations/CreateLocation.tsx": {
    "project": 2
   },
   "src/components/organizations/OrgAboutTab.tsx": {
-   "apostrophe": 2,
-   "project": 3,
-   "banned": 1
+   "project": 3
   },
   "src/components/organizations/OrgDangerZone.tsx": {
-   "banned": 2,
-   "project": 6,
-   "apostrophe": 1
+   "project": 5
   },
   "src/components/organizations/OrgDocParts.tsx": {
-   "banned": 1,
-   "project": 2
+   "project": 1
   },
   "src/components/organizations/OrgFilesPanel.tsx": {
    "project": 5
@@ -619,24 +477,16 @@
    "project": 1
   },
   "src/components/organizations/OrgMembersTab.tsx": {
-   "project": 15,
-   "banned": 3,
+   "project": 12,
    "british": 1
   },
   "src/components/organizations/OrgOverviewParts.tsx": {
    "ampersand": 1,
-   "project": 20,
-   "apostrophe": 2,
-   "banned": 2
-  },
-  "src/components/organizations/OrgRequestsSection.tsx": {
-   "apostrophe": 1
+   "project": 20
   },
   "src/components/organizations/OrgSettingsSections.tsx": {
-   "project": 23,
-   "banned": 2,
-   "ampersand": 3,
-   "apostrophe": 1
+   "project": 22,
+   "ampersand": 3
   },
   "src/components/organizations/OrgSprintParts.tsx": {
    "project": 6
@@ -647,18 +497,10 @@
   "src/components/organizations/OrgWizardFields.tsx": {
    "project": 4
   },
-  "src/components/organizations/SharedOrgChip.tsx": {
-   "apostrophe": 1
-  },
-  "src/components/organizations/TeamTaskDialog.tsx": {
-   "banned": 1
-  },
   "src/components/presence/ProjectStatusControl.tsx": {
-   "project": 6,
-   "apostrophe": 2
+   "project": 6
   },
   "src/components/presence/StatusPicker.tsx": {
-   "apostrophe": 3,
    "project": 2
   },
   "src/components/profile/OpenToCollaborateBadge.tsx": {
@@ -676,10 +518,8 @@
    "project": 3
   },
   "src/components/profile/edit/EditProfileTabs.tsx": {
-   "project": 3,
+   "project": 2,
    "ampersand": 3,
-   "ellipsis": 1,
-   "banned": 1,
    "title-case": 4
   },
   "src/components/profile/v2/ProfileShell.tsx": {
@@ -687,9 +527,6 @@
   },
   "src/components/profile/v2/ProfileV2Client.tsx": {
    "project": 4
-  },
-  "src/components/profile/v2/UserConnectionsModal.tsx": {
-   "ellipsis": 1
   },
   "src/components/profile/v2/sections/AboutCard.tsx": {
    "title-case": 1
@@ -706,24 +543,17 @@
   "src/components/projects/EditProjectModal.tsx": {
    "ampersand": 3,
    "title-case": 9,
-   "project": 14,
-   "ellipsis": 4,
-   "apostrophe": 1
-  },
-  "src/components/projects/HydrationProgressBanner.tsx": {
-   "ellipsis": 1
+   "project": 14
   },
   "src/components/projects/LifecycleEditor.tsx": {
    "ampersand": 2,
-   "ellipsis": 1,
    "project": 3
   },
   "src/components/projects/ProjectAvatar.tsx": {
    "project": 4
   },
   "src/components/projects/ProjectCard.tsx": {
-   "project": 8,
-   "apostrophe": 1
+   "project": 8
   },
   "src/components/projects/ProjectOnboardingModal.tsx": {
    "exclamation": 1,
@@ -756,50 +586,37 @@
    "log-in": 1
   },
   "src/components/projects/create-wizard/phases/Phase2Information.tsx": {
-   "project": 16,
-   "apostrophe": 2,
-   "banned": 3
+   "project": 15
   },
   "src/components/projects/create-wizard/phases/Phase3TeamRoles.tsx": {
    "title-case": 8,
-   "project": 9,
-   "banned": 5
+   "project": 6
   },
   "src/components/projects/create-wizard/phases/Phase4Settings.tsx": {
-   "project": 26,
-   "banned": 5,
-   "apostrophe": 2
+   "project": 22
   },
   "src/components/projects/create-wizard/phases/Phase5Review.tsx": {
-   "project": 22,
-   "apostrophe": 4,
-   "banned": 5
+   "project": 19
   },
   "src/components/projects/create-wizard/useCreateProjectWizard.ts": {
    "title-case": 1,
    "project": 4,
-   "banned": 1,
    "please": 2,
    "ampersand": 1
   },
   "src/components/projects/dashboard/InviteCollaboratorModal.tsx": {
-   "project": 11,
-   "apostrophe": 2,
+   "project": 8,
    "exclamation": 1,
-   "banned": 2,
-   "title-case": 5,
-   "ellipsis": 2
+   "title-case": 4
   },
   "src/components/projects/dashboard/JourneyTimeline.tsx": {
    "project": 2
   },
   "src/components/projects/dashboard/OpenRolesCard.tsx": {
-   "project": 2,
-   "banned": 2
+   "project": 1
   },
   "src/components/projects/dashboard/ProjectDashboardClient.tsx": {
-   "project": 3,
-   "banned": 1
+   "project": 2
   },
   "src/components/projects/dashboard/ProjectLayout.tsx": {
    "project": 23
@@ -813,12 +630,10 @@
    "project": 18
   },
   "src/components/projects/dashboard/ProjectTeamAvatars.tsx": {
-   "banned": 1,
    "project": 2
   },
   "src/components/projects/doc/ProjectDocRail.tsx": {
-   "project": 1,
-   "ellipsis": 1
+   "project": 1
   },
   "src/components/projects/doc/ProjectDocReferencePreview.tsx": {
    "project": 1
@@ -827,18 +642,10 @@
    "project": 4
   },
   "src/components/projects/doc/ProjectDocSmartBlock.tsx": {
-   "project": 8,
-   "banned": 2,
-   "apostrophe": 1
+   "project": 7
   },
   "src/components/projects/settings/CollaboratorCard.tsx": {
-   "project": 2,
-   "banned": 1,
-   "title-case": 1
-  },
-  "src/components/projects/settings/CollaboratorSearchField.tsx": {
-   "banned": 2,
-   "ellipsis": 1
+   "project": 1
   },
   "src/components/projects/settings/FileAccessMembers.tsx": {
    "project": 2,
@@ -849,24 +656,19 @@
    "ampersand": 1
   },
   "src/components/projects/settings/LifecycleSettingsEditor.tsx": {
-   "project": 3,
-   "banned": 1
+   "project": 2
   },
   "src/components/projects/settings/MemberNotificationSettingsEditor.tsx": {
-   "ellipsis": 1,
-   "project": 6,
-   "apostrophe": 1
+   "project": 6
   },
   "src/components/projects/settings/ProjectDangerModals.tsx": {
    "project": 13,
    "please": 2
   },
   "src/components/projects/settings/ProjectRolesEditor.tsx": {
-   "banned": 7,
-   "title-case": 17,
-   "project": 5,
-   "ampersand": 3,
-   "ellipsis": 2
+   "title-case": 16,
+   "project": 4,
+   "ampersand": 3
   },
   "src/components/projects/settings/ProjectSettingsNavigation.tsx": {
    "project": 5
@@ -881,27 +683,22 @@
    "project": 3
   },
   "src/components/projects/tabs/ProjectSettingsTab.tsx": {
-   "project": 47,
+   "project": 36,
    "ampersand": 3,
-   "banned": 25,
-   "title-case": 4,
-   "ellipsis": 3
+   "title-case": 2
   },
   "src/components/projects/tabs/SprintPlanning.tsx": {
-   "project": 3,
+   "project": 2,
    "british": 1,
    "please": 1,
-   "banned": 1,
    "title-case": 1
   },
   "src/components/projects/tabs/UpdatesTab.tsx": {
-   "project": 4,
-   "banned": 1
+   "project": 3
   },
   "src/components/projects/tabs/sprint/SprintLeftRail.tsx": {
    "british": 1,
-   "title-case": 1,
-   "ellipsis": 1
+   "title-case": 1
   },
   "src/components/projects/tabs/sprint/SprintLifecycleModals.tsx": {
    "title-case": 1
@@ -914,8 +711,7 @@
    "project": 1
   },
   "src/components/projects/updates/ProjectUpdateComposer.tsx": {
-   "project": 10,
-   "ellipsis": 2
+   "project": 10
   },
   "src/components/projects/updates/ProjectUpdateLikersModal.tsx": {
    "project": 1,
@@ -933,8 +729,7 @@
    "log-in": 3
   },
   "src/components/projects/updates/UpdateComments.tsx": {
-   "project": 2,
-   "ellipsis": 3
+   "project": 2
   },
   "src/components/projects/updates/UpdateContent.tsx": {
    "project": 6
@@ -949,7 +744,6 @@
   },
   "src/components/projects/v2/TasksTab.tsx": {
    "project": 3,
-   "ellipsis": 1,
    "title-case": 2
   },
   "src/components/projects/v2/explorer/ExplorerContextMenu.tsx": {
@@ -959,13 +753,10 @@
    "project": 8
   },
   "src/components/projects/v2/explorer/ExplorerTree.tsx": {
-   "project": 1,
-   "apostrophe": 1
+   "project": 1
   },
   "src/components/projects/v2/explorer/FileTreeItem.tsx": {
-   "project": 1,
-   "ellipsis": 1,
-   "banned": 1
+   "project": 1
   },
   "src/components/projects/v2/explorer/useExplorerMutations.ts": {
    "project": 3,
@@ -977,9 +768,6 @@
   "src/components/projects/v2/files-tab/FilesHeader.tsx": {
    "project": 3
   },
-  "src/components/projects/v2/files-tab/FilesTabMain.tsx": {
-   "ellipsis": 1
-  },
   "src/components/projects/v2/files-tab/FilesTabSidebar.tsx": {
    "project": 1
   },
@@ -987,18 +775,16 @@
    "project": 1
   },
   "src/components/projects/v2/files-tab/IdeProjectPicker.tsx": {
-   "project": 14,
-   "apostrophe": 1
+   "project": 14
   },
   "src/components/projects/v2/files-tab/OpenInIdeButton.tsx": {
    "project": 1,
    "title-case": 1
   },
   "src/components/projects/v2/files-tab/RepositorySync.tsx": {
-   "project": 18,
+   "project": 16,
    "ampersand": 3,
-   "british": 2,
-   "banned": 2
+   "british": 2
   },
   "src/components/projects/v2/files-tab/TaskFilesCollection.tsx": {
    "title-case": 3,
@@ -1013,7 +799,6 @@
   },
   "src/components/projects/v2/files-tab/file/FileVersionCompareView.tsx": {
    "project": 2,
-   "ellipsis": 1,
    "title-case": 4
   },
   "src/components/projects/v2/files-tab/file/FileVersionHistoryPanel.tsx": {
@@ -1026,9 +811,6 @@
    "title-case": 1,
    "please": 1
   },
-  "src/components/projects/v2/files-tab/file/TextViewer.tsx": {
-   "banned": 1
-  },
   "src/components/projects/v2/files-tab/folder/FolderListView.tsx": {
    "project": 3,
    "title-case": 2
@@ -1037,15 +819,13 @@
    "project": 1
   },
   "src/components/projects/v2/files-tab/picker/TaskSearchPicker.tsx": {
-   "ellipsis": 1,
    "project": 1
   },
   "src/components/projects/v2/files-tab/picker/V3AttachmentPicker.tsx": {
    "project": 3
   },
   "src/components/projects/v2/files-tab/quick-open/QuickOpenDialog.tsx": {
-   "project": 4,
-   "ellipsis": 1
+   "project": 4
   },
   "src/components/projects/v2/files-tab/upload/FilesTabUploadModal.tsx": {
    "project": 9,
@@ -1054,31 +834,24 @@
   "src/components/projects/v2/preview/AssetPreview.tsx": {
    "project": 1
   },
-  "src/components/projects/v2/preview/MarkdownPreview.tsx": {
-   "ellipsis": 1
-  },
   "src/components/projects/v2/preview/UniversalPreviewEngine.tsx": {
    "title-case": 2
   },
   "src/components/projects/v2/preview/drivers/ArchiveViewerDriver.tsx": {
-   "ellipsis": 2,
    "title-case": 1
   },
   "src/components/projects/v2/preview/drivers/BinaryInspectorDriver.tsx": {
    "title-case": 2
   },
   "src/components/projects/v2/preview/drivers/DataGridDriver.tsx": {
-   "title-case": 1,
-   "ellipsis": 1
+   "title-case": 1
   },
   "src/components/projects/v2/preview/drivers/DocxViewerDriver.tsx": {
    "please": 1,
-   "title-case": 7,
-   "ellipsis": 1
+   "title-case": 7
   },
   "src/components/projects/v2/preview/drivers/ImageViewerDriver.tsx": {
-   "title-case": 2,
-   "ellipsis": 1
+   "title-case": 2
   },
   "src/components/projects/v2/preview/drivers/MediaViewerDriver.tsx": {
    "title-case": 9
@@ -1100,21 +873,15 @@
    "title-case": 1
   },
   "src/components/projects/v2/sprints/CreateSprintModal.tsx": {
-   "title-case": 8,
-   "banned": 3,
-   "project": 2
+   "title-case": 7
   },
   "src/components/projects/v2/tasks/CreateTaskModal.tsx": {
    "title-case": 5,
-   "ellipsis": 2,
-   "ampersand": 3,
-   "banned": 1,
-   "project": 1
+   "ampersand": 3
   },
   "src/components/projects/v2/tasks/KanbanBoard.tsx": {
    "title-case": 3,
-   "british": 1,
-   "ellipsis": 1
+   "british": 1
   },
   "src/components/projects/v2/tasks/TaskCard.tsx": {
    "title-case": 1,
@@ -1130,9 +897,8 @@
   },
   "src/components/projects/v2/tasks/TaskDetailTabs/DetailsTab.tsx": {
    "title-case": 1,
-   "banned": 1,
-   "project": 2,
-   "ampersand": 1
+   "ampersand": 1,
+   "project": 1
   },
   "src/components/projects/v2/tasks/components/MentionAutocomplete.tsx": {
    "title-case": 1,
@@ -1147,7 +913,6 @@
   },
   "src/components/projects/v2/tasks/components/TaskFileUploadModal.tsx": {
    "title-case": 3,
-   "ellipsis": 3,
    "project": 1
   },
   "src/components/projects/v2/tasks/components/TaskFilesActionMenu.tsx": {
@@ -1163,11 +928,7 @@
    "project": 1
   },
   "src/components/settings/AccountDeletionWizard.tsx": {
-   "apostrophe": 1,
    "project": 6
-  },
-  "src/components/settings/AppearanceSettings.tsx": {
-   "apostrophe": 1
   },
   "src/components/settings/GitHubCommitAttributionSettings.tsx": {
    "project": 2
@@ -1184,12 +945,7 @@
    "project": 1
   },
   "src/components/settings/NotificationsSettings.tsx": {
-   "project": 2,
-   "apostrophe": 5
-  },
-  "src/components/settings/OrgNotificationChoices.tsx": {
-   "banned": 1,
-   "project": 1
+   "project": 2
   },
   "src/components/settings/PrivacySettings.tsx": {
    "project": 1
@@ -1211,34 +967,22 @@
    "project": 2
   },
   "src/components/skills/SkillPicker.tsx": {
-   "ampersand": 1,
-   "banned": 1
+   "ampersand": 1
   },
   "src/components/ui/ConfirmDialog.tsx": {
    "please": 1
   },
   "src/components/ui/RevisionControlModal.tsx": {
-   "title-case": 1,
-   "ellipsis": 1
+   "title-case": 1
   },
   "src/hooks/discover/useDiscoverProjects.ts": {
-   "apostrophe": 2,
    "project": 1
-  },
-  "src/hooks/discover/useDiscoverUpdateThread.ts": {
-   "apostrophe": 1
   },
   "src/hooks/useConnections.ts": {
    "british": 1
   },
-  "src/hooks/useFileVersions.ts": {
-   "banned": 1
-  },
   "src/hooks/useGlobalSearchPreviews.ts": {
    "project": 10
-  },
-  "src/hooks/useNotifications.ts": {
-   "apostrophe": 1
   },
   "src/hooks/useRealtimeTasks.ts": {
    "project": 1
@@ -1248,8 +992,7 @@
    "please": 1
   },
   "src/hooks/useUsernameAvailability.ts": {
-   "please": 2,
-   "ellipsis": 1
+   "please": 2
   },
   "src/inngest/functions/email-delivery.ts": {
    "title-case": 1
@@ -1259,9 +1002,6 @@
   },
   "src/inngest/functions/flush-views.ts": {
    "project": 1
-  },
-  "src/inngest/functions/git-sync.ts": {
-   "banned": 1
   },
   "src/inngest/functions/my-work-counter-reconcile.ts": {
    "title-case": 1
@@ -1276,8 +1016,7 @@
    "project": 1
   },
   "src/lib/account/export-stream.ts": {
-   "british": 1,
-   "apostrophe": 1
+   "british": 1
   },
   "src/lib/account/hard-delete.ts": {
    "british": 1
@@ -1294,30 +1033,21 @@
   "src/lib/applications/reasons.ts": {
    "project": 3
   },
-  "src/lib/auth/error-messages.ts": {
-   "apostrophe": 1
-  },
   "src/lib/data/discover.ts": {
-   "project": 2,
-   "banned": 1
+   "project": 2
   },
   "src/lib/data/project-access.ts": {
-   "apostrophe": 2,
    "project": 1
   },
   "src/lib/email/contracts.ts": {
    "title-case": 1,
-   "banned": 2,
    "project": 10,
-   "apostrophe": 3,
    "ampersand": 2
   },
   "src/lib/email/org-templates.ts": {
-   "apostrophe": 15,
    "project": 3
   },
   "src/lib/email/security-templates.ts": {
-   "apostrophe": 6,
    "log-in": 2,
    "british": 2
   },
@@ -1329,28 +1059,14 @@
    "please": 4,
    "log-in": 3
   },
-  "src/lib/feedback/index.ts": {
-   "banned": 1
-  },
-  "src/lib/files/apply-file-revision.ts": {
-   "apostrophe": 1
-  },
   "src/lib/files/content-reader.ts": {
    "project": 1
-  },
-  "src/lib/files/file-lock-service.ts": {
-   "banned": 1
   },
   "src/lib/files/folder-export.ts": {
    "british": 1
   },
   "src/lib/files/internal-helpers.ts": {
-   "project": 6,
-   "apostrophe": 1
-  },
-  "src/lib/files/permanent-delete.ts": {
-   "banned": 1,
-   "project": 1
+   "project": 6
   },
   "src/lib/files/upload-validator.ts": {
    "please": 7,
@@ -1370,8 +1086,7 @@
    "british": 1
   },
   "src/lib/github/project-import-runner.ts": {
-   "project": 4,
-   "ellipsis": 1
+   "project": 4
   },
   "src/lib/github/repository-sync.ts": {
    "ampersand": 3,
@@ -1382,8 +1097,7 @@
    "ellipsis": 1
   },
   "src/lib/github/sync-service.ts": {
-   "banned": 1,
-   "project": 3,
+   "project": 2,
    "please": 2
   },
   "src/lib/import/idempotency.ts": {
@@ -1396,19 +1110,16 @@
    "project": 1
   },
   "src/lib/messaging/canvas-store.ts": {
-   "project": 5,
-   "apostrophe": 3
+   "project": 5
   },
   "src/lib/messaging/channel-view.ts": {
    "ampersand": 1
   },
   "src/lib/messaging/errors.ts": {
-   "apostrophe": 20,
    "project": 5
   },
   "src/lib/notifications/preferences.ts": {
-   "banned": 1,
-   "project": 3
+   "project": 2
   },
   "src/lib/notifications/presentation.ts": {
    "project": 3
@@ -1418,10 +1129,8 @@
   },
   "src/lib/notifications/project-policy.ts": {
    "ampersand": 6,
-   "project": 25,
+   "project": 19,
    "title-case": 2,
-   "banned": 8,
-   "apostrophe": 5,
    "british": 2
   },
   "src/lib/notifications/task-comment-mention.ts": {
@@ -1431,44 +1140,29 @@
    "project": 2
   },
   "src/lib/onboarding/step-ui-config.ts": {
-   "apostrophe": 1,
-   "banned": 1,
    "ampersand": 1
-  },
-  "src/lib/organizations/assignment-notify.ts": {
-   "apostrophe": 1
   },
   "src/lib/organizations/assignments.ts": {
    "project": 1
   },
   "src/lib/organizations/child-rules.ts": {
-   "apostrophe": 2,
-   "project": 2
+   "project": 1
   },
   "src/lib/organizations/children.ts": {
    "project": 1
   },
   "src/lib/organizations/creation.ts": {
    "project": 7,
-   "title-case": 3,
-   "apostrophe": 4
+   "title-case": 3
   },
   "src/lib/organizations/doc-rules.ts": {
    "ampersand": 1
-  },
-  "src/lib/organizations/file-rules.ts": {
-   "apostrophe": 1,
-   "banned": 1
-  },
-  "src/lib/organizations/join-rules.ts": {
-   "apostrophe": 3
   },
   "src/lib/organizations/members.ts": {
    "project": 1
   },
   "src/lib/organizations/needs-you.ts": {
-   "project": 9,
-   "apostrophe": 1
+   "project": 9
   },
   "src/lib/organizations/settings.ts": {
    "ampersand": 2,
@@ -1476,33 +1170,25 @@
   },
   "src/lib/organizations/sprint-notify.ts": {
    "project": 3,
-   "apostrophe": 1,
    "british": 1
   },
   "src/lib/organizations/sprints.ts": {
-   "project": 3,
-   "apostrophe": 3
+   "project": 3
   },
   "src/lib/organizations/succession.ts": {
-   "apostrophe": 1,
    "project": 1
   },
   "src/lib/organizations/update-rules.ts": {
-   "project": 1,
-   "apostrophe": 1
+   "project": 1
   },
   "src/lib/profile/browser-profile.ts": {
    "project": 1
   },
   "src/lib/profile/collaboration.ts": {
-   "project": 3,
-   "banned": 3
+   "project": 3
   },
   "src/lib/profile/contribution-editor.ts": {
    "project": 2
-  },
-  "src/lib/profile/contribution-position.ts": {
-   "banned": 2
   },
   "src/lib/profile/contribution-story-server.ts": {
    "project": 1
@@ -1524,13 +1210,11 @@
   },
   "src/lib/profile/role-preferences.ts": {
    "project": 11,
-   "banned": 5,
    "ampersand": 10,
    "title-case": 1
   },
   "src/lib/projects/collaborator-lifecycle.ts": {
-   "project": 9,
-   "banned": 2
+   "project": 9
   },
   "src/lib/projects/doc-blocks.ts": {
    "project": 2
@@ -1540,8 +1224,7 @@
    "title-case": 2
   },
   "src/lib/projects/doc-quality.ts": {
-   "project": 5,
-   "banned": 2
+   "project": 5
   },
   "src/lib/projects/doc-quick-console.ts": {
    "title-case": 1,
@@ -1553,9 +1236,7 @@
    "title-case": 4
   },
   "src/lib/projects/merge-sandbox.ts": {
-   "project": 2,
-   "apostrophe": 1,
-   "banned": 1
+   "project": 2
   },
   "src/lib/projects/project-create-options.ts": {
    "title-case": 5,
@@ -1566,8 +1247,7 @@
    "project": 5
   },
   "src/lib/projects/project-invitations.ts": {
-   "banned": 8,
-   "project": 14
+   "project": 10
   },
   "src/lib/projects/public-feed.ts": {
    "project": 1
@@ -1579,40 +1259,30 @@
    "project": 11
   },
   "src/lib/projects/server/common.ts": {
-   "project": 3,
-   "banned": 1
+   "project": 2
   },
   "src/lib/projects/server/detail.ts": {
    "project": 7
   },
   "src/lib/projects/server/lifecycle.ts": {
-   "project": 58,
+   "project": 54,
    "please": 5,
-   "apostrophe": 7,
-   "banned": 5,
    "successfully": 1,
    "title-case": 1
   },
   "src/lib/projects/server/settings.ts": {
-   "banned": 16,
-   "project": 31
+   "project": 30
   },
   "src/lib/projects/server/sprints.ts": {
-   "project": 14,
-   "british": 2,
-   "banned": 1,
-   "apostrophe": 1
+   "project": 13,
+   "british": 2
   },
   "src/lib/projects/server/tasks.ts": {
-   "project": 20,
-   "please": 1,
-   "banned": 2
+   "project": 18,
+   "please": 1
   },
   "src/lib/projects/settings-policies.ts": {
-   "banned": 9,
-   "project": 36,
-   "ampersand": 5,
-   "title-case": 2
+   "project": 30
   },
   "src/lib/projects/social-links.ts": {
    "ampersand": 8
@@ -1634,20 +1304,12 @@
   "src/lib/projects/task-assignment.ts": {
    "project": 1
   },
-  "src/lib/projects/task-file-intelligence.ts": {
-   "apostrophe": 3
-  },
   "src/lib/projects/task-presentation.ts": {
    "title-case": 2,
    "project": 1
   },
-  "src/lib/projects/task-transition-service.ts": {
-   "banned": 2,
-   "project": 2
-  },
   "src/lib/projects/task-workflow.ts": {
-   "title-case": 4,
-   "ellipsis": 4
+   "title-case": 4
   },
   "src/lib/projects/updates.ts": {
    "project": 8
@@ -1665,23 +1327,10 @@
    "project": 4
   },
   "src/lib/sharing/read.ts": {
-   "banned": 1,
    "project": 5
   },
   "src/lib/sharing/social-image.tsx": {
    "title-case": 4,
-   "project": 1
-  },
-  "src/lib/skills/catalog.ts": {
-   "ampersand": 17,
-   "title-case": 43,
-   "banned": 3,
-   "project": 1
-  },
-  "src/lib/skills/repository-detection.ts": {
-   "title-case": 3
-  },
-  "src/lib/skills/service.ts": {
    "project": 1
   },
   "src/lib/upload/image-prep-client.ts": {
@@ -1711,7 +1360,6 @@
   },
   "src/lib/validations/project.ts": {
    "project": 2,
-   "banned": 1,
    "ampersand": 1
   },
   "src/lib/validations/username.ts": {

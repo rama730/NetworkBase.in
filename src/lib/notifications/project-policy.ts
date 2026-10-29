@@ -159,7 +159,7 @@ export const PROJECT_NOTIFICATION_GROUPS: Array<{
     { id: "future", title: "Future Surfaces", description: "Updates and follower digest triggers hidden until enforceable.", visible: false },
     { id: "org_membership", title: "Organization", description: "Join requests, invitations, access changes and removals.", visible: true },
     { id: "org_assignments", title: "Assignments", description: "Published work, submissions, reviews and due dates.", visible: true },
-    { id: "org_announcements", title: "Announcements", description: "Announcements for each post's audience.", visible: true },
+    { id: "org_announcements", title: "Announcements", description: "Announcements for each post’s audience.", visible: true },
     { id: "org_credit", title: "Profile credit", description: "Verified roles and removed verification.", visible: true },
     { id: "org_sprints", title: "Sprints", description: "Org sprints starting and closing, and sprint steps for leads and admins.", visible: true },
 ];
@@ -861,20 +861,20 @@ export const PROJECT_NOTIFICATION_EVENT_REGISTRY = {
     "org.child_added": orgEvent("org.child_added", "org_membership", "Added to a project", "A member hears they were added to a workspace in the organization.", "important"),
     "org.child_requests": orgEvent("org.child_requests", "org_membership", "Move-in and detach requests", "Admins hear when a project asks to join or leave.", "important", { recipients: ["owner", "co_leaders"] }),
     "org.lifecycle": orgEvent("org.lifecycle", "org_membership", "Ended, reopened, deleted or new owner", "Members hear when the organization is archived, reopened, deleted, restored, suspended or changes owner.", "important", { mandatory: true }),
-    "org.child_decided": orgEvent("org.child_decided", "org_membership", "Move-in and detach answers", "The project's lead hears the answer.", "important"),
+    "org.child_decided": orgEvent("org.child_decided", "org_membership", "Move-in and detach answers", "The project’s lead hears the answer.", "important"),
     "assignments.published": orgEvent("assignments.published", "org_assignments", "Assignment published", "Recipients hear about new work and its due date.", "important"),
     "assignments.submitted": orgEvent("assignments.submitted", "org_assignments", "Submissions", "Admins see new submissions, combined.", "more", { aggregate: "burst_10m", recipients: ["owner", "co_leaders"] }),
     "assignments.reviewed": orgEvent("assignments.reviewed", "org_assignments", "Returned or approved", "A member hears their work was returned or approved.", "important"),
     "assignments.due_changed": orgEvent("assignments.due_changed", "org_assignments", "Extended or excused", "A member hears their due date changed or they were excused.", "important"),
-    "assignments.due_soon": orgEvent("assignments.due_soon", "org_assignments", "Due soon and overdue", "People who aren't done hear once a day, at 9:00 their time.", "important"),
-    "announcements.posted": orgEvent("announcements.posted", "org_announcements", "Announcements", "Each announcement's audience hears about it.", "important"),
+    "assignments.due_soon": orgEvent("assignments.due_soon", "org_assignments", "Due soon and overdue", "People who aren’t done hear once a day, at 9:00 their time.", "important"),
+    "announcements.posted": orgEvent("announcements.posted", "org_announcements", "Announcements", "Each announcement’s audience hears about it.", "important"),
     "credit.changed": orgEvent("credit.changed", "org_credit", "Verified or removed", "A member hears their role was verified or the verification removed.", "important"),
     "org.child_created": orgEvent("org.child_created", "org_membership", "Workspace created in the organization", "Admins hear when someone creates a project in the organization, combined.", "more", { aggregate: "burst_10m", recipients: ["owner", "co_leaders"] }),
     "org.code_changed": orgEvent("org.code_changed", "org_membership", "Join code changed", "Admins hear when someone makes a new join code.", "more", { recipients: ["owner", "co_leaders"] }),
     "org.child_notice": orgEvent("org.child_notice", "org_membership", "Your workspace", "Leads hear when a seat opens or an org rule changes their project.", "important"),
     "org_sprints.started": orgEvent("org_sprints.started", "org_sprints", "Sprint started", "Members hear when an org sprint starts, if Notify on start is on.", "important", { recipients: ["members"] }),
     "org_sprints.completed": orgEvent("org_sprints.completed", "org_sprints", "Sprint closed", "Members hear an org sprint closed and how much of it they finished.", "more"),
-    "org_sprints.notice": orgEvent("org_sprints.notice", "org_sprints", "Sprint steps", "Leads hear to plan or close their linked sprint; admins hear a sprint couldn't start.", "important"),
+    "org_sprints.notice": orgEvent("org_sprints.notice", "org_sprints", "Sprint steps", "Leads hear to plan or close their linked sprint; admins hear a sprint couldn’t start.", "important"),
 } as const satisfies Record<ProjectNotificationEventKey, ProjectNotificationRegistryEntry>;
 
 export const PROJECT_NOTIFICATION_EVENT_KEYS = Object.keys(PROJECT_NOTIFICATION_EVENT_REGISTRY) as ProjectNotificationEventKey[];

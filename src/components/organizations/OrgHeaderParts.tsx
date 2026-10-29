@@ -125,7 +125,7 @@ export function OrgInviteDialog({ orgId, title, joinCode, open, onOpenChange }: 
                         </div>
                         {confirming ? (
                             <div className="rounded-md border border-border p-3 text-sm">
-                                <p>The current code stops working at once. People who haven&apos;t joined need the new one.</p>
+                                <p>The current code stops working at once. People who haven’t joined need the new one.</p>
                                 <div className="mt-3 flex gap-2">
                                     <Button size="sm" variant="destructive" disabled={pending} onClick={regenerate}>Make a new code</Button>
                                     <Button size="sm" variant="ghost" onClick={() => setConfirming(false)}>Keep this code</Button>

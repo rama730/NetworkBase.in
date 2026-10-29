@@ -67,7 +67,7 @@ export function ChildOrgSection({ project, isLead, canManage }: { project: Proje
                             <Button variant="outline" disabled={pending} onClick={() => run(() => cancelMoveInAction(projectId), 'Request cancelled.')}>Cancel request</Button>
                         </div>
                     ) : targets.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">You aren&apos;t a member of any organization.</p>
+                        <p className="text-sm text-muted-foreground">You aren’t a member of any organization.</p>
                     ) : (
                         <div className="flex flex-wrap items-center gap-3">
                             <select aria-label="Organization" value={target} onChange={(e) => setTarget(e.target.value)} className="h-[var(--ui-control-height)] rounded-md border border-input bg-background px-2 text-sm">

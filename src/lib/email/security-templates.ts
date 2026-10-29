@@ -40,12 +40,12 @@ function partsFor(kind: SecurityEmailKind, data: SecurityEmailData, url: (path: 
   const when = formatMoment(data.at);
   const review: Link = { label: "Review account security", href: url("/settings#settings-security") };
   // "This wasn't me": the two things that take an attacker out, in the order to do them.
-  const notMe: Link = { label: "This wasn't me", href: url("/settings#settings-security-sessions") };
-  const notMeLine = "If this wasn't you, sign out your other devices, change your password again, and write to support@networkbase.in.";
+  const notMe: Link = { label: "This wasn’t me", href: url("/settings#settings-security-sessions") };
+  const notMeLine = "If this wasn’t you, sign out your other devices, change your password again, and write to support@networkbase.in.";
   switch (kind) {
     case "security_password_changed":
       return {
-        subject: "Your NetworkBase password was changed", preview: "Your password changed. If this wasn't you, act now.", label: "ACCOUNT SECURITY",
+        subject: "Your NetworkBase password was changed", preview: "Your password changed. If this wasn’t you, act now.", label: "ACCOUNT SECURITY",
         headline: "Your password was changed",
         paragraphs: [`${when ? `On ${when}, the` : "The"} password for your NetworkBase account was changed. Your editor tokens were signed out, so reconnect your editor when you next use it.`, notMeLine],
         primary: review, secondary: notMe,
@@ -63,7 +63,7 @@ function partsFor(kind: SecurityEmailKind, data: SecurityEmailData, url: (path: 
       return {
         subject: "A new editor token was created", preview: "A token that signs in to your account from an editor was created.", label: "ACCOUNT SECURITY",
         headline: "A new editor token was created",
-        paragraphs: [`${when ? `On ${when}, a` : "A"} manual editor token${data.detail ? ` (“${oneLine(data.detail, 80)}”)` : ""} was created. It signs in to your account from an editor for a year, until you revoke it.`, "If you didn't create it, revoke it in Settings > Integrations, then change your password."],
+        paragraphs: [`${when ? `On ${when}, a` : "A"} manual editor token${data.detail ? ` (“${oneLine(data.detail, 80)}”)` : ""} was created. It signs in to your account from an editor for a year, until you revoke it.`, "If you didn’t create it, revoke it in Settings > Integrations, then change your password."],
         primary: { label: "Review editor connections", href: url("/settings#settings-integrations-editors") }, secondary: notMe,
       };
     case "security_sign_in_method_changed":
@@ -87,7 +87,7 @@ function partsFor(kind: SecurityEmailKind, data: SecurityEmailData, url: (path: 
       return {
         subject: "Your NetworkBase account is scheduled for deletion", preview: date ? `It will be permanently deleted on ${date}.` : "You can cancel before it is deleted.", label: "ACCOUNT DELETION",
         headline: date ? `Your account will be deleted on ${date}` : "Your account is scheduled for deletion",
-        paragraphs: ["Your profile is hidden and you were signed out everywhere. Nothing has been permanently removed yet.", "Changed your mind? Sign in before that date and choose Reactivate account. If you didn't ask for this, sign in now to cancel it, then change your password."],
+        paragraphs: ["Your profile is hidden and you were signed out everywhere. Nothing has been permanently removed yet.", "Changed your mind? Sign in before that date and choose Reactivate account. If you didn’t ask for this, sign in now to cancel it, then change your password."],
         primary: { label: "Cancel deletion", href: url(`/login?redirect=${encodeURIComponent("/settings#settings-delete-account")}`) },
       };
     }
@@ -102,7 +102,7 @@ function partsFor(kind: SecurityEmailKind, data: SecurityEmailData, url: (path: 
       return {
         subject: "Your NetworkBase account was reactivated", preview: "Deletion was cancelled and your profile is visible again.", label: "ACCOUNT DELETION",
         headline: "Your account was reactivated",
-        paragraphs: [`${when ? `On ${when}, deletion` : "Deletion"} was cancelled and your profile is visible again.`, "If you didn't do this, change your password and review your sign-in activity."],
+        paragraphs: [`${when ? `On ${when}, deletion` : "Deletion"} was cancelled and your profile is visible again.`, "If you didn’t do this, change your password and review your sign-in activity."],
         primary: review,
       };
     case "account_deletion_reminder": {

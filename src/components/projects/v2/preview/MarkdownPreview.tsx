@@ -88,7 +88,7 @@ export default function MarkdownPreview({
           </button>
         </div>
       ) : null}
-      <Suspense fallback={<div className="text-sm text-muted-foreground p-4">Loading preview...</div>}>
+      <Suspense fallback={<div className="text-sm text-muted-foreground p-4">Loading preview…</div>}>
         <ProjectDocRenderer
           content={content}
           project={projectObject}

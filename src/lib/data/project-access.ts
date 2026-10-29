@@ -55,7 +55,7 @@ export function writeBlockedMessage(reason: ProjectAccess["writeBlocked"]) {
     if (reason === "suspended") return "This organization is suspended. Everything is read-only.";
     if (reason === "archived") return "This organization has ended. Everything is read-only.";
     if (reason === "deleting") return "This organization is scheduled for deletion.";
-    return "You don't have permission to do this.";
+    return "You don’t have permission to do this.";
 }
 
 /**
@@ -100,7 +100,7 @@ export function canReadProjectTab(access: ProjectAccess, tab: ProjectPublicTabId
 
 export class ProjectTabForbiddenError extends ForbiddenError {
     constructor(readonly tab: ProjectPublicTabId) {
-        super(`This project's ${tab} are not available to this viewer.`);
+        super(`This project’s ${tab} are not available to this viewer.`);
         this.name = "ProjectTabForbiddenError";
     }
 }

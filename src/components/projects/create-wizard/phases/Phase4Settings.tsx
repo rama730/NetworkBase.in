@@ -458,11 +458,11 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     <div className="border-y border-border">
                         <SwitchRow label="Members can post updates" description="Progress posts on the Updates tab." checked={memberUpdatesEnabled !== false} onCheckedChange={(checked) => set('member_updates_enabled', checked)} />
                         <SwitchRow label="New members can upload files" description="The starting upload permission for each member; adjustable per member later." checked={memberFileUploadDefault !== false} onCheckedChange={(checked) => set('member_file_upload_default', checked)} />
-                        {childOrg ? <SwitchRow label={`Follow ${childOrg.title}'s sprints`} description="New sprints link to the organization's sprint holding their dates and stay inside it." checked={Boolean(followOrgSprints)} onCheckedChange={(checked) => set('follow_org_sprints', checked)} /> : null}
+                        {childOrg ? <SwitchRow label={`Follow ${childOrg.title}'s sprints`} description="New sprints link to the organization’s sprint holding their dates and stay inside it." checked={Boolean(followOrgSprints)} onCheckedChange={(checked) => set('follow_org_sprints', checked)} /> : null}
                     </div>
                 </LaunchSection>
 
-                <LaunchSection {...sectionProps('files')} title="Workspace files" description="Where the project's files come from and who can add more." summary={sourceSummary}>
+                <LaunchSection {...sectionProps('files')} title="Workspace files" description="Where the project’s files come from and who can add more." summary={sourceSummary}>
                     <div className="border-y border-border">
                         <div className="flex items-start gap-3 border-b border-border px-4 py-3.5">
                             <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />

@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 const THEME_OPTIONS = [
   { value: "light" as const, label: "Light", description: "Always use the light interface.", icon: Sun },
   { value: "dark" as const, label: "Dark", description: "Always use the dark interface.", icon: Moon },
-  { value: "system" as const, label: "System", description: "Follow this device's setting.", icon: Monitor },
+  { value: "system" as const, label: "System", description: "Follow this device’s setting.", icon: Monitor },
 ];
 const ACCENT_OPTIONS = Object.values(ACCENT_PALETTES).map((accent) => ({ value: accent.id, label: accent.label, description: accent.description }));
 const DENSITY_OPTIONS = (Object.entries(DENSITY_LABELS) as Array<[Density, { label: string; description: string }]>).map(([value, meta]) => ({ value, label: meta.label, description: meta.description }));

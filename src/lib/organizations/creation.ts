@@ -56,7 +56,7 @@ export const ORG_CREATION_COPY: Record<OrgType, CreationCopy> = {
   },
   company: {
     name: "Acme Sales APAC",
-    tagline: "The APAC sales team's shared workspace",
+    tagline: "The APAC sales team’s shared workspace",
     about: "What the team does and how work flows",
     audience: "The APAC sales team and its regional leads",
     activities: "Weekly pipeline reports, monthly pushes, shared playbooks",
@@ -70,8 +70,8 @@ export const ORG_CREATION_COPY: Record<OrgType, CreationCopy> = {
   research: {
     name: "Vision Lab",
     tagline: "Computer vision research at RVCE",
-    about: "The lab's focus and how projects run",
-    audience: "PhD and master's students in the lab",
+    about: "The lab’s focus and how projects run",
+    audience: "PhD and master’s students in the lab",
     activities: "Weekly reading group, paper drafts, shared datasets",
     welcome: "Add yourself to a project in Projects.",
     subjectLabel: "Research area",
@@ -117,7 +117,7 @@ export function orgStarterDoc(type: OrgType, input: { title: string; description
   const name = ORG_CREATION_COPY[type].starterDoc;
   const lines = [`# ${input.title}: ${name === "Blank" ? "About" : name}`, ""];
   if (input.description?.trim()) lines.push(input.description.trim(), "");
-  if (input.audience?.trim()) lines.push(`**Who it's for:** ${input.audience.trim()}`, "");
+  if (input.audience?.trim()) lines.push(`**Who it’s for:** ${input.audience.trim()}`, "");
   if (input.activities?.trim()) lines.push(`**What members do here:** ${input.activities.trim()}`, "");
   for (const heading of STARTER_SECTIONS[name] ?? STARTER_SECTIONS.Blank!) lines.push(`## ${heading}`, "", "_Add details here._", "");
   return lines.join("\n").trimEnd() + "\n";

@@ -1084,7 +1084,7 @@ export default function KanbanBoard({
             disabled={isFetchingNextPage}
             className="nb-touch-target h-[34px] rounded-[5px] border border-border bg-card px-4 text-xs font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-60"
           >
-            {isFetchingNextPage ? "Loading more tasks..." : "Load more tasks"}
+            {isFetchingNextPage ? "Loading more tasks…" : "Load more tasks"}
           </button>
         </div>
       )}

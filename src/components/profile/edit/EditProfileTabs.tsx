@@ -470,7 +470,7 @@ export function EditProfileTabs({
                                     value={profile.bio ?? ""}
                                     onChange={(e) => updateForm("bio", e.target.value)}
                                     className="nb-body min-h-24 w-full resize-y rounded-md border border-input bg-card px-[var(--ui-control-px)] py-2 text-foreground placeholder:text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                                    placeholder="Tell your story..."
+                                    placeholder="Tell your story…"
                                 />
                             </div>
 

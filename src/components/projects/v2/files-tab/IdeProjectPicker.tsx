@@ -36,7 +36,7 @@ async function loadProjects(
   });
   const body = await response.json();
   if (!response.ok || !body.success || !Array.isArray(body.data?.projects))
-    throw new Error("Couldn't load your projects.");
+    throw new Error("Couldn’t load your projects.");
   return body.data as ProjectPage;
 }
 
@@ -115,7 +115,7 @@ export function IdeProjectPicker({
           </div>
         ) : query.isError && !query.data ? (
           <div role="alert" className="space-y-2 text-[13px]">
-            <p>Couldn&apos;t load your projects.</p>
+            <p>Couldn’t load your projects.</p>
             <Button
               variant="outline"
               size="sm"
@@ -173,7 +173,7 @@ export function IdeProjectPicker({
             )}
             {query.isFetchNextPageError && (
               <p role="alert" className="text-xs text-destructive">
-                Couldn&apos;t load more projects. Try again.
+                Couldn’t load more projects. Try again.
               </p>
             )}
           </div>

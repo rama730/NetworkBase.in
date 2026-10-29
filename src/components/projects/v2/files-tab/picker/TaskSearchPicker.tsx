@@ -207,7 +207,7 @@ export function TaskSearchPicker({
             disabled={isSaving}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onInputKeyDown}
-            placeholder="Search tasks by title..."
+            placeholder="Search tasks by title…"
             aria-label="Search tasks"
             className="nb-touch-target h-8 w-full bg-transparent text-sm outline-none placeholder:text-[#8E9AA1] text-[#141A1E] dark:text-foreground"
             role="combobox"

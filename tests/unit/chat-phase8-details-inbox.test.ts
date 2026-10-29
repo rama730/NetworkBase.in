@@ -49,7 +49,7 @@ test("Details: star + copy link, archived and preview banners, privacy switch, v
   const pane = read("src/components/messages/DetailsPane.tsx");
   assert.match(pane, /function QuickActions/);
   assert.match(pane, /This channel is archived\. History stays readable\./);
-  assert.match(pane, /You&apos;re previewing/);
+  assert.match(pane, /You’re previewing/);
   assert.match(pane, /setChannelPrivacy\(\{ channelId, private: channel\?\.kind !== "private" \}\)/);
   assert.match(pane, /customScrollParent=\{scrollParent\}/);
   assert.match(pane, /pointer-fine:group-focus-within\/member:opacity-100/);

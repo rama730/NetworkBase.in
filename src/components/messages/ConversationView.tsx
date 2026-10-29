@@ -98,7 +98,7 @@ function Intro({ channel, meId, isMember, hasCanvas, onDetails, onAddPeople, onC
       <div className="px-4 py-4 text-[13px] text-muted-foreground">
         <p>
           {meta?.is_applicant
-            ? `This is your application for ${subject}. ${decided ? `It was ${outcome}. You can still ask or reply here.` : "The project's reviewers answer here, and you can ask or add anything they need."}`
+            ? `This is your application for ${subject}. ${decided ? `It was ${outcome}. You can still ask or reply here.` : "The project’s reviewers answer here, and you can ask or add anything they need."}`
             : `This is the application${meta ? ` from ${personName(meta.applicant)}` : ""} for ${subject}. ${decided ? `It was ${outcome}. You can still reply here.` : "Accept or decline from the bar above, and ask questions here."}`}
         </p>
       </div>
@@ -107,7 +107,7 @@ function Intro({ channel, meId, isMember, hasCanvas, onDetails, onAddPeople, onC
   if (channel.name === null) {
     return (
       <div className="space-y-3 px-4 py-5">
-        <p className="text-[13px] text-muted-foreground">This is the start of your group conversation. Give it a name so it&apos;s easy to find.</p>
+        <p className="text-[13px] text-muted-foreground">This is the start of your group conversation. Give it a name so it’s easy to find.</p>
         {isMember ? <div className="flex flex-wrap gap-2"><IntroButton onClick={onDetails}>Name the group</IntroButton><IntroButton onClick={onAddPeople}><UserPlus size={16} /> Add people</IntroButton></div> : null}
       </div>
     );
@@ -782,7 +782,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
         {!isMember && !canPreview ? (
           <div className="grid flex-1 place-items-center p-6 text-center">
             <div className="max-w-sm space-y-3">
-              <p className="text-[15px]">You&apos;re not in <span className="font-medium">{displayName}</span>.</p>
+              <p className="text-[15px]">You’re not in <span className="font-medium">{displayName}</span>.</p>
               {channel.description ? <p className="text-[13px] text-muted-foreground">{channel.description}</p> : null}
             </div>
           </div>
@@ -841,7 +841,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
             {conversation.query.isError ? <ErrorNotice what="Messages" onRetry={() => void conversation.query.refetch()} className="mx-3 mb-2" /> : null}
             {!isMember ? (
               <div className="flex flex-wrap items-center justify-center gap-3 border-t border-border bg-muted px-4 py-3 text-[13px]">
-                <span className="text-muted-foreground">You&apos;re previewing <strong className="font-semibold text-foreground">{displayName}</strong>.</span>
+                <span className="text-muted-foreground">You’re previewing <strong className="font-semibold text-foreground">{displayName}</strong>.</span>
                 <Button type="button" size="sm" onClick={() => void join()} className="pointer-coarse:h-11">Join channel</Button>
               </div>
             ) : archived ? (
@@ -906,10 +906,10 @@ export function ConversationView({ channelId, around = null, surface = "page", o
         description={confirm === "replace"
           ? "The current canvas is replaced for everyone in the channel. Copy it first if you want to keep it."
           : confirm === "canvas"
-          ? "It's removed for everyone in the channel. Copy it first if you want to keep it."
+          ? "It’s removed for everyone in the channel. Copy it first if you want to keep it."
           : confirm === "archive"
             ? "Nobody can post in an archived channel. History stays readable, and admins can unarchive it."
-            : channel.kind === "public" ? "You can rejoin a public channel at any time." : "You'll need to be added again to come back."}
+            : channel.kind === "public" ? "You can rejoin a public channel at any time." : "You’ll need to be added again to come back."}
         confirmLabel={confirm === "replace" ? "Replace" : confirm === "canvas" ? "Delete canvas" : confirm === "archive" ? "Archive" : "Leave"}
         variant="destructive"
         onConfirm={async () => {

@@ -76,7 +76,7 @@ export default function ResetPasswordPage() {
 
         const errors = {
             password: passwordPolicy.ok ? undefined : passwordPolicy.error || 'Choose a stronger password.',
-            confirm: newPassword === confirmPassword ? undefined : "Passwords don't match.",
+            confirm: newPassword === confirmPassword ? undefined : "Passwords don’t match.",
         }
         setFieldErrors(errors)
         if (errors.password || errors.confirm) {

@@ -94,7 +94,7 @@ export function HydrationProgressBanner({ projectId }: HydrationProgressBannerPr
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-lg">🚀</span>
-            <span className="font-medium text-sm">Securing files in background...</span>
+            <span className="font-medium text-sm">Securing files in background…</span>
           </div>
           <span className={cn("inline-flex items-center justify-center rounded-full border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 gap-1", "border-transparent bg-secondary text-secondary-foreground", "font-mono")}>
             {hydration.completed.toLocaleString()} / {hydration.total.toLocaleString()}

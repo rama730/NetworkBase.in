@@ -17,7 +17,7 @@ import { UUID_RE } from '@/lib/validations/uuid';
 // child projects. Reads elsewhere go through orgFileAccessSql / assertFileNodeVisible.
 
 type Failure = { success: false; error: string };
-const DENIED: Failure = { success: false, error: "You don't have permission to do this." };
+const DENIED: Failure = { success: false, error: "You don’t have permission to do this." };
 type ReadableAccess = Awaited<ReturnType<typeof getProjectAccessById>> & { project: NonNullable<Awaited<ReturnType<typeof getProjectAccessById>>['project']> };
 
 /** The viewer when they own or admin the org; writes refuse a suspended or archived org. */
@@ -63,7 +63,7 @@ export async function setFolderAccessAction(orgId: string, folderId: string, acc
         ));
         const message = access === 'admins' ? `Members will lose access to ${plural(n)}.`
             : access === 'public' ? `${plural(n)} will become visible to visitors.`
-                : `${plural(n)} will follow the parent folder's access.`;
+                : `${plural(n)} will follow the parent folder’s access.`;
         return { success: true, preview: { files: n, message } };
     }
     await db.update(projectNodes).set({

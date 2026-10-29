@@ -33,7 +33,7 @@ function errorMessage(error: unknown) {
 
 /** The actions answer {success:false} instead of throwing; without this a refused decision looked like a success. */
 function unwrap<T extends { success: boolean; error?: string }>(result: T): T {
-    if (!result.success) throw new Error(result.error || "That didn't work. Try again.");
+    if (!result.success) throw new Error(result.error || "That didn’t work. Try again.");
     return result;
 }
 
@@ -295,7 +295,7 @@ export default function MyWorkRequestsTab({ isActive = true }: MyWorkRequestsTab
                                 onClick={handleAcceptAllConnections}
                                 className="text-[11px] font-semibold text-primary hover:underline disabled:text-muted-foreground disabled:no-underline"
                             >
-                                {isBatchBusy ? "Accepting all..." : `Accept all (${pendingConnections.length})`}
+                                {isBatchBusy ? "Accepting all…" : `Accept all (${pendingConnections.length})`}
                             </button>
                         )}
                     </div>
@@ -339,7 +339,7 @@ export default function MyWorkRequestsTab({ isActive = true }: MyWorkRequestsTab
                                 onClick={handleAcceptAllInvites}
                                 className="text-[11px] font-semibold text-primary hover:underline disabled:text-muted-foreground disabled:no-underline"
                             >
-                                {isBatchBusy ? "Accepting all..." : `Accept all (${pendingInvites.length})`}
+                                {isBatchBusy ? "Accepting all…" : `Accept all (${pendingInvites.length})`}
                             </button>
                         )}
                     </div>

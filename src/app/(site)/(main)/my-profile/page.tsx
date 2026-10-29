@@ -73,7 +73,7 @@ async function ResolvedProfile() {
             <div className="max-w-md rounded-lg border border-border bg-card p-6 text-center shadow-none text-card-foreground">
                 <h1 className="nb-section-title text-foreground">Unable to load your profile</h1>
                 <p className="nb-body mt-2 text-muted-foreground">
-                    We couldn&apos;t load your profile data. Please refresh the page or try again later, and contact support if the problem persists.
+                    We couldn’t load your profile data. Please refresh the page or try again later, and contact support if the problem persists.
                 </p>
             </div>
         </div>

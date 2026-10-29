@@ -28,6 +28,6 @@ test("pins: up to 3 in an org, 1 elsewhere; an unpin date ends a pin quietly", (
 
 test("share to org: blocked for Private projects and when the org turned sharing off", () => {
   assert.equal(shareBlock({ childVisibility: "org", orgAllowsShare: true }), null);
-  assert.equal(shareBlock({ childVisibility: "private", orgAllowsShare: true }), "Private projects can't share to the org.");
+  assert.equal(shareBlock({ childVisibility: "private", orgAllowsShare: true }), "Private projects can’t share to the org.");
   assert.equal(shareBlock({ childVisibility: "public", orgAllowsShare: false }), "The organization turned sharing off.");
 });

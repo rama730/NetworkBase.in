@@ -132,7 +132,7 @@ test("child team tasks by unit; any teammate ticks a step and it records who; co
   assert.ok(made.success && made.created === 1, JSON.stringify(made));
   const [task] = await sql`SELECT id, assignee_id, team_name FROM tasks WHERE project_id = ${lab} AND team_name = 'Frontend'`;
   assert.equal(task!.assignee_id, o.c, "the unit lead leads the team task");
-  assert.ok((await titles(o.b)).includes("You're in Frontend for Build the parser"));
+  assert.ok((await titles(o.b)).includes("You’re in Frontend for Build the parser"));
 
   const [step] = await sql`INSERT INTO task_subtasks (task_id, title, position) VALUES (${task!.id}, 'Write tests', 0) RETURNING id`;
   viewerId = o.b;

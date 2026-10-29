@@ -285,7 +285,7 @@ function CommentRow({
                       autoFocus
                       value={replyDraft}
                       onChange={(e) => setReplyDraft(e.target.value.slice(0, 1000))}
-                      placeholder={`Write a reply...`}
+                      placeholder={`Write a reply…`}
                       className="nb-touch-target h-7 min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground text-foreground"
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
@@ -917,7 +917,7 @@ export function UpdateComments({
                           onChange={(e) => setFocusedReplyDraft(e.target.value.slice(0, 1000))}
                           placeholder={`Reply to ${
                             c.author?.fullName || c.author?.username || "comment"
-                          }...`}
+                          }…`}
                           className="nb-touch-target h-7 min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
                           onKeyDown={(e) => {
                             if (e.key === "Enter" && !e.shiftKey) {
@@ -966,7 +966,7 @@ export function UpdateComments({
                 <input
                   value={draft}
                   onChange={(event) => setDraft(event.target.value.slice(0, 1_000))}
-                  placeholder="Write a comment..."
+                  placeholder="Write a comment…"
                   className="nb-touch-target h-8 min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {

@@ -316,7 +316,7 @@ test("Task Files Design Specification Conformance Contract", async (t) => {
     // 2. Inline filter / search
     assert.match(
       taskFilesCollection,
-      /placeholder="Filter tasks…"|placeholder="Filter tasks\.\.\."/,
+      /placeholder="Filter tasks…"|placeholder="Filter tasks…"/,
       "TaskFilesCollection must render inline fuzzy search input",
     );
 

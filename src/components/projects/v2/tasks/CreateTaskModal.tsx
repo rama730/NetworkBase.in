@@ -353,7 +353,7 @@ export default function CreateTaskModal({
                     id="task-description"
                     name="description"
                     defaultValue=""
-                    placeholder="Add context, acceptance criteria, or implementation notes..."
+                    placeholder="Add context, acceptance criteria, or implementation notes…"
                     rows={3}
                     className={cn(
                       inputClassName(!!fieldErrors.description),
@@ -661,7 +661,7 @@ export default function CreateTaskModal({
                         event.preventDefault();
                         handleAddSubtask();
                       }}
-                      placeholder="Add a subtask..."
+                      placeholder="Add a subtask…"
                       className={cn(inputClassName(false), "flex-1")}
                     />
                     <button

@@ -456,7 +456,7 @@ export function ImageViewerDriver({
         /* SVG Source Code Mode */
         <div className="flex-1 overflow-auto p-4 bg-muted/30 font-mono text-xs">
           <pre className="whitespace-pre-wrap break-all text-foreground">
-            {svgSource || "Loading SVG source..."}
+            {svgSource || "Loading SVG source…"}
           </pre>
         </div>
       )}

@@ -76,7 +76,7 @@ export function DiscoverFiltersPanel({ open, onOpenChange, query, onChange, onCl
 
             <label className="flex min-h-11 cursor-pointer items-center gap-3">
                 <Checkbox checked={query.hideOpened} onCheckedChange={(checked) => onChange({ hideOpened: checked === true })} />
-                <span className="nb-compact">Hide projects I&apos;ve opened</span>
+                <span className="nb-compact">Hide projects I’ve opened</span>
             </label>
         </FilterPanel>
     );

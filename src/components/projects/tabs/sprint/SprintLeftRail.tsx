@@ -203,7 +203,7 @@ export function SprintLeftRail({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Filter sprints..."
+                placeholder="Filter sprints…"
                 className="nb-touch-target h-[30px] w-full rounded-[5px] border border-border bg-background pl-8 pr-7 text-xs text-foreground placeholder:text-muted-foreground transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               />
               {searchQuery ? (
