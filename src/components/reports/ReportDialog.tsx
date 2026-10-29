@@ -84,12 +84,14 @@ export function ReportDialog({ kind, targetId, seq, noun, personName, open, onOp
                             <DialogTitle>Report {kind === 'person' && personName ? personName : `this ${noun}`}</DialogTitle>
                             <DialogDescription>We never tell them who reported. In an organization, its admins may see what you write here, but not your name.</DialogDescription>
                         </DialogHeader>
-                        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-5">
+                        {/* relative: the visually hidden radios anchor here, so they scroll with the body instead of
+                            making the dialog box itself scroll (which slid the header away and left a gap under the footer). */}
+                        <div className="relative min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-5">
                             <fieldset>
                                 <legend className="nb-ui-label mb-2 text-foreground">Why are you reporting it?</legend>
                                 <div className="grid gap-1">
                                     {reasonsFor(kind).map((value) => (
-                                        <label key={value} className="flex cursor-pointer items-start gap-2.5 rounded-[5px] border border-transparent px-2.5 py-2 transition-colors duration-[130ms] hover:bg-muted has-[:checked]:border-border has-[:checked]:bg-secondary has-[:focus-visible]:border-foreground">
+                                        <label key={value} className="relative flex cursor-pointer items-start gap-2.5 rounded-[5px] border border-transparent px-2.5 py-2 transition-colors duration-[130ms] hover:bg-muted has-[:checked]:border-border has-[:checked]:bg-secondary has-[:focus-visible]:border-foreground">
                                             <input type="radio" name="report-reason" value={value} className="peer sr-only" checked={reason === value} onChange={() => pick(value)} />
                                             {/* Spec radio: 16px, strong border; selected shows the accent border and an 8px dot. */}
                                             <span aria-hidden="true" className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border border-input bg-card peer-checked:border-primary">
