@@ -518,7 +518,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     if (send) return void toast.message("Add files once the conversation has started.");
     const room = CHAT_MAX_ATTACHMENTS - uploads.length;
     const picked = Array.from(files);
-    if (picked.length > room) toast.error(`Up to ${CHAT_MAX_ATTACHMENTS} files per message; ${picked.length - Math.max(room, 0)} skipped.`);
+    if (picked.length > room) toast.warning(`Up to ${CHAT_MAX_ATTACHMENTS} files per message; ${picked.length - Math.max(room, 0)} skipped.`);
     for (const file of picked.slice(0, Math.max(room, 0))) {
       const problem = fileProblem(file, DEFAULT_ATTACHMENT_UPLOAD_MAX_FILE_BYTES);
       if (problem) {
@@ -732,7 +732,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     // The channel copy of a thread reply: say where it went, only if it really did.
     if (sentAlso && alsoSendTo) {
       if ("alsoSent" in result && result.alsoSent) toast.success(`Also sent to ${alsoSendTo}`);
-      else toast.error(`The reply was sent, but not the copy to ${alsoSendTo}.`);
+      else toast.warning(`The reply was sent, but not the copy to ${alsoSendTo}.`);
     }
   };
   // Screen readers follow the highlighted command while focus stays in the editor (like @mentions).

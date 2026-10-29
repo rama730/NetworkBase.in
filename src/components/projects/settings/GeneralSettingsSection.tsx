@@ -374,7 +374,7 @@ export function GeneralSettingsSection({
         }
 
         if (file.size > PROJECT_IMAGE_UPLOAD_MAX_BYTES) {
-            toast.error(`Image must be under 2MB. Selected file is ${(file.size / (1024 * 1024)).toFixed(1)}MB.`);
+            toast.warning(`Image must be under 2MB. Selected file is ${(file.size / (1024 * 1024)).toFixed(1)}MB.`);
             return;
         }
 

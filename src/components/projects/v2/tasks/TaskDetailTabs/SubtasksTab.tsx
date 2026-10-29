@@ -320,7 +320,7 @@ export default function SubtasksTab({
       if (!result.success) failed += 1;
     }
     setBulkPending(false);
-    if (failed > 0) toast.error(`${failed} of ${targets.length} subtasks could not be updated.`);
+    if (failed > 0) toast.warning(`${failed} of ${targets.length} subtasks could not be updated.`);
   };
 
   return (

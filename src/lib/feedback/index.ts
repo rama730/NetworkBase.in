@@ -10,14 +10,12 @@ type PromiseOptions<T> = NonNullable<Parameters<typeof sonnerToast.promise<T>>[1
 let nextPromiseId = 0;
 let accountEpoch = 0;
 
+/** Catalog keys use ’ and …; code may still send ' and ... (report §22.2 T2). */
+const catalogKey = (message: string) => message.replace(/'/g, '’').replace(/\.{3}/g, '…');
+
 export function compactFeedback(message: ReactNode, type: FeedbackType, options: FeedbackOptions = {}) {
   if (typeof message !== 'string') return { message, type, options };
-  const action = options.action;
-  if (action && typeof action === 'object' && 'label' in action && typeof action.label === 'string') {
-    const labels: Record<string, string> = { 'Open details': 'Rename group', 'Review changes': 'Review', 'Review canvas': 'Review', 'Review permissions': 'Check access', 'View application': 'View', 'Open security': 'Security', 'Generate codes': 'Get codes' };
-    options = { ...options, action: { ...action, label: labels[action.label] ?? action.label } };
-  }
-  const contract = FEEDBACK_COPY[message];
+  const contract = FEEDBACK_COPY[catalogKey(message)];
   if (contract) return { message: contract.title, type: contract.type ?? type, options: { ...options, description: options.description ?? contract.description } };
   if (/file.*(?:too large|exceed.*(?:size|limit))|(?:maximum|max).*upload size|file size.*exceed/i.test(message)) {
     const limit = message.match(/\b\d+(?:\.\d+)?\s*(?:KB|MB|GB)\b/i)?.[0];
@@ -40,7 +38,7 @@ export function compactFeedback(message: ReactNode, type: FeedbackType, options:
 
 /** Runtime errors are allowlisted; callers retain an operation-specific safe fallback. */
 export function feedbackError(value: unknown, fallback = 'Action couldn’t finish'): string {
-  const message = value instanceof Error ? value.message : typeof value === 'string' ? value : '';
+  const message = catalogKey(value instanceof Error ? value.message : typeof value === 'string' ? value : '');
   if (FEEDBACK_COPY[message]) return message;
   if (/into (?:its )?(?:own )?(?:descendant|itself|subfolder)|move.*inside itself/i.test(message)) return 'Invalid move destination';
   if (/file.*(?:too large|exceed.*size)|file size.*exceed|maximum upload size/i.test(message)) return message;

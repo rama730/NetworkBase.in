@@ -88,7 +88,7 @@ export function BinaryInspectorDriver({
       toast.success("Hex dump copied");
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error("Failed to copy hex dump");
+      toast.error("Couldn’t copy the hex dump");
     }
   }, [hexDump]);
 

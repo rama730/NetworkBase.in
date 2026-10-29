@@ -201,7 +201,7 @@ export function DataGridDriver({
       toast.success("Cell value copied");
       setTimeout(() => setCopiedCell(null), 1500);
     } catch {
-      toast.error("Failed to copy cell value");
+      toast.error("Couldn’t copy the cell");
     }
   }, []);
 
@@ -213,7 +213,7 @@ export function DataGridDriver({
       await navigator.clipboard.writeText(tsv);
       toast.success(`Copied ${filteredRows.length} rows to clipboard (TSV format)`);
     } catch {
-      toast.error("Failed to copy table data");
+      toast.error("Couldn’t copy the table");
     }
   }, [currentSheet.headers, filteredRows]);
 

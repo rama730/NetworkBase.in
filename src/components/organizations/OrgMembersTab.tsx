@@ -266,7 +266,7 @@ function InviteBox({ orgId, data, pending, run, onCode }: { orgId: string; data:
                     const r = await inviteByEmailAction(orgId, { emails, role, title: title || null, childProjectId: childId || null, unitId: unitId || null })
                     if (r.success) {
                         setEmails('')
-                        if (r.invalid.length) toast.error(`Skipped: ${r.invalid.join(', ')}`)
+                        if (r.invalid.length) toast.warning(`Skipped: ${r.invalid.join(', ')}`)
                     }
                     return r
                 }, 'Invites saved')

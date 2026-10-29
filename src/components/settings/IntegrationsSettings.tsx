@@ -337,7 +337,7 @@ export default function IntegrationsSettings() {
           )
         : [];
       if (!methods.length) {
-        toast.error(purpose === "token" ? "Add a password or authenticator in Security before creating a token" : purpose === "unlink" ? "Add a password or authenticator in Security before disconnecting a sign-in method" : "Add a password or authenticator in Security before replacing GitHub");
+        toast.warning(purpose === "token" ? "Add a password or authenticator in Security before creating a token" : purpose === "unlink" ? "Add a password or authenticator in Security before disconnecting a sign-in method" : "Add a password or authenticator in Security before replacing GitHub");
         return;
       }
       setStepUpPurpose(purpose);

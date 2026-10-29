@@ -564,7 +564,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                 }
                 const organization = getValues('organization');
                 if (organization && (!organization.org_type || (organization.org_type === 'other' && !organization.type_label?.trim()))) {
-                    toast.error(organization.org_type ? 'Say what you call it, for example Nonprofit.' : 'Choose what kind of organization this is.');
+                    toast.warning(organization.org_type ? 'Say what you call it, for example Nonprofit.' : 'Choose what kind of organization this is.');
                     return;
                 }
 

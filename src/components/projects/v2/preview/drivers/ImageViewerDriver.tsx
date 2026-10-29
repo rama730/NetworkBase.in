@@ -122,7 +122,7 @@ export function ImageViewerDriver({
         setTimeout(() => setCopied(false), 2000);
       }
     } catch {
-      toast.error("Failed to copy image");
+      toast.error("Couldn’t copy the image");
     }
   }, [signedUrl]);
 
@@ -231,7 +231,7 @@ export function ImageViewerDriver({
       toast.success("SVG code copied to clipboard");
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error("Failed to copy SVG code");
+      toast.error("Couldn’t copy the SVG code");
     }
   }, [svgSource]);
 
