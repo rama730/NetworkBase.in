@@ -79,8 +79,8 @@ test("project lifecycle tab eliminates duplicate header and redundant summary ca
     // 8. Guidance callout present with semantic tokens
     assert.match(
         editorDef,
-        /Lifecycle roadmap alignment/,
-        "Must render lifecycle roadmap alignment guidance callout",
+        /nb-ui-label text-foreground">Stages</,
+        "Must render the stages guidance callout",
     );
     assert.match(
         editorDef,

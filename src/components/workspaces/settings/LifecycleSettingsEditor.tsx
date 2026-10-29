@@ -117,7 +117,7 @@ export function LifecycleSettingsEditor({
                 <div className="flex items-start gap-3 border-b border-border pb-4">
                     <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                     <div className="space-y-1">
-                        <p className="nb-ui-label text-foreground">Lifecycle roadmap alignment</p>
+                        <p className="nb-ui-label text-foreground">Stages</p>
                         <p className="nb-compact text-muted-foreground">
                             Stages are the steps this workspace moves through. The owner and admins move between them from the Overview.
                         </p>

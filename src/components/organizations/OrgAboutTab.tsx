@@ -71,7 +71,7 @@ export function OrgAboutTab({ project, isCreator, onEdit, visitorActions }: { pr
                 {data?.journey ? (
                     <JourneyTimeline stages={data.journey.stages} currentStageIndex={data.journey.currentIndex} isCreator={false} stageCompletionDates={data.journey.completionDates} layout="rail" />
                 ) : data?.card.kind === 'invite' ? (
-                    <RailSection title="Journey"><Link href={`${base}?tab=sprints`} className="text-sm underline underline-offset-4">Plan your term</Link></RailSection>
+                    <RailSection title="Stages"><Link href={`${base}?tab=sprints`} className="text-sm underline underline-offset-4">Plan your term</Link></RailSection>
                 ) : null}
                 {data?.activity.length ? (
                     <RailSection title="Recent activity">

@@ -88,7 +88,7 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
                             const v = e.target.value
                             setFilter({ ...filter, invited: v === 'invited', outside: v === 'outside', status: v === 'invited' || v === 'outside' ? 'all' : (v as RosterFilter['status']) })
                         }}>
-                        <option value="all">Any status</option><option value="behind">Behind</option><option value="inactive">Inactive for 14 days</option><option value="invited">Invited</option>
+                        <option value="all">Any status</option><option value="behind">Needs attention</option><option value="inactive">Inactive for 14 days</option><option value="invited">Invited</option>
                         <option value="outside">Outside people</option>
                     </select>
                     <select aria-label="Sort" className={select} value={filter.sort ?? 'name'} onChange={(e) => setFilter({ ...filter, sort: e.target.value as RosterFilter['sort'] })}>

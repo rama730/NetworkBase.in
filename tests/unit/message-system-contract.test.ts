@@ -551,8 +551,8 @@ test("Section 6 (Slack-Parity Canvas Redesign) contracts", () => {
     );
     assert.match(
         canvasEditorSource,
-        /placeholder: "Words go here"/,
-        "Canvas editor must render 'Words go here' placeholder",
+        /placeholder: "Start writing…"/,
+        "Channel notes editor must render 'Start writing…' placeholder",
     );
     assert.match(
         canvasEditorSource,
@@ -659,7 +659,7 @@ test("Section 6 (Slack-Parity Canvas Redesign) contracts", () => {
     );
     assert.match(
         canvasStoreSource,
-        /Onboarding checklist/,
+        /Profile setup checklist/,
         "canvas-store must include Employee Onboarding matching Image 4",
     );
 });
@@ -1017,8 +1017,8 @@ test("Section 11 (Slack-Exact About Section Layout & Channel Name Editing) contr
     );
     assert.match(
         detailsPaneSource,
-        /ID: \{channel\.id\}[\s\S]*copyWithToast\(channel\.id, "ID copied"\)/,
-        "DetailsPane must render ID footer with copy button",
+        /^(?![\s\S]*ID: \{channel\.id\})/,
+        "DetailsPane has no channel ID footer (report §16.7: Copy ID removed)",
     );
     assert.doesNotMatch(
         detailsPaneSource,

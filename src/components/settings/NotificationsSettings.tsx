@@ -148,12 +148,11 @@ export default function NotificationsPage() {
         if (!result.ok) throw new Error(result.reason);
         setPushStatus("idle");
         save({ ...preferences, delivery: { ...preferences.delivery, push: false } });
-        if (result.serverCleanupFailed) toast.warning("Push was disabled here, but server cleanup did not finish");
         return;
       }
       const result = await subscribeWebPush();
       if (!result.ok) {
-        const messages: Record<string, string> = { permission_denied: "Push permission was denied in your browser.", missing_vapid_key: "Push is not configured yet. Contact support." };
+        const messages: Record<string, string> = { permission_denied: "Push permission was denied in your browser.", missing_vapid_key: "Push notifications aren’t available right now." };
         toast.warning(messages[result.reason] || "Couldn’t enable push notifications.");
         setPushStatus(await getCurrentPushStatus());
         return;

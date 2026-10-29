@@ -16,10 +16,10 @@ export interface WorkspaceCardViewModel {
 export function toWorkspaceCardViewModel(project: Workspace): WorkspaceCardViewModel {
     const extendedProject = project as any; // Handle flexible types
 
-    // The owner first (a masked one as a neutral "Private creator" avatar), then members, once each.
+    // The owner first (a masked one as a neutral "Private profile" avatar), then members, once each.
     const collaborators: WorkspaceCardViewModel['collaborators'] = [];
     if (extendedProject.owner?.isMasked) {
-        collaborators.push({ full_name: 'Private creator', avatar_url: null, username: null });
+        collaborators.push({ full_name: 'Private profile', avatar_url: null, username: null });
     } else if (extendedProject.owner) {
         collaborators.push({
             full_name: extendedProject.owner.displayName || extendedProject.owner.fullName,

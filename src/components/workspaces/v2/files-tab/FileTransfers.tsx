@@ -72,7 +72,7 @@ export function FileTransfersProvider({
       {children}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[85dvh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
-          <DialogTitle>Transfers</DialogTitle>
+          <DialogTitle>Uploads and downloads</DialogTitle>
           <DialogDescription>
             Uploads in this Files session. Keep this page open while uploads are
             running. Failed items can be retried without re-uploading successful
@@ -82,12 +82,12 @@ export function FileTransfersProvider({
             {active > 0
               ? `${active} transfer${active === 1 ? "" : "s"} in progress.`
               : jobs.length > 0 && jobs.every((j) => j.status === "done")
-                ? "All transfers complete."
+                ? "All uploads and downloads finished."
                 : ""}
           </div>
           {!jobs.length && (
             <p className="py-6 text-sm text-muted-foreground">
-              No transfers in this session.
+              No uploads or downloads yet.
             </p>
           )}
           <ul className="divide-y divide-border">

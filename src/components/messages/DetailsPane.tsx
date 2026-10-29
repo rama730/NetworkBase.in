@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
-import { Bell, Copy, Link2, Lock, MessageSquare, MoreHorizontal, Search, ShieldCheck, ShieldOff, Star, User, UserMinus, UserPlus, Users, X } from "lucide-react";
+import { Bell, Link2, Lock, MessageSquare, MoreHorizontal, Search, ShieldCheck, ShieldOff, Star, User, UserMinus, UserPlus, Users, X } from "lucide-react";
 import { toast } from "@/lib/feedback";
 
 import { joinChannel, renameGroup, setChannelPrivacy, updateChannel, type ChannelDetails } from "@/app/actions/chat/channels";
@@ -566,15 +566,6 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
               <div className="flex flex-wrap gap-2 pt-1">
                 {canLeave && channel.is_member ? <Button type="button" variant="outline" onClick={() => setConfirm("leave")} className="pointer-coarse:h-11">Leave {isGroup ? "conversation" : "channel"}</Button> : null}
                 {canArchive ? <Button type="button" variant="outline" onClick={() => setConfirm("archive")} className="text-destructive hover:text-destructive pointer-coarse:h-11">Archive channel</Button> : null}
-              </div>
-            ) : null}
-            {/* Like Slack, the ID sits at the bottom of About: admins need it for integrations and support. */}
-            {channel.can_admin ? (
-              <div className="flex items-center justify-between gap-2 px-1">
-                <span className="nb-meta truncate">ID: {channel.id}</span>
-                <Button type="button" variant="ghost" size="sm" onClick={() => { void copyWithToast(channel.id, "ID copied"); }} title="Copy ID" className="pointer-coarse:h-11">
-                  <Copy size={14} /> Copy
-                </Button>
               </div>
             ) : null}
           </div>

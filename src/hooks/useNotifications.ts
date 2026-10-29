@@ -11,6 +11,7 @@ import {
     type InfiniteData,
 } from "@tanstack/react-query";
 import { toast, feedbackError } from "@/lib/feedback";
+import { formatLongDate } from "@/lib/utils/date";
 
 import {
     dismissAllNotificationsAction,
@@ -622,8 +623,8 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
             void queryClient.invalidateQueries({ queryKey: unreadCountQueryKey });
             toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t snooze notification", "Couldn’t snooze notification"));
         },
-        onSuccess: () => {
-            toast.success("Snoozed — we’ll bring it back");
+        onSuccess: (_item, { snoozedUntil }) => {
+            toast.success(`Snoozed until ${formatLongDate(snoozedUntil)}`);
         },
     });
 

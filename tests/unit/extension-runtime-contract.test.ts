@@ -29,7 +29,7 @@ describe("extension runtime contract", () => {
     assert.match(authorizePage, /setNeedsSignIn\(true\)/, "an unauthenticated browser must receive a recoverable sign-in path");
     assert.doesNotMatch(mainLayout, /BroadcastChannel|AUTH_REQ|AUTH_ACK|<iframe/, "the app shell must not relay browser authorization through an iframe");
     assert.doesNotMatch(settingsPage, /generateExtensionAuthCode/, "settings should defer editor authorization to the dedicated route");
-    assert.match(settingsPage, /Manual authentication token/, "settings should label its deliberate manual-token fallback");
+    assert.match(settingsPage, /Access tokens/, "settings should label its deliberate manual-token fallback");
     assert.match(settingsPage, /generatedToken/, "the manual-token fallback should remain transient component state");
     assert.match(eventSource, /auth_code_issued/, "event registry should allow auth-code issuance events");
     assert.match(eventSource, /auth_code_consumed/, "event registry should allow auth-code consumption events");

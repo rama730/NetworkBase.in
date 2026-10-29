@@ -57,12 +57,12 @@ export const STATUS_SUGGESTIONS: StatusSuggestion[] = [
   { emoji: "📅", text: "In a meeting", clearAfter: "1h", pauses: false },
   { emoji: "🚌", text: "Commuting", clearAfter: "30m", pauses: false },
   { emoji: "🤒", text: "Out sick", clearAfter: "today", pauses: true },
-  { emoji: "🌴", text: "Vacationing", clearAfter: "custom", pauses: true },
+  { emoji: "🌴", text: "On vacation", clearAfter: "custom", pauses: true },
   { emoji: "🏡", text: "Working remotely", clearAfter: "today", pauses: false },
 ];
 
 export const WORKSPACE_STATUS_SUGGESTIONS: StatusSuggestion[] = [
-  { emoji: "🏃", text: "Sprinting", clearAfter: "week", pauses: false },
+  { emoji: "🏃", text: "In a sprint", clearAfter: "week", pauses: false },
   { emoji: "🚀", text: "Launching", clearAfter: "custom", pauses: false },
   { emoji: "🙋", text: "Hiring", clearAfter: "never", pauses: false },
   { emoji: "⏸️", text: "On hold", clearAfter: "never", pauses: false },

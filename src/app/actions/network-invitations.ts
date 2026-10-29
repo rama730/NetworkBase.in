@@ -148,7 +148,7 @@ export async function readNetworkInvitationsAction(
                 SELECT i.id,'invitation',CASE WHEN i.inviter_id=${user.id}::uuid THEN 'sent' ELSE 'received' END,i.created_at,i.note,i.workspace_id AS project_id,
                     -- A child project's invitation names its org too: "Compiler Lab · CSE-3A" (report §20, unit labels).
                     p.title||coalesce(' · '||(SELECT o.title FROM workspaces o WHERE o.id=p.parent_id AND o.deleted_at IS NULL),''),p.slug,
-                    coalesce(i.role_title,i.guidance_label,'Collaborator'),NULL,NULL,NULL,NULL,NULL,CASE WHEN i.inviter_id=${user.id}::uuid THEN i.candidate_id ELSE i.inviter_id END
+                    coalesce(i.role_title,i.guidance_label,'Member'),NULL,NULL,NULL,NULL,NULL,CASE WHEN i.inviter_id=${user.id}::uuid THEN i.candidate_id ELSE i.inviter_id END
                 FROM workspace_invitations i JOIN workspaces p ON p.id=i.workspace_id
                 WHERE i.status='pending' AND i.expires_at>now() AND p.deleted_at IS NULL AND (i.inviter_id=${user.id}::uuid OR i.candidate_id=${user.id}::uuid)
                 UNION ALL

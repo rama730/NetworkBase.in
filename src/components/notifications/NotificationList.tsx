@@ -19,7 +19,7 @@ import type {
 } from "@/lib/notifications/types";
 
 const GROUP_LABELS = {
-    new: "New",
+    new: "Unread",
     today: "Today",
     earlier: "Earlier",
 } as const;

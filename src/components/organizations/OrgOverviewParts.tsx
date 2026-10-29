@@ -186,7 +186,7 @@ export function OrgWorkspacesTab({ orgId, orgSlug }: { orgId: string; orgSlug?: 
                     <option value="all">Any owner</option>{leads.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
                 </select>
                 <select aria-label="Sprint" className={sel} value={sprint} onChange={(e) => setSprint(e.target.value as typeof sprint)}>
-                    <option value="all">Any sprint</option><option value="linked">In the org sprint</option><option value="not_linked">Not linked</option>
+                    <option value="all">Any sprint</option><option value="linked">Part of the organization sprint</option><option value="not_linked">Not part of an organization sprint</option>
                 </select>
                 <label className="flex items-center gap-1.5 text-sm"><input type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} /> Mine</label>
                 <select aria-label="Sort" className={sel} value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>

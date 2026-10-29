@@ -260,7 +260,7 @@ export const WORKSPACE_NOTIFICATION_EVENT_REGISTRY = {
     "access.public_tabs_changed": E({
         key: "access.public_tabs_changed",
         group: "membership_access",
-        label: "Public surfaces changed",
+        label: "Public page settings changed",
         description: "Notify leaders when public tab visibility changes.",
         category: "projects",
         notificationKind: "project_public_surface_changed",
@@ -713,7 +713,7 @@ export const WORKSPACE_NOTIFICATION_EVENT_REGISTRY = {
     "security.protected_action": E({
         key: "security.protected_action",
         group: "security_audit",
-        label: "Protected action failed",
+        label: "An action needs your review",
         description: "Notify the owner and admins when an action needs review.",
         category: "projects",
         notificationKind: "project_security_alert",
@@ -858,7 +858,7 @@ export const WORKSPACE_NOTIFICATION_EVENT_REGISTRY = {
     "org.role_changed": orgEvent("org.role_changed", "org_membership", "Role changed", "A member hears their new role.", "important"),
     "org.removed": orgEvent("org.removed", "org_membership", "Removed", "A member hears they were removed.", "important", { mandatory: true }),
     "org.child_added": orgEvent("org.child_added", "org_membership", "Added to a workspace", "A member hears they were added to a workspace in the organization.", "important"),
-    "org.child_requests": orgEvent("org.child_requests", "org_membership", "Move-in and detach requests", "Admins hear when a workspace asks to join or leave.", "important", { recipients: ["owner", "co_leaders"] }),
+    "org.child_requests": orgEvent("org.child_requests", "org_membership", "Organization move requests", "Admins hear when a workspace asks to join or leave.", "important", { recipients: ["owner", "co_leaders"] }),
     "org.lifecycle": orgEvent("org.lifecycle", "org_membership", "Ended, reopened, deleted or new owner", "Members hear when the organization is archived, reopened, deleted, restored, suspended or changes owner.", "important", { mandatory: true }),
     "org.child_decided": orgEvent("org.child_decided", "org_membership", "Move-in and detach answers", "The workspace’s lead hears the answer.", "important"),
     "assignments.published": orgEvent("assignments.published", "org_assignments", "Assignment published", "Recipients hear about new work and its due date.", "important"),

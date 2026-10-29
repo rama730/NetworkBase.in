@@ -143,7 +143,7 @@ test("workspace links resolve and persist exact destination names", () => {
 
   assert.match(editor, /useLinkPreview\(metadataUrl\)/);
   assert.match(editor, /destinationLabel: effectiveDestinationLabel/);
-  assert.match(editor, /Identifying destination/);
+  assert.match(editor, /Finding the site name/);
   assert.match(previewRoute, /youtube\.com\/oembed/);
   assert.match(previewRoute, /normalizeLinkDestinationTitle/);
   assert.match(normalization, /accountLabel: item\.destinationLabel/);

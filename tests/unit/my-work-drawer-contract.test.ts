@@ -34,7 +34,7 @@ describe("My work drawer contracts", () => {
     assert.doesNotMatch(tasks, /absolute right-0 top-0/);
     assert.match(tasks, /resetScope = \(nextScope: MyWorkScope\)/);
     assert.match(tasks, /queryKeys.myWork\.tasks\(scope, limit\)/);
-    assert.match(tasks, /My tasks/);
+    assert.match(tasks, /Assigned to me/);
     assert.match(tasks, /Team tasks/);
     assert.match(tasks, /All open tasks/);
     assert.match(tasks, /useState<MyWorkScope>\("all"\)/);

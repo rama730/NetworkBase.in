@@ -34,7 +34,7 @@ const BLOCK_COPY: Record<WorkspaceDocSmartBlock["kind"], { title: string; icon: 
         description: "Workspace work items linked from the Doc.",
     },
     sprints: {
-        title: "Sprint story",
+        title: "Sprint summary",
         icon: Timer,
         tab: "sprints",
         description: "Planning rhythm and sprint movement.",
@@ -97,7 +97,7 @@ export function WorkspaceDocSmartBlock({
                 : block.kind === "files" || block.kind === "tasks"
                 ? block.ids.length > 0 ? `${block.ids.length} specific item${block.ids.length === 1 ? "" : "s"} linked` : "Open the workspace to see current items"
                     : block.kind === "sprints"
-                        ? "Open sprint rhythm"
+                        ? "Open the sprint schedule"
                         : block.kind === "projects"
                         ? "Open the organization’s workspaces"
                         : "Needs editing";

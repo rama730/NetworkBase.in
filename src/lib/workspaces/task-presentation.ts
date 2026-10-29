@@ -248,7 +248,7 @@ export function calculateTaskTimeHealth(
       return { state: "overdue", label: "Overdue", daysLate: days };
     }
     // Otherwise it's just currently overtime/late
-    return { state: "overtime", label: "Late", daysLate: days };
+    return { state: "overtime", label: "Overdue", daysLate: days };
   }
 
   // If sprint is completed but task is not done (and not technically past due date)

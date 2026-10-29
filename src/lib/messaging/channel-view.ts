@@ -175,7 +175,7 @@ export function needsAttention(channel: ChatChannelSummary) {
   return channel.mention_count > 0 || (channel.notify !== "mute" && isUnread(channel));
 }
 
-/** Every visible project channel grouped by project (the "All projects" sidebar). */
+/** Every visible project channel grouped by project (the "All workspaces" sidebar). */
 export function channelsByWorkspace(data: ChatBootstrap | undefined) {
   const groups = new Map<string, ChatChannelSummary[]>();
   if (!data) return groups;

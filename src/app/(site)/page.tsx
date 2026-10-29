@@ -161,7 +161,7 @@ export default function HomePage() {
       <section className="nb-site-section nb-site-anchor !pt-0" id="people" aria-labelledby="people-title">
         <div className="grid items-start gap-12 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
           <div>
-            <SectionHeading id="people-title" eyebrow="The talent pool" title="Find people by what they can do." body="Every profile shows skills, experience, weekly availability and the workspaces someone has worked on. Search by skill, or post an open role and let the right people find you." />
+            <SectionHeading id="people-title" eyebrow="Find people" title="Find people by what they can do." body="Every profile shows skills, experience, weekly availability and the workspaces someone has worked on. Search by skill, or post an open role and let the right people find you." />
             <ul className="space-y-3 text-sm">
               {["Search by skill, role and experience level", "See who is open to collaborate and how many hours they have", "Post open roles in your workspace", "Start a conversation from any profile"].map((point) => (
                 <li key={point} className="flex gap-3"><Users className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />{point}</li>

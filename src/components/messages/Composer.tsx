@@ -66,7 +66,7 @@ type Upload = {
 };
 
 const SLASH_COMMANDS = [
-  { command: "/task", group: "Create", description: "Create a workspace task", example: "/task Finish API documentation" },
+  { command: "/task", group: "Create", description: "Create a task", example: "/task Write the launch post" },
   { command: "/poll", group: "Create", description: "Ask a question with options", example: "/poll Best time to meet? | 10am | 2pm | 4pm" },
   { command: "/code", group: "Create", description: "Code block", example: "/code typescript" },
   { command: "/status", group: "You", description: "Set your status", example: "/status In a meeting" },

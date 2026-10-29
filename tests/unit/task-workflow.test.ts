@@ -12,7 +12,7 @@ describe("task workflow config", () => {
 
   it("returns canonical status labels and tones", () => {
     const blocked = getTaskStatusPresentation("blocked");
-    assert.equal(blocked.label, "Issues");
+    assert.equal(blocked.label, "Blocked");
     assert.match(blocked.badgeClassName, /text-destructive/);
     assert.equal(blocked.accentClassName, "rose");
   });

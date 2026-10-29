@@ -480,10 +480,9 @@ export default function EditWorkspaceModal({ project, isOpen, onClose, onSaved }
                                                 <div className="mt-4 p-4 rounded-lg bg-muted/20 border border-border flex gap-3 text-xs text-muted-foreground">
                                                     <Info className="w-4 h-4 shrink-0 text-muted-foreground mt-0.5" />
                                                     <div className="space-y-0.5">
-                                                        <p className="nb-ui-label text-foreground">Roadmap synchronization</p>
+                                                        <p className="nb-ui-label text-foreground">Stages</p>
                                                         <p className="nb-compact text-muted-foreground">
-                                                            Use the dashboard Advance button to move between these stages. 
-                                                            Reordering stages here will update the roadmap immediately.
+                                                            Drag to reorder stages. Move between them from the Overview.
                                                         </p>
                                                     </div>
                                                 </div>

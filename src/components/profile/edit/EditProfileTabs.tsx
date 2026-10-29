@@ -808,7 +808,7 @@ function RolePreferencesEditor({ profile, onChange }: { profile: any; onChange: 
                             id="profile-custom-category"
                             value={customCategoryInput}
                             onChange={(e) => setCustomCategoryInput(e.target.value)}
-                            aria-label="Custom category"
+                            aria-label="Other"
                             placeholder="e.g. Developer Relations, BioTech, Robotics, FinOps"
                             maxLength={PROFILE_LIMITS.listItemMax}
                             onKeyDown={(e) => {

@@ -140,7 +140,7 @@ function DuplicateRow({ orgId, handle, termStart }: { orgId: string; handle: str
                 <div className="mt-3 space-y-3">
                     <div className="grid gap-2 sm:grid-cols-3">
                         <Input aria-label="Name" placeholder="Name (e.g. CSE-3A 2027)" value={title} onChange={(e) => setTitle(e.target.value)} />
-                        <Input aria-label="Handle" placeholder="handle" value={newHandle} onChange={(e) => setNewHandle(e.target.value)} />
+                        <Input aria-label="Organization URL" placeholder="your-organization" value={newHandle} onChange={(e) => setNewHandle(e.target.value)} />
                         <Input aria-label="Term start" type="date" value={start} onChange={(e) => setStart(e.target.value)} />
                     </div>
                     <fieldset className="space-y-1.5 text-sm">

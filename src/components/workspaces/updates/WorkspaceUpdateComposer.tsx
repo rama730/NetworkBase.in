@@ -731,11 +731,11 @@ export function WorkspaceUpdateComposer({
                     </p>
                     <p className="text-xs text-muted-foreground">
                         {activePanel === "link"
-                            ? "Add one supporting reference to this update."
+                            ? "Link a task, sprint or file."
                             : activePanel === "task"
-                            ? "Connect this post to active workspace work."
+                            ? "Link a task, sprint or file."
                             : activePanel === "sprint"
-                            ? "Connect this post to active workspace work."
+                            ? "Link a task, sprint or file."
                             : "Connect this post to active workspace work."}
                     </p>
                 </div>
@@ -785,7 +785,7 @@ export function WorkspaceUpdateComposer({
                             {linkPreviewQuery.isFetching ? (
                                 <div className="flex items-center gap-2 text-muted-foreground">
                                     <RefreshCw className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
-                                    <span>Identifying destination…</span>
+                                    <span>Finding the site name…</span>
                                 </div>
                             ) : linkPreview?.title ? (
                                 <div className="space-y-1">

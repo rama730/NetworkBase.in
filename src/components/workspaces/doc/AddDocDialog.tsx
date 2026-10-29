@@ -64,7 +64,7 @@ export function AddDocDialog({
             params.set("fileId", created.node.id);
             if (path) params.set("path", path);
             router.push(`${pathname}?${params.toString()}`, { scroll: false });
-            toast.success("Doc created");
+            toast.success("Document created");
             setTitle("");
             onOpenChange(false);
         } catch (error) {

@@ -334,7 +334,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
             const uploadToken = batch.uploadTokens?.[key];
             const storageKey = batch.storageKeys?.[key];
             const operationId = batch.uploadIntentIds?.[key];
-            if (!url || !uploadToken || !storageKey || !operationId) throw new Error("Upload allocation unavailable");
+            if (!url || !uploadToken || !storageKey || !operationId) throw new Error("Upload couldn’t start. Try again.");
             await uploadToSupabaseSignedUrl({
               bucket: "project-files",
               storagePath: storageKey,

@@ -1673,7 +1673,7 @@ export async function deleteSprintAction(data: {
         error:
           sprintWithTaskCount.affected_task_count > 0
             ? "Sprints with work history are archived instead of deleted."
-            : "Only an empty Planning sprint can be deleted.",
+            : "You can delete a sprint only before it has tasks. Otherwise, archive it.",
       };
     }
 
@@ -1704,7 +1704,7 @@ export async function deleteSprintAction(data: {
     if (!deleted) {
       return {
         success: false,
-        error: "Only an empty Planning sprint can be deleted.",
+        error: "You can delete a sprint only before it has tasks. Otherwise, archive it.",
       };
     }
 

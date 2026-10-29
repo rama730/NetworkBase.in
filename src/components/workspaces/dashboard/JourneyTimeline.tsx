@@ -103,7 +103,7 @@ export const JourneyTimeline = memo(function JourneyTimeline({
         return (
             <TooltipPrimitive.Provider>
                 <RailSection
-                    title="Journey"
+                    title="Stages"
                     className="isolate"
                     contentClassName="overflow-hidden"
                     action={isCreator ? (
@@ -114,7 +114,7 @@ export const JourneyTimeline = memo(function JourneyTimeline({
                                     onClick={onRedoStage}
                                     disabled={safeCurrentStageIndex === 0}
                                     className="nb-touch-target flex h-[28px] w-[28px] items-center justify-center rounded-[5px] border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-                                    aria-label="Return to previous stage"
+                                    aria-label="Previous stage"
                                     title="Previous stage"
                                 >
                                     <ArrowLeft className="size-3.5" />
@@ -126,7 +126,7 @@ export const JourneyTimeline = memo(function JourneyTimeline({
                                     onClick={onAdvanceStage}
                                     disabled={safeCurrentStageIndex >= lastIndex}
                                     className="nb-touch-target flex h-[28px] w-[28px] items-center justify-center rounded-[5px] bg-primary text-primary-foreground transition-colors hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
-                                    aria-label="Advance to next stage"
+                                    aria-label="Next stage"
                                     title="Next stage"
                                 >
                                     <ArrowRight className="size-3.5" />

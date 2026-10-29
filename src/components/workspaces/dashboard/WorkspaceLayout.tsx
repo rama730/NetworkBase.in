@@ -369,7 +369,7 @@ export default function WorkspaceLayout({
                                                 aria-label="Add workspace avatar"
                                             >
                                                 <Camera className="size-3 text-muted-foreground group-hover/add-avatar:text-foreground" aria-hidden="true" />
-                                                <span className="hidden sm:inline">Add avatar</span>
+                                                <span className="hidden sm:inline">Add image</span>
                                             </Link>
                                         )}
                                     </div>

@@ -1566,7 +1566,7 @@ export const workspaceOpenRoles = pgTable(
     projectId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
-    role: text("role").notNull(), // e.g. "Frontend Developer"
+    role: text("role").notNull(), // e.g. "Frontend developer"
     title: text("title"), // Display title
     description: text("description"),
     count: integer("count").default(1).notNull(),

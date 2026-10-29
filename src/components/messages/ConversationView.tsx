@@ -554,10 +554,10 @@ export function ConversationView({ channelId, around = null, surface = "page", o
   const meta = channel.application;
   const applicationSubline = !meta ? null
     : meta.is_applicant
-      ? `With ${personName(meta.lead)} · Lead of ${meta.project_title}`
+      ? `With ${personName(meta.lead)} · Owner of ${meta.project_title}`
       : `${meta.project_title} · Applied ${new Date(meta.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
   const title = self ? `${personName(channel.dm_user)} (you)` : channelTitle(channel, meId);
-  const placeholder = self ? "Jot something down…"
+  const placeholder = self ? "Write a note…"
     : channel.application_id ? (channel.application?.is_applicant ? "Message the reviewers" : `Message ${channel.application ? personName(channel.application.applicant).split(" ")[0] : "the applicant"}`)
       : isDirect ? `Message ${title}` : `Message #${title}`;
   const displayName = isChannel ? `#${title}` : title;

@@ -16,7 +16,7 @@ export default function SecurityReportingPage() {
     { id: "official-communications", title: "6. Official communications and anti-phishing verification", content: <>
       <p>To protect members and members against phishing, spoofing, and domain impersonation, NetworkBase sends all official, transactional, and administrative emails exclusively from the verified <strong>@networkbase.in</strong> domain across strictly four designated mailboxes:</p>
       <LegalList>
-        <li><strong>welcome@networkbase.in</strong>: Account activation, member registration, and onboarding completion messages.</li>
+        <li><strong>welcome@networkbase.in</strong>: Account activation, member registration, and profile setup completion messages.</li>
         <li><strong>notifications@networkbase.in</strong>: Task assignments, workflow updates, mentions, and workspace activity alerts.</li>
         <li><strong>support@networkbase.in</strong>: Member assistance, technical helpdesk, customer care, and operational inquiries.</li>
         <li><strong>privacy@networkbase.in</strong>: Legal correspondence, privacy notices, and formal data-rights requests.</li>

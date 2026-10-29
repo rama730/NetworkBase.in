@@ -18,9 +18,9 @@ const fieldClass = 'h-[var(--ui-control-height-lg)] bg-card text-[15px]';
 const textAreaClass = 'min-h-28 w-full resize-y rounded-md border border-input bg-card px-[var(--ui-control-px)] py-3 text-[15px] leading-[1.5] text-foreground outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20';
 
 const ROLE_OPTIONS = [
-    'Frontend developer', 'Backend developer', 'Full stack developer', 'UI/UX Designer',
+    'Frontend developer', 'Backend developer', 'Full stack developer', 'UI/UX designer',
     'Product manager', 'DevOps Engineer', 'Data scientist', 'Mobile developer',
-    'QA Engineer', 'Technical writer', 'Marketing', 'Community manager',
+    'QA engineer', 'Technical writer', 'Marketing', 'Community manager',
 ];
 
 const EXPERIENCE_OPTIONS = [
@@ -109,7 +109,7 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
             <div className="max-w-[65ch]">
                 <p className="nb-micro text-primary">Phase 3 · team</p>
                 <h2 className="nb-section-title mt-1 text-foreground">Set up your team</h2>
-                <p className="nb-compact mt-1.5 text-muted-foreground">Confirm your lead role, then add only the openings you plan to recruit for now.</p>
+                <p className="nb-compact mt-1.5 text-muted-foreground">Confirm your role, then add only the open roles you plan to fill now.</p>
             </div>
 
             {showValidationSummary && validationErrors.length > 0 ? (
@@ -271,7 +271,7 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
                                             </div> : null}
                                         </div>
                                         <div>
-                                            <FieldLabel htmlFor={roleCountId} required>Positions</FieldLabel>
+                                            <FieldLabel htmlFor={roleCountId} required>Open roles</FieldLabel>
                                             <Input
                                                 id={roleCountId}
                                                 type="number"

@@ -960,7 +960,7 @@ const hydrateProjects = async (
             viewCount: project.viewCount || 0,
             followersCount,
 
-            // A masked creator's id would let anyone link their "Private creator" projects together.
+            // A masked creator's id would let anyone link their "Private profile" workspaces together.
             ownerId: ownerPresentation?.isMasked ? '' : project.ownerId,
             rankingReasons: rankingReasonMap?.get(project.id) || [],
             connectedFriends: visibleConnectedFriends,

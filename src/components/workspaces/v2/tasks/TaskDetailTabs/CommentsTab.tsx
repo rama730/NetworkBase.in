@@ -738,7 +738,7 @@ export default function CommentsTab({
 
       {showPresenceIssue ? (
         <p className="text-xs text-amber-600 dark:text-amber-400 font-mono">
-          Live typing is reconnecting. Posting comments remains available.
+          Reconnecting… You can still post comments.
         </p>
       ) : null}
 

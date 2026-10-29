@@ -64,7 +64,7 @@ _One or two sentences: what this channel is for and who should be here._
   },
   {
     id: "onboarding",
-    name: "Onboarding checklist",
+    name: "Profile setup checklist",
     category: "Team",
     description: "A first-week plan for someone joining the workspace.",
     generate: (_channelName, projectName) => ({

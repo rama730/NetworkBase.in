@@ -115,7 +115,7 @@ export function RemovalImpactDetails({ preflight }: { preflight: RemovalPrefligh
     return (
         <details className="rounded-lg border border-border bg-muted/20 p-3">
             <summary className="cursor-pointer nb-micro text-muted-foreground">
-                Exact affected records
+                What this affects
             </summary>
             <div className="mt-3 space-y-3">
                 {sections.map((section) => (
@@ -165,7 +165,7 @@ export function AccessTransitionDetails({ preflight }: { preflight: AccessTransi
     return (
         <div className="space-y-4 text-sm">
             <div className="rounded-lg border border-border bg-muted/20 p-3">
-                <p className="nb-ui-label text-sm font-semibold text-foreground">Affected counts</p>
+                <p className="nb-ui-label text-sm font-semibold text-foreground">What this affects</p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                     {[
                         ["Members", preflight.counts.membersCount],
@@ -183,7 +183,7 @@ export function AccessTransitionDetails({ preflight }: { preflight: AccessTransi
             </div>
 
             <div className="space-y-2">
-                <p className="nb-micro text-muted-foreground">Transition checklist</p>
+                <p className="nb-micro text-muted-foreground">Before you continue</p>
                 <PolicyList items={preflight.policy.transitionChecklist} />
             </div>
 

@@ -145,10 +145,10 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
 
     const placed = new Set(teams.flatMap((t) => t.people.map((p) => p.userId)))
     const individuals = people.filter((id) => !placed.has(id))
-    const preview = mode === 'everyone' ? 'One copy per member'
-        : mode === 'role' ? 'One copy per admin'
-            : mode === 'people' ? `Creates ${people.length} ${people.length === 1 ? 'copy' : 'copies'}`
-                : mode === 'teams' ? `Creates ${teams.length + individuals.length} copies: ${teams.length} team ${teams.length === 1 ? 'copy' : 'copies'} (${placed.size} people) + ${individuals.length} individual`
+    const preview = mode === 'everyone' ? 'One assignment per member'
+        : mode === 'role' ? 'One assignment per admin'
+            : mode === 'people' ? `Creates ${people.length} ${people.length === 1 ? 'assignment' : 'assignments'}`
+                : mode === 'teams' ? `Creates ${teams.length + individuals.length} assignments: ${teams.length} team ${teams.length === 1 ? 'assignment' : 'assignments'} (${placed.size} people) + ${individuals.length} individual`
                     : mode === 'each_child' ? `Creates ${options.children.length} assignments · one per workspace`
                         : `Creates ${childIds.length} assignments · one per workspace`
 
@@ -208,7 +208,7 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
                 </DialogHeader>
                 <div className="space-y-4">
                     <label className="block text-sm font-medium">Title<Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} className="mt-1" placeholder="Lab 1" /></label>
-                    <label className="block text-sm font-medium">Brief<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} maxLength={10000} className={`${area} mt-1`} /></label>
+                    <label className="block text-sm font-medium">Instructions<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} maxLength={10000} className={`${area} mt-1`} /></label>
                     <div className="grid gap-3 sm:grid-cols-2">
                         <label className="block text-sm font-medium">Due<Input type="datetime-local" value={dueLocal} onChange={(e) => setDueLocal(e.target.value)} className="mt-1" /></label>
                         <label className="block text-sm font-medium">Sprint
@@ -367,7 +367,7 @@ export function RosterDialog({ row, orgId, open, onOpenChange, onChanged }: { ro
                     <a href={`?tab=tasks&drawerType=task&drawerId=${row.masterId}`} className="self-center text-sm text-primary underline-offset-4 hover:underline">Brief and Q&amp;A</a>
                 </div>
                 <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); const input = e.currentTarget.elements.namedItem('step') as HTMLInputElement; const value = input.value.trim(); if (value) run(async () => { const r = await addAssignmentStepAction(row.masterId, value); if (r.success) input.value = ''; return r }) }}>
-                    <Input name="step" placeholder="Add a step to every copy" maxLength={200} aria-label="Add a step to every copy" className="h-8" />
+                    <Input name="step" placeholder="Add a step to every assignment" maxLength={200} aria-label="Add a step to every assignment" className="h-8" />
                     <Button type="submit" size="sm" variant="outline" disabled={pending}>Add step</Button>
                 </form>
                 <ul className="divide-y divide-border" aria-label="Roster">

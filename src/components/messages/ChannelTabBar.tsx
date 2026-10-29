@@ -177,7 +177,7 @@ export function ChannelTabBar({ activeTab, tabs, pinCount, onSelectTab, onCloseT
             {onEditTabs ? (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={onEditTabs}><SlidersHorizontal /> Edit tabs</DropdownMenuItem>
+                <DropdownMenuItem onSelect={onEditTabs}><SlidersHorizontal /> Tabs</DropdownMenuItem>
               </>
             ) : null}
           </DropdownMenuContent>

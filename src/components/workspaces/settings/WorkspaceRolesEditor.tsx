@@ -484,7 +484,7 @@ export function WorkspaceRolesEditor({
                         <div className="lg:col-span-8 space-y-4">
                             <div className="flex items-center justify-between gap-3">
                                 <div className="space-y-0.5">
-                                    <h4 className="nb-card-title text-sm font-semibold text-foreground">Role specifications</h4>
+                                    <h4 className="nb-card-title text-sm font-semibold text-foreground">Role details</h4>
                                     <p className="nb-compact text-xs text-muted-foreground">
                                         Configure title, responsibilities, and skill stack for this occupied role.
                                     </p>
@@ -528,7 +528,7 @@ export function WorkspaceRolesEditor({
                                 {!isLeadRole ? (
                                     <div className="sm:col-span-3 space-y-1.5">
                                         <label className="nb-ui-label text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                            Total seats
+                                            Number of people
                                         </label>
                                         <input
                                             type="number"
@@ -585,9 +585,9 @@ export function WorkspaceRolesEditor({
                             <div className="flex items-center justify-between gap-4">
                                 <div className="space-y-0.5">
                                     <div className="flex items-center gap-2">
-                                        <h4 className="nb-card-title text-sm font-semibold text-foreground">Open role configuration</h4>
+                                        <h4 className="nb-card-title text-sm font-semibold text-foreground">Open role</h4>
                                         <span className="inline-flex items-center h-5 px-[7px] rounded-[3px] border border-dashed border-border bg-muted/20 text-muted-foreground font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none">
-                                            Vacancy
+                                            Open
                                         </span>
                                     </div>
                                     <p className="nb-compact text-xs text-muted-foreground">
@@ -633,7 +633,7 @@ export function WorkspaceRolesEditor({
                                     <input
                                         {...register(`roles.${activeIndex}.role`)}
                                         disabled={disabled}
-                                        placeholder="e.g. Frontend Developer"
+                                        placeholder="For example, Frontend developer"
                                         className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground outline-none transition focus:border-foreground focus:ring-1 focus:ring-foreground/20 disabled:cursor-not-allowed disabled:opacity-60"
                                     />
                                     {roleErrors?.[activeIndex]?.role?.message ? (
@@ -642,7 +642,7 @@ export function WorkspaceRolesEditor({
                                 </div>
                                 <div className="sm:col-span-3 space-y-1.5">
                                     <label className="nb-ui-label text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                        Total seats
+                                        Number of people
                                     </label>
                                     <input
                                         type="number"
@@ -697,7 +697,7 @@ export function WorkspaceRolesEditor({
                                 <span>Applicant view preview</span>
                             </div>
                             <p className="nb-compact text-xs text-muted-foreground">
-                                Preview how candidates see this vacancy on the public workspace page.
+                                Preview how candidates see this role on the public page.
                             </p>
                             <div className="border-t border-border pt-4 space-y-3">
                                 <div className="flex items-start justify-between gap-2">

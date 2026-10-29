@@ -578,7 +578,7 @@ export function FileVersionHistoryPanel({
       title="Delete file version"
       description={
         pendingDeleteVersion
-          ? `Permanently delete version ${pendingDeleteVersion.version}? Its stored bytes will also be deleted and this cannot be undone.`
+          ? `Permanently delete version ${pendingDeleteVersion.version}? This version’s file will be deleted and this can’t be undone.`
           : "This version will be permanently deleted."
       }
       confirmLabel="Delete version"

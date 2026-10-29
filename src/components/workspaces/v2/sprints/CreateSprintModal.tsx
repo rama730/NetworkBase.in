@@ -424,7 +424,7 @@ export default function SprintEditorModal({
                 </span>
                 {sprint?.status === "active" ? (
                   <span className="ml-auto text-[11px] font-medium text-amber-600 dark:text-amber-400">
-                    Active sprint
+                    Active
                   </span>
                 ) : null}
               </div>
@@ -462,7 +462,7 @@ export default function SprintEditorModal({
                 </>
               ) : null}
               {org?.kind === "child" && org.orgSprints.length > 0 ? (
-                <Field label={`Inside a ${org.orgTitle ?? "organization"} sprint`} htmlFor="sprint-parent">
+                <Field label={`Part of the ${org.orgTitle ?? "organization"} sprint`} htmlFor="sprint-parent">
                   <select
                     id="sprint-parent"
                     value={orgFields.parentSprintId ?? ""}
@@ -477,7 +477,7 @@ export default function SprintEditorModal({
                     }}
                     className={cn("nb-touch-target h-[34px]", inputClassName(false))}
                   >
-                    <option value="">Not linked</option>
+                    <option value="">Not part of an organization sprint</option>
                     {org.orgSprints.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.status === "active" ? "running" : "planned"})</option>)}
                   </select>
                 </Field>
@@ -500,7 +500,7 @@ export default function SprintEditorModal({
                         {deleteImpact?.affectedTaskCount ?? 0} historical work item{deleteImpact?.affectedTaskCount === 1 ? "" : "s"}
                       </p>
                       <p className="text-[11px] leading-4 text-muted-foreground">
-                        Only an empty Planning sprint can be deleted. Sprints with work history are permanent.
+                        You can delete a sprint only before it has tasks. Otherwise, archive it.
                       </p>
                     </div>
                     <span className="rounded-[3px] border border-border px-2 py-0.5 font-mono text-[10px] max-md:text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground">

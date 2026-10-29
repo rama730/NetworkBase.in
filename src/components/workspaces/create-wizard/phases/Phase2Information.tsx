@@ -198,12 +198,12 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
 
                     {!orgCopy && projectType === 'other' ? (
                         <div className="border-l-2 border-border pl-4">
-                            <FieldLabel htmlFor="create-project-custom-category" required>Custom category</FieldLabel>
+                            <FieldLabel htmlFor="create-project-custom-category" required>Other</FieldLabel>
                             <Input
                                 id="create-project-custom-category"
                                 {...register('custom_project_type', {
-                                    required: 'Custom category is required',
-                                    minLength: { value: 2, message: 'Custom category must be at least 2 characters' },
+                                    required: 'Enter a category',
+                                    minLength: { value: 2, message: 'Use at least 2 characters' },
                                     maxLength: { value: 50, message: 'Use 50 characters or fewer' },
                                 })}
                                 className={fieldClass}

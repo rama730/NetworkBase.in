@@ -87,7 +87,7 @@ export async function notifyAssignmentPublished(masterId: string, actorId: strin
     for (const userId of people) {
       perUser.set(userId, {
         child: childTitle ? { title: childTitle } : null,
-        assignment: { ...base, copyId: copy.id, group: Boolean(childTitle), teamName: copy.teamName, team: team.map((id) => names.get(id) ?? "Teammate") },
+        assignment: { ...base, copyId: copy.id, group: Boolean(childTitle), teamName: copy.teamName, team: team.map((id) => names.get(id) ?? "Member") },
       });
     }
   }

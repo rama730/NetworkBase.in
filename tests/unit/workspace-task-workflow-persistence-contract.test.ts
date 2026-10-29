@@ -41,7 +41,7 @@ test("workflow columns keep four default categories while allowing two project-s
     assert.match(action, /\.min\(4\)\.max\(6\)/);
     assert.match(action, /createWorkspaceWorkflowColumnAction/);
     assert.match(action, /deleteWorkspaceWorkflowColumnAction/);
-    assert.match(taskTab, /Add section/);
+    assert.match(taskTab, /Add column/);
     assert.match(taskTab, /<Dialog/);
     assert.doesNotMatch(taskTab, /window\.prompt/);
     assert.match(board, /workflowColumnId/);

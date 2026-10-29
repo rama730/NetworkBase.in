@@ -649,7 +649,7 @@ export function InboxView() {
   };
   const scope = filter === "mentions" ? "mentions" : filter === "threads" ? "threads" : "all";
   // Each button says what it clears.
-  const markLabel = scope === "threads" ? "Mark threads read" : scope === "mentions" ? "Mark mentions read" : "Mark Inbox read";
+  const markLabel = "Mark all as read";
   const markAllRead = useMarkAllRead();
   const markAll = async () => {
     const result = await markInboxRead({ all: true, scope });
@@ -728,7 +728,7 @@ export function InboxView() {
 /** Saved messages, with reminders; due ones first. */
 export function SavedView() {
   const queryClient = useQueryClient();
-  // "Due now" must turn on while the page is open, not only at mount.
+  // "Reminder due" must turn on while the page is open, not only at mount.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 30_000);
@@ -788,7 +788,7 @@ export function SavedView() {
                 extra={item.remind_at ? (
                   <span className={`mt-1 inline-flex items-center gap-1 text-[12px] ${due ? "font-medium text-[var(--status-warning)]" : "text-muted-foreground"}`}>
                     <AlarmClock size={14} aria-hidden="true" />
-                    {item.reminded_at ? "Reminded" : due ? "Due now" : "Reminder"} · {formatChatTime(item.remind_at, "at")}
+                    {item.reminded_at ? "Reminder sent" : due ? "Reminder due" : "Reminder"} · {formatChatTime(item.remind_at, "at")}
                   </span>
                 ) : null}
                 tabStop={rows.stop(key, index)}

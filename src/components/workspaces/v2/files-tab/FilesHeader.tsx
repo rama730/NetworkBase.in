@@ -499,10 +499,10 @@ export function FilesViewsMenu({
                     }}
                   >
                     <Laptop className="size-4" />
-                    Connect desktop IDE…
+                    Connect your code editor…
                   </DropdownMenuItem>
                 ) : null}
-                {transfers && <DropdownMenuItem onSelect={transfers.open}>Transfers…</DropdownMenuItem>}
+                {transfers && <DropdownMenuItem onSelect={transfers.open}>Uploads and downloads…</DropdownMenuItem>}
                 <DropdownMenuItem
                   onSelect={() => {
                     pendingSurface.current = "info";

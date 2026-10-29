@@ -21,7 +21,7 @@ export function SkeletonDashboard() {
         </div>
       </section>
       <aside aria-hidden="true" className="min-w-0 space-y-6 lg:col-span-4">
-        <RailSection title="Journey">
+        <RailSection title="Stages">
           <Skeleton className="h-3 w-full rounded" />
           <div className="mt-4 flex justify-between">
             <Skeleton className="h-4 w-12 rounded" />

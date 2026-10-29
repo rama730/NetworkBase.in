@@ -266,7 +266,8 @@
     "drizzle/0262_contribution_browser_grants.sql",
     "drizzle/0263_org_type_other.sql",
     "drizzle/0264_workspace_rename.sql",
-    "drizzle/0265_workspace_stored_values.sql"
+    "drizzle/0265_workspace_stored_values.sql",
+    "drizzle/0266_workflow_column_words.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",

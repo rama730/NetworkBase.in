@@ -190,7 +190,7 @@ export function V3AttachmentPicker({
       >
         <header className="flex shrink-0 items-center justify-between gap-2 border-b px-4 py-2">
           <DialogTitle className="min-w-0 truncate text-base">
-            {projectName ? `Attach files — ${projectName}` : "Attach files"}
+            {projectName ? `Add files — ${projectName}` : "Add files"}
           </DialogTitle>
           <button
             type="button"

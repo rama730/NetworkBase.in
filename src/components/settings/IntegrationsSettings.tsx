@@ -117,7 +117,7 @@ function ExtensionSessionRow({ session, revoking, onRevoke }: { session: Extensi
       ? formatPlatform(session.editorPlatform)
       : "Connected";
   const title = isPending
-    ? session.deviceName?.trim() || "Manual authentication token"
+    ? session.deviceName?.trim() || "Access token"
     : session.editorName?.trim() || session.deviceName?.trim() || "Editor extension";
 
   return (
@@ -153,7 +153,7 @@ function ExtensionSessionRow({ session, revoking, onRevoke }: { session: Extensi
                 Created {formatDistanceToNow(new Date(session.createdAt), { addSuffix: true })} · Awaiting initial connection from your editor
               </p>
               <p className="nb-meta mt-1 truncate text-muted-foreground">
-                Manual fallback token · Paste token into your editor to complete sign-in
+                Access token · Paste it into your editor to finish signing in
               </p>
             </>
           ) : (
@@ -162,7 +162,7 @@ function ExtensionSessionRow({ session, revoking, onRevoke }: { session: Extensi
                 Active {formatDistanceToNow(new Date(session.lastSeenAt), { addSuffix: true })} · v{session.clientVersion || "unknown"}
               </p>
               <p className="nb-meta mt-1 truncate text-muted-foreground">
-                {session.authMethod === "web_login" ? "Web sign-in" : "Manual token"}
+                {session.authMethod === "web_login" ? "Signed in from the editor" : "Access token"}
                 {session.editorVersion ? ` · ${session.editorVersion}` : ""}
               </p>
             </>
@@ -292,7 +292,7 @@ export default function IntegrationsSettings() {
   const handleGenerateToken = async () => {
     setGeneratingToken(true);
     try {
-      const label = deviceLabel.trim() || "Manual authentication token";
+      const label = deviceLabel.trim() || "Access token";
       const result = await generateExtensionToken(label);
       if (result.success && result.rawToken) {
         setGeneratedToken(result.rawToken);
@@ -471,7 +471,7 @@ export default function IntegrationsSettings() {
       <div className="pt-5"><GitHubCommitAttributionSettings /></div>
     </SettingsSectionCard>
 
-    <SettingsSectionCard id="settings-integrations-editors" title="Editor connections" description="Manage authorized editor sessions and fallback sign-in tokens.">
+    <SettingsSectionCard id="settings-integrations-editors" title="Connected editors" description="Editors signed in to your account, and access tokens.">
       <div className="space-y-4">
         <ExtensionAppCard />
         <div>
@@ -482,7 +482,7 @@ export default function IntegrationsSettings() {
             </span>
           </div>
         {sessionsFailed && !sessionData ? (
-            <ErrorNotice what="Editor sessions" onRetry={() => void refetchSessions()} />
+            <ErrorNotice what="Connected editors" onRetry={() => void refetchSessions()} />
         ) : sessionsLoading && !sessionData ? (
             <div role="status" aria-label="Loading editor sessions" className="nb-skeleton h-24 rounded-md" />
         ) : allSessions.length ? (
@@ -518,7 +518,7 @@ export default function IntegrationsSettings() {
 
         <div id="settings-integrations-token" className="scroll-mt-6 border-t border-border pt-4">
           <SettingsRow
-            title="Manual authentication token"
+            title="Access tokens"
             description="A fallback if signing in from your editor is blocked. It works for one year until you revoke it, so treat it like a password."
             right={<Button size="sm" variant="outline" onClick={() => {
               // Closing the panel also forgets the token: it is shown once and is not kept on screen.

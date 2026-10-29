@@ -418,7 +418,7 @@ export default function TaskDetailPanel({
                       <DropdownMenuSub>
                         <DropdownMenuSubTrigger>
                           <FolderPlus className="size-4 mr-2" />
-                          Move to section
+                          Move to column
                         </DropdownMenuSubTrigger>
                         <DropdownMenuPortal>
                           <DropdownMenuSubContent className="w-48 z-[220]">

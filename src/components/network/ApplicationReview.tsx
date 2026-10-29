@@ -19,8 +19,8 @@ type Details = { portfolioUrl?: string; availability?: string } | null;
 function FitSummary({ fit }: { fit: AttributeAlignment }) {
     const required = fit.skillsMatch.matched.length + fit.skillsMatch.missing.length;
     const checks: Array<[string, boolean]> = [
-        ["Commitment", fit.commitmentMatch.aligns],
-        ["Capacity", fit.capacityMatch.aligns],
+        ["Time commitment", fit.commitmentMatch.aligns],
+        ["Weekly availability", fit.capacityMatch.aligns],
         ["Experience", fit.experienceMatch.aligns],
     ];
     return (

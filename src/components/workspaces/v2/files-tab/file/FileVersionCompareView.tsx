@@ -213,7 +213,7 @@ export function FileVersionCompareView({
     return (
       <div className="flex flex-1 flex-col items-center justify-center bg-background p-8">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <p className="mt-4 text-sm text-muted-foreground">Computing comparison changes…</p>
+        <p className="mt-4 text-sm text-muted-foreground">Comparing…</p>
       </div>
     );
   }
@@ -278,7 +278,7 @@ export function FileVersionCompareView({
                 )}
               >
                 <Columns2 className="h-3 w-3" />
-                <span>Side-by-Side</span>
+                <span>Side by side</span>
               </button>
               <button
                 type="button"
@@ -368,7 +368,7 @@ export function FileVersionCompareView({
           /* Difference Blend View */
           <div className="relative flex-1 min-h-0 w-full overflow-hidden flex flex-col items-center justify-center p-6 bg-black">
             <span className="mb-2 text-xs font-mono font-semibold bg-white/10 px-2.5 py-0.5 rounded border border-white/20 text-white shadow-2xs">
-              Difference Map: v{baseVersion} vs v{targetVersion} (identical pixels = black, changes = highlighted)
+              Changes highlighted: v{baseVersion} vs v{targetVersion} (identical pixels = black, changes = highlighted)
             </span>
             <div className="relative max-h-[70vh] max-w-full overflow-hidden rounded-md border border-white/20 shadow-lg select-none">
               <img
@@ -384,7 +384,7 @@ export function FileVersionCompareView({
             </div>
           </div>
         ) : (
-          /* Side-by-Side Image Comparison View */
+          /* Side by side Image Comparison View */
           <div className="flex flex-col md:flex-row flex-1 min-h-0 divide-y md:divide-y-0 md:divide-x divide-border overflow-hidden">
             <div className="flex-1 flex flex-col items-center justify-center p-6 bg-[repeating-conic-gradient(#80808018_0%_25%,transparent_0%_50%)] bg-[size:16px_16px] overflow-auto">
               <span className="mb-2 text-xs font-mono font-semibold bg-background/90 px-2.5 py-0.5 rounded border border-border text-muted-foreground shadow-2xs">

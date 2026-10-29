@@ -1145,7 +1145,7 @@ function ProjectSettingsContent({
 
     const prepareArchive = useCallback(() => {
         if (!dangerPreflight) {
-            toast.error("Run danger-zone preflight before archiving");
+            toast.error("Check what this affects before archiving");
             return;
         }
         if (dangerPreflight && !dangerPreflight.canArchive) {
@@ -1236,7 +1236,7 @@ function ProjectSettingsContent({
                     const nextMode = removalModeRef.current;
                     const reassignToUserId = removalReassignToUserIdRef.current || null;
                     if (nextMode === "reassign_active_tasks" && !reassignToUserId) {
-                        return { success: false, message: "Choose a replacement assignee." };
+                        return { success: false, message: "Choose a new assignee." };
                     }
                     const removeResult = await removeWorkspaceMemberAction(projectId, member.id, {
                         mode: nextMode,
@@ -1275,7 +1275,7 @@ function ProjectSettingsContent({
 
     const prepareDelete = useCallback(() => {
         if (!dangerPreflight) {
-            toast.error("Run danger-zone preflight before deleting");
+            toast.error("Check what this affects before deleting");
             return;
         }
         if (dangerPreflight && !dangerPreflight.canDelete) {
@@ -1340,7 +1340,7 @@ function ProjectSettingsContent({
 
                 {removalMode === "reassign_active_tasks" ? (
                     <label className="block">
-                        <span className="nb-micro text-muted-foreground">Replacement assignee</span>
+                        <span className="nb-micro text-muted-foreground">New assignee</span>
                         <select
                             value={removalReassignToUserId}
                             onChange={(event) => setRemovalReassignToUserId(event.target.value)}
@@ -1353,7 +1353,7 @@ function ProjectSettingsContent({
                             ))}
                         </select>
                         {(removalPreflightDialog.reassignmentCandidates ?? []).length === 0 ? (
-                            <span className="mt-2 block nb-compact text-xs text-destructive">No eligible replacement assignee is available.</span>
+                            <span className="mt-2 block nb-compact text-xs text-destructive">No one can take over these tasks yet.</span>
                         ) : null}
                     </label>
                 ) : null}
@@ -1994,7 +1994,7 @@ function ProjectSettingsContent({
                                 title="Workspace notification policy"
                                 headingLevel={2}
                                 loadState={{ loading: projectNotificationLoading, hasData: Boolean(projectNotificationData), error: settingsErrors.notifications ?? null, retry: () => void loadProjectNotificationSettings(true) }}
-                                description="Configure workflow event triggers and delivery rules for your workspace. Critical responsibility and safety events stay locked on."
+                                description="Choose which events notify members. Required safety events stay on."
                                 footer={
                                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 w-full">
                                         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -2038,11 +2038,11 @@ function ProjectSettingsContent({
                                         <div>
                                             <div className="flex items-center gap-2">
                                                 <h3 className="nb-ui-label text-foreground">
-                                                    Workflow event triggers
+                                                    Notification defaults
                                                 </h3>
                                             </div>
                                             <p className="nb-compact mt-0.5 text-xs text-muted-foreground leading-relaxed">
-                                                {notificationSummary.visibleCount} triggers organized across {notificationGroups.length} workflow categories. Click any category trigger to expand and customize event delivery.
+                                                {notificationSummary.visibleCount} triggers organized across {notificationGroups.length} workflow categories. Choose which events notify members.
                                             </p>
                                         </div>
                                         <div className="flex items-center gap-2">
@@ -2100,10 +2100,10 @@ function ProjectSettingsContent({
                                         {dangerPreflightLoading ? (
                                             <span className="inline-flex items-center gap-1.5">
                                                 <Loader2 className="size-3 animate-spin" />
-                                                Running preflight safety checks…
+                                                Checking what this affects…
                                             </span>
                                         ) : dangerPreflight ? (
-                                            <span>Preflight verified · Status: {preflightPolicy.status.toUpperCase()} · {preflightPolicy.affectedAreas.join(" · ")}</span>
+                                            <span>Ready · Status: {preflightPolicy.status.toUpperCase()} · {preflightPolicy.affectedAreas.join(" · ")}</span>
                                         ) : (
                                             <span>Preflight safety checks pending</span>
                                         )}

@@ -183,11 +183,11 @@ export const SPRINT_TASK_STATUS_PRESENTATION: Record<
     toneClassName: "nb-sprint-tone-info",
   },
   done: {
-    label: "Done",
+    label: "Completed",
     toneClassName: "nb-sprint-tone-success",
   },
   blocked: {
-    label: "Issues",
+    label: "Blocked",
     toneClassName: "nb-sprint-tone-danger",
   },
 };
