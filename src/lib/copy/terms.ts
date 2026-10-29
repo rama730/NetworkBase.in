@@ -77,8 +77,9 @@ export const LEGAL_PAGE_NAMES = {
 export const BANNED_TERMS: ReadonlyArray<{ pattern: RegExp; use: string }> = [
   { pattern: /\bco-?lead(?:er)?s?\b/i, use: 'Admin' },
   { pattern: /\bproject (?:lead|leads|leader|leaders|leadership|owner)\b/i, use: 'Owner (or "owner and admins")' },
-  { pattern: /^(?:Lead|Leader|Leaders|Leadership)$/, use: 'Owner, Team lead or a role title' },
-  { pattern: /\bleaders?-only\b|\bleadership\b/i, use: 'owner and admins' },
+  { pattern: /^(?:Lead|Leader|Leaders)$/, use: 'Owner, Team lead or a role title' },
+  // "Leadership" alone stays legal: it is a skill and a work type ("Fractional leadership").
+  { pattern: /\bleaders?-only\b|\b(?:project|workspace) leadership\b|\bleadership appointment\b|^Leadership$/i, use: 'owner and admins' },
   { pattern: /\bcollaborators?\b/i, use: 'Member (in a workspace) or Contributor (on a contribution)' },
   { pattern: /\bdanger zone\b/i, use: 'Workspace management' },
   { pattern: /\bchild projects?\b/i, use: 'Workspace in {organization}' },

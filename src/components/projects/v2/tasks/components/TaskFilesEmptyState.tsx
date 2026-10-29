@@ -62,7 +62,7 @@ export function TaskFilesEmptyState({
 
       {!canEdit ? (
         <p className="text-[11px] text-muted-foreground">
-          You have view-only access to this task. Ask an editor to attach files.
+          You can view this task but not change it. Ask an owner or admin to attach files.
         </p>
       ) : null}
     </div>

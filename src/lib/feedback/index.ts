@@ -46,7 +46,7 @@ export function compactFeedback(message: ReactNode, type: FeedbackType, options:
   }
   if (/^Project created[,\.]/.test(message)) {
     const count = message.match(/(\d+) file/);
-    const description = /picture|image/i.test(message) ? 'Image upload failed.' : /leaders only/i.test(message) ? 'Docs stay leaders-only.' : count ? `${count[1]} files failed.` : undefined;
+    const description = /picture|image/i.test(message) ? 'Image upload failed.' : /leaders only/i.test(message) ? 'Documents stay visible to the owner and admins only.' : count ? `${count[1]} files failed.` : undefined;
     if (description) return { message: 'Workspace created', type: 'warning' as const, options: { ...options, description } };
   }
   const progress = message.match(/^Uploading (\d+) (?:of|\/) (\d+) files?[….]*$/i);

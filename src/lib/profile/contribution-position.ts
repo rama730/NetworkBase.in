@@ -1,9 +1,3 @@
-const membershipLabels: Record<string, string> = {
-  owner: "Lead",
-  admin: "Co-lead",
-  member: "Member",
-  viewer: "Viewer",
-};
 const genericRole =
   /^(?:owner|lead|leader|admin|co-lead|co-leader|member|viewer|contributor)$/i;
 const leadingMembership =
@@ -27,16 +21,13 @@ export function contributionPositionName(
   return genericRole.test(name) ? "" : name;
 }
 
+/** A contribution shows what someone did (their role title), never their access level (report §8.2, §15 #4). */
 export function formatContributionPosition(input: {
-  roleKind: string | null | undefined;
   title?: string | null;
   projectPosition?: string | null;
 }): string {
   const name =
     contributionPositionName(input.projectPosition) ||
     contributionPositionName(input.title);
-  const membership = membershipLabels[input.roleKind ?? ""];
-  return name && membership
-    ? `${name} · ${membership}`
-    : name || membership || "Contributor";
+  return name || "Contributor";
 }

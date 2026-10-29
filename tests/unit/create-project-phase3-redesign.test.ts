@@ -13,8 +13,8 @@ test('Phase 3 uses the canonical wizard hierarchy and flat team composition', ()
 
     assert.match(phase, /Phase 3 · team/);
     assert.match(phase, /Build the initial team/);
-    assert.match(phase, /Project lead/);
-    assert.match(phase, /Invite the right collaborators/);
+    assert.match(phase, /title="Owner"/);
+    assert.match(phase, /Set up your team/);
     assert.match(phase, /min-w-0 w-full space-y-8 pb-6/);
     assert.match(phase, /border-t border-border pt-6/);
     assert.match(phase, /No openings added/);

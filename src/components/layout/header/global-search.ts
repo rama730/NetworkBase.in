@@ -230,7 +230,7 @@ export function resolveGlobalSearchContext(pathname: string | null, searchParams
         const scope = getNetworkSearchScope(searchParams);
         return {
             context: "network",
-            placeholder: scope === "network" ? "Search your network..." : "Find builders & collaborators...",
+            placeholder: scope === "network" ? "Search your network..." : "Find people…",
             title: scope === "network" ? "Search your network" : "Find builders",
             description: scope === "network"
                 ? "Search your accepted connections by name."

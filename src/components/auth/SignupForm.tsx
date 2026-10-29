@@ -368,7 +368,7 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
     return (
         <AuthShell
             title="Create your account"
-            description="Find collaborators and build projects together."
+            description="Find people and work together."
             panel={SIGNUP_PANEL}
             footer={<>Already have an account? <Link href={loginHref} className={AUTH_LINK}>Sign in</Link></>}
         >

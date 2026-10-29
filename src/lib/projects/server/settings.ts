@@ -214,7 +214,7 @@ function normalizeCollaboratorRole(
 
 
 function collaboratorRoleLabel(role: ProjectCollaboratorRole) {
-  if (role === "admin") return "Co-leader";
+  if (role === "admin") return "Admin";
   return role.slice(0, 1).toUpperCase() + role.slice(1);
 }
 
@@ -631,7 +631,7 @@ export async function readCollaboratorSettings(
             ),
             projectRoleTitle:
               row.userId === projectRow?.ownerId
-                ? leadFocus || "Lead"
+                ? leadFocus || "Owner"
                 : (roleTitleByUser.get(row.userId) ?? null),
             joinedAt: row.joinedAt?.toISOString?.() ?? null,
             unitTitle: row.unitTitle ?? null,
@@ -651,7 +651,7 @@ export async function readCollaboratorSettings(
       },
     };
   } catch (error) {
-    console.error("Failed to load project collaborator settings:", error);
+    console.error("Couldn’t load member settings:", error);
     const message = error instanceof Error ? error.message : String(error);
     if (message.includes("Project not found")) {
       return {
@@ -664,7 +664,7 @@ export async function readCollaboratorSettings(
       return {
         success: false,
         errorCode: "FORBIDDEN",
-        message: "You do not have permission to manage collaborators.",
+        message: "Only the owner and admins can manage members.",
       };
     }
     return {
@@ -681,7 +681,7 @@ function formatFileUploadPermission(
   enabled: boolean,
 ) {
   if (role === "owner") return { locked: true, label: "Owner · always on" };
-  if (role === "admin") return { locked: true, label: "Co-leader · always on" };
+  if (role === "admin") return { locked: true, label: "Admin · always on" };
   if (role === "viewer") return { locked: true, label: "Viewer · upload off" };
   return {
     locked: false,
@@ -877,7 +877,7 @@ export async function updateProjectMemberFileUploadAction(
       return {
         success: false,
         errorCode: "INVALID_INPUT",
-        message: "Owner and Co-leader upload access is always on.",
+        message: "The owner and admins can always upload.",
       };
     }
     if (targetRole === "viewer") {
@@ -1462,7 +1462,7 @@ export async function updateProjectMemberRoleAction(
       return {
         success: false,
         errorCode: "INVALID_ROLE",
-        message: "Invalid collaborator role.",
+        message: "Choose an access level.",
       };
     }
 
@@ -1494,7 +1494,7 @@ export async function updateProjectMemberRoleAction(
         return {
           ok: false as const,
           errorCode: "INTERNAL_ERROR" as const,
-          message: "Failed to update collaborator role.",
+          message: "Couldn’t change the access level.",
         };
       }
     });
@@ -1554,15 +1554,15 @@ export async function updateProjectMemberRoleAction(
     return {
       success: true,
       message: result.lifecycle.changed
-        ? `Updated collaborator role to ${collaboratorRoleLabel(result.lifecycle.nextRole ?? nextRole)}.`
-        : "Collaborator already has that role.",
+        ? `Access level changed to ${collaboratorRoleLabel(result.lifecycle.nextRole ?? nextRole)}.`
+        : "This member already has that access level.",
     };
   } catch (error) {
     console.error("Failed to update project member role:", error);
     return {
       success: false,
       errorCode: "INTERNAL_ERROR",
-      message: "Failed to update collaborator role.",
+      message: "Couldn’t change the access level.",
     };
   }
 }
@@ -1629,7 +1629,7 @@ export async function getProjectMemberRemovalPreflightAction(
       return {
         success: false,
         errorCode: "FORBIDDEN",
-        message: "You do not have permission to remove this collaborator.",
+        message: "You can’t remove this member.",
       };
     }
     const roleTitleByUser = await readAcceptedRoleTitles(projectId, [
@@ -1710,7 +1710,7 @@ export async function getProjectMemberRemovalPreflightAction(
       return {
         success: false,
         errorCode: "FORBIDDEN",
-        message: "You do not have permission to remove this collaborator.",
+        message: "You can’t remove this member.",
       };
     }
     return {
@@ -1802,7 +1802,7 @@ export async function removeProjectMemberAction(
         return {
           ok: false as const,
           errorCode: "INTERNAL_ERROR" as const,
-          message: "Failed to remove collaborator.",
+          message: "Couldn’t remove the member.",
         };
     });
 
@@ -1860,14 +1860,14 @@ export async function removeProjectMemberAction(
     );
     return {
       success: true,
-      message: "Collaborator removed. Historical references were preserved.",
+      message: "Member removed. Their past work stays.",
     };
   } catch (error) {
     console.error("Failed to remove project member:", error);
     return {
       success: false,
       errorCode: "INTERNAL_ERROR",
-      message: "Failed to remove collaborator.",
+      message: "Couldn’t remove the member.",
     };
   }
 }
@@ -1981,7 +1981,7 @@ export async function readProjectSettingsBootstrapAction(
     readFileAccessSettings(viewer, projectId),
     readNotificationSettings(viewer, projectId),
     readProjectDocSettingsAction(projectId),
-    isOwner ? readDangerZonePreflight(viewer, projectId) : Promise.resolve({ success: false as const, errorCode: "FORBIDDEN" as const, message: "Only the project owner can access danger zone settings." }),
+    isOwner ? readDangerZonePreflight(viewer, projectId) : Promise.resolve({ success: false as const, errorCode: "FORBIDDEN" as const, message: "Only the owner can manage the workspace." }),
   ]);
   return { collaboratorSettings, fileAccess: fileAccess, notifications, docSettings, dangerPreflight };
 }

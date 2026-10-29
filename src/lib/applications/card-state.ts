@@ -90,7 +90,7 @@ export function describeApplyCard(
             return {
                 ...NOTHING,
                 banner: null,
-                blockedReason: `You have a pending ${status.proposedRoleTitle || status.roleTitle || "Guide"} invitation. Review or decline it to apply for other roles.`,
+                blockedReason: `You have a pending ${status.proposedRoleTitle || status.roleTitle || "Mentor"} invitation. Review or decline it to apply for other roles.`,
                 applyLabel: "Apply",
             };
         default:

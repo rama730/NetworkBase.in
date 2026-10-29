@@ -303,9 +303,9 @@ function stringArray(value: unknown): string[] {
 function defaultRoleTitle(roleKind: string | null | undefined) {
   switch (roleKind) {
     case "owner":
-      return "Lead";
+      return "Owner";
     case "admin":
-      return "Co-lead";
+      return "Admin";
     case "member":
       return "Member";
     case "viewer":
@@ -331,7 +331,7 @@ function objectArray(value: unknown): Array<Record<string, unknown>> {
 function memberPreviews(value: unknown): ProfileCollaborationMemberPreview[] {
   return objectArray(value).map((member) => ({
     id: trimDisplayText(member.id),
-    displayName: trimDisplayText(member.displayName) || trimDisplayText(member.fullName) || trimDisplayText(member.username) || "Collaborator",
+    displayName: trimDisplayText(member.displayName) || trimDisplayText(member.fullName) || trimDisplayText(member.username) || "Member",
     username: trimOptionalDisplayText(member.username),
     avatarUrl: trimOptionalDisplayText(member.avatarUrl),
   })).filter((member) => member.id).slice(0, 3);
@@ -433,7 +433,6 @@ function contributionRoleLabel(row: ProfileContributionRow) {
   if (!row.project_id) return trimDisplayText(row.role_title) || "Contributor";
   const membershipRole = trimDisplayText(row.membership_role) || trimDisplayText(row.role_kind) || "member";
   return formatContributionPosition({
-    roleKind: membershipRole,
     title: row.role_title,
     projectPosition: membershipRole === "owner"
       ? row.lead_focus || row.accepted_role_title
@@ -449,7 +448,6 @@ function contributionFromRow(row: ProfileContributionRow): ProfileCollaborationC
     ...stage,
     roleTitle: row.project_id
       ? formatContributionPosition({
-          roleKind: stage.roleKind,
           title: stage.roleTitle,
           projectPosition: stage.currentlyActive ? formattedRole : null,
         })

@@ -43,7 +43,7 @@ test("project settings eliminates Security & Data tab completely and standardize
     );
     assert.match(
         policies,
-        /label:\s*"Privacy and Policies"/,
+        /label:\s*"Privacy"/,
         "Privacy and Policies must be the label in PROJECT_SETTINGS_SECTIONS",
     );
     assert.match(
@@ -64,24 +64,24 @@ test("project danger zone tab is redesigned into 1 canonical SettingsCard with l
     // 1. Redundant SummaryCard, standalone Preflight card, and DangerAction wrappers removed
     const dangerBlock =
         settingsTab.split('id="project-settings-danger"')[1]?.split('</SettingsCard>')[0] ?? "";
-    assert.ok(dangerBlock.length > 0, "Danger zone settings block must exist in ProjectSettingsTab");
+    assert.ok(dangerBlock.length > 0, "Organization management settings block must exist in ProjectSettingsTab");
 
     assert.doesNotMatch(
         dangerBlock,
         /<SummaryCard/,
-        "Redundant SummaryCard must be eliminated from Danger Zone",
+        "Redundant SummaryCard must be eliminated from Workspace management",
     );
     assert.doesNotMatch(
         dangerBlock,
         /<DangerAction/,
-        "Old DangerAction wrapper must be removed from Danger Zone",
+        "Old DangerAction wrapper must be removed from Workspace management",
     );
 
     // 2. Contains 1 canonical SettingsCard with danger prop
     assert.match(
         dangerBlock,
-        /title="Danger Zone"/,
-        "Must render canonical SettingsCard with title Danger Zone",
+        /title="Workspace management"/,
+        "Must render canonical SettingsCard with title Workspace management",
     );
     assert.match(
         dangerBlock,
@@ -119,7 +119,7 @@ test("project danger zone enforces high-stakes verification barriers for ownersh
     assert.match(modalsSource, /OWNER ONLY/, "Must display OWNER ONLY authority badge");
     assert.match(modalsSource, /STEP-UP PROTECTED/, "Must display STEP-UP PROTECTED badge");
     assert.match(modalsSource, /getProjectMemberRoleLabel/, "Must review recipient role");
-    assert.match(modalsSource, /demoted to <strong>Administrator<\/strong>/, "Must state clear demotion consequence");
+    assert.match(modalsSource, /become an <strong>admin<\/strong>/, "Must state clear demotion consequence");
     assert.match(modalsSource, /confirmInput\.trim\(\)\.toLowerCase\(\)\s*===\s*verificationTarget\.toLowerCase\(\)/, "Must enforce type-to-confirm barrier for transfer");
 
     // 3. Delete Project Modal verification barrier

@@ -5,7 +5,7 @@ import { Search } from "lucide-react";
 
 const SEARCH_COMMIT_DELAY_MS = 180;
 
-export function CollaboratorSearchField({ onCommit, disabled = false, label = "Search collaborators", placeholder = "Search collaborators by name, username, or role..." }: { onCommit: (value: string) => void; label?: string; placeholder?: string; disabled?: boolean }) {
+export function CollaboratorSearchField({ onCommit, disabled = false, label = "Search members", placeholder = "Search members by name or username…" }: { onCommit: (value: string) => void; label?: string; placeholder?: string; disabled?: boolean }) {
     const [draft, setDraft] = useState("");
 
     useEffect(() => {

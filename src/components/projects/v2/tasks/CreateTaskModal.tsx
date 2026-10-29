@@ -372,7 +372,7 @@ export default function CreateTaskModal({
                     label="Sprint"
                     htmlFor="task-sprint"
                     error={fieldErrors.sprintId}
-                    hint={canAssignSprint ? undefined : "Only the project owner can add tasks to a sprint."}
+                    hint={canAssignSprint ? undefined : "Only the owner can add tasks to a sprint."}
                   >
                     <div className="relative">
                       <select

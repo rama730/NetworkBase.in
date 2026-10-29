@@ -1,3 +1,4 @@
+import { ACCESS_LEVEL_LABELS } from "@/lib/copy/terms";
 import {
   formatProjectVisibility,
   normalizeProjectVisibility as normalizeCanonicalProjectVisibility,
@@ -149,12 +150,8 @@ type ProjectMemberRemovalPreflightInput = {
   projectGroupParticipant?: boolean | null;
 };
 
-export const PROJECT_MEMBER_ROLE_LABELS: Record<ProjectMemberRole, string> = {
-  owner: "Lead",
-  admin: "Co-leader",
-  member: "Member",
-  viewer: "Viewer",
-};
+/** Decision 1: one ladder, the stored words (src/lib/copy/terms.ts). */
+export const PROJECT_MEMBER_ROLE_LABELS: Record<ProjectMemberRole, string> = ACCESS_LEVEL_LABELS;
 
 export const PROJECT_MEMBER_ROLE_CAPABILITIES: Record<
   ProjectMemberRole,
@@ -493,7 +490,7 @@ export function buildProjectPersonReference(input: {
       id,
       displayName,
       avatarUrl,
-      roleLabel: "Former collaborator",
+      roleLabel: "Former member",
       subtext: "Removed from project",
       state: input.isExternal ? "external_user" : "former_member",
       isAssignable: false,
@@ -516,7 +513,7 @@ export function buildProjectPersonReference(input: {
     avatarUrl,
     roleLabel: PROJECT_MEMBER_ROLE_LABELS[role],
     subtext:
-      role === "admin" ? "Co-leader" : role === "viewer" ? "Viewer" : null,
+      role === "admin" ? "Admin" : role === "viewer" ? "Viewer" : null,
     state,
     isAssignable: isAssignableProjectMember(role),
     isMentionable: true,
@@ -537,74 +534,74 @@ export const PROJECT_SETTINGS_SECTIONS: ProjectSettingsSectionDefinition[] = [
   // Group 1: Project Profile
   {
     id: "general",
-    label: "General",
+    label: "Workspace details",
     description:
-      "Project identity, collaboration intent, and public-facing summary.",
+      "Name, image, summary and what you’re looking for.",
   },
   {
     id: "links",
     label: "Links",
-    description: "External project destinations shown beside the project title.",
+    description: "Links shown next to the workspace name.",
   },
   // Group 2: Access & Team
   {
     id: "access",
-    label: "Access & Visibility",
+    label: "Access and visibility",
     description:
-      "Visibility, discovery, sharing, and follower-facing access behavior.",
+      "Who can find this workspace and what visitors see.",
   },
   {
     id: "collaborators",
-    label: "Team Members",
-    description: "Member visibility, roles, and ownership readiness.",
+    label: "Members",
+    description: "Members and their access levels.",
   },
   {
     id: "roles-applications",
-    label: "Roles & Applications",
-    description: "Open roles, application intake, and reviewer routing.",
+    label: "Roles and applications",
+    description: "Open roles, applications and who reviews them.",
   },
   // Group 3: Workspace Policies (aligned with top navigation: Docs -> Updates -> Tasks -> Files)
   {
     id: "readme",
-    label: "Documentation",
+    label: "Documents",
     description:
-      "Documentation publishing rules, media policy, and smart blocks.",
+      "Who can publish documents, and how images and live blocks work.",
   },
   {
     id: "updates",
-    label: "Updates & Discussions",
+    label: "Updates and discussions",
     description:
-      "Project update publishing, visibility, follower alerts, and discussion rules.",
+      "Who can post updates, who sees them, and comments.",
   },
   {
     id: "tasks-workflow",
-    label: "Lifecycle & Workflow",
-    description: "Journey stages, task defaults, and workflow guidance.",
+    label: "Stages and workflow",
+    description: "Stages, task defaults and the task board.",
   },
   {
     id: "files-workspace",
-    label: "Files & Storage",
+    label: "Files and storage",
     description:
-      "File intake, version behavior, reviews, and download guidance.",
+      "Who can upload, versions and file reviews.",
   },
   // Group 4: System & Governance
   {
     id: "notifications",
     label: "Notifications",
     description:
-      "Project event categories and member/follower attention rules.",
+      "Which events notify members and followers.",
   },
   {
     id: "privacy-policies",
-    label: "Privacy and Policies",
+    label: "Privacy",
     description:
-      "Legal terms, policies, and account data rights.",
+      "Privacy and legal terms for this workspace.",
   },
   {
     id: "danger",
-    label: "Danger Zone",
+    label: "Workspace management",
     description:
-      "Archive, transfer ownership, and delete with preflight checks.",
+      "Archive, transfer ownership or delete this workspace.",
   },
 ];
 
@@ -892,7 +889,7 @@ export function buildProjectRolePolicy(input: {
     affectedAreas: [
       "Task assignment and ownership routing",
       "Project Files and task Files permissions",
-      "Application review and collaborator controls",
+      "Applications and members",
       "Danger-zone permissions and audit history",
     ],
   };
@@ -946,12 +943,12 @@ export function buildProjectMemberMutationPolicy(input: {
     ),
     blockedReason:
       !input.actorIsOwner && actorRole !== "admin"
-        ? "Only the project owner or a Co-leader can manage collaborators."
+        ? "Only the owner and admins can manage members."
         : isSelfOwnerTarget || targetRole === "owner"
           ? "Ownership changes must use the transfer ownership flow."
           : actorRole === "admin" &&
               (targetRole === "admin" || nextRole === "admin")
-            ? "Co-leaders can manage members and viewers, but not other Co-leaders."
+            ? "Admins can manage members and viewers, but not other admins."
             : null,
   };
 }
@@ -1021,7 +1018,7 @@ export function buildProjectMemberRemovalPreflight(
 export function buildProjectFilePolicy() {
   return {
     enforcedRules: [
-      "Owners and Co-leaders can always upload, replace, organize, and review project files.",
+      "The owner and admins can always upload, replace, organize and review files.",
       "Members can upload files only when their per-member upload toggle is on.",
       "Viewers can inspect allowed file surfaces but cannot upload or replace files.",
       "Task-file notes use the task link annotation source of truth.",

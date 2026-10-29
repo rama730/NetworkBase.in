@@ -60,7 +60,7 @@ export async function generateProjectRouteMetadata({
     const tab = firstParam(_searchParams?.tab);
     if (tab && preview?.state === 'ready' && !isShareCrawler((await headers()).get('user-agent'))) {
         const tabTitleMap: Record<string, string> = {
-            updates: "Project Feed",
+            updates: "Updates",
             sprints: "Sprints",
             settings: "Settings",
             privacy: "Settings",

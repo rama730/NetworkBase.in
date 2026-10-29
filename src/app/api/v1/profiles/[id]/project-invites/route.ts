@@ -36,7 +36,7 @@ export async function POST(
     return auth.response ?? jsonError("Not authenticated", 401, "UNAUTHORIZED");
   }
   if (auth.user.id === id) {
-    return jsonError("Choose another collaborator to invite", 400, "BAD_REQUEST");
+    return jsonError("Choose someone else to invite", 400, "BAD_REQUEST");
   }
 
   const limitResponse = await enforceRouteLimit(request, `api:v1:profiles:project-invites:${auth.user.id}`, 30, 60);

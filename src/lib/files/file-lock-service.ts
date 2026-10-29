@@ -83,7 +83,7 @@ export class FileLeaseConflictError extends Error {
   readonly code = "FILE_LOCKED";
 
   constructor(readonly lock: FileLeaseView) {
-    super(`File is being edited by ${lock.lockedByName || "another collaborator"}`);
+    super(`File is being edited by ${lock.lockedByName || "another member"}`);
     this.name = "FileLeaseConflictError";
   }
 }

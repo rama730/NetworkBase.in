@@ -95,7 +95,7 @@ export function OrgAboutTab({ project, isCreator, onEdit, visitorActions }: { pr
                     ) : data.card.kind === 'member' || data.card.kind === 'guest' ? (
                         <RailSection title={project.title}>
                             <p className="text-sm text-muted-foreground">
-                                {data.card.kind === 'guest' ? 'Guest · read-only' : `You're a ${org?.roleNames?.member ?? 'Member'}`}
+                                {data.card.kind === 'guest' ? 'Viewer · read only' : `You're a ${org?.roleNames?.member ?? 'Member'}`}
                                 {data.card.joinedAt ? ` · joined ${new Date(data.card.joinedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : ''}
                             </p>
                         </RailSection>
@@ -104,7 +104,7 @@ export function OrgAboutTab({ project, isCreator, onEdit, visitorActions }: { pr
                     ) : null
                 ) : null}
                 {data?.leaders.length ? (
-                    <RailSection title="Leaders">
+                    <RailSection title="Owner and admins">
                         <ul className="space-y-1 text-sm">
                             {data.leaders.map((l) => (
                                 <li key={l.id}>

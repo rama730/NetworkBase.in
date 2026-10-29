@@ -128,7 +128,7 @@ export function CollaboratorCard({
                                 ) : null}
                                 {!reference.isAssignable ? (
                                     <span className="h-5 px-[7px] rounded-[3px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none shrink-0 inline-flex items-center border border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400">
-                                        Not assignable
+                                        Can’t be assigned tasks
                                     </span>
                                 ) : null}
                             </div>
@@ -177,7 +177,7 @@ export function CollaboratorCard({
                                             ) : (
                                                 <Users className="h-3.5 w-3.5 text-muted-foreground" />
                                             )}
-                                            <span>Change role to {getProjectMemberRoleLabel(option)}</span>
+                                            <span>Change access level to {getProjectMemberRoleLabel(option)}</span>
                                             {role === option ? (
                                                 <span className="ml-auto text-[10px] max-md:text-[11px] text-muted-foreground">(Current)</span>
                                             ) : null}
@@ -187,7 +187,7 @@ export function CollaboratorCard({
                             ) : (
                                 <DropdownMenuItem disabled className="gap-2 text-xs">
                                     <Crown className="h-3.5 w-3.5 text-amber-500" />
-                                    <span>Project Lead</span>
+                                    <span>Owner</span>
                                 </DropdownMenuItem>
                             )}
 

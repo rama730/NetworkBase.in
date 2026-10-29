@@ -31,7 +31,7 @@ export default function Step3Skills({ skills, interests, onSkillsChange, onToggl
 
       <div className="onb-field">
         <span id="interests-label" className="onb-field-label">Interests</span>
-        <p className="onb-field-hint">Optional topics help refine project and collaborator recommendations.</p>
+        <p className="onb-field-hint">Topics help us suggest workspaces and people.</p>
         <ChipSelector
           options={INTEREST_OPTIONS}
           selected={new Set(interests)}

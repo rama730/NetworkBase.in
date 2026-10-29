@@ -233,7 +233,7 @@ export async function transitionTaskTx(
     locked.previousAssigneeId &&
     locked.previousAssigneeId !== input.userId
   )
-    throw new Error("Only the assignee or a project lead can move this task.");
+    throw new Error("Only the assignee, the owner or an admin can move this task.");
   // Handing in an assignment copy goes through Submit, which records the link or text (report §16.4);
   // a file submission needs its file attached to the copy first.
   if (status === "done" && locked.currentStatus !== "done" && locked.copySubmissionType) {
@@ -254,7 +254,7 @@ export async function transitionTaskTx(
   let outcome: TaskTransitionResult["outcome"] = "moved";
   if (locked.reviewStatus === "pending" && status !== "done") {
     if (!locked.isLeader)
-      throw new Error("Only project leads can request changes.");
+      throw new Error("Only the owner and admins can request changes.");
     if (status !== "in_progress" || !input.reviewReason?.trim())
       throw new Error(
         "Use Request changes and provide a reason to return this task to In progress.",

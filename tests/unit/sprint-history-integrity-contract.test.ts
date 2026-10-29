@@ -36,8 +36,8 @@ describe("sprint lifecycle and history integrity contract", () => {
   });
 
   it("keeps Sprint assignment and lifecycle mutations on the same owner boundary", () => {
-    assert.match(projectActions, /Only the project owner can assign tasks to a Sprint/);
-    assert.match(taskActions, /Only the project owner can change sprint assignments/);
+    assert.match(projectActions, /Only the owner can add tasks to a sprint/);
+    assert.match(taskActions, /Only the owner can change sprint assignments/);
     assert.match(projectActions, /eq\(projectSprints\.status, "active"\)/);
   });
 

@@ -3300,12 +3300,12 @@ export function RepositorySync({
       <>
         <SyncHeading
           title="GitHub Sync"
-          description="Only the project owner can configure or run transfers."
+          description="Only the owner can set up or run a sync."
           headingRef={headingRef}
         />
         <p className={styles.info}>
-          You can configure your own commit attribution. Connecting or
-          transferring project files requires the project owner.
+          You can set your own commit author. Only the owner can connect a
+          repository or sync files.
         </p>
         <ContributorIdentitySection
           onApproved={async (email) => {

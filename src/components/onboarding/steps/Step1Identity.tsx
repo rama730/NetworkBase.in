@@ -118,7 +118,7 @@ export function Step1Identity({
           aria-invalid={Boolean(nameError)}
           aria-describedby={nameError ? 'full-name-hint full-name-error' : 'full-name-hint'}
         />
-        <p id="full-name-hint" className="onb-field-hint">Use the name you want collaborators to see.</p>
+        <p id="full-name-hint" className="onb-field-hint">Use the name you want people to see.</p>
         <p id="full-name-error" className="onb-field-error" role={nameError ? 'alert' : undefined}>{nameError ?? ''}</p>
       </div>
 

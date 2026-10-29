@@ -33,13 +33,13 @@ export const ORG_LIMITS = {
 export const ORG_TYPES = ["education", "company", "community", "research", "club", "other"] as const;
 export type OrgType = (typeof ORG_TYPES)[number];
 
-/** Default role names by org type (report §5, §21.5, §34.2): owner / admin / member / viewer (Guest). Editable in Settings. */
+/** Default role names by org type (report §5, §21.5, §34.2): owner / admin / member / viewer. Editable in Settings; shown beside the base level (terminology report §4.3). */
 export function defaultOrgRoleNames(type: OrgType) {
-  if (type === "education") return { owner: "Teacher", admin: "TA", member: "Student", viewer: "Guest" };
-  if (type === "company") return { owner: "Owner", admin: "Manager", member: "Member", viewer: "Guest" };
-  if (type === "research") return { owner: "PI", admin: "Researcher", member: "Member", viewer: "Guest" };
-  if (type === "club") return { owner: "President", admin: "Coordinator", member: "Member", viewer: "Guest" };
-  return { owner: "Owner", admin: "Admin", member: "Member", viewer: "Guest" };
+  if (type === "education") return { owner: "Teacher", admin: "TA", member: "Student", viewer: "Viewer" };
+  if (type === "company") return { owner: "Owner", admin: "Manager", member: "Member", viewer: "Viewer" };
+  if (type === "research") return { owner: "PI", admin: "Researcher", member: "Member", viewer: "Viewer" };
+  if (type === "club") return { owner: "President", admin: "Coordinator", member: "Member", viewer: "Viewer" };
+  return { owner: "Owner", admin: "Admin", member: "Member", viewer: "Viewer" };
 }
 
 /** The organization's role names: its type's defaults, overridden by its own (blank names fall back). */

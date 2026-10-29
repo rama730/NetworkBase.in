@@ -88,7 +88,7 @@ export async function createProjectInvitation(input: CreateProjectInvitationInpu
     }
 
     return db.transaction(async (tx) => {
-        if (input.actorId === input.candidateId) throw new Error("Choose another collaborator to invite");
+        if (input.actorId === input.candidateId) throw new Error("Choose someone else to invite");
 
         if (idempotencyKey) {
             const [existing] = await tx
@@ -152,11 +152,11 @@ export async function createProjectInvitation(input: CreateProjectInvitationInpu
         const managerRole = input.actorId === project.owner_id ? "owner" as const : (preflight?.actor_role === "admin" ? "admin" as const : null);
         if (!managerRole) throw new Error("You can only invite to projects you manage");
         if (input.kind === "guidance_appointment" && managerRole !== "owner") {
-            throw new Error("Only the project Lead can appoint a guidance co-leader");
+            throw new Error("Only the owner can invite a mentor");
         }
 
         if (!preflight?.candidate_exists) throw new Error("Candidate not found");
-        if (input.candidateId === project.owner_id) throw new Error("The current project Owner cannot hold this appointment");
+        if (input.candidateId === project.owner_id) throw new Error("The owner can’t also be a mentor");
         if (preflight.candidate_is_member) throw new Error("User is already a member of this project");
         if (preflight.has_pending_app) throw new Error("Review the existing application before sending an invitation");
 
@@ -173,7 +173,7 @@ export async function createProjectInvitation(input: CreateProjectInvitationInpu
                 .limit(1);
             if (!role || (role.filled ?? 0) >= (role.count ?? 0)) throw new Error("This project role is no longer available");
             roleId = role.id;
-            roleTitle = cleanOptionalText(role.title || role.role || "Collaborator", 160) || "Collaborator";
+            roleTitle = cleanOptionalText(role.title || role.role || "Member", 160) || "Member";
 
             const [pending] = await tx
                 .select({ id: projectInvitations.id })
@@ -188,7 +188,7 @@ export async function createProjectInvitation(input: CreateProjectInvitationInpu
             if (pending) throw new Error("An invitation for this project is already pending");
         } else {
             guidanceLabel = cleanGuidanceLabel(input.guidanceLabel);
-            if (!guidanceLabel) throw new Error("Enter a guidance label");
+            if (!guidanceLabel) throw new Error("Enter a mentor focus");
 
             const [pending] = await tx
                 .select({ id: projectInvitations.id })
@@ -279,7 +279,7 @@ export async function resolveProjectInvitationInternal(
     const isCandidate = invitation.candidateId === input.actorId;
     const isLead = project.owner_id === input.actorId;
     if (input.action === "cancel") {
-        if (!isLead && invitation.inviterId !== input.actorId) throw new Error("Only the inviter or project Lead can cancel this invitation");
+        if (!isLead && invitation.inviterId !== input.actorId) throw new Error("Only the person who invited them or the owner can cancel this invitation");
         await executor.update(projectInvitations)
             .set({ status: "cancelled", resolvedAt: now, resolvedBy: input.actorId, updatedAt: now })
             .where(eq(projectInvitations.id, invitation.id));
@@ -304,7 +304,7 @@ export async function resolveProjectInvitationInternal(
         }
     }
 
-    if (invitation.candidateId === project.owner_id) throw new Error("The current project Owner cannot hold this appointment");
+    if (invitation.candidateId === project.owner_id) throw new Error("The owner can’t also be a mentor");
 
     let appointment: typeof projectGuidanceAppointments.$inferSelect | null = null;
     if (invitation.kind === "guidance_appointment") {
@@ -339,7 +339,7 @@ export async function resolveProjectInvitationInternal(
                 projectId: invitation.projectId,
                 guideUserId: invitation.candidateId,
                 invitationId: invitation.id,
-                label: invitation.guidanceLabel || "Guide",
+                label: invitation.guidanceLabel || "Mentor",
                 status: "active",
                 reviewAt: invitation.reviewAt,
                 previousMembershipRole: lifecycle.previousRole,
@@ -373,8 +373,8 @@ export async function resolveProjectInvitationInternal(
 
 export function projectInvitationDisplayRole(invitation: typeof projectInvitations.$inferSelect) {
     return invitation.kind === "guidance_appointment"
-        ? invitation.guidanceLabel || "Guide"
-        : invitation.roleTitle || "Collaborator";
+        ? invitation.guidanceLabel || "Mentor"
+        : invitation.roleTitle || "Member";
 }
 
 

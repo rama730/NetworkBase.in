@@ -714,7 +714,7 @@ export function TextViewer({
           className="border-b border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
         >
           {leaseConflict
-            ? `${leaseConflict.lockedByName || "Another collaborator"} is editing this file${leaseConflict.clientKind === "vscode" ? " in VS Code" : ""}.`
+            ? `${leaseConflict.lockedByName || "Another member"} is editing this file${leaseConflict.clientKind === "vscode" ? " in VS Code" : ""}.`
             : "The editing lease was lost. Your unsaved buffer is preserved, but saving is blocked until editing access is restored."}
           {onRetryLease && <Button variant="outline" size="sm" className="ml-2" onClick={onRetryLease}>Retry editing access</Button>}
         </div>

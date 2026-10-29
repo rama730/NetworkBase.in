@@ -153,7 +153,7 @@ export async function finishPermanentDelete(projectId: string, nodeId: string) {
     if (
       plan.nodes.some((node) => node.metadata?.permanentDeleteRoot !== nodeId)
     )
-      throw new Error("The deletion scope changed. Contact the project owner.");
+      throw new Error("What would be deleted has changed. Ask the workspace owner.");
     // nodeId must be null: the audit record must survive its target's removal.
     await recordNodeEvent(
       projectId,

@@ -23,7 +23,7 @@ export type ChatWorkspaceProject = { id: string; title: string; kind?: string | 
 /**
  * The workspace list (report §25.1, §25.7): orgs and personal projects get a tile; a child project lives inside
  * its org's workspace. Someone in a child project but not in its org (an outside person) sees it on its own,
- * labelled "<Org> · Guest".
+ * labelled "<Org> · Viewer".
  */
 export function workspaceProjects<T extends ChatWorkspaceProject>(projects: T[]): Array<T & { guestOf?: string }> {
   const ids = new Set(projects.map((p) => p.id));

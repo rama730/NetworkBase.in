@@ -85,7 +85,7 @@ export async function mergeSandboxTask(
       LIMIT 1
     `);
     if (Array.from(activeLease)[0]) {
-      throw new Error("Task merge deferred because a collaborator is editing an affected file");
+      throw new Error("The task waits because a member is editing one of its files");
     }
 
     // Step 3: Preflight Path Collision checking

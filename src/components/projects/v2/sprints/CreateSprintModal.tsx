@@ -441,12 +441,12 @@ export default function SprintEditorModal({
                 <>
                   <label className="flex items-center gap-2 text-[13px] text-foreground">
                     <input type="checkbox" checked={orgFields.showInChildren ?? true} onChange={(e) => setOrgFields((f) => ({ ...f, showInChildren: e.target.checked }))} />
-                    Show in child projects
+                    Add to every workspace in the organization
                   </label>
                   {mode === "create" ? (
                     <label className="flex items-center gap-2 text-[13px] text-foreground">
                       <input type="checkbox" checked={orgFields.createMatching ?? false} onChange={(e) => setOrgFields((f) => ({ ...f, createMatching: e.target.checked }))} />
-                      Create a matching sprint in every child project
+                      Create a matching sprint in every workspace in the organization
                     </label>
                   ) : null}
                   <label className="flex items-center gap-2 text-[13px] text-foreground">
@@ -484,12 +484,12 @@ export default function SprintEditorModal({
               ) : null}
             </div>
 
-            {/* Danger Zone (Edit mode only) */}
+            {/* Delete sprint (Edit mode only) */}
             {mode === "edit" ? (
               <div className="space-y-3 pt-1">
                 <div className="flex items-center justify-between border-b border-destructive/20 pb-1.5">
                   <span className="font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-destructive">
-                    Danger Zone
+                    Delete sprint
                   </span>
                 </div>
 

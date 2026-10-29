@@ -1780,7 +1780,7 @@ async function requireSprintOwner(projectId: string, userId: string) {
   if (!access.project) throw new Error("Project not found");
   // Inherited org admins plan and run a child project's sprints too (report §15.5).
   if (!access.isOwner && access.memberRole !== "admin" && !access.isInheritedAdmin)
-    throw new Error("Only a project owner or admin can manage the Sprint lifecycle");
+    throw new Error("Only the owner and admins can manage sprints");
 }
 
 

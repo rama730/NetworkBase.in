@@ -110,7 +110,7 @@ export async function requireSyncOwner(
   ]);
   if (!project || project.ownerId !== userId)
     throw new Error(
-      "Only the project owner can manage GitHub synchronization.",
+      "Only the owner can manage repository sync.",
     );
   return {
     ...project,

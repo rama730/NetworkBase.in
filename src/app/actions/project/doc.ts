@@ -344,7 +344,7 @@ function formatLabel(value: string | null | undefined) {
 
 function formatMemberRole(role: string | null | undefined, isOwner = false) {
     if (isOwner || role === "owner") return "Owner";
-    if (role === "admin") return "Co-leader";
+    if (role === "admin") return "Admin";
     if (role === "viewer") return "Viewer";
     return "Member";
 }

@@ -85,7 +85,7 @@ test("required docs are New until opened; Ask members to re-read makes them New 
   assert.equal(note?.body, "Late work now −10%");
 });
 
-test("child projects see org docs marked Show in child projects; outside people don't", async () => {
+test("child projects see org docs marked Show in every workspace in the organization; outside people don't", async () => {
   const o = await orgWithChild();
   await addDoc(o.org, "syllabus", "# Syllabus");
   const hidden = await addDoc(o.org, "admin-notes", "# Notes");

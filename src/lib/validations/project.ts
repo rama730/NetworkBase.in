@@ -23,9 +23,8 @@ export type OpenRoleInput = z.infer<typeof openRoleSchema>;
 
 // Creator Role Schema
 export const creatorRoleSchema = z.object({
-    // Keep legacy enum values for backward-compat drafts; wizard now always sets `lead`.
-    role_type: z.enum(['founder', 'lead', 'contributor', 'advisor']).default('lead'),
-    // Optional lead focus (e.g. Frontend, Product, AI).
+    // The creator is always the owner (report §3.2); `title` is their own role here, e.g. Product design.
+    // Old drafts may still carry `role_type`; zod drops it.
     title: z.string().max(80).optional(),
     time_commitment: z.number().min(0).max(168).optional(), // hours per week
 });
@@ -230,7 +229,7 @@ export const createProjectSchema = z.object({
     }
     (val.roles || []).forEach((role, index) => {
         if (role.lead_user_id && !(role.people || []).some((person) => person.user_id === role.lead_user_id)) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['roles', index, 'lead_user_id'], message: 'The unit lead must be in the unit.' });
+            ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['roles', index, 'lead_user_id'], message: 'The team lead must be in the team.' });
         }
     });
     const roleTitles = new Set<string>();

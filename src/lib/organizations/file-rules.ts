@@ -31,7 +31,7 @@ export function readFolderAccess(metadata: unknown): FolderAccess | null {
 
 /** Starter folders by org type (§23.3); the last one is Admins only. Docs is where New doc lands (§19.3). */
 export function starterFolders(orgType: string | null | undefined): Array<{ name: string; access: FolderAccess | null }> {
-  const [shared, staff] = orgType === "education" ? ["Course materials", "Staff"] : orgType === "company" ? ["Shared", "Leadership"] : ["Shared", "Admins"];
+  const [shared, staff] = orgType === "education" ? ["Course materials", "Staff"] : orgType === "company" ? ["Shared", "Managers"] : ["Shared", "Admins"];
   return [
     { name: shared, access: null },
     { name: "Docs", access: null },

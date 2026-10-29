@@ -242,7 +242,7 @@ export async function readOrgAboutAction(orgId: string): Promise<OrgAboutData | 
         activity: await readActivity(v, 'all', { publicOnly: true, limit: 5 }),
         // Visitors see only leaders who show the org on their profile (report §22.3).
         leaders: leaders.filter((l) => v.isInside || l.show).sort((a, b) => (a.id === org?.ownerId ? -1 : b.id === org?.ownerId ? 1 : 0))
-            .map((l) => ({ id: l.id, name: l.name || l.username || 'Leader', username: l.username, role: l.id === org?.ownerId ? 'owner' as const : 'admin' as const, title: l.title })),
+            .map((l) => ({ id: l.id, name: l.name || l.username || 'Admin', username: l.username, role: l.id === org?.ownerId ? 'owner' as const : 'admin' as const, title: l.title })),
         card,
     };
 }
@@ -288,7 +288,7 @@ export async function readOrgProjectsAction(orgId: string): Promise<{ success: t
         const lastActivity = [r.updatedAt, r.lastTaskAt ? new Date(r.lastTaskAt) : null].filter((d): d is Date => Boolean(d)).sort((a, b) => b.getTime() - a.getTime())[0] ?? r.updatedAt;
         return {
             id: r.id, title: r.title, slug: r.slug, visibility: r.visibility, status: r.status,
-            lead: { id: r.ownerId, name: r.leadName || r.leadUsername || 'Lead' },
+            lead: { id: r.ownerId, name: r.leadName || r.leadUsername || 'Owner' },
             members: r.members, units: r.units, open: r.open, overdue: r.overdue, inReview: r.inReview,
             groupCopy: copy && state ? { title: copy.title, state } : null,
             lastActivityAt: lastActivity.toISOString(),

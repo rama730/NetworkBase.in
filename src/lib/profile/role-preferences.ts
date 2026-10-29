@@ -43,8 +43,8 @@ export const EXPERIENCE_LEVEL_OPTIONS = [
   { value: 'mid', label: 'Mid-level' },
   { value: 'senior', label: 'Senior' },
   { value: 'lead', label: 'Lead' },
-  { value: 'founder', label: 'Founder' },
 ] as const
+// Decision 34: "Founder" is not a level. Saved 'founder' rows read as Lead until the Phase 10 migration rewrites them.
 
 export const WEEKLY_CAPACITY_OPTIONS = [
   { value: 'lt_5', label: 'Less than 5 hours per week', compactLabel: '<5 hrs/week' },
@@ -143,7 +143,7 @@ export function rolePreferenceLabel(value: unknown): string | null {
 }
 
 export function experienceLevelLabel(value: unknown): string | null {
-  return EXPERIENCE_LEVEL_OPTIONS.find((option) => option.value === value)?.label ?? null
+  return EXPERIENCE_LEVEL_OPTIONS.find((option) => option.value === (value === 'founder' ? 'lead' : value))?.label ?? null
 }
 
 export function weeklyCapacityLabel(value: unknown): string | null {

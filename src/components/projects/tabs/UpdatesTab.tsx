@@ -533,7 +533,7 @@ export default function UpdatesTab({
         <div className="flex items-start justify-between gap-3 px-1 pb-3 pt-2">
           <div>
             <h2 className="nb-section-title text-foreground">
-              {org?.kind === "org" ? "Organization feed" : "Project feed"}
+              Updates
             </h2>
             <p className="nb-compact text-muted-foreground">
               Progress posts for followers and project visitors.

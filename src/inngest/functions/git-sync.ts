@@ -61,7 +61,7 @@ export const gitPull = inngest.createFunction(
         await db
           .update(githubSyncRuns)
           .set({
-            stage: `Git pull deferred because a collaborator is editing a file until ${new Date(activeLease.expiresAt).toLocaleTimeString()}`,
+            stage: `Repository sync waits because a member is editing a file until ${new Date(activeLease.expiresAt).toLocaleTimeString()}`,
             updatedAt: new Date(),
           })
           .where(eq(githubSyncRuns.id, runId));

@@ -104,7 +104,7 @@ export function OrgLeaveSection({ orgId, role, title }: SectionProps & { title: 
         <Section id="you-leave">
             <SettingsCard title="Leave organization" headingLevel={2} description="Stop being a member. You can join again later with the code." danger>
                 {role === 'owner' ? (
-                    <p className="text-sm text-muted-foreground">Transfer ownership first, in the danger zone below.</p>
+                    <p className="text-sm text-muted-foreground">Transfer ownership first, in Organization management below.</p>
                 ) : (
                     <div className="space-y-2">
                         <Button variant="destructive" onClick={() => setOpen(true)}>Leave {title}</Button>
@@ -299,7 +299,7 @@ export function OrgPeopleSection({ orgId, organization, role }: SectionProps) {
                 <div className="space-y-6">
                     <div>
                         <p className={labelClass}>Role names</p>
-                        <p className={helpClass}>{isOwner ? 'For example Teacher / TA / Student / Guest. Permissions always come from the role.' : OWNER_ONLY}</p>
+                        <p className={helpClass}>{isOwner ? 'For example Teacher / TA / Student / Viewer. Permissions always come from the role.' : OWNER_ONLY}</p>
                         <div className="mt-2 grid max-w-md gap-2 sm:grid-cols-2">
                             {TABLE_ROLES.map(([, key]) => (
                                 <label key={key} className="text-xs capitalize text-muted-foreground">{key === 'viewer' ? 'guest' : key}
@@ -464,7 +464,7 @@ export function OrgWorkSection({ orgId, organization }: SectionProps) {
                     <p className="nb-ui-label text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">Sprints</p>
                     {toggle('sprintAutoStart', 'Start automatically', 'A sprint starts on its start date, for example CO1 on Aug 5.')}
                     {toggle('sprintNotifyOnStart', 'Notify on start', 'Members hear when a sprint starts.')}
-                    {toggle('sprintShowInChildren', 'Show in child projects', 'Projects see the running org sprint and can link theirs to it.')}
+                    {toggle('sprintShowInChildren', 'Show in every workspace in the organization', 'Projects see the running org sprint and can link theirs to it.')}
                     {toggle('sprintCreateMatching', 'Create matching sprints', 'Off by default. Each project following org sprints gets its own sprint with the same dates.')}
                     <div className="flex items-center gap-3">
                         <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'work', {

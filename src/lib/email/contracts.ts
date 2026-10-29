@@ -238,7 +238,7 @@ export function renderPonytailAvatar(params: {
   username?: string | null;
   identityKey?: string | null;
 }): string {
-  const name = params.displayName || params.username || "Collaborator";
+  const name = params.displayName || params.username || "Member";
   const initials = getInitials(params.displayName, params.username);
   const tone = getPersonAvatarTone(params.identityKey || params.username || name);
   const colors = PONYTAIL_TONE_COLORS[tone] ?? { bg: "#FEF3C7", text: "#92400E" };
@@ -503,7 +503,7 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
 
   // --- Task Assignment Context ---
   // The assigned person's profile (assignee), explicitly decoupled from the recipient
-  const assigneeDisplayName = input.assigneeName || input.name || "Collaborator";
+  const assigneeDisplayName = input.assigneeName || input.name || "Member";
   const assigneeUsername = input.assigneeUsername || null;
   const assigneeHeadline = input.assigneeHeadline || null;
   const assignerDisplayName = input.assignerName || null;

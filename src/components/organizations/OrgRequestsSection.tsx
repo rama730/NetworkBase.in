@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { ACCESS_LEVEL_LABELS } from '@/lib/copy/terms'
 import { useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -13,7 +14,7 @@ import { toast } from '@/lib/feedback'
 // in place (first 5 per org, then Review all); Network only links to the Members tab.
 
 export const ORG_REQUESTS_KEY = ['org-requests-for-me'] as const
-const ROLE: Record<string, string> = { admin: 'Admin', member: 'Member', viewer: 'Guest' }
+const ROLE: Record<string, string> = ACCESS_LEVEL_LABELS
 
 export function useOrgRequests(enabled = true) {
     return useQuery({ queryKey: ORG_REQUESTS_KEY, queryFn: () => readOrgRequestsForMeAction(), enabled, staleTime: 30_000 })

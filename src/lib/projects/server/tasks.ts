@@ -934,7 +934,7 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
       );
       if (!sprintAccess.project) throw new Error("Project not found");
       if (!sprintAccess.isOwner) {
-        throw new Error("Only the project owner can assign tasks to a Sprint");
+        throw new Error("Only the owner can add tasks to a sprint");
       }
     }
 
@@ -1264,7 +1264,7 @@ export async function deleteTaskAction(taskId: string, projectId: string) {
     if (!project) throw new Error("Project not found");
 
     if (project.ownerId !== user.id) {
-      throw new Error("Only the project owner can delete tasks");
+      throw new Error("Only the owner can delete tasks");
     }
 
     const deletedTask = await db.transaction(async (tx) => {

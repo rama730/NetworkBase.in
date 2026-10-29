@@ -33,7 +33,7 @@ test("project access tab renders one open access section with immediate toggle c
   assert.match(accessBlock, /divide-y divide-border/, "Access tab must use divide-y divide-border between visibility and public surfaces");
 
   // Non-owner read-only guidance
-  assert.match(accessBlock, /Visibility is managed by the project lead/, "Non-owners must see clear visibility guidance");
+  assert.match(accessBlock, /Only the owner can change visibility/, "Non-owners must see clear visibility guidance");
 
   // Selected state tokens & NO radio dot
   assert.match(accessBlock, /border-primary bg-primary\/5/, "Selected visibility option uses border-primary and bg-primary/5 tint");

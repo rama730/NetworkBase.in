@@ -290,7 +290,7 @@ export async function transferProjectOwnership(
         if (!transferResult.ok) {
             switch (transferResult.code) {
                 case 'NOT_OWNER':
-                    return { success: false, error: 'Not the project owner', errorCode: 'NOT_OWNER' };
+                    return { success: false, error: 'You’re not the owner of this workspace', errorCode: 'NOT_OWNER' };
                 case 'NOT_A_MEMBER':
                     return { success: false, error: 'New owner must be a project member', errorCode: 'NOT_A_MEMBER' };
                 case 'NOT_AN_ADMIN':
@@ -337,7 +337,7 @@ export async function transferProjectOwnership(
                         actorAvatarUrl,
                         contextLabel: transferResult.projectTitle ?? "Project",
                         contextKind: "project",
-                        secondaryText: "You are now a co-leader",
+                        secondaryText: "You’re now an admin",
                     },
                     sourceEventId,
                 }),

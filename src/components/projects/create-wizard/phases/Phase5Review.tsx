@@ -217,7 +217,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                 <p className="nb-meta font-mono uppercase tracking-[0.12em] text-muted-foreground">Phase 5 · review</p>
                 <h3 className="nb-section-title mt-2 text-foreground">Review before creating</h3>
                 <p className="nb-body mt-2 text-muted-foreground">
-                    {org ? 'Confirm what members will see. Use Edit to return to a step; the organization is created only when you choose Create organization in the footer.' : 'Confirm what collaborators will see at launch. Use Edit to return to the relevant phase; the project is created only when you choose Create project in the footer.'}
+                    {org ? 'Confirm what members will see. Use Edit to return to a step; the organization is created only when you choose Create organization in the footer.' : 'Check what members will see. Use Edit to go back to a step. Nothing is created until you select Create workspaceect in the footer.'}
                 </p>
             </header>
 
@@ -272,7 +272,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                     </ReviewRow>
                 ) : null}
                 {childOrg ? (
-                    <ReviewRow label="Inherited admins">
+                    <ReviewRow label="Admins from the organization">
                         <p className="nb-compact text-muted-foreground">{childOrg.title}&apos;s owner and admins can see and help with this project.</p>
                     </ReviewRow>
                 ) : null}
@@ -351,8 +351,8 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
             </ReviewSection>
 
             <ReviewSection eyebrow="Phase 3 · team" title="Team and roles" onEdit={() => goToPhase(3)}>
-                <ReviewRow label="Project lead">
-                    <p className="nb-ui-label text-foreground">Lead{formData.creator_role?.title ? ` · ${formData.creator_role.title}` : ''}</p>
+                <ReviewRow label="Owner">
+                    <p className="nb-ui-label text-foreground">You{formData.creator_role?.title ? ` · ${formData.creator_role.title}` : ''}</p>
                     {formData.creator_role?.time_commitment ? <p className="nb-compact mt-1 text-muted-foreground">{formData.creator_role.time_commitment} hours per week</p> : null}
                 </ReviewRow>
                 <ReviewRow label="Open roles">
@@ -366,7 +366,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                                         <DetailLabel>{role.count} {role.count === 1 ? 'opening' : 'openings'}</DetailLabel>
                                         <DetailLabel>{role.experienceLevel || 'any'}</DetailLabel>
                                         {childOrg?.orgType !== 'education' ? <DetailLabel>{(role.compensationType || 'unpaid').replace('_', ' ')}</DetailLabel> : null}
-                                        {role.lead_user_id ? <DetailLabel>★ {role.people?.find((person) => person.user_id === role.lead_user_id)?.label ?? 'Unit lead'}</DetailLabel> : null}
+                                        {role.lead_user_id ? <DetailLabel>★ {role.people?.find((person) => person.user_id === role.lead_user_id)?.label ?? 'Team lead'}</DetailLabel> : null}
                                     </div>
                                     {role.description ? <p className="nb-compact mt-2 whitespace-pre-wrap text-muted-foreground">{role.description}</p> : null}
                                     {role.skills?.length ? <div className="mt-2"><SkillList skills={role.skills} size="sm" /></div> : null}
@@ -385,7 +385,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                     <p className="nb-ui-label text-foreground">{formData.visibility === 'private' ? 'Private project' : formData.visibility === 'org' ? `Org only · members of ${childOrg?.title ?? 'the organization'}` : 'Public project'}</p>
                     <p className="nb-compact mt-1 text-muted-foreground">
                         {formData.visibility === 'private'
-                            ? 'Only collaborators can access the project at launch.'
+                            ? 'Only members can see this workspace when it’s created.'
                             : `Public tabs: ${publicTabLabels.join(' · ') || 'none'}.`}
                     </p>
                 </ReviewRow>

@@ -182,8 +182,8 @@ export function OrgProjectsTab({ orgId, orgSlug }: { orgId: string; orgSlug?: st
                         <option value="all">Any stage</option>{stages.map((s) => <option key={s} value={s}>{s}</option>)}
                     </select>
                 ) : null}
-                <select aria-label="Lead" className={sel} value={lead} onChange={(e) => setLead(e.target.value)}>
-                    <option value="all">Any lead</option>{leads.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+                <select aria-label="Owner" className={sel} value={lead} onChange={(e) => setLead(e.target.value)}>
+                    <option value="all">Any owner</option>{leads.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
                 </select>
                 <select aria-label="Sprint" className={sel} value={sprint} onChange={(e) => setSprint(e.target.value as typeof sprint)}>
                     <option value="all">Any sprint</option><option value="linked">In the org sprint</option><option value="not_linked">Not linked</option>
@@ -296,7 +296,7 @@ export function ChildUnitsLine({ projectId, members }: { projectId: string; memb
                             {open ? ` · ${open} open ${open === 1 ? 'seat' : 'seats'}` : ''}
                         </summary>
                         <ul className="ml-4 mt-1 space-y-0.5">
-                            {names.map((p) => <li key={p.id}>{p.name}{p.id === unit.leadUserId ? ' ★ unit lead' : ''}</li>)}
+                            {names.map((p) => <li key={p.id}>{p.name}{p.id === unit.leadUserId ? ' ★ team lead' : ''}</li>)}
                         </ul>
                     </details>
                 )

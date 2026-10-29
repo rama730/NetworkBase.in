@@ -312,7 +312,7 @@ export default function DetailsTab({
             <div className="space-y-2 flex-1">
               <div className="font-semibold text-foreground">In Review</div>
               <div className="text-xs text-muted-foreground">
-                Waiting for a project lead’s approval. Approving completes this task; file publication remains separate.
+                Waiting for an owner or admin to approve. Final files are added to Files separately.
                 {reviewState.data?.submittedAt ? ` Submitted ${formatDistanceToNow(new Date(reviewState.data.submittedAt), { addSuffix: true })}.` : ""}
               </div>
               {reviewError ? (

@@ -146,7 +146,7 @@ function PeopleChips({ people, from, leadId, onLead, onRemove, isAdmin }: {
                 return (
                     <li key={person.user_id} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card py-0.5 pl-2.5 pr-1 text-sm">
                         {onLead ? (
-                            <button type="button" aria-pressed={isLead} aria-label={isLead ? `${name} is unit lead` : `Make ${name} unit lead`} title={isLead ? 'Unit lead' : 'Make unit lead'}
+                            <button type="button" aria-pressed={isLead} aria-label={isLead ? `${name} is team lead` : `Make ${name} team lead`} title={isLead ? 'Team lead' : 'Make team lead'}
                                 onClick={() => onLead(isLead ? undefined : person.user_id)} className="nb-icon-button size-6 rounded-full">
                                 <Star className={`size-3 ${isLead ? 'fill-current text-primary' : ''}`} aria-hidden="true" />
                             </button>
@@ -193,7 +193,7 @@ export function UnitPeople({ index, unitName }: { index: number; unitName: strin
                 <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)} disabled={people.length >= UNIT_SEATS}>
                     <UserPlus className="size-4" aria-hidden="true" />Add people
                 </Button>
-                {people.length > 0 && !leadId ? <span className="text-xs text-muted-foreground">Optional: pick a unit lead ★ for its mentions and reminders.</span> : null}
+                {people.length > 0 && !leadId ? <span className="text-xs text-muted-foreground">Optional: pick a team lead ★ to get the team’s mentions and reminders.</span> : null}
             </div>
             <OrgPeoplePicker open={open} onOpenChange={setOpen} target={name} limit={UNIT_SEATS - people.length} onAdd={(added) => save([...people, ...added])} />
         </div>
@@ -212,10 +212,10 @@ export function ChildLeadAndUnassigned() {
     return (
         <section aria-labelledby="child-lead-heading" className="space-y-5 border-t border-border pt-6">
             <div>
-                <h3 id="child-lead-heading" className="nb-card-title text-foreground">Project lead</h3>
-                <p className="nb-compact mt-1 text-muted-foreground">The lead owns the project. You stay an admin through {org.title}.</p>
+                <h3 id="child-lead-heading" className="nb-card-title text-foreground">Owner</h3>
+                <p className="nb-compact mt-1 text-muted-foreground">Pick who owns this workspace. You stay an admin through {org.title}.</p>
                 <select
-                    aria-label="Project lead"
+                    aria-label="Owner"
                     value={lead ?? ''}
                     onChange={(e) => setValue('lead_user_id', e.target.value || undefined, { shouldDirty: true })}
                     className="mt-2 h-[var(--ui-control-height)] w-full max-w-64 rounded-md border border-input bg-background px-2 text-sm"
@@ -244,11 +244,11 @@ export function InheritedAdminRows() {
     if (!org || admins.length === 0) return null
     return (
         <section aria-labelledby="child-inherited-heading" className="space-y-2 border-t border-border pt-6">
-            <h3 id="child-inherited-heading" className="nb-card-title text-foreground">Inherited admins</h3>
-            <p className="nb-compact text-muted-foreground">They can see and help with this project through {org.title}.</p>
+            <h3 id="child-inherited-heading" className="nb-card-title text-foreground">Admins from the organization</h3>
+            <p className="nb-compact text-muted-foreground">They can see and help with this workspace through {org.title}.</p>
             <ul className="space-y-1 text-sm">
                 {admins.map((admin) => (
-                    <li key={admin.userId} className="text-foreground">{admin.name}{admin.title ? `, ${admin.title}` : ''} <span className="text-muted-foreground">· Set by {org.title}</span></li>
+                    <li key={admin.userId} className="text-foreground">{admin.name}{admin.title ? `, ${admin.title}` : ''} <span className="text-muted-foreground">· Admin · from {org.title}</span></li>
                 ))}
             </ul>
         </section>

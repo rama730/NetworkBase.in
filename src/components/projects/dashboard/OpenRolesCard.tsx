@@ -98,7 +98,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
         load: application?.load ?? "ready",
         projectClosed: application?.projectClosed ?? false,
     });
-    const invitationTitle = applicationStatus.proposedRoleTitle || applicationStatus.roleTitle || "Guide";
+    const invitationTitle = applicationStatus.proposedRoleTitle || applicationStatus.roleTitle || "Mentor";
     const blockedReason = card.blockedReason;
     const isApplyDisabled = Boolean(blockedReason);
     const showMoreCount = openRoles.length - 10;
@@ -160,12 +160,12 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                                     Invited
                                 </span>
                                 <span className="shrink-0 inline-flex items-center rounded-[3px] border border-border/70 bg-card/60 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.04em] max-md:text-[11px] text-muted-foreground">
-                                    Leadership
+                                    Owner
                                 </span>
                             </div>
                         </div>
                         <p className="nb-compact text-[12px] leading-relaxed text-muted-foreground">
-                            Leadership appointment for this project.
+                            Owner role for this workspace.
                         </p>
                         {!isCreator && !isCollaborator ? (
                             <div className="flex items-center justify-end gap-2 border-t border-[var(--status-warning)]/20 pt-2">

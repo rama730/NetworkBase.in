@@ -39,7 +39,7 @@ describe("parseLockConflictError (internal logic)", () => {
       }
     }
 
-    if (msg.includes("locked by another")) {
+    if (msg.includes("locked by another") || msg.includes("being edited by another")) {
       return {
         lockedBy: {
           userId: "",
@@ -64,7 +64,7 @@ describe("parseLockConflictError (internal logic)", () => {
   });
 
   it("detects plain-text lock conflict error", () => {
-    const result = parseLockConflictError(new Error("File is locked by another collaborator"));
+    const result = parseLockConflictError(new Error("File is being edited by another member"));
     assert.ok(result);
     assert.equal(result.lockedBy.displayName, "Another user");
     assert.equal(result.lockedBy.userId, "");

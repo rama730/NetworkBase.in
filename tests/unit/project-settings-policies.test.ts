@@ -230,7 +230,7 @@ test("project role policy excludes the current owner from transfer candidates", 
     assert.equal(policy.roleCounts.owner, 1);
     assert.equal(policy.roleCounts.member, 1);
     assert.equal(policy.roleCounts.admin, 1);
-    assert.equal(policy.roleLabels.admin, "Co-leader");
+    assert.equal(policy.roleLabels.admin, "Admin");
     assert.equal(policy.coLeaders[0]?.id, "admin-1");
 });
 
@@ -262,7 +262,7 @@ test("project member mutation policy protects the true owner and permits lower-r
         targetRole: "member",
     });
     assert.equal(nonOwnerActor.canRemove, false);
-    assert.match(nonOwnerActor.blockedReason ?? "", /only the project owner/i);
+    assert.match(nonOwnerActor.blockedReason ?? "", /only the owner and admins/i);
 
     const coLeaderCanManageMember = buildProjectMemberMutationPolicy({
         actorIsOwner: false,
@@ -284,11 +284,11 @@ test("project member mutation policy protects the true owner and permits lower-r
         nextRole: "admin",
     });
     assert.equal(coLeaderCannotPromoteAdmin.canChangeRole, false);
-    assert.match(coLeaderCannotPromoteAdmin.blockedReason ?? "", /Co-leaders can manage members and viewers/i);
+    assert.match(coLeaderCannotPromoteAdmin.blockedReason ?? "", /Admins can manage members and viewers/i);
 });
 
 test("project person resolver and removal preflight preserve former-member semantics", () => {
-    assert.equal(getProjectMemberRoleLabel("admin"), "Co-leader");
+    assert.equal(getProjectMemberRoleLabel("admin"), "Admin");
     assert.equal(isAssignableProjectMember("viewer"), false);
     assert.equal(isEligibleProjectMember("viewer", "mention"), true);
     assert.equal(isEligibleProjectMember("viewer", "assign"), false);

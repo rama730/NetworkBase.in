@@ -120,7 +120,7 @@ export default function Step2Details({
       </section>
 
       <section aria-labelledby="onb-profile" className="flex flex-col gap-6">
-        <SectionHeading id="onb-profile" kicker="Profile" title="Introduce your work" description="A concise headline and enough context for collaborators to recognise your strengths." />
+        <SectionHeading id="onb-profile" kicker="Profile" title="Introduce your work" description="A short headline and enough context for people to see your strengths." />
         <div className="onb-field">
           <label htmlFor="headline" className="onb-field-label">Headline</label>
           <Input

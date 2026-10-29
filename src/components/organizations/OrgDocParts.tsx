@@ -187,7 +187,7 @@ export function OrgDocAdminTools({ data, doc, visibility }: { data: OrgDocsData;
             ) : null}
             <label className={box}><input type="checkbox" checked={doc.required} disabled={pending} onChange={(e) => setOption({ required: e.target.checked })} /> Required reading</label>
             <label className={box}><input type="checkbox" checked={doc.template} disabled={pending} onChange={(e) => setOption({ template: e.target.checked })} /> Template</label>
-            <label className={box}><input type="checkbox" checked={doc.showInChildren} disabled={pending} onChange={(e) => setOption({ showInChildren: e.target.checked })} /> Show in child projects</label>
+            <label className={box}><input type="checkbox" checked={doc.showInChildren} disabled={pending} onChange={(e) => setOption({ showInChildren: e.target.checked })} /> Show in every workspace in the organization</label>
             <div className="space-y-1.5 rounded-[5px] border border-border p-2">
                 <Input value={summary} onChange={(e) => setSummary(e.target.value)} maxLength={200} placeholder="What changed? (optional)" aria-label="Change summary" className="h-8 text-[12px]" />
                 <label className={box}><input type="checkbox" checked={reread} onChange={(e) => setReread(e.target.checked)} /> Ask members to re-read</label>
