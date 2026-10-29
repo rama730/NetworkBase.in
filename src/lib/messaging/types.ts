@@ -54,7 +54,7 @@ export type ChatWorkspaceSummary = {
   cover_image: string | null;
   role: string;
   /** Org workspaces (0249): child projects live inside their org's workspace. */
-  kind?: "project" | "organization";
+  kind?: "workspace" | "organization";
   parent_id?: string | null;
   parent_title?: string | null;
 };

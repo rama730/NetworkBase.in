@@ -206,7 +206,7 @@ export async function addWorkspaceMemberInternal(
         userId: string;
         role?: Exclude<WorkspaceMemberRole, "owner">;
         actorId: string;
-        source: "application_accept" | "project_invite" | "manual" | "ownership_transfer" | "join_code" | "email_invite";
+        source: "application_accept" | "workspace_invite" | "manual" | "ownership_transfer" | "join_code" | "email_invite";
         applicationId?: string | null;
         roleId?: string | null;
         incrementRoleCapacity?: boolean;
@@ -334,7 +334,7 @@ export async function addWorkspaceMemberInternal(
         projectId: params.projectId,
         actorId: params.actorId,
         nodeId: null,
-        type: "project_member.added",
+        type: "workspace_member.added",
         metadata: {
             targetUserId: params.userId,
             targetSnapshot: target,
@@ -356,8 +356,8 @@ export async function addWorkspaceMemberInternal(
             previousRole,
             nextRole,
             eventId: event?.id ?? null,
-            source: params.source === "project_invite"
-                ? "project_invite"
+            source: params.source === "workspace_invite"
+                ? "workspace_invite"
                 : params.source === "application_accept"
                     ? "application"
                     : params.source === "ownership_transfer"
@@ -400,7 +400,7 @@ export async function changeWorkspaceMemberRoleInternal(
         projectId: params.projectId,
         actorId: params.actorId,
         nodeId: null,
-        type: "project_member.role_changed",
+        type: "workspace_member.role_changed",
         metadata: {
             targetUserId: params.targetUserId,
             targetSnapshot: target,
@@ -652,7 +652,7 @@ export async function removeWorkspaceMemberInternal(
         projectId: params.projectId,
         actorId: params.actorId,
         nodeId: null,
-        type: "project_member.removed",
+        type: "workspace_member.removed",
         metadata: {
             targetUserId: params.targetUserId,
             targetSnapshot: target,

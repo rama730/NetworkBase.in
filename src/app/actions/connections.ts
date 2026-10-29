@@ -101,7 +101,7 @@ export interface SuggestedProfile extends PersonCardDetails {
     mutualConnections?: number | null;
     recommendationReason?: string;
     projects?: Array<{ id: string; title: string; status: string | null }>;
-    experienceLevel?: 'student' | 'junior' | 'mid' | 'senior' | 'lead' | 'founder' | null;
+    experienceLevel?: 'student' | 'junior' | 'mid' | 'senior' | 'lead' | null;
     skills?: string[];
     interests?: string[];
     openTo?: string[];
@@ -1088,7 +1088,7 @@ async function getConnectionsFeedImpl(
         discoverConditions.push(eq(profiles.visibility, 'public'));
         discoverConditions.push(buildDiscoverProfileSearchCondition(searchTokens));
     }
-    if (input.filters?.seniorPlus) discoverConditions.push(sql`${profiles.experienceLevel} IN ('senior', 'lead', 'founder')`);
+    if (input.filters?.seniorPlus) discoverConditions.push(sql`${profiles.experienceLevel} IN ('senior', 'lead')`);
     discoverConditions.push(...personFilterSql(user.id, input.filters));
     if (input.filters?.openProfilesOnly) {
         // Null settings mean the defaults (public, everyone), as the privacy resolver reads them.
@@ -1199,7 +1199,7 @@ async function getConnectionsFeedImpl(
             )`);
         }
         fallbackConditions.push(...personFilterSql(user.id, input.filters));
-        if (input.filters?.seniorPlus) fallbackConditions.push(sql`${profiles.experienceLevel} IN ('senior', 'lead', 'founder')`);
+        if (input.filters?.seniorPlus) fallbackConditions.push(sql`${profiles.experienceLevel} IN ('senior', 'lead')`);
         if (input.filters?.openProfilesOnly) {
             fallbackConditions.push(sql`coalesce(${profiles.visibility}, 'public') = 'public'`);
             fallbackConditions.push(sql`coalesce(${profiles.connectionPrivacy}, 'everyone') <> 'nobody'`);

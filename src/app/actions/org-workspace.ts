@@ -81,7 +81,7 @@ export async function readSidebarWorkspacesAction(): Promise<SidebarWorkspaces |
         orgs,
         requested,
         outside: mine.filter((r) => r.parent_id && !r.in_org && r.org_title && r.status !== 'archived').map((r) => ({ id: r.id, title: r.title, slug: r.slug, orgTitle: r.org_title! })),
-        personal: mine.filter((r) => r.kind === 'project' && !r.parent_id && r.status !== 'archived').slice(0, 12).map((r) => ({ id: r.id, title: r.title, slug: r.slug, logo: r.logo })),
+        personal: mine.filter((r) => r.kind === 'workspace' && !r.parent_id && r.status !== 'archived').slice(0, 12).map((r) => ({ id: r.id, title: r.title, slug: r.slug, logo: r.logo })),
         archived: mine.filter((r) => r.status === 'archived' && (r.kind === 'organization' || !r.parent_id)).map((r) => ({ id: r.id, title: r.title, slug: r.slug, kind: r.kind })),
     };
 }

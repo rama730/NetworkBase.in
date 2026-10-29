@@ -1,9 +1,9 @@
 // Trust and safety rules (report §30.3), pure so the server and tests agree.
 import { REPORT_REASONS as TERMS_REPORT_REASONS } from "@/lib/copy/terms";
 
-export const REPORT_REASONS = ["impersonation", "spam", "harassment", "inappropriate", "other"] as const;
+export const REPORT_REASONS = ["impersonation", "spam", "harassment", "hate_speech", "inappropriate", "other"] as const;
 export type ReportReason = (typeof REPORT_REASONS)[number];
-// Decision 41: labels from the one list. "hate_speech" joins once the content_reports check allows it (Phase 10).
+// Decision 41: labels from the one list.
 export const REPORT_REASON_LABEL = Object.fromEntries(
   REPORT_REASONS.map((id) => [id, TERMS_REPORT_REASONS.find((r) => r.id === id)!.label]),
 ) as Record<ReportReason, string>;

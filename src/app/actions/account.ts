@@ -267,7 +267,7 @@ export async function transferWorkspaceOwnership(
                 projectId,
                 nodeId: null,
                 actorId: user.id,
-                type: 'project_member.ownership_transferred',
+                type: 'workspace_member.ownership_transferred',
                 metadata: {
                     previousOwnerId: user.id,
                     newOwnerId,

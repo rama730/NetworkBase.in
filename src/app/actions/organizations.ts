@@ -368,7 +368,7 @@ async function childViewer(projectId: string): Promise<ChildViewer | null> {
     if (!userId) return null;
     const [project] = await db.select({ id: workspaces.id, ownerId: workspaces.ownerId, parentId: workspaces.parentId, visibility: workspaces.visibility, slug: workspaces.slug, orgSettings: workspaces.orgSettings, kind: workspaces.kind })
         .from(workspaces).where(and(eq(workspaces.id, projectId), isNull(workspaces.deletedAt))).limit(1);
-    if (!project || project.kind !== 'project') return null;
+    if (!project || project.kind !== 'workspace') return null;
     return { userId, project, isLead: project.ownerId === userId, parentRole: await readViewerOrgRole(project.parentId, userId) };
 }
 

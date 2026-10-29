@@ -80,7 +80,7 @@ export async function POST(request: Request) {
           projectId,
           bucket: "project-files",
           storageKey,
-          scope: "project_file",
+          scope: "workspace_file",
           kind: "file",
           expectedMimeType: file.mimeType,
           expectedSize: file.size,

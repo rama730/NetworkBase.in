@@ -376,7 +376,7 @@ export async function registerUploadedFolderAction(
             storageKey: entry.storageKey,
             userId: user.id,
             projectId,
-            expectedScope: 'project_file',
+            expectedScope: 'workspace_file',
             expectedKind: 'file',
           }))));
       }

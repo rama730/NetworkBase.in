@@ -191,7 +191,7 @@ async function repairCandidate(
       projectId: candidate.projectId,
       bucket: "project-files",
       storageKey,
-      purpose: "project_file:file",
+      purpose: "workspace_file:file",
       state: "verified",
       declaredMimeType: mimeType,
       declaredSize: size,

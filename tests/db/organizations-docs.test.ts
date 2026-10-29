@@ -50,7 +50,7 @@ async function orgWithChild() {
 /** A published, version-backed doc (no file needed). */
 async function addDoc(projectId: string, slug: string, content: string, org: Record<string, unknown> = {}) {
   const [doc] = await sql`INSERT INTO workspace_documents (workspace_id, slug, filename, settings)
-    VALUES (${projectId}, ${slug}, ${`${slug}.md`}, ${sql.json({ version: 1, editPolicy: "leaders", visibilityOverride: "inherit_project", externalImages: false, projectBlocks: true, org })}) RETURNING id`;
+    VALUES (${projectId}, ${slug}, ${`${slug}.md`}, ${sql.json({ version: 1, editPolicy: "leaders", visibilityOverride: "inherit_workspace", externalImages: false, projectBlocks: true, org })}) RETURNING id`;
   const [version] = await sql`INSERT INTO workspace_document_versions (workspace_id, doc_id, version_number, content, content_hash)
     VALUES (${projectId}, ${doc!.id}, 1, ${content}, ${slug}) RETURNING id`;
   await sql`UPDATE workspace_documents SET published_version_id = ${version!.id} WHERE id = ${doc!.id}`;

@@ -215,7 +215,7 @@ export const profiles = pgTable(
       .default({})
       .notNull(),
     experienceLevel: text("experience_level", {
-      enum: ["student", "junior", "mid", "senior", "lead", "founder"],
+      enum: ["student", "junior", "mid", "senior", "lead"],
     }),
     hoursPerWeek: text("hours_per_week", {
       enum: ["lt_5", "h_5_10", "h_10_20", "h_20_40", "h_40_plus"],
@@ -762,7 +762,7 @@ export const workspaces = pgTable(
       enum: ["public", "private", "unlisted", "org"],
     }).default("public"),
     // Organizations (0241): an org is a project with kind "organization"; children point to it with parentId.
-    kind: text("kind", { enum: ["project", "organization"] }).default("project").notNull(),
+    kind: text("kind", { enum: ["workspace", "organization"] }).default("workspace").notNull(),
     parentId: uuid("parent_id").references((): AnyPgColumn => workspaces.id, { onDelete: "set null" }),
     orgType: text("org_type", { enum: ["education", "company", "community", "research", "club", "other"] }),
     orgSettings: jsonb("org_settings").$type<Record<string, unknown>>().default({}).notNull(),
@@ -938,8 +938,8 @@ export const workspaces = pgTable(
     verificationRequestedIdx: index("workspaces_verification_requested_idx").on(t.verificationRequestedAt).where(sql`${t.verificationRequestedAt} IS NOT NULL`),
     verifiedByIdx: index("workspaces_verified_by_idx").on(t.verifiedBy).where(sql`${t.verifiedBy} IS NOT NULL`),
     joinCodeUnique: uniqueIndex("workspaces_join_code_unique").on(t.joinCode).where(sql`${t.joinCode} IS NOT NULL`),
-    kindCheck: check("workspaces_kind_check", sql`${t.kind} IN ('project', 'organization')`),
-    orgHasNoParent: check("workspaces_org_has_no_parent", sql`${t.kind} = 'project' OR ${t.parentId} IS NULL`),
+    kindCheck: check("workspaces_kind_check", sql`${t.kind} IN ('workspace', 'organization')`),
+    orgHasNoParent: check("workspaces_org_has_no_parent", sql`${t.kind} = 'workspace' OR ${t.parentId} IS NULL`),
     orgTypeCheck: check("workspaces_org_type_check", sql`${t.orgType} IS NULL OR ${t.orgType} IN ('education', 'company', 'community', 'research', 'club', 'other')`),
     termCheck: check("workspaces_term_check", sql`${t.termEnd} IS NULL OR ${t.termStart} IS NULL OR ${t.termEnd} >= ${t.termStart}`),
   }),
@@ -1339,7 +1339,7 @@ export const profileContributionStages = pgTable(
         "owner",
         "manual",
         "role_change",
-        "project_invite",
+        "workspace_invite",
         "ownership_transfer",
         "removal",
         "backfill",
@@ -1473,7 +1473,7 @@ export const workspaceDocuments = pgTable(
         version: number;
         editPolicy: "leaders" | "members";
         visibilityOverride:
-          | "inherit_project"
+          | "inherit_workspace"
           | "public"
           | "members_only"
           | "leaders_only";
@@ -1485,7 +1485,7 @@ export const workspaceDocuments = pgTable(
       .default({
         version: 1,
         editPolicy: "leaders",
-        visibilityOverride: "inherit_project",
+        visibilityOverride: "inherit_workspace",
         externalImages: false,
         projectBlocks: true,
       })
@@ -2795,7 +2795,7 @@ export const contentReports = pgTable("content_reports", {
   targetKind: text("target_kind").$type<"project" | "update" | "update_comment" | "doc" | "task_comment">().notNull(),
   targetId: uuid("target_id").notNull(),
   projectId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "cascade" }),
-  reason: text("reason").$type<"impersonation" | "spam" | "harassment" | "inappropriate" | "other">().notNull(),
+  reason: text("reason").$type<"impersonation" | "spam" | "harassment" | "hate_speech" | "inappropriate" | "other">().notNull(),
   details: text("details"),
   status: text("status").$type<"open" | "dismissed" | "actioned">().default("open").notNull(),
   action: text("action").$type<"hidden" | "removed" | "suspended">(),
@@ -2810,7 +2810,7 @@ export const contentReports = pgTable("content_reports", {
   projectIdx: index("content_reports_workspace_idx").on(t.projectId).where(sql`${t.projectId} IS NOT NULL`),
   resolvedByIdx: index("content_reports_resolved_by_idx").on(t.resolvedBy).where(sql`${t.resolvedBy} IS NOT NULL`),
   kindCheck: check("content_reports_kind_check", sql`${t.targetKind} IN ('project', 'update', 'update_comment', 'doc', 'task_comment')`),
-  reasonCheck: check("content_reports_reason_check", sql`${t.reason} IN ('impersonation', 'spam', 'harassment', 'inappropriate', 'other')`),
+  reasonCheck: check("content_reports_reason_check", sql`${t.reason} IN ('impersonation', 'spam', 'harassment', 'hate_speech', 'inappropriate', 'other')`),
   statusCheck: check("content_reports_status_check", sql`${t.status} IN ('open', 'dismissed', 'actioned')`),
   actionCheck: check("content_reports_action_check", sql`${t.action} IS NULL OR ${t.action} IN ('hidden', 'removed', 'suspended')`),
 }));
@@ -3323,7 +3323,7 @@ export const uploadIntents = pgTable(
     bucket: text("bucket").notNull(),
     storageKey: text("storage_key").notNull(),
     scope: text("scope", {
-      enum: ["project_file", "project_update_media", "profile_image", "project_cover", "chat_attachment", "recovery_draft", "import_manifest", "sync_snapshot", "contribution_image"],
+      enum: ["workspace_file", "workspace_update_media", "profile_image", "workspace_cover", "chat_attachment", "recovery_draft", "import_manifest", "sync_snapshot", "contribution_image"],
     }).notNull(),
     kind: text("kind", { enum: ["file", "avatar", "banner", "cover", "draft", "manifest", "snapshot"] }).notNull(),
     expectedMimeType: text("expected_mime_type").notNull(),

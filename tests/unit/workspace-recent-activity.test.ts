@@ -51,9 +51,9 @@ test("legacy file privacy flags fail closed and do not leak private uploads", ()
 });
 
 test("member joins and role changes are distinct while no-op updates are excluded", () => {
-  assert.equal(describeMembershipEvent("Ada", "project_member.added", { previousRole: null, nextRole: "member" }), "Ada joined the workspace");
-  assert.equal(describeMembershipEvent("Ada", "project_member.role_changed", { previousRole: "member", nextRole: "admin" }), "Ada became admin");
-  assert.equal(describeMembershipEvent("Ada", "project_member.added", { previousRole: "member", nextRole: "member" }), null);
+  assert.equal(describeMembershipEvent("Ada", "workspace_member.added", { previousRole: null, nextRole: "member" }), "Ada joined the workspace");
+  assert.equal(describeMembershipEvent("Ada", "workspace_member.role_changed", { previousRole: "member", nextRole: "admin" }), "Ada became admin");
+  assert.equal(describeMembershipEvent("Ada", "workspace_member.added", { previousRole: "member", nextRole: "member" }), null);
 });
 
 test("completed direct pushes and pull requests have distinct copy and private names have a fallback", () => {

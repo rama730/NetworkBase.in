@@ -36,7 +36,7 @@ export type ProfileCollaborationMemberPreview = {
 
 export type ProfileCollaborationWorkspace = {
   /** Organizations group first on Portfolio; child cards carry their org line (report §24.4). */
-  kind?: "project" | "organization";
+  kind?: "workspace" | "organization";
   cardOrg?: { title: string; slug: string | null } | null;
   id: string;
   ownerId: string;
@@ -394,7 +394,7 @@ function projectFromRow(row: ProfileProjectRow): ProfileCollaborationWorkspace {
   const href = buildProjectHref({ id: row.project_id, slug: row.slug });
   const roleKind = trimDisplayText(row.user_role) || "contributor";
   return {
-    kind: row.kind === "organization" ? "organization" : "project",
+    kind: row.kind === "organization" ? "organization" : "workspace",
     cardOrg: row.parent_org_title ? { title: row.parent_org_title, slug: row.parent_org_slug ?? null } : null,
     id: row.project_id,
     ownerId: row.owner_id,
@@ -1140,7 +1140,7 @@ export async function upsertProfileWorkspaceContributionFromMembership(
     previousRole?: string | null;
     nextRole?: string | null;
     eventId?: string | null;
-    source?: "membership" | "application" | "owner" | "role_change" | "project_invite" | "ownership_transfer" | "backfill";
+    source?: "membership" | "application" | "owner" | "role_change" | "workspace_invite" | "ownership_transfer" | "backfill";
     effectiveAt?: Date;
   },
 ) {

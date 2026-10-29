@@ -46,11 +46,11 @@ export function isPublishableFileMetadata(metadata: Record<string, unknown> | nu
     && metadata.analyticsVisible !== false && analytics?.analyticsVisible !== false;
 }
 
-export function describeMembershipEvent(name: string, type: "project_member.added" | "project_member.role_changed", metadata: Record<string, unknown>) {
+export function describeMembershipEvent(name: string, type: "workspace_member.added" | "workspace_member.role_changed", metadata: Record<string, unknown>) {
   const previousRole = typeof metadata.previousRole === "string" ? metadata.previousRole : null;
   const nextRole = typeof metadata.nextRole === "string" ? metadata.nextRole : null;
-  if (type === "project_member.added" && previousRole === nextRole) return null;
-  return type === "project_member.role_changed" || previousRole
+  if (type === "workspace_member.added" && previousRole === nextRole) return null;
+  return type === "workspace_member.role_changed" || previousRole
     ? `${name} became ${nextRole || "a member"}`
     : `${name} joined the workspace`;
 }

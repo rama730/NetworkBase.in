@@ -99,7 +99,7 @@ test("COR-004: merged edits carry the staged verified asset onto the canonical n
   const p = await setup();
   const { canonical, assetId } = await sql.begin(async (tx) => {
     const [asset] = await tx`INSERT INTO public.storage_assets (workspace_id, owner_user_id, bucket, storage_key, purpose, state, declared_mime_type, declared_size, verified_mime_type, verified_size, verified_at, content_hash, expires_at)
-      VALUES (${p.projectId}, ${p.owner}, 'project-files', ${`${p.projectId}/new`}, 'project_file:file', 'verified', 'text/plain', 3, 'text/plain', 3, now(), 'abc', now() + interval '1 day') RETURNING id`;
+      VALUES (${p.projectId}, ${p.owner}, 'project-files', ${`${p.projectId}/new`}, 'workspace_file:file', 'verified', 'text/plain', 3, 'text/plain', 3, now(), 'abc', now() + interval '1 day') RETURNING id`;
     const canonicalId = await node(tx, { projectId: p.projectId, path: "/f.txt", s3: `${p.projectId}/old` });
     const staged = await node(tx, { projectId: p.projectId, path: "/f.txt", taskId: p.taskId, canonical: canonicalId, s3: `${p.projectId}/new`, assetId: asset!.id });
     await tx`INSERT INTO public.file_versions (node_id, version, s3_key, size, mime_type, content_hash, asset_id) VALUES (${staged}, 1, ${`${p.projectId}/new`}, 3, 'text/plain', 'abc', ${asset!.id})`;

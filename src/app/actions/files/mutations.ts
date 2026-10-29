@@ -291,7 +291,7 @@ export async function createFileNode(projectId: string, parentId: string | null,
         bucket: 'project-files',
         userId: user.id,
         projectId,
-        expectedScope: 'project_file',
+        expectedScope: 'workspace_file',
         expectedKind: 'file',
     });
 
@@ -475,7 +475,7 @@ export async function finalizeBatchUpload(
                 bucket: 'project-files',
                 userId: user.id,
                 projectId,
-                expectedScope: 'project_file',
+                expectedScope: 'workspace_file',
                 expectedKind: 'file',
             }, preloaded);
 

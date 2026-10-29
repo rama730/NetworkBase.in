@@ -327,7 +327,7 @@ export async function resolveWorkspaceInvitationInternal(
         userId: invitation.candidateId,
         role: invitation.kind === "guidance_appointment" ? "admin" : "member",
         actorId: input.actorId,
-        source: "project_invite",
+        source: "workspace_invite",
         roleId: invitation.kind === "ordinary_role" ? invitation.roleId : null,
         incrementRoleCapacity: invitation.kind === "ordinary_role" && Boolean(invitation.roleId),
     });

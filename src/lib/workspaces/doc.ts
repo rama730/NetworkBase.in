@@ -16,8 +16,8 @@ export {
 } from "@/lib/workspaces/doc-slug";
 
 export type WorkspaceDocEditPolicy = "leaders" | "members";
-export type WorkspaceDocPublicVisibility = "inherit_project";
-export type WorkspaceDocVisibilityOverride = "inherit_project" | "public" | "members_only" | "leaders_only";
+export type WorkspaceDocPublicVisibility = "inherit_workspace";
+export type WorkspaceDocVisibilityOverride = "inherit_workspace" | "public" | "members_only" | "leaders_only";
 
 export type WorkspaceDocSettings = {
     version: 1;
@@ -93,21 +93,21 @@ const GENERATED_COLLABORATION_FOOTER_RE = /(?:\n{1,3}|^)\s{0,3}#{0,6}\s*Collabor
 export const DEFAULT_WORKSPACE_DOC_SETTINGS: WorkspaceDocSettings = {
     version: 1,
     editPolicy: "leaders",
-    publicVisibility: "inherit_project",
-    visibilityOverride: "inherit_project",
+    publicVisibility: "inherit_workspace",
+    visibilityOverride: "inherit_workspace",
     externalImages: false,
     projectBlocks: true,
 };
 
 export function normalizeWorkspaceDocSettings(value: unknown): WorkspaceDocSettings {
     const source = value && typeof value === "object" ? value as Partial<WorkspaceDocSettings> : {};
-    const visibilityOverride = source.visibilityOverride === "public" || source.visibilityOverride === "members_only" || source.visibilityOverride === "leaders_only" || source.visibilityOverride === "inherit_project"
+    const visibilityOverride = source.visibilityOverride === "public" || source.visibilityOverride === "members_only" || source.visibilityOverride === "leaders_only" || source.visibilityOverride === "inherit_workspace"
         ? source.visibilityOverride
-        : "inherit_project";
+        : "inherit_workspace";
     return {
         version: 1,
         editPolicy: source.editPolicy === "members" ? "members" : "leaders",
-        publicVisibility: "inherit_project",
+        publicVisibility: "inherit_workspace",
         visibilityOverride,
         externalImages: typeof source.externalImages === "boolean" ? source.externalImages : DEFAULT_WORKSPACE_DOC_SETTINGS.externalImages,
         projectBlocks: typeof source.projectBlocks === "boolean" ? source.projectBlocks : DEFAULT_WORKSPACE_DOC_SETTINGS.projectBlocks,
@@ -253,7 +253,7 @@ export function resolveWorkspaceDocPermission(input: {
     const isCoLeader = role === "admin";
     const isMember = isActiveMember || isOwner || isCoLeader || role === "member" || role === "viewer";
     
-    const override = settings.visibilityOverride || "inherit_project";
+    const override = settings.visibilityOverride || "inherit_workspace";
 
     const isDraftProject = !input.projectStatus?.trim() || input.projectStatus === "draft";
     let isPublishedPublic = false;
@@ -264,7 +264,7 @@ export function resolveWorkspaceDocPermission(input: {
     } else if (override === "leaders_only") {
         isPublishedPublic = false;
     } else {
-        // "public" and "inherit_project" both need a publicly readable project with
+        // "public" and "inherit_workspace" both need a publicly readable project with
         // the Readme tab, exactly like the project_docs RLS policy; an override never
         // publishes a doc out of a private project.
         isPublishedPublic = visibility === "public" && publicTabs.readme && Boolean(input.hasPublishedReadme);

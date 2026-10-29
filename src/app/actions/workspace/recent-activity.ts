@@ -41,8 +41,8 @@ export async function readWorkspaceRecentActivityAction(projectId: string): Prom
     .innerJoin(member, and(eq(member.id, workspaceMembers.userId), isNull(member.deletedAt)))
     .where(and(
       eq(workspaceNodeEvents.projectId, projectId),
-      inArray(workspaceNodeEvents.type, ["project_member.added", "project_member.role_changed"]),
-      sql`(${workspaceNodeEvents.type} = 'project_member.role_changed' OR
+      inArray(workspaceNodeEvents.type, ["workspace_member.added", "workspace_member.role_changed"]),
+      sql`(${workspaceNodeEvents.type} = 'workspace_member.role_changed' OR
         coalesce(${workspaceNodeEvents.metadata}->>'previousRole', '') <> coalesce(${workspaceNodeEvents.metadata}->>'nextRole', ''))`,
       audience.requirePublicProfile ? eq(member.visibility, "public") : undefined,
     ))
@@ -105,7 +105,7 @@ export async function readWorkspaceRecentActivityAction(projectId: string): Prom
   for (const event of memberEvents) {
     const metadata = event.metadata ?? {};
     const name = activityActorName({ fullName: event.name, username: event.username });
-    const text = describeMembershipEvent(name, event.type as "project_member.added" | "project_member.role_changed", metadata);
+    const text = describeMembershipEvent(name, event.type as "workspace_member.added" | "workspace_member.role_changed", metadata);
     if (!text) continue;
     items.push({ id: `member:${event.id}`, type: "member",
       text,
