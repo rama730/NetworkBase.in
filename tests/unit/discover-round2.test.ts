@@ -53,8 +53,8 @@ test("round 2: Escape in an open combobox closes its list, not the dialog", () =
 
 test("round 2: one set of words for connection states, with correct plurals", async () => {
   const { CONNECTION_COPY } = await import("../../src/lib/connections/copy");
-  assert.equal(CONNECTION_COPY.shared(1), "1 shared connection");
-  assert.equal(CONNECTION_COPY.shared(3), "3 shared connections");
+  assert.equal(CONNECTION_COPY.shared(1), "1 mutual connection");
+  assert.equal(CONNECTION_COPY.shared(3), "3 mutual connections");
   for (const file of ["src/components/discover/DiscoverPeopleRail.tsx", "src/components/network/PersonCard.tsx"]) {
     assert.match(read(file), /CONNECTION_COPY\.(review|notAccepting)/, file);
   }

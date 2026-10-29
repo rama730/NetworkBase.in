@@ -96,7 +96,7 @@ export async function createProjectInvitationAction(input: CreateInvitationActio
                 preview: {
                     contextLabel: invitation.projectTitle,
                     contextKind: "workflow",
-                    secondaryText: invitation.kind === "guidance_appointment" ? "Mentor invitation" : "Project invitation",
+                    secondaryText: invitation.kind === "guidance_appointment" ? "Mentor invitation" : "Workspace invitation",
                 },
                 dedupeKey: `project-invitation:${invitation.id}:created`,
             });

@@ -487,7 +487,7 @@ export function TextViewer({
     if (isSaving) return;
     if (!isDirty) return;
     if (!node.s3Key) {
-      toast.error("Cannot save: file has no storage key");
+      toast.error("This file can’t be saved. Reopen it.");
       return;
     }
     setIsModalOpen(true);
@@ -508,7 +508,7 @@ export function TextViewer({
           nodeId: node.id,
           file,
           mode: choice.option === "commit" ? "new_revision" : "active_revision",
-          comment: choice.comment || (choice.option === "commit" ? "Updated via editor" : null),
+          comment: choice.comment || (choice.option === "commit" ? "Edited in NetworkBase" : null),
           baseVersion,
           baseHash,
           lease,
@@ -716,7 +716,7 @@ export function TextViewer({
           {leaseConflict
             ? `${leaseConflict.lockedByName || "Another member"} is editing this file${leaseConflict.clientKind === "vscode" ? " in VS Code" : ""}.`
             : "The editing lease was lost. Your unsaved buffer is preserved, but saving is blocked until editing access is restored."}
-          {onRetryLease && <Button variant="outline" size="sm" className="ml-2" onClick={onRetryLease}>Retry editing access</Button>}
+          {onRetryLease && <Button variant="outline" size="sm" className="ml-2" onClick={onRetryLease}>Try editing again</Button>}
         </div>
       ) : null}
       <div className="min-h-0 flex-1">

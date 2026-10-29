@@ -722,7 +722,7 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
                         )}
                         data-readme-media-kind={image.kind}
                         data-readme-media-blocked={image.blockedReason ?? "invalid"}
-                        title={image.blockedReason === "external" ? (canUnlock ? "External image hidden for privacy. Click to load all external images." : "External image hidden by document settings.") : "Document image could not be resolved."}
+                        title={image.blockedReason === "external" ? (canUnlock ? "Images from other websites are hidden for privacy. Show images." : "External image hidden by document settings.") : "Image couldn’t load."}
                         {...sourceProps}
                     >
                         {image.blockedReason === "external" ? (

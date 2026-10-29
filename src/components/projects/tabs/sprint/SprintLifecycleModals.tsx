@@ -160,7 +160,7 @@ export function SprintLifecycleModals({
               {remainingTasks > 0 ? ` · ${remainingTasks} remaining` : ""}
             </p>
             <div
-              aria-label="Unfinished task handling"
+              aria-label="Unfinished tasks"
               className="space-y-2"
               role="radiogroup"
             >
@@ -197,7 +197,7 @@ export function SprintLifecycleModals({
 
             {requiresTargetSprint ? (
               <label className="block space-y-2 font-mono text-xs font-medium uppercase tracking-[0.09em] text-foreground">
-                Destination sprint
+                Move to sprint
                 <select
                   className="nb-touch-target h-[34px] w-full rounded-[5px] border border-input bg-background px-3 font-mono text-xs uppercase tracking-[0.09em] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   disabled={isMutating || carryOverSprints.length === 0}

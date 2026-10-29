@@ -174,7 +174,7 @@ test('Units panel (§14.4): rename, seats, unit lead and Move to…, all native 
 test('Assignments (§16): the review queue steps with Next; the roster has Remind, Add step and per-person team moves, on a phone', async ({ page }) => {
     await open(page, 'tasks');
     await page.getByRole('button', { name: 'Review' }).click();
-    const queue = page.getByRole('region', { name: 'Review queue' });
+    const queue = page.getByRole('region', { name: 'To review' });
     await expect(queue.getByText('1 of 2 waiting')).toBeVisible();
     await expect(queue.getByText(/Team A · Lab 3 — Consensus protocols · .* · Late · submitted by Asha Nair/)).toBeVisible();
     await queue.getByRole('button', { name: 'Next' }).click();

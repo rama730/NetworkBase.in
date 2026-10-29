@@ -24,7 +24,7 @@ import type { Project } from '@/types/discover'
 // visibility within the cap, inherited admins, and detach. For a personal project: Move to an organization.
 
 const CAP_LABEL: Record<string, string> = { public: 'Public allowed', org: 'Org only at most', private: 'Private only' }
-const VIS_LABEL: Record<ChildVisibility, string> = { public: 'Public', org: 'Org only', private: 'Private' }
+const VIS_LABEL: Record<ChildVisibility, string> = { public: 'Public', org: 'Organization', private: 'Private' }
 
 function useRun() {
     const router = useRouter()

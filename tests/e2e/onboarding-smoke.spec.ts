@@ -210,7 +210,7 @@ test.describe('Onboarding smoke', () => {
 
         // Step 2 is one page: every group is here at once.
         await page.getByLabel('Experience level').selectOption({ label: 'Mid-level' })
-        await page.getByLabel('Weekly capacity').selectOption({ label: '10–20 hours per week' })
+        await page.getByLabel('Weekly availability').selectOption({ label: '10–20 hours per week' })
         await page.getByRole('button', { name: 'Freelance' }).click()
         await page.getByLabel('GitHub').fill('github.com/onboarding-happy')
         await page.getByText('Male', { exact: true }).click()

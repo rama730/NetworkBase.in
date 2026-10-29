@@ -53,7 +53,7 @@ export function OrgDashboard({ orgId, orgSlug }: { orgId: string; orgSlug: strin
                     </RailSection>
                 ) : null}
                 {data.needsYou.length ? (
-                    <RailSection title="Needs you">
+                    <RailSection title="Needs your attention">
                         <ul>{data.needsYou.slice(0, 5).map((n) => <li key={`${n.kind}:${n.label}`}><Link href={n.href} className={cn(row, 'hover:text-primary')}><span className="truncate">{n.label}</span><span aria-hidden="true">→</span></Link></li>)}</ul>
                         {data.needsYou.length > 5 ? <p className="text-[12px] text-muted-foreground">and {data.needsYou.length - 5} more</p> : null}
                     </RailSection>
@@ -175,7 +175,7 @@ export function OrgProjectsTab({ orgId, orgSlug }: { orgId: string; orgSlug?: st
                     <option value="all">Active</option>{data.isAdmin ? <option value="attention">Needs attention</option> : null}<option value="quiet">Quiet 7 days</option><option value="archived">Archived</option>
                 </select>
                 <select aria-label="Visibility" className={sel} value={visibility} onChange={(e) => setVisibility(e.target.value)}>
-                    <option value="all">Any visibility</option><option value="org">Org only</option><option value="private">Private</option><option value="public">Public</option>
+                    <option value="all">Any visibility</option><option value="org">Organization</option><option value="private">Private</option><option value="public">Public</option>
                 </select>
                 {stages.length ? (
                     <select aria-label="Stage" className={sel} value={stage} onChange={(e) => setStage(e.target.value)}>
@@ -210,7 +210,7 @@ export function OrgProjectsTab({ orgId, orgSlug }: { orgId: string; orgSlug?: st
                             </p>
                             <p className="mt-1 text-[12px] text-muted-foreground">{r.lead?.name} (lead) · {r.members} {r.members === 1 ? 'member' : 'members'}{r.sprint ? ` · ${r.sprint.name}` : ''}</p>
                             <p className="mt-1 flex items-center justify-between gap-2 text-[12px] text-muted-foreground">
-                                <span>{r.visibility === 'org' ? 'Org only' : r.visibility === 'private' ? 'Private' : 'Public'} · active {ago(r.lastActivityAt)}</span>
+                                <span>{r.visibility === 'org' ? 'Organization' : r.visibility === 'private' ? 'Private' : 'Public'} · active {ago(r.lastActivityAt)}</span>
                                 {messageLead(r)}
                             </p>
                         </li>
@@ -225,7 +225,7 @@ export function OrgProjectsTab({ orgId, orgSlug }: { orgId: string; orgSlug?: st
                         <div className="min-w-0 flex-1">
                             <p className="flex flex-wrap items-center gap-x-1.5">
                                 <Link href={`/projects/${encodeURIComponent(r.slug ?? r.id)}`} className="font-medium hover:underline">{r.title}</Link>
-                                <span className="rounded-[3px] border border-border px-1 text-[11px] text-muted-foreground">{r.visibility === 'org' ? 'Org only' : r.visibility === 'private' ? 'Private' : 'Public'}</span>
+                                <span className="rounded-[3px] border border-border px-1 text-[11px] text-muted-foreground">{r.visibility === 'org' ? 'Organization' : r.visibility === 'private' ? 'Private' : 'Public'}</span>
                                 {r.newInOrg ? <span className="nb-status" data-status="active">New in this org</span> : null}
                                 <span className="text-muted-foreground">{r.lead?.name} (lead) · {r.members} {r.members === 1 ? 'member' : 'members'}{r.units ? ` · ${r.units} units` : ''}</span>
                                 {r.sprint ? <span className="text-muted-foreground">· {r.sprint.name}{r.sprint.inOrgSprint ? ' · in the org sprint' : ''}</span> : null}

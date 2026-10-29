@@ -26,7 +26,7 @@ test("withdrawn and ended membership can apply again", () => {
   assert.equal(withdrawn.applyLabel, "Apply again");
   const ended = describeApplyCard({ status: "accepted", membershipEnded: true }, ready);
   assert.equal(ended.blockedReason, null);
-  assert.match(ended.banner?.text ?? "", /were on this project/);
+  assert.match(ended.banner?.text ?? "", /You were a member/);
   const joined = describeApplyCard({ status: "accepted", roleTitle: "Designer" }, ready);
   assert.equal(joined.banner?.text, "You joined as Designer");
 });

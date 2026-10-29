@@ -292,7 +292,7 @@ function Members({ channel, meId, onAdd, onJoin, scrollParent }: { channel: Chan
       <label className="relative block">
         <span className="sr-only">Find members</span>
         <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-        <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={capped ? "Find among the first 500 members" : `Find among ${channel.member_count} members`} className="pl-9 pr-9 pointer-coarse:h-11" />
+        <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={capped ? "Search the first 500 members" : `Find among ${channel.member_count} members`} className="pl-9 pr-9 pointer-coarse:h-11" />
         {filter ? (
           <button type="button" onClick={() => setFilter("")} aria-label="Clear search" className="nb-icon-button absolute right-1 top-1/2 size-7 -translate-y-1/2"><X size={14} /></button>
         ) : null}
@@ -359,7 +359,7 @@ function PersonDetails({ channel, meId, setState, onClose }: { channel: ChannelD
         <div className="space-y-3 p-4">
           {context.data.sharedProjects.length ? (
             <div>
-              <p className="nb-micro mb-1">Projects in common</p>
+              <p className="nb-micro mb-1">Workspaces in common</p>
               {context.data.sharedProjects.map((p) => <Link key={p.id} href={`/projects/${p.slug ?? p.id}`} className="block truncate py-0.5 text-[13px] text-primary hover:underline">{p.title}</Link>)}
             </div>
           ) : null}
@@ -506,7 +506,7 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
               </div>
             ) : !channel.is_member && channel.kind === "public" ? (
               <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted px-4 py-3 text-[13px]">
-                <span className="flex-1">You’re previewing <strong className="font-semibold">#{channel.name}</strong>.</span>
+                <span className="flex-1">You’re previewing <strong className="font-semibold">#{channel.name}</strong>. Join to post.</span>
                 <Button type="button" size="sm" onClick={() => void join()} className="pointer-coarse:h-11">Join</Button>
               </div>
             ) : null}

@@ -165,7 +165,7 @@ test("typography conforms to Section 04: headings and action buttons use Instrum
   assert.doesNotMatch(
     tasksTabContent,
     /TASK BOARD/,
-    "TasksTab header should use title case 'Task board' without uppercase tracking",
+    "TasksTab header should use title case 'Board' without uppercase tracking",
   );
   assert.doesNotMatch(
     tasksTabContent,

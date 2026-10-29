@@ -384,7 +384,7 @@ export function OrgProjectsSection({ orgId, organization }: SectionProps) {
                                 </label>
                             ))}
                         </div>
-                        {affected ? <p role="status" className="mt-2 text-sm text-foreground">This will change {affected} {affected === 1 ? 'project' : 'projects'} to {cap === 'private' ? 'Private' : 'Org only'}.</p> : null}
+                        {affected ? <p role="status" className="mt-2 text-sm text-foreground">This will change {affected} {affected === 1 ? 'project' : 'projects'} to {cap === 'private' ? 'Private' : 'Organization'}.</p> : null}
                     </fieldset>
                     <div className="flex items-start justify-between gap-4">
                         <div>

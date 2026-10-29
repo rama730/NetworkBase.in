@@ -365,7 +365,7 @@ export default function CreateTaskModal({
 
               {/* Section 2: Planning & Assignment */}
               <div className="space-y-3.5">
-                <SectionDivider title="Planning and assignment" />
+                <SectionDivider title="Sprint and assignee" />
 
                 <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
                   <Field
@@ -486,7 +486,7 @@ export default function CreateTaskModal({
 
               {/* Section 3: Schedule & Estimate */}
               <div className="space-y-3.5">
-                <SectionDivider title="Schedule and estimate" />
+                <SectionDivider title="Schedule" />
 
                 <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
                   <Field
@@ -516,7 +516,7 @@ export default function CreateTaskModal({
                       />
                       <div className="flex flex-wrap items-center gap-1">
                         <span className="shrink-0 font-mono text-[10px] max-md:text-[11px] uppercase tracking-[0.06em] text-muted-foreground mr-0.5 whitespace-nowrap">
-                          Quick set:
+                          Quick dates:
                         </span>
                         {[
                           { label: "1 week", days: 7 },
@@ -600,7 +600,7 @@ export default function CreateTaskModal({
 
               {/* Section 4: Subtasks & References */}
               <div className="space-y-3.5">
-                <SectionDivider title="Subtasks and references">
+                <SectionDivider title="Subtasks and files">
                   <div className="flex items-center gap-2">
                     {subtasks.length > 0 && (
                       <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] border border-border bg-muted/40 px-1 font-mono text-[10px] max-md:text-[11px] font-semibold text-muted-foreground">

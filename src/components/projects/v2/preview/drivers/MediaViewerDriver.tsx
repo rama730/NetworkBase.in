@@ -1244,7 +1244,7 @@ export function MediaViewerDriver({
                   variant="ghost"
                   onClick={() => setShowShareMenu((prev) => !prev)}
                   className="h-7 px-2 text-xs text-white/80 hover:text-white hover:bg-white/10 rounded-[6px]"
-                  title="Share options"
+                  title="Share"
                 >
                   <Copy className="h-3.5 w-3.5 mr-1" />
                   Share

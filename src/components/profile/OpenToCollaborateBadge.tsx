@@ -51,7 +51,7 @@ export function OpenToCollaborateBadge({
                     className
                 )}
             >
-                <span>Open to collaborate</span>
+                <span>Open to collaboration</span>
             </span>
         );
     }
@@ -70,10 +70,10 @@ export function OpenToCollaborateBadge({
 
     const preferences = [
         { label: 'Role types', values: roles.map((role) => rolePreferenceLabel(role) || role) },
-        { label: 'Desired roles', values: safeCustomRoles },
+        { label: 'Preferred roles', values: safeCustomRoles },
         { label: 'Categories', values: safeCategories },
         { label: 'Experience', values: experience ? [experience] : [] },
-        { label: 'Weekly hours', values: capacity ? [capacity.compactLabel] : [], description: capacity?.label },
+        { label: 'Weekly availability', values: capacity ? [capacity.compactLabel] : [], description: capacity?.label },
     ].filter((row) => row.values.length > 0);
 
     const hasPreferences = preferences.length > 0;
@@ -93,7 +93,7 @@ export function OpenToCollaborateBadge({
                 onPointerLeave={(e) => e.pointerType === 'mouse' && schedule(false, 150)}
                 onClick={() => setOpen((prev) => !prev)}
             >
-                <span>Open to collaborate</span>
+                <span>Open to collaboration</span>
             </Popover.Trigger>
 
             <Popover.Portal>
@@ -141,7 +141,7 @@ export function OpenToCollaborateBadge({
 
                     {/* Footer note */}
                     <div className="pt-2 border-t border-border/50 flex items-center justify-between text-[11px] text-muted-foreground">
-                        <span>Role preferences</span>
+                        <span>Collaboration preferences</span>
                         <span className="text-[10px] text-muted-foreground/75">NetworkBase Collaboration</span>
                     </div>
                 </Popover.Content>

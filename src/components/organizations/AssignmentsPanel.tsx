@@ -298,12 +298,12 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
                     <div className="grid gap-3 sm:grid-cols-2">
                         <label className="block text-sm font-medium">Submission
                             <select value={submissionType} onChange={(e) => setSubmissionType(e.target.value as typeof submissionType)} className={`${select} mt-1 w-full`}>
-                                <option value="file">A file</option><option value="link">A link</option><option value="text">Text</option><option value="none">Nothing (mark done)</option>
+                                <option value="file">A file</option><option value="link">A link</option><option value="text">Text</option><option value="none">No submission</option>
                             </select>
                         </label>
                         <label className="block text-sm font-medium">Late submissions
                             <select value={lateRule} onChange={(e) => setLateRule(e.target.value as typeof lateRule)} className={`${select} mt-1 w-full`}>
-                                <option value="always">Always allowed (labelled Late)</option><option value="until">Allowed until a date</option><option value="none">Not allowed</option>
+                                <option value="always">Always allowed</option><option value="until">Allowed until a date</option><option value="none">Not allowed</option>
                             </select>
                         </label>
                     </div>
@@ -561,7 +561,7 @@ function ReviewQueue({ orgId, onChanged }: { orgId: string; onChanged: () => voi
         })
     }
     return (
-        <section aria-label="Review queue" className="mt-3 space-y-2 rounded-md border border-border p-3 text-sm">
+        <section aria-label="To review" className="mt-3 space-y-2 rounded-md border border-border p-3 text-sm">
             <p className="text-xs text-muted-foreground">{Math.min(index, rows.length - 1) + 1} of {rows.length} waiting</p>
             <p><span className="font-medium">{current.who}</span> · {current.title} · {formatDistanceToNow(new Date(current.submittedAt), { addSuffix: true })}{current.late ? ' · Late' : ''}{current.submittedBy ? ` · submitted by ${current.submittedBy}` : ''}</p>
             <div className="flex flex-wrap gap-2">

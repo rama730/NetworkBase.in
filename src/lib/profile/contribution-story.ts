@@ -169,7 +169,7 @@ export function storyPeriod(value: {
 }) {
   if (!value.start)
     return value.current
-      ? "Currently contributing"
+      ? "Current"
       : value.end
         ? `Until ${storyMonth(value.end)}`
         : "";

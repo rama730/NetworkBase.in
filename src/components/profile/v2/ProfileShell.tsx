@@ -31,7 +31,7 @@ export function ProfileShell({
                                 {tabs}
                             </div>
                             <div className="order-2">{main}</div>
-                            {mainBottom ? <div className="order-4" role="region" aria-label="Project contributions">{mainBottom}</div> : null}
+                            {mainBottom ? <div className="order-4" role="region" aria-label="Contributions">{mainBottom}</div> : null}
                         </div>
                         <aside {...stickyRail} role="complementary" className="contents lg:min-w-0 lg:block lg:sticky lg:self-start" aria-label="Profile details">
                             <div className="contents lg:block lg:space-y-6">

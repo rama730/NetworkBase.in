@@ -27,7 +27,7 @@ test("project lifecycle tab eliminates duplicate header and redundant summary ca
     assert.doesNotMatch(
         workflowBlock,
         /<SummaryCard/,
-        "Redundant SummaryCard must be removed from Project lifecycle tab",
+        "Redundant SummaryCard must be removed from Stages tab",
     );
 
     // 4. LifecycleSettingsEditor component definition inspection
@@ -35,11 +35,11 @@ test("project lifecycle tab eliminates duplicate header and redundant summary ca
         settingsTab.split("function LifecycleSettingsEditor({")[1]?.split("function AccessTransitionDetails({")[0] ?? "";
     assert.ok(editorDef.length > 0, "LifecycleSettingsEditor definition must exist");
 
-    // 5. Exactly 1 canonical SettingsCard with title "Project lifecycle"
+    // 5. Exactly 1 canonical SettingsCard with title "Stages"
     assert.match(
         editorDef,
-        /<SettingsCard[\s\S]*?title="Project lifecycle"/,
-        "Must render canonical Project lifecycle SettingsCard",
+        /<SettingsCard[\s\S]*?title="Stages"/,
+        "Must render canonical Stages SettingsCard",
     );
 
     // 6. Unified full-bleed footer with dirty state tracking, Cancel, and Save changes

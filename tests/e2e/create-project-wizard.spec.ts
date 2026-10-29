@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { hasE2ECredentials, login } from "./_helpers/auth";
 
-test.describe("Create project wizard", () => {
+test.describe("Create workspace wizard", () => {
   test.skip(!hasE2ECredentials, "E2E_USER_EMAIL and E2E_USER_PASSWORD are required.");
 
   test("phase 1 source selector stays visible while switching dedicated views", async ({ browser }) => {
@@ -12,10 +12,10 @@ test.describe("Create project wizard", () => {
     await page.goto("/projects/new", { waitUntil: "domcontentloaded" });
 
     // Full-page focus route: no app shell, no dialog; clicking the corner does not close it.
-    await expect(page.getByRole("heading", { level: 1, name: "Create project" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Create workspace" })).toBeVisible();
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await page.mouse.click(8, 8);
-    await expect(page.getByRole("heading", { level: 1, name: "Create project" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Create workspace" })).toBeVisible();
 
     await expect(page.getByTestId("create-project-phase1-source-grid")).toBeVisible();
     await expect(page.getByText("Create New Project")).toHaveCount(0);
@@ -28,7 +28,7 @@ test.describe("Create project wizard", () => {
     await page.getByTestId("create-project-github-manual-url").fill("networkbase/tools");
     await expect(page.getByTestId("create-project-github-manual-url")).toHaveValue("https://github.com/networkbase/tools");
     await page.waitForTimeout(1000);
-    await expect(page.getByRole("heading", { level: 1, name: "Create project" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Create workspace" })).toBeVisible();
     await expect(page.getByTestId("create-project-source-view-github")).toBeVisible();
 
     await page.getByTestId("create-project-source-card-upload").click();
@@ -85,7 +85,7 @@ test.describe("Create project wizard", () => {
     await login(page);
     await page.goto("/projects/new?createProject=1&createProjectSource=github", { waitUntil: "domcontentloaded" });
 
-    await expect(page.getByRole("heading", { level: 1, name: "Create project" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Create workspace" })).toBeVisible();
     await expect(page.getByTestId("create-project-source-view-github")).toBeVisible();
 
     await expect
@@ -93,7 +93,7 @@ test.describe("Create project wizard", () => {
       .toBeNull();
 
     await page.waitForTimeout(1000);
-    await expect(page.getByRole("heading", { level: 1, name: "Create project" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Create workspace" })).toBeVisible();
     await expect(page.getByTestId("create-project-source-view-github")).toBeVisible();
 
     await context.close();

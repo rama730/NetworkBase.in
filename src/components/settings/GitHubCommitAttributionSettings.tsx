@@ -40,7 +40,7 @@ export function GitHubCommitAttributionSettings() {
     <div>
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h4 className="nb-ui-label text-foreground">Commit attribution</h4>
+          <h4 className="nb-ui-label text-foreground">Commit author</h4>
           <p className="nb-compact mt-1 text-muted-foreground">
             Commits made from NetworkBase are signed with a privacy-safe GitHub address. You can choose which address from each project’s contributor settings.
           </p>
@@ -53,7 +53,7 @@ export function GitHubCommitAttributionSettings() {
       </div>
 
       {failed ? (
-        <ErrorNotice what="Commit attribution" onRetry={() => void load()} className="mt-3" />
+        <ErrorNotice what="Commit author" onRetry={() => void load()} className="mt-3" />
       ) : currentIdentity && currentIdentity.email ? (
         <div className="mt-3 flex flex-wrap items-center gap-2.5 rounded-md border border-border bg-muted/50 px-3 py-3">
           <div className="nb-compact flex items-center gap-1.5 font-medium text-foreground">

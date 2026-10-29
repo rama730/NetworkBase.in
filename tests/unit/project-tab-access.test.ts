@@ -50,7 +50,7 @@ test("owners and members read every tab, including on drafts", () => {
   }
 });
 
-test("Org only child projects: org people read them, outsiders and drafts do not", () => {
+test("Organization child projects: org people read them, outsiders and drafts do not", () => {
   const tabs = { files: true, tasks: false, sprints: false, readme: true, updates: true, dashboard: true };
   for (const orgRole of ["member", "viewer"] as const) {
     const view = access({ visibility: "org", orgRole, tabs });

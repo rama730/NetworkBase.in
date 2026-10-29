@@ -25,13 +25,13 @@ const DRAFT_KEY = 'nb_signup_draft'
 
 const SIGNUP_PANEL = {
     eyebrow: 'Get started',
-    title: 'Your first project is three steps away.',
+    title: 'Your first workspace is three steps away.',
     points: ['Add your skills', 'Find or start a project', 'Invite people and get going'],
 }
 const VERIFY_PANEL = {
     eyebrow: 'One last step',
     title: 'Verified email keeps NetworkBase real.',
-    points: ['Keeps spam accounts out', 'Lets you recover your account', 'Unlocks messages and projects'],
+    points: ['Keeps spam accounts out', 'Lets you recover your account', 'Unlocks messages and workspaces'],
 }
 
 type FieldKey = 'fullName' | 'email' | 'password' | 'confirmPassword' | 'legal'
@@ -469,8 +469,8 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
                             onChange={(event) => { setCaptchaToken(event.target.checked ? 'dev-verified-token' : null); setFormError(null) }}
                             className="size-4 accent-[var(--primary)]"
                         />
-                        Verify you are human
-                        <span className="ml-auto text-xs text-muted-foreground">Dev check</span>
+                        Complete the security check
+                        <span className="ml-auto text-xs text-muted-foreground">Hide from regular users</span>
                     </label>
                 )}
 

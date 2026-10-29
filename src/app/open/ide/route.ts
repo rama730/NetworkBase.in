@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
 
   const ide = requestedIde in SUPPORTED_IDES ? requestedIde : "cursor";
   const ideDefinition = SUPPORTED_IDES[ide];
-  const ideName = ideDefinition?.name || "Desktop IDE";
+  const ideName = ideDefinition?.name || "Code editor";
 
   if (!projectId && !slug) {
     return NextResponse.redirect(new URL("/discover", request.url));

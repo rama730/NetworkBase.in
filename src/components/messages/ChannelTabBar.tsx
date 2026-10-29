@@ -92,7 +92,7 @@ export function ChannelTabBar({ activeTab, tabs, pinCount, onSelectTab, onCloseT
       // Taller on touch, so the 44px tabs and + fit without the strip scrolling up and down.
       className={`flex h-10 flex-none items-end gap-1 overflow-x-auto overflow-y-hidden scroll-smooth border-b border-border px-4 pointer-coarse:h-12 ${more ? "[mask-image:linear-gradient(to_right,black_calc(100%-32px),transparent)]" : ""}`}
     >
-      <div className="flex items-end gap-1" role="tablist" aria-label="Conversation views">
+      <div className="flex items-end gap-1" role="tablist" aria-label="Tabs">
         {views.map((tab) => {
           const Icon = TAB_ICONS[tab.kind];
           const selected = activeTab === tab.id;

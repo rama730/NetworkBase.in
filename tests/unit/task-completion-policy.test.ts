@@ -69,7 +69,7 @@ function load(file: string, mocks: Record<string, unknown>) {
 const projectId = "b13cb9cf-0e92-41ee-9b03-ae68b97e459b";
 
 test("completion labels and title/due-date treatment distinguish pending review", () => {
-  assert.equal(completionActionLabel(false), "Mark as done");
+  assert.equal(completionActionLabel(false), "Mark as completed");
   assert.equal(completionActionLabel(true), "Submit for review");
   assert.equal(
     isTaskCompleted({ status: "done", reviewStatus: "pending" }),

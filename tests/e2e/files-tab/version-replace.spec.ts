@@ -18,7 +18,7 @@ test.describe("Files revision upload", () => {
       await page.goto(`/projects/${slug}?tab=files`);
       await expect(page.getByTestId("files-tab-root")).toBeVisible();
       await page.getByRole("navigation", { name: "File collections" })
-        .getByRole("button", { name: "Project files", exact: true }).click();
+        .getByRole("button", { name: "All files", exact: true }).click();
       const list = page.getByTestId("files-tab-folder-list-view");
       await list.getByRole("button", { name: "New", exact: true }).click();
       await page.getByRole("menuitem", { name: "New file", exact: true }).click();

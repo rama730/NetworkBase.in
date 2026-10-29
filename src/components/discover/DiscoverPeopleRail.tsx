@@ -99,7 +99,7 @@ export function DiscoverPeopleRail({ initialPage, variant }: DiscoverPeopleRailP
     if (isLoading && people.length === 0) return <RailSkeleton variant={variant} />;
 
     // A failed refresh keeps the people already shown; only a first load that fails says so.
-    if (isError && people.length === 0) return <ErrorNotice what="People you should meet" onRetry={() => void refetch()} />;
+    if (isError && people.length === 0) return <ErrorNotice what="Suggested people" onRetry={() => void refetch()} />;
 
     // Nothing to suggest: the rail steps aside and the feed takes the width (spec §15).
     if (people.length === 0) return null;
@@ -108,13 +108,13 @@ export function DiscoverPeopleRail({ initialPage, variant }: DiscoverPeopleRailP
         <section aria-labelledby={variant === "desktop" ? "people-you-should-meet" : undefined}>
             {/* In the drawer the dialog's title already says it. */}
             {variant === "desktop" ? (
-                <RailSectionHeading id="people-you-should-meet" title="People you should meet" />
+                <RailSectionHeading id="people-you-should-meet" title="Suggested people" />
             ) : null}
             <div className="space-y-3">
                 {people.map((profile) => <SuggestedPersonCard key={profile.id} profile={profile} viewerSkills={viewerSkills} />)}
             </div>
             {previewPeople.length > 0 ? (
-                <RailSection title={showShared ? "Shared connections" : "More people to meet"} className="mt-6" contentClassName="flex items-center gap-3 bg-muted/40 p-3">
+                <RailSection title={showShared ? "Mutual connections" : "Suggested people"} className="mt-6" contentClassName="flex items-center gap-3 bg-muted/40 p-3">
                     <p className="sr-only">{showShared ? `${shared.total} ${shared.total === 1 ? 'connection' : 'connections'} shared with the people suggested above.` : 'Additional suggestions for your network.'}</p>
                     <div className="flex shrink-0 items-center gap-1">
                         {previewPeople.map(person => (

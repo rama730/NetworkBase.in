@@ -142,7 +142,7 @@ export function ShareDialog({ kind, path, onClose, ownerUsernameSetup, returnFoc
         void previewQuery.refetch();void targetQuery.refetch();shell.refresh();return;
       }
       const changedDraft=checkingReceipt&&(note!==intent.note||Boolean(target&&target!==intent.channelId));
-      draftIntent.current=null;setReceiptState('none');if(note===intent.note)setNote('');if(!changedDraft){setTarget('');setStep('share');}setMessage(checkingReceipt?'Earlier send confirmed. No additional message was sent.':'Link sent in the selected conversation.');shell.refresh();
+      draftIntent.current=null;setReceiptState('none');if(note===intent.note)setNote('');if(!changedDraft){setTarget('');setStep('share');}setMessage(checkingReceipt?'Already sent.':'Link sent in the selected conversation.');shell.refresh();
     } catch {if(alive.current&&currentUser.current===account){setReceiptState('unknown');setMessage('The send could not be confirmed. Check the earlier receipt before sending again. Your draft is kept.');}}
     finally {pending.current=false;if(alive.current)setBusy(false);}
   };
@@ -157,7 +157,7 @@ export function ShareDialog({ kind, path, onClose, ownerUsernameSetup, returnFoc
       if('receipt' in result&&result.receipt==='missing'){setReceiptState('missing');setMessage('No earlier receipt is confirmed. Retry its original send intent after current access is verified; your edited draft stays separate.');return;}
       const changed=note!==intent.note||Boolean(target&&target!==intent.channelId);
       draftIntent.current=null;setReceiptState('none');if(note===intent.note)setNote('');if(target===intent.channelId&&!changed)setTarget('');
-      if(!changed)setStep('share');setMessage('Earlier send confirmed. No additional message was sent.');shell.refresh();
+      if(!changed)setStep('share');setMessage('Already sent.');shell.refresh();
     } catch {if(alive.current&&currentUser.current===account)setMessage('Receipt check unavailable. No new message was attempted. Your draft is kept.');}
     finally{pending.current=false;if(alive.current)setBusy(false);}
   };
@@ -182,7 +182,7 @@ export function ShareDialog({ kind, path, onClose, ownerUsernameSetup, returnFoc
     <DialogContent presentation={mobile ? 'bottom-sheet' : 'center'} className={`gap-4 p-6 max-h-[90dvh] overflow-y-auto sm:max-w-[480px] ${mobile ? 'pb-[calc(1.5rem+env(safe-area-inset-bottom))]' : ''}`} onCloseAutoFocus={event => { event.preventDefault(); trigger.current?.focus(); }}
       onEscapeKeyDown={event => { if (pending.current) event.preventDefault(); }} showCloseButton={!busy}>
       <DialogHeader><DialogTitle>{step === 'send' ? `Send ${kind}` : step === 'username' ? 'Set your username' : title}</DialogTitle>
-        <DialogDescription>{step === 'send' ? 'Choose a conversation you already have access to.' : step === 'username' ? 'Get a readable profile link, then return to sharing.' : 'Review the link and what recipients can see.'}</DialogDescription></DialogHeader>
+        <DialogDescription>{step === 'send' ? 'Choose a conversation you already have access to.' : step === 'username' ? 'Set a username to get a short profile link.' : 'Review the link and what recipients can see.'}</DialogDescription></DialogHeader>
       {step === 'username' ? <>
         <label className="space-y-2 text-[13px]">Username<Input value={sameDraftAccount?username:''} maxLength={20} onChange={event => setUsername(event.target.value)} autoComplete="off" disabled={busy} /></label>
         <p className="nb-compact text-muted-foreground">3–20 lowercase letters, numbers or underscores. Your profile visibility stays the same.</p>

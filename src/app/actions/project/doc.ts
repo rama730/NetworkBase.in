@@ -828,7 +828,7 @@ export async function readProjectDocSmartBlockPreviewsAction(projectId: string, 
                     id: row.id,
                     kind: "projects" as const,
                     title: row.title,
-                    subtitle: row.visibility === "public" ? "Public" : "Org only",
+                    subtitle: row.visibility === "public" ? "Public" : "Organization",
                     href: `/projects/${encodeURIComponent(row.slug || row.id)}`,
                 }))
             : [];

@@ -53,7 +53,7 @@ function partsFor(kind: SecurityEmailKind, data: SecurityEmailData, url: (path: 
     case "security_mfa_changed": {
       const change = data.detail === "removed" ? "An authenticator app was removed from" : data.detail === "regenerated" ? "Your recovery codes were regenerated for" : "An authenticator app was added to";
       return {
-        subject: "Sign-in protection changed on your NetworkBase account", preview: `${change} your account.`, label: "ACCOUNT SECURITY",
+        subject: "Two-step verification changed on your NetworkBase account", preview: `${change} your account.`, label: "ACCOUNT SECURITY",
         headline: data.detail === "removed" ? "An authenticator app was removed" : data.detail === "regenerated" ? "Your recovery codes were regenerated" : "An authenticator app was added",
         paragraphs: [`${when ? `On ${when}: ` : ""}${change} your account. ${data.detail === "regenerated" ? "Older recovery codes no longer work." : ""}`.trim(), notMeLine],
         primary: review, secondary: notMe,

@@ -81,7 +81,7 @@ async function openFilesTabV3(page: Page): Promise<Locator | null> {
   await expect(page.getByTestId("files-tab-sidebar").first()).toBeVisible({
     timeout: 10_000,
   });
-  await page.getByRole("navigation", { name: "File collections" }).getByRole("button", { name: "Project files", exact: true }).click();
+  await page.getByRole("navigation", { name: "File collections" }).getByRole("button", { name: "All files", exact: true }).click();
   return v3Root;
 }
 

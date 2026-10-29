@@ -116,8 +116,8 @@ test("UI card contract: ProjectSocialLinksCard renders distinct badges and borde
         path.join(process.cwd(), "src/components/projects/dashboard/ProjectSocialLinksCard.tsx"),
         "utf8",
     );
-    assert.match(cardContent, /const label = isCloned \? 'Cloned repository' : 'Connected repository';/);
-    assert.match(cardContent, /const badgeText = isCloned \? 'Cloned from GitHub' : 'Managed by integration';/);
+    assert.match(cardContent, /const label = isCloned \? 'Imported from GitHub' : 'Connected to GitHub';/);
+    assert.match(cardContent, /const badgeText = isCloned \? 'Cloned from GitHub' : 'Managed by GitHub';/);
     assert.match(cardContent, /data-testid=\{`project-managed-repo-\$\{repo\.id\}`\}/);
     assert.match(cardContent, /\? 'border border-border bg-muted\/60 text-muted-foreground'\s*: 'border border-primary\/20 bg-primary\/10 text-primary'/);
 });
@@ -128,8 +128,8 @@ test("UI tooltip contract: ProjectLinkAnchor distinguishes cloned from connected
         "utf8",
     );
     assert.match(cardContent, /repoRoleLabel = link\.repositoryRole === 'cloned'/);
-    assert.match(cardContent, /'\s*·\s*Cloned repository'/);
-    assert.match(cardContent, /'\s*·\s*Connected repository'/);
+    assert.match(cardContent, /'\s*·\s*Imported from GitHub'/);
+    assert.match(cardContent, /'\s*·\s*Connected to GitHub'/);
 });
 
 test("/go route contract: route handler joins githubSyncConnections and resolves github-cloned-repo cleanly", () => {

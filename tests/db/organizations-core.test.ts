@@ -52,7 +52,7 @@ test("two levels only: orgs have no parent, parents are orgs, an org with childr
   });
 });
 
-test("Org only and inherited admin read rules match project-access.ts", async () => {
+test("Organization and inherited admin read rules match project-access.ts", async () => {
   const result = await inRollback(async (tx) => {
     const [owner, admin, member, guest, outsider, lead] = await Promise.all([1, 2, 3, 4, 5, 6].map(() => createUser(tx)));
     const orgId = await org(tx, owner!);

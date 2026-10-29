@@ -30,12 +30,12 @@ test("project collaborators tab eliminates duplicate headers and renders one uni
 
   // Structured sub-sections inside the single card
   assert.match(collaboratorsBlock, /Owner and admins/, "Must contain Owner and admins sub-section");
-  assert.match(collaboratorsBlock, /Team directory/, "Must contain Team directory sub-section");
+  assert.match(collaboratorsBlock, /Members/, "Must contain Members sub-section");
   assert.match(collaboratorsBlock, /No admins yet/, "Leadership block must have clean empty state for co-leaders");
 
   // Team search input, role filter pills, and empty state
   assert.match(collaboratorsBlock, /aria-label="Filter members by access level"/, "Role filter tablist must exist");
   assert.match(collaboratorsBlock, /<CollaboratorSearchField onCommit=\{setCollaboratorSearch\} \/>/, "Collaborator search input must exist");
   assert.match(source("src/components/projects/settings/CollaboratorSearchField.tsx"), /label = "Search members"/, "Collaborator search input must be labelled");
-  assert.match(collaboratorsBlock, /No members found/, "Team directory must have empty state when filtered");
+  assert.match(collaboratorsBlock, /No members found/, "Members must have empty state when filtered");
 });

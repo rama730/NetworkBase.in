@@ -233,7 +233,7 @@ export default function NotificationPreview(props: NotificationPreviewProps) {
                             hasMore={hasMore}
                             isLoadingMore={isLoadingMore}
                             onLoadMore={onLoadMore}
-                            emptyState={activeFilter === "unread" ? "Nothing new needs you right now." : "No notifications yet."}
+                            emptyState={activeFilter === "unread" ? "You’re all caught up." : "No notifications yet."}
                         />
                     )}
                 </div>

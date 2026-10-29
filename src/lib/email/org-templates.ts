@@ -202,7 +202,7 @@ function partsFor(kind: OrgEmailKind, d: OrgEmailData, url: (path: string) => st
       return {
         subject: `${org} has ended`, preview: `${org} is read-only now. Your submissions stay available.`,
         identity: "org", label: "ORGANIZATION", headline: `${org} has ended`,
-        paragraphs: ["Everything is read-only now, and your submissions stay available.", "Add what you did here to your contribution story."],
+        paragraphs: ["Everything is read-only now, and your submissions stay available.", "Add this to your contributions."],
         primary: { label: "Update your contribution →", href: url("/profile") }, secondary: open, reason: member,
       };
     case "org_digest": {
@@ -215,10 +215,10 @@ function partsFor(kind: OrgEmailKind, d: OrgEmailData, url: (path: string) => st
         sections: [
           g.toReview.length ? { title: "To review", rows: g.toReview.map((r) => `${r.title}: ${r.count}`) } : null,
           g.joinRequests ? { title: "Join requests", rows: [`${g.joinRequests} waiting`] } : null,
-          g.needsYou.length ? { title: "Needs you", rows: g.needsYou } : null,
+          g.needsYou.length ? { title: "Needs your attention", rows: g.needsYou } : null,
           g.behind ? { title: "Behind", rows: [`${g.behind} ${g.behind === 1 ? "person has" : "people have"} missing work`] } : null,
         ].filter((s): s is { title: string; rows: string[] } => Boolean(s)),
-        primary: { label: "Open review queue →", href: url(`${orgPath}?tab=assignments&view=review`) }, secondary: { label: "Open dashboard", href: url(orgPath) },
+        primary: { label: "Open review queue →", href: url(`${orgPath}?tab=assignments&view=review`) }, secondary: { label: "Open overview", href: url(orgPath) },
         reason: `You’re receiving this daily summary as an admin of ${org}.`,
       };
     }

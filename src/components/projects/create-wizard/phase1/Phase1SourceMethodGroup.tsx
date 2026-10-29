@@ -15,7 +15,7 @@ const SOURCE_OPTIONS: Array<{
 }> = [
   {
     type: "scratch",
-    title: "Start from scratch",
+    title: "Start empty",
     description: "Create an empty project and add its details manually.",
     icon: Code2,
   },

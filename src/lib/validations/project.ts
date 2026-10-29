@@ -6,7 +6,7 @@ import { validateProjectSocialLinks } from '@/lib/projects/social-links';
 // Open Role Schema
 export const openRoleSchema = z.object({
     role: z.string().trim().min(1, 'Role is required').max(100, 'Role title must be 100 characters or fewer'),
-    count: z.number().min(1, 'Add at least one position').max(10, 'A role can have up to 10 positions').default(1),
+    count: z.number().min(1, 'Add at least one role').max(10, 'Up to 10 people per role').default(1),
     description: z.string().trim().max(2000, 'Role description must be 2000 characters or fewer').optional(),
     skills: z.array(z.string().max(80)).max(30).default([]),
     experienceLevel: z.enum(['any', 'junior', 'mid', 'senior']).default('any'),
@@ -123,7 +123,7 @@ export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;
 const orgRoleName = z.string().trim().min(1, 'Give every role a name.').max(30);
 
 export const createProjectSchema = z.object({
-    title: z.string().trim().min(3, 'Title must be at least 3 characters').max(100, 'Title must be less than 100 characters'),
+    title: z.string().trim().min(3, 'Title must be at least 3 characters').max(100, 'Use 100 characters or fewer'),
     description: z.string().trim().min(20, 'Description must be at least 20 characters').max(5000, 'Description must be 5000 characters or fewer'),
     short_description: z.string().trim().max(200).optional(),
     project_type: z.string().min(1, 'Project type is required'),

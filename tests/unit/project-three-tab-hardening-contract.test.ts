@@ -50,9 +50,9 @@ test("sprint detail paginates while lifecycle remains persisted", () => {
   assert.match(data, /mergeSprintDetailPages/);
   assert.match(detail, /return sprint\.status/);
   assert.match(header, /Starts automatically on schedule/);
-  assert.match(header, /Close sprint/);
+  assert.match(header, /Complete sprint/);
   assert.doesNotMatch(header, /Start sprint|Reopen sprint/);
-  assert.match(timeline, /Assign tasks from the Task board/);
+  assert.match(timeline, /Add tasks from the Tasks tab to start this sprint/);
   assert.match(timeline, /onLoadMore/);
 });
 

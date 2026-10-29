@@ -17,7 +17,7 @@ test("personal settings render as one navigable scroll document", () => {
     assert.match(document, new RegExp(`id="settings-${section}"`), `${section} should have a stable scroll target`);
   }
 
-  assert.ok(document.indexOf('id="settings-privacy-policies"') > document.indexOf('id="settings-integrations"'), "Privacy and policies should follow Integrations");
+  assert.ok(document.indexOf('id="settings-privacy-policies"') > document.indexOf('id="settings-integrations"'), "Privacy should follow Integrations");
   assert.ok(document.indexOf('id="settings-delete-account"') > document.indexOf('id="settings-privacy-policies"'), "Delete account should be the final settings action");
 
   assert.match(layout, /root\.scrollTo\(\{ top, behavior: smooth && !reducedMotion\(\) \? "smooth" : "auto" \}\)/, "a jump scrolls the settings pane itself");
@@ -39,7 +39,7 @@ test("personal settings render as one navigable scroll document", () => {
   assert.match(layout, /event\.metaKey \|\| event\.ctrlKey/, "Native modified-link navigation should remain available");
   assert.match(layout, /isReducedMotionEnabled/, "the in-app Reduce motion setting also stops smooth scrolling");
   assert.doesNotMatch(layout, /space-y-6 pb-10/, "The settings document should not leave an artificial gap after its final section");
-  assert.match(layout, /SETTINGS_SECTION_META\["privacy-policies"\]/, "Privacy and policies should be a first-class navigation item");
+  assert.match(layout, /SETTINGS_SECTION_META\["privacy-policies"\]/, "Privacy should be a first-class navigation item");
 });
 
 test("settings primitives keep the application typography and spacing grammar", () => {
@@ -63,11 +63,11 @@ test("personal settings keep only the necessary grouped surfaces", () => {
   const integrations = read("src/components/settings/IntegrationsSettings.tsx");
 
   assert.doesNotMatch(security, /SecurityOverviewSection|Security Overview/);
-  assert.match(security, /title="Sign-in protection"/);
-  assert.match(security, /title="Sessions and sign-ins"/);
+  assert.match(security, /title="Two-step verification"/);
+  assert.match(security, /title="Signed-in devices"/);
   assert.doesNotMatch(privacy, /Privacy Overview|OverviewChip/);
   assert.match(privacy, /title="Who can see and reach you"/);
-  assert.match(privacy, /title="Blocked accounts and activity"/);
+  assert.match(privacy, /title="Blocked people"/);
   assert.match(privacy, /\.slice\(0, 4\)/, "Privacy history should be limited to four recent changes");
   assert.doesNotMatch(privacy, /LegalAndDataRightsSection/, "Legal controls should live at the end of the settings document");
   assert.match(notifications, /SettingsSwitch/);
@@ -90,12 +90,12 @@ test("sign out is located in account settings after cache management and removed
   assert.doesNotMatch(layout, />Sign out</, "Settings navigation must not render a Sign Out button");
   assert.doesNotMatch(layout, /\bonSignOut\b/, "Settings layout navigation should not accept onSignOut");
 
-  assert.match(account, /title="Cache management"/, "Account settings must include Cache management");
+  assert.match(account, /title="Storage on this device"/, "Account settings must include Storage on this device");
   assert.match(account, /title="Sign out"/, "Account settings must include Sign out section");
 
-  const cacheIndex = account.indexOf('title="Cache management"');
+  const cacheIndex = account.indexOf('title="Storage on this device"');
   const signoutIndex = account.indexOf('title="Sign out"');
-  assert.ok(cacheIndex > 0 && signoutIndex > cacheIndex, "Sign out must be placed directly after Cache management in Account settings");
+  assert.ok(cacheIndex > 0 && signoutIndex > cacheIndex, "Sign out must be placed directly after Storage on this device in Account settings");
 
   assert.match(account, /SignOutConfirmDialog/, "Account settings should use the shared sign-out confirmation");
   assert.match(account, /onConfirm=\{signOut\}/, "Account settings should call signOut when confirmed");

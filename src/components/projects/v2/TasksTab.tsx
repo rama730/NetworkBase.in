@@ -746,7 +746,7 @@ export default function TasksTab({
         <div className="flex w-full flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
           <div className="flex items-center gap-2.5">
             <h2 className="text-[20px] font-semibold tracking-tight text-foreground">
-              Task board
+              Board
             </h2>
             <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-1.5 font-mono text-[12px] font-medium text-muted-foreground">
               {/* Loaded so far; "+" while more pages exist (there is no total count). */}
@@ -854,7 +854,7 @@ export default function TasksTab({
                 ) : null}
                 <DropdownMenuItem onSelect={() => setIdeSheetOpen(true)}>
                   <Laptop className="size-4" aria-hidden="true" />
-                  Connect desktop IDE
+                  Connect your code editor
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -1003,7 +1003,7 @@ export default function TasksTab({
                 </div>
                 <div className="space-y-1.5">
                   <label htmlFor="section-status" className="font-mono text-xs font-medium uppercase tracking-[0.09em] text-muted-foreground">
-                    Task state
+                    Status
                   </label>
                   <select
                     id="section-status"

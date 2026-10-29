@@ -78,7 +78,7 @@ export function ProjectStatusControl({ projectId, canManage }: { projectId: stri
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
-          <DialogTitle>Project status</DialogTitle>
+          <DialogTitle>Removed</DialogTitle>
           <form
             className="space-y-4"
             onSubmit={(event) => {
@@ -93,7 +93,7 @@ export function ProjectStatusControl({ projectId, canManage }: { projectId: stri
                 maxLength={STATUS_TEXT_MAX}
                 onChange={(event) => setText(event.target.value)}
                 placeholder="What’s the team doing?"
-                aria-label="Project status"
+                aria-label="Removed"
                 className="min-w-0 flex-1 bg-transparent text-[15px] outline-none"
               />
             </div>

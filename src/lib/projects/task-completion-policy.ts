@@ -7,7 +7,7 @@ export function isTaskCompleted(task: {
 }
 
 export function completionActionLabel(reviewRequired: boolean) {
-  return reviewRequired ? "Submit for review" : "Mark as done";
+  return reviewRequired ? "Submit for review" : "Mark as completed";
 }
 
 export function completionOutcomeLabel(reviewStatus?: string | null) {

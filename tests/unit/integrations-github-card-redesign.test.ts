@@ -86,7 +86,7 @@ describe("GitHub Card Redesign & Integrations Settings Contract", () => {
     assert.ok(content.includes("`/projects/${project.slug}`"), "Must link to valid /projects/[slug] route");
 
     // Must render badges for cloned and synced repositories
-    assert.ok(content.includes("Cloned repository"), "Must render 'Cloned repository' badge");
+    assert.ok(content.includes("Repository"), "Must render 'Repository' badge");
     assert.ok(content.includes("GitHub sync"), "Must render 'GitHub sync' badge");
 
     // Must preserve spacing before the commit-attribution controls.

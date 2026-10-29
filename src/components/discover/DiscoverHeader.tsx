@@ -125,7 +125,7 @@ export default function DiscoverHeader({ query, activeFilters, announcement, loa
 
             <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <Select value={query.view} onValueChange={(value) => onChange({ view: value as FilterView })}>
-                    <SelectTrigger aria-label="Discovery view" className="w-auto min-w-[136px] bg-card pointer-coarse:h-11">
+                    <SelectTrigger aria-label="View" className="w-auto min-w-[136px] bg-card pointer-coarse:h-11">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -190,7 +190,7 @@ export default function DiscoverHeader({ query, activeFilters, announcement, loa
                         <FilterTag label={`organization ${query.org}`} onRemove={() => remove({ org: '' })}>@{query.org}</FilterTag>
                     ) : null}
                     {query.hideOpened ? (
-                        <FilterTag label="hiding projects you opened" onRemove={() => remove({ hideOpened: false })}>Hiding projects you opened</FilterTag>
+                        <FilterTag label="hiding workspaces you’ve viewed" onRemove={() => remove({ hideOpened: false })}>Hiding workspaces you’ve viewed</FilterTag>
                     ) : null}
                     <Button
                         type="button"
@@ -210,7 +210,7 @@ export default function DiscoverHeader({ query, activeFilters, announcement, loa
             {people ? (
                 <Dialog open={peopleOpen} onOpenChange={setPeopleOpen}>
                     <DialogContent presentation={phone ? 'bottom-sheet' : 'right-drawer'} className={phone ? 'overflow-y-auto p-4' : 'overflow-y-auto p-4 sm:max-w-[400px]'}>
-                        <DialogTitle className="nb-card-title">People you should meet</DialogTitle>
+                        <DialogTitle className="nb-card-title">Suggested people</DialogTitle>
                         {people}
                     </DialogContent>
                 </Dialog>

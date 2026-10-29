@@ -26,7 +26,7 @@ interface WizardFooterProps {
   createLabel?: string;
 }
 
-export default function WizardFooter({ phase, totalPhases, onNext, onBack, onSaveDraft, isSubmitting, isSavingDraft, nextLabel, nextDisabled, nextDisabledReason, isPhaseTransitioning = false, isReviewReady = false, saveStatus, lastSaved, createLabel = "Create project" }: WizardFooterProps) {
+export default function WizardFooter({ phase, totalPhases, onNext, onBack, onSaveDraft, isSubmitting, isSavingDraft, nextLabel, nextDisabled, nextDisabledReason, isPhaseTransitioning = false, isReviewReady = false, saveStatus, lastSaved, createLabel = "Create workspace" }: WizardFooterProps) {
   const isLastPhase = phase === totalPhases;
   const phaseMessage = nextDisabledReason ?? (isLastPhase && !isReviewReady ? "Preparing review…" : `Phase ${phase} of ${totalPhases}`);
   const saveMessage = saveStatus === "saving"

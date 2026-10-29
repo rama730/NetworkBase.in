@@ -160,7 +160,7 @@ test("Discovery page ProjectCard and detail page ProjectStatsBar: last updated d
     assert.doesNotMatch(cardSource, /formatDistanceToNow/);
     assert.doesNotMatch(cardSource, /lastActiveDate/);
 
-    // 2. ProjectCard views icon uses BarChart2 (X-platform analytics bars)
+    // 2. ProjectCardss icon uses BarChart2 (X-platform analytics bars)
     assert.match(cardSource, /import\s*\{[^}]*BarChart2[^}]*\}\s*from\s*"lucide-react"/);
     assert.match(cardSource, /<BarChart2\s+size=\{14\}\s+aria-hidden="true"\s*\/>\s*\{typeof project\.viewCount === "number" \? project\.viewCount : "—"\}/);
 
@@ -215,7 +215,7 @@ test("GIF avatar optimizations: 2MB preflight guard, adaptive draft UI, revocabl
     assert.match(avatarSource, /loading=\{isDetail \? "eager" : "lazy"\}/);
 });
 
-test("Project avatar fit architecture: enforces objectFit cover across detail page, cards, settings, and globals to eliminate gaps", () => {
+test("Workspace image fit architecture: enforces objectFit cover across detail page, cards, settings, and globals to eliminate gaps", () => {
     const avatarSource = readFileSync(resolve(ROOT, "src/components/projects/ProjectAvatar.tsx"), "utf-8");
     const settingsSource = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
     const globalsCss = readFileSync(resolve(ROOT, "src/app/globals.css"), "utf-8");

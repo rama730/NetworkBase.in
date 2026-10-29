@@ -412,7 +412,7 @@ export default function TaskDetailPanel({
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => setIdeSheetOpen(true)}>
                       <Laptop className="size-4" />
-                      Connect desktop IDE
+                      Connect your code editor
                     </DropdownMenuItem>
                     {workflowColumns && workflowColumns.length > 1 && canEditTask ? (
                       <DropdownMenuSub>

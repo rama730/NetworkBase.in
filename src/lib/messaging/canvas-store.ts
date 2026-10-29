@@ -139,7 +139,7 @@ _A short welcome and what the first week should achieve._
   },
   {
     id: "project-brief",
-    name: "Project brief",
+    name: "Workspace brief",
     category: "Projects",
     description: "Problem, goals, scope and milestones before work starts.",
     generate: (channelName, projectName) => ({
@@ -163,7 +163,7 @@ _Who has the problem, and why it matters now._
   },
   {
     id: "decision-record",
-    name: "Decision record",
+    name: "Decision",
     category: "Projects",
     description: "Write down a decision, the options and why you chose one.",
     generate: () => ({

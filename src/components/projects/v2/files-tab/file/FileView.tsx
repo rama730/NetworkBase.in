@@ -697,7 +697,7 @@ export function FileView({
           {activeInspectorPanel === "details" && <FileInspectorContainer title="File details" onClose={closeInspectorPanel}><FileInspectorPanelHeader title="Details" closeLabel="Close file details" onClose={closeInspectorPanel} /><dl className="flex-1 min-h-0 overflow-y-auto space-y-3 break-words p-4 text-sm">{[["Name", node.name], ["Location", node.path.startsWith("/.system/") ? "Task files" : node.path], ["Type", node.mimeType || "Not recorded"], ["Size", formatBytes(node.size, node.type) || "Not recorded"], ["Version", String(node.currentVersion)], ["Updated by", formatFileActor(node as MetadataStripNode)], ["Modified", formatFileTimestamp((node as MetadataStripNode).versionUpdatedAt ?? node.updatedAt)]].map(([label, value]) => <div key={label}><dt className="text-xs text-muted-foreground">{label}</dt><dd className="text-foreground">{value}</dd></div>)}</dl></FileInspectorContainer>}
           {/* FileVersionHistoryPanel — collapsible right-side drawer (Req 10.1, 10.2, 10.3) */}
           {isVersionHistoryPanelOpen && (
-            <FileInspectorContainer title="Version history" onClose={closeInspectorPanel} testId="files-tab-version-history-drawer">
+            <FileInspectorContainer title="Version" onClose={closeInspectorPanel} testId="files-tab-version-history-drawer">
               <FileVersionHistoryPanel
                 projectId={projectId}
                 nodeId={node.id}

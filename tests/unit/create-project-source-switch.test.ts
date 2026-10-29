@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { createFormControl } from "react-hook-form";
 
-// Bug: GitHub -> Start from scratch left Continue greyed out. Phase 1 replaces the whole
+// Bug: GitHub -> Start empty left Continue greyed out. Phase 1 replaces the whole
 // `import_source` object; react-hook-form does not re-render a host that only read
 // `watch('import_source.type')` for a parent-path setValue, so the footer kept "github".
 test("a parent-path setValue reaches useWatch-style subscribers but not the root render", () => {

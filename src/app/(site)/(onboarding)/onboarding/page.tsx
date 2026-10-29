@@ -426,7 +426,7 @@ export default function OnboardingPage() {
         { label: 'Headline', value: data.headline.trim() || 'Not added', onEdit: () => goToStep(2, 'onb-profile') },
         { label: 'Bio', value: data.bio.trim() ? `${data.bio.trim().length} characters` : 'Not added', onEdit: () => goToStep(2, 'onb-profile') },
         { label: 'Open to roles', value: count(data.openTo.length, 'selected'), onEdit: () => goToStep(2, 'onb-work') },
-        { label: 'Social links', value: count(linkCount, 'added'), onEdit: () => goToStep(2, 'onb-social') },
+        { label: 'Links', value: count(linkCount, 'added'), onEdit: () => goToStep(2, 'onb-social') },
         { label: 'Skills', value: count(data.skills.length, 'selected'), onEdit: () => goToStep(3) },
         { label: 'Interests', value: count(data.interests.length, 'selected'), onEdit: () => goToStep(3) },
         { label: 'Visibility', value: VISIBILITY_CHOICES.find((choice) => choice.value === data.visibility)?.label ?? '' },

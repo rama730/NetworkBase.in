@@ -50,8 +50,8 @@ type CommandPaletteProps = {
 };
 
 const CONTEXT_PRESENTATION = {
-    default: { label: "Discover / Projects", hints: ["Project name", "Technology", "Category"] },
-    discover: { label: "Discover / Projects", hints: ["Project name", "Technology", "Category"] },
+    default: { label: "Discover / Workspaces", hints: ["Project name", "Technology", "Category"] },
+    discover: { label: "Discover / Workspaces", hints: ["Project name", "Technology", "Category"] },
     network: { label: "Network / Builders", hints: ["Name", "Skill", "Location"] },
     project: { label: "Project / Work and Links", hints: ["Task title", "Destination name", "Link purpose"] },
     settings: { label: "Settings", hints: ["Theme", "Privacy", "Integrations"] },
@@ -416,7 +416,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
                             </AppScrollArea>
                         </div>
                     ) : supportsPreviews ? (
-                        <AppScrollArea id="global-search-preview-results" axis="y" role={normalizedQuery ? "listbox" : "region"} aria-busy={previews.isFetching || previews.isDebouncing} aria-label={normalizedQuery ? searchContext === "network" ? "Builder search results" : searchContext === "project" ? "Task search results" : "Project search results" : "Search guidance and recent searches"} className="min-h-0 min-w-0 flex-1 sm:max-h-[480px]">
+                        <AppScrollArea id="global-search-preview-results" axis="y" role={normalizedQuery ? "listbox" : "region"} aria-busy={previews.isFetching || previews.isDebouncing} aria-label={normalizedQuery ? searchContext === "network" ? "People results" : searchContext === "project" ? "Task search results" : "Project search results" : "Search guidance and recent searches"} className="min-h-0 min-w-0 flex-1 sm:max-h-[480px]">
                             {normalizedQuery.length === 0 ? (
                                 <div className="px-5 pt-3 pb-6 sm:pt-3 sm:pb-6">
                                     {recentSearches.length ? (

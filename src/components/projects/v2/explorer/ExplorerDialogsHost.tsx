@@ -447,7 +447,7 @@ export function FolderPicker({
               aria-setsize={(rootPage?.nodes.length ?? 0) + 1}
               aria-selected={selectedFolderId === null}
               aria-disabled={Boolean(rootReason)}
-              title={rootReason ?? "Project root"}
+              title={rootReason ?? "All files"}
               className={cn(
                 "flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[#F3F0EA]/60 dark:hover:bg-zinc-900 rounded-[3px]",
                 selectedFolderId === null &&
@@ -462,7 +462,7 @@ export function FolderPicker({
                 }
               }}
             >
-              <Folder className="h-4 w-4 text-[#D14E24]" /> Project root
+              <Folder className="h-4 w-4 text-[#D14E24]" /> All files
               {selectedFolderId === null ? (
                 <Check className="ml-auto h-4 w-4 text-[#D14E24]" />
               ) : null}
@@ -503,7 +503,7 @@ export function FolderPicker({
         Destination:{" "}
         <span className="font-medium text-[#141A1E] dark:text-zinc-200">
           {selectedFolderId === null
-            ? "Project root"
+            ? "All files"
             : selectedNode?.path ?? "Select a folder"}
         </span>
       </div>
@@ -816,7 +816,7 @@ export function MoveDialog({
       ? `${moveDialog.nodes.length} items`
       : moveDialog.nodes[0]?.name ?? "item";
   const invalidReason = mode === "move" && moveDialog.nodes.some((node) => node.taskId)
-    ? "Task working files must be published before they can be relocated."
+    ? "Add draft files to Files before moving them."
     : moveDialog.nodes.length > 0 &&
         moveDialog.nodes.every(
           (node) => (node.parentId ?? null) === moveDialog.targetFolderId,
@@ -857,7 +857,7 @@ export function MoveDialog({
           </DialogTitle>
           <DialogDescription>
             {mode === "publish"
-              ? "Choose where this task working file should become available in Project Files. Its task role is unchanged."
+              ? "Choose a folder in Files. The file stays a draft on the task."
               : "Choose a new location in Project Files. Task role and final-deliverable status are unchanged."}
           </DialogDescription>
         </DialogHeader>

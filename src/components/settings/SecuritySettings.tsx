@@ -75,7 +75,7 @@ export default function SecurityPage() {
                 Don’t recognize something? <a href="#settings-security-sessions" className="font-medium text-foreground underline underline-offset-4">Sign out other devices</a>, then <a href="#settings-security-password" className="font-medium text-foreground underline underline-offset-4">change your password</a>.
             </p>
             <SettingsSectionCard
-                title="Sign-in protection"
+                title="Two-step verification"
                 description="Manage the verification methods that protect your account."
             >
                 <div id="settings-security-authenticator" data-testid="security-authenticator-section" className="scroll-mt-6">
@@ -98,11 +98,11 @@ export default function SecurityPage() {
             </SettingsSectionCard>
 
             <SettingsSectionCard
-                title="Sessions and sign-ins"
+                title="Signed-in devices"
                 description="Review signed-in devices and recent access to your account."
             >
                 <div id="settings-security-sessions" data-testid="security-active-sessions-section" className="scroll-mt-6">
-                    <h4 className="nb-ui-label mb-3 text-foreground">Active sessions</h4>
+                    <h4 className="nb-ui-label mb-3 text-foreground">Signed-in devices</h4>
                     <SessionsList
                         initialSessions={securityData?.sessions}
                         initialNextOffset={securityData?.sessionsNextOffset}
@@ -118,7 +118,7 @@ export default function SecurityPage() {
             </SettingsSectionCard>
 
             <SettingsSectionCard
-                title="Security activity"
+                title="Sign-in activity"
                 description="Review recent changes to account protection."
                 testId="security-activity-section"
                 id="settings-security-activity"

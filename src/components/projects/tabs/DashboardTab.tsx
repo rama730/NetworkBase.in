@@ -54,7 +54,7 @@ export function DashboardTab({
                 <ProjectOverviewCard project={project} isCreator={isCreator} onEdit={onEdit} />
             </div>
 
-            <aside {...stickyRail} aria-label="Project details" className="min-w-0 space-y-6 lg:col-span-4 lg:sticky lg:self-start">
+            <aside {...stickyRail} aria-label="Workspace details" className="min-w-0 space-y-6 lg:col-span-4 lg:sticky lg:self-start">
                 {stages.length > 0 ? (
                     <JourneyTimeline
                         stages={stages}

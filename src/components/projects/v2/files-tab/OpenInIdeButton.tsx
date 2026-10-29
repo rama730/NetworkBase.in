@@ -179,7 +179,7 @@ export function OpenInIdeButton({
               type="button"
               aria-haspopup="dialog"
               aria-label={
-                hasConnected ? "Choose desktop editor" : "Connect desktop IDE"
+                hasConnected ? "Choose desktop editor" : "Connect your code editor"
               }
               title={
                 hasConnected
@@ -200,7 +200,7 @@ export function OpenInIdeButton({
                     aria-hidden="true"
                     className="size-4 shrink-0 text-primary"
                   />
-                  <span>Desktop IDE</span>
+                  <span>Code editor</span>
                 </>
               )}
               <ChevronDown
@@ -356,7 +356,7 @@ export function OpenInIdeSheet({
         overlayClassName={layered ? "z-[220]" : undefined}
         className={layered ? "z-[221] md:hidden" : "md:hidden"}
       >
-        <DialogTitle className="nb-card-title">Connect desktop IDE</DialogTitle>
+        <DialogTitle className="nb-card-title">Connect your code editor</DialogTitle>
         <DialogDescription className="nb-compact text-muted-foreground">
           Open this work in your desktop editor.
         </DialogDescription>

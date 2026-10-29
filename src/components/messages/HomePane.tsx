@@ -123,8 +123,8 @@ export function HomePane() {
             <h2 id="home-start" className="nb-card-title">Start a conversation</h2>
             <p className="mt-1 text-[13px] text-muted-foreground">Message a teammate directly, or join a channel in one of your projects.</p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <Button asChild size="sm"><Link href="/messages/new"><SquarePen size={16} aria-hidden="true" /> Message a teammate</Link></Button>
-              <Button asChild variant="outline" size="sm"><Link href={browseProject ? `/messages/p/${browseProject.id}/browse` : "/projects"}><Compass size={16} aria-hidden="true" /> {browseProject ? "Browse channels" : "Find a project"}</Link></Button>
+              <Button asChild size="sm"><Link href="/messages/new"><SquarePen size={16} aria-hidden="true" /> Message someone</Link></Button>
+              <Button asChild variant="outline" size="sm"><Link href={browseProject ? `/messages/p/${browseProject.id}/browse` : "/projects"}><Compass size={16} aria-hidden="true" /> {browseProject ? "Browse channels" : "Find a workspace"}</Link></Button>
             </div>
           </section>
         ) : (

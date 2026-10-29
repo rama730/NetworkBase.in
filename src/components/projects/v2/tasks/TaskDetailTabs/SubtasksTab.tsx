@@ -357,7 +357,7 @@ export default function SubtasksTab({
                 onClick={() => void runBulk(openSubtasks.length > 0 ? openSubtasks : completedSubtasks, openSubtasks.length > 0)}
                 className="font-mono text-[11px] text-muted-foreground hover:text-foreground transition underline underline-offset-2 disabled:opacity-50"
               >
-                {openSubtasks.length > 0 ? "Mark all done" : "Reopen all"}
+                {openSubtasks.length > 0 ? "Mark as completed" : "Reopen all"}
               </button>
             </div>
           ) : null}

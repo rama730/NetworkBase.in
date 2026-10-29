@@ -364,7 +364,7 @@ export function ContributionStoryView({
             )}
             {contribution.featured && (
               <Pin
-                aria-label="Featured contribution"
+                aria-label="Feature on profile / Featured"
                 className="size-3.5 text-primary"
               />
             )}
@@ -446,10 +446,10 @@ export function ContributionStoryView({
                 {positions.length > 1 && (
                   <section
                     className={images.length ? "mt-4" : undefined}
-                    aria-label="Position history"
+                    aria-label="Role history"
                   >
                     <h4 className="nb-body mb-1 font-semibold text-balance">
-                      Position history
+                      Role history
                     </h4>
                     <div className="divide-y divide-border">
                       {positions.map((p) => (
@@ -459,12 +459,12 @@ export function ContributionStoryView({
                               {p.title}
                               {p.recordedStageId && (
                                 <span
-                                  title="Platform verified role"
+                                  title="Verified role"
                                   className="inline-flex items-center text-blue-500"
                                 >
                                   <ShieldCheck
                                     className="size-3.5"
-                                    aria-label="Verified position"
+                                    aria-label="Verified role"
                                   />
                                 </span>
                               )}
@@ -489,7 +489,7 @@ export function ContributionStoryView({
                       "flex flex-wrap gap-1.5",
                       (images.length > 0 || positions.length > 1) && "mt-3",
                     )}
-                    aria-label="Demonstrated skills"
+                    aria-label="Skills used"
                   >
                     {Array.from(new Set(story.skills)).map((s) => (
                       <SkillChip key={s} skill={s} size="sm" />

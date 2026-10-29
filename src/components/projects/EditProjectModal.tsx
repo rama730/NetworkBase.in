@@ -73,7 +73,7 @@ function StatusSelector({ value, onChange }: { value: string; onChange: (val: st
     const options = [
         { id: "draft", label: "Forming", desc: "Just getting started", color: "bg-blue-50 border-blue-200 text-blue-700" },
         { id: "active", label: "Building", desc: "Actively building", color: "bg-emerald-50 border-emerald-200 text-emerald-700" },
-        { id: "completed", label: "Shipped", desc: "Finished and live", color: "bg-purple-50 border-purple-200 text-purple-700" },
+        { id: "completed", label: "Shipped", desc: "Completed", color: "bg-purple-50 border-purple-200 text-purple-700" },
     ];
 
     return (
@@ -256,7 +256,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                     <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
                         <div>
                             <DialogTitle className="text-xl font-semibold text-foreground">Edit project</DialogTitle>
-                            <DialogDescription className="text-xs text-muted-foreground font-medium">Make your project stand out</DialogDescription>
+                            <DialogDescription className="text-xs text-muted-foreground font-medium">Edit workspace details</DialogDescription>
                         </div>
                         <button 
                             type="button"
@@ -335,7 +335,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                                     name="status"
                                                     render={({ field }) => (
                                                         <div>
-                                                            <label className="block text-sm font-medium mb-3 text-zinc-900 dark:text-zinc-100">Project status</label>
+                                                            <label className="block text-sm font-medium mb-3 text-zinc-900 dark:text-zinc-100">Removed</label>
                                                             <StatusSelector value={field.value} onChange={field.onChange} />
                                                         </div>
                                                     )}
@@ -415,7 +415,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
 
                                             <div>
                                                 <h3 className="mb-2 text-lg font-semibold text-zinc-900 dark:text-zinc-100">Project links</h3>
-                                                <p className="mb-4 text-sm text-zinc-500">These icons appear beside the project title across every project tab.</p>
+                                                <p className="mb-4 text-sm text-zinc-500">Links appear next to the workspace name.</p>
                                                 <ProjectLinkEditorFields
                                                     ref={projectLinksRef}
                                                     links={watch("externalLinks")}

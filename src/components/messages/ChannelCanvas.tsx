@@ -237,8 +237,8 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
       </div>
       {conflict ? (
         <div role="alert" className="flex flex-none flex-wrap items-center gap-2 border-b border-border bg-[var(--status-warning-soft)] px-4 py-2 text-[13px] text-foreground sm:px-6">
-          <span className="min-w-0 flex-1">Someone else saved this canvas first. You’re seeing their version; copy yours to paste back what you need.</span>
-          <Button type="button" variant="outline" size="sm" onClick={() => { void copyWithToast(conflict, "Your version copied"); }} className="pointer-coarse:h-11">Copy your version</Button>
+          <span className="min-w-0 flex-1">Someone else saved first. Copy your version to add it back.</span>
+          <Button type="button" variant="outline" size="sm" onClick={() => { void copyWithToast(conflict, "Your version copied"); }} className="pointer-coarse:h-11">Copy my version</Button>
           <Button type="button" variant="ghost" size="sm" onClick={() => setConflict(null)} className="pointer-coarse:h-11">Dismiss</Button>
         </div>
       ) : null}

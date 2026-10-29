@@ -29,7 +29,7 @@ export default function WizardHeader({ currentPhase, onClose, onStepSelect, step
     <header className="shrink-0 border-b border-border bg-card">
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] items-center gap-3 px-5 sm:px-6 max-md:h-14 max-md:grid-cols-[minmax(0,1fr)_auto] max-md:px-4 md:h-16 md:grid-cols-[minmax(9rem,1fr)_auto_minmax(9rem,1fr)]">
         <div className="min-w-0">
-          <h1 ref={headingRef} tabIndex={-1} className="nb-section-title whitespace-nowrap text-foreground outline-none max-md:text-[16px] max-md:leading-tight">{isOrganization ? "Create organization" : "Create project"}</h1>
+          <h1 ref={headingRef} tabIndex={-1} className="nb-section-title whitespace-nowrap text-foreground outline-none max-md:text-[16px] max-md:leading-tight">{isOrganization ? "Create organization" : "Create workspace"}</h1>
           <p className="nb-meta mt-0.5 truncate text-muted-foreground md:hidden">
             Step {currentPhase} of {WIZARD_PHASES.length} · <span className="text-foreground">{currentLabel}</span>
           </p>

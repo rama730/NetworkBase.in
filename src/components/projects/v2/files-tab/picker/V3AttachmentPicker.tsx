@@ -213,7 +213,7 @@ export function V3AttachmentPicker({
               onClick={root}
               className="min-h-10 rounded-[5px] px-3 text-left text-sm hover:bg-muted focus-visible:ring-2"
             >
-              Project files
+              All files
             </button>
             <button
               type="button"
@@ -241,7 +241,7 @@ export function V3AttachmentPicker({
                 </button>
               )}
               <span className="max-w-40 truncate text-sm" title={folder?.name}>
-                {showingRecent ? "Recent" : (folder?.name ?? "Project files")}
+                {showingRecent ? "Recent" : (folder?.name ?? "All files")}
               </span>
               <label className="ml-auto flex min-w-0 flex-1 items-center gap-2 rounded border px-2 sm:max-w-sm">
                 <Search

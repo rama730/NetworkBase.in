@@ -181,7 +181,7 @@ const LEGACY_PROJECT_UPDATE_SMART_BLOCK_REGEX = /\{%\s*project\.([a-z_]+)([^%]*)
 function legacySmartBlockLabel(kind: string) {
     if (kind === "tasks") return "Project tasks";
     if (kind === "sprints") return "Project sprints";
-    if (kind === "files") return "Project files";
+    if (kind === "files") return "All files";
     if (kind === "roles") return "Project roles";
     if (kind === "contributors") return "Project contributors";
     return "Project reference";

@@ -182,7 +182,7 @@ export function NotificationRow(props: {
                         ))}
                     </div>
                     {destinationMissing ? (
-                        <p className="nb-compact mt-2 font-medium text-[var(--status-warning)]">This update no longer has an available destination.</p>
+                        <p className="nb-compact mt-2 font-medium text-[var(--status-warning)]">This item is no longer available.</p>
                     ) : null}
                 </div>
             </button>
@@ -205,7 +205,7 @@ export function NotificationRow(props: {
                     {item.seenAt ? (
                         <DropdownMenuItem onClick={() => void onMarkUnread(item)}>
                             <RotateCcw className="mr-2 h-4 w-4" />
-                            Mark as new
+                            Mark as unread
                         </DropdownMenuItem>
                     ) : null}
                     <DropdownMenuItem onClick={() => void onDismiss(item)}>

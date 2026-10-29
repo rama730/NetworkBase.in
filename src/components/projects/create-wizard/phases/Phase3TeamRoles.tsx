@@ -96,7 +96,7 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
             <div className="min-w-0 w-full space-y-8 pb-6">
                 <div className="max-w-[65ch]">
                     <p className="nb-micro text-primary">Phase 3 · people</p>
-                    <h2 className="nb-section-title mt-1 text-foreground">People and joining</h2>
+                    <h2 className="nb-section-title mt-1 text-foreground">Members and access</h2>
                     <p className="nb-compact mt-1.5 text-muted-foreground">Who runs it, what the roles are called, and how people get in.</p>
                 </div>
                 <OrgPeopleFields />
@@ -108,7 +108,7 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
         <div className="min-w-0 w-full space-y-8 pb-6">
             <div className="max-w-[65ch]">
                 <p className="nb-micro text-primary">Phase 3 · team</p>
-                <h2 className="nb-section-title mt-1 text-foreground">Build the initial team</h2>
+                <h2 className="nb-section-title mt-1 text-foreground">Set up your team</h2>
                 <p className="nb-compact mt-1.5 text-muted-foreground">Confirm your lead role, then add only the openings you plan to recruit for now.</p>
             </div>
 

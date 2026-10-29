@@ -88,11 +88,11 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
                             const v = e.target.value
                             setFilter({ ...filter, invited: v === 'invited', outside: v === 'outside', status: v === 'invited' || v === 'outside' ? 'all' : (v as RosterFilter['status']) })
                         }}>
-                        <option value="all">Any status</option><option value="behind">Behind</option><option value="inactive">Inactive 14 days</option><option value="invited">Invited</option>
+                        <option value="all">Any status</option><option value="behind">Behind</option><option value="inactive">Inactive for 14 days</option><option value="invited">Invited</option>
                         <option value="outside">Outside people</option>
                     </select>
                     <select aria-label="Sort" className={select} value={filter.sort ?? 'name'} onChange={(e) => setFilter({ ...filter, sort: e.target.value as RosterFilter['sort'] })}>
-                        <option value="name">Sort: Name</option><option value="behind">Behind first</option><option value="active">Last active</option><option value="joined">Joined</option>
+                        <option value="name">Sort: Name</option><option value="behind">Needs attention</option><option value="active">Last active</option><option value="joined">Joined</option>
                     </select>
                 </div>
 
@@ -163,7 +163,7 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
                     <button type="button" className="block hover:underline" onClick={() => setFilter({ role: 'admins' })}>{s.admins} owners and admins · {s.guests} guests</button>
                     <button type="button" className="block hover:underline" onClick={() => setFilter({ status: 'behind', sort: 'behind' })}>{s.behind} behind</button>
                     <button type="button" className="block hover:underline" onClick={() => setFilter({ project: 'none' })}>{s.notInProject} not in a project</button>
-                    <button type="button" className="block hover:underline" onClick={() => setFilter({ status: 'inactive' })}>{s.inactive} inactive 14 days</button>
+                    <button type="button" className="block hover:underline" onClick={() => setFilter({ status: 'inactive' })}>{s.inactive} inactive for 14 days</button>
                 </section>
             </aside>
 
@@ -261,7 +261,7 @@ function InviteBox({ orgId, data, label, pending, run, onCode }: { orgId: string
                         if (window.confirm('Make a new code? The old one stops working.')) void regenerateJoinCodeAction(orgId).then((r) => { if (r.success) onCode(r.joinCode); else toast.error(r.error) })
                     }}>New code</button>
                 </p>
-            ) : <p className="text-[13px] text-muted-foreground">The join code is off.</p>}
+            ) : <p className="text-[13px] text-muted-foreground">Joining by code is turned off.</p>}
             <form className="space-y-1.5" onSubmit={(e) => {
                 e.preventDefault()
                 run(async () => {
@@ -333,7 +333,7 @@ function MemberDrawer({ orgId, row, data, label, pending, run }: { orgId: string
                 )}
             </section>
             <section className="space-y-1.5">
-                <h4 className="font-semibold">Profile credit</h4>
+                <h4 className="font-semibold">Contribution credit</h4>
                 <div className="flex flex-wrap gap-1.5">
                     <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => verifyOrgContributionsAction(orgId, [row.userId]), 'Contribution verified')}>Verify contribution</Button>
                     <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => {

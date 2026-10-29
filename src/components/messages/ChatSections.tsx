@@ -492,7 +492,7 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
           <DropdownMenuContent align="end" className="w-56">
             {open && canManage ? <DropdownMenuItem onSelect={() => setInviteFor(open.id)}><UserPlus /> Invite people</DropdownMenuItem> : null}
             {open ? <DropdownMenuItem asChild><Link href={projectHref}><FolderOpen /> View project</Link></DropdownMenuItem> : null}
-            {open && canManage ? <DropdownMenuItem asChild><Link href={`${projectHref}?tab=settings`}><Settings /> Project settings</Link></DropdownMenuItem> : null}
+            {open && canManage ? <DropdownMenuItem asChild><Link href={`${projectHref}?tab=settings`}><Settings /> Workspace settings</Link></DropdownMenuItem> : null}
             {open ? <DropdownMenuSeparator className="pointer-coarse:hidden" /> : null}
             <DropdownMenuItem className="pointer-coarse:hidden" onSelect={() => useChatUi.getState().setShortcutsOpen(true)}>
               <Keyboard /> Keyboard shortcuts <kbd className="nb-meta ml-auto">{shortcutHint}</kbd>

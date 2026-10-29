@@ -24,7 +24,7 @@ test.describe("People matrix @critical", () => {
     await expect(page.getByRole("tabpanel")).toBeVisible({ timeout: 15000 });
 
     await page.getByRole("tab", { name: /Invitations/ }).click();
-    await expect(page.getByText(/Invited you|Project invitation|No pending invitations/i).first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/Invited you|Workspace invitation|No pending invitations/i).first()).toBeVisible({ timeout: 15000 });
 
     await monitor.assertNoViolations();
     monitor.detach();

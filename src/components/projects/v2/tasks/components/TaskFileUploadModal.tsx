@@ -72,7 +72,7 @@ export function TaskFileUploadModal({
         <DialogHeader>
           <DialogTitle className="text-base font-semibold text-foreground">Upload {displayName}</DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">
-            How would you like to categorize these files?
+            What are these files for?
           </DialogDescription>
         </DialogHeader>
 
@@ -243,7 +243,7 @@ export function TaskFileUploadModal({
                 />
                 <div className="flex-1">
                   <div className="text-[13px] font-medium text-foreground">
-                    New version of existing file
+                    New version of a file
                   </div>
                   <div className="text-xs text-muted-foreground">
                     Add this upload to an attached file’s version history.

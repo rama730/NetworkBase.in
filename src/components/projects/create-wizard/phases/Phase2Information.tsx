@@ -124,7 +124,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
         <div className="min-w-0 w-full space-y-8 pb-6">
             <div className="max-w-[65ch]">
                 <p className="nb-micro text-primary">Phase 2 · {orgCopy ? 'details' : 'information'}</p>
-                <h2 className="nb-section-title mt-1 text-foreground">{orgCopy ? 'Organization details' : 'Project details'}</h2>
+                <h2 className="nb-section-title mt-1 text-foreground">{orgCopy ? 'Organization details' : 'Workspace details'}</h2>
                 <p className="nb-compact mt-1.5 text-muted-foreground">
                     {orgCopy ? "Tell people what this organization is, who it’s for and what happens in it." : 'Describe what you’re building so people understand it and can find it later.'}
                 </p>

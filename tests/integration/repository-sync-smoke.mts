@@ -56,7 +56,7 @@ try {
     assert.equal(
       new URL(page.url()).searchParams.get("filesView"),
       null,
-      "an unavailable direct GitHub view falls back to Project files",
+      "an unavailable direct GitHub view falls back to All files",
     );
     console.log(
       "PASS: unlinked GitHub collection is hidden and direct navigation safely falls back.",

@@ -371,7 +371,7 @@ test("updates tab right rail stays a shortcut index instead of a duplicate feed"
         "Moving today",
         "Follower signal",
         "Contributor momentum",
-        "Visitor view",
+        "View as visitor",
         "Latest movement",
         "Linked work",
         "Publishing guidance",

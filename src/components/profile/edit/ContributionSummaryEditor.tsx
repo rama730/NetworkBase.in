@@ -151,7 +151,7 @@ export function ContributionSummaryEditor({
     editorProps: {
       attributes: {
         role: "textbox",
-        "aria-label": "Contribution summary",
+        "aria-label": "Your contribution",
         "aria-multiline": "true",
         "aria-describedby": "contribution-summary-help",
         class:
@@ -455,7 +455,7 @@ export function ContributionSummaryEditor({
         <span>Activity is optional and stays in your story.</span>
       </div>
       <div className="mt-3 flex flex-wrap gap-2 nb-compact">
-        <span className="text-muted-foreground py-1">Writing starters</span>
+        <span className="text-muted-foreground py-1">Writing prompts</span>
         {[
           "What I worked on",
           "Decisions and challenges",

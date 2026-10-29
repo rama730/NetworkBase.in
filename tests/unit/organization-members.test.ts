@@ -28,7 +28,7 @@ test("pasted emails are split, normalized, de-duplicated and checked", () => {
   });
 });
 
-test("roster filters and sorts: role, project, Not in a project, Behind first", () => {
+test("roster filters and sorts: role, project, Not in a project, Needs attention", () => {
   const row = (name: string, extra: Partial<RosterRow>): RosterRow => ({ userId: name, name, role: "member", title: null, projects: [], work: { done: 0, total: 0, missing: 0 }, lastActiveAt: null, joinedAt: null, behind: false, inactive: false, ...extra });
   const rows = [
     row("Asha", { projects: [{ id: "p1", title: "Compiler Lab", unit: "Frontend" }], work: { done: 8, total: 10, missing: 1 }, behind: true }),

@@ -491,7 +491,7 @@ export function ProjectRolesEditor({
                                 </div>
                                 {isLeadRole ? (
                                     <span className="inline-flex items-center h-5 px-[7px] rounded-[3px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                                        Lead Role · Fixed (1 Seat)
+                                        Owner · 1 person
                                     </span>
                                 ) : (
                                     <div className="flex items-center gap-1.5 shrink-0">
@@ -569,7 +569,7 @@ export function ProjectRolesEditor({
                                             onChange={skillsField.onChange}
                                             maxSkills={12}
                                             label="Required and preferred skills"
-                                            description="These skills power role matching and application recommendations."
+                                            description="Used to suggest this role to people with these skills."
                                             compact
                                         />
                                     )}
@@ -682,7 +682,7 @@ export function ProjectRolesEditor({
                                             onChange={skillsField.onChange}
                                             maxSkills={12}
                                             label="Required and preferred skills"
-                                            description="These skills power role matching and application recommendations."
+                                            description="Used to suggest this role to people with these skills."
                                             compact
                                         />
                                     )}

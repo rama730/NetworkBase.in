@@ -72,7 +72,7 @@ test("Discover: orgs are org cards with their projects count; children carry the
   assert.deepEqual([orgCard.kind, orgCard.childProjectCount], ["organization", 2]);
   const childCard = all.find((p) => p.id === o.child)!;
   assert.deepEqual(childCard.cardOrg, { title: `CSE ${o.tag}`, slug: `cse-${o.tag}` });
-  assert.ok(!all.some((p) => p.id === o.orgOnly), "Org only projects never reach Discover");
+  assert.ok(!all.some((p) => p.id === o.orgOnly), "Organization projects never reach Discover");
   assert.ok(!(await feed({ search: fresh.tag })).some((p) => p.id === fresh.orgId), "a 1-day-old org waits (decision 160)");
 });
 

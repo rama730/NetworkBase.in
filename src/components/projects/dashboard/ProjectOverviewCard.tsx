@@ -39,7 +39,7 @@ const StatementBox = memo(function StatementBox({
                 {content}
             </p>
             <span className="nb-micro mt-auto pt-4 text-muted-foreground group-hover:text-foreground">
-                Click to read full text
+                Read more
             </span>
         </button>
     );
@@ -65,7 +65,7 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
     project,
     isCreator,
     onEdit,
-    labels = { description: "Vision and description", problem: "The problem", solution: "The solution" },
+    labels = { description: "About this workspace", problem: "The problem", solution: "The solution" },
 }: ProjectOverviewCardProps) {
     const [statement, setStatement] = useState<StatementSelection>(null);
     const [descriptionExpanded, setDescriptionExpanded] = useState(false);
@@ -96,7 +96,7 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
         return (
             <div className="flex flex-col items-center justify-center rounded-[8px] border border-border bg-card p-8 text-center">
                 <p className="nb-card-title text-foreground">No project details yet</p>
-                <p className="nb-compact mt-1 text-muted-foreground">This project has not added an overview, description, or statement yet.</p>
+                <p className="nb-compact mt-1 text-muted-foreground">No details yet.</p>
                 {isCreator && onEdit ? (
                     <button
                         type="button"
@@ -145,7 +145,7 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
                                 aria-expanded={descriptionExpanded}
                                 className="nb-touch-target nb-ui-label mt-2 inline-flex items-center text-primary md:hidden"
                             >
-                                {descriptionExpanded ? "Show less" : "Read full description"}
+                                {descriptionExpanded ? "Show less" : "Read more"}
                             </button>
                         </section>
                     ) : null}
@@ -207,7 +207,7 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
 
                         {projectSkills.length > 0 ? (
                             <div className="space-y-3">
-                                <h2 className="nb-micro">{"Skills and tech"}</h2>
+                                <h2 className="nb-micro">{"Skills and tools"}</h2>
                                 <SkillList skills={projectSkills} maxVisible={12} size="sm" className="max-md:hidden" />
                                 <SkillList skills={projectSkills} maxVisible={6} size="sm" className="md:hidden" />
                             </div>

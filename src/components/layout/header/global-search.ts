@@ -154,12 +154,12 @@ export function removeRecentGlobalSearch(ownerId: string, scope: string, key: st
 }
 
 const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
-    { id: "account", title: "Account", section: "Account", description: "Review signed-in identity and local application data.", href: settingsTabHref("account"), keywords: "profile account status manage", featured: true },
+    { id: "account", title: "Account", section: "Account", description: "Your account details and data on this device.", href: settingsTabHref("account"), keywords: "profile account status manage", featured: true },
     { id: "delete-account", title: "Delete account", section: "Legal and data", description: "Review the permanent account deletion controls.", href: "/settings#settings-delete-account", keywords: "remove erase close danger irreversible" },
     { id: "security", title: "Security", section: "Security", description: "Protect your account and review sign-in activity.", href: settingsTabHref("security"), keywords: "protect login sign in", featured: true },
     { id: "authenticator", title: "Authenticator app", section: "Security", description: "Configure an authenticator app and 6-digit verification codes.", href: "/settings#settings-security-authenticator", keywords: "mfa 2fa two factor otp verification code" },
-    { id: "password", title: "Password", section: "Security", description: "Manage your fallback password and password credential.", href: "/settings#settings-security-password", keywords: "change reset credential sign in" },
-    { id: "active-sessions", title: "Active sessions", section: "Security", description: "Review devices where your account is signed in.", href: "/settings#settings-security-sessions", keywords: "device logout revoke trusted session" },
+    { id: "password", title: "Password", section: "Security", description: "Change your password.", href: "/settings#settings-security-password", keywords: "change reset credential sign in" },
+    { id: "active-sessions", title: "Signed-in devices", section: "Security", description: "Review devices where your account is signed in.", href: "/settings#settings-security-sessions", keywords: "device logout revoke trusted session" },
     { id: "login-activity", title: "Sign-in activity", section: "Security", description: "Review recent sign-ins and security changes.", href: "/settings#settings-security-activity", keywords: "history audit recent device" },
     { id: "privacy", title: "Privacy", section: "Privacy", description: "Control profile visibility and interaction permissions.", href: settingsTabHref("privacy"), keywords: "visibility permissions interactions", featured: true },
     { id: "profile-visibility", title: "Profile visibility", section: "Privacy", description: "Choose who can open your full profile.", href: "/settings#settings-privacy-visibility", keywords: "public private connections only hide profile" },
@@ -173,18 +173,18 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     { id: "appearance", title: "Appearance", section: "Appearance", description: "Customize theme, accent color, density, and motion.", href: settingsTabHref("appearance"), keywords: "look display interface", featured: true },
     { id: "theme", title: "Theme mode", section: "Appearance", description: "Switch between light, dark, and system themes.", href: "/settings#settings-appearance-theme", keywords: "change color theme light dark system mode" },
     { id: "accent-color", title: "Accent color", section: "Appearance", description: "Change the action and selected-state color across the app.", href: "/settings#settings-appearance-accent", keywords: "change color primary clay orchid violet forest green ember amber rose lagoon teal" },
-    { id: "density", title: "Interface density", section: "Appearance", description: "Adjust spacing in navigation, lists, cards, and panels.", href: "/settings#settings-appearance-density", keywords: "compact comfortable spacious size spacing" },
+    { id: "density", title: "Display spacing", section: "Appearance", description: "Adjust spacing in navigation, lists, cards, and panels.", href: "/settings#settings-appearance-density", keywords: "compact comfortable spacious size spacing" },
     { id: "reduce-motion", title: "Reduce motion", section: "Appearance", description: "Reduce non-essential interface animation.", href: "/settings#settings-appearance-motion", keywords: "accessibility animation transition movement" },
     { id: "integrations", title: "Integrations", section: "Integrations", description: "Manage sign-in methods, GitHub, and editor sessions.", href: settingsTabHref("integrations"), keywords: "connected services extensions", featured: true },
-    { id: "account-connections", title: "Account connections", section: "Integrations", description: "Review Google, GitHub, email, and linked sign-in methods.", href: "/settings#settings-integrations-connections", keywords: "provider login oauth link unlink" },
+    { id: "account-connections", title: "Sign-in methods", section: "Integrations", description: "Review Google, GitHub, email, and linked sign-in methods.", href: "/settings#settings-integrations-connections", keywords: "provider login oauth link unlink" },
     { id: "github", title: "GitHub access", section: "Integrations", description: "Review account-level GitHub repository access status.", href: "/settings#settings-integrations-github", keywords: "repository repo source code connect" },
-    { id: "editor-sessions", title: "Editor extension sessions", section: "Integrations", description: "Review or disconnect VS Code and other editor sessions.", href: "/settings#settings-integrations-editors", keywords: "vscode cursor kiro ide extension disconnect revoke active" },
+    { id: "editor-sessions", title: "Connected editors", section: "Integrations", description: "Review or disconnect VS Code and other editor sessions.", href: "/settings#settings-integrations-editors", keywords: "vscode cursor kiro ide extension disconnect revoke active" },
     { id: "manual-token", title: "Manual editor token", section: "Integrations", description: "Generate a fallback token for an editor extension.", href: "/settings#settings-integrations-token", keywords: "device authentication login extension" },
     { id: "privacy-policies", title: "Legal and data", section: "Legal and data", description: "Review legal terms, policies, and account data rights.", href: settingsTabHref("privacy-policies"), keywords: "legal rights terms eula policy data export delete" },
     { id: "terms-of-service", title: "Terms of Service", section: "Legal and data", description: "Review the NetworkBase™ Terms of Service.", href: "/terms", keywords: "legal terms conditions agreement contract rules" },
     { id: "privacy-policy", title: "Privacy Policy", section: "Legal and data", description: "Review NetworkBase™ data protection and privacy policies.", href: "/privacy", keywords: "legal privacy notice data rights protection gdpr" },
     { id: "security-reporting", title: "Security reporting", section: "Legal and data", description: "Official security disclosure and vulnerability reporting.", href: "/security-reporting", keywords: "security bug vulnerability report incident disclose" },
-    { id: "grievances", title: "Grievances and Redressal", section: "Legal and data", description: "Statutory grievance officer and dispute redressal.", href: "/grievances", keywords: "grievance officer complaint dispute nodal officer redressal" },
+    { id: "grievances", title: "Grievance redressal", section: "Legal and data", description: "Statutory grievance officer and dispute redressal.", href: "/grievances", keywords: "grievance officer complaint dispute nodal officer redressal" },
     { id: "trademark-ip", title: "Trademark and Copyright", section: "Legal and data", description: "NetworkBase™ trademark, copyright, and intellectual property notices.", href: "/copyright", keywords: "trademark brand copyright intellectual property ownership" },
 ] as const;
 
@@ -231,7 +231,7 @@ export function resolveGlobalSearchContext(pathname: string | null, searchParams
         return {
             context: "network",
             placeholder: scope === "network" ? "Search your network…" : "Find people…",
-            title: scope === "network" ? "Search your network" : "Find builders",
+            title: scope === "network" ? "Search your network" : "Find people",
             description: scope === "network"
                 ? "Search your accepted connections by name."
                 : "Search people by name, skills, interests, or location.",

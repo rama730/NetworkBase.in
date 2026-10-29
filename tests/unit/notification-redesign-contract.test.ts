@@ -73,7 +73,7 @@ test("Notification polish enhancements: compact timestamps, drafting chip excerp
 
     // Idea 2: Unread paper wash, RotateCcw icon, list pb-3 gutter
     assert.match(rowSource, /bg-primary\/\[0\.04\] hover:bg-primary\/\[0\.07\] dark:bg-primary\/\[0\.08\] dark:hover:bg-primary\/\[0\.12\]/);
-    assert.match(rowSource, /<RotateCcw className="mr-2 h-4 w-4" \/>\s*Mark as new/);
+    assert.match(rowSource, /<RotateCcw className="mr-2 h-4 w-4" \/>\s*Mark as unread/);
     assert.match(listSource, /className="pb-3"/);
 
     // Idea 3: Clear all action button on "All" tab when items exist

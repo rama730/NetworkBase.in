@@ -324,10 +324,10 @@ export function ProfileHeader({
                                     checked={isOpenToCollaborate}
                                     onCheckedChange={onAvailabilityToggle}
                                     disabled={!onAvailabilityToggle || isSavingAvailability || availabilityToggleDisabled}
-                                    aria-label="Open to collaborate"
+                                    aria-label="Open to collaboration"
                                     aria-busy={isSavingAvailability}
                                 />
-                                <span>Open to collaborate</span>
+                                <span>Open to collaboration</span>
                                 {isSavingAvailability ? <span role="status" className="nb-compact text-muted-foreground">Saving…</span> : null}
                             </label>
                             <PresenceChips userId={profile?.id ?? null} lastActiveAt={vm.lastActiveAt} isOwner className="md:justify-end" />

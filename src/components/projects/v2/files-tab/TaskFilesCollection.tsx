@@ -483,7 +483,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
     result.isPending ||
     (taskId && !selected && (result.hasNextPage || result.isFetching));
   const taskMenuItems = taskId ? <>
-    <DropdownMenuSub><DropdownMenuSubTrigger><Filter className="size-4" />File role</DropdownMenuSubTrigger><DropdownMenuSubContent><DropdownMenuRadioGroup aria-label="File role" value={role} onValueChange={value => setRole(value as "all" | "deliverable" | "reference" | "working")}>
+    <DropdownMenuSub><DropdownMenuSubTrigger><Filter className="size-4" />File purpose</DropdownMenuSubTrigger><DropdownMenuSubContent><DropdownMenuRadioGroup aria-label="File purpose" value={role} onValueChange={value => setRole(value as "all" | "deliverable" | "reference" | "working")}>
       <DropdownMenuRadioItem value="all">All files</DropdownMenuRadioItem>
       <DropdownMenuRadioItem value="deliverable">Deliverables</DropdownMenuRadioItem>
       <DropdownMenuRadioItem value="working">Working files</DropdownMenuRadioItem>
@@ -990,7 +990,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
           isOpen={true}
           files={pendingUploadFiles}
           currentFolderId={null}
-          currentFolderName="Project root"
+          currentFolderName="All files"
           existingFiles={[]}
           activeTaskId={targetUploadTask.id}
           activeTaskTitle={targetUploadTask.title}

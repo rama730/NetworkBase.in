@@ -238,8 +238,8 @@ export function StatusPicker() {
                 className="min-h-11 rounded-lg border border-input bg-card px-3 text-[15px]"
               >
                 <option value="everyone">Everyone on NetworkBase</option>
-                <option value="network">My connections and project teammates</option>
-                <option value="team">Only project teammates</option>
+                <option value="network">Connections and workspace members</option>
+                <option value="team">Workspace members</option>
               </select>
             </div>
           </div>

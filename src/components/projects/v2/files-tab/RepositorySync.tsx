@@ -1015,7 +1015,7 @@ export function RepositorySync({
     ) {
       setMergeError(
         scan.reason ||
-          "Combined text must be valid UTF-8 text of no more than 1 MB.",
+          "Merged text must be plain text under 1 MB.",
       );
       return;
     }
@@ -1911,7 +1911,7 @@ export function RepositorySync({
             {diff && !diff.binary && !diffError && (
               <>
                 <label className={styles.field}>
-                  Combine text
+                  Merge text
                   <textarea
                     className={styles.mono}
                     value={merged}
@@ -2241,7 +2241,7 @@ export function RepositorySync({
                 </strong>
                 <p id="github-selection-help">
                   {selectedProblem ||
-                    "Prepare a reviewed snapshot before confirmation."}
+                    "Review your selection before confirming."}
                 </p>
               </div>
               <button
@@ -2825,7 +2825,7 @@ export function RepositorySync({
     return (
       <>
         <SyncHeading
-          title="Commit attribution"
+          title="Commit author"
           description="Credit uses verified identities and actual contributions."
           onBack={() => setView(returnView)}
           headingRef={headingRef}

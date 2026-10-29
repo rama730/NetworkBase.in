@@ -196,7 +196,7 @@ export const TaskCard = memo(function TaskCard({
           )}
           {timeHealth.state === "unfinished" && (
             <span className="shrink-0 rounded-[3px] border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
-              Rolled over
+              Incomplete
             </span>
           )}
           {timeHealth.state === "overtime" && (

@@ -74,7 +74,7 @@ const row = async (id: string) => (await sql`SELECT owner_id, parent_id, visibil
 const membership = async (projectId: string, userId: string) =>
   (await sql`SELECT role, unit_id FROM project_members WHERE project_id = ${projectId} AND user_id = ${userId}`)[0] ?? null;
 
-test("a member creates a child: they lead it, it is Org only, and unit people are invited", async () => {
+test("a member creates a child: they lead it, it is Organization, and unit people are invited", async () => {
   const o = await org();
   const result = await create(o, o.member, { roles: [{ role: "Frontend", count: 2, people: [{ user_id: o.member2 }] }] });
   assert.equal(result.success, true, JSON.stringify(result));
@@ -111,7 +111,7 @@ test("creation rules: Admins only, guests, outsiders and the visibility cap", as
   assert.equal((await row(capped.project!.id)).visibility, "org", "lowered to the cap");
 });
 
-test("Org only children open for org people and inherited admins, not outsiders", async () => {
+test("Organization children open for org people and inherited admins, not outsiders", async () => {
   const o = await org();
   const result = await create(o, o.member);
   const slug = result.project!.slug!;

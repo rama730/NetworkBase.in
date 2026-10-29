@@ -82,7 +82,7 @@ test('failed/uncertain sends retain drafts and receipt retries use one intent',a
   await page.evaluate(()=>{const f=(window as any).sharingFixture;f.sendResult='uncertain';f.delay=150;});
   await dialog.getByRole('button',{name:'Send',exact:true}).click();await expect(dialog.getByRole('status')).toContainText('Check the earlier receipt');
   await expect(dialog.getByRole('textbox',{name:'Note (optional)'})).toHaveValue('Please meet this builder.');
-  await dialog.getByRole('button',{name:'Check earlier send',exact:true}).click();await expect(dialog.getByRole('status')).toHaveText('Earlier send confirmed. No additional message was sent.');
+  await dialog.getByRole('button',{name:'Check earlier send',exact:true}).click();await expect(dialog.getByRole('status')).toHaveText('Already sent.');
   const ids=await page.evaluate(()=>(window as any).sharingFixture.attempts.map((input:any)=>input.clientId));expect(ids.length).toBe(2);expect(ids[0]).toBe(ids[1]);
 });
 

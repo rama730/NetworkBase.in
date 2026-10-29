@@ -248,7 +248,7 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.match(commandPalette, /<AppScrollArea axis="x" variant="hidden"/);
   assert.match(commandPalette, /shrink-0 items-center/);
   assert.match(commandPalette, /<form onSubmit=\{handleSubmit\} className="flex min-h-0 min-w-0/);
-  assert.match(commandPalette, /Builder search results/);
+  assert.match(commandPalette, /People results/);
   assert.match(commandPalette, /Task search results/);
   assert.match(commandPalette, /SearchSkeletons/);
   assert.match(commandPalette, /Search is temporarily paused/);
@@ -311,7 +311,7 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.match(connectionsAction, /blocked_connection\.status = 'blocked'/);
   assert.match(connectionsAction, /applySuggestedProfilePrivacy\(user\.id, items\)/);
   assert.doesNotMatch(personCard, /onDismiss/);
-  // Shared wording (lib/connections/copy): "1 shared connection", "3 shared connections".
+  // Shared wording (lib/connections/copy): "1 shared connection", "3 mutual connections".
   assert.match(personContent, /CONNECTION_COPY\.shared\(/);
   // Approved person cards share fixed geometry, with truthful subtitle and labelled context.
   for (const card of [personCard, networkPeople]) {

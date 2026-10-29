@@ -542,7 +542,7 @@ export default function InvitationsClient({
                     description={
                         filtered
                             ? "Try a different name, role, project, or filter."
-                            : "Connection and project invitations will appear here."
+                            : "Invitations appear here."
                     }
                     action={
                         filtered && onReset ? (
@@ -642,7 +642,7 @@ export default function InvitationsClient({
                         id="project-invitations-heading"
                         className="nb-micro mb-3"
                     >
-                        Project invitations
+                        Workspace invitations
                     </h2>
                     <div className={INVITATION_GRID}>
                         {projectInvitations.map((invitation) => {
@@ -700,7 +700,7 @@ export default function InvitationsClient({
                         id="project-applications-heading"
                         className="nb-micro mb-3"
                     >
-                        Project applications
+                        Role applications
                     </h2>
                     <div className={INVITATION_GRID}>
                         {projectApplications.map((app) => {
@@ -849,7 +849,7 @@ export default function InvitationsClient({
                         id="sent-project-invitations-heading"
                         className="nb-micro mb-3"
                     >
-                        Sent project invitations
+                        Sent workspace invitations
                     </h2>
                     <div className={INVITATION_GRID}>
                         {sentProjectInvitations.map((invitation) => {

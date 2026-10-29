@@ -17,7 +17,7 @@ export default function OnboardingError({
     return (
         <main className="onb-page flex min-h-dvh items-center justify-center px-4">
             <div className="max-w-md text-center" role="alert">
-                <h1 className="text-xl font-semibold text-foreground">Setup hit a problem</h1>
+                <h1 className="text-xl font-semibold text-foreground">Setup couldn’t continue</h1>
                 <p className="mt-2 text-sm text-muted-foreground">
                     Steps you already saved are kept, and what you typed since is still in this browser. Try again; if it keeps
                     happening, contact support.

@@ -101,7 +101,7 @@ export function ProjectSettingsNavigation({
         className="sticky top-[calc(var(--project-tabs-height)+1rem)] hidden max-h-[calc(100dvh-var(--ui-topnav-height)-var(--project-tabs-height)-2rem)] self-start overflow-y-auto border-r border-border px-3 py-4 app-scroll app-scroll-y xl:block"
       >
         <div className="mb-3 space-y-3 px-2">
-          <p className="nb-micro">Project settings</p>
+          <p className="nb-micro">Workspace settings</p>
           <div className="h-px bg-border" aria-hidden="true" />
         </div>
         {links}
@@ -113,7 +113,7 @@ export function ProjectSettingsNavigation({
         <summary className="nb-nav-link cursor-pointer list-none justify-between">
           <span>
             {sections.find((section) => section.id === activeSection)?.label ??
-              "Project settings"}
+              "Workspace settings"}
           </span>
           <ChevronDown className="size-4 shrink-0" aria-hidden="true" />
         </summary>

@@ -667,7 +667,7 @@ export async function createProjectAction(
         directAdd: isOrgAdmin,
         visibility: capChildVisibility(asked, rules.visibilityCap, isProjectPubliclyReadableVisibility(org.visibility)),
       };
-      if (child.visibility !== asked) childNotices.push(`Visibility changed by ${org.title} rules: ${child.visibility === "private" ? "Private" : "Org only"}.`);
+      if (child.visibility !== asked) childNotices.push(`Visibility changed by ${org.title} rules: ${child.visibility === "private" ? "Private" : "Organization"}.`);
     }
 
     const {
@@ -2694,7 +2694,7 @@ export async function updateProjectStageAction(
       if (expectedUpdatedAtDate) {
         return {
           success: false,
-          error: "Project lifecycle changed. Refresh and retry.",
+          error: "Stages changed. Refresh and retry.",
           errorCode: "PROJECT_CONFLICT",
           latest: {
             currentStageIndex: Math.max(0, current.currentStageIndex ?? 0),
@@ -2826,7 +2826,7 @@ export async function updateProjectLifecycleAction(
       .returning({ id: projects.id });
 
     if (!updated) {
-      throw new Error("Project lifecycle changed. Refresh and retry.");
+      throw new Error("Stages changed. Refresh and retry.");
     }
 
     const slugOrId = project.slug || projectId;

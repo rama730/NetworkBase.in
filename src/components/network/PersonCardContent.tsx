@@ -101,11 +101,11 @@ export function PersonCardSkillStrip({ labels, viewerSkills = EMPTY_SKILLS }: { 
         return () => observer.disconnect();
     }, [skills]);
     if (!skills.length) return null;
-    return <div ref={strip} className="nb-person-skill-strip" role="group" aria-label="Declared skills">
+    return <div ref={strip} className="nb-person-skill-strip" role="group" aria-label="Skills">
         {skills.slice(0, visible).map(tag)}
         {skills.length > visible ? <Dialog><DialogTrigger asChild>
             <button type="button" className="nb-tag nb-person-skill nb-person-more" aria-label={`Show ${skills.length - visible} more skills`}>+{skills.length - visible}</button>
-        </DialogTrigger><DialogContent className="nb-person-dialog"><DialogHeader><DialogTitle>All declared skills</DialogTitle></DialogHeader>
+        </DialogTrigger><DialogContent className="nb-person-dialog"><DialogHeader><DialogTitle>All skills</DialogTitle></DialogHeader>
             <p className="nb-compact text-muted-foreground">Highlighted skills match your profile.</p>
             <div className="nb-person-dialog-skills">{skills.map(tag)}</div>
         </DialogContent></Dialog> : null}
@@ -129,7 +129,7 @@ function SharedConnections({ person, count }: { person: PersonCardIdentity; coun
             if (version.current !== current) return;
             if (!response.success) { setResult(null); setError(response.error); return; }
             setResult(response.summary); setOffset(nextOffset);
-        } catch { if (version.current === current) { setResult(null); setError('Couldn’t load shared connections. Try again.'); } }
+        } catch { if (version.current === current) { setResult(null); setError('Couldn’t load mutual connections. Try again.'); } }
         finally { if (version.current === current) setLoading(false); }
     }
     return <Dialog open={open} onOpenChange={next => { setOpen(next); setResult(null); setError(null); if (next) void load(0); else version.current++; }}>
@@ -138,8 +138,8 @@ function SharedConnections({ person, count }: { person: PersonCardIdentity; coun
             <span className="nb-person-shared-full">{CONNECTION_COPY.shared(count)}</span>
             <span className="nb-person-shared-compact">{personCompactCount(count)} shared</span>
         </button></DialogTrigger>
-        <DialogContent className="nb-person-dialog"><DialogHeader><DialogTitle>Shared connections</DialogTitle></DialogHeader>
-            {loading ? <p role="status" className="nb-compact flex items-center gap-2"><Loader2 className="size-4 animate-spin" />Loading shared connections…</p> : null}
+        <DialogContent className="nb-person-dialog"><DialogHeader><DialogTitle>Mutual connections</DialogTitle></DialogHeader>
+            {loading ? <p role="status" className="nb-compact flex items-center gap-2"><Loader2 className="size-4 animate-spin" />Loading mutual connections…</p> : null}
             {error ? <div role="alert"><p className="nb-compact">{error}</p><button className="nb-person-control mt-3" onClick={() => void load(0)}>Retry</button></div> : null}
             {result ? <><p className="nb-meta">{result.total.toLocaleString('en')} shared {result.total === 1 ? 'connection' : 'connections'}</p>
                 <div className="grid gap-3">{result.people.map(peer => <Link key={peer.id} href={profileHref(peer)} className="flex min-w-0 items-center gap-3 rounded-md">

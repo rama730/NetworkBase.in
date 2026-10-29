@@ -39,7 +39,7 @@ function OrgDocInPlace({ project, docSlug }: { project: Project; docSlug: string
             <div className="nb-empty-state py-12" role="alert">
                 <BookOpenText className="nb-empty-state-icon" aria-hidden="true" />
                 <p className="nb-card-title mt-4 text-foreground">Doc not visible</p>
-                <p className="nb-compact mt-2 text-muted-foreground">This organization doc is not shared with this project.</p>
+                <p className="nb-compact mt-2 text-muted-foreground">This organization document isn’t shared with this workspace.</p>
             </div>
         );
     }
@@ -136,7 +136,7 @@ function OwnDocs({ projectId, project, paramDoc }: { projectId: string; project:
                 <>
                     <Button className="mt-4" onClick={() => setAddOpen(true)}>
                         <Plus className="size-4" />
-                        Add doc
+                        Add document
                     </Button>
                     <AddDocDialog projectId={projectId} open={addOpen} onOpenChange={setAddOpen} />
                 </>

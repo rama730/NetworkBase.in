@@ -391,12 +391,12 @@ export default function NetworkClient({ initialUser }: NetworkClientProps) {
                                                 tab: "invitations" as const,
                                             },
                                             {
-                                                label: "Project invitations",
+                                                label: "Workspace invitations",
                                                 count: pendingInvites,
                                                 tab: "invitations" as const,
                                             },
                                             {
-                                                label: "Project applications",
+                                                label: "Role applications",
                                                 count: pendingApplications,
                                                 tab: "invitations" as const,
                                             },

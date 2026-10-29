@@ -29,13 +29,13 @@ test("project dashboard keeps journey connectors, statements, and skills stable"
 
   assert.match(overview, /min-h-44/);
   assert.match(overview, /line-clamp-6/);
-  assert.match(overview, /Click to read full text/);
+  assert.match(overview, /Read more/);
   assert.match(overview, /<Dialog open=\{Boolean\(statement\)\}/);
   assert.match(overview, /normalizeProjectSkills/);
   assert.match(overview, /project\?\.skills/);
   assert.match(overview, /project\?\.technologies_used/);
   assert.match(overview, /project\?\.techStack/);
-  assert.match(overview, /Skills and tech/);
+  assert.match(overview, /Skills and tools/);
 });
 
 test("project detail keeps identity and team in the header while the dashboard starts with project substance", () => {
@@ -88,7 +88,7 @@ test("project detail keeps identity and team in the header while the dashboard s
   assert.doesNotMatch(overview, /JourneyTimeline/);
   assert.doesNotMatch(overview, /project\?\.title/);
   assert.doesNotMatch(overview, /project\?\.shortDescription/);
-  assert.match(overview, /Vision and description/);
+  assert.match(overview, /About this workspace/);
   assert.match(overview, /The problem/);
   assert.match(overview, /The solution/);
 });

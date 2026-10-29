@@ -90,7 +90,7 @@ test('skills and shared people disclose on demand, paginate safely, and restore 
     await expect(page.getByRole('dialog').locator('.nb-person-skill')).toHaveCount(8);
     await page.keyboard.press('Escape');
     await expect(more).toBeFocused();
-    const shared = page.getByRole('button', { name: /6 shared connections/ });
+    const shared = page.getByRole('button', { name: /6 mutual connections/ });
     await shared.click();
     await expect(page.getByRole('dialog').getByRole('link')).toHaveCount(20);
     await page.getByRole('button', { name: 'Next', exact: true }).click();

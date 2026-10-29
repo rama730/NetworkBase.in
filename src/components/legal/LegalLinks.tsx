@@ -103,7 +103,7 @@ export function LegalLinks({
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link href="/grievances" className="cursor-pointer">
-              Grievances and Redressal
+              Grievance redressal
             </Link>
           </DropdownMenuItem>
         </DropdownMenuContent>

@@ -1318,7 +1318,7 @@ function ProjectSettingsContent({
                     <legend className="nb-micro text-muted-foreground">Removal mode</legend>
                     {([
                         ["preserve_history", "Preserve history", "Keep active assignments in place and label them Removed from project · Needs reassignment."],
-                        ["unassign_active_tasks", "Unassign active tasks", "Clear this member from active task assignee fields while preserving creator/comment/file history."],
+                        ["unassign_active_tasks", "Unassign active tasks", "Their tasks become unassigned. Their comments and files stay."],
                         ["reassign_active_tasks", "Reassign active tasks", "Give their tasks to another member."],
                     ] as const).map(([mode, label, detail]) => (
                         <label key={mode} className="flex cursor-pointer gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:border-foreground/20">
@@ -1477,7 +1477,7 @@ function ProjectSettingsContent({
 
                                     <div className="pt-6">
                                         <div className="mb-4">
-                                            <h3 className="nb-ui-label text-sm font-semibold text-foreground">Public surface visibility</h3>
+                                            <h3 className="nb-ui-label text-sm font-semibold text-foreground">What visitors can see</h3>
                                             <p className="nb-compact mt-0.5 text-xs text-muted-foreground">
                                                 Choose which tabs visitors can see. Members always see every tab.
                                             </p>
@@ -1525,7 +1525,7 @@ function ProjectSettingsContent({
                                             className="nb-touch-target h-[34px] gap-1.5 rounded-[5px] border-border px-3 text-[13px] font-medium leading-[1.2] text-foreground shrink-0 hover:bg-muted"
                                         >
                                             <RefreshCw className={cn("h-3.5 w-3.5 text-muted-foreground", collaboratorRefreshing && "animate-spin")} />
-                                            Sync directory
+                                            Refresh
                                         </Button>
                                     </div>
                                 </>
@@ -1593,7 +1593,7 @@ function ProjectSettingsContent({
                                             />
                                         ) : (
                                             <div className="rounded-lg border border-dashed border-border/80 bg-muted/20 p-5 text-center">
-                                                <p className="nb-meta text-xs text-muted-foreground">Lead record is unavailable.</p>
+                                                <p className="nb-meta text-xs text-muted-foreground">Owner details unavailable.</p>
                                             </div>
                                         )}
                                         {rolePolicy.coLeaders.length > 0 ? (
@@ -1635,7 +1635,7 @@ function ProjectSettingsContent({
                                     <div className="flex items-center justify-between pb-2 border-b border-border/60">
                                         <div className="flex items-center gap-2">
                                             <span className="nb-ui-label text-foreground">
-                                                Team directory
+                                                Members
                                             </span>
                                         </div>
                                         <span className="nb-meta text-xs text-muted-foreground">
@@ -1840,7 +1840,7 @@ function ProjectSettingsContent({
                             <SettingsCard
                                 title="Project updates"
                                 headingLevel={2}
-                                description="Configure member publishing permissions and broadcast settings for project progress updates."
+                                description="Choose who can post updates."
                             >
                                 <div className="space-y-6">
                                     {/* Section 1: Publishing Permissions */}
@@ -1890,7 +1890,7 @@ function ProjectSettingsContent({
                 )}
                 {sections.some((s) => s.id === "tasks-workflow") && (
                     <section id="project-settings-tasks-workflow" data-project-settings-section className="space-y-8">
-                        <SettingsPageHeader level={2} title="Lifecycle and workflow" description="Manage task completion and your project’s lifecycle stages." />
+                        <SettingsPageHeader level={2} title="Stages and workflow" description="Manage task completion and your project’s lifecycle stages." />
                         <TaskCompletionSettings projectId={projectId} />
                         <div className="space-y-6">
                             <LifecycleSettingsEditor
@@ -2080,7 +2080,7 @@ function ProjectSettingsContent({
                 )}
                 {sections.some((s) => s.id === "privacy-policies" || s.id === "privacy-terms") && (
                     <section id="project-settings-privacy-policies" data-project-settings-section className="space-y-6">
-                        <SettingsPageHeader level={2} title="Privacy and policies" description="These agreements and data rights apply to your signed-in account, not everyone on this project." />
+                        <SettingsPageHeader level={2} title="Privacy" description="These agreements and data rights apply to your signed-in account, not everyone on this project." />
                         <LegalAndDataRightsSection />
                     </section>
                 )}

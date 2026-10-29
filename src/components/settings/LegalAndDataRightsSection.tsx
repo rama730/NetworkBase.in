@@ -36,7 +36,7 @@ const governingDocuments = [
   { href: "/copyright", title: "Copyright and Takedowns" },
   { href: "/open-source", title: "Open-source notices" },
   { href: "/security-reporting", title: "Security Reporting" },
-  { href: "/grievances", title: "Grievances and Redressal" },
+  { href: "/grievances", title: "Grievance redressal" },
   { href: "/support", title: "Support" },
 ] as const;
 
@@ -240,7 +240,7 @@ export function LegalAndDataRightsSection() {
 
       <div id="settings-privacy-policies-export" className="flex scroll-mt-6 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="max-w-xl">
-          <h4 className="nb-ui-label text-foreground">Export account data</h4>
+          <h4 className="nb-ui-label text-foreground">Export your data</h4>
           <p className="nb-compact mt-0.5 text-muted-foreground">
             Download a JSON file with your profile, project contributions, the projects you own and are a member of, tasks assigned to you, your comments on project updates, your connections, the messages you wrote, and your legal acceptances. You can export once an hour.{lastExportedAt ? ` Last exported ${formatCalendarDate(lastExportedAt)}.` : ""}
           </p>
@@ -249,7 +249,7 @@ export function LegalAndDataRightsSection() {
           <Button variant="outline" size="sm" asChild>
             <a href="/api/v1/account/export" download>
               <Download className="mr-1.5 size-3.5" aria-hidden="true" />
-              Download JSON
+              Export your data
             </a>
           </Button>
         </div>

@@ -222,7 +222,7 @@ describe("Files Tab Trash Redesign Specification Conformance Contract", () => {
     );
   });
 
-  it("suppresses Git Sync and Desktop IDE buttons in header when viewing Trash", () => {
+  it("suppresses Git Sync and Code editor buttons in header when viewing Trash", () => {
     const workspaceHeaderPath = path.resolve(
       process.cwd(),
       "src/components/projects/v2/files-tab/FilesHeader.tsx",

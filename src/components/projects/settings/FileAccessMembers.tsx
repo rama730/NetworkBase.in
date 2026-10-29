@@ -98,8 +98,8 @@ export function FileAccessMembers({
             disabled={bulkSaving || Boolean(savingMemberId)}
           >
             <option value="all">All members</option>
-            <option value="enabled">Enabled members</option>
-            <option value="disabled">Disabled members</option>
+            <option value="enabled">Can upload</option>
+            <option value="disabled">Can’t upload</option>
           </select>
         </label>
       </div>
@@ -218,7 +218,7 @@ export function FileAccessMembers({
       ) : null}
       <details className="border-t border-border pt-4">
         <summary className="nb-compact cursor-pointer">
-          File permission rules
+          Upload permissions
         </summary>
         <ul className="nb-compact mt-3 list-disc space-y-2 pl-5 text-muted-foreground">
           {filePolicy.enforcedRules.map((rule) => (

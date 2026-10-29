@@ -413,7 +413,7 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
   const greeting = `Hi ${input.name || "there"},`;
   const taskTitle = input.taskTitle || "Task";
   const projectTitle = input.projectTitle || "your project";
-  const button = welcome ? "Explore NetworkBase" : "View Task →";
+  const button = welcome ? "Explore NetworkBase" : "View task";
   const footer = welcome
     ? "Need help? Reply to this email."
     : `You’re receiving task updates for ${projectTitle} on NetworkBase.`;
@@ -569,7 +569,7 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
   text += `\nView Task: ${url}\n`;
   text += `Project: ${projectUrl}\n`;
   if (desktopIdeLaunchUrl) {
-    text += `Open in ${input.connectedDesktopIde?.name || "Desktop IDE"}: ${desktopIdeLaunchUrl}\n`;
+    text += `Open in ${input.connectedDesktopIde?.name || "Code editor"}: ${desktopIdeLaunchUrl}\n`;
   }
   text += `\n${footer}\nNotification settings: ${settingsUrl}\nContact Support: ${supportUrl}\nPrivacy: ${privacyUrl}\nSecurity: ${securityUrl}\nTerms and Conditions: ${termsUrl}\nNetworkBase™ · All rights reserved`;
 
@@ -667,7 +667,7 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
   const desktopIdeButtonHtml = desktopIdeLaunchUrl
     ? `<td class="action-btn-cell" style="padding:0;vertical-align:middle;">
         <a href="${escapeHtml(desktopIdeLaunchUrl)}" class="action-btn" style="display:inline-block;padding:8px 16px;font-size:13px;font-weight:600;color:#1F2937;background-color:#F9FAFB;border:1px solid #D1D5DB;text-decoration:none;border-radius:6px;line-height:1.4;white-space:nowrap;text-align:center;">
-          Open in ${escapeHtml(input.connectedDesktopIde?.name || "Desktop IDE")} &#8599;
+          Open in ${escapeHtml(input.connectedDesktopIde?.name || "Code editor")} &#8599;
         </a>
       </td>`
     : "";

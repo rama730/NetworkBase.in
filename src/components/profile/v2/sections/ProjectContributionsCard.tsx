@@ -84,9 +84,9 @@ export function ProjectContributionsCard({
   if (!isOwner && !visible.length) return null;
   return (
     <Card
-      title="Project contributions"
+      title="Contributions"
       onAdd={onAdd}
-      addLabel="Add project contribution"
+      addLabel="Add contribution"
       action={
         isOwner && onAdd ? (
           <button

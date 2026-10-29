@@ -213,7 +213,7 @@ export function FileVersionHistoryDrawer({
           <div className="min-w-0">
             <DialogTitle className={plainContentHeadings ? "text-base font-semibold text-foreground" : "flex items-center gap-2 text-base font-semibold text-foreground"}>
               {!plainContentHeadings && <History className="h-4 w-4 text-muted-foreground" />}
-              Version history
+              Version
             </DialogTitle>
             <DialogDescription className="mt-1 truncate text-xs text-muted-foreground">
               {node.name}

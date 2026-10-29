@@ -412,7 +412,7 @@ export default function MyWorkTasksTab({ isActive = true }: MyWorkTasksTabProps)
                     <DropdownMenuContent align="end" className="z-[202] w-72 p-2">
                         <DropdownMenuLabel>Show tasks</DropdownMenuLabel>
                         <DropdownMenuRadioGroup value={scope} onValueChange={(value) => resetScope(value as MyWorkScope)}>
-                            <DropdownMenuRadioItem value="all">All open work</DropdownMenuRadioItem>
+                            <DropdownMenuRadioItem value="all">All open tasks</DropdownMenuRadioItem>
                             <DropdownMenuRadioItem value="my">My tasks</DropdownMenuRadioItem>
                             <DropdownMenuRadioItem value="team">Team tasks</DropdownMenuRadioItem>
                         </DropdownMenuRadioGroup>
@@ -437,8 +437,8 @@ export default function MyWorkTasksTab({ isActive = true }: MyWorkTasksTabProps)
                         <DropdownMenuSeparator />
                         <DropdownMenuLabel>Density</DropdownMenuLabel>
                         <DropdownMenuRadioGroup value={density} onValueChange={(value) => setDensity(value as ViewDensity)}>
-                            <DropdownMenuRadioItem value="cards">Card view</DropdownMenuRadioItem>
-                            <DropdownMenuRadioItem value="rows">Compact rows</DropdownMenuRadioItem>
+                            <DropdownMenuRadioItem value="cards">Cards</DropdownMenuRadioItem>
+                            <DropdownMenuRadioItem value="rows">List</DropdownMenuRadioItem>
                         </DropdownMenuRadioGroup>
                         <DropdownMenuSeparator />
                         <DropdownMenuLabel>Search</DropdownMenuLabel>

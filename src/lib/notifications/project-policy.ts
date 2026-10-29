@@ -150,9 +150,9 @@ export const PROJECT_NOTIFICATION_GROUPS: Array<{
 }> = [
     { id: "membership_access", title: "Membership and access", description: "Role, access, visibility, and membership changes.", visible: true },
     { id: "roles_applications", title: "Roles and applications", description: "Open roles, application intake, decisions, and review routing.", visible: true },
-    { id: "project_lifecycle", title: "Project lifecycle", description: "Sprint and lifecycle changes that affect project momentum.", visible: true },
+    { id: "project_lifecycle", title: "Stages", description: "Sprint and lifecycle changes that affect project momentum.", visible: true },
     { id: "tasks_workflow", title: "Tasks and workflow", description: "Assignments, mentions, status attention, and workflow responsibility.", visible: true },
-    { id: "files_workspace", title: "Files and workspace", description: "Uploads, versions, reviews, organization, and sync status.", visible: true },
+    { id: "files_workspace", title: "Files", description: "Uploads, versions, reviews, organization, and sync status.", visible: true },
     { id: "readme", title: "Doc", description: "Documentation publishing and major documentation changes.", visible: true },
     { id: "updates", title: "Updates", description: "Project progress posts, follower notifications, and update discussions.", visible: true },
     { id: "security_audit", title: "Security and audit", description: "Protected actions, exports, archive/delete, and access-sensitive events.", visible: true },
@@ -160,7 +160,7 @@ export const PROJECT_NOTIFICATION_GROUPS: Array<{
     { id: "org_membership", title: "Organization", description: "Join requests, invitations, access changes and removals.", visible: true },
     { id: "org_assignments", title: "Assignments", description: "Published work, submissions, reviews and due dates.", visible: true },
     { id: "org_announcements", title: "Announcements", description: "Announcements for each post’s audience.", visible: true },
-    { id: "org_credit", title: "Profile credit", description: "Verified roles and removed verification.", visible: true },
+    { id: "org_credit", title: "Contribution credit", description: "Verified roles and removed verification.", visible: true },
     { id: "org_sprints", title: "Sprints", description: "Org sprints starting and closing, and sprint steps for leads and admins.", visible: true },
 ];
 
@@ -699,7 +699,7 @@ export const PROJECT_NOTIFICATION_EVENT_REGISTRY = {
     "files.git_sync_status": E({
         key: "files.git_sync_status",
         group: "files_workspace",
-        label: "Git sync completed or failed",
+        label: "Repository sync finished or failed",
         description: "Notify leaders about repository sync results.",
         category: "projects",
         notificationKind: "project_file_activity",
@@ -837,7 +837,7 @@ export const PROJECT_NOTIFICATION_EVENT_REGISTRY = {
     "updates.follower_digest": E({
         key: "updates.follower_digest",
         group: "updates",
-        label: "Follower digest",
+        label: "Follower summary",
         description: "Digest-ready trigger for grouped follower-facing project updates.",
         category: "projects",
         notificationKind: "project_update_activity",
