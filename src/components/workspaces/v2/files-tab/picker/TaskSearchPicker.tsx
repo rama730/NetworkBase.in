@@ -1,7 +1,7 @@
 // Task 3.4 — `TaskSearchPicker` for the Files tab v3 (task-files-version-control).
 //
 // A project-scoped task search dialog that lists tasks the user can link to.
-// Opened from the "Attach to task…" action in `FileActionsBar` (Task 5.5).
+// Opened from the "Link to task…" action in `FileActionsBar` (Task 5.5).
 //
 // Requirements covered:
 //   - Req 9.3: Open a project-scoped task picker dialog listing tasks

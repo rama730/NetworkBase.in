@@ -895,13 +895,13 @@ export function FolderListView({
                   {canEdit && workspace?.canReadTasks && (
                     <DropdownMenuItem onSelect={() => setAttachTaskNode(menuNode)}>
                       <ListTodo className="mr-2 size-4" />
-                      Attach task…
+                      Link to task…
                     </DropdownMenuItem>
                   )}
                   {workspace?.canReadTasks && (
                     <DropdownMenuItem onSelect={() => openInspector(menuNode, "linked_tasks")}>
                       <Link2 className="mr-2 size-4" />
-                      Link the task
+                      Linked tasks
                     </DropdownMenuItem>
                   )}
                   {canEdit && !isInternalTaskWorkingFilesNode(menuNode) && (

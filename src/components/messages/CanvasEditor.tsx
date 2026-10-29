@@ -81,7 +81,7 @@ export function useCanvasEditor(options: { content: string; editable?: boolean; 
       TaskList,
       TaskItem.configure({ nested: true }),
       CanvasImage,
-      Placeholder.configure({ placeholder: "Words go here" }),
+      Placeholder.configure({ placeholder: "Start writing…" }),
       Markdown.configure({ html: false, linkify: true, transformPastedText: true }),
     ],
     content: options.content,

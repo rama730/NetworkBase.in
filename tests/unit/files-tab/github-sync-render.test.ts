@@ -467,7 +467,7 @@ test("one overview action, explicit metadata, retained selection and truthful re
     },
   });
   assert.match(recovery, /already published/);
-  assert.match(recovery, /Retry follow-up/);
+  assert.match(recovery, /Try again/);
 });
 
 // The approved preview inventory is checked against real application JSX. Transport,

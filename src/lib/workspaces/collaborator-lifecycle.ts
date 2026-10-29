@@ -603,7 +603,7 @@ export async function removeWorkspaceMemberInternal(
         if (!replacementId || replacementId === params.targetUserId) throw new Error("Choose a valid replacement assignee");
         const replacementRole = await readMembershipRole(executor, params.projectId, replacementId, project.ownerId, true);
         if (!replacementRole || !isEligibleWorkspaceMember(replacementRole, "assign")) {
-            throw new Error("Replacement assignee must be an assignable workspace member");
+            throw new Error("New assignee must be an assignable workspace member");
         }
         const actor = await readProfileSnapshot(executor, params.actorId);
         const replacement = await readProfileSnapshot(executor, replacementId);

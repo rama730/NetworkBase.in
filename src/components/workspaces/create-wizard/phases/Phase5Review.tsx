@@ -126,7 +126,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
         formData.visibility === 'public' && !(formData.tags || []).length ? 'Public, but no topics: it will be hard to find.' : null,
     ].filter((c): c is string => Boolean(c)) : [];
     const projectTypeLabel = org ? formData.custom_project_type?.trim() || 'No subject added' : formData.project_type === 'other'
-        ? formData.custom_project_type || 'Custom category'
+        ? formData.custom_project_type || 'Other'
         : projectType?.label || 'No category selected';
     const sourceType = formData.import_source?.type || 'scratch';
     const source = sourceCopy[sourceType];
@@ -231,7 +231,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
 
             <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-8 lg:items-start">
                 <div className="min-w-0 space-y-8">
-                    <ReviewSection eyebrow="Phase 1 · start" title="Starting point" onEdit={() => goToPhase(1)}>
+                    <ReviewSection eyebrow="Step 1" title="How you started" onEdit={() => goToPhase(1)}>
                         <ReviewRow label="Source" icon={SourceIcon}>
                             <p className="nb-ui-label text-foreground">{source.title}</p>
                             <p className="nb-compact mt-1 text-muted-foreground">{source.detail}</p>
@@ -257,7 +257,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                 ) : null}
             </ReviewSection>
 
-            <ReviewSection eyebrow="Step 2 · Details" title="Workspace details" onEdit={() => goToPhase(2)}>
+            <ReviewSection eyebrow="Step 2" title="Workspace details" onEdit={() => goToPhase(2)}>
                 <ReviewRow label="Workspace title">
                     <p className="nb-body font-medium text-foreground">{formData.title || 'Untitled workspace'}</p>
                 </ReviewRow>
@@ -350,7 +350,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                 </ReviewRow>
             </ReviewSection>
 
-            <ReviewSection eyebrow="Phase 3 · team" title="Team and roles" onEdit={() => goToPhase(3)}>
+            <ReviewSection eyebrow="Step 3" title="Team and roles" onEdit={() => goToPhase(3)}>
                 <ReviewRow label="Owner">
                     <p className="nb-ui-label text-foreground">You{formData.creator_role?.title ? ` · ${formData.creator_role.title}` : ''}</p>
                     {formData.creator_role?.time_commitment ? <p className="nb-compact mt-1 text-muted-foreground">{formData.creator_role.time_commitment} hours a week</p> : null}
@@ -377,12 +377,12 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                 </ReviewRow>
             </ReviewSection>
 
-            <ReviewSection eyebrow="Step 4 · Settings" title="Starting settings" onEdit={() => goToPhase(4)}>
+            <ReviewSection eyebrow="Step 4" title="Starting settings" onEdit={() => goToPhase(4)}>
                 <ReviewRow label="Workspace picture">
                     <p className="nb-compact text-foreground">{projectImage ? `${projectImage.name} · uploads after creation` : 'Initials until a picture is added.'}</p>
                 </ReviewRow>
                 <ReviewRow label="Visibility" icon={VisibilityIcon}>
-                    <p className="nb-ui-label text-foreground">{formData.visibility === 'private' ? 'Private workspace' : formData.visibility === 'org' ? `Org only · members of ${childOrg?.title ?? 'the organization'}` : 'Public workspace'}</p>
+                    <p className="nb-ui-label text-foreground">{formData.visibility === 'private' ? 'Private workspace' : formData.visibility === 'org' ? `Organization only · members of ${childOrg?.title ?? 'the organization'}` : 'Public workspace'}</p>
                     <p className="nb-compact mt-1 text-muted-foreground">
                         {formData.visibility === 'private'
                             ? 'Only members can see this workspace when it’s created.'

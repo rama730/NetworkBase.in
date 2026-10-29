@@ -63,9 +63,9 @@ export interface FileActionsBarProps {
   onToggleVersionHistory?: () => void;
   /** Whether the FileVersionHistoryPanel is currently open (Req 10.2). */
   isVersionHistoryPanelOpen?: boolean;
-  /** Project ID — required for "Attach to task…" and "Replace…" actions. */
+  /** Project ID — required for "Link to task…" and "Replace…" actions. */
   projectId?: string;
-  /** Node ID — required for "Attach to task…" and "Replace…" actions. */
+  /** Node ID — required for "Link to task…" and "Replace…" actions. */
   nodeId?: string;
   fileName?: string;
   fileSize?: number | null;
@@ -118,7 +118,7 @@ export function FileActionsBar({
   const [pendingFile, setPendingFile] = React.useState<File | null>(null);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
 
-  // "Attach to task…" is only available when projectId and nodeId are provided
+  // "Link to task…" is only available when projectId and nodeId are provided
   // and the user has edit permissions (Req 9.1, 9.2, 24.1).
   const canAttachToTask = canEdit && Boolean(projectId) && Boolean(nodeId);
 
@@ -372,7 +372,7 @@ export function FileActionsBar({
           {showRawOption && mode !== "raw" && (
             <DropdownMenuItem onSelect={onRaw} className="gap-2 cursor-pointer">
               <FileCode2 className="h-4 w-4 opacity-70" />
-              <span>Raw</span>
+              <span>View plain text</span>
             </DropdownMenuItem>
           )}
 
@@ -401,7 +401,7 @@ export function FileActionsBar({
           {canAttachOption && (
             <DropdownMenuItem onSelect={handleOpenTaskPicker} className="gap-2 cursor-pointer">
               <Link2 className="h-4 w-4 opacity-70" />
-              <span>Attach to task…</span>
+              <span>Link to task…</span>
             </DropdownMenuItem>
           )}
 

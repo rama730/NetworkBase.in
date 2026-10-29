@@ -295,7 +295,7 @@ export async function invalidatePublicWorkspacesFeedCache(projectId?: string | n
 /**
  * The shared feed as one viewer may see it. The cached payload keeps real ids (blocks need them); this is
  * the last step before anything leaves the server: drop projects and collaborators across a block (either
- * direction), then blank a masked creator's id so their "Private creator" projects can't be linked.
+ * direction), then blank a masked creator's id so their "Private profile" workspaces can't be linked.
  */
 export async function forViewer(feed: PublicWorkspacesFeedItem[], viewerId: string | null): Promise<PublicWorkspacesFeedItem[]> {
     let visible = feed

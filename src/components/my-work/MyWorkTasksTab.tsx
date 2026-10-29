@@ -413,7 +413,7 @@ export default function MyWorkTasksTab({ isActive = true }: MyWorkTasksTabProps)
                         <DropdownMenuLabel>Show tasks</DropdownMenuLabel>
                         <DropdownMenuRadioGroup value={scope} onValueChange={(value) => resetScope(value as MyWorkScope)}>
                             <DropdownMenuRadioItem value="all">All open tasks</DropdownMenuRadioItem>
-                            <DropdownMenuRadioItem value="my">My tasks</DropdownMenuRadioItem>
+                            <DropdownMenuRadioItem value="my">Assigned to me</DropdownMenuRadioItem>
                             <DropdownMenuRadioItem value="team">Team tasks</DropdownMenuRadioItem>
                         </DropdownMenuRadioGroup>
                         <DropdownMenuSeparator />
@@ -431,11 +431,11 @@ export default function MyWorkTasksTab({ isActive = true }: MyWorkTasksTabProps)
                         <DropdownMenuLabel>Organization</DropdownMenuLabel>
                         <DropdownMenuRadioGroup value={orgFilter} onValueChange={setOrgFilter}>
                             <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
-                            <DropdownMenuRadioItem value="personal">Personal</DropdownMenuRadioItem>
+                            <DropdownMenuRadioItem value="personal">Personal workspaces</DropdownMenuRadioItem>
                             {orgOptions.map(([id, title]) => <DropdownMenuRadioItem key={id} value={id}>{title}</DropdownMenuRadioItem>)}
                         </DropdownMenuRadioGroup>
                         <DropdownMenuSeparator />
-                        <DropdownMenuLabel>Density</DropdownMenuLabel>
+                        <DropdownMenuLabel>View</DropdownMenuLabel>
                         <DropdownMenuRadioGroup value={density} onValueChange={(value) => setDensity(value as ViewDensity)}>
                             <DropdownMenuRadioItem value="cards">Cards</DropdownMenuRadioItem>
                             <DropdownMenuRadioItem value="rows">List</DropdownMenuRadioItem>
@@ -463,7 +463,7 @@ export default function MyWorkTasksTab({ isActive = true }: MyWorkTasksTabProps)
                     <span className="text-muted-foreground">Filtered:</span>
                     {scope !== "all" && (
                         <span className="inline-flex items-center gap-1 rounded-[3px] border border-border bg-card px-1.5 py-0.5 font-mono text-[11px] text-foreground">
-                            {scope === "my" ? "My tasks" : "Team tasks"}
+                            {scope === "my" ? "Assigned to me" : "Team tasks"}
                             <button type="button" onClick={() => resetScope("all")} className="text-muted-foreground hover:text-foreground" aria-label="Clear scope filter">
                                 <X className="h-3 w-3" />
                             </button>

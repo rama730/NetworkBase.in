@@ -631,7 +631,7 @@ export async function createWorkspaceAction(
       const role = await readViewerOrgRole(parentOrgId, user.id);
       const open = org.status !== "archived" && !org.suspendedAt && !org.deletionScheduledAt;
       const block = childCreationBlock(role, rules.childCreation, open);
-      // Report §14.6: the wizard keeps everything and offers "Create as a personal project".
+      // Report §14.6: the wizard keeps everything and offers "Create as a personal workspace".
       if (block) return refuse(!role ? `You’re no longer in ${org.title}.` : !open ? `${org.title} is archived.` : block, "ORG_BLOCKED");
       const isOrgAdmin = role === "owner" || role === "admin";
       if (input.lead_user_id && input.lead_user_id !== user.id) {

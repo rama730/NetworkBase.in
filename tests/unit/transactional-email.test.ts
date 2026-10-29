@@ -210,25 +210,25 @@ test("redesigned task email renders open layout, Ponytail avatar, subtasks and f
   assert.match(emailA.html, /4\.8 MB/);
 
   // Verify Action Bar (Lightweight, Non-heavy Button Group: Task View, Project Name, and Code editor)
-  assert.match(emailA.html, /View Task &rarr;/);
+  assert.match(emailA.html, /View task &rarr;/);
   assert.match(emailA.html, /DeepScope AI &#8599;/);
   assert.match(emailA.html, /Open in Cursor &#8599;/);
-  assert.match(emailA.text, /View Task: https:\/\/networkbase\.in\/workspaces\/deepscope-ai\?tab=tasks&drawerType=task&drawerId=task-101/);
+  assert.match(emailA.text, /View task: https:\/\/networkbase\.in\/workspaces\/deepscope-ai\?tab=tasks&drawerType=task&drawerId=task-101/);
   assert.match(emailA.text, /Workspace: https:\/\/networkbase\.in\/workspaces\/deepscope-ai/);
   assert.match(emailA.text, /Open in Cursor: https:\/\/networkbase\.in\/open\/ide\?projectId=deepscope-ai&slug=deepscope-ai&taskId=task-101&ide=cursor/);
 
-  // Verify Footer links: Contact Support, Privacy, Security, Terms and Conditions
-  assert.match(emailA.html, /Contact Support/);
+  // Verify Footer links: Contact support, Privacy, Security, Terms and Conditions
+  assert.match(emailA.html, /Contact support/);
   assert.match(emailA.html, /href="mailto:support@networkbase\.in"/);
   assert.match(emailA.html, /https:\/\/networkbase\.in\/privacy/);
   assert.match(emailA.html, /https:\/\/networkbase\.in\/security-reporting/);
   assert.match(emailA.html, /https:\/\/networkbase\.in\/terms/);
   assert.match(emailA.html, /Manage notification preferences/);
   assert.match(emailA.html, /&copy; NetworkBase/);
-  assert.match(emailA.text, /Contact Support: mailto:support@networkbase\.in/);
+  assert.match(emailA.text, /Contact support: mailto:support@networkbase\.in/);
   assert.match(emailA.text, /Privacy: https:\/\/networkbase\.in\/privacy/);
   assert.match(emailA.text, /Security: https:\/\/networkbase\.in\/security-reporting/);
-  assert.match(emailA.text, /Terms and Conditions: https:\/\/networkbase\.in\/terms/);
+  assert.match(emailA.text, /Terms of Service: https:\/\/networkbase\.in\/terms/);
 
   // Case B: Without avatar image (fallback to Ponytail deterministic tone and initials)
   const emailB = buildEmail({
@@ -313,10 +313,10 @@ test("redesigned welcome email renders Ponytail avatar, profile identity, skills
   assert.match(welcomeWithAvatar.html, /href="https:\/\/networkbase\.in\/sconnor"/);
 
   // Legal footer
-  assert.match(welcomeWithAvatar.html, /Contact Support/);
+  assert.match(welcomeWithAvatar.html, /Contact support/);
   assert.match(welcomeWithAvatar.html, /Privacy/);
   assert.match(welcomeWithAvatar.html, /Security/);
-  assert.match(welcomeWithAvatar.html, /Terms and Conditions/);
+  assert.match(welcomeWithAvatar.html, /Terms of Service/);
   assert.match(welcomeWithAvatar.html, /&copy; NetworkBase/);
 
   // Plain text fallback

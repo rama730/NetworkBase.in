@@ -115,7 +115,7 @@ export async function readWorkspaceRecentActivityAction(projectId: string): Prom
     const destination = event.payload?.to;
     const actorName = activityActorName(!isMember && event.actorVisibility !== "public" ? null : { fullName: event.actorName, username: event.actorUsername });
     items.push({ id: `task:${event.id}`, type: "task",
-      text: event.eventType === "review_submitted" ? `${actorName} submitted ${event.title} for review` : event.eventType === "review_approved" ? `${actorName} approved and completed ${event.title}` : event.eventType === "changes_requested" ? `${actorName} requested changes on ${event.title}` : `${actorName} moved ${event.title} to ${destination === "done" ? "Done" : "In progress"}`,
+      text: event.eventType === "review_submitted" ? `${actorName} submitted ${event.title} for review` : event.eventType === "review_approved" ? `${actorName} approved and completed ${event.title}` : event.eventType === "changes_requested" ? `${actorName} requested changes on ${event.title}` : `${actorName} moved ${event.title} to ${destination === "done" ? "Completed" : "In progress"}`,
       occurredAt: event.createdAt.toISOString(), href: `${projectHref}?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(event.taskId)}` });
   }
   for (const event of fileEvents) {

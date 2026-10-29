@@ -152,7 +152,7 @@ export function buildSecurityEmail(kind: SecurityEmailKind, data: SecurityEmailD
     p.headline, "", ...p.paragraphs.flatMap((x) => [x, ""]),
     `${p.primary.label}: ${p.primary.href}`, ...(p.secondary ? [`${p.secondary.label}: ${p.secondary.href}`] : []),
     "", "You are getting this because it is about the security of your NetworkBase account, so it can’t be turned off.",
-    "Contact Support: mailto:support@networkbase.in", `Privacy: ${url("/privacy")}`, `Security: ${url("/security-reporting")}`, `Terms and Conditions: ${url("/terms")}`,
+    "Contact support: mailto:support@networkbase.in", `Privacy: ${url("/privacy")}`, `Security: ${url("/security-reporting")}`, `Terms and Conditions: ${url("/terms")}`,
     "© NetworkBase. All rights reserved.",
   ].join("\n");
   return { from: "NetworkBase <notifications@networkbase.in>", to: [person.email], reply_to: "support@networkbase.in", subject: oneLine(p.subject, 160), text, html };

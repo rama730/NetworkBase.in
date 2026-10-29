@@ -1676,7 +1676,7 @@ export function RepositorySync({
                 className={button}
                 onClick={() => openOperation(unfinished)}
               >
-                Open operation
+                Sync details
               </button>
             </div>
           </div>
@@ -1811,7 +1811,7 @@ export function RepositorySync({
           <button
             type="button"
             className={quietButton}
-            aria-label="Close file inspector"
+            aria-label="Close details"
             onClick={() => {
               inspectRequest.current++;
               setInspectPath(null);
@@ -2424,7 +2424,7 @@ export function RepositorySync({
                 ? "Publishing to GitHub"
                 : "Importing into workspace files"
           }
-          description="Progress comes from the recorded operation."
+          description="Progress comes from the sync."
           onBack={() => setView("overview")}
           headingRef={headingRef}
         />
@@ -2495,7 +2495,7 @@ export function RepositorySync({
               disabled={busy}
               onClick={() => setModal("cancel")}
             >
-              Cancel queued operation
+              Cancel sync
             </button>
             <button
               type="button"
@@ -2526,7 +2526,7 @@ export function RepositorySync({
           description={
             pr
               ? "Review and merge the pull request in GitHub."
-              : "The recorded operation completed."
+              : "The sync finished."
           }
           onBack={() => {
             resetReview();
@@ -2644,7 +2644,7 @@ export function RepositorySync({
               onClick={() => void execute(run)}
             >
               {run.result.pushed
-                ? "Retry follow-up"
+                ? "Try again"
                 : workflowRequired
                   ? "Retry publication"
                   : "Retry operation"}
@@ -3047,7 +3047,7 @@ export function RepositorySync({
       case "cancel":
         return (
           <>
-            <DialogTitle>Cancel queued operation?</DialogTitle>
+            <DialogTitle>Cancel sync?</DialogTitle>
             <DialogDescription>
               Cancellation is possible only before execution starts. If
               execution has started, its progress will remain available.
@@ -3167,7 +3167,7 @@ export function RepositorySync({
           <>
             <DialogTitle>Synchronization history</DialogTitle>
             <DialogDescription>
-              Recorded operations and retained results for this workspace.
+              Syncs and their results for this workspace.
             </DialogDescription>
             {!state?.runs.length ? (
               <p>No syncs yet.</p>

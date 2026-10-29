@@ -100,7 +100,7 @@ function taskReferenceLabel(node: MetadataStripNode): string | null {
 export interface MetadataStripProps {
   /** Invariant: `node.id === currentLocation.id` (see design § Metadata Bug Fix). */
   node: MetadataStripNode;
-  /** Project ID — passed to FileActionsBar for "Attach to task…" (Req 9.1). */
+  /** Project ID — passed to FileActionsBar for "Link to task…" (Req 9.1). */
   projectId?: string;
   /** Number of tasks linked to this node (from store taskLinkCounts). Req 7.1. */
   taskLinkCount?: number;

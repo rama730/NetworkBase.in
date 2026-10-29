@@ -397,7 +397,7 @@ export function ContributionSummaryEditor({
             <div>
               <p className="text-sm font-semibold text-foreground">
                 {referenceKind === "person"
-                  ? "Mention a teammate"
+                  ? "Mention a member"
                   : `${referenceKind[0]!.toUpperCase() + referenceKind.slice(1)} context`}
               </p>
               <p className="text-xs text-muted-foreground">

@@ -41,7 +41,7 @@ describe("public project owner masking", () => {
             },
         });
 
-        assert.equal(project.owner?.displayName, "Private creator");
+        assert.equal(project.owner?.displayName, "Private profile");
         assert.equal(project.owner?.isMasked, true);
         assert.equal(project.owner?.canOpenProfile, false);
         assert.equal(project.owner?.username, null);

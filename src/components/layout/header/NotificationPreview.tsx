@@ -21,7 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { RealtimeHealthState } from "@/components/providers/RealtimeProvider";
 
 const FILTERS: Array<{ id: NotificationTrayFilter; label: string }> = [
-    { id: "unread", label: "New" },
+    { id: "unread", label: "Unread" },
     { id: "all", label: "All" },
 ];
 

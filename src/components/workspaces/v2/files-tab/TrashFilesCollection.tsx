@@ -261,7 +261,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
       reconcile();
     } catch (error) {
       toast.error(
-        feedbackError(error instanceof Error ? error.message : "Batch restoration failed", "Batch restoration failed"),
+        feedbackError(error instanceof Error ? error.message : "Couldn’t restore some files", "Couldn’t restore some files"),
       );
     } finally {
       setBatchOperating(false);

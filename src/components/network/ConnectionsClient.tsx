@@ -269,7 +269,7 @@ export default function ConnectionsClient({
                 title={
                     pendingBlock
                         ? `Block ${pendingBlock.name}?`
-                        : "Block profile?"
+                        : "Block this person?"
                 }
                 description="They will not be able to view your profile, send you messages, or invite you to workspaces."
                 confirmLabel="Block"
@@ -349,7 +349,7 @@ function ConnectionCard({
                             variant="destructive"
                         >
                             <Ban className="size-4" />
-                            Block profile
+                            Block
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>

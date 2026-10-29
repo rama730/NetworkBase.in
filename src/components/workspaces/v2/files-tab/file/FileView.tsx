@@ -590,7 +590,7 @@ export function FileView({
         }}
         title="File is identical"
         description="File is identical — re-upload anyway?"
-        confirmLabel="Re-upload"
+        confirmLabel="Upload again"
         cancelLabel="Cancel"
         onConfirm={handleHashMatchConfirm}
       />

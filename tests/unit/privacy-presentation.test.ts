@@ -36,7 +36,7 @@ describe("privacy presentation", () => {
             avatarUrl: "https://example.com/a.png",
         }, relationship);
 
-        assert.equal(owner?.displayName, "Private creator");
+        assert.equal(owner?.displayName, "Private profile");
         assert.equal(owner?.isMasked, true);
         assert.equal(owner?.canOpenProfile, false);
         assert.equal(owner?.username, null);

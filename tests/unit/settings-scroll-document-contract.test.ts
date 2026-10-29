@@ -79,7 +79,7 @@ test("personal settings keep only the necessary grouped surfaces", () => {
   assert.doesNotMatch(privacy, /<Check\b/, "Privacy choices should not render a tick indicator");
   assert.doesNotMatch(appearance, /ml-auto size-2 rounded-full|<Check\b/, "Appearance choices should not render a dot or tick indicator");
   assert.doesNotMatch(integrations, /embedded/, "settings sections only exist inside the one document");
-  assert.match(integrations, /title="Editor connections"/);
+  assert.match(integrations, /title="Connected editors"/);
   assert.doesNotMatch(integrations, /(?:bg|text|border)-(?:zinc|amber|emerald|blue|red)-/, "Integrations should use semantic design tokens");
 });
 

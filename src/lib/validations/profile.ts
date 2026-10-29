@@ -73,7 +73,7 @@ export const profileUpdateSchema = z.object({
         .trim()
         .refine(
             (value) => value.length === 0 || isSafeHttpUrl(value),
-            'avatarUrl must be a safe http(s) URL',
+            'Use a link starting with https://',
         )
         .optional(),
     bannerUrl: z
@@ -81,7 +81,7 @@ export const profileUpdateSchema = z.object({
         .trim()
         .refine(
             (value) => value.length === 0 || isSafeHttpUrl(value),
-            'bannerUrl must be a safe http(s) URL',
+            'Use a link starting with https://',
         )
         .optional(),
     skills: z.array(z.string()).optional(),

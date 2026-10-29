@@ -1081,7 +1081,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             setOptimisticStageIndex(prevIndex);
             return;
         }
-        toast.success(delta > 0 ? `Advanced to ${stages[nextIndex]}` : `Returned to ${stages[nextIndex]}`);
+        toast.success(`Moved to ${stages[nextIndex]}`);
     }, [commitStageIndex, isOwner, isStageUpdating, lifecycleStageNames, optimisticStageIndex]);
 
     const handleRegressStage = useCallback(() => {

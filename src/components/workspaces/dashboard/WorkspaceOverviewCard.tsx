@@ -126,7 +126,7 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
                             <div className="flex min-h-10 items-center justify-between gap-4">
                                 <dt className="nb-micro shrink-0">Looking for</dt>
                                 <dd className="nb-compact min-w-0 truncate text-right text-foreground">
-                                    {openRoleTitles.length > 0 ? openRoleTitles.join(", ") : "Not recruiting"}
+                                    {openRoleTitles.length > 0 ? openRoleTitles.join(", ") : "Not looking for members"}
                                 </dd>
                             </div>
                         </dl>

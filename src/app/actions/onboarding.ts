@@ -100,7 +100,7 @@ function mapOnboardingPersistenceError(error: unknown): OnboardingError {
     const usernameError = mapUsernamePersistenceError(error)
     if (usernameError.code !== 'DB_ERROR') return usernameError
     const code = (error as { code?: string })?.code
-    if (code === '22P02') return onboardingError('INVALID_INPUT', 'Invalid onboarding input')
+    if (code === '22P02') return onboardingError('INVALID_INPUT', 'Invalid profile setup input')
     return onboardingError('DB_ERROR', 'Couldn’t complete onboarding right now', true)
 }
 
@@ -194,7 +194,7 @@ export async function completeOnboarding(
         if (!user) return failed(onboardingError('NOT_AUTHENTICATED', 'Your session ended. Sign in again.'))
         userId = user.id
         if (!isEmailVerified(user as unknown as Record<string, unknown>)) {
-            return finish(failed(onboardingError('INVALID_INPUT', 'Verify your email before completing onboarding.')), {
+            return finish(failed(onboardingError('INVALID_INPUT', 'Verify your email before completing profile setup.')), {
                 reason: 'INVALID_INPUT',
             })
         }
@@ -377,7 +377,7 @@ export async function commitOnboardingStep(input: {
 
         const currentStep = clampOnboardingStep(input.step)
         if (currentStep >= ONBOARDING_TOTAL_STEPS) {
-            return failed(onboardingError('INVALID_INPUT', 'Complete the final step to finish onboarding.'))
+            return failed(onboardingError('INVALID_INPUT', 'Complete the final step to finish profile setup.'))
         }
 
         const draft = parseOnboardingDraft(input.draft)
@@ -500,7 +500,7 @@ export async function commitOnboardingStep(input: {
 
         return {
             ...failed(
-                onboardingError('DRAFT_CONFLICT', 'This onboarding draft changed in another tab. The latest version is ready to review.'),
+                onboardingError('DRAFT_CONFLICT', 'This profile setup draft changed in another tab. The latest version is ready to review.'),
             ),
             step: latest ? clampOnboardingStep(latest.step) : currentStep,
             committedThrough: latest ? clampCompletedThrough(latest.completedThrough) : undefined,

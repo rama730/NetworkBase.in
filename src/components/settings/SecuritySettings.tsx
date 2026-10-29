@@ -67,7 +67,7 @@ export default function SecurityPage() {
                 label="Security summary"
                 items={[
                     { label: "Password", value: passwordAvailable ? "Set" : "Not set", tone: passwordAvailable ? "ok" : "attention", href: "/settings#settings-security-password" },
-                    { label: "Authenticator", value: hasTotp ? "On" : "Off", tone: hasTotp ? "ok" : "attention", href: "/settings#settings-security-authenticator" },
+                    { label: "Two-step verification", value: hasTotp ? "On" : "Off", tone: hasTotp ? "ok" : "attention", href: "/settings#settings-security-authenticator" },
                     { label: "Signed-in devices", value: String(securityData?.sessions?.length ?? 0), href: "/settings#settings-security-sessions" },
                 ]}
             />

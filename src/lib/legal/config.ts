@@ -16,7 +16,7 @@ export type LegalIdentity = {
 };
 
 export const OFFICIAL_NETWORKBASE_EMAILS = [
-  { address: "welcome@networkbase.in", scope: "Account onboarding, confirmation, and welcome messages" },
+  { address: "welcome@networkbase.in", scope: "Account profile setup, confirmation, and welcome messages" },
   { address: "notifications@networkbase.in", scope: "Task assignments, workspace updates, mentions, and workflow alerts" },
   { address: "support@networkbase.in", scope: "Member assistance, technical support, and helpdesk inquiries" },
   { address: "privacy@networkbase.in", scope: "Privacy disclosures, data protection, and legal correspondence" },

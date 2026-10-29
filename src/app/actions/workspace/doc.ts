@@ -882,7 +882,7 @@ export async function readWorkspaceDocSmartBlockPreviewsAction(projectId: string
                 title: block.kind === "tasks"
                     ? "Referenced tasks"
                     : block.kind === "sprints"
-                        ? "Sprint story"
+                        ? "Sprint summary"
                         : block.kind === "files"
                             ? "Referenced files"
                             : block.kind === "roles"

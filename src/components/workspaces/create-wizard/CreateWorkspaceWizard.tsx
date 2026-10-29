@@ -163,7 +163,7 @@ export default function CreateWorkspaceWizard({ onClose, onSuccess, initialSourc
                 ? uploadFiles?.length
                     ? String(sourceMetadata?.uploadValidationError || 'Resolve blocked files to continue.')
                     : 'Choose a folder to continue.'
-                : 'Choose a starting point to continue.';
+                : 'Choose how you want to start.';
 
     // OPTIMIZATION: Prefetch next phase component to eliminate loading delay
     useEffect(() => {

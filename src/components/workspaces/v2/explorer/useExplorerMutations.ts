@@ -324,7 +324,7 @@ function isNonRetryableUploadError(message?: string): boolean {
         if (!eligible.length) return skipped;
         const abortController = new AbortController();
         transferId = transferRef.current?.start(validatedFiles.length === 1 ? validatedFiles[0]!.name : `${validatedFiles.length} files`, eligible.length);
-        const cancelUpload = () => { uploadCancelled = true; abortController.abort(); toast.message("Upload canceled", { id: progress, description: "Completed files kept." }); };
+        const cancelUpload = () => { uploadCancelled = true; abortController.abort(); toast.message("Upload canceled", { id: progress, description: "Finished files were saved." }); };
         if (transferId) transferRef.current?.update(transferId, { abort: cancelUpload });
         progress = toast.loading(`Uploading ${eligible.length} files`, { id: progress,
           progress: { completed: 0, total: eligible.length }, action: { label: "Cancel", onClick: cancelUpload } });
@@ -372,7 +372,7 @@ function isNonRetryableUploadError(message?: string): boolean {
               const uploadToken = batch.uploadTokens?.[key];
               const storageKey = batch.storageKeys?.[key];
               const operationId = batch.uploadIntentIds?.[key];
-              if (!url || !uploadToken || !storageKey || !operationId) throw new Error("Upload allocation unavailable");
+              if (!url || !uploadToken || !storageKey || !operationId) throw new Error("Upload couldn’t start. Try again.");
               await uploadToSupabaseSignedUrl({
                 bucket: "project-files",
                 storagePath: storageKey,
@@ -460,14 +460,14 @@ function isNonRetryableUploadError(message?: string): boolean {
         input.click();
       };
       if (uploadCancelled) {
-        toast.message("Upload canceled", { id: progress, description: "Completed files kept." });
+        toast.message("Upload canceled", { id: progress, description: "Finished files were saved." });
         if (transferId) transferRef.current?.update(transferId, { status: "error", error: "Upload canceled", retry: undefined });
       } else if (nonRetryableFailed.length > 0 && failed.length === 0) {
         const reason = nonRetryableErrors[0] || "File too large";
         toast.warning(reason, { id: progress, dismissOnAction: false, action: { label: "Choose file", onClick: chooseReplacement } });
       } else if (failed.length) {
         toast.warning(`${createdNodes.length} uploaded · ${failed.length + nonRetryableFailed.length} failed`, {
-          id: progress, description: nonRetryableFailed.length ? `${nonRetryableFailed.length} need a different file.` : "Uploads safe.",
+          id: progress, description: nonRetryableFailed.length ? `${nonRetryableFailed.length} need a different file.` : "Finished files were saved.",
           action: { label: "Retry failed", onClick: () => uploadFiles(failed, parentId, progress) },
         });
       } else if (createdNodes.length) {
@@ -485,11 +485,11 @@ function isNonRetryableUploadError(message?: string): boolean {
         retry: isNonRetryable ? undefined : () => uploadFiles(files, parentId, progress),
       });
       outcomeShown = true;
-      if (uploadCancelled) toast.message("Upload canceled", { id: progress, description: "Completed files kept." });
+      if (uploadCancelled) toast.message("Upload canceled", { id: progress, description: "Finished files were saved." });
       else if (isNonRetryable) toast.warning(feedbackError(errorMsg, "Check file requirements"), { id: progress });
       else {
         // Reconcile collisions before retry, so an unknown outcome cannot duplicate committed files.
-        toast.error("Upload interrupted", { id: progress, description: "Completed files safe.",
+        toast.error("Upload interrupted", { id: progress, description: "Finished files were saved.",
           action: { label: "Retry", onClick: () => uploadFiles(files, parentId, progress) } });
       }
     } finally {
@@ -773,7 +773,7 @@ function isNonRetryableUploadError(message?: string): boolean {
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
-      showToast("Secure folder export started", "success");
+      showToast("Preparing folder download…", "success");
     },
     [nodesById, projectId, showToast]
   );
@@ -834,7 +834,7 @@ function isNonRetryableUploadError(message?: string): boolean {
 
           const createdNodes: WorkspaceNode[] = [];
           const abortController = new AbortController();
-          const cancelFolderUpload = () => { abortController.abort(); toast.message("Upload canceled", { id: progress, description: "Completed files kept." }); };
+          const cancelFolderUpload = () => { abortController.abort(); toast.message("Upload canceled", { id: progress, description: "Finished files were saved." }); };
           transferId = transferRef.current?.start(`Folder upload · ${uploadPayloadNodes.length} files`, uploadPayloadNodes.length);
           if (transferId) transferRef.current?.update(transferId, { abort: cancelFolderUpload });
           const CHUNK_SIZE = 2000;
@@ -898,7 +898,7 @@ function isNonRetryableUploadError(message?: string): boolean {
                 const storageKey = batch.storageKeys[entry.requestKey];
                 const uploadIntentId = batch.uploadIntentIds[entry.requestKey];
                 const contentType = resolveFileMimeType(entry.file);
-                if (!url || !uploadToken || !storageKey || !uploadIntentId) throw new Error("Upload allocation is incomplete");
+                if (!url || !uploadToken || !storageKey || !uploadIntentId) throw new Error("Upload couldn’t start. Try again.");
                 await uploadToSupabaseSignedUrl({
                   bucket: "project-files",
                   storagePath: storageKey,
@@ -951,7 +951,7 @@ function isNonRetryableUploadError(message?: string): boolean {
           const publishedCount = createdNodes.length;
           outcomeShown = true;
           if (abortController.signal.aborted) {
-            toast.message("Upload canceled", { id: progress, description: "Completed files kept." });
+            toast.message("Upload canceled", { id: progress, description: "Finished files were saved." });
             if (transferId) transferRef.current?.update(transferId, { status: "error", error: "Upload canceled", retry: undefined });
           } else if (failed.length > 0) {
             if (transferId) transferRef.current?.update(transferId, {
@@ -961,7 +961,7 @@ function isNonRetryableUploadError(message?: string): boolean {
               error: "Some files need retry",
               retry: () => uploadFilesDirectly(failed, parentId, progress),
             });
-            toast.warning(`${publishedCount} uploaded · ${failed.length} failed`, { id: progress, description: "Uploads safe.", action: { label: "Retry failed", onClick: () => uploadFilesDirectly(failed, parentId, progress) } });
+            toast.warning(`${publishedCount} uploaded · ${failed.length} failed`, { id: progress, description: "Finished files were saved.", action: { label: "Retry failed", onClick: () => uploadFilesDirectly(failed, parentId, progress) } });
           } else {
             if (transferId) transferRef.current?.update(transferId, { status: "done", completed, failed: 0 });
             toast.success(`${publishedCount} file${publishedCount === 1 ? "" : "s"} uploaded`, { id: progress });
@@ -985,7 +985,7 @@ function isNonRetryableUploadError(message?: string): boolean {
         }
         outcomeShown = true;
         if (isNonRetryable) toast.warning(feedbackError(errorMsg, "Check file requirements"), { id: progress });
-        else toast.error("Upload interrupted", { id: progress, description: "Completed files safe.", action: { label: "Retry", onClick: () => uploadFilesDirectly(validatedFiles, parentId, progress) } });
+        else toast.error("Upload interrupted", { id: progress, description: "Finished files were saved.", action: { label: "Retry", onClick: () => uploadFilesDirectly(validatedFiles, parentId, progress) } });
         return [];
       } finally {
         if (!outcomeShown && progress !== undefined) toast.dismiss(progress);

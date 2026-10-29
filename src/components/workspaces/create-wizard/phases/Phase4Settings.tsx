@@ -352,7 +352,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     </div>
                 </LaunchSection>
 
-                <LaunchSection {...sectionProps('access')} title="Choose workspace visibility" description="Controls who can find the workspace now, and which tabs outsiders see." summary={visibility === 'private' ? 'Private · members only' : visibility === 'org' ? `Org only · members of ${childOrg?.title ?? 'the organization'}` : `Public · ${publicTabCount} public ${publicTabCount === 1 ? 'tab' : 'tabs'}`}>
+                <LaunchSection {...sectionProps('access')} title="Choose workspace visibility" description="Controls who can find the workspace now, and which tabs outsiders see." summary={visibility === 'private' ? 'Private · members only' : visibility === 'org' ? `Organization only · members of ${childOrg?.title ?? 'the organization'}` : `Public · ${publicTabCount} public ${publicTabCount === 1 ? 'tab' : 'tabs'}`}>
                     <fieldset className="border-y border-border" aria-describedby="create-project-visibility-help">
                         <legend className="sr-only">Workspace visibility</legend>
                         {(childOrg

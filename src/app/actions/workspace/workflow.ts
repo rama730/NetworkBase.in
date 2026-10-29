@@ -145,16 +145,16 @@ export async function createWorkspaceWorkflowColumnAction(input: unknown) {
                 title: parsed.data.title,
                 accentClassName: parsed.data.accentClassName || presentation.accentClassName,
                 emptyTitle: "No tasks here",
-                emptyDescription: "Drag tasks into this section",
+                emptyDescription: "Drag tasks into this column",
                 position: (columns.at(-1)?.position ?? -1) + 1,
                 isDefault: false,
             }).returning();
             return created;
         });
-        if (!column) return { success: false as const, error: "A task board supports up to six sections" };
+        if (!column) return { success: false as const, error: "A board can have up to six columns." };
         return { success: true as const, column };
     } catch (error) {
-        return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t add section" };
+        return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t add column" };
     }
 }
 
@@ -165,16 +165,16 @@ export async function deleteWorkspaceWorkflowColumnAction(projectId: string, col
         const refusal = await db.transaction(async (tx) => {
             await lockWorkflowForLeader(tx, projectId, user.id);
             const column = await tx.query.workspaceWorkflowColumns.findFirst({ where: and(eq(workspaceWorkflowColumns.id, columnId), eq(workspaceWorkflowColumns.projectId, projectId)) });
-            if (!column) return "Section not found";
-            if (column.isDefault) return "Default sections cannot be removed";
+            if (!column) return "Column not found";
+            if (column.isDefault) return "Default columns can’t be removed";
             const [taskCount] = await tx.select({ count: sql<number>`count(*)::int` }).from(tasks).where(eq(tasks.workflowColumnId, columnId));
-            if ((taskCount?.count ?? 0) > 0) return "Move tasks out of this section before deleting it";
+            if ((taskCount?.count ?? 0) > 0) return "Move tasks out of this column before deleting it";
             await tx.delete(workspaceWorkflowColumns).where(eq(workspaceWorkflowColumns.id, columnId));
             return null;
         });
         if (refusal) return { success: false as const, error: refusal };
         return { success: true as const };
     } catch (error) {
-        return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t delete section" };
+        return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t delete column" };
     }
 }

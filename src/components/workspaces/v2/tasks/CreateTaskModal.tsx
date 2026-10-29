@@ -384,7 +384,7 @@ export default function CreateTaskModal({
                           "appearance-none pl-9 pr-9 cursor-pointer",
                         )}
                       >
-                        <option value="">Backlog (no sprint)</option>
+                        <option value="">Backlog</option>
                         {availableSprints.map((sprint) => {
                           const isAssignable = canAssignSprint && isAssignableSprintOption(sprint);
                           const status = SPRINT_STATUS_PRESENTATION[sprint.status as keyof typeof SPRINT_STATUS_PRESENTATION]?.label ?? sprint.status;
@@ -406,7 +406,7 @@ export default function CreateTaskModal({
                   </Field>
 
                   <Field
-                    label="Assignee"
+                    label="Assigned to"
                     htmlFor="task-assignee"
                     error={fieldErrors.assigneeId}
                   >
@@ -721,7 +721,7 @@ export default function CreateTaskModal({
                     </div>
                   ) : (
                     <p className="text-xs text-muted-foreground">
-                      No files or design assets attached yet.
+                      No files attached yet.
                     </p>
                   )}
                 </div>

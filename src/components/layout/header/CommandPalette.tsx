@@ -53,7 +53,7 @@ const CONTEXT_PRESENTATION = {
     default: { label: "Discover / Workspaces", hints: ["Workspace name", "Technology", "Category"] },
     discover: { label: "Discover / Workspaces", hints: ["Workspace name", "Technology", "Category"] },
     network: { label: "Network / People", hints: ["Name", "Skill", "Location"] },
-    project: { label: "Workspace / Work and Links", hints: ["Task title", "Destination name", "Link purpose"] },
+    project: { label: "Workspace / Work and Links", hints: ["Task title", "Link name", "Link category"] },
     settings: { label: "Settings", hints: ["Theme", "Privacy", "Integrations"] },
     messages: { label: "Messages", hints: [] },
 } satisfies Record<GlobalSearchContext, { label: string; hints: string[] }>;
@@ -387,7 +387,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
                     </div>
 
                     <div className="sr-only" aria-live="polite">{previews.isDebouncing
-                        ? "Waiting for search input"
+                        ? ""
                         : previews.isFetching && resultCount === 0
                             ? "Searching"
                             : normalizedQuery.length >= 2

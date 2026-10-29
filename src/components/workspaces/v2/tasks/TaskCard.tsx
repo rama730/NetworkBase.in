@@ -105,7 +105,7 @@ function TaskMetaIndicators({
       )}
       {((fileCount ?? 0) > 0 || (newFileCount ?? 0) > 0) && (
         <TaskMetaIndicator
-          title="Attachments"
+          title="Files"
           icon={Paperclip}
           label={Math.max(fileCount ?? 0, newFileCount ?? 0)}
           unreadCount={newFileCount}

@@ -80,7 +80,7 @@ export function EditTabsDialog({ open, onOpenChange, tabs, onSaveTabs }: Props) 
             <div className="grid size-8 place-items-center rounded-md bg-muted text-muted-foreground">
               <SlidersHorizontal size={16} />
             </div>
-            <DialogTitle>Edit tabs</DialogTitle>
+            <DialogTitle>Tabs</DialogTitle>
           </div>
           <DialogDescription>
             Rename, reorder or remove Files, Tasks and channel links. Changes apply for everyone in the channel.

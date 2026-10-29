@@ -529,7 +529,7 @@ export default function TasksTab({
         columnPendingDeletion.id,
       );
       if (!result.success) {
-        toast.error(feedbackError(result.error || "Couldn’t delete section", "Couldn’t delete section"));
+        toast.error(feedbackError(result.error || "Couldn’t delete column", "Couldn’t delete column"));
         return;
       }
       queryClient.setQueryData(
@@ -539,7 +539,7 @@ export default function TasksTab({
       setColumnPendingDeletion(null);
     } catch (error) {
       toast.error(
-        feedbackError(error instanceof Error ? error.message : "Couldn’t delete section", "Couldn’t delete section"),
+        feedbackError(error instanceof Error ? error.message : "Couldn’t delete column", "Couldn’t delete column"),
       );
     } finally {
       setIsDeletingColumn(false);
@@ -554,7 +554,7 @@ export default function TasksTab({
   ]);
 
   const handleAddColumn = () => {
-    setSectionTitle("New section");
+    setSectionTitle("New column");
     setSectionColor("indigo");
     setSectionStatus("in_progress");
     setAddSectionError(null);
@@ -565,7 +565,7 @@ export default function TasksTab({
     event.preventDefault();
     const title = sectionTitle.trim();
     if (!title) {
-      setAddSectionError("Enter a section name.");
+      setAddSectionError("Enter a column name.");
       return;
     }
 
@@ -579,7 +579,7 @@ export default function TasksTab({
         accentClassName: sectionColor,
       });
       if (!result.success || !result.column) {
-        setAddSectionError(result.error || "Couldn’t add section");
+        setAddSectionError(result.error || "Couldn’t add column");
         return;
       }
       queryClient.setQueryData(workflowQueryKey, [
@@ -589,7 +589,7 @@ export default function TasksTab({
       setIsAddSectionOpen(false);
     } catch (error) {
       setAddSectionError(
-        error instanceof Error ? error.message : "Couldn’t add section",
+        error instanceof Error ? error.message : "Couldn’t add column",
       );
     } finally {
       setIsAddingSection(false);
@@ -818,11 +818,11 @@ export default function TasksTab({
                 type="button"
                 onClick={handleAddColumn}
                 disabled={workflow.length >= 6}
-                title={workflow.length >= 6 ? "A task board supports up to six sections" : undefined}
+                title={workflow.length >= 6 ? "A board can have up to six columns." : undefined}
                 className="nb-touch-target hidden h-[34px] disabled:opacity-50 disabled:cursor-not-allowed items-center gap-1.5 rounded-[5px] border border-border bg-card px-3 text-[13px] font-medium text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:inline-flex"
               >
                 <Plus className="size-3.5" />
-                <span className="hidden sm:inline">New section</span>
+                <span className="hidden sm:inline">New column</span>
               </button>
             ) : null}
 
@@ -838,7 +838,7 @@ export default function TasksTab({
               </button>
             ) : null}
 
-            {/* Phone overflow: New section and the desktop IDE handoff (spec §20, primary action stays visible). */}
+            {/* Phone overflow: New column and the desktop IDE handoff (spec §20, primary action stays visible). */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button type="button" aria-label="More task actions" className="inline-flex size-11 items-center justify-center rounded-[5px] border border-border bg-card text-muted-foreground hover:bg-muted md:hidden">
@@ -849,7 +849,7 @@ export default function TasksTab({
                 {canManageWorkflow ? (
                   <DropdownMenuItem onSelect={handleAddColumn} disabled={workflow.length >= 6}>
                     <Plus className="size-4" aria-hidden="true" />
-                    {workflow.length >= 6 ? "Six sections (maximum)" : "New section"}
+                    {workflow.length >= 6 ? "Six columns (maximum)" : "New column"}
                   </DropdownMenuItem>
                 ) : null}
                 <DropdownMenuItem onSelect={() => setIdeSheetOpen(true)}>
@@ -958,7 +958,7 @@ export default function TasksTab({
           <DialogContent className="sm:max-w-[425px]">
             <form onSubmit={submitNewColumn}>
               <DialogHeader>
-                <DialogTitle>Add section</DialogTitle>
+                <DialogTitle>Add column</DialogTitle>
                 <DialogDescription>
                   Create a new column for your task workflow.
                 </DialogDescription>
@@ -986,7 +986,7 @@ export default function TasksTab({
                         <button
                           type="button"
                           key={c}
-                          aria-label={`Use ${c} for the new section`}
+                          aria-label={`Use ${c} for the new column`}
                           onClick={() => setSectionColor(c)}
                           className={cn(
                             "size-5 rounded-[3px] border border-border/60 flex items-center justify-center transition-transform hover:scale-105",
@@ -1025,7 +1025,7 @@ export default function TasksTab({
                     <option value="done">Completed</option>
                   </select>
                   <p className="font-mono text-[11px] text-muted-foreground">
-                    Tasks moved into this section inherit this state.
+                    Tasks moved here get this status.
                   </p>
                 </div>
                 {addSectionError && (
@@ -1045,7 +1045,7 @@ export default function TasksTab({
                   disabled={isAddingSection}
                   className="nb-touch-target h-[34px] rounded-[5px] bg-primary px-3.5 font-mono text-xs font-medium uppercase tracking-[0.09em] text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
                 >
-                  {isAddingSection ? "Adding..." : "Add section"}
+                  {isAddingSection ? "Adding..." : "Add column"}
                 </button>
               </DialogFooter>
             </form>
@@ -1089,9 +1089,9 @@ export default function TasksTab({
         onOpenChange={(open) => {
           if (!open && !isDeletingColumn) setColumnPendingDeletion(null);
         }}
-        title="Delete workflow section"
-        description={`Delete “${columnPendingDeletion?.title ?? "this section"}”? The section must be empty; move any tasks to another section first.`}
-        confirmLabel={isDeletingColumn ? "Deleting..." : "Delete section"}
+        title="Delete column"
+        description={`Delete “${columnPendingDeletion?.title ?? "this column"}”? The column must be empty; move its tasks to another column first.`}
+        confirmLabel={isDeletingColumn ? "Deleting..." : "Delete column"}
         variant="destructive"
         onConfirm={confirmRemoveColumn}
       />

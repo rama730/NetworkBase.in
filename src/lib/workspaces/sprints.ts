@@ -193,7 +193,7 @@ export function buildSprintDeleteImpact(input: {
       ? null
       : input.affectedTaskCount > 0
         ? "Sprints with work history are archived instead of deleted."
-        : "Only an empty Planning sprint can be deleted.",
+        : "You can delete a sprint only before it has tasks. Otherwise, archive it.",
   };
 }
 

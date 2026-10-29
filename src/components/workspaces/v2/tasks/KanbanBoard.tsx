@@ -243,7 +243,7 @@ const KanbanColumn = React.memo(
             {isEditing ? (
               <input
                 autoFocus
-                aria-label="Section title"
+                aria-label="Column name"
                 maxLength={120}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
@@ -299,7 +299,7 @@ const KanbanColumn = React.memo(
                         }}
                       >
                         <Pencil className="size-3.5 mr-2" />
-                        Rename section
+                        Rename column
                       </DropdownMenuItem>
                       <DropdownMenuSub>
                         <DropdownMenuSubTrigger className="cursor-pointer text-xs font-medium">
@@ -366,7 +366,7 @@ const KanbanColumn = React.memo(
                       onClick={() => onRemoveColumn(col.id)}
                     >
                       <Trash2 className="size-3.5 mr-2" />
-                      Remove section
+                      Remove column
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
@@ -434,7 +434,7 @@ const KanbanColumn = React.memo(
                 {/* Only people who can move cards are told to drag them. */}
                 {canEditTasks ? (
                   <p className="mt-1 text-[11px] text-muted-foreground max-w-[200px]">
-                    {col.emptyDescription || "Drag tasks into this section"}
+                    {col.emptyDescription || "Drag tasks into this column"}
                   </p>
                 ) : null}
               </div>
@@ -1076,7 +1076,7 @@ export default function KanbanBoard({
       {hasNextPage && (
         <div className="mt-4 flex flex-col items-center gap-2">
           <p className="text-xs text-muted-foreground" role="status">
-            Load all tasks before reordering so positions remain complete and deterministic.
+            Load all tasks before reordering.
           </p>
           <button
             type="button"

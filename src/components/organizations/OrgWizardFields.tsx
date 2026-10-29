@@ -140,7 +140,7 @@ export function OrgIdentityFields() {
     return (
         <div className="space-y-5">
             <div>
-                <label htmlFor="create-org-handle" className={labelClass}>Handle <span aria-hidden="true">*</span><span className="sr-only">(required)</span></label>
+                <label htmlFor="create-org-handle" className={labelClass}>Organization URL <span aria-hidden="true">*</span><span className="sr-only">(required)</span></label>
                 <div className="mt-1.5 flex items-center gap-1">
                     <span className="text-muted-foreground" aria-hidden="true">@</span>
                     <Input

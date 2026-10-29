@@ -22,7 +22,7 @@ type ConnectionStatus = 'idle' | 'authorizing' | 'success' | 'error'
 
 const AUTHORIZE_PANEL = {
     eyebrow: 'Editor sync',
-    title: 'Your workspace, inside your editor.',
+    title: 'Your work, inside your code editor.',
     points: ['Open your workspaces and virtual files', 'Push tasks without leaving the editor', 'Disconnect any time from settings'],
 }
 
@@ -56,7 +56,7 @@ function getCallbackEditorName(url: string | null): string {
     if (protocol === 'windsurf') return 'Windsurf'
     if (protocol === 'vscode-insiders') return 'VS Code Insiders'
     if (protocol === 'vscode') return 'VS Code'
-    if (protocol === 'http') return 'Local IDE Bridge'
+    if (protocol === 'http') return 'Code editor'
 
     return protocol
         .split(/[-_]+/)
@@ -127,7 +127,7 @@ function AuthorizePageInner({ viewerEmail }: { viewerEmail?: string | null }) {
     const callbackDestination = formatCallbackDestination(callbackUrl)
 
     const [status, setStatus] = useState<ConnectionStatus>('idle')
-    const [progressText, setProgressText] = useState('Issuing revocable session token…')
+    const [progressText, setProgressText] = useState('Connecting…')
     const [errorMsg, setErrorMsg] = useState<string | null>(null)
     const [debugDetails, setDebugDetails] = useState<string | null>(null)
     const [authCode, setAuthCode] = useState<string | null>(null)
@@ -161,7 +161,7 @@ function AuthorizePageInner({ viewerEmail }: { viewerEmail?: string | null }) {
         setProgressText('Verifying workspace session…')
 
         try {
-            setProgressText('Generating revocable device token…')
+            setProgressText('Connecting…')
 
             const res = await generateExtensionAuthCode(editorName, {
                 authMethod: 'web_login',
@@ -171,7 +171,7 @@ function AuthorizePageInner({ viewerEmail }: { viewerEmail?: string | null }) {
 
             if (res.success) {
                 setAuthCode(res.code)
-                setProgressText('Handing off to editor…')
+                setProgressText('Opening your editor…')
                 setStatus('success')
                 redirectToEditor({ code: res.code })
                 return

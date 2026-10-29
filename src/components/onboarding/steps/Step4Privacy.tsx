@@ -127,7 +127,7 @@ export function Step4Privacy({
 
       <aside className="onb-privacy-review" aria-labelledby="privacy-review-title">
         <div>
-          <p className="onb-section-kicker">Final review</p>
+          <p className="onb-section-kicker">Review</p>
           <h2 id="privacy-review-title" className="onb-privacy-review-title">Ready to finish</h2>
           <p className="onb-privacy-review-description">
             Your profile will use the choices below. You can revise them in Settings at any time.

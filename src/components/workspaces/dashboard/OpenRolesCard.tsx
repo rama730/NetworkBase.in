@@ -115,7 +115,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                 {isCollaborator ? (
                     <div className="flex items-center gap-2 px-1 py-1 text-xs font-medium text-[var(--status-success,#2F6B4F)]">
                         <CheckCircle className="h-3.5 w-3.5" />
-                        <span>Team member</span>
+                        <span>Member</span>
                     </div>
                 ) : card.banner ? (
                     <div role="status" id="open-roles-status" tabIndex={-1} className="space-y-1.5 px-1 py-1 outline-none">

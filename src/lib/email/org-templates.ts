@@ -216,7 +216,7 @@ function partsFor(kind: OrgEmailKind, d: OrgEmailData, url: (path: string) => st
           g.toReview.length ? { title: "To review", rows: g.toReview.map((r) => `${r.title}: ${r.count}`) } : null,
           g.joinRequests ? { title: "Join requests", rows: [`${g.joinRequests} waiting`] } : null,
           g.needsYou.length ? { title: "Needs your attention", rows: g.needsYou } : null,
-          g.behind ? { title: "Behind", rows: [`${g.behind} ${g.behind === 1 ? "person has" : "people have"} missing work`] } : null,
+          g.behind ? { title: "Needs attention", rows: [`${g.behind} ${g.behind === 1 ? "person has" : "people have"} missing work`] } : null,
         ].filter((s): s is { title: string; rows: string[] } => Boolean(s)),
         primary: { label: "Open review queue →", href: url(`${orgPath}?tab=assignments&view=review`) }, secondary: { label: "Open overview", href: url(orgPath) },
         reason: `You’re receiving this daily summary as an admin of ${org}.`,
@@ -305,7 +305,7 @@ export function buildOrgEmail(kind: OrgEmailKind, data: OrgEmailData, input: { e
     `${p.primary.label}: ${p.primary.href}`,
     ...(p.secondary ? [`${p.secondary.label}: ${p.secondary.href}`] : []),
     "", p.reason, `Notification settings: ${settingsUrl}`, ...(mute ? [`${muteLabel}: ${mute}`] : []),
-    "Contact Support: mailto:support@networkbase.in", `Privacy: ${url("/privacy")}`, `Security: ${url("/security-reporting")}`, `Terms and Conditions: ${url("/terms")}`,
+    "Contact support: mailto:support@networkbase.in", `Privacy: ${url("/privacy")}`, `Security: ${url("/security-reporting")}`, `Terms and Conditions: ${url("/terms")}`,
     "© NetworkBase. All rights reserved.",
   ].join("\n");
 

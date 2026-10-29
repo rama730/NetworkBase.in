@@ -17,7 +17,7 @@ test("subtasks use an accessible grouped checklist with explicit creation and re
   assert.match(tab, /aria-checked=\{subtask\.completed\}/);
   assert.match(tab, /Open \(\{openSubtasks\.length\}\)/);
   assert.match(tab, /Done \(\{completedSubtasks\.length\}\)/);
-  assert.match(tab, /Add a new subtask checkpoint…/);
+  assert.match(tab, /Add a subtask…/);
   assert.match(tab, /onUpdateSubtask/);
   assert.match(tab, /onBlur=\{\(\) => void saveTitle\(subtask\)\}/);
   assert.match(tab, /await onDeleteSubtask\(subtask\.id\)/);

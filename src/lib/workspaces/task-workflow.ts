@@ -46,9 +46,9 @@ export const TASK_STATUS_PRESENTATION: Record<TaskWorkflowStatus, TaskWorkflowSt
   },
   blocked: {
     id: "blocked",
-    label: "Issues",
+    label: "Blocked",
     description: "Work waiting on an external dependency or decision.",
-    columnTitle: "Issues",
+    columnTitle: "Blocked",
     emptyTitle: "Tasks will appear here…",
     emptyDescription: "Tasks waiting on blockers will appear here. Drag and drop your tasks here.",
     badgeClassName:
@@ -57,9 +57,9 @@ export const TASK_STATUS_PRESENTATION: Record<TaskWorkflowStatus, TaskWorkflowSt
   },
   done: {
     id: "done",
-    label: "Done",
+    label: "Completed",
     description: "Work that has been completed.",
-    columnTitle: "Done",
+    columnTitle: "Completed",
     emptyTitle: "Tasks will appear here…",
     emptyDescription: "Finished work will appear here. Drag and drop your tasks here.",
     badgeClassName:

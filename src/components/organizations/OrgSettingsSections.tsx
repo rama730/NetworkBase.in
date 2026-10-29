@@ -148,7 +148,7 @@ export function OrgProfileSection({ orgId, organization, role, handle }: Section
             <SettingsCard title="Organization profile" headingLevel={2} description="What people see on About, and how the organization keeps time." footer={<LastChanged organization={organization} section="profile" />}>
                 <div className="space-y-6">
                     <div>
-                        <label htmlFor="org-handle" className={labelClass}>Handle</label>
+                        <label htmlFor="org-handle" className={labelClass}>Organization URL</label>
                         <p className={helpClass}>{isOwner ? `The address, networkbase.in/org/${handle}. Change it at most once every 7 days; the old one keeps redirecting for 90 days.` : OWNER_ONLY}</p>
                         <div className="mt-2 flex max-w-md items-center gap-2">
                             <span aria-hidden="true" className="text-muted-foreground">@</span>
@@ -340,9 +340,9 @@ export function OrgPeopleSection({ orgId, organization, role }: SectionProps) {
 }
 
 const CAP_OPTIONS = [
-    { value: 'public', label: 'Public allowed', hint: 'Workspaces choose Public, Org only or Private.' },
-    { value: 'org', label: 'Org only at most', hint: 'Nothing leaves the organization.' },
-    { value: 'private', label: 'Private only', hint: 'Each workspace is seen by its team and admins only.' },
+    { value: 'public', label: 'Public', hint: 'Workspaces choose Public, Org only or Private.' },
+    { value: 'org', label: 'Organization only', hint: 'Nothing leaves the organization.' },
+    { value: 'private', label: 'Private', hint: 'Each workspace is seen by its team and admins only.' },
 ] as const
 
 export function OrgWorkspacesSection({ orgId, organization }: SectionProps) {
@@ -374,7 +374,7 @@ export function OrgWorkspacesSection({ orgId, organization }: SectionProps) {
                         </div>
                     </fieldset>
                     <fieldset>
-                        <legend className={labelClass}>Visibility cap</legend>
+                        <legend className={labelClass}>Highest allowed visibility</legend>
                         <p className={helpClass}>The most open a workspace here can be. Tightening it lowers workspaces above it.</p>
                         <div className="mt-2 space-y-2 text-sm">
                             {CAP_OPTIONS.map((option) => (
@@ -408,7 +408,7 @@ export function OrgWorkspacesSection({ orgId, organization }: SectionProps) {
                     <div className="flex items-start justify-between gap-4">
                         <div>
                             <p className={labelClass}>New workspaces follow org sprints</p>
-                            <p className={helpClass}>On by default. A new workspace’s sprints link to the organization’s sprint holding their dates; the lead can turn it off.</p>
+                            <p className={helpClass}>On by default. A new workspace’s sprints link to the organization’s sprint holding their dates; the owner can turn it off.</p>
                         </div>
                         <SettingsSwitch checked={followSprints} onCheckedChange={setFollowSprints} aria-label="New workspaces follow org sprints" />
                     </div>

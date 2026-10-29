@@ -23,7 +23,7 @@ import type { Workspace } from '@/types/discover'
 // Settings → Organization (report §21.6): the child's org link, the rules it inherits as locked rows,
 // visibility within the cap, inherited admins, and detach. For a personal project: Move to an organization.
 
-const CAP_LABEL: Record<string, string> = { public: 'Public allowed', org: 'Org only at most', private: 'Private only' }
+const CAP_LABEL: Record<string, string> = { public: 'Public', org: 'Organization only', private: 'Private' }
 const VIS_LABEL: Record<ChildVisibility, string> = { public: 'Public', org: 'Organization', private: 'Private' }
 
 function useRun() {
@@ -97,9 +97,9 @@ export function ChildOrgSection({ project, isLead, canManage }: { project: Works
                         {inherited ? ' · you manage it as an org admin' : ''}
                     </p>
                     <div>
-                        <LockedRow label="Visibility cap" value={CAP_LABEL[parentOrg.isPublic ? parentOrg.visibilityCap : 'org'] ?? 'Org only at most'} org={parentOrg.title} />
+                        <LockedRow label="Highest allowed visibility" value={CAP_LABEL[parentOrg.isPublic ? parentOrg.visibilityCap : 'org'] ?? 'Organization only'} org={parentOrg.title} />
                         <LockedRow label="People outside the organization" value={parentOrg.outsidePeople ? 'Allowed' : 'Not allowed'} org={parentOrg.title} />
-                        <LockedRow label="Leaving the organization" value={inherited ? 'Detach at once' : 'Needs admin approval'} org={parentOrg.title} />
+                        <LockedRow label="Leaving the organization" value={inherited ? 'Remove now' : 'Needs admin approval'} org={parentOrg.title} />
                     </div>
                     {canManage || inherited ? (
                         <fieldset>
@@ -125,22 +125,22 @@ export function ChildOrgSection({ project, isLead, canManage }: { project: Works
                     </div>
                     <div className="space-y-3 border-t border-border pt-4">
                         <p className="nb-ui-label text-sm font-semibold text-foreground">Leave {parentOrg.title}</p>
-                        <p className="nb-compact text-muted-foreground">Detaching makes this a Private personal workspace. Its org views go away.</p>
+                        <p className="nb-compact text-muted-foreground">Removing makes this a private personal workspace. Its organization views go away.</p>
                         {inherited ? (
                             <div className="flex flex-wrap gap-2">
-                                {parentOrg.detachRequested ? <p className="basis-full text-sm">The lead asked to detach.</p> : null}
-                                <Button variant="destructive" disabled={pending} onClick={() => setConfirm('detach')}>{parentOrg.detachRequested ? 'Approve and detach' : 'Detach now'}</Button>
+                                {parentOrg.detachRequested ? <p className="basis-full text-sm">The owner asked to leave.</p> : null}
+                                <Button variant="destructive" disabled={pending} onClick={() => setConfirm('detach')}>{parentOrg.detachRequested ? 'Approve and remove' : 'Remove now'}</Button>
                                 {parentOrg.detachRequested ? <Button variant="outline" disabled={pending} onClick={() => run(() => cancelDetachRequestAction(projectId), 'Request declined.')}>Decline request</Button> : null}
                                 {project.status !== 'archived' ? <Button variant="outline" disabled={pending} onClick={() => setConfirm('archive')}>Archive workspace</Button> : null}
                             </div>
                         ) : isLead ? (
                             parentOrg.detachRequested ? (
                                 <div className="flex flex-wrap items-center gap-2">
-                                    <p className="text-sm">Detach requested. An admin of {parentOrg.title} decides.</p>
+                                    <p className="text-sm">Request to leave sent. An admin of {parentOrg.title} decides.</p>
                                     <Button variant="outline" disabled={pending} onClick={() => run(() => cancelDetachRequestAction(projectId), 'Request canceled.')}>Cancel request</Button>
                                 </div>
                             ) : (
-                                <Button variant="outline" disabled={pending} onClick={() => run(() => requestDetachAction(projectId), `Request sent to ${parentOrg.title} admins.`)}>Request detach</Button>
+                                <Button variant="outline" disabled={pending} onClick={() => run(() => requestDetachAction(projectId), `Request sent to ${parentOrg.title} admins.`)}>Request to leave</Button>
                             )
                         ) : null}
                         {status}
@@ -150,9 +150,9 @@ export function ChildOrgSection({ project, isLead, canManage }: { project: Works
             <ConfirmDialog
                 open={confirm !== null}
                 onOpenChange={(open) => { if (!open) setConfirm(null) }}
-                title={confirm === 'archive' ? 'Archive this workspace?' : `Detach from ${parentOrg.title}?`}
-                description={confirm === 'archive' ? 'Everything becomes read-only. The lead can unarchive it.' : 'It becomes a Private personal workspace of its lead.'}
-                confirmLabel={confirm === 'archive' ? 'Archive' : 'Detach'}
+                title={confirm === 'archive' ? 'Archive this workspace?' : `Remove from ${parentOrg.title}?`}
+                description={confirm === 'archive' ? 'Everything becomes read-only. The owner can unarchive it.' : 'It becomes a Private personal workspace of its lead.'}
+                confirmLabel={confirm === 'archive' ? 'Archive' : 'Remove from organization'}
                 variant="destructive"
                 onConfirm={() => run(() => (confirm === 'archive' ? archiveChildAction(projectId) : detachChildAction(projectId)), confirm === 'archive' ? 'Archived.' : 'Detached.')}
             />

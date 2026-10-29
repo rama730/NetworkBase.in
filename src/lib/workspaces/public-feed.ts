@@ -127,7 +127,7 @@ export function mapPublicWorkspaceToDiscoverWorkspace(project: PublicWorkspacesF
             username: shouldMaskOwner ? null : project.profiles.username,
             fullName: shouldMaskOwner ? null : project.profiles.full_name,
             avatarUrl: shouldMaskOwner ? null : project.profiles.avatar_url,
-            displayName: shouldMaskOwner ? 'Private creator' : (project.profiles.full_name || project.profiles.username || 'Creator'),
+            displayName: shouldMaskOwner ? 'Private profile' : (project.profiles.full_name || project.profiles.username || 'Private profile'),
             isMasked: shouldMaskOwner,
             canOpenProfile: !shouldMaskOwner,
             badgeText: shouldMaskOwner ? (ownerVisibility === 'connections' ? 'Connections only' : 'Private') : null,

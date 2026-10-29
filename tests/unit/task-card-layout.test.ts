@@ -127,7 +127,7 @@ test("subtask, attachment, and comment summaries render exactly once", () => {
   const html = renderTask();
 
   assert.equal((html.match(/title="Subtasks"/g) ?? []).length, 1);
-  assert.equal((html.match(/title="Attachments"/g) ?? []).length, 1);
+  assert.equal((html.match(/title="Files"/g) ?? []).length, 1);
   assert.equal((html.match(/title="Comments"/g) ?? []).length, 1);
 });
 
@@ -160,7 +160,7 @@ test("every unread task counter uses its red icon and total without a dot", () =
   const html = renderTask();
 
   assert.match(html, /aria-label="Subtasks, 1\/2, 1 new"/);
-  assert.match(html, /aria-label="Attachments, 3, 2 new"/);
+  assert.match(html, /aria-label="Files, 3, 2 new"/);
   assert.match(html, /aria-label="Comments, 4, 1 new"/);
   assert.doesNotMatch(html, />\+2</);
   assert.equal((html.match(/text-rose-500/g) ?? []).length, 3);
@@ -180,6 +180,6 @@ test("overdue timing badges do not add a second metadata row", () => {
 
   assert.match(html, /Overdue/);
   assert.equal((html.match(/title="Subtasks"/g) ?? []).length, 1);
-  assert.equal((html.match(/title="Attachments"/g) ?? []).length, 1);
+  assert.equal((html.match(/title="Files"/g) ?? []).length, 1);
   assert.equal((html.match(/title="Comments"/g) ?? []).length, 1);
 });

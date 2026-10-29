@@ -18,7 +18,7 @@ export function useMarkAllRead() {
   const { applyRead, refresh } = useChatShell();
   const [pending, setPending] = useState<{ count: number; noun: string; label: string; run: () => Promise<void> | void } | null>(null);
 
-  /** `label` names the scope ("Mark Acme read", "Mark mentions read"), so every button says what it clears. */
+  /** `label` is the button text ("Mark all as read"); each tab clears its own scope. */
   const request = (count: number, run: () => Promise<void> | void, noun = "conversation", label = MARK_ALL_LABEL) => {
     if (!count) return;
     if (needsMarkAllConfirm(count)) setPending({ count, noun, label, run });

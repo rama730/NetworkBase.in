@@ -73,10 +73,10 @@ test("WorkspaceRolesEditor provides rich master-detail workspaces for Occupied a
   assert.match(editorSrc, /<UserAvatar[\s\S]*?size=\{52\}[\s\S]*?roundedClassName="rounded-md"/, "Occupant profile must use 52px squared UserAvatar");
   assert.doesNotMatch(editorSrc, /View public profile/, "View public profile link must be removed from occupant profile");
   assert.doesNotMatch(editorSrc, /This occupant currently fills this role/, "Explanatory note box must be removed from occupant profile");
-  assert.match(editorSrc, /Role specifications/, "Occupant workspace must provide editable role specifications");
+  assert.match(editorSrc, /Role details/, "Roles editor must provide editable role details");
 
   // Open position editing and live preview
-  assert.match(editorSrc, /Open role configuration/, "Open position workspace must display configuration header");
+  assert.match(editorSrc, />Open role</, "Roles editor must display the open role header");
   assert.match(editorSrc, /Delete position/, "Open position workspace must offer deletion action");
   assert.match(editorSrc, /Applicant view preview/, "Open position workspace must render live applicant preview card");
 

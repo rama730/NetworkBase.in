@@ -770,7 +770,7 @@ export function FilesTabSidebar({
                         }}
                       >
                         <ListTodo className="w-4 h-4 mr-2" />
-                        Attach to task…
+                        Link to task…
                       </DropdownMenuItem>
                     )}
                     <DropdownMenuItem

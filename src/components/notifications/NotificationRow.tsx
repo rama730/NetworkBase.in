@@ -147,7 +147,7 @@ export function NotificationRow(props: {
                     if (isNew) focusTimerRef.current = setTimeout(markViewed, FOCUS_VIEW_MS);
                 }}
                 onBlur={clearViewTimers}
-                aria-label={`${isNew ? "New" : "Read"} ${reasonLabel}: ${item.title}${relativeTime ? `, ${relativeTime}` : ""}`}
+                aria-label={`${isNew ? "Unread" : "Read"} ${reasonLabel}: ${item.title}${relativeTime ? `, ${relativeTime}` : ""}`}
                 className="flex min-w-0 flex-1 items-start gap-3 rounded-sm text-left outline-none active:translate-y-px"
             >
                 <div className="relative mt-0.5 shrink-0">
@@ -159,7 +159,7 @@ export function NotificationRow(props: {
                     />
                     {isNew ? (
                         <span
-                            aria-label={isImportant ? "Needs attention" : "New"}
+                            aria-label={isImportant ? "Needs attention" : "Unread"}
                             className={cn(
                                 "absolute -right-0.5 -top-0.5 size-2 rounded-full ring-2 ring-card",
                                 isImportant ? "bg-destructive" : "bg-primary",

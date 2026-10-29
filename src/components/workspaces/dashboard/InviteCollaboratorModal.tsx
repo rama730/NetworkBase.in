@@ -708,10 +708,10 @@ export default function InviteCollaboratorModal({
                         {mode === "invite" && hasPendingApplication ? <div className="flex gap-2 rounded-[5px] border border-amber-500/25 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200"><AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />Review this person’s existing application instead of sending a separate invitation.</div> : null}{mode === "invite" && hasPendingInvitation ? <div className="flex gap-2 rounded-[5px] border border-amber-500/25 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200"><AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />An invitation is already pending for this person.</div> : null}
                         {mode === "invite" && alignment && inviteKind === "ordinary_role" ? <div className="grid grid-cols-3 gap-2 rounded-[5px] border border-border bg-muted/30 p-3 text-xs text-muted-foreground"><span className="flex items-center gap-1">{alignment.commitmentMatch.aligns ? <Check aria-hidden="true" className="size-3 text-[var(--status-success,#2F6B4F)]" /> : null}Commitment</span><span className="flex items-center gap-1">{alignment.capacityMatch.aligns ? <Check aria-hidden="true" className="size-3 text-[var(--status-success,#2F6B4F)]" /> : null}Capacity</span><span className="flex items-center gap-1">{alignment.experienceMatch.aligns ? <Check aria-hidden="true" className="size-3 text-[var(--status-success,#2F6B4F)]" /> : null}Experience</span></div> : null}
 
-                        {mode === "invite" ? <div className="space-y-2">{step("Invitation note")}<label className="sr-only" htmlFor="recruitment-note">Invitation note</label><textarea id="recruitment-note" value={note} onChange={(event) => setNote(event.target.value.slice(0, NOTE_LIMIT))} rows={4} maxLength={NOTE_LIMIT} placeholder="Add a friendly note…" className="w-full resize-none rounded-[5px] border border-border bg-card p-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" /><p className="text-right text-xs text-muted-foreground">{note.length}/{NOTE_LIMIT}</p></div> : <div className="space-y-4">
+                        {mode === "invite" ? <div className="space-y-2">{step("Message (optional)")}<label className="sr-only" htmlFor="recruitment-note">Message (optional)</label><textarea id="recruitment-note" value={note} onChange={(event) => setNote(event.target.value.slice(0, NOTE_LIMIT))} rows={4} maxLength={NOTE_LIMIT} placeholder="Add a message…" className="w-full resize-none rounded-[5px] border border-border bg-card p-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" /><p className="text-right text-xs text-muted-foreground">{note.length}/{NOTE_LIMIT}</p></div> : <div className="space-y-4">
                             <div className="space-y-1.5">
                                 <label htmlFor="recruitment-application-message" className="nb-ui-label block text-[13px] font-medium text-foreground">
-                                    Why are you a fit? <span aria-hidden="true" className="text-destructive">*</span>
+                                    Why you’re a good fit <span aria-hidden="true" className="text-destructive">*</span>
                                     <span className="sr-only"> (required)</span>
                                 </label>
                                 <textarea
@@ -724,11 +724,11 @@ export default function InviteCollaboratorModal({
                                     required
                                     aria-required="true"
                                     aria-describedby="recruitment-application-hint recruitment-application-count"
-                                    placeholder="Describe your relevant skills, execution style, and first-week contribution."
+                                    placeholder="Your relevant skills and how you’d get started."
                                     className="w-full resize-none rounded-[5px] border border-border bg-card p-3 text-[13px] leading-relaxed text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
                                 />
                                 <div className="flex justify-between text-xs text-muted-foreground">
-                                    <span id="recruitment-application-hint">{applicationMessage.trim().split(/\s+/).filter(Boolean).length < 12 ? "Add a concise intro, relevant skills, and expected contribution." : "Good application detail."}</span>
+                                    <span id="recruitment-application-hint">{applicationMessage.trim().split(/\s+/).filter(Boolean).length < 12 ? "Add a short intro, your relevant skills and how you’d help." : ""}</span>
                                     <span id="recruitment-application-count" aria-live="polite">{applicationMessage.length}/{APPLICATION_LIMIT}{applicationMessage.length >= APPLICATION_LIMIT ? " · limit reached" : ""}</span>
                                 </div>
                             </div>
@@ -736,7 +736,7 @@ export default function InviteCollaboratorModal({
                             <div className="grid gap-3 sm:grid-cols-2">
                                 <div className="space-y-1.5">
                                     <label htmlFor="recruitment-portfolio" className="nb-ui-label block text-[13px] font-medium text-foreground">
-                                        Portfolio / GitHub <span className="font-normal text-xs text-muted-foreground">(optional)</span>
+                                        Portfolio link <span className="font-normal text-xs text-muted-foreground">(optional)</span>
                                     </label>
                                     <input
                                         ref={portfolioRef}

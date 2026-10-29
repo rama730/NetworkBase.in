@@ -102,7 +102,7 @@ export function ShareDialog({ kind, path, onClose, ownerUsernameSetup, returnFoc
   useEffect(()=>{if(targetQuery.error?.message==='chat_unauthorized')setNeedsAuth(true);
     else if(target&&((targetQuery.isError)||targetQuery.data?.can_send===false||targetQuery.data?.is_member===false)){setTarget('');setMessage('This destination is no longer available. Your note is kept.');shell.refresh();}
   },[targetQuery.data,targetQuery.isError,targetQuery.error?.message,target,shell.refresh]);
-  const targetLabel=targetData?`${targetData.project_title?targetData.project_title+' / ':''}${targetData.kind!=='dm'&&targetData.name?'#':''}${channelTitle(targetData,userId)}`:target?'Checking destination…':'';
+  const targetLabel=targetData?`${targetData.project_title?targetData.project_title+' / ':''}${targetData.kind!=='dm'&&targetData.name?'#':''}${channelTitle(targetData,userId)}`:target?'Checking…':'';
   const canCheckReceipt=Boolean(sameDraftAccount && draftIntent.current && receiptState!=='none');
   const receiptTarget=draftIntent.current?.channelId ?? '';
   const receiptDestination=useQuery({queryKey:queryKeys.sharing.destination(userId,getSessionIdentifierFromSession(session),receiptTarget),
@@ -118,9 +118,8 @@ export function ShareDialog({ kind, path, onClose, ownerUsernameSetup, returnFoc
   };
   const nativeShare = async () => {
     if (!publicPreview || !canonicalUrl) return;
-    try { await navigator.share({ title: publicPreview.title, text: publicPreview.description, url: canonicalUrl });
-      if (alive.current) setMessage('Returned from device sharing.'); }
-    catch (error) { if (alive.current) setMessage(error instanceof Error && error.name === 'AbortError' ? 'Device sharing canceled.' : 'Couldn’t share with that app. Copy the link instead.'); }
+    try { await navigator.share({ title: publicPreview.title, text: publicPreview.description, url: canonicalUrl }); }
+    catch (error) { if (alive.current) setMessage(error instanceof Error && error.name === 'AbortError' ? 'Sharing canceled.' : 'Couldn’t share with that app. Copy the link instead.'); }
   };
   const send = async (retryOriginal = false) => {
     if(receiptState!=='none'&&!retryOriginal)return;

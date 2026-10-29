@@ -370,13 +370,13 @@ ${input.buttonsHtml}
                 ${footer.reasonHtml} <a href="${escapeHtml(footer.settingsUrl)}" style="color:#C24720;text-decoration:none;font-weight:500;">Manage notification preferences</a>${muteHtml}
               </p>
               <div style="margin:0;font-size:12px;color:#6B7280;line-height:1.6;">
-                <a href="${escapeHtml(supportUrl)}" style="color:#6B7280;text-decoration:none;">Contact Support</a>
+                <a href="${escapeHtml(supportUrl)}" style="color:#6B7280;text-decoration:none;">Contact support</a>
                 <span style="color:#D1D5DB;margin:0 6px;" aria-hidden="true">&bull;</span>
                 <a href="${escapeHtml(privacyUrl)}" style="color:#6B7280;text-decoration:none;">Privacy</a>
                 <span style="color:#D1D5DB;margin:0 6px;" aria-hidden="true">&bull;</span>
                 <a href="${escapeHtml(securityUrl)}" style="color:#6B7280;text-decoration:none;">Security</a>
                 <span style="color:#D1D5DB;margin:0 6px;" aria-hidden="true">&bull;</span>
-                <a href="${escapeHtml(termsUrl)}" style="color:#6B7280;text-decoration:none;">Terms and Conditions</a>
+                <a href="${escapeHtml(termsUrl)}" style="color:#6B7280;text-decoration:none;">Terms of Service</a>
               </div>
               <div style="margin-top:8px;font-size:11px;color:#9CA3AF;">&copy; NetworkBase. All rights reserved.</div>
             </td>
@@ -566,12 +566,12 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
     });
   }
 
-  text += `\nView Task: ${url}\n`;
+  text += `\nView task: ${url}\n`;
   text += `Workspace: ${projectUrl}\n`;
   if (desktopIdeLaunchUrl) {
     text += `Open in ${input.connectedDesktopIde?.name || "Code editor"}: ${desktopIdeLaunchUrl}\n`;
   }
-  text += `\n${footer}\nNotification settings: ${settingsUrl}\nContact Support: ${supportUrl}\nPrivacy: ${privacyUrl}\nSecurity: ${securityUrl}\nTerms and Conditions: ${termsUrl}\n© NetworkBase. All rights reserved.`;
+  text += `\n${footer}\nNotification settings: ${settingsUrl}\nContact support: ${supportUrl}\nPrivacy: ${privacyUrl}\nSecurity: ${securityUrl}\nTerms of Service: ${termsUrl}\n© NetworkBase. All rights reserved.`;
 
   // Build HTML Version (Open Flow Canvas, Zero Boxes, Ponytail Avatar, Subtasks & File References)
   let subtasksHtml = "";
@@ -717,7 +717,7 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
           ${filesHtml ? `<tr><td>${filesHtml}</td></tr>` : ""}`,
       buttonsHtml: `                  <td class="action-btn-cell" style="padding:0 8px 0 0;vertical-align:middle;">
                     <a href="${escapeHtml(url)}" class="action-btn" style="display:inline-block;padding:9px 18px;font-size:13px;font-weight:600;color:#FFFFFF;background-color:#C24720;text-decoration:none;border-radius:6px;line-height:1.4;white-space:nowrap;text-align:center;">
-                      View Task &rarr;
+                      View task &rarr;
                     </a>
                   </td>
                   <td class="action-btn-cell" style="padding:0 8px 0 0;vertical-align:middle;">

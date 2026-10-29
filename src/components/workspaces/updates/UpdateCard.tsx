@@ -244,7 +244,7 @@ function UpdateCard({
                   <span className="rounded-[3px] border border-border px-1 text-[11px] text-muted-foreground">Shared to {update.sharedToOrgTitle}</span>
                 ) : null}
                 {(update.audience.roles?.length || update.audience.projectIds?.length) ? (
-                  <span className="text-[11px] text-muted-foreground">· Limited audience</span>
+                  <span className="text-[11px] text-muted-foreground">· Members only</span>
                 ) : null}
                 {isNew ? (
                   <span className="rounded-[3px] bg-foreground px-1 font-mono text-[10px] uppercase tracking-wider text-background">New</span>
@@ -413,7 +413,7 @@ function UpdateCard({
         open={isDeleteConfirmOpen}
         onOpenChange={setIsDeleteConfirmOpen}
         title="Delete update"
-        description="Are you sure you want to delete this update? This action cannot be undone."
+        description="Delete this update? This can’t be undone."
         confirmLabel="Delete"
         variant="destructive"
         loading={deleteMutation.isPending}

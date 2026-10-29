@@ -13,10 +13,10 @@ test('Phase 5 is a complete, live review including every step 4 launch setting',
     assert.match(phase, /useWatch\(\{ control \}\)/);
     assert.match(phase, /Step 5 · Review/);
     assert.match(phase, /Review before creating/);
-    assert.match(phase, /Phase 1 · start/);
-    assert.match(phase, /Step 2 · Details/);
-    assert.match(phase, /Phase 3 · team/);
-    assert.match(phase, /Step 4 · Settings/);
+    assert.match(phase, /eyebrow="Step 1"/);
+    assert.match(phase, /eyebrow="Step 2"/);
+    assert.match(phase, /eyebrow="Step 3"/);
+    assert.match(phase, /eyebrow="Step 4"/);
     assert.match(phase, /Workspace journey/);
     assert.match(phase, /Workspace links/);
     assert.match(phase, /min-w-0 w-full space-y-8 pb-6/);

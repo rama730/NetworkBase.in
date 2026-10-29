@@ -35,7 +35,7 @@ test("phase 1 keeps one named radio source selector and a flat accessible reposi
 
   assert.match(selector, /type="radio"/);
   assert.match(selector, /name="create-project-source"/);
-  assert.match(selector, /Choose a starting point/);
+  assert.match(selector, /How do you want to start\?/);
   assert.match(selector, /border-primary bg-secondary/);
   // Three cards in a row; four when the Organization card shows.
   assert.match(selector, /md:grid-cols-2", showOrganization \? "xl:grid-cols-4" : "lg:grid-cols-3"/);

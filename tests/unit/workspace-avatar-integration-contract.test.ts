@@ -83,7 +83,7 @@ test("Architectural enhancements: native single tooltip, default cursor, zero-pr
     assert.match(avatarSource, /Last updated: \$\{formattedDate\}/);
 
     // 4. Zero-presence owner add-avatar affordance in WorkspaceLayout
-    assert.match(layoutSource, /group\/add-avatar[\s\S]*?Add avatar/);
+    assert.match(layoutSource, /group\/add-avatar[\s\S]*?Add image/);
     assert.match(layoutSource, /tab=settings#project-settings-general/);
 
     // 5. Cross-platform design consistency: Global Search project cards render WorkspaceAvatar with presence dot

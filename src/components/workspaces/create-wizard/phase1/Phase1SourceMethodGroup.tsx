@@ -56,7 +56,7 @@ export function Phase1SourceMethodGroup({
     >
       <div>
         <legend className="nb-section-title text-foreground">
-          Choose a starting point
+          How do you want to start?
         </legend>
         <p id="create-project-source-help" className="nb-compact mt-1 max-w-[64ch] text-muted-foreground">
           Select one source. You can change it here without leaving this phase.

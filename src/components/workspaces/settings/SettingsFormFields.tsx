@@ -196,12 +196,12 @@ export function CategorySelector({
                             {type.label}
                         </option>
                     ))}
-                    <option value={OTHER_WORKSPACE_TYPE_ID}>Others</option>
+                    <option value={OTHER_WORKSPACE_TYPE_ID}>Other</option>
                 </select>
             </label>
             {choice === OTHER_WORKSPACE_TYPE_ID ? (
                 <TextField
-                    label="Custom category"
+                    label="Other"
                     value={customValue}
                     onChange={onCustomChange}
                     placeholder="Enter a custom category"

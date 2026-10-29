@@ -649,7 +649,7 @@ async function queryProfileProjectRows(profileId: string, options: {
       FROM (
         SELECT
           pr.id,
-          COALESCE(NULLIF(pr.full_name, ''), NULLIF(pr.username, ''), 'Collaborator') AS display_name,
+          COALESCE(NULLIF(pr.full_name, ''), NULLIF(pr.username, ''), 'Member') AS display_name,
           pr.username,
           pr.avatar_url,
           row_number() OVER (
@@ -1186,8 +1186,8 @@ export async function upsertProfileWorkspaceContributionFromMembership(
       ELSE 'application' END,
       CASE WHEN p.owner_id = ${params.profileId} THEN 'owner' ELSE COALESCE(pm.role, 'contributor') END,
       CASE
-        WHEN p.owner_id = ${params.profileId} THEN COALESCE(NULLIF(p.import_source->'metadata'->>'leadFocus', ''), NULLIF(ra.accepted_role_title, ''), 'Lead')
-        WHEN pm.role = 'admin' THEN COALESCE(NULLIF(ra.accepted_role_title, ''), 'Co-lead')
+        WHEN p.owner_id = ${params.profileId} THEN COALESCE(NULLIF(p.import_source->'metadata'->>'leadFocus', ''), NULLIF(ra.accepted_role_title, ''), 'Owner')
+        WHEN pm.role = 'admin' THEN COALESCE(NULLIF(ra.accepted_role_title, ''), 'Admin')
         WHEN pm.role = 'viewer' THEN COALESCE(NULLIF(ra.accepted_role_title, ''), 'Viewer')
         ELSE COALESCE(NULLIF(ra.accepted_role_title, ''), 'Member')
       END,

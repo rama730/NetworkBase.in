@@ -118,7 +118,7 @@ export function buildWorkspaceOwnerPresentation(
       username: null,
       fullName: null,
       avatarUrl: null,
-      displayName: "Private creator",
+      displayName: "Private profile",
       isMasked: true,
       canOpenProfile: false,
       badgeText: presentation.ownerBadgeText,
@@ -127,7 +127,7 @@ export function buildWorkspaceOwnerPresentation(
 
   return {
     ...owner,
-    displayName: owner.fullName || owner.username || "Creator",
+    displayName: owner.fullName || owner.username || "Private profile",
     isMasked: false,
     canOpenProfile: presentation.canOpenProfile,
     badgeText: null,

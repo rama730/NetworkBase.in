@@ -97,7 +97,7 @@ const openToSchema = z
     .transform(dedupeNormalized)
     .transform(getRolePreferences)
     .refine((items) => items.length <= L.openToMaxItems, {
-        message: `Open-to must have ${L.openToMaxItems} items or fewer`,
+        message: `Choose up to ${L.openToMaxItems} roles`,
     })
     .optional()
     .default([])

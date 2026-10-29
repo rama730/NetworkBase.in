@@ -364,7 +364,7 @@ export default function SubtasksTab({
         </div>
 
         <p className="text-xs text-muted-foreground">
-          Decompose this task into steps.
+          Break this task into smaller steps.
         </p>
 
         {/* Filter Segmented Control */}
@@ -479,7 +479,7 @@ export default function SubtasksTab({
           </p>
           <p className="nb-empty-state-desc max-w-[280px]">
             {canEdit
-              ? "Break down this task into clear, verifiable sub-items using the input below."
+              ? "Break this task into smaller steps."
               : "No subtasks have been created for this task."}
           </p>
         </div>
@@ -528,7 +528,7 @@ export default function SubtasksTab({
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
                 disabled={isSubmitting}
-                placeholder="Add a new subtask checkpoint…"
+                placeholder="Add a subtask…"
                 aria-label="Add a subtask"
                 className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] text-foreground outline-none transition focus:border-primary placeholder:text-muted-foreground disabled:opacity-60"
               />
@@ -548,7 +548,7 @@ export default function SubtasksTab({
           </div>
           <div className="flex items-center justify-between pt-1.5 px-0.5">
             <span className="font-mono text-[10px] max-md:text-[11px] text-muted-foreground/60">
-              Press Enter ↵ to add checkpoint
+              Press Enter to add
             </span>
           </div>
         </form>

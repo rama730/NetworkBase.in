@@ -259,13 +259,13 @@ describe("Editor extension Desktop Deep-Linking & Promotion Contract", () => {
 
       const ideBtnIndex = content.indexOf("<OpenInIdeButton");
       const toolbarNewSectionIndex = content.indexOf(
-        '<span className="hidden sm:inline">New section</span>',
+        '<span className="hidden sm:inline">New column</span>',
       );
       assert.ok(
         ideBtnIndex !== -1 &&
           toolbarNewSectionIndex !== -1 &&
           ideBtnIndex < toolbarNewSectionIndex,
-        "OpenInIdeButton must appear before 'New section' button in TasksTab toolbar",
+        "OpenInIdeButton must appear before 'New column' button in TasksTab toolbar",
       );
     });
   });

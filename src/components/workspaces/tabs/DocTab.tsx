@@ -38,7 +38,7 @@ function OrgDocInPlace({ project, docSlug }: { project: Workspace; docSlug: stri
         return (
             <div className="nb-empty-state py-12" role="alert">
                 <BookOpenText className="nb-empty-state-icon" aria-hidden="true" />
-                <p className="nb-card-title mt-4 text-foreground">Doc not visible</p>
+                <p className="nb-card-title mt-4 text-foreground">You don’t have access to this document</p>
                 <p className="nb-compact mt-2 text-muted-foreground">This organization document isn’t shared with this workspace.</p>
             </div>
         );
@@ -86,7 +86,7 @@ function OwnDocs({ projectId, project, paramDoc }: { projectId: string; project:
             <div className="nb-empty-state py-12" role="alert">
                 <BookOpenText className="nb-empty-state-icon" aria-hidden="true" />
                 <p className="nb-card-title mt-4 text-foreground">
-                    {code === "NOT_FOUND" ? "Doc unavailable" : code === "FORBIDDEN" ? "Doc not visible" : "Docs could not be loaded"}
+                    {code === "NOT_FOUND" ? "Document unavailable" : code === "FORBIDDEN" ? "You don’t have access to this document" : "Couldn’t load documents. Try again."}
                 </p>
                 <p className="nb-compact mt-2 text-muted-foreground">
                     {code === "NOT_FOUND"
@@ -129,7 +129,7 @@ function OwnDocs({ projectId, project, paramDoc }: { projectId: string; project:
                 {hasDocs
                     ? "This doc has no published version yet."
                     : canEdit
-                        ? "Pin Markdown files from Files to read them here."
+                        ? "Add Markdown files from Files to see them here."
                         : "This workspace has no docs visible to you."}
             </p>
             {canEdit ? (
