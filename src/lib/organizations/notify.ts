@@ -12,7 +12,7 @@ import { enqueueProjectNotificationEvent } from "@/lib/notifications/project-eve
 import type { OrgNotificationEventKey } from "@/lib/notifications/project-policy";
 import type { NotificationEntityRefs } from "@/lib/notifications/types";
 import { audienceAllows, type UpdateAudience } from "@/lib/organizations/update-rules";
-import { orgTypeLabel } from "@/lib/organizations/config";
+import { orgRoleNames, orgTypeLabel } from "@/lib/organizations/config";
 
 // One door for organization notifications (report §26): the tray goes through the project event pipeline
 // (org rules, member overrides, bursts, push for Important), email through the outbox. Best effort: the
@@ -107,9 +107,9 @@ export const orgHref = (org: { slug: string | null; id: string }, query = "") =>
 
 /** Title, handle and welcome note for tray titles and links. */
 export async function orgLabel(orgId: string) {
-  const [org] = await db.select({ id: projects.id, title: projects.title, slug: projects.slug, welcomeNote: projects.welcomeNote })
+  const [org] = await db.select({ id: projects.id, title: projects.title, slug: projects.slug, welcomeNote: projects.welcomeNote, orgType: projects.orgType, orgSettings: projects.orgSettings })
     .from(projects).where(eq(projects.id, orgId)).limit(1);
-  return org ? { ...org, title: org.title || "Organization" } : null;
+  return org ? { id: org.id, title: org.title || "Organization", slug: org.slug, welcomeNote: org.welcomeNote, roleNames: orgRoleNames(org.orgType, org.orgSettings) } : null;
 }
 
 export const ROLE_LABEL: Record<string, string> = { owner: "Owner", admin: "Admin", member: "Member", viewer: "Guest" };

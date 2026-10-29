@@ -47,7 +47,7 @@ export async function notifyInvites(orgId: string, actorId: string, invites: Arr
   if (!org || invites.length === 0) return;
   const byEmail = new Map(accounts.map((a) => [a.email.toLowerCase(), a.id]));
   const inviter = (await namesOf([actorId])).get(actorId) ?? "Someone";
-  const data = { role: ROLE_LABEL[details.role] ?? details.role, memberTitle: details.title, expiresAt: details.expiresAt.toISOString() };
+  const data = { role: org.roleNames[details.role as keyof typeof org.roleNames] ?? ROLE_LABEL[details.role] ?? details.role, memberTitle: details.title, expiresAt: details.expiresAt.toISOString() };
   for (const invite of invites) {
     const userId = byEmail.get(invite.email.toLowerCase());
     if (!userId) continue;

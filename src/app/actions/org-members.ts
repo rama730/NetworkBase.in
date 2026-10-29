@@ -17,7 +17,7 @@ import { acceptOrgInvite, createOrgEmailInvites, INVITE_DAYS, ledChildProjects, 
 import { memberChangeBlock, memberStatus, parseInviteEmails, workSummary, type OrgMemberRole, type RosterRow } from '@/lib/organizations/member-rules';
 import { addProjectMemberInternal, changeProjectMemberRoleInternal } from '@/lib/projects/collaborator-lifecycle';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
-import { namesOf, notifyJoined, notifyOrg, orgHref, orgLabel, queueOrgInviteSignupEmails, ROLE_LABEL } from '@/lib/organizations/notify';
+import { namesOf, notifyJoined, notifyOrg, orgHref, orgLabel, queueOrgInviteSignupEmails } from '@/lib/organizations/notify';
 
 // Org Members (report §20): the admin roster, join requests, email invites, roles and titles, removal,
 // and adding people to child projects. Each change notifies the person it is about (report §26.3 A, B).
@@ -309,7 +309,7 @@ export async function changeMemberRoleAction(orgId: string, userIds: string[], r
     const changed = userIds.filter((id) => roles.get(id) !== role);
     if (org && changed.length) {
         await notifyOrg({
-            orgId, eventKey: 'org.role_changed', actorId: viewer.userId, to: changed, title: `You're now ${role === 'admin' ? 'an' : 'a'} ${ROLE_LABEL[role]} in ${org.title}`,
+            orgId, eventKey: 'org.role_changed', actorId: viewer.userId, to: changed, title: `You’re now ${/^[aeiou]/i.test(org.roleNames[role]) ? 'an' : 'a'} ${org.roleNames[role]} in ${org.title}`,
             href: orgHref(org), sourceEventId: `role:${role}:${Date.now()}`,
         });
     }
