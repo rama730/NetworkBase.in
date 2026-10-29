@@ -1132,7 +1132,7 @@ export function ContributionEditor({
               <p className="nb-compact mt-2 text-muted-foreground">
                 {search
                   ? "Try a different search."
-                  : "Platform contributions appear when you join a project. You can also add an external project."}
+                  : "Contributions appear when you join a workspace. You can also add an external project."}
               </p>
             </div>
           )}

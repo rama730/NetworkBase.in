@@ -59,7 +59,9 @@ export function copyStrings(source: string, fileName: string): string[] {
     } else if (ts.isTemplateExpression(node)) {
       const parent = node.parent;
       if (ts.isCallExpression(parent) && SKIP_CALLS.test(parent.expression.getText())) return;
-      add([node.head.text, ...node.templateSpans.map((span) => span.literal.text)].join(" {} "));
+      const parts = [node.head.text, ...node.templateSpans.map((span) => span.literal.text)];
+      // URLs, ids and keys built from templates are code; copy has at least two words in one literal part.
+      if (parts.some((part) => /[A-Za-z]{2,}\S*\s+[A-Za-z]{2,}/.test(part))) add(parts.join(" {} "));
       node.templateSpans.forEach((span) => visit(span.expression));
       return;
     } else if (ts.isTaggedTemplateExpression(node)) return;

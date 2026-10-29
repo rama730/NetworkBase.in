@@ -52,307 +52,84 @@
    "british": 5,
    "banned": 2
   },
-  "src/app/(site)/(auth)/authorize/AuthorizeClient.tsx": {
-   "log-in": 1
-  },
-  "src/app/(site)/(auth)/join/[code]/page.tsx": {
-   "project": 1
-  },
   "src/app/(site)/(main)/messages/(lists)/inbox/page.tsx": {
    "title-case": 1
-  },
-  "src/app/(site)/(main)/projects/[slug]/project-route.tsx": {
-   "project": 1
-  },
-  "src/app/(site)/(main)/projects/new/page.tsx": {
-   "project": 1
-  },
-  "src/app/(site)/(onboarding)/onboarding/page.tsx": {
-   "project": 1
   },
   "src/app/(site)/page.tsx": {
    "title-case": 1
   },
-  "src/app/actions/account.ts": {
-   "project": 2
-  },
-  "src/app/actions/applications/internal.ts": {
-   "banned": 1,
-   "project": 2
-  },
-  "src/app/actions/child-units.ts": {
-   "project": 1
-  },
-  "src/app/actions/files/content.ts": {
-   "project": 1
-  },
-  "src/app/actions/files/versions.ts": {
-   "project": 1
-  },
-  "src/app/actions/org-dashboard.ts": {
-   "project": 4
-  },
-  "src/app/actions/org-members.ts": {
-   "project": 1
-  },
-  "src/app/actions/org-workspace.ts": {
-   "project": 2
-  },
-  "src/app/actions/organizations.ts": {
-   "project": 1
-  },
-  "src/app/actions/project/doc.ts": {
-   "project": 3
-  },
-  "src/app/actions/project/guidance.ts": {
-   "project": 3
-  },
-  "src/app/actions/project/recent-activity.ts": {
-   "project": 1
-  },
   "src/app/actions/project/updates.ts": {
-   "project": 34,
+   "project": 27,
    "please": 13,
    "log-in": 9,
    "apostrophe": 1
   },
-  "src/app/actions/project/workflow.ts": {
-   "project": 1
-  },
-  "src/app/actions/sharing.ts": {
-   "project": 1
-  },
-  "src/app/actions/task-comment.ts": {
-   "project": 1
-  },
-  "src/app/api/og/project/[slug]/route.tsx": {
-   "project": 1
-  },
-  "src/app/api/v1/profiles/[id]/project-invites/route.ts": {
-   "project": 1
-  },
-  "src/app/api/v1/projects/[id]/image/route.ts": {
-   "project": 1
-  },
-  "src/app/api/v1/projects/[id]/tasks/[taskId]/merge/route.ts": {
-   "project": 1
-  },
-  "src/app/api/v1/projects/[id]/update-media/route.ts": {
-   "project": 1
-  },
-  "src/app/api/v1/projects/route.ts": {
-   "project": 1
-  },
-  "src/app/go/[ownerType]/[ownerId]/[linkKey]/route.ts": {
-   "project": 2
-  },
-  "src/app/open/ide/route.ts": {
-   "project": 2
-  },
   "src/components/discover/DiscoverUpdateCard.tsx": {
-   "project": 3,
-   "log-in": 1,
-   "apostrophe": 1
-  },
-  "src/components/layout/SidebarWorkspaces.tsx": {
-   "project": 4
+   "apostrophe": 1,
+   "project": 1
   },
   "src/components/layout/header/global-search.ts": {
-   "project": 1,
    "log-in": 4
   },
   "src/components/legal/LegalLinks.tsx": {
    "title-case": 2
   },
   "src/components/messages/ChatSections.tsx": {
-   "project": 5,
    "title-case": 1
-  },
-  "src/components/messages/DetailsPane.tsx": {
-   "project": 2
   },
   "src/components/messages/MessagesViews.tsx": {
    "title-case": 1
   },
-  "src/components/messages/cards/ApplicationCard.tsx": {
-   "project": 4
-  },
-  "src/components/messages/cards/MessageCard.tsx": {
-   "project": 2
-  },
-  "src/components/my-work/MyWorkTasksTab.tsx": {
-   "project": 3
-  },
-  "src/components/network/IncomingProjectApplicationRow.tsx": {
-   "project": 1
-  },
-  "src/components/network/InvitationsClient.tsx": {
-   "project": 6
-  },
-  "src/components/network/NetworkClient.tsx": {
-   "log-in": 2
-  },
   "src/components/onboarding/steps/Step1Identity.tsx": {
    "title-case": 1
-  },
-  "src/components/organizations/AssignmentsPanel.tsx": {
-   "project": 2
-  },
-  "src/components/organizations/OrgAboutTab.tsx": {
-   "project": 2
-  },
-  "src/components/organizations/OrgFilesPanel.tsx": {
-   "project": 1
-  },
-  "src/components/organizations/OrgHeaderParts.tsx": {
-   "log-in": 1
-  },
-  "src/components/organizations/OrgOverviewParts.tsx": {
-   "project": 5
-  },
-  "src/components/organizations/OrgSettingsSections.tsx": {
-   "project": 1
-  },
-  "src/components/organizations/OrgSprintParts.tsx": {
-   "project": 3
-  },
-  "src/components/profile/edit/ContributionEditor.tsx": {
-   "project": 1
-  },
-  "src/components/profile/v2/sections/ProjectContributionsCard.tsx": {
-   "project": 1
   },
   "src/components/projects/EditProjectModal.tsx": {
    "title-case": 1
   },
-  "src/components/projects/ProjectAvatar.tsx": {
-   "project": 1
-  },
-  "src/components/projects/ProjectCard.tsx": {
-   "project": 5
-  },
   "src/components/projects/ProjectOnboardingModal.tsx": {
    "title-case": 1
   },
-  "src/components/projects/create-wizard/phase1/Phase1SourceMethodGroup.tsx": {
-   "project": 1
-  },
   "src/components/projects/create-wizard/phases/Phase1SourceSelection.tsx": {
-   "log-in": 1,
-   "project": 1
-  },
-  "src/components/projects/create-wizard/phases/Phase3TeamRoles.tsx": {
-   "project": 5
-  },
-  "src/components/projects/create-wizard/phases/Phase4Settings.tsx": {
-   "project": 1
-  },
-  "src/components/projects/dashboard/ProjectDashboardClient.tsx": {
-   "project": 1
+   "log-in": 1
   },
   "src/components/projects/dashboard/ProjectLayout.tsx": {
-   "project": 6
-  },
-  "src/components/projects/dashboard/ProjectSocialLinksCard.tsx": {
    "project": 2
-  },
-  "src/components/projects/doc/ProjectDocRenderer.tsx": {
-   "project": 3
-  },
-  "src/components/projects/doc/ProjectDocSmartBlock.tsx": {
-   "project": 1
-  },
-  "src/components/projects/settings/GeneralSettingsSection.tsx": {
-   "project": 1
-  },
-  "src/components/projects/settings/ProjectSettingsNavigation.tsx": {
-   "project": 1
   },
   "src/components/projects/tabs/DashboardTab.tsx": {
    "project": 1
   },
-  "src/components/projects/tabs/DocTab.tsx": {
-   "project": 1
-  },
   "src/components/projects/tabs/ProjectSettingsTab.tsx": {
    "project": 1
-  },
-  "src/components/projects/tabs/SprintPlanning.tsx": {
-   "project": 1
-  },
-  "src/components/projects/tabs/sprint/SprintTimelineContent.tsx": {
-   "project": 4
   },
   "src/components/projects/updates/ProjectUpdateLikersModal.tsx": {
    "project": 1,
    "exclamation": 1
   },
   "src/components/projects/updates/UpdateCard.tsx": {
-   "project": 2,
    "please": 3,
    "log-in": 3
-  },
-  "src/components/projects/updates/UpdateComments.tsx": {
-   "project": 2
-  },
-  "src/components/projects/updates/UpdateContent.tsx": {
-   "project": 4
   },
   "src/components/projects/updates/UpdateDetailPanel.tsx": {
    "please": 2,
    "log-in": 2
   },
-  "src/components/projects/v2/TasksTab.tsx": {
-   "project": 2
-  },
-  "src/components/projects/v2/explorer/useExplorerMutations.ts": {
-   "project": 1
-  },
   "src/components/projects/v2/files-tab/OpenInIdeButton.tsx": {
    "title-case": 1
-  },
-  "src/components/projects/v2/files-tab/RepositorySync.tsx": {
-   "project": 1
-  },
-  "src/components/projects/v2/files-tab/file/FileVersionCompareView.tsx": {
-   "project": 2
-  },
-  "src/components/projects/v2/files-tab/file/FileView.tsx": {
-   "project": 1
   },
   "src/components/projects/v2/files-tab/file/LinkedTasksPanel.tsx": {
    "title-case": 1
   },
-  "src/components/projects/v2/preview/AssetPreview.tsx": {
-   "project": 1
-  },
   "src/components/projects/v2/preview/drivers/DocxViewerDriver.tsx": {
    "title-case": 1
-  },
-  "src/components/projects/v2/preview/drivers/PdfViewerDriver.tsx": {
-   "project": 1
   },
   "src/components/projects/v2/preview/drivers/SheetViewerDriver.tsx": {
    "title-case": 1
   },
-  "src/components/projects/v2/tasks/components/MentionComposer.tsx": {
-   "project": 1
-  },
   "src/components/settings/IntegrationsSettings.tsx": {
-   "log-in": 1,
-   "project": 2
+   "log-in": 1
   },
   "src/components/settings/LegalAndDataRightsSection.tsx": {
    "title-case": 2
-  },
-  "src/components/sharing/ShareDestinationBrowser.tsx": {
-   "project": 1
-  },
-  "src/hooks/useGlobalSearchPreviews.ts": {
-   "project": 3
-  },
-  "src/hooks/useRealtimeTasks.ts": {
-   "project": 1
   },
   "src/inngest/functions/email-delivery.ts": {
    "title-case": 1
@@ -366,62 +143,11 @@
   "src/inngest/functions/notification-fanout.ts": {
    "title-case": 1
   },
-  "src/inngest/functions/project-files-reconciliation.ts": {
-   "project": 1
-  },
-  "src/lib/applications/notifications.ts": {
-   "project": 2
-  },
-  "src/lib/email/contracts.ts": {
-   "project": 3
-  },
-  "src/lib/email/security-templates.ts": {
-   "log-in": 2
-  },
   "src/lib/extension/ide-protocol.ts": {
    "title-case": 1
   },
-  "src/lib/github/account-health.ts": {
-   "log-in": 1
-  },
-  "src/lib/github/project-import-runner.ts": {
-   "project": 1
-  },
-  "src/lib/github/sync-runner.ts": {
-   "ellipsis": 1
-  },
-  "src/lib/import/idempotency.ts": {
-   "project": 1
-  },
-  "src/lib/notifications/project-events.ts": {
-   "project": 8
-  },
-  "src/lib/notifications/task-comment-mention.ts": {
-   "project": 1
-  },
-  "src/lib/notifications/task-file.ts": {
-   "project": 2
-  },
-  "src/lib/organizations/children.ts": {
-   "project": 1
-  },
   "src/lib/organizations/creation.ts": {
    "project": 1
-  },
-  "src/lib/organizations/members.ts": {
-   "project": 1
-  },
-  "src/lib/organizations/needs-you.ts": {
-   "project": 6
-  },
-  "src/lib/organizations/sprint-notify.ts": {
-   "project": 3
-  },
-  "src/lib/organizations/succession.ts": {
-   "project": 1
-  },
-  "src/lib/profile/collaboration.ts": {
-   "project": 2
   },
   "src/lib/profile/contribution-story.ts": {
    "project": 1
@@ -441,48 +167,6 @@
   "src/lib/projects/doc-quick-console.ts": {
    "title-case": 1,
    "log-in": 1
-  },
-  "src/lib/projects/project-detail-metadata.ts": {
-   "project": 2
-  },
-  "src/lib/projects/public-feed.ts": {
-   "project": 1
-  },
-  "src/lib/projects/server/access.ts": {
-   "project": 2
-  },
-  "src/lib/projects/server/common.ts": {
-   "project": 1
-  },
-  "src/lib/projects/server/detail.ts": {
-   "project": 1
-  },
-  "src/lib/projects/server/lifecycle.ts": {
-   "project": 11
-  },
-  "src/lib/projects/server/settings.ts": {
-   "project": 2
-  },
-  "src/lib/projects/server/sprints.ts": {
-   "project": 3
-  },
-  "src/lib/projects/server/tasks.ts": {
-   "project": 5
-  },
-  "src/lib/projects/sprint-detail.ts": {
-   "project": 1
-  },
-  "src/lib/projects/task-assignment.ts": {
-   "project": 1
-  },
-  "src/lib/projects/task-presentation.ts": {
-   "project": 1
-  },
-  "src/lib/projects/updates.ts": {
-   "project": 2
-  },
-  "src/lib/sharing/read.ts": {
-   "project": 2
   },
   "src/lib/sharing/social-image.tsx": {
    "title-case": 4

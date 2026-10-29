@@ -156,7 +156,7 @@ export function ProjectContributionsCard({
             <p className="nb-card-title">No workspace contributions</p>
             <p className="nb-compact mt-1 text-muted-foreground">
               {isOwner
-                ? "Add your external projects or contribute to projects on NetworkBase."
+                ? "Add your external projects or contribute to workspaces on NetworkBase."
                 : "No public workspace contributions yet."}
             </p>
             {isOwner && onAdd && (
