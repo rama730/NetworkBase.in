@@ -78,11 +78,11 @@ export default function AccountDeletionWizard({ onClose, onDeleted }: Props) {
                 return;
             }
             if (!response.ok || payload?.success === false) {
-                throw new Error(payload?.message || "Failed to delete account");
+                throw new Error(payload?.message || "Couldn’t delete account");
             }
             onDeleted(payload?.data?.hardDeleteAt ?? null);
         } catch (error) {
-            toast.error(feedbackError(error instanceof Error ? error.message : "Failed to delete account", "Failed to delete account"));
+            toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t delete account", "Couldn’t delete account"));
         } finally {
             setDeleting(false);
         }

@@ -46,7 +46,7 @@ describe("IDE & Editor Extension Performance & Architecture Enhancements", () =>
 
     // Auto-reconciliation
     assert.match(settingsSource, /auto-reconcile live connection/, "must implement auto-reconciliation");
-    assert.match(settingsSource, /toast\.success\("Editor connected successfully!"\)/, "must toast upon successful editor connection");
+    assert.match(settingsSource, /toast\.success\("Editor connected"\)/, "must toast upon successful editor connection");
 
     // Custom device label
     assert.match(settingsSource, /deviceLabel/, "must support custom device label");

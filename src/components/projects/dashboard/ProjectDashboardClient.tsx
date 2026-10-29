@@ -400,15 +400,15 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
             });
 
             if (res.success) {
-                toast.success(action === 'accept' ? 'Invitation accepted successfully!' : 'Invitation declined.');
+                toast.success(action === 'accept' ? 'Invitation accepted' : 'Invitation declined');
                 refreshProjectData();
                 await refreshApplicationStatus();
             } else {
-                toast.error(feedbackError(res.error || (action === 'accept' ? 'Failed to accept invitation' : 'Failed to decline invitation'), "Failed to decline invitation"));
+                toast.error(feedbackError(res.error || (action === 'accept' ? 'Couldn’t accept invitation' : 'Couldn’t decline invitation'), "Couldn’t decline invitation"));
             }
         } catch (error) {
             console.error(`Error ${action === 'accept' ? 'accepting' : 'declining'} invitation:`, error);
-            toast.error(feedbackError(error instanceof Error ? error.message : action === 'accept' ? 'Failed to accept invitation' : 'Failed to decline invitation', "Failed to decline invitation"));
+            toast.error(feedbackError(error instanceof Error ? error.message : action === 'accept' ? 'Couldn’t accept invitation' : 'Couldn’t decline invitation', "Couldn’t decline invitation"));
         } finally {
             setInvitationLoading(false);
         }
@@ -614,7 +614,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                     isOrganization,
                 })
             ) {
-                toast.error('That project tab is not visible for your current access.');
+                toast.error('That workspace tab is not visible for your current access');
                 return;
             }
             const routeRoot = document.querySelector<HTMLElement>('[data-scroll-root="route"]');
@@ -812,7 +812,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                     queryKey: queryKeys.discover.userFollowedProjects(currentUserId),
                 });
             }
-            toast.success(newIsFollowing ? 'Following project' : 'Unfollowed project');
+            toast.success(newIsFollowing ? 'Following workspace' : 'Unfollowed workspace');
             logger.metric('project.detail.follow.result', {
                 projectId: project.id,
                 userId: currentUserId,
@@ -930,7 +930,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                 return;
             }
             if (isOwner || isMember) {
-                toast.error('Project members cannot apply for an additional role');
+                toast.error('Workspace members cannot apply for an additional role');
                 return;
             }
             if (applicationLoad !== 'ready') {
@@ -938,11 +938,11 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                 return;
             }
             if (applicationStatus.status === 'pending') {
-                toast.error('You already have a pending application');
+                toast.error('Application already pending');
                 return;
             }
             if (applicationStatus.status === 'proposed') {
-                toast.error('You have an invitation to this project. Accept or decline it first.');
+                toast.error('Workspace invitation pending');
                 return;
             }
             if (applicationStatus.status === 'rejected' && !applicationStatus.canReapply) {
@@ -1032,15 +1032,15 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                         return true;
                     }
 
-                    toast.error(feedbackError(retryResult.error || 'Failed to update stage after sync', "Failed to update stage after sync"));
+                    toast.error(feedbackError(retryResult.error || 'Couldn’t update stage after sync', "Couldn’t update stage after sync"));
                     return false;
                 }
 
-                toast.error(feedbackError(result.error || 'Failed to update stage', "Failed to update stage"));
+                toast.error(feedbackError(result.error || 'Couldn’t update stage', "Couldn’t update stage"));
                 return false;
             } catch (error) {
                 if (!isMountedRef.current || requestId !== stageRequestRef.current) return false;
-                toast.error(feedbackError(error instanceof Error ? error.message : 'Failed to update project stage', "Failed to update project stage"));
+                toast.error(feedbackError(error instanceof Error ? error.message : 'Couldn’t update workspace stage', "Couldn’t update workspace stage"));
                 return false;
             } finally {
                 if (isMountedRef.current && requestId === stageRequestRef.current) {
@@ -1057,7 +1057,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
             return;
         }
         if (!isOwner) {
-            toast.error(feedbackError(delta > 0 ? 'Only the project owner can advance the stage' : 'Only the project owner can revert the stage', "Only the project owner can revert the stage"));
+            toast.error(feedbackError(delta > 0 ? 'Only the workspace owner can advance the stage' : 'Only the workspace owner can revert the stage', "Only the workspace owner can revert the stage"));
             return;
         }
 
@@ -1065,11 +1065,11 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
         const prevIndex = optimisticStageIndex;
         const nextIndex = prevIndex + delta;
         if (nextIndex < 0) {
-            toast.info('Project is already at the starting stage');
+            toast.info('Workspace is already at the starting stage');
             return;
         }
         if (nextIndex >= stages.length) {
-            toast.info('Project is already at the final stage');
+            toast.info('Workspace is already at the final stage');
             return;
         }
 

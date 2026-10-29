@@ -235,7 +235,7 @@ export default function InvitationsClient({
             toast.success(`You’re now connected with ${name}`);
             return true;
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : "Failed to accept invitation");
+            toast.error(error instanceof Error ? error.message : "Couldn’t accept invitation");
             return false; // Preserve the review dialog on failure.
         } finally {
             void refreshInvitationSurfaces();
@@ -263,7 +263,7 @@ export default function InvitationsClient({
             });
             return true;
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : "Failed to decline invitation");
+            toast.error(error instanceof Error ? error.message : "Couldn’t decline invitation");
             return false; // Preserve the review dialog on failure.
         } finally {
             void refreshInvitationSurfaces();
@@ -276,7 +276,7 @@ export default function InvitationsClient({
                 loading: "Cancelling connection request...",
                 success: name
                     ? `Cancelled request to ${name}`
-                    : "Connection request cancelled",
+                    : "Request canceled",
                 error: (error) =>
                     error instanceof Error
                         ? error.message
@@ -296,7 +296,7 @@ export default function InvitationsClient({
                     error: (error) =>
                         error instanceof Error
                             ? error.message
-                            : "Failed to cancel sent requests",
+                            : "Couldn’t cancel sent requests",
                 })
                 .unwrap();
         } catch {

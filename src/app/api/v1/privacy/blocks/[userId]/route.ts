@@ -54,6 +54,6 @@ export async function DELETE(request: Request, context: { params: Promise<{ user
       success: false,
       action: "unblock",
     });
-    return jsonError("Failed to unblock account", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t unblock account", 500, "INTERNAL_ERROR");
   }
 }

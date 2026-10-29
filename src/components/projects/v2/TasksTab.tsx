@@ -318,7 +318,7 @@ export default function TasksTab({
         positioned,
       );
       if (!result.success)
-        throw new Error(result.error || "Failed to save workflow");
+        throw new Error(result.error || "Couldn’t save workflow");
       return positioned;
     },
     onMutate: async (nextWorkflow) => {
@@ -332,7 +332,7 @@ export default function TasksTab({
       if (context?.previousWorkflow)
         queryClient.setQueryData(workflowQueryKey, context.previousWorkflow);
       toast.error(
-        feedbackError(error instanceof Error ? error.message : "Failed to save workflow", "Failed to save workflow"),
+        feedbackError(error instanceof Error ? error.message : "Couldn’t save workflow", "Couldn’t save workflow"),
       );
     },
   });
@@ -529,7 +529,7 @@ export default function TasksTab({
         columnPendingDeletion.id,
       );
       if (!result.success) {
-        toast.error(feedbackError(result.error || "Failed to delete section", "Failed to delete section"));
+        toast.error(feedbackError(result.error || "Couldn’t delete section", "Couldn’t delete section"));
         return;
       }
       queryClient.setQueryData(
@@ -539,7 +539,7 @@ export default function TasksTab({
       setColumnPendingDeletion(null);
     } catch (error) {
       toast.error(
-        feedbackError(error instanceof Error ? error.message : "Failed to delete section", "Failed to delete section"),
+        feedbackError(error instanceof Error ? error.message : "Couldn’t delete section", "Couldn’t delete section"),
       );
     } finally {
       setIsDeletingColumn(false);

@@ -428,7 +428,7 @@ export async function moveTaskToWorkflowColumnAction(
   } catch (error) {
     return {
       success: false as const,
-      error: error instanceof Error ? error.message : "Failed to move task",
+      error: error instanceof Error ? error.message : "Couldn’t move task",
     };
   }
 }

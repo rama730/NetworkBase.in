@@ -151,7 +151,7 @@ export function useTaskFileMutations(params: {
         { taskId },
       );
       if (!confirmUploadCollisions(collisions)) {
-        return { success: false as const, error: "Upload cancelled" };
+        return { success: false as const, error: "Upload canceled" };
       }
       const filesToUpload = files.filter(
         (file) => !collisions.existingFiles.includes(file.name),
@@ -200,7 +200,7 @@ export function useTaskFileMutations(params: {
         { taskId },
       );
       if (!confirmUploadCollisions(collisions)) {
-        return { success: false as const, error: "Upload cancelled" };
+        return { success: false as const, error: "Upload canceled" };
       }
       const existingFiles = new Set(collisions.existingFiles);
 

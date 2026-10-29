@@ -144,7 +144,7 @@ export function V3AttachmentPicker({
       selectionMode !== "single" &&
       selectedNodes.length >= 200
     ) {
-      toast.info("Select up to 200 files at a time.");
+      toast.info("Select up to 200 files at a time");
       return;
     }
     const next =

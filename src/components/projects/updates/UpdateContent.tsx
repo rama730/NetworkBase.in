@@ -62,13 +62,13 @@ function ReferenceLink({
         id: reference.id,
       });
       if (!result.success) {
-        toast.error(feedbackError(result.error || "This item is not available or you do not have access.", "This item is not available or you do not have access."));
+        toast.error(feedbackError(result.error || "This item is not available or you do not have access", "This item is not available or you do not have access"));
         return;
       }
       router.push(result.href);
     } catch (err) {
       console.error("Failed to navigate to project update mention:", err);
-      toast.error("This item is not available or you do not have access.");
+      toast.error("This item is not available or you do not have access");
     } finally {
       setLoading(false);
     }

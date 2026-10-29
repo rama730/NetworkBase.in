@@ -168,7 +168,7 @@ export function TaskFileRow({
         if (!file) return;
         if (!onReplaceWithNewVersion) return;
         if (extensionOf(file.name) !== extensionOf(node.name)) {
-          toast.error("A new version must use the same file type.");
+          toast.error("A new version must use the same file type");
           return;
         }
         await onReplaceWithNewVersion(node, file);

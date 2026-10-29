@@ -137,7 +137,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
       });
 
       if (result.error || !result.data) {
-        throw new Error(result.error?.message || "Failed to start authenticator setup");
+        throw new Error(result.error?.message || "Couldn’t start authenticator setup");
       }
 
       setPendingFactor({
@@ -147,7 +147,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
       });
       setVerificationCode("");
     } catch (error) {
-      toast.error(feedbackError(error instanceof Error ? error.message : "Failed to start authenticator setup", "Failed to start authenticator setup"));
+      toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t start authenticator setup", "Couldn’t start authenticator setup"));
     } finally {
       setEnrolling(false);
     }
@@ -164,7 +164,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
     const contentType = response.headers.get("content-type") || "";
     const json = contentType.includes("application/json") ? await response.json() : null;
     if (!response.ok || json?.success === false) {
-      throw new Error(json?.message || "Failed to generate recovery codes");
+      throw new Error(json?.message || "Couldn’t generate recovery codes");
     }
 
     setRevealedRecoveryCodes({
@@ -240,7 +240,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
           throw new Error(json?.message || `Failed to remove MFA factor (${res.status})`);
         }
 
-        toast.success("Authenticator app removed");
+        toast.success("Authenticator removed");
       }
 
       if (action.type === "regenerate-recovery-codes") {
@@ -252,7 +252,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
       setProtectedAction(null);
       setUnenrollId(null);
     } catch (error) {
-      toast.error(feedbackError(error instanceof Error ? error.message : "Failed to complete this security action", "Failed to complete this security action"));
+      toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t complete this security action", "Couldn’t complete this security action"));
     } finally {
       setProtectedActionPending(false);
     }
@@ -263,7 +263,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
 
     try {
       await navigator.clipboard.writeText(pendingFactor.secret);
-      toast.success("Secret copied");
+      toast.success("Setup key copied");
     } catch {
       toast.error("Could not copy the secret on this device");
     }
@@ -383,7 +383,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
                   return;
                 }
                 void handleGenerateRecoveryCodes("initial").catch((error) => {
-                  toast.error(feedbackError(error instanceof Error ? error.message : "Failed to generate recovery codes", "Failed to generate recovery codes"));
+                  toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t generate recovery codes", "Couldn’t generate recovery codes"));
                 });
               }}
             >

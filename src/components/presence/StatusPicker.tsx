@@ -108,7 +108,7 @@ export function StatusPicker() {
       if (hasStatus) {
         const end = clearAfterToDate(clearAfter, new Date(), until ? new Date(until) : null);
         if (clearAfter === "custom" && !end) {
-          toast.error("Choose when the status should clear.");
+          toast.error("Choose when the status should clear");
           return;
         }
         const result = await setMyStatus({

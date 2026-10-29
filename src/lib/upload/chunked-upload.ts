@@ -148,7 +148,7 @@ export async function uploadFolder(
     let cursor = 0;
 
     const runTask = async (task: UploadTask) => {
-        if (signal?.aborted) throw new Error('Upload cancelled');
+        if (signal?.aborted) throw new Error('Upload canceled');
 
         currentFile = task.relativePath;
         emitProgress();
@@ -184,7 +184,7 @@ export async function uploadFolder(
             emitProgress();
         } catch (error) {
             inFlightBytes.delete(task.s3Key);
-            if (signal?.aborted) throw new Error('Upload cancelled');
+            if (signal?.aborted) throw new Error('Upload canceled');
             console.error('Failed to upload file', {
                 relativePath: task.relativePath,
                 sessionId: options.sessionId || null,

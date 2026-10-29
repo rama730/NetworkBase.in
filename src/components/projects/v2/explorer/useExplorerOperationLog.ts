@@ -20,7 +20,7 @@ export function useExplorerOperationLog() {
         completed = true;
         toast.success("Change undone", { id });
       } catch (error) {
-        toast.error("Couldn’t undo that change", {
+        toast.error("Couldn’t undo change", {
           id, description: "Change still applies.", action: { label: "Retry undo", onClick: () => undo() },
         });
       } finally {

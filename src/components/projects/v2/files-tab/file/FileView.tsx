@@ -315,7 +315,7 @@ export function FileView({
       resetDragState();
 
       if (mode === "edit") {
-        toast.info("Save or cancel your edits before uploading a revision.");
+        toast.info("Save or cancel your edits before uploading a version");
         return;
       }
 
@@ -385,11 +385,11 @@ export function FileView({
         if (choice.option === "commit") {
           const result = await saveAsNewVersion(file, { comment: choice.comment });
           if (result.success) {
-            toast.success(`New revision committed successfully`);
+            toast.success(`New version committed`);
             // Set node in store
             useFilesWorkspaceStore.getState().setNodes(projectId, [result.node]);
           } else {
-            toast.error(feedbackError(result.error || "Failed to commit revision", "Failed to commit revision"));
+            toast.error(feedbackError(result.error || "Couldn’t commit version", "Couldn’t commit version"));
           }
         } else {
           const { saveFileRevision } = await import("@/hooks/useFileVersions");
@@ -404,7 +404,7 @@ export function FileView({
 
           if (result.success) {
             useFilesWorkspaceStore.getState().setNodes(projectId, [result.node]);
-            toast.success("Active revision updated successfully");
+            toast.success("Active version updated");
           } else {
             throw new Error(result.error || "Failed to update active revision");
           }

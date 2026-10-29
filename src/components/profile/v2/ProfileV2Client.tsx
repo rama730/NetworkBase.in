@@ -386,8 +386,8 @@ export function ProfileV2Client({
                 const { sendConnectionRequest } = await import('@/app/actions/connections');
                 await toast.promise(failed(sendConnectionRequest(profile.id, connectionRequestKey())), {
                     loading: 'Sending request...',
-                    success: 'Connection request sent',
-                    error: (err) => err instanceof Error ? err.message : 'Failed to send request'
+                    success: 'Request sent',
+                    error: (err) => err instanceof Error ? err.message : 'Request wasn’t sent'
                 }).unwrap();
                 await refreshViewerOverlay();
             } else if (status === 'pending_incoming') {
@@ -544,7 +544,7 @@ export function ProfileV2Client({
             })
             const json = await res.json().catch(() => null)
             if (!res.ok || json?.success === false) {
-                throw new Error((typeof json?.error === 'string' && json.error) || 'Failed to update block state')
+                throw new Error((typeof json?.error === 'string' && json.error) || 'Couldn’t update block state')
             }
 
             if (isBlocked) {
@@ -595,7 +595,7 @@ export function ProfileV2Client({
                 error: error instanceof Error ? error.message : String(error),
                 stack: error instanceof Error ? error.stack : undefined,
             })
-            toast.error(feedbackError(error instanceof Error ? error.message : 'Failed to update block state', "Failed to update block state"))
+            toast.error(feedbackError(error instanceof Error ? error.message : 'Couldn’t update block state', "Couldn’t update block state"))
         } finally {
             setIsBlocking(false)
         }

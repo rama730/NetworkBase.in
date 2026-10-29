@@ -375,7 +375,7 @@ export default function UpdatesTab({
     ) => {
       const result = await createProjectUpdateAction(projectId, input);
       if (!result.success || !result.data)
-        throw new Error(result.error || "Failed to post update");
+        throw new Error(result.error || "Couldn’t post update");
       return result.data;
     },
     onMutate: async (input) => {
@@ -432,7 +432,7 @@ export default function UpdatesTab({
       if (context?.previous)
         queryClient.setQueryData(updatesQueryKey, context.previous);
       toast.error(
-        feedbackError(error instanceof Error ? error.message : "Failed to post update", "Failed to post update"),
+        feedbackError(error instanceof Error ? error.message : "Couldn’t post update", "Couldn’t post update"),
       );
     },
     onSuccess: (update, _input, context) => {
@@ -444,7 +444,7 @@ export default function UpdatesTab({
             : prependUpdate(existing, update),
       );
       void queryClient.invalidateQueries({ queryKey: updatesQueryKey });
-      toast.success("Project update posted");
+      toast.success("Workspace update posted");
     },
   });
 

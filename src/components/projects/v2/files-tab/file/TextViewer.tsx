@@ -481,13 +481,13 @@ export function TextViewer({
   const handleSaveClick = React.useCallback(() => {
     if (!canEdit) return;
     if (!lease) {
-      toast.error("Editing lease was lost. Your text is preserved; reacquire the file before saving.");
+      toast.error("Editing access expired");
       return;
     }
     if (isSaving) return;
     if (!isDirty) return;
     if (!node.s3Key) {
-      toast.error("Cannot save: file has no storage key.");
+      toast.error("Cannot save: file has no storage key");
       return;
     }
     setIsModalOpen(true);
@@ -522,11 +522,11 @@ export function TextViewer({
           upsertNodes(projectId, [result.node]);
           onSaved?.();
           toast.success(choice.option === "commit"
-              ? "New revision committed successfully"
-              : "Active revision updated successfully");
+              ? "New version committed"
+              : "Active version updated");
         } else {
-          setSaveError(result.error || "Failed to save revision");
-          toast.error(feedbackError(result.error || "Failed to save revision", "Failed to save revision"));
+          setSaveError(result.error || "Couldn’t save version");
+          toast.error(feedbackError(result.error || "Couldn’t save version", "Couldn’t save version"));
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error";

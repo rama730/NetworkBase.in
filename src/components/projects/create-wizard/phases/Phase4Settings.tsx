@@ -166,7 +166,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
 
     const externalLinksError = (errors.external_links as { message?: string } | undefined)?.message;
     const validationMessages = [
-        linkComposerPending ? { id: sectionAnchor('links'), message: 'Finish adding the project link or clear the URL before continuing.' } : null,
+        linkComposerPending ? { id: sectionAnchor('links'), message: 'Finish the workspace link' } : null,
         externalLinksError ? { id: sectionAnchor('links'), message: externalLinksError } : null,
     ].filter((item): item is { id: string; message: string } => Boolean(item));
 
@@ -233,11 +233,11 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
     const chooseImage = (file: File | undefined) => {
         if (!file) return;
         if (!ALLOWED_PROJECT_IMAGE_MIME_TYPES.has(file.type)) {
-            toast.error('Choose a PNG, JPG, WebP, or GIF image.');
+            toast.error('Choose a PNG, JPG, WebP, or GIF image');
             return;
         }
         if (file.size > PROJECT_IMAGE_UPLOAD_MAX_BYTES) {
-            toast.error('Choose an image under 2 MB.');
+            toast.error('Choose an image under 2 MB');
             return;
         }
         onProjectImageChange(file);

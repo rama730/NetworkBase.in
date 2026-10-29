@@ -359,7 +359,7 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
       setJump(null);
     }
     // It stopped short: say so instead of landing somewhere unexplained.
-    if (limit) toast("That day is further back. Showing the earliest messages loaded so far.");
+    if (limit) toast("Earlier history not loaded");
   }, [firstItemIndex, hasOlder, items, jump, loadOlder, loadingOlder]);
   const pickDate = useCallback((date: string) => setJump({ at: startOfDay(date), pages: 0 }), []);
 

@@ -394,7 +394,7 @@ export function UpdateComments({
         parentId,
       );
       if (!result.success || !result.data)
-        throw new Error(result.error || "Failed to post comment");
+        throw new Error(result.error || "Couldn’t post comment");
       return result.data;
     },
     onMutate: async ({ content, parentId }) => {
@@ -496,7 +496,7 @@ export function UpdateComments({
       if (context?.previousUpdates)
         queryClient.setQueryData(updatesQueryKey, context.previousUpdates);
       toast.error(
-        feedbackError(error instanceof Error ? error.message : "Failed to post comment", "Failed to post comment"),
+        feedbackError(error instanceof Error ? error.message : "Couldn’t post comment", "Couldn’t post comment"),
       );
     },
     onSuccess: (comment, _content, context) => {
@@ -533,7 +533,7 @@ export function UpdateComments({
         commentId,
       );
       if (!result.success)
-        throw new Error(result.error || "Failed to delete comment");
+        throw new Error(result.error || "Couldn’t delete comment");
       return commentId;
     },
     onSuccess: (commentId) => {
@@ -579,7 +579,7 @@ export function UpdateComments({
     },
     onError: (error) =>
       toast.error(
-        feedbackError(error instanceof Error ? error.message : "Failed to delete comment", "Failed to delete comment"),
+        feedbackError(error instanceof Error ? error.message : "Couldn’t delete comment", "Couldn’t delete comment"),
       ),
   });
 

@@ -190,7 +190,7 @@ export function EditProfileTabs({
 
     const handleRemoveAvatar = () => {
         updateForm("avatarUrl", "");
-        toast.message("Avatar removed from your draft");
+        toast.message("Avatar removed from draft");
     };
 
     const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {

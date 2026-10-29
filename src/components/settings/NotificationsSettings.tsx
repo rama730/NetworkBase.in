@@ -78,7 +78,7 @@ export default function NotificationsPage() {
   // unrelated switch while travelling must not move the window.
   const save = (next: NotificationPreferences, { quiet = false }: { quiet?: boolean } = {}) => updateMutation.mutate(
     { ...next, quietHours: { ...next.quietHours, timeZone: quiet || !next.quietHours.timeZone ? Intl.DateTimeFormat().resolvedOptions().timeZone : next.quietHours.timeZone } },
-    { onError: () => toast.error("Failed to save preferences") },
+    { onError: () => toast.error("Couldn’t save preferences") },
   );
   const toggleCategory = (key: NotificationPreferenceCategory) => { if (preferences) save({ ...preferences, [key]: !preferences[key] }); };
   const setAllCategories = (enabled: boolean) => {
@@ -127,7 +127,7 @@ export default function NotificationsPage() {
       const permission = await requestBrowserNotificationPermission();
       setPermissionState(permission);
       if (permission !== "granted") {
-        toast.warning(permission === "denied" ? "Browser notifications are blocked in your browser settings." : "Browser notifications are unavailable here.");
+        toast.warning(permission === "denied" ? "Browser notifications are blocked in your browser settings." : "Browser notifications are unavailable here");
         return;
       }
     }
@@ -144,7 +144,7 @@ export default function NotificationsPage() {
         if (!result.ok) throw new Error(result.reason);
         setPushStatus("idle");
         save({ ...preferences, delivery: { ...preferences.delivery, push: false } });
-        if (result.serverCleanupFailed) toast.warning("Push was disabled here, but server cleanup did not finish.");
+        if (result.serverCleanupFailed) toast.warning("Push was disabled here, but server cleanup did not finish");
         return;
       }
       const result = await subscribeWebPush();
@@ -158,7 +158,7 @@ export default function NotificationsPage() {
       // If saving fails the device would stay subscribed with the setting off: undo the subscription.
       updateMutation.mutate(
         { ...preferences, delivery: { ...preferences.delivery, push: true } },
-        { onError: () => { void unsubscribeWebPush().then(() => setPushStatus("idle")).catch(() => undefined); toast.error("Failed to save preferences"); } },
+        { onError: () => { void unsubscribeWebPush().then(() => setPushStatus("idle")).catch(() => undefined); toast.error("Couldn’t save preferences"); } },
       );
     } catch { toast.error("Couldn't change push notifications."); } finally { setPushBusy(false); }
   };

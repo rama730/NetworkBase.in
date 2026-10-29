@@ -877,7 +877,7 @@ export function DraftsView() {
       router.push(keep.threadRootSeq ? threadHref(keep.channelId, keep.threadRootSeq) : conversationHref(keep.channelId));
     } else if (undoable) {
       // Cancelling must not lose the text: the action keeps it as a draft (it says so: it isn't an Undo).
-      toast.success("Scheduled message cancelled", {
+      toast.success("Scheduled message canceled", {
         action: {
           label: "Keep as draft",
           onClick: () => {

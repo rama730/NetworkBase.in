@@ -384,7 +384,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
         }),
       );
     } catch (err) {
-      toast.error(feedbackError(err instanceof Error ? err.message : "Failed to upload file to task", "Failed to upload file to task"));
+      toast.error(feedbackError(err instanceof Error ? err.message : "Couldn’t upload file to task", "Couldn’t upload file to task"));
     } finally {
       setIsProcessingUpload(false);
       setPendingUploadFiles(null);
@@ -463,7 +463,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
           }),
         );
       } catch (err) {
-        toast.error(feedbackError(err instanceof Error ? err.message : "Failed to update label", "Failed to update label"));
+        toast.error(feedbackError(err instanceof Error ? err.message : "Couldn’t update label", "Couldn’t update label"));
         void queryClient.invalidateQueries({
           queryKey: ["files-task-collections", projectId],
         });
@@ -600,7 +600,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
                       setTargetUploadTask({ id: first.id, title: first.title });
                       directUploadInputRef.current?.click();
                     } else {
-                      toast.info("Create a task first to attach files to tasks.");
+                      toast.info("Create a task first to attach files to tasks");
                     }
                   }}
                   className="nb-touch-target flex h-8 items-center gap-1.5 rounded-[5px] bg-primary px-2.5 text-xs font-semibold text-primary-foreground shadow-xs transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"

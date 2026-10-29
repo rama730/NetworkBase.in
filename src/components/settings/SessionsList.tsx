@@ -113,12 +113,12 @@ export function SessionsList({
   const handleLogOutOthers = async () => {
     setBusy(true);
     try {
-      await send("/api/v1/sessions?scope=others", "Failed to sign out other devices");
+      await send("/api/v1/sessions?scope=others", "Couldn’t sign out other devices");
       setSessions((prev) => prev.filter((session) => session.is_current));
       toast.success("Other devices were signed out");
       refreshSecurity();
     } catch (error) {
-      toast.error(feedbackError(error instanceof Error ? error.message : "Failed to sign out other devices", "Failed to sign out other devices"));
+      toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t sign out other devices", "Couldn’t sign out other devices"));
     } finally {
       setBusy(false);
       setPendingAction(null);

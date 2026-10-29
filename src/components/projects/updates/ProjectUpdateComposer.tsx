@@ -566,7 +566,7 @@ export function ProjectUpdateComposer({
             url = `https://${url}`;
         }
         if (!isSafeProjectUpdateUrl(url)) {
-            toast.error("Use a valid http or https link.");
+            toast.error("Use a valid http or https link");
             return;
         }
         if (media.length >= PROJECT_UPDATE_MAX_MEDIA_ITEMS) {
@@ -594,7 +594,7 @@ export function ProjectUpdateComposer({
 
     const uploadImageFile = async (originalFile: File) => {
         if (!PROJECT_UPDATE_ALLOWED_IMAGE_MIME_TYPES.has(originalFile.type)) {
-            toast.error("Use JPG, PNG, WebP, or GIF images.");
+            toast.error("Use JPG, PNG, WebP, or GIF images");
             return;
         }
         if (originalFile.size > PROJECT_UPDATE_MEDIA_MAX_BYTES) {

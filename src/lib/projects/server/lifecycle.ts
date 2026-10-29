@@ -915,7 +915,7 @@ export async function createProjectAction(
             .returning();
 
           if (!newProject) {
-            throw new Error("Failed to create project");
+            throw new Error("Couldn’t create workspace");
           }
 
           await tx.insert(projectMembers).values({
@@ -1563,7 +1563,7 @@ export async function updateProject(projectId: string, input: UpdateProjectInput
               actorUserId: user.id,
               ...actorNotificationSnapshot(user),
               eventKey,
-              title: "Project roles updated",
+              title: "Workspace roles updated",
               body: `${createdCount} created · ${updatedCount} updated · ${deletedCount} removed.`,
               sourceEventId: `${id}:roles:${Date.now()}`,
               entityRefs: { projectId: id },
@@ -1998,7 +1998,7 @@ export async function archiveProjectAction(
         message: owned.message,
       };
     if (owned.project.status === "archived") {
-      return { success: true, message: "Project is already archived." };
+      return { success: true, message: "Workspace is already archived" };
     }
 
     const archivedAt = new Date();
@@ -2015,7 +2015,7 @@ export async function archiveProjectAction(
           status: "ended",
           endedAt: archivedAt,
           endedBy: user.id,
-          endReason: "Project archived",
+          endReason: "Workspace archived",
           updatedAt: archivedAt,
         })
         .where(
@@ -2076,7 +2076,7 @@ export async function archiveProjectAction(
     return {
       success: false,
       errorCode: "INTERNAL_ERROR",
-      message: "Failed to archive project.",
+      message: "Couldn’t archive workspace",
     };
   }
 }
@@ -2280,7 +2280,7 @@ export async function deleteProject(
     return {
       success: false,
       errorCode: "INTERNAL_ERROR",
-      message: "Failed to delete project.",
+      message: "Couldn’t delete workspace",
     };
   }
 }
@@ -2607,7 +2607,7 @@ export async function updateProjectStageAction(
     if (projectForStageUpdate.ownerId !== user.id) {
       return {
         success: false,
-        error: "Only the project owner can advance the stage",
+        error: "Only the workspace owner can advance the stage",
         errorCode: "FORBIDDEN",
       };
     }
@@ -2691,7 +2691,7 @@ export async function updateProjectStageAction(
       if (current.ownerId !== user.id) {
         return {
           success: false,
-          error: "Only the project owner can advance the stage",
+          error: "Only the workspace owner can advance the stage",
           errorCode: "FORBIDDEN",
         };
       }
@@ -2708,7 +2708,7 @@ export async function updateProjectStageAction(
       }
       return {
         success: false,
-        error: "Failed to update project stage",
+        error: "Couldn’t update workspace stage",
         errorCode: "INTERNAL_ERROR",
       };
     }
@@ -2735,7 +2735,7 @@ export async function updateProjectStageAction(
       error:
         error instanceof Error
           ? error.message
-          : "Failed to update project stage",
+          : "Couldn’t update workspace stage",
       errorCode: "INTERNAL_ERROR",
     };
   }

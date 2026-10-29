@@ -29,10 +29,10 @@ export default function PendingDeletionBanner({ hardDeleteAt, onCancelled }: Pro
                 toast.success("Account reactivated");
                 onCancelled();
             } else {
-                toast.error(feedbackError(result.error || "Failed to cancel deletion", "Failed to cancel deletion"));
+                toast.error(feedbackError(result.error || "Couldn’t cancel deletion", "Couldn’t cancel deletion"));
             }
         } catch {
-            toast.error("Failed to cancel deletion");
+            toast.error("Couldn’t cancel deletion");
         } finally {
             setCancelling(false);
         }

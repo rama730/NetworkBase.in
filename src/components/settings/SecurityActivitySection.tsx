@@ -24,8 +24,8 @@ type SecurityActivitySectionProps = {
 const DEFAULT_VISIBLE_ITEMS = 6;
 
 const EVENT_LABELS: Record<SecurityActivityEntry["eventType"], string> = {
-  authenticator_app_enabled: "Authenticator app enabled",
-  authenticator_app_removed: "Authenticator app removed",
+  authenticator_app_enabled: "Authenticator enabled",
+  authenticator_app_removed: "Authenticator removed",
   recovery_codes_generated: "Recovery codes generated",
   recovery_codes_regenerated: "Recovery codes regenerated",
   recovery_code_used: "Recovery code used",

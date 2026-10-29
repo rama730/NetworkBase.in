@@ -166,10 +166,10 @@ export default function FilesTab({
           setPendingUploadFiles(null);
           setPendingUploadFolders(null);
         } else {
-          toast.error(feedbackError(result.error || "Failed to save new version", "Failed to save new version"));
+          toast.error(feedbackError(result.error || "Couldn’t save new version", "Couldn’t save new version"));
         }
       } catch {
-        toast.error("Failed to save new version");
+        toast.error("Couldn’t save new version");
       } finally {
         setIsProcessingDrop(false);
       }
@@ -204,13 +204,13 @@ export default function FilesTab({
       }
       const failed = results.find((result) => !result.success);
       if (failed) {
-        toast.error(feedbackError(failed.error || "Failed to upload files", "Failed to upload files"));
+        toast.error(feedbackError(failed.error || "Couldn’t upload files", "Couldn’t upload files"));
         return;
       }
       setPendingUploadFiles(null);
       setPendingUploadFolders(null);
     } catch {
-      toast.error("Failed to upload files");
+      toast.error("Couldn’t upload files");
     } finally {
       setIsProcessingDrop(false);
     }

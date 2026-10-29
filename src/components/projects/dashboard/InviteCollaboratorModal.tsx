@@ -576,7 +576,7 @@ export default function InviteCollaboratorModal({
                     if (/role is no longer available|guidance appointment/i.test(result.error || "")) refreshProjectOptions(selectedProject.id);
                     return showError(result.error || "Failed to send invitation");
                 }
-                toast.success(result.capacityWarning ? "Invitation sent. This person is nearing their Guide capacity." : "Invitation sent successfully");
+                toast.success(result.capacityWarning ? "Invitation sent" : "Invitation sent");
             }
             logger.metric("recruitment.composer.submit", { module: "recruitment-composer", projectId: selectedProject.id, kind: mode, outcome: "success", durationMs: Math.round(performance.now() - startedAt) });
             onSuccess?.(applied);

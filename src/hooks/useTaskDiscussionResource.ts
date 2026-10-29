@@ -314,7 +314,7 @@ export function useTaskDiscussionResource(params: {
           parentCommentId: parentCommentId ?? null,
         }),
       );
-      const message = result.error || "Failed to post comment";
+      const message = result.error || "Couldn’t post comment";
       setError(message);
       return { success: false, error: message };
     }
@@ -327,7 +327,7 @@ export function useTaskDiscussionResource(params: {
           parentCommentId: parentCommentId ?? null,
         }),
       );
-      return { success: false, error: "Failed to post comment" };
+      return { success: false, error: "Couldn’t post comment" };
     }
 
     setPage((current) => replaceOptimisticTaskDiscussionEntry(current, optimisticId, createdComment));
@@ -422,7 +422,7 @@ export function useTaskDiscussionResource(params: {
           ? patchTaskDiscussionEntry(current, targetEntry)
           : appendTaskDiscussionEntry(current, targetEntry),
       );
-      const message = result.error || "Failed to delete comment";
+      const message = result.error || "Couldn’t delete comment";
       setError(message);
       return { success: false as const, error: message };
     }

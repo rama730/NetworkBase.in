@@ -98,11 +98,11 @@ export default function PasswordManagementSection({
         setStepUpOpen(true);
         return;
       }
-      toast.error(feedbackError(result.message || "Failed to update password", "Failed to update password"));
+      toast.error(feedbackError(result.message || "Couldn’t update password", "Couldn’t update password"));
       return;
     }
 
-    toast.success(hasPassword ? "Password updated successfully" : "Password added successfully");
+    toast.success(hasPassword ? "Password updated" : "Password added");
     resetForm();
     setIsEditing(false);
     queryClient.setQueryData<SecurityData>(queryKeys.settings.security(), (current) => current ? {

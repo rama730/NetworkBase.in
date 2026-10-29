@@ -97,7 +97,7 @@ function readImageDimensions(src: string): Promise<{ width: number; height: numb
             width: image.naturalWidth || PROJECT_IMAGE_OUTPUT_SIZE,
             height: image.naturalHeight || PROJECT_IMAGE_OUTPUT_SIZE,
         });
-        image.onerror = () => reject(new Error("Failed to read selected image."));
+        image.onerror = () => reject(new Error("Couldn’t read selected image"));
         image.src = src;
     });
 }
@@ -314,7 +314,7 @@ export function GeneralSettingsSection({
         }
         const nextCategory = resolveProjectCategory(categoryChoice, customCategory);
         if (categoryChoice === OTHER_PROJECT_TYPE_ID && !nextCategory) {
-            toast.error("Add a custom category or choose one from the dropdown.");
+            toast.error("Add a custom category or choose one from the dropdown");
             return;
         }
         setSavingSettings(true);
@@ -328,7 +328,7 @@ export function GeneralSettingsSection({
                 skills,
             });
             if (!identityResult?.success) {
-                toast.error("Failed to update project identity.");
+                toast.error("Couldn’t update workspace identity");
                 return;
             }
 
@@ -336,7 +336,7 @@ export function GeneralSettingsSection({
             onProjectTitleChange(trimmedTitle);
             setShortDescription(shortDescription.trim());
             setDescription(description.trim());
-            toast.success("General settings updated.");
+            toast.success("General settings updated");
             onProjectUpdated();
             broadcastProjectUpdated(projectId);
             void queryClient.invalidateQueries({ queryKey: queryKeys.discover.projectsSimpleRoot() });
@@ -344,7 +344,7 @@ export function GeneralSettingsSection({
             router.refresh();
         } catch (error) {
             console.error("Failed to save general project settings", error);
-            toast.error(feedbackError(error instanceof Error ? error.message : "Failed to save general settings.", "Failed to save general settings."));
+            toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t save general settings", "Couldn’t save general settings"));
         } finally {
             setSavingSettings(false);
         }
@@ -396,7 +396,7 @@ export function GeneralSettingsSection({
         } catch (error) {
             URL.revokeObjectURL(previewUrl);
             console.error("Failed to prepare project avatar preview", error);
-            toast.error("Failed to read selected image.");
+            toast.error("Couldn’t read selected image");
         } finally {
             window.setTimeout(() => {
                 restoreFilePickerScroll();
@@ -477,7 +477,7 @@ export function GeneralSettingsSection({
 
             setCoverImage(finalized.publicUrl);
             setCoverDraft(null);
-            toast.success(finalized.optimized ? "Project avatar optimized and updated." : "Project avatar updated.");
+            toast.success(finalized.optimized ? "Workspace avatar optimized and updated" : "Workspace avatar updated");
             onProjectUpdated({ coverImage: finalized.publicUrl });
             broadcastProjectUpdated(projectId, { coverImage: finalized.publicUrl });
             void queryClient.invalidateQueries({ queryKey: queryKeys.discover.projectsSimpleRoot() });
@@ -485,7 +485,7 @@ export function GeneralSettingsSection({
             router.refresh();
         } catch (error) {
             console.error("Failed to upload project avatar", error);
-            toast.error(feedbackError(error instanceof Error ? error.message : "Failed to upload project avatar.", "Failed to upload project avatar."));
+            toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t upload workspace avatar", "Couldn’t upload workspace avatar"));
         } finally {
             setUploadingCoverImage(false);
         }
@@ -510,7 +510,7 @@ export function GeneralSettingsSection({
                 throw new Error(result.error || "Failed to remove project avatar");
             }
             setCoverImage("");
-            toast.success("Project avatar removed.");
+            toast.success("Workspace avatar removed");
             onProjectUpdated({ coverImage: null });
             broadcastProjectUpdated(projectId, { coverImage: null });
             void queryClient.invalidateQueries({ queryKey: queryKeys.discover.projectsSimpleRoot() });
@@ -518,7 +518,7 @@ export function GeneralSettingsSection({
             router.refresh();
         } catch (error) {
             console.error("Failed to remove project avatar", error);
-            toast.error(feedbackError(error instanceof Error ? error.message : "Failed to remove project avatar.", "Failed to remove project avatar."));
+            toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t remove workspace avatar", "Couldn’t remove workspace avatar"));
         } finally {
             setUploadingCoverImage(false);
         }

@@ -45,12 +45,12 @@ export function ProjectStatusControl({ projectId, canManage }: { projectId: stri
   };
 
   const save = async () => {
-    if (!emoji && !text.trim()) return void toast.error("Add an emoji or some text.");
+    if (!emoji && !text.trim()) return void toast.error("Add an emoji or some text");
     const result = await setProjectStatus({ projectId, emoji, text: text.trim() || null, expiresAt: until ? new Date(until).toISOString() : null });
-    if (!result.success) return void toast.error(feedbackError(result.error === "forbidden" ? "Only owners and admins can set the project status." : "Couldn't set the project status. Check the end time.", "Couldn't set the project status. Check the end time."));
+    if (!result.success) return void toast.error(feedbackError(result.error === "forbidden" ? "Only owners and admins can set the workspace status" : "Couldn't set the project status. Check the end time.", "Couldn't set the project status. Check the end time."));
     await refresh();
     setOpen(false);
-    toast.success("Project status updated");
+    toast.success("Workspace status updated");
   };
 
   const clear = async () => {
@@ -58,7 +58,7 @@ export function ProjectStatusControl({ projectId, canManage }: { projectId: stri
     if (!result.success) return void toast.error("Couldn't clear the project status.");
     await refresh();
     setOpen(false);
-    toast.success("Project status cleared");
+    toast.success("Workspace status cleared");
   };
 
   return (

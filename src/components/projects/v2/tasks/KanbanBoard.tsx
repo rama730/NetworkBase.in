@@ -665,7 +665,7 @@ export default function KanbanBoard({
     if (taskMovePendingRef.current) {
       restoreDraggedTask();
       onTaskDragStateChange?.(null);
-      toast.error("Wait for the current task move to finish.");
+      toast.error("Wait for the current task move to finish");
       return;
     }
 
@@ -726,13 +726,13 @@ export default function KanbanBoard({
     if ((previousTask && newPosition === previousTask.position) || (nextTask && newPosition === nextTask.position)) {
       clearDragSnapshot();
       onTaskDragStateChange?.(null);
-      toast.error("This spot is too crowded to place a card. Drop it one card higher or lower.");
+      toast.error("Choose another position");
       return;
     }
     if (draggedTask.reviewStatus === "pending" && targetColumn.status !== "done") {
       clearDragSnapshot();
       onTaskDragStateChange?.(null);
-      toast.error("Open the task and use Approve or Request changes to resolve its review.");
+      toast.error("Task needs review");
       return;
     }
     const updatedTask = {
@@ -774,7 +774,7 @@ export default function KanbanBoard({
         void queryClient.invalidateQueries({
           queryKey: queryKeys.project.detail.tasksRoot(projectId),
         });
-        toast.error(feedbackError("Failed to move task: " + result.error, "Failed to move task: "));
+        toast.error(feedbackError("Couldn’t move task: " + result.error, "Couldn’t move task: "));
         return;
       }
       syncTaskCompletionPolicy(queryClient, projectId, result);
@@ -809,7 +809,7 @@ export default function KanbanBoard({
         queryKey: queryKeys.project.detail.tasksRoot(projectId),
       });
       toast.error(
-        feedbackError(error instanceof Error ? error.message : "Failed to move task", "Failed to move task"),
+        feedbackError(error instanceof Error ? error.message : "Couldn’t move task", "Couldn’t move task"),
       );
     } finally {
       taskMovePendingRef.current = false;

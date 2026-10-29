@@ -670,7 +670,7 @@ export async function readCollaboratorSettings(
     return {
       success: false,
       errorCode: "INTERNAL_ERROR",
-      message: "Failed to load collaborators.",
+      message: "Couldn’t load members",
     };
   }
 }
@@ -1085,7 +1085,7 @@ export async function updateProjectFileUploadDefaultsAction(
     return {
       success: false,
       errorCode: "INTERNAL_ERROR",
-      message: "Failed to update file upload defaults.",
+      message: "Couldn’t update file upload defaults",
     };
   }
 }
@@ -1145,7 +1145,7 @@ export async function readNotificationSettings(
     return {
       success: false,
       errorCode: "INTERNAL_ERROR",
-      message: "Failed to load project notification settings.",
+      message: "Couldn’t load workspace notification settings",
     };
   }
 }
@@ -1195,7 +1195,7 @@ export async function updateProjectNotificationSettingsAction(
     await revalidateProjectPaths(projectId);
     return {
       success: true,
-      message: "Project notification settings updated.",
+      message: "Workspace notification settings updated",
       data: {
         policy,
         summary: summarizeProjectNotificationPolicy(policy),
@@ -1342,7 +1342,7 @@ export async function readProjectMemberNotificationSettingsAction(
     return {
       success: false,
       errorCode: "INTERNAL_ERROR",
-      message: "Failed to load member notification settings.",
+      message: "Couldn’t load member notification settings",
     };
   }
 }

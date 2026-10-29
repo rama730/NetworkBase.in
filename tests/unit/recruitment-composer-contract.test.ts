@@ -52,7 +52,7 @@ test("application entry points exclude existing project members", () => {
     assert.match(profilePage, /getProfileProjectsWithOpenRolesAction\(data\.profile\.id\)/);
     assert.match(projectAction, /const \{ userId: excludeMemberUserId \} = await getViewerAuthContext\(\)/);
     assert.match(projectAction, /NOT EXISTS \([\s\S]*project_members AS excluded_member/);
-    assert.match(dashboard, /Project members cannot apply for an additional role/);
+    assert.match(dashboard, /Workspace members cannot apply for an additional role/);
 });
 
 test("recruitment search preserves the rate limit for incomplete queries and filters members in SQL", () => {

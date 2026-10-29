@@ -901,6 +901,6 @@ export async function deleteTaskCommentAction(
     };
   } catch (error: any) {
     console.error("Failed to delete task discussion comment:", error);
-    return { success: false as const, error: error?.message || "Failed to delete comment" };
+    return { success: false as const, error: error?.message || "Couldn’t delete comment" };
   }
 }

@@ -185,7 +185,7 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
                 toast.success("Connection request accepted");
             } else {
                 await rejectRequest.mutateAsync({ id: requestId });
-                toast.success("Connection request declined", {
+                toast.success("Request declined", {
                     action: {
                         label: "Undo",
                         onClick: () => {

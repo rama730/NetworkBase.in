@@ -347,7 +347,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
       if (!result.success) throw new Error(chatErrorMessage(result.error));
     } catch (error) {
       update((pages) => patchPages(pages, message.seq, (m) => m.link_preview_hidden === hidden ? { ...m, link_preview_hidden: previous } : m));
-      toast.error(feedbackError(error instanceof Error ? error.message : 'Could not update the link preview.', "Could not update the link preview."));
+      toast.error(feedbackError(error instanceof Error ? error.message : 'Could not update the link preview', "Could not update the link preview"));
       void queryClient.invalidateQueries({ queryKey: queryKeys.chat.messages(ctx.channelId) });
     } finally {
       previewMutationRef.current = false;

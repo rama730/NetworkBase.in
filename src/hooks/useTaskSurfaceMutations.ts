@@ -363,7 +363,7 @@ export function useTaskSurfaceMutations(params: {
           undefined,
           previousTask.updatedAt,
         );
-        if (!result.success) throw new Error(result.error || "Failed to move task");
+        if (!result.success) throw new Error(result.error || "Couldn’t move task");
         syncTaskCompletionPolicy(queryClient, projectId, result);
         if (result.updatedAt) {
           applyOptimisticTask(
@@ -381,7 +381,7 @@ export function useTaskSurfaceMutations(params: {
         return { success: true as const };
       } catch (error) {
         const message =
-          error instanceof Error ? error.message : "Failed to move task";
+          error instanceof Error ? error.message : "Couldn’t move task";
         rollbackOptimisticTask(snapshots, previousTask, "workflowColumnId");
         setMutationError(message);
         return { success: false as const, error: message };

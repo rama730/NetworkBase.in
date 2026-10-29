@@ -152,7 +152,7 @@
    "apostrophe": 1
   },
   "src/app/actions/applications/internal.ts": {
-   "project": 25,
+   "project": 24,
    "banned": 7,
    "please": 8,
    "title-case": 5
@@ -311,9 +311,6 @@
   },
   "src/app/api/v1/account/delete/route.ts": {
    "please": 2
-  },
-  "src/app/api/v1/auth/change-password/route.ts": {
-   "successfully": 1
   },
   "src/app/api/v1/auth/signup/route.ts": {
    "please": 1
@@ -491,7 +488,6 @@
    "project": 2,
    "apostrophe": 3,
    "title-case": 2,
-   "british": 1,
    "ampersand": 1
   },
   "src/components/messages/NewMessage.tsx": {
@@ -528,7 +524,7 @@
   },
   "src/components/network/InvitationsClient.tsx": {
    "ellipsis": 6,
-   "british": 8,
+   "british": 7,
    "project": 22,
    "please": 1
   },
@@ -545,7 +541,7 @@
   },
   "src/components/network/PersonCard.tsx": {
    "ellipsis": 1,
-   "british": 2
+   "british": 1
   },
   "src/components/network/PersonCardReview.tsx": {
    "please": 1,
@@ -652,7 +648,7 @@
    "banned": 1
   },
   "src/components/presence/ProjectStatusControl.tsx": {
-   "project": 10,
+   "project": 7,
    "apostrophe": 3
   },
   "src/components/presence/StatusPicker.tsx": {
@@ -671,8 +667,7 @@
    "ampersand": 7
   },
   "src/components/profile/edit/EditProfileEditor.tsx": {
-   "project": 5,
-   "successfully": 1
+   "project": 3
   },
   "src/components/profile/edit/EditProfileTabs.tsx": {
    "project": 3,
@@ -707,8 +702,7 @@
   "src/components/projects/EditProjectModal.tsx": {
    "ampersand": 3,
    "title-case": 9,
-   "project": 16,
-   "successfully": 1,
+   "project": 14,
    "ellipsis": 4,
    "apostrophe": 1
   },
@@ -768,7 +762,7 @@
    "banned": 5
   },
   "src/components/projects/create-wizard/phases/Phase4Settings.tsx": {
-   "project": 27,
+   "project": 26,
    "banned": 5,
    "apostrophe": 2
   },
@@ -780,7 +774,7 @@
   "src/components/projects/create-wizard/useCreateProjectWizard.ts": {
    "title-case": 1,
    "please": 5,
-   "project": 8,
+   "project": 4,
    "banned": 1,
    "ampersand": 1
   },
@@ -788,7 +782,6 @@
    "project": 11,
    "apostrophe": 2,
    "exclamation": 1,
-   "successfully": 1,
    "banned": 2,
    "title-case": 5,
    "ellipsis": 2
@@ -801,10 +794,8 @@
    "banned": 2
   },
   "src/components/projects/dashboard/ProjectDashboardClient.tsx": {
-   "exclamation": 1,
-   "successfully": 1,
-   "project": 13,
-   "banned": 3
+   "project": 3,
+   "banned": 1
   },
   "src/components/projects/dashboard/ProjectLayout.tsx": {
    "project": 23
@@ -815,7 +806,7 @@
    "project": 3
   },
   "src/components/projects/dashboard/ProjectSocialLinksCard.tsx": {
-   "project": 19
+   "project": 18
   },
   "src/components/projects/dashboard/ProjectTeamAvatars.tsx": {
    "banned": 1,
@@ -850,7 +841,7 @@
    "please": 1
   },
   "src/components/projects/settings/GeneralSettingsSection.tsx": {
-   "project": 26,
+   "project": 20,
    "ampersand": 1
   },
   "src/components/projects/settings/LifecycleSettingsEditor.tsx": {
@@ -886,12 +877,11 @@
    "project": 3
   },
   "src/components/projects/tabs/ProjectSettingsTab.tsx": {
-   "project": 60,
+   "project": 47,
    "ampersand": 3,
-   "banned": 26,
+   "banned": 25,
    "title-case": 4,
    "please": 1,
-   "successfully": 1,
    "ellipsis": 3
   },
   "src/components/projects/tabs/SprintPlanning.tsx": {
@@ -902,7 +892,7 @@
    "title-case": 1
   },
   "src/components/projects/tabs/UpdatesTab.tsx": {
-   "project": 5,
+   "project": 4,
    "banned": 1
   },
   "src/components/projects/tabs/sprint/SprintLeftRail.tsx": {
@@ -975,7 +965,6 @@
    "banned": 1
   },
   "src/components/projects/v2/explorer/useExplorerMutations.ts": {
-   "british": 8,
    "project": 3,
    "title-case": 2
   },
@@ -1019,9 +1008,6 @@
   "src/components/projects/v2/files-tab/breadcrumb/BreadcrumbBar.tsx": {
    "project": 1
   },
-  "src/components/projects/v2/files-tab/file/FileActionsBar.tsx": {
-   "successfully": 2
-  },
   "src/components/projects/v2/files-tab/file/FileVersionCompareView.tsx": {
    "project": 2,
    "ellipsis": 1,
@@ -1032,7 +1018,6 @@
    "title-case": 1
   },
   "src/components/projects/v2/files-tab/file/FileView.tsx": {
-   "successfully": 2,
    "project": 1
   },
   "src/components/projects/v2/files-tab/file/LinkedTasksPanel.tsx": {
@@ -1040,11 +1025,9 @@
    "please": 1
   },
   "src/components/projects/v2/files-tab/file/TextViewer.tsx": {
-   "successfully": 2,
    "banned": 1
   },
   "src/components/projects/v2/files-tab/folder/FolderListView.tsx": {
-   "successfully": 2,
    "project": 3,
    "title-case": 2
   },
@@ -1172,7 +1155,6 @@
    "project": 1
   },
   "src/components/projects/v2/tasks/components/TaskFilesExplorer.tsx": {
-   "project": 2,
    "title-case": 2
   },
   "src/components/reports/AdminReportsClient.tsx": {
@@ -1191,9 +1173,7 @@
   "src/components/settings/IntegrationsSettings.tsx": {
    "project": 10,
    "log-in": 1,
-   "please": 1,
-   "exclamation": 1,
-   "successfully": 1
+   "please": 1
   },
   "src/components/settings/LegalAndDataRightsSection.tsx": {
    "ampersand": 3,
@@ -1208,9 +1188,6 @@
   "src/components/settings/OrgNotificationChoices.tsx": {
    "banned": 1,
    "project": 1
-  },
-  "src/components/settings/PasswordManagementSection.tsx": {
-   "successfully": 2
   },
   "src/components/settings/PrivacySettings.tsx": {
    "project": 1
@@ -1277,9 +1254,6 @@
   "src/hooks/useSettingsQueries.ts": {
    "project": 1,
    "please": 1
-  },
-  "src/hooks/useTaskFileMutations.ts": {
-   "british": 2
   },
   "src/hooks/useUsernameAvailability.ts": {
    "please": 2,
@@ -1360,18 +1334,11 @@
    "title-case": 1
   },
   "src/lib/feedback/copy.ts": {
-   "british": 5,
-   "project": 69,
-   "ampersand": 1,
-   "banned": 6,
-   "title-case": 1,
-   "please": 12,
-   "apostrophe": 15,
+   "please": 9,
    "log-in": 3
   },
   "src/lib/feedback/index.ts": {
-   "banned": 1,
-   "project": 1
+   "banned": 1
   },
   "src/lib/files/apply-file-revision.ts": {
    "apostrophe": 1
@@ -1459,7 +1426,7 @@
   },
   "src/lib/notifications/project-policy.ts": {
    "ampersand": 6,
-   "project": 26,
+   "project": 25,
    "title-case": 2,
    "banned": 8,
    "apostrophe": 5,
@@ -1627,16 +1594,16 @@
    "project": 7
   },
   "src/lib/projects/server/lifecycle.ts": {
-   "project": 68,
+   "project": 58,
    "please": 5,
    "apostrophe": 7,
-   "banned": 7,
+   "banned": 5,
    "successfully": 1,
    "title-case": 1
   },
   "src/lib/projects/server/settings.ts": {
-   "banned": 17,
-   "project": 33
+   "banned": 16,
+   "project": 31
   },
   "src/lib/projects/server/sprints.ts": {
    "project": 14,
@@ -1725,9 +1692,6 @@
   "src/lib/skills/service.ts": {
    "project": 1
   },
-  "src/lib/upload/chunked-upload.ts": {
-   "british": 2
-  },
   "src/lib/upload/image-prep-client.ts": {
    "please": 1
   },
@@ -1736,9 +1700,6 @@
   },
   "src/lib/upload/project-upload-allocation.ts": {
    "project": 1
-  },
-  "src/lib/upload/supabase-signed-upload-client.ts": {
-   "british": 8
   },
   "src/lib/upload/upload-intents.ts": {
    "project": 2,
