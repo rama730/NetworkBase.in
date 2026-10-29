@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { getTaskAttachments } from "@/app/actions/files/links";
 import {
   getProjectTaskDetailAction,
-} from "@/app/actions/project";
+} from "@/app/actions/workspace";
 import {
   createSubtaskAction,
   deleteSubtaskAction,
@@ -22,14 +22,14 @@ import {
   mergeTaskSurfaceRecords,
   normalizeTaskSurfaceRecord,
   type TaskSurfaceRecord,
-} from "@/lib/projects/task-presentation";
+} from "@/lib/workspaces/task-presentation";
 import {
   getTaskFileWarnings,
   summarizeTaskFileWarnings,
   type TaskFileReadinessWarning,
   type TaskLinkedNode,
-} from "@/lib/projects/task-file-intelligence";
-import type { TaskDiscussionComment } from "@/lib/projects/task-discussion";
+} from "@/lib/workspaces/task-file-intelligence";
+import type { TaskDiscussionComment } from "@/lib/workspaces/task-discussion";
 import { useTaskDiscussionResource } from "@/hooks/useTaskDiscussionResource";
 import {
   useTaskFileMutations,
@@ -42,7 +42,7 @@ import {
   sortTaskSubtasks,
   upsertTaskSubtask,
   type TaskSubtask,
-} from "@/lib/projects/task-subtasks";
+} from "@/lib/workspaces/task-subtasks";
 
 export type TaskPanelTab =
   | "details"

@@ -7,7 +7,7 @@ import { UUID_RE } from '@/lib/validations/uuid';
 
 import { db } from '@/lib/db';
 import { applicationEvents, orgEmailInvites, orgJoinBlocks, profiles, projectMembers, projectOpenRoles, projects, roleApplications, taskTeamMembers, tasks } from '@/lib/db/schema';
-import { getProjectAccessById } from '@/lib/data/project-access';
+import { getProjectAccessById } from '@/lib/data/workspace-access';
 import { notifyNewCopies } from '@/lib/organizations/assignment-notify';
 import { copyState } from '@/lib/organizations/assignment-rules';
 import { createCopiesForNewMember } from '@/lib/organizations/assignments';
@@ -15,7 +15,7 @@ import { ORG_LIMITS } from '@/lib/organizations/config';
 import { orgMemberCap } from '@/lib/organizations/join-rules';
 import { acceptOrgInvite, createOrgEmailInvites, INVITE_DAYS, ledChildProjects, notifyInvites, notifySeatsReopened, openInvitesFor, removeFromOrg } from '@/lib/organizations/members';
 import { memberChangeBlock, memberStatus, parseInviteEmails, workSummary, type OrgMemberRole, type RosterRow } from '@/lib/organizations/member-rules';
-import { addProjectMemberInternal, changeProjectMemberRoleInternal } from '@/lib/projects/collaborator-lifecycle';
+import { addProjectMemberInternal, changeProjectMemberRoleInternal } from '@/lib/workspaces/collaborator-lifecycle';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 import { namesOf, notifyJoined, notifyOrg, orgHref, orgLabel, queueOrgInviteSignupEmails } from '@/lib/organizations/notify';
 
@@ -276,7 +276,7 @@ export async function acceptOrgInviteAction(inviteId: string): Promise<{ success
     if (accepted && 'full' in accepted) return { success: false, error: 'This organization is full. Ask an admin to raise Max members.' };
     if (!accepted) return { success: false, error: 'That invite is no longer open.' };
     const { orgId } = accepted;
-    revalidatePath(`/projects/${orgId}`);
+    revalidatePath(`/workspaces/${orgId}`);
     await notifyJoined(orgId, userId, `${inviteId}:accepted`);
     return { success: true, orgId };
 }
@@ -359,7 +359,7 @@ export async function removeMembersAction(orgId: string, userIds: string[], opti
     if (org) {
         await notifyOrg({
             orgId, eventKey: 'org.removed', actorId: viewer.userId, to: userIds, title: `You were removed from ${org.title}`, body: reason,
-            href: '/projects', sourceEventId: `removed:${Date.now()}`, email: { kind: 'org_removed', data: { reason } },
+            href: '/workspaces', sourceEventId: `removed:${Date.now()}`, email: { kind: 'org_removed', data: { reason } },
         });
     }
     return { success: true, removed: userIds.length };
@@ -385,7 +385,7 @@ export async function addMembersToChildAction(orgId: string, childProjectId: str
     if (people.length) {
         await notifyOrg({
             orgId, eventKey: 'org.child_added', actorId: viewer.userId, to: people, title: `You were added to ${child.title}`,
-            href: `/projects/${encodeURIComponent(child.slug ?? child.id)}`, sourceEventId: `child:${child.id}:${unitId ?? ''}:${Date.now()}`,
+            href: `/workspaces/${encodeURIComponent(child.slug ?? child.id)}`, sourceEventId: `child:${child.id}:${unitId ?? ''}:${Date.now()}`,
         });
     }
     return { success: true, added: people.length };

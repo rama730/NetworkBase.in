@@ -44,7 +44,7 @@ const V2_MODULES = [
 
 // The explorer directory itself — imports within this directory are expected
 // (these modules import each other) and should not count as external callers.
-const EXPLORER_DIR = "src/components/projects/v2/explorer";
+const EXPLORER_DIR = "src/components/workspaces/v2/explorer";
 
 // ---------------------------------------------------------------------------
 // File scanning utilities

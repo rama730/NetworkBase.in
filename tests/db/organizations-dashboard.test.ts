@@ -16,7 +16,7 @@ moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: 
 moduleStubs.set("next/headers", { headers: async () => new Headers({ "x-forwarded-for": "203.0.113.18" }) });
 
 let dash: typeof import("../../src/app/actions/org-dashboard");
-let recent: typeof import("../../src/app/actions/project/recent-activity");
+let recent: typeof import("../../src/app/actions/workspace/recent-activity");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
   const viewer = () => ({ supabase: null, snapshot: null, user: viewerId ? { id: viewerId } : null, userId: viewerId || null, emailVerified: true });
@@ -26,7 +26,7 @@ before(async () => {
     getViewerIdentityContext: async () => ({ ...viewer(), profile: null }),
   });
   dash = await loadAppModule(() => import("../../src/app/actions/org-dashboard"));
-  recent = await loadAppModule(() => import("../../src/app/actions/project/recent-activity"));
+  recent = await loadAppModule(() => import("../../src/app/actions/workspace/recent-activity"));
 });
 
 const created: string[] = [];

@@ -6,8 +6,8 @@ import {
   formatSprintDateRange,
   isSprintReadyToClose,
   type SprintTaskTimelineEntity,
-} from "@/lib/projects/sprint-detail";
-import { buildSprintTimeline, mergeSprintTimelineRows } from "@/lib/projects/sprint-timeline";
+} from "@/lib/workspaces/sprint-detail";
+import { buildSprintTimeline, mergeSprintTimelineRows } from "@/lib/workspaces/sprint-timeline";
 
 const sprint = {
   id: "sprint-1", projectId: "project-1", sprintNumber: 1, code: "SPR-1", name: "Sprint 1",

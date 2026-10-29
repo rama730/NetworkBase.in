@@ -5,14 +5,14 @@ import { useState } from "react";
 
 import { Check, ChevronDown } from "lucide-react";
 
-import { resolveProjectInvitationAction } from "@/app/actions/project/guidance";
+import { resolveProjectInvitationAction } from "@/app/actions/workspace/guidance";
 import { updateTaskStatusAction, type TaskStatus } from "@/app/actions/task";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import TaskStatusBadge from "@/components/projects/v2/tasks/badges/TaskStatusBadge";
+import TaskStatusBadge from "@/components/workspaces/v2/tasks/badges/TaskStatusBadge";
 import { ApplicationCard } from "@/components/messages/cards/ApplicationCard";
 import { Actions, primary, secondary, Shell, useCardAction, useCardQuery } from "@/components/messages/cards/card-parts";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
-import { getTaskStatusLabel } from "@/lib/projects/task-presentation";
+import { getTaskStatusLabel } from "@/lib/workspaces/task-presentation";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { personName } from "@/lib/messaging/channel-view";
 import type { AnnouncementCardView, AssignmentCardView, ChatCardRef, ChatCardView, InviteCardView, TaskCardView } from "@/lib/messaging/types";
@@ -74,7 +74,7 @@ const TASK_STATUSES: TaskStatus[] = ["todo", "in_progress", "blocked", "done"];
 
 function TaskCard({ view }: { view: TaskCardView }) {
   const { busy, run } = useCardAction("task", view.id);
-  const href = `/projects/${view.project_slug ?? view.project_id}?tab=tasks&drawerType=task&drawerId=${view.id}`;
+  const href = `/workspaces/${view.project_slug ?? view.project_id}?tab=tasks&drawerType=task&drawerId=${view.id}`;
   if (view.deleted) return <Shell label="Task" status="deleted"><p className="text-[13px] text-muted-foreground">This task was deleted.</p></Shell>;
 
   const statusLabel = getTaskStatusLabel(view.status);
@@ -137,7 +137,7 @@ function InviteCard({ view }: { view: InviteCardView }) {
     <Shell label="Invitation" status={expired ? "expired" : view.status}>
       <p className="text-[15px]">
         <span className="font-medium">{personName(view.inviter)}</span> invited {view.is_candidate ? "you" : "them"} to join{" "}
-        <Link href={`/projects/${view.project_slug ?? view.project_id}`} className="text-primary hover:underline">{view.project_title}</Link>
+        <Link href={`/workspaces/${view.project_slug ?? view.project_id}`} className="text-primary hover:underline">{view.project_title}</Link>
         {view.role_title ? <> as <span className="font-medium">{view.role_title}</span></> : view.guidance_label ? <> as <span className="font-medium">{view.guidance_label}</span></> : null}
       </p>
       {view.note ? <p className="mt-2 whitespace-pre-wrap text-[13px] text-muted-foreground">{view.note}</p> : null}

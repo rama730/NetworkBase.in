@@ -6,7 +6,7 @@ import { and, eq, inArray, isNotNull, isNull, ne, or, sql, type SQL } from "driz
 
 import { db } from "@/lib/db";
 import { projectMembers, projectSprints, projectWorkflowColumns, projects, sprintTaskMemberships, taskSubtasks, taskTeamMembers, tasks } from "@/lib/db/schema";
-import type { ProjectAccess } from "@/lib/data/project-access";
+import type { ProjectAccess } from "@/lib/data/workspace-access";
 import type { AssignmentSettings, AssignmentTarget } from "@/lib/organizations/assignment-rules";
 
 // Assignments (report §16, §16.11): a master task on the org and one copy per person, team or child project.

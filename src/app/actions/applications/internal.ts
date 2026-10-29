@@ -20,7 +20,7 @@ import { alias } from 'drizzle-orm/pg-core';
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
-import { resolveProjectInvitationAction } from '@/app/actions/project/guidance';
+import { resolveProjectInvitationAction } from '@/app/actions/workspace/guidance';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
 import { runInFlightDeduped } from '@/lib/utils/inflight-dedupe';
 import {
@@ -38,7 +38,7 @@ import {
 import type { ApplicationCoreStatus } from '@/lib/applications/status';
 import { canReviewProjectSql } from '@/lib/applications/reviewers';
 import { isApplicationReviewerRole } from '@/lib/applications/authorization';
-import { enqueueProjectNotificationEvent } from '@/lib/notifications/project-events';
+import { enqueueProjectNotificationEvent } from '@/lib/notifications/workspace-events';
 import {
     applicationActorSnapshot,
     enqueueApplicationDecisionBestEffort,
@@ -56,8 +56,8 @@ import type {
     ApplicationCardChip,
 } from './types';
 import { refreshMyWorkCountersForUsers } from '@/lib/my-work/profile-counters';
-import { addProjectMemberInternal } from '@/lib/projects/collaborator-lifecycle';
-import { computeProjectReadAccess } from '@/lib/data/project-access';
+import { addProjectMemberInternal } from '@/lib/workspaces/collaborator-lifecycle';
+import { computeProjectReadAccess } from '@/lib/data/workspace-access';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
 import { isUuid } from '@/lib/validations/uuid';
 import { resolvePrivacyRelationship } from '@/lib/privacy/resolver';
@@ -226,7 +226,7 @@ async function enqueueMemberJoinedBestEffort(params: {
             eventKey: "members.joined",
             title: `${params.targetName} joined ${params.projectTitle || "the workspace"}`,
             body: "A new member joined the workspace.",
-            href: `/projects/${encodeURIComponent(params.projectSlug || params.projectId)}?tab=settings&settings=collaborators`,
+            href: `/workspaces/${encodeURIComponent(params.projectSlug || params.projectId)}?tab=settings&settings=collaborators`,
             entityRefs: {
                 projectId: params.projectId,
                 projectSlug: params.projectSlug ?? null,
@@ -925,7 +925,7 @@ export async function applyToRoleAction(
 
             const roleTitleText = role.title || role.role || 'Unknown role';
             const notifyReviewers = async (applicationId: string, channelId: string | null, again = false) => {
-                revalidatePath(`/projects/${project.slug || projectId}`);
+                revalidatePath(`/workspaces/${project.slug || projectId}`);
                 logger.metric('applications.apply_submitted', {
                     module: 'applications',
                     applicationId,
@@ -968,7 +968,7 @@ export async function applyToRoleAction(
                     if (editedChannelId === null) {
                         return toApplicationFailure(traceId, 'ALREADY_PENDING', 'You already have a pending application for this workspace. Nothing was changed.');
                     }
-                    revalidatePath(`/projects/${project.slug || projectId}`);
+                    revalidatePath(`/workspaces/${project.slug || projectId}`);
                     return toApplicationSuccess(traceId, { applicationId: existingApp.id, channelId: editedChannelId, outcome: 'updated' });
                 }
                 if (existingApp.status === 'proposed') {
@@ -1185,7 +1185,7 @@ export async function acceptApplicationAction(
             const slugOrId = application.project?.slug || application.projectId;
             after(async () => {
                 try {
-                    revalidatePath(`/projects/${slugOrId}`);
+                    revalidatePath(`/workspaces/${slugOrId}`);
                     logger.metric('applications.apply_accepted', {
                         module: 'applications',
                         applicationId,
@@ -1469,7 +1469,7 @@ export async function rejectApplicationAction(
             });
 
             const slugOrId = application.project?.slug || application.projectId;
-            revalidatePath(`/projects/${slugOrId}`);
+            revalidatePath(`/workspaces/${slugOrId}`);
             logger.metric('applications.apply_rejected', {
                 module: 'applications',
                 applicationId,
@@ -1596,7 +1596,7 @@ export async function editPendingApplicationAction(
         }
 
         const slugOrId = application.project?.slug || application.projectId;
-        revalidatePath(`/projects/${slugOrId}`);
+        revalidatePath(`/workspaces/${slugOrId}`);
         logger.metric('applications.apply_edited', {
             module: 'applications',
             applicationId: application.id,
@@ -1689,7 +1689,7 @@ export async function withdrawApplicationAction(
         });
 
         const slugOrId = application.project?.slug || application.projectId;
-        revalidatePath(`/projects/${slugOrId}`);
+        revalidatePath(`/workspaces/${slugOrId}`);
         logger.metric('applications.apply_withdrawn', {
             module: 'applications',
             applicationId,
@@ -1832,7 +1832,7 @@ export async function reopenApplicationAction(
         const channelId = reopened.channelId;
 
         const slugOrId = application.project?.slug || application.projectId;
-        revalidatePath(`/projects/${slugOrId}`);
+        revalidatePath(`/workspaces/${slugOrId}`);
         logger.metric('applications.apply_reopened', {
             module: 'applications',
             applicationId,

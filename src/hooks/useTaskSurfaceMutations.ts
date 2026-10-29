@@ -1,7 +1,7 @@
 "use client";
 
 import { toast } from "@/lib/feedback";
-import { completionOutcomeLabel } from "@/lib/projects/task-completion-policy";
+import { completionOutcomeLabel } from "@/lib/workspaces/task-completion-policy";
 import { taskCompletionPolicyKey, syncTaskCompletionPolicy } from "@/hooks/useTaskCompletionPolicy";
 import { useCallback, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -14,15 +14,15 @@ import {
   type TaskStatus,
 } from "@/app/actions/task";
 import { queryKeys } from "@/lib/query-keys";
-import { patchProjectTaskCaches } from "@/lib/projects/task-cache";
-import type { TaskFileReadinessWarning } from "@/lib/projects/task-file-intelligence";
-import { recordSprintMetric } from "@/lib/projects/sprint-observability";
+import { patchProjectTaskCaches } from "@/lib/workspaces/task-cache";
+import type { TaskFileReadinessWarning } from "@/lib/workspaces/task-file-intelligence";
+import { recordSprintMetric } from "@/lib/workspaces/sprint-observability";
 import {
   normalizeSprintOptions,
   normalizeAssignableMembers,
   normalizeTaskSurfaceRecord,
   type TaskSurfaceRecord,
-} from "@/lib/projects/task-presentation";
+} from "@/lib/workspaces/task-presentation";
 import type { ProjectNode } from "@/lib/db/schema";
 
 type MutableTaskField =

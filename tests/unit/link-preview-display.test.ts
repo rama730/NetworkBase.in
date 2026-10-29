@@ -34,7 +34,7 @@ test('normalization retains only approved binding and opaque resource fields',()
 test('known revocation masks only matching resource; global suspension masks all first-party proofs',async()=>{
   const client=new QueryClient(),url='https://networkbase.in/u/builder',resource=parseShareResource(url)!;
   const snapshot:PreviewSnapshot={preview:{url,domain:'networkbase.in',title:null,description:null,image:null,firstParty:{...genericSharePreview(resource,'ready'),entityKey:resourceKey}},authorization,deadline:100,wallDeadline:100};
-  const one=queryKeys.sharing.link(url,viewerId,'a'),two=queryKeys.sharing.link('https://networkbase.in/projects/project-one',viewerId,'a');
+  const one=queryKeys.sharing.link(url,viewerId,'a'),two=queryKeys.sharing.link('https://networkbase.in/workspaces/project-one',viewerId,'a');
   client.setQueryData(one,snapshot);client.setQueryData(two,{...snapshot,authorization:{...authorization,resourceKey:'c'.repeat(64)},preview:{...snapshot.preview!,firstParty:{...snapshot.preview!.firstParty!,entityKey:'c'.repeat(64)}}});
   maskLinkPreviewAccess(client,resourceKey);assert.equal(client.getQueryData<PreviewSnapshot>(one)?.authorization,null);assert.ok(client.getQueryData<PreviewSnapshot>(two)?.authorization);
   await invalidateLinkPreviewAccess(client,resourceKey);assert.equal(client.getQueryState(one)?.isInvalidated,true);assert.equal(client.getQueryState(two)?.isInvalidated,false);
@@ -44,8 +44,8 @@ test('known revocation masks only matching resource; global suspension masks all
 
 
 test('restricted and incomplete first-party payloads cannot retain legacy identity in fallback fields',()=>{
-  const url='https://networkbase.in/projects/22222222-2222-4222-8222-222222222222',resource=parseShareResource(url)!;
-  const value={url,title:'Secret title',description:'Secret summary',image:'https://example.com/private.png',firstParty:{...genericSharePreview(resource,'restricted'),url:'https://networkbase.in/projects/secret-readable-name',title:'Secret title',description:'Secret summary',imageAlt:'Secret creator'},displayAuthorization:authorization};
+  const url='https://networkbase.in/workspaces/22222222-2222-4222-8222-222222222222',resource=parseShareResource(url)!;
+  const value={url,title:'Secret title',description:'Secret summary',image:'https://example.com/private.png',firstParty:{...genericSharePreview(resource,'restricted'),url:'https://networkbase.in/workspaces/secret-readable-name',title:'Secret title',description:'Secret summary',imageAlt:'Secret creator'},displayAuthorization:authorization};
   const normalized=normalizeLinkPreview(value,url)!;assert.equal(normalized.firstParty?.url,url);assert.equal(JSON.stringify(normalized).includes('Secret'),false);assert.equal(normalized.image,null);assert.equal(normalized.displayAuthorization,null);
   const incomplete=normalizeLinkPreview({...value,firstParty:undefined},url)!;assert.equal(incomplete.title,null);assert.equal(incomplete.description,null);assert.equal(incomplete.image,null);
 });

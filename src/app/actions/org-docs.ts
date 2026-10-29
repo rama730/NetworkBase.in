@@ -6,14 +6,14 @@ import { z } from 'zod';
 
 import { db } from '@/lib/db';
 import { docOpens, projectDocs, projectMembers, projectNodes, projectOpenRoles, projects, projectSprints, sprintMaterials } from '@/lib/db/schema';
-import { getProjectAccessById } from '@/lib/data/project-access';
-import { enqueueProjectNotificationEvent } from '@/lib/notifications/project-events';
+import { getProjectAccessById } from '@/lib/data/workspace-access';
+import { enqueueProjectNotificationEvent } from '@/lib/notifications/workspace-events';
 import { ORG_LIMITS } from '@/lib/organizations/config';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
 import { docFileName, docLabel, fillDocTemplate, readDocGroups, readOrgDocOptions, templateCopyTitle, type DocGroup, type OrgDocOptions } from '@/lib/organizations/doc-rules';
-import { normalizeProjectDocSettings } from '@/lib/projects/doc';
+import { normalizeProjectDocSettings } from '@/lib/workspaces/doc';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
-import { listProjectDocsAction, readProjectDocAction } from '@/app/actions/project/doc';
+import { listProjectDocsAction, readProjectDocAction } from '@/app/actions/workspace/doc';
 import { createFolder } from '@/app/actions/files/mutations';
 
 // Org Docs (report §19): groups, Required / Template / Show in child projects, New and Updated labels,

@@ -27,7 +27,7 @@ import {
   type TaskDiscussionAuthor,
   type TaskDiscussionCursor,
   type TaskDiscussionThreadPage,
-} from "@/lib/projects/task-discussion";
+} from "@/lib/workspaces/task-discussion";
 import { subscribeTaskResource } from "@/lib/realtime/task-resource";
 import { newClientId } from "@/lib/utils/client-id";
 import { queryKeys } from "@/lib/query-keys";

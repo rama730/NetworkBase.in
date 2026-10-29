@@ -10,7 +10,7 @@ describe("GitHub Sync Fast Diff & Query Architecture Contract", () => {
   );
   const workspacePath = path.resolve(
     process.cwd(),
-    "src/components/projects/v2/files-tab/RepositorySync.tsx",
+    "src/components/workspaces/v2/files-tab/RepositorySync.tsx",
   );
 
   it("github-sync.ts exports getSingleFileDiff with 1MB ceiling and precomputed SHA fast-path", () => {

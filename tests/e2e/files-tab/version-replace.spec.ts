@@ -15,7 +15,7 @@ test.describe("Files revision upload", () => {
   test("new revision preserves the prior version and updates history", async ({ page }) => {
     try {
       await login(page);
-      await page.goto(`/projects/${slug}?tab=files`);
+      await page.goto(`/workspaces/${slug}?tab=files`);
       await expect(page.getByTestId("files-tab-root")).toBeVisible();
       await page.getByRole("navigation", { name: "File collections" })
         .getByRole("button", { name: "All files", exact: true }).click();

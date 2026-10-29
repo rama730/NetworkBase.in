@@ -14,8 +14,8 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
 import { orgHandleHolds, profiles, projectMembers, projects, roleApplications, applicationEvents } from '@/lib/db/schema';
-import { getProjectAccessById } from '@/lib/data/project-access';
-import { removeProjectMemberInternal } from '@/lib/projects/collaborator-lifecycle';
+import { getProjectAccessById } from '@/lib/data/workspace-access';
+import { removeProjectMemberInternal } from '@/lib/workspaces/collaborator-lifecycle';
 import { orgGrant, type OrgRole } from '@/lib/organizations/permissions';
 import { ORG_SECTION_OWNER_ONLY, ORG_SETTINGS_PATCH, type OrgSettingsSection } from '@/lib/organizations/settings';
 import { generateJoinCode } from '@/lib/organizations/join-rules';
@@ -25,7 +25,7 @@ import { listCreateLocations, readViewerOrgRole } from '@/lib/organizations/deta
 import { acceptOrgInvite, ledChildProjects, notifySeatsReopened, openInvitesFor, removeFromOrg } from '@/lib/organizations/members';
 import { countOrgMembers, findOrgByJoinCode, isOrgHandleAvailable, joinOrgByCode, joinPublicOrg, viewerOrgStatus } from '@/lib/organizations/join';
 import { normalizeJoinCode, ORG_JOIN_MESSAGES, type OrgJoinMode, type OrgJoinOutcome } from '@/lib/organizations/join-rules';
-import { isProjectPubliclyReadableVisibility } from '@/lib/projects/project-visibility';
+import { isProjectPubliclyReadableVisibility } from '@/lib/workspaces/workspace-visibility';
 import { namesOf, notifyJoined, notifyOrg, orgHref, orgLabel } from '@/lib/organizations/notify';
 
 type Failure = { success: false; error: string };
@@ -96,7 +96,7 @@ export async function joinOrganizationAction(
     const invite = target ? (await openInvitesFor(userId, target.id))[0] : undefined;
     const accepted = target && invite ? await acceptOrgInvite(userId, invite.id) : null;
     if (target && invite && accepted && 'orgId' in accepted) {
-        revalidatePath(`/projects/${target.slug ?? target.id}`);
+        revalidatePath(`/workspaces/${target.slug ?? target.id}`);
         await notifyJoined(target.id, userId, `${invite.id}:accepted`);
         return { success: true, outcome: 'joined', org: { id: target.id, title: target.title, slug: target.slug } };
     }
@@ -106,7 +106,7 @@ export async function joinOrganizationAction(
     if (outcome === 'blocked' || outcome === 'full' || outcome === 'unavailable' || outcome === 'cooldown') {
         return { success: false, error: ORG_JOIN_MESSAGES[outcome] };
     }
-    if (outcome === 'joined') revalidatePath(`/projects/${org.slug ?? org.id}`);
+    if (outcome === 'joined') revalidatePath(`/workspaces/${org.slug ?? org.id}`);
     await afterJoin(org.id, outcome, userId);
     return { success: true, outcome, org };
 }
@@ -146,7 +146,7 @@ const DENIED: Failure = { success: false, error: "You don’t have permission to
 
 function revalidateOrg(slug: string | null, orgId: string) {
     revalidatePath(`/org/${slug ?? orgId}`);
-    revalidatePath(`/projects/${slug ?? orgId}`);
+    revalidatePath(`/workspaces/${slug ?? orgId}`);
 }
 
 /**
@@ -317,7 +317,7 @@ export async function cancelJoinRequestAction(orgId: string): Promise<{ success:
         await db.insert(applicationEvents).values({ applicationId: row.id, actorId: userId, kind: 'withdrawn', fromStatus: 'pending', toStatus: 'withdrawn', metadata: { source: 'org_join_request' } });
     }
     if (withdrawn.length === 0) return { success: false, error: 'There is no pending request to cancel.' };
-    revalidatePath(`/projects/${orgId}`);
+    revalidatePath(`/workspaces/${orgId}`);
     return { success: true };
 }
 
@@ -373,7 +373,7 @@ async function childViewer(projectId: string): Promise<ChildViewer | null> {
 }
 
 const isAdminRole = (role: string | null) => role === 'owner' || role === 'admin';
-const revalidateChild = (project: ChildViewer['project']) => revalidatePath(`/projects/${project.slug ?? project.id}`);
+const revalidateChild = (project: ChildViewer['project']) => revalidatePath(`/workspaces/${project.slug ?? project.id}`);
 
 /** The lead asks the org to let the project go; an org admin decides (report §29.4: detach is "request" for the lead). */
 export async function requestDetachAction(projectId: string): Promise<{ success: true } | Failure> {
@@ -465,7 +465,7 @@ async function notifyChildRequest(orgId: string, projectId: string, actorId: str
 
 async function notifyChildDecision(orgId: string, projectId: string, leadId: string, actorId: string, title: (child: string, org: string) => string) {
     const [org, child] = await Promise.all([orgLabel(orgId), orgLabel(projectId)]);
-    if (org && child) await notifyOrg({ orgId, eventKey: 'org.child_decided', actorId, to: [leadId], title: title(child.title, org.title), href: `/projects/${encodeURIComponent(child.slug ?? child.id)}`, sourceEventId: `child-decision:${projectId}:${Date.now()}` });
+    if (org && child) await notifyOrg({ orgId, eventKey: 'org.child_decided', actorId, to: [leadId], title: title(child.title, org.title), href: `/workspaces/${encodeURIComponent(child.slug ?? child.id)}`, sourceEventId: `child-decision:${projectId}:${Date.now()}` });
 }
 
 async function pendingMoveIn(projectId: string) {
@@ -485,7 +485,7 @@ export async function approveMoveInAction(projectId: string): Promise<{ success:
         return { success: false, error: 'This workspace now has people outside the organization.' };
     }
     await moveIntoOrg(projectId, pending.orgId, pending.project.visibility);
-    revalidatePath(`/projects/${pending.project.slug ?? projectId}`);
+    revalidatePath(`/workspaces/${pending.project.slug ?? projectId}`);
     await notifyChildDecision(pending.orgId, projectId, pending.project.ownerId, userId!, (child, orgTitle) => `${child} is now part of ${orgTitle}`);
     return { success: true };
 }
@@ -496,7 +496,7 @@ export async function cancelMoveInAction(projectId: string): Promise<{ success: 
     const pending = userId ? await pendingMoveIn(projectId) : null;
     if (!pending || !(pending.project.ownerId === userId || isAdminRole(await readViewerOrgRole(pending.orgId, userId)))) return DENIED;
     await db.update(projects).set({ orgSettings: sql`${projects.orgSettings} - 'moveInRequest'` }).where(eq(projects.id, projectId));
-    revalidatePath(`/projects/${pending.project.slug ?? projectId}`);
+    revalidatePath(`/workspaces/${pending.project.slug ?? projectId}`);
     return { success: true };
 }
 

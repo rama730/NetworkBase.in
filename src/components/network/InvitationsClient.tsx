@@ -15,11 +15,11 @@ import {
     withdrawApplicationAction,
     type SentProjectInvitationItem,
 } from "@/app/actions/applications";
-import WithdrawApplicationDialog from "@/components/projects/dashboard/WithdrawApplicationDialog";
+import WithdrawApplicationDialog from "@/components/workspaces/dashboard/WithdrawApplicationDialog";
 import { SentApplicationMenu } from "./SentApplicationMenu";
 import { ApplicationReview, DecidedApplicationMenu } from "./ApplicationReview";
 import type { DecisionInput } from "@/components/applications/DecisionDialog";
-import { resolveProjectInvitationAction } from "@/app/actions/project/guidance";
+import { resolveProjectInvitationAction } from "@/app/actions/workspace/guidance";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PersonCardContent } from "./PersonCardContent";
@@ -659,7 +659,7 @@ export default function InvitationsClient({
                                     context={
                                         <Link
                                             className="nb-person-portfolio"
-                                            href={`/projects/${invitation.projectSlug || invitation.projectId}`}
+                                            href={`/workspaces/${invitation.projectSlug || invitation.projectId}`}
                                             title={`${invitation.roleTitle} · ${invitation.projectTitle}`}
                                         >
                                             <span>
@@ -713,7 +713,7 @@ export default function InvitationsClient({
                                     context={
                                         <Link
                                             className="nb-person-portfolio"
-                                            href={`/projects/${app.projectSlug || app.projectId}`}
+                                            href={`/workspaces/${app.projectSlug || app.projectId}`}
                                             title={`${app.roleTitle} · ${app.projectTitle}`}
                                         >
                                             <span>
@@ -763,7 +763,7 @@ export default function InvitationsClient({
                                     context={
                                         <Link
                                             className="nb-person-portfolio"
-                                            href={`/projects/${app.projectSlug || app.projectId}`}
+                                            href={`/workspaces/${app.projectSlug || app.projectId}`}
                                             title={`${app.roleTitle} · ${app.projectTitle}`}
                                         >
                                             <span>{app.roleTitle} · {app.projectTitle}</span>
@@ -810,7 +810,7 @@ export default function InvitationsClient({
                                     context={
                                         <Link
                                             className="nb-person-portfolio"
-                                            href={`/projects/${application.projectSlug || application.projectId}`}
+                                            href={`/workspaces/${application.projectSlug || application.projectId}`}
                                             title={`${application.roleTitle} · ${application.projectTitle}`}
                                         >
                                             <span>
@@ -831,7 +831,7 @@ export default function InvitationsClient({
                                             status={status}
                                             reasonCode={application.decisionCode}
                                             name={application.projectTitle || "the workspace"}
-                                            projectHref={`/projects/${application.projectSlug || application.projectId}`}
+                                            projectHref={`/workspaces/${application.projectSlug || application.projectId}`}
                                             channelId={application.channelId}
                                             onWithdraw={(trigger) => { withdrawReturn.current = trigger; setWithdrawingApplication(application); }}
                                         />
@@ -866,7 +866,7 @@ export default function InvitationsClient({
                                     context={
                                         <Link
                                             className="nb-person-portfolio"
-                                            href={`/projects/${invitation.projectSlug || invitation.projectId}`}
+                                            href={`/workspaces/${invitation.projectSlug || invitation.projectId}`}
                                             title={`${invitation.roleTitle} · ${invitation.projectTitle}`}
                                         >
                                             <span>

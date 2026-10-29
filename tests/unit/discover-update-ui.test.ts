@@ -13,15 +13,15 @@ process.env.NEXT_PUBLIC_SUPABASE_URL ??= "https://test.supabase.co";
 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??= "test-anon";
 process.env.SUPABASE_SERVICE_ROLE_KEY ??= "test-service-role";
 let DiscoverUpdateCard: typeof import("@/components/discover/DiscoverUpdateCard").default;
-let updatePages: typeof import("@/components/projects/updates/update-helpers").updatePages;
-let updateRelativeTime: typeof import("@/components/projects/updates/update-helpers").updateRelativeTime;
+let updatePages: typeof import("@/components/workspaces/updates/update-helpers").updatePages;
+let updateRelativeTime: typeof import("@/components/workspaces/updates/update-helpers").updateRelativeTime;
 const loader = Module as unknown as { _load: (request: string, ...args: unknown[]) => unknown };
 before(async () => {
     // The thread's server actions import "server-only", which only Next's bundler resolves.
     const originalLoad = loader._load;
     loader._load = (request, ...args) => (request === "server-only" ? {} : originalLoad(request, ...args));
     DiscoverUpdateCard = (await import("@/components/discover/DiscoverUpdateCard")).default;
-    ({ updatePages, updateRelativeTime } = await import("@/components/projects/updates/update-helpers"));
+    ({ updatePages, updateRelativeTime } = await import("@/components/workspaces/updates/update-helpers"));
     loader._load = originalLoad;
 });
 
@@ -57,7 +57,7 @@ test("an update card leads with its author and names its project in the footer",
     const html = render(update());
     assert.doesNotMatch(html, />Update</, "no Update badge");
     assert.ok(html.indexOf("Asha Rao") < html.indexOf("DeepScope AI"), "author comes before the workspace name");
-    assert.match(html, /href="\/projects\/deepscope-ai"/);
+    assert.match(html, /href="\/workspaces\/deepscope-ai"/);
     assert.doesNotMatch(html, /<img/, "a project without a cover shows no placeholder picture");
     assert.match(html, /Lead Frontend developer/);
     assert.match(html, /<time[^>]*dateTime="2026-10-01T10:00:00.000Z"/);

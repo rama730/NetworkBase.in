@@ -230,7 +230,7 @@ function InlineReply({ channelId, rootSeq, label, alsoSendTo, onDone, onSent }: 
   );
 }
 
-/** /messages/p/[projectId]: select the project; displays channels in sidebar while main pane shows placeholder. */
+/** /messages/w/[workspaceId]: select the project; displays channels in sidebar while main pane shows placeholder. */
 export function ProjectLanding({ projectId }: { projectId: string }) {
   const setProject = useChatUi((state) => state.setProject);
   const { data } = useChatShell();
@@ -292,7 +292,7 @@ export function BrowseChannels({ projectId }: { projectId: string }) {
   const nothingYet = channels.data && !channels.data.some((c) => !c.archived) && show !== "archived" && !needle;
   return (
     <ViewScreen closable
-      back={`/messages/p/${projectId}`}
+      back={`/messages/w/${projectId}`}
       title={title ? `Browse channels in ${title}` : "Browse channels"}
       action={<Button type="button" size="sm" onClick={() => setCreateFor(projectId)} className="pointer-coarse:h-11"><Plus size={16} /> Create channel</Button>}
     >

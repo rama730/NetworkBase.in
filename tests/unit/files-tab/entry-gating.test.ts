@@ -7,19 +7,19 @@ import path from "node:path";
 
 const DELETED_ADAPTER_PATH = path.resolve(
     __dirname,
-    "../../../src/components/projects/v2/ProjectFilesWorkspace.tsx",
+    "../../../src/components/workspaces/v2/ProjectFilesWorkspace.tsx",
 );
 const REGISTRY_SRC = readFileSync(
     path.resolve(
         __dirname,
-        "../../../src/components/projects/dashboard/ProjectTabsRegistry.tsx",
+        "../../../src/components/workspaces/dashboard/WorkspaceTabsRegistry.tsx",
     ),
     "utf8",
 );
 const ROOT_SRC = readFileSync(
     path.resolve(
         __dirname,
-        "../../../src/components/projects/v2/files-tab/FilesTabRoot.tsx",
+        "../../../src/components/workspaces/v2/files-tab/FilesTabRoot.tsx",
     ),
     "utf8",
 );
@@ -28,7 +28,7 @@ describe("Files tab entry — post-rollout source contract", () => {
     it("loads FilesTabRoot directly via `next/dynamic` with `ssr: false`", () => {
         assert.match(
             REGISTRY_SRC,
-            /dynamic\(\s*\(\s*\)\s*=>\s*import\(\s*["']@\/components\/projects\/v2\/files-tab\/FilesTabRoot["']\s*\)\.then\(\(mod\)\s*=>\s*mod\.FilesTabRoot\)/,
+            /dynamic\(\s*\(\s*\)\s*=>\s*import\(\s*["']@\/components\/workspaces\/v2\/files-tab\/FilesTabRoot["']\s*\)\.then\(\(mod\)\s*=>\s*mod\.FilesTabRoot\)/,
         );
         assert.match(REGISTRY_SRC, /ssr:\s*false/);
     });

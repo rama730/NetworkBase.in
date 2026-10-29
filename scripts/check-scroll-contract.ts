@@ -11,11 +11,11 @@ const MARKER_PATTERN = /(data-scroll-root=["']route["']|dataScrollRoot\b)/g;
 const LEGACY_SCROLL_CLASS_PATTERN = /\b(custom-scrollbar|scrollbar-none|scrollbar-hide|scrollbar-thin)\b/g;
 
 const LEGACY_CLASS_ALLOWLIST = new Set<string>([
-  "src/components/projects/dashboard/ProjectLayout.tsx",
-  "src/components/projects/v2/preview/AssetViewer.tsx",
-  "src/components/projects/create-wizard/CreateProjectWizard.tsx",
-  "src/components/projects/tabs/SprintPlanning.tsx",
-  "src/components/projects/v2/tasks/TaskDetailPanel.tsx",
+  "src/components/workspaces/dashboard/WorkspaceLayout.tsx",
+  "src/components/workspaces/v2/preview/AssetViewer.tsx",
+  "src/components/workspaces/create-wizard/CreateWorkspaceWizard.tsx",
+  "src/components/workspaces/tabs/SprintPlanning.tsx",
+  "src/components/workspaces/v2/tasks/TaskDetailPanel.tsx",
   "src/components/my-work/MyWorkDrawer.tsx",
 ]);
 

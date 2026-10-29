@@ -5,7 +5,7 @@ import test from "node:test";
 
 const CREATE_TASK_MODAL_PATH = path.join(
   process.cwd(),
-  "src/components/projects/v2/tasks/CreateTaskModal.tsx",
+  "src/components/workspaces/v2/tasks/CreateTaskModal.tsx",
 );
 
 test("CreateTaskModal implements canonical SectionDividers matching Sprint tab standards", () => {

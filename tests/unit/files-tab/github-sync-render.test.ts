@@ -13,7 +13,7 @@ const { parseFragment } = require("parse5");
 const root = process.cwd();
 const workspace = path.join(
   root,
-  "src/components/projects/v2/files-tab/RepositorySync.tsx",
+  "src/components/workspaces/v2/files-tab/RepositorySync.tsx",
 );
 const source = readFileSync(workspace, "utf8");
 const stateNames = [...source.matchAll(/const \[(\w+),/g)].map(

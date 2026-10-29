@@ -12,8 +12,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { ListScreen } from "@/components/messages/ListScreen";
 import { ListSkeleton } from "@/components/messages/ListSkeleton";
-import { useSelectedProject } from "@/components/messages/useSelectedProject";
-import { ProjectBadge } from "@/components/projects/ProjectBadge";
+import { useSelectedProject } from "@/components/messages/useSelectedWorkspace";
+import { ProjectBadge } from "@/components/workspaces/WorkspaceBadge";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
 import { channelTitle, formatChatTime, fullTime, isDirectLike, isVisible, needsAttention, projectsByActivity, rowCount } from "@/lib/messaging/channel-view";
@@ -87,7 +87,7 @@ export function HomePane() {
         {project ? <ProjectBadge project={project} size="sm" /> : null}
         <h1 className="nb-card-title min-w-0 flex-1 truncate">{project ? project.title : "Home"}</h1>
         {project ? (
-          <Button asChild variant="outline" size="sm"><Link href={`/messages/p/${project.id}/browse`}><Compass size={16} aria-hidden="true" /> Browse channels</Link></Button>
+          <Button asChild variant="outline" size="sm"><Link href={`/messages/w/${project.id}/browse`}><Compass size={16} aria-hidden="true" /> Browse channels</Link></Button>
         ) : null}
         <Button asChild size="sm"><Link href="/messages/new" prefetch={true}><SquarePen size={16} aria-hidden="true" /> New message</Link></Button>
       </header>
@@ -102,7 +102,7 @@ export function HomePane() {
             action={
               <div className="flex flex-wrap justify-center gap-2">
                 <Button asChild size="sm"><Link href="/messages/new"><SquarePen size={16} aria-hidden="true" /> New message</Link></Button>
-                {browseProject ? <Button asChild variant="outline" size="sm"><Link href={`/messages/p/${browseProject.id}/browse`}><Compass size={16} aria-hidden="true" /> Browse channels</Link></Button> : null}
+                {browseProject ? <Button asChild variant="outline" size="sm"><Link href={`/messages/w/${browseProject.id}/browse`}><Compass size={16} aria-hidden="true" /> Browse channels</Link></Button> : null}
               </div>
             }
           />
@@ -124,7 +124,7 @@ export function HomePane() {
             <p className="mt-1 text-[13px] text-muted-foreground">Message a teammate directly, or join a channel in one of your workspaces.</p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button asChild size="sm"><Link href="/messages/new"><SquarePen size={16} aria-hidden="true" /> Message someone</Link></Button>
-              <Button asChild variant="outline" size="sm"><Link href={browseProject ? `/messages/p/${browseProject.id}/browse` : "/projects"}><Compass size={16} aria-hidden="true" /> {browseProject ? "Browse channels" : "Find a workspace"}</Link></Button>
+              <Button asChild variant="outline" size="sm"><Link href={browseProject ? `/messages/w/${browseProject.id}/browse` : "/workspaces"}><Compass size={16} aria-hidden="true" /> {browseProject ? "Browse channels" : "Find a workspace"}</Link></Button>
             </div>
           </section>
         ) : (

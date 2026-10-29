@@ -15,12 +15,12 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import type { ProjectNode } from "@/lib/db/schema";
-import { fileKind } from "@/components/projects/v2/utils/fileKind";
+import { fileKind } from "@/components/workspaces/v2/utils/fileKind";
 import {
   isAssetKind,
   isEmptyMedia,
   isMarkdownNode,
-} from "@/components/projects/v2/files-tab/file/previewPicker";
+} from "@/components/workspaces/v2/files-tab/file/previewPicker";
 
 // ---------------------------------------------------------------------------
 // Fixture builder
@@ -133,10 +133,10 @@ describe("FileView / isAssetKind (Req 13.1-13.4)", () => {
 describe("AssetPreview PDF delivery", () => {
   it("uses the same-origin inline preview endpoint instead of a storage URL", () => {
     const source = readFileSync(
-      path.join(process.cwd(), "src/components/projects/v2/preview/AssetPreview.tsx"),
+      path.join(process.cwd(), "src/components/workspaces/v2/preview/AssetPreview.tsx"),
       "utf8",
     );
-    assert.match(source, /\/api\/v1\/projects\/\$\{encodeURIComponent\(node\.projectId \|\| projectId \|\| ""\)\}\/files\/\$\{encodeURIComponent\(node\.id\)\}\/preview/);
+    assert.match(source, /\/api\/v1\/workspaces\/\$\{encodeURIComponent\(node\.projectId \|\| projectId \|\| ""\)\}\/files\/\$\{encodeURIComponent\(node\.id\)\}\/preview/);
     assert.match(source, /<iframe[\s\S]*src=\{previewUrl\}/);
     assert.doesNotMatch(source, /URL\.createObjectURL/);
   });
@@ -215,7 +215,7 @@ describe("FileView — structural contract (Req 13.6, Req 17.1-17.4)", () => {
   const source = readFileSync(
     path.resolve(
       process.cwd(),
-      "src/components/projects/v2/files-tab/file/FileView.tsx",
+      "src/components/workspaces/v2/files-tab/file/FileView.tsx",
     ),
     "utf8",
   );
@@ -240,12 +240,12 @@ describe("FileView — structural contract (Req 13.6, Req 17.1-17.4)", () => {
     assert.match(
       source,
       /from\s+"\.\.\/\.\.\/preview\/AssetPreview"/,
-      "AssetPreview must be reused from src/components/projects/v2/preview/AssetPreview.tsx (design § FileView)",
+      "AssetPreview must be reused from src/components/workspaces/v2/preview/AssetPreview.tsx (design § FileView)",
     );
     assert.match(
       source,
       /from\s+"\.\.\/\.\.\/preview\/MarkdownPreview"/,
-      "MarkdownPreview must be reused from src/components/projects/v2/preview/MarkdownPreview.tsx (design § FileView)",
+      "MarkdownPreview must be reused from src/components/workspaces/v2/preview/MarkdownPreview.tsx (design § FileView)",
     );
   });
 

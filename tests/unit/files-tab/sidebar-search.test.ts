@@ -27,7 +27,7 @@ import type { ProjectNode } from "@/lib/db/schema";
 import {
   FILES_TAB_SIDEBAR_WIDTH_PX,
   computeVisibleIdsForSearch,
-} from "@/components/projects/v2/files-tab/sidebarSearch";
+} from "@/components/workspaces/v2/files-tab/sidebarSearch";
 import { useFilesStore } from "@/stores/filesStore";
 import { defaultFilesState } from "@/stores/files/types";
 

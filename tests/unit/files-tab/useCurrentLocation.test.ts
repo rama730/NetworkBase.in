@@ -13,7 +13,7 @@ import {
   defaultFilesState,
   type ProjectFilesState,
 } from "@/stores/files/types";
-import { selectCurrentLocation } from "@/components/projects/v2/files-tab/hooks/useCurrentLocation";
+import { selectCurrentLocation } from "@/components/workspaces/v2/files-tab/hooks/useCurrentLocation";
 
 // ─── Fixture builders ────────────────────────────────────────────────
 

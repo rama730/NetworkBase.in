@@ -1,1 +1,1 @@
-export { default } from '../../projects/[slug]/loading';
+export { default } from '../../workspaces/[slug]/loading';

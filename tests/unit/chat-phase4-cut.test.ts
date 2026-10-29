@@ -42,12 +42,12 @@ test("one reminder list, used by the message menu and Saved", () => {
 test("the chat window and its launcher share one hidden-routes list", () => {
   assert.equal(chatWindowHiddenOn("/messages"), true);
   assert.equal(chatWindowHiddenOn("/messages/inbox"), true);
-  assert.equal(chatWindowHiddenOn("/projects/new"), true);
+  assert.equal(chatWindowHiddenOn("/workspaces/new"), true);
   assert.equal(chatWindowHiddenOn("/my-profile/edit"), true);
   assert.equal(chatWindowHiddenOn("/my-profile/edit/general"), true);
   assert.equal(chatWindowHiddenOn("/my-profile"), false);
   assert.equal(chatWindowHiddenOn("/my-profile/editor"), false);
-  assert.equal(chatWindowHiddenOn("/projects/abc"), false);
+  assert.equal(chatWindowHiddenOn("/workspaces/abc"), false);
   assert.equal(chatWindowHiddenOn("/messagesx"), false);
   assert.match(read("src/components/messages/ChatLauncher.tsx"), /chatWindowHiddenOn\(pathname\)/);
 });

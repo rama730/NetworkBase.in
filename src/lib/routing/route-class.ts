@@ -41,7 +41,7 @@ const SPECIAL_ROUTES: SpecialRouteDescriptor[] = [
     {
         routeClass: 'user_shell',
         protected: true,
-        matches: (pathname) => pathname === '/projects/new' || pathname.startsWith('/projects/new/'),
+        matches: (pathname) => pathname === '/workspaces/new' || pathname.startsWith('/workspaces/new/'),
     },
     {
         routeClass: 'user_shell',

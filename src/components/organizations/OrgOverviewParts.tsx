@@ -87,7 +87,7 @@ export function OrgDashboard({ orgId, orgSlug }: { orgId: string; orgSlug: strin
             </div>
             <aside aria-label="Organization details" className="min-w-0 space-y-6 lg:col-span-4">
                 <RailSection title="Workspaces" action={<Link href={`${base}?tab=projects`} className="text-[12px] underline underline-offset-4">See all</Link>}>
-                    {data.projects.length ? <ul>{data.projects.map((p) => <li key={p.id} className={row}><Link href={`/projects/${encodeURIComponent(p.slug ?? p.id)}`} className="truncate hover:underline">{p.title}</Link><span className="shrink-0 font-mono text-[11px] text-muted-foreground">{ago(p.lastActivityAt)}</span></li>)}</ul>
+                    {data.projects.length ? <ul>{data.projects.map((p) => <li key={p.id} className={row}><Link href={`/workspaces/${encodeURIComponent(p.slug ?? p.id)}`} className="truncate hover:underline">{p.title}</Link><span className="shrink-0 font-mono text-[11px] text-muted-foreground">{ago(p.lastActivityAt)}</span></li>)}</ul>
                         : <p className="text-sm text-muted-foreground">{data.role === 'admin' ? 'No workspaces yet.' : "You’re not in a workspace yet."}</p>}
                 </RailSection>
                 <RailSection title="People">
@@ -147,7 +147,7 @@ export function OrgProjectsTab({ orgId, orgSlug }: { orgId: string; orgSlug?: st
         toast.success(r.reminded ? `Reminded ${r.reminded} ${r.reminded === 1 ? 'lead' : 'leads'}` : 'Nothing overdue or missing in those workspaces')
         setSelected(new Set())
     })
-    const projectHref = (r: OrgProjectRow) => `/projects/${encodeURIComponent(r.slug ?? r.id)}`
+    const projectHref = (r: OrgProjectRow) => `/workspaces/${encodeURIComponent(r.slug ?? r.id)}`
     const messageLead = (r: OrgProjectRow) => r.lead && !r.mine ? <Link href={`/messages?userId=${r.lead.id}`} onClick={(e) => messageUserInWindow(r.lead!.id, e)} className="text-[12px] underline underline-offset-4">Message lead</Link> : null
     const sel = 'h-9 rounded-md border border-border bg-background px-2 text-sm'
     const archive = () => startTransition(async () => {
@@ -192,7 +192,7 @@ export function OrgProjectsTab({ orgId, orgSlug }: { orgId: string; orgSlug?: st
                 <select aria-label="Sort" className={sel} value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
                     <option value="active">Recently active</option><option value="name">Name</option><option value="overdue">Most overdue</option>
                 </select>
-                {data.canCreate ? <Button asChild size="sm" className="ml-auto"><Link href={`/projects/new?org=${encodeURIComponent(orgSlug ?? orgId)}`}>+ New workspace</Link></Button> : null}
+                {data.canCreate ? <Button asChild size="sm" className="ml-auto"><Link href={`/workspaces/new?org=${encodeURIComponent(orgSlug ?? orgId)}`}>+ New workspace</Link></Button> : null}
                 {data.isAdmin && selected.size ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={remind}>Remind leads</Button> : null}
                 {data.isAdmin && selected.size ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => { if (window.confirm(`Archive ${selected.size} ${selected.size === 1 ? 'project' : 'projects'}?`)) archive() }}>Archive {selected.size}</Button> : null}
                 <span className="flex rounded-md border border-border text-[12px]" role="group" aria-label="View">
@@ -224,7 +224,7 @@ export function OrgProjectsTab({ orgId, orgSlug }: { orgId: string; orgSlug?: st
                         {data.isAdmin ? <input type="checkbox" className="mt-1" aria-label={`Select ${r.title}`} checked={selected.has(r.id)} onChange={(e) => setSelected((cur) => { const next = new Set(cur); if (e.target.checked) next.add(r.id); else next.delete(r.id); return next })} /> : null}
                         <div className="min-w-0 flex-1">
                             <p className="flex flex-wrap items-center gap-x-1.5">
-                                <Link href={`/projects/${encodeURIComponent(r.slug ?? r.id)}`} className="font-medium hover:underline">{r.title}</Link>
+                                <Link href={`/workspaces/${encodeURIComponent(r.slug ?? r.id)}`} className="font-medium hover:underline">{r.title}</Link>
                                 <span className="rounded-[3px] border border-border px-1 text-[11px] text-muted-foreground">{r.visibility === 'org' ? 'Organization' : r.visibility === 'private' ? 'Private' : 'Public'}</span>
                                 {r.newInOrg ? <span className="nb-status" data-status="active">New in this org</span> : null}
                                 <span className="text-muted-foreground">{r.lead?.name} (lead) · {r.members} {r.members === 1 ? 'member' : 'members'}{r.units ? ` · ${r.units} teams` : ''}</span>

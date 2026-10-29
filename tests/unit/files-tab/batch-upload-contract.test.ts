@@ -10,7 +10,7 @@ describe("2PC Batch Upload & Finalize Architecture Contract", () => {
   );
   const explorerMutationsPath = path.resolve(
     process.cwd(),
-    "src/components/projects/v2/explorer/useExplorerMutations.ts",
+    "src/components/workspaces/v2/explorer/useExplorerMutations.ts",
   );
 
   it("mutations.ts exports finalizeBatchUpload with the canonical 50-file ceiling and publication invariants", () => {

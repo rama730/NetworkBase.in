@@ -6,7 +6,7 @@ process.env.NEXT_PUBLIC_SUPABASE_URL ??= "https://t.supabase.co";
 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??= "a";
 process.env.SUPABASE_SERVICE_ROLE_KEY ??= "s";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const mod = require("../../src/inngest/functions/project-files-reconciliation") as typeof import("../../src/inngest/functions/project-files-reconciliation");
+const mod = require("../../src/inngest/functions/workspace-files-reconciliation") as typeof import("../../src/inngest/functions/workspace-files-reconciliation");
 
 // PERF-006: the full-pass delay is computed from the page size and cadence, and bounded by a stated limit.
 test("estimates the hours one full pass takes", () => {

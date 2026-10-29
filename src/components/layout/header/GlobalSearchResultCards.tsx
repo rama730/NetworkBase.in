@@ -28,7 +28,7 @@ import { hasSkillIcon } from "@/lib/skills/icon-policy";
 import { SocialPresenceIcon } from "@/components/profile/SocialPresenceIcon";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { PersonPresenceDot } from "@/components/network/PersonPresenceDot";
-import ProjectAvatar from "@/components/projects/ProjectAvatar";
+import ProjectAvatar from "@/components/workspaces/WorkspaceAvatar";
 import type {
     GlobalSearchPreview,
     GlobalSearchProfilePreview,
@@ -37,9 +37,9 @@ import type {
     GlobalSearchTaskPreview,
     GlobalSearchOrgPreview,
 } from "@/hooks/useGlobalSearchPreviews";
-import { getTaskPriorityPresentation, getTaskStatusPresentation } from "@/lib/projects/task-workflow";
-import { getTaskTitlePresentation } from "@/lib/projects/task-presentation";
-import { projectStageLabel } from "@/lib/projects/status-presentation";
+import { getTaskPriorityPresentation, getTaskStatusPresentation } from "@/lib/workspaces/task-workflow";
+import { getTaskTitlePresentation } from "@/lib/workspaces/task-presentation";
+import { projectStageLabel } from "@/lib/workspaces/status-presentation";
 import type { SocialPresenceIconKey } from "@/lib/profile/normalization";
 import { resolveClientSkill, useSkillCatalog } from "@/lib/skills/client";
 import { cn } from "@/lib/utils";

@@ -14,8 +14,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import type { ProjectNode } from "@/lib/db/schema";
-import { ancestorChain } from "@/components/projects/v2/files-tab/navigation";
-import { encodePath, splitEncoded } from "@/components/projects/v2/files-tab/url";
+import { ancestorChain } from "@/components/workspaces/v2/files-tab/navigation";
+import { encodePath, splitEncoded } from "@/components/workspaces/v2/files-tab/url";
 
 // ---------------------------------------------------------------------------
 // Test fixture builders

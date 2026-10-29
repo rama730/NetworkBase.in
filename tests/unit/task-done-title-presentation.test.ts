@@ -5,8 +5,8 @@ import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { TaskCard } from "../../src/components/projects/v2/tasks/TaskCard";
-import { getTaskTitlePresentation } from "../../src/lib/projects/task-presentation";
+import { TaskCard } from "../../src/components/workspaces/v2/tasks/TaskCard";
+import { getTaskTitlePresentation } from "../../src/lib/workspaces/task-presentation";
 
 test("the canonical title rule distinguishes completed work from pending review", () => {
   const done = getTaskTitlePresentation({ status: "done", title: "Ship it" });
@@ -55,14 +55,14 @@ test("task cards only strike approved or directly completed titles", () => {
 
 test("every task-oriented title surface consumes the shared Done presentation rule", () => {
   const consumers = [
-    "src/components/projects/v2/tasks/TaskCard.tsx",
-    "src/components/projects/tabs/sprint/SprintTimelineContent.tsx",
+    "src/components/workspaces/v2/tasks/TaskCard.tsx",
+    "src/components/workspaces/tabs/sprint/SprintTimelineContent.tsx",
     "src/components/layout/header/GlobalSearchResultCards.tsx",
-    "src/components/projects/v2/tasks/TaskDetailTabs/DetailsTab.tsx",
-    "src/components/projects/v2/files-tab/picker/TaskSearchPicker.tsx",
-    "src/components/projects/v2/files-tab/file/LinkedTasksPanel.tsx",
-    "src/components/projects/v2/files-tab/TaskLinkPopover.tsx",
-    "src/components/projects/doc/ProjectDocReferencePreview.tsx",
+    "src/components/workspaces/v2/tasks/TaskDetailTabs/DetailsTab.tsx",
+    "src/components/workspaces/v2/files-tab/picker/TaskSearchPicker.tsx",
+    "src/components/workspaces/v2/files-tab/file/LinkedTasksPanel.tsx",
+    "src/components/workspaces/v2/files-tab/TaskLinkPopover.tsx",
+    "src/components/workspaces/doc/WorkspaceDocReferencePreview.tsx",
   ];
 
   for (const consumer of consumers) {

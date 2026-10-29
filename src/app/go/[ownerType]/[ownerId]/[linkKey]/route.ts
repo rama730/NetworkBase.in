@@ -4,9 +4,9 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { enforceRouteLimit } from '@/app/api/v1/_shared';
 import { db } from '@/lib/db';
 import { githubSyncConnections, profiles, projects } from '@/lib/db/schema';
-import { getProjectAccessById } from '@/lib/data/project-access';
+import { getProjectAccessById } from '@/lib/data/workspace-access';
 import { normalizeSocialLinks } from '@/lib/profile/normalization';
-import { resolveProjectSocialLinks } from '@/lib/projects/social-links';
+import { resolveProjectSocialLinks } from '@/lib/workspaces/social-links';
 import { resolvePrivacyRelationship } from '@/lib/privacy/resolver';
 import { assertPublicNetworkUrl } from '@/lib/security/outbound-url';
 import { createClient } from '@/lib/supabase/server';
@@ -93,9 +93,9 @@ export async function GET(
         url = link?.url ?? null;
         linkPlatform = link?.serviceKey ?? link?.platform ?? linkPlatform;
         editHref = access.isOwner
-            ? `/projects/${encodeURIComponent(project?.slug || ownerId)}?tab=settings&settings=links`
+            ? `/workspaces/${encodeURIComponent(project?.slug || ownerId)}?tab=settings&settings=links`
             : access.memberRole === 'admin'
-                ? `/projects/${encodeURIComponent(project?.slug || ownerId)}?tab=settings&settings=links`
+                ? `/workspaces/${encodeURIComponent(project?.slug || ownerId)}?tab=settings&settings=links`
                 : null;
     } else {
         return blocked('This link is not available.', 404);

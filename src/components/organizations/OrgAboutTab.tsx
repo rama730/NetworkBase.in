@@ -5,8 +5,8 @@ import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 
 import { readOrgAboutAction } from '@/app/actions/org-dashboard'
-import JourneyTimeline from '@/components/projects/dashboard/JourneyTimeline'
-import ProjectOverviewCard from '@/components/projects/dashboard/ProjectOverviewCard'
+import JourneyTimeline from '@/components/workspaces/dashboard/JourneyTimeline'
+import ProjectOverviewCard from '@/components/workspaces/dashboard/WorkspaceOverviewCard'
 import { RailSection } from '@/components/ui/rail-section'
 import { messageUserInWindow } from '@/components/messages/message-user'
 import { toast } from '@/lib/feedback'
@@ -62,7 +62,7 @@ export function OrgAboutTab({ project, isCreator, onEdit, visitorActions }: { pr
                 {data?.projects.length ? (
                     <RailSection title="Workspaces" action={data.card.kind !== 'visitor' ? <Link href={`${base}?tab=projects`} className="text-[12px] underline underline-offset-4">See all</Link> : undefined}>
                         <p className="text-sm">
-                            {data.projects.map((p, i) => <span key={p.id}>{i ? ' · ' : ''}<Link href={`/projects/${encodeURIComponent(p.slug ?? p.id)}`} className="hover:underline">{p.title}</Link></span>)}
+                            {data.projects.map((p, i) => <span key={p.id}>{i ? ' · ' : ''}<Link href={`/workspaces/${encodeURIComponent(p.slug ?? p.id)}`} className="hover:underline">{p.title}</Link></span>)}
                         </p>
                     </RailSection>
                 ) : null}

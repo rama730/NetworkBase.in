@@ -2,27 +2,27 @@ import fs from "node:fs";
 import path from "node:path";
 
 const SPLIT_COMPONENTS: Record<string, string[]> = {
-  "src/components/projects/tabs/ProjectSettingsTab.tsx": [
-    "src/components/projects/settings/GeneralSettingsSection.tsx",
-    "src/components/projects/settings/ProjectSettingsNavigation.tsx",
-    "src/hooks/useProjectSettingsNavigation.ts",
-    "src/components/projects/settings/CollaboratorSearchField.tsx",
-    "src/components/projects/settings/SettingsFormFields.tsx",
-    "src/components/projects/settings/SettingsPolicyDetails.tsx",
-    "src/components/projects/settings/ProjectNotificationSettings.tsx",
-    "src/components/projects/settings/MemberNotificationSettingsEditor.tsx",
-    "src/components/projects/settings/FileAccessMembers.tsx",
-    "src/components/projects/settings/CollaboratorCard.tsx",
-    "src/components/projects/settings/LifecycleSettingsEditor.tsx",
-    "src/components/projects/settings/PublicTabVisibilityEditor.tsx",
+  "src/components/workspaces/tabs/WorkspaceSettingsTab.tsx": [
+    "src/components/workspaces/settings/GeneralSettingsSection.tsx",
+    "src/components/workspaces/settings/WorkspaceSettingsNavigation.tsx",
+    "src/hooks/useWorkspaceSettingsNavigation.ts",
+    "src/components/workspaces/settings/CollaboratorSearchField.tsx",
+    "src/components/workspaces/settings/SettingsFormFields.tsx",
+    "src/components/workspaces/settings/SettingsPolicyDetails.tsx",
+    "src/components/workspaces/settings/WorkspaceNotificationSettings.tsx",
+    "src/components/workspaces/settings/MemberNotificationSettingsEditor.tsx",
+    "src/components/workspaces/settings/FileAccessMembers.tsx",
+    "src/components/workspaces/settings/CollaboratorCard.tsx",
+    "src/components/workspaces/settings/LifecycleSettingsEditor.tsx",
+    "src/components/workspaces/settings/PublicTabVisibilityEditor.tsx",
   ],
-  "src/components/projects/tabs/UpdatesTab.tsx": [
-    "src/components/projects/updates/update-helpers.tsx",
-    "src/components/projects/updates/UpdateContent.tsx",
-    "src/components/projects/updates/UpdateComments.tsx",
-    "src/components/projects/updates/UpdateCard.tsx",
-    "src/components/projects/updates/UpdatesRightRail.tsx",
-    "src/components/projects/updates/UpdateDetailPanel.tsx",
+  "src/components/workspaces/tabs/UpdatesTab.tsx": [
+    "src/components/workspaces/updates/update-helpers.tsx",
+    "src/components/workspaces/updates/UpdateContent.tsx",
+    "src/components/workspaces/updates/UpdateComments.tsx",
+    "src/components/workspaces/updates/UpdateCard.tsx",
+    "src/components/workspaces/updates/UpdatesRightRail.tsx",
+    "src/components/workspaces/updates/UpdateDetailPanel.tsx",
   ],
 };
 

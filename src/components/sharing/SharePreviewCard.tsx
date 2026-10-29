@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ProjectShareContents } from './ProjectShareContents';
+import { ProjectShareContents } from './WorkspaceShareContents';
 import { UserAvatar } from '@/components/ui/UserAvatar';
 import { BrandMark } from '@/components/brand/BrandMark';
 import type { SharePreview } from '@/lib/sharing/presentation';

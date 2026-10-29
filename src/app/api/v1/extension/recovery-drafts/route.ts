@@ -16,7 +16,7 @@ import {
   projectNodes,
   storageAssets,
 } from "@/lib/db/schema";
-import { getProjectAccessById, getProjectAccessByIds } from "@/lib/data/project-access";
+import { getProjectAccessById, getProjectAccessByIds } from "@/lib/data/workspace-access";
 import {
   deleteExtensionRecoveryDraftRows,
   EXTENSION_RECOVERY_BUCKET,
@@ -29,7 +29,7 @@ import { recoveryIncidentReason } from "@/lib/extension/recovery-session-state";
 import { resolveRecoverySessionsWithoutDrafts } from "@/lib/extension/recovery-sessions";
 import { logger } from "@/lib/logger";
 import { streamPrivateObject } from "@/lib/storage/private-object-response";
-import { buildProjectFileKey, normalizeProjectFileRelativePath } from "@/lib/storage/project-file-key";
+import { buildProjectFileKey, normalizeProjectFileRelativePath } from "@/lib/storage/workspace-file-key";
 import { createAdminClient } from "@/lib/supabase/server";
 import { validateCsrf } from "@/lib/security/csrf";
 import { createUploadIntent, finalizeUploadIntent } from "@/lib/upload/upload-intents";

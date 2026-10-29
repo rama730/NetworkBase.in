@@ -9,7 +9,7 @@ import { readOrgRules } from "@/lib/organizations/settings";
 import { unlinkSprints } from "@/lib/organizations/sprints";
 import { releaseGroupCopies } from "@/lib/organizations/assignments";
 import { notifyOrg } from "@/lib/organizations/notify";
-import { isProjectPubliclyReadableVisibility } from "@/lib/projects/project-visibility";
+import { isProjectPubliclyReadableVisibility } from "@/lib/workspaces/workspace-visibility";
 
 type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -51,7 +51,7 @@ export async function applyChildVisibilityCap(orgId: string, executor: Executor 
     for (const child of lowered) {
       await notifyOrg({ orgId, eventKey: "org.child_notice", to: [child.ownerId, ...admins.map((a) => a.userId)],
         title: `${child.title} is now ${child.next === "private" ? "Private" : "Organization"} because ${orgRow?.title ?? "the organization"} changed its rules`,
-        href: `/projects/${encodeURIComponent(child.slug ?? child.id)}`, sourceEventId: `capped:${child.id}:${stamp}`, refs: { projectId: child.id } });
+        href: `/workspaces/${encodeURIComponent(child.slug ?? child.id)}`, sourceEventId: `capped:${child.id}:${stamp}`, refs: { projectId: child.id } });
     }
   }
   return lowered.length;

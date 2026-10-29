@@ -6,7 +6,7 @@ import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { build } from "esbuild";
-import { ComposerReferenceOptions } from "@/components/projects/updates/ComposerReferenceOptions";
+import { ComposerReferenceOptions } from "@/components/workspaces/updates/ComposerReferenceOptions";
 import {
   incomingContributionSummary,
   outgoingContributionSummary,
@@ -144,7 +144,7 @@ async function summary() {
     react: `const h=()=>globalThis.${key};export const useState=i=>h().useState(i),useRef=i=>h().useRef(i),useEffect=(f,d)=>h().useEffect(f,d);`,
     "@tiptap/react": `export function EditorContent(){return null;}export const useEditor=o=>{const h=globalThis.${key};h.configure(o);return h.editor;};`,
     "@/components/ui/button": `export function Button(){return null;}`,
-    "@/components/projects/updates/ComposerReferenceOptions": `export function ComposerReferenceOptions(){return null;}`,
+    "@/components/workspaces/updates/ComposerReferenceOptions": `export function ComposerReferenceOptions(){return null;}`,
   };
   const result = await build({
     entryPoints: ["src/components/profile/edit/ContributionSummaryEditor.tsx"],
@@ -286,7 +286,7 @@ test("reference serialization retains identities and shared options use the same
   assert.match(html, /lucide-user-round/);
   assert.match(html, /Ram/);
   for (const file of [
-    "src/components/projects/updates/ProjectUpdateComposer.tsx",
+    "src/components/workspaces/updates/WorkspaceUpdateComposer.tsx",
     "src/components/profile/edit/ContributionSummaryEditor.tsx",
   ]) {
     assert.match(readFileSync(file, "utf8"), /ComposerReferenceOptions/);

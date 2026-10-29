@@ -47,13 +47,13 @@ describe("My work drawer contracts", () => {
   it("opens My work tasks through the workspace panel without exposing drawer IDs", () => {
     const tasks = read("src/components/my-work/MyWorkTasksTab.tsx");
     const store = read("src/stores/ui-store.ts");
-    const dashboard = read("src/components/projects/dashboard/ProjectDashboardClient.tsx");
+    const dashboard = read("src/components/workspaces/dashboard/WorkspaceDashboardClient.tsx");
 
     assert.match(tasks, /createMyWorkTaskHandoff\(projectId, task\.id\)/);
     assert.match(tasks, /setMyWorkTaskHandoff\(handoff\)/);
     assert.match(tasks, /MY_WORK_TASK_HANDOFF_STORAGE_KEY/);
     assert.match(tasks, /setMyWorkOpen\(false\)/);
-    assert.match(tasks, /router\.push\(`\/projects\/\$\{projectIdentifier\}\?tab=tasks`\)/);
+    assert.match(tasks, /router\.push\(`\/workspaces\/\$\{projectIdentifier\}\?tab=tasks`\)/);
     assert.doesNotMatch(tasks, /drawerType=task&drawerId=/);
     assert.doesNotMatch(tasks, /router\.prefetch/);
     assert.match(store, /myWorkTaskHandoff/);
@@ -100,7 +100,7 @@ describe("My work drawer contracts", () => {
   });
 
   it("uses shared lifecycle rows with contextual request controls", () => {
-    const row = read("src/components/network/IncomingProjectApplicationRow.tsx");
+    const row = read("src/components/network/IncomingWorkspaceApplicationRow.tsx");
     const requests = read("src/components/my-work/MyWorkRequestsTab.tsx");
 
     assert.match(row, /Workspace invitation/);

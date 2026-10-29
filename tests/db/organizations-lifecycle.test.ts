@@ -23,7 +23,7 @@ delete process.env.UPSTASH_REDIS_REST_URL;
 delete process.env.UPSTASH_REDIS_REST_TOKEN;
 
 let lifecycle: typeof import("../../src/lib/organizations/lifecycle");
-let access: typeof import("../../src/lib/data/project-access");
+let access: typeof import("../../src/lib/data/workspace-access");
 let deletion: typeof import("../../src/lib/account/deletion");
 let hardDelete: typeof import("../../src/lib/account/hard-delete");
 let jobRequest: typeof import("../../src/lib/security/job-request");
@@ -36,7 +36,7 @@ before(async () => {
     getViewerAuthContext: async () => ({ supabase: null, snapshot: null, user: viewerId ? { id: viewerId } : null, userId: viewerId || null, emailVerified: true }),
   });
   lifecycle = await loadAppModule(() => import("../../src/lib/organizations/lifecycle"));
-  access = await loadAppModule(() => import("../../src/lib/data/project-access"));
+  access = await loadAppModule(() => import("../../src/lib/data/workspace-access"));
   deletion = await loadAppModule(() => import("../../src/lib/account/deletion"));
   hardDelete = await loadAppModule(() => import("../../src/lib/account/hard-delete"));
   jobRequest = await loadAppModule(() => import("../../src/lib/security/job-request"));

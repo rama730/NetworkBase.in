@@ -5,7 +5,7 @@ import { projectNodes } from "@/lib/db/schema";
 import { eq, and, } from "drizzle-orm";
 import { createClient } from "@/lib/supabase/server";
 import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
-import { parseProjectFileKey } from "@/lib/storage/project-file-key";
+import { parseProjectFileKey } from "@/lib/storage/workspace-file-key";
 import {
     assertProjectFileReadAccess,
     assertFileNodeVisible,
@@ -55,7 +55,7 @@ export async function getFilePreviewUrl(projectId: string, nodeId: string, downl
         }
 
         const query = download ? "?download=1" : "";
-        return { url: `/api/v1/projects/${projectId}/files/${nodeId}/preview${query}` };
+        return { url: `/api/v1/workspaces/${projectId}/files/${nodeId}/preview${query}` };
     });
 }
 

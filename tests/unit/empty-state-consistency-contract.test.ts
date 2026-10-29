@@ -26,8 +26,8 @@ test("Empty state architectural contract: Workspace surfaces", () => {
 });
 
 test("Empty state architectural contract: My profile surfaces", () => {
-    const projectsGrid = readFileSync(resolve(ROOT, "src/components/profile/v2/sections/ProjectsGridCard.tsx"), "utf-8");
-    const contributions = readFileSync(resolve(ROOT, "src/components/profile/v2/sections/ProjectContributionsCard.tsx"), "utf-8");
+    const projectsGrid = readFileSync(resolve(ROOT, "src/components/profile/v2/sections/WorkspacesGridCard.tsx"), "utf-8");
+    const contributions = readFileSync(resolve(ROOT, "src/components/profile/v2/sections/WorkspaceContributionsCard.tsx"), "utf-8");
     const connectionsModal = readFileSync(resolve(ROOT, "src/components/profile/v2/UserConnectionsModal.tsx"), "utf-8");
     const editProfileTabs = readFileSync(resolve(ROOT, "src/components/profile/edit/EditProfileTabs.tsx"), "utf-8");
 
@@ -38,17 +38,17 @@ test("Empty state architectural contract: My profile surfaces", () => {
 });
 
 test("Empty state architectural contract: Projects and Tasks surfaces", () => {
-    const docTab = readFileSync(resolve(ROOT, "src/components/projects/tabs/DocTab.tsx"), "utf-8");
-    const sprintPlanning = readFileSync(resolve(ROOT, "src/components/projects/tabs/SprintPlanning.tsx"), "utf-8");
-    const sprintTimeline = readFileSync(resolve(ROOT, "src/components/projects/tabs/sprint/SprintTimelineContent.tsx"), "utf-8");
-    const updatesTab = componentSource("src/components/projects/tabs/UpdatesTab.tsx");
-    const subtasksTab = readFileSync(resolve(ROOT, "src/components/projects/v2/tasks/TaskDetailTabs/SubtasksTab.tsx"), "utf-8");
-    const commentsTab = readFileSync(resolve(ROOT, "src/components/projects/v2/tasks/TaskDetailTabs/CommentsTab.tsx"), "utf-8");
-    const explorerTree = readFileSync(resolve(ROOT, "src/components/projects/v2/explorer/ExplorerTree.tsx"), "utf-8");
-    const fileTreeItem = readFileSync(resolve(ROOT, "src/components/projects/v2/explorer/FileTreeItem.tsx"), "utf-8");
-    const versionHistory = readFileSync(resolve(ROOT, "src/components/projects/v2/files-tab/file/FileVersionHistoryPanel.tsx"), "utf-8");
-    const taskFilesExplorer = readFileSync(resolve(ROOT, "src/components/projects/v2/tasks/components/TaskFilesExplorer.tsx"), "utf-8");
-    const taskSearchPicker = readFileSync(resolve(ROOT, "src/components/projects/v2/files-tab/picker/TaskSearchPicker.tsx"), "utf-8");
+    const docTab = readFileSync(resolve(ROOT, "src/components/workspaces/tabs/DocTab.tsx"), "utf-8");
+    const sprintPlanning = readFileSync(resolve(ROOT, "src/components/workspaces/tabs/SprintPlanning.tsx"), "utf-8");
+    const sprintTimeline = readFileSync(resolve(ROOT, "src/components/workspaces/tabs/sprint/SprintTimelineContent.tsx"), "utf-8");
+    const updatesTab = componentSource("src/components/workspaces/tabs/UpdatesTab.tsx");
+    const subtasksTab = readFileSync(resolve(ROOT, "src/components/workspaces/v2/tasks/TaskDetailTabs/SubtasksTab.tsx"), "utf-8");
+    const commentsTab = readFileSync(resolve(ROOT, "src/components/workspaces/v2/tasks/TaskDetailTabs/CommentsTab.tsx"), "utf-8");
+    const explorerTree = readFileSync(resolve(ROOT, "src/components/workspaces/v2/explorer/ExplorerTree.tsx"), "utf-8");
+    const fileTreeItem = readFileSync(resolve(ROOT, "src/components/workspaces/v2/explorer/FileTreeItem.tsx"), "utf-8");
+    const versionHistory = readFileSync(resolve(ROOT, "src/components/workspaces/v2/files-tab/file/FileVersionHistoryPanel.tsx"), "utf-8");
+    const taskFilesExplorer = readFileSync(resolve(ROOT, "src/components/workspaces/v2/tasks/components/TaskFilesExplorer.tsx"), "utf-8");
+    const taskSearchPicker = readFileSync(resolve(ROOT, "src/components/workspaces/v2/files-tab/picker/TaskSearchPicker.tsx"), "utf-8");
 
     assert.match(docTab, /className=["'][^"']*nb-empty-state nb-grid-ground/);
     assert.match(sprintPlanning, /className=["'][^"']*nb-empty-state nb-grid-ground/);

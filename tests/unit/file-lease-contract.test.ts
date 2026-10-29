@@ -29,9 +29,9 @@ test("canonical service performs atomic session-scoped acquisition and fenced wr
 });
 
 test("browser edit mode waits for a lease and preserves a dirty buffer after lease loss", () => {
-  const view = read("src/components/projects/v2/files-tab/file/FileView.tsx");
-  const editor = read("src/components/projects/v2/files-tab/file/TextViewer.tsx");
-  const hook = read("src/components/projects/v2/files-tab/hooks/useFileLease.ts");
+  const view = read("src/components/workspaces/v2/files-tab/file/FileView.tsx");
+  const editor = read("src/components/workspaces/v2/files-tab/file/TextViewer.tsx");
+  const hook = read("src/components/workspaces/v2/files-tab/hooks/useFileLease.ts");
   assert.match(view, /fileLease\.acquire\(\)[\s\S]*setMode\("edit"\)/);
   assert.match(editor, /leaseStatus === "lost"/);
   assert.match(editor, /unsaved buffer is preserved/);
@@ -41,8 +41,8 @@ test("browser edit mode waits for a lease and preserves a dirty buffer after lea
 });
 
 test("project realtime subscription reconciles canonical lease snapshots", () => {
-  const channel = read("src/lib/realtime/project-files-channel.ts");
-  const rootView = read("src/components/projects/v2/files-tab/FilesTabRoot.tsx");
+  const channel = read("src/lib/realtime/workspace-files-channel.ts");
+  const rootView = read("src/components/workspaces/v2/files-tab/FilesTabRoot.tsx");
   const store = read("src/stores/files/editorSlice.ts");
   assert.match(channel, /table: 'project_node_locks'/);
   assert.match(channel, /filter: `project_id=eq\.\$\{projectId\}`/);
@@ -74,7 +74,7 @@ test("the current extension uses single-flight activation sessions and lease cre
 
 test("background writers defer instead of overwriting active editors", () => {
   const gitSync = read("src/inngest/functions/git-sync.ts");
-  const sandboxMerge = read("src/lib/projects/merge-sandbox.ts");
+  const sandboxMerge = read("src/lib/workspaces/merge-sandbox.ts");
   assert.match(gitSync, /Repository sync waits because a member is editing a file/);
   assert.match(sandboxMerge, /The task waits because a member is editing one of its files/);
   assert.doesNotMatch(sandboxMerge, /DELETE FROM project_node_locks/);

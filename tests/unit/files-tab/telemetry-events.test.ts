@@ -19,27 +19,27 @@ import path from "node:path";
 const ROOT = path.resolve(__dirname, "../../../src");
 
 const V3_ATTACHMENT_PICKER_SRC = readFileSync(
-  path.join(ROOT, "components/projects/v2/files-tab/picker/V3AttachmentPicker.tsx"),
+  path.join(ROOT, "components/workspaces/v2/files-tab/picker/V3AttachmentPicker.tsx"),
   "utf-8",
 );
 
 const TASK_LINK_CHIP_SRC = readFileSync(
-  path.join(ROOT, "components/projects/v2/files-tab/TaskLinkChip.tsx"),
+  path.join(ROOT, "components/workspaces/v2/files-tab/TaskLinkChip.tsx"),
   "utf-8",
 );
 
 const FILE_ACTIONS_BAR_SRC = readFileSync(
-  path.join(ROOT, "components/projects/v2/files-tab/file/FileActionsBar.tsx"),
+  path.join(ROOT, "components/workspaces/v2/files-tab/file/FileActionsBar.tsx"),
   "utf-8",
 );
 
 const FILE_VERSION_HISTORY_PANEL_SRC = readFileSync(
-  path.join(ROOT, "components/projects/v2/files-tab/file/FileVersionHistoryPanel.tsx"),
+  path.join(ROOT, "components/workspaces/v2/files-tab/file/FileVersionHistoryPanel.tsx"),
   "utf-8",
 );
 
 const TASK_DETAIL_PANEL_SRC = readFileSync(
-  path.join(ROOT, "components/projects/v2/tasks/TaskDetailPanel.tsx"),
+  path.join(ROOT, "components/workspaces/v2/tasks/TaskDetailPanel.tsx"),
   "utf-8",
 );
 

@@ -9,7 +9,7 @@ import { useCreateLocation } from '@/components/organizations/CreateLocation'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import type { CreateProjectInput } from '@/lib/validations/project'
+import type { CreateProjectInput } from '@/lib/validations/workspace'
 
 // The child project team in the create wizard (report §14.4): units are the role boxes, filled with people
 // from the org roster. Admins add people directly; members invite them. People outside the org are always invited.

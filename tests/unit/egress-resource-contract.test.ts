@@ -10,15 +10,15 @@ test("stable project media routes use the shared conditional streaming owner", (
   assert.match(helper, /ETag/);
   assert.match(helper, /private, no-store/);
   for (const path of [
-    "src/app/api/v1/projects/[id]/image/route.ts",
-    "src/app/api/v1/projects/[id]/update-media/route.ts",
+    "src/app/api/v1/workspaces/[id]/image/route.ts",
+    "src/app/api/v1/workspaces/[id]/update-media/route.ts",
   ]) {
     const source = read(path);
     assert.match(source, /streamPrivateObject/);
     assert.match(source, /etag(?:,|:)/);
   }
-  assert.match(read("src/app/api/v1/projects/[id]/image/route.ts"), /private, no-store/);
-  assert.match(read("src/app/api/v1/projects/[id]/update-media/route.ts"), /private, no-store/);
+  assert.match(read("src/app/api/v1/workspaces/[id]/image/route.ts"), /private, no-store/);
+  assert.match(read("src/app/api/v1/workspaces/[id]/update-media/route.ts"), /private, no-store/);
 });
 
 test("app chrome renders before the legal gate and profile pages reuse server reads", () => {
@@ -46,8 +46,8 @@ test("avatar and onboarding writes use the shared optimized lifecycle", () => {
 
 test("visibility-mutable project media stays inside the revocation cache budget", () => {
   for (const path of [
-    "src/app/api/v1/projects/[id]/image/route.ts",
-    "src/app/api/v1/projects/[id]/update-media/route.ts",
+    "src/app/api/v1/workspaces/[id]/image/route.ts",
+    "src/app/api/v1/workspaces/[id]/update-media/route.ts",
   ]) {
     const source = read(path);
     assert.match(source, /max-age=300, s-maxage=300, must-revalidate/);
@@ -79,7 +79,7 @@ test("PDF preview reuses the stable attachment route instead of cloning a full b
 });
 
 test("project PDF preview streams the authorized route without cloning a browser blob", () => {
-  const preview = read("src/components/projects/v2/preview/AssetPreview.tsx");
+  const preview = read("src/components/workspaces/v2/preview/AssetPreview.tsx");
   assert.match(preview, /src=\{previewUrl\}/);
   assert.doesNotMatch(preview, /response\.blob\(\)|URL\.createObjectURL\(new Blob/);
 });

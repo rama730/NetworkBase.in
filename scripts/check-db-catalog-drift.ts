@@ -7,7 +7,7 @@ import {
   PROJECT_UPDATE_ALLOWED_IMAGE_MIME_TYPES,
   PROJECT_UPDATE_MEDIA_BUCKET,
   PROJECT_UPDATE_SCHEMA_CONTRACT,
-} from "../src/lib/projects/updates";
+} from "../src/lib/workspaces/updates";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: join(__dirname, "..", ".env.local") });

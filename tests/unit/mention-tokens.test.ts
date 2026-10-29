@@ -16,7 +16,7 @@ import {
   parseMentions,
   sanitizeMentionDisplayName,
   type MentionSegment,
-} from "@/lib/projects/mention-tokens";
+} from "@/lib/workspaces/mention-tokens";
 
 const USER_A = "11111111-1111-4111-8111-111111111111";
 const USER_B = "22222222-2222-4222-8222-222222222222";

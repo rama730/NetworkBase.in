@@ -20,7 +20,7 @@ import path from "node:path";
 
 const SRC_PATH = path.resolve(
   __dirname,
-  "../../../src/components/projects/v2/files-tab/TaskLinkChip.tsx",
+  "../../../src/components/workspaces/v2/files-tab/TaskLinkChip.tsx",
 );
 const SRC = readFileSync(SRC_PATH, "utf8");
 

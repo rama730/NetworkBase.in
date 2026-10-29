@@ -10,8 +10,8 @@ import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FILTER_VIEWS, PROJECT_STATUS, PROJECT_TYPE, SORT_OPTIONS, type FilterView, type SortOption } from '@/constants/discover';
 import { DISCOVER_SORTS, type DiscoverQuery } from '@/lib/discover/query';
-import { projectStageLabel } from '@/lib/projects/status-presentation';
-import { PROJECT_TYPE_OPTIONS } from '@/lib/projects/project-create-options';
+import { projectStageLabel } from '@/lib/workspaces/status-presentation';
+import { PROJECT_TYPE_OPTIONS } from '@/lib/workspaces/workspace-create-options';
 import { resolveClientSkill } from '@/lib/skills/client';
 
 const SCOPES: Array<{ id: FilterView; label: string; subtitle: string }> = [

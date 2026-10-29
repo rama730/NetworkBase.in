@@ -4,8 +4,8 @@ import { describe, it } from "node:test";
 import {
   patchTaskQueryData,
   removeTaskFromQueryData,
-} from "@/lib/projects/task-cache";
-import type { TaskSurfaceRecord } from "@/lib/projects/task-presentation";
+} from "@/lib/workspaces/task-cache";
+import type { TaskSurfaceRecord } from "@/lib/workspaces/task-presentation";
 
 function buildTask(
   overrides: Partial<TaskSurfaceRecord> = {},

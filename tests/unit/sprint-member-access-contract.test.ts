@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { projectActionsSource } from "./_project-actions-source";
+import { projectActionsSource } from "./_workspace-actions-source";
 
 const projectActionsText = projectActionsSource();
 const projectActionsBarrelSource = projectActionsSource();
 const sprintDataHookSource = fs.readFileSync(
-  path.join(process.cwd(), "src/hooks/projects/useProjectTasksData.ts"),
+  path.join(process.cwd(), "src/hooks/workspaces/useWorkspaceTasksData.ts"),
   "utf8",
 );
 

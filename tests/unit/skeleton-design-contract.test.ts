@@ -30,8 +30,8 @@ test("Skeleton architectural contract: Canonical route loading shells exist", ()
         "src/app/(site)/(main)/discover/loading.tsx",
         "src/app/(site)/(main)/network/loading.tsx",
         "src/app/(site)/(main)/network/loading.tsx",
-        "src/app/(site)/(main)/projects/[slug]/loading.tsx",
-        "src/app/(site)/(main)/projects/new/loading.tsx",
+        "src/app/(site)/(main)/workspaces/[slug]/loading.tsx",
+        "src/app/(site)/(main)/workspaces/new/loading.tsx",
         "src/app/(site)/(main)/u/[username]/loading.tsx",
         "src/app/(site)/(main)/my-profile/loading.tsx",
         "src/app/(site)/(main)/my-profile/loading.tsx",
@@ -69,8 +69,8 @@ test("Skeleton architectural contract: People and Network measured card skeleton
 });
 
 test("Skeleton architectural contract: Task Drawer subtasks and files measured skeletons", () => {
-    const subtasksTab = readFileSync(resolve(ROOT, "src/components/projects/v2/tasks/TaskDetailTabs/SubtasksTab.tsx"), "utf-8");
-    const filesTab = readFileSync(resolve(ROOT, "src/components/projects/v2/tasks/TaskDetailTabs/FilesTab.tsx"), "utf-8");
+    const subtasksTab = readFileSync(resolve(ROOT, "src/components/workspaces/v2/tasks/TaskDetailTabs/SubtasksTab.tsx"), "utf-8");
+    const filesTab = readFileSync(resolve(ROOT, "src/components/workspaces/v2/tasks/TaskDetailTabs/FilesTab.tsx"), "utf-8");
 
     // SubtasksTab must render measured Skeleton rows when loading
     assert.doesNotMatch(subtasksTab, /<Loader2 className="size-5 animate-spin text-muted-foreground" \/>/);
@@ -83,11 +83,11 @@ test("Skeleton architectural contract: Task Drawer subtasks and files measured s
 });
 
 test("Skeleton architectural contract: Project Tab Skeletons modularization", () => {
-    const projectTabs = readFileSync(resolve(ROOT, "src/components/projects/dashboard/ProjectTabsRegistry.tsx"), "utf-8");
-    const updatesSkeleton = resolve(ROOT, "src/components/projects/skeletons/SkeletonUpdates.tsx");
+    const projectTabs = readFileSync(resolve(ROOT, "src/components/workspaces/dashboard/WorkspaceTabsRegistry.tsx"), "utf-8");
+    const updatesSkeleton = resolve(ROOT, "src/components/workspaces/skeletons/SkeletonUpdates.tsx");
 
     assert.ok(existsSync(updatesSkeleton), "SkeletonUpdates.tsx must exist in skeletons directory");
-    assert.match(projectTabs, /import \{ SkeletonUpdates \} from "@\/components\/projects\/skeletons\/SkeletonUpdates";/);
+    assert.match(projectTabs, /import \{ SkeletonUpdates \} from "@\/components\/workspaces\/skeletons\/SkeletonUpdates";/);
 });
 
 test("Skeleton architectural contract: Settings loading CSS purge hygiene", () => {

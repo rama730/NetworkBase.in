@@ -10,7 +10,7 @@ import {
     removeSprintMaterialAction,
     searchSprintMaterialCandidatesAction,
     startSprintNowAction,
-} from '@/app/actions/project'
+} from '@/app/actions/workspace'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -63,7 +63,7 @@ export function LinkedProjectsBlock({ org }: { org: SprintOrgContext }) {
             <ul className="mt-2 space-y-1 text-sm">
                 {org.linkedProjects.map((row) => (
                     <li key={row.sprintId}>
-                        <Link href={`/projects/${row.slug ?? row.projectId}?tab=sprints&sprintId=${row.sprintId}`} className="hover:underline">
+                        <Link href={`/workspaces/${row.slug ?? row.projectId}?tab=sprints&sprintId=${row.sprintId}`} className="hover:underline">
                             {row.title} · {row.sprintName}
                         </Link>
                         <span className="text-muted-foreground"> · {row.status === 'planning' ? 'planned' : row.status}</span>
@@ -94,7 +94,7 @@ export function SprintMaterials({ projectId, sprintId, projectSlug, materials, c
                 <span key={m.id} className="inline-flex items-center gap-1 rounded-full border border-border bg-card py-0.5 pl-2.5 pr-1 text-sm">
                     <FileText className="size-3.5 text-muted-foreground" aria-hidden="true" />
                     <Link
-                        href={m.kind === 'doc' ? `/projects/${projectSlug}?tab=docs&doc=${m.docSlug}` : `/projects/${projectSlug}?tab=files&fileId=${m.nodeId}`}
+                        href={m.kind === 'doc' ? `/workspaces/${projectSlug}?tab=docs&doc=${m.docSlug}` : `/workspaces/${projectSlug}?tab=files&fileId=${m.nodeId}`}
                         className="hover:underline"
                     >{m.title}</Link>
                     {canManage ? (

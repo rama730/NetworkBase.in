@@ -19,7 +19,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { DocGroup } from '@/lib/organizations/doc-rules'
-import { buildProjectFileKey } from '@/lib/storage/project-file-key'
+import { buildProjectFileKey } from '@/lib/storage/workspace-file-key'
 import { uploadToSupabaseSignedUrl } from '@/lib/upload/supabase-signed-upload-client'
 import { cn } from '@/lib/utils'
 
@@ -72,7 +72,7 @@ export async function createDocFile(projectId: string, filename: string, content
     const folder = await ensureDocsFolderAction(projectId)
     if (!folder.success) throw new Error(folder.error)
     const node = await uploadProjectFile(projectId, folder.folderId, filename, new Blob([content], { type: 'text/plain' }))
-    const { linkProjectDocAction } = await import('@/app/actions/project/doc')
+    const { linkProjectDocAction } = await import('@/app/actions/workspace/doc')
     const linked = await linkProjectDocAction(projectId, node.id)
     if (!linked.success) throw new Error(linked.error)
     return { node, slug: linked.slug, id: linked.id }

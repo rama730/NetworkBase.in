@@ -46,8 +46,8 @@ export async function GET(request: NextRequest) {
 
   const marketplaceUri = buildIdeMarketplaceUri(ide);
   const browserFallbackUrl = taskId
-    ? `/projects/${encodeURIComponent(slug)}?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(taskId)}`
-    : `/projects/${encodeURIComponent(slug)}`;
+    ? `/workspaces/${encodeURIComponent(slug)}?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(taskId)}`
+    : `/workspaces/${encodeURIComponent(slug)}`;
 
   const safeLaunchUri = escapeHtml(launchUri);
   const safeBrowserFallback = escapeHtml(browserFallbackUrl);

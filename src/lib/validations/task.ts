@@ -3,7 +3,7 @@ import { z } from "zod";
 import {
   TASK_PRIORITY_VALUES,
   TASK_WORKFLOW_STATUSES,
-} from "@/lib/projects/task-workflow";
+} from "@/lib/workspaces/task-workflow";
 
 export const taskStatusEnum = z.enum(TASK_WORKFLOW_STATUSES);
 export const taskPriorityEnum = z.enum(TASK_PRIORITY_VALUES);

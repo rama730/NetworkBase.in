@@ -2,29 +2,29 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { projectActionsSource } from "./_project-actions-source";
+import { projectActionsSource } from "./_workspace-actions-source";
 
 function readSource(relativePath: string) {
   return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
 const sprintPlanningSource = readSource(
-  "src/components/projects/tabs/SprintPlanning.tsx",
+  "src/components/workspaces/tabs/SprintPlanning.tsx",
 );
 const sprintHeaderSource = readSource(
-  "src/components/projects/tabs/sprint/SprintHeader.tsx",
+  "src/components/workspaces/tabs/sprint/SprintHeader.tsx",
 );
 const sprintLeftRailSource = readSource(
-  "src/components/projects/tabs/sprint/SprintLeftRail.tsx",
+  "src/components/workspaces/tabs/sprint/SprintLeftRail.tsx",
 );
 const sprintTimelineSource = readSource(
-  "src/components/projects/tabs/sprint/SprintTimelineContent.tsx",
+  "src/components/workspaces/tabs/sprint/SprintTimelineContent.tsx",
 );
 const sprintLifecycleModalsSource = readSource(
-  "src/components/projects/tabs/sprint/SprintLifecycleModals.tsx",
+  "src/components/workspaces/tabs/sprint/SprintLifecycleModals.tsx",
 );
 const sprintEditorSource = readSource(
-  "src/components/projects/v2/sprints/CreateSprintModal.tsx",
+  "src/components/workspaces/v2/sprints/CreateSprintModal.tsx",
 );
 const sprintActionsSource = projectActionsSource();
 
@@ -106,7 +106,7 @@ describe("sprint tab target architecture contract", () => {
       fs.existsSync(
         path.join(
           process.cwd(),
-          "src/components/projects/tabs/sprint/SprintDetailDrawer.tsx",
+          "src/components/workspaces/tabs/sprint/SprintDetailDrawer.tsx",
         ),
       ),
       false,

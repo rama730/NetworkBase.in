@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, type QueryClient } from "@tanstack/react-query";
-import { getTaskCompletionPolicyAction } from "@/app/actions/project/task-completion";
+import { getTaskCompletionPolicyAction } from "@/app/actions/workspace/task-completion";
 
 export const taskCompletionPolicyKey = (projectId: string) =>
   ["project", projectId, "task-completion-policy"] as const;

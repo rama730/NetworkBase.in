@@ -27,7 +27,7 @@ function item(overrides: Partial<NotificationItem> & Pick<NotificationItem, "id"
     importance: "important",
     title: "Assigned",
     body: null,
-    href: "/projects/p?tab=tasks",
+    href: "/workspaces/p?tab=tasks",
     entityRefs: { projectId: "project-1", taskId: "task-1" },
     preview: null,
     reason: "assigned",
@@ -102,7 +102,7 @@ test("notificationMatchesMuteScope matches the narrow app scopes", () => {
 });
 
 test("buildNotificationHref only accepts in-app destinations", () => {
-  assert.equal(buildNotificationHref(item({ id: "ok", updatedAt: "2026-04-21T08:00:00.000Z", href: "/projects/p" })), "/projects/p");
+  assert.equal(buildNotificationHref(item({ id: "ok", updatedAt: "2026-04-21T08:00:00.000Z", href: "/workspaces/p" })), "/workspaces/p");
   assert.equal(buildNotificationHref(item({ id: "external", updatedAt: "2026-04-21T08:00:00.000Z", href: "https://example.com" })), null);
   assert.equal(buildNotificationHref(item({ id: "protocol", updatedAt: "2026-04-21T08:00:00.000Z", href: "//example.com" })), null);
   assert.equal(buildNotificationHref(item({ id: "missing", updatedAt: "2026-04-21T08:00:00.000Z", href: null })), null);
@@ -197,7 +197,7 @@ test("shouldSuppressNotificationToast suppresses active destinations", () => {
       updatedAt: "2026-04-21T08:00:00.000Z",
       entityRefs: { taskId: "task-1" },
     }),
-    pathname: "/projects/network",
+    pathname: "/workspaces/network",
     search: "?drawerId=task-1&panelTab=comments",
     trayOpen: false,
   }), true);
@@ -208,9 +208,9 @@ test("shouldSuppressNotificationToast suppresses active destinations", () => {
       kind: "task_status_attention",
       reason: "update",
       updatedAt: "2026-04-21T08:00:00.000Z",
-      href: "/projects/network?drawerId=task-1",
+      href: "/workspaces/network?drawerId=task-1",
     }),
-    pathname: "/projects/network",
+    pathname: "/workspaces/network",
     search: "drawerId=task-1",
     trayOpen: false,
   }), true);

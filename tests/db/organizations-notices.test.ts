@@ -21,11 +21,11 @@ process.env.RESEND_EMAIL_ENABLED = "true";
 let digests: typeof import("../../src/lib/organizations/org-digests");
 let needsYou: typeof import("../../src/lib/organizations/needs-you");
 let sprintNotify: typeof import("../../src/lib/organizations/sprint-notify");
-let schedule: typeof import("../../src/lib/projects/sprint-schedule");
+let schedule: typeof import("../../src/lib/workspaces/sprint-schedule");
 let orgs: typeof import("../../src/app/actions/organizations");
 let children: typeof import("../../src/lib/organizations/children");
 let succession: typeof import("../../src/lib/organizations/succession");
-let events: typeof import("../../src/lib/notifications/project-events");
+let events: typeof import("../../src/lib/notifications/workspace-events");
 let appDb: typeof import("../../src/lib/db");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
@@ -36,11 +36,11 @@ before(async () => {
   digests = await loadAppModule(() => import("../../src/lib/organizations/org-digests"));
   needsYou = await loadAppModule(() => import("../../src/lib/organizations/needs-you"));
   sprintNotify = await loadAppModule(() => import("../../src/lib/organizations/sprint-notify"));
-  schedule = await loadAppModule(() => import("../../src/lib/projects/sprint-schedule"));
+  schedule = await loadAppModule(() => import("../../src/lib/workspaces/sprint-schedule"));
   orgs = await loadAppModule(() => import("../../src/app/actions/organizations"));
   children = await loadAppModule(() => import("../../src/lib/organizations/children"));
   succession = await loadAppModule(() => import("../../src/lib/organizations/succession"));
-  events = await loadAppModule(() => import("../../src/lib/notifications/project-events"));
+  events = await loadAppModule(() => import("../../src/lib/notifications/workspace-events"));
   appDb = await loadAppModule(() => import("../../src/lib/db"));
 });
 

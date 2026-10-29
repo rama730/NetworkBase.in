@@ -7,7 +7,7 @@ import { attachPageMonitoring } from "./_helpers/monitoring";
 test.describe("Chat launcher (report 7.13)", () => {
   test.skip(!chatV3Ready, chatV3SkipReason);
 
-  test("absent below 768px and on /messages and /projects/new", async ({ page }) => {
+  test("absent below 768px and on /messages and /workspaces/new", async ({ page }) => {
     await login(page);
     await page.setViewportSize({ width: 767, height: 800 });
     await page.goto("/discover");
@@ -16,7 +16,7 @@ test.describe("Chat launcher (report 7.13)", () => {
     await expect(page.getByTestId("chat-launcher")).toBeVisible();
     await page.goto("/messages");
     await expect(page.getByTestId("chat-launcher")).toHaveCount(0);
-    await page.goto("/projects/new");
+    await page.goto("/workspaces/new");
     await expect(page.getByTestId("chat-launcher")).toHaveCount(0);
   });
 

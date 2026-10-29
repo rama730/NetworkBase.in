@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 
 import { getJoinPreviewAction } from '@/app/actions/organizations'
 import { JoinOrgButton } from '@/components/organizations/JoinOrgButton'
-import { ProjectAvatar } from '@/components/projects/ProjectAvatar'
+import { ProjectAvatar } from '@/components/workspaces/WorkspaceAvatar'
 import { AUTH_LINK, AuthShell } from '@/components/auth/AuthShell'
 import { Button } from '@/components/ui/button'
 import { buildAuthPageHref } from '@/lib/auth/redirects'
@@ -41,7 +41,7 @@ export default async function JoinOrganizationPage({ params }: { params: Promise
     const facts = [preview.orgType, preview.memberCount !== null ? `${preview.memberCount} ${preview.memberCount === 1 ? 'member' : 'members'}` : null]
         .filter(Boolean)
         .join(' · ')
-    const orgHref = `/projects/${preview.slug ?? ''}`
+    const orgHref = `/workspaces/${preview.slug ?? ''}`
 
     return (
         <AuthShell title={preview.title} description="You’ve been invited to join this organization." panel={JOIN_PANEL}>

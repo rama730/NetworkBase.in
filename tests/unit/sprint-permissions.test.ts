@@ -6,7 +6,7 @@ import {
   buildSprintPermissionSet,
   isSprintReadyToClose,
   type SprintListItem,
-} from "@/lib/projects/sprint-detail";
+} from "@/lib/workspaces/sprint-detail";
 
 describe("sprint permissions and summary", () => {
   it("keeps every Sprint mutation aligned with the owner-or-admin policy", () => {

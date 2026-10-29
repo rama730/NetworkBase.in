@@ -119,7 +119,7 @@ test("badge sizes per place follow the approved table", () => {
   assert.match(read("src/components/network/PersonPresenceDot.tsx"), /size=\{compact \? 16 : 20\} statusSize=\{20\}/);
   assert.match(read("src/components/layout/header/TopNav.tsx"), /<PersonPresenceBadge userId=\{user\?\.id\} live size=\{16\} statusSize=\{20\}/);
   assert.match(read("src/components/profile/v2/ProfileHeader.tsx"), /live=\{isOwner \|\| undefined\} size=\{30\}/);
-  const project = read("src/components/projects/ProjectAvatar.tsx");
+  const project = read("src/components/workspaces/WorkspaceAvatar.tsx");
   assert.match(project, /standalone \? 14 : compact \? 18 : 30/);
   assert.match(project, /Math\.round\(size \* 0\.2\)/);
   assert.match(project, /statusSize=\{standalone \? undefined : 20\}/);

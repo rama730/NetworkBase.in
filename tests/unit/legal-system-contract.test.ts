@@ -95,12 +95,12 @@ test("settings and project detail expose contextual legal controls", () => {
   const settingsDocument = read("src/components/settings/SettingsDocument.tsx");
   assert.match(settingsDocument, /LegalAndDataRightsSection/);
   assert.ok(settingsDocument.indexOf('id="settings-privacy-policies"') > settingsDocument.indexOf('id="settings-integrations"'));
-  const layout = read("src/components/projects/dashboard/ProjectLayout.tsx");
+  const layout = read("src/components/workspaces/dashboard/WorkspaceLayout.tsx");
   assert.doesNotMatch(layout, /id: "privacy", label: "Privacy & terms"/);
-  const settings = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
+  const settings = componentSource("src/components/workspaces/tabs/WorkspaceSettingsTab.tsx");
   assert.match(settings, /"privacy-policies": Scale/);
   assert.match(settings, /LegalAndDataRightsSection/);
-  const policies = read("src/lib/projects/settings-policies.ts");
+  const policies = read("src/lib/workspaces/settings-policies.ts");
   assert.ok(policies.indexOf('"privacy-policies"') > policies.indexOf('"notifications"'));
   assert.ok(policies.indexOf('"danger"') > policies.indexOf('"privacy-policies"'));
 });

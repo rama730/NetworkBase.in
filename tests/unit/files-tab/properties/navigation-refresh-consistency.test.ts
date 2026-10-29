@@ -49,11 +49,11 @@ import {
   evaluateDeepLinkPath,
   planUrlSync,
   splitEncoded,
-} from "@/components/projects/v2/files-tab/url";
+} from "@/components/workspaces/v2/files-tab/url";
 import {
   resolveDeepLinkFromSearch,
   type ResolveDeepLinkDeps,
-} from "@/components/projects/v2/files-tab/hooks/useDeepLinkResolver";
+} from "@/components/workspaces/v2/files-tab/hooks/useDeepLinkResolver";
 
 // ─── Generated-tree fixture types ────────────────────────────────────
 
@@ -300,7 +300,7 @@ describe("Property 4 — navigation_refresh_consistency", () => {
           //    so the resulting URL reflects only the Files tab's own
           //    contribution.
           const plan = planUrlSync({
-            pathname: `/projects/${projectId}`,
+            pathname: `/workspaces/${projectId}`,
             search: "",
             hash: "",
             encodedPath: encoded,

@@ -13,7 +13,7 @@
 //                        scheduled for deletion in Task 13. Going away
 //                        together is fine.
 //   - `allowed-legacy` — the reference lives under
-//                        `src/components/projects/v2/workspace/` (the old
+//                        `src/components/workspaces/v2/workspace/` (the old
 //                        `WorkspaceShell` branch). That subtree still runs
 //                        when `filesTabV3Enabled` is off, so references are
 //                        expected to remain until Task 13.4 runs.
@@ -62,7 +62,7 @@ const ARTIFACTS_DIR = path.join(REPO_ROOT, "artifacts");
 const REPORT_PATH = path.join(ARTIFACTS_DIR, "files-tab-removal-audit.json");
 
 // Legacy subtree: references here are expected and allowed until Task 13.4.
-const LEGACY_PREFIX = "src/components/projects/v2/workspace/";
+const LEGACY_PREFIX = "src/components/workspaces/v2/workspace/";
 
 const LEGACY_SATELLITES = new Set<string>();
 

@@ -1,8 +1,8 @@
 'use client';
 
 import { useMutation, useQueryClient, type QueryKey } from '@tanstack/react-query';
-import { toggleProjectUpdateLikeAction } from '@/app/actions/project/updates';
-import { updatePages } from '@/components/projects/updates/update-helpers';
+import { toggleProjectUpdateLikeAction } from '@/app/actions/workspace/updates';
+import { updatePages } from '@/components/workspaces/updates/update-helpers';
 import { feedbackError, toast } from '@/lib/feedback';
 import { queryKeys } from '@/lib/query-keys';
 

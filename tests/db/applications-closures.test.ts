@@ -12,10 +12,10 @@ moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: 
 stubNextAfter();
 
 let apps: typeof import("../../src/app/actions/applications");
-let lifecycle: typeof import("../../src/lib/projects/server/lifecycle");
+let lifecycle: typeof import("../../src/lib/workspaces/server/lifecycle");
 before(async () => {
   apps = await loadAppModule(() => import("../../src/app/actions/applications"));
-  lifecycle = await loadAppModule(() => import("../../src/lib/projects/server/lifecycle"));
+  lifecycle = await loadAppModule(() => import("../../src/lib/workspaces/server/lifecycle"));
 });
 after(async () => { await sql.end(); await closeAppDb(); });
 
@@ -92,7 +92,7 @@ test("a pending invitation blocks applying; joining another way closes the pendi
     assert.match(blocked.error ?? "", /invitation/i);
 
     // The applicant joins through an invitation: their pending application is closed as accepted.
-    const { addProjectMemberInternal } = await loadAppModule(() => import("../../src/lib/projects/collaborator-lifecycle"));
+    const { addProjectMemberInternal } = await loadAppModule(() => import("../../src/lib/workspaces/collaborator-lifecycle"));
     const { db } = await loadAppModule(() => import("../../src/lib/db"));
     await db.transaction((tx: never) => addProjectMemberInternal(tx, { projectId, userId: one, actorId: owner, source: "project_invite" }));
     assert.equal((await state(a1)).status, "accepted");

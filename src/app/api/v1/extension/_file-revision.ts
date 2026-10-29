@@ -7,9 +7,9 @@ import { jsonError } from "@/app/api/v1/_shared";
 import { leaseCredentialsSchema } from "@/app/api/v1/_file-lease-route";
 import { db } from "@/lib/db";
 import { fileVersions, projectNodes } from "@/lib/db/schema";
-import { getProjectAccessById } from "@/lib/data/project-access";
+import { getProjectAccessById } from "@/lib/data/workspace-access";
 import type { ApplyFileRevisionResult } from "@/lib/files/apply-file-revision";
-import { buildProjectFileKey } from "@/lib/storage/project-file-key";
+import { buildProjectFileKey } from "@/lib/storage/workspace-file-key";
 import { assertProjectUploadAccess,assertProjectUploadAccessTx } from "@/lib/files/internal-helpers";
 
 export const checksumSchema = z.string().regex(/^[a-f0-9]{64}$/i);

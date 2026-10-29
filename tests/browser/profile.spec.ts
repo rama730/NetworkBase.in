@@ -27,11 +27,11 @@ test.beforeAll(async () => {
     '@/components/presence/presence-ui-store': `export const usePresenceUi=()=>open=>{window.profileFixture.pickerOpen=open;};`,
     '@/components/presence/usePresence': `export const usePersonPresence=()=>{const p=window.profileFixture.presence||({availability:'now',availabilityText:'Active now',status:null});return {...p,label:[p.status?.emoji,p.statusText,p.availabilityText].filter(Boolean).join(' · ')};};export const useProjectPresence=()=>({availability:'offline',label:'Offline'});`,
     '@/components/messages/message-user': `export const messageUserInWindow=id=>{window.profileFixture.messaged.push(id);return true;};`,
-    './sections/ProjectsGridCard': `export const ProjectsGridCard=()=>null;`,
-    './sections/ProjectContributionsCard': `export const ProjectContributionsCard=()=>null;`,
+    './sections/WorkspacesGridCard': `export const ProjectsGridCard=()=>null;`,
+    './sections/WorkspaceContributionsCard': `export const ProjectContributionsCard=()=>null;`,
     './ProfileRightRail': `export const ProfileRightRail=()=>null;`,
     './ProfileInviteModal': `export default ()=>null;`,
-    '@/components/projects/ApplyRoleModal': `export default ()=>null;`,
+    '@/components/workspaces/ApplyRoleModal': `export default ()=>null;`,
     '@/app/actions/profile-contributions': `export const saveProfileContributionsAction=async()=>({success:true});`,
     '@/app/actions/profile': `export const updateProfileAction=p=>window.profileFixture.save(p); export const createProfileImageUploadUrlAction=async()=>({});export const finalizeProfileImageUploadAction=async()=>({});`,
     '@/lib/services/avatar-worker-client': `export const compressAvatarOffMainThread=async f=>f;`,
@@ -54,7 +54,7 @@ test.beforeEach(async ({ page }) => {
   await page.route(`${origin}/**`, route => {
     const name = new URL(route.request().url()).pathname;
     if(name==='/instrument.ttf'||name==='/mono.ttf') return route.fulfill({contentType:'font/ttf',body:name==='/instrument.ttf'?instrumentFont:monoFont});
-    if (name.startsWith('/api/')) return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, data: name.includes('/skills') ? {skills:[]} : name.endsWith('/projects?limit=24') ? { projects: [], total: 0 } : name.includes('projects') ? { projects: [], total: 0 } : { summary: { projects: [], contributions: [], stats: { projectsCount: 0 } } } }) });
+    if (name.startsWith('/api/')) return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, data: name.includes('/skills') ? {skills:[]} : name.endsWith('/workspaces?limit=24') ? { projects: [], total: 0 } : name.includes('projects') ? { projects: [], total: 0 } : { summary: { projects: [], contributions: [], stats: { projectsCount: 0 } } } }) });
     return route.fulfill({ contentType: name === '/app.js' ? 'application/javascript' : name === '/app.css' ? 'text/css' : 'text/html', body: name === '/app.js' ? script : name === '/app.css' ? css : '<html><head><link rel="stylesheet" href="/app.css"></head><body><div id="root"></div><script src="/app.js"></script></body></html>' });
   });
   await page.goto(origin);

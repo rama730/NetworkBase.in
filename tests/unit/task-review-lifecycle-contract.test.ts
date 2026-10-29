@@ -16,7 +16,7 @@ function actionBody(name: string, nextName: string) {
 }
 
 // COR-027: both the status control and a drag run the one shared transition.
-const service = fs.readFileSync(path.join(process.cwd(), "src/lib/projects/task-transition-service.ts"), "utf8");
+const service = fs.readFileSync(path.join(process.cwd(), "src/lib/workspaces/task-transition-service.ts"), "utf8");
 const transition = service.slice(service.indexOf("async function transitionTaskTx"), service.indexOf("async function afterTaskTransition"));
 
 test("done transitions respect project review policy without publishing task files", () => {

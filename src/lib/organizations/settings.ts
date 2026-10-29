@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { ProjectSettingsSectionId } from "@/lib/projects/settings-policies";
+import type { ProjectSettingsSectionId } from "@/lib/workspaces/settings-policies";
 import { ORG_LIMITS, ORG_TYPES } from "@/lib/organizations/config";
 import type { VisibilityCap } from "@/lib/organizations/child-rules";
 

@@ -9,9 +9,9 @@ const INTERACTIVE = 'a[href],button,[role="button"],[role="tab"],[role="switch"]
 
 async function firstProjectHref(page: Page) {
   const fromEnv = process.env.E2E_MOBILE_PROJECT_SLUG;
-  if (fromEnv) return `/projects/${fromEnv}`;
+  if (fromEnv) return `/workspaces/${fromEnv}`;
   await page.goto("/discover");
-  const href = await page.locator('#application-sidebar a[href^="/projects/"]').first().getAttribute("href", { timeout: 15_000 });
+  const href = await page.locator('#application-sidebar a[href^="/workspaces/"]').first().getAttribute("href", { timeout: 15_000 });
   expect(href, "E2E user needs at least one workspace project").toBeTruthy();
   return href!;
 }

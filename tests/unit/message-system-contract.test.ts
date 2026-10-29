@@ -21,7 +21,7 @@ test("Messages system adheres to design specification contracts", () => {
         "utf8",
     );
     const projectBadgeSource = fs.readFileSync(
-        path.join(process.cwd(), "src/components/projects/ProjectBadge.tsx"),
+        path.join(process.cwd(), "src/components/workspaces/WorkspaceBadge.tsx"),
         "utf8",
     );
 

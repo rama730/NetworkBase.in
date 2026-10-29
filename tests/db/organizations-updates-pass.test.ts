@@ -18,11 +18,11 @@ moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: 
 moduleStubs.set("next/headers", { headers: async () => new Headers({ "x-forwarded-for": "203.0.113.61" }) });
 moduleStubs.set("@/inngest/client", { inngest: { send: async () => ({ ids: [] }), createFunction: () => ({}) } });
 
-let updates: typeof import("../../src/app/actions/project/updates");
+let updates: typeof import("../../src/app/actions/workspace/updates");
 let orgUpdates: typeof import("../../src/app/actions/org-updates");
 let needsYou: typeof import("../../src/lib/organizations/needs-you");
 let assignments: typeof import("../../src/app/actions/assignments");
-let sprints: typeof import("../../src/lib/projects/server/sprints");
+let sprints: typeof import("../../src/lib/workspaces/server/sprints");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
   moduleStubs.set("@/lib/server/viewer-context", {
@@ -30,11 +30,11 @@ before(async () => {
     getViewerAuthContext: async () => ({ supabase: null, snapshot: null, user: viewerId ? { id: viewerId } : null, userId: viewerId || null, emailVerified: true }),
     getViewerProfileContext: async () => ({ supabase: null, snapshot: null, user: viewerId ? { id: viewerId } : null, userId: viewerId || null, emailVerified: true, profile: null }),
   });
-  updates = await loadAppModule(() => import("../../src/app/actions/project/updates"));
+  updates = await loadAppModule(() => import("../../src/app/actions/workspace/updates"));
   orgUpdates = await loadAppModule(() => import("../../src/app/actions/org-updates"));
   needsYou = await loadAppModule(() => import("../../src/lib/organizations/needs-you"));
   assignments = await loadAppModule(() => import("../../src/app/actions/assignments"));
-  sprints = await loadAppModule(() => import("../../src/lib/projects/server/sprints"));
+  sprints = await loadAppModule(() => import("../../src/lib/workspaces/server/sprints"));
 });
 
 const created: string[] = [];

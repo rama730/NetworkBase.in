@@ -6,19 +6,19 @@ import path from "node:path";
 describe("GitHub Range Preview & Ecosystem Contracts", () => {
   const textViewerPath = path.join(
     process.cwd(),
-    "src/components/projects/v2/files-tab/file/TextViewer.tsx"
+    "src/components/workspaces/v2/files-tab/file/TextViewer.tsx"
   );
   const markdownPreviewPath = path.join(
     process.cwd(),
-    "src/components/projects/v2/preview/MarkdownPreview.tsx"
+    "src/components/workspaces/v2/preview/MarkdownPreview.tsx"
   );
   const fileActionsBarPath = path.join(
     process.cwd(),
-    "src/components/projects/v2/files-tab/file/FileActionsBar.tsx"
+    "src/components/workspaces/v2/files-tab/file/FileActionsBar.tsx"
   );
   const assetPreviewPath = path.join(
     process.cwd(),
-    "src/components/projects/v2/preview/AssetPreview.tsx"
+    "src/components/workspaces/v2/preview/AssetPreview.tsx"
   );
   const globalsCssPath = path.join(process.cwd(), "src/app/globals.css");
 

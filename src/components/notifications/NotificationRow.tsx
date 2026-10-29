@@ -18,7 +18,7 @@ import {
     getNotificationReasonLabel,
 } from "@/lib/notifications/presentation";
 import type { NotificationItem, NotificationMuteScope } from "@/lib/notifications/types";
-import { projectUpdateDisplayText } from "@/lib/projects/updates";
+import { projectUpdateDisplayText } from "@/lib/workspaces/updates";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { cn } from "@/lib/utils";
 

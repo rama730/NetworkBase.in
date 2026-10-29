@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { extOf } from "@/components/projects/v2/utils/fileKind";
+import { extOf } from "@/components/workspaces/v2/utils/fileKind";
 
 import type { FileVersion, ProjectNode } from "@/lib/db/schema";
 import { applyUploadedFileRevision, listFileVersionsPage, restoreFileVersion, deleteFileVersionAction } from "@/app/actions/files/versions";
 import { getUploadPresignedUrl } from "@/app/actions/upload";
-import { buildProjectFileKey } from "@/lib/storage/project-file-key";
+import { buildProjectFileKey } from "@/lib/storage/workspace-file-key";
 import { computeContentHash } from "@/lib/files/content-hash";
 import type { FileRevisionMode } from "@/lib/files/revision-policy";
 import {

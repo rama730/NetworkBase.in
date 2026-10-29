@@ -4,7 +4,7 @@ import path from "node:path";
 import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { TaskCard } from "../../src/components/projects/v2/tasks/TaskCard";
+import { TaskCard } from "../../src/components/workspaces/v2/tasks/TaskCard";
 
 function renderTask(
   overrides: Record<string, unknown> = {},
@@ -83,7 +83,7 @@ test("all task columns retain the same base height and width, whether empty or p
   const board = fs.readFileSync(
     path.join(
       process.cwd(),
-      "src/components/projects/v2/tasks/KanbanBoard.tsx",
+      "src/components/workspaces/v2/tasks/KanbanBoard.tsx",
     ),
     "utf8",
   );
@@ -97,7 +97,7 @@ test("kanban drag overlay card matches column inner card width (276px) and never
   const board = fs.readFileSync(
     path.join(
       process.cwd(),
-      "src/components/projects/v2/tasks/KanbanBoard.tsx",
+      "src/components/workspaces/v2/tasks/KanbanBoard.tsx",
     ),
     "utf8",
   );
@@ -112,7 +112,7 @@ test("kanban drag overlay card matches column inner card width (276px) and never
 
 test("priority labels use one red intensity scale", async () => {
   const { getTaskPriorityPresentation } =
-    await import("../../src/lib/projects/task-workflow");
+    await import("../../src/lib/workspaces/task-workflow");
 
   for (const priority of ["low", "medium", "high", "urgent"] as const) {
     assert.match(
@@ -135,7 +135,7 @@ test("task-card footers keep the avatar and use its former label space for task 
   const source = fs.readFileSync(
     path.join(
       process.cwd(),
-      "src/components/projects/v2/tasks/TaskCard.tsx",
+      "src/components/workspaces/v2/tasks/TaskCard.tsx",
     ),
     "utf8",
   );

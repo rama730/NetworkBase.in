@@ -8,7 +8,7 @@ describe('Hub pagination', () => {
         const root = process.cwd();
         const action = readFileSync(path.join(root, 'src/app/actions/discover.ts'), 'utf8');
         const data = readFileSync(path.join(root, 'src/lib/data/discover.ts'), 'utf8');
-        const follows = readFileSync(path.join(root, 'src/hooks/projects/useUserInteractions.ts'), 'utf8');
+        const follows = readFileSync(path.join(root, 'src/hooks/workspaces/useUserInteractions.ts'), 'utf8');
 
         // Only offered values reach SQL; every read is rate-limited.
         assert.match(action, /status: z\.enum\(/);

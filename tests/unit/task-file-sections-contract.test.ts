@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { projectActionsSource } from "./_project-actions-source";
+import { projectActionsSource } from "./_workspace-actions-source";
 
 const read = (path: string) => readFileSync(path, "utf8");
 
@@ -13,7 +13,7 @@ test("task creation persists selected files as reference links", () => {
 });
 
 test("task files render reference, deliverable, and working sections without duplicating roles", () => {
-  const explorer = read("src/components/projects/v2/tasks/components/TaskFilesExplorer.tsx");
+  const explorer = read("src/components/workspaces/v2/tasks/components/TaskFilesExplorer.tsx");
   const referencePosition = explorer.indexOf("Task references");
   const deliverablePosition = explorer.indexOf("Final files");
   const workingPosition = explorer.lastIndexOf("TASK_WORKING_FILES_TITLE");
@@ -26,8 +26,8 @@ test("task files render reference, deliverable, and working sections without dup
 });
 
 test("task file actions expose all safe role transitions", () => {
-  const row = read("src/components/projects/v2/tasks/components/TaskFileRow.tsx");
-  const upload = read("src/components/projects/v2/tasks/components/TaskFileUploadModal.tsx");
+  const row = read("src/components/workspaces/v2/tasks/components/TaskFileRow.tsx");
+  const upload = read("src/components/workspaces/v2/tasks/components/TaskFileUploadModal.tsx");
 
   assert.match(row, /Mark as reference/);
   assert.match(row, /Mark as draft/);
@@ -37,7 +37,7 @@ test("task file actions expose all safe role transitions", () => {
 });
 
 test("the task detail surface refreshes after a role move", () => {
-  const panel = read("src/components/projects/v2/tasks/TaskDetailPanel.tsx");
+  const panel = read("src/components/workspaces/v2/tasks/TaskDetailPanel.tsx");
 
   assert.match(panel, /onFilesChanged=\{resource\.loadAttachments\}/);
 });

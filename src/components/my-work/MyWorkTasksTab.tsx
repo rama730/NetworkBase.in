@@ -15,16 +15,16 @@ import {
 import { ListChecks, MoreHorizontal, Search, X, ChevronDown, Copy, ExternalLink, Calendar, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/feedback";
-import { TaskCard } from "@/components/projects/v2/tasks/TaskCard";
-import TaskPriorityBadge from "@/components/projects/v2/tasks/badges/TaskPriorityBadge";
-import TaskStatusBadge from "@/components/projects/v2/tasks/badges/TaskStatusBadge";
+import { TaskCard } from "@/components/workspaces/v2/tasks/TaskCard";
+import TaskPriorityBadge from "@/components/workspaces/v2/tasks/badges/TaskPriorityBadge";
+import TaskStatusBadge from "@/components/workspaces/v2/tasks/badges/TaskStatusBadge";
 import { UserAvatar } from "@/components/ui/UserAvatar";
-import { TASK_STATUS_PRESENTATION, type TaskWorkflowStatus } from "@/lib/projects/task-workflow";
+import { TASK_STATUS_PRESENTATION, type TaskWorkflowStatus } from "@/lib/workspaces/task-workflow";
 import {
     normalizeTaskSurfaceRecord,
     calculateTaskTimeHealth,
-} from "@/lib/projects/task-presentation";
-import { formatTaskId } from "@/lib/project-key";
+} from "@/lib/workspaces/task-presentation";
+import { formatTaskId } from "@/lib/workspace-key";
 import { format, parseISO } from "@/lib/utils/date";
 import {
     DropdownMenu,
@@ -345,7 +345,7 @@ export default function MyWorkTasksTab({ isActive = true }: MyWorkTasksTabProps)
         // Router.push is sufficient here. A prefetch immediately
         // followed by a navigation has no user-visible benefit and competes
         // with the task surface's own data request.
-        router.push(`/projects/${projectIdentifier}?tab=tasks`);
+        router.push(`/workspaces/${projectIdentifier}?tab=tasks`);
         setMyWorkOpen(false);
     };
 
@@ -353,7 +353,7 @@ export default function MyWorkTasksTab({ isActive = true }: MyWorkTasksTabProps)
         e.stopPropagation();
         const projectId = task.project?.id || task.projectId;
         const projectIdentifier = task.project?.slug || projectId;
-        const url = `${window.location.origin}/projects/${projectIdentifier}?tab=tasks`;
+        const url = `${window.location.origin}/workspaces/${projectIdentifier}?tab=tasks`;
         if (navigator?.clipboard?.writeText) {
             navigator.clipboard.writeText(url).then(() => {
                 toast.success("Task link copied");
@@ -367,7 +367,7 @@ export default function MyWorkTasksTab({ isActive = true }: MyWorkTasksTabProps)
         e.stopPropagation();
         const projectId = task.project?.id || task.projectId;
         const projectIdentifier = task.project?.slug || projectId;
-        window.open(`/projects/${projectIdentifier}?tab=tasks`, "_blank", "noopener,noreferrer");
+        window.open(`/workspaces/${projectIdentifier}?tab=tasks`, "_blank", "noopener,noreferrer");
     };
 
     const toggleProjectCollapse = (projectId: string) => {
@@ -552,7 +552,7 @@ export default function MyWorkTasksTab({ isActive = true }: MyWorkTasksTabProps)
                             </button>
                             <div className="flex items-center gap-1.5">
                                 <Link
-                                    href={`/projects/${group.slug || group.id}?tab=tasks`}
+                                    href={`/workspaces/${group.slug || group.id}?tab=tasks`}
                                     onClick={() => setMyWorkOpen(false)}
                                     className="text-[11px] text-muted-foreground hover:text-primary transition-colors hidden sm:inline-block"
                                     aria-label={`Open ${group.title} tasks`}

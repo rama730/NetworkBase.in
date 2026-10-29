@@ -371,7 +371,7 @@ export default function OnboardingPage() {
                 setJoinOrgTitle(result.joined.title)
                 // Members go to the org; a request (or a refusal) is shown on the join page.
                 const member = result.joined.outcome === 'joined' || result.joined.outcome === 'already_member'
-                setContinuePath(member ? `/projects/${result.joined.slug ?? ''}` : `/join/${data.pendingJoinCode}`)
+                setContinuePath(member ? `/workspaces/${result.joined.slug ?? ''}` : `/join/${data.pendingJoinCode}`)
             } else {
                 setJoinOrgTitle(null)
                 setContinuePath(resolveReturnPath())

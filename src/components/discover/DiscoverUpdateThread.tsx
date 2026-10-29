@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { UpdateDetailPanel } from '@/components/projects/updates/UpdateDetailPanel';
-import { updatePages } from '@/components/projects/updates/update-helpers';
+import { UpdateDetailPanel } from '@/components/workspaces/updates/UpdateDetailPanel';
+import { updatePages } from '@/components/workspaces/updates/update-helpers';
 import { toProjectUpdateView } from '@/lib/discover/update-view';
 import { createClient } from '@/lib/supabase/client';
 import { queryKeys } from '@/lib/query-keys';

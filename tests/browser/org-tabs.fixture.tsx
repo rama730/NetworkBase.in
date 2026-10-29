@@ -10,7 +10,7 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { ChildLeadAndUnassigned, InheritedAdminRows, UnitPeople } from '@/components/organizations/ChildTeamFields';
 import { ChildUnitsPanel } from '@/components/organizations/ChildUnitsPanel';
 import { CreateLocationProvider } from '@/components/organizations/CreateLocation';
-import ProjectLayout from '@/components/projects/dashboard/ProjectLayout';
+import ProjectLayout from '@/components/workspaces/dashboard/WorkspaceLayout';
 import { OrgNewItems, OrgNewMenu } from '@/components/organizations/OrgHeaderParts';
 
 // The org Tasks, Members, Files and Projects tabs and the sidebar tree (report §31.2 G13, G16), one per ?tab=.

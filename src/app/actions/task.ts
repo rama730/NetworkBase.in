@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { wakeEmailWorker } from "@/lib/email/outbox";
-import { recordTaskAssignment, taskAssignmentNotification } from "@/lib/projects/task-assignment";
+import { recordTaskAssignment, taskAssignmentNotification } from "@/lib/workspaces/task-assignment";
 import {
   fileVersions,
   profiles,
@@ -20,29 +20,29 @@ import {
   tasks,
 } from "@/lib/db/schema";
 import { createClient } from "@/lib/supabase/server";
-import { enqueueProjectNotificationEvent } from "@/lib/notifications/project-events";
+import { enqueueProjectNotificationEvent } from "@/lib/notifications/workspace-events";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { queueCounterRefreshBestEffort } from "@/lib/my-work/counter-buffer";
 import {
   getTaskFileWarnings,
   inferTaskFileRole,
   markTaskFileVersionApproved,
-} from "@/lib/projects/task-file-intelligence";
+} from "@/lib/workspaces/task-file-intelligence";
 import { logger } from "@/lib/logger";
-import { projectTaskHref } from "@/lib/projects/task-presentation";
+import { projectTaskHref } from "@/lib/workspaces/task-presentation";
 import {
   isProjectMemberEligibleFor,
   requireProjectCapability,
-} from "@/lib/projects/collaborator-lifecycle";
+} from "@/lib/workspaces/collaborator-lifecycle";
 import {
   taskDescriptionSchema,
   taskTitleSchema,
   updateTaskFieldSchema,
 } from "@/lib/validations/task";
 
-import { canReadProjectTab, getProjectAccessById } from "@/lib/data/project-access";
-import { taskReviewSnapshot } from "@/lib/projects/task-review-snapshot";
-import { taskActorSnapshot, taskContextLabel, lockTaskForWrite, transitionTaskTx, afterTaskTransition } from "@/lib/projects/task-transition-service";
+import { canReadProjectTab, getProjectAccessById } from "@/lib/data/workspace-access";
+import { taskReviewSnapshot } from "@/lib/workspaces/task-review-snapshot";
+import { taskActorSnapshot, taskContextLabel, lockTaskForWrite, transitionTaskTx, afterTaskTransition } from "@/lib/workspaces/task-transition-service";
 
 type Priority = "low" | "medium" | "high" | "urgent";
 export type TaskStatus = "todo" | "in_progress" | "done" | "blocked";
@@ -312,7 +312,7 @@ export async function updateTaskFieldAction(
         }
       }
     }
-    revalidatePath(`/projects/${result.projectId}`);
+    revalidatePath(`/workspaces/${result.projectId}`);
     // The client patches this server version in, so the next drag's version check matches.
     return { success: true, updatedAt: result.updatedAt.toISOString() };
   } catch (error: any) {
@@ -593,7 +593,7 @@ export async function assignTaskAction(
         });
       }
     }
-    revalidatePath(`/projects/${result.projectId}`);
+    revalidatePath(`/workspaces/${result.projectId}`);
     return { success: true, updatedAt: result.updatedAt.toISOString() };
   } catch (error: any) {
     console.error("Unexpected error:", error);

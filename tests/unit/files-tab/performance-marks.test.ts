@@ -60,7 +60,7 @@ import path from "node:path";
 const SIDEBAR_SRC = readFileSync(
   path.resolve(
     __dirname,
-    "../../../src/components/projects/v2/files-tab/FilesTabSidebar.tsx",
+    "../../../src/components/workspaces/v2/files-tab/FilesTabSidebar.tsx",
   ),
   "utf8",
 );
@@ -68,7 +68,7 @@ const SIDEBAR_SRC = readFileSync(
 const BREADCRUMB_SRC = readFileSync(
   path.resolve(
     __dirname,
-    "../../../src/components/projects/v2/files-tab/breadcrumb/BreadcrumbBar.tsx",
+    "../../../src/components/workspaces/v2/files-tab/breadcrumb/BreadcrumbBar.tsx",
   ),
   "utf8",
 );

@@ -49,17 +49,17 @@ test("all person avatars use identity tones without replacing uploaded photos", 
   assert.match(radixAvatar, /data-avatar-tone=\{tone\}/);
 
   for (const component of [
-    "src/components/projects/ProjectCard.tsx",
+    "src/components/workspaces/WorkspaceCard.tsx",
     "src/components/network/PersonCard.tsx",
     "src/components/network/ConnectionsClient.tsx",
     "src/components/network/InvitationsClient.tsx",
     "src/components/network/RequestProfileRow.tsx",
-    "src/components/network/IncomingProjectApplicationRow.tsx",
+    "src/components/network/IncomingWorkspaceApplicationRow.tsx",
     "src/components/messages/MessageRow.tsx",
     "src/components/messages/NewMessage.tsx",
     "src/components/messages/cards/MessageCard.tsx",
     "src/components/messages/parts/MentionDropdown.tsx",
-    "src/components/projects/dashboard/InviteCollaboratorModal.tsx",
+    "src/components/workspaces/dashboard/InviteCollaboratorModal.tsx",
     "src/components/notifications/NotificationRow.tsx",
     "src/components/notifications/NotificationBundleRow.tsx",
   ]) {

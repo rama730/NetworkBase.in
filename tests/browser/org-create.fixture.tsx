@@ -4,7 +4,7 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { OrgCalendarFields, OrgPeopleFields, OrgSettingsFields, OrgTypePicker } from '@/components/organizations/OrgWizardFields';
 import { CreateLocationProvider } from '@/components/organizations/CreateLocation';
 import { OrganizationCreatedScreen } from '@/components/organizations/OrganizationCreatedScreen';
-import Phase2Information from '@/components/projects/create-wizard/phases/Phase2Information';
+import Phase2Information from '@/components/workspaces/create-wizard/phases/Phase2Information';
 
 // Organization creation (report §34), one step per ?step=, on the real components and stylesheet.
 const step = new URLSearchParams(location.search).get('step') ?? 'type';

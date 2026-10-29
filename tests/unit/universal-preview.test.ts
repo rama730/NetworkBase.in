@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolvePreviewType } from "@/components/projects/v2/utils/fileKind";
+import { resolvePreviewType } from "@/components/workspaces/v2/utils/fileKind";
 import type { ProjectNode } from "@/lib/db/schema";
 import * as fflate from "fflate";
 

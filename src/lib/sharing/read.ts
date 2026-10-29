@@ -6,10 +6,10 @@ import { db } from '@/lib/db';
 import { profiles, profileSkills, skills, projects, projectSkills, projectOpenRoles, storageAssets } from '@/lib/db/schema';
 import { resolvePublicUsernameRoute } from '@/lib/usernames/service';
 import { resolvePrivacyRelationship, readableProfileIdentitySql } from '@/lib/privacy/resolver';
-import { getProjectAccessByIdentifier, getProjectAccessByIds, canReadProjectTab } from '@/lib/data/project-access';
+import { getProjectAccessByIdentifier, getProjectAccessByIds, canReadProjectTab } from '@/lib/data/workspace-access';
 import { normalizeSafeExternalUrl } from '@/lib/messaging/safe-links';
 import { logger } from '@/lib/logger';
-import { formatProjectTeamRole } from '@/lib/projects/settings-policies';
+import { formatProjectTeamRole } from '@/lib/workspaces/settings-policies';
 import { genericSharePreview, parseShareResource, portfolioSummary, previewAlt, shareImageUrl, shareSkillSummary, shareText, shareMetric, type ProjectShareDetails, type SharePreview, type ShareResource } from './presentation';
 
 /** A public contribution is the publication authority; memberships/follows are not publication. */
@@ -134,7 +134,7 @@ async function readProject(resource: ShareResource, viewerId: string | null): Pr
   const visibility = access.project.visibility === 'public' ? 'public' : access.project.visibility === 'unlisted' ? 'unlisted' : 'private';
   if (!access.canRead) return { ...genericSharePreview(resource, 'restricted'), visibility };
   // An organization's canonical address is /org/<handle> (report §24).
-  const resolved = { ...resource, url: new URL(`/${access.project.kind === 'organization' ? 'org' : 'projects'}/${access.project.slug || access.project.id}`, resource.url).href };
+  const resolved = { ...resource, url: new URL(`/${access.project.kind === 'organization' ? 'org' : 'workspaces'}/${access.project.slug || access.project.id}`, resource.url).href };
   const dashboard = canReadProjectTab(access, 'dashboard');
   const [project] = await db.select({ title: projects.title, description: projects.description, shortDescription: projects.shortDescription,
     coverImage: projects.coverImage, coverAsset: projects.coverImageAssetId, coverHash: storageAssets.contentHash, coverKey: storageAssets.storageKey, views: projects.viewCount, followers: projects.followersCount, discoverHiddenAt: projects.discoverHiddenAt })
@@ -164,7 +164,7 @@ async function readProject(resource: ShareResource, viewerId: string | null): Pr
     ...(skillSummary ?? {}), project: details };
   result.imageAlt = previewAlt(result);
   const revision = createHash('sha256').update(JSON.stringify(result)).digest('hex').slice(0,16);
-  result.image = new URL(`/api/og/project/${access.project.slug || access.project.id}?v=${revision}`, resource.url).href;
+  result.image = new URL(`/api/og/workspace/${access.project.slug || access.project.id}?v=${revision}`, resource.url).href;
   return result;
 }
 

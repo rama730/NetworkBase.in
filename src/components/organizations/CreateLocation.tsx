@@ -8,7 +8,7 @@ import { Building2, Lock } from 'lucide-react'
 import { messageUserInWindow } from '@/components/messages/message-user'
 
 import { capChildVisibility, type VisibilityCap } from '@/lib/organizations/child-rules'
-import type { CreateProjectInput } from '@/lib/validations/project'
+import type { CreateProjectInput } from '@/lib/validations/workspace'
 
 // Where a new project goes (report §14.1): Personal or one of the person's orgs, carried through the wizard.
 

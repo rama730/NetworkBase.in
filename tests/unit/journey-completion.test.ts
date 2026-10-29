@@ -5,7 +5,7 @@ import {
     formatJourneyCompletionDate,
     getStageCompletionTooltip,
     normalizeJourneyCompletionDates,
-} from '@/lib/projects/journey-completion';
+} from '@/lib/workspaces/journey-completion';
 
 test('journey completion dates use a stable UTC calendar date', () => {
     assert.equal(formatJourneyCompletionDate('2026-08-30T23:30:00-07:00'), 'Aug 31, 2026');

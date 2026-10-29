@@ -29,7 +29,7 @@ import {
     type RosterRow,
 } from '@/app/actions/assignments'
 import { listOrgRosterAction, type OrgRosterPerson } from '@/app/actions/organizations'
-import { listProjectDocsAction } from '@/app/actions/project/doc'
+import { listProjectDocsAction } from '@/app/actions/workspace/doc'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -89,7 +89,7 @@ function SubmitDialog({ copyId, submissionType, title, open, onOpenChange, onDon
                 {submissionType === 'link' ? <Input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://" aria-label="Link to your work" /> : null}
                 {submissionType === 'link' && projectDocs.length > 0 ? (
                     <select defaultValue="" aria-label="Or pick a workspace doc" className="h-9 rounded-md border border-border bg-background px-2 text-sm"
-                        onChange={(e) => { if (e.target.value) setLink(`${window.location.origin}/projects/${encodeURIComponent(docsProjectId!)}?tab=docs&doc=${encodeURIComponent(e.target.value)}`) }}>
+                        onChange={(e) => { if (e.target.value) setLink(`${window.location.origin}/workspaces/${encodeURIComponent(docsProjectId!)}?tab=docs&doc=${encodeURIComponent(e.target.value)}`) }}>
                         <option value="">Or pick a workspace doc…</option>
                         {projectDocs.map((doc) => <option key={doc.slug} value={doc.slug}>{doc.filename}</option>)}
                     </select>
@@ -363,7 +363,7 @@ export function RosterDialog({ row, orgId, open, onOpenChange, onChanged }: { ro
                     <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(async () => { const r = await remindCopiesAction(row.masterId); return r.success ? { success: true } : r })}>Remind everyone not done</Button>
                     {/* Brief and shared Q&A live on the master task (report §16.4 Conversation, §16.5 Brief / Discussion). */}
                     {/* Download all (report §23.5): one folder per person or team, latest handed-in files. */}
-                    {orgId && row.submissionType === 'file' && row.counts.submitted + row.counts.done > 0 ? <Button asChild size="sm" variant="outline"><a href={`/api/v1/projects/${orgId}/tasks/${row.masterId}/submissions`} download>Download all</a></Button> : null}
+                    {orgId && row.submissionType === 'file' && row.counts.submitted + row.counts.done > 0 ? <Button asChild size="sm" variant="outline"><a href={`/api/v1/workspaces/${orgId}/tasks/${row.masterId}/submissions`} download>Download all</a></Button> : null}
                     <a href={`?tab=tasks&drawerType=task&drawerId=${row.masterId}`} className="self-center text-sm text-primary underline-offset-4 hover:underline">Brief and Q&amp;A</a>
                 </div>
                 <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); const input = e.currentTarget.elements.namedItem('step') as HTMLInputElement; const value = input.value.trim(); if (value) run(async () => { const r = await addAssignmentStepAction(row.masterId, value); if (r.success) input.value = ''; return r }) }}>

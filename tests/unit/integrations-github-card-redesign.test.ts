@@ -76,14 +76,14 @@ describe("GitHub Card Redesign & Integrations Settings Contract", () => {
     const content = fs.readFileSync(filePath, "utf-8");
 
     // The broken 404 link to /projects must not exist
-    assert.ok(!content.includes('href="/projects"'), "Must not link to non-existent /projects route");
+    assert.ok(!content.includes('href="/workspaces"'), "Must not link to non-existent /projects route");
 
     // Must use projectsExpanded state
     assert.ok(content.includes("projectsExpanded"), "Must manage projectsExpanded state");
     assert.ok(content.includes("setProjectsExpanded"), "Must provide toggle for projectsExpanded");
 
-    // Must link each project to its slug: /projects/${project.slug}
-    assert.ok(content.includes("`/projects/${project.slug}`"), "Must link to valid /projects/[slug] route");
+    // Must link each project to its slug: /workspaces/${project.slug}
+    assert.ok(content.includes("`/workspaces/${project.slug}`"), "Must link to valid /workspaces/[slug] route");
 
     // Must render badges for cloned and synced repositories
     assert.ok(content.includes("Repository"), "Must render 'Repository' badge");

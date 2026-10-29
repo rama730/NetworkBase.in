@@ -1,7 +1,7 @@
 'use client';
 
 import { get, set, del } from 'idb-keyval';
-import { CreateProjectInput } from '@/lib/validations/project';
+import { CreateProjectInput } from '@/lib/validations/workspace';
 
 const DEFAULT_DRAFT_KEY = 'project_wizard_draft';
 const EXPIRY_DAYS = 3;  // Draft expires after 3 days

@@ -5,10 +5,10 @@ import { profiles, projectNodes, projects, tasks, taskNodeLinks } from "@/lib/db
 import {
     enqueueProjectNotificationEvent,
     enqueueProjectNotificationEvents,
-} from "@/lib/notifications/project-events";
-import type { EnqueueProjectNotificationEventInput } from "@/lib/notifications/project-events";
+} from "@/lib/notifications/workspace-events";
+import type { EnqueueProjectNotificationEventInput } from "@/lib/notifications/workspace-events";
 import { logger } from "@/lib/logger";
-import type { ProjectNotificationEventKey } from "@/lib/notifications/project-policy";
+import type { ProjectNotificationEventKey } from "@/lib/notifications/workspace-policy";
 
 function taskFileEventKey(kind: "task_file_version" | "task_file_replaced" | "task_file_needs_review"): ProjectNotificationEventKey {
     if (kind === "task_file_needs_review") return "files.review_requested";
@@ -23,7 +23,7 @@ function taskFileActionLabel(kind: "task_file_version" | "task_file_replaced" | 
 }
 
 function taskFileHref(projectSlugOrId: string, taskId: string, fileId: string) {
-    return `/projects/${encodeURIComponent(projectSlugOrId)}?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(taskId)}&panelTab=files&fileId=${encodeURIComponent(fileId)}`;
+    return `/workspaces/${encodeURIComponent(projectSlugOrId)}?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(taskId)}&panelTab=files&fileId=${encodeURIComponent(fileId)}`;
 }
 
 export async function notifyTaskParticipantsForFileEvent(params: {
@@ -244,7 +244,7 @@ export async function notifyForFileVersionCreated(params: {
                 directRecipientIds: recipients,
                 title: `${actorName || "Someone"} added a new version`,
                 body: `${node.name} v${params.version}`,
-                href: `/projects/${encodeURIComponent(project?.slug || params.projectId)}?tab=files&fileId=${encodeURIComponent(node.id)}`,
+                href: `/workspaces/${encodeURIComponent(project?.slug || params.projectId)}?tab=files&fileId=${encodeURIComponent(node.id)}`,
                 entityRefs: {
                     projectId: params.projectId,
                     projectSlug: project?.slug ?? null,

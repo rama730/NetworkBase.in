@@ -8,8 +8,8 @@ import {
   isProjectSystemRoot,
   TASK_WORKING_FILES_TITLE,
 } from "@/lib/files/task-working-files";
-import { buildNodePathMap } from "@/components/projects/v2/files-tab/quick-open/QuickOpenDialog";
-import { getTaskFileAttributionLabel } from "@/components/projects/v2/tasks/components/TaskFileRow";
+import { buildNodePathMap } from "@/components/workspaces/v2/files-tab/quick-open/QuickOpenDialog";
+import { getTaskFileAttributionLabel } from "@/components/workspaces/v2/tasks/components/TaskFileRow";
 
 test("internal task storage paths stay hidden behind a user-facing collection", () => {
   const system = { name: ".system", path: "/.system", parentId: null };
@@ -118,7 +118,7 @@ test("Files metadata reads apply task visibility without hiding authorized linke
 
 test("managed task folders never expose direct create, upload, or drop mutations", () => {
   const folderList = readFileSync(
-    "src/components/projects/v2/files-tab/folder/FolderListView.tsx",
+    "src/components/workspaces/v2/files-tab/folder/FolderListView.tsx",
     "utf8",
   );
 
@@ -131,13 +131,13 @@ test("managed task folders never expose direct create, upload, or drop mutations
 
 test("task-file collection uses bounded prefetched file pages and canonical identities", () => {
   const collection = readFileSync("src/app/actions/files/collections.ts", "utf8");
-  const client = readFileSync("src/components/projects/v2/files-tab/TaskFilesCollection.tsx", "utf8");
+  const client = readFileSync("src/components/workspaces/v2/files-tab/TaskFilesCollection.tsx", "utf8");
   assert.match(readFileSync("src/lib/files/task-file-collection-query.ts", "utf8"), /position <= 51/);
   assert.match(collection, /LIMIT 21/);
   assert.match(client, /initialData:/);
   assert.match(client, /getQueriesData/);
   assert.match(client, /<FolderListView/);
-  assert.match(readFileSync("src/components/projects/v2/files-tab/folder/FolderListView.tsx", "utf8"), /upsertNodes\(projectId, collection.nodes\)/);
+  assert.match(readFileSync("src/components/workspaces/v2/files-tab/folder/FolderListView.tsx", "utf8"), /upsertNodes\(projectId, collection.nodes\)/);
   assert.doesNotMatch(client, /parentId:/);
 });
 

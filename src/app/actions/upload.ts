@@ -2,7 +2,7 @@
 
 import { createAdminClient, createClient } from '@/lib/supabase/server';
 import { assertProjectUploadAccess } from '@/lib/files/internal-helpers';
-import { isCanonicalProjectFileKey, parseProjectFileKey } from '@/lib/storage/project-file-key';
+import { isCanonicalProjectFileKey, parseProjectFileKey } from '@/lib/storage/workspace-file-key';
 import { logger } from '@/lib/logger';
 import {
     normalizeAndValidateFileSize,
@@ -10,7 +10,7 @@ import {
     PROJECT_UPLOAD_MAX_FILE_BYTES,
 } from '@/lib/upload/security';
 import { createUploadIntent, createUploadIntents } from '@/lib/upload/upload-intents';
-import { allocateProjectObjectKey } from '@/lib/upload/project-upload-allocation';
+import { allocateProjectObjectKey } from '@/lib/upload/workspace-upload-allocation';
 
 const MAX_BATCH_UPLOAD_KEYS = 50;
 

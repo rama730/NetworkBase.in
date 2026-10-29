@@ -48,7 +48,7 @@ export async function GET(request: Request) {
     loginErrorUrl.searchParams.set('error', 'auth-code-error')
     loginErrorUrl.searchParams.set('redirect', nextPath)
 
-    const syncReturn = provider === 'github' && nextPath.startsWith('/projects/') && new URL(nextPath, baseUrl).searchParams.get('filesView') === 'github'
+    const syncReturn = provider === 'github' && nextPath.startsWith('/workspaces/') && new URL(nextPath, baseUrl).searchParams.get('filesView') === 'github'
 
     const oauthError = searchParams.get('error')
     const oauthErrorCode = searchParams.get('error_code') || oauthError
@@ -70,7 +70,7 @@ export async function GET(request: Request) {
         // When an in-app linking attempt (such as from /settings?tab=integrations) encounters
         // an OAuth error (e.g. identity_already_exists), return back to the requesting page
         // instead of bouncing through /login with misleading success parameters.
-        if (nextPath.startsWith('/settings') || nextPath.startsWith('/projects') || nextPath.startsWith('/discover')) {
+        if (nextPath.startsWith('/settings') || nextPath.startsWith('/workspaces') || nextPath.startsWith('/discover')) {
             const inAppUrl = new URL(nextPath, baseUrl)
             inAppUrl.searchParams.delete('githubIdentity')
             if (syncReturn) {

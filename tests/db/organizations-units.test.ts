@@ -20,11 +20,11 @@ moduleStubs.set("@/inngest/client", { inngest: { send: async () => ({ ids: [] })
 delete process.env.UPSTASH_REDIS_REST_URL;
 delete process.env.UPSTASH_REDIS_REST_TOKEN;
 
-let lifecycle: typeof import("../../src/lib/projects/server/lifecycle");
+let lifecycle: typeof import("../../src/lib/workspaces/server/lifecycle");
 let units: typeof import("../../src/app/actions/child-units");
 let orgs: typeof import("../../src/app/actions/organizations");
 let comments: typeof import("../../src/app/actions/task-comment");
-let sprintsServer: typeof import("../../src/lib/projects/server/sprints");
+let sprintsServer: typeof import("../../src/lib/workspaces/server/sprints");
 let needsYou: typeof import("../../src/lib/organizations/needs-you");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
@@ -33,11 +33,11 @@ before(async () => {
     getViewerAuthContext: async () => ({ supabase: null, snapshot: null, user: viewerId ? { id: viewerId } : null, userId: viewerId || null, emailVerified: true }),
     getViewerProfileContext: async () => ({ userId: viewerId || null, profile: { fullName: "Tester", username: "tester", avatarUrl: null } }),
   });
-  lifecycle = await loadAppModule(() => import("../../src/lib/projects/server/lifecycle"));
+  lifecycle = await loadAppModule(() => import("../../src/lib/workspaces/server/lifecycle"));
   units = await loadAppModule(() => import("../../src/app/actions/child-units"));
   orgs = await loadAppModule(() => import("../../src/app/actions/organizations"));
   comments = await loadAppModule(() => import("../../src/app/actions/task-comment"));
-  sprintsServer = await loadAppModule(() => import("../../src/lib/projects/server/sprints"));
+  sprintsServer = await loadAppModule(() => import("../../src/lib/workspaces/server/sprints"));
   needsYou = await loadAppModule(() => import("../../src/lib/organizations/needs-you"));
 });
 
@@ -177,5 +177,5 @@ test("Needs your attentionr attention: a group assignment with no projects to go
   const rows = await needsYou.readNeedsYou(viewer, new Date());
   const row = rows.find((r) => r.kind === "needs_projects");
   assert.equal(row?.label, "Mini-project needs workspaces · Create one");
-  assert.equal(row?.href, `/projects/new?org=cse-${o.id.slice(0, 8)}`);
+  assert.equal(row?.href, `/workspaces/new?org=cse-${o.id.slice(0, 8)}`);
 });

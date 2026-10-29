@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateAndSanitizeLifecycleStages } from "@/lib/validations/project";
+import { validateAndSanitizeLifecycleStages } from "@/lib/validations/workspace";
 
 test("validateAndSanitizeLifecycleStages allows valid characters", () => {
     const valid = [

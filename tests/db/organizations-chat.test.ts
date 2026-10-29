@@ -16,7 +16,7 @@ moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: 
 moduleStubs.set("next/headers", { headers: async () => new Headers({ "x-forwarded-for": "203.0.113.20" }) });
 
 let orgChat: typeof import("../../src/app/actions/org-chat");
-let updates: typeof import("../../src/app/actions/project/updates");
+let updates: typeof import("../../src/app/actions/workspace/updates");
 let cards: typeof import("../../src/lib/messaging/cards");
 let orgs: typeof import("../../src/app/actions/organizations");
 before(async () => {
@@ -26,7 +26,7 @@ before(async () => {
     getViewerAuthContext: async () => ({ supabase: null, snapshot: null, user: viewerId ? { id: viewerId } : null, userId: viewerId || null, emailVerified: true }),
     getViewerProfileContext: async () => ({ supabase: null, snapshot: null, user: viewerId ? { id: viewerId } : null, userId: viewerId || null, emailVerified: true, profile: null }),
   });
-  updates = await loadAppModule(() => import("../../src/app/actions/project/updates"));
+  updates = await loadAppModule(() => import("../../src/app/actions/workspace/updates"));
   cards = await loadAppModule(() => import("../../src/lib/messaging/cards"));
   orgChat = await loadAppModule(() => import("../../src/app/actions/org-chat"));
   orgs = await loadAppModule(() => import("../../src/app/actions/organizations"));

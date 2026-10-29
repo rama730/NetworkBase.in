@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
-import { projectActionsSource } from "./_project-actions-source";
+import { projectActionsSource } from "./_workspace-actions-source";
 
 const read = (path: string) => readFileSync(path, "utf8");
 
 describe("SQL audit query remediations", () => {
   it("persists and advances the workspace-file reconciliation keyset", () => {
-    const source = read("src/inngest/functions/project-files-reconciliation.ts");
+    const source = read("src/inngest/functions/workspace-files-reconciliation.ts");
     assert.match(source, /jobHeartbeats\.lastPayload/);
     assert.match(source, /projectNodes\.projectId}, \$\{projectNodes\.id}\) > /);
     assert.match(source, /\.limit\(MAX_KEYS_PER_PROJECT\)/);
@@ -64,7 +64,7 @@ describe("SQL audit query remediations", () => {
   });
 
   it("applies GitHub reconciliation mutations in bounded set-based batches", () => {
-    const source = read("src/lib/github/project-import-runner.ts");
+    const source = read("src/lib/github/workspace-import-runner.ts");
     assert.match(source, /filesToUpdate\.slice\(index, index \+ RECONCILE_DELETE_BATCH_SIZE\)/);
     assert.match(source, /FROM jsonb_to_recordset/);
     assert.match(source, /nodeIdsToDelete\.slice\(index, index \+ RECONCILE_DELETE_BATCH_SIZE\)/);
@@ -99,7 +99,7 @@ describe("SQL audit query remediations", () => {
 
   it("uses OCC for lifecycle writes and one project snapshot for update access", () => {
     const projects = projectActionsSource();
-    const updates = read("src/app/actions/project/updates.ts");
+    const updates = read("src/app/actions/workspace/updates.ts");
     assert.match(projects, /eq\(projects\.updatedAt, project\.updatedAt\)/);
     assert.match(projects, /Stages changed\. Refresh and retry\./);
     assert.match(updates, /computeProjectReadAccess\(project\.visibility, project\.status, isOwner, isMember, parentOrgRole\)/);

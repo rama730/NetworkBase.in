@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 import { isPrivateRealtimeAuthorizationEnabled } from "../../src/lib/realtime/authorization";
-import { projectActionsSource } from "./_project-actions-source";
+import { projectActionsSource } from "./_workspace-actions-source";
 
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
 
@@ -83,7 +83,7 @@ test("account cleanup preserves lifecycle evidence before domain cascades", () =
 });
 
 test("project-file reconciliation quarantines path-correlated objects pending proof", () => {
-  const reconciliation = read("src/inngest/functions/project-files-reconciliation.ts");
+  const reconciliation = read("src/inngest/functions/workspace-files-reconciliation.ts");
   assert.match(reconciliation, /buildProjectFileKey/);
   assert.match(reconciliation, /metadataMatches/);
   assert.match(reconciliation, /storage_reconcile_unclaimed_candidate/);

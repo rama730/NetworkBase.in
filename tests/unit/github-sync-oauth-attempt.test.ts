@@ -37,12 +37,12 @@ function fixture(identities: Array<{ provider: string; identity_data?: Record<st
     URL,
     crypto: { randomUUID: () => "attempt" },
     process: {
-      env: { NEXT_PUBLIC_SUPABASE_URL: "https://project.supabase.co" },
+      env: { NEXT_PUBLIC_SUPABASE_URL: "https://workspace.supabase.co" },
     },
     window: {
       location: {
         origin: "https://networkbase.test",
-        pathname: "/projects/research",
+        pathname: "/workspaces/research",
         search: "?tab=files&filesView=github",
         hash: "",
         assign: (url: string) => navigations.push(url),
@@ -100,7 +100,7 @@ test("a cancelled or superseded sign-in request cannot navigate when the provide
   current = false;
   f.complete({
     data: {
-      url: "https://project.supabase.co/auth/v1/authorize?provider=github",
+      url: "https://workspace.supabase.co/auth/v1/authorize?provider=github",
     },
     error: null,
   });
@@ -112,13 +112,13 @@ test("the current sign-in attempt navigates only to the configured authorization
   const pending = f.start({ isCurrent: () => true });
   f.complete({
     data: {
-      url: "https://project.supabase.co/auth/v1/authorize?provider=github",
+      url: "https://workspace.supabase.co/auth/v1/authorize?provider=github",
     },
     error: null,
   });
   await pending;
   assert.deepEqual(f.navigations, [
-    "https://project.supabase.co/auth/v1/authorize?provider=github",
+    "https://workspace.supabase.co/auth/v1/authorize?provider=github",
   ]);
   const bad = fixture();
   const rejected = bad.start({ isCurrent: () => true });
@@ -143,7 +143,7 @@ test("sync renews a current linked identity rather than linking it again", async
   await settle();
   assert.equal(f.linking, undefined);
   assert.ok(f.options);
-  f.complete({ data: { url: "https://project.supabase.co/auth/v1/authorize?provider=github" }, error: null });
+  f.complete({ data: { url: "https://workspace.supabase.co/auth/v1/authorize?provider=github" }, error: null });
   await pending;
   assert.equal(f.navigations.length, 1);
 });
@@ -154,7 +154,7 @@ test("sync links only after a successful current lookup proves GitHub is absent"
   await settle();
   assert.ok(f.linking);
   assert.equal(f.options, undefined);
-  f.complete({ data: { url: "https://project.supabase.co/auth/v1/authorize?provider=github" }, error: null });
+  f.complete({ data: { url: "https://workspace.supabase.co/auth/v1/authorize?provider=github" }, error: null });
   await pending;
   assert.equal(f.navigations.length, 1);
 });

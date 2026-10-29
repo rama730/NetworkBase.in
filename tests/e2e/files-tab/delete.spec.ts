@@ -59,7 +59,7 @@ async function recordOnce(
 
 /** Open the Files tab for the fixture project and wait for the V3 root. */
 async function openFilesTabV3(page: Page): Promise<Locator | null> {
-  await page.goto(`/projects/${fixtureProjectSlug}?tab=files`, {
+  await page.goto(`/workspaces/${fixtureProjectSlug}?tab=files`, {
     waitUntil: "domcontentloaded",
   });
   const filesTab = page.getByTestId("project-tab-files").first();

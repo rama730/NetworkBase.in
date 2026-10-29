@@ -5,7 +5,7 @@ import { profiles, projectOpenRoles } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { rolePreferenceLabel, weeklyCapacityLabel, experienceLevelLabel } from '@/lib/profile/role-preferences';
 import { getAuthUser } from '@/lib/supabase/auth-user';
-import { getProjectAccessById } from '@/lib/data/project-access';
+import { getProjectAccessById } from '@/lib/data/workspace-access';
 import { resolvePrivacyRelationship } from '@/lib/privacy/resolver';
 
 export interface AttributeAlignment {

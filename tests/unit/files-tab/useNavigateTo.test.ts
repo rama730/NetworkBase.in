@@ -28,7 +28,7 @@ import {
   useNavigateTo,
   type NavigateTo,
   type NavigateToDeps,
-} from "@/components/projects/v2/files-tab/hooks/useNavigateTo";
+} from "@/components/workspaces/v2/files-tab/hooks/useNavigateTo";
 import { useFilesStore } from "@/stores/filesStore";
 import { defaultFilesState } from "@/stores/files/types";
 

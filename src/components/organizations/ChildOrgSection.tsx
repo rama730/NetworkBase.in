@@ -14,7 +14,7 @@ import {
     requestDetachAction,
     setChildVisibilityAction,
 } from '@/app/actions/organizations'
-import { SettingsCard } from '@/components/projects/settings/SettingsFormFields'
+import { SettingsCard } from '@/components/workspaces/settings/SettingsFormFields'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { allowedChildVisibilities, type ChildVisibility } from '@/lib/organizations/child-rules'

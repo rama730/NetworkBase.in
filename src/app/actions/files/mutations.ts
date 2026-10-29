@@ -13,8 +13,8 @@ import { createClient } from "@/lib/supabase/server";
 import { after } from "next/server";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/logger";
-import { enqueueProjectNotificationEvent } from "@/lib/notifications/project-events";
-import { buildProjectFileKey, isCanonicalProjectFileKey, parseProjectFileKey } from "@/lib/storage/project-file-key";
+import { enqueueProjectNotificationEvent } from "@/lib/notifications/workspace-events";
+import { buildProjectFileKey, isCanonicalProjectFileKey, parseProjectFileKey } from "@/lib/storage/workspace-file-key";
 import {
     normalizeAndValidateFileSize,
     normalizeAndValidateMimeType,
@@ -22,7 +22,7 @@ import {
     PROJECT_UPLOAD_MAX_FILE_BYTES,
 } from "@/lib/upload/security";
 import { finalizeUploadIntent } from "@/lib/upload/upload-intents";
-import { replaceTaskFileRoleTag, type TaskFileRole } from "@/lib/projects/task-file-intelligence";
+import { replaceTaskFileRoleTag, type TaskFileRole } from "@/lib/workspaces/task-file-intelligence";
 import {
     assertProjectWriteAccess,
     assertProjectWriteAccessTx,

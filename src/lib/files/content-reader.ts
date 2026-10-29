@@ -4,12 +4,12 @@ import { and, eq } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { githubSyncConnections, projectNodes, projects, storageAssets } from "@/lib/db/schema";
-import type { ProjectAccess } from "@/lib/data/project-access";
+import type { ProjectAccess } from "@/lib/data/workspace-access";
 import { assertFileNodeVisible } from "@/lib/files/internal-helpers";
 import { resolveGithubRepoAccess } from "@/lib/github/auth-resolver";
 import { logger } from "@/lib/logger";
 import { readBoundedStorageText } from "@/lib/storage/bounded-object-read";
-import { parseProjectFileKey } from "@/lib/storage/project-file-key";
+import { parseProjectFileKey } from "@/lib/storage/workspace-file-key";
 
 const MAX_INLINE_BYTES = 2 * 1024 * 1024;
 const MAX_GITHUB_BLOB_RESPONSE_BYTES = 3 * 1024 * 1024;

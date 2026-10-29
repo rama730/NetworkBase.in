@@ -18,7 +18,7 @@ import {
     isProjectLinkMetadataStale,
     resolveProjectSocialLinks,
     splitProjectSocialLinks,
-} from '@/lib/projects/social-links';
+} from '@/lib/workspaces/social-links';
 import { DOMAIN_PRESENCE_ICON_KEYS, DOMAIN_PRESENCE_RULES, SECTOR_ICON_KEYS } from '@/lib/profile/domain-presence';
 import { normalizeLinkDestinationTitle } from '@/lib/links/destination-title';
 
@@ -76,8 +76,8 @@ test('previously generic community and publishing services use their own icons',
         ['https://bsky.app/profile/example.com', 'bluesky'],
         ['https://mastodon.social/@researcher', 'mastodon'],
         ['https://www.threads.net/@creator', 'threads'],
-        ['https://gitlab.com/group/project', 'gitlab'],
-        ['https://bitbucket.org/team/project', 'bitbucket'],
+        ['https://gitlab.com/group/workspace', 'gitlab'],
+        ['https://bitbucket.org/team/workspace', 'bitbucket'],
         ['https://stackoverflow.com/users/123/example', 'stackoverflow'],
         ['https://codepen.io/example/pen/abc', 'codepen'],
         ['https://www.behance.net/designer', 'behance'],
@@ -100,7 +100,7 @@ test('recognises the product-design ecosystem without falling back to a globe', 
         ['https://dribbble.com/shots/123-product', 'dribbble'],
         ['https://www.figma.com/design/file-key/product?node-id=1-2', 'figma'],
         ['https://framer.com/projects/Product--abc', 'framer'],
-        ['https://project.webflow.io/case-study', 'webflow'],
+        ['https://workspace.webflow.io/case-study', 'webflow'],
         ['https://www.canva.com/design/abc/view', 'canva'],
         ['https://www.sketch.com/s/abc/a/page', 'sketch'],
         ['https://app.zeplin.io/project/abc', 'zeplin'],
@@ -124,7 +124,7 @@ test('recognises the product-design ecosystem without falling back to a globe', 
         ['https://www.coroflot.com/designer', 'coroflot'],
         ['https://contra.com/designer', 'contra'],
         ['https://app.spline.design/file/abc', 'spline'],
-        ['https://balsamiq.cloud/abc/project', 'balsamiq'],
+        ['https://balsamiq.cloud/abc/workspace', 'balsamiq'],
     ] as const;
 
     for (const [url, platform] of destinations) {
@@ -187,7 +187,7 @@ test('recognises representative links across the professional ecosystem', () => 
         ['https://huggingface.co/org/model?library=transformers', 'Hugging Face', 'ai'],
         ['https://public.tableau.com/views/example/Dashboard?:showVizHome=no', 'Tableau Public', 'analytics'],
         ['https://www.kaggle.com/datasets/example/data', 'Kaggle', 'data'],
-        ['https://project.vercel.app/path?mode=preview#result', 'Vercel', 'cloud'],
+        ['https://workspace.vercel.app/path?mode=preview#result', 'Vercel', 'cloud'],
         ['https://www.producthunt.com/posts/example', 'Product Hunt', 'business'],
         ['https://docs.google.com/document/d/abc/edit?tab=t.0#heading=h.1', 'Google Docs', 'docs'],
         ['https://drive.google.com/file/d/abc/view?usp=sharing', 'Google Drive', 'storage'],
@@ -313,7 +313,7 @@ test('all project-link platforms preserve path, query, and fragment semantics', 
 });
 
 test('workspace links infer a cross-sector purpose while preserving explicit owner intent', () => {
-    const github = resolveSocialPresence('website', 'https://github.com/example/project');
+    const github = resolveSocialPresence('website', 'https://github.com/example/workspace');
     const scholar = resolveSocialPresence('website', 'https://scholar.google.com/citations?user=abc');
     const behance = resolveSocialPresence('website', 'https://behance.net/example');
     assert.ok(github && scholar && behance);

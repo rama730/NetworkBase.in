@@ -26,7 +26,7 @@ describe("project contribution sequencing", () => {
 
   it("reads synchronization watermarks from the counter authority", () => {
     assert.match(read("src/lib/github/sync-service.ts"), /projectEventCounters/);
-    assert.match(read("src/app/api/v1/projects/[id]/sync-diff/route.ts"), /projectEventCounters\.nextSequence/);
+    assert.match(read("src/app/api/v1/workspaces/[id]/sync-diff/route.ts"), /projectEventCounters\.nextSequence/);
     assert.match(read("src/app/api/v1/extension/workspace/route.ts"), /projectEventCounters\.nextSequence/);
   });
 });

@@ -83,7 +83,7 @@ function transition() {
       }),
     }),
   };
-  const service = load("src/lib/projects/task-transition-service.ts", { "@/lib/projects/task-review-snapshot": { taskReviewSnapshot: async () => "snapshot" } });
+  const service = load("src/lib/workspaces/task-transition-service.ts", { "@/lib/workspaces/task-review-snapshot": { taskReviewSnapshot: async () => "snapshot" } });
   const locked = {
     projectId: "p",
     isOwner: false,

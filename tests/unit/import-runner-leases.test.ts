@@ -4,7 +4,7 @@ import { test } from "node:test";
 
 // ARCH-001: import ownership is a fenced lease, never a session or idle-transaction advisory lock.
 test("the import runner guards work with leases and fences its mutation transactions", () => {
-  const runner = readFileSync("src/lib/github/project-import-runner.ts", "utf8");
+  const runner = readFileSync("src/lib/github/workspace-import-runner.ts", "utf8");
   assert.doesNotMatch(runner, /pg_try_advisory|pg_advisory_unlock|withTenantSyncLock/);
   assert.match(runner, /withWorkLease\(`git-import-tenant:\$\{userId\}`/);
   assert.match(runner, /withWorkLease\(`git-import-project:\$\{projectId\}`/);

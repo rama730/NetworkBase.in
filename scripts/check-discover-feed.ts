@@ -51,8 +51,8 @@ async function check(label: string, run: () => Promise<boolean>) {
 async function main() {
   const postgres = (await import("postgres")).default;
   const sql = postgres(disposableUrl!, { max: 4, prepare: false, onnotice: () => undefined });
-  const feed = await import("@/lib/projects/public-feed-service");
-  const { decodePublicProjectsCursor } = await import("@/lib/projects/public-feed");
+  const feed = await import("@/lib/workspaces/public-feed-service");
+  const { decodePublicProjectsCursor } = await import("@/lib/workspaces/public-feed");
   const data = await import("@/lib/data/discover");
   const connectionsActions = await import("@/app/actions/connections");
   const { DISCOVER_RAIL_FILTERS } = await import("@/lib/discover/query");
@@ -109,7 +109,7 @@ async function main() {
     await project(ids.javascript, owner, "JavaScript project", { views: 10 });
     await project(ids.blockerOwned, blocker, "Blocker owner", { views: 15 });
     await project(ids.privateProject, owner, "Private project", { views: 60, visibility: "private" });
-    // Legacy "unlisted" rows are publicly readable (project-visibility.ts), so Discover lists them like public ones.
+    // Legacy "unlisted" rows are publicly readable (workspace-visibility.ts), so Discover lists them like public ones.
     await project(ids.unlistedProject, owner, "Unlisted project", { views: 3, visibility: "unlisted" });
     await sql`UPDATE projects SET cover_image = 'https://cdn.example.test/open.png' WHERE id = ${ids.open}`;
     for (const [index, id] of sameMillisecond.entries()) {

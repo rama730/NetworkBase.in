@@ -1,7 +1,7 @@
 import DiscoverClient from "@/components/discover/DiscoverClient";
 import { getViewerAuthContext, toClientViewer } from "@/lib/server/viewer-context";
-import { getPublicProjectsFeedPage, forViewer } from "@/lib/projects/public-feed-service";
-import { mapPublicProjectToDiscoverProject } from "@/lib/projects/public-feed";
+import { getPublicProjectsFeedPage, forViewer } from "@/lib/workspaces/public-feed-service";
+import { mapPublicProjectToDiscoverProject } from "@/lib/workspaces/public-feed";
 import { getConnectionsFeed } from "@/app/actions/connections";
 import type { ConnectionFeedPage, DiscoverConnectionItem } from "@/hooks/useConnections";
 import { DISCOVER_RAIL_FILTERS, DISCOVER_RAIL_PEOPLE_LIMIT, isDefaultDiscoverQuery, parseDiscoverQuery } from "@/lib/discover/query";

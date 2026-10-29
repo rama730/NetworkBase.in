@@ -41,9 +41,9 @@ async function main() {
     source("src/app/api/v1/profiles/[id]/contributions/route.ts"),
     source("src/components/profile/edit/EditProfileTabs.tsx"),
     source("src/components/profile/edit/EditProfileEditor.tsx"),
-    source("src/components/profile/v2/sections/ProjectContributionsCard.tsx"),
+    source("src/components/profile/v2/sections/WorkspaceContributionsCard.tsx"),
     source("src/app/api/v1/profiles/[id]/collaboration-stages/[stageId]/route.ts"),
-    source("src/lib/projects/update-roles.ts"),
+    source("src/lib/workspaces/update-roles.ts"),
     source("scripts/check-profile-contribution-database.ts"),
     source("docs/runbooks/profile-contributions.md"),
     source("drizzle/0208_native_auth_uid.sql"),
@@ -94,14 +94,14 @@ async function main() {
   requireContract("editor exposes incremental pagination", workspace.includes("Load more contributions") && modal.includes("handleLoadMoreContributions"));
   requireContract("editor has per-item dirty state", workspace.includes("bases.current") && workspace.includes("mergeContributionStory"));
   requireContract("editor has per-item save and error state", workspace.includes("Draft save failed") && workspace.includes("Saving…") && workspace.includes('role="alert"'));
-  requireContract("platform identity is descriptive text", workspace.includes("Linked NetworkBase project") && workspace.includes("Personal position titles never change team access"));
+  requireContract("platform identity is descriptive text", workspace.includes("Linked NetworkBase workspace") && workspace.includes("Personal position titles never change team access"));
   requireContract("modal uses dedicated contribution command", modal.includes("saveProfileContributionsAction"));
   requireContract("modal keeps contributions out of profile payloads", modal.includes("toChangedServerPayload") && !("experience" in toChangedServerPayload(
     toFormState({ experience: [{ title: "Legacy contribution" }] }), toFormState({}), "2026-10-13T12:00:00.000Z",
   )));
   requireContract("modal attributes server failures to contribution items", modal.includes("setContributionErrors") && modal.includes("result.mutationIndex"));
   requireContract("owner has private preview", card.includes("Only you can see this contribution"));
-  requireContract("public empty state is distinct", card.includes("No public project contributions"));
+  requireContract("public empty state is distinct", card.includes("No public workspace contributions"));
   requireContract("duplicate stage editor is absent", !card.includes("collaboration-stages"));
   requireContract("stale stage clients get terminal response", stageRoute.includes("410") && stageRoute.includes("NOT_SUPPORTED"));
   requireContract("database integration check is disposable-only", databaseCheck.includes("requireDisposableDatabaseUrl(") && databaseCheck.includes("ROLLBACK"));

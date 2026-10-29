@@ -10,7 +10,7 @@ import { applyFileRevision } from "@/lib/files/apply-file-revision";
 import { isFileRevisionMode, normalizeRevisionComment, parseFileRevisionMode } from "@/lib/files/revision-policy";
 import { createAdminClient } from "@/lib/supabase/server";
 import { createUploadIntent, finalizeUploadIntent } from "@/lib/upload/upload-intents";
-import { parseProjectFileKey } from "@/lib/storage/project-file-key";
+import { parseProjectFileKey } from "@/lib/storage/workspace-file-key";
 import { logger } from "@/lib/logger";
 import { streamPrivateObject } from "@/lib/storage/private-object-response";
 import { readBoundedStorageBytes } from "@/lib/storage/bounded-object-read";

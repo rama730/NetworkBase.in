@@ -10,7 +10,7 @@ import {
 } from "@/app/api/v1/extension/_file-revision";
 import { db } from "@/lib/db";
 import { uploadIntents } from "@/lib/db/schema";
-import { getProjectAccessById } from "@/lib/data/project-access";
+import { getProjectAccessById } from "@/lib/data/workspace-access";
 import { createAdminClient } from "@/lib/supabase/server";
 import { applyFileRevision } from "@/lib/files/apply-file-revision";
 import { finalizeUploadIntent } from "@/lib/upload/upload-intents";

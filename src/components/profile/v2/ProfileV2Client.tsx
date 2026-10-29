@@ -32,13 +32,13 @@ const ResourceShareDialog = dynamic(() => import('@/components/sharing/ShareDial
 import { ProfileHeader } from './ProfileHeader'
 import { ProfileRightRail } from './ProfileRightRail'
 import { OpenToRolesCard } from './sections/OpenToRolesCard'
-import { ProjectContributionsCard } from './sections/ProjectContributionsCard'
-import { ProjectsGridCard } from './sections/ProjectsGridCard'
+import { ProjectContributionsCard } from './sections/WorkspaceContributionsCard'
+import { ProjectsGridCard } from './sections/WorkspacesGridCard'
 import { OrgChipsRow } from './sections/OrgChipsRow'
 
 type UserConnectionsModalComponent = typeof import('@/components/profile/v2/UserConnectionsModal')['UserConnectionsModal'];
 type ProfileInviteModalComponent = typeof import('./ProfileInviteModal')['default'];
-type ApplyRoleModalComponent = typeof import('@/components/projects/ApplyRoleModal')['default'];
+type ApplyRoleModalComponent = typeof import('@/components/workspaces/ApplyRoleModal')['default'];
 
 interface ProfileClientProps extends Omit<ProfilePageData, 'stats'> {
     stats?: ProfileStats;
@@ -105,7 +105,7 @@ async function readApiData<T>(response: Response): Promise<T> {
 }
 
 async function fetchProfileProjects(profileId: string) {
-    const response = await fetch(`/api/v1/profiles/${encodeURIComponent(profileId)}/projects?limit=24`, {
+    const response = await fetch(`/api/v1/profiles/${encodeURIComponent(profileId)}/workspaces?limit=24`, {
         headers: { accept: 'application/json' },
         credentials: 'include',
     })
@@ -113,7 +113,7 @@ async function fetchProfileProjects(profileId: string) {
 }
 
 async function fetchInviteOptions(profileId: string) {
-    const response = await fetch(`/api/v1/profiles/${encodeURIComponent(profileId)}/project-invite-options`, {
+    const response = await fetch(`/api/v1/profiles/${encodeURIComponent(profileId)}/workspace-invite-options`, {
         headers: { accept: 'application/json' },
         credentials: 'include',
     })
@@ -268,7 +268,7 @@ export function ProfileV2Client({
 
     const loadApplyRoleModal = useCallback(async () => {
         if (ApplyRoleModal) return
-        const mod = await import('@/components/projects/ApplyRoleModal')
+        const mod = await import('@/components/workspaces/ApplyRoleModal')
         setApplyRoleModal(() => mod.default)
     }, [ApplyRoleModal])
 

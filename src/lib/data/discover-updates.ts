@@ -3,14 +3,14 @@ import { db } from "@/lib/db";
 import { profiles, projectMembers, projectUpdateLikes, projectUpdates, projects } from "@/lib/db/schema";
 import { buildBaseConditions, buildSearchConditions, DEFAULT_FILTERS } from "@/lib/data/discover";
 import { readableProfileIdentitySql } from "@/lib/privacy/resolver";
-import { getProjectMemberRoleLabel, normalizeProjectMemberRole } from "@/lib/projects/settings-policies";
-import { readProjectRoleTitles, roleTitleKey } from "@/lib/projects/update-roles";
+import { getProjectMemberRoleLabel, normalizeProjectMemberRole } from "@/lib/workspaces/settings-policies";
+import { readProjectRoleTitles, roleTitleKey } from "@/lib/workspaces/update-roles";
 import {
     normalizeProjectUpdateAuthorRoleSnapshot,
     normalizeProjectUpdateMediaItems,
     normalizeProjectUpdateType,
     resolveProjectUpdateAuthorRoleDisplay,
-} from "@/lib/projects/updates";
+} from "@/lib/workspaces/updates";
 import { containsLikePattern } from "@/lib/search/query";
 import { FILTER_VIEWS, type FilterView } from "@/constants/discover";
 import type { DiscoverFilters, DiscoverUpdateView, DiscoverUpdatesPage } from "@/types/discover";

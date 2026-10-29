@@ -19,7 +19,7 @@ import {
   STAGE_TIMEOUT_MS,
   StartupStageMachine,
   type StartupStage,
-} from "@/components/projects/v2/files-tab/hooks/useFilesTabStartupStage";
+} from "@/components/workspaces/v2/files-tab/hooks/useFilesTabStartupStage";
 
 describe("StartupStageMachine", () => {
   it("starts in the 'explorer' stage", () => {

@@ -1,5 +1,5 @@
 import { sql, type SQL } from "drizzle-orm";
-import { TASK_FILE_ROLE_KEYWORDS } from "@/lib/projects/task-file-intelligence";
+import { TASK_FILE_ROLE_KEYWORDS } from "@/lib/workspaces/task-file-intelligence";
 
 /** Bounded first-page prefetch and subsequent pages use exactly the same filters. */
 export function taskFileEntriesSql(projectId: string, taskIds: string[], deliverables: boolean, after?: string, query = "", role?: string) {

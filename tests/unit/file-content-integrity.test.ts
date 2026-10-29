@@ -7,7 +7,7 @@ const source = (file: string) => fs.readFileSync(path.join(process.cwd(), file),
 
 test("file reads never fabricate or persist empty recovery content", () => {
   const content = source("src/lib/files/content-reader.ts");
-  const viewer = source("src/components/projects/v2/files-tab/file/TextViewer.tsx");
+  const viewer = source("src/components/workspaces/v2/files-tab/file/TextViewer.tsx");
 
   assert.match(content, /class FileContentUnavailableError/);
   assert.match(content, /code = "FILE_CONTENT_UNAVAILABLE"/);

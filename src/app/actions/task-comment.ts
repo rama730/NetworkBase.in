@@ -31,9 +31,9 @@ import {
   type TaskDiscussionCursor,
   type TaskDiscussionDeleteMode,
   type TaskDiscussionThreadPage,
-} from "@/lib/projects/task-discussion";
-import { parseMentions } from "@/lib/projects/mention-tokens";
-import { enqueueProjectNotificationEvent } from "@/lib/notifications/project-events";
+} from "@/lib/workspaces/task-discussion";
+import { parseMentions } from "@/lib/workspaces/mention-tokens";
+import { enqueueProjectNotificationEvent } from "@/lib/notifications/workspace-events";
 import { enqueueTaskCommentMentionNotifications } from "@/lib/notifications/task-comment-mention";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { getViewerProfileContext } from "@/lib/server/viewer-context";
@@ -720,7 +720,7 @@ export async function createTaskCommentAction(
           affectedMemberId: parentCommentAuthorId,
           title: `${actorName || "Someone"} replied to your task comment`,
           body: parsedMentions.plainText,
-          href: `/projects/${encodeURIComponent(taskAccess.slug || projectId)}?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(taskId)}&panelTab=comments&commentId=${encodeURIComponent(inserted.id)}`,
+          href: `/workspaces/${encodeURIComponent(taskAccess.slug || projectId)}?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(taskId)}&panelTab=comments&commentId=${encodeURIComponent(inserted.id)}`,
           entityRefs: {
             projectId,
             projectSlug: taskAccess.slug ?? null,

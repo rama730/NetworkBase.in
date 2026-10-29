@@ -102,8 +102,8 @@ test('profile surfaces use the shared typography roles', () => {
   const tabs = read('src/components/profile/v2/ProfileTabs.tsx')
   const rail = read('src/components/profile/v2/ProfileRightRail.tsx')
   const about = read('src/components/profile/v2/sections/AboutCard.tsx')
-  const projects = read('src/components/profile/v2/sections/ProjectsGridCard.tsx')
-  const contributions = read('src/components/profile/v2/sections/ProjectContributionsCard.tsx')
+  const projects = read('src/components/profile/v2/sections/WorkspacesGridCard.tsx')
+  const contributions = read('src/components/profile/v2/sections/WorkspaceContributionsCard.tsx')
   const editor = read('src/components/profile/edit/EditProfileTabs.tsx')
 
   assert.match(tabs, /nb-ui-label/)
@@ -125,12 +125,12 @@ test('profile surfaces use the shared typography roles', () => {
 
 test('portfolio project cards reuse Discovery and versioned local image URLs remain supported', () => {
   const config = read('next.config.ts')
-  const projects = read('src/components/profile/v2/sections/ProjectsGridCard.tsx')
+  const projects = read('src/components/profile/v2/sections/WorkspacesGridCard.tsx')
   const css = read('src/app/globals.css')
   const collaboration = read('src/lib/profile/collaboration.ts')
 
-  assert.match(config, /pathname: '\/api\/v1\/projects\/\*\/image'/)
-  assert.match(projects, /import ProjectCard from "@\/components\/projects\/ProjectCard"/)
+  assert.match(config, /pathname: '\/api\/v1\/workspaces\/\*\/image'/)
+  assert.match(projects, /import ProjectCard from "@\/components\/workspaces\/WorkspaceCard"/)
   assert.match(projects, /<ProjectCard/)
   assert.match(projects, /toProjectCardViewModel\(cardProject\)/)
   assert.doesNotMatch(projects, /from "next\/image"/)

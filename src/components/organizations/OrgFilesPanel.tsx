@@ -78,7 +78,7 @@ function OrgFilePeek({ orgId, orgTitle, file, href, onClose }: { orgId: string; 
     const [body, setBody] = useState<{ kind: 'image'; url: string } | { kind: 'text'; text: string } | { kind: 'other' } | null>(null)
     useEffect(() => {
         let url: string | null = null
-        void fetch(`/api/v1/projects/${orgId}/files/${file.id}/preview`).then(async (response) => {
+        void fetch(`/api/v1/workspaces/${orgId}/files/${file.id}/preview`).then(async (response) => {
             const type = response.headers.get('content-type') ?? ''
             if (!response.ok) return setBody({ kind: 'other' })
             if (type.startsWith('image/')) { url = URL.createObjectURL(await response.blob()); return setBody({ kind: 'image', url }) }
@@ -121,7 +121,7 @@ function FromOrgFiles({ projectId, canCopy }: { projectId: string; canCopy: bool
     const updateCopy = async (c: OrgCopyRow) => {
         setCopying(c.nodeId)
         try {
-            const response = await fetch(`/api/v1/projects/${data.org.id}/files/${c.sourceNodeId}/preview?download=1`)
+            const response = await fetch(`/api/v1/workspaces/${data.org.id}/files/${c.sourceNodeId}/preview?download=1`)
             if (!response.ok) throw new Error('Couldn’t read the file')
             const blob = await response.blob()
             const { saveFileRevision } = await import('@/hooks/useFileVersions')
@@ -142,7 +142,7 @@ function FromOrgFiles({ projectId, canCopy }: { projectId: string; canCopy: bool
     const copy = async (file: OrgBrowseNode) => {
         setCopying(file.id)
         try {
-            const response = await fetch(`/api/v1/projects/${data.org.id}/files/${file.id}/preview?download=1`)
+            const response = await fetch(`/api/v1/workspaces/${data.org.id}/files/${file.id}/preview?download=1`)
             if (!response.ok) throw new Error('Couldn’t read the file')
             const created = await uploadProjectFile(projectId, null, file.name, await response.blob())
             const recorded = await recordOrgCopyAction(projectId, created.id, file.id)
@@ -241,7 +241,7 @@ function GroupDeliverables({ orgId }: { orgId: string }) {
             <ul className="divide-y divide-border pt-2 text-sm">
                 {rows.map((r) => (
                     <li key={r.nodeId} className="flex flex-wrap items-center gap-x-2 py-1.5">
-                        <Link href={`/projects/${encodeURIComponent(r.projectSlug ?? r.projectId)}?tab=files&fileId=${encodeURIComponent(r.nodeId)}`} className="min-w-0 truncate hover:underline">{r.name}</Link>
+                        <Link href={`/workspaces/${encodeURIComponent(r.projectSlug ?? r.projectId)}?tab=files&fileId=${encodeURIComponent(r.nodeId)}`} className="min-w-0 truncate hover:underline">{r.name}</Link>
                         <span className="text-[12px] text-muted-foreground">{r.project} · {r.assignment} · {REVIEW[r.review] ?? r.review}</span>
                     </li>
                 ))}

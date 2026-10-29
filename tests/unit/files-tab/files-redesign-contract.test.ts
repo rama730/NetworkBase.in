@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 const read = (path: string) =>
-  readFileSync(`src/components/projects/v2/files-tab/${path}`, "utf8");
+  readFileSync(`src/components/workspaces/v2/files-tab/${path}`, "utf8");
 
 test("collection navigation lives in the sidebar, not a second project header", () => {
   const sidebar = read("FilesTabSidebar.tsx"),
@@ -111,14 +111,14 @@ test("deliverable approval is scoped to the explicit review action and protects 
 
 test("upload decisions, Undo and task search failures have explicit accessible outcomes", () => {
   const decision = readFileSync(
-    "src/components/projects/v2/explorer/useUploadCollisionDecision.tsx",
+    "src/components/workspaces/v2/explorer/useUploadCollisionDecision.tsx",
     "utf8",
   );
   assert.match(decision, /DialogTitle>Some files have the same name/);
   assert.match(decision, /finish\("keep_both"\)/);
   assert.match(decision, /resolveRef.current\?\.\("cancel"\)/);
   const undo = readFileSync(
-    "src/components/projects/v2/explorer/useExplorerOperationLog.ts",
+    "src/components/workspaces/v2/explorer/useExplorerOperationLog.ts",
     "utf8",
   );
   assert.match(undo, /if \(running \|\| completed\) return/);

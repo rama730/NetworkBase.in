@@ -22,7 +22,7 @@ import {
   buildProjectFileKey,
   isCanonicalProjectFileKey,
   parseProjectFileKey,
-} from "@/lib/storage/project-file-key";
+} from "@/lib/storage/workspace-file-key";
 import {
   normalizeAndValidateFileSize,
   normalizeAndValidateMimeType,
@@ -31,7 +31,7 @@ import {
 } from "@/lib/upload/security";
 import { finalizeUploadIntent } from "@/lib/upload/upload-intents";
 import { notifyForFileVersionCreated } from "@/lib/notifications/task-file";
-import { enqueueProjectNotificationEvent } from "@/lib/notifications/project-events";
+import { enqueueProjectNotificationEvent } from "@/lib/notifications/workspace-events";
 import {
   assertProjectFileReadAccess,
   assertFileNodeVisible,
@@ -190,7 +190,7 @@ export async function getVersionPreviewUrl(
 
   const params = new URLSearchParams({ revision: String(version) });
   if (download) params.set("download", "1");
-  return { url: `/api/v1/projects/${projectId}/files/${nodeId}/preview?${params.toString()}` };
+  return { url: `/api/v1/workspaces/${projectId}/files/${nodeId}/preview?${params.toString()}` };
 }
 
 /**

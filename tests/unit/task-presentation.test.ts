@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { calculateTaskTimeHealth } from "@/lib/projects/task-presentation";
+import { calculateTaskTimeHealth } from "@/lib/workspaces/task-presentation";
 
 describe("task time health", () => {
   it("keeps a completed task overdue when completion follows its due day in an active sprint", () => {

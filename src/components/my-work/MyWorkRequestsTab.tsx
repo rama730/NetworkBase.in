@@ -8,14 +8,14 @@ import { acceptApplicationAction, acceptApplicationsAction, getIncomingApplicati
 import { DecisionDialog, type DecisionInput } from "@/components/applications/DecisionDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { personCardName } from "@/lib/network/person-card";
-import { resolveProjectInvitationAction } from "@/app/actions/project/guidance";
+import { resolveProjectInvitationAction } from "@/app/actions/workspace/guidance";
 import { queryKeys } from "@/lib/query-keys";
 import { useUIStore } from "@/stores/ui-store";
 import { Inbox } from "lucide-react";
 import {
     IncomingProjectApplicationRow,
     type IncomingProjectApplication,
-} from "@/components/network/IncomingProjectApplicationRow";
+} from "@/components/network/IncomingWorkspaceApplicationRow";
 import { toast, feedbackError } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { RequestProfileRow } from "@/components/network/RequestProfileRow";

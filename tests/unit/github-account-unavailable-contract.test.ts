@@ -51,7 +51,7 @@ describe("github unavailable-account end-to-end contract", () => {
 
   it("prevents a stale sealed token from presenting repository browsing as healthy", () => {
     const accessState = source("src/lib/github/import-access-state.ts");
-    const wizard = source("src/components/projects/create-wizard/phases/Phase1SourceSelection.tsx");
+    const wizard = source("src/components/workspaces/create-wizard/phases/Phase1SourceSelection.tsx");
 
     assert.match(accessState, /accountHealth\.state !== 'unavailable'/);
     assert.match(accessState, /refreshRequired:/);

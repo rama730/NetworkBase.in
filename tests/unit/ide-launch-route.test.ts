@@ -14,7 +14,7 @@ test("/open/ide route generates valid deep-link protocol URI and instant handoff
   assert.match(html, /Opening in Cursor&hellip;/);
   assert.match(html, /cursor:\/\/nb-workspace\.nb-vscode-sync\/open\?projectId=proj-123&slug=deepscope-ai&taskId=task-456/);
   assert.match(html, /Launch Cursor/);
-  assert.match(html, /href="\/projects\/deepscope-ai\?tab=tasks&amp;drawerType=task&amp;drawerId=task-456"/);
+  assert.match(html, /href="\/workspaces\/deepscope-ai\?tab=tasks&amp;drawerType=task&amp;drawerId=task-456"/);
   assert.match(html, /cursor:extension\/nb-workspace\.nb-vscode-sync/);
 });
 

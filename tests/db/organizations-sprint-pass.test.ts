@@ -20,10 +20,10 @@ moduleStubs.set("@/inngest/client", { inngest: { send: async () => ({ ids: [] })
 delete process.env.UPSTASH_REDIS_REST_URL;
 delete process.env.UPSTASH_REDIS_REST_TOKEN;
 
-let sprints: typeof import("../../src/lib/projects/server/sprints");
-let schedule: typeof import("../../src/lib/projects/sprint-schedule");
+let sprints: typeof import("../../src/lib/workspaces/server/sprints");
+let schedule: typeof import("../../src/lib/workspaces/sprint-schedule");
 let rows: typeof import("../../src/app/actions/sprint-assignments");
-let lifecycle: typeof import("../../src/lib/projects/server/lifecycle");
+let lifecycle: typeof import("../../src/lib/workspaces/server/lifecycle");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
   moduleStubs.set("@/lib/server/viewer-context", {
@@ -31,10 +31,10 @@ before(async () => {
     getViewerAuthContext: async () => ({ supabase: null, snapshot: null, user: viewerId ? { id: viewerId } : null, userId: viewerId || null, emailVerified: true }),
     getViewerProfileContext: async () => ({ userId: viewerId || null, profile: { fullName: "Tester", username: "tester", avatarUrl: null } }),
   });
-  sprints = await loadAppModule(() => import("../../src/lib/projects/server/sprints"));
-  schedule = await loadAppModule(() => import("../../src/lib/projects/sprint-schedule"));
+  sprints = await loadAppModule(() => import("../../src/lib/workspaces/server/sprints"));
+  schedule = await loadAppModule(() => import("../../src/lib/workspaces/sprint-schedule"));
   rows = await loadAppModule(() => import("../../src/app/actions/sprint-assignments"));
-  lifecycle = await loadAppModule(() => import("../../src/lib/projects/server/lifecycle"));
+  lifecycle = await loadAppModule(() => import("../../src/lib/workspaces/server/lifecycle"));
 });
 
 const created: string[] = [];

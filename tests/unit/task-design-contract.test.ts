@@ -5,11 +5,11 @@ import test from "node:test";
 
 const TASKS_COMPONENTS_DIR = path.join(
   process.cwd(),
-  "src/components/projects/v2/tasks",
+  "src/components/workspaces/v2/tasks",
 );
 const TASKS_TAB_PATH = path.join(
   process.cwd(),
-  "src/components/projects/v2/TasksTab.tsx",
+  "src/components/workspaces/v2/TasksTab.tsx",
 );
 
 function getAllFiles(dirPath: string, arrayOfFiles: string[] = []): string[] {

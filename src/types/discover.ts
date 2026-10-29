@@ -1,4 +1,4 @@
-import type { ProjectUpdateType } from "@/lib/projects/updates";
+import type { ProjectUpdateType } from "@/lib/workspaces/updates";
 // Hub Types - Adapted to work with existing Drizzle schema
 import type { SocialLinkStorage } from "@/lib/profile/normalization";
 

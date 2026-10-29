@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildTaskPreviewColumns } from "../../src/lib/projects/task-drag-preview";
+import { buildTaskPreviewColumns } from "../../src/lib/workspaces/task-drag-preview";
 
 const workflow = [
     { id: "todo", status: "todo", isDefault: true },

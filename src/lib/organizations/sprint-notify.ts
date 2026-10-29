@@ -45,7 +45,7 @@ export function notifyOrgSprintStarted(sprintId: string, projectId: string, acto
         AND NOT EXISTS (SELECT 1 FROM project_sprints c WHERE c.project_id = p.id AND c.parent_sprint_id = ${sprintId})`);
     for (const lead of leads) {
       await notifyOrg({ orgId: org.id, eventKey: "org_sprints.notice", actorId, to: [lead.owner_id], title: `${sprint.name} started. Plan your sprint in ${lead.title}`,
-        href: `/projects/${encodeURIComponent(lead.slug ?? lead.id)}?tab=sprints`, sourceEventId: `sprint-plan:${sprintId}:${lead.id}` });
+        href: `/workspaces/${encodeURIComponent(lead.slug ?? lead.id)}?tab=sprints`, sourceEventId: `sprint-plan:${sprintId}:${lead.id}` });
     }
   });
 }
@@ -92,7 +92,7 @@ export function notifyLinkedSprintsOutside(sprintId: string, projectId: string, 
       WHERE o.id = ${sprintId} AND (c.start_date < o.start_date OR c.end_date > o.end_date)`);
     for (const r of rows) {
       await notifyOrg({ orgId: org.id, eventKey: "org_sprints.notice", actorId, to: [r.owner_id], title: `Your sprint ${r.name} is outside ${r.parent}'s new dates`,
-        href: `/projects/${encodeURIComponent(r.slug ?? r.project_id)}?tab=sprints`, sourceEventId: `sprint-outside:${r.id}:${r.stamp}` });
+        href: `/workspaces/${encodeURIComponent(r.slug ?? r.project_id)}?tab=sprints`, sourceEventId: `sprint-outside:${r.id}:${r.stamp}` });
     }
   });
 }
@@ -140,7 +140,7 @@ export function notifyChildSprintsUnlinked(orgId: string, orgSprintId: string, l
     if (org?.kind !== "organization") return;
     for (const child of linked) {
       await notifyOrg({ orgId, eventKey: "org_sprints.notice", actorId, to: [child.ownerId], title: `${org.name} was canceled. ${child.sprintName} is no longer linked to it`,
-        href: `/projects/${encodeURIComponent(child.slug ?? child.projectId)}?tab=sprints`, sourceEventId: `sprint-unlinked:${orgSprintId}:${child.projectId}`, refs: { projectId: child.projectId } });
+        href: `/workspaces/${encodeURIComponent(child.slug ?? child.projectId)}?tab=sprints`, sourceEventId: `sprint-unlinked:${orgSprintId}:${child.projectId}`, refs: { projectId: child.projectId } });
     }
   });
 }

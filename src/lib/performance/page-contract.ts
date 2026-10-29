@@ -244,7 +244,7 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     maxInitialPayloadKb: 260,
     allowForceDynamic: true,
   }),
-  "/projects/[slug]": buildPublicContract("/projects/[slug]", "src/app/(site)/(main)/projects/[slug]/page.tsx", {
+  "/workspaces/[slug]": buildPublicContract("/workspaces/[slug]", "src/app/(site)/(main)/workspaces/[slug]/page.tsx", {
     renderingMode: "dynamic",
     cacheTtlSeconds: 60,
     invalidationOwner: "server-action",
@@ -260,7 +260,7 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     bootstrapReadModel: "server_query",
     maxInitialPayloadKb: 300,
   }),
-  "/projects/new": buildUserShellContract("/projects/new", "src/app/(site)/(main)/projects/new/page.tsx", {
+  "/workspaces/new": buildUserShellContract("/workspaces/new", "src/app/(site)/(main)/workspaces/new/page.tsx", {
     renderingMode: "dynamic",
     cacheStrategy: "none",
     cacheTtlSeconds: 0,
@@ -317,8 +317,8 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     allowForceDynamic: true,
   }),
   ...messagesRoute("/messages/[channelId]"),
-  ...messagesRoute("/messages/p/[projectId]"),
-  ...messagesRoute("/messages/p/[projectId]/browse"),
+  ...messagesRoute("/messages/w/[workspaceId]"),
+  ...messagesRoute("/messages/w/[workspaceId]/browse"),
   ...messagesRoute("/messages/inbox"),
   ...messagesRoute("/messages/saved"),
   ...messagesRoute("/messages/drafts"),

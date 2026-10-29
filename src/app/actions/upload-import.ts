@@ -5,7 +5,7 @@ import { fileVersions, projects, projectNodes, storageAssets } from '@/lib/db/sc
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { isCanonicalProjectFileKey, parseProjectFileKey } from '@/lib/storage/project-file-key';
+import { isCanonicalProjectFileKey, parseProjectFileKey } from '@/lib/storage/workspace-file-key';
 import { randomUUID } from 'crypto';
 import { logger } from '@/lib/logger';
 import { buildProjectImportEventId, buildUploadManifestHash } from '@/lib/import/idempotency';
@@ -516,8 +516,8 @@ export async function registerUploadedFolderAction(
       return deletedFiles;
     });
 
-    revalidatePath(`/projects/${projectId}`);
-    if (project.slug) revalidatePath(`/projects/${project.slug}`);
+    revalidatePath(`/workspaces/${projectId}`);
+    if (project.slug) revalidatePath(`/workspaces/${project.slug}`);
     revalidatePath('/discover');
     logger.metric('upload.register.result', {
       projectId,
@@ -956,8 +956,8 @@ export async function registerUploadedFolderAction(
     }
 
     // Refresh the project page (slug or id)
-    revalidatePath(`/projects/${projectId}`);
-    if (project.slug) revalidatePath(`/projects/${project.slug}`);
+    revalidatePath(`/workspaces/${projectId}`);
+    if (project.slug) revalidatePath(`/workspaces/${project.slug}`);
     revalidatePath('/discover');
 
     const value = lockResult.value || {
@@ -1110,8 +1110,8 @@ export async function markProjectSyncFailedAction(
     // Non-blocking cleanup
   }
 
-  revalidatePath(`/projects/${projectId}`);
-  if (project.slug) revalidatePath(`/projects/${project.slug}`);
+  revalidatePath(`/workspaces/${projectId}`);
+  if (project.slug) revalidatePath(`/workspaces/${project.slug}`);
   revalidatePath('/discover');
 
   logger.metric('upload.register.result', {

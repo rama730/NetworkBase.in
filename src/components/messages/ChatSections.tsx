@@ -15,8 +15,8 @@ import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { Skeleton } from "@/components/ui/skeleton";
 import { readChatUi, saveAccountUi, useChatUi, useDrafts } from "@/components/messages/chat-ui-store";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
-import { useSelectedProject } from "@/components/messages/useSelectedProject";
-import { ProjectBadge } from "@/components/projects/ProjectBadge";
+import { useSelectedProject } from "@/components/messages/useSelectedWorkspace";
+import { ProjectBadge } from "@/components/workspaces/WorkspaceBadge";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -34,7 +34,7 @@ import type { ChatChannelSummary, ChatNotify } from "@/lib/messaging/types";
 import { copyWithToast } from "@/lib/clipboard";
 import { conversationHref } from "@/lib/messaging/routes";
 import { childProjectsOf, workspaceProjects } from "@/lib/organizations/chat-rules";
-import { OrgBrowseProjects } from "@/components/messages/OrgBrowseProjects";
+import { OrgBrowseProjects } from "@/components/messages/OrgBrowseWorkspaces";
 import { ConversationIcon } from "@/components/messages/ConversationIcon";
 import { useConversationExit } from "@/components/messages/useConversationExit";
 import { useMarkAllRead } from "@/components/messages/useMarkAllRead";
@@ -424,7 +424,7 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
   const setInviteFor = useChatUi((state) => state.setInviteFor);
   const router = useRouter();
   // On the Messages page the project lives in the URL (reload keeps it); the floating window has no URL.
-  const pick = (id: string | null) => (inPage ? router.push(id ? `/messages/p/${id}` : "/messages") : setProject(id));
+  const pick = (id: string | null) => (inPage ? router.push(id ? `/messages/w/${id}` : "/messages") : setProject(id));
   // Orgs and personal projects get a row; child projects live inside their org (report §25.1).
   const projects = workspaceProjects(projectsByActivity(data));
   const badges = workspaceBadges(data);
@@ -467,7 +467,7 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
           {inPage ? (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild><Link href="/projects/new">Create new workspace</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link href="/workspaces/new">Create new workspace</Link></DropdownMenuItem>
             </>
           ) : null}
         </DropdownMenuContent>
@@ -638,7 +638,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
   // One Browse row, in the open project's list (the All view has a Browse button per project header).
   const browseRow = (id: string) => inPage && open ? (
     <>
-      <Link href={`/messages/p/${id}/browse`} className="nb-chat-row text-muted-foreground"><Compass size={16} aria-hidden="true" /><span className="flex-1">Browse channels</span></Link>
+      <Link href={`/messages/w/${id}/browse`} className="nb-chat-row text-muted-foreground"><Compass size={16} aria-hidden="true" /><span className="flex-1">Browse channels</span></Link>
       {/* Not only on hover: creating a channel is a row anyone can find. */}
       <button type="button" onClick={() => setCreateFor(id)} className="nb-chat-row text-muted-foreground"><Plus size={16} aria-hidden="true" /><span className="flex-1">Create channel</span></button>
     </>
@@ -665,7 +665,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
         {channelRows.map(row)}
         {empty ? (
           <p className="px-2.5 py-1 text-[13px] text-muted-foreground">
-            No channels yet{inPage ? null : <> · <Link href={`/messages/p/${id}/browse`} className="font-medium text-primary hover:underline">Open Messages</Link></>}
+            No channels yet{inPage ? null : <> · <Link href={`/messages/w/${id}/browse`} className="font-medium text-primary hover:underline">Open Messages</Link></>}
           </p>
         ) : null}
         {unreadsOnly ? null : browseRow(id)}
@@ -675,7 +675,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
   const projectActions = (id: string) => (
     <>
       {projectAttention(id).length ? <HeaderButton label={`Mark ${projectTitle(id)} read`} onClick={markProjectRead(id)}><CheckCheck size={16} /></HeaderButton> : null}
-      {inPage && !open ? <HeaderButton label="Browse channels" href={`/messages/p/${id}/browse`}><Compass size={16} /></HeaderButton> : null}
+      {inPage && !open ? <HeaderButton label="Browse channels" href={`/messages/w/${id}/browse`}><Compass size={16} /></HeaderButton> : null}
       {inPage ? <HeaderButton label="Create channel" onClick={() => setCreateFor(id)}><Plus size={16} /></HeaderButton> : null}
     </>
   );
@@ -698,7 +698,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
       {inPage ? (
         <div className="space-y-0.5">
           {/* Below 1024px the list is the home screen: no row linking to the page you're on. */}
-          <Link href={open ? `/messages/p/${open.id}` : "/messages"} className="nb-chat-row max-lg:hidden" aria-current={here(open ? `/messages/p/${open.id}` : "/messages")}>
+          <Link href={open ? `/messages/w/${open.id}` : "/messages"} className="nb-chat-row max-lg:hidden" aria-current={here(open ? `/messages/w/${open.id}` : "/messages")}>
             <House size={16} aria-hidden="true" /><span className="flex-1">Home</span>
           </Link>
           {/* No Jump to… here: the top bar's search finds conversations on this page (same ⌘K). */}
@@ -813,7 +813,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
           );
         })
       ) : (
-        <EmptyState compact icon={LayoutGrid} title="No workspaces yet" description="Workspace channels show up here." action={inPage ? <Link href="/projects/new" className="text-[13px] font-medium text-primary hover:underline">Create a workspace</Link> : undefined} className="px-3 py-6" />
+        <EmptyState compact icon={LayoutGrid} title="No workspaces yet" description="Workspace channels show up here." action={inPage ? <Link href="/workspaces/new" className="text-[13px] font-medium text-primary hover:underline">Create a workspace</Link> : undefined} className="px-3 py-6" />
       )}
 
       {unreadsOnly && !others.length && !(self && needsAttention(self)) ? null : (

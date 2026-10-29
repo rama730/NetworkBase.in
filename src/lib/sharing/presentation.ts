@@ -62,7 +62,8 @@ export function parseShareResource(value: string, origin?: string): ShareResourc
       || url.hostname !== base.hostname || url.port !== base.port) return null;
     const path = url.pathname.replace(/\/$/, '') || '/';
     if (path === '/') return { kind: 'application', identifier: '', url: base.origin + '/' };
-    const match = path.match(/^\/(u|projects|org)\/([^/]+)$/);
+    // /projects/<slug> is the old address of /workspaces/<slug>; links already shared still parse.
+    const match = path.match(/^\/(u|workspaces|projects|org)\/([^/]+)$/);
     if (!match) return null;
     const identifier = decodeURIComponent(match[2]!);
     if (match[1] === 'u') {
@@ -70,7 +71,7 @@ export function parseShareResource(value: string, origin?: string): ShareResourc
       return path ? { kind: 'profile', identifier: normalizeUsername(identifier), url: base.origin + path } : null;
     }
     if (!/^[a-zA-Z0-9_-]{1,200}$/.test(identifier)) return null;
-    return { kind: 'project', identifier, url: `${base.origin}/${match[1]}/${encodeURIComponent(identifier)}` };
+    return { kind: 'project', identifier, url: `${base.origin}/${match[1] === 'org' ? 'org' : 'workspaces'}/${encodeURIComponent(identifier)}` };
   } catch { return null; }
 }
 
@@ -106,7 +107,7 @@ export function shareImageUrl(value: string | null, base: string): string | null
   if (safe) return safe;
   try {
     const url = new URL(value, base);
-    return url.origin === new URL(base).origin && /^\/api\/v1\/projects\/[a-f0-9-]{36}\/image$/.test(url.pathname) ? url.href : null;
+    return url.origin === new URL(base).origin && /^\/api\/v1\/(?:workspaces|projects)\/[a-f0-9-]{36}\/image$/.test(url.pathname) ? url.href : null;
   } catch { return null; }
 }
 

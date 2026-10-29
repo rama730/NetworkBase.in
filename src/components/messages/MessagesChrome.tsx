@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect } from "react";
 
 import { restoredProject, useChatUi } from "@/components/messages/chat-ui-store";
-import { useSelectedProject } from "@/components/messages/useSelectedProject";
+import { useSelectedProject } from "@/components/messages/useSelectedWorkspace";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { QuickSwitcher } from "@/components/messages/QuickSwitcher";
 import { ShortcutsDialog } from "@/components/messages/ShortcutsDialog";
@@ -19,7 +19,7 @@ import { conversationHref } from "@/lib/messaging/routes";
 import type { ChatChannelSummary } from "@/lib/messaging/types";
 
 const CreateChannelDialog = dynamic(() => import("@/components/messages/CreateChannelDialog").then((m) => m.CreateChannelDialog), { ssr: false });
-const InviteCollaboratorModal = dynamic(() => import("@/components/projects/dashboard/InviteCollaboratorModal"), { ssr: false });
+const InviteCollaboratorModal = dynamic(() => import("@/components/workspaces/dashboard/InviteCollaboratorModal"), { ssr: false });
 
 /** A drawer (thread or details) is open: Escape closes it, nothing else. */
 function drawerOpen() {

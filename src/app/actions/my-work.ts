@@ -3,10 +3,10 @@
 import { db } from "@/lib/db";
 import { createClient } from "@/lib/supabase/server";
 import { projects, tasks, projectMembers } from "@/lib/db/schema";
-import { countPendingInvitationsForCandidate } from "@/lib/projects/project-invitations";
+import { countPendingInvitationsForCandidate } from "@/lib/workspaces/workspace-invitations";
 import { eq, and, isNull, sql, exists, ne, or, count } from "drizzle-orm";
 import { countReviewableApplications } from "@/lib/applications/reviewers";
-import { normalizeTaskSurfaceRecord } from "@/lib/projects/task-presentation";
+import { normalizeTaskSurfaceRecord } from "@/lib/workspaces/task-presentation";
 import { copyState } from "@/lib/organizations/assignment-rules";
 import { readOrgPendingCountAction } from "@/app/actions/org-workspace";
 

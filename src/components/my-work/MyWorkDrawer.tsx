@@ -12,7 +12,7 @@ import { useNetworkNotifications } from "@/hooks/useNetworkNotifications";
 
 import MyWorkTasksTab from "./MyWorkTasksTab";
 import MyWorkRequestsTab from "./MyWorkRequestsTab";
-import { OpenInIdeButton } from "@/components/projects/v2/files-tab/OpenInIdeButton";
+import { OpenInIdeButton } from "@/components/workspaces/v2/files-tab/OpenInIdeButton";
 
 export default function MyWorkDrawer() {
   const isMyWorkOpen = useUIStore((s) => s.isMyWorkOpen);

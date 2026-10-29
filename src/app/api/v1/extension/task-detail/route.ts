@@ -5,10 +5,10 @@ import { db } from "@/lib/db";
 import { taskActivityEvents, projects, profiles, tasks, taskSubtasks, projectSprints, projectNodes, taskNodeLinks, taskPushes, } from "@/lib/db/schema";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { logger } from "@/lib/logger";
-import { canReadProjectTab, getProjectAccessById } from "@/lib/data/project-access";
+import { canReadProjectTab, getProjectAccessById } from "@/lib/data/workspace-access";
 import { orgFileAccessSql, projectContentNodeSql } from "@/lib/files/internal-helpers";
 
-import { taskReviewSnapshot } from "@/lib/projects/task-review-snapshot";
+import { taskReviewSnapshot } from "@/lib/workspaces/task-review-snapshot";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

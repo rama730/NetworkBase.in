@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { describe, it } from 'node:test'
-import { projectActionsSource } from "./_project-actions-source";
+import { projectActionsSource } from "./_workspace-actions-source";
 
 function source(relativePath: string) {
     return fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8')
@@ -66,9 +66,9 @@ describe('skills ecosystem contract', () => {
         const surfaces = [
             'src/components/onboarding/steps/Step3Skills.tsx',
             'src/components/profile/edit/EditProfileTabs.tsx',
-            'src/components/projects/EditProjectModal.tsx',
-            'src/components/projects/create-wizard/phases/Phase2Information.tsx',
-            'src/components/projects/settings/ProjectRolesEditor.tsx',
+            'src/components/workspaces/EditWorkspaceModal.tsx',
+            'src/components/workspaces/create-wizard/phases/Phase2Information.tsx',
+            'src/components/workspaces/settings/WorkspaceRolesEditor.tsx',
         ]
         for (const file of surfaces) assert.match(source(file), /SkillPicker|SkillList|SkillChip/)
 
@@ -82,12 +82,12 @@ describe('skills ecosystem contract', () => {
         assert.match(icon, /hasSkillIcon/)
         assert.match(source('src/components/skills/SkillChip.tsx'), /SkillIcon/)
         assert.match(source('src/components/skills/SkillChip.tsx'), /resolveClientSkill/)
-        assert.match(source('src/components/projects/ProjectCard.tsx'), /MAX_PROJECT_CARD_SKILL_ICONS = 6/)
-        assert.match(source('src/components/projects/ProjectCard.tsx'), /SkillIcon/)
-        assert.match(source('src/components/projects/ProjectCard.tsx'), /resolveClientSkill/)
-        assert.match(source('src/components/projects/ProjectCard.tsx'), /\+{hiddenTechStackCount}/)
-        assert.doesNotMatch(source('src/components/projects/ProjectCard.tsx'), /h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-100/)
-        assert.doesNotMatch(source('src/components/projects/ProjectCard.tsx'), /techStack\.map/)
+        assert.match(source('src/components/workspaces/WorkspaceCard.tsx'), /MAX_PROJECT_CARD_SKILL_ICONS = 6/)
+        assert.match(source('src/components/workspaces/WorkspaceCard.tsx'), /SkillIcon/)
+        assert.match(source('src/components/workspaces/WorkspaceCard.tsx'), /resolveClientSkill/)
+        assert.match(source('src/components/workspaces/WorkspaceCard.tsx'), /\+{hiddenTechStackCount}/)
+        assert.doesNotMatch(source('src/components/workspaces/WorkspaceCard.tsx'), /h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-100/)
+        assert.doesNotMatch(source('src/components/workspaces/WorkspaceCard.tsx'), /techStack\.map/)
     })
 
     it('preserves brand colors across themes and limits switching to reviewed monochrome pairs', () => {

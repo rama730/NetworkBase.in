@@ -47,14 +47,14 @@ import {
   STAGE_TIMEOUT_MS,
   StartupStageMachine,
   type StartupStage,
-} from "@/components/projects/v2/files-tab/hooks/useFilesTabStartupStage";
+} from "@/components/workspaces/v2/files-tab/hooks/useFilesTabStartupStage";
 
 // ─── Source fixture (integration-shape assertion) ──────────────────
 
 const FILES_TAB_ROOT_SRC = readFileSync(
   path.resolve(
     __dirname,
-    "../../../src/components/projects/v2/files-tab/FilesTabRoot.tsx",
+    "../../../src/components/workspaces/v2/files-tab/FilesTabRoot.tsx",
   ),
   "utf8",
 );

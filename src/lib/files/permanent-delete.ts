@@ -9,7 +9,7 @@ import {
   storageAssets,
   taskNodeLinks,
 } from "@/lib/db/schema";
-import { parseProjectFileKey } from "@/lib/storage/project-file-key";
+import { parseProjectFileKey } from "@/lib/storage/workspace-file-key";
 import { recordNodeEvent } from "./internal-helpers";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];

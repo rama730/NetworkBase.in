@@ -331,7 +331,7 @@ export function shouldSuppressNotificationToast(params: {
     const searchParams = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
     if (
         (item.kind === "task_comment_mention" || item.kind === "task_comment_reply")
-        && pathname?.startsWith("/projects/")
+        && pathname?.startsWith("/workspaces/")
     ) {
         const activeTaskId = searchParams.get("drawerId");
         const activePanelTab = searchParams.get("panelTab");

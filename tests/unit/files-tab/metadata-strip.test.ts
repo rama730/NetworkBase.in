@@ -45,13 +45,13 @@ import type { ProjectNode } from "@/lib/db/schema";
 import {
   FilesTabRoleProvider,
   type Role,
-} from "@/components/projects/v2/files-tab/FilesTabRoleContext";
+} from "@/components/workspaces/v2/files-tab/FilesTabRoleContext";
 import {
   MetadataStrip,
   type MetadataStripNode,
-} from "@/components/projects/v2/files-tab/file/MetadataStrip";
-import { FileActionsBar } from "@/components/projects/v2/files-tab/file/FileActionsBar";
-import { isEmptyMedia } from "@/components/projects/v2/files-tab/file/previewPicker";
+} from "@/components/workspaces/v2/files-tab/file/MetadataStrip";
+import { FileActionsBar } from "@/components/workspaces/v2/files-tab/file/FileActionsBar";
+import { isEmptyMedia } from "@/components/workspaces/v2/files-tab/file/previewPicker";
 
 const testQueryClient = new QueryClient({
   defaultOptions: {
@@ -456,7 +456,7 @@ describe("FileActionsBar — Dropdown & Role Gating (Req 5.4, 19.3)", () => {
   const FILE_ACTIONS_BAR_SRC = readFileSync(
     path.resolve(
       __dirname,
-      "../../../src/components/projects/v2/files-tab/file/FileActionsBar.tsx",
+      "../../../src/components/workspaces/v2/files-tab/file/FileActionsBar.tsx",
     ),
     "utf8",
   );
@@ -542,7 +542,7 @@ describe("FileView — 0-byte media placeholder (Req 5.6) — source-level contr
   const FILE_VIEW_SRC = readFileSync(
     path.resolve(
       __dirname,
-      "../../../src/components/projects/v2/files-tab/file/FileView.tsx",
+      "../../../src/components/workspaces/v2/files-tab/file/FileView.tsx",
     ),
     "utf8",
   );
@@ -667,7 +667,7 @@ describe("FileActionsBar — Replace… button (Req 11.1, 11.2, 24.1)", () => {
     const FILE_ACTIONS_BAR_SRC = readFileSync(
       path.resolve(
         __dirname,
-        "../../../src/components/projects/v2/files-tab/file/FileActionsBar.tsx",
+        "../../../src/components/workspaces/v2/files-tab/file/FileActionsBar.tsx",
       ),
       "utf8",
     );
@@ -693,7 +693,7 @@ describe("FileActionsBar — Replace… source-level contracts (Req 11.4–11.6,
   const FILE_ACTIONS_BAR_SRC = readFileSync(
     path.resolve(
       __dirname,
-      "../../../src/components/projects/v2/files-tab/file/FileActionsBar.tsx",
+      "../../../src/components/workspaces/v2/files-tab/file/FileActionsBar.tsx",
     ),
     "utf8",
   );

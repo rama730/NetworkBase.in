@@ -22,15 +22,15 @@ test.describe("Files tab smoke", () => {
 
         await login(page);
         await measure(perf, "route.interactive.core", () =>
-            page.goto(`/projects/${fixtureProjectSlug}`, { waitUntil: "domcontentloaded" })
+            page.goto(`/workspaces/${fixtureProjectSlug}`, { waitUntil: "domcontentloaded" })
         );
-        await markNavigationMetrics(perf, page, `/projects/${fixtureProjectSlug}`);
+        await markNavigationMetrics(perf, page, `/workspaces/${fixtureProjectSlug}`);
         const ensureFilesWorkspaceSession = async () => {
             const signInLink = page.getByRole("link", { name: "Sign in" });
             const signedOut = await signInLink.isVisible().catch(() => false);
             if (!signedOut) return;
             await login(page);
-            await page.goto(`/projects/${fixtureProjectSlug}?tab=files`);
+            await page.goto(`/workspaces/${fixtureProjectSlug}?tab=files`);
             const filesTab = page.getByTestId("project-tab-files").first();
             if (await filesTab.count()) {
                 await filesTab.click();
@@ -46,7 +46,7 @@ test.describe("Files tab smoke", () => {
             await expect(page.getByTestId("files-tab-root").first()).toBeVisible({ timeout: 15000 });
             await expect(page.getByTestId("files-tab-folder-list-header").first()).toBeVisible({ timeout: 15000 });
         });
-        perf.mark("project.detail.files.tab.open", filesOpenMs, `/projects/${fixtureProjectSlug}?tab=files`);
+        perf.mark("project.detail.files.tab.open", filesOpenMs, `/workspaces/${fixtureProjectSlug}?tab=files`);
         await expect
             .poll(() => new URL(page.url()).searchParams.get("tab"), { timeout: 15000 })
             .toBe("files");
@@ -87,7 +87,7 @@ test.describe("Files tab smoke", () => {
         });
 
         await login(page);
-        await page.goto(`/projects/${fixtureProjectSlug}`);
+        await page.goto(`/workspaces/${fixtureProjectSlug}`);
         await page.getByTestId("project-tab-files").first().click();
 
         await expect(page.getByTestId("files-tab-root").first()).toBeVisible({ timeout: 15000 });

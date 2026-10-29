@@ -24,15 +24,15 @@ import {
   encodePath,
   evaluateDeepLinkPath,
   planUrlSync,
-} from "@/components/projects/v2/files-tab/url";
+} from "@/components/workspaces/v2/files-tab/url";
 import {
   handlePopState,
   syncUrlToLocation,
-} from "@/components/projects/v2/files-tab/hooks/useFilesTabUrlSync";
+} from "@/components/workspaces/v2/files-tab/hooks/useFilesTabUrlSync";
 import {
   resolveDeepLinkFromSearch,
   type ResolveDeepLinkResult,
-} from "@/components/projects/v2/files-tab/hooks/useDeepLinkResolver";
+} from "@/components/workspaces/v2/files-tab/hooks/useDeepLinkResolver";
 
 // ─── FakeWindow shim ─────────────────────────────────────────────────
 
@@ -57,7 +57,7 @@ class FakeHistory {
 }
 
 class FakeLocation {
-  pathname = "/projects/proj-1";
+  pathname = "/workspaces/proj-1";
   search = "";
   hash = "";
   constructor(init?: { pathname?: string; search?: string; hash?: string }) {
@@ -97,12 +97,12 @@ describe("task-working-file presentation paths", () => {
 describe("planUrlSync (Task 2.4 — Req 10.1, 10.4, 20.1)", () => {
   it("emits a URL without `?path=` at all when encodedPath is empty (root state)", () => {
     const plan = planUrlSync({
-      pathname: "/projects/proj-1",
+      pathname: "/workspaces/proj-1",
       search: "?path=src%2FApp.tsx",
       hash: "",
       encodedPath: "",
     });
-    assert.deepEqual(plan, { action: "replace", url: "/projects/proj-1" });
+    assert.deepEqual(plan, { action: "replace", url: "/workspaces/proj-1" });
   });
 
   it("distinguishes 'no path key' from 'empty-value path key' — clearing writes no key", () => {
@@ -110,30 +110,30 @@ describe("planUrlSync (Task 2.4 — Req 10.1, 10.4, 20.1)", () => {
     // `?path=`)". The output must never contain `path=` with an empty
     // right-hand side.
     const plan = planUrlSync({
-      pathname: "/projects/proj-1",
+      pathname: "/workspaces/proj-1",
       search: "?path=",
       hash: "",
       encodedPath: "",
     });
-    assert.deepEqual(plan, { action: "replace", url: "/projects/proj-1" });
+    assert.deepEqual(plan, { action: "replace", url: "/workspaces/proj-1" });
   });
 
   it("writes `?path=src%2FApp.tsx` for a nested location", () => {
     const plan = planUrlSync({
-      pathname: "/projects/proj-1",
+      pathname: "/workspaces/proj-1",
       search: "",
       hash: "",
       encodedPath: "src/App.tsx",
     });
     assert.deepEqual(plan, {
       action: "replace",
-      url: "/projects/proj-1?path=src/App.tsx",
+      url: "/workspaces/proj-1?path=src/App.tsx",
     });
   });
 
   it("uses an opaque fileId and removes a legacy task-storage path", () => {
     const plan = planUrlSync({
-      pathname: "/projects/proj-1",
+      pathname: "/workspaces/proj-1",
       search: "?tab=files&path=.system/tasks/task-id/Hussain_resume.pdf",
       hash: "",
       encodedPath: "",
@@ -141,39 +141,39 @@ describe("planUrlSync (Task 2.4 — Req 10.1, 10.4, 20.1)", () => {
     });
     assert.deepEqual(plan, {
       action: "replace",
-      url: "/projects/proj-1?tab=files&fileId=task-file-1",
+      url: "/workspaces/proj-1?tab=files&fileId=task-file-1",
     });
   });
 
   it("preserves unrelated query params verbatim, placing `path` last", () => {
     const plan = planUrlSync({
-      pathname: "/projects/proj-1",
+      pathname: "/workspaces/proj-1",
       search: "?tab=files&view=code",
       hash: "",
       encodedPath: "src/App.tsx",
     });
     assert.deepEqual(plan, {
       action: "replace",
-      url: "/projects/proj-1?tab=files&view=code&path=src/App.tsx",
+      url: "/workspaces/proj-1?tab=files&view=code&path=src/App.tsx",
     });
   });
 
   it("preserves the URL hash", () => {
     const plan = planUrlSync({
-      pathname: "/projects/proj-1",
+      pathname: "/workspaces/proj-1",
       search: "",
       hash: "#L42",
       encodedPath: "src/App.tsx",
     });
     assert.deepEqual(plan, {
       action: "replace",
-      url: "/projects/proj-1?path=src/App.tsx#L42",
+      url: "/workspaces/proj-1?path=src/App.tsx#L42",
     });
   });
 
   it("returns noop when the URL already matches the encoded path", () => {
     const plan = planUrlSync({
-      pathname: "/projects/proj-1",
+      pathname: "/workspaces/proj-1",
       search: "?path=src/App.tsx",
       hash: "",
       encodedPath: "src/App.tsx",
@@ -183,7 +183,7 @@ describe("planUrlSync (Task 2.4 — Req 10.1, 10.4, 20.1)", () => {
 
   it("returns noop at root state when the URL already has no path key", () => {
     const plan = planUrlSync({
-      pathname: "/projects/proj-1",
+      pathname: "/workspaces/proj-1",
       search: "",
       hash: "",
       encodedPath: "",
@@ -193,14 +193,14 @@ describe("planUrlSync (Task 2.4 — Req 10.1, 10.4, 20.1)", () => {
 
   it("drops a stale `path` key when moving to root even if it appears in the middle of the query", () => {
     const plan = planUrlSync({
-      pathname: "/projects/proj-1",
+      pathname: "/workspaces/proj-1",
       search: "?path=old&tab=files",
       hash: "",
       encodedPath: "",
     });
     assert.deepEqual(plan, {
       action: "replace",
-      url: "/projects/proj-1?tab=files",
+      url: "/workspaces/proj-1?tab=files",
     });
   });
 });
@@ -222,7 +222,7 @@ describe("syncUrlToLocation (Task 2.4 — Req 10.4 ONLY replaceState)", () => {
     const win = makeWindow({ search: "?path=src" });
     assert.equal(syncUrlToLocation({ win, encodedPath: "src/App.tsx", push: true }), true);
     assert.equal(win.history.calls[0]?.method, "pushState");
-    assert.equal(win.history.calls[0]?.url, "/projects/proj-1?path=src/App.tsx");
+    assert.equal(win.history.calls[0]?.url, "/workspaces/proj-1?path=src/App.tsx");
   });
 
   it("canonicalises with history.replaceState by default", () => {
@@ -232,7 +232,7 @@ describe("syncUrlToLocation (Task 2.4 — Req 10.4 ONLY replaceState)", () => {
     assert.equal(didWrite, true);
     assert.equal(win.history.calls.length, 1);
     assert.equal(win.history.calls[0]?.method, "replaceState");
-    assert.equal(win.history.calls[0]?.url, "/projects/proj-1?path=src/App.tsx");
+    assert.equal(win.history.calls[0]?.url, "/workspaces/proj-1?path=src/App.tsx");
     const pushStateCalls = win.history.calls.filter((c) => c.method === "pushState");
     assert.equal(pushStateCalls.length, 0, "canonicalising never adds a history entry");
   });
@@ -245,7 +245,7 @@ describe("syncUrlToLocation (Task 2.4 — Req 10.4 ONLY replaceState)", () => {
 
     assert.equal(
       win.history.calls[0]?.url,
-      "/projects/proj-1?tab=files&fileId=task-file-1",
+      "/workspaces/proj-1?tab=files&fileId=task-file-1",
     );
   });
 
@@ -254,7 +254,7 @@ describe("syncUrlToLocation (Task 2.4 — Req 10.4 ONLY replaceState)", () => {
     syncUrlToLocation({ win, encodedPath: "" });
 
     assert.equal(win.history.calls.length, 1);
-    assert.equal(win.history.calls[0]?.url, "/projects/proj-1");
+    assert.equal(win.history.calls[0]?.url, "/workspaces/proj-1");
     assert.ok(
       !(win.history.calls[0]?.url ?? "").includes("path="),
       "URL must not contain any `path=` key at root state",

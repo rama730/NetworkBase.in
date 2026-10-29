@@ -38,7 +38,7 @@ export function openChatWindow(channelId?: string) {
 
 /** The window (and its launcher) exists at this width and up, never on these routes. */
 export const CHAT_WINDOW_QUERY = "(min-width: 768px)";
-const NO_WINDOW_PREFIXES = ["/messages", "/projects/new", "/my-profile/edit"];
+const NO_WINDOW_PREFIXES = ["/messages", "/workspaces/new", "/my-profile/edit"];
 
 export function chatWindowHiddenOn(pathname: string) {
   return NO_WINDOW_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));

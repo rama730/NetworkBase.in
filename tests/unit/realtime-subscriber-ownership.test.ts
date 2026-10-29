@@ -38,6 +38,6 @@ test("the same owner resubscribing replaces only its own channel", () => {
 
 test("both real co-mounted components pass distinct owner ids", async () => {
   const { readFileSync } = await import("node:fs");
-  assert.match(readFileSync("src/components/projects/dashboard/ProjectDashboardClient.tsx", "utf8"), /subscribeProjectStage\(\{[^}]*subscriberId: 'dashboard'/s);
-  assert.match(readFileSync("src/components/projects/HydrationProgressBanner.tsx", "utf8"), /subscriberId: "hydration-banner"/);
+  assert.match(readFileSync("src/components/workspaces/dashboard/WorkspaceDashboardClient.tsx", "utf8"), /subscribeProjectStage\(\{[^}]*subscriberId: 'dashboard'/s);
+  assert.match(readFileSync("src/components/workspaces/HydrationProgressBanner.tsx", "utf8"), /subscriberId: "hydration-banner"/);
 });

@@ -15,7 +15,7 @@ import { parseInviteEmails } from '@/lib/organizations/member-rules'
 import { readOrgWork } from '@/lib/organizations/settings'
 import { cn } from '@/lib/utils'
 import { generateSlugBase } from '@/lib/utils/slug'
-import type { CreateProjectInput } from '@/lib/validations/project'
+import type { CreateProjectInput } from '@/lib/validations/workspace'
 
 // The organization-only fields of the create wizard (report §34). Each group drops into its phase when the
 // starting point is Organization; projects keep the wizard as it is.

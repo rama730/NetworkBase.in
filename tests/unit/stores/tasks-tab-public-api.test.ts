@@ -10,7 +10,7 @@
 // code path (discovered via `grep_search` over the two audit entry points
 // named in tasks.md § 8.4):
 //
-//   Entry point A — src/components/projects/v2/TasksTab.tsx
+//   Entry point A — src/components/workspaces/v2/TasksTab.tsx
 //     • Does NOT import `@/stores/filesStore` directly, but mounts
 //       `<CreateTaskModal>` and `<TaskDetailPanel>`, which transitively
 //       render the files-store consumers listed below.
@@ -19,37 +19,37 @@
 //     • Uses the canonical v3 picker and shared files workspace store.
 //
 //   Direct files-store consumers reached from those entry points:
-//     src/components/projects/v2/tasks/components/TaskFilesExplorer.tsx
+//     src/components/workspaces/v2/tasks/components/TaskFilesExplorer.tsx
 //       state reads:  nodesById, childrenByParentId, loadedChildren,
 //                     expandedFolderIds
 //       actions:      upsertNodes, setChildren, markChildrenLoaded,
 //                     toggleExpanded
 //       helpers:      filesParentKey
 //
-//     src/components/projects/v2/files-tab/picker/MultiAttachmentPicker.tsx (V3 — replaced TaskAttachmentPicker)
+//     src/components/workspaces/v2/files-tab/picker/MultiAttachmentPicker.tsx (V3 — replaced TaskAttachmentPicker)
 //       Uses V3AttachmentPicker which reads from filesWorkspaceStore
 //       getState() path:  byProjectId[projectId].nodesById
 //
 //   Transitively via `V3AttachmentPicker` (navigate-only tree), reached from
 //   MultiAttachmentPicker:
-//     src/components/projects/v2/explorer/useExplorerBoot.ts
+//     src/components/workspaces/v2/explorer/useExplorerBoot.ts
 //       state reads:  expandedFolderIds, loadedChildren
 //       actions:      upsertNodes, setChildren, setNodesAndChildren,
 //                     markChildrenLoaded, setFolderMeta, setTaskLinkCounts,
 //                     toggleExpanded
 //       helpers:      filesParentKey
 //
-//     src/components/projects/v2/explorer/useExplorerMutations.ts
+//     src/components/workspaces/v2/explorer/useExplorerMutations.ts
 //       state reads:  selectedNodeIds, childrenByParentId, loadedChildren,
 //                     nodesById
 //       actions:      removeNodeFromCaches
 //       helpers:      filesParentKey
 //
-//     src/components/projects/v2/explorer/ExplorerSearch.tsx
+//     src/components/workspaces/v2/explorer/ExplorerSearch.tsx
 //       state reads:  nodesById
 //       actions:      upsertNodes, setTaskLinkCounts
 //
-//     src/components/projects/v2/explorer/ExplorerQuickOpen.tsx
+//     src/components/workspaces/v2/explorer/ExplorerQuickOpen.tsx
 //       actions:      upsertNodes
 //
 // Names listed in design § Audit Note (the MUST-PRESERVE public API) are

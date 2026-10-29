@@ -24,7 +24,7 @@ import { FilesView } from "@/components/messages/parts/FilesView";
 import { Timeline } from "@/components/messages/Timeline";
 import { usePanes } from "@/components/messages/usePanes";
 import { useChannelCanvas, useChannelDetails, useChannelMembers, useChannelMessages, useChannelTabs, usePersonContext, useSavedSeqs, useTyping } from "@/components/messages/useConversation";
-import { SkeletonTasks } from "@/components/projects/skeletons/SkeletonTasks";
+import { SkeletonTasks } from "@/components/workspaces/skeletons/SkeletonTasks";
 import { PersonPresenceBadge, PresenceAvatar } from "@/components/presence/PersonPresence";
 import { StatusInline } from "@/components/presence/StatusInline";
 import { usePersonPresence } from "@/components/presence/usePresence";
@@ -215,7 +215,7 @@ const EditTabsDialog = dynamic(() => import("@/components/messages/EditTabsDialo
 const ExistingCanvasModal = dynamic(() => import("@/components/messages/ExistingCanvasModal").then((m) => m.ExistingCanvasModal), { ssr: false });
 const AddPeopleDialog = dynamic(() => import("@/components/messages/parts/AddPeople").then((m) => m.AddPeopleDialog), { ssr: false });
 const ShareDialog = dynamic(() => import("@/components/messages/parts/ShareDialog").then((m) => m.ShareDialog), { ssr: false });
-const TasksTab = dynamic(() => import("@/components/projects/v2/TasksTab"), { ssr: false, loading: () => <SkeletonTasks /> });
+const TasksTab = dynamic(() => import("@/components/workspaces/v2/TasksTab"), { ssr: false, loading: () => <SkeletonTasks /> });
 
 export function ConversationView({ channelId, around = null, surface = "page", onBack, onOpenThread, windowActions }: Props) {
   const router = useRouter();

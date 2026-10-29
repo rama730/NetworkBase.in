@@ -49,7 +49,7 @@ function writeSidebarCollapsedPreference(collapsed: boolean) {
 }
 
 async function fetchSidebarProjects(profileId: string): Promise<SidebarProject[]> {
-    const response = await fetch(`/api/v1/profiles/${encodeURIComponent(profileId)}/projects?limit=12`, {
+    const response = await fetch(`/api/v1/profiles/${encodeURIComponent(profileId)}/workspaces?limit=12`, {
         credentials: "include",
         headers: { accept: "application/json" },
     });

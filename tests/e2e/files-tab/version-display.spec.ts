@@ -101,13 +101,13 @@ async function openFilesTab(
     slug: string,
 ): Promise<{ ready: boolean; reason?: string }> {
     await login(page);
-    await page.goto(`/projects/${slug}`, { waitUntil: "domcontentloaded" });
+    await page.goto(`/workspaces/${slug}`, { waitUntil: "domcontentloaded" });
 
     const filesTab = page.getByTestId("project-tab-files").first();
     if (await filesTab.count()) {
         await filesTab.click();
     } else {
-        await page.goto(`/projects/${slug}?tab=files`, {
+        await page.goto(`/workspaces/${slug}?tab=files`, {
             waitUntil: "domcontentloaded",
         });
     }

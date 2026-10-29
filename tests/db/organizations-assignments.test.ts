@@ -16,7 +16,7 @@ moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: 
 moduleStubs.set("next/headers", { headers: async () => new Headers({ "x-forwarded-for": "203.0.113.13" }) });
 
 let assignments: typeof import("../../src/app/actions/assignments");
-let tasks: typeof import("../../src/lib/projects/server/tasks");
+let tasks: typeof import("../../src/lib/workspaces/server/tasks");
 let taskActions: typeof import("../../src/app/actions/task");
 let orgs: typeof import("../../src/app/actions/organizations");
 before(async () => {
@@ -26,7 +26,7 @@ before(async () => {
     getViewerAuthContext: async () => ({ supabase: null, snapshot: null, user: viewerId ? { id: viewerId } : null, userId: viewerId || null, emailVerified: true }),
   });
   assignments = await loadAppModule(() => import("../../src/app/actions/assignments"));
-  tasks = await loadAppModule(() => import("../../src/lib/projects/server/tasks"));
+  tasks = await loadAppModule(() => import("../../src/lib/workspaces/server/tasks"));
   taskActions = await loadAppModule(() => import("../../src/app/actions/task"));
   orgs = await loadAppModule(() => import("../../src/app/actions/organizations"));
 });

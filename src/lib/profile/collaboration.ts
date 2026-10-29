@@ -15,8 +15,8 @@ import {
 import { logger } from "@/lib/logger";
 import { normalizeProjectDescription, normalizeProjectTitle, trimDisplayText, trimOptionalDisplayText } from "@/lib/profile/display";
 import { syncContributionSkills } from "@/lib/skills/service";
-import { formatProjectTeamRole } from "@/lib/projects/settings-policies";
-import { filterProjectLinksForAudience } from "@/lib/projects/social-links";
+import { formatProjectTeamRole } from "@/lib/workspaces/settings-policies";
+import { filterProjectLinksForAudience } from "@/lib/workspaces/social-links";
 import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
 import { containsLikePattern, normalizeSearchQuery } from "@/lib/search/query";
 import { isUuid } from "@/lib/validations/uuid";
@@ -264,7 +264,7 @@ function nowIso() {
 }
 
 function buildProjectHref(project: { id: string; slug: string | null }) {
-  return project.slug ? `/projects/${project.slug}` : `/projects/${project.id}`;
+  return project.slug ? `/workspaces/${project.slug}` : `/workspaces/${project.id}`;
 }
 
 function toIsoDate(value: Date | string | null | undefined) {
