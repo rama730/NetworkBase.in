@@ -977,7 +977,7 @@ export default function KanbanBoard({
               return `Dropped task ${task?.title ?? activeId} into ${overCol?.title ?? "column"}.`;
             },
             onDragCancel() {
-              return "Dragging was cancelled.";
+              return "Dragging was canceled.";
             },
           },
         }}

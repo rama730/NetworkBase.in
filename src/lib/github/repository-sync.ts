@@ -208,7 +208,7 @@ export function authFailureText(code: string | null) {
         expired: "The sign-in attempt expired. Start a fresh attempt.",
         invalid:
           "The GitHub return could not be verified. No transfer was submitted.",
-        cancelled: "GitHub sign-in was cancelled. Your setup is retained.",
+        cancelled: "GitHub sign-in was canceled. Your setup is retained.",
       } as Record<string, string>
     )[code || ""] ||
     "GitHub sign-in could not finish. Your setup is retained; try again."

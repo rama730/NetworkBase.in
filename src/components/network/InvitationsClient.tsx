@@ -273,9 +273,9 @@ export default function InvitationsClient({
     async function handleCancelConnection(id: string, name?: string) {
         await toast
             .promise(cancelRequest.mutateAsync(id), {
-                loading: "Cancelling connection request…",
+                loading: "Canceling connection request…",
                 success: name
-                    ? `Cancelled request to ${name}`
+                    ? `Canceled request to ${name}`
                     : "Request canceled",
                 error: (error) =>
                     error instanceof Error
@@ -291,8 +291,8 @@ export default function InvitationsClient({
         try {
             await toast
                 .promise(withdrawAllSent.mutateAsync(), {
-                    loading: "Cancelling all sent requests…",
-                    success: "All sent requests cancelled",
+                    loading: "Canceling all sent requests…",
+                    success: "All sent requests canceled",
                     error: (error) =>
                         error instanceof Error
                             ? error.message
@@ -325,8 +325,8 @@ export default function InvitationsClient({
                         return res;
                     }),
                     {
-                        loading: "Cancelling project invitation…",
-                        success: "Project invitation cancelled",
+                        loading: "Canceling project invitation…",
+                        success: "Project invitation canceled",
                         error: (error) =>
                             error instanceof Error
                                 ? error.message
@@ -914,7 +914,7 @@ export default function InvitationsClient({
                                 className="text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
                             >
                                 {withdrawAllSent.isPending
-                                    ? "Cancelling all…"
+                                    ? "Canceling all…"
                                     : "Cancel all"}
                             </button>
                         ) : null}

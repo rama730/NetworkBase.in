@@ -126,7 +126,7 @@ export function LegalLinks({
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link href="/eula" className="cursor-pointer">
-              End User Licence Agreement (EULA)
+              End User License Agreement (EULA)
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>

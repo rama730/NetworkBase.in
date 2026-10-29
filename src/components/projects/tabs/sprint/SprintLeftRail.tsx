@@ -25,7 +25,7 @@ const SPRINT_GROUPS = [
   { status: "active", label: "Current" },
   { status: "planning", label: "Upcoming" },
   { status: "completed", label: "Completed" },
-  { status: "cancelled", label: "Cancelled" },
+  { status: "cancelled", label: "Canceled" },
   { status: "archived", label: "Archived" },
 ] as const;
 

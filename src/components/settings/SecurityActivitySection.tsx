@@ -41,7 +41,7 @@ const EVENT_LABELS: Record<SecurityActivityEntry["eventType"], string> = {
   sign_in_method_unlinked: "Sign-in method disconnected",
   editor_token_created: "Editor token created",
   account_deletion_scheduled: "Account deletion scheduled",
-  account_deletion_cancelled: "Account deletion cancelled",
+  account_deletion_cancelled: "Account deletion canceled",
   project_ownership_transferred_out: "Project ownership handed over",
   project_ownership_transferred_in: "Project ownership received",
 };

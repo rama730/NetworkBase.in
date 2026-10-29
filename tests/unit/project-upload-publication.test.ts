@@ -76,7 +76,7 @@ describe("project upload publication", () => {
     );
 
     assert.match(intents, /phase: row\.status === "finalized" && published[\s\S]*\? "published"/);
-    assert.match(intents, /Upload cancelled by user/);
+    assert.match(intents, /Upload canceled by user/);
     assert.match(route, /readUploadOperationStatus/);
     assert.match(route, /cancelUploadOperation/);
     assert.doesNotMatch(route, /storageKey/);

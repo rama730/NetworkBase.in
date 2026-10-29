@@ -604,7 +604,7 @@ export async function cancelGitHubSyncReview(projectId: string, runId: string) {
       .set({
         status: "cancelled",
         credential: null,
-        stage: "Cancelled",
+        stage: "Canceled",
         updatedAt: new Date(),
       })
       .where(

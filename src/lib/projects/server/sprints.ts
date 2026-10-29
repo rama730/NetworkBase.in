@@ -1499,7 +1499,7 @@ export async function updateSprintAction(data: UpdateSprintInput) {
       existingSprint.status !== "planning"
     ) {
       throw new Error(
-        "Active, completed, cancelled, and archived Sprints are read-only",
+        "Active, completed, canceled, and archived Sprints are read-only",
       );
     }
 
@@ -2040,7 +2040,7 @@ export async function cancelSprintAction(sprintId: string, projectId: string) {
         )
         .returning({ id: projectSprints.id });
       if (!updated)
-        throw new Error("Only a Planning or Active sprint can be cancelled");
+        throw new Error("Only a Planning or Active sprint can be canceled");
 
       const currentTasks = await tx.query.tasks.findMany({
         where: and(

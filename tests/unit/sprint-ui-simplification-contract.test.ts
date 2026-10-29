@@ -100,7 +100,7 @@ describe("sprint tab target architecture contract", () => {
     assert.match(sprintLeftRailSource, /Current/);
     assert.match(sprintLeftRailSource, /Upcoming/);
     assert.match(sprintLeftRailSource, /Completed/);
-    assert.match(sprintLeftRailSource, /Cancelled/);
+    assert.match(sprintLeftRailSource, /Canceled/);
     assert.match(sprintLeftRailSource, /Archived/);
     assert.equal(
       fs.existsSync(

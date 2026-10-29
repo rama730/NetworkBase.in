@@ -64,7 +64,7 @@ export function ChildOrgSection({ project, isLead, canManage }: { project: Proje
                     {project.pendingMoveIn ? (
                         <div className="space-y-3">
                             <p className="text-sm">Request pending: move into {project.pendingMoveIn.orgTitle}. An admin there decides.</p>
-                            <Button variant="outline" disabled={pending} onClick={() => run(() => cancelMoveInAction(projectId), 'Request cancelled.')}>Cancel request</Button>
+                            <Button variant="outline" disabled={pending} onClick={() => run(() => cancelMoveInAction(projectId), 'Request canceled.')}>Cancel request</Button>
                         </div>
                     ) : targets.length === 0 ? (
                         <p className="text-sm text-muted-foreground">You aren’t a member of any organization.</p>
@@ -137,7 +137,7 @@ export function ChildOrgSection({ project, isLead, canManage }: { project: Proje
                             parentOrg.detachRequested ? (
                                 <div className="flex flex-wrap items-center gap-2">
                                     <p className="text-sm">Detach requested. An admin of {parentOrg.title} decides.</p>
-                                    <Button variant="outline" disabled={pending} onClick={() => run(() => cancelDetachRequestAction(projectId), 'Request cancelled.')}>Cancel request</Button>
+                                    <Button variant="outline" disabled={pending} onClick={() => run(() => cancelDetachRequestAction(projectId), 'Request canceled.')}>Cancel request</Button>
                                 </div>
                             ) : (
                                 <Button variant="outline" disabled={pending} onClick={() => run(() => requestDetachAction(projectId), `Request sent to ${parentOrg.title} admins.`)}>Request detach</Button>

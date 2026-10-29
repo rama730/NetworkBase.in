@@ -101,7 +101,7 @@ test("Move due dates too shifts the sprint's assignments and their copies; cance
   const cancelled = await sprints.cancelSprintAction(s.id, o.id);
   viewerId = "";
   assert.equal(cancelled.success, true, JSON.stringify(cancelled));
-  assert.ok((await titles(o.b)).includes(`${s.name} was cancelled. Week 1 is no longer linked to it`));
+  assert.ok((await titles(o.b)).includes(`${s.name} was canceled. Week 1 is no longer linked to it`));
   assert.equal((await sql`SELECT parent_sprint_id FROM project_sprints WHERE project_id = ${lab}`)[0]!.parent_sprint_id, null);
 });
 

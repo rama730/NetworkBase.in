@@ -54,7 +54,6 @@
   },
   "src/app/(site)/(auth)/authorize/AuthorizeClient.tsx": {
    "project": 3,
-   "british": 1,
    "log-in": 1
   },
   "src/app/(site)/(auth)/join/[code]/page.tsx": {
@@ -136,9 +135,6 @@
   },
   "src/app/actions/files/versions.ts": {
    "project": 3
-  },
-  "src/app/actions/github-sync.ts": {
-   "british": 1
   },
   "src/app/actions/matchmaking/resolver.ts": {
    "project": 1
@@ -271,12 +267,10 @@
   },
   "src/components/layout/header/global-search.ts": {
    "project": 12,
-   "log-in": 4,
-   "british": 1
+   "log-in": 4
   },
   "src/components/legal/LegalLinks.tsx": {
-   "title-case": 2,
-   "british": 1
+   "title-case": 2
   },
   "src/components/messages/CanvasTemplateModal.tsx": {
    "project": 1
@@ -314,8 +308,7 @@
    "project": 8
   },
   "src/components/messages/cards/MessageCard.tsx": {
-   "project": 2,
-   "british": 1
+   "project": 2
   },
   "src/components/my-work/MyWorkRequestsTab.tsx": {
    "project": 5
@@ -330,7 +323,6 @@
    "project": 3
   },
   "src/components/network/InvitationsClient.tsx": {
-   "british": 7,
    "project": 22
   },
   "src/components/network/NetworkClient.tsx": {
@@ -339,9 +331,6 @@
   },
   "src/components/network/NetworkFilters.tsx": {
    "project": 2
-  },
-  "src/components/network/PersonCardReview.tsx": {
-   "british": 1
   },
   "src/components/network/SentApplicationMenu.tsx": {
    "project": 1
@@ -356,8 +345,7 @@
    "project": 10
   },
   "src/components/organizations/ChildOrgSection.tsx": {
-   "project": 6,
-   "british": 2
+   "project": 6
   },
   "src/components/organizations/ChildTeamFields.tsx": {
    "project": 3
@@ -382,8 +370,7 @@
    "project": 1
   },
   "src/components/organizations/OrgMembersTab.tsx": {
-   "project": 12,
-   "british": 1
+   "project": 12
   },
   "src/components/organizations/OrgOverviewParts.tsx": {
    "project": 20
@@ -559,14 +546,10 @@
    "project": 36
   },
   "src/components/projects/tabs/SprintPlanning.tsx": {
-   "project": 2,
-   "british": 1
+   "project": 2
   },
   "src/components/projects/tabs/UpdatesTab.tsx": {
    "project": 3
-  },
-  "src/components/projects/tabs/sprint/SprintLeftRail.tsx": {
-   "british": 1
   },
   "src/components/projects/tabs/sprint/SprintTimelineContent.tsx": {
    "project": 4
@@ -621,9 +604,6 @@
    "project": 3,
    "title-case": 2
   },
-  "src/components/projects/v2/files-tab/FileTransfers.tsx": {
-   "british": 1
-  },
   "src/components/projects/v2/files-tab/FilesHeader.tsx": {
    "project": 3
   },
@@ -641,8 +621,7 @@
    "title-case": 1
   },
   "src/components/projects/v2/files-tab/RepositorySync.tsx": {
-   "project": 16,
-   "british": 2
+   "project": 16
   },
   "src/components/projects/v2/files-tab/TaskFilesCollection.tsx": {
    "project": 1
@@ -692,9 +671,6 @@
   },
   "src/components/projects/v2/preview/drivers/SheetViewerDriver.tsx": {
    "title-case": 1
-  },
-  "src/components/projects/v2/tasks/KanbanBoard.tsx": {
-   "british": 1
   },
   "src/components/projects/v2/tasks/TaskCard.tsx": {
    "project": 1
@@ -747,11 +723,7 @@
    "project": 1
   },
   "src/components/settings/SecurityActivitySection.tsx": {
-   "british": 1,
    "project": 2
-  },
-  "src/components/settings/SecuritySettings.tsx": {
-   "british": 1
   },
   "src/components/sharing/ProjectShareContents.tsx": {
    "project": 5
@@ -764,9 +736,6 @@
   },
   "src/hooks/discover/useDiscoverProjects.ts": {
    "project": 1
-  },
-  "src/hooks/useConnections.ts": {
-   "british": 1
   },
   "src/hooks/useGlobalSearchPreviews.ts": {
    "project": 10
@@ -798,12 +767,6 @@
   "src/inngest/functions/project-files-reconciliation.ts": {
    "project": 1
   },
-  "src/lib/account/export-stream.ts": {
-   "british": 1
-  },
-  "src/lib/account/hard-delete.ts": {
-   "british": 1
-  },
   "src/lib/applications/card-state.ts": {
    "project": 2
   },
@@ -829,17 +792,13 @@
    "project": 3
   },
   "src/lib/email/security-templates.ts": {
-   "log-in": 2,
-   "british": 2
+   "log-in": 2
   },
   "src/lib/extension/ide-protocol.ts": {
    "title-case": 1
   },
   "src/lib/files/content-reader.ts": {
    "project": 1
-  },
-  "src/lib/files/folder-export.ts": {
-   "british": 1
   },
   "src/lib/files/internal-helpers.ts": {
    "project": 6
@@ -850,15 +809,11 @@
   "src/lib/github/account-health.ts": {
    "log-in": 1
   },
-  "src/lib/github/oauth-client.ts": {
-   "british": 1
-  },
   "src/lib/github/project-import-runner.ts": {
    "project": 4
   },
   "src/lib/github/repository-sync.ts": {
-   "project": 1,
-   "british": 1
+   "project": 1
   },
   "src/lib/github/sync-runner.ts": {
    "ellipsis": 1
@@ -888,8 +843,7 @@
    "project": 23
   },
   "src/lib/notifications/project-policy.ts": {
-   "project": 19,
-   "british": 2
+   "project": 19
   },
   "src/lib/notifications/task-comment-mention.ts": {
    "project": 1
@@ -919,8 +873,7 @@
    "project": 2
   },
   "src/lib/organizations/sprint-notify.ts": {
-   "project": 3,
-   "british": 1
+   "project": 3
   },
   "src/lib/organizations/sprints.ts": {
    "project": 3
@@ -1013,8 +966,7 @@
    "project": 30
   },
   "src/lib/projects/server/sprints.ts": {
-   "project": 13,
-   "british": 2
+   "project": 13
   },
   "src/lib/projects/server/tasks.ts": {
    "project": 18
@@ -1023,7 +975,6 @@
    "project": 30
   },
   "src/lib/projects/sprint-detail.ts": {
-   "british": 1,
    "project": 1
   },
   "src/lib/projects/sprint-presentation.ts": {
@@ -1067,8 +1018,7 @@
    "project": 1
   },
   "src/lib/upload/upload-intents.ts": {
-   "project": 2,
-   "british": 1
+   "project": 2
   },
   "src/lib/utils/cache-manager.ts": {
    "title-case": 1

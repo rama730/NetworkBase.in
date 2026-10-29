@@ -50,7 +50,7 @@ export async function DELETE(
   const result = await cancelUploadOperation(resolved);
   if (!result) return jsonError("Upload operation not found", 404, "NOT_FOUND");
   if (!result.cancelled) {
-    return jsonError("Upload operation can no longer be cancelled", 409, "CONFLICT");
+    return jsonError("Upload operation can no longer be canceled", 409, "CONFLICT");
   }
   return jsonSuccess(result, undefined, { headers: { "Cache-Control": "private, no-store" } });
 }

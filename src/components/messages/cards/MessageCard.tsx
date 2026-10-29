@@ -150,7 +150,7 @@ function InviteCard({ view }: { view: InviteCardView }) {
             </>
           ) : null}
           {view.can_cancel ? (
-            <button type="button" className={secondary} disabled={busy} onClick={() => void run(() => resolveProjectInvitationAction({ invitationId: view.id, action: "cancel" }), "Invitation cancelled")}>Cancel invitation</button>
+            <button type="button" className={secondary} disabled={busy} onClick={() => void run(() => resolveProjectInvitationAction({ invitationId: view.id, action: "cancel" }), "Invitation canceled")}>Cancel invitation</button>
           ) : null}
         </Actions>
       ) : null}

@@ -26,7 +26,7 @@ const MESSAGE_PAGE_SIZE = 500;
 const encoder = new TextEncoder();
 
 function assertActive(signal: AbortSignal) {
-  if (signal.aborted) throw signal.reason ?? new Error("Account export cancelled");
+  if (signal.aborted) throw signal.reason ?? new Error("Account export canceled");
 }
 
 function json(value: unknown) {

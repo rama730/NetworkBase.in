@@ -316,7 +316,7 @@ export default function SprintPlanning({
     if (!selectedSprintId) return false;
     return await applyLifecycleResult(
       () => cancelSprintAction(selectedSprintId, projectId),
-      "Sprint cancelled",
+      "Sprint canceled",
     );
   }, [applyLifecycleResult, projectId, selectedSprintId]);
 
