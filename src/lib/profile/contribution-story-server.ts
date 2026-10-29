@@ -94,7 +94,7 @@ export async function resolveStoryReferences(
     ref.kind === "activity" && projectId
       ? {
           ...ref,
-          label: `Contributed to ${fileCount} project files`,
+          label: `Contributed to ${fileCount} workspace files`,
           href: null,
           available: true,
         }

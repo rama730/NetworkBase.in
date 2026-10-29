@@ -11,9 +11,9 @@ test('Phase 2 uses the flat NetworkBase project-information composition', () => 
     const phase = source('src/components/projects/create-wizard/phases/Phase2Information.tsx');
 
     assert.match(phase, /Workspace details/);
-    assert.match(phase, /Name and classify the project/);
+    assert.match(phase, /Name and classify the workspace/);
     assert.match(phase, /Explain the work/);
-    assert.match(phase, /Make the project easier to find/);
+    assert.match(phase, /Make the workspace easier to find/);
     // Journey stages moved to step 4 (Stages and workflow), matching Workspace settings.
     assert.doesNotMatch(phase, /Outline the stages ahead|LifecycleEditor/);
     assert.match(phase, /min-w-0 w-full space-y-8 pb-6/);
@@ -52,14 +52,14 @@ test('Phase 2 preserves draft safety; step 4 reuses the canonical Settings lifec
     assert.match(phase, /projectTagLimit = 8/);
     assert.match(phase, /font-mono text-\[11px\] uppercase tracking-\[0\.09em\]/);
     assert.doesNotMatch(phase, /variant="wizard"/);
-    // No current-stage picker at creation: new projects start at the first stage.
+    // No current-stage picker at creation: new workspaces start at the first stage.
     assert.match(launch, /showCurrentStage=\{false\}/);
-    assert.doesNotMatch(launch, /Where is the project now|current_stage_index/);
+    assert.doesNotMatch(launch, /Where is the workspace now|current_stage_index/);
     assert.match(lifecycle, /showCurrentStage\?: boolean/);
     assert.match(lifecycle, /showCurrentStage && index === liveCurrentIndex/);
     assert.doesNotMatch(lifecycle, /Earlier/);
     assert.doesNotMatch(lifecycle, /Later/);
-    assert.match(lifecycle, /Drag stages using the grip handle to reorder the project roadmap timeline\./);
+    assert.match(lifecycle, /Drag stages using the grip handle to reorder the workspace roadmap timeline\./);
     assert.match(skills, /progressive = false/);
     assert.match(skills, /showCatalogControls/);
 });

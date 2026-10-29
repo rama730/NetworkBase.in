@@ -98,10 +98,10 @@ function OrgPeoplePicker({ open, onOpenChange, target, limit, onAdd }: { open: b
                         <select aria-label="Role" className={select} value={role} onChange={(e) => setRole(e.target.value as typeof role)}>
                             <option value="all">Everyone</option><option value="member">Members</option><option value="admin">Admins</option>
                         </select>
-                        <label className="flex items-center gap-1.5 text-xs"><input type="checkbox" checked={notInProject} onChange={(e) => setNotInProject(e.target.checked)} /> Not in a project yet</label>
+                        <label className="flex items-center gap-1.5 text-xs"><input type="checkbox" checked={notInProject} onChange={(e) => setNotInProject(e.target.checked)} /> Not in a workspace yet</label>
                         <Input value={skill} onChange={(e) => setSkill(e.target.value)} placeholder="Skill" aria-label="Filter by skill" className="h-8 w-28 text-xs" />
                     </div>
-                ) : <p className="text-xs text-muted-foreground">They join only this project, by invitation, and never see {org?.title}&apos;s own content.</p>}
+                ) : <p className="text-xs text-muted-foreground">They join only this workspace, by invitation, and never see {org?.title}&apos;s own content.</p>}
                 <ul className="max-h-80 divide-y divide-border overflow-y-auto rounded-md border border-border" aria-label={tab === 'outside' ? 'People outside the organization' : 'Organization members'}>
                     {shown.length === 0 ? <li className="px-3 py-4 text-sm text-muted-foreground">{tab === 'outside' && query.trim().length < 2 ? 'Type at least two letters.' : 'No one matches.'}</li> : null}
                     {shown.map((person) => {
@@ -228,7 +228,7 @@ export function ChildLeadAndUnassigned() {
             </div>
             <div className="space-y-2">
                 <h3 className="nb-card-title text-foreground">Not in a unit</h3>
-                <p className="nb-compact text-muted-foreground">For small projects: people added without a unit.</p>
+                <p className="nb-compact text-muted-foreground">For small workspaces: people added without a unit.</p>
                 <PeopleChips people={unassigned} from={UNASSIGNED} isAdmin onRemove={(userId) => setValue('unassigned_people', unassigned.filter((p) => p.user_id !== userId), { shouldDirty: true })} />
                 <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}><UserPlus className="size-4" aria-hidden="true" />Add people</Button>
                 <OrgPeoplePicker open={open} onOpenChange={setOpen} target="the project" limit={100 - unassigned.length} onAdd={(added) => setValue('unassigned_people', [...unassigned, ...added], { shouldDirty: true })} />

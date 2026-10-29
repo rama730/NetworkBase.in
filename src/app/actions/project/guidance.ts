@@ -226,7 +226,7 @@ export async function searchProjectInviteCandidatesAction(input: { projectId: st
         .from(projects)
         .where(eq(projects.id, input.projectId))
         .limit(1);
-    if (!project) return { success: false as const, error: "Project not found", items: [] };
+    if (!project) return { success: false as const, error: "Workspace not found", items: [] };
     if (project.ownerId !== user.id) {
         const [membership] = await db
             .select({ role: projectMembers.role })

@@ -614,7 +614,7 @@ export async function updateProjectVisibilityAction(
       return {
         success: false,
         errorCode: "INVALID_INPUT",
-        message: "This project is inside an organization. Change its visibility in Settings → Organization.",
+        message: "This workspace is inside an organization. Change its visibility in Settings → Organization.",
       };
     }
 
@@ -624,7 +624,7 @@ export async function updateProjectVisibilityAction(
     if (previousVisibility === nextVisibility) {
       return {
         success: true,
-        message: `Project is already ${nextVisibility}.`,
+        message: `Workspace is already ${nextVisibility}.`,
       };
     }
 
@@ -729,8 +729,8 @@ export async function updateProjectVisibilityAction(
         actorUserId: user.id,
         ...actorNotificationSnapshot(user),
         eventKey: "access.visibility_changed",
-        title: `Project visibility changed to ${nextVisibility}`,
-        body: `${owned.project.title ?? owned.project.slug ?? "Project"} is now ${nextVisibility}.`,
+        title: `Workspace visibility changed to ${nextVisibility}`,
+        body: `${owned.project.title ?? owned.project.slug ?? "Workspace"} is now ${nextVisibility}.`,
         sourceEventId: `${projectId}:visibility:${previousVisibility}:${nextVisibility}`,
         entityRefs: { projectId, projectSlug: owned.project.slug ?? null },
       });
@@ -755,7 +755,7 @@ export async function updateProjectVisibilityAction(
       result: "success",
     });
 
-    return { success: true, message: `Project is now ${nextVisibility}.` };
+    return { success: true, message: `Workspace is now ${nextVisibility}.` };
   } catch (error) {
     logger.error("project.access_visibility_failed", {
       module: "projects",
@@ -766,7 +766,7 @@ export async function updateProjectVisibilityAction(
     return {
       success: false,
       errorCode: "INTERNAL_ERROR",
-      message: "Couldn’t update project visibility.",
+      message: "Couldn’t update workspace visibility.",
     };
   }
 }
@@ -872,8 +872,8 @@ export async function updateProjectPublicTabVisibilityAction(
         actorUserId: user.id,
         ...actorNotificationSnapshot(user),
         eventKey: "access.public_tabs_changed",
-        title: "Public project surfaces changed",
-        body: "The visible public tabs for this project were updated.",
+        title: "Public workspace surfaces changed",
+        body: "The visible public tabs for this workspace were updated.",
         sourceEventId: `${projectId}:public-tabs:${Date.now()}`,
         entityRefs: { projectId },
       });
@@ -900,11 +900,11 @@ export async function updateProjectPublicTabVisibilityAction(
       error: error instanceof Error ? error.message : String(error),
     });
     const message = error instanceof Error ? error.message : String(error);
-    if (message.includes("Project not found")) {
+    if (message.includes("Workspace not found")) {
       return {
         success: false,
         errorCode: "NOT_FOUND",
-        message: "Project not found.",
+        message: "Workspace not found.",
       };
     }
     if (message.includes("permission")) {

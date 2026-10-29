@@ -23,7 +23,7 @@ type ConnectionStatus = 'idle' | 'authorizing' | 'success' | 'error'
 const AUTHORIZE_PANEL = {
     eyebrow: 'Editor sync',
     title: 'Your workspace, inside your editor.',
-    points: ['Open your projects and virtual files', 'Push tasks without leaving the editor', 'Disconnect any time from settings'],
+    points: ['Open your workspaces and virtual files', 'Push tasks without leaving the editor', 'Disconnect any time from settings'],
 }
 
 const EXTENSION_URI_AUTHORITY = 'nb-workspace.nb-vscode-sync'
@@ -243,7 +243,7 @@ function AuthorizePageInner({ viewerEmail }: { viewerEmail?: string | null }) {
             ? `Sign in to your NetworkBase account before approving access for ${editorName}.`
             : status === 'success'
                 ? `Your session token was sent to ${editorName}. Return to your editor to start working.`
-                : `Approve to connect ${editorName} to your NetworkBase projects, virtual files and tasks.`
+                : `Approve to connect ${editorName} to your NetworkBase workspaces, virtual files and tasks.`
 
     const statusLabel = !isValid
         ? 'Callback blocked'
@@ -330,7 +330,7 @@ function AuthorizePageInner({ viewerEmail }: { viewerEmail?: string | null }) {
                         </span>
                         <div className="min-w-0">
                             <p className="text-xs text-muted-foreground">Access</p>
-                            <p className="text-xs">Projects, virtual files and task pushes. Revocable any time.</p>
+                            <p className="text-xs">Workspaces, virtual files and task pushes. Revocable any time.</p>
                         </div>
                     </div>
                 </section>

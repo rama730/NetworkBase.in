@@ -25,7 +25,7 @@ test.describe("Chat shell", () => {
     await expect(open).toBeVisible();
     await expect(open.locator("[data-testid^='chat-row-']").first()).toBeVisible();
     await expect(aside.locator("[data-testid^='chat-project-']").filter({ hasNot: open })).toHaveCount(0);
-    expect(requests, "opening a project is in memory").toEqual([]);
+    expect(requests, "opening a workspace is in memory").toEqual([]);
 
     await open.getByRole("button", { name: /switch project/ }).click();
     await page.getByRole("menuitem", { name: "Show all projects" }).click();

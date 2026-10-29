@@ -312,7 +312,7 @@ test('all project-link platforms preserve path, query, and fragment semantics', 
     }
 });
 
-test('project links infer a cross-sector purpose while preserving explicit owner intent', () => {
+test('workspace links infer a cross-sector purpose while preserving explicit owner intent', () => {
     const github = resolveSocialPresence('website', 'https://github.com/example/project');
     const scholar = resolveSocialPresence('website', 'https://scholar.google.com/citations?user=abc');
     const behance = resolveSocialPresence('website', 'https://behance.net/example');
@@ -344,7 +344,7 @@ test('derived project-link metadata is split from persisted user intent and can 
     assert.equal(isProjectLinkMetadataStale(split.metadata.paper, new Date('2026-10-15T00:00:00.000Z').getTime()), true);
 });
 
-test('member-only project links are excluded from public read models', () => {
+test('member-only workspace links are excluded from public read models', () => {
     const links = [
         { id: 'public', url: 'https://example.com', audience: 'public' as const },
         { id: 'internal', url: 'https://notion.site/internal', audience: 'members' as const },
@@ -372,13 +372,13 @@ test('normalization preserves distinct resource state on the same account', () =
     assert.equal(links[1]?.url, 'https://github.com/rama730?utm_source=profile');
 });
 
-test('project links use the same local platform presentation', () => {
+test('workspace links use the same local platform presentation', () => {
     const links = resolveProjectSocialLinks({ github: 'https://github.com/network-for-builders/app' });
     assert.equal(links[0]?.platformLabel, 'GitHub');
     assert.equal(links[0]?.accountLabel, 'network for builders/app');
 });
 
-test('connected repositories are managed project links and deduplicate the same manual URL', () => {
+test('connected repositories are managed workspace links and deduplicate the same manual URL', () => {
     const links = resolveProjectSocialLinks(
         [
             { id: 'repo', platform: 'github', url: 'https://github.com/network-for-builders/app/', order: 0 },
@@ -392,7 +392,7 @@ test('connected repositories are managed project links and deduplicate the same 
     assert.equal(links[1]?.id, 'site');
 });
 
-test('invalid connected repository data never becomes a project link', () => {
+test('invalid connected repository data never becomes a workspace link', () => {
     assert.deepEqual(resolveProjectSocialLinks([], 'https://example.dev/not-github'), []);
 });
 

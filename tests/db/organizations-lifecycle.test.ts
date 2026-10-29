@@ -144,7 +144,7 @@ test("account deletion: blocked while owning an org; led child projects pass on;
   const scheduled = await deletion.scheduleAccountDeletionForUser({ userId: o.lead, email: "lead@example.com", username: null, reason: null });
   assert.equal(scheduled.ok, true);
   const [child] = await sql`SELECT owner_id, org_settings ? 'leadHandover' AS flagged FROM projects WHERE id = ${o.child}`;
-  assert.deepEqual([child!.owner_id, child!.flagged], [o.a, true], "the project admin leads it now");
+  assert.deepEqual([child!.owner_id, child!.flagged], [o.a, true], "the workspace admin leads it now");
 
   const deletionId = scheduled.ok ? scheduled.deletionId : "";
   await sql`UPDATE account_deletions SET cleanup_status = 'storage_scheduled', hard_delete_at = now() - interval '1 minute' WHERE id = ${deletionId}`;

@@ -40,7 +40,7 @@ export async function resolveWritableExtensionFile(
       ),
     }),
   ]);
-  if (!access.project) return { response: jsonError("Project not found", 404, "NOT_FOUND"), node: null };
+  if (!access.project) return { response: jsonError("Workspace not found", 404, "NOT_FOUND"), node: null };
   if (!access.canWrite) return { response: jsonError("You don’t have access to this", 403, "FORBIDDEN"), node: null };
   try {
     await assertProjectUploadAccess(projectId, userId);

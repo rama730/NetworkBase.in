@@ -23,7 +23,7 @@ test("syncRoleSkills refuses a role from another project before writing", async 
     const before = await sql`SELECT skill_id FROM public.role_skills WHERE role_id = ${ids.roleB} ORDER BY skill_id`;
     await assert.rejects(
       db.transaction((tx) => syncRoleSkills(tx, ids.projectA, ids.roleB, ["Rust"], ids.ownerA)),
-      /Role not found in this project/,
+      /Role not found in this workspace/,
     );
     const afterRows = await sql`SELECT skill_id FROM public.role_skills WHERE role_id = ${ids.roleB} ORDER BY skill_id`;
     assert.deepEqual(afterRows, before);

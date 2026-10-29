@@ -51,7 +51,7 @@ function OrgRow({ org, active }: { org: SidebarOrg; active: (href: string) => bo
                     {org.needsYou > 0 ? <span className="nb-nav-count nb-sidebar-label" aria-hidden="true">{org.needsYou > 99 ? "99+" : org.needsYou}</span> : null}
                 </Link>
                 {org.canCreate ? (
-                    <Link href={`/projects/new?org=${encodeURIComponent(org.id)}`} className="nb-sidebar-label absolute right-1 hidden rounded p-0.5 text-muted-foreground hover:text-foreground group-hover:block group-focus-within:block" aria-label={`New project in ${org.title}`} title={`New project in ${org.title}`}>
+                    <Link href={`/projects/new?org=${encodeURIComponent(org.id)}`} className="nb-sidebar-label absolute right-1 hidden rounded p-0.5 text-muted-foreground hover:text-foreground group-hover:block group-focus-within:block" aria-label={`New workspace in ${org.title}`} title={`New workspace in ${org.title}`}>
                         <Plus className="size-3.5" />
                     </Link>
                 ) : null}
@@ -64,7 +64,7 @@ function OrgRow({ org, active }: { org: SidebarOrg; active: (href: string) => bo
                         </Link>
                     ))}
                     {org.moreChildren > 0 ? <Link href={`${href}?tab=projects`} className="block px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground">See all</Link> : null}
-                    {org.isAdmin ? <Link href={`${href}?tab=projects`} className="block px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground">All projects</Link> : null}
+                    {org.isAdmin ? <Link href={`${href}?tab=projects`} className="block px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground">All workspaces</Link> : null}
                 </div>
             ) : null}
         </div>
@@ -101,7 +101,7 @@ export function SidebarWorkspaces({ data }: { data: Data }) {
                     <span className="nb-sidebar-label truncate">{p.title}</span>
                 </Link>
             ))}
-            {empty ? <p className="nb-sidebar-label px-2 py-1 text-xs text-muted-foreground">No projects yet</p> : null}
+            {empty ? <p className="nb-sidebar-label px-2 py-1 text-xs text-muted-foreground">No workspaces yet</p> : null}
             {data.archived.length > 0 ? (
                 <div className="nb-sidebar-label">
                     <button type="button" onClick={() => setShowArchived(!showArchived)} aria-expanded={showArchived} className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground">

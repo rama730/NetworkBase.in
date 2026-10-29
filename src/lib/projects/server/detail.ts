@@ -582,14 +582,14 @@ export async function readProjectDetailMetadata(input: {
     return {
       success: false,
       errorCode: "INVALID_INPUT",
-      message: "Invalid project detail request.",
+      message: "Invalid workspace detail request.",
     };
   }
 
   const data = await getPublicProjectDetailMetadata(parsedInput.data.slugOrId.trim());
   return data
     ? { success: true, data }
-    : { success: false, errorCode: "NOT_FOUND", message: "Project not found." };
+    : { success: false, errorCode: "NOT_FOUND", message: "Workspace not found." };
 }
 
 
@@ -609,7 +609,7 @@ async function readProjectDetailShellForActor(input: {
     return {
       success: false,
       errorCode: "INVALID_INPUT",
-      message: "Invalid project detail request.",
+      message: "Invalid workspace detail request.",
     };
   }
 
@@ -624,7 +624,7 @@ async function readProjectDetailShellForActor(input: {
       return {
         success: false,
         errorCode: "NOT_FOUND",
-        message: "Project not found.",
+        message: "Workspace not found.",
       };
     }
 
@@ -842,7 +842,7 @@ async function readProjectDetailShellForActor(input: {
           return {
             success: false,
             errorCode: "INTERNAL_ERROR" as const,
-            message: "Project detail payload validation failed.",
+            message: "Workspace detail payload validation failed.",
           };
         }
 
@@ -862,7 +862,7 @@ async function readProjectDetailShellForActor(input: {
     return {
       success: false,
       errorCode: "INTERNAL_ERROR",
-      message: "Couldn’t load project detail.",
+      message: "Couldn’t load workspace detail.",
     };
   }
 }

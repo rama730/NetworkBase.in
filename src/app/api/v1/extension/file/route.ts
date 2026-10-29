@@ -109,7 +109,7 @@ export async function GET(request: Request) {
     if (transfer === "raw" && node.s3Key) {
       const parsedKey = parseProjectFileKey(node.s3Key);
       if (!parsedKey || parsedKey.projectId !== projectId) {
-        return jsonError("File key does not belong to this project", 409, "CONFLICT");
+        return jsonError("File key does not belong to this workspace", 409, "CONFLICT");
       }
       const adminClient = await createAdminClient();
       const { data, error } = await adminClient.storage.from("project-files").createSignedUrl(node.s3Key, 60);
@@ -128,7 +128,7 @@ export async function GET(request: Request) {
     if (useSignedTransfer && node.s3Key) {
       const parsedKey = parseProjectFileKey(node.s3Key);
       if (!parsedKey || parsedKey.projectId !== projectId) {
-        return jsonError("File key does not belong to this project", 409, "CONFLICT");
+        return jsonError("File key does not belong to this workspace", 409, "CONFLICT");
       }
       const expiresInSeconds = 4 * 60;
       const authorizedUrl = new URL(request.url);
@@ -173,7 +173,7 @@ export async function GET(request: Request) {
     if (node.s3Key) {
       const parsedKey = parseProjectFileKey(node.s3Key);
       if (!parsedKey || parsedKey.projectId !== projectId) {
-        return jsonError("File key does not belong to this project", 409, "CONFLICT");
+        return jsonError("File key does not belong to this workspace", 409, "CONFLICT");
       }
       contentBuffer = await readBoundedStorageBytes({
         bucket: "project-files",

@@ -106,7 +106,7 @@ function ProjectLinkOverflow({ projectId, links, className, labelled = false }: 
             <DropdownMenuTrigger asChild>
                 <button
                     type="button"
-                    aria-label={labelled ? `Open ${links.length} project link${links.length === 1 ? '' : 's'}` : `Open ${links.length} more project link${links.length === 1 ? '' : 's'}`}
+                    aria-label={labelled ? `Open ${links.length} workspace link${links.length === 1 ? '' : 's'}` : `Open ${links.length} more workspace link${links.length === 1 ? '' : 's'}`}
                     className={cn('nb-touch-target inline-flex h-7 shrink-0 items-center gap-1 rounded-[5px] px-1.5 text-xs font-semibold text-muted-foreground transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', className)}
                 >
                     {labelled ? <><Link2 className="h-3.5 w-3.5" />Links <span className="text-[11px] text-muted-foreground">{links.length}</span></> : `+${links.length}`}
@@ -322,7 +322,7 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
             const duplicate = next.find((candidate) => candidate.id !== replaceId && candidate.url === resolved.url);
             if (duplicate) {
                 highlightedDuplicate = duplicate;
-                firstProblem ||= 'This project link is already present.';
+                firstProblem ||= 'This workspace link is already present.';
                 continue;
             }
             if (!replaceId && next.length >= 20) {
@@ -443,7 +443,7 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
                     handleClassName="-ml-1 text-muted-foreground hover:text-foreground"
                     getItemLabel={(item) => {
                         const link = resolveSocialPresence(item.platform, item.url);
-                        return item.label || link?.platformLabel || 'project link';
+                        return item.label || link?.platformLabel || 'workspace link';
                     }}
                     onReorder={(next) => publishDraft(next.map((item, order) => ({ ...item, order })))}
                 >
@@ -489,10 +489,10 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
                     stageText(text);
                 }}
             >
-                <label htmlFor={urlInputId} className="nb-ui-label block text-foreground">{editingId ? 'Link destination' : draft.length ? 'Add another link' : 'Project link'}</label>
+                <label htmlFor={urlInputId} className="nb-ui-label block text-foreground">{editingId ? 'Link destination' : draft.length ? 'Add another link' : 'Workspace link'}</label>
                 <p className="mt-1 text-xs text-muted-foreground">
                     {commitContext === 'project-create'
-                        ? 'Paste or drop one or several URLs. They are staged immediately and saved when you create the project.'
+                        ? 'Paste or drop one or several URLs. They are staged immediately and saved when you create the workspace.'
                         : 'Paste one or more links. They’re saved when you select Save changes.'}
                 </p>
                 <div className="mt-3 flex min-w-0 flex-col gap-2 sm:flex-row">
@@ -542,7 +542,7 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
                             Visibility
                             <select value={audience} onChange={(event) => { const value = event.target.value as ProjectLinkAudience; setAudience(value); updateEditingItem({ audience: value }); }} disabled={disabled} className="nb-touch-target mt-1.5 h-[34px] min-w-0 max-w-full w-full rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring">
                                 <option value="public">Public</option>
-                                <option value="members">Project members only</option>
+                                <option value="members">Workspace members only</option>
                             </select>
                         </label>
                     </div>
@@ -629,14 +629,14 @@ export function ProjectLinksManager({
             router.refresh();
             toast.success('Workspace links saved');
         } catch (error) {
-            setSaveError(error instanceof Error ? error.message : 'Couldn’t save project links. Your changes are retained.');
+            setSaveError(error instanceof Error ? error.message : 'Couldn’t save workspace links. Your changes are retained.');
         } finally {
             setSaving(false);
         }
     };
 
     const requestOpenChange = (nextOpen: boolean) => {
-        if (!nextOpen && hasUnsavedChanges && !window.confirm('Discard your unsaved project link changes?')) return;
+        if (!nextOpen && hasUnsavedChanges && !window.confirm('Discard your unsaved workspace link changes?')) return;
         onOpenChange?.(nextOpen);
     };
 
@@ -676,8 +676,8 @@ export function ProjectLinksManager({
                 <div className="mt-6 flex flex-col gap-3 border-t border-border py-4 sm:flex-row sm:items-center sm:justify-between">
                     <p className="nb-compact text-muted-foreground">
                         {hasUnsavedChanges
-                            ? `You have unsaved changes in project links (${changeCount + (hasComposerDraft ? 1 : 0)} pending).`
-                            : "All project links are saved."}
+                            ? `You have unsaved changes in workspace links (${changeCount + (hasComposerDraft ? 1 : 0)} pending).`
+                            : "All workspace links are saved."}
                     </p>
                     <div className="flex items-center gap-2">
                         <Button
@@ -719,7 +719,7 @@ export function ProjectLinksManager({
         <Dialog open={open} onOpenChange={requestOpenChange}>
             <DialogContent className="max-h-[min(90dvh,48rem)] w-[calc(100vw-1rem)] min-w-0 max-w-2xl overflow-x-hidden overflow-y-auto p-4 sm:w-[calc(100vw-2rem)] sm:p-6">
                 <DialogHeader className="min-w-0">
-                    <DialogTitle>Project links</DialogTitle>
+                    <DialogTitle>Workspace links</DialogTitle>
                     <DialogDescription>Add the destinations people need. Services and icons are detected from each URL.</DialogDescription>
                 </DialogHeader>
                 {content}
@@ -779,7 +779,7 @@ export function ProjectLinkCluster({
     if (!resolved.length && !canManage) return null;
     return (
         <TooltipProvider>
-            <div className="flex shrink-0 items-center gap-0.5" aria-label="Project links">
+            <div className="flex shrink-0 items-center gap-0.5" aria-label="Workspace links">
                 {resolved.slice(0, 5).map((link, index) => (
                     <ProjectLinkAnchor
                         key={link.id || link.canonicalKey}
@@ -794,11 +794,11 @@ export function ProjectLinkCluster({
                 {canManage ? (
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <button type="button" onClick={() => setEditorOpen(true)} aria-label="Manage project links" className="nb-touch-target nb-icon-button h-7 w-7 shrink-0 rounded-[5px] text-muted-foreground transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                            <button type="button" onClick={() => setEditorOpen(true)} aria-label="Manage workspace links" className="nb-touch-target nb-icon-button h-7 w-7 shrink-0 rounded-[5px] text-muted-foreground transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                                 <Plus className="h-4 w-4" aria-hidden="true" />
                             </button>
                         </TooltipTrigger>
-                        <TooltipContent side="bottom" sideOffset={6}>{resolved.length ? 'Manage project links' : 'Add project link'}</TooltipContent>
+                        <TooltipContent side="bottom" sideOffset={6}>{resolved.length ? 'Manage workspace links' : 'Add workspace link'}</TooltipContent>
                     </Tooltip>
                 ) : null}
             </div>

@@ -8,7 +8,7 @@ import {
 
 test("getProjectTitleFromSlug normalizes slugs and hides UUIDs", () => {
   assert.equal(getProjectTitleFromSlug("network-for-builders"), "network for builders");
-  assert.equal(getProjectTitleFromSlug("550e8400-e29b-41d4-a716-446655440000"), "Project");
+  assert.equal(getProjectTitleFromSlug("550e8400-e29b-41d4-a716-446655440000"), "Workspace");
   assert.equal(getProjectTitleFromSlug("%E0%A4%A"), "%E0%A4%A");
 });
 
@@ -25,7 +25,7 @@ test("buildProjectDetailMetadataInput trims project title and descriptions", () 
       description: "Learn and build together.",
       path: "/projects/network-for-builders",
       image: "/api/og/project/network-for-builders",
-      imageAlt: "Network for builders project image",
+      imageAlt: "Network for builders workspace image",
       imageWidth: 1200,
       imageHeight: 630,
       twitterCard: "summary_large_image",
@@ -33,7 +33,7 @@ test("buildProjectDetailMetadataInput trims project title and descriptions", () 
   );
 });
 
-test("buildProjectDetailMetadataInput uses large-card dimensions for uploaded project images", () => {
+test("buildProjectDetailMetadataInput uses large-card dimensions for uploaded workspace images", () => {
   assert.deepEqual(
     buildProjectDetailMetadataInput("network-for-builders", {
       slug: "network-for-builders",
@@ -47,7 +47,7 @@ test("buildProjectDetailMetadataInput uses large-card dimensions for uploaded pr
       description: "Explore Network for builders on NetworkBase.",
       path: "/projects/network-for-builders",
       image: "https://cdn.example.test/project.png",
-      imageAlt: "Network for builders project image",
+      imageAlt: "Network for builders workspace image",
       imageWidth: 900,
       imageHeight: 500,
       twitterCard: "summary_large_image",

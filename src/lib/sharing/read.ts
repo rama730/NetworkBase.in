@@ -158,9 +158,9 @@ async function readProject(resource: ShareResource, viewerId: string | null): Pr
   const result: SharePreview = { ...genericSharePreview(resolved, 'ready'), visibility, indexable: visibility === 'public' && ['active','completed','archived'].includes(access.project.status ?? '')
       && !project.discoverHiddenAt && access.writeBlocked !== 'suspended' && access.writeBlocked !== 'deleting', draft: access.project.status === 'draft',
     entityKey: createHash('sha256').update(`project:${access.project.id}`).digest('hex'),
-    title: shareText(project.title).slice(0,160) || 'Project on NetworkBase',
-    description: shareText(project.shortDescription || (dashboard ? project.description : null)).slice(0,300) || 'View this project on NetworkBase.',
-    identity: { name: shareText(project.title).slice(0,160) || 'Project', username: null, headline: null, avatarUrl: shareImageUrl(project.coverImage, resolved.url), avatarRevision:createHash('sha256').update(JSON.stringify([project.coverAsset,project.coverHash,project.coverKey,project.coverImage])).digest('hex').slice(0,16) },
+    title: shareText(project.title).slice(0,160) || 'Workspace on NetworkBase',
+    description: shareText(project.shortDescription || (dashboard ? project.description : null)).slice(0,300) || 'View this workspace on NetworkBase.',
+    identity: { name: shareText(project.title).slice(0,160) || 'Workspace', username: null, headline: null, avatarUrl: shareImageUrl(project.coverImage, resolved.url), avatarRevision:createHash('sha256').update(JSON.stringify([project.coverAsset,project.coverHash,project.coverKey,project.coverImage])).digest('hex').slice(0,16) },
     ...(skillSummary ?? {}), project: details };
   result.imageAlt = previewAlt(result);
   const revision = createHash('sha256').update(JSON.stringify(result)).digest('hex').slice(0,16);

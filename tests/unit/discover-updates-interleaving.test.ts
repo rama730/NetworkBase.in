@@ -39,7 +39,7 @@ test("two updates from one project do not sit close together", () => {
     assert.deepEqual(placed.slice(0, 2), ["u1", "u3"], "the second update from x waits until it is spaced out");
 });
 
-test("with no project cards the updates stand alone; with no updates it is just the projects", () => {
+test("with no project cards the updates stand alone; with no updates it is just the workspaces", () => {
     assert.deepEqual(shape(interleaveProjectsAndUpdates([], [update("u1", "x"), update("u2", "y")])), ["u:u1", "u:u2"]);
     assert.deepEqual(shape(interleaveProjectsAndUpdates(projects(4), [])), ["p:p1", "p:p2", "p:p3", "p:p4"]);
     assert.deepEqual(interleaveProjectsAndUpdates([], []), []);

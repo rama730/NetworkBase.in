@@ -79,7 +79,7 @@ export function FileTreeItem({
             <div className="nb-empty-state-icon-box mb-3">
               <FolderPlus className="nb-empty-state-icon" />
             </div>
-            <div className="nb-card-title text-foreground">{context.projectName || "Project"}</div>
+            <div className="nb-card-title text-foreground">{context.projectName || "Workspace"}</div>
             <div className="nb-compact mt-1 text-muted-foreground">No files yet. Create a folder or a file to start.</div>
             <div className="mt-4 flex items-center justify-center gap-2">
               <Button size="sm" onClick={() => context.openCreate("folder")} disabled={!context.canEdit}>

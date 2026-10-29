@@ -5,8 +5,8 @@ import { WIZARD_COLUMN } from "./WizardFooter";
 /** Mirrors the create-project page inside the app shell: header band, 1000px column, footer band. */
 export function CreateProjectShellSkeleton() {
     return (
-        <div role="status" aria-live="polite" aria-label="Loading project creation" className="flex h-full min-h-0 flex-col bg-card">
-            <span className="sr-only">Loading project creation…</span>
+        <div role="status" aria-live="polite" aria-label="Loading workspace creation" className="flex h-full min-h-0 flex-col bg-card">
+            <span className="sr-only">Loading workspace creation…</span>
             <div aria-hidden="true" className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border px-4 sm:px-6 md:h-16">
                 <Skeleton className="h-5 w-36 rounded-sm" />
                 <div className="hidden items-center gap-3 md:flex">

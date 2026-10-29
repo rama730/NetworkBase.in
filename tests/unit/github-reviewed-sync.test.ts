@@ -57,7 +57,7 @@ function manifest(repository: string, files = [file()]): SyncManifest {
     sequence: 1,
     direction: "push",
     mode: "direct",
-    message: "Publish reviewed project files",
+    message: "Publish reviewed workspace files",
     files,
   };
 }

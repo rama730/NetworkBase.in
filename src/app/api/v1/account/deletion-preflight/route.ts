@@ -36,6 +36,6 @@ export async function GET() {
         );
     } catch (error) {
         logger.warn('account.deletion-preflight.failed', { module: 'account', error: error instanceof Error ? error.message : String(error) });
-        return jsonError('Couldn’t load your projects', 503, 'INTERNAL_ERROR');
+        return jsonError('Couldn’t load your workspaces', 503, 'INTERNAL_ERROR');
     }
 }

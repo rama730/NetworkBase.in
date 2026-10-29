@@ -18,8 +18,8 @@ interface FinishScreenProps {
 }
 
 const VISIBILITY_NOTE: Record<OnboardingVisibility, string> = {
-  public: 'Your profile is live. Connect with developers, collaborate on projects, and manage tasks across your workspace.',
-  connections: 'Your profile is set up and visible to your connections. Connect with developers and collaborate on projects.',
+  public: 'Your profile is live. Connect with developers, collaborate on workspaces, and manage tasks across your workspace.',
+  connections: 'Your profile is set up and visible to your connections. Connect with developers and collaborate on workspaces.',
   private: 'Your profile is set up and hidden from Discovery. You can change who sees it any time in Settings.',
 }
 

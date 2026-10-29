@@ -227,7 +227,7 @@ export default function MyWorkRequestsTab({ isActive = true }: MyWorkRequestsTab
 
     const handleAcceptAllConnections = () => acceptEach(pendingConnections.map((req) => req.id), (id) => acceptRequest.mutateAsync(id), "connection request *(keep)*");
 
-    const handleAcceptAllInvites = () => acceptEach(pendingInvites.map((inv) => inv.id), (id) => acceptInvite.mutateAsync(id), "project invite");
+    const handleAcceptAllInvites = () => acceptEach(pendingInvites.map((inv) => inv.id), (id) => acceptInvite.mutateAsync(id), "workspace invite");
 
     /** One confirmation, then one result per application: what was accepted, what was not, and why. */
     const handleAcceptAllIncoming = async () => {
@@ -281,7 +281,7 @@ export default function MyWorkRequestsTab({ isActive = true }: MyWorkRequestsTab
     return (
         <div id="workspace-requests-panel" role="tabpanel" aria-labelledby="workspace-requests-tab" className="w-full px-1 pb-10">
             <p className="mb-4 px-1 text-[13px] leading-5 text-muted-foreground">
-                Connection and project decisions that need your attention, in one place.
+                Connection and workspace decisions that need your attention, in one place.
             </p>
             <OrgRequestsSection joinRequests="decide" onNavigate={() => setMyWorkOpen(false)} enabled={isMyWorkOpen && isActive} />
             {pendingConnections.length > 0 && (
@@ -331,7 +331,7 @@ export default function MyWorkRequestsTab({ isActive = true }: MyWorkRequestsTab
             {pendingInvites.length > 0 && (
                 <div className="mb-6">
                     <div className="mb-3 flex items-center justify-between pl-1">
-                        <h4 className="nb-micro">Project invitations ({pendingInvites.length})</h4>
+                        <h4 className="nb-micro">Workspace invitations ({pendingInvites.length})</h4>
                         {pendingInvites.length > 1 && (
                             <button
                                 type="button"
@@ -358,7 +358,7 @@ export default function MyWorkRequestsTab({ isActive = true }: MyWorkRequestsTab
             {pendingIncoming.length > 0 && (
                 <div>
                     <div className="mb-3 flex items-center justify-between pl-1">
-                        <h4 className="nb-micro">Applications to your projects ({pendingIncoming.length})</h4>
+                        <h4 className="nb-micro">Applications to your workspaces ({pendingIncoming.length})</h4>
                         {pendingIncoming.length > 1 && (
                             <button
                                 type="button"
@@ -405,7 +405,7 @@ export default function MyWorkRequestsTab({ isActive = true }: MyWorkRequestsTab
                 open={confirmAcceptAll}
                 onOpenChange={setConfirmAcceptAll}
                 title={`Accept ${pendingIncoming.length} applications?`}
-                description="This list shows your 20 newest applications. Each person joins their project right away, and everyone is told. Decline any you are unsure about first."
+                description="This list shows your 20 newest applications. Each person joins their workspace right away, and everyone is told. Decline any you are unsure about first."
                 confirmLabel={`Accept these ${pendingIncoming.length}`}
                 onConfirm={() => void handleAcceptAllIncoming()}
             />

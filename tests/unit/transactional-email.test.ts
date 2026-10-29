@@ -155,7 +155,7 @@ test("redesigned task email renders open layout, Ponytail avatar, subtasks and f
   assert.match(emailA.html, /href="https:\/\/networkbase\.in\/projects\/deepscope-ai"/);
   assert.match(emailA.html, /width:7px;height:7px;border-radius:2px;background-color:#C24720;/);
   assert.doesNotMatch(emailA.html, /●/);
-  assert.match(emailA.text, /Project: DeepScope AI/);
+  assert.match(emailA.text, /Workspace: DeepScope AI/);
 
   // Verify left-edge alignment and responsive container padding
   assert.match(emailA.html, /<td class="container-cell" align="left" style="padding:28px 20px;text-align:left;">/);
@@ -214,7 +214,7 @@ test("redesigned task email renders open layout, Ponytail avatar, subtasks and f
   assert.match(emailA.html, /DeepScope AI &#8599;/);
   assert.match(emailA.html, /Open in Cursor &#8599;/);
   assert.match(emailA.text, /View Task: https:\/\/networkbase\.in\/projects\/deepscope-ai\?tab=tasks&drawerType=task&drawerId=task-101/);
-  assert.match(emailA.text, /Project: https:\/\/networkbase\.in\/projects\/deepscope-ai/);
+  assert.match(emailA.text, /Workspace: https:\/\/networkbase\.in\/projects\/deepscope-ai/);
   assert.match(emailA.text, /Open in Cursor: https:\/\/networkbase\.in\/open\/ide\?projectId=deepscope-ai&slug=deepscope-ai&taskId=task-101&ide=cursor/);
 
   // Verify Footer links: Contact Support, Privacy, Security, Terms and Conditions
@@ -308,7 +308,7 @@ test("redesigned welcome email renders Ponytail avatar, profile identity, skills
   assert.match(welcomeWithAvatar.html, /Distributed Systems/);
 
   // Action bar buttons
-  assert.match(welcomeWithAvatar.html, /Explore Projects &rarr;/);
+  assert.match(welcomeWithAvatar.html, /Explore workspaces &rarr;/);
   assert.match(welcomeWithAvatar.html, /View Your Profile &#8599;/);
   assert.match(welcomeWithAvatar.html, /href="https:\/\/networkbase\.in\/sconnor"/);
 

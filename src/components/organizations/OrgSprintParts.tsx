@@ -58,8 +58,8 @@ export function RunningOrgSprintPrompt({ org, canCreate, onCreateLinked }: { org
 export function LinkedProjectsBlock({ org }: { org: SprintOrgContext }) {
     if (org.linkedProjects.length === 0 && org.notLinkedCount === 0) return null
     return (
-        <section aria-label="Linked projects" className="mb-4 rounded-md border border-border p-3">
-            <p className="font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground">Linked projects</p>
+        <section aria-label="Linked workspaces" className="mb-4 rounded-md border border-border p-3">
+            <p className="font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground">Linked workspaces</p>
             <ul className="mt-2 space-y-1 text-sm">
                 {org.linkedProjects.map((row) => (
                     <li key={row.sprintId}>
@@ -132,7 +132,7 @@ function MaterialPicker({ open, onOpenChange, projectId, sprintId, onAdded }: { 
             <DialogContent className="max-w-md">
                 <DialogHeader>
                     <DialogTitle>Add a material</DialogTitle>
-                    <DialogDescription>A file or doc from this project, for everyone working in the sprint.</DialogDescription>
+                    <DialogDescription>A file or doc from this workspace, for everyone working in the sprint.</DialogDescription>
                 </DialogHeader>
                 <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search files and docs" aria-label="Search files and docs" autoFocus />
                 <ul className="max-h-72 divide-y divide-border overflow-y-auto rounded-md border border-border">

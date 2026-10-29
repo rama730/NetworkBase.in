@@ -19,7 +19,7 @@ let orgs: typeof import("../../src/app/actions/organizations");
 let lifecycle: typeof import("../../src/lib/projects/server/lifecycle");
 let detail: typeof import("../../src/lib/projects/server/detail");
 before(async () => {
-  // The project page reads the session, not just the user: stand the viewer in directly.
+  // The workspace page reads the session, not just the user: stand the viewer in directly.
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
   moduleStubs.set("@/lib/server/viewer-context", {
     ...viewerContext,
@@ -117,7 +117,7 @@ test("Organization children open for org people and inherited admins, not outsid
   const slug = result.project!.slug!;
   viewerId = o.member2;
   const memberView = await detail.readProjectDetailShell({ slugOrId: slug });
-  assert.equal(memberView.success, true, `org member not in the project: ${JSON.stringify(memberView).slice(0, 300)}`);
+  assert.equal(memberView.success, true, `org member not in the workspace: ${JSON.stringify(memberView).slice(0, 300)}`);
   const outsider = await sql.begin((tx) => createUser(tx));
   viewerId = outsider;
   assert.equal((await detail.readProjectDetailShell({ slugOrId: slug })).success, false);
@@ -130,7 +130,7 @@ test("Organization children open for org people and inherited admins, not outsid
   assert.equal((await detail.readProjectDetailShell({ slugOrId: slug })).success, false);
 });
 
-test("detach: the lead asks, an inherited admin approves; the project becomes Private and personal", async () => {
+test("detach: the lead asks, an inherited admin approves; the workspace becomes Private and personal", async () => {
   const o = await org();
   const result = await create(o, o.member);
   const id = result.project!.id;

@@ -152,7 +152,7 @@ export function RepositorySync({
   projectId,
   canManage,
   access,
-  projectName = "Project",
+  projectName = "Workspace",
   projectSlug,
 }: {
   projectId: string;
@@ -183,7 +183,7 @@ export function RepositorySync({
   const [manifest, setManifest] = useState<SyncManifest | null>(null);
   const [choices, setChoices] = useState<SyncChoices>({});
   const [message, setMessage] = useState(
-    "Update project files from NetworkBase",
+    "Update workspace files from NetworkBase",
   );
   const [run, setRun] = useState<SyncRunView | null>(null);
   const [busy, setBusy] = useState(false);
@@ -1971,7 +1971,7 @@ export function RepositorySync({
           description={
             manifest.direction === "push"
               ? "Choose the files to publish to GitHub."
-              : "Choose the files to import into project files."
+              : "Choose the files to import into workspace files."
           }
           onBack={back}
           headingRef={headingRef}
@@ -1980,7 +1980,7 @@ export function RepositorySync({
         {noChanges ? (
           <div className={styles.empty}>
             <h3>No pending changes</h3>
-            <p>Project files match the reviewed GitHub branch.</p>
+            <p>Workspace files match the reviewed GitHub branch.</p>
           </div>
         ) : (
           <>
@@ -2070,7 +2070,7 @@ export function RepositorySync({
                     <span className={styles.provenance}>
                       Updated by:{" "}
                       {manifest.direction === "push"
-                        ? "latest project-file revision"
+                        ? "latest workspace-file revision"
                         : "GitHub author of the source change"}
                     </span>
                     <span>{selected.length.toLocaleString()} selected</span>
@@ -2343,7 +2343,7 @@ export function RepositorySync({
             selected deletions.{" "}
             {push
               ? "Deleted paths will be removed from the published branch."
-              : "Deleted project files move to Trash."}
+              : "Deleted workspace files move to Trash."}
           </p>
         )}
         {push && value.mode === "pr" && (
@@ -2422,7 +2422,7 @@ export function RepositorySync({
               ? "Synchronization queued"
               : run.direction === "push"
                 ? "Publishing to GitHub"
-                : "Importing into project files"
+                : "Importing into workspace files"
           }
           description="Progress comes from the recorded operation."
           onBack={() => setView("overview")}
@@ -2559,7 +2559,7 @@ export function RepositorySync({
               <span className={styles.mono}>
                 {run.manifest.newBranch?.base || run.manifest.branch}
               </span>
-              . Project files and the target branch may still differ until the
+              . Workspace files and the target branch may still differ until the
               PR is merged.
             </li>
           )}
@@ -2626,7 +2626,7 @@ export function RepositorySync({
         {partial > 0 && (
           <p className={styles.warning}>
             {partial} of {run.manifest.files.length} imports were recorded.
-            Those project changes remain. A safe retry skips recorded files; a
+            Those workspace changes remain. A safe retry skips recorded files; a
             changed baseline requires a fresh comparison.
           </p>
         )}
@@ -2815,7 +2815,7 @@ export function RepositorySync({
           </button>
           <p className={cn(styles.small, styles.muted)}>
             Disconnecting stops future synchronization. It does not delete
-            project files or the GitHub repository.
+            workspace files or the GitHub repository.
           </p>
         </div>
       </>
@@ -3077,7 +3077,7 @@ export function RepositorySync({
           <>
             <DialogTitle>Disconnect repository?</DialogTitle>
             <DialogDescription>
-              Project files and the GitHub repository are kept. Unsubmitted
+              Workspace files and the GitHub repository are kept. Unsubmitted
               reviews will be canceled; running operations must finish first.
             </DialogDescription>
             <div className={styles.dialogFooter}>
@@ -3167,7 +3167,7 @@ export function RepositorySync({
           <>
             <DialogTitle>Synchronization history</DialogTitle>
             <DialogDescription>
-              Recorded operations and retained results for this project.
+              Recorded operations and retained results for this workspace.
             </DialogDescription>
             {!state?.runs.length ? (
               <p>No recorded operations yet.</p>
@@ -3239,7 +3239,7 @@ export function RepositorySync({
               <>
                 <div className={styles.diffGrid}>
                   <section>
-                    <h3>NetworkBase project file</h3>
+                    <h3>NetworkBase workspace file</h3>
                     <DiffContentPane content={diff.edge} />
                   </section>
                   <section>
@@ -3320,7 +3320,7 @@ export function RepositorySync({
       <>
         <SyncHeading
           title="GitHub Sync could not load"
-          description="Your project files have not changed."
+          description="Your workspace files have not changed."
           headingRef={headingRef}
         />
         <div className={styles.footer}>
@@ -3366,7 +3366,7 @@ export function RepositorySync({
           projectName={projectName}
         />
         <p role="status" className={styles.info}>
-          Reading the branch and project file revisions. Keep this page open
+          Reading the branch and workspace file revisions. Keep this page open
           until the comparison returns.
         </p>
         <div
@@ -3439,7 +3439,7 @@ export function RepositorySync({
       )[view]?.() || overviewView();
   return (
     <section
-      aria-label="GitHub synchronization workspace"
+      aria-label="Repository sync"
       className={styles.workspace}
     >
       <div className={styles.body}>

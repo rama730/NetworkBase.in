@@ -137,7 +137,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                                 {card.canEdit ? <button type="button" onClick={application?.onEdit} className="nb-touch-target text-primary hover:underline">Edit</button> : null}
                                 {card.canWithdraw ? <button type="button" onClick={application?.onWithdraw} className="nb-touch-target text-muted-foreground hover:text-foreground hover:underline">Withdraw</button> : null}
                                 {applicationStatus.channelId ? <Link href={conversationHref(applicationStatus.channelId)} className="nb-touch-target text-primary hover:underline">View conversation</Link> : null}
-                                {applicationStatus.status === "accepted" && !applicationStatus.membershipEnded && applicationStatus.projectChatId ? <Link href={conversationHref(applicationStatus.projectChatId)} className="nb-touch-target text-primary hover:underline">Open project chat</Link> : null}
+                                {applicationStatus.status === "accepted" && !applicationStatus.membershipEnded && applicationStatus.projectChatId ? <Link href={conversationHref(applicationStatus.projectChatId)} className="nb-touch-target text-primary hover:underline">Open workspace chat</Link> : null}
                             </div>
                         ) : null}
                         {card.canRetry ? (

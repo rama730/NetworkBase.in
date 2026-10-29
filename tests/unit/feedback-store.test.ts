@@ -90,7 +90,7 @@ test('promise unwrap preserves rejection, skips fast loading, and resolves the e
 test('an operation completing after account clear cannot resurrect private feedback', async () => {
   toast.clear(); let resolve!: (value: string) => void;
   const operation = toast.promise(new Promise<string>(done => { resolve = done; }), { success: value => value, loading: 'Working…' });
-  toast.clear(); resolve('Private project title'); await operation.unwrap();
+  toast.clear(); resolve('Private workspace title'); await operation.unwrap();
   assert.equal(feedbackStore.getSnapshot().items.length, 0);
 });
 

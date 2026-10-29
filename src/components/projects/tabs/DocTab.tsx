@@ -130,7 +130,7 @@ function OwnDocs({ projectId, project, paramDoc }: { projectId: string; project:
                     ? "This doc has no published version yet."
                     : canEdit
                         ? "Pin Markdown files from Files to read them here."
-                        : "This project has no docs visible to you."}
+                        : "This workspace has no docs visible to you."}
             </p>
             {canEdit ? (
                 <>

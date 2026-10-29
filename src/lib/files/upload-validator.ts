@@ -233,7 +233,7 @@ export function validateUploadSelection(
       if (hasSystemDir) {
         return {
           valid: false,
-          error: "Cannot upload root disk or system directories (such as Macintosh HD, Applications, or System). Select a specific project folder.",
+          error: "Cannot upload root disk or system directories (such as Macintosh HD, Applications, or System). Select a specific folder.",
           files: [],
         };
       }
@@ -245,7 +245,7 @@ export function validateUploadSelection(
       if (FORBIDDEN_ROOT_DIRS.has(lower)) {
         return {
           valid: false,
-          error: `Cannot upload system directory "${folder}". Select a specific project folder.`,
+          error: `Cannot upload system directory "${folder}". Select a specific folder.`,
           files: [],
         };
       }
@@ -278,7 +278,7 @@ export function validateUploadSelection(
     ) {
       return {
         valid: false,
-        error: `Cannot upload user home directory (${detectedFolderName || "User home"}). Select a specific folder inside your project.`,
+        error: `Cannot upload user home directory (${detectedFolderName || "User home"}). Select a specific folder inside your workspace.`,
         files: [],
       };
     }
@@ -291,7 +291,7 @@ export function validateUploadSelection(
         if (segments[0] === "users" && segments.length > 2 && FORBIDDEN_ROOT_DIRS.has(segments[2] || "")) {
           return {
             valid: false,
-            error: "Cannot upload operating system directories. Select a specific project folder.",
+            error: "Cannot upload operating system directories. Select a specific folder.",
             files: [],
           };
         }

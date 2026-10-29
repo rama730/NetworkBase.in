@@ -185,7 +185,7 @@ export async function getVersionPreviewUrl(
   // Sanity: the key must belong to this project.
   const parsed = parseProjectFileKey(version_row.s3Key);
   if (!parsed || parsed.projectId !== projectId) {
-    throw new Error("Version key does not belong to this project");
+    throw new Error("Version key does not belong to this workspace");
   }
 
   const params = new URLSearchParams({ revision: String(version) });
@@ -325,7 +325,7 @@ export async function applyUploadedFileRevision(input: {
           ...actorSnapshot,
           eventKey: "files.version_added",
           title: `New file version added`,
-          body: `Version ${result.version.version} was added to a project file.`,
+          body: `Version ${result.version.version} was added to a workspace file.`,
           sourceEventId: `${input.nodeId}:version:${result.version.version}`,
           entityRefs: {
             projectId: input.projectId,

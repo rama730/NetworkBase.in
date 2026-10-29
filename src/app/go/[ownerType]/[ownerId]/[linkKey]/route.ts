@@ -88,7 +88,7 @@ export async function GET(
         ).find((item) => item.id === requestedLinkKey || item.canonicalKey === requestedLinkKey);
         const canViewMemberLinks = access.isOwner || Boolean(access.memberRole);
         if (link?.audience === 'members' && !canViewMemberLinks) {
-            return blocked('This link is available to project members only.', 404);
+            return blocked('This link is available to workspace members only.', 404);
         }
         url = link?.url ?? null;
         linkPlatform = link?.serviceKey ?? link?.platform ?? linkPlatform;

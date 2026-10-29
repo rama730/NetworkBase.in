@@ -36,7 +36,7 @@ async function loadProjects(
   });
   const body = await response.json();
   if (!response.ok || !body.success || !Array.isArray(body.data?.projects))
-    throw new Error("Couldn’t load your projects.");
+    throw new Error("Couldn’t load your workspaces.");
   return body.data as ProjectPage;
 }
 
@@ -83,17 +83,17 @@ export function IdeProjectPicker({
         className="z-[251] sm:max-w-[400px]"
       >
         <DialogHeader className="text-left">
-          <DialogTitle>Choose a project</DialogTitle>
+          <DialogTitle>Choose a workspace</DialogTitle>
           <DialogDescription>
-            Open a NetworkBase project in {editorName}.
+            Open a NetworkBase workspace in {editorName}.
           </DialogDescription>
         </DialogHeader>
         <label className="flex h-[var(--ui-control-height)] items-center gap-2 rounded-md border border-border px-2.5 focus-within:ring-1 focus-within:ring-ring">
           <Search className="size-4 text-muted-foreground" aria-hidden="true" />
           <input
             type="search"
-            aria-label="Search projects"
-            placeholder="Search projects…"
+            aria-label="Search workspaces"
+            placeholder="Search workspaces…"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             className="min-w-0 flex-1 bg-transparent text-[13px] outline-none"
@@ -101,12 +101,12 @@ export function IdeProjectPicker({
         </label>
         {!user ? (
           <p role="status" className="text-[13px] text-muted-foreground">
-            Sign in to open your projects.
+            Sign in to open your workspaces.
           </p>
         ) : query.isPending ? (
           <div
             role="status"
-            aria-label="Loading projects"
+            aria-label="Loading workspaces"
             className="space-y-2"
           >
             {[1, 2, 3].map((row) => (
@@ -115,7 +115,7 @@ export function IdeProjectPicker({
           </div>
         ) : query.isError && !query.data ? (
           <div role="alert" className="space-y-2 text-[13px]">
-            <p>Couldn’t load your projects.</p>
+            <p>Couldn’t load your workspaces.</p>
             <Button
               variant="outline"
               size="sm"
@@ -152,9 +152,9 @@ export function IdeProjectPicker({
               >
                 {projects.length
                   ? query.hasNextPage
-                    ? "No matching projects. Load more or try another name."
-                    : "No matching projects. Try another name."
-                  : "Join or create a project to open it in your editor."}
+                    ? "No matching workspaces. Load more or try another name."
+                    : "No matching workspaces. Try another name."
+                  : "Join or create a workspace to open it in your editor."}
               </p>
             )}
             {query.hasNextPage && (
@@ -167,13 +167,13 @@ export function IdeProjectPicker({
                 }}
               >
                 {query.isFetchingNextPage
-                  ? "Loading projects…"
-                  : "Load more projects"}
+                  ? "Loading workspaces…"
+                  : "Load more workspaces"}
               </Button>
             )}
             {query.isFetchNextPageError && (
               <p role="alert" className="text-xs text-destructive">
-                Couldn’t load more projects. Try again.
+                Couldn’t load more workspaces. Try again.
               </p>
             )}
           </div>

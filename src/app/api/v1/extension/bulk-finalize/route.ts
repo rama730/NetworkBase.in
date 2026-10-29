@@ -72,7 +72,7 @@ export async function POST(request: Request) {
     const { projectId, files, uploadSessionId } = parsed.data;
 
     const access = await getProjectAccessById(projectId, user.id);
-    if (!access.project) return jsonError("Project not found", 404, "NOT_FOUND");
+    if (!access.project) return jsonError("Workspace not found", 404, "NOT_FOUND");
     if (!access.canWrite) return jsonError("You don’t have access to this", 403, "FORBIDDEN");
 
     const adminClient = await createAdminClient();

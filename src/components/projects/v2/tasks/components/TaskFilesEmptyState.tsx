@@ -43,7 +43,7 @@ export function TaskFilesEmptyState({
         </h3>
         <p className="max-w-xs text-xs text-muted-foreground">
           Start by linking the file or folder this task depends on. You can drag items here or
-          use one guided entry point to add a new file, folder, or existing project item.
+          use one guided entry point to add a new file, folder, or existing workspace item.
         </p>
       </div>
 

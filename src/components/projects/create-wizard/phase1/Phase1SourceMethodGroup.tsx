@@ -16,7 +16,7 @@ const SOURCE_OPTIONS: Array<{
   {
     type: "scratch",
     title: "Start empty",
-    description: "Create an empty project and add its details manually.",
+    description: "Create an empty workspace and add its details manually.",
     icon: Code2,
   },
   {
@@ -28,13 +28,13 @@ const SOURCE_OPTIONS: Array<{
   {
     type: "upload",
     title: "Upload a folder",
-    description: "Inspect a local project folder before creating the project.",
+    description: "Inspect a local folder before creating the workspace.",
     icon: FolderUp,
   },
   {
     type: "organization",
     title: "Organization",
-    description: "A class, company or club that holds people and their projects.",
+    description: "A class, company or club that holds people and their workspaces.",
     icon: Building2,
   },
 ];

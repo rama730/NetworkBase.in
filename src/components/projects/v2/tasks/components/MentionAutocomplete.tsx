@@ -119,7 +119,7 @@ export function MentionAutocomplete({
                 <div className="px-3 py-2.5 text-xs text-muted-foreground">
                     {query
                         ? `No teammates match "${query}".`
-                        : "No teammates found on this project."}
+                        : "No teammates found in this workspace."}
                 </div>
             ) : null}
 

@@ -33,7 +33,7 @@ export type TaskFileGroup = {
 };
 
 async function authorize(projectId: string) {
-    if (!UUID_RE.test(projectId)) throw new Error("Invalid project");
+    if (!UUID_RE.test(projectId)) throw new Error("Invalid workspace");
     const client = await createClient();
     const { data: { user } } = await client.auth.getUser();
     const access = await assertProjectFileReadAccess(projectId, user?.id ?? null);

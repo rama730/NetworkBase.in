@@ -130,7 +130,7 @@ export async function createContributionStoryAction() {
     );
     if (!rate.allowed)
       throw new StoryError(
-        "Wait before adding another project.",
+        "Wait before adding another workspace.",
         "RATE_LIMITED",
       );
     const [row] = await db
@@ -392,7 +392,7 @@ export async function saveContributionStoryAction(
           project.status === "draft")
       )
         throw new StoryError(
-          "This project cannot be shown publicly. Your private draft is kept.",
+          "This workspace cannot be shown publicly. Your private draft is kept.",
           "PROJECT_RESTRICTED",
         );
       if (
@@ -402,7 +402,7 @@ export async function saveContributionStoryAction(
         !document.allowUnlisted
       )
         throw new StoryError(
-          "Confirm that you want this unlisted project listed on your profile.",
+          "Confirm that you want this unlisted workspace listed on your profile.",
         );
       if (input.operation === "undo-merge") {
         if (current.projectId || !current.deletedAt || !input.mergeRestore)
@@ -489,7 +489,7 @@ export async function saveContributionStoryAction(
       if (input.operation === "link") {
         if (current.projectId || !input.targetProjectId)
           throw new StoryError(
-            "Choose an external contribution and a project.",
+            "Choose an external contribution and a workspace.",
           );
         const [target] = await tx
           .select()
@@ -515,7 +515,7 @@ export async function saveContributionStoryAction(
           : [];
         if (!target || (target.ownerId !== userId && !member))
           throw new StoryError(
-            "Choose a project you contribute to.",
+            "Choose a workspace you contribute to.",
             "FORBIDDEN",
           );
         const [duplicate] = await tx
@@ -532,7 +532,7 @@ export async function saveContributionStoryAction(
         if (duplicate) {
           if (input.mergeTargetId !== duplicate.id)
             throw new StoryError(
-              "This project already has a contribution. Review the existing story before merging.",
+              "This workspace already has a contribution. Review the existing story before merging.",
               "DUPLICATE",
               undefined,
               duplicate.id,
@@ -708,7 +708,7 @@ export async function saveContributionStoryAction(
           );
           if (!options.length)
             throw new StoryError(
-              "A project image is no longer public. Remove or replace it before publishing.",
+              "A workspace image is no longer public. Remove or replace it before publishing.",
             );
         }
       }
@@ -967,7 +967,7 @@ export async function importContributionProjectImageAction(
     !z.string().uuid().safeParse(nodeId).success ||
     !z.string().uuid().safeParse(contributionId).success
   )
-    throw new StoryError("Invalid project image.");
+    throw new StoryError("Invalid workspace image.");
   const [row] = await db
     .select({ projectId: profileProjectContributions.projectId })
     .from(profileProjectContributions)
@@ -987,7 +987,7 @@ export async function importContributionProjectImageAction(
       ["image/png", "image/jpeg", "image/webp"].includes(f.mimeType ?? ""),
     )
   )
-    throw new StoryError("Choose a public PNG, JPG, or WebP project image.");
+    throw new StoryError("Choose a public PNG, JPG, or WebP workspace image.");
   const files = await db.execute<{
     bucket: string;
     storage_key: string;
@@ -997,7 +997,7 @@ export async function importContributionProjectImageAction(
     sql`SELECT a.bucket,a.storage_key,a.verified_mime_type,a.verified_size FROM project_nodes n JOIN storage_assets a ON a.id=n.asset_id WHERE n.id=${nodeId}::uuid AND n.project_id=${row!.projectId}::uuid AND n.deleted_at IS NULL AND a.state='verified' LIMIT 1`,
   );
   const file = files[0];
-  if (!file) throw new StoryError("This project image is unavailable.");
+  if (!file) throw new StoryError("This workspace image is unavailable.");
   const bytes = await readBoundedStorageBytes({
     bucket: file.bucket,
     storageKey: file.storage_key,
@@ -1014,7 +1014,7 @@ export async function importContributionProjectImageAction(
     headers: { "Content-Type": file.verified_mime_type },
     body: new Uint8Array(bytes),
   });
-  if (!uploaded.ok) throw new StoryError("Couldn’t copy the project image.");
+  if (!uploaded.ok) throw new StoryError("Couldn’t copy the workspace image.");
   return finalizeContributionImageAction(
     contributionId,
     prepared.uploadIntentId,

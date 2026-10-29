@@ -56,7 +56,7 @@ export async function enqueueApplicationReceivedBestEffort(params: {
             actorAvatarUrl: params.actorAvatarUrl ?? null,
             eventKey: "applications.received",
             title: `${params.actorName || "Someone"} applied ${params.again ? "again " : ""}for ${params.roleTitle || "a role"}`,
-            body: params.projectTitle ? `Project: ${params.projectTitle}` : "New application received",
+            body: params.projectTitle ? `Workspace: ${params.projectTitle}` : "New application received",
             // The thread has the cover letter and the Accept / Decline controls; the inbox is the fallback.
             href: params.channelId ? conversationHref(params.channelId) : '/network?tab=invitations',
             entityRefs: {
@@ -121,7 +121,7 @@ export async function enqueueApplicationDecisionBestEffort(params: {
     const fromProject = params.status === "role_filled" || params.status === "project_closed" || params.status === "role_removed";
     const actorName = fromProject ? params.projectTitle ?? null : params.actorName;
     const actorAvatarUrl = fromProject ? null : params.actorAvatarUrl ?? null;
-    const projectTitle = params.projectTitle || "The project";
+    const projectTitle = params.projectTitle || "The workspace";
     try {
         await enqueueProjectNotificationEvent({
             projectId: params.projectId,
@@ -137,7 +137,7 @@ export async function enqueueApplicationDecisionBestEffort(params: {
                     : params.status === "project_closed"
                         ? `${projectTitle} is no longer taking applications`
                         : `${params.actorName || "Someone"} ${params.status === "accepted" ? "accepted" : params.status === "rejected" ? "declined" : "reopened"} your application`,
-            body: params.reasonText?.trim().slice(0, 240) || (params.projectTitle ? `Project: ${params.projectTitle}` : null),
+            body: params.reasonText?.trim().slice(0, 240) || (params.projectTitle ? `Workspace: ${params.projectTitle}` : null),
             href: params.channelId ? conversationHref(params.channelId) : '/network?tab=invitations',
             entityRefs: {
                 applicationId: params.applicationId,
@@ -188,7 +188,7 @@ export async function enqueueApplicationWithdrawnBestEffort(params: {
             actorAvatarUrl: params.actorAvatarUrl ?? null,
             eventKey: "applications.withdrawn",
             title: `${params.actorName || "Someone"} withdrew their application`,
-            body: params.roleTitle ? `Role: ${params.roleTitle}` : params.projectTitle ? `Project: ${params.projectTitle}` : "Application withdrawn",
+            body: params.roleTitle ? `Role: ${params.roleTitle}` : params.projectTitle ? `Workspace: ${params.projectTitle}` : "Application withdrawn",
             href: params.channelId ? conversationHref(params.channelId) : '/network?tab=invitations',
             entityRefs: {
                 applicationId: params.applicationId,
@@ -269,11 +269,11 @@ export async function notifyExpiredInvitations(
                 kind: 'chat_invite',
                 category: 'workflows',
                 importance: 'more',
-                title: `Your invitation to ${context.projectTitle || 'the project'} expired`,
+                title: `Your invitation to ${context.projectTitle || 'the workspace'} expired`,
                 body: context.roleTitle ? `The ${context.roleTitle} role was filled.` : 'The role was filled.',
                 href: `/projects/${context.projectSlug || context.projectId}`,
                 entityRefs: { projectId: context.projectId, projectSlug: context.projectSlug ?? null, targetUserId: candidateId },
-                preview: { contextLabel: context.projectTitle ?? 'Project', contextKind: 'workflow', secondaryText: 'Invitation expired' },
+                preview: { contextLabel: context.projectTitle ?? 'Workspace', contextKind: 'workflow', secondaryText: 'Invitation expired' },
                 dedupeKey: `project-invitation-expired:${context.projectId}:${candidateId}:${context.eventId ?? Date.now()}`,
             });
         } catch (error) {

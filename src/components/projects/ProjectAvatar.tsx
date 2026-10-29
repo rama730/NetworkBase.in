@@ -234,7 +234,7 @@ export function ProjectAvatar({
                 <Image
                     src={avatarUrl}
                     // On a card the title sits right beside it: a decorative image, not a second title.
-                    alt={size === "card" ? "" : `${project.title || "Project"} avatar`}
+                    alt={size === "card" ? "" : `${project.title || "Workspace"} avatar`}
                     fill
                     sizes={imageSize}
                     priority={priority ?? isDetail}
@@ -248,8 +248,8 @@ export function ProjectAvatar({
                 {isDetail && isOwner && slugOrId && (
                     <Link
                         href={`/projects/${slugOrId}?tab=settings#project-settings-general`}
-                        aria-label="Change project avatar"
-                        title="Change project avatar"
+                        aria-label="Change workspace avatar"
+                        title="Change workspace avatar"
                         className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 backdrop-blur-[2px] transition-opacity duration-[180ms] hover:opacity-100 focus:opacity-100 focus:outline-none"
                     >
                         <Camera className="size-4 text-white drop-shadow-xs" aria-hidden="true" />

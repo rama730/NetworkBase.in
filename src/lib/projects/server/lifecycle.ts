@@ -77,7 +77,7 @@ const ALLOWED_PROJECT_COVER_MIME_TYPES = new Set([
 function resolveProjectVisibilityForCreate(value: unknown): ProjectVisibility {
   if (value === undefined || value === null || value === "") return "public";
   if (isProjectVisibility(value)) return value;
-  throw new Error("Invalid project visibility.");
+  throw new Error("Invalid workspace visibility.");
 }
 
 
@@ -115,7 +115,7 @@ async function assertProjectOwnerForSettings(
     .where(eq(projects.id, projectId))
     .limit(1);
 
-  if (!project) throw new Error("Project not found");
+  if (!project) throw new Error("Workspace not found");
   if (project.ownerId !== userId) throw new Error("Sign in to continue");
   return project;
 }
@@ -545,7 +545,7 @@ export async function createProjectAction(
     if (!user) {
       return {
         success: false,
-        error: "You must be logged in to create a project",
+        error: "You must be logged in to create a workspace",
       };
     }
 
@@ -558,7 +558,7 @@ export async function createProjectAction(
     if (!rateLimitAllowed) {
       return {
         success: false,
-        error: "You have created too many projects recently. Wait a while before creating another.",
+        error: "You have created too many workspaces recently. Wait a while before creating another.",
       };
     }
 
@@ -570,7 +570,7 @@ export async function createProjectAction(
         if (!lockRes) {
           return {
             success: false,
-            error: "A project creation is already in progress. Wait a moment.",
+            error: "A workspace creation is already in progress. Wait a moment.",
           };
         }
         acquiredLock = true;
@@ -587,7 +587,7 @@ export async function createProjectAction(
       if (acquiredLock && redis) await redis.del(lockKey).catch(() => undefined);
       return {
         success: false,
-        error: parseResult.error.issues[0]?.message || "Invalid project details provided.",
+        error: parseResult.error.issues[0]?.message || "Invalid workspace details provided.",
       };
     }
 
@@ -1127,7 +1127,7 @@ export async function createProjectAction(
             await db.transaction((tx) => createCopiesForNewChild(tx, parentOrgId, result.id, ownerId));
             await notifyNewCopies(parentOrgId, { projectId: result.id });
           } catch (error) {
-            notices.push(`The open project assignments from ${child.orgTitle} weren’t copied here. Ask an admin to share them again.`);
+            notices.push(`The open workspace assignments from ${child.orgTitle} weren’t copied here. Ask an admin to share them again.`);
             logger.warn("org.child_group_copies_failed", { projectId: result.id, error: error instanceof Error ? error.message : String(error) });
           }
         }
@@ -1214,7 +1214,7 @@ export async function createProjectAction(
     }
 
     throw new Error(
-      "Couldn’t generate a unique project ID. Try again.",
+      "Couldn’t generate a unique workspace ID. Try again.",
     );
   } catch (error) {
     console.error("Error creating project:", error);
@@ -1240,7 +1240,7 @@ export async function updateProject(projectId: string, input: UpdateProjectInput
 
   if (!user) throw new Error("Sign in to continue");
   const parsed = updateProjectSchema.safeParse(input);
-  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid project update");
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid workspace update");
   const data = parsed.data;
 
   // Transaction to ensure atomicity of project update + role changes
@@ -1261,7 +1261,7 @@ export async function updateProject(projectId: string, input: UpdateProjectInput
         .where(eq(projects.id, projectId))
         .limit(1);
 
-      if (!project) throw new Error("Project not found");
+      if (!project) throw new Error("Workspace not found");
       if (project.ownerId !== user.id) throw new Error("Sign in to continue");
       // Pending applications this update closes (the project stopped taking them, or a role went away); their applicants are told after commit.
       const closedApplications: Array<{ reason: ClosingReason; items: ClosedApplication[] }> = [];
@@ -1419,7 +1419,7 @@ export async function updateProject(projectId: string, input: UpdateProjectInput
             .from(projectOpenRoles)
             .where(and(eq(projectOpenRoles.projectId, projectId), inArray(projectOpenRoles.id, suppliedRoleIds)));
           if (ownedRoles.length !== suppliedRoleIds.length) {
-            throw new Error("Role not found in this project");
+            throw new Error("Role not found in this workspace");
           }
         }
 
@@ -1625,7 +1625,7 @@ export async function createProjectCoverImageUploadUrlAction(input: {
       return {
         success: false,
         error:
-          "Too many project image upload attempts. Try again later.",
+          "Too many workspace image upload attempts. Try again later.",
       };
     }
 
@@ -1640,7 +1640,7 @@ export async function createProjectCoverImageUploadUrlAction(input: {
     const expectedSize = normalizeAndValidateFileSize(
       input.sizeBytes,
       PROJECT_COVER_UPLOAD_MAX_FILE_BYTES,
-      "Project image",
+      "Workspace image",
     );
     const extension = projectCoverExtensionFromMimeType(normalizedMimeType);
     const storagePath = `projects/${input.projectId}/project-images/${user.id}/${Date.now()}-${randomUUID()}.${extension}`;
@@ -1672,7 +1672,7 @@ export async function createProjectCoverImageUploadUrlAction(input: {
       });
       return {
         success: false,
-        error: "Couldn’t prepare project image upload.",
+        error: "Couldn’t prepare workspace image upload.",
       };
     }
 
@@ -1692,7 +1692,7 @@ export async function createProjectCoverImageUploadUrlAction(input: {
       projectId: input.projectId,
       error: error instanceof Error ? error.message : String(error),
     });
-    return { success: false, error: "Couldn’t prepare project image upload." };
+    return { success: false, error: "Couldn’t prepare workspace image upload." };
   }
 }
 
@@ -1731,7 +1731,7 @@ export async function finalizeProjectCoverImageUploadAction(input: {
       expectedScope: "project_cover",
       expectedKind: "cover",
     });
-    if (!intent.assetId) throw new Error("Verified project image is missing lifecycle identity");
+    if (!intent.assetId) throw new Error("Verified workspace image is missing lifecycle identity");
     const assetId = intent.assetId;
     const imageUrl = buildProjectImageRoute(input.projectId, intent.storageKey);
 
@@ -1743,7 +1743,7 @@ export async function finalizeProjectCoverImageUploadAction(input: {
         })
         .where(and(eq(storageAssets.id, assetId), eq(storageAssets.state, "verified")))
         .returning({ id: storageAssets.id });
-      if (!publishableAsset) throw new Error("Project image is no longer publishable");
+      if (!publishableAsset) throw new Error("Workspace image is no longer publishable");
 
       const [row] = await tx
         .update(projects)
@@ -1767,7 +1767,7 @@ export async function finalizeProjectCoverImageUploadAction(input: {
     });
 
     if (!updated) {
-      return { success: false, error: "Couldn’t publish project image." };
+      return { success: false, error: "Couldn’t publish workspace image." };
     }
 
     await revalidateProjectPaths(input.projectId);
@@ -1789,7 +1789,7 @@ export async function finalizeProjectCoverImageUploadAction(input: {
     });
     return {
       success: false,
-      error: "Couldn’t finalize project image upload.",
+      error: "Couldn’t finalize workspace image upload.",
     };
   }
 }
@@ -1834,7 +1834,7 @@ export async function clearProjectCoverImageAction(
     });
 
     if (!updated) {
-      return { success: false, error: "Couldn’t clear project image." };
+      return { success: false, error: "Couldn’t clear workspace image." };
     }
 
     await revalidateProjectPaths(projectId);
@@ -1847,7 +1847,7 @@ export async function clearProjectCoverImageAction(
       projectId,
       error: error instanceof Error ? error.message : String(error),
     });
-    return { success: false, error: "Couldn’t clear project image." };
+    return { success: false, error: "Couldn’t clear workspace image." };
   }
 }
 
@@ -1875,7 +1875,7 @@ export async function updateProjectExternalLinksAction(
       .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
       .limit(1);
     if (!project)
-      return { success: false as const, error: "Project not found." };
+      return { success: false as const, error: "Workspace not found." };
 
     const [membership] =
       project.ownerId === user.id
@@ -1911,7 +1911,7 @@ export async function updateProjectExternalLinksAction(
         return {
           success: false as const,
           conflict: true as const,
-          error: "Project links changed in another session. The changes were merged; review and save again.",
+          error: "Workspace links changed in another session. The changes were merged; review and save again.",
           currentData: current,
         };
       }
@@ -1964,7 +1964,7 @@ export async function updateProjectExternalLinksAction(
     });
     return {
       success: false as const,
-      error: "Couldn’t update project links.",
+      error: "Couldn’t update workspace links.",
     };
   }
 }
@@ -2044,8 +2044,8 @@ export async function archiveProjectAction(
         actorUserId: user.id,
         ...actor,
         eventKey: "security.project_archived",
-        title: `${actor.actorName || "Someone"} archived ${owned.project.title || "Project"}`,
-        body: "The project was archived from settings.",
+        title: `${actor.actorName || "Someone"} archived ${owned.project.title || "Workspace"}`,
+        body: "The workspace was archived from settings.",
         href: `/projects/${encodeURIComponent(owned.project.slug || projectId)}?tab=settings&settings=danger`,
         sourceEventId: `archive:${projectId}`,
         entityRefs: {
@@ -2061,7 +2061,7 @@ export async function archiveProjectAction(
       userId: user.id,
       result: "success",
     });
-    return { success: true, message: "Project archived." };
+    return { success: true, message: "Workspace archived." };
   } catch (error) {
     console.error("Failed to archive project:", error);
     logger.metric("project.settings.archive.result", {
@@ -2185,7 +2185,7 @@ export async function deleteProject(
       return {
         success: false,
         errorCode: "NOT_FOUND",
-        message: "Project not found.",
+        message: "Workspace not found.",
       };
     }
     if (project.ownerId !== user.id) {
@@ -2201,7 +2201,7 @@ export async function deleteProject(
       return {
         success: false,
         errorCode: "STORAGE_MIGRATION_PENDING",
-        message: `Project deletion is waiting for ${unregisteredStorage} storage references to be registered.`,
+        message: `Workspace deletion is waiting for ${unregisteredStorage} storage references to be registered.`,
       };
     }
 
@@ -2247,7 +2247,7 @@ export async function deleteProject(
         errorCode: blocked,
         message: blocked === "FORBIDDEN"
           ? "Only the owner can delete this workspace."
-          : "Project deletion is waiting for storage references to be registered.",
+          : "Workspace deletion is waiting for storage references to be registered.",
       };
     }
 
@@ -2263,7 +2263,7 @@ export async function deleteProject(
     revalidatePath(`/projects/${project.slug || projectId}`);
     return {
       success: true,
-      message: "Project deleted.",
+      message: "Workspace deleted.",
       data: { redirectTo: "/discover" },
     };
   } catch (error) {
@@ -2325,7 +2325,7 @@ export async function deleteProjectDraftAction(
         .for("update");
       if (!locked) return null;
       if (locked.ownerId !== user.id) return "Sign in to continue";
-      if (locked.status !== "draft") return "Only draft projects can be discarded. Use project deletion instead.";
+      if (locked.status !== "draft") return "Only draft workspaces can be discarded. Use workspace deletion instead.";
       if (await countUnregisteredProjectStorage(projectId, tx) > 0) return "Draft deletion is waiting for storage references to be registered.";
       await scheduleProjectStorageDeletion(tx, projectId);
       // Delete project (cascades to members, roles, etc.)
@@ -2377,13 +2377,13 @@ export async function toggleProjectFollowAction(
     }
     const access = await getProjectAccessById(projectId, user.id);
     if (!access.project || !access.canRead) {
-      return { success: false, error: "Project not found or private." };
+      return { success: false, error: "Workspace not found or private." };
     }
     // Across a block (either way) there's no following: the blocked side can't reach the other's projects.
     if (shouldFollow && access.project.ownerId !== user.id) {
       const relationship = await resolvePrivacyRelationship(user.id, access.project.ownerId);
       if (relationship?.blockedByViewer || relationship?.blockedByTarget) {
-        return { success: false, error: "Project not found or private." };
+        return { success: false, error: "Workspace not found or private." };
       }
     }
 
@@ -2457,7 +2457,7 @@ export async function incrementProjectViewAction(
     } = await supabase.auth.getUser();
     const access = await getProjectAccessById(projectId, user?.id ?? null);
     if (!access.project || !access.canRead) {
-      return { success: false, error: "Project not found" };
+      return { success: false, error: "Workspace not found" };
     }
     // The team's own visits are not audience views.
     if (access.isOwner || access.isMember) return { success: true };
@@ -2496,7 +2496,7 @@ export async function incrementProjectViewAction(
     if (isMissingCounterColumn(e, "view_count")) {
       return {
         success: false,
-        error: "Project views are unavailable until migrations are applied",
+        error: "Workspace views are unavailable until migrations are applied",
       };
     }
     console.error("Failed to increment view", e);
@@ -2596,7 +2596,7 @@ export async function updateProjectStageAction(
     if (!projectForStageUpdate) {
       return {
         success: false,
-        error: "Project not found",
+        error: "Workspace not found",
         errorCode: "NOT_FOUND",
       };
     }
@@ -2680,7 +2680,7 @@ export async function updateProjectStageAction(
       if (!current) {
         return {
           success: false,
-          error: "Project not found",
+          error: "Workspace not found",
           errorCode: "NOT_FOUND",
         };
       }
@@ -2772,7 +2772,7 @@ export async function updateProjectLifecycleAction(
       .limit(1);
 
     if (!project) {
-      throw new Error("Project not found or access denied");
+      throw new Error("Workspace not found or access denied");
     }
 
     // SMART REBALANCE: Find the new index for the current stage
@@ -2841,7 +2841,7 @@ export async function updateProjectLifecycleAction(
       error:
         error instanceof Error
           ? error.message
-          : "Couldn’t update project lifecycle",
+          : "Couldn’t update workspace lifecycle",
     };
   }
 }
@@ -3000,7 +3000,7 @@ export async function getProfileProjectsWithOpenRolesAction(
       if (!listMap.has(p.id)) {
         listMap.set(p.id, {
           id: p.id,
-          title: p.title || "Untitled project",
+          title: p.title || "Untitled workspace",
           slug: p.slug,
           openRoles: [],
         });

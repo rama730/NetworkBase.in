@@ -137,7 +137,7 @@ export function runProgress(run: SyncRunView) {
       : [
           "Queued",
           "Validate selection",
-          "Apply to project files",
+          "Apply to workspace files",
           "Verify and record",
         ];
   const stage = run.stage.toLowerCase();

@@ -15,11 +15,11 @@ test('Phase 4 uses the flat launch-settings hierarchy and removes creation-time 
     const wizard = source('src/components/projects/create-wizard/useCreateProjectWizard.ts');
 
     assert.match(phase, /Phase 4 · \{isOrganization \? 'setup' : 'settings'\}/);
-    assert.match(phase, /Set up how the project launches/);
-    assert.match(phase, /Choose project visibility/);
+    assert.match(phase, /Set up how the workspace launches/);
+    assert.match(phase, /Choose workspace visibility/);
     // Roles are reviewed in step 5; step 4 is launch settings only.
     assert.doesNotMatch(phase, /Confirm the initial availability|Edit roles|Ready to review:/);
-    assert.match(phase, /Project links/);
+    assert.match(phase, /Workspace links/);
     assert.match(phase, /min-w-0 w-full space-y-8 pb-6/);
     assert.match(phase, /border-t border-border pt-6/);
     assert.match(phase, /type="radio"/);
@@ -34,7 +34,7 @@ test('Phase 4 uses the flat launch-settings hierarchy and removes creation-time 
 
     const linkEditor = source('src/components/projects/dashboard/ProjectSocialLinksCard.tsx');
     assert.match(linkEditor, /commitContext\?: 'settings' \| 'project-create'/);
-    assert.match(linkEditor, /saved when you create the project/);
+    assert.match(linkEditor, /saved when you create the workspace/);
     assert.match(linkEditor, /commitContext === 'settings' && saved/);
     assert.match(linkEditor, /rounded-lg border border-border bg-muted\/20 p-4 sm:p-5/);
     assert.match(linkEditor, /overflow-hidden rounded-lg border border-border bg-card/);
@@ -47,7 +47,7 @@ test('Phase 4 blocks unfinished link work and carries launch settings into revie
     const review = source('src/components/projects/create-wizard/phases/Phase5Review.tsx');
 
     assert.match(phase, /onPendingChange=\{onLinkComposerPending\}/);
-    assert.match(phase, /Finish the project links before continuing/);
+    assert.match(phase, /Finish the workspace links before continuing/);
     assert.match(wizard, /phase4LinkComposerPending/);
     assert.match(wizard, /trigger\(\['visibility', 'external_links'\], \{ shouldFocus: true \}\)/);
     assert.match(modal, /showValidationSummary=\{phase4ValidationAttempted\}/);

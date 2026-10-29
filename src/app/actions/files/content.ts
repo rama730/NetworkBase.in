@@ -51,7 +51,7 @@ export async function getFilePreviewUrl(projectId: string, nodeId: string, downl
         }
         const parsedKey = parseProjectFileKey(currentS3Key);
         if (!parsedKey || parsedKey.projectId !== projectId) {
-            throw new Error("File key does not belong to this project");
+            throw new Error("File key does not belong to this workspace");
         }
 
         const query = download ? "?download=1" : "";

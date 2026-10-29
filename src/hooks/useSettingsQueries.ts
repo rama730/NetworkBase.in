@@ -84,7 +84,7 @@ const DEFAULT_INTEGRATIONS_DATA: IntegrationsData = {
   githubService: {
     status: "not_connected",
     summary: "No GitHub repository access is currently in use.",
-    detail: "Connect GitHub from a project when repository access is needed.",
+    detail: "Connect GitHub from a workspace when repository access is needed.",
     usageCount: 0,
     recoveryAction: null,
   },

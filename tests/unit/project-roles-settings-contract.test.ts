@@ -28,13 +28,13 @@ test("project roles editor tab eliminates duplicate headers and renders a single
   assert.doesNotMatch(rolesBlock, /<AdvancedDisclosure/, "Redundant AdvancedDisclosure must be removed from Project Roles tab");
   assert.doesNotMatch(rolesBlock, /title="Application behavior"/, "Redundant static Application behavior card must be removed");
 
-  // Exactly 1 canonical SettingsCard: "Project roles"
-  assert.match(rolesBlock, /<SettingsCard[\s\S]*?title="Project roles"/, "Canonical Project roles SettingsCard must exist");
+  // Exactly 1 canonical SettingsCard: "Workspace roles"
+  assert.match(rolesBlock, /<SettingsCard[\s\S]*?title="Workspace roles"/, "Canonical Workspace roles SettingsCard must exist");
   const cardMatches = rolesBlock.match(/<SettingsCard/g) || [];
   assert.equal(cardMatches.length, 1, "Project Roles tab must render exactly 1 canonical SettingsCard");
 
   // Card footer with live dirty status and Cancel / Save changes buttons
-  assert.match(rolesBlock, /rolesDirty\s*\?\s*"You have unsaved changes in project roles\."\s*:\s*"All project roles are saved\."/, "Footer must display dynamic status text based on rolesDirty");
+  assert.match(rolesBlock, /rolesDirty\s*\?\s*"You have unsaved changes in workspace roles\."\s*:\s*"All workspace roles are saved\."/, "Footer must display dynamic status text based on rolesDirty");
   assert.match(rolesBlock, /onClick=\{handleCancelRoles\}/, "Footer must have Cancel button wired to handleCancelRoles");
   assert.match(rolesBlock, /onClick=\{handleSaveRoles\}/, "Footer must have Save changes button wired to handleSaveRoles");
   assert.match(rolesBlock, /disabled=\{!rolesDirty \|\| savingRoles\}/, "Cancel and Save changes buttons must be disabled when clean or saving");

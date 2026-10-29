@@ -91,14 +91,14 @@ function Intro({ channel, meId, isMember, hasCanvas, onDetails, onAddPeople, onC
   }
   if (channel.application_id) {
     const meta = channel.application;
-    const subject = meta ? `${meta.role_removed ? "a removed role" : meta.role_title ?? "a role"} on ${meta.project_title}` : "a project role";
+    const subject = meta ? `${meta.role_removed ? "a removed role" : meta.role_title ?? "a role"} on ${meta.project_title}` : "a workspace role";
     const decided = meta ? isDecidedApplication(meta.status) : false;
     const outcome = meta ? (APPLICATION_STATUS_LABEL[meta.status] ?? meta.status).toLowerCase() : "";
     return (
       <div className="px-4 py-4 text-[13px] text-muted-foreground">
         <p>
           {meta?.is_applicant
-            ? `This is your application for ${subject}. ${decided ? `It was ${outcome}. You can still ask or reply here.` : "The project’s reviewers answer here, and you can ask or add anything they need."}`
+            ? `This is your application for ${subject}. ${decided ? `It was ${outcome}. You can still ask or reply here.` : "The workspace’s reviewers answer here, and you can ask or add anything they need."}`
             : `This is the application${meta ? ` from ${personName(meta.applicant)}` : ""} for ${subject}. ${decided ? `It was ${outcome}. You can still reply here.` : "Accept or decline from the bar above, and ask questions here."}`}
         </p>
       </div>
@@ -125,7 +125,7 @@ function Intro({ channel, meId, isMember, hasCanvas, onDetails, onAddPeople, onC
         </h2>
         <p className="nb-body mt-2 max-w-2xl text-muted-foreground">
           {channel.description || (isDefault
-            ? `${channel.project_title ?? "The project"}'s home channel. Everyone on the team is here: share updates, decisions and wins.`
+            ? `${channel.project_title ?? "The workspace"}'s home channel. Everyone on the team is here: share updates, decisions and wins.`
             : `Everything about #${channel.name} lives here: conversations, files and decisions.`)}
         </p>
         {channel.created_at ? (

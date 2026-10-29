@@ -118,7 +118,7 @@ test('Projects, Tasks and Files fit a phone', async ({ page }) => {
         await expect(page.getByText(text).first()).toBeVisible();
         if (tab === 'files') {
             for (const summary of await page.locator('summary').all()) await summary.click();
-            expect((await page.getByRole('button', { name: 'Copy Distributed-systems-capstone-rubric-final-v3.pdf to this project' }).innerText()).trim()).toBe('Copy');
+            expect((await page.getByRole('button', { name: 'Copy Distributed-systems-capstone-rubric-final-v3.pdf to this workspace' }).innerText()).trim()).toBe('Copy');
             await expect(page.getByRole('checkbox', { name: 'Template: /Rubrics' })).toBeVisible();
         }
         await noSideScroll(page);
@@ -128,10 +128,10 @@ test('Projects, Tasks and Files fit a phone', async ({ page }) => {
     await expect(page.locator('li', { hasText: 'Team Osprey' }).getByText(/^active /)).toBeVisible();
 });
 
-test('Sidebar: New project in an org is reachable by keyboard', async ({ page }) => {
+test('Sidebar: New workspace in an org is reachable by keyboard', async ({ page }) => {
     test.skip(test.info().project.name === 'webkit', 'Safari moves focus to links only with Option-Tab');
     await open(page, 'sidebar', 1200);
-    const add = page.getByRole('link', { name: 'New project in CSE-3A Software Engineering' });
+    const add = page.getByRole('link', { name: 'New workspace in CSE-3A Software Engineering' });
     await expect(add).toBeHidden();
     await page.getByRole('link', { name: /CSE-3A Software Engineering, 3 need you/ }).focus();
     await page.keyboard.press('Tab');
@@ -152,7 +152,7 @@ test('Create wizard team (§14.4): unit lead ★, Move to…, picker filters and
     await page.getByRole('button', { name: 'Add people' }).first().click();
     const dialog = page.getByRole('dialog');
     await expect(dialog.getByText('Asha Nair')).toBeVisible();
-    await dialog.getByLabel('Not in a project yet').check();
+    await dialog.getByLabel('Not in a workspace yet').check();
     await expect(dialog.getByText('Ravi Kumar')).toHaveCount(0);
     await dialog.getByRole('tab', { name: 'Outside CSE-3A' }).click();
     await dialog.getByRole('textbox', { name: 'Search people' }).fill('cl');
@@ -202,7 +202,7 @@ test('Org header (§18): + New ▾ by keyboard, tab badges with spoken text, and
 
     await open(page, 'header&active=tasks');
     await expect(page.getByText('CO1')).toBeVisible();
-    await page.getByRole('button', { name: 'Project actions' }).click();
+    await page.getByRole('button', { name: 'Workspace actions' }).click();
     await expect(page.getByRole('menuitem', { name: 'New sprint' })).toBeVisible();
     await expect(page.getByRole('menuitem', { name: 'Org overview' })).toBeVisible();
     await page.getByRole('menuitem', { name: 'New sprint' }).click();
@@ -226,7 +226,7 @@ test('Members (§20): bulk Remind, the Outside people filter, and the drawer has
 test('Files (§23): storage nearly full, group deliverables, Update copy and opening an org file in place', async ({ page }) => {
     await open(page, 'files', 1280);
     await expect(page.getByTestId('org-storage')).toContainText('4.3 GB of 5 GB used · nearly full');
-    await page.getByText('Deliverables from projects · 1').click();
+    await page.getByText('Deliverables from workspaces · 1').click();
     await expect(page.getByRole('link', { name: 'parser.zip' })).toBeVisible();
     await page.getByText('From the organization').click();
     await expect(page.getByRole('button', { name: 'Update copy' })).toBeVisible();

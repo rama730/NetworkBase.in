@@ -267,7 +267,7 @@ test("independent drafts and pending states survive section navigation and unrel
 });
 
 
-test("inline project links preserve pending edits on refresh and recover from network failures", () => {
+test("inline workspace links preserve pending edits on refresh and recover from network failures", () => {
   const links = source("src/components/projects/dashboard/ProjectSocialLinksCard.tsx");
   const manager = links.split("const hasUnsavedChanges = changeCount > 0 || hasComposerDraft;")[1]!.split("const requestOpenChange")[0]!;
   assert.match(manager, /if \(mode === 'inline' && hasUnsavedChanges\) return/);

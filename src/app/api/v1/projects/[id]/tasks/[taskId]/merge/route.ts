@@ -67,7 +67,7 @@ export async function POST(
         // Check project access and role
         const access = await getProjectAccessById(projectId, user.id);
         if (!access.project) {
-            return jsonError("Project not found", 404, "NOT_FOUND");
+            return jsonError("Workspace not found", 404, "NOT_FOUND");
         }
 
         let role = "viewer";

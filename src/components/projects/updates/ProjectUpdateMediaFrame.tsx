@@ -133,7 +133,7 @@ export function ProjectUpdateMediaFrame({
             ) : (
                 <img
                     src={src}
-                    alt={alt ?? item.altText ?? item.label ?? "Project update media"}
+                    alt={alt ?? item.altText ?? item.label ?? "Workspace update media"}
                     className={cn(
                         "absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-[180ms]",
                         loadState === "ready" ? "opacity-100" : "opacity-0",
@@ -162,7 +162,7 @@ export function ProjectUpdateMediaFrame({
                         "block text-left focus:outline-none    ",
                         isPortrait ? "-ml-1 mr-auto w-full max-w-[320px]" : "w-full max-w-full",
                     )}
-                    aria-label={openLabel ?? "Open project update media"}
+                    aria-label={openLabel ?? "Open workspace update media"}
                 >
                     {frame}
                 </button>
@@ -195,7 +195,7 @@ export function ProjectUpdateMediaViewer({
 }) {
     const src = item?.url ?? "";
     const isVideo = item ? isProjectUpdateVideoMedia(item, src) : false;
-    const title = item?.label || item?.altText || "Project update media";
+    const title = item?.label || item?.altText || "Workspace update media";
 
     return (
         <Dialog open={Boolean(item && src)} onOpenChange={onOpenChange}>
@@ -205,7 +205,7 @@ export function ProjectUpdateMediaViewer({
             >
                 <DialogTitle className="sr-only">{title}</DialogTitle>
                 <DialogDescription className="sr-only">
-                    Project update media preview.
+                    Workspace update media preview.
                 </DialogDescription>
                 <div className="flex max-h-[92vh] min-h-0 flex-col">
                     <div className="border-b border-border px-4 py-3 pr-12">
@@ -226,7 +226,7 @@ export function ProjectUpdateMediaViewer({
                         ) : (
                             <img
                                 src={src}
-                                alt={item?.altText || item?.label || "Project update media"}
+                                alt={item?.altText || item?.label || "Workspace update media"}
                                 className="max-h-[78vh] max-w-full rounded-[6px] object-contain"
                                 decoding="async"
                             />

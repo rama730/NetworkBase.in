@@ -320,17 +320,17 @@ export default function InvitationsClient({
                         if (!res.success)
                             throw new Error(
                                 res.error ||
-                                    "Couldn’t cancel project invitation",
+                                    "Couldn’t cancel workspace invitation",
                             );
                         return res;
                     }),
                     {
-                        loading: "Canceling project invitation…",
-                        success: "Project invitation canceled",
+                        loading: "Canceling workspace invitation…",
+                        success: "Workspace invitation canceled",
                         error: (error) =>
                             error instanceof Error
                                 ? error.message
-                                : "Couldn’t cancel project invitation",
+                                : "Couldn’t cancel workspace invitation",
                     },
                 )
                 .unwrap();
@@ -362,7 +362,7 @@ export default function InvitationsClient({
             }).then((result) => {
                 if (!result.success)
                     throw new Error(
-                        result.error || "Couldn’t update project invitation",
+                        result.error || "Couldn’t update workspace invitation",
                     );
                 return result;
             });
@@ -370,16 +370,16 @@ export default function InvitationsClient({
                 .promise(request, {
                     loading:
                         action === "accept"
-                            ? "Accepting project invitation…"
-                            : "Declining project invitation…",
+                            ? "Accepting workspace invitation…"
+                            : "Declining workspace invitation…",
                     success:
                         action === "accept"
-                            ? "Project invitation accepted"
-                            : "Project invitation declined",
+                            ? "Workspace invitation accepted"
+                            : "Workspace invitation declined",
                     error: (error) =>
                         error instanceof Error
                             ? error.message
-                            : "Couldn’t update project invitation",
+                            : "Couldn’t update workspace invitation",
                 })
                 .unwrap();
             await refreshInvitationSurfaces();
@@ -541,7 +541,7 @@ export default function InvitationsClient({
                     }
                     description={
                         filtered
-                            ? "Try a different name, role, project, or filter."
+                            ? "Try a different name, role, workspace, or filter."
                             : "Invitations appear here."
                     }
                     action={
@@ -830,7 +830,7 @@ export default function InvitationsClient({
                                         <SentApplicationMenu
                                             status={status}
                                             reasonCode={application.decisionCode}
-                                            name={application.projectTitle || "the project"}
+                                            name={application.projectTitle || "the workspace"}
                                             projectHref={`/projects/${application.projectSlug || application.projectId}`}
                                             channelId={application.channelId}
                                             onWithdraw={(trigger) => { withdrawReturn.current = trigger; setWithdrawingApplication(application); }}

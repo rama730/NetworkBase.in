@@ -81,7 +81,7 @@ function DetailLabel({ children }: { children: ReactNode }) {
 const sourceCopy = {
     scratch: {
         title: 'Start empty',
-        detail: 'A new project will be created without imported files.',
+        detail: 'A new workspace will be created without imported files.',
         icon: Folder,
     },
     github: {
@@ -91,7 +91,7 @@ const sourceCopy = {
     },
     upload: {
         title: 'Upload a folder',
-        detail: 'The selected local project files will be uploaded after creation.',
+        detail: 'The selected local files will be uploaded after creation.',
         icon: Folder,
     },
 };
@@ -161,7 +161,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
         return {
             id: 'preview-project',
             key: 'PRV',
-            title: formData.title || 'Untitled project',
+            title: formData.title || 'Untitled workspace',
             description: formData.description || '',
             shortDescription: formData.short_description || '',
             slug: 'preview',
@@ -258,8 +258,8 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
             </ReviewSection>
 
             <ReviewSection eyebrow="Step 2 · Details" title="Workspace details" onEdit={() => goToPhase(2)}>
-                <ReviewRow label="Project title">
-                    <p className="nb-body font-medium text-foreground">{formData.title || 'Untitled project'}</p>
+                <ReviewRow label="Workspace title">
+                    <p className="nb-body font-medium text-foreground">{formData.title || 'Untitled workspace'}</p>
                 </ReviewRow>
                 {childOrg ? (
                     <ReviewRow label="Organization">
@@ -273,7 +273,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                 ) : null}
                 {childOrg ? (
                     <ReviewRow label="Admins from the organization">
-                        <p className="nb-compact text-muted-foreground">{childOrg.title}&apos;s owner and admins can see and help with this project.</p>
+                        <p className="nb-compact text-muted-foreground">{childOrg.title}&apos;s owner and admins can see and help with this workspace.</p>
                     </ReviewRow>
                 ) : null}
                 {childOrg ? (
@@ -300,7 +300,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                         </ReviewRow>
                         <ReviewRow label="Setup">
                             <p className="nb-compact text-foreground">
-                                {org.child_creation === 'admins' ? 'Admins create projects' : 'All members create projects'}
+                                {org.child_creation === 'admins' ? 'Admins create workspaces' : 'All members create workspaces'}
                                 {org.term_start || org.term_end ? ` · ${ORG_CREATION_COPY[org.org_type ?? 'other'].termLabel} ${org.term_start || '…'} to ${org.term_end || '…'}` : ''}
                                 {org.plan_sprints ? ` · ${org.plan_sprints.count} sprints planned` : ''}
                             </p>
@@ -378,23 +378,23 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
             </ReviewSection>
 
             <ReviewSection eyebrow="Step 4 · Settings" title="Launch settings" onEdit={() => goToPhase(4)}>
-                <ReviewRow label="Project picture">
+                <ReviewRow label="Workspace picture">
                     <p className="nb-compact text-foreground">{projectImage ? `${projectImage.name} · uploads after creation` : 'Initials until a picture is added.'}</p>
                 </ReviewRow>
                 <ReviewRow label="Visibility" icon={VisibilityIcon}>
-                    <p className="nb-ui-label text-foreground">{formData.visibility === 'private' ? 'Private project' : formData.visibility === 'org' ? `Org only · members of ${childOrg?.title ?? 'the organization'}` : 'Public project'}</p>
+                    <p className="nb-ui-label text-foreground">{formData.visibility === 'private' ? 'Private workspace' : formData.visibility === 'org' ? `Org only · members of ${childOrg?.title ?? 'the organization'}` : 'Public workspace'}</p>
                     <p className="nb-compact mt-1 text-muted-foreground">
                         {formData.visibility === 'private'
                             ? 'Only members can see this workspace when it’s created.'
                             : `Public tabs: ${publicTabLabels.join(' · ') || 'none'}.`}
                     </p>
                 </ReviewRow>
-                <ReviewRow label="Project links">
+                <ReviewRow label="Workspace links">
                     {projectLinks.length ? (
                         <ul className="space-y-3">
                             {projectLinks.map((link) => {
                                 const resolved = resolveSocialPresence(link.platform, link.url);
-                                const title = link.label || link.destinationLabel || resolved?.platformLabel || 'Project link';
+                                const title = link.label || link.destinationLabel || resolved?.platformLabel || 'Workspace link';
                                 const secondary = link.destinationLabel && link.destinationLabel !== title
                                     ? link.destinationLabel
                                     : resolved?.accountLabel || link.url;
@@ -410,7 +410,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                                 );
                             })}
                         </ul>
-                    ) : <p className="nb-compact text-muted-foreground">No project links added.</p>}
+                    ) : <p className="nb-compact text-muted-foreground">No workspace links added.</p>}
                 </ReviewRow>
                 <ReviewRow label="Documentation">
                     <p className="nb-compact text-foreground">
@@ -419,7 +419,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                             : `Starter template, ${formData.readme?.publishOnCreate ? 'published at launch' : 'kept as a draft'}. ${formData.doc_edit_policy === 'members' ? 'Members can edit.' : 'Leaders edit.'}`}
                     </p>
                 </ReviewRow>
-                <ReviewRow label="Project journey">
+                <ReviewRow label="Workspace journey">
                     {lifecycleStages.length ? (
                         <ol className="space-y-2">
                             {lifecycleStages.map((stage, index) => (
@@ -452,7 +452,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                 </div>
 
                 {/* Desktop Sticky Card Preview (>= lg) */}
-                <aside aria-label="Project card preview" className="hidden lg:block sticky top-24 space-y-3">
+                <aside aria-label="Workspace card preview" className="hidden lg:block sticky top-24 space-y-3">
                     <div className="flex items-center justify-between">
                         <p className="nb-meta font-mono uppercase tracking-[0.12em] text-muted-foreground">Card preview</p>
                         <span className="nb-compact font-mono text-[11px] text-muted-foreground">Live preview</span>
@@ -461,7 +461,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                         <ProjectCard project={previewProject} />
                     </div>
                     <p className="nb-compact text-muted-foreground">
-                        This is how your project card will appear in Discover and search results.
+                        This is how your workspace card will appear in Discover and search results.
                     </p>
                 </aside>
             </div>

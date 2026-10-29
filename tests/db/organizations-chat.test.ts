@@ -115,7 +115,7 @@ test("org rules: members create channels only where allowed; #general can be adm
   await sql`SELECT app_private.chat_create_channel(${edu.orgId}::uuid, ${edu.a}::uuid, 'lab-help', '', false)`;
 });
 
-test("detach: the project's channels leave the org (default back to #general, org admins out); move-in renames", async () => {
+test("detach: the workspace's channels leave the org (default back to #general, org admins out); move-in renames", async () => {
   const o = await org();
   const lab = await defaultChannel(o.child);
   await sql`SELECT app_private.chat_join_channel(${lab.id}::uuid, ${o.admin}::uuid)`;

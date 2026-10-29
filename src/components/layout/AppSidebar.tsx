@@ -55,7 +55,7 @@ async function fetchSidebarProjects(profileId: string): Promise<SidebarProject[]
     });
     const body = await response.json().catch(() => null) as SidebarProjectsEnvelope | null;
     if (!response.ok || body?.success === false) {
-        throw new Error(body?.message || "Couldn’t load projects");
+        throw new Error(body?.message || "Couldn’t load workspaces");
     }
     return (body?.data?.projects ?? []).filter((project) => project.id && project.title && project.href);
 }
@@ -112,7 +112,7 @@ export function SidebarNav() {
                     <h2 id="sidebar-workspace-heading" className="nb-micro whitespace-nowrap">Workspaces</h2>
                     <div className="h-px min-w-0 flex-1 bg-border" aria-hidden="true" />
                 </div>
-                <div className="space-y-1" aria-label="Your projects" aria-busy={projectsQuery.isLoading}>
+                <div className="space-y-1" aria-label="Your workspaces" aria-busy={projectsQuery.isLoading}>
                     {projectsQuery.isLoading && <><span className="sr-only" role="status">Loading workspaces…</span>{[1, 2, 3].map((key) => <Skeleton key={key} className="mx-2 h-8 rounded" />)}</>}
                     {workspaces ? <SidebarWorkspaces data={workspaces} /> : projects.map((project) => {
                         const active = pathname === project.href || pathname?.startsWith(`${project.href}/`);
@@ -120,8 +120,8 @@ export function SidebarNav() {
                             <span className="nb-sidebar-label truncate">{project.title}</span>
                         </Link>;
                     })}
-                    {!workspaces && !projectsQuery.isLoading && !projectsQuery.isError && projects.length === 0 && <p className="px-2 py-1 text-xs text-muted-foreground">No projects yet</p>}
-                    {projectsQuery.isError && !workspaces && <p className="px-2 py-1 text-xs text-muted-foreground">Projects unavailable</p>}
+                    {!workspaces && !projectsQuery.isLoading && !projectsQuery.isError && projects.length === 0 && <p className="px-2 py-1 text-xs text-muted-foreground">No workspaces yet</p>}
+                    {projectsQuery.isError && !workspaces && <p className="px-2 py-1 text-xs text-muted-foreground">Workspaces unavailable</p>}
                 </div>
             </section>}
         </div>

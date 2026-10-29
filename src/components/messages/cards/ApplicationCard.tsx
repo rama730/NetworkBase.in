@@ -133,8 +133,8 @@ export function ApplicationLinks({ view }: { view: ApplicationCardView }) {
   if (view.status !== "accepted") return null;
   return (
     <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
-      {view.project_chat_id ? <Link href={conversationHref(view.project_chat_id)} className="font-medium text-primary hover:underline">Open project chat</Link> : null}
-      <Link href={`/projects/${view.project_slug ?? view.project_id}${view.is_applicant ? "?source=application_accepted" : ""}`} className="font-medium text-primary hover:underline">Open project</Link>
+      {view.project_chat_id ? <Link href={conversationHref(view.project_chat_id)} className="font-medium text-primary hover:underline">Open workspace chat</Link> : null}
+      <Link href={`/projects/${view.project_slug ?? view.project_id}${view.is_applicant ? "?source=application_accepted" : ""}`} className="font-medium text-primary hover:underline">Open workspace</Link>
     </p>
   );
 }
@@ -211,8 +211,8 @@ export function ApplicationStatusBar({ applicationId }: { applicationId: string 
       <ApplicationActions view={view} layout="bar" />
       {view.status === "accepted" ? (
         <span className="flex flex-wrap gap-x-3 text-[13px]">
-          {view.project_chat_id ? <Link href={conversationHref(view.project_chat_id)} className="font-medium text-primary hover:underline">Project chat</Link> : null}
-          <Link href={`/projects/${view.project_slug ?? view.project_id}${view.is_applicant ? "?source=application_accepted" : ""}`} className="font-medium text-primary hover:underline">Open project</Link>
+          {view.project_chat_id ? <Link href={conversationHref(view.project_chat_id)} className="font-medium text-primary hover:underline">Workspace chat</Link> : null}
+          <Link href={`/projects/${view.project_slug ?? view.project_id}${view.is_applicant ? "?source=application_accepted" : ""}`} className="font-medium text-primary hover:underline">Open workspace</Link>
         </span>
       ) : null}
     </div>

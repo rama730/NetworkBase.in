@@ -10,7 +10,7 @@ export async function PATCH(request: Request) {
   const csrfError = validateCsrf(request);
   if (csrfError) return csrfError;
   return jsonError(
-    "Stage editing has moved to the project contribution editor",
+    "Stage editing has moved to the workspace contribution editor",
     410,
     "NOT_SUPPORTED",
   );

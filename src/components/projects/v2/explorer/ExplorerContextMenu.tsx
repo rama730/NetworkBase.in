@@ -133,7 +133,7 @@ export function useTreeContext(options: {
       mode: mode || "default",
       canEdit,
       canMove,
-      projectName: projectName || "Project",
+      projectName: projectName || "Workspace",
       isTrashMode: effectiveMode === "trash",
 
       // Inline rename

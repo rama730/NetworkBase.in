@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-// The project server actions are thin wrappers (src/app/actions/project/index.ts) over server-only
+// The workspace server actions are thin wrappers (src/app/actions/project/index.ts) over server-only
 // modules (src/lib/projects/server/*). Source-contract tests read both as one text, implementations first.
 const SERVER_DIR = "src/lib/projects/server";
 

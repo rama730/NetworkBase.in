@@ -30,7 +30,7 @@
  *     available" — recorded via CI tooling that wraps the runner).
  *
  * Test strategy:
- *   - Each test seeds a disposable folder at the project root via the
+ *   - Each test seeds a disposable folder at the workspace root via the
  *     sidebar context menu (the same affordance exercised by 12.6
  *     `move.spec.ts`), then renames it through the path under test and
  *     asserts the new name appears in the tree. We use folders (rather
@@ -118,7 +118,7 @@ test.describe("Files tab V3 — rename", () => {
       const sidebar = page.getByTestId("files-tab-sidebar").first();
       await expect(sidebar).toBeVisible({ timeout: 10000 });
 
-      // Seed a disposable folder at the project root via the sidebar's
+      // Seed a disposable folder at the workspace root via the sidebar's
       // context-menu affordance. `workspace` is the seeded root folder
       // (see scripts/seed-e2e-fixtures.ts).
       const originalName = scopedName("rename-f2");
@@ -273,7 +273,7 @@ test.describe("Files tab V3 — rename", () => {
       const sidebar = page.getByTestId("files-tab-sidebar").first();
       await expect(sidebar).toBeVisible({ timeout: 10000 });
 
-      // Seed a disposable folder at the project root.
+      // Seed a disposable folder at the workspace root.
       const originalName = scopedName("rename-dlg");
       await createRootFolder(page, originalName);
 
@@ -334,7 +334,7 @@ test.describe("Files tab V3 — rename", () => {
 // ─── Helpers ────────────────────────────────────────────────────────
 
 /**
- * Create a folder at the project root via the V3 sidebar context menu.
+ * Create a folder at the workspace root via the V3 sidebar context menu.
  * Right-clicks the root workspace folder row, picks `New folder`, fills
  * the dialog, and confirms. Waits for the new row to appear in the tree.
  *

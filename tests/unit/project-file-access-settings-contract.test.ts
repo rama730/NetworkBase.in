@@ -8,7 +8,7 @@ function source(relativePath: string) {
     return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
-test("project files-workspace tab eliminates duplicate header and redundant cards, rendering 1 canonical SettingsCard", () => {
+test("workspace files-workspace tab eliminates duplicate header and redundant cards, rendering 1 canonical SettingsCard", () => {
     const settingsTab = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
     // 1. SectionHeader is suppressed on files-workspace tab to avoid duplicate title

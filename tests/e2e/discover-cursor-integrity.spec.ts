@@ -19,7 +19,7 @@ test.describe('Hub cursor integrity', () => {
 
         await page.goto('/discover');
         await expect(page).toHaveURL(/\/hub(?:\?|$)/);
-        await expect(page.getByRole('button', { name: 'Search projects' })).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Search workspaces' })).toBeVisible();
         await expect(page.getByRole('button', { name: 'Grid view' })).toBeVisible();
         await expect(page.getByRole('button', { name: 'List view' })).toBeVisible();
         await expect(page.getByRole('button', { name: 'Open filters' })).toBeVisible();

@@ -97,7 +97,7 @@ export async function updateTaskFieldAction(
     const result = await db.transaction(async (tx) => {
       const locked = await lockTaskForWrite(tx, taskId, user.id);
       if (locked.projectId !== projectId) {
-        throw new Error("Task does not belong to this project");
+        throw new Error("Task does not belong to this workspace");
       }
 
       const updatedAt = new Date();
@@ -134,7 +134,7 @@ export async function updateTaskFieldAction(
             columns: { id: true, status: true },
           });
           if (!sprint) {
-            throw new Error("Sprint must belong to this project");
+            throw new Error("Sprint must belong to this workspace");
           }
           if (sprint.status !== "planning" && sprint.status !== "active") {
             throw new Error(
@@ -356,7 +356,7 @@ export async function updateTaskStatusAction(
 
     const { locked, result } = await db.transaction(async (tx) => {
       const locked = await lockTaskForWrite(tx, taskId, user.id);
-      if (locked.projectId !== projectId) throw new Error("Task does not belong to this project");
+      if (locked.projectId !== projectId) throw new Error("Task does not belong to this workspace");
       if (expectedVersion && new Date(locked.currentUpdatedAt).getTime() !== expectedVersion.getTime()) {
         throw new Error("This task changed elsewhere. Reload it and try again.");
       }
@@ -406,7 +406,7 @@ export async function moveTaskToWorkflowColumnAction(
     const { locked, result } = await db.transaction(async (tx) => {
       const locked = await lockTaskForWrite(tx, taskId, user.id);
       if (locked.projectId !== projectId)
-        throw new Error("Task does not belong to this project");
+        throw new Error("Task does not belong to this workspace");
       // Members move their own or unassigned tasks; leads move any (the board mirrors this).
       if (!locked.isLeader && locked.previousAssigneeId && locked.previousAssigneeId !== user.id)
         throw new Error("Only the assignee, the owner or an admin can move this task.");
@@ -485,7 +485,7 @@ export async function assignTaskAction(
     const result = await db.transaction(async (tx) => {
       const locked = await lockTaskForWrite(tx, taskId, user.id);
       if (locked.projectId !== projectId) {
-        throw new Error("Task does not belong to this project");
+        throw new Error("Task does not belong to this workspace");
       }
 
       const snapshotIds = [
@@ -518,10 +518,10 @@ export async function assignTaskAction(
       if (assigneeId) {
         const assigneeRow = profileSnapshots.find((p) => p.id === assigneeId);
         if (!assigneeRow || !assigneeRow.memberRole) {
-          throw new Error("Assignee must be a project member");
+          throw new Error("Assignee must be a workspace member");
         }
         if (!isProjectMemberEligibleFor(assigneeRow.memberRole, "assign")) {
-          throw new Error("Assignee must be an assignable project member");
+          throw new Error("Assignee must be an assignable workspace member");
         }
       }
 

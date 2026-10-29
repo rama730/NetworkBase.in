@@ -87,7 +87,7 @@ test("Needs your attentionr attention: admins see reviews and requests; members 
 
   await o.copy(o.a, { project: o.child });
   const lead = await dashboard(o.orgId, o.a);
-  assert.ok(lead!.needsYou.some((n) => n.label === "Compiler Lab · Lab 2 for the project"), JSON.stringify(lead!.needsYou));
+  assert.ok(lead!.needsYou.some((n) => n.label === "Compiler Lab · Lab 2 for the workspace"), JSON.stringify(lead!.needsYou));
 });
 
 test("This sprint and Coming up: admins see counts, members their own status", async () => {
@@ -125,7 +125,7 @@ test("recent activity on an org follows the copy and folder rules", async () => 
   assert.ok(adminItems.some((i) => i.text.includes("answer-key")));
 });
 
-test("Projects tab: admins see Private projects and Needs attention; members don't see others' Private projects", async () => {
+test("Projects tab: admins see Private workspaces and Needs attention; members don't see others' Private workspaces", async () => {
   const o = await org();
   for (let i = 0; i < 3; i += 1) await sql`INSERT INTO tasks (project_id, title, creator_id, due_date, status) VALUES (${o.child}, ${`Task ${i}`}, ${o.a}, now() - interval '2 days', 'todo')`;
   viewerId = o.admin;
@@ -164,7 +164,7 @@ test("About: visitors get public projects, show-on-profile leaders and no Journe
   }
 });
 
-test("a child project's org line: the org, its current sprint and the project's due group work", async () => {
+test("a child project's org line: the org, its current sprint and the workspace's due group work", async () => {
   const o = await org();
   await o.copy(o.a, { project: o.child, due: "2 days" });
   viewerId = o.a;
@@ -177,7 +177,7 @@ test("§27 pass: the child Dashboard's What’s happening (group copy, own sprin
   await o.copy(o.a, { project: o.child });
   viewerId = o.a;
   let line = await dash.readChildOrgLineAction(o.child);
-  assert.ok(line?.needsYou.some((n) => n.label === "Lab 2 for the project"), JSON.stringify(line));
+  assert.ok(line?.needsYou.some((n) => n.label === "Lab 2 for the workspace"), JSON.stringify(line));
   assert.ok(line?.needsYou.some((n) => n.label === "CO2 started. Plan your sprint in Compiler Lab"), "the lead's linked-sprint item");
   await sql`INSERT INTO project_sprints (project_id, sprint_number, name, start_date, end_date, status, parent_sprint_id) VALUES (${o.child}, 1, 'Parser week', now() - interval '1 day', now() + interval '2 days', 'active', ${o.sprint})`;
   line = await dash.readChildOrgLineAction(o.child);

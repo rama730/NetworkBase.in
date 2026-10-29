@@ -93,7 +93,7 @@ export async function moveMemberToUnitAction(projectId: string, userId: string, 
         await db.transaction(async (tx) => {
             const [member] = await tx.select({ unitId: projectMembers.unitId }).from(projectMembers)
                 .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, userId))).for('update').limit(1);
-            if (!member) throw new Error('That person is no longer in the project.');
+            if (!member) throw new Error('That person is no longer in the workspace.');
             if (member.unitId === unitId) return;
             if (unitId) {
                 const [target] = await tx.select({ filled: projectOpenRoles.filled, count: projectOpenRoles.count }).from(projectOpenRoles)
@@ -163,7 +163,7 @@ export async function createTeamTasksAction(projectId: string, input: {
         teams = [];
         for (const t of input.teams ?? []) {
             const people = [...new Set(t.userIds)].filter((id) => inProject.has(id));
-            if (people.length === 0) return { success: false, error: 'Every team needs at least one person from the project.' };
+            if (people.length === 0) return { success: false, error: 'Every team needs at least one person from the workspace.' };
             if (people.some((id) => seen.has(id))) return { success: false, error: 'A person can be in one team only.' };
             people.forEach((id) => seen.add(id));
             teams.push({ name: t.name.trim().slice(0, 60) || `Team ${String.fromCharCode(65 + teams.length)}`, userIds: people, leadId: t.leadId && people.includes(t.leadId) ? t.leadId : people[0]! });

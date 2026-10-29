@@ -18,7 +18,7 @@ const LOGIN_REQUEST_TIMEOUT_MS = 25_000
 const SIGN_IN_PANEL = {
     eyebrow: 'Welcome back',
     title: 'Pick up where you left off.',
-    points: ['Your projects and tasks', 'Conversations with your team', "People you’ve connected with"],
+    points: ['Your workspaces and tasks', 'Conversations with your team', "People you’ve connected with"],
 }
 const MFA_PANEL = { eyebrow: 'Two-step verification', title: 'Two-step sign-in keeps your account yours.' }
 

@@ -187,7 +187,7 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
                 {openRoles.length === 0 ? (
                     <div className="mt-5 border-y border-border py-5">
                         <p className="nb-card-title text-foreground">No openings added</p>
-                        <p className="nb-compact mt-1 max-w-[60ch] text-muted-foreground">You can create the project without recruiting. Add roles here when you know what help the work needs.</p>
+                        <p className="nb-compact mt-1 max-w-[60ch] text-muted-foreground">You can create the workspace without recruiting. Add roles here when you know what help the work needs.</p>
                     </div>
                 ) : (
                     <ol className="mt-5 border-t border-border">

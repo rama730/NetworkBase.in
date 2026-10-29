@@ -139,7 +139,7 @@ export async function transferProjectOwnership(
         if (!stepUp.ok) {
             return {
                 success: false,
-                error: 'Re-authenticate to transfer project ownership.',
+                error: 'Re-authenticate to transfer workspace ownership.',
                 errorCode: 'STEP_UP_REQUIRED',
             };
         }
@@ -292,11 +292,11 @@ export async function transferProjectOwnership(
                 case 'NOT_OWNER':
                     return { success: false, error: 'You’re not the owner of this workspace', errorCode: 'NOT_OWNER' };
                 case 'NOT_A_MEMBER':
-                    return { success: false, error: 'New owner must be a project member', errorCode: 'NOT_A_MEMBER' };
+                    return { success: false, error: 'New owner must be a workspace member', errorCode: 'NOT_A_MEMBER' };
                 case 'NOT_AN_ADMIN':
                     return { success: false, error: 'An organization can only pass to one of its admins.', errorCode: 'NOT_A_MEMBER' };
                 case 'PROJECT_NOT_FOUND':
-                    return { success: false, error: 'Project not found', errorCode: 'PROJECT_NOT_FOUND' };
+                    return { success: false, error: 'Workspace not found', errorCode: 'PROJECT_NOT_FOUND' };
             }
         }
 
@@ -324,8 +324,8 @@ export async function transferProjectOwnership(
                     affectedMemberId: user.id,
                     directRecipientIds: [user.id],
                     includeActorRecipient: true,
-                    title: "Project ownership transferred",
-                    body: transferResult.projectTitle ?? "Project ownership changed",
+                    title: "Workspace ownership transferred",
+                    body: transferResult.projectTitle ?? "Workspace ownership changed",
                     href: `/projects/${encodeURIComponent(transferResult.projectSlug || projectId)}?tab=settings`,
                     entityRefs: {
                         projectId,
@@ -335,7 +335,7 @@ export async function transferProjectOwnership(
                     preview: {
                         actorName,
                         actorAvatarUrl,
-                        contextLabel: transferResult.projectTitle ?? "Project",
+                        contextLabel: transferResult.projectTitle ?? "Workspace",
                         contextKind: "project",
                         secondaryText: "You’re now an admin",
                     },
@@ -349,8 +349,8 @@ export async function transferProjectOwnership(
                     eventKey: "members.ownership_transferred",
                     affectedMemberId: newOwnerId,
                     directRecipientIds: [newOwnerId],
-                    title: "Project ownership transferred to you",
-                    body: transferResult.projectTitle ?? "Project ownership changed",
+                    title: "Workspace ownership transferred to you",
+                    body: transferResult.projectTitle ?? "Workspace ownership changed",
                     href: `/projects/${encodeURIComponent(transferResult.projectSlug || projectId)}?tab=settings`,
                     entityRefs: {
                         projectId,
@@ -360,7 +360,7 @@ export async function transferProjectOwnership(
                     preview: {
                         actorName,
                         actorAvatarUrl,
-                        contextLabel: transferResult.projectTitle ?? "Project",
+                        contextLabel: transferResult.projectTitle ?? "Workspace",
                         contextKind: "project",
                         secondaryText: "You are now the owner",
                     },

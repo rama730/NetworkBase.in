@@ -4,8 +4,8 @@ import { after, afterEach, before, test } from "node:test";
 
 import { addMember, closeAppDb, createProject, createUser, loadAppModule, moduleStubs, sql } from "./_helpers";
 
-// Real database. Pins which project updates the Discover feed may show, and to whom: the same people who
-// could open the update on the project page, never more.
+// Real database. Pins which workspace updates the Discover feed may show, and to whom: the same people who
+// could open the update on the workspace page, never more.
 moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: () => undefined, unstable_cache: (fn: unknown) => fn });
 
 let feed: typeof import("@/lib/data/discover-updates");
@@ -42,7 +42,7 @@ async function post(projectId: string, authorId: string, content: string, extra:
 const texts = async (viewerId: string | null, options: Record<string, unknown> = {}) =>
   (await feed.getDiscoverUpdatesPage({ viewerId, limit: 20, ...options })).updates.map((update) => update.content).sort();
 
-test("only updates a stranger could open on the project page appear", async () => {
+test("only updates a stranger could open on the workspace page appear", async () => {
   const owner = await person();
   const stranger = await person();
   const open = await project(owner);
@@ -146,7 +146,7 @@ test("internal storage keys, raw metadata and linked work never reach the browse
   assert.equal(update!.media[0]!.altText, "Chart");
 });
 
-test("status, type and search filters follow the project cards", async () => {
+test("status, type and search filters follow the workspace cards", async () => {
   const owner = await person();
   const active = await project(owner, { status: "active" });
   const done = await project(owner, { status: "completed" });

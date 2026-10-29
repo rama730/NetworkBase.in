@@ -76,7 +76,7 @@ export function DecisionForm({
                 <DialogDescription>
                     {declining
                         ? "They are told, with the reason you pick. You can undo this for 10 minutes."
-                        : `They join the project${roleTitle ? ` as ${roleTitle}` : ""} and the other applicants for that role are told if it fills.`}
+                        : `They join the workspace${roleTitle ? ` as ${roleTitle}` : ""} and the other applicants for that role are told if it fills.`}
                 </DialogDescription>
             </DialogHeader>
             {declining ? (

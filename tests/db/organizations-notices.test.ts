@@ -113,7 +113,7 @@ test("Needs your attentionr attention: late joiners outside a team, members outs
   const rows = await needsYou.readNeedsYou(viewerFor(o, o.owner, true), now);
   const labels = rows.map((r) => r.label);
   assert.ok(labels.includes("2 new members not in a team · Lab 2"), labels.join(" | "));
-  assert.ok(labels.includes("1 member not in a project"), labels.join(" | "));
+  assert.ok(labels.includes("1 member not in a workspace"), labels.join(" | "));
   assert.ok(labels.includes("CO2 couldn’t start: CO1 is still active"), labels.join(" | "));
 
   await digests.runOrgAdminDigest(now);
@@ -154,7 +154,7 @@ test("org sprints: start tells members and leads without a linked sprint; close 
   assert.ok((await titles(o.a)).includes("CO1 closed · you completed 1 of 1"));
   assert.ok((await titles(o.b)).includes("CO1 closed · you completed 0 of 1"));
   assert.ok((await needsYou.readNeedsYou(viewerFor(o, o.a, false), now)).some((r) => r.label === "CO1 closed · Complete Lab sprint 1?"));
-  // A plain project is left to the generic notice.
+  // A plain workspace is left to the generic notice.
   assert.equal(await sprintNotify.notifyOrgSprintCompleted(co1, lab, o.owner), false);
 });
 

@@ -238,7 +238,7 @@ export const TaskCard = memo(function TaskCard({
                 className="shrink-0"
                 title={
                   assigneeRemoved
-                    ? `${taskRecord.assignee.fullName} was removed from the project`
+                    ? `${taskRecord.assignee.fullName} was removed from the workspace`
                     : taskRecord.assignee.fullName ?? undefined
                 }
               >

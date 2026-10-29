@@ -27,7 +27,7 @@ test.describe("Files revision upload", () => {
       await create.getByPlaceholder(/File name/).fill(name);
       await create.getByRole("button", { name: "Create", exact: true }).click();
       await expect(create).not.toBeVisible();
-      await list.getByRole("searchbox", { name: "Search project files" }).fill(name);
+      await list.getByRole("searchbox", { name: "Search workspace files" }).fill(name);
       await list.getByTestId("files-tab-folder-list-row").filter({ hasText: name }).click();
       await expect(page.getByTestId("files-tab-file-view")).toBeVisible();
 

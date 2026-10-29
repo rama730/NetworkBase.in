@@ -242,7 +242,7 @@ export function LegalAndDataRightsSection() {
         <div className="max-w-xl">
           <h4 className="nb-ui-label text-foreground">Export your data</h4>
           <p className="nb-compact mt-0.5 text-muted-foreground">
-            Download a JSON file with your profile, project contributions, the projects you own and are a member of, tasks assigned to you, your comments on project updates, your connections, the messages you wrote, and your legal acceptances. You can export once an hour.{lastExportedAt ? ` Last exported ${formatCalendarDate(lastExportedAt)}.` : ""}
+            Download a JSON file with your profile, workspace contributions, the workspaces you own and are a member of, tasks assigned to you, your comments on workspace updates, your connections, the messages you wrote, and your legal acceptances. You can export once an hour.{lastExportedAt ? ` Last exported ${formatCalendarDate(lastExportedAt)}.` : ""}
           </p>
         </div>
         <div className="shrink-0">

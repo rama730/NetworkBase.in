@@ -7,6 +7,6 @@ export const PROJECT_STAGE_LABELS = {
 } as const;
 
 export function projectStageLabel(status: string | null | undefined): string {
-    if (!status) return "Project";
+    if (!status) return "Workspace";
     return PROJECT_STAGE_LABELS[status as keyof typeof PROJECT_STAGE_LABELS] ?? status;
 }

@@ -180,7 +180,7 @@ export default function PrivacySettings() {
       <SettingsRadioGroup id="settings-privacy-visibility" label="Profile visibility" description="Choose who can open your full profile." value={settings?.profileVisibility} onValueChange={handleProfileVisibilityChange} options={VISIBILITY_OPTIONS} busy={busy} />
 
       <div className="my-6 border-t border-border" />
-      <SettingsRadioGroup id="settings-privacy-messages" label="Messages" description="Choose who can start a direct conversation with you. Project invitations and applications still reach you." value={settings?.messagePrivacy} onValueChange={handleMessagePrivacyChange} options={MESSAGE_OPTIONS} busy={busy} optionsClassName="sm:grid-cols-2" />
+      <SettingsRadioGroup id="settings-privacy-messages" label="Messages" description="Choose who can start a direct conversation with you. Workspace invitations and applications still reach you." value={settings?.messagePrivacy} onValueChange={handleMessagePrivacyChange} options={MESSAGE_OPTIONS} busy={busy} optionsClassName="sm:grid-cols-2" />
 
       <div className="my-6 border-t border-border" />
       <SettingsRadioGroup id="settings-privacy-requests" label="Connection requests" description="Choose who can send you a connection request." value={settings?.connectionPrivacy} onValueChange={handleConnectionPrivacyChange} options={CONNECTION_OPTIONS} busy={busy} optionsClassName="md:grid-cols-3" />

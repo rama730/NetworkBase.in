@@ -88,7 +88,7 @@ function normalizeRecoveryPath(projectId: string, path: string) {
 
 async function requireProjectAccess(projectId: string, userId: string, write: boolean) {
   const access = await getProjectAccessById(projectId, userId);
-  if (!access.project) return jsonError("Project not found", 404, "NOT_FOUND");
+  if (!access.project) return jsonError("Workspace not found", 404, "NOT_FOUND");
   if (write ? !access.canWrite : !access.canRead) {
     return jsonError("You don’t have access to this", 403, "FORBIDDEN");
   }
@@ -431,7 +431,7 @@ export async function GET(request: Request) {
   const view = url.searchParams.get("view") === "incidents" ? "incidents" : "all";
   const currentSessionId = url.searchParams.get("currentSessionId");
   if (projectId && !z.string().uuid().safeParse(projectId).success) {
-    return jsonError("Invalid project id", 400, "BAD_REQUEST");
+    return jsonError("Invalid workspace id", 400, "BAD_REQUEST");
   }
   if (currentSessionId && !z.string().uuid().safeParse(currentSessionId).success) {
     return jsonError("Invalid current session id", 400, "BAD_REQUEST");

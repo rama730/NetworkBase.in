@@ -485,8 +485,8 @@ export function ProfileV2Client({
             case 'portfolio':
                 const visibleProjectsCount = Number(portfolioQuery.data?.total ?? safeStats.projectsCount ?? portfolioProjects.length ?? 0)
                 const portfolioDescription = visibleProjectsCount > portfolioProjects.length
-                    ? `Showing ${portfolioProjects.length} of ${visibleProjectsCount} visible projects`
-                    : `Showcasing ${visibleProjectsCount} visible projects`
+                    ? `Showing ${portfolioProjects.length} of ${visibleProjectsCount} visible workspaces`
+                    : `Showcasing ${visibleProjectsCount} visible workspaces`
                 return (
                     <div
                         id="profile-panel-portfolio"
@@ -496,7 +496,7 @@ export function ProfileV2Client({
                         <div className="space-y-4">
                             {portfolioQuery.isError && (
                                 <div role="alert" className="nb-compact flex flex-wrap items-center justify-between gap-3 rounded-md border border-[var(--status-danger)] bg-[var(--status-danger-soft)] px-4 py-3">
-                                    <span>Some portfolio projects could not be refreshed. Showing the last available projects.</span>
+                                    <span>Some portfolio workspaces could not be refreshed. Showing the last available workspaces.</span>
                                     <button type="button" className="nb-ui-label text-primary hover:underline" onClick={() => void portfolioQuery.refetch()}>Try again</button>
                                 </div>
                             )}
@@ -519,7 +519,7 @@ export function ProfileV2Client({
     const renderMainBottom = () => {
         if (lockedShell || (activeTab !== 'overview' && activeTab !== 'portfolio')) return null
         return (
-            <ComponentErrorBoundary fallbackMessage="Couldn’t load project contributions.">
+            <ComponentErrorBoundary fallbackMessage="Couldn’t load workspace contributions.">
                 <ProjectContributionsCard
                     contributions={collaborationContributions}
                     profileId={profile.id}

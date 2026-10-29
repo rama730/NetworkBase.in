@@ -46,7 +46,7 @@ test("conversation URLs carry the drawers and the jump target", () => {
   assert.equal(asDetailsTab(null), null);
 });
 
-test("sidebar: starred by recent activity, All projects grouping, unread attention", () => {
+test("sidebar: starred by recent activity, All workspaces grouping, unread attention", () => {
   const data: ChatBootstrap = {
     server_time: "", activity_latest_at: null,
     projects: [{ id: "p1", title: "One", slug: null, cover_image: null, role: "member" }, { id: "p2", title: "Two", slug: null, cover_image: null, role: "member" }],

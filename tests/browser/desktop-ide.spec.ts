@@ -323,16 +323,16 @@ test("My Work header opens a chosen project, supports project paging and retries
     .getByRole("button", { name: "Open in Cursor", exact: true })
     .click();
   const projects = page.getByRole("dialog", {
-    name: "Choose a project",
+    name: "Choose a workspace",
     exact: true,
   });
   await expect(projects.getByRole("alert")).toBeVisible();
   failed = false;
   await projects.getByRole("button", { name: "Retry", exact: true }).click();
   await projects
-    .getByRole("button", { name: "Load more projects", exact: true })
+    .getByRole("button", { name: "Load more workspaces", exact: true })
     .click();
-  await page.getByRole("searchbox", { name: "Search projects" }).fill("pony");
+  await page.getByRole("searchbox", { name: "Search workspaces" }).fill("pony");
   await projects.getByRole("button", { name: "Ponytail", exact: true }).click();
   const uri = new URL(await lastUri(page));
   expect(uri.searchParams.get("projectId")).toBe("project-2");
@@ -391,7 +391,7 @@ test("an empty My Work project list never dispatches an empty workspace", async 
     .getByRole("button", { name: "Open in Cursor", exact: true })
     .click();
   await expect(
-    page.getByText("Join or create a project to open it in your editor."),
+    page.getByText("Join or create a workspace to open it in your editor."),
   ).toBeVisible();
   expect(await lastUri(page)).toBeUndefined();
   await page.getByRole("button", { name: "Close", exact: true }).click();

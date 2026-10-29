@@ -218,7 +218,7 @@ export const createProjectSchema = z.object({
         ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['parent_org_id'], message: 'Organizations cannot be inside another organization.' });
     }
     if (val.visibility === 'org' && !val.parent_org_id) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['visibility'], message: 'Org only is for projects inside an organization.' });
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['visibility'], message: 'Org only is for workspaces inside an organization.' });
     }
     if (val.organization?.org_type === 'other' && !val.organization.type_label?.trim()) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['organization', 'type_label'], message: 'Say what you call it, for example Nonprofit.' });
@@ -252,7 +252,7 @@ export const createProjectSchema = z.object({
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ['custom_project_type'],
-                message: 'Custom project type is required when "Other" is selected.',
+                message: 'Custom workspace type is required when "Other" is selected.',
             });
         }
     }

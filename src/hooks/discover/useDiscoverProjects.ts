@@ -17,7 +17,7 @@ export class DiscoverFeedError extends Error {
                 ? "That link’s filters aren’t valid. Clear filters to start over."
                 : code === 'STALE_FEED'
                     ? 'This list changed since you opened it.'
-                    : "Projects didn’t load. Check your connection and try again.");
+                    : "Workspaces didn’t load. Check your connection and try again.");
         this.name = 'DiscoverFeedError';
     }
 }

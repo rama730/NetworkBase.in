@@ -5,10 +5,10 @@ export default function ProjectDetailLoading() {
         <div
             role="status"
             aria-live="polite"
-            aria-label="Loading project"
+            aria-label="Loading workspace"
             className="flex h-full min-h-0 w-full flex-col bg-background text-foreground"
         >
-            <span className="sr-only">Loading project…</span>
+            <span className="sr-only">Loading workspace…</span>
 
             {/* Top full-bleed header matching ProjectLayout */}
             <div aria-hidden="true" className="w-full shrink-0 border-b border-border bg-card">

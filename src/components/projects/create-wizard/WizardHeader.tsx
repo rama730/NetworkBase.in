@@ -34,7 +34,7 @@ export default function WizardHeader({ currentPhase, onClose, onStepSelect, step
             Step {currentPhase} of {WIZARD_PHASES.length} · <span className="text-foreground">{currentLabel}</span>
           </p>
         </div>
-        <nav aria-label="Project creation progress" className="app-scroll app-scroll-x min-w-0 justify-self-center overflow-x-auto max-md:hidden">
+        <nav aria-label="Workspace creation progress" className="app-scroll app-scroll-x min-w-0 justify-self-center overflow-x-auto max-md:hidden">
           <ol className="flex min-w-max items-center">
             {phases.map((wizardPhase, index) => {
               const completed = currentPhase > wizardPhase.id;
@@ -74,7 +74,7 @@ export default function WizardHeader({ currentPhase, onClose, onStepSelect, step
         </nav>
         <div className="justify-self-end">
           {/* A page, not a dialog: an explicit Cancel instead of Esc-to-close. */}
-          <Button type="button" variant="ghost" onClick={onClose} aria-label="Cancel project setup" className="nb-touch-target max-md:size-[var(--ui-control-height)] max-md:px-0">
+          <Button type="button" variant="ghost" onClick={onClose} aria-label="Cancel workspace setup" className="nb-touch-target max-md:size-[var(--ui-control-height)] max-md:px-0">
             <X aria-hidden="true" />
             <span className="max-md:hidden">Cancel</span>
           </Button>
@@ -82,7 +82,7 @@ export default function WizardHeader({ currentPhase, onClose, onStepSelect, step
       </div>
       <div
         role="progressbar"
-        aria-label="Project creation progress"
+        aria-label="Workspace creation progress"
         aria-valuemin={1}
         aria-valuemax={WIZARD_PHASES.length}
         aria-valuenow={currentPhase}

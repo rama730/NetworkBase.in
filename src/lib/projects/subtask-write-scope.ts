@@ -39,7 +39,7 @@ export async function lockSubtaskWriteScope(
   const role = row.owner_id === userId ? "owner" : row.role;
   if (!role || (role !== "owner" && role !== "admin" && role !== "member")) {
     throw new Error(
-      "You do not have permission to perform this project action",
+      "You do not have permission to perform this workspace action",
     );
   }
   return row.id;

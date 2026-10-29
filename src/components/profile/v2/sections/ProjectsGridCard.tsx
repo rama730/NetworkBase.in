@@ -64,7 +64,7 @@ function toDiscoveryProject(project: ProfileCollaborationProject): Project {
     } as any;
 }
 
-export function ProjectsGridCard({ projects, title = "Projects", description, isOwner = false, isLoading = false, onProjectIntent }: ProjectsGridCardProps) {
+export function ProjectsGridCard({ projects, title = "Workspaces", description, isOwner = false, isLoading = false, onProjectIntent }: ProjectsGridCardProps) {
     const { user } = useAuth();
     // The bell shows whether you follow each project (one lookup for the whole grid).
     const pageIds = useMemo(() => [projects.map((project) => project.id)], [projects]);
@@ -78,14 +78,14 @@ export function ProjectsGridCard({ projects, title = "Projects", description, is
                 aria-busy="true"
                 role="status"
             >
-                <span className="sr-only">Loading projects…</span>
+                <span className="sr-only">Loading workspaces…</span>
                 {[1,2,3,4].map(key => <ProjectCardSkeleton key={key} />)}
             </div>
         ) : projects.length ? (
             // Organizations first, then projects (report §24.4).
             [projects.filter((p) => p.kind === "organization"), projects.filter((p) => p.kind !== "organization")].filter((group) => group.length).map((group, groupIndex, groups) => (
             <div key={groupIndex} className="space-y-2">
-            {groups.length > 1 ? <h3 className="nb-ui-label text-muted-foreground">{group[0]?.kind === "organization" ? "Organizations" : "Projects"}</h3> : null}
+            {groups.length > 1 ? <h3 className="nb-ui-label text-muted-foreground">{group[0]?.kind === "organization" ? "Organizations" : "Workspaces"}</h3> : null}
             <div className="nb-portfolio-grid flex flex-col gap-4 w-full">
                 {group.map(project => {
                     const cardProject = toDiscoveryProject(project);
@@ -114,8 +114,8 @@ export function ProjectsGridCard({ projects, title = "Projects", description, is
         ) : (
             <EmptyState
                 icon={FolderKanban}
-                title="No projects yet"
-                description={isOwner ? "Projects you create or contribute to will appear here." : "No public projects have been published yet."}
+                title="No workspaces yet"
+                description={isOwner ? "Workspaces you create or contribute to will appear here." : "No public workspaces have been published yet."}
             />
         )}
     </section>;

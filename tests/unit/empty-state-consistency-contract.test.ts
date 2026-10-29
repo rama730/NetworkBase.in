@@ -31,7 +31,7 @@ test("Empty state architectural contract: My profile surfaces", () => {
     const connectionsModal = readFileSync(resolve(ROOT, "src/components/profile/v2/UserConnectionsModal.tsx"), "utf-8");
     const editProfileTabs = readFileSync(resolve(ROOT, "src/components/profile/edit/EditProfileTabs.tsx"), "utf-8");
 
-    assert.match(projectsGrid, /<EmptyState[\s\S]*?title="No projects yet"/);
+    assert.match(projectsGrid, /<EmptyState[\s\S]*?title="No workspaces yet"/);
     assert.match(contributions, /className=["'][^"']*nb-empty-state nb-grid-ground/);
     assert.match(connectionsModal, /className=["'][^"']*nb-empty-state nb-grid-ground/);
     assert.match(editProfileTabs, /className=["'][^"']*nb-empty-state nb-grid-ground/);

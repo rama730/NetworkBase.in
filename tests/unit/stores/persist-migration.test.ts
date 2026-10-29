@@ -166,7 +166,7 @@ describe("files workspace store — persist migration v2 → v3 (Task 1.5)", () 
     };
     store.setState({ byProjectId: {} });
 
-    assert.ok(legacyBlob.state.byProjectId[projectId], "legacy fixture must contain the project");
+    assert.ok(legacyBlob.state.byProjectId[projectId], "legacy fixture must contain the workspace");
     assert.equal(getPersistOptions(store).name, V3_KEY, "store reads only the v3 key");
     assert.equal(
       store.getState().byProjectId[projectId],

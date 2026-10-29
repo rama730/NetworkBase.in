@@ -91,7 +91,7 @@ async function ensureWorkflowColumns(projectId: string, tx: Tx | typeof db = db)
 export async function getProjectWorkflowColumnsAction(projectId: string) {
     try {
         const parsed = z.string().uuid().safeParse(projectId);
-        if (!parsed.success) return { success: false as const, error: "Invalid project" };
+        if (!parsed.success) return { success: false as const, error: "Invalid workspace" };
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         const access = await getProjectAccessById(parsed.data, user?.id ?? null);

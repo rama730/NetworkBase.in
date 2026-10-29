@@ -169,7 +169,7 @@ async function fetchProjectPreviews(query: string): Promise<GlobalSearchPreview[
     }, undefined, PREVIEW_LIMIT, FILTER_VIEWS.ALL, "preview");
 
     if (!result.success) throw toSearchPreviewError(
-        result.error || "Project preview search failed",
+        result.error || "Workspace preview search failed",
         result.code as SearchErrorCode | undefined,
         "retryAfterMs" in result ? result.retryAfterMs : undefined,
     );
@@ -180,7 +180,7 @@ async function fetchProjectPreviews(query: string): Promise<GlobalSearchPreview[
         id: `project:${project.id}`,
         kind: "project" as const,
         title: project.title,
-        subtitle: project.shortDescription || project.description || project.owner?.displayName || project.owner?.fullName || "Project",
+        subtitle: project.shortDescription || project.description || project.owner?.displayName || project.owner?.fullName || "Workspace",
         href: `/projects/${project.slug || project.id}?fromTab=projects`,
         username: project.owner?.username ?? null,
         status: project.status ?? null,
@@ -193,11 +193,11 @@ async function fetchProjectPreviews(query: string): Promise<GlobalSearchPreview[
         coverImage: project.coverImage ?? null,
         updatedAt: project.updatedAt ?? null,
         matchReason: textIncludes(project.title, query)
-            ? "Matched project title"
+            ? "Matched workspace title"
             : matchedSkill
                 ? `Matched skill: ${matchedSkill}`
                 : textIncludes(project.description || project.shortDescription, query)
-                    ? "Matched project description"
+                    ? "Matched workspace description"
                     : null,
     };
     });
@@ -212,9 +212,9 @@ async function fetchProjectPreviews(query: string): Promise<GlobalSearchPreview[
         id: `skill:${skill.toLowerCase()}`,
         kind: "skill" as const,
         title: skill,
-        subtitle: "View projects using this skill",
+        subtitle: "View workspaces using this skill",
         href: `/discover?tech=${encodeURIComponent(skill)}`,
-        matchReason: `Skill in matching projects: ${skill}`,
+        matchReason: `Skill in matching workspaces: ${skill}`,
     }));
 
     return [...projects, ...skills];
@@ -326,7 +326,7 @@ async function fetchProjectContextPreviews(projectIdentifier: string, query: str
         iconKey: link.iconKey,
         purpose: link.purpose,
         audience: link.audience,
-        matchReason: `Matched project link · ${link.purpose.replaceAll('-', ' ')}`,
+        matchReason: `Matched workspace link · ${link.purpose.replaceAll('-', ' ')}`,
     })) : [];
     return [...links, ...tasks].slice(0, PREVIEW_LIMIT * 2);
 }

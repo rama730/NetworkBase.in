@@ -8,7 +8,7 @@ function source(relativePath: string) {
     return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
-test("project updates tab eliminates duplicate header and redundant cards, rendering 1 canonical SettingsCard", () => {
+test("workspace updates tab eliminates duplicate header and redundant cards, rendering 1 canonical SettingsCard", () => {
     const settingsTab = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
     // 1. SectionHeader is suppressed on updates tab to avoid duplicate title
@@ -45,11 +45,11 @@ test("project updates tab eliminates duplicate header and redundant cards, rende
         "Fragmented Follower notifications card must be consolidated into canonical card",
     );
 
-    // 4. Exactly 1 canonical SettingsCard with title "Project updates"
+    // 4. Exactly 1 canonical SettingsCard with title "Workspace updates"
     assert.match(
         updatesBlock,
-        /<SettingsCard[\s\S]*?title="Project updates"/,
-        "Must render canonical Project updates SettingsCard",
+        /<SettingsCard[\s\S]*?title="Workspace updates"/,
+        "Must render canonical Workspace updates SettingsCard",
     );
     const cardMatches = updatesBlock.match(/<SettingsCard/g) || [];
     assert.equal(
@@ -81,7 +81,7 @@ test("project updates tab eliminates duplicate header and redundant cards, rende
     );
 });
 
-test("project updates settings adhere to NetworkBase drafting-table design tokens and switches", () => {
+test("workspace updates settings adhere to NetworkBase drafting-table design tokens and switches", () => {
     const settingsTab = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
     const updatesBlock =
         settingsTab.split('id="project-settings-updates"')[1]?.split('id="project-settings-tasks-workflow"')[0] ?? "";
@@ -109,12 +109,12 @@ test("project updates settings adhere to NetworkBase drafting-table design token
     assert.doesNotMatch(
         updatesBlock,
         /Save changes/,
-        "Must not render Save changes button in Project updates card; toggles apply immediately",
+        "Must not render Save changes button in Workspace updates card; toggles apply immediately",
     );
     assert.doesNotMatch(
         updatesBlock,
         /Cancel/,
-        "Must not render Cancel button in Project updates card; toggles apply immediately",
+        "Must not render Cancel button in Workspace updates card; toggles apply immediately",
     );
     assert.match(
         updatesBlock,

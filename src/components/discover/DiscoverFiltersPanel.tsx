@@ -70,13 +70,13 @@ export function DiscoverFiltersPanel({ open, onOpenChange, query, onChange, onCl
                 dense
                 progressive
                 label="Skills"
-                description="Projects that use any of these skills."
+                description="Workspaces that use any of these skills."
                 placeholder="Search React, Figma, Python…"
             />
 
             <label className="flex min-h-11 cursor-pointer items-center gap-3">
                 <Checkbox checked={query.hideOpened} onCheckedChange={(checked) => onChange({ hideOpened: checked === true })} />
-                <span className="nb-compact">Hide projects I’ve opened</span>
+                <span className="nb-compact">Hide workspaces I’ve opened</span>
             </label>
         </FilterPanel>
     );

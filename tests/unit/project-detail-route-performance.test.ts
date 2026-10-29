@@ -15,7 +15,7 @@ test("project detail has an immediate route shell and a shared server read", () 
   assert.match(page, /readProjectRouteShell\(slug\)/);
   assert.match(page, /getViewerIdentityContext\(\)/);
   assert.doesNotMatch(page, /readProjectDetailMetadata/);
-  assert.match(loading, /aria-label="Loading project"/);
+  assert.match(loading, /aria-label="Loading workspace"/);
 });
 
 test("project cards use one native route-prefetch path", () => {

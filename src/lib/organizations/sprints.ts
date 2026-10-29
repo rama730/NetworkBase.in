@@ -32,7 +32,7 @@ export async function assertOrgSprintRules(executor: Executor, input: {
   excludeSprintId?: string | null;
 }): Promise<string | null> {
   const project = await readPlacement(executor, input.projectId);
-  if (!project) throw new Error("Project not found");
+  if (!project) throw new Error("Workspace not found");
   const range = { startDate: input.startDate, endDate: input.endDate };
 
   if (project.kind === "organization") {
@@ -57,10 +57,10 @@ export async function assertOrgSprintRules(executor: Executor, input: {
       .from(projectSprints)
       .where(and(eq(projectSprints.projectId, project.parentId), inArray(projectSprints.status, ["planning", "active"])));
     const holder = live.find((sprint) => fitsInside(range, sprint));
-    if (!holder) throw new Error("This project follows its organization’s sprints: pick dates inside one of them.");
+    if (!holder) throw new Error("This workspace follows its organization’s sprints: pick dates inside one of them.");
     return holder.id;
   }
-  if (!project.parentId) throw new Error("Only projects inside an organization link to an org sprint.");
+  if (!project.parentId) throw new Error("Only workspaces inside an organization link to an org sprint.");
   const [parent] = await executor
     .select({ name: projectSprints.name, status: projectSprints.status, startDate: projectSprints.startDate, endDate: projectSprints.endDate })
     .from(projectSprints)

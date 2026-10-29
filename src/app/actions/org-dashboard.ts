@@ -337,7 +337,7 @@ export async function readChildOrgLineAction(childProjectId: string) {
     const open = due.filter((c) => ['not_started', 'in_progress', 'returned', 'missing'].includes(stateOf(c, now).state));
     // What's happening (report §27.5): the org's group copies for this project and, for the lead, linked-sprint items.
     const projectHref = `/projects/${encodeURIComponent(child.slug ?? childProjectId)}`;
-    const needsYou: NeedsYouRow[] = open.map((c) => ({ kind: 'group', label: `${c.title} for the project${stateOf(c, now).state === 'missing' ? ' · missing' : ''}`, href: `${projectHref}?tab=tasks` }));
+    const needsYou: NeedsYouRow[] = open.map((c) => ({ kind: 'group', label: `${c.title} for the workspace${stateOf(c, now).state === 'missing' ? ' · missing' : ''}`, href: `${projectHref}?tab=tasks` }));
     if (userId && child.ownerId === userId) needsYou.push(...(await leadSprintRows(child.parentId, userId)).filter((r) => r.href.startsWith(projectHref)));
     return {
         orgTitle: org.title, orgSlug: org.slug, sprint: sprint ? { name: sprint.name, endDate: sprint.endDate.toISOString() } : null, dueCount: open.length,

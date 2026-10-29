@@ -62,7 +62,7 @@ export function ProjectSettingsNavigation({
   onNavigate: (id: ProjectSettingsSectionId) => void;
 }) {
   const links = (
-    <nav aria-label="Project settings sections" className="flex flex-col gap-1">
+    <nav aria-label="Workspace settings sections" className="flex flex-col gap-1">
       {sections.map((section) => {
         const Icon = icons[section.id];
         return (
@@ -97,7 +97,7 @@ export function ProjectSettingsNavigation({
   return (
     <>
       <aside
-        aria-label="Project settings navigation"
+        aria-label="Workspace settings navigation"
         className="sticky top-[calc(var(--project-tabs-height)+1rem)] hidden max-h-[calc(100dvh-var(--ui-topnav-height)-var(--project-tabs-height)-2rem)] self-start overflow-y-auto border-r border-border px-3 py-4 app-scroll app-scroll-y xl:block"
       >
         <div className="mb-3 space-y-3 px-2">

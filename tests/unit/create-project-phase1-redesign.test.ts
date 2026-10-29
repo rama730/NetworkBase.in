@@ -50,7 +50,7 @@ test("phase 1 keeps one named radio source selector and a flat accessible reposi
   assert.doesNotMatch(phase, /📁|📄/);
   assert.doesNotMatch(phase, /create-project-back-to-source-grid/);
   assert.match(phase, /Start empty/);
-  assert.match(phase, /Set up the project in the next steps/);
+  assert.match(phase, /Set up the workspace in the next steps/);
   assert.match(phase, /No repository or folder attached\./);
   assert.match(phase, /<GithubImportDetails/);
   assert.match(phase, /githubAnalysisResult\?\.description/);
@@ -68,7 +68,7 @@ test("phase 1 keeps one named radio source selector and a flat accessible reposi
   assert.doesNotMatch(uploadManifest, /app-scroll/);
 });
 
-test("wizard shell is reactive, uses the project-setup exit dialog, and chunks upload signing", async () => {
+test("wizard shell is reactive, uses the workspace-setup exit dialog, and chunks upload signing", async () => {
   const [wizard, hook, footer, folderUpload] = await Promise.all([
     readFile("src/components/projects/create-wizard/CreateProjectWizard.tsx", "utf8"),
     readFile("src/components/projects/create-wizard/useCreateProjectWizard.ts", "utf8"),

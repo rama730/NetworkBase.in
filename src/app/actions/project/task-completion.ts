@@ -27,7 +27,7 @@ export async function getTaskCompletionPolicyAction(projectId: string) {
       where: eq(projects.id, projectId),
       columns: { taskReviewRequired: true, taskCompletionPolicyVersion: true },
     });
-    if (!project) throw new Error("Project not found");
+    if (!project) throw new Error("Workspace not found");
     return {
       success: true as const,
       reviewRequired: project.taskReviewRequired,

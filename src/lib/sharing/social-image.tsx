@@ -56,7 +56,7 @@ function ProjectSocialImage({preview,avatar,teamAvatars}:{preview:SharePreview;a
   const compact=(n:number)=>new Intl.NumberFormat('en-US',{notation:n>=10_000?'compact':'standard',maximumFractionDigits:1}).format(n);
   const chip={display:'flex',fontSize:18,border:'1px solid #DDD6CB',borderRadius:4,padding:'4px 8px',color:'#637078',background:'white',maxWidth:500} as const;
   return <div style={{display:'flex',flexDirection:'column',width:'100%',height:'100%',padding:'44px 60px',justifyContent:'space-between',background:'#FAF8F4',color:'#192125',fontFamily:'Instrument Sans'}}>
-    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}><div style={{display:'flex',alignItems:'center',gap:7,fontSize:32,fontWeight:600}}><div style={{width:13,height:13,borderRadius:3,background:'#C74620'}}/>NetworkBase</div><div style={{fontSize:16,color:'#C74620',letterSpacing:2}}>PROJECT</div></div>
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}><div style={{display:'flex',alignItems:'center',gap:7,fontSize:32,fontWeight:600}}><div style={{width:13,height:13,borderRadius:3,background:'#C74620'}}/>NetworkBase</div><div style={{fontSize:16,color:'#C74620',letterSpacing:2}}>WORKSPACE</div></div>
     <div style={{display:'flex',flexDirection:'column',gap:16}}>
       <div style={{display:'flex',alignItems:'flex-start',gap:24}}>
         {ready&&avatar?<img src={avatar} alt="" width={112} height={112} style={{borderRadius:4,objectFit:'cover',flexShrink:0}}/>:null}

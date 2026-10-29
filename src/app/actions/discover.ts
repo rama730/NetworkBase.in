@@ -53,7 +53,7 @@ export async function fetchDiscoverProjectsAction(
             projects: [],
             hasMore: false,
             code: 'VALIDATION' as const,
-            error: 'Invalid project search request',
+            error: 'Invalid workspace search request',
         };
     }
     ({ filters, cursor, limit, view, surface } = validation.data);
@@ -225,7 +225,7 @@ export async function fetchDiscoverProjectsAction(
             projects: [],
             hasMore: false,
             code: 'TRANSIENT' as const,
-            error: 'Couldn’t fetch projects'
+            error: 'Couldn’t fetch workspaces'
         };
     }
 }

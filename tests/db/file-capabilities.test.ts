@@ -48,7 +48,7 @@ test("capabilities follow file authorization, including the member upload switch
     const outsiderCaps = await forUser(projectId, outsider);
     assert.deepEqual([outsiderCaps.canReadFiles, outsiderCaps.canCreateFiles, outsiderCaps.canManageSettings], [true, false, false]);
 
-    // Public project with the Files tab hidden: a stranger can read the project but not its files.
+    // Public workspace with the Files tab hidden: a stranger can read the workspace but not its files.
     assert.equal((await forUser(hiddenFilesProject, outsider)).canReadFiles, false);
     assert.equal((await forUser(hiddenFilesProject, owner)).canReadFiles, true);
   } finally {

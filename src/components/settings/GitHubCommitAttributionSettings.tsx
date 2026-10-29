@@ -42,7 +42,7 @@ export function GitHubCommitAttributionSettings() {
         <div>
           <h4 className="nb-ui-label text-foreground">Commit author</h4>
           <p className="nb-compact mt-1 text-muted-foreground">
-            Commits made from NetworkBase are signed with a privacy-safe GitHub address. You can choose which address from each project’s contributor settings.
+            Commits made from NetworkBase are signed with a privacy-safe GitHub address. You can choose which address from each workspace’s contributor settings.
           </p>
         </div>
         {currentIdentity?.email ? (
@@ -65,7 +65,7 @@ export function GitHubCommitAttributionSettings() {
           </code>
           <span className="nb-meta inline-flex items-center gap-1 text-muted-foreground">
             <ShieldCheck className="size-3.5" strokeWidth={1.75} aria-hidden="true" />
-            {currentIdentity.isNoreply ? "Privacy-safe noreply address" : configured ? "Email you chose" : "Not confirmed yet: choose one in a project"}
+            {currentIdentity.isNoreply ? "Privacy-safe noreply address" : configured ? "Email you chose" : "Not confirmed yet: choose one in a workspace"}
           </span>
         </div>
       ) : loadingCurrent ? (

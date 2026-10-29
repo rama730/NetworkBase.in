@@ -105,7 +105,7 @@ export function FileAccessMembers({
       </div>
       <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="nb-meta text-muted-foreground">
-          {members.length} loaded · Totals include everyone on the project
+          {members.length} loaded · Totals include everyone in the workspace
         </p>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -236,7 +236,7 @@ export function FileAccessMembers({
             ? "Enable uploads for all members?"
             : "Disable uploads for all members?"
         }
-        description={`Applies to all ${totalMembers} project members, including people outside the current filter or loaded pages, and changes the default for future members. Leaders remain enabled and viewers remain read-only.`}
+        description={`Applies to all ${totalMembers} workspace members, including people outside the current filter or loaded pages, and changes the default for future members. Leaders remain enabled and viewers remain read-only.`}
         confirmLabel={bulkChoice ? "Enable all members" : "Disable all members"}
         variant={bulkChoice ? "default" : "destructive"}
         loading={bulkSaving}

@@ -54,7 +54,7 @@ export function WherePicker() {
             ) : locations.length > 0 ? (
                 <div>
                     <label htmlFor="create-project-where" className="nb-ui-label text-foreground">Where</label>
-                    <p className="nb-compact mt-0.5 text-muted-foreground">A personal project, or a project inside one of your organizations.</p>
+                    <p className="nb-compact mt-0.5 text-muted-foreground">A personal workspace, or a workspace inside one of your organizations.</p>
                     <div className="mt-2 flex items-center gap-2">
                         <Building2 className="size-4 text-muted-foreground" aria-hidden="true" />
                         <select
@@ -72,9 +72,9 @@ export function WherePicker() {
                         </select>
                     </div>
                     {/* Report §14.2: members of an "Admins only" org can ask an admin instead. */}
-                    {locations.filter((location) => location.block === 'Only admins create projects here.' && location.ownerId).map((location) => (
+                    {locations.filter((location) => location.block === 'Only admins create workspaces here.' && location.ownerId).map((location) => (
                         <p key={location.id} className="nb-compact mt-2 text-muted-foreground">
-                            {location.title}: only admins create projects here.{' '}
+                            {location.title}: only admins create workspaces here.{' '}
                             <Link href={`/messages?userId=${location.ownerId}`} onClick={(event) => { messageUserInWindow(location.ownerId!, event) }} className="font-medium text-primary underline-offset-4 hover:underline">Message admins</Link>
                         </p>
                     ))}

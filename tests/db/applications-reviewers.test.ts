@@ -103,7 +103,7 @@ test("thread membership follows reviewer changes; the applicant keeps their thre
     await addMember(sql as never, projectId, applicant, "member");
     await sql`DELETE FROM project_members WHERE project_id = ${projectId} AND user_id = ${applicant}`;
     await sync(projectId, applicant, "remove");
-    assert.equal(await inThread(channelId, applicant), true, "removing the applicant from the project keeps their own thread");
+    assert.equal(await inThread(channelId, applicant), true, "removing the applicant from the workspace keeps their own thread");
 
     const [{ count }] = await sql`SELECT count(*)::int AS count FROM chat_channel_members WHERE channel_id = ${channelId}`;
     const [{ member_count }] = await sql`SELECT member_count FROM chat_channels WHERE id = ${channelId}`;
@@ -167,7 +167,7 @@ test("the applicant sees their own applications under Sent, with status, reason 
     assert.equal(pending?.id, applicationId);
     assert.equal(pending?.applicationStatus, "pending");
     assert.equal(pending?.channelId, channelId);
-    assert.equal(pending?.person.id, owner, "the other party is the project owner");
+    assert.equal(pending?.person.id, owner, "the other party is the workspace owner");
     viewerId = owner;
     assert.equal((await apps.rejectApplicationAction(applicationId, undefined, "availability")).success, true);
     const [declined] = await sent();

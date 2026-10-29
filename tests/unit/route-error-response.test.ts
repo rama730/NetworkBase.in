@@ -11,7 +11,7 @@ const ctx = { requestId: "req-1", scope: "test", fallback: "Failed to do the thi
 test("domain errors keep their status and safe message", async () => {
   for (const [error, status, code] of [
     [new ForbiddenError("You don’t have access to this"), 403, "FORBIDDEN"],
-    [new NotFoundError("Project not found"), 404, "NOT_FOUND"],
+    [new NotFoundError("Workspace not found"), 404, "NOT_FOUND"],
     [new ConflictError("File has an active editing lease"), 409, "CONFLICT"],
   ] as const) {
     const response = routeErrorResponse(error, ctx);
@@ -25,7 +25,7 @@ test("domain errors keep their status and safe message", async () => {
 test("tab and file access failures are typed domain errors", () => {
   assert.match(readFileSync("src/lib/data/project-access.ts", "utf8"), /class ProjectTabForbiddenError extends ForbiddenError/);
   const helpers = readFileSync("src/lib/files/internal-helpers.ts", "utf8");
-  assert.doesNotMatch(helpers, /new Error\("(Forbidden|Project not found|File not found|Task not found)"\)/);
+  assert.doesNotMatch(helpers, /new Error\("(Forbidden|Workspace not found|File not found|Task not found)"\)/);
 });
 
 test("any other error becomes an opaque 500 carrying only the request id", async () => {

@@ -162,7 +162,7 @@ export async function readStoredSyncContent(
   storageOverride?: any,
 ) {
   if (parseProjectIdFromProjectFileKey(key) !== projectId)
-    throw new Error("File content is outside this project");
+    throw new Error("File content is outside this workspace");
   const storage =
     storageOverride ||
     (await createAdminClient()).storage.from("project-files");
@@ -681,7 +681,7 @@ export async function compareSync(
     includeSequence: true,
   });
   if (latest.currentSequenceNumber !== ctx.project.currentSequenceNumber)
-    throw new Error("Project files changed during comparison. Compare again.");
+    throw new Error("Workspace files changed during comparison. Compare again.");
   // Matching content is authoritative baseline evidence, including a pull request merged outside NetworkBase.
   const matching = files.filter(
     (file) =>

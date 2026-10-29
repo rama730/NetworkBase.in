@@ -8,7 +8,7 @@ type SprintPersonName = {
  */
 export function sprintTimelinePersonName(
   person: SprintPersonName,
-  fallback = "A project member",
+  fallback = "A workspace member",
 ) {
   return person?.fullName?.trim() || fallback;
 }

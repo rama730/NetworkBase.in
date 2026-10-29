@@ -193,7 +193,7 @@ export async function searchOrgPreviewsAction(query: string, orgIdentifier?: str
                 db.execute(sql`SELECT n.id, n.name, n.path FROM project_nodes n WHERE n.project_id = ${org.id} AND n.type = 'file' AND n.deleted_at IS NULL AND n.task_id IS NULL AND n.name ILIKE ${pattern} AND ${orgFileAccessSql(access, { projectId: sql`n.project_id`, path: sql`n.path`, taskId: sql`n.task_id` }) ?? sql`TRUE`} LIMIT 5`) as unknown as Promise<Array<{ id: string; name: string; path: string }>>,
             ]);
             for (const d of docs) results.push({ id: `doc:${d.id}`, kind: 'doc', title: d.filename.replace(/\.(md|mdx|markdown)$/i, ''), subtitle: `Doc · ${org.title}`, href: `${base}?tab=readme&doc=${encodeURIComponent(d.slug)}`, chip: null });
-            for (const c of children) results.push({ id: `child:${c.id}`, kind: 'child', title: c.title, subtitle: `Project · ${org.title}`, href: `/projects/${encodeURIComponent(c.slug ?? c.id)}`, chip: null });
+            for (const c of children) results.push({ id: `child:${c.id}`, kind: 'child', title: c.title, subtitle: `Workspace · ${org.title}`, href: `/projects/${encodeURIComponent(c.slug ?? c.id)}`, chip: null });
             for (const s of sprints) results.push({ id: `sprint:${s.id}`, kind: 'sprint', title: s.name, subtitle: `Sprint · ${org.title}`, href: `${base}?tab=sprints`, chip: null });
             for (const m of members) results.push({ id: `member:${m.id}`, kind: 'member', title: m.name ?? m.username ?? 'Member', subtitle: `Member · ${org.title}`, href: `${base}?tab=members`, chip: null });
             for (const f of files) results.push({ id: `file:${f.id}`, kind: 'file', title: f.name, subtitle: `File · ${f.path}`, href: `${base}?tab=files&path=${encodeURIComponent(f.path)}`, chip: null });
@@ -258,7 +258,7 @@ export async function searchOrgPreviewsAction(query: string, orgIdentifier?: str
     const lower = q.toLowerCase();
     if ('join with code'.includes(lower) || lower.startsWith('join')) results.push({ id: 'action:join', kind: 'action', title: 'Join with code', subtitle: 'Enter an organization code', href: '/join', chip: null });
     if (scope?.isAdmin && ('new assignment'.includes(lower) || lower.startsWith('assign'))) results.push({ id: 'action:assignment', kind: 'action', title: `New assignment in ${scope.title}`, subtitle: 'Quick action', href: `/org/${encodeURIComponent(scope.slug ?? scope.id)}?tab=assignments&new=1`, chip: null });
-    if (scope?.canCreate && ('new project'.includes(lower) || lower.startsWith('new p'))) results.push({ id: 'action:project', kind: 'action', title: `New project in ${scope.title}`, subtitle: 'Quick action', href: `/projects/new?org=${encodeURIComponent(scope.id)}`, chip: null });
+    if (scope?.canCreate && ('new workspace'.includes(lower) || lower.startsWith('new p'))) results.push({ id: 'action:project', kind: 'action', title: `New workspace in ${scope.title}`, subtitle: 'Quick action', href: `/projects/new?org=${encodeURIComponent(scope.id)}`, chip: null });
     return results;
 }
 

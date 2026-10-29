@@ -86,7 +86,7 @@ export function ExistingCanvasModal({ open, onOpenChange, onSelectExisting, proj
               {list.isError ? <ErrorNotice what="Canvases" onRetry={() => void list.refetch()} /> : null}
               {!list.isLoading && !list.isError && canvases.length === 0 ? (
                 <p className="px-3 py-6 text-center text-[13px] text-muted-foreground">
-                  {search ? `No canvases match "${search}"` : projectId ? "No other canvases in this project yet." : "Canvases from other channels show here."}
+                  {search ? `No canvases match "${search}"` : projectId ? "No other canvases in this workspace yet." : "Canvases from other channels show here."}
                 </p>
               ) : null}
             </div>

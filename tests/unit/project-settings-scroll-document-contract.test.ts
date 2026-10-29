@@ -81,7 +81,7 @@ test("project settings implements 60fps RAF ScrollSpy and non-thrashing navigati
         "ScrollSpy must be throttled with window.requestAnimationFrame",
     );
 
-    assert.match(settingsTab, /const root = document\.querySelector<HTMLElement>\(\s*'\[data-scroll-root="route"\]'/, "ScrollSpy must observe the project route scroller");
+    assert.match(settingsTab, /const root = document\.querySelector<HTMLElement>\(\s*'\[data-scroll-root="route"\]'/, "ScrollSpy must observe the workspace route scroller");
     assert.doesNotMatch(settingsTab, /target\.scrollIntoView/, "Section navigation must not move the shared project route scroller");
     assert.match(settingsTab, /stickyTabsHeight/, "Section navigation must account for the sticky project tab height");
     assert.match(settingsTab, /scrollRoot\.scrollTo\(/, "Section navigation must scroll the route explicitly without scrollIntoView side effects");

@@ -47,7 +47,7 @@ test("concurrent section adds never exceed six sections", async () => {
   });
 });
 
-// COR-023: a member removed from the project can no longer write subtasks or workflow.
+// COR-023: a member removed from the workspace can no longer write subtasks or workflow.
 test("removed members cannot write subtasks or sections", async () => {
   await withProject(async ({ projectId }) => {
     const member = await sql.begin((tx) => createUser(tx));
@@ -99,7 +99,7 @@ test("story points save, deleted tasks refuse edits, and a drag to Done is the s
     const [{ story_points }] = await sql`SELECT story_points FROM tasks WHERE id = ${taskId}`;
     assert.equal(story_points, 5);
 
-    // COR-027: a drag records the status transition like the status control; review is only asked for when the project requires it (default: no).
+    // COR-027: a drag records the status transition like the status control; review is only asked for when the workspace requires it (default: no).
     const moved = await taskActions.moveTaskToWorkflowColumnAction(taskId, projectId, col("done"));
     assert.equal(moved.success, true, JSON.stringify(moved));
     assert.equal(moved.reviewStatus, "none");

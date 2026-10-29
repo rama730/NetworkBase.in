@@ -530,7 +530,7 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
               {channel.is_default ? (
                 <p className="flex items-center gap-2 px-4 py-2 text-[13px] text-muted-foreground">
                   <span className="nb-tag">Default channel</span>
-                  Everyone in the project is a member.
+                  Everyone in the workspace is a member.
                 </p>
               ) : null}
               {!isGroup ? (
@@ -546,14 +546,14 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
                   <Lock size={16} aria-hidden="true" className="text-muted-foreground" />
                   <span className="flex-1">
                     <span id="privacy-label" className="nb-ui-label block">Private channel</span>
-                    <span className="block text-[13px] text-muted-foreground">{channel.kind === "private" ? "Only members can see it." : "Everyone in the project can find and join it."}</span>
+                    <span className="block text-[13px] text-muted-foreground">{channel.kind === "private" ? "Only members can see it." : "Everyone in the workspace can find and join it."}</span>
                   </span>
                   <SettingsSwitch aria-labelledby="privacy-label" checked={channel.kind === "private"} onCheckedChange={() => setConfirmPrivacy(true)} />
                 </div>
               ) : null}
               {channel.project_title ? (
                 <div className="p-4">
-                  <span className="nb-ui-label">Project</span>
+                  <span className="nb-ui-label">Workspace</span>
                   <p className="mt-1 text-[13px]"><Link href={`/projects/${channel.project_slug ?? channel.project_id}`} className="font-medium text-primary hover:underline">{channel.project_title}</Link></p>
                 </div>
               ) : null}
@@ -594,7 +594,7 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
         onOpenChange={setConfirmPrivacy}
         title={channel.kind === "private" ? `Make #${channel.name} public?` : `Make #${channel.name} private?`}
         description={channel.kind === "private"
-          ? "Everyone in the project will be able to find, preview and join it."
+          ? "Everyone in the workspace will be able to find, preview and join it."
           : "Current members stay. It’s hidden from Browse, and new people need to be added."}
         confirmLabel={channel.kind === "private" ? "Make public" : "Make private"}
         onConfirm={switchPrivacy}

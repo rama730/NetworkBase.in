@@ -208,7 +208,7 @@ function ProjectDocInlineReferenceChip({
     const kind = option?.kind ?? reference?.kind ?? null;
     const fallbackText = kind
         ? normalizeReadmeReferenceLabel(kind, textFromReactNode(fallback) || "")
-        : textFromReactNode(fallback) || "Project reference";
+        : textFromReactNode(fallback) || "Workspace reference";
     const label = kind
         ? normalizeReadmeReferenceLabel(kind, option?.title || fallbackText)
         : option?.title || fallbackText;

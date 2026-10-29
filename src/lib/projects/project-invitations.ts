@@ -120,7 +120,7 @@ export async function createProjectInvitation(input: CreateProjectInvitationInpu
         }
 
         const project = await lockProject(tx, input.projectId);
-        if (!project || project.status === "archived") throw new Error("Project is unavailable");
+        if (!project || project.status === "archived") throw new Error("Workspace is unavailable");
 
         await tx.update(projectInvitations)
             .set({ status: "expired", resolvedAt: now, updatedAt: now })
@@ -150,14 +150,14 @@ export async function createProjectInvitation(input: CreateProjectInvitationInpu
 
         const preflight = preflightRows[0];
         const managerRole = input.actorId === project.owner_id ? "owner" as const : (preflight?.actor_role === "admin" ? "admin" as const : null);
-        if (!managerRole) throw new Error("You can only invite to projects you manage");
+        if (!managerRole) throw new Error("You can only invite to workspaces you manage");
         if (input.kind === "guidance_appointment" && managerRole !== "owner") {
             throw new Error("Only the owner can invite a mentor");
         }
 
         if (!preflight?.candidate_exists) throw new Error("Candidate not found");
         if (input.candidateId === project.owner_id) throw new Error("The owner can’t also be a mentor");
-        if (preflight.candidate_is_member) throw new Error("User is already a member of this project");
+        if (preflight.candidate_is_member) throw new Error("User is already a member of this workspace");
         if (preflight.has_pending_app) throw new Error("Review the existing application before sending an invitation");
 
         let roleId: string | null = null;
@@ -171,7 +171,7 @@ export async function createProjectInvitation(input: CreateProjectInvitationInpu
                 .from(projectOpenRoles)
                 .where(and(eq(projectOpenRoles.id, input.roleId), eq(projectOpenRoles.projectId, input.projectId)))
                 .limit(1);
-            if (!role || (role.filled ?? 0) >= (role.count ?? 0)) throw new Error("This project role is no longer available");
+            if (!role || (role.filled ?? 0) >= (role.count ?? 0)) throw new Error("This workspace role is no longer available");
             roleId = role.id;
             roleTitle = cleanOptionalText(role.title || role.role || "Member", 160) || "Member";
 
@@ -185,7 +185,7 @@ export async function createProjectInvitation(input: CreateProjectInvitationInpu
                     eq(projectInvitations.status, "pending"),
                 ))
                 .limit(1);
-            if (pending) throw new Error("An invitation for this project is already pending");
+            if (pending) throw new Error("An invitation for this workspace is already pending");
         } else {
             guidanceLabel = cleanGuidanceLabel(input.guidanceLabel);
             if (!guidanceLabel) throw new Error("Enter a mentor focus");
@@ -207,7 +207,7 @@ export async function createProjectInvitation(input: CreateProjectInvitationInpu
                     eq(projectGuidanceAppointments.status, "active"),
                 ))
                 .limit(1);
-            if (pending || active) throw new Error("This project already has a pending or active guidance appointment");
+            if (pending || active) throw new Error("This workspace already has a pending or active guidance appointment");
 
             const count = await activeGuidanceCount(tx, input.candidateId);
             if (getGuidanceCapacityState(count) === "blocked") throw new Error("This person has reached the active guidance appointment limit");
@@ -224,7 +224,7 @@ export async function createProjectInvitation(input: CreateProjectInvitationInpu
                 roleTitle,
                 guidanceLabel,
                 note: cleanOptionalText(input.note, 500),
-                projectTitle: cleanOptionalText(project.title, 200) || "Project",
+                projectTitle: cleanOptionalText(project.title, 200) || "Workspace",
                 status: "pending",
                 expiresAt: new Date(now.getTime() + INVITATION_TTL_MS),
                 reviewAt: input.reviewAt ?? null,
@@ -256,8 +256,8 @@ export async function resolveProjectInvitationInternal(
     if (!target) throw new Error("Invitation not found");
 
     const project = await lockProject(executor, target.projectId);
-    if (!project) throw new Error("Project is unavailable");
-    if (project.status === "archived" && input.action !== "cancel") throw new Error("Project is unavailable");
+    if (!project) throw new Error("Workspace is unavailable");
+    if (project.status === "archived" && input.action !== "cancel") throw new Error("Workspace is unavailable");
 
     const [invitation] = await executor
         .select()
@@ -316,7 +316,7 @@ export async function resolveProjectInvitationInternal(
                 eq(projectGuidanceAppointments.status, "active"),
             ))
             .limit(1);
-        if (active) throw new Error("This project already has an active guidance appointment");
+        if (active) throw new Error("This workspace already has an active guidance appointment");
         await lockGuidanceCapacity(executor, invitation.candidateId);
         const count = await activeGuidanceCount(executor, invitation.candidateId);
         if (getGuidanceCapacityState(count) === "blocked") throw new Error("This person has reached the active guidance appointment limit");

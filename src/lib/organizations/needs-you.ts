@@ -77,7 +77,7 @@ export async function readNeedsYou(v: OrgViewer, now: Date): Promise<NeedsYouRow
         .where(and(eq(projects.parentId, v.org.id), eq(projects.ownerId, v.userId), isNull(projects.deletedAt), isNotNull(tasks.assignmentId), isNull(tasks.deletedAt)));
     for (const c of group) {
         const { state } = stateOf(c, now);
-        if (state !== 'done' && state !== 'excused' && state !== 'submitted') rows.push({ kind: 'group', label: `${c.project} · ${c.title} for the project`, href: `/projects/${encodeURIComponent(c.slug ?? c.projectId)}?tab=tasks` });
+        if (state !== 'done' && state !== 'excused' && state !== 'submitted') rows.push({ kind: 'group', label: `${c.project} · ${c.title} for the workspace`, href: `/projects/${encodeURIComponent(c.slug ?? c.projectId)}?tab=tasks` });
     }
     rows.push(...await leadSprintRows(v.org.id, v.userId));
     // Important (emailed) announcements stay in Needs you until the Updates tab is opened (report §17.4).
@@ -126,8 +126,8 @@ async function adminStateRows(orgId: string, base: string, now: Date): Promise<N
             ORDER BY s.start_date LIMIT 3`),
     ]);
     for (const t of teams) rows.push({ kind: 'team', label: `${plural(t.n, 'new member')} not in a team · ${t.title}`, href: `${base}?tab=tasks` });
-    if (unplaced && unplaced.children > 0 && unplaced.n > 0) rows.push({ kind: 'unplaced', label: `${plural(unplaced.n, 'member')} not in a project`, href: `${base}?tab=projects` });
-    if (unplaced && unplaced.children === 0 && unplaced.group_title) rows.push({ kind: 'needs_projects', label: `${unplaced.group_title} needs projects · Create one`, href: `/projects/new?org=${encodeURIComponent(base.slice('/org/'.length))}` });
+    if (unplaced && unplaced.children > 0 && unplaced.n > 0) rows.push({ kind: 'unplaced', label: `${plural(unplaced.n, 'member')} not in a workspace`, href: `${base}?tab=projects` });
+    if (unplaced && unplaced.children === 0 && unplaced.group_title) rows.push({ kind: 'needs_projects', label: `${unplaced.group_title} needs workspaces · Create one`, href: `/projects/new?org=${encodeURIComponent(base.slice('/org/'.length))}` });
     for (const b of blocked) rows.push({ kind: 'autostart', label: `${b.name} couldn’t start: ${b.active} is still active`, href: `${base}?tab=sprints` });
     return rows;
 }

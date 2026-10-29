@@ -18,10 +18,10 @@ const member = alias(profiles, "recent_activity_member");
 export async function readProjectRecentActivityAction(projectId: string): Promise<ProjectRecentActivityItem[]> {
   const viewer = await getViewerIdentityContext();
   const access = await getProjectAccessById(projectId, viewer.userId);
-  if (!access.project || !access.canRead) throw new Error("Project not found");
+  if (!access.project || !access.canRead) throw new Error("Workspace not found");
   const isMember = access.isOwner || access.isMember;
   const visibility = normalizeProjectPublicTabVisibility(access.project.publicTabVisibility);
-  if (!isMember && !visibility.dashboard) throw new Error("Project not found");
+  if (!isMember && !visibility.dashboard) throw new Error("Workspace not found");
   const audience = recentActivityAudience(isMember, visibility);
   const projectHref = `/projects/${encodeURIComponent(access.project.slug || projectId)}`;
 

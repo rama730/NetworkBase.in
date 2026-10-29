@@ -244,7 +244,7 @@ test.describe("Files tab V3 — move", () => {
 // ─── Helpers ────────────────────────────────────────────────────────
 
 /**
- * Create a folder at the project root via the V3 sidebar context menu.
+ * Create a folder at the workspace root via the V3 sidebar context menu.
  * Right-clicks the root workspace folder row, picks `New folder`, fills
  * the dialog, and confirms. Waits for the new row to appear in the tree.
  */

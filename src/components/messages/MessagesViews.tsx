@@ -241,7 +241,7 @@ export function ProjectLanding({ projectId }: { projectId: string }) {
   useEffect(() => {
     if (known) return void setProject(projectId);
     // Say why you landed on All instead of the link's project.
-    toast("You’re no longer in that project");
+    toast("You’re no longer in that workspace");
     router.replace("/messages");
   }, [known, projectId, router, setProject]);
   return <ListOrHome />;
@@ -348,7 +348,7 @@ export function BrowseChannels({ projectId }: { projectId: string }) {
         ))}
       </ul>
       {nothingYet ? (
-        <EmptyState compact icon={Hash} title="No public channels yet" description="Start one for a topic your project talks about." action={<Button type="button" size="sm" onClick={() => setCreateFor(projectId)}><Plus size={16} /> Create channel</Button>} className="m-4" />
+        <EmptyState compact icon={Hash} title="No public channels yet" description="Start one for a topic your workspace talks about." action={<Button type="button" size="sm" onClick={() => setCreateFor(projectId)}><Plus size={16} /> Create channel</Button>} className="m-4" />
       ) : channels.data && !visible.length ? <Empty icon={Hash} title={show === "archived" ? "No archived channels" : "No channels match"} /> : null}
     </ViewScreen>
   );

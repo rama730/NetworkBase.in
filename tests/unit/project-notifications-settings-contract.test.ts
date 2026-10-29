@@ -66,11 +66,11 @@ test("project notifications tab eliminates duplicate header and redundant cards,
         "Filter rail with All Triggers must be replaced by 7 direct category triggers",
     );
 
-    // 7. Exactly 1 canonical SettingsCard with title "Project notification policy"
+    // 7. Exactly 1 canonical SettingsCard with title "Workspace notification policy"
     assert.match(
         notifBlock,
-        /<SettingsCard[\s\S]*?title="Project notification policy"/,
-        "Must render canonical Project notification policy SettingsCard",
+        /<SettingsCard[\s\S]*?title="Workspace notification policy"/,
+        "Must render canonical Workspace notification policy SettingsCard",
     );
     const cardMatches = notifBlock.match(/<SettingsCard/g) || [];
     assert.equal(

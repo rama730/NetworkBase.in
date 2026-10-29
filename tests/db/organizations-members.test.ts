@@ -108,7 +108,7 @@ test("requests: approve, approve all, decline with a reason; Max members blocks 
   assert.deepEqual([declined!.status, declined!.decision_reason_text], ["rejected", "Not in this section"]);
 });
 
-test("invite by email: admins invite members and guests, the owner also admins; existing users accept in-app into the project and unit", async () => {
+test("invite by email: admins invite members and guests, the owner also admins; existing users accept in-app into the workspace and unit", async () => {
   const o = await org();
   const invitee = await sql.begin((tx) => createUser(tx));
   const [{ email }] = await sql`SELECT email FROM profiles WHERE id = ${invitee}`;

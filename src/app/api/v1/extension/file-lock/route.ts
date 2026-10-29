@@ -69,7 +69,7 @@ async function resolveEditableNode(projectId: string, path: string, userId: stri
     return { node: { id: resolved.node.id } };
   }
   const access = await getProjectAccessById(projectId, userId);
-  if (!access.project) return { error: jsonError("Project not found", 404, "NOT_FOUND") };
+  if (!access.project) return { error: jsonError("Workspace not found", 404, "NOT_FOUND") };
   if (!access.canWrite) return { error: jsonError("You don’t have access to this", 403, "FORBIDDEN") };
   const node = await db.query.projectNodes.findFirst({
     where: and(

@@ -65,7 +65,7 @@ export type ProjectCollaboratorLifecycleResult = {
 };
 
 function displayNameForSnapshot(snapshot: ProjectCollaboratorSnapshot | null) {
-    return snapshot?.fullName || snapshot?.username || "Project member";
+    return snapshot?.fullName || snapshot?.username || "Workspace member";
 }
 
 function roleRank(role: ProjectMemberRole | null) {
@@ -170,10 +170,10 @@ export function isProjectMemberEligibleFor(role: unknown, eligibility: ProjectMe
 
 /** The capability check on an access record that is already loaded, so one read can serve several checks. */
 export function capabilityFromAccess(access: ProjectAccess, capability: ProjectMemberCapability) {
-    if (!access.project) throw new NotFoundError("Project not found");
+    if (!access.project) throw new NotFoundError("Workspace not found");
     const role = access.isOwner ? "owner" : access.memberRole;
     if (!role || !projectMemberCan(role, capability)) {
-        throw new ForbiddenError("You do not have permission to perform this project action");
+        throw new ForbiddenError("You do not have permission to perform this workspace action");
     }
     return { project: access.project, role };
 }
@@ -191,10 +191,10 @@ export async function requireProjectCapability(
         .from(projects)
         .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
         .limit(1);
-    if (!project) throw new NotFoundError("Project not found");
+    if (!project) throw new NotFoundError("Workspace not found");
     const role = await readMembershipRole(executor, projectId, userId, project.ownerId, false);
     if (!role || !projectMemberCan(role, capability)) {
-        throw new ForbiddenError("You do not have permission to perform this project action");
+        throw new ForbiddenError("You do not have permission to perform this workspace action");
     }
     return { project, role };
 }
@@ -213,7 +213,7 @@ export async function addProjectMemberInternal(
     },
 ): Promise<ProjectCollaboratorLifecycleResult> {
     const project = await readProjectForUpdate(executor, params.projectId);
-    if (!project) throw new NotFoundError("Project not found");
+    if (!project) throw new NotFoundError("Workspace not found");
     const target = await readProfileSnapshot(executor, params.userId);
     const previousRole = await readMembershipRole(executor, params.projectId, params.userId, project.ownerId, true);
     const nextRole = params.userId === project.ownerId ? "owner" : normalizeProjectMemberRole(params.role ?? "member", "member");
@@ -380,7 +380,7 @@ export async function changeProjectMemberRoleInternal(
     },
 ): Promise<ProjectCollaboratorLifecycleResult> {
     const project = await readProjectForUpdate(executor, params.projectId);
-    if (!project) throw new NotFoundError("Project not found");
+    if (!project) throw new NotFoundError("Workspace not found");
     const actorRole = await readMembershipRole(executor, params.projectId, params.actorId, project.ownerId, true);
     const previousRole = await readMembershipRole(executor, params.projectId, params.targetUserId, project.ownerId, true);
     if (!canProjectRoleManageTarget({ actorRole, targetRole: previousRole, nextRole: params.nextRole })) {
@@ -581,7 +581,7 @@ export async function removeProjectMemberInternal(
     },
 ): Promise<ProjectCollaboratorLifecycleResult & { assignmentNotifications: EnqueueProjectNotificationEventInput[] }> {
     const project = await readProjectForUpdate(executor, params.projectId);
-    if (!project) throw new NotFoundError("Project not found");
+    if (!project) throw new NotFoundError("Workspace not found");
     const actorRole = await readMembershipRole(executor, params.projectId, params.actorId, project.ownerId, true);
     const previousRole = await readMembershipRole(executor, params.projectId, params.targetUserId, project.ownerId, true);
     const isLeaving = params.allowSelf === true && params.actorId === params.targetUserId && previousRole !== null && previousRole !== "owner";
@@ -603,7 +603,7 @@ export async function removeProjectMemberInternal(
         if (!replacementId || replacementId === params.targetUserId) throw new Error("Choose a valid replacement assignee");
         const replacementRole = await readMembershipRole(executor, params.projectId, replacementId, project.ownerId, true);
         if (!replacementRole || !isEligibleProjectMember(replacementRole, "assign")) {
-            throw new Error("Replacement assignee must be an assignable project member");
+            throw new Error("Replacement assignee must be an assignable workspace member");
         }
         const actor = await readProfileSnapshot(executor, params.actorId);
         const replacement = await readProfileSnapshot(executor, replacementId);

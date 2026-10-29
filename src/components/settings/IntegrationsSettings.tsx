@@ -51,7 +51,7 @@ function ProviderRow({ provider, linking, onLink, onUnlink }: { provider: AuthCo
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1"><h4 className="nb-ui-label text-foreground">{provider.label}</h4><span className="nb-meta text-muted-foreground">{stateLabel}</span></div>
         <p className="nb-compact mt-1 text-muted-foreground">{provider.detail}</p>
         {provider.secondaryDetail ? <p className="nb-meta mt-1 text-muted-foreground">{provider.secondaryDetail}</p> : null}
-        {provider.provider === "github" && provider.state === "not_linked" ? <p className="nb-meta mt-1 text-muted-foreground">Connecting asks GitHub to let NetworkBase read your repositories and organizations, and your email, so you can import and sync projects.</p> : null}
+        {provider.provider === "github" && provider.state === "not_linked" ? <p className="nb-meta mt-1 text-muted-foreground">Connecting asks GitHub to let NetworkBase read your repositories and organizations, and your email, so you can import and sync workspaces.</p> : null}
       </div>
     </div>
     {provider.state === "not_linked" && provider.provider !== "email" ? <Button className="self-start sm:self-auto" size="sm" variant="outline" onClick={onLink} disabled={linking}>{linking ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}Connect</Button> : null}
@@ -98,7 +98,7 @@ function ExtensionAppCard() {
         <div className="min-w-0">
           <h4 className="nb-ui-label text-foreground">NetworkBase editor extension</h4>
           <p className="nb-compact mt-1 text-muted-foreground">
-            Open project work in your editor and keep access under your account.
+            Open workspace work in your editor and keep access under your account.
           </p>
         </div>
       </div>
@@ -437,7 +437,7 @@ export default function IntegrationsSettings() {
       {isLoading ? <div role="status" aria-label="Loading connections" className="nb-skeleton h-32 rounded-md" /> : <div>{data?.authConnections.map((provider) => <ProviderRow key={provider.provider} provider={provider} linking={linking === provider.provider} onLink={() => void linkProvider(provider.provider as "google" | "github")} onUnlink={() => setUnlinkConfirm(provider.provider as "google" | "github")} />)}</div>}
     </SettingsSectionCard>
 
-    <SettingsSectionCard id="settings-integrations-github" title="GitHub" description="Repository access is managed from each project; this page only shows account-level status.">
+    <SettingsSectionCard id="settings-integrations-github" title="GitHub" description="Repository access is managed from each workspace; this page only shows account-level status.">
       <div className="flex min-h-16 flex-col gap-4 pb-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"><Github className="size-5" strokeWidth={1.75} /></span>
@@ -464,7 +464,7 @@ export default function IntegrationsSettings() {
               <div className="min-w-0"><div className="flex flex-wrap items-center gap-x-3 gap-y-1"><Link href={`/projects/${project.slug}`} className="nb-ui-label block truncate text-foreground hover:text-primary">{project.title}</Link><span className="nb-meta text-muted-foreground">{connectionType}</span></div>{repoName ? <p className="nb-meta mt-1 flex items-center gap-1.5 truncate text-muted-foreground"><GitBranch className="size-3.5 shrink-0" strokeWidth={1.75} />{repoName}{project.syncBranch ? ` · ${project.syncBranch}` : ""}</p> : null}</div>
               <Button variant="ghost" size="sm" asChild><Link href={`/projects/${project.slug}`}>Open<ExternalLink className="size-4" strokeWidth={1.75} /></Link></Button>
             </div>;
-          }) : <p className="nb-compact py-4 text-muted-foreground">No connected projects.</p>}
+          }) : <p className="nb-compact py-4 text-muted-foreground">No connected workspaces.</p>}
         </div>
       </div> : null}
 
@@ -599,8 +599,8 @@ export default function IntegrationsSettings() {
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2 rounded-md border border-border bg-muted/50 p-4 nb-compact text-muted-foreground">
-          <p>Project files, repository links, sync history, and past contributor credit stay unchanged.</p>
-          <p>Repository access is reviewed per project after the new account is linked.</p>
+          <p>Workspace files, repository links, sync history, and past contributor credit stay unchanged.</p>
+          <p>Repository access is reviewed per workspace after the new account is linked.</p>
           <p>Only future commits switch to the new account’s privacy-safe GitHub identity.</p>
           <p className="font-medium text-foreground">GitHub stays disconnected until you finish choosing a new account. If you leave before that, come back here and connect again.</p>
         </div>
@@ -625,7 +625,7 @@ export default function IntegrationsSettings() {
       open={unlinkConfirm !== null}
       onOpenChange={(open) => { if (!open) setUnlinkConfirm(null); }}
       title={`Disconnect ${unlinkConfirm === "google" ? "Google" : "GitHub"}?`}
-      description={unlinkConfirm === "github" ? "You will no longer be able to sign in with GitHub, and repository access from this account stops. Your projects stay as they are." : "You will no longer be able to sign in with Google. You need another way to sign in first."}
+      description={unlinkConfirm === "github" ? "You will no longer be able to sign in with GitHub, and repository access from this account stops. Your workspaces stay as they are." : "You will no longer be able to sign in with Google. You need another way to sign in first."}
       confirmLabel="Disconnect"
       variant="destructive"
       onConfirm={() => (unlinkConfirm ? unlinkProvider(unlinkConfirm) : undefined)}

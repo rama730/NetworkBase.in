@@ -328,7 +328,7 @@ export default function Phase1SourceSelection({
             const returnUrl = new URL(window.location.href);
             const resume = saveGithubOAuthResume(getValues(), getCreateProjectReturnPath(returnUrl));
             if (!resume) {
-                throw new Error('Your project setup could not be saved before connecting GitHub. Allow session storage and try again.');
+                throw new Error('Your workspace setup could not be saved before connecting GitHub. Allow session storage and try again.');
             }
             resumeId = resume.id;
             returnUrl.searchParams.set('createProject', '1');
@@ -431,7 +431,7 @@ export default function Phase1SourceSelection({
         if (org) {
             // Report §34.9: the shared text stays; org-only fields go after a confirm.
             const typed = Boolean(org.part_of || org.location || org.welcome_note || org.invite_emails?.trim() || org.co_admins?.length || getFieldState('organization.handle').isDirty);
-            if (typed && !window.confirm('Switch to a project? Organization details like the handle and invites will be removed.')) return;
+            if (typed && !window.confirm('Switch to a workspace? Organization details like the handle and invites will be removed.')) return;
             setValue('organization', undefined, { shouldDirty: true });
             if (getValues('project_type') === 'organization') setValue('project_type', '');
             setValue('member_file_upload_default', true);
@@ -787,7 +787,7 @@ export default function Phase1SourceSelection({
         } catch (error: any) {
             if (error?.name !== 'AbortError' && analysisSequence === uploadAnalysisSequenceRef.current) {
                 console.error('Folder analysis failed:', error);
-                setUploadAnalysisError('We could not detect this project’s stack. The folder is still ready to use.');
+                setUploadAnalysisError('We could not detect this workspace’s stack. The folder is still ready to use.');
             }
         } finally {
             if (analysisSequence === uploadAnalysisSequenceRef.current) {
@@ -973,14 +973,14 @@ export default function Phase1SourceSelection({
                 <div>
                     <p className="nb-label text-primary">Start empty</p>
                     <h3 id="scratch-source-heading" className="nb-section-title mt-2 text-foreground">
-                        Set up the project in the next steps
+                        Set up the workspace in the next steps
                     </h3>
                     <p className="nb-body mt-2 max-w-[62ch] text-muted-foreground">
-                        Start with an empty project, then add its details, team, settings, and review it before publishing.
+                        Start with an empty workspace, then add its details, team, settings, and review it before publishing.
                     </p>
                 </div>
                 <dl className="border-l border-border pl-5 max-md:border-l-0 max-md:border-t max-md:pl-0 max-md:pt-4">
-                    <dt className="nb-label">Project source</dt>
+                    <dt className="nb-label">Workspace source</dt>
                     <dd className="nb-card-title mt-2 text-foreground">Start empty</dd>
                     <dd className="nb-compact mt-1 text-muted-foreground">
                         No repository or folder attached.
@@ -1492,7 +1492,7 @@ export default function Phase1SourceSelection({
                             Upload a folder
                         </h3>
                         <p className="nb-body mt-2 max-w-[68ch] text-muted-foreground">
-                            Choose a local project folder, check its contents, and review the detected stack before continuing.
+                            Choose a local folder, check its contents, and review the detected stack before continuing.
                         </p>
                     </div>
                 </div>
@@ -1529,7 +1529,7 @@ export default function Phase1SourceSelection({
                                     {uploadFiles.length} files selected
                                 </div>
                                 <div className="nb-compact text-muted-foreground">
-                                    {uploadAnalysisResult?.title ? `Detected project: ${uploadAnalysisResult.title}` : 'The selected folder will remain attached through every phase.'}
+                                    {uploadAnalysisResult?.title ? `Detected workspace: ${uploadAnalysisResult.title}` : 'The selected folder will remain attached through every phase.'}
                                 </div>
                                 <Button type="button" variant="outline" onClick={handleBrowseClick}>
                                     Change folder
@@ -1538,7 +1538,7 @@ export default function Phase1SourceSelection({
                         ) : (
                             <div className="space-y-4 text-center">
                                 <div className="nb-card-title text-foreground">
-                                    {isDragOverUpload ? 'Drop folder to attach it' : 'Select a project folder'}
+                                    {isDragOverUpload ? 'Drop folder to attach it' : 'Select a folder'}
                                 </div>
                                 <div className="nb-compact text-muted-foreground">
                                     Drag and drop a folder here, or browse from your device. Files can be up to 10 MB each.
@@ -1556,7 +1556,7 @@ export default function Phase1SourceSelection({
                         <section className="border-t border-border pt-5" aria-labelledby="upload-analysis-heading">
                             <div className="flex items-center gap-2">
                                 <h4 id="upload-analysis-heading" className="nb-card-title text-foreground">
-                                    Detected project
+                                    Detected workspace
                                 </h4>
                             </div>
                             {isAnalyzingUpload ? (
@@ -1611,7 +1611,7 @@ export default function Phase1SourceSelection({
             />
             <section
                 id={`create-project-source-panel-${activeSourceView}`}
-                aria-label={`${activeSourceView} project source settings`}
+                aria-label={`${activeSourceView} workspace source settings`}
             >
                 {sourcePanel}
             </section>

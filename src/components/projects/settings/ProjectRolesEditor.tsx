@@ -242,7 +242,7 @@ export function ProjectRolesEditor({
             <div className="space-y-3.5">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
                     <div className="space-y-0.5">
-                        <h3 className="nb-card-title text-base font-semibold text-foreground">Project roles and team assignments</h3>
+                        <h3 className="nb-card-title text-base font-semibold text-foreground">Workspace roles and team assignments</h3>
                         <p className="nb-compact text-xs text-muted-foreground">
                             All roles in a single row · {occupiedEntries.length} occupied {occupiedEntries.length === 1 ? "seat" : "seats"} · {openEntries.length} open {openEntries.length === 1 ? "position" : "positions"}
                         </p>
@@ -453,7 +453,7 @@ export function ProjectRolesEditor({
                             <div className="space-y-2 pt-2 text-xs">
                                 {selectedOccupant.joinedAt ? (
                                     <div className="flex items-center justify-between text-muted-foreground">
-                                        <span className="nb-meta text-[11px]">Joined project</span>
+                                        <span className="nb-meta text-[11px]">Joined workspace</span>
                                         <span className="nb-meta text-[11px] text-foreground font-medium">
                                             {new Date(selectedOccupant.joinedAt).toLocaleDateString(undefined, {
                                                 month: "short",
@@ -697,7 +697,7 @@ export function ProjectRolesEditor({
                                 <span>Applicant view preview</span>
                             </div>
                             <p className="nb-compact text-xs text-muted-foreground">
-                                Preview how candidates see this vacancy on the public project page.
+                                Preview how candidates see this vacancy on the public workspace page.
                             </p>
                             <div className="border-t border-border pt-4 space-y-3">
                                 <div className="flex items-start justify-between gap-2">
@@ -757,7 +757,7 @@ export function ProjectRolesEditor({
                 title={`Remove ${removal?.name ?? "this role"}?`}
                 description={[
                     removalCounts?.pending ? `${removalCounts.pending} pending ${removalCounts.pending === 1 ? "application stays" : "applications stay"} in your queue, and can then only be declined.` : null,
-                    removalCounts?.accepted ? `${removalCounts.accepted} accepted ${removalCounts.accepted === 1 ? "member keeps" : "members keep"} their place on the project.` : null,
+                    removalCounts?.accepted ? `${removalCounts.accepted} accepted ${removalCounts.accepted === 1 ? "member keeps" : "members keep"} their place in the workspace.` : null,
                     "The role is removed when you save.",
                 ].filter(Boolean).join(" ")}
                 confirmLabel="Remove role"

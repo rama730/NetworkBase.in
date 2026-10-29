@@ -15,7 +15,7 @@ test("one fixed-height workspace header owns sidebar reopen and action/status sl
   assert.match(read("FilesTabMain.tsx"), /<FilesHeader/);
   assert.doesNotMatch(
     read("FilesTabMain.tsx"),
-    /<header|PanelLeftOpen|Search project files/,
+    /<header|PanelLeftOpen|Search workspace files/,
   );
 });
 

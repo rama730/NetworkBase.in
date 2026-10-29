@@ -137,7 +137,7 @@ describe("patchNodeVersion — patches currentVersion in place (Req 3.5)", () =>
     assert.equal(stateBefore, stateAfter, "state reference should not change for unknown project");
   });
 
-  it("is a no-op when nodeId does not exist in the project", () => {
+  it("is a no-op when nodeId does not exist in the workspace", () => {
     const file = makeFile("file-1", "readme.md", null, 1);
     seedWorkspace([file]);
 

@@ -93,7 +93,7 @@ test('historical username resolves to current canonical URL and deleted profiles
   await sql`UPDATE profiles SET deleted_at=NULL WHERE id=${owner}`;
 });
 
-test('privacy revoked during portfolio aggregation removes identity before the projection returns',async()=>{
+test('privacy revoked during portfolio aggregation removes identity before the workspaceion returns',async()=>{
   const {db}=await loadAppModule(()=>import('../../src/lib/db'));
   const execute=db.execute;
   const dialect=new PgDialect();
@@ -149,7 +149,7 @@ test('send persists only URL/note, retries reuse a receipt, and revoked conversa
   actor=null;assert.equal((await send(input)).success,false);actor=owner;
 });
 
-test('shared project references survive renamed slugs while preserving readable message text',async()=>{
+test('shared workspace references survive renamed slugs while preserving readable message text',async()=>{
   actor=owner;const id=projectIds[0]!;const intent='project-share:'+randomUUID();
   const readable=`https://networkbase.in/projects/p-${id}`;
   assert.ok((await send({url:readable,channelId:channel,note:'Another URL: https://example.com',clientId:intent,expectedSenderId:owner})).success);
@@ -232,7 +232,7 @@ test('project projections filter identity before overflow, preserve read-only me
   }finally{await sql`DELETE FROM auth.users WHERE id=ANY(${people}::uuid[])`;}
 });
 
-test('project team visibility respects connections and blocks; public image never retains a revoked face',async()=>{
+test('workspace team visibility respects connections and blocks; public image never retains a revoked face',async()=>{
   const id=await project();const path=`https://networkbase.in/projects/${id}`,asset=randomUUID();
   try{
     await sql`UPDATE profiles SET visibility='public',full_name='Visible Owner',avatar_url='https://approved.example/team.png',avatar_asset_id=NULL WHERE id=${owner}`;

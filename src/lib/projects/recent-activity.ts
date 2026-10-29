@@ -31,7 +31,7 @@ export function newestProjectActivities(items: ProjectRecentActivityItem[], limi
 }
 
 export function activityActorName(profile: { fullName?: string | null; username?: string | null } | null | undefined) {
-  return profile?.fullName?.trim() || profile?.username?.trim() || "A project member";
+  return profile?.fullName?.trim() || profile?.username?.trim() || "A workspace member";
 }
 
 export function isPublishableFileMetadata(metadata: Record<string, unknown> | null | undefined) {
@@ -52,7 +52,7 @@ export function describeMembershipEvent(name: string, type: "project_member.adde
   if (type === "project_member.added" && previousRole === nextRole) return null;
   return type === "project_member.role_changed" || previousRole
     ? `${name} became ${nextRole || "a member"}`
-    : `${name} joined the project`;
+    : `${name} joined the workspace`;
 }
 
 export function describeGithubPush(actor: string, mode: "direct" | "pr") {

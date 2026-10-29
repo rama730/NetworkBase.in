@@ -26,7 +26,7 @@ const DRAFT_KEY = 'nb_signup_draft'
 const SIGNUP_PANEL = {
     eyebrow: 'Get started',
     title: 'Your first workspace is three steps away.',
-    points: ['Add your skills', 'Find or start a project', 'Invite people and get going'],
+    points: ['Add your skills', 'Find or start a workspace', 'Invite people and get going'],
 }
 const VERIFY_PANEL = {
     eyebrow: 'One last step',

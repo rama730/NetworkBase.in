@@ -18,7 +18,7 @@ const KIND_ICON = {
 } as const;
 
 function referenceMeta(option: ProjectDocReferenceOption) {
-    return option.context || [option.status, option.meta, option.subtitle].filter(Boolean).join(" · ") || "Project reference";
+    return option.context || [option.status, option.meta, option.subtitle].filter(Boolean).join(" · ") || "Workspace reference";
 }
 
 export function ProjectDocReferenceOptionCard({ option }: { option: ProjectDocReferenceOption }) {

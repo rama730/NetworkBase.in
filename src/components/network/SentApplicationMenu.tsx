@@ -33,7 +33,7 @@ export function SentApplicationMenu({ status, reasonCode = null, name, projectHr
         {channelId ? <DropdownMenuItem asChild><Link href={conversationHref(channelId)}>Open conversation</Link></DropdownMenuItem> : null}
         <DropdownMenuItem asChild>
             <Link href={status === "accepted" ? `${projectHref}${projectHref.includes("?") ? "&" : "?"}source=application_accepted` : projectHref}>
-                View project
+                View workspace
             </Link>
         </DropdownMenuItem>
         {status === "pending" ? <DropdownMenuItem onSelect={() => onWithdraw(trigger.current)}>Withdraw application</DropdownMenuItem> : null}

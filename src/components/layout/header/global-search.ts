@@ -167,7 +167,7 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     { id: "request-privacy", title: "Connection request privacy", section: "Privacy", description: "Choose who can send connection requests.", href: "/settings#settings-privacy-requests", keywords: "mutuals nobody everyone builders network" },
     { id: "blocked-accounts", title: "Blocked accounts", section: "Privacy", description: "Review and unblock accounts you have blocked.", href: "/settings#settings-privacy-blocked", keywords: "block unblock users people" },
     { id: "notifications", title: "Notifications", section: "Notifications", description: "Control notification categories and delivery.", href: settingsTabHref("notifications"), keywords: "alerts bell updates", featured: true },
-    { id: "notification-categories", title: "In-app notification categories", section: "Notifications", description: "Choose which updates appear in the bell tray.", href: settingsTabHref("notifications"), keywords: "categories project connection message application" },
+    { id: "notification-categories", title: "In-app notification categories", section: "Notifications", description: "Choose which updates appear in the bell tray.", href: settingsTabHref("notifications"), keywords: "categories workspace connection message application" },
     { id: "quiet-hours", title: "Pause notifications and quiet hours", section: "Notifications", description: "Delay delivery temporarily or set a daily quiet window.", href: "/settings#settings-notifications-quiet-hours", keywords: "mute muted scopes snooze pause resume time" },
     { id: "desktop-push", title: "Desktop and push notifications", section: "Notifications", description: "Manage browser desktop and push delivery.", href: "/settings#settings-notifications-delivery", keywords: "browser permission device delivery subscribe" },
     { id: "appearance", title: "Appearance", section: "Appearance", description: "Customize theme, accent color, density, and motion.", href: settingsTabHref("appearance"), keywords: "look display interface", featured: true },
@@ -215,15 +215,15 @@ export function resolveGlobalSearchContext(pathname: string | null, searchParams
             context: "project",
             placeholder: "Search this organization…",
             title: "Search this organization",
-            description: "Docs, assignments, projects, files you can open, sprints and tasks in this organization.",
+            description: "Docs, assignments, workspaces, files you can open, sprints and tasks in this organization.",
         };
     }
     if (isProjectDetailPath(pathname)) {
         return {
             context: "project",
-            placeholder: "Search this project’s tasks…",
-            title: "Search project tasks",
-            description: "Search task keys, titles, and descriptions in this project.",
+            placeholder: "Search this workspace’s tasks…",
+            title: "Search workspace tasks",
+            description: "Search task keys, titles, and descriptions in this workspace.",
         };
     }
     if (pathname?.startsWith("/network")) {
@@ -240,9 +240,9 @@ export function resolveGlobalSearchContext(pathname: string | null, searchParams
     if (pathname?.startsWith("/discover")) {
         return {
             context: "discover",
-            placeholder: "Search projects…",
-            title: "Search projects",
-            description: "Search project names, descriptions, and technologies.",
+            placeholder: "Search workspaces…",
+            title: "Search workspaces",
+            description: "Search workspace names, descriptions, and technologies.",
         };
     }
     if (pathname?.startsWith("/messages")) {
@@ -263,9 +263,9 @@ export function resolveGlobalSearchContext(pathname: string | null, searchParams
     }
     return {
         context: "default",
-        placeholder: "Search projects…",
-        title: "Search projects",
-        description: "Search projects from anywhere in the app.",
+        placeholder: "Search workspaces…",
+        title: "Search workspaces",
+        description: "Search workspaces from anywhere in the app.",
     };
 }
 

@@ -72,7 +72,7 @@ test.describe("Files tab v3 — Sprint timeline: version event sub-row (Task 14.
       try {
         await login(page);
 
-        // Navigate to the project's sprint/timeline view.
+        // Navigate to the workspace's sprint/timeline view.
         await page.goto(`${PROJECT_BASE}?tab=sprints`, { waitUntil: "domcontentloaded" });
 
         // Look for a sprints tab or timeline view.
@@ -117,7 +117,7 @@ test.describe("Files tab v3 — Sprint timeline: version event sub-row (Task 14.
           return {
             result: "not_applicable",
             justification:
-              "Sprint timeline view not found; the project may not have active sprints " +
+              "Sprint timeline view not found; the workspace may not have active sprints " +
               "or the timeline component is not deployed.",
           };
         }

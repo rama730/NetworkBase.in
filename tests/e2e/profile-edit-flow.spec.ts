@@ -156,7 +156,7 @@ test.describe("Profile edit flow", () => {
         const createDialog = await openEditModal(ownerPage);
         await createDialog.getByRole("tab", { name: "Project Contributions" }).click();
         await createDialog.getByRole("button", { name: "Add external project" }).click();
-        await createDialog.getByLabel("Project name").fill(contributionName);
+        await createDialog.getByLabel("Workspace name").fill(contributionName);
         await createDialog.getByLabel("Your role").fill("Contributor");
         const privateSwitch = createDialog.getByRole("switch", { name: new RegExp(contributionName) });
         await expect(privateSwitch).toHaveAttribute("aria-checked", "false");

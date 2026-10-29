@@ -40,7 +40,7 @@ export async function GET(request: Request) {
     const requestedSlug=url.searchParams.get("slug")?.trim();
     const cursor=url.searchParams.get("cursor")?.trim();
     const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if(requestedProjectId&&!uuid.test(requestedProjectId)||cursor&&!uuid.test(cursor)||requestedSlug&&requestedSlug.length>200)return jsonError("Invalid project page query",400,"BAD_REQUEST");
+    if(requestedProjectId&&!uuid.test(requestedProjectId)||cursor&&!uuid.test(cursor)||requestedSlug&&requestedSlug.length>200)return jsonError("Invalid workspace page query",400,"BAD_REQUEST");
     const isSummaryMode = url.searchParams.get("mode") === "summary" || request.headers.get("x-nb-workspace-mode") === "summary";
     // 1. Fetch user's projects (via project memberships)
     const userProjects = await db

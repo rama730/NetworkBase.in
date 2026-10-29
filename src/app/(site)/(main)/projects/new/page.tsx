@@ -9,8 +9,8 @@ import { listCreateLocations } from '@/lib/organizations/detail'
 const VALID_CREATE_PROJECT_SOURCES = new Set(['scratch', 'github', 'upload'] as const)
 
 export const metadata: Metadata = buildRouteMetadata({
-    title: 'Create project | NetworkBase',
-    description: 'Start a new project on NetworkBase.',
+    title: 'Create workspace | NetworkBase',
+    description: 'Start a new workspace on NetworkBase.',
     path: '/projects/new',
 })
 
@@ -43,7 +43,7 @@ export default async function NewProjectPage({
     const requestedOrg = orgParam ? locations.find((location) => location.slug === orgParam) : undefined
     const initialOrgId = requestedOrg && !requestedOrg.block ? requestedOrg.id : null
     const locationNotice = orgParam && !initialOrgId
-        ? `${requestedOrg?.block ?? `You’re not a member of ${orgParam}.`} This will be a personal project.`
+        ? `${requestedOrg?.block ?? `You’re not a member of ${orgParam}.`} This will be a personal workspace.`
         : null
 
     // A normal page in the app shell: fills the main content area; the wizard body is the only scroller.

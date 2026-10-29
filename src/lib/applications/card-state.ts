@@ -40,7 +40,7 @@ export function describeApplyCard(
         };
     }
 
-    const closed = options.projectClosed ? "This project is no longer taking applications." : null;
+    const closed = options.projectClosed ? "This workspace is no longer taking applications." : null;
     const reasonText = status.decisionReasonText?.trim() || undefined;
 
     switch (status.status) {

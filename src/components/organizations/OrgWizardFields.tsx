@@ -247,7 +247,7 @@ function PlanFirstSprints() {
 const ROLE_MEANING = {
     owner: 'Runs the organization, can archive or delete it.',
     admin: 'Manages people, work and settings.',
-    member: 'Works on projects and hands in work.',
+    member: 'Works on workspaces and hands in work.',
     viewer: 'Reads only.',
 } as const
 
@@ -389,7 +389,7 @@ export function OrgSettingsFields() {
     return (
         <div className="space-y-6">
             <fieldset>
-                <legend className={labelClass}>Who can create projects inside the organization</legend>
+                <legend className={labelClass}>Who can create workspaces inside the organization</legend>
                 <div className="mt-3 space-y-2">
                     <label className="flex items-center gap-3 text-sm">
                         <input type="radio" value="members" {...register('organization.child_creation')} /> All members
@@ -402,8 +402,8 @@ export function OrgSettingsFields() {
             <label className="flex items-start gap-3">
                 <input type="checkbox" {...register('organization.outside_people')} className="mt-1" />
                 <span>
-                    <span className="block text-sm font-medium">People outside the organization can be added to its projects</span>
-                    <span className="block text-[13px] text-muted-foreground">Off by default. They see only that project, never the organization’s content.</span>
+                    <span className="block text-sm font-medium">People outside the organization can be added to its workspaces</span>
+                    <span className="block text-[13px] text-muted-foreground">Off by default. They see only that workspace, never the organization’s content.</span>
                 </span>
             </label>
             <div>

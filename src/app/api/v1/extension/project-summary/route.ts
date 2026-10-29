@@ -29,12 +29,12 @@ export async function GET(request: Request) {
       projectId: new URL(request.url).searchParams.get("projectId")?.trim(),
     });
     if (!parsed.success)
-      return jsonError("Invalid project id", 400, "BAD_REQUEST");
+      return jsonError("Invalid workspace id", 400, "BAD_REQUEST");
 
     const { projectId } = parsed.data;
     const access = await getProjectAccessById(projectId, user.id);
     if (!access.project)
-      return jsonError("Project not found", 404, "NOT_FOUND");
+      return jsonError("Workspace not found", 404, "NOT_FOUND");
     // Task data follows the project's Tasks visibility (AUTH-002).
     if (!canReadProjectTab(access, "tasks")) return jsonError("You don’t have access to this", 403, "FORBIDDEN");
 
@@ -87,6 +87,6 @@ export async function GET(request: Request) {
         error: error instanceof Error ? error.message : String(error),
       },
     );
-    return jsonError("Couldn’t get project summary", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t get workspace summary", 500, "INTERNAL_ERROR");
   }
 }

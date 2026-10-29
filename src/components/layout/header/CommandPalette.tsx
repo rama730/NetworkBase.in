@@ -50,10 +50,10 @@ type CommandPaletteProps = {
 };
 
 const CONTEXT_PRESENTATION = {
-    default: { label: "Discover / Workspaces", hints: ["Project name", "Technology", "Category"] },
-    discover: { label: "Discover / Workspaces", hints: ["Project name", "Technology", "Category"] },
+    default: { label: "Discover / Workspaces", hints: ["Workspace name", "Technology", "Category"] },
+    discover: { label: "Discover / Workspaces", hints: ["Workspace name", "Technology", "Category"] },
     network: { label: "Network / Builders", hints: ["Name", "Skill", "Location"] },
-    project: { label: "Project / Work and Links", hints: ["Task title", "Destination name", "Link purpose"] },
+    project: { label: "Workspace / Work and Links", hints: ["Task title", "Destination name", "Link purpose"] },
     settings: { label: "Settings", hints: ["Theme", "Privacy", "Integrations"] },
     messages: { label: "Messages", hints: [] },
 } satisfies Record<GlobalSearchContext, { label: string; hints: string[] }>;
@@ -312,13 +312,13 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
     };
 
     const resultLabel = projectResults.length
-        ? `Projects · ${projectResults.length}`
+        ? `Workspaces · ${projectResults.length}`
         : profileResults.length
             ? `Builders · ${profileResults.length}`
             : taskResults.length
                 ? `Tasks · ${taskResults.length}`
                 : linkResults.length
-                    ? `Project Links · ${linkResults.length}`
+                    ? `Workspace Links · ${linkResults.length}`
                     : settingsResults.length
                         ? `Settings · ${settingsResults.length}`
                         : "Results";
@@ -416,7 +416,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
                             </AppScrollArea>
                         </div>
                     ) : supportsPreviews ? (
-                        <AppScrollArea id="global-search-preview-results" axis="y" role={normalizedQuery ? "listbox" : "region"} aria-busy={previews.isFetching || previews.isDebouncing} aria-label={normalizedQuery ? searchContext === "network" ? "People results" : searchContext === "project" ? "Task search results" : "Project search results" : "Search guidance and recent searches"} className="min-h-0 min-w-0 flex-1 sm:max-h-[480px]">
+                        <AppScrollArea id="global-search-preview-results" axis="y" role={normalizedQuery ? "listbox" : "region"} aria-busy={previews.isFetching || previews.isDebouncing} aria-label={normalizedQuery ? searchContext === "network" ? "People results" : searchContext === "project" ? "Task search results" : "Workspace search results" : "Search guidance and recent searches"} className="min-h-0 min-w-0 flex-1 sm:max-h-[480px]">
                             {normalizedQuery.length === 0 ? (
                                 <div className="px-5 pt-3 pb-6 sm:pt-3 sm:pb-6">
                                     {recentSearches.length ? (
@@ -456,7 +456,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
                                 </div>
                             ) : previewResults.length === 0 ? (
                                 <div className="px-5 py-12 text-center">
-                                    <p className="text-sm font-medium text-foreground">No {searchContext === "network" ? "builders" : searchContext === "project" ? "project work or links" : "projects"} match “{normalizedQuery}”.</p>
+                                    <p className="text-sm font-medium text-foreground">No {searchContext === "network" ? "builders" : searchContext === "project" ? "workspace work or links" : "projects"} match “{normalizedQuery}”.</p>
                                     <p className="mt-1 text-xs text-muted-foreground">Try a {presentation.hints.map((hint) => hint.toLowerCase()).join(", ")}.</p>
                                 </div>
                             ) : (
@@ -473,7 +473,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
                                     {skillResults.length ? (
                                         <div className="mt-2 border-t border-border pt-3">
                                             <div className="flex items-center justify-between px-3 pb-2">
-                                                <span className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">Skills in these projects</span>
+                                                <span className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">Skills in these workspaces</span>
                                             </div>
                                             <div className="relative before:pointer-events-none before:absolute before:left-0 before:top-0 before:z-10 before:h-full before:w-6 before:bg-gradient-to-r before:from-card before:to-transparent after:pointer-events-none after:absolute after:right-0 after:top-0 after:z-10 after:h-full after:w-8 after:bg-gradient-to-l after:from-card after:to-transparent">
                                                 <AppScrollArea axis="x" variant="hidden" stableGutter={false} className="flex w-full min-w-0 flex-nowrap gap-1.5 px-3 pb-2" data-testid="related-skills-scroll">

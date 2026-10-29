@@ -56,7 +56,7 @@ const render = (value: DiscoverUpdateView) => renderToStaticMarkup(
 test("an update card leads with its author and names its project in the footer", () => {
     const html = render(update());
     assert.doesNotMatch(html, />Update</, "no Update badge");
-    assert.ok(html.indexOf("Asha Rao") < html.indexOf("DeepScope AI"), "author comes before the project name");
+    assert.ok(html.indexOf("Asha Rao") < html.indexOf("DeepScope AI"), "author comes before the workspace name");
     assert.match(html, /href="\/projects\/deepscope-ai"/);
     assert.doesNotMatch(html, /<img/, "a project without a cover shows no placeholder picture");
     assert.match(html, /Lead Frontend developer/);

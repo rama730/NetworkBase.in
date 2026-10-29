@@ -10,7 +10,7 @@ import { REPORT_REASON_LABEL, type ReportReason } from '@/lib/organizations/trus
 
 type Data = NonNullable<Awaited<ReturnType<typeof readAdminReportsAction>>>
 
-const KIND_LABEL: Record<string, string> = { project: 'Project or organization', update: 'Post', update_comment: 'Post comment', doc: 'Doc', task_comment: 'Task comment' }
+const KIND_LABEL: Record<string, string> = { project: 'Workspace or organization', update: 'Post', update_comment: 'Post comment', doc: 'Doc', task_comment: 'Task comment' }
 
 export function AdminReportsClient({ data }: { data: Data }) {
     const router = useRouter()

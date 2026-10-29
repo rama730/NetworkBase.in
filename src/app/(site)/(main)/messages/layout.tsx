@@ -4,7 +4,7 @@ import { MessagesSidebar } from "@/components/messages/MessagesSidebar";
 
 export const metadata = buildRouteMetadata({
   title: "Messages | NetworkBase",
-  description: "Channels and direct messages for your projects.",
+  description: "Channels and direct messages for your workspaces.",
   path: "/messages",
   robots: { index: false, follow: false },
 });

@@ -70,13 +70,13 @@ function githubService(input: {
   const summary = unavailable
     ? "GitHub account unavailable."
     : count > 0
-      ? `Used by ${count} project${count === 1 ? "" : "s"}.`
-      : input.linked ? "GitHub is linked; no project uses repository access yet." : "GitHub is not linked.";
+      ? `Used by ${count} workspace${count === 1 ? "" : "s"}.`
+      : input.linked ? "GitHub is linked; no workspace uses repository access yet." : "GitHub is not linked.";
   const detail = unavailable
-    ? `GitHub could not find${username ? ` @${username}` : " the linked account"}. Imported project data remains available.`
+    ? `GitHub could not find${username ? ` @${username}` : " the linked account"}. Imported workspace data remains available.`
     : count > 0
-      ? "Open a project to manage repository import and synchronization."
-      : "Repository access becomes active when you connect GitHub from a project.";
+      ? "Open a workspace to manage repository import and synchronization."
+      : "Repository access becomes active when you connect GitHub from a workspace.";
   return {
     status,
     summary,

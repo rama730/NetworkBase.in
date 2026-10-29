@@ -125,7 +125,7 @@ export function MemberNotificationSettingsEditor({
                 </div>
             ) : (
                 <p className="rounded-lg border border-border bg-card p-4 text-xs leading-relaxed text-muted-foreground">
-                    This member inherits the project-level policy. Changes to project defaults will automatically apply to optional triggers.
+                    This member inherits the workspace-level policy. Changes to workspace defaults will automatically apply to optional triggers.
                 </p>
             )}
 
@@ -137,7 +137,7 @@ export function MemberNotificationSettingsEditor({
                     onClick={() => void onReset()}
                     className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium border-border hover:bg-muted/50"
                 >
-                    Reset to project defaults
+                    Reset to workspace defaults
                 </Button>
                 <Button
                     type="button"
@@ -187,7 +187,7 @@ function MemberNotificationRuleRow({
                     {entry.mandatory
                         ? "Always on for owners and admins."
                         : !projectDecision.enabled
-                            ? "Disabled by project defaults."
+                            ? "Disabled by workspace defaults."
                             : entry.allowMemberOverride
                                 ? "Optional personal preference."
                                 : "Set by the workspace."}

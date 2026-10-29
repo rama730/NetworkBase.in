@@ -121,7 +121,7 @@ export function HomePane() {
         ) : firstRun ? (
           <section className="rounded-lg border border-border bg-card p-5" aria-labelledby="home-start">
             <h2 id="home-start" className="nb-card-title">Start a conversation</h2>
-            <p className="mt-1 text-[13px] text-muted-foreground">Message a teammate directly, or join a channel in one of your projects.</p>
+            <p className="mt-1 text-[13px] text-muted-foreground">Message a teammate directly, or join a channel in one of your workspaces.</p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button asChild size="sm"><Link href="/messages/new"><SquarePen size={16} aria-hidden="true" /> Message someone</Link></Button>
               <Button asChild variant="outline" size="sm"><Link href={browseProject ? `/messages/p/${browseProject.id}/browse` : "/projects"}><Compass size={16} aria-hidden="true" /> {browseProject ? "Browse channels" : "Find a workspace"}</Link></Button>

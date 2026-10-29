@@ -40,11 +40,11 @@ describe("My work drawer contracts", () => {
     assert.match(tasks, /useState<MyWorkScope>\("all"\)/);
     assert.match(tasks, /OPEN_STATUSES/);
     assert.match(tasks, /TASK_STATUS_PRESENTATION/);
-    assert.match(tasks, /Search tasks or projects/);
+    assert.match(tasks, /Search tasks or workspaces/);
     assert.doesNotMatch(tasks, /Virtuoso/);
   });
 
-  it("opens My work tasks through the project panel without exposing drawer IDs", () => {
+  it("opens My work tasks through the workspace panel without exposing drawer IDs", () => {
     const tasks = read("src/components/my-work/MyWorkTasksTab.tsx");
     const store = read("src/stores/ui-store.ts");
     const dashboard = read("src/components/projects/dashboard/ProjectDashboardClient.tsx");

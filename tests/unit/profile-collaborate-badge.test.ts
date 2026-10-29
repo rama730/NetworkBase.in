@@ -40,7 +40,7 @@ test('profile header uses OpenToCollaborateBadge with brand square without dupli
 
 test('collaboration preference mappings resolve canonical values correctly', () => {
     const roles = getRolePreferences(['freelance', 'co-founder', 'full_time']);
-    assert.deepEqual(roles, ['Full-time roles', 'Freelance projects', 'Co-founder opportunities']);
+    assert.deepEqual(roles, ['Full-time roles', 'Freelance workspaces', 'Co-founder opportunities']);
 
     const labels = roles.map((r) => rolePreferenceLabel(r));
     assert.deepEqual(labels, ['Full-time', 'Freelance', 'Co-founder']);

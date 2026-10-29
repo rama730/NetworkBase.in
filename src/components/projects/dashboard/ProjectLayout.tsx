@@ -88,7 +88,7 @@ const TABS = [
     { id: "sprints", label: "Sprints", icon: IterationCcw },
     { id: "tasks", label: "Tasks", icon: ListTodo },
     { id: "files", label: "Files", icon: FolderOpen },
-    { id: "projects", label: "Projects", icon: FolderKanban },
+    { id: "projects", label: "Workspaces", icon: FolderKanban },
     { id: "members", label: "Members", icon: Users },
     { id: "settings", label: "Settings", icon: Settings, ownerOnly: true },
 ];
@@ -364,8 +364,8 @@ export default function ProjectLayout({
                                             <Link
                                                 href={`/projects/${project.slug || project.id}?tab=settings#project-settings-general`}
                                                 className="nb-touch-target group/add-avatar inline-flex items-center justify-center gap-1.5 rounded-full border border-dashed border-border/80 px-2.5 py-0.5 text-xs text-muted-foreground transition-[color,border-color,background-color] duration-150 hover:border-foreground/40 hover:bg-muted/40 hover:text-foreground"
-                                                title="Add project avatar"
-                                                aria-label="Add project avatar"
+                                                title="Add workspace avatar"
+                                                aria-label="Add workspace avatar"
                                             >
                                                 <Camera className="size-3 text-muted-foreground group-hover/add-avatar:text-foreground" aria-hidden="true" />
                                                 <span className="hidden sm:inline">Add avatar</span>
@@ -395,8 +395,8 @@ export default function ProjectLayout({
                                     type="button"
                                     onClick={onInvite}
                                     className="nb-touch-target nb-ui-label inline-flex h-[var(--ui-control-height)] items-center gap-1.5 rounded-md border border-border bg-card px-3 text-foreground transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:bg-muted"
-                                    aria-label="Invite a project member"
-                                    title="Invite a project member"
+                                    aria-label="Invite a workspace member"
+                                    title="Invite a workspace member"
                                 >
                                     <UserPlus className="size-4" aria-hidden="true" />
                                     <span>Invite</span>
@@ -414,8 +414,8 @@ export default function ProjectLayout({
                                         ? "text-primary bg-primary/10"
                                         : "border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
                                 )}
-                                title={isFollowing ? "Unfollow project" : "Follow project"}
-                                aria-label={isFollowing ? "Unfollow project" : "Follow project"}
+                                title={isFollowing ? "Unfollow workspace" : "Follow workspace"}
+                                aria-label={isFollowing ? "Unfollow workspace" : "Follow workspace"}
                                 data-testid="project-follow-toggle"
                                 disabled={followLoading}
                                 aria-busy={followLoading}
@@ -460,7 +460,7 @@ export default function ProjectLayout({
                             {compactChip !== undefined ? compactChip : stageLabel ? <span className="nb-status shrink-0" data-status="active">{stageLabel}</span> : null}
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <button ref={actionsTrigger} type="button" aria-label="Project actions" className="nb-icon-button nb-touch-target shrink-0">
+                                    <button ref={actionsTrigger} type="button" aria-label="Workspace actions" className="nb-icon-button nb-touch-target shrink-0">
                                         <MoreHorizontal className="size-4" aria-hidden="true" />
                                     </button>
                                 </DropdownMenuTrigger>
@@ -469,7 +469,7 @@ export default function ProjectLayout({
                                     {showFollow ? (
                                         <DropdownMenuItem onSelect={() => onFollow?.()} disabled={followLoading}>
                                             {isFollowing ? <UserCheck className="size-4" aria-hidden="true" /> : <UserPlus className="size-4" aria-hidden="true" />}
-                                            {isFollowing ? "Unfollow project" : "Follow project"}
+                                            {isFollowing ? "Unfollow workspace" : "Follow workspace"}
                                         </DropdownMenuItem>
                                     ) : null}
                                     {canInvite && onInvite ? (
@@ -484,7 +484,7 @@ export default function ProjectLayout({
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onSelect={() => onTabChange("dashboard")}>
                                         <LayoutDashboard className="size-4" aria-hidden="true" />
-                                        {isOrganization ? "Org overview" : "Project overview"}
+                                        {isOrganization ? "Org overview" : "Workspace overview"}
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
@@ -503,7 +503,7 @@ export default function ProjectLayout({
                 style={{ top: 0 }}
             >
                 <div className="w-full">
-                    <div ref={tabListRef} role="tablist" aria-label="Project sections" className="app-scroll app-scroll-x -mb-px flex items-center overflow-x-auto px-4 sm:px-6 max-md:[mask-image:linear-gradient(to_right,#000_88%,transparent)]">
+                    <div ref={tabListRef} role="tablist" aria-label="Workspace sections" className="app-scroll app-scroll-x -mb-px flex items-center overflow-x-auto px-4 sm:px-6 max-md:[mask-image:linear-gradient(to_right,#000_88%,transparent)]">
                         {visibleTabs.map((tab, index) => {
                             const isActive = activeTab === tab.id;
                             return (

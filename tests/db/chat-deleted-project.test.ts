@@ -32,7 +32,7 @@ async function twoProjects() {
 test("the bootstrap lists neither a deleted project nor its channels, even if a channel was left behind", async () => {
   const f = await twoProjects();
   try {
-    // Simulate what earlier versions of project delete left: the project soft-deleted with its channel intact.
+    // Simulate what earlier versions of project delete left: the workspace soft-deleted with its channel intact.
     await sql`ALTER TABLE projects DISABLE TRIGGER projects_drop_chat_on_soft_delete`;
     await sql`UPDATE projects SET deleted_at = now() WHERE id = ${f.gone}`;
     await sql`ALTER TABLE projects ENABLE TRIGGER projects_drop_chat_on_soft_delete`;

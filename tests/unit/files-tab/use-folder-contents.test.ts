@@ -209,7 +209,7 @@ describe("useFolderContents / runFolderLoad — retry side effect (Req 4.10)", (
     assert.deepEqual(calls[0], ["folder-abc", "refresh"]);
   });
 
-  it("invokes the loader with null folderId for the project root", async () => {
+  it("invokes the loader with null folderId for the workspace root", async () => {
     const calls: Array<[string | null, "refresh" | "append" | undefined]> = [];
     const load: LoadFolderContent = async (parentId, mode) => {
       calls.push([parentId, mode]);

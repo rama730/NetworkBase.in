@@ -21,14 +21,14 @@ export function getProjectTitleFromSlug(slug: string) {
     }
     decoded = (slug || "").trim();
   }
-  if (!decoded || isLooseUuid(decoded)) return "Project";
+  if (!decoded || isLooseUuid(decoded)) return "Workspace";
 
   const normalized = decoded
     .replace(/[-_]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 
-  return normalized ? normalized.slice(0, 80) : "Project";
+  return normalized ? normalized.slice(0, 80) : "Workspace";
 }
 
 export function buildProjectDetailMetadataInput(
@@ -52,7 +52,7 @@ export function buildProjectDetailMetadataInput(
     description,
     path: `/projects/${encodeURIComponent(canonicalSlug)}`,
     image: projectImage || `/api/og/project/${encodeURIComponent(canonicalSlug)}`,
-    imageAlt: `${resolvedTitle} project image`,
+    imageAlt: `${resolvedTitle} workspace image`,
     imageWidth,
     imageHeight,
     twitterCard: "summary_large_image" as const,

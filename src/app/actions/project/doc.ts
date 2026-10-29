@@ -161,7 +161,7 @@ async function loadDocProjectBase(projectId: string, actorUserId: string | null)
             },
         },
     });
-    if (!row) throw new Error("Project not found");
+    if (!row) throw new Error("Workspace not found");
     const { docs, members, ...project } = row;
     // Inherited org admins edit a child project's docs like its admins; their edits carry their name (report §19.7).
     if (!members[0] && actorUserId) {
@@ -321,7 +321,7 @@ function blockKey(block: Pick<ProjectDocSmartBlock, "kind" | "ids" | "index">) {
     return `${block.kind}:${block.ids.join(",")}:${block.index}`;
 }
 
-function unavailablePreview(block: Pick<ProjectDocSmartBlock, "kind" | "ids" | "index">, description = "This project reference is not available to this viewer."): ProjectDocSmartBlockPreview {
+function unavailablePreview(block: Pick<ProjectDocSmartBlock, "kind" | "ids" | "index">, description = "This workspace reference is not available to this viewer."): ProjectDocSmartBlockPreview {
     return {
         key: blockKey({ kind: block.kind, ids: block.ids ?? [], index: block.index ?? 0 }),
         kind: block.kind,
@@ -503,7 +503,7 @@ function optionFromContributor(row: {
         id: row.userId,
         kind: "contributors",
         kindLabel: "Contributor",
-        title: row.fullName || row.username || "Project member",
+        title: row.fullName || row.username || "Workspace member",
         subtitle: row.username ? `@${row.username}` : null,
         status: roleLabel,
         meta: projectRoleTitle ? `(${projectRoleTitle})` : null,
@@ -555,7 +555,7 @@ export async function readProjectDocAction(projectId: string, requestedSlug: str
                     // The doc permission above authorizes this exact linked file; the
                     // reader still hides task-owned files from viewers without Tasks.
                     const access = await getProjectAccessById(projectId, actorUserId);
-                    if (!access.project || !access.canRead) throw new Error("Project not readable");
+                    if (!access.project || !access.canRead) throw new Error("Workspace not readable");
                     const content = await readProjectFileText({ ...access, project: access.project }, projectId, node.id);
                     const metadata = getOrBuildProjectDocPublishMetadata(content);
                     versionRow = {
@@ -840,8 +840,8 @@ export async function readProjectDocSmartBlockPreviewsAction(projectId: string, 
                 return {
                     key: blockKey(block),
                     kind: block.kind,
-                    title: "Projects",
-                    description: "Projects inside this organization, live.",
+                    title: "Workspaces",
+                    description: "Workspaces inside this organization, live.",
                     href: projectHref(context.project, "projects"),
                     items: childProjects,
                     unavailableCount: 0,
@@ -889,8 +889,8 @@ export async function readProjectDocSmartBlockPreviewsAction(projectId: string, 
                                 ? "Open roles"
                                 : "Contributors",
                 description: block.ids.length
-                    ? "Selected project context from this document."
-                    : "Current project context rendered from live project data.",
+                    ? "Selected workspace context from this document."
+                    : "Current workspace context rendered from live workspace data.",
                 href,
                 items,
                 unavailableCount: Math.max(0, block.ids.length - items.length),
@@ -906,7 +906,7 @@ export async function readProjectDocSmartBlockPreviewsAction(projectId: string, 
             projectId,
             error: error instanceof Error ? error.message : String(error),
         });
-        return { success: false, error: "Couldn’t load document project references." };
+        return { success: false, error: "Couldn’t load document workspace references." };
     }
 }
 
@@ -954,7 +954,7 @@ export async function linkProjectDocAction(projectId: string, nodeId: string) {
         const base = await loadDocProjectBase(projectId, userId);
         const context = docContext(base, userId, "readme");
         if (!context.permission.canEdit) {
-            return { success: false as const, error: "Only project members can add a document." };
+            return { success: false as const, error: "Only workspace members can add a document." };
         }
 
         const node = await db.query.projectNodes.findFirst({
@@ -1000,7 +1000,7 @@ export async function unlinkProjectDocAction(projectId: string, docSlug: string)
         const userId = await requireUserId();
         const context = await getDocProjectContext(projectId, userId, docSlug);
         if (!context.permission.canEdit) {
-            return { success: false as const, error: "Only project members can remove a document." };
+            return { success: false as const, error: "Only workspace members can remove a document." };
         }
 
         await db.delete(projectDocs).where(and(eq(projectDocs.projectId, projectId), eq(projectDocs.slug, docSlug)));
@@ -1035,7 +1035,7 @@ export async function applyCreationIntentAction(projectId: string, input: unknow
 
         const context = await getDocProjectContext(projectId, userId, "readme");
         if (!context.permission.canEdit) {
-            return { success: false as const, error: "You cannot initialize documents for this project." };
+            return { success: false as const, error: "You cannot initialize documents for this workspace." };
         }
 
         const starterText = parsed.starterContent || "";
@@ -1082,7 +1082,7 @@ export async function applyCreationIntentAction(projectId: string, input: unknow
                             headings: metadata.headings,
                             qualityReport: metadata.qualityReport,
                             contentHash: metadata.contentHash,
-                            changeSummary: "Initial project document",
+                            changeSummary: "Initial workspace document",
                             coAuthors: [],
                             createdBy: userId,
                         })

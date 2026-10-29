@@ -91,7 +91,7 @@ test("Doc permissions keep public, private, and editor access separated", () => 
 test("Doc metadata extracts headings, excerpt, hash, and smart blocks", () => {
     const content = `# Project Overview
 
-This project helps teams ship together.
+This workspace helps teams ship together.
 
 ## Getting Started
 
@@ -493,7 +493,7 @@ test("Doc view model cache keys prefer the persisted content hash", () => {
 });
 
 test("Doc view model reports weak and empty Doc states", () => {
-    const weak = buildProjectDocViewModel({ content: "This project is described but has no setup path." });
+    const weak = buildProjectDocViewModel({ content: "This workspace is described but has no setup path." });
     assert.equal(weak.report.readiness, "weak");
     assert.ok(weak.report.limitations.includes("No copyable setup commands detected"));
     assert.equal(weak.railTabs.includes("brief"), true);

@@ -32,7 +32,7 @@ describe("github unavailable-account end-to-end contract", () => {
     const settings = source("src/components/settings/IntegrationsSettings.tsx");
 
     assert.match(builder, /unavailable \? "action_required"/);
-    assert.match(builder, /Imported project data remains available/);
+    assert.match(builder, /Imported workspace data remains available/);
     assert.match(settings, /GitHub status unavailable/);
     assert.doesNotMatch(settings, /getSyncPreviewAction/);
     assert.doesNotMatch(settings, /retryGithubImportAction/);

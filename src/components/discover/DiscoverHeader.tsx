@@ -15,10 +15,10 @@ import { PROJECT_TYPE_OPTIONS } from '@/lib/projects/project-create-options';
 import { resolveClientSkill } from '@/lib/skills/client';
 
 const SCOPES: Array<{ id: FilterView; label: string; subtitle: string }> = [
-    { id: FILTER_VIEWS.ALL, label: 'All projects', subtitle: 'Every open project and its latest updates, newest first.' },
-    { id: FILTER_VIEWS.TRENDING, label: 'Trending', subtitle: 'Projects getting the most attention right now.' },
-    { id: FILTER_VIEWS.RECOMMENDATIONS, label: 'For you', subtitle: 'Projects that match your skills and interests.' },
-    { id: FILTER_VIEWS.FOLLOWING, label: 'Following', subtitle: 'Projects you follow, and what they post.' },
+    { id: FILTER_VIEWS.ALL, label: 'All workspaces', subtitle: 'Every open workspace and its latest updates, newest first.' },
+    { id: FILTER_VIEWS.TRENDING, label: 'Trending', subtitle: 'Workspaces getting the most attention right now.' },
+    { id: FILTER_VIEWS.RECOMMENDATIONS, label: 'For you', subtitle: 'Workspaces that match your skills and interests.' },
+    { id: FILTER_VIEWS.FOLLOWING, label: 'Following', subtitle: 'Workspaces you follow, and what they post.' },
 ];
 
 const SORT_LABELS: Record<string, string> = { newest: 'Newest', oldest: 'Oldest', most_viewed: 'Most viewed', most_followed: 'Most followed' };
@@ -53,7 +53,7 @@ function SearchBox({ value, loading = false, onSearch }: { value: string; loadin
                 // On a phone, put the keyboard away so the results show.
                 if (window.matchMedia('(pointer: coarse)').matches) input.blur();
             }}
-            label="Search projects and updates"
+            label="Search workspaces and updates"
             pageSearch
             className="flex-1 sm:w-64 sm:flex-none"
         />
@@ -138,7 +138,7 @@ export default function DiscoverHeader({ query, activeFilters, announcement, loa
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">Everything</SelectItem>
-                        <SelectItem value="projects">Projects</SelectItem>
+                        <SelectItem value="projects">Workspaces</SelectItem>
                         <SelectItem value="organizations">Organizations</SelectItem>
                         <SelectItem value="updates">Updates</SelectItem>
                     </SelectContent>
@@ -147,7 +147,7 @@ export default function DiscoverHeader({ query, activeFilters, announcement, loa
                 <div className="flex items-center gap-2 max-sm:w-full">
                     {sortable ? (
                         <Select value={query.sort} onValueChange={(value) => onChange({ sort: value as SortOption })}>
-                            <SelectTrigger aria-label="Sort projects" className="w-auto min-w-[132px] bg-card max-sm:flex-1 pointer-coarse:h-11">
+                            <SelectTrigger aria-label="Sort workspaces" className="w-auto min-w-[132px] bg-card max-sm:flex-1 pointer-coarse:h-11">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>

@@ -160,7 +160,7 @@ async function readPersistedByProjectId(
 }
 
 /**
- * Given a persisted map and a starred `nodeId`, returns the projectId
+ * Given a persisted map and a starred `nodeId`, returns the workspaceId
  * whose `favorites[nodeId] === true`. Throws when zero or more than one
  * project has that entry.
  */
@@ -378,7 +378,7 @@ test.describe("Files tab v3 — favorites (star/unstar + per-project persistence
                 ],
             });
             try {
-                // 1. Open project A and star a node there.
+                // 1. Open workspace A and star a node there.
                 const openedA = await openFilesTab(page, PROJECT_A_SLUG);
                 if (!openedA.ready) {
                     return {

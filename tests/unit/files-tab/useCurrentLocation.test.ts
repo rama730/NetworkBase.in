@@ -68,7 +68,7 @@ function seedWorkspace(overrides: Partial<ProjectFilesState> = {}): ProjectFiles
 // ─── Tests ───────────────────────────────────────────────────────────
 
 describe("useCurrentLocation selector (Task 2.2)", () => {
-  it("returns null when the store has no workspace entry for the project (uninitialized)", () => {
+  it("returns null when the store has no workspace entry for the workspace (uninitialized)", () => {
     assert.equal(selectCurrentLocation(undefined), null);
   });
 

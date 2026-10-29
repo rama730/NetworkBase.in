@@ -7,7 +7,7 @@ function source(relativePath: string) {
     return fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
 }
 
-test('every New project entry opens the full-page create route instead of a modal', () => {
+test('every New workspace entry opens the full-page create route instead of a modal', () => {
     const header = source('src/components/layout/header/TopNav.tsx');
     const mobileMenu = source('src/components/layout/header/MobileMenu.tsx');
     const discover = source('src/components/discover/DiscoverClient.tsx');

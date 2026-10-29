@@ -118,11 +118,11 @@ export function shareSkillSummary(labels: readonly string[], total?: number) {
 export function portfolioSummary(count: number | null, title: string | null = null, exists = false): string | null {
   if (count === 0 || (count === null && !exists)) return null;
   if (count === 1) return shareText(title) ? `Public portfolio · ${shareText(title)}` : 'Explore public portfolio';
-  return count === null ? 'Explore public portfolio' : `Public portfolio · ${count} projects`;
+  return count === null ? 'Explore public portfolio' : `Public portfolio · ${count} contributions`;
 }
 
 export function genericSharePreview(resource: ShareResource, state: SharePreview['state'] = 'unknown'): SharePreview {
-  const title = resource.kind === 'application' ? 'NetworkBase' : `${resource.kind === 'profile' ? 'Profile' : 'Project'} on NetworkBase`;
+  const title = resource.kind === 'application' ? 'NetworkBase' : `${resource.kind === 'profile' ? 'Profile' : 'Workspace'} on NetworkBase`;
   return { kind: resource.kind, state, url: resource.url, title,
     description: resource.kind === 'application' ? 'Professional social network for builders.'
       : state === 'unavailable' ? `This ${resource.kind} is unavailable.`
@@ -156,10 +156,10 @@ export function socialImageCanRender(preview: SharePreview) {
 export function accessCopy(preview: SharePreview): string {
   if (preview.state === 'unavailable') return `This ${preview.kind} is no longer available.`;
   if (preview.state === 'unknown') return 'Preview details could not load. You can still copy a resolved link.';
-  if (preview.kind === 'project' && preview.draft) return 'Draft · unpublished. Sharing this link does not publish the project or grant access.';
+  if (preview.kind === 'project' && preview.draft) return 'Draft · unpublished. Sharing this link does not publish the workspace or grant access.';
   if (preview.visibility === 'connections') return 'Only permitted connections can view this profile. Sharing does not change access.';
   if (preview.visibility === 'private') return `This ${preview.kind} is private. Sharing does not change access.`;
   if (preview.state === 'restricted') return `Access is required to view this ${preview.kind}. Sharing does not grant access.`;
-  if (preview.visibility === 'unlisted') return 'This project is unlisted. Anyone with its link can view it, but it is not indexed.';
+  if (preview.visibility === 'unlisted') return 'This workspace is unlisted. Anyone with its link can view it, but it is not indexed.';
   return `Anyone with this link can view the ${preview.kind === 'application' ? 'application' : `public ${preview.kind}`}.`;
 }

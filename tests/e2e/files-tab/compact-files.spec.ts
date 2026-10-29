@@ -41,7 +41,7 @@ test.describe("compact Files workspace", () => {
     const menu = page.getByTestId("files-views-menu");
     await menu.click();
     await page.getByRole("menuitem", { name: "Search…", exact: true }).click();
-    const input = page.getByRole("combobox", { name: "Search project files", exact: true });
+    const input = page.getByRole("combobox", { name: "Search workspace files", exact: true });
     await expect(input).toBeFocused();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();

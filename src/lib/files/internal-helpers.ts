@@ -12,7 +12,7 @@ type ExistingProjectAccess = ProjectAccess & { project: NonNullable<ProjectAcces
 
 async function getProjectAccess(projectId: string, userId: string | null): Promise<ExistingProjectAccess> {
     const access = await getProjectAccessById(projectId, userId);
-    if (!access.project) throw new NotFoundError("Project not found");
+    if (!access.project) throw new NotFoundError("Workspace not found");
     return access as ExistingProjectAccess;
 }
 
@@ -153,7 +153,7 @@ export async function assertProjectUploadAccess(projectId: string, userId: strin
             .limit(1)
         : [];
     if (!canProjectMemberUploadFiles({ role: access.memberRole, fileUploadEnabled: member?.fileUploadEnabled ?? null })) {
-        throw new ForbiddenError("File uploads are disabled for this project member.");
+        throw new ForbiddenError("File uploads are disabled for this workspace member.");
     }
     return { ...access, canUpload: true };
 }
@@ -297,7 +297,7 @@ export async function assertProjectUploadAccessTx(
         if (!member) throw new ForbiddenError("You don’t have access to this");
         await assertOrgWrite(tx, projectId, userId, member.role === "admin", target);
     } else if (!member || !canProjectMemberUploadFiles({ role: member.role, fileUploadEnabled: member.file_upload_enabled })) {
-        throw new ForbiddenError("File uploads are disabled for this project member.");
+        throw new ForbiddenError("File uploads are disabled for this workspace member.");
     }
 
     return {
@@ -406,7 +406,7 @@ export async function assertValidMoveDestination(
     tx: { query: typeof db.query } = db,
 ) {
     if (sourceTaskId) {
-        throw new Error("Task working files must be published to Project Files before they can be relocated");
+        throw new Error("Task working files must be published to Workspace Files before they can be relocated");
     }
     const parent = await assertValidParentFolder(projectId, parentId, tx);
     if (!parent) return null;
@@ -526,7 +526,7 @@ export async function recordNodeEvent(
             });
 
         if (!counter) {
-            throw new Error(`Project ${projectId} not found`);
+            throw new Error(`Workspace ${projectId} not found`);
         }
 
         const [event] = await tx
@@ -578,7 +578,7 @@ export async function recordNodeEventsBatch(
             });
 
         if (!counter) {
-            throw new Error(`Project ${projectId} not found`);
+            throw new Error(`Workspace ${projectId} not found`);
         }
 
         const startSeq = Number(counter.newSequenceNumber) - count;

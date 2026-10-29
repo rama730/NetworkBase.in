@@ -1189,7 +1189,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
 
             {isOrganization && isOwnerOrMember && activeTab === 'projects' && (
                 <div className="w-full h-full min-h-0">
-                    <TabErrorBoundary tabName="Projects">
+                    <TabErrorBoundary tabName="Workspaces">
                         <OrgProjectsTab orgId={project.id} orgSlug={project.slug} />
                     </TabErrorBoundary>
                 </div>

@@ -291,7 +291,7 @@ export function TaskSearchPicker({
                   <CheckSquare className="nb-empty-state-icon" />
                 </div>
                 <h4 className="nb-empty-state-title">No tasks</h4>
-                <p className="nb-empty-state-desc">No tasks in this project yet.</p>
+                <p className="nb-empty-state-desc">No tasks in this workspace yet.</p>
               </div>
             </div>
           ) : (

@@ -98,7 +98,7 @@ const ProjectTeamAvatars = memo(function ProjectTeamAvatars({
 
     if (loading && avatars.length === 0) {
         return (
-            <div className="flex -space-x-1.5" aria-label="Loading project team">
+            <div className="flex -space-x-1.5" aria-label="Loading workspace team">
                 {Array.from({ length: 3 }).map((_, index) => (
                     <span key={index} className="size-[34px] rounded-[5px] border-2 border-card bg-muted" />
                 ))}
@@ -114,7 +114,7 @@ const ProjectTeamAvatars = memo(function ProjectTeamAvatars({
     return (
         <TooltipProvider delayDuration={130}>
             {/* Below md the stack is decorative; the members button opens the roster (tooltips never show on touch). */}
-            <div className="flex items-center -space-x-1.5 max-md:pointer-events-none max-md:[&_.nb-avatar-trigger]:min-h-0 max-md:[&_.nb-avatar-trigger]:min-w-0" aria-label={`${avatars.length} project team ${avatars.length === 1 ? "member" : "members"}`}>
+            <div className="flex items-center -space-x-1.5 max-md:pointer-events-none max-md:[&_.nb-avatar-trigger]:min-h-0 max-md:[&_.nb-avatar-trigger]:min-w-0" aria-label={`${avatars.length} workspace team ${avatars.length === 1 ? "member" : "members"}`}>
                 {visibleAvatars.map((avatar) => {
                     const portrait = (
                         <Avatar className="size-[34px] rounded-[5px] border-2 border-card bg-muted shadow-none">

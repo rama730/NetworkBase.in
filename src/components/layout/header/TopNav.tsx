@@ -189,7 +189,7 @@ export default function TopNav() {
                                 : 'border-primary bg-primary text-primary-foreground hover:border-[var(--primary-hover)] hover:bg-[var(--primary-hover)] active:border-[var(--primary-active)] active:bg-[var(--primary-active)]'}`}
                         >
                             <Plus className="size-4" aria-hidden="true" />
-                            New project
+                            New workspace
                         </Link>
                     )}
                     {authUiState === "signed-in" && (

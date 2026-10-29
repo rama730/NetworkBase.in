@@ -231,7 +231,7 @@ export function storyValidation(
   }> = [];
   const currentMonth = (options.now ?? new Date()).toISOString().slice(0, 7);
   if (options.publish && !story.title.trim())
-    errors.push({ section: "identity", message: "Enter a project name." });
+    errors.push({ section: "identity", message: "Enter the workspace or project name." });
   if (
     options.publish &&
     !story.summary.trim() &&
@@ -306,7 +306,7 @@ export function storyValidation(
     if (options.publish && image.projectFileId && !image.permission)
       errors.push({
         section: "work",
-        message: "Confirm permission to publish each project image.",
+        message: "Confirm permission to publish each workspace image.",
         imageId: image.id,
         field: "image-permission",
       });
@@ -484,7 +484,7 @@ export function storyFromContribution(
         ? [
             {
               id: contribution.id,
-              label: "Project website",
+              label: "Workspace website",
               url: contribution.projectUrl,
             },
           ]

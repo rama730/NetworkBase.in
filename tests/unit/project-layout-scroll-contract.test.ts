@@ -12,7 +12,7 @@ test("project detail header stays route-owned", () => {
     assert.doesNotMatch(
         source,
         /isContainedWorkspaceTab|isDocEditWorkspaceTab/,
-        "The project layout has no contained Doc edit workspace",
+        "The workspace layout has no contained Doc edit workspace",
     );
     assert.doesNotMatch(source, /isFilesTab \|\| isDocEditWorkspaceTab \|\| isSettingsTab/);
     assert.doesNotMatch(
@@ -20,7 +20,7 @@ test("project detail header stays route-owned", () => {
         /handleNestedScroll|handleWheel|nestedScrollTops/,
         "contained workspace panes should own their own scroll chrome",
     );
-    assert.doesNotMatch(source, /isFilesTab && isScrolled/, "Files must not toggle the project identity header");
+    assert.doesNotMatch(source, /isFilesTab && isScrolled/, "Files must not toggle the workspace identity header");
     assert.match(
         source,
         /isFilesTab[\s\S]{0,120}h-\[calc\(100dvh-var\(--ui-topnav-height\)-var\(--project-tabs-height\)\)\]/,
@@ -40,7 +40,7 @@ test("project detail header stays route-owned", () => {
     assert.match(source, /isScrolled && "shadow-none"/, "sticky header treatment should remain flat for all scroll sources");
 });
 
-test("project tab changes restore the project identity header", () => {
+test("project tab changes restore the workspace identity header", () => {
     const dashboardSource = fs.readFileSync(
         path.join(process.cwd(), "src/components/projects/dashboard/ProjectDashboardClient.tsx"),
         "utf8",

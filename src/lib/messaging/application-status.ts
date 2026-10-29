@@ -39,7 +39,7 @@ export function applicationLineKind(body: string): ApplicationLineKind | null {
   if (line.startsWith("reopened this application")) return "reopened";
   if (line.startsWith("applied again")) return "applied";
   if (line.startsWith("edited the application")) return "edited";
-  if (line.startsWith("closed this application") || line.startsWith("joined the project")) return "closed";
+  if (line.startsWith("closed this application") || line.startsWith("joined the workspace")) return "closed";
   return null;
 }
 

@@ -52,7 +52,7 @@ export class StaleDiscoverFeedError extends Error {
 
 export class InvalidDiscoverCursorError extends Error {
     constructor() {
-        super('Invalid project search cursor');
+        super('Invalid workspace search cursor');
         this.name = 'InvalidDiscoverCursorError';
     }
 }
@@ -554,7 +554,7 @@ const buildReasonLabels = (input: {
     if (reasons.length === 0 && input.view === FILTER_VIEWS.RECOMMENDATIONS) {
         reasons.push('Recommended for you');
     } else if (reasons.length === 0) {
-        reasons.push('Popular project');
+        reasons.push('Popular workspace');
     }
 
     return reasons.slice(0, 2);

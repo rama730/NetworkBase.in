@@ -21,7 +21,7 @@ export function UploadManifestPreview({ manifest }: { manifest: UploadManifest }
         <div>
           <h3 id="upload-manifest-title" className="nb-card-title text-foreground">Folder contents</h3>
           <p className="nb-compact mt-1 text-muted-foreground">
-            Review what will be attached when the project is created.
+            Review what will be attached when the workspace is created.
           </p>
         </div>
         <div className="nb-meta flex flex-wrap gap-2 text-muted-foreground">

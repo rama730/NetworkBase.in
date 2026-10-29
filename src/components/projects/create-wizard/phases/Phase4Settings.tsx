@@ -36,7 +36,7 @@ type Phase4SettingsProps = {
 // Same order and names as Project settings, so what is chosen here is where it lives later (spec §18).
 // Icons match the Project settings rail for the same sections.
 const SECTIONS: ReadonlyArray<{ id: string; eyebrow: string; label: string; description: string; icon: ComponentType<{ className?: string }> }> = [
-    { id: 'picture', eyebrow: 'Project picture', label: 'Project picture', description: 'Image on cards and header', icon: ImageIcon },
+    { id: 'picture', eyebrow: 'Workspace picture', label: 'Workspace picture', description: 'Image on cards and header', icon: ImageIcon },
     { id: 'access', eyebrow: 'Access and visibility', label: 'Access and visibility', description: 'Visibility and public tabs', icon: Globe },
     { id: 'links', eyebrow: 'Links', label: 'Links', description: 'External destinations', icon: Link2 },
     { id: 'documentation', eyebrow: 'Documentation', label: 'Documentation', description: 'Starter doc and editing', icon: FileText },
@@ -292,8 +292,8 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
             <div className="min-w-0 w-full space-y-8 pb-6">
                 <div className="max-w-[65ch]">
                     <p className="nb-micro text-primary">Phase 4 · {isOrganization ? 'setup' : 'settings'}</p>
-                    <h2 className="nb-section-title mt-1 text-foreground">{isOrganization ? 'Setup' : 'Set up how the project launches'}</h2>
-                    <p className="nb-compact mt-1.5 text-muted-foreground">{isOrganization ? 'Who can see it and how it runs. Everything here is in Settings later.' : 'Every choice has a sensible default and can be changed later in Project settings.'}</p>
+                    <h2 className="nb-section-title mt-1 text-foreground">{isOrganization ? 'Setup' : 'Set up how the workspace launches'}</h2>
+                    <p className="nb-compact mt-1.5 text-muted-foreground">{isOrganization ? 'Who can see it and how it runs. Everything here is in Settings later.' : 'Every choice has a sensible default and can be changed later in Workspace settings.'}</p>
                 </div>
                 {isOrganization ? (
                     <>
@@ -302,7 +302,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                             <OrgCalendarFields />
                         </section>
                         <section aria-labelledby="create-org-inside" className="border-t border-border pt-6">
-                            <h3 id="create-org-inside" className="nb-card-title mb-4 text-foreground">Projects inside and work</h3>
+                            <h3 id="create-org-inside" className="nb-card-title mb-4 text-foreground">Workspaces inside and work</h3>
                             <OrgSettingsFields />
                         </section>
                     </>
@@ -310,7 +310,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
 
                 {showValidationSummary && validationMessages.length > 0 ? (
                     <div role="alert" aria-live="assertive" className="border-l-2 border-destructive bg-[var(--status-danger-soft)] px-4 py-3 text-[13px] leading-[1.5] text-foreground">
-                        <p className="font-semibold">Finish the project links before continuing</p>
+                        <p className="font-semibold">Finish the workspace links before continuing</p>
                         <ul className="mt-1 list-disc space-y-0.5 pl-4 text-muted-foreground">
                             {validationMessages.map((err) => (
                                 <li key={err.message}>
@@ -338,10 +338,10 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     </div>
                 ) : null}
 
-                <LaunchSection {...sectionProps('picture')} title="Project picture" description="Shown on project cards, search, and the project header." summary={projectImage ? 'Picture added' : 'Initials until you add a picture'}>
+                <LaunchSection {...sectionProps('picture')} title="Workspace picture" description="Shown on workspace cards, search, and the workspace header." summary={projectImage ? 'Picture added' : 'Initials until you add a picture'}>
                     <div className="flex flex-wrap items-center gap-4">
                         <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed border-input bg-muted/30 text-muted-foreground">
-                            {imagePreviewUrl ? <img src={imagePreviewUrl} alt="Selected project picture" className="size-full object-cover" /> : <ImagePlus className="size-5" aria-hidden="true" />}
+                            {imagePreviewUrl ? <img src={imagePreviewUrl} alt="Selected workspace picture" className="size-full object-cover" /> : <ImagePlus className="size-5" aria-hidden="true" />}
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
                             <Button type="button" variant="outline" onClick={() => imageInputRef.current?.click()}>{projectImage ? 'Replace image' : 'Upload image'}</Button>
@@ -352,17 +352,17 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     </div>
                 </LaunchSection>
 
-                <LaunchSection {...sectionProps('access')} title="Choose project visibility" description="Controls who can find the project now, and which tabs outsiders see." summary={visibility === 'private' ? 'Private · members only' : visibility === 'org' ? `Org only · members of ${childOrg?.title ?? 'the organization'}` : `Public · ${publicTabCount} public ${publicTabCount === 1 ? 'tab' : 'tabs'}`}>
+                <LaunchSection {...sectionProps('access')} title="Choose workspace visibility" description="Controls who can find the workspace now, and which tabs outsiders see." summary={visibility === 'private' ? 'Private · members only' : visibility === 'org' ? `Org only · members of ${childOrg?.title ?? 'the organization'}` : `Public · ${publicTabCount} public ${publicTabCount === 1 ? 'tab' : 'tabs'}`}>
                     <fieldset className="border-y border-border" aria-describedby="create-project-visibility-help">
-                        <legend className="sr-only">Project visibility</legend>
+                        <legend className="sr-only">Workspace visibility</legend>
                         {(childOrg
                             ? [
-                                { id: 'public' as const, label: 'Public', icon: Globe, description: 'Anyone can discover the project and view its public tabs.' },
+                                { id: 'public' as const, label: 'Public', icon: Globe, description: 'Anyone can discover the workspace and view its public tabs.' },
                                 { id: 'org' as const, label: 'Organization', icon: Building2, description: `Every member of ${childOrg.title} can see it.` },
                                 { id: 'private' as const, label: 'Private', icon: Lock, description: `The team and ${childOrg.title} admins.` },
                             ]
                             : [
-                                { id: 'public' as const, label: 'Public', icon: Globe, description: 'Anyone can discover the project and view its public tabs.' },
+                                { id: 'public' as const, label: 'Public', icon: Globe, description: 'Anyone can discover the workspace and view its public tabs.' },
                                 { id: 'private' as const, label: 'Private', icon: Lock, description: 'Only members can see this workspace until you make it public.' },
                             ]).map((option) => {
                             const Icon = option.icon;
@@ -407,12 +407,12 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     <p id="create-project-visibility-help" className="mt-3 max-w-[65ch] text-[13px] leading-[1.5] text-muted-foreground">
                         <span className="font-medium text-foreground">Visible at launch: </span>
                         {visibility === 'public' || visibility === 'org'
-                            ? PUBLIC_TAB_ORDER.filter((tab) => publicTabs[tab]).map((tab) => PROJECT_PUBLIC_TAB_LABELS[tab]).join(' · ') || 'Project title and card only'
+                            ? PUBLIC_TAB_ORDER.filter((tab) => publicTabs[tab]).map((tab) => PROJECT_PUBLIC_TAB_LABELS[tab]).join(' · ') || 'Workspace title and card only'
                             : 'Members only. Tab choices apply once you make the workspace public.'}
                     </p>
                 </LaunchSection>
 
-                <LaunchSection {...sectionProps('links')} title="Project links" description="Website, repository, demo, or community. Shown beside the project title and across public surfaces." summary={externalLinks.length === 0 ? 'No links yet' : `${externalLinks.length} ${externalLinks.length === 1 ? 'link' : 'links'}`}>
+                <LaunchSection {...sectionProps('links')} title="Workspace links" description="Website, repository, demo, or community. Shown beside the workspace title and across public surfaces." summary={externalLinks.length === 0 ? 'No links yet' : `${externalLinks.length} ${externalLinks.length === 1 ? 'link' : 'links'}`}>
                     <ProjectLinkEditorFields
                         links={externalLinks}
                         savedLinks={[]}
@@ -425,7 +425,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     {externalLinksError ? <p role="alert" className="mt-2 text-[13px] leading-[1.5] text-destructive">{externalLinksError}</p> : null}
                 </LaunchSection>
 
-                <LaunchSection {...sectionProps('documentation')} title="Starter doc" description="The project Doc tab: setup notes, guidance, and how to contribute." summary={docMode === 'skip' ? 'No doc yet' : `${orgTemplates.find((t) => t.id === readme?.orgTemplateDocId)?.filename.replace(/\.md$/i, '') ?? (orgStarterDoc ? `${orgStarterDoc} template` : 'Starter template')} · ${readme?.publishOnCreate ? 'published' : 'draft'}`}>
+                <LaunchSection {...sectionProps('documentation')} title="Starter doc" description="The workspace Doc tab: setup notes, guidance, and how to contribute." summary={docMode === 'skip' ? 'No doc yet' : `${orgTemplates.find((t) => t.id === readme?.orgTemplateDocId)?.filename.replace(/\.md$/i, '') ?? (orgStarterDoc ? `${orgStarterDoc} template` : 'Starter template')} · ${readme?.publishOnCreate ? 'published' : 'draft'}`}>
                     <div className="flex flex-wrap gap-2" role="group" aria-label="Starter doc">
                         {orgTemplates.map((t) => (
                             <ChoiceChip key={t.id} selected={docMode === 'starter' && readme?.orgTemplateDocId === t.id} onClick={() => set('readme', { ...readme, mode: 'starter', orgTemplateDocId: t.id } as CreateProjectInput['readme'])}>
@@ -462,7 +462,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     </div>
                 </LaunchSection>
 
-                <LaunchSection {...sectionProps('files')} title="Workspace files" description="Where the project’s files come from and who can add more." summary={sourceSummary}>
+                <LaunchSection {...sectionProps('files')} title="Workspace files" description="Where the workspace’s files come from and who can add more." summary={sourceSummary}>
                     <div className="border-y border-border">
                         <div className="flex items-start gap-3 border-b border-border px-4 py-3.5">
                             <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -474,7 +474,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                         {childOrg && templateFolders.length > 0 ? (
                             <div className="border-b border-border px-4 py-3.5">
                                 <label htmlFor="org-template-folder" className="nb-ui-label text-foreground">From a {childOrg.title} template</label>
-                                <p className="nb-compact mt-1 text-muted-foreground">Copies the folder into the new project. The copies are yours to change.</p>
+                                <p className="nb-compact mt-1 text-muted-foreground">Copies the folder into the new workspace. The copies are yours to change.</p>
                                 <select id="org-template-folder" value={templateFolderId ?? ''} onChange={(e) => set('org_template_folder_id', e.target.value || null)}
                                     className="mt-2 h-9 w-full max-w-xs rounded-md border border-border bg-background px-2 text-sm">
                                     <option value="">None</option>
@@ -492,7 +492,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     </div>
                 </LaunchSection>
 
-                <LaunchSection {...sectionProps('notifications')} title="What the team is told about" description="Project-wide notification rules. Each member can still tune their own." summary={`${notificationsOn} of ${CREATE_PROJECT_NOTIFICATION_ROWS.length} on`}>
+                <LaunchSection {...sectionProps('notifications')} title="What the team is told about" description="Workspace-wide notification rules. Each member can still tune their own." summary={`${notificationsOn} of ${CREATE_PROJECT_NOTIFICATION_ROWS.length} on`}>
                     <div className="border-y border-border">
                         {CREATE_PROJECT_NOTIFICATION_ROWS.map((row) => (
                             <SwitchRow key={row.id} label={row.label} description={row.description} checked={notificationRows[row.id]} onCheckedChange={(checked) => set('notification_rows', { ...notificationRows, [row.id]: checked })} />

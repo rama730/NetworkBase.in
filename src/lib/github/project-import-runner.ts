@@ -144,7 +144,7 @@ export async function runGithubProjectImport(input: {
           .limit(1);
 
         if (!project) {
-          throw new Error("Project not found");
+          throw new Error("Workspace not found");
         }
 
         const existingSource = clearSealedGithubTokenFromImportSource(
@@ -215,12 +215,12 @@ export async function runGithubProjectImport(input: {
 
         if (fileCount > GITHUB_WORKER_BUDGETS.maxFiles) {
             throw new Error(
-                `project import rejected for project ${projectId}: repository exceeds file budget (${fileCount} > ${GITHUB_WORKER_BUDGETS.maxFiles})`
+                `workspace import rejected for workspace ${projectId}: repository exceeds file budget (${fileCount} > ${GITHUB_WORKER_BUDGETS.maxFiles})`
             );
         }
         if (totalBytes > GITHUB_WORKER_BUDGETS.maxBytes) {
             throw new Error(
-                `project import rejected for project ${projectId}: repository exceeds byte budget (${totalBytes} > ${GITHUB_WORKER_BUDGETS.maxBytes})`
+                `workspace import rejected for workspace ${projectId}: repository exceeds byte budget (${totalBytes} > ${GITHUB_WORKER_BUDGETS.maxBytes})`
             );
         }
 

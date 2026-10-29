@@ -438,22 +438,22 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
   return (
     <div className="flex items-center gap-0.5">
       <DropdownMenu>
-        <DropdownMenuTrigger className="nb-chat-row min-w-0 flex-1 font-semibold text-foreground" aria-label={`${open ? open.title : "All projects"}, switch project${otherUnread ? ", unread in other projects" : ""}`} data-testid="chat-project-switcher">
+        <DropdownMenuTrigger className="nb-chat-row min-w-0 flex-1 font-semibold text-foreground" aria-label={`${open ? open.title : "All workspaces"}, switch workspace${otherUnread ? ", unread in other workspaces" : ""}`} data-testid="chat-project-switcher">
           {open ? (
             <span className="relative inline-flex flex-none"><ProjectBadge project={open} size="sm" /><ProjectPresenceBadge projectId={open.id} size={10} className="absolute" style={{ right: -3, bottom: -3 }} /></span>
           ) : (
             <LayoutGrid size={16} aria-hidden="true" />
           )}
-          <span className="min-w-0 flex-1 truncate text-left">{open ? open.title : "All projects"}</span>
+          <span className="min-w-0 flex-1 truncate text-left">{open ? open.title : "All workspaces"}</span>
           {otherUnread ? <span className="size-2 flex-none rounded-full bg-primary ring-2 ring-card" aria-hidden="true" /> : null}
           <ChevronDown size={14} aria-hidden="true" className="flex-none text-muted-foreground" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-64">
-          <DropdownMenuLabel>Switch project</DropdownMenuLabel>
+          <DropdownMenuLabel>Switch workspace</DropdownMenuLabel>
           {/* A radio group: screen readers hear which project is selected. */}
           <DropdownMenuRadioGroup value={open?.id ?? "all"} onValueChange={(value) => pick(value === "all" ? null : value)}>
             <DropdownMenuRadioItem value="all">
-              <LayoutGrid /> <span className="flex-1">All projects</span>
+              <LayoutGrid /> <span className="flex-1">All workspaces</span>
             </DropdownMenuRadioItem>
             {projects.map((project) => (
               <DropdownMenuRadioItem key={project.id} value={project.id} data-testid={`chat-project-${project.id}`}>
@@ -463,11 +463,11 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
               </DropdownMenuRadioItem>
             ))}
           </DropdownMenuRadioGroup>
-          {!projects.length ? <p className="px-2 py-1.5 text-[13px] text-muted-foreground">No projects yet.</p> : null}
+          {!projects.length ? <p className="px-2 py-1.5 text-[13px] text-muted-foreground">No workspaces yet.</p> : null}
           {inPage ? (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild><Link href="/projects/new">Create new project</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link href="/projects/new">Create new workspace</Link></DropdownMenuItem>
             </>
           ) : null}
         </DropdownMenuContent>
@@ -491,7 +491,7 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             {open && canManage ? <DropdownMenuItem onSelect={() => setInviteFor(open.id)}><UserPlus /> Invite people</DropdownMenuItem> : null}
-            {open ? <DropdownMenuItem asChild><Link href={projectHref}><FolderOpen /> View project</Link></DropdownMenuItem> : null}
+            {open ? <DropdownMenuItem asChild><Link href={projectHref}><FolderOpen /> View workspace</Link></DropdownMenuItem> : null}
             {open && canManage ? <DropdownMenuItem asChild><Link href={`${projectHref}?tab=settings`}><Settings /> Workspace settings</Link></DropdownMenuItem> : null}
             {open ? <DropdownMenuSeparator className="pointer-coarse:hidden" /> : null}
             <DropdownMenuItem className="pointer-coarse:hidden" onSelect={() => useChatUi.getState().setShortcutsOpen(true)}>
@@ -501,7 +501,7 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
         </DropdownMenu>
       ) : open ? (
         // The window: one action only, a plain link, not a menu with one item.
-        <Link href={projectHref} className="nb-icon-button size-7 flex-none pointer-coarse:size-11" aria-label={`View ${open.title}`} title="View project">
+        <Link href={projectHref} className="nb-icon-button size-7 flex-none pointer-coarse:size-11" aria-label={`View ${open.title}`} title="View workspace">
           <FolderOpen size={16} />
         </Link>
       ) : null}
@@ -813,7 +813,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
           );
         })
       ) : (
-        <EmptyState compact icon={LayoutGrid} title="No projects yet" description="Project channels show up here." action={inPage ? <Link href="/projects/new" className="text-[13px] font-medium text-primary hover:underline">Create a project</Link> : undefined} className="px-3 py-6" />
+        <EmptyState compact icon={LayoutGrid} title="No workspaces yet" description="Workspace channels show up here." action={inPage ? <Link href="/projects/new" className="text-[13px] font-medium text-primary hover:underline">Create a workspace</Link> : undefined} className="px-3 py-6" />
       )}
 
       {unreadsOnly && !others.length && !(self && needsAttention(self)) ? null : (
