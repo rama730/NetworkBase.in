@@ -11256,10 +11256,35 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
             only after user navigation. Completion hints on profile/sidebar
             reflect the same real data model or remain omitted.
           </p>
+          <p>
+            <strong>Welcome flight.</strong> Go to Discover does not reload
+            the page. One overlay, mounted in the root layout, keeps playing
+            while the app moves from the onboarding layout to the app layout
+            and starts that navigation itself, so Discover loads while it
+            plays (about five seconds in all). The photo steps forward alone
+            to the middle; the real presence badge activates and the line
+            reads &ldquo;Your presence is activated&rdquo;; the heading
+            becomes &ldquo;Welcome to NetworkBase, name!&rdquo;; then the photo
+            travels on a curve to the top-bar avatar's exact place while the
+            sidebar, top bar and content fade in one after another, and a
+            tooltip says &ldquo;You&rsquo;re active now&rdquo;. A private
+            profile skips the presence step (it would not be true) and shows
+            the privacy note instead; the top bar still shows your own badge.
+            On phones the photo tucks into the menu button, because the
+            avatar is not in the phone top bar. Any click, Esc or Enter skips
+            to the end. Reduced motion (system or in-app) halves the length
+            and replaces the flight with crossfades. The two lines are
+            announced once each through a polite live region. If the overlay
+            is not ready, or the next page has no top bar, the old behavior
+            applies: go straight to the page. Started, completed and skipped
+            are recorded in <code>onboarding_events</code>.
+          </p>
           <div class="sources">
             <b>Source anchors</b
             ><code>src/app/(onboarding)/onboarding/page.tsx</code
             ><code>src/components/onboarding</code
+            ><code>src/components/onboarding/WelcomeFlight.tsx</code
+            ><code>src/lib/onboarding/welcome-flight.ts</code
             ><code>src/styles/onboarding-tokens.css</code>
           </div>
         </section>

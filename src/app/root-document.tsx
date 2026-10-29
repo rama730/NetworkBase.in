@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { SecurityRuntimeProvider } from "@/components/providers/SecurityRuntimeProvider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { CookieConsentRuntime } from "@/components/privacy/CookieConsentRuntime";
+import { WelcomeFlightHost } from "@/components/onboarding/WelcomeFlight";
 import "@/lib/env";
 import "./globals.css";
 import { instrumentSans, instrumentSerif, jetbrainsMono } from "./app-fonts";
@@ -88,6 +89,7 @@ function ThemeProviders({
     <ThemeProvider nonce={nonce}>
       {children}
       <CookieConsentRuntime />
+      <WelcomeFlightHost />
     </ThemeProvider>
   );
 }

@@ -1,0 +1,35 @@
+{
+  "id": "impact-2026-10-30-onboarding-welcome-flight",
+  "title": "Onboarding: the welcome flight from the finish screen to Discover",
+  "summary": "After the last onboarding step the photo steps forward, presence activates (skipped for private profiles), the welcome line shows, and the photo travels to its place in the top bar. One overlay mounted in the root document keeps running while the app moves from the onboarding layout to the app layout, and it starts that navigation itself, so Discover loads while it plays. The old behaviour (a full page load) remains the fallback when the overlay is not ready. One new server action records started, completed and skipped events in onboarding_events, rate limited per person. No migration.",
+  "riskLevel": "medium",
+  "runtimePlanes": ["request"],
+  "routeClasses": ["active_surface"],
+  "dataSourcesChanged": ["onboarding_events"],
+  "canonicalLogicDomains": ["profile_display"],
+  "concurrencyRisk": "None added. The flight is client state; a second press of the button is ignored, and a flight that is already running refuses to start another. The telemetry action only inserts rows.",
+  "observability": {
+    "metrics": [],
+    "logs": [],
+    "alerts": []
+  },
+  "rollback": {
+    "strategy": "Revert the commit. Nothing is stored apart from rows in onboarding_events, which the existing retention job already trims; the finish screen goes back to a full page load.",
+    "validation": [
+      "npm run typecheck",
+      "npm run test:unit",
+      "npm run check:impact-review"
+    ]
+  },
+  "evidence": {
+    "commands": [
+      "npx tsx --test tests/unit/welcome-flight.test.ts tests/unit/welcome-flight-contract.test.ts",
+      "npx playwright test --config tests/browser/playwright.config.ts welcome-flight.spec.ts"
+    ],
+    "reports": []
+  },
+  "paths": [
+    "src/app/actions/welcome-flight.ts",
+    "standards/impact-reviews/onboarding-welcome-flight.json"
+  ]
+}

@@ -153,6 +153,7 @@ export default function TopNav() {
                         <button
                             ref={mobileMenuTriggerRef}
                             onClick={() => setShowMobileMenu(true)}
+                            data-welcome-slot-mobile=""
                             className="nb-mobile-menu-trigger relative -ml-2 inline-flex size-11 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted focus:outline-none md:hidden"
                             aria-label={chatUnread ? "Open mobile menu, unread messages" : "Open mobile menu"}
                             aria-expanded={showMobileMenu}
@@ -253,7 +254,7 @@ export default function TopNav() {
                                             aria-label="User menu"
                                             data-testid="topnav-profile-menu-trigger"
                                         >
-                                            <span className="relative inline-flex">
+                                            <span className="relative inline-flex" data-welcome-slot="">
                                                 <ProfileAvatar profile={profile} size={32} priority />
                                                 <PersonPresenceBadge userId={user?.id} live size={16} statusSize={20} className="absolute" style={{ right: -2, bottom: -2 }} />
                                             </span>
