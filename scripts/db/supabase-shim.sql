@@ -38,7 +38,7 @@ DO $aal$ BEGIN
   IF to_regtype('auth.aal_level') IS NULL THEN CREATE TYPE auth.aal_level AS ENUM ('aal1', 'aal2', 'aal3'); END IF;
 END $aal$;
 CREATE TABLE IF NOT EXISTS auth.sessions (
-  id uuid PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now(),
@@ -50,10 +50,10 @@ CREATE TABLE IF NOT EXISTS auth.sessions (
 );
 CREATE TABLE IF NOT EXISTS auth.identities (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  provider_id text NOT NULL,
+  provider_id text,
   user_id uuid NOT NULL,
-  identity_data jsonb NOT NULL,
-  provider text NOT NULL,
+  identity_data jsonb,
+  provider text,
   last_sign_in_at timestamptz,
   created_at timestamptz DEFAULT now()
 );

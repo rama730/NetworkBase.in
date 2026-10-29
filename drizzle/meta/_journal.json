@@ -1870,6 +1870,13 @@
       "when": 1793145628000,
       "tag": "0269_moderation_cases_appeals",
       "breakpoints": true
+    },
+    {
+      "idx": 267,
+      "version": "7",
+      "when": 1793145629000,
+      "tag": "0270_session_device_from_browser",
+      "breakpoints": true
     }
   ]
 }

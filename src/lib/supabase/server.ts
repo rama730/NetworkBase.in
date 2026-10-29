@@ -40,8 +40,11 @@ export async function createClient() {
     const env = resolveSupabasePublicEnv('supabase.server')
 
     let route = '/unknown'
+    let userAgent: string | null = null
     try {
         const requestHeaders = await headers()
+        // Sign-in runs here, so Supabase would record the server's runtime ("node") as the session's device.
+        userAgent = requestHeaders.get('user-agent')
         route = toPrivacySafeRouteMetric(
             requestHeaders.get('x-route-metric')
                 ?? requestHeaders.get('x-matched-path')
@@ -55,7 +58,7 @@ export async function createClient() {
         env.url,
         env.anonKey,
         {
-            global: { fetch: authBoundedFetch },
+            global: { fetch: authBoundedFetch, ...(userAgent ? { headers: { 'User-Agent': userAgent } } : {}) },
             cookieOptions: resolveSupabaseServerCookieOptions(),
             cookies: {
                 getAll() {
