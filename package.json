@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit",
     "test:unit": "tsx --test 'tests/unit/**/*.test.ts'",
     "test:db": "tsx --test --test-concurrency=1 'tests/db/**/*.test.ts'",
-    "test:unit:coverage": "node --import tsx --test --test-reporter=spec --experimental-test-coverage --test-coverage-lines=70 --test-coverage-functions=60 --test-coverage-branches=60 'tests/unit/**/*.test.ts'",
+    "test:unit:coverage": "mkdir -p coverage && node --import tsx --test --test-reporter=dot --test-reporter=lcov --test-reporter-destination=stdout --test-reporter-destination=coverage/lcov.info --experimental-test-coverage 'tests/unit/**/*.test.ts' && tsx scripts/coverage-summary.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "db:setup": "tsx scripts/setup-database.ts",
