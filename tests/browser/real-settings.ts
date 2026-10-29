@@ -96,6 +96,7 @@ export async function openRealSettings(page: Page, api: Api = {}) {
     readActiveExtensionSessions: () => ({ success: true, sessions: [], hasMore: false, nextCursor: null }),
     getActiveExtensionSessions: () => ({ success: true, sessions: [], hasMore: false, nextCursor: null }),
     listMyOrganizationsAction: () => [],
+    myStandingAction: () => ({ success: true, restriction: null, active: [], strikes: [], history: [] }),
   };
   const actions = { ...baseActions, ...(api.actions ?? {}) } as Record<string, (...args: unknown[]) => unknown>;
   await page.exposeFunction('__runAction', async (name: string, args: unknown[]) => (actions[name] ? await actions[name]!(...args) : { success: true }));
