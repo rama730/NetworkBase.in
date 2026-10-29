@@ -19,9 +19,9 @@ export function PersonCardReview({ name, description, note, onAccept, onDecline 
         setBusy(action); setError(null);
         try {
             const result = await (action === 'accept' ? onAccept() : onDecline());
-            if (result === false) { setError('The decision could not be saved. Please try again.'); return; }
+            if (result === false) { setError('The decision could not be saved. Try again.'); return; }
             setOpen(false);
-        } catch (failure) { setError(failure instanceof Error ? failure.message : 'The decision could not be saved. Please try again.'); }
+        } catch (failure) { setError(failure instanceof Error ? failure.message : 'The decision could not be saved. Try again.'); }
         finally { setBusy(null); }
     }
     return <Dialog open={open} onOpenChange={next => { if (!busy) { setOpen(next); setError(null); } }}>

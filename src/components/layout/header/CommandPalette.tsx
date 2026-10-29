@@ -446,7 +446,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
                                         <RotateCcw className="size-4" aria-hidden />
                                     </span>
                                     <p className="mt-3 text-sm font-medium text-foreground">{isRateLimited ? "Search is temporarily paused" : "Preview unavailable"}</p>
-                                    <p className="mt-1 max-w-sm text-xs leading-5 text-muted-foreground">{isRateLimited ? "Please wait a moment before trying again." : "Retry the preview or press Enter to run the full search without losing your query."}</p>
+                                    <p className="mt-1 max-w-sm text-xs leading-5 text-muted-foreground">{isRateLimited ? "Wait a moment before trying again." : "Retry the preview or press Enter to run the full search without losing your query."}</p>
                                     {!isRateLimited ? (
                                         <button type="button" onClick={() => void previews.refetch()} className="mt-3 inline-flex items-center gap-2 rounded-[5px] border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted">
                                             <RotateCcw className="size-3.5" aria-hidden />

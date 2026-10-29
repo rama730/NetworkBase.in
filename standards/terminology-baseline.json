@@ -64,14 +64,10 @@
    "project": 1
   },
   "src/app/(site)/(auth)/verify-email/page.tsx": {
-   "project": 1,
-   "please": 1
+   "project": 1
   },
   "src/app/(site)/(main)/discover/page.tsx": {
    "project": 1
-  },
-  "src/app/(site)/(main)/error.tsx": {
-   "please": 1
   },
   "src/app/(site)/(main)/messages/(lists)/inbox/page.tsx": {
    "title-case": 1
@@ -91,12 +87,6 @@
   "src/app/(site)/(main)/messages/layout.tsx": {
    "project": 1
   },
-  "src/app/(site)/(main)/my-profile/edit/error.tsx": {
-   "please": 1
-  },
-  "src/app/(site)/(main)/my-profile/page.tsx": {
-   "please": 1
-  },
   "src/app/(site)/(main)/projects/[slug]/loading.tsx": {
    "project": 2
   },
@@ -107,7 +97,6 @@
    "project": 4
   },
   "src/app/(site)/(onboarding)/onboarding/page.tsx": {
-   "please": 1,
    "project": 1
   },
   "src/app/(site)/page.tsx": {
@@ -115,30 +104,20 @@
    "title-case": 1
   },
   "src/app/actions/account.ts": {
-   "please": 2,
    "project": 11
   },
   "src/app/actions/applications/internal.ts": {
    "project": 21,
-   "banned": 1,
-   "please": 8
+   "banned": 1
   },
   "src/app/actions/child-units.ts": {
    "project": 3
   },
-  "src/app/actions/connections.ts": {
-   "please": 19
-  },
   "src/app/actions/contribution-stories.ts": {
-   "project": 11,
-   "please": 1
+   "project": 11
   },
   "src/app/actions/discover.ts": {
-   "project": 2,
-   "please": 2
-  },
-  "src/app/actions/extension-sessions.ts": {
-   "please": 1
+   "project": 2
   },
   "src/app/actions/files/collections.ts": {
    "project": 1
@@ -159,23 +138,10 @@
    "project": 3
   },
   "src/app/actions/github-sync.ts": {
-   "please": 4,
    "british": 1
-  },
-  "src/app/actions/github.ts": {
-   "please": 3
   },
   "src/app/actions/matchmaking/resolver.ts": {
    "project": 1
-  },
-  "src/app/actions/network-invitations.ts": {
-   "please": 2
-  },
-  "src/app/actions/notifications.ts": {
-   "please": 1
-  },
-  "src/app/actions/onboarding.ts": {
-   "please": 1
   },
   "src/app/actions/org-dashboard.ts": {
    "project": 5
@@ -183,30 +149,17 @@
   "src/app/actions/org-members.ts": {
    "project": 5
   },
-  "src/app/actions/org-updates.ts": {
-   "please": 1,
-   "log-in": 1
-  },
   "src/app/actions/org-workspace.ts": {
    "project": 5
   },
   "src/app/actions/organizations.ts": {
-   "please": 1,
-   "log-in": 2,
    "project": 2
-  },
-  "src/app/actions/profile-contributions.ts": {
-   "please": 1
-  },
-  "src/app/actions/profile.ts": {
-   "please": 6
   },
   "src/app/actions/project/doc.ts": {
    "project": 16
   },
   "src/app/actions/project/guidance.ts": {
-   "project": 5,
-   "please": 2
+   "project": 5
   },
   "src/app/actions/project/recent-activity.ts": {
    "project": 3
@@ -232,29 +185,17 @@
   "src/app/actions/task.ts": {
    "project": 7
   },
-  "src/app/actions/trust.ts": {
-   "log-in": 1
-  },
   "src/app/actions/upload-import.ts": {
    "project": 3
   },
   "src/app/api/og/project/[slug]/route.tsx": {
    "project": 2
   },
-  "src/app/api/v1/account/delete/route.ts": {
-   "please": 2
-  },
-  "src/app/api/v1/auth/signup/route.ts": {
-   "please": 1
-  },
   "src/app/api/v1/extension/file-upload/route.ts": {
    "project": 1
   },
   "src/app/api/v1/extension/task-push/route.ts": {
    "project": 1
-  },
-  "src/app/api/v1/github/import/finalize-file/route.ts": {
-   "successfully": 1
   },
   "src/app/api/v1/integrations/route.ts": {
    "project": 1
@@ -278,9 +219,6 @@
   "src/app/api/v1/projects/route.ts": {
    "project": 1
   },
-  "src/app/api/v1/sessions/route.ts": {
-   "successfully": 1
-  },
   "src/app/go/[ownerType]/[ownerId]/[linkKey]/route.ts": {
    "project": 3
   },
@@ -290,14 +228,8 @@
   "src/components/applications/DecisionDialog.tsx": {
    "project": 1
   },
-  "src/components/auth/GoogleOneTap.tsx": {
-   "please": 1
-  },
   "src/components/auth/LoginForm.tsx": {
    "project": 1
-  },
-  "src/components/auth/SignOutConfirmDialog.tsx": {
-   "please": 1
   },
   "src/components/auth/SignupForm.tsx": {
    "project": 3
@@ -323,8 +255,7 @@
    "project": 8
   },
   "src/components/layout/header/CommandPalette.tsx": {
-   "project": 10,
-   "please": 1
+   "project": 10
   },
   "src/components/layout/header/GlobalSearch.tsx": {
    "project": 3
@@ -340,7 +271,7 @@
   },
   "src/components/layout/header/global-search.ts": {
    "project": 12,
-   "log-in": 5,
+   "log-in": 4,
    "british": 1
   },
   "src/components/legal/LegalLinks.tsx": {
@@ -387,12 +318,10 @@
    "british": 1
   },
   "src/components/my-work/MyWorkRequestsTab.tsx": {
-   "project": 5,
-   "please": 1
+   "project": 5
   },
   "src/components/my-work/MyWorkTasksTab.tsx": {
-   "project": 9,
-   "please": 1
+   "project": 9
   },
   "src/components/network/ConnectionsClient.tsx": {
    "project": 1
@@ -402,8 +331,7 @@
   },
   "src/components/network/InvitationsClient.tsx": {
    "british": 7,
-   "project": 22,
-   "please": 1
+   "project": 22
   },
   "src/components/network/NetworkClient.tsx": {
    "log-in": 2,
@@ -412,12 +340,7 @@
   "src/components/network/NetworkFilters.tsx": {
    "project": 2
   },
-  "src/components/network/NetworkPeopleTab.tsx": {
-   "please": 1,
-   "log-in": 1
-  },
   "src/components/network/PersonCardReview.tsx": {
-   "please": 1,
    "british": 1
   },
   "src/components/network/SentApplicationMenu.tsx": {
@@ -524,14 +447,10 @@
    "project": 8
   },
   "src/components/projects/ProjectOnboardingModal.tsx": {
-   "exclamation": 1,
    "title-case": 1
   },
   "src/components/projects/create-wizard/CreateProjectShellSkeleton.tsx": {
    "project": 2
-  },
-  "src/components/projects/create-wizard/CreateProjectWizard.tsx": {
-   "please": 1
   },
   "src/components/projects/create-wizard/LeaveProjectSetupDialog.tsx": {
    "project": 2
@@ -550,7 +469,6 @@
   },
   "src/components/projects/create-wizard/phases/Phase1SourceSelection.tsx": {
    "project": 12,
-   "please": 1,
    "log-in": 1
   },
   "src/components/projects/create-wizard/phases/Phase2Information.tsx": {
@@ -566,12 +484,10 @@
    "project": 19
   },
   "src/components/projects/create-wizard/useCreateProjectWizard.ts": {
-   "project": 4,
-   "please": 2
+   "project": 4
   },
   "src/components/projects/dashboard/InviteCollaboratorModal.tsx": {
-   "project": 8,
-   "exclamation": 1
+   "project": 8
   },
   "src/components/projects/dashboard/JourneyTimeline.tsx": {
    "project": 2
@@ -610,8 +526,7 @@
    "project": 1
   },
   "src/components/projects/settings/FileAccessMembers.tsx": {
-   "project": 2,
-   "please": 1
+   "project": 2
   },
   "src/components/projects/settings/GeneralSettingsSection.tsx": {
    "project": 20
@@ -623,8 +538,7 @@
    "project": 6
   },
   "src/components/projects/settings/ProjectDangerModals.tsx": {
-   "project": 13,
-   "please": 2
+   "project": 13
   },
   "src/components/projects/settings/ProjectRolesEditor.tsx": {
    "project": 4
@@ -646,8 +560,7 @@
   },
   "src/components/projects/tabs/SprintPlanning.tsx": {
    "project": 2,
-   "british": 1,
-   "please": 1
+   "british": 1
   },
   "src/components/projects/tabs/UpdatesTab.tsx": {
    "project": 3
@@ -747,8 +660,7 @@
    "project": 1
   },
   "src/components/projects/v2/files-tab/file/LinkedTasksPanel.tsx": {
-   "title-case": 1,
-   "please": 1
+   "title-case": 1
   },
   "src/components/projects/v2/files-tab/folder/FolderListView.tsx": {
    "project": 3
@@ -773,17 +685,12 @@
    "project": 1
   },
   "src/components/projects/v2/preview/drivers/DocxViewerDriver.tsx": {
-   "please": 1,
    "title-case": 1
   },
   "src/components/projects/v2/preview/drivers/PdfViewerDriver.tsx": {
    "project": 1
   },
-  "src/components/projects/v2/preview/drivers/PresentationViewerDriver.tsx": {
-   "please": 1
-  },
   "src/components/projects/v2/preview/drivers/SheetViewerDriver.tsx": {
-   "please": 1,
    "title-case": 1
   },
   "src/components/projects/v2/tasks/KanbanBoard.tsx": {
@@ -794,10 +701,6 @@
   },
   "src/components/projects/v2/tasks/TaskDetailPanel.tsx": {
    "project": 2
-  },
-  "src/components/projects/v2/tasks/TaskDetailTabs/CommentsTab.tsx": {
-   "exclamation": 2,
-   "please": 2
   },
   "src/components/projects/v2/tasks/TaskDetailTabs/DetailsTab.tsx": {
    "project": 1
@@ -831,12 +734,10 @@
   },
   "src/components/settings/IntegrationsSettings.tsx": {
    "project": 10,
-   "log-in": 1,
-   "please": 1
+   "log-in": 1
   },
   "src/components/settings/LegalAndDataRightsSection.tsx": {
    "title-case": 2,
-   "please": 1,
    "project": 1
   },
   "src/components/settings/NotificationsSettings.tsx": {
@@ -861,9 +762,6 @@
   "src/components/sharing/SharePreviewCard.tsx": {
    "project": 2
   },
-  "src/components/ui/ConfirmDialog.tsx": {
-   "please": 1
-  },
   "src/hooks/discover/useDiscoverProjects.ts": {
    "project": 1
   },
@@ -877,11 +775,7 @@
    "project": 1
   },
   "src/hooks/useSettingsQueries.ts": {
-   "project": 1,
-   "please": 1
-  },
-  "src/hooks/useUsernameAvailability.ts": {
-   "please": 2
+   "project": 1
   },
   "src/inngest/functions/email-delivery.ts": {
    "title-case": 1
@@ -941,10 +835,6 @@
   "src/lib/extension/ide-protocol.ts": {
    "title-case": 1
   },
-  "src/lib/feedback/copy.ts": {
-   "please": 4,
-   "log-in": 3
-  },
   "src/lib/files/content-reader.ts": {
    "project": 1
   },
@@ -955,17 +845,10 @@
    "project": 6
   },
   "src/lib/files/upload-validator.ts": {
-   "please": 7,
    "project": 4
   },
   "src/lib/github/account-health.ts": {
    "log-in": 1
-  },
-  "src/lib/github/import-access-state.ts": {
-   "please": 2
-  },
-  "src/lib/github/linked-user.ts": {
-   "please": 1
   },
   "src/lib/github/oauth-client.ts": {
    "british": 1
@@ -981,14 +864,10 @@
    "ellipsis": 1
   },
   "src/lib/github/sync-service.ts": {
-   "project": 2,
-   "please": 2
+   "project": 2
   },
   "src/lib/import/idempotency.ts": {
    "project": 1
-  },
-  "src/lib/legal/acceptance.ts": {
-   "please": 1
   },
   "src/lib/legal/config.ts": {
    "project": 1
@@ -1128,9 +1007,7 @@
    "project": 7
   },
   "src/lib/projects/server/lifecycle.ts": {
-   "project": 54,
-   "please": 5,
-   "successfully": 1
+   "project": 54
   },
   "src/lib/projects/server/settings.ts": {
    "project": 30
@@ -1140,8 +1017,7 @@
    "british": 2
   },
   "src/lib/projects/server/tasks.ts": {
-   "project": 18,
-   "please": 1
+   "project": 18
   },
   "src/lib/projects/settings-policies.ts": {
    "project": 30
@@ -1168,9 +1044,6 @@
   "src/lib/projects/updates.ts": {
    "project": 8
   },
-  "src/lib/security/turnstile.ts": {
-   "please": 1
-  },
   "src/lib/settings/integrations.ts": {
    "project": 5
   },
@@ -1187,9 +1060,6 @@
    "title-case": 4,
    "project": 1
   },
-  "src/lib/upload/image-prep-client.ts": {
-   "please": 1
-  },
   "src/lib/upload/project-image-upload-client.ts": {
    "project": 2
   },
@@ -1200,23 +1070,14 @@
    "project": 2,
    "british": 1
   },
-  "src/lib/usernames/service.ts": {
-   "exclamation": 2
-  },
   "src/lib/utils/cache-manager.ts": {
    "title-case": 1
   },
   "src/lib/utils/device.ts": {
    "title-case": 1
   },
-  "src/lib/validations/application.ts": {
-   "please": 2
-  },
   "src/lib/validations/project.ts": {
    "project": 2
-  },
-  "src/lib/validations/username.ts": {
-   "exclamation": 1
   }
  },
  "paths": [

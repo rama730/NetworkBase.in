@@ -34,7 +34,7 @@ export async function GET(request: Request) {
     ?? `fp:${createHash("sha1").update(`${request.headers.get("user-agent") ?? ""}|${request.headers.get("accept-language") ?? ""}`).digest("hex").slice(0, 16)}`;
   const limit = await consumeRateLimitForRoute("publicRead", `discover-updates:${user?.id ?? `anon:${ip}`}`, 180, 60);
   // A limiter outage is not the viewer's fault: let the read through rather than say "too many".
-  if (!limit.allowed && !limit.degraded) return jsonError("Too many requests. Please wait a moment and try again.", 429, "RATE_LIMITED");
+  if (!limit.allowed && !limit.degraded) return jsonError("Too many requests. Wait a moment and try again.", 429, "RATE_LIMITED");
 
   try {
     const page = await getDiscoverUpdatesPage({

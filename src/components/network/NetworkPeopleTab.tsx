@@ -98,7 +98,7 @@ export default function NetworkPeopleTab({
                 router.push(
                     `/login?redirect=${encodeURIComponent(ROUTES.NETWORK)}`,
                 );
-                throw new Error("Please log in to connect");
+                throw new Error("Sign in to connect");
             }
             return await toast
                 .promise(sendRequest.mutateAsync({ userId }), {

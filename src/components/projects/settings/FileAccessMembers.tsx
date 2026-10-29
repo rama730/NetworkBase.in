@@ -244,7 +244,7 @@ export function FileAccessMembers({
           if (bulkChoice === null) return;
           if ((await onBulkToggle(bulkChoice)) === false)
             throw new Error(
-              "Unable to update member permissions. Your previous settings are retained. Please retry.",
+              "Unable to update member permissions. Your previous settings are retained. Retry.",
             );
           setBulkChoice(null);
         }}

@@ -17,7 +17,7 @@ export default function MainError({
                     Something went wrong
                 </h2>
                 <p className="text-zinc-500 dark:text-zinc-400 mb-6 text-sm">
-                    {error.message || 'An unexpected error occurred. Please try again.'}
+                    {error.message || 'An unexpected error occurred. Try again.'}
                 </p>
                 <button
                     onClick={reset}

@@ -94,7 +94,7 @@ export async function saveProfileContributionsAction(
   if (!rate.allowed) {
     return {
       success: false,
-      error: "Too many contribution updates. Please wait and try again.",
+      error: "Too many contribution updates. Wait and try again.",
       errorCode: "RATE_LIMITED",
     };
   }

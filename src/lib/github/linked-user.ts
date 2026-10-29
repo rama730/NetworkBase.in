@@ -28,7 +28,7 @@ export async function loadGithubLinkedUser(
   // Always read the current list, including an authoritative empty result after
   // unlinking. A failed lookup must not become permission to link again.
   const rows = await read(user.id).catch(() => {
-    throw new Error("Could not check your linked GitHub account. Please retry.");
+    throw new Error("Could not check your linked GitHub account. Retry.");
   });
   return {
     ...user,

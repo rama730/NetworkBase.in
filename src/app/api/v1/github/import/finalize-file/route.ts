@@ -299,7 +299,7 @@ export async function POST(request: NextRequest) {
         });
 
         return jsonSuccess({
-            message: 'File import finalized successfully',
+            message: 'File import finalized',
             nodeId: result.nodeId,
             version: result.nextVersion,
             isComplete: result.isComplete,

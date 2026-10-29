@@ -40,7 +40,7 @@ export async function GET(request: Request) {
                 errorCode: 'RATE_LIMITED',
             });
             return jsonError(
-                'You can only export your data once per hour. Please try again later.',
+                'You can only export your data once per hour. Try again later.',
                 429,
                 'RATE_LIMITED',
             );

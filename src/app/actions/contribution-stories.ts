@@ -130,7 +130,7 @@ export async function createContributionStoryAction() {
     );
     if (!rate.allowed)
       throw new StoryError(
-        "Please wait before adding another project.",
+        "Wait before adding another project.",
         "RATE_LIMITED",
       );
     const [row] = await db

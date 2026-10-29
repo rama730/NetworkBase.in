@@ -2362,7 +2362,7 @@ export function ContributionEditor({
                           );
                         } catch {
                           setError(
-                            "Could not add this project image. Please try again.",
+                            "Could not add this project image. Try again.",
                           );
                         }
                       } else {

@@ -55,7 +55,7 @@ export async function POST(request: Request) {
         status: 429,
         errorCode: "RATE_LIMITED",
       });
-      return jsonError("Please wait before requesting another verification email.", 429, "RATE_LIMITED");
+      return jsonError("Wait before requesting another verification email.", 429, "RATE_LIMITED");
     }
 
     const { error } = await supabase.auth.resend({

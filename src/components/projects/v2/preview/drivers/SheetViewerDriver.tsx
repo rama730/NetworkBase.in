@@ -114,7 +114,7 @@ export function SheetViewerDriver({
 
         // Safety limit: 60 MB buffer
         if (buffer.byteLength > 60 * 1024 * 1024) {
-          throw new Error("File exceeds client-side preview safety limit (60 MB). Please download to view.");
+          throw new Error("File exceeds client-side preview safety limit (60 MB). Download to view.");
         }
 
         // Check for legacy Excel 97-2003 OLE2 binary header (0xD0 0xCF 0x11 0xE0)

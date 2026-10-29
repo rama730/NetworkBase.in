@@ -138,7 +138,7 @@ async function fetchProjectTasksForActor(
         success: false as const,
         code: "RATE_LIMITED" as const,
         retryAfterMs: 1_000,
-        error: "Too many task searches. Please wait and try again.",
+        error: "Too many task searches. Wait and try again.",
       };
     }
   }

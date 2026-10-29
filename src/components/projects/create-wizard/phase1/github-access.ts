@@ -5,7 +5,7 @@ export function isGithubAccessRefreshError(message: string | null | undefined) {
         normalized.includes('repository access is not available') ||
         normalized.includes('unauthorized') ||
         normalized.includes('connect github') ||
-        normalized.includes('log in to github') ||
+        normalized.includes('sign in to github') ||
         normalized.includes('private. connect github')
     );
 }

@@ -25,7 +25,7 @@ export async function readOrgPinnedLineAction(childProjectId: string) {
 /** Opening the org's Updates clears its New markers. */
 export async function markOrgUpdatesSeenAction(orgId: string) {
     const { userId } = await getViewerAuthContext();
-    if (!userId) return { success: false as const, error: 'Please log in.' };
+    if (!userId) return { success: false as const, error: 'Sign in.' };
     const marked = await db.update(projectMembers).set({ lastSeenUpdatesAt: new Date() })
         .where(and(eq(projectMembers.projectId, orgId), eq(projectMembers.userId, userId)))
         .returning({ id: projectMembers.projectId });

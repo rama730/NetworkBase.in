@@ -262,7 +262,7 @@ async function deleteSession(request: Request, id: string) {
       success: true,
       status: 200,
     });
-    return jsonSuccess(undefined, "Device signed out successfully");
+    return jsonSuccess(undefined, "Device signed out");
   } catch (error) {
     logger.error("[api/v1/sessions] delete remote session failed", { module: "api", error: error instanceof Error ? error.message : String(error) });
     logApiRoute(request, {

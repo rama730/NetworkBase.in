@@ -156,7 +156,7 @@ function LinkedTaskRow({
       }
       setIsEditing(false);
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "Could not save this note. Please retry.");
+      setSaveError(error instanceof Error ? error.message : "Could not save this note. Retry.");
     } finally {
       setIsSaving(false);
     }

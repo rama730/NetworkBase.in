@@ -12,7 +12,7 @@ test('requestUsernameAvailability dedupes in-flight requests for the same userna
     let callCount = 0
     globalThis.fetch = (async () => {
         callCount += 1
-        return new Response(JSON.stringify({ available: true, message: 'Username is available!' }), {
+        return new Response(JSON.stringify({ available: true, message: 'Username is available' }), {
             status: 200,
             headers: { 'content-type': 'application/json' },
         })

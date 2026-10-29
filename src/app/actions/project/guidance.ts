@@ -161,7 +161,7 @@ export async function resolveProjectInvitationAction(input: {
     const user = await getAuthUser();
     if (!user) return { success: false as const, error: "Not authenticated" };
     const { allowed } = await consumeRateLimit(`project-invitation-resolve:${user.id}`, 60, 60);
-    if (!allowed) return { success: false as const, error: "Too many requests. Please try again later." };
+    if (!allowed) return { success: false as const, error: "Too many requests. Try again later." };
     try {
         const result = await db.transaction((tx) => resolveProjectInvitationInternal(tx, {
             invitationId: input.invitationId,
@@ -219,7 +219,7 @@ export async function searchProjectInviteCandidatesAction(input: { projectId: st
     const query = input.query?.trim().replace(/^@/, "") ?? "";
     if (query && query.length < 2) return { success: true as const, items: [] };
     const rate = await consumeRateLimit(`project-invite-search:${user.id}`, 60, 60);
-    if (!rate.allowed) return { success: false as const, error: "Please wait before searching again", items: [] };
+    if (!rate.allowed) return { success: false as const, error: "Wait before searching again", items: [] };
 
     const [project] = await db
         .select({ ownerId: projects.ownerId })

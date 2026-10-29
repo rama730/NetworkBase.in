@@ -4,9 +4,9 @@ export const APPLICATION_MESSAGE_MAX = 2000;
 export const APPLICATION_NOTE_MAX = 500;
 
 const applicationMessage = z
-    .string({ error: 'Please add a short application message' })
+    .string({ error: 'Add a short application message' })
     .trim()
-    .min(1, 'Please add a short application message')
+    .min(1, 'Add a short application message')
     .max(APPLICATION_MESSAGE_MAX, `Applications are limited to ${APPLICATION_MESSAGE_MAX} characters`);
 
 const blankToUndefined = (value: unknown) => (typeof value === 'string' && value.trim() === '' ? undefined : value);

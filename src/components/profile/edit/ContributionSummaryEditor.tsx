@@ -113,7 +113,7 @@ export function ContributionSummaryEditor({
         })
         .catch(() => {
           if (!cancelled)
-            setSearchError("Could not load references. Please retry.");
+            setSearchError("Could not load references. Retry.");
         })
         .finally(() => {
           if (!cancelled) setLoading(false);

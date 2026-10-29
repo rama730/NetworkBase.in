@@ -90,7 +90,7 @@ export async function fetchDiscoverProjectsAction(
                 schemaVersion: DISCOVER_RANKING_SCHEMA_VERSION,
                 code: 'RATE_LIMITED' as const,
                 retryAfterMs: 5_000,
-                error: 'Too many requests. Please wait a moment and try again.',
+                error: 'Too many requests. Wait a moment and try again.',
             };
         }
 
@@ -105,7 +105,7 @@ export async function fetchDiscoverProjectsAction(
                     schemaVersion: DISCOVER_RANKING_SCHEMA_VERSION,
                     code: 'RATE_LIMITED' as const,
                     retryAfterMs: 1_000,
-                    error: 'Too many searches. Please wait a moment and try again.',
+                    error: 'Too many searches. Wait a moment and try again.',
                 };
             }
         }

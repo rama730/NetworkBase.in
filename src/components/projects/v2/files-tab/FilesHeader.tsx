@@ -388,7 +388,7 @@ function HeaderGitHubSyncButton({ projectId }: { projectId: string }) {
             className="flex w-full items-center justify-between border-t border-border pt-2 text-xs font-medium text-[#2563C9] hover:underline dark:text-[#DCE7F8] transition-colors cursor-pointer group/link"
           >
             <span>Open repository sync</span>
-            <span aria-hidden="true" className="transition-transform group-hover/link:translate-x-0.5">&rarr;</span>
+            <span aria-hidden="true" className="transition-transform group-hover/link:translate-x-0.5"></span>
           </button>
         </div>
       </div>

@@ -140,7 +140,7 @@ export async function createProfileImageUploadUrlAction(input: {
     if (!uploadAllowed) {
         return {
             success: false,
-            error: 'Too many upload attempts. Please try again later.',
+            error: 'Too many upload attempts. Try again later.',
             errorCode: 'RATE_LIMITED',
         }
     }
@@ -224,7 +224,7 @@ export async function finalizeProfileImageUploadAction(input: {
     if (!finalizeAllowed) {
         return {
             success: false,
-            error: 'Too many upload attempts. Please try again later.',
+            error: 'Too many upload attempts. Try again later.',
             errorCode: 'RATE_LIMITED',
         }
     }
@@ -393,7 +393,7 @@ export async function updateProfileAction(data: UpdateProfileInput): Promise<Upd
             PROFILE_UPDATE_WINDOW_SECONDS
         )
         if (!updateRate.allowed) {
-            return { success: false, error: 'Too many profile updates. Please wait and try again.', errorCode: 'RATE_LIMITED' }
+            return { success: false, error: 'Too many profile updates. Wait and try again.', errorCode: 'RATE_LIMITED' }
         }
 
         const result = profileUpdateSchema.safeParse(data)
@@ -485,7 +485,7 @@ export async function updateProfileAction(data: UpdateProfileInput): Promise<Upd
                 USERNAME_CHANGE_WINDOW_SECONDS
             )
             if (!usernameRate.allowed) {
-                return { success: false, error: 'Too many username changes. Please try again later.', errorCode: 'USERNAME_RATE_LIMITED' }
+                return { success: false, error: 'Too many username changes. Try again later.', errorCode: 'USERNAME_RATE_LIMITED' }
             }
 
             let lastUsernameChange: { createdAt: Date } | undefined
@@ -505,7 +505,7 @@ export async function updateProfileAction(data: UpdateProfileInput): Promise<Upd
                 })
                 return {
                     success: false,
-                    error: 'Unable to verify username change history right now. Please try again shortly.',
+                    error: 'Unable to verify username change history right now. Try again shortly.',
                     errorCode: 'USERNAME_HISTORY_UNAVAILABLE',
                 }
             }
@@ -680,7 +680,7 @@ export async function updateProfileAction(data: UpdateProfileInput): Promise<Upd
                 });
                 return {
                     success: false,
-                    error: 'Profile was updated elsewhere. Please refresh and retry.',
+                    error: 'Profile was updated elsewhere. Refresh and retry.',
                     errorCode: 'PROFILE_CONFLICT',
                     code: 'PROFILE_CONFLICT',
                     currentSocialLinks: latest?.socialLinks ?? current.socialLinks,

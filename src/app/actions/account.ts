@@ -41,7 +41,7 @@ export async function cancelAccountDeletion(): Promise<{ success: boolean; error
         }
         // A cancel is cheap but it undoes a deletion: a stolen session shouldn't be able to flip it back and forth.
         const limit = await consumeRateLimit(`account-cancel-deletion:${user.id}`, 10, 3600);
-        if (!limit.allowed) return { success: false, error: 'Too many attempts. Please try again later.' };
+        if (!limit.allowed) return { success: false, error: 'Too many attempts. Try again later.' };
         const outcome = await cancelAccountDeletionForUser(user.id);
         if (outcome === 'not_found') return { success: false, error: 'No pending deletion found' };
         if (outcome === 'too_late') return { success: false, error: 'Account deletion is already being finalized' };
@@ -127,7 +127,7 @@ export async function transferProjectOwnership(
         if (!rate.allowed) {
             return {
                 success: false,
-                error: 'Too many transfer attempts. Please try again later.',
+                error: 'Too many transfer attempts. Try again later.',
                 errorCode: 'RATE_LIMITED',
             };
         }

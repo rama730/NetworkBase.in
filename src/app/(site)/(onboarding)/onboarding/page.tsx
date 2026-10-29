@@ -357,7 +357,7 @@ export default function OnboardingPage() {
                     setReturnToReview(true)
                     setStep(1)
                 } else {
-                    setError(result.error || 'We could not finish your setup. Please try again.')
+                    setError(result.error || 'We could not finish your setup. Try again.')
                 }
                 return
             }
@@ -380,7 +380,7 @@ export default function OnboardingPage() {
             setFinished(true)
         } catch (submitError) {
             console.error('Unable to complete onboarding:', submitError)
-            setError('Something went wrong while finishing. Please try again.')
+            setError('Something went wrong while finishing. Try again.')
         } finally {
             setBusy(false)
         }

@@ -176,7 +176,7 @@ export async function readStoredSyncContent(
   }
   const { data, error } = await storage.download(key);
   if (error || !data)
-    throw new Error("Unable to read file content. Please retry.");
+    throw new Error("Unable to read file content. Retry.");
   if (data.size > SYNC_LIMITS.fileBytes)
     throw new Error("File exceeds the 10 MB sync limit");
   return Buffer.from(await data.arrayBuffer());
@@ -936,7 +936,7 @@ export async function createSyncReview(
               );
               if (!existingObject) {
                 throw new Error(
-                  `Unable to retain reviewed content for ${item.path}. Please retry.`,
+                  `Unable to retain reviewed content for ${item.path}. Retry.`,
                 );
               }
             }

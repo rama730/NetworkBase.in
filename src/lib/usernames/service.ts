@@ -117,7 +117,7 @@ function classifyUsernameAvailability(params: {
         if (params.claim.userId === params.viewerId) {
             return {
                 available: true,
-                message: 'Username is available!',
+                message: 'Username is available',
                 normalizedUsername: params.normalizedUsername,
             }
         }
@@ -134,7 +134,7 @@ function classifyUsernameAvailability(params: {
 
     return {
         available: true,
-        message: 'Username is available!',
+        message: 'Username is available',
         normalizedUsername: params.normalizedUsername,
     }
 }

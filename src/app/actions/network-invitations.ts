@@ -85,7 +85,7 @@ export async function readNetworkInvitationsAction(
     if (!rate.allowed)
       return {
         success: false as const,
-        error: "Too many requests. Please try again shortly.",
+        error: "Too many requests. Try again shortly.",
       };
     const ascending = query.sort === "oldest";
     const direction = ascending ? sql`ASC` : sql`DESC`,
@@ -234,7 +234,7 @@ export async function readNetworkInvitationsAction(
     });
     return {
       success: false as const,
-      error: "Could not load invitations. Please try again.",
+      error: "Could not load invitations. Try again.",
     };
   }
 }

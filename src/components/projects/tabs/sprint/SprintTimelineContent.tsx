@@ -343,7 +343,7 @@ export function SprintTimelineContent({
 
                     <div className="mt-4 pt-4 border-t border-border">
                       <Link href={taskHref} className="nb-ui-label text-foreground underline underline-offset-4 transition-colors hover:text-primary">
-                        View full task details &rarr;
+                        View full task details
                       </Link>
                     </div>
                   </div>

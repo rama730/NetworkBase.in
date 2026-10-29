@@ -127,7 +127,7 @@ export function PresentationViewerDriver({
 
         // Safety limit: 60 MB
         if (buffer.byteLength > 60 * 1024 * 1024) {
-          throw new Error("File exceeds client-side preview safety limit (60 MB). Please download to view.");
+          throw new Error("File exceeds client-side preview safety limit (60 MB). Download to view.");
         }
 
         const uint8 = new Uint8Array(buffer);

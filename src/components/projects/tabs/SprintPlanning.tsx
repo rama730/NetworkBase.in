@@ -348,7 +348,7 @@ export default function SprintPlanning({
           <p className="text-sm leading-6 text-muted-foreground">
             {isForbidden
               ? "You do not have permission to view sprints for this project."
-              : (error instanceof Error ? error.message : "Please try again.")}
+              : (error instanceof Error ? error.message : "Try again.")}
           </p>
           {!isForbidden ? (
             <button type="button" onClick={() => void refetch()} className="nb-touch-target nb-ui-label inline-flex h-[34px] items-center justify-center rounded-[5px] border border-border bg-card px-4 text-foreground transition-[background-color,border-color,transform] duration-150 hover:border-input hover:bg-muted active:translate-y-px">Try again</button>

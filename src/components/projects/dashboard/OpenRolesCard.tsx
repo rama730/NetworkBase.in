@@ -415,7 +415,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                 {pendingApplications > 0 ? (
                     <Link href="/network?tab=invitations" className="nb-touch-target flex items-center justify-between rounded-[5px] border border-primary/30 bg-primary/5 px-3 py-2 text-[13px] font-medium text-primary hover:bg-primary/10">
                         <span>{pendingApplications} pending {pendingApplications === 1 ? "application" : "applications"}</span>
-                        <span aria-hidden="true">Review ›</span>
+                        <span aria-hidden="true">Review</span>
                     </Link>
                 ) : null}
 

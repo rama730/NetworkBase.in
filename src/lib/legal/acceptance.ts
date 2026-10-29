@@ -29,7 +29,7 @@ export function acceptanceProvenDuringOutage(entry: CachedAcceptance | undefined
 
 export class LegalAcceptanceUnavailableError extends Error {
   constructor() {
-    super("Your legal acceptance could not be checked right now. Please try again.");
+    super("Your legal acceptance could not be checked right now. Try again.");
     this.name = "LegalAcceptanceUnavailableError";
   }
 }
