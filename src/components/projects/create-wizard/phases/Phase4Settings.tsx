@@ -425,7 +425,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     {externalLinksError ? <p role="alert" className="mt-2 text-[13px] leading-[1.5] text-destructive">{externalLinksError}</p> : null}
                 </LaunchSection>
 
-                <LaunchSection {...sectionProps('documentation')} title="Starter doc" description="The workspace Doc tab: setup notes, guidance, and how to contribute." summary={docMode === 'skip' ? 'No doc yet' : `${orgTemplates.find((t) => t.id === readme?.orgTemplateDocId)?.filename.replace(/\.md$/i, '') ?? (orgStarterDoc ? `${orgStarterDoc} template` : 'Starter template')} · ${readme?.publishOnCreate ? 'published' : 'draft'}`}>
+                <LaunchSection {...sectionProps('documentation')} title="Starter doc" description="The workspace Doc tab: setup notes, guidance, and how to contribute." summary={docMode === 'skip' ? 'No documents yet' : `${orgTemplates.find((t) => t.id === readme?.orgTemplateDocId)?.filename.replace(/\.md$/i, '') ?? (orgStarterDoc ? `${orgStarterDoc} template` : 'Starter template')} · ${readme?.publishOnCreate ? 'published' : 'draft'}`}>
                     <div className="flex flex-wrap gap-2" role="group" aria-label="Starter doc">
                         {orgTemplates.map((t) => (
                             <ChoiceChip key={t.id} selected={docMode === 'starter' && readme?.orgTemplateDocId === t.id} onClick={() => set('readme', { ...readme, mode: 'starter', orgTemplateDocId: t.id } as CreateProjectInput['readme'])}>
@@ -433,7 +433,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                             </ChoiceChip>
                         ))}
                         <ChoiceChip selected={docMode === 'starter' && !readme?.orgTemplateDocId} onClick={() => set('readme', { ...readme, mode: 'starter', orgTemplateDocId: null } as CreateProjectInput['readme'])}>{orgStarterDoc ? `${orgStarterDoc} template` : 'Starter template'}</ChoiceChip>
-                        <ChoiceChip selected={docMode === 'skip'} onClick={() => set('readme', { ...readme, mode: 'skip', publishOnCreate: false } as CreateProjectInput['readme'])}>No doc yet</ChoiceChip>
+                        <ChoiceChip selected={docMode === 'skip'} onClick={() => set('readme', { ...readme, mode: 'skip', publishOnCreate: false } as CreateProjectInput['readme'])}>No documents yet</ChoiceChip>
                     </div>
                     {sourceType !== 'scratch' ? (
                         <p className="nb-compact mt-3 flex items-start gap-2 text-muted-foreground"><Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />Your repository README can be linked from the Doc tab once the import finishes.</p>

@@ -1686,7 +1686,7 @@ export function RepositorySync({
           <p>
             {state?.runs[0]
               ? `${state.runs[0].manifest.files.length} file operations · ${formatSyncDate(state.runs[0].createdAt)}`
-              : "No recorded transfers yet."}
+              : "No uploads or downloads yet."}
           </p>
           {state?.runs[0] && (
             <SyncBadge
@@ -3170,7 +3170,7 @@ export function RepositorySync({
               Recorded operations and retained results for this workspace.
             </DialogDescription>
             {!state?.runs.length ? (
-              <p>No recorded operations yet.</p>
+              <p>No syncs yet.</p>
             ) : (
               <ul className={styles.plainList}>
                 {state.runs.map((item) => (

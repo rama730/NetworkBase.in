@@ -123,7 +123,7 @@ function OwnDocs({ projectId, project, paramDoc }: { projectId: string; project:
         <div className="nb-empty-state nb-grid-ground py-12" role="status">
             <BookOpenText className="nb-empty-state-icon" aria-hidden="true" />
             <p className="nb-card-title mt-4 text-foreground">
-                {hasDocs ? "Not published yet" : "No docs yet"}
+                {hasDocs ? "Not published yet" : "No documents yet"}
             </p>
             <p className="nb-compact mt-2 text-muted-foreground">
                 {hasDocs
