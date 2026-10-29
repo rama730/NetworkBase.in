@@ -89,7 +89,7 @@ export function OrgAboutTab({ project, isCreator, onEdit, visitorActions }: { pr
                                 <p className="text-sm">Code <span className="font-mono font-semibold">{data.card.joinCode}</span>{' · '}
                                     <button type="button" className="underline underline-offset-4" onClick={() => void navigator.clipboard.writeText((data.card as { joinCode: string }).joinCode).then(() => toast.success('Code copied'))}>Copy</button>
                                 </p>
-                            ) : <p className="text-sm text-muted-foreground">The join code is off.</p>}
+                            ) : <p className="text-sm text-muted-foreground">Joining by code is turned off.</p>}
                             <Link href={`${base}?tab=members`} className="text-sm underline underline-offset-4">Invite by email</Link>
                         </RailSection>
                     ) : data.card.kind === 'member' || data.card.kind === 'guest' ? (

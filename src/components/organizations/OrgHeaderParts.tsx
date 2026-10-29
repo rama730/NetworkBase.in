@@ -157,7 +157,7 @@ export function OrgBreadcrumb({ parentOrg }: { parentOrg: ParentOrgLink }) {
 
 /** `Org only` / `Private` and, for inherited admins, `<Org> admin` (report §18.4, §18.6). */
 export function ChildOrgChips({ parentOrg, visibility, archived }: { parentOrg: ParentOrgLink; visibility: string | null | undefined; archived: boolean }) {
-    const visibilityChip = visibility === 'org' ? 'Org only' : visibility === 'private' ? 'Private' : null
+    const visibilityChip = visibility === 'org' ? 'Organization' : visibility === 'private' ? 'Private' : null
     if (!visibilityChip && !parentOrg.viewerIsInheritedAdmin && !archived) return null
     return (
         <p className="flex flex-wrap items-center gap-1.5" data-testid="child-org-chips">

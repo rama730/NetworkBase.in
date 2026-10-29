@@ -176,7 +176,7 @@ test("editor snapshot and failed notes remain recoverable without closing the ed
   );
   assert.match(text, /const loadVersion = editSnapshot.current\?\.version/);
   assert.match(text, /baseVersion,\s*baseHash,\s*lease,/);
-  assert.match(text, /Retry editing access/);
+  assert.match(text, /Try editing again/);
   assert.doesNotMatch(text, /baseVersion: node.currentVersion/);
   const notes = readFileSync(
     "src/components/projects/v2/files-tab/file/LinkedTasksPanel.tsx",

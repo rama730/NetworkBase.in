@@ -318,7 +318,7 @@ export default function DetailsTab({
               {reviewError ? (
                 <p className="text-xs text-destructive">{reviewError}</p>
               ) : null}
-              {reviewState.data?.changed ? <p className="text-xs text-amber-700 dark:text-amber-300">Requirements, subtasks or linked files changed. Resubmit the current work before approval.</p> : null}
+              {reviewState.data?.changed ? <p className="text-xs text-amber-700 dark:text-amber-300">This task changed after it was submitted. Submit it again for review.</p> : null}
               {reviewState.isError ? <p role="alert" className="text-xs text-destructive">Couldn’t check this submission. <button type="button" className="underline" onClick={() => void reviewState.refetch()}>Retry</button></p> : null}
               {canReview ? (
                 <div className="flex items-center gap-2 pt-2">
@@ -329,7 +329,7 @@ export default function DetailsTab({
                     className="nb-touch-target inline-flex h-[34px] items-center gap-1.5 px-3 rounded-[5px] bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
                   >
                     <Check className="size-3.5" />
-                    {isApproving ? "Saving…" : "Approve and complete"}
+                    {isApproving ? "Saving…" : "Approve"}
                   </button>
                   <button
                     type="button"
@@ -342,11 +342,11 @@ export default function DetailsTab({
                   </button>
                 </div>
               ) : null}
-              {canEdit && (reviewState.data?.changed || !reviewState.data?.submittedAt || Boolean(reviewError)) ? <button type="button" disabled={isApproving} className="nb-touch-target text-xs font-medium underline" onClick={() => void updateReview(true)}>Resubmit current work</button> : null}
+              {canEdit && (reviewState.data?.changed || !reviewState.data?.submittedAt || Boolean(reviewError)) ? <button type="button" disabled={isApproving} className="nb-touch-target text-xs font-medium underline" onClick={() => void updateReview(true)}>Submit again</button> : null}
               {requestingChanges && canReview ? <div className="space-y-2 border-t border-border pt-3">
                 <label htmlFor="task-review-reason" className="text-xs font-medium">What needs to change?</label>
                 <textarea id="task-review-reason" value={changesReason} onChange={(event) => setChangesReason(event.target.value)} maxLength={2000} rows={3} className="w-full rounded-[5px] border border-border bg-background px-3 py-2 text-sm" />
-                <div className="flex gap-3"><button type="button" disabled={isApproving || !changesReason.trim()} className="nb-touch-target text-xs font-medium disabled:opacity-50" onClick={() => void updateReview(false)}>Return to In progress</button><button type="button" className="nb-touch-target text-xs" onClick={() => setRequestingChanges(false)}>Cancel</button></div>
+                <div className="flex gap-3"><button type="button" disabled={isApproving || !changesReason.trim()} className="nb-touch-target text-xs font-medium disabled:opacity-50" onClick={() => void updateReview(false)}>Move back to In progress</button><button type="button" className="nb-touch-target text-xs" onClick={() => setRequestingChanges(false)}>Cancel</button></div>
               </div> : null}
             </div>
           </div>

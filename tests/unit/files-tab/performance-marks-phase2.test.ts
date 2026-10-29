@@ -253,7 +253,7 @@ describe("Phase 2 performance marks — cross-file invariants", () => {
       "V3AttachmentPicker.tsx must not reference the linked-tasks-panel mark name",
     );
 
-    // Version history mark should not appear in the other two files
+    // Version mark should not appear in the other two files
     assert.ok(
       !LINKED_TASKS_PANEL_SRC.includes(VERSION_HISTORY_MARK),
       "LinkedTasksPanel.tsx must not reference the version-history mark name",

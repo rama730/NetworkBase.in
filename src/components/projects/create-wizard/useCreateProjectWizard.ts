@@ -407,7 +407,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
         setDraftInfo(null);
         reset();
         setPhase(1);
-        toast.success("Draft erased completely");
+        toast.success("Draft deleted");
     }, [reset, userId]);
 
     const saveDraft = useCallback(async (silent = false) => {
@@ -541,7 +541,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                     const metadata = (getValues('import_source.metadata') || {}) as Record<string, unknown>;
                     const preflightReady = metadata.githubPreflightStatus === 'ok';
                     if (!preflightReady) {
-                        toast.info('Run GitHub import checks before continuing');
+                        toast.info('Check the repository before continuing.');
                         return;
                     }
 
@@ -1024,7 +1024,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                 toast.error(error.message, {
                     id: creationToastId,
                     action: {
-                        label: 'Create as a personal project',
+                        label: 'Create as a personal workspace',
                         onClick: () => {
                             setValue('parent_org_id', undefined);
                             setValue('lead_user_id', undefined);

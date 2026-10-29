@@ -42,7 +42,7 @@ function responsibilityHints(member: ProjectSettingsMember) {
         counts.activeCreatedTasks > 0 ? `${counts.activeCreatedTasks} created active` : null,
         counts.fileReviews > 0 ? `${counts.fileReviews} file review` : null,
         counts.acceptedApplications > 0 ? `${counts.acceptedApplications} accepted role` : null,
-        counts.projectGroupParticipant ? "Project group" : null,
+        counts.projectGroupParticipant ? "Workspace channel" : null,
     ].filter((item): item is string => Boolean(item));
 }
 

@@ -9,7 +9,7 @@ test("create-project shell keeps progress in a compact centered header and save 
     readFile("src/components/projects/create-wizard/CreateProjectWizard.tsx", "utf8"),
   ]);
 
-  assert.match(header, /<h1[^>]*>\{isOrganization \? "Create organization" : "Create project"\}<\/h1>/);
+  assert.match(header, /<h1[^>]*>\{isOrganization \? "Create organization" : "Create workspace"\}<\/h1>/);
   assert.match(header, /grid-cols-\[minmax\(0,1fr\)_minmax\(0,1fr\)_minmax\(0,1fr\)\]/);
   assert.match(header, /md:grid-cols-\[minmax\(9rem,1fr\)_auto_minmax\(9rem,1fr\)\]/);
   assert.match(header, /justify-self-center/);

@@ -49,7 +49,7 @@ test("phase 1 keeps one named radio source selector and a flat accessible reposi
   assert.match(phase, /aria-expanded=/);
   assert.doesNotMatch(phase, /📁|📄/);
   assert.doesNotMatch(phase, /create-project-back-to-source-grid/);
-  assert.match(phase, /Manual setup/);
+  assert.match(phase, /Start empty/);
   assert.match(phase, /Set up the project in the next steps/);
   assert.match(phase, /No repository or folder attached\./);
   assert.match(phase, /<GithubImportDetails/);
@@ -93,6 +93,6 @@ test("wizard shell is reactive, uses the project-setup exit dialog, and chunks u
   assert.match(hook, /branchOverride \?\? watchedBranch/);
   assert.match(hook, /setGithubFolderEntries\(\{\}\)/);
   assert.doesNotMatch(hook, /window\.scrollTo/);
-  assert.match(footer, /Create project/);
+  assert.match(footer, /Create workspace/);
   assert.doesNotMatch(footer, /Launch Project/);
 });

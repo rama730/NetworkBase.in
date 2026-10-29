@@ -611,7 +611,7 @@ export default function Phase1SourceSelection({
             return true;
         } catch (error: any) {
             if (latestPreflightRequestKeyRef.current !== requestKey) return false;
-            const message = error?.message || 'Preflight failed.';
+            const message = error?.message || 'Couldn’t check the repository.';
             setPreflightState({ status: 'error', warnings: [], error: message, authSource: null });
             mergeImportSourceMetadata({
                 githubPreflightStatus: 'error',
@@ -971,7 +971,7 @@ export default function Phase1SourceSelection({
         >
             <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(13rem,0.42fr)] md:items-start">
                 <div>
-                    <p className="nb-label text-primary">Manual setup</p>
+                    <p className="nb-label text-primary">Start empty</p>
                     <h3 id="scratch-source-heading" className="nb-section-title mt-2 text-foreground">
                         Set up the project in the next steps
                     </h3>
@@ -981,7 +981,7 @@ export default function Phase1SourceSelection({
                 </div>
                 <dl className="border-l border-border pl-5 max-md:border-l-0 max-md:border-t max-md:pl-0 max-md:pt-4">
                     <dt className="nb-label">Project source</dt>
-                    <dd className="nb-card-title mt-2 text-foreground">Empty project</dd>
+                    <dd className="nb-card-title mt-2 text-foreground">Start empty</dd>
                     <dd className="nb-compact mt-1 text-muted-foreground">
                         No repository or folder attached.
                     </dd>

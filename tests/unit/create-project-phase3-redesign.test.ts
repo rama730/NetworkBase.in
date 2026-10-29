@@ -12,7 +12,7 @@ test('Phase 3 uses the canonical wizard hierarchy and flat team composition', ()
     const phase = source('src/components/projects/create-wizard/phases/Phase3TeamRoles.tsx');
 
     assert.match(phase, /Phase 3 · team/);
-    assert.match(phase, /Build the initial team/);
+    assert.match(phase, /Set up your team/);
     assert.match(phase, /title="Owner"/);
     assert.match(phase, /Set up your team/);
     assert.match(phase, /min-w-0 w-full space-y-8 pb-6/);
@@ -56,7 +56,7 @@ test('Phase 3 roles participate in form drafts, validation, and final project cr
     assert.match(wizard, /const resolvedRoles = \(data\.roles \|\| \[\]\)/);
     assert.match(wizard, /phase3ValidationAttempted/);
     assert.match(modal, /showValidationSummary=\{phase3ValidationAttempted\}/);
-    assert.match(schema, /max\(10, 'A role can have up to 10 positions'\)/);
+    assert.match(schema, /max\(10, 'Up to 10 people per role'\)/);
     assert.match(schema, /Each open role needs a unique title\./);
     assert.match(review, /openPositionCount/);
     assert.match(review, /font-mono text-\[11px\] uppercase tracking-\[0\.09em\]/);

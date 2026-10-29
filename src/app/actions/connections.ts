@@ -2791,19 +2791,19 @@ export async function getProfileConnectionCountAction(profileId: string) {
 export async function readPersonSharedConnectionsAction(input: { targetId: string; offset?: number }) {
     const parsed = z.object({ targetId: z.string().uuid(), offset: z.number().int().min(0).max(10000).optional() }).safeParse(input);
     const user = await getAuthUser();
-    if (!user || !parsed.success || parsed.data.targetId === user.id) return { success: false as const, error: 'Shared connections are unavailable.' };
+    if (!user || !parsed.success || parsed.data.targetId === user.id) return { success: false as const, error: 'Mutual connections are unavailable.' };
     try {
         const rate = await consumeRateLimit(`person-shared:${user.id}`, 60, 60);
         if (!rate.allowed) return { success: false as const, error: 'Wait before trying again.' };
         const relationship = await resolvePrivacyRelationship(user.id, parsed.data.targetId);
         if (!relationship?.canViewProfile) return { success: false as const, error: 'This profile is no longer available.' };
         const summary = await readSharedConnections(user.id, [parsed.data.targetId], { limit: 20, offset: parsed.data.offset });
-        if (parsed.data.offset && !summary.people.length) return { success: false as const, error: 'Shared connections changed. Retry to reload the list.' };
+        if (parsed.data.offset && !summary.people.length) return { success: false as const, error: 'Mutual connections changed. Retry to reload the list.' };
         const stillPermitted = await resolvePrivacyRelationship(user.id, parsed.data.targetId);
         if (!stillPermitted?.canViewProfile) return { success: false as const, error: 'This profile is no longer available.' };
         return { success: true as const, summary };
     } catch (error) {
         logger.warn('connections.shared_people_failed', { error: error instanceof Error ? error.message : String(error) });
-        return { success: false as const, error: 'Couldn’t load shared connections. Try again.' };
+        return { success: false as const, error: 'Couldn’t load mutual connections. Try again.' };
     }
 }

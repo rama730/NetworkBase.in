@@ -764,8 +764,8 @@ function isNonRetryableUploadError(message?: string): boolean {
 
   const handleDownloadFolder = useCallback(
     async (folderId: string | null) => {
-      const folderName = folderId ? nodesById[folderId]?.name : "Project Files";
-      const params = new URLSearchParams({ name: folderName || "Project Files" });
+      const folderName = folderId ? nodesById[folderId]?.name : "All files";
+      const params = new URLSearchParams({ name: folderName || "All files" });
       if (folderId) params.set("folderId", folderId);
       const anchor = document.createElement("a");
       anchor.href = `/api/v1/projects/${projectId}/files/export?${params.toString()}`;

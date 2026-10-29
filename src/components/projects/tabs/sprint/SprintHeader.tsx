@@ -96,7 +96,7 @@ export function SprintHeader({
                 </span>
               ) : readyToClose ? (
                 <span className="nb-status nb-sprint-tone-warning">
-                  Close-out required
+                  Wrap-up needed
                 </span>
               ) : null}
             </div>
@@ -123,7 +123,7 @@ export function SprintHeader({
                     className="nb-touch-target nb-ui-label inline-flex h-[34px] items-center gap-1.5 rounded-[5px] border border-primary bg-primary px-3 text-primary-foreground transition-[background-color,border-color,transform] duration-150 hover:border-[var(--primary-hover)] hover:bg-[var(--primary-hover)] active:translate-y-px active:border-[var(--primary-active)] active:bg-[var(--primary-active)] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <CheckCircle2 aria-hidden="true" className="h-3.5 w-3.5" />
-                    Close sprint
+                    Complete sprint
                   </button>
                 ) : null}
 
@@ -145,7 +145,7 @@ export function SprintHeader({
                     <DropdownMenuTrigger asChild>
                       <button
                         type="button"
-                        aria-label="Sprint lifecycle options"
+                        aria-label="Sprint actions"
                         disabled={isMutatingLifecycle}
                         className="nb-touch-target inline-flex h-[34px] w-[34px] items-center justify-center rounded-[5px] border border-border bg-card text-muted-foreground transition-[background-color,border-color,transform] duration-150 hover:border-input hover:bg-muted hover:text-foreground active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
                       >
@@ -162,7 +162,7 @@ export function SprintHeader({
                             aria-hidden="true"
                             className="h-4 w-4"
                           />
-                          Close sprint
+                          Complete sprint
                         </DropdownMenuItem>
                       ) : null}
                       {permissions.canComplete &&

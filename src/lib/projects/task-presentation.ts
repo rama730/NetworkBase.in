@@ -253,7 +253,7 @@ export function calculateTaskTimeHealth(
 
   // If sprint is completed but task is not done (and not technically past due date)
   if (isSprintFinished) {
-    return { state: "unfinished", label: "Rolled over" };
+    return { state: "unfinished", label: "Incomplete" };
   }
 
   return { state: "none", label: "" };

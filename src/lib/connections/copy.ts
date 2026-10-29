@@ -12,5 +12,5 @@ export const CONNECTION_COPY = {
     blocking: "Blocking…",
     blockFailed: "Person wasn’t blocked",
     blocked_toast: (name: string) => `Blocked ${name}`,
-    shared: (count: number) => `${count} shared ${count === 1 ? "connection" : "connections"}`,
+    shared: (count: number) => `${count} mutual ${count === 1 ? "connection" : "connections"}`,
 } as const;

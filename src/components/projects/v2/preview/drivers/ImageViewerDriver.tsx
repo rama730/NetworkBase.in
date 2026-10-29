@@ -274,7 +274,7 @@ export function ImageViewerDriver({
               variant={viewMode === "code" ? "secondary" : "ghost"}
               onClick={() => setViewMode("code")}
               className="h-7 px-2 text-xs"
-              title="SVG Source Code"
+              title="View source"
             >
               <Code2 className="mr-1 h-3.5 w-3.5" />
               Source
@@ -354,7 +354,7 @@ export function ImageViewerDriver({
               variant={pixelated ? "secondary" : "ghost"}
               onClick={() => setPixelated((p) => !p)}
               className="h-7 px-1.5 text-xs font-mono"
-              title="Toggle Pixelated Upscaling (Crisp Edges)"
+              title="Sharp pixels"
             >
               1:1 Crisp
             </Button>

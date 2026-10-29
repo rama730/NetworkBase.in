@@ -57,7 +57,7 @@ import { cn } from "@/lib/utils";
 
 function originalLocation(path: string) {
   const parts = path.split("/").filter(Boolean);
-  if (parts.length <= 1) return "Project files";
+  if (parts.length <= 1) return "All files";
   return `/${parts.slice(0, -1).join("/")}`;
 }
 

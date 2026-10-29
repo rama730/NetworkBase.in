@@ -30,8 +30,8 @@ export function SkillPicker({
     onChange,
     maxSkills = 25,
     allowCustom = true,
-    label = 'Skills and expertise',
-    description = 'Search the market catalog or add a custom skill.',
+    label = 'Skills',
+    description = 'Search skills or add your own.',
     compact = false,
     dense = false,
     progressive = false,
@@ -390,7 +390,7 @@ export function SkillPicker({
                             </span>
                             <span className="min-w-0 flex-1">
                                 <span className="block truncate text-sm font-medium text-foreground">Add “{query.trim()}”</span>
-                                <span className="block truncate text-xs text-muted-foreground">Custom skill · submitted for catalog review</span>
+                                <span className="block truncate text-xs text-muted-foreground">Custom skill · we’ll review it</span>
                             </span>
                         </button>
                     ) : null}

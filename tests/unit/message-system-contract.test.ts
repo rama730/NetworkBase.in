@@ -91,8 +91,8 @@ test("Messages system adheres to design specification contracts", () => {
     );
     assert.match(
         chatSectionsSource,
-        /Project settings/,
-        "Individual project settings must include Project settings for opened project",
+        /Workspace settings/,
+        "Individual project settings must include Workspace settings for opened project",
     );
 
     // 6. Composer alignment and typing indicator
@@ -900,7 +900,7 @@ test("Section 9 (Project Selection First & Professional Empty Placeholder) contr
     // 9.3 HomePane professional empty state & project-aware placeholder
     assert.match(
         homePaneSource,
-        /Start a conversation[\s\S]*Message a teammate[\s\S]*title="Unread"/,
+        /Start a conversation[\s\S]*Message someone[\s\S]*title="Unread"/,
         "HomePane shows what needs you (Unread; recent ones live in the sidebar), and first-time users get a way to start (round 2 #38, #39)",
     );
     assert.match(

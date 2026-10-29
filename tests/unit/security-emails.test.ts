@@ -33,7 +33,7 @@ test("a name with markup is escaped in the HTML", () => {
 test("a changed password, token and authenticator each say what happened and what to do if it wasn't you", () => {
     assert.match(buildSecurityEmail("security_password_changed", { at }, person).text, /If this wasn’t you/);
     assert.match(buildSecurityEmail("security_token_created", { at, detail: "Workstation" }, person).text, /Workstation/);
-    assert.match(buildSecurityEmail("security_mfa_changed", { at, detail: "removed" }, person).subject, /Sign-in protection changed/);
+    assert.match(buildSecurityEmail("security_mfa_changed", { at, detail: "removed" }, person).subject, /Two-step verification changed/);
     assert.match(buildSecurityEmail("security_mfa_changed", { at, detail: "removed" }, person).text, /removed/);
 });
 

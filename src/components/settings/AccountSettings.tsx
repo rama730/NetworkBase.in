@@ -72,11 +72,11 @@ export default function AccountPage() {
         </SettingsSectionCard>
 
         <SettingsSectionCard
-          title="Cache management"
+          title="Storage on this device"
           description="Remove downloaded application files while preserving local drafts and appearance preferences."
         >
           <SettingsRow
-            title="Application cache"
+            title="Storage on this device"
             description="NetworkBase downloads these files again when they are needed."
             right={
               <Button variant="outline" onClick={() => void handleClearCache()} disabled={isClearingCache}>

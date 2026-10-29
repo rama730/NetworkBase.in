@@ -83,7 +83,7 @@ export function buildPrivacyPresentation(
   if (relationship.visibilityReason === "private") {
     return {
       relationshipBadgeText: "Private",
-      relationshipExplanation: "Non-connections see a locked profile shell.",
+      relationshipExplanation: "People you’re not connected to see a limited profile.",
       blockedBannerText: null,
       canOpenProfile: false,
       canSendMessage: relationship.canSendMessage,

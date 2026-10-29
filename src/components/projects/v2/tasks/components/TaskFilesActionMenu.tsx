@@ -92,7 +92,7 @@ export function TaskFilesActionMenu({
             <FolderPlus className="mr-2 h-4 w-4" />
             <div className="flex flex-col">
               <span className="text-[13px] font-medium text-foreground">Upload folder</span>
-              <span className="text-[11px] text-muted-foreground">Keep folder structure and resolve placement</span>
+              <span className="text-[11px] text-muted-foreground">Keeps your folders as they are</span>
             </div>
           </DropdownMenuItem>
         ) : null}
@@ -106,7 +106,7 @@ export function TaskFilesActionMenu({
           <Link2 className="mr-2 h-4 w-4" />
           <div className="flex flex-col">
             <span className="text-[13px] font-medium text-foreground">Add task reference</span>
-            <span className="text-[11px] text-muted-foreground">Link an existing project file as task input</span>
+            <span className="text-[11px] text-muted-foreground">Link a file from Files</span>
           </div>
         </DropdownMenuItem>
       </DropdownMenuContent>

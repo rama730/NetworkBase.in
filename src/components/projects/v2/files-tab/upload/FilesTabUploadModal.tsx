@@ -109,7 +109,7 @@ export function FilesTabUploadModal({
   isOpen,
   files,
   currentFolderId,
-  currentFolderName = "Project root",
+  currentFolderName = "All files",
   existingFiles,
   activeTaskId = null,
   activeTaskTitle = null,
@@ -238,7 +238,7 @@ export function FilesTabUploadModal({
 
   const destinationFolderName = useMemo(() => {
     if (destinationFolderId === null) {
-      return "Project root";
+      return "All files";
     }
     if (destinationFolderId === currentFolderId && currentFolderName) {
       return currentFolderName;
@@ -509,11 +509,11 @@ export function FilesTabUploadModal({
               ? "Select the destination folder for these project files."
               : expandedCard === "deliverable"
                 ? "Select the destination folder for this deliverable."
-                : "How would you like to categorize these files?"}
+                : "What are these files for?"}
           </DialogDescription>
         </DialogHeader>
 
-        {oversizedFiles.length > 0 && <div className="space-y-2 border-t border-border pt-2" aria-label="Rejected upload selections">
+        {oversizedFiles.length > 0 && <div className="space-y-2 border-t border-border pt-2" aria-label="Files that can’t be uploaded">
           {oversizedFiles.map((file, index) => <div key={`${file.name}-${index}`} className="flex items-start gap-2 text-[12px] leading-4">
             <AlertCircle className="mt-0.5 size-3.5 shrink-0 text-[var(--status-warning)]" aria-hidden="true" />
             <div className="min-w-0 flex-1"><strong className="block break-all font-medium">{file.name}</strong><span className="text-muted-foreground">{formatBytes(file.size)} · Limit {formatBytes(DEFAULT_PROJECT_UPLOAD_MAX_FILE_BYTES)} · Not uploaded</span></div>
@@ -670,7 +670,7 @@ export function FilesTabUploadModal({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-semibold text-foreground">
-                      Project Files
+                      All files
                     </div>
                     {intent === "project" && (
                       <span className="flex size-4 items-center justify-center rounded-[3px] bg-[#D14E24] text-white">
@@ -840,7 +840,7 @@ export function FilesTabUploadModal({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <div className="text-sm font-semibold text-foreground">
-                        New version of existing file
+                        New version of a file
                       </div>
                       {intent === "version" && (
                         <span className="flex size-4 items-center justify-center rounded-[3px] bg-[#D14E24] text-white">
@@ -878,7 +878,7 @@ export function FilesTabUploadModal({
               <div className="mt-2 rounded-lg border border-border bg-muted/40 p-3 dark:border-border dark:bg-card/60 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-foreground">
-                    Associated task
+                    Linked task
                   </span>
                   {activeTaskTitle && (
                     <span className="text-[11px] text-muted-foreground truncate max-w-[200px]">
@@ -943,7 +943,7 @@ export function FilesTabUploadModal({
                   <FolderUp className="size-5 text-[#D14E24] shrink-0" />
                   <div className="min-w-0">
                     <div className="text-sm font-semibold text-foreground">
-                      Project Files
+                      All files
                     </div>
                     <div className="text-xs text-muted-foreground truncate">
                       Destination folder: <span className="font-medium text-[#D14E24]">{destinationFolderName}</span>

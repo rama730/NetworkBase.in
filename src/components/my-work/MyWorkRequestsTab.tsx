@@ -174,7 +174,7 @@ export default function MyWorkRequestsTab({ isActive = true }: MyWorkRequestsTab
     const rejectInvite = useMutation({
         mutationFn: async (id: string) => unwrap(await resolveProjectInvitationAction({ invitationId: id, action: "decline" })),
         onMutate: removeOptimistically,
-        onSuccess: () => { toast.success("Invite rejected"); invalidate(); },
+        onSuccess: () => { toast.success("Decline"); invalidate(); },
         onError: (error: unknown) => { invalidate(); toast.error(feedbackError(errorMessage(error), "Action couldn’t finish")); },
     });
 
@@ -225,7 +225,7 @@ export default function MyWorkRequestsTab({ isActive = true }: MyWorkRequestsTab
         }
     };
 
-    const handleAcceptAllConnections = () => acceptEach(pendingConnections.map((req) => req.id), (id) => acceptRequest.mutateAsync(id), "connection request");
+    const handleAcceptAllConnections = () => acceptEach(pendingConnections.map((req) => req.id), (id) => acceptRequest.mutateAsync(id), "connection request *(keep)*");
 
     const handleAcceptAllInvites = () => acceptEach(pendingInvites.map((inv) => inv.id), (id) => acceptInvite.mutateAsync(id), "project invite");
 

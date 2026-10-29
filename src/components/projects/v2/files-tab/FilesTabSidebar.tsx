@@ -782,7 +782,7 @@ export function FilesTabSidebar({
                       }}
                     >
                       <History className="w-4 h-4 mr-2" />
-                      Version history
+                      Version
                     </DropdownMenuItem>
                     {filesView && (
                       <DropdownMenuItem

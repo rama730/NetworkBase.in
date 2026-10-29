@@ -19,7 +19,7 @@ export default function TaskFilters({ scope, setScope }: TaskFiltersProps) {
     <div
       role="group"
       className="inline-flex h-[34px] items-center gap-0.5 rounded-[5px] border border-border bg-muted/30 p-0.5 max-md:h-11"
-      aria-label="Task scope"
+      aria-label="Show"
     >
       {options.map((option) => {
         const isSelected = scope === option.value;

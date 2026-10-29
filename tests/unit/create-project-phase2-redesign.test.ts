@@ -10,11 +10,11 @@ function source(relativePath: string) {
 test('Phase 2 uses the flat NetworkBase project-information composition', () => {
     const phase = source('src/components/projects/create-wizard/phases/Phase2Information.tsx');
 
-    assert.match(phase, /Project details/);
+    assert.match(phase, /Workspace details/);
     assert.match(phase, /Name and classify the project/);
     assert.match(phase, /Explain the work/);
     assert.match(phase, /Make the project easier to find/);
-    // Journey stages moved to step 4 (Lifecycle and workflow), matching Project settings.
+    // Journey stages moved to step 4 (Stages and workflow), matching Workspace settings.
     assert.doesNotMatch(phase, /Outline the stages ahead|LifecycleEditor/);
     assert.match(phase, /min-w-0 w-full space-y-8 pb-6/);
     assert.match(phase, /border-t border-border pt-6/);

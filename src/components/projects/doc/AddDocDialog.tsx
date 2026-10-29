@@ -127,7 +127,7 @@ export function AddDocDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-[520px] gap-3 p-4">
                 <DialogHeader>
-                    <DialogTitle>Add doc</DialogTitle>
+                    <DialogTitle>Add document</DialogTitle>
                     <DialogDescription>Start a new doc, or pick a Markdown file from Files.</DialogDescription>
                 </DialogHeader>
                 <form
@@ -138,10 +138,10 @@ export function AddDocDialog({
                         if (clean) void createDoc("new", async () => ({ filename: docFileName(clean), content: `# ${clean}\n` }));
                     }}
                 >
-                    <Input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={120} placeholder="New doc title" aria-label="New doc title" />
+                    <Input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={120} placeholder="Document title" aria-label="Document title" />
                     <Button type="submit" disabled={!title.trim() || creating !== null}>
                         {creating === "new" ? <Loader2 className="size-4 animate-spin" /> : null}
-                        New doc
+                        Add document
                     </Button>
                 </form>
                 {templates.length > 0 ? (

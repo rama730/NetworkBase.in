@@ -209,7 +209,7 @@ test("redesigned task email renders open layout, Ponytail avatar, subtasks and f
   assert.match(emailA.html, /floor_topology\.dwg/);
   assert.match(emailA.html, /4\.8 MB/);
 
-  // Verify Action Bar (Lightweight, Non-heavy Button Group: Task View, Project Name, and Desktop IDE)
+  // Verify Action Bar (Lightweight, Non-heavy Button Group: Task View, Project Name, and Code editor)
   assert.match(emailA.html, /View Task &rarr;/);
   assert.match(emailA.html, /DeepScope AI &#8599;/);
   assert.match(emailA.html, /Open in Cursor &#8599;/);

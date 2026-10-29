@@ -50,7 +50,7 @@ export async function applyChildVisibilityCap(orgId: string, executor: Executor 
     const stamp = Date.now();
     for (const child of lowered) {
       await notifyOrg({ orgId, eventKey: "org.child_notice", to: [child.ownerId, ...admins.map((a) => a.userId)],
-        title: `${child.title} is now ${child.next === "private" ? "Private" : "Org only"} because ${orgRow?.title ?? "the organization"} changed its rules`,
+        title: `${child.title} is now ${child.next === "private" ? "Private" : "Organization"} because ${orgRow?.title ?? "the organization"} changed its rules`,
         href: `/projects/${encodeURIComponent(child.slug ?? child.id)}`, sourceEventId: `capped:${child.id}:${stamp}`, refs: { projectId: child.id } });
     }
   }

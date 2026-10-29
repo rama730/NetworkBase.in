@@ -436,8 +436,8 @@ export default function ProjectLayout({
                                 type="button"
                                 onClick={event => onShare?.(event.currentTarget)}
                                 className="nb-icon-button h-[var(--ui-control-height)] w-[var(--ui-control-height)] rounded-[5px] border border-border bg-card text-muted-foreground transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:bg-muted hover:text-foreground"
-                                title="Share project"
-                                aria-label="Share project"
+                                title="Share workspace"
+                                aria-label="Share workspace"
                             >
                                 <Share2 className="size-4" aria-hidden="true" />
                             </button>
@@ -480,7 +480,7 @@ export default function ProjectLayout({
                                     ) : null}
                                     <DropdownMenuItem onSelect={() => onShare?.(actionsTrigger.current ?? undefined)}>
                                         <Share2 className="size-4" aria-hidden="true" />
-                                        {isOrganization ? "Share organization" : "Share project"}
+                                        {isOrganization ? "Share organization" : "Share workspace"}
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onSelect={() => onTabChange("dashboard")}>
                                         <LayoutDashboard className="size-4" aria-hidden="true" />

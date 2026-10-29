@@ -46,10 +46,10 @@ export function OpenToRolesCard({
   const capacity = WEEKLY_CAPACITY_OPTIONS.find(option => option.value === hoursPerWeek)
   const preferences = [
     { label: 'Role types', values: roles.map(role => rolePreferenceLabel(role) || role) },
-    { label: 'Desired roles', values: customRoles },
+    { label: 'Preferred roles', values: customRoles },
     { label: 'Categories', values: categories },
     { label: 'Experience', values: experience ? [experience] : [] },
-    { label: 'Weekly hours', values: capacity ? [capacity.compactLabel] : [], description: capacity?.label },
+    { label: 'Weekly availability', values: capacity ? [capacity.compactLabel] : [], description: capacity?.label },
   ].filter(row => row.values.length > 0)
   const hasPreferences = preferences.length > 0
   const showApply = !isOwner && hasOpenRoles && Boolean(onApply)
@@ -71,7 +71,7 @@ export function OpenToRolesCard({
   return (
     <RailSection
       id="profile-open-to-roles"
-      title="Role preferences"
+      title="Collaboration preferences"
       action={editAction}
       contentClassName="p-5 max-md:p-4"
     >
@@ -107,7 +107,7 @@ export function OpenToRolesCard({
               <Button type="button" size="sm" onClick={onApply} onMouseEnter={onApplyIntent} onFocus={onApplyIntent}
                 className="min-h-11 w-full">
                 <Briefcase className="h-4 w-4" aria-hidden="true" />
-                Apply to join
+                Apply for a role
               </Button>
             ) : null}
             {showInvite ? (

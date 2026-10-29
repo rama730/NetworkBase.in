@@ -114,7 +114,7 @@ test("upload decisions, Undo and task search failures have explicit accessible o
     "src/components/projects/v2/explorer/useUploadCollisionDecision.tsx",
     "utf8",
   );
-  assert.match(decision, /DialogTitle>Some names already exist/);
+  assert.match(decision, /DialogTitle>Some files have the same name/);
   assert.match(decision, /finish\("keep_both"\)/);
   assert.match(decision, /resolveRef.current\?\.\("cancel"\)/);
   const undo = readFileSync(

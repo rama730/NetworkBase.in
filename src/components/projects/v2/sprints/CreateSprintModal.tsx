@@ -292,8 +292,8 @@ export default function SprintEditorModal({
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
               {mode === "create"
-                ? "Define the sprint goal and schedule without extra noise."
-                : "Adjust the sprint details and manage it from one place."}
+                ? "Set the goal and dates."
+                : "Edit sprint details."}
             </DialogDescription>
           </div>
           <button
@@ -367,7 +367,7 @@ export default function SprintEditorModal({
               <SectionDivider title="Schedule">
                 <div className="flex items-center gap-1.5">
                   <span className="font-mono text-[10px] max-md:text-[11px] uppercase tracking-[0.06em] text-muted-foreground mr-0.5">
-                    Quick set:
+                    Quick dates:
                   </span>
                   <button
                     type="button"

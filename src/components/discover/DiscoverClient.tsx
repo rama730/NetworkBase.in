@@ -495,7 +495,7 @@ export default function DiscoverClient({
                                 people={people}
                             />
                         </div>
-                        <h2 ref={feedHeading} id="discover-feed" tabIndex={-1} className="sr-only">Projects and updates</h2>
+                        <h2 ref={feedHeading} id="discover-feed" tabIndex={-1} className="sr-only">Workspaces and updates</h2>
                         {feed}
                         {/* With no rail beside the feed, the legal links close the page instead. */}
                         {showRail ? null : <div className="pt-6">{legal}</div>}

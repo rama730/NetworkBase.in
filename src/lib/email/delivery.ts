@@ -308,7 +308,7 @@ async function prepareEmail(row: OutboxRow): Promise<Prepared> {
     });
     const launchUrl = new URL(`/open/ide?${launchParams.toString()}`, origin).toString();
     connectedDesktopIde = {
-      name: ideDef?.name || "Desktop IDE",
+      name: ideDef?.name || "Code editor",
       scheme: ideDef?.scheme || ide,
       launchUrl,
     };

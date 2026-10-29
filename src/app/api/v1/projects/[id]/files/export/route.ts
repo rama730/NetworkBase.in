@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 type RouteContext = { params: Promise<{ id: string }> };
 
 function exportFilename(value: string | null) {
-  const safe = value?.trim().replace(/[\\/\0]/g, "_").slice(0, 180) || "Project Files";
+  const safe = value?.trim().replace(/[\\/\0]/g, "_").slice(0, 180) || "All files";
   return `${safe}_Export.zip`;
 }
 

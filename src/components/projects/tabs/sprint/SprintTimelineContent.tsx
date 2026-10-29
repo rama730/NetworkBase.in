@@ -95,7 +95,7 @@ export function SprintTimelineContent({
                 {summary ? <span className="text-border">·</span> : null}
                 <ol
                   className="inline-flex flex-wrap items-center gap-x-3 gap-y-1"
-                  aria-label="Sprint lifecycle"
+                  aria-label="Sprint history"
                 >
                   {lifecycleRows.map((row) => (
                     <li key={`${row.kind}:${row.id}`} className="inline-flex items-center gap-1 text-[11px]">
@@ -131,7 +131,7 @@ export function SprintTimelineContent({
         <div className="nb-empty-state nb-grid-ground rounded-[8px] py-16" role="status">
           <ListTodo className="nb-empty-state-icon mb-3" aria-hidden="true" />
           <h3 className="nb-empty-state-title">No tasks in this sprint yet.</h3>
-          <p className="nb-empty-state-desc">Assign tasks from the Task board to begin tracking this sprint.</p>
+          <p className="nb-empty-state-desc">Add tasks from the Tasks tab to start this sprint.</p>
         </div>
       ) : (
       <ul className="divide-y divide-border/60 rounded-[8px] border border-border bg-card overflow-hidden shadow-none">
@@ -187,7 +187,7 @@ export function SprintTimelineContent({
                     )}
                     {!isDone && timeHealth.state === "unfinished" && (
                       <span className="nb-status nb-sprint-tone-warning">
-                        Rolled over
+                        Incomplete
                       </span>
                     )}
                     {!isDone && timeHealth.state === "overtime" && (

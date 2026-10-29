@@ -67,7 +67,7 @@ export function BrandMark({
       <span className="nb-brand-dot" aria-hidden="true" />
       <span className="nb-brand-name" aria-hidden="true">
         NetworkBase
-        {trademark ? <sup className="ml-0.5 text-[0.6em] font-normal leading-none opacity-80 align-super" aria-label="Trade mark">™</sup> : null}
+        {trademark ? <sup className="ml-0.5 text-[0.6em] font-normal leading-none opacity-80 align-super" aria-label="Trademark">™</sup> : null}
       </span>
     </span>
   );

@@ -53,7 +53,7 @@ export default function AppearanceSettings() {
       </Button>
     </div>
 
-    <SettingsSectionCard title="Theme and color" description="Choose the interface theme and shared action color.">
+    <SettingsSectionCard title="Theme and color" description="Choose light or dark, and your accent color.">
       <SettingsRadioGroup<ThemeMode>
         id="settings-appearance-theme"
         label="Theme"
@@ -91,7 +91,7 @@ export default function AppearanceSettings() {
     <SettingsSectionCard title="Layout and motion" description="Adjust information density and movement for comfort and accessibility.">
       <SettingsRadioGroup<Density>
         id="settings-appearance-density"
-        label="Interface density"
+        label="Display spacing"
         value={density}
         onValueChange={setDensity}
         options={DENSITY_OPTIONS}

@@ -557,7 +557,7 @@ export function GeneralSettingsSection({
                         </div>
 
                         <div className="min-w-0 flex-1">
-                            <h3 className="nb-card-title text-foreground">Project avatar</h3>
+                            <h3 className="nb-card-title text-foreground">Workspace image</h3>
                             <p className="nb-compact mt-1 text-muted-foreground">
                                 Square avatar displayed on project cards, header, and link previews.
                             </p>
@@ -602,7 +602,7 @@ export function GeneralSettingsSection({
                             <DropdownMenuContent align="end" className="w-48">
                                 <DropdownMenuItem onClick={handleOpenProjectImagePicker}>
                                     <Upload className="mr-2 size-4" />
-                                    {coverImageUrl ? "Replace avatar" : "Upload avatar"}
+                                    {coverImageUrl ? "Workspace image" : "Upload avatar"}
                                 </DropdownMenuItem>
                                 {coverImageUrl ? (
                                     <>
@@ -758,8 +758,8 @@ export function GeneralSettingsSection({
         </section>
 
         <SettingsCard
-            title="Project identity"
-            description="These public fields update project headers, cards, search, notifications, and project links that render project copy."
+            title="Workspace or project"
+            description="Shown on the workspace page, cards, search and notifications."
 
         >
             <fieldset disabled={savingSettings} className="min-w-0 divide-y divide-border">

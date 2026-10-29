@@ -66,7 +66,7 @@ export const PROJECT_STATUS_SUGGESTIONS: StatusSuggestion[] = [
   { emoji: "🚀", text: "Launching", clearAfter: "custom", pauses: false },
   { emoji: "🙋", text: "Hiring", clearAfter: "never", pauses: false },
   { emoji: "⏸️", text: "On hold", clearAfter: "never", pauses: false },
-  { emoji: "🏖️", text: "Team on break", clearAfter: "custom", pauses: false },
+  { emoji: "🏖️", text: "On a break", clearAfter: "custom", pauses: false },
 ];
 
 const EMOJI = /\p{Extended_Pictographic}|\p{Regional_Indicator}/u;

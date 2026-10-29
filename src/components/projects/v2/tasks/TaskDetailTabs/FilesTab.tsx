@@ -482,7 +482,7 @@ export default function FilesTab({
         }}
         title="Skip unreadable files?"
         description={`${unreadableSkipDialog?.count ?? 0} item(s) could not be read and will be skipped. Upload the rest?`}
-        confirmLabel="Upload remainder"
+        confirmLabel="Upload the rest"
         cancelLabel="Cancel"
         onConfirm={() => {
           if (unreadableSkipDialog) {

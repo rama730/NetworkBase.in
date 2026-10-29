@@ -384,7 +384,7 @@ export function TaskFileRow({
                 }}
               >
                 <FolderInput className="mr-2 h-4 w-4" />
-                Move in project Files
+                Move in Files
               </DropdownMenuItem>
             ) : null}
 
@@ -396,7 +396,7 @@ export function TaskFileRow({
                 }}
               >
                 <UploadCloud className="mr-2 h-4 w-4" />
-                Publish to project Files
+                Add to Files
               </DropdownMenuItem>
             ) : null}
 

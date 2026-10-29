@@ -65,7 +65,7 @@ test.describe("Profile edit flow", () => {
         await expect(editModal.getByText("Availability Status", { exact: true })).toHaveCount(0);
         await editModal.getByRole("tab", { name: "Skills & Expertise" }).click();
         await expect(editModal.getByRole("heading", { name: "Open to Roles" })).toBeVisible();
-        await expect(editModal.getByText("Weekly capacity", { exact: true })).toBeVisible();
+        await expect(editModal.getByText("Weekly availability", { exact: true })).toBeVisible();
         await editModal.getByRole("tab", { name: "General Properties" }).click();
         const cancelType = await editModal.getByRole("button", { name: "Cancel" }).getAttribute("type");
         const saveType = await editModal.getByRole("button", { name: "Save changes" }).getAttribute("type");

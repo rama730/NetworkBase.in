@@ -316,7 +316,7 @@ export function FileVersionHistoryPanel({
       )}
     >
       <FileInspectorPanelHeader
-        title="Version history"
+        title="Version"
         onClose={onClose}
         closeLabel="Close version history"
         closeTestId="files-tab-version-history-close"
@@ -420,7 +420,7 @@ export function FileVersionHistoryPanel({
                               sizeDeltaMap.get(version.version)?.tone === "neutral" &&
                                 "bg-[#F3F0EA] text-[#6B7880] dark:bg-muted dark:text-muted-foreground",
                             )}
-                            title="Size difference from previous revision"
+                            title="Size change"
                           >
                             {sizeDeltaMap.get(version.version)?.label}
                           </span>

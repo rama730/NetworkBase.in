@@ -40,8 +40,8 @@ test.describe("Settings document @critical", () => {
     await page.goto("/settings#settings-security");
     const security = page.locator("#settings-security");
     await expect(security.getByRole("list", { name: "Security summary" })).toBeVisible();
-    await expect(security.getByText("Sign-in protection")).toBeVisible();
-    await expect(security.getByText("Sessions and sign-ins")).toBeVisible();
+    await expect(security.getByText("Two-step verification")).toBeVisible();
+    await expect(security.getByText("Signed-in devices")).toBeVisible();
 
     await page.goto("/settings#settings-privacy");
     const visibility = page.getByRole("radiogroup", { name: "Profile visibility" });
@@ -54,7 +54,7 @@ test.describe("Settings document @critical", () => {
     await page.goto("/settings#settings-delete-account");
     await page.getByRole("button", { name: "Delete account" }).click();
     const dialog = page.getByRole("dialog");
-    await expect(dialog.getByText("What happens to your things")).toBeVisible();
+    await expect(dialog.getByText("What happens to your data")).toBeVisible();
     await expect(dialog.getByRole("button", { name: "Delete account" })).toBeDisabled();
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(dialog).toBeHidden();

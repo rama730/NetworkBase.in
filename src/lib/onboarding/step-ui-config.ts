@@ -20,7 +20,7 @@ export const STEP_UI_CONFIG: readonly StepConfig[] = [
     id: 2,
     title: 'Tell us about yourself',
     subtitle: 'All optional. Add what helps people know you, or skip for now.',
-    sidebarLabel: 'Details · optional',
+    sidebarLabel: 'About you · optional',
     railHint: 'Work, profile, links',
   },
   {

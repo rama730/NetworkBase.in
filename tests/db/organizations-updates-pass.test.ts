@@ -5,7 +5,7 @@ import { generateJoinCode } from "../../src/lib/organizations/join-rules";
 import { closeAppDb, createProject, createUser, loadAppModule, moduleStubs, sql } from "./_helpers";
 
 // P17 §17 pass: org-feed pins for shared posts, Notify again, removal with a reason, the org's notify and reply
-// defaults, the audience count, emailed announcements in Needs you, and Also post an announcement.
+// defaults, the audience count, emailed announcements in Needs your attentionr attention, and Also post an announcement.
 let viewerId = "";
 moduleStubs.set("@/lib/supabase/server", {
   createClient: async () => ({ auth: {
@@ -100,7 +100,7 @@ test("Notify again tells the audience; removing someone else's post needs a reas
   assert.ok((await titles(o.member)).includes("Your post was removed: Off topic for this feed"));
 });
 
-test("org defaults: replies from org members, email notify; the audience count; emailed announcements wait in Needs you", async () => {
+test("org defaults: replies from org members, email notify; the audience count; emailed announcements wait in Needs your attentionr attention", async () => {
   const o = await org({ announcementNotify: "email" });
   const id = await post(o.id, o.admin, { updateType: "announcement", content: "All hands Friday" });
   const [row] = await sql`SELECT reply_policy, notify_level FROM project_updates WHERE id = ${id}`;

@@ -259,7 +259,7 @@ export function FileActionsBar({
           nodeId,
           file,
           mode: choice.option === "commit" ? "new_revision" : "active_revision",
-          comment: choice.comment || (choice.option === "commit" ? "Uploaded via Files tab" : null),
+          comment: choice.comment || (choice.option === "commit" ? "Uploaded in Files" : null),
           baseVersion: node?.currentVersion,
         });
 
@@ -437,7 +437,7 @@ export function FileActionsBar({
               className={cn("gap-2 cursor-pointer", isVersionHistoryPanelOpen && "bg-muted font-medium")}
             >
               <History className="h-4 w-4 opacity-70" />
-              <span>Version history</span>
+              <span>Version</span>
             </DropdownMenuItem>
           )}
           {canOrganize && <>

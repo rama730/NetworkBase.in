@@ -42,7 +42,7 @@ test("move integrity is task-scoped, atomic, and reserved destinations fail clos
 
 test("the shared picker hides internal storage and supports root, paging, search, and keyboard use", () => {
   assert.match(picker, /isInternalTaskWorkingFilesNode/);
-  assert.match(picker, /> Project root/);
+  assert.match(picker, /> All files/);
   assert.match(picker, /Load more folders/);
   assert.match(picker, /Load more matches/);
   assert.match(picker, /role="tree"/);
@@ -53,8 +53,8 @@ test("the shared picker hides internal storage and supports root, paging, search
 
 test("task files separate role changes, relocation, and publishing", () => {
   assert.match(taskRow, /Mark as final/);
-  assert.match(taskRow, /Move in project Files/);
-  assert.match(taskRow, /Publish to project Files/);
+  assert.match(taskRow, /Move in Files/);
+  assert.match(taskRow, /Add to Files/);
   assert.doesNotMatch(taskRow, /<Dialog/);
   assert.doesNotMatch(taskRow, /Open with/);
   assert.match(taskExplorer, /TASK_WORKING_FILES_TITLE/);

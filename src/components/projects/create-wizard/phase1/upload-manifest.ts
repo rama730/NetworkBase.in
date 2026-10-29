@@ -71,7 +71,7 @@ export function buildUploadManifest(files: ArrayLike<File>): UploadManifest {
       message = "Empty file";
     } else if (state !== "blocked" && OS_JUNK_NAMES.has(file.name.toLocaleLowerCase())) {
       state = "warning";
-      message = "Operating-system metadata";
+      message = "System file";
     }
 
     return { path, size: file.size, state, message };

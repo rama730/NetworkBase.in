@@ -32,10 +32,10 @@ test('profile header uses OpenToCollaborateBadge with brand square without dupli
     assert.match(badge, /Popover\.Trigger/);
     assert.match(badge, /Popover\.Content/);
     assert.match(badge, /Role types/);
-    assert.match(badge, /Desired roles/);
+    assert.match(badge, /Preferred roles/);
     assert.match(badge, /Categories/);
     assert.match(badge, /Experience/);
-    assert.match(badge, /Weekly hours/);
+    assert.match(badge, /Weekly availability/);
 });
 
 test('collaboration preference mappings resolve canonical values correctly', () => {

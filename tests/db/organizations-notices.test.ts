@@ -4,7 +4,7 @@ import { after, before, test } from "node:test";
 import { generateJoinCode } from "../../src/lib/organizations/join-rules";
 import { closeAppDb, createProject, createUser, loadAppModule, moduleStubs, sql } from "./_helpers";
 
-// P17 §26 pass: due today, digest Needs you, derived Needs you rows, org sprint notices, code and cap notices,
+// P17 §26 pass: due today, digest Needs your attentionr attention, derived Needs your attentionr attention rows, org sprint notices, code and cap notices,
 // lead handover, and a child project's own notification setting winning over the org mute.
 let viewerId = "";
 moduleStubs.set("@/lib/supabase/server", {
@@ -96,7 +96,7 @@ test("due today: a tray line at 9:00 local on the due day, once", async () => {
   assert.deepEqual((await titles(o.a)).filter((t) => t.includes("due today")), ["Lab 1 is due today at 11:59 PM"]);
 });
 
-test("Needs you: late joiners outside a team, members outside projects, a blocked sprint; the digest carries them and sprints ending tomorrow", async () => {
+test("Needs your attentionr attention: late joiners outside a team, members outside projects, a blocked sprint; the digest carries them and sprints ending tomorrow", async () => {
   const o = await org();
   const now = new Date(); now.setUTCHours(8, 10, 0, 0);
   const published = new Date(now.getTime() - 2 * DAY).toISOString();
@@ -170,8 +170,8 @@ test("a new join code tells the other admins; a tightened cap tells the lead and
   await sql`UPDATE projects SET visibility = 'public' WHERE id = ${lab}`;
   await sql`UPDATE projects SET org_settings = coalesce(org_settings, '{}'::jsonb) || '{"visibilityCap":"org"}'::jsonb WHERE id = ${o.id}`;
   assert.equal(await children.applyChildVisibilityCap(o.id), 1);
-  assert.ok((await titles(o.a)).includes("North region is now Org only because CSE-3A changed its rules"));
-  assert.ok((await titles(o.admin)).includes("North region is now Org only because CSE-3A changed its rules"));
+  assert.ok((await titles(o.a)).includes("North region is now Organization because CSE-3A changed its rules"));
+  assert.ok((await titles(o.admin)).includes("North region is now Organization because CSE-3A changed its rules"));
 
   await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${lab}, ${o.b}, 'admin')`;
   await appDb.db.transaction((tx) => succession.handOverLedChildProjects(tx, o.a));

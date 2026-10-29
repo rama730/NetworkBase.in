@@ -77,7 +77,7 @@ export default function Step2Details({
   return (
     <div className="flex flex-col gap-12">
       <section aria-labelledby="onb-work" className="flex flex-col gap-6">
-        <SectionHeading id="onb-work" kicker="Professional information" title="Your work preferences" description="Share the type of collaboration that works for you." />
+        <SectionHeading id="onb-work" kicker="Work details" title="Your work preferences" description="Share the type of collaboration that works for you." />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="onb-field">
             <label htmlFor="experienceLevel" className="onb-field-label">Experience level</label>
@@ -94,7 +94,7 @@ export default function Step2Details({
             </select>
           </div>
           <div className="onb-field">
-            <label htmlFor="hoursPerWeek" className="onb-field-label">Weekly capacity</label>
+            <label htmlFor="hoursPerWeek" className="onb-field-label">Weekly availability</label>
             <select
               id="hoursPerWeek"
               value={data.hoursPerWeek}
@@ -132,7 +132,7 @@ export default function Step2Details({
             maxLength={LIMITS.headlineMax}
             aria-describedby="headline-hint"
           />
-          <p id="headline-hint" className="onb-field-hint">A short tagline for your profile.</p>
+          <p id="headline-hint" className="onb-field-hint">A one-line summary of what you do.</p>
         </div>
         <div className="onb-field">
           <label htmlFor="bio" className="onb-field-label">Bio</label>
@@ -199,7 +199,7 @@ export default function Step2Details({
       </section>
 
       <section aria-labelledby="onb-social" className="flex flex-col gap-6">
-        <SectionHeading id="onb-social" kicker="Social destinations" title="Links you want to share" description="Add only destinations you are comfortable displaying on your profile." />
+        <SectionHeading id="onb-social" kicker="Links" title="Links you want to share" description="Add only destinations you are comfortable displaying on your profile." />
         <div className="flex flex-col gap-4">
           {ONBOARDING_SOCIAL_KEYS.map((key) => {
             const error = errorFor(key, data.socialLinks[key], LIMITS.socialUrlMax)
@@ -227,7 +227,7 @@ export default function Step2Details({
       </section>
 
       <section aria-labelledby="onb-about" className="flex flex-col gap-6">
-        <SectionHeading id="onb-about" kicker="About you" title="How you identify" description="Optional, and you can change it from your profile later." />
+        <SectionHeading id="onb-about" kicker="About you" title="Gender" description="Optional, and you can change it from your profile later." />
         <GenderChoice value={data.genderIdentity} onChange={(genderIdentity) => onChange({ genderIdentity })} />
         <div className="onb-field">
           <label htmlFor="pronouns" className="onb-field-label">Pronouns</label>

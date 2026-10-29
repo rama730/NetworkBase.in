@@ -29,7 +29,7 @@ export function useUploadCollisionDecision() {
     <Dialog open={!!pending} onOpenChange={open => { if (!open) finish("cancel"); }}>
       <DialogContent className="sm:max-w-[460px] rounded-[12px] border border-[#DBD5C8] dark:border-white/10">
         <DialogHeader>
-          <DialogTitle>Some names already exist</DialogTitle>
+          <DialogTitle>Some files have the same name</DialogTitle>
           <DialogDescription className="text-xs text-zinc-600 dark:text-zinc-400">
             {pending?.copies
               ? "Keep existing items and upload renamed copies, or skip matching names. Nothing will be overwritten."

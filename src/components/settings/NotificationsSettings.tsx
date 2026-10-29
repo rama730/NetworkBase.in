@@ -182,7 +182,7 @@ export default function NotificationsPage() {
     {/* Always in the layout, so saving never moves what is below it. */}
     <p role="status" className="flex h-5 items-center gap-2 nb-compact text-muted-foreground">{isSaving ? <><Loader2 className="size-4 animate-spin" aria-hidden="true" />Saving changes…</> : null}</p>
 
-    <SettingsSectionCard title="Notification preferences" description="Choose what appears in the notification tray and when delivery pauses.">
+    <SettingsSectionCard title="Notification preferences" description="Choose what you’re notified about and when.">
       <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="nb-compact text-muted-foreground"><span className="font-medium text-foreground">{enabledCategoryCount} of {NOTIFICATION_PREFERENCE_CATEGORIES.length}</span> notification types are on.</p>
         <Button type="button" variant="outline" size="sm" onClick={() => setAllCategories(!allCategoriesEnabled)} disabled={isSaving}>{allCategoriesEnabled ? "Turn all off" : "Turn all on"}</Button>
@@ -193,7 +193,7 @@ export default function NotificationsPage() {
         {NOTIFICATION_PREFERENCE_CATEGORIES.map((category) => <PreferenceSwitch key={category.key} id={category.key} title={category.title} description={category.description} checked={preferences[category.key]} disabled={isSaving} onToggle={() => toggleCategory(category.key)} />)}
       </div>
       <div id="settings-notifications-quiet-hours" className="mt-4 scroll-mt-6 border-t border-border pt-4">
-        <h4 className="nb-ui-label text-foreground">Quiet controls</h4>
+        <h4 className="nb-ui-label text-foreground">Pause and quiet hours</h4>
         <div className="mt-2 divide-y divide-border">
           {/* Only an active pause says when it ends (an old one would read "resumes" in the past). */}
           <SettingsRow
@@ -201,7 +201,7 @@ export default function NotificationsPage() {
             description={pauseActive && preferences.pausedUntil ? `Delivery resumes ${formatDateTime(preferences.pausedUntil)}.` : "Updates remain available in the tray while delivery is paused."}
             right={<div className="flex flex-wrap gap-2">{pauseActive ? <Button type="button" size="sm" className="pointer-coarse:h-11" onClick={() => void resume()} disabled={isSaving || resuming}>{resuming ? "Resuming…" : "Resume now"}</Button> : null}{([["1h", "1 hour"], ["8h", "8 hours"], ["tomorrow", "Until tomorrow 9 AM"]] as const).map(([choice, label]) => <Button key={choice} type="button" variant="outline" size="sm" className="pointer-coarse:h-11" onClick={() => pause(choice)} disabled={isSaving} aria-label={pauseActive ? `Pause for ${label} instead` : undefined}>{label}</Button>)}</div>}
           />
-          <SettingsRow title="Quiet hours" description={preferences.quietHours.enabled ? `From ${formatMinuteOfDay(preferences.quietHours.startMinute)} to ${formatMinuteOfDay(preferences.quietHours.endMinute)} each day, updates wait in the tray until it ends and chat messages don’t push (they stay unread in Messages).` : "Set a recurring daily period without delivery interruptions."} right={<SettingsSwitch showLabel aria-label="Enable quiet hours" checked={preferences.quietHours.enabled} onCheckedChange={() => save({ ...preferences, quietHours: { ...preferences.quietHours, enabled: !preferences.quietHours.enabled } }, { quiet: true })} disabled={isSaving} />} />
+          <SettingsRow title="Quiet hours" description={preferences.quietHours.enabled ? `From ${formatMinuteOfDay(preferences.quietHours.startMinute)} to ${formatMinuteOfDay(preferences.quietHours.endMinute)} each day, updates wait in the tray until it ends and chat messages don’t push (they stay unread in Messages).` : "Set a daily time when you won’t be interrupted."} right={<SettingsSwitch showLabel aria-label="Enable quiet hours" checked={preferences.quietHours.enabled} onCheckedChange={() => save({ ...preferences, quietHours: { ...preferences.quietHours, enabled: !preferences.quietHours.enabled } }, { quiet: true })} disabled={isSaving} />} />
           {preferences.quietHours.enabled ? <div className="space-y-2 py-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <QuietTimeField label="From" minute={preferences.quietHours.startMinute} onCommit={(value) => setQuietTime("startMinute", value)} />

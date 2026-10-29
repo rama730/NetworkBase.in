@@ -104,7 +104,7 @@ export function ApplicationReview({
                         ) : null}
                         {fit ? <FitSummary fit={fit} /> : null}
                         <div className="max-h-[40dvh] overflow-y-auto rounded-[5px] border border-border bg-muted/20 p-3">
-                            <p className="nb-compact whitespace-pre-wrap break-words">{message?.trim() || "No cover letter."}</p>
+                            <p className="nb-compact whitespace-pre-wrap break-words">{message?.trim() || "No message included"}</p>
                         </div>
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px]">
                             <Link href={profileHref} className="text-primary hover:underline">View profile</Link>

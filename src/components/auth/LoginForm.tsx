@@ -20,7 +20,7 @@ const SIGN_IN_PANEL = {
     title: 'Pick up where you left off.',
     points: ['Your projects and tasks', 'Conversations with your team', "People you’ve connected with"],
 }
-const MFA_PANEL = { eyebrow: 'Two-step sign-in', title: 'Two-step sign-in keeps your account yours.' }
+const MFA_PANEL = { eyebrow: 'Two-step verification', title: 'Two-step sign-in keeps your account yours.' }
 
 function toSignInErrorMessage(message: string) {
     if (/invalid login credentials/i.test(message)) return "That email and password don’t match. Try again or reset your password."

@@ -34,7 +34,7 @@ export async function generateMetadata() {
     if (!user) {
         return buildRouteMetadata({
             title: 'My profile | NetworkBase',
-            description: 'Your personal profile and presence on NetworkBase.',
+            description: 'Your profile on NetworkBase.',
             path: '/my-profile',
             robots: { index: false, follow: false },
         })

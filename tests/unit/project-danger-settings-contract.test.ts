@@ -9,7 +9,7 @@ function source(path: string): string {
     return readFileSync(resolve(cwd, path), "utf8");
 }
 
-test("project settings eliminates Security & Data tab completely and standardizes Privacy and policies", () => {
+test("project settings eliminates Security & Data tab completely and standardizes Privacy", () => {
     const policies = source("src/lib/projects/settings-policies.ts");
     const settingsTab = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
@@ -44,7 +44,7 @@ test("project settings eliminates Security & Data tab completely and standardize
     assert.match(
         policies,
         /label:\s*"Privacy"/,
-        "Privacy and policies must be the label in PROJECT_SETTINGS_SECTIONS",
+        "Privacy must be the label in PROJECT_SETTINGS_SECTIONS",
     );
     assert.match(
         settingsTab,
@@ -54,7 +54,7 @@ test("project settings eliminates Security & Data tab completely and standardize
     assert.match(
         settingsTab,
         /<LegalAndDataRightsSection \/>/,
-        "Must render LegalAndDataRightsSection for Privacy and policies",
+        "Must render LegalAndDataRightsSection for Privacy",
     );
 });
 

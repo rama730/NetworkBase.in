@@ -22,21 +22,21 @@ test("project general settings renders 3 canonical cards and removes redundant o
   assert.doesNotMatch(generalBlock, /<AdvancedDisclosure/, "AdvancedDisclosure (Advanced identity notes) must be removed from General settings");
 
   // 3 Canonical settings cards
-  assert.match(generalBlock, /data-testid="project-avatar-settings-card"/, "Must render Project avatar card matching profile summary layout");
-  assert.match(generalBlock, /title="Project identity"/, "Must render Project identity card");
+  assert.match(generalBlock, /data-testid="project-avatar-settings-card"/, "Must render Workspace image card matching profile summary layout");
+  assert.match(generalBlock, /title="Workspace or project"/, "Must render Workspace or project card");
   assert.match(generalBlock, /title="Tags and skills"/, "Must render Tags and skills card");
 
   // Avatar card matches Profile Summary layout:
   // 1. Picture on the left
-  assert.match(generalBlock, /relative size-20 sm:size-24 shrink-0 overflow-hidden rounded-lg/, "Project avatar picture must be on the left with rounded-lg frame");
+  assert.match(generalBlock, /relative size-20 sm:size-24 shrink-0 overflow-hidden rounded-lg/, "Workspace image picture must be on the left with rounded-lg frame");
   // 2. Single dropdown button on the right
   assert.match(generalBlock, /<DropdownMenu>/, "Must use DropdownMenu for avatar actions");
   assert.match(generalBlock, /<DropdownMenuTrigger asChild>/, "Must trigger avatar options via DropdownMenuTrigger");
   assert.match(generalBlock, /Avatar options/, "Dropdown button must label avatar options");
-  assert.match(generalBlock, /Upload avatar/, "Dropdown menu must offer Upload avatar / Replace avatar");
+  assert.match(generalBlock, /Upload avatar/, "Dropdown menu must offer Upload avatar / Workspace image");
   assert.match(generalBlock, /Remove avatar/, "Dropdown menu must offer Remove avatar");
   // 3. No separate side-by-side buttons
-  assert.doesNotMatch(generalBlock, /\{coverDraft \? "Choose different avatar" : coverImage \? "Replace avatar" : "Upload avatar"\}/, "Must not have legacy separate button bar");
+  assert.doesNotMatch(generalBlock, /\{coverDraft \? "Choose different avatar" : coverImage \? "Workspace image" : "Upload avatar"\}/, "Must not have legacy separate button bar");
 
   // Structured divide-y layout in identity and tags/skills cards
   assert.match(generalBlock, /<fieldset disabled=\{savingSettings\} className="min-w-0 divide-y divide-border">/, "Must use divide-y divide-border structure inside settings cards");

@@ -40,7 +40,7 @@ const SECTIONS: ReadonlyArray<{ id: string; eyebrow: string; label: string; desc
     { id: 'access', eyebrow: 'Access and visibility', label: 'Access and visibility', description: 'Visibility and public tabs', icon: Globe },
     { id: 'links', eyebrow: 'Links', label: 'Links', description: 'External destinations', icon: Link2 },
     { id: 'documentation', eyebrow: 'Documentation', label: 'Documentation', description: 'Starter doc and editing', icon: FileText },
-    { id: 'lifecycle', eyebrow: 'Lifecycle and workflow', label: 'Lifecycle and workflow', description: 'Journey stages', icon: Workflow },
+    { id: 'lifecycle', eyebrow: 'Stages and workflow', label: 'Stages and workflow', description: 'Journey stages', icon: Workflow },
     { id: 'permissions', eyebrow: 'Team permissions', label: 'Team permissions', description: 'Updates and uploads', icon: Users },
     { id: 'files', eyebrow: 'Files and storage', label: 'Files and storage', description: 'Source and upload rules', icon: Folder },
     { id: 'notifications', eyebrow: 'Notifications', label: 'Notifications', description: 'Team notification rules', icon: Bell },
@@ -358,7 +358,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                         {(childOrg
                             ? [
                                 { id: 'public' as const, label: 'Public', icon: Globe, description: 'Anyone can discover the project and view its public tabs.' },
-                                { id: 'org' as const, label: 'Org only', icon: Building2, description: `Every member of ${childOrg.title} can see it.` },
+                                { id: 'org' as const, label: 'Organization', icon: Building2, description: `Every member of ${childOrg.title} can see it.` },
                                 { id: 'private' as const, label: 'Private', icon: Lock, description: `The team and ${childOrg.title} admins.` },
                             ]
                             : [

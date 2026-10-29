@@ -30,7 +30,7 @@ test("subtasks use an accessible grouped checklist with explicit creation and re
   assert.match(tab, /#\{index \+ 1\}/);
   assert.match(tab, /copySubtaskTitle/);
   assert.match(tab, /inputRef\.current\?\.focus\(\)/);
-  assert.match(tab, /Mark all done/);
+  assert.match(tab, /Mark as completed/);
   assert.match(tab, /Reopen all/);
 });
 

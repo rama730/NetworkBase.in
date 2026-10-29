@@ -15,7 +15,7 @@ test("Discovery people rail is a compact, shared-avatar recommendation surface",
   const css = source("src/app/globals.css");
 
   assert.match(rail, /useSuggestedPeople\(DISCOVER_RAIL_PEOPLE_LIMIT/);
-  assert.match(rail, /People you should meet/);
+  assert.match(rail, /Suggested people/);
   assert.match(rail, /getConnectionRequestSuccessMessage/);
   assert.doesNotMatch(rail, /Suggested for your network/);
   assert.match(rail, /PersonCard/);

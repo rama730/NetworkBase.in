@@ -367,8 +367,8 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     if (allowBroadcast) {
       // After the people (matchMentions ranks them last too): "@h" finds Hana before @here.
       list.push(
-        { id: "here", username: "here", fullName: "here", avatarUrl: null, hint: "Notify everyone online" },
-        { id: "channel", username: "channel", fullName: "channel", avatarUrl: null, hint: "Notify everyone in this conversation" },
+        { id: "here", username: "here", fullName: "here", avatarUrl: null, hint: "@here: active members" },
+        { id: "channel", username: "channel", fullName: "channel", avatarUrl: null, hint: "@channel: everyone" },
       );
     }
     return list;

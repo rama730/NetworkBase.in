@@ -32,7 +32,7 @@ test.describe("Connections smoke matrix", () => {
 
         await page.getByRole("tab", { name: /Invitations/ }).click();
         await expect(
-            page.getByText(/No pending invitations|Invited you|Project invitation/i).first(),
+            page.getByText(/No pending invitations|Invited you|Workspace invitation/i).first(),
         ).toBeVisible();
         const acceptButton = page.getByRole("button", { name: /^Accept$/i }).first();
         if (await acceptButton.isVisible().catch(() => false)) {

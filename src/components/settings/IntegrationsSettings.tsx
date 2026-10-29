@@ -433,7 +433,7 @@ export default function IntegrationsSettings() {
   return <div className="space-y-8">
     {error ? <ErrorNotice what="Integrations" onRetry={() => void refetch()} /> : null}
 
-    <SettingsSectionCard id="settings-integrations-connections" title="Account connections" description={data?.summary || "Sign-in methods attached to this account."}>
+    <SettingsSectionCard id="settings-integrations-connections" title="Sign-in methods" description={data?.summary || "Sign-in methods attached to this account."}>
       {isLoading ? <div role="status" aria-label="Loading connections" className="nb-skeleton h-32 rounded-md" /> : <div>{data?.authConnections.map((provider) => <ProviderRow key={provider.provider} provider={provider} linking={linking === provider.provider} onLink={() => void linkProvider(provider.provider as "google" | "github")} onUnlink={() => setUnlinkConfirm(provider.provider as "google" | "github")} />)}</div>}
     </SettingsSectionCard>
 
@@ -455,11 +455,11 @@ export default function IntegrationsSettings() {
       </div>
 
       {projectsExpanded ? <div className="border-y border-border py-2">
-        <p className="nb-meta py-2 text-muted-foreground">Connected projects</p>
+        <p className="nb-meta py-2 text-muted-foreground">Connected workspaces</p>
         <div className="divide-y divide-border">
           {data?.githubService.projects?.length ? data.githubService.projects.map((project) => {
             const repoName = project.syncRepository || project.githubRepoUrl || project.importSource?.repoUrl;
-            const connectionType = project.syncRepository ? "GitHub sync" : "Cloned repository";
+            const connectionType = project.syncRepository ? "GitHub sync" : "Repository";
             return <div key={project.id} className="flex min-h-16 items-center justify-between gap-3 py-3">
               <div className="min-w-0"><div className="flex flex-wrap items-center gap-x-3 gap-y-1"><Link href={`/projects/${project.slug}`} className="nb-ui-label block truncate text-foreground hover:text-primary">{project.title}</Link><span className="nb-meta text-muted-foreground">{connectionType}</span></div>{repoName ? <p className="nb-meta mt-1 flex items-center gap-1.5 truncate text-muted-foreground"><GitBranch className="size-3.5 shrink-0" strokeWidth={1.75} />{repoName}{project.syncBranch ? ` · ${project.syncBranch}` : ""}</p> : null}</div>
               <Button variant="ghost" size="sm" asChild><Link href={`/projects/${project.slug}`}>Open<ExternalLink className="size-4" strokeWidth={1.75} /></Link></Button>
@@ -476,7 +476,7 @@ export default function IntegrationsSettings() {
         <ExtensionAppCard />
         <div>
           <div className="flex flex-wrap items-center justify-between gap-2 pb-2">
-            <h4 className="nb-ui-label text-foreground">Authorized sessions</h4>
+            <h4 className="nb-ui-label text-foreground">Signed-in devices</h4>
             <span className="nb-meta text-muted-foreground">
               {activeSessions.length} active · {pendingSessions.length} pending
             </span>

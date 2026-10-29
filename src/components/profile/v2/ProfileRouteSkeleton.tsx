@@ -67,7 +67,7 @@ export function ProfileRouteSkeleton() {
                             <div className="contents lg:sticky lg:block lg:space-y-6" style={{ top: "24px" }}>
                                 {/* Highlights: OpenToRolesCard */}
                                 <div className="order-3 space-y-6">
-                                    <RailSection title="Role preferences" contentClassName="p-5 max-md:p-4 space-y-3">
+                                    <RailSection title="Collaboration preferences" contentClassName="p-5 max-md:p-4 space-y-3">
                                         <Skeleton className="h-4 w-3/4 rounded-[4px]" />
                                         <div className="flex gap-2 pt-1">
                                             <Skeleton className="h-6 w-20 rounded-[4px]" />

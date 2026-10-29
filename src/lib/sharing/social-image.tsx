@@ -99,7 +99,7 @@ export function SocialShareImage({ preview, avatar, teamAvatars = {} }: { previe
         {identity?.username && identity.name !== `@${identity.username}` ? <div style={{fontFamily:'JetBrains Mono',fontSize:20,color:'#637078'}}>{`@${identity.username}`}</div> : null}
         {identity && preview.byline ? <div style={{fontSize:18,color:'#637078'}}>{preview.byline}</div> : null}
         {headline ? <div style={{fontSize:24,color:'#637078',lineHeight:1.25,maxHeight:60,overflow:'hidden',overflowWrap:'anywhere'}}>{headline}</div> : null}
-        {identity && preview.openToCollaborate ? <div style={{display:'flex'}}><div style={{fontSize:14,color:'#297C50',border:'1px solid #A9C9B5',borderRadius:3,padding:'4px 8px'}}>OPEN TO COLLABORATE</div></div> : null}
+        {identity && preview.openToCollaborate ? <div style={{display:'flex'}}><div style={{fontSize:14,color:'#297C50',border:'1px solid #A9C9B5',borderRadius:3,padding:'4px 8px'}}>Open to collaboration</div></div> : null}
       </div>
     </div>
     {identity && (preview.portfolio || skills.length) ? <div style={{ display:'flex',flexDirection:'column',gap:12,maxHeight:154 }}>

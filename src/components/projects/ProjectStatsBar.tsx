@@ -25,13 +25,13 @@ export default function ProjectStatsBar({
 
     return (
         <div className={cn("flex items-center gap-3 font-mono tabular-nums text-zinc-500 dark:text-zinc-400 max-md:text-muted-foreground", textClass, className)}>
-            <div className="flex items-center gap-1" title="Total views" aria-label={`Views: ${viewCount.toLocaleString()}`} data-testid={`${testIdPrefix}-view-count`}>
+            <div className="flex items-center gap-1" title="Views" aria-label={`Views: ${viewCount.toLocaleString()}`} data-testid={`${testIdPrefix}-view-count`}>
                 <BarChart2 className={cn(iconClass, "max-md:hidden")} aria-hidden="true" />
                 <span className="nb-micro md:hidden">Views</span>
                 <span className="font-semibold text-zinc-900 dark:text-zinc-200 max-md:text-foreground">{viewCount.toLocaleString()}</span>
                 <span className="sr-only"> views</span>
             </div>
-            <div className="flex items-center gap-1" title="Total followers" aria-label={`Followers: ${followersCount.toLocaleString()}`} data-testid={`${testIdPrefix}-follower-count`}>
+            <div className="flex items-center gap-1" title="Followers" aria-label={`Followers: ${followersCount.toLocaleString()}`} data-testid={`${testIdPrefix}-follower-count`}>
                 <UsersRound className={cn(iconClass, "max-md:hidden")} aria-hidden="true" />
                 <span className="nb-micro md:hidden">Followers</span>
                 <span className="font-semibold text-zinc-900 dark:text-zinc-200 max-md:text-foreground">{followersCount.toLocaleString()}</span>

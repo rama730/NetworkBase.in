@@ -160,7 +160,7 @@ export function NetworkFilters({
                 <SelectItem value="projects">
                   Project invitations and applications
                 </SelectItem>
-                <SelectItem value="decided">Decided applications</SelectItem>
+                <SelectItem value="decided">Reviewed applications</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -203,7 +203,7 @@ export function NetworkFilters({
                 onApply({ hasMutuals: checked === true })
               }
             />
-            Has shared connections
+            Mutual connections
           </label>
           {tab === "suggested" ? (
             <label className="nb-compact flex min-h-11 items-center gap-3">
@@ -213,7 +213,7 @@ export function NetworkFilters({
                   onApply({ openToCollaborate: checked === true })
                 }
               />
-              Open to collaborate
+              Open to collaboration
             </label>
           ) : null}
         </div>
@@ -240,10 +240,10 @@ export function NetworkFilterChips({
       clear: { location: "" },
     });
   if (query.hasMutuals)
-    chips.push({ label: "Shared connections", clear: { hasMutuals: false } });
+    chips.push({ label: "Mutual connections", clear: { hasMutuals: false } });
   if (query.openToCollaborate)
     chips.push({
-      label: "Open to collaborate",
+      label: "Open to collaboration",
       clear: { openToCollaborate: false },
     });
   if (query.direction !== "all")
@@ -257,8 +257,8 @@ export function NetworkFilterChips({
         query.kind === "connections"
           ? "Connection requests"
           : query.kind === "decided"
-            ? "Decided applications"
-            : "Project requests",
+            ? "Reviewed applications"
+            : "Role applications",
       clear: { kind: "all" },
     });
   if (!chips.length) return null;

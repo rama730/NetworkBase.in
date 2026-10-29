@@ -80,7 +80,7 @@ function DetailLabel({ children }: { children: ReactNode }) {
 
 const sourceCopy = {
     scratch: {
-        title: 'Start from scratch',
+        title: 'Start empty',
         detail: 'A new project will be created without imported files.',
         icon: Folder,
     },
@@ -214,7 +214,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
     return (
         <div className="min-w-0 w-full space-y-8 pb-6">
             <header className="max-w-2xl">
-                <p className="nb-meta font-mono uppercase tracking-[0.12em] text-muted-foreground">Phase 5 · review</p>
+                <p className="nb-meta font-mono uppercase tracking-[0.12em] text-muted-foreground">Step 5 · Review</p>
                 <h3 className="nb-section-title mt-2 text-foreground">Review before creating</h3>
                 <p className="nb-body mt-2 text-muted-foreground">
                     {org ? 'Confirm what members will see. Use Edit to return to a step; the organization is created only when you choose Create organization in the footer.' : 'Check what members will see. Use Edit to go back to a step. Nothing is created until you select Create workspaceect in the footer.'}
@@ -257,7 +257,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                 ) : null}
             </ReviewSection>
 
-            <ReviewSection eyebrow="Phase 2 · information" title="Project details" onEdit={() => goToPhase(2)}>
+            <ReviewSection eyebrow="Step 2 · Details" title="Workspace details" onEdit={() => goToPhase(2)}>
                 <ReviewRow label="Project title">
                     <p className="nb-body font-medium text-foreground">{formData.title || 'Untitled project'}</p>
                 </ReviewRow>
@@ -377,7 +377,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                 </ReviewRow>
             </ReviewSection>
 
-            <ReviewSection eyebrow="Phase 4 · settings" title="Launch settings" onEdit={() => goToPhase(4)}>
+            <ReviewSection eyebrow="Step 4 · Settings" title="Launch settings" onEdit={() => goToPhase(4)}>
                 <ReviewRow label="Project picture">
                     <p className="nb-compact text-foreground">{projectImage ? `${projectImage.name} · uploads after creation` : 'Initials until a picture is added.'}</p>
                 </ReviewRow>
@@ -447,7 +447,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
 
                     <aside className="border-l-2 border-primary bg-secondary/35 px-4 py-3.5" aria-label="Creation confirmation">
                         <p className="nb-ui-label text-foreground">Ready to create</p>
-                        <p className="nb-compact mt-1 text-muted-foreground">{org ? 'Nothing has been created yet. Create the organization only when you select Create organization in the footer.' : 'Nothing has been created yet. Create the project only when you select Create project in the footer.'}</p>
+                        <p className="nb-compact mt-1 text-muted-foreground">{org ? 'Nothing has been created yet. Create the organization only when you select Create organization in the footer.' : 'Nothing is created until you select Create workspace.'}</p>
                     </aside>
                 </div>
 

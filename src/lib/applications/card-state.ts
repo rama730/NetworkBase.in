@@ -66,7 +66,7 @@ export function describeApplyCard(
             return {
                 ...NOTHING,
                 banner: status.membershipEnded
-                    ? { tone: "muted", text: "You were on this project" }
+                    ? { tone: "muted", text: "You were a member" }
                     : { tone: "success", text: status.roleTitle ? `You joined as ${status.roleTitle}` : "Team member" },
                 blockedReason: status.membershipEnded ? closed : null,
                 applyLabel: "Apply again",

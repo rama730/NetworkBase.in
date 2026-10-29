@@ -37,7 +37,7 @@ export type FilesViewId =
   | "starred"
   | "trash";
 export const fileCollectionViews = [
-  { id: "project", label: "Project files", Icon: Folder },
+  { id: "project", label: "All files", Icon: Folder },
   { id: "tasks", label: "Task files", Icon: ListTodo },
   { id: "deliverables", label: "Deliverables", Icon: FileOutput },
   { id: "github", label: "GitHub Sync", Icon: Github },

@@ -114,7 +114,7 @@ test("disconnected control matches app sizing and supports search, empty results
     (await page.getByTestId("open-in-ide-tool").boundingBox())!.height,
   ).toBe(34);
   const trigger = page.getByRole("button", {
-    name: "Connect desktop IDE",
+    name: "Connect your code editor",
     exact: true,
   });
   await trigger.click();
@@ -219,7 +219,7 @@ test("installed editor grouping and setup help work above a task drawer", async 
 }) => {
   await open(page, "surface=task&installed");
   await page
-    .getByRole("button", { name: "Connect desktop IDE", exact: true })
+    .getByRole("button", { name: "Connect your code editor", exact: true })
     .click();
   await expect(
     page.getByRole("region", { name: "Installed on your Mac" }),
@@ -269,14 +269,14 @@ test("connection loading and failed lookup expose recovery", async ({
 }) => {
   await open(page, "surface=files&sessions-loading");
   await page
-    .getByRole("button", { name: "Connect desktop IDE", exact: true })
+    .getByRole("button", { name: "Connect your code editor", exact: true })
     .click();
   await expect(
     page.getByRole("status", { name: "Loading editor connections" }),
   ).toBeVisible();
   await open(page, "surface=files&sessions-error");
   await page
-    .getByRole("button", { name: "Connect desktop IDE", exact: true })
+    .getByRole("button", { name: "Connect your code editor", exact: true })
     .click();
   await expect(
     page.getByText("Couldn't load editor connections."),
@@ -347,10 +347,10 @@ test("mobile sheet and dark My Work header fit the viewport and keep the picker 
   await page.setViewportSize({ width: 390, height: 844 });
   await open(page, "surface=task&mobile&dark");
   await page
-    .getByRole("button", { name: "Desktop IDE options", exact: true })
+    .getByRole("button", { name: "Code editor options", exact: true })
     .click();
   await page
-    .getByRole("button", { name: "Connect desktop IDE", exact: true })
+    .getByRole("button", { name: "Connect your code editor", exact: true })
     .click();
   expect(await onTop(page)).toBe(true);
   const box = (await picker(page).boundingBox())!;
@@ -360,7 +360,7 @@ test("mobile sheet and dark My Work header fit the viewport and keep the picker 
   expect(box.y + box.height).toBeLessThanOrEqual(844);
   await open(page, "surface=work&dark");
   await expect(
-    page.getByRole("button", { name: "Connect desktop IDE", exact: true }),
+    page.getByRole("button", { name: "Connect your code editor", exact: true }),
   ).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
     390,

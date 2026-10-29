@@ -21,7 +21,7 @@ describe("Files Tab Drag & Drop Upload Integration", () => {
     assert.match(source, /export type FilesUploadIntent =/);
     assert.match(source, /export interface FilesTabUploadConfirmResult/);
 
-    // Must support all 5 intents (matching Task Panel UX + Project Files)
+    // Must support all 5 intents (matching Task Panel UX + All files)
     assert.match(source, /"project"/);
     assert.match(source, /"reference"/);
     assert.match(source, /"working"/);
@@ -29,11 +29,11 @@ describe("Files Tab Drag & Drop Upload Integration", () => {
     assert.match(source, /"version"/);
 
     // Must provide categories
-    assert.match(source, /Project Files/);
+    assert.match(source, /All files/);
     assert.match(source, /Task reference/);
     assert.match(source, /Working file/);
     assert.match(source, /Final deliverable/);
-    assert.match(source, /New version of existing file/);
+    assert.match(source, /New version of a file/);
 
     // Must support smart collision detection
     assert.match(source, /matchingExistingFile/);
@@ -141,7 +141,7 @@ describe("Files Tab Drag & Drop Upload Integration", () => {
     // Must conditionally render Categories Overview when expandedCard === null
     assert.match(source, /\{expandedCard === null && \(/);
 
-    // Must render isolated full-length Project Files tree view when expandedCard === "project"
+    // Must render isolated full-length All files tree view when expandedCard === "project"
     assert.match(source, /\{expandedCard === "project" && \(/);
 
     // Must render isolated full-length Final deliverable tree view when expandedCard === "deliverable"
@@ -155,14 +155,14 @@ describe("Files Tab Drag & Drop Upload Integration", () => {
     assert.match(projectSection, /<FolderPicker/);
     assert.doesNotMatch(projectSection, /Task reference/);
     assert.doesNotMatch(projectSection, /Working file/);
-    assert.doesNotMatch(projectSection, /New version of existing file/);
+    assert.doesNotMatch(projectSection, /New version of a file/);
 
     const deliverableSection = source.slice(
       source.indexOf('{expandedCard === "deliverable" && ('),
       source.indexOf("<DialogFooter"),
     );
     assert.match(deliverableSection, /<FolderPicker/);
-    assert.doesNotMatch(deliverableSection, /Project Files/);
+    assert.doesNotMatch(deliverableSection, /All files/);
     assert.doesNotMatch(deliverableSection, /Task reference/);
     assert.doesNotMatch(deliverableSection, /Working file/);
   });

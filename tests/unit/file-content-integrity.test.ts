@@ -15,7 +15,7 @@ test("file reads never fabricate or persist empty recovery content", () => {
   assert.doesNotMatch(content, /VIRTUAL FS HYDRATION ON READ/);
   assert.doesNotMatch(content, /Healing S3 upload|Successfully healed missing storage file/);
   assert.match(viewer, /if \(status === "error"\)/);
-  assert.match(viewer, /Cannot save: file has no storage key/);
+  assert.match(viewer, /This file can’t be saved. Reopen it./);
 });
 
 test("preview URL actions remain read-only", () => {

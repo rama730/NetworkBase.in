@@ -28,7 +28,7 @@ test('step 4 notification switches: on keeps defaults, off silences only that ar
     }
 });
 
-test('launch settings parse with Project settings defaults when untouched', () => {
+test('launch settings parse with Workspace settings defaults when untouched', () => {
     const parsed = createProjectSchema.parse({
         title: 'Launch-ready project',
         description: 'A sufficiently detailed description for project creation validation.',
@@ -61,7 +61,7 @@ test('create saves every step 4 setting; new members inherit the upload default'
     assert.match(settings, /updateProject\(projectId, \{ memberFileUploadDefault: enabled \}\)/);
 });
 
-test('step 4 shows the eight Project settings sections in order; picture and doc editing apply after create', () => {
+test('step 4 shows the eight Workspace settings sections in order; picture and doc editing apply after create', () => {
     const phase = read('src/components/projects/create-wizard/phases/Phase4Settings.tsx');
     const order = ['picture', 'access', 'links', 'documentation', 'lifecycle', 'permissions', 'files', 'notifications'];
     const positions = order.map((id) => phase.indexOf(`{...sectionProps('${id}')}`));

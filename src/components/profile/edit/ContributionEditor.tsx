@@ -972,7 +972,7 @@ export function ContributionEditor({
       <div className="nb-contribution-editor">
         <Button type="button" variant="ghost" onClick={() => nav(null)}>
           <ArrowLeft className="size-4" />
-          Project contributions
+          Contributions
         </Button>
         <p role="status" className="nb-compact py-8">
           Loading contribution…
@@ -1022,7 +1022,7 @@ export function ContributionEditor({
         <>
           <div className="mb-5 flex min-w-0 flex-col gap-4">
             <div className="min-w-0">
-              <h1 className="nb-page-title text-balance">Project contributions</h1>
+              <h1 className="nb-page-title text-balance">Contributions</h1>
               <p className="nb-body mt-1 text-pretty text-muted-foreground">
                 Tell the story behind your work. Choose what appears on your
                 profile.
@@ -1246,7 +1246,7 @@ export function ContributionEditor({
                   className="h-8 rounded-[6px] px-3 text-xs font-medium"
                   onClick={() => setPreview("visitor")}
                 >
-                  Visitor view
+                  View as visitor
                 </Button>
               </div>
             </div>
@@ -1258,10 +1258,10 @@ export function ContributionEditor({
             className="nb-tabs-list mb-8 flex min-h-10 w-full items-center gap-6 border-b border-border overflow-x-auto"
           >
             {[
-              ...(!active.projectId ? [["identity", "Project identity"]] : []),
+              ...(!active.projectId ? [["identity", "Workspace or project"]] : []),
               ["summary", "Summary"],
-              ["positions", "Positions and dates"],
-              ["work", "Work examples"],
+              ["positions", "Roles and dates"],
+              ["work", "Work samples"],
               ["skills", "Skills and links"],
             ].map(([id, label]) => (
               <button
@@ -1280,7 +1280,7 @@ export function ContributionEditor({
           </nav>
           {!active.projectId && (
             <section className="nb-story-section" id="contribution-identity">
-              <h3 className="nb-section-title">Project identity</h3>
+              <h3 className="nb-section-title">Workspace or project</h3>
               <Field label="Project name">
                 <input
                   className="nb-story-input"
@@ -1296,12 +1296,12 @@ export function ContributionEditor({
                 onClick={() => setLinkOpen(true)}
               >
                 <Link2 className="size-3.5" />
-                Link to an existing project
+                Link to a workspace
               </Button>
             </section>
           )}
           <section className="nb-story-section" id="contribution-summary">
-            <h3 className="nb-section-title">Contribution summary</h3>
+            <h3 className="nb-section-title">Your contribution</h3>
             <p className="nb-compact mt-1 mb-5 text-muted-foreground">
               Explain your part in the project, in your own words.
             </p>
@@ -1338,7 +1338,7 @@ export function ContributionEditor({
             />
           </section>
           <section className="nb-story-section" id="contribution-positions">
-            <h3 className="nb-section-title">Positions and dates</h3>
+            <h3 className="nb-section-title">Roles and dates</h3>
             <p className="nb-compact mt-1 mb-5 text-muted-foreground">
               Show how your contribution evolved over time.
             </p>
@@ -1398,7 +1398,7 @@ export function ContributionEditor({
             <div className="mt-6 border-t border-border pt-6">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-baseline gap-3">
-                  <h4 className="nb-card-title">Position history</h4>
+                  <h4 className="nb-card-title">Role history</h4>
                   <span className="nb-meta text-muted-foreground">
                     {d.positions.length} positions
                   </span>
@@ -1435,7 +1435,7 @@ export function ContributionEditor({
               </div>
               <div
                 role="list"
-                aria-label="Position history"
+                aria-label="Role history"
                 className="divide-y divide-border"
               >
                 {d.positions.map((role) => {
@@ -1634,8 +1634,8 @@ export function ContributionEditor({
                               >
                                 {role.recordedStageId
                                   ? role.hidden
-                                    ? "Restore to presentation"
-                                    : "Hide from presentation"
+                                    ? "Show on profile"
+                                    : "Hide from profile"
                                   : "Remove position"}
                               </button>
                               <Button
@@ -1942,7 +1942,7 @@ export function ContributionEditor({
                         <Trash2 className="size-3.5" />
                       </Button>
                     </div>
-                    <Field label="Associate with a position">
+                    <Field label="Link to a role">
                       <select
                         className="nb-story-input"
                         value={image.positionId ?? ""}
@@ -1957,7 +1957,7 @@ export function ContributionEditor({
                           }))
                         }
                       >
-                        <option value="">Overall contribution</option>
+                        <option value="">Whole contribution</option>
                         {d.positions.map((p) => (
                           <option key={p.id} value={p.id}>
                             {p.title || "New position"}
@@ -2100,7 +2100,7 @@ export function ContributionEditor({
                 value={d.skills}
                 onChange={(skills) => patch(active.id, { skills })}
                 maxSkills={20}
-                label="Skills demonstrated"
+                label="Skills used"
               />
             </div>
             <p className="nb-compact mt-3 text-muted-foreground">
@@ -2208,7 +2208,7 @@ export function ContributionEditor({
               onClick={() => void save("feature")}
             >
               <Pin className="size-3.5" />
-              {active.featured ? "Unpin contribution" : "Pin contribution"}
+              {active.featured ? "Unpin contribution" : "Feature on profile / Featured"}
             </Button>
             <Button
               type="button"
@@ -2398,7 +2398,7 @@ export function ContributionEditor({
       >
         <DialogContent className="max-h-[90dvh] max-w-4xl overflow-auto">
           <DialogTitle>
-            {preview === "draft" ? "Preview private draft" : "Visitor view"}
+            {preview === "draft" ? "Preview private draft" : "View as visitor"}
           </DialogTitle>
           <DialogDescription>
             {preview === "draft"

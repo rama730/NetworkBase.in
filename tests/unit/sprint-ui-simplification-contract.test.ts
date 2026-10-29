@@ -50,7 +50,7 @@ describe("sprint tab target architecture contract", () => {
   });
 
   it("implements the schedule-owned lifecycle instead of a manual status toggle", () => {
-    for (const control of ["Close sprint", "Cancel sprint", "Archive sprint"]) {
+    for (const control of ["Complete sprint", "Cancel sprint", "Archive sprint"]) {
       assert.match(sprintHeaderSource, new RegExp(control));
     }
     assert.match(sprintHeaderSource, /Starts automatically on schedule/);
@@ -65,8 +65,8 @@ describe("sprint tab target architecture contract", () => {
 
   it("uses compact lifecycle and health summaries with explicit pagination", () => {
     assert.match(sprintTimelineSource, /aria-label="Sprint summary"/);
-    assert.match(sprintTimelineSource, /aria-label="Sprint lifecycle"/);
-    assert.match(sprintTimelineSource, /Assign tasks from the Task board/);
+    assert.match(sprintTimelineSource, /aria-label="Sprint history"/);
+    assert.match(sprintTimelineSource, /Add tasks from the Tasks tab to start this sprint/);
     assert.match(sprintTimelineSource, /hasMore && onLoadMore/);
     assert.match(sprintTimelineSource, /Load more tasks/);
     assert.doesNotMatch(sprintTimelineSource, /IntersectionObserver/);

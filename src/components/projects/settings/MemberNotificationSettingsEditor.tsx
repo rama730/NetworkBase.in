@@ -74,12 +74,12 @@ export function MemberNotificationSettingsEditor({
                 <p className="font-semibold text-foreground">{memberName}</p>
                 <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                     {data.canEdit
-                        ? "Member preferences can reduce optional project noise. Locked responsibility and security notifications stay enabled."
-                        : "Leaders can review this member’s effective policy summary, but only the member can change personal notification overrides."}
+                        ? "Members can turn off optional notifications. Required ones stay on."
+                        : "The owner and admins can see this member’s settings. Only the member can change them."}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                     {([
-                        ["inherit", "Use project defaults"],
+                        ["inherit", "Use workspace defaults"],
                         ["custom", "Customize"],
                     ] as const).map(([mode, label]) => (
                         <button
@@ -185,12 +185,12 @@ function MemberNotificationRuleRow({
                 </div>
                 <p className="nb-compact mt-0.5 text-xs text-muted-foreground leading-relaxed">
                     {entry.mandatory
-                        ? "Locked on for responsibility or safety."
+                        ? "Always on for owners and admins."
                         : !projectDecision.enabled
                             ? "Disabled by project defaults."
                             : entry.allowMemberOverride
                                 ? "Optional personal preference."
-                                : "Managed by project policy."}
+                                : "Set by the workspace."}
                 </p>
             </div>
             <div className="flex shrink-0 items-center gap-3">

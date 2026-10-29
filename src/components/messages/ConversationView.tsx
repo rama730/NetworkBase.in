@@ -841,7 +841,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
             {conversation.query.isError ? <ErrorNotice what="Messages" onRetry={() => void conversation.query.refetch()} className="mx-3 mb-2" /> : null}
             {!isMember ? (
               <div className="flex flex-wrap items-center justify-center gap-3 border-t border-border bg-muted px-4 py-3 text-[13px]">
-                <span className="text-muted-foreground">You’re previewing <strong className="font-semibold text-foreground">{displayName}</strong>.</span>
+                <span className="text-muted-foreground">You’re previewing <strong className="font-semibold text-foreground">{displayName}</strong>. Join to post.</span>
                 <Button type="button" size="sm" onClick={() => void join()} className="pointer-coarse:h-11">Join channel</Button>
               </div>
             ) : archived ? (

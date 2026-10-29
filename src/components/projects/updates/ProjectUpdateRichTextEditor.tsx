@@ -173,7 +173,7 @@ export function ProjectUpdateRichTextEditor({
                     className="absolute z-10 w-48 overflow-hidden rounded-[5px] border border-border bg-popover text-popover-foreground shadow-md"
                     style={{ top: slashMenuCoords.top, left: Math.min(slashMenuCoords.left, 500) }}
                 >
-                    <div className="border-b border-border px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">Add context</div>
+                    <div className="border-b border-border px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">Link work</div>
                     <button
                         type="button"
                         className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] font-medium text-foreground hover:bg-muted transition-colors"

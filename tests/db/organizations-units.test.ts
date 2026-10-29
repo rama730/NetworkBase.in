@@ -5,7 +5,7 @@ import { generateJoinCode } from "../../src/lib/organizations/join-rules";
 import { closeAppDb, createProject, createUser, loadAppModule, moduleStubs, sql } from "./_helpers";
 
 // P17 §14 pass: unit leads, outside people, org blocks, the cap notice, group copies for a new child,
-// Follow org sprints, units after creation, @unit mentions, seats reopening and the Needs you rows.
+// Follow org sprints, units after creation, @unit mentions, seats reopening and the Needs your attentionr attention rows.
 let viewerId = "";
 moduleStubs.set("@/lib/supabase/server", {
   createClient: async () => ({ auth: {
@@ -169,7 +169,7 @@ test("units after creation: rename, seats, lead, move; @unit reaches the unit; l
   assert.ok((await titles(o.c)).includes("1 seat open in Testing"));
 });
 
-test("Needs you: a group assignment with no projects to go to", async () => {
+test("Needs your attentionr attention: a group assignment with no projects to go to", async () => {
   const o = await org();
   await sql`INSERT INTO tasks (project_id, title, kind, creator_id, assignment_settings) VALUES (${o.id}, 'Mini-project', 'assignment', ${o.owner},
     ${sql.json({ version: 1, submissionType: "none", reviewRequired: false, lateRule: "none", target: { mode: "each_child" }, publishedAt: new Date().toISOString(), closedAt: null })})`;

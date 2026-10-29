@@ -133,7 +133,7 @@ export function genericSharePreview(resource: ShareResource, state: SharePreview
 
 export function previewAlt(preview: SharePreview): string {
   return [preview.identity?.name ?? preview.title, preview.identity?.username ? `@${preview.identity.username}` : '', preview.description, preview.byline,
-    preview.openToCollaborate ? 'Open to collaborate' : '', preview.portfolio, preview.skills.join(', '),
+    preview.openToCollaborate ? 'Open to collaboration' : '', preview.portfolio, preview.skills.join(', '),
     preview.skillOverflow ? `${preview.skillOverflow} more skills` : '',
     ...(preview.project?.team ?? []).map(person => person.name + ' · ' + person.role),
     preview.project?.teamOverflow ? `${preview.project.teamOverflow} more team members` : '',

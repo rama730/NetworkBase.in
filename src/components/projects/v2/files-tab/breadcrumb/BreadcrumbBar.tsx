@@ -108,7 +108,7 @@ export function deriveBreadcrumbSegments(
   }>,
 ): BreadcrumbSegment[] {
   const segments: BreadcrumbSegment[] = [
-    { kind: "root", id: null, name: "Project files" },
+    { kind: "root", id: null, name: "All files" },
   ];
   if (location === null || location.type === "root") return segments;
 

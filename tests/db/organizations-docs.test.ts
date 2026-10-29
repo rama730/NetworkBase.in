@@ -153,7 +153,7 @@ test("the Projects smart block lists the org's child projects, never Private one
   viewerId = "";
   const visitor = await projectDoc.readProjectDocSmartBlockPreviewsAction(o.org, [{ kind: "projects", ids: [], index: 0 }], "course-welcome");
   assert.equal(visitor.success, true, JSON.stringify(visitor));
-  if (visitor.success) assert.deepEqual(visitor.previews[0]!.items, [], "Org only projects stay hidden from visitors");
+  if (visitor.success) assert.deepEqual(visitor.previews[0]!.items, [], "Organization projects stay hidden from visitors");
 });
 
 test("§19 pass: inherited org admins edit child docs; Linked sprint gives the sprint chip and joins its Materials", async () => {

@@ -719,7 +719,7 @@ export function PresentationViewerDriver({
               variant={layoutMode === "canvas" ? "secondary" : "ghost"}
               onClick={() => setLayoutMode((m) => (m === "canvas" ? "flow" : "canvas"))}
               className="h-7 px-2 text-xs"
-              title="Toggle Canvas Layout (EMU Positioned) vs Flow View"
+              title="Switch layout"
             >
               <Layers className="mr-1 h-3.5 w-3.5" />
               <span className="hidden sm:inline">{layoutMode === "canvas" ? "Layout" : "Flow"}</span>

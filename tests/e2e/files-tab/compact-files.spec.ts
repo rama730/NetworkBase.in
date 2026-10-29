@@ -95,7 +95,7 @@ test.describe("compact Files workspace", () => {
     await expect(file).toBeVisible();
     await file.click();
     await expect(page.getByTestId("files-tab-file-view")).toBeVisible();
-    await page.getByTestId("files-tab-breadcrumb").getByRole("button", { name: "Project files", exact: true }).click();
+    await page.getByTestId("files-tab-breadcrumb").getByRole("button", { name: "All files", exact: true }).click();
     await expect(page.getByTestId("files-tab-file-view")).toHaveCount(0);
     await expect(header.getByRole("button", { name: "Clear search: README" })).toHaveCount(0);
     await expect.poll(() => new URL(page.url()).searchParams.get("filesQuery")).toBeNull();

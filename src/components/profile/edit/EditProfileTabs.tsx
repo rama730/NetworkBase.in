@@ -97,11 +97,11 @@ const EDIT_SECTIONS: Array<{
     label: string;
     icon: React.ComponentType<{ className?: string }>;
 }> = [
-    { id: "general", label: "General properties", icon: SlidersHorizontal },
-    { id: "experience", label: "Project contributions", icon: Briefcase },
-    { id: "skills", label: "Skills and expertise", icon: Wrench },
-    { id: "social", label: "Social presence", icon: Globe },
-    { id: "opportunity", label: "Role preferences", icon: UserCheck },
+    { id: "general", label: "Profile details", icon: SlidersHorizontal },
+    { id: "experience", label: "Contributions", icon: Briefcase },
+    { id: "skills", label: "Skills", icon: Wrench },
+    { id: "social", label: "Links and profiles", icon: Globe },
+    { id: "opportunity", label: "Collaboration preferences", icon: UserCheck },
 ];
 
 export function EditProfileTabs({
@@ -239,7 +239,7 @@ export function EditProfileTabs({
                 <div className="@container max-w-4xl mx-auto w-full">
                     <TabsContent value="general" className="space-y-8 mt-0">
                         <div className="flex flex-col gap-1">
-                            <h2 className="nb-section-title text-foreground">General properties</h2>
+                            <h2 className="nb-section-title text-foreground">Profile details</h2>
                             <p className="nb-compact max-w-[64ch] text-muted-foreground">Manage your public identity, profile photo, and core professional details.</p>
                         </div>
 
@@ -327,7 +327,7 @@ export function EditProfileTabs({
                         {/* Personal identity */}
                         <div className="border-b border-border space-y-4 pb-6">
                             <div>
-                                <h3 className="nb-card-title text-foreground">Personal identity</h3>
+                                <h3 className="nb-card-title text-foreground">Basic information</h3>
                                 <p className="nb-compact mt-0.5 text-muted-foreground">
                                     Your name, handle, and professional headline across NetworkBase.
                                 </p>
@@ -522,7 +522,7 @@ export function EditProfileTabs({
                         {/* Optional personal details. Only the owner is ever sent these. */}
                         <div className="space-y-4">
                             <div>
-                                <h3 className="nb-card-title text-foreground">How you identify</h3>
+                                <h3 className="nb-card-title text-foreground">Gender</h3>
                                 <p className="nb-compact mt-0.5 text-muted-foreground">
                                     Optional. Only you can see these; they are not shown on your profile.
                                 </p>
@@ -554,7 +554,7 @@ export function EditProfileTabs({
                     </TabsContent>
 
                     <TabsContent value="skills" className="space-y-6 mt-0">
-                        <h2 className="nb-section-title text-foreground">Skills and expertise</h2>
+                        <h2 className="nb-section-title text-foreground">Skills</h2>
                         <SkillsEditor
                             skills={profile.skills ?? []}
                             onChange={(skills) => updateForm("skills", skills)}
@@ -566,7 +566,7 @@ export function EditProfileTabs({
                     </TabsContent>
 
                     <TabsContent value="social" className="space-y-6 mt-0">
-                        <h2 className="nb-section-title text-foreground">Social presence</h2>
+                        <h2 className="nb-section-title text-foreground">Links and profiles</h2>
                         <SocialLinksEditor
                             links={profile.socialLinks ?? {}}
                             metadata={profile.socialLinkMetadata ?? {}}
@@ -575,7 +575,7 @@ export function EditProfileTabs({
                     </TabsContent>
 
                     <TabsContent value="opportunity" className="space-y-6 mt-0">
-                        <h2 id="role-preferences-heading" className="nb-section-title text-foreground">Role preferences</h2>
+                        <h2 id="role-preferences-heading" className="nb-section-title text-foreground">Collaboration preferences</h2>
                         <RolePreferencesEditor profile={profile} onChange={onChange} />
                     </TabsContent>
                 </div>
@@ -744,7 +744,7 @@ function RolePreferencesEditor({ profile, onChange }: { profile: any; onChange: 
             <div className="rounded-lg border border-border p-4 space-y-2">
                 <div className="flex items-center justify-between gap-4">
                     <label className="flex items-center gap-2 nb-ui-label cursor-pointer" htmlFor="open-to-collaborate-switch">
-                        <span>Open to collaborate</span>
+                        <span>Open to collaboration</span>
                         {profile.openToCollaborate ? (
                             <span className="nb-micro inline-flex items-center gap-1 rounded-[4px] border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-medium text-emerald-600 dark:text-emerald-400">
                                 <span className="h-1.5 w-1.5 rounded-[2px] bg-emerald-500" aria-hidden="true" />
@@ -758,7 +758,7 @@ function RolePreferencesEditor({ profile, onChange }: { profile: any; onChange: 
                     </label>
                     <SettingsSwitch
                         id="open-to-collaborate-switch"
-                        aria-label="Open to collaborate"
+                        aria-label="Open to collaboration"
                         aria-describedby="collaboration-availability-help"
                         checked={profile.openToCollaborate === true}
                         onCheckedChange={(checked) => onChange({ ...profile, openToCollaborate: checked })}
@@ -846,7 +846,7 @@ function RolePreferencesEditor({ profile, onChange }: { profile: any; onChange: 
 
             <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                    <label htmlFor="profile-desired-role" className="nb-ui-label text-foreground">Desired roles</label>
+                    <label htmlFor="profile-desired-role" className="nb-ui-label text-foreground">Preferred roles</label>
                     {customRoles.length > 0 && (
                         <span className="nb-micro text-muted-foreground">{customRoles.length}/{PROFILE_LIMITS.listMaxItems} roles</span>
                     )}
@@ -885,7 +885,7 @@ function RolePreferencesEditor({ profile, onChange }: { profile: any; onChange: 
                     </div>
                 )}
                 {customRoles.length > 0 && (
-                    <div className="flex flex-wrap gap-2 pt-1" aria-label="Desired roles">
+                    <div className="flex flex-wrap gap-2 pt-1" aria-label="Preferred roles">
                         {customRoles.map((role: string) => (
                             <span
                                 key={role}
@@ -920,7 +920,7 @@ function RolePreferencesEditor({ profile, onChange }: { profile: any; onChange: 
                     </select>
                 </label>
                 <label className="nb-ui-label block space-y-2 text-foreground">
-                    <span id="profile-hours-label">Weekly hours</span>
+                    <span id="profile-hours-label">Weekly availability</span>
                     <select
                         aria-labelledby="profile-hours-label"
                         value={profile.hoursPerWeek ?? ''}

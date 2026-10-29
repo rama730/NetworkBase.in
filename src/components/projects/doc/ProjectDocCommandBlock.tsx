@@ -28,7 +28,7 @@ async function copyTextWithFallback(value: string) {
     textarea.select();
     const copied = document.execCommand("copy");
     document.body.removeChild(textarea);
-    if (!copied) throw new Error("Clipboard fallback failed");
+    if (!copied) throw new Error("Couldn’t copy");
 }
 
 export function ProjectDocCommandBlock({

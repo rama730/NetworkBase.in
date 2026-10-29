@@ -86,8 +86,8 @@ function AddDocButton({ onClick, className }: { onClick: () => void; className?:
         <button
             type="button"
             onClick={onClick}
-            aria-label="Add doc"
-            title="Add doc"
+            aria-label="Add document"
+            title="Add document"
             className={cn("inline-flex items-center justify-center rounded-[5px] border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground", className)}
         >
             <Plus className="size-3.5" />

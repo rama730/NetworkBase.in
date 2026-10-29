@@ -95,12 +95,12 @@ export function ProjectDocSmartBlock({
             : block.kind === "contributors"
                 ? `${collaborators.length} member${collaborators.length === 1 ? "" : "s"}`
                 : block.kind === "files" || block.kind === "tasks"
-                ? block.ids.length > 0 ? `${block.ids.length} specific item${block.ids.length === 1 ? "" : "s"} linked` : "Open the project surface for current items"
+                ? block.ids.length > 0 ? `${block.ids.length} specific item${block.ids.length === 1 ? "" : "s"} linked` : "Open the workspace to see current items"
                     : block.kind === "sprints"
                         ? "Open sprint rhythm"
                         : block.kind === "projects"
                         ? "Open the organization’s projects"
-                        : "Editor attention needed";
+                        : "Needs editing";
 
     return (
         <div

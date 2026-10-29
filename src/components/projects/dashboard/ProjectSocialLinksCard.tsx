@@ -76,9 +76,9 @@ function linkHref(projectId: string, link: ResolvedProjectSocialLink) {
 function ProjectLinkAnchor({ projectId, link, className }: { projectId: string; link: ResolvedProjectSocialLink; className?: string }) {
     const title = linkTitle(link);
     const repoRoleLabel = link.repositoryRole === 'cloned' || link.managed === 'github-cloned-repo'
-        ? ' · Cloned repository'
+        ? ' · Imported from GitHub'
         : link.managed
-            ? ' · Connected repository'
+            ? ' · Connected to GitHub'
             : '';
     const description = `${title} · ${link.accountLabel} · ${PROJECT_LINK_PURPOSE_LABELS[link.purpose]}${link.audience === 'members' ? ' · Members only' : ''}${repoRoleLabel}`;
     return (
@@ -398,8 +398,8 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
         <div className="min-w-0 max-w-full space-y-4 overflow-x-hidden">
             {managedRepositories.map((repo) => {
                 const isCloned = repo.repositoryRole === 'cloned' || repo.managed === 'github-cloned-repo';
-                const label = isCloned ? 'Cloned repository' : 'Connected repository';
-                const badgeText = isCloned ? 'Cloned from GitHub' : 'Managed by integration';
+                const label = isCloned ? 'Imported from GitHub' : 'Connected to GitHub';
+                const badgeText = isCloned ? 'Cloned from GitHub' : 'Managed by GitHub';
                 const badgeClasses = isCloned
                     ? 'border border-border bg-muted/60 text-muted-foreground'
                     : 'border border-primary/20 bg-primary/10 text-primary';
@@ -469,7 +469,7 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
                                         {identifyingIds.has(item.id) ? <><RefreshCw className="h-3 w-3 shrink-0 animate-spin motion-reduce:animate-none" />Identifying destination…</> : item.destinationLabel || (opaqueName ? 'Name needed — you can add it manually' : link.accountLabel)}
                                     </span>
                                     <span className="mt-1 inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/60 px-[7px] font-mono text-[11px] uppercase tracking-[0.09em] leading-none text-muted-foreground">{PROJECT_LINK_PURPOSE_LABELS[itemPurpose]}</span>
-                                    {staleMetadata ? <span className="ml-1 mt-1 inline-flex h-5 items-center rounded-[3px] border border-amber-500/20 bg-amber-500/10 px-[7px] font-mono text-[11px] uppercase tracking-[0.09em] leading-none text-amber-700 dark:text-amber-300">Name check is over 30 days old</span> : null}
+                                    {staleMetadata ? <span className="ml-1 mt-1 inline-flex h-5 items-center rounded-[3px] border border-amber-500/20 bg-amber-500/10 px-[7px] font-mono text-[11px] uppercase tracking-[0.09em] leading-none text-amber-700 dark:text-amber-300">Name may be out of date</span> : null}
                                 </span>
                                 <button type="button" disabled={disabled} onClick={() => editItem(item)} className="nb-touch-target nb-icon-button inline-flex h-[28px] w-[28px] items-center justify-center rounded-[5px] border border-border/70 text-muted-foreground transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:bg-muted hover:text-foreground disabled:opacity-40" aria-label={`Edit ${title}`}><Pencil className="h-3.5 w-3.5" /></button>
                                 <button type="button" disabled={disabled} onClick={() => { publishDraft(draftRef.current.filter((row) => row.id !== item.id).map((row, order) => ({ ...row, order }))); if (editingId === item.id) resetComposer(); }} className="nb-touch-target nb-icon-button inline-flex h-[28px] w-[28px] items-center justify-center rounded-[5px] border border-border/70 text-muted-foreground transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive disabled:opacity-40" aria-label={`Remove ${title}`}><Trash2 className="h-3.5 w-3.5" /></button>
@@ -493,7 +493,7 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
                 <p className="mt-1 text-xs text-muted-foreground">
                     {commitContext === 'project-create'
                         ? 'Paste or drop one or several URLs. They are staged immediately and saved when you create the project.'
-                        : 'Paste or drop one or several URLs. They are staged immediately; Save changes commits everything once.'}
+                        : 'Paste one or more links. They’re saved when you select Save changes.'}
                 </p>
                 <div className="mt-3 flex min-w-0 flex-col gap-2 sm:flex-row">
                     <Input

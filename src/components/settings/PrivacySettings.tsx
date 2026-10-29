@@ -197,13 +197,13 @@ export default function PrivacySettings() {
         description="You choose who sees each status when you set it, from your profile menu."
       />
       <SettingsRow
-        title="Open to collaborate"
+        title="Open to collaboration"
         description="Shows an “Open to collaborate” label on your profile and in people suggestions. Edit it with the rest of your opportunities."
         right={<Button asChild variant="outline" size="sm" className="pointer-coarse:h-11"><Link href={profileEditHref("opportunity")}>Edit</Link></Button>}
       />
     </SettingsSectionCard>
 
-    <SettingsSectionCard id="settings-privacy-blocked" title="Blocked accounts and activity" description="Manage blocked people and review recent privacy changes.">
+    <SettingsSectionCard id="settings-privacy-blocked" title="Blocked people" description="Manage blocked people and review recent privacy changes.">
       {data.blockedAccounts.length > 0 ? <SearchField label="Search blocked accounts" value={blockedSearch} onChange={setBlockedSearch} className="mb-3" /> : null}
       {data.blockedAccounts.length === 0 ? <div className="flex min-h-24 items-center gap-3 rounded-md border border-dashed border-border bg-card px-4"><ShieldBan className="size-5 text-muted-foreground" strokeWidth={1.75} aria-hidden="true" /><div><p className="nb-ui-label text-foreground">No blocked accounts</p><p className="nb-compact mt-1 text-muted-foreground">Blocked people will appear here.</p></div></div> : filteredBlockedAccounts.length === 0 ? <p className="py-6 text-center nb-compact text-muted-foreground">No blocked accounts match your search.</p> : <div>{filteredBlockedAccounts.map((account) => <BlockedAccountRow key={account.id} account={account} isPending={unblockMutation.isPending && unblockMutation.variables === account.id} onUnblock={handleUnblock} />)}</div>}
       {blockedQuery && nextBlockedCursor ? <p className="mt-2 nb-meta text-muted-foreground">Search covers the accounts loaded so far.</p> : null}

@@ -556,7 +556,7 @@ export default function InviteCollaboratorModal({
                         : "Application submitted";
                 const channelId = result.channelId;
                 toast.success(title, {
-                    description: result.outcome === "submitted" || result.outcome === "resubmitted" ? "The project’s reviewers have been told." : undefined,
+                    description: result.outcome === "submitted" || result.outcome === "resubmitted" ? "The reviewers have been notified." : undefined,
                     action: channelId ? { label: "View conversation", onClick: () => router.push(conversationHref(channelId)) } : undefined,
                 });
             } else {
@@ -630,7 +630,7 @@ export default function InviteCollaboratorModal({
                 <DialogHeader className="border-b border-border px-6 py-4 text-left">
                     <DialogTitle className={plainContentHeadings ? "nb-card-title text-foreground" : "nb-card-title flex items-center gap-2 text-foreground"}>
                         {!plainContentHeadings && (mode === "apply" ? <Briefcase aria-hidden="true" className="size-5 text-primary" /> : <Users aria-hidden="true" className="size-5 text-primary" />)}
-                        {mode === "apply" ? (isEditing ? "Edit application" : "Apply to join") : "Invite members"}
+                        {mode === "apply" ? (isEditing ? "Edit application" : "Apply for a role") : "Invite members"}
                     </DialogTitle>
                 </DialogHeader>
 
@@ -675,7 +675,7 @@ export default function InviteCollaboratorModal({
                                             {roleLabel(selectedRole)}
                                         </span>
                                         <span className="inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/60 px-[7px] font-mono text-[11px] uppercase tracking-[0.09em] leading-none text-muted-foreground">
-                                            {remainingRoles(selectedRole)} {remainingRoles(selectedRole) === 1 ? "SPOT LEFT" : "SPOTS LEFT"}
+                                            {remainingRoles(selectedRole)} {remainingRoles(selectedRole) === 1 ? "1 open" : "2 open"}
                                         </span>
                                     </div>
                                     {selectedRole.description ? (

@@ -12,9 +12,9 @@ test("CreateTaskModal implements canonical SectionDividers matching Sprint tab s
   const content = fs.readFileSync(CREATE_TASK_MODAL_PATH, "utf8");
 
   assert.match(content, /title="Basics"/);
-  assert.match(content, /title="Planning and assignment"/);
-  assert.match(content, /title="Schedule and estimate"/);
-  assert.match(content, /title="Subtasks and references"/);
+  assert.match(content, /title="Sprint and assignee"/);
+  assert.match(content, /title="Schedule"/);
+  assert.match(content, /title="Subtasks and files"/);
 });
 
 test("CreateTaskModal enforces drafting-table control geometry and token compliance", () => {
@@ -59,7 +59,7 @@ test("CreateTaskModal removes visual header caption and implements Due date quic
   assert.match(content, /value=\{dueDate\}/);
 
   // Quick set buttons for 1 week, 2 weeks, 4 weeks
-  assert.match(content, /Quick set:/);
+  assert.match(content, /Quick dates:/);
   assert.match(content, /\{ label: "1 week", days: 7 \}/);
   assert.match(content, /\{ label: "2 weeks", days: 14 \}/);
   assert.match(content, /\{ label: "4 weeks", days: 28 \}/);

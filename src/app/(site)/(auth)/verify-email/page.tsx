@@ -12,7 +12,7 @@ const RESEND_COOLDOWN_SECONDS = 60
 const VERIFY_PANEL = {
     eyebrow: 'One last step',
     title: 'Verified email keeps NetworkBase real.',
-    points: ['Keeps spam accounts out', 'Lets you recover your account', 'Unlocks messages and projects'],
+    points: ['Keeps spam accounts out', 'Lets you recover your account', 'Unlocks messages and workspaces'],
 }
 
 function VerifyEmailPageInner() {
@@ -109,7 +109,7 @@ function VerifyEmailPageInner() {
                 {message ? <AuthAlert tone="success">{message}</AuthAlert> : null}
                 {error ? <AuthAlert tone="error">{error}</AuthAlert> : null}
                 <Button className="h-11 w-full font-medium" onClick={() => void handleContinue()} disabled={busy}>
-                    {isChecking ? 'Checking…' : "I’ve verified, continue"}
+                    {isChecking ? 'Checking…' : "I’ve verified my email"}
                 </Button>
                 <div className="flex items-center justify-between gap-3 text-sm">
                     <button type="button" className="min-h-11 text-muted-foreground hover:text-foreground disabled:opacity-60" disabled={busy} onClick={() => void handleSignOut()}>

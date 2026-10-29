@@ -126,7 +126,7 @@ export function DesktopIdePicker({
             ? connectedIdes.length
               ? "Connect another editor"
               : "Connect your desktop IDE"
-            : "Your desktop IDEs"}
+            : "Your code editors"}
         </h3>
         <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
           {connecting

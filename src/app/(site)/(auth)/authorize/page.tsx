@@ -7,7 +7,7 @@ import AuthorizeClient from './AuthorizeClient'
 
 export const metadata = buildRouteMetadata({
     title: 'Connect Editor | NetworkBase',
-    description: 'Authorize your IDE extension to connect with your NetworkBase workspace.',
+    description: 'Connect your code editor to NetworkBase.',
     path: '/authorize',
 })
 

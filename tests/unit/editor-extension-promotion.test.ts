@@ -197,7 +197,7 @@ describe("Editor extension Desktop Deep-Linking & Promotion Contract", () => {
 
       // Both one and multiple connections use the same preferred-editor control.
       assert.ok(content.includes("!hasConnected"));
-      assert.ok(content.includes("Connect desktop IDE"));
+      assert.ok(content.includes("Connect your code editor"));
       assert.ok(content.includes("executeDispatch"));
       assert.ok(content.includes("DesktopIdePicker"));
       assert.ok(content.includes("Open in {activeConnectedIde.name}"));

@@ -71,7 +71,7 @@ async function dashboard(orgId: string, as: string) {
   return r.success ? r : null;
 }
 
-test("Needs you: admins see reviews and requests; members their own due and returned work; leads their group copies", async () => {
+test("Needs your attentionr attention: admins see reviews and requests; members their own due and returned work; leads their group copies", async () => {
   const o = await org();
   const applicant = await sql.begin((tx) => createUser(tx));
   await sql`INSERT INTO role_applications (project_id, applicant_id, creator_id, status) VALUES (${o.orgId}, ${applicant}, ${o.owner}, 'pending')`;

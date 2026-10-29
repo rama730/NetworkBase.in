@@ -126,12 +126,12 @@ test('Discover short rail stays accessible at the top and the desktop rail hides
 });
 
 for (const surface of ['profile', 'project']) {
-  const label = surface === 'profile' ? 'Profile details' : 'Project details';
+  const label = surface === 'profile' ? 'Profile details' : 'Workspace details';
   test(`${surface} tall rail scrolls naturally and pins its bottom while the main content continues`, async ({ page }) => {
     await open(page, `surface=sticky-${surface}`);
     const root = page.getByTestId('detail-page-scroll');
     const rail = page.getByRole('complementary', { name: label });
-    const main = surface === 'profile' ? page.getByTestId('detail-main') : page.getByRole('heading', { name: 'Vision and description' });
+    const main = surface === 'profile' ? page.getByTestId('detail-main') : page.getByRole('heading', { name: 'About this workspace' });
     const initial = (await rail.boundingBox())!;
     await root.evaluate(el => el.scrollTo({ top: 100 }));
     await expect.poll(async () => (await rail.boundingBox())!.y).toBeCloseTo(initial.y - 100, 0);
@@ -297,7 +297,7 @@ test('Network toolbar and overview preserve search, tab navigation, connection a
   await rail.getByRole('button', { name: 'Connections 8', exact: true }).click();
   await expect(page.getByRole('tab', { name: 'Connections 8', exact: true })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByText('Your connected people', { exact: true })).toBeVisible();
-  await rail.getByRole('button', { name: 'Project invitations 1', exact: true }).click();
+  await rail.getByRole('button', { name: 'Workspace invitations 1', exact: true }).click();
   await expect(page.getByRole('tab', { name: 'Invitations 3', exact: true })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByText('Your pending invitations', { exact: true })).toBeVisible();
   await open(page, 'surface=network-layout&guest');
@@ -319,10 +319,10 @@ test('Network loading cards use the full page layout and the same card geometry'
 
 test('profile headings use the Discover pattern with titles outside cards and working edit controls', async ({ page }) => {
   await open(page, 'surface=discover');
-  const reference = page.getByRole('heading', { name: 'People you should meet' });
+  const reference = page.getByRole('heading', { name: 'Suggested people' });
   const referenceStyle = await reference.evaluate(el => { const s = getComputedStyle(el); return [s.fontSize, s.fontWeight, s.letterSpacing, s.lineHeight]; });
   await open(page, 'surface=profile');
-  for (const title of ['Role preferences', 'Links', 'Profile completeness']) {
+  for (const title of ['Collaboration preferences', 'Links', 'Profile completeness']) {
     await checkHeading(page, title);
     expect(await page.getByRole('heading', { name: title, exact: true }).evaluate(el => { const s = getComputedStyle(el); return [s.fontSize, s.fontWeight, s.letterSpacing, s.lineHeight]; })).toEqual(referenceStyle);
   }
@@ -337,14 +337,14 @@ test('profile headings use the Discover pattern with titles outside cards and wo
   expect(await page.getByRole('heading', { name: 'About', exact: true }).evaluate(el => getComputedStyle(el).fontSize)).toBe('17px');
 });
 
-test.describe('shared connections', () => {
+test.describe('mutual connections', () => {
   test.use({ hasTouch: true });
-  test('Discover shared connections use square profile links and exact overflow counts, hiding empty or stale summaries', async ({ page }) => {
+  test('Discover mutual connections use square profile links and exact overflow counts, hiding empty or stale summaries', async ({ page }) => {
     for (const width of [1200, 320]) {
       await page.setViewportSize({ width, height: 900 });
       await open(page, 'surface=discover&shared=12');
-      await checkHeading(page, 'Shared connections');
-      const shared = page.getByRole('region', { name: 'Shared connections', exact: true });
+      await checkHeading(page, 'Mutual connections');
+      const shared = page.getByRole('region', { name: 'Mutual connections', exact: true });
       await expect(page.getByRole('link', { name: 'Explore people' })).toHaveCount(0);
       await expect(shared.getByRole('link')).toHaveCount(4);
       await expect(shared.getByText('and 8 others', { exact: true })).toBeVisible();
@@ -359,24 +359,24 @@ test.describe('shared connections', () => {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     }
     await open(page, 'surface=discover&shared=1&compact');
-    await expect(page.getByRole('heading', { name: 'People you should meet' })).toHaveCount(0);
-    await expect(page.getByRole('region', { name: 'Shared connections' }).getByRole('link')).toHaveCount(1);
+    await expect(page.getByRole('heading', { name: 'Suggested people' })).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Mutual connections' }).getByRole('link')).toHaveCount(1);
     await expect(page.getByText(/and \d+ others/)).toHaveCount(0);
     await open(page, 'surface=discover&shared=5');
     await expect(page.getByText('and 1 other', { exact: true })).toBeVisible();
-    await page.getByRole('region', { name: 'Shared connections' }).screenshot({ path: test.info().outputPath('shared-connections.png') });
+    await page.getByRole('region', { name: 'Mutual connections' }).screenshot({ path: test.info().outputPath('shared-connections.png') });
     for (const query of ['surface=discover', 'surface=discover&shared=12&stale']) {
       await open(page, query);
-      await expect(page.getByRole('heading', { name: 'Shared connections' })).toHaveCount(0);
+      await expect(page.getByRole('heading', { name: 'Mutual connections' })).toHaveCount(0);
     }
   });
-  test('Discover shows additional suggestions below three cards when shared connections are absent or unavailable', async ({ page }) => {
+  test('Discover shows additional suggestions below three cards when mutual connections are absent or unavailable', async ({ page }) => {
     for (const query of ['surface=discover&more', 'surface=discover&more&summary-error&compact']) {
       await page.setViewportSize({ width: 320, height: 900 });
       await open(page, query);
-      await checkHeading(page, 'More people to meet');
+      await checkHeading(page, 'Suggested people');
       await expect(page.getByText(/^Suggested person person-/)).toHaveCount(3);
-      const more = page.getByRole('region', { name: 'More people to meet', exact: true });
+      const more = page.getByRole('region', { name: 'Suggested people', exact: true });
       for (let index = 4; index <= 7; index++) {
         await expect(more.getByRole('link', { name: `View Suggestion ${index}’s profile`, exact: true })).toHaveAttribute('href', `/u/suggestion${index}`);
       }
@@ -385,16 +385,16 @@ test.describe('shared connections', () => {
       await more.screenshot({ path: test.info().outputPath(`more-people-${query.includes('compact') ? 'compact' : 'desktop'}.png`) });
     }
     await open(page, 'surface=discover&more&shared=12');
-    await expect(page.getByRole('heading', { name: 'Shared connections', exact: true })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'More people to meet', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Mutual connections', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Suggested people', exact: true })).toHaveCount(0);
     await open(page, 'surface=discover&more&unavailable');
-    await expect(page.getByRole('heading', { name: 'More people to meet', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Suggested people', exact: true })).toHaveCount(0);
   });
 });
 
 test('profile empty and visitor states retain visibility and collaboration actions', async ({ page }) => {
   await open(page, 'surface=profile&empty');
-  await checkHeading(page, 'Role preferences');
+  await checkHeading(page, 'Collaboration preferences');
   await expect(page.getByRole('heading', { name: 'Links', exact: true })).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Links', exact: true })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Profile completeness' })).toBeVisible();
@@ -405,23 +405,23 @@ test('profile empty and visitor states retain visibility and collaboration actio
   await expect(page.getByRole('heading', { name: 'Profile completeness' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Edit role preferences' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Invite to project' }).click();
-  await page.getByRole('button', { name: 'Apply to join' }).click();
+  await page.getByRole('button', { name: 'Apply for a role' }).click();
   expect(await page.evaluate(() => (window as any).railsFixture.events)).toEqual(['invite', 'apply-profile']);
   await open(page, 'surface=profile&audience=visitor&paused');
-  await expect(page.getByRole('heading', { name: 'Role preferences' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Collaboration preferences' })).toHaveCount(0);
 });
 
 test('project rail preserves Journey controls, activity links and role management', async ({ page }) => {
   await open(page, 'surface=project');
   for (const title of ['Journey', 'Recent activity', 'Open roles']) await checkHeading(page, title);
-  const rail = page.getByRole('complementary', { name: 'Project details' });
+  const rail = page.getByRole('complementary', { name: 'Workspace details' });
   await rail.getByRole('button', { name: 'Advance to next stage' }).click();
   await expect(rail.getByRole('button', { name: 'Advance to next stage' })).toBeDisabled();
   await rail.getByRole('button', { name: 'Return to previous stage' }).click();
   await rail.getByRole('button', { name: 'Manage roles' }).click();
   expect(await page.evaluate(() => (window as any).railsFixture.events)).toEqual(['advance', 'previous', 'manage-roles']);
   await expect(rail.getByRole('link', { name: 'Ada joined the project' })).toHaveAttribute('href', '/projects/example?tab=team');
-  await expect(page.getByRole('heading', { name: 'Vision and description' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'About this workspace' })).toBeVisible();
 });
 
 test('project empty, visitor and pending states keep permission boundaries', async ({ page }) => {
@@ -459,13 +459,13 @@ test.describe('touch layouts', () => {
     await page.setViewportSize({ width: 320, height: 740 });
     for (const theme of ['light', 'dark']) {
       await open(page, `surface=profile&theme=${theme}`);
-      for (const title of ['Role preferences', 'Links']) await checkHeading(page, title);
+      for (const title of ['Collaboration preferences', 'Links']) await checkHeading(page, title);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await expect(page.getByRole('heading', { name: 'Profile completeness' })).toHaveCount(0);
       expect((await page.getByRole('button', { name: 'Edit role preferences' }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
       await open(page, `surface=project&theme=${theme}`);
       for (const title of ['Journey', 'Recent activity', 'Open roles']) await checkHeading(page, title);
-      const rail = page.getByRole('complementary', { name: 'Project details' });
+      const rail = page.getByRole('complementary', { name: 'Workspace details' });
       for (const name of ['Return to previous stage', 'Advance to next stage']) expect((await rail.getByRole('button', { name }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await expect(rail.getByText('Build (2 of 3)', { exact: true })).toBeVisible();
@@ -498,7 +498,7 @@ test('Network filters apply immediately, retain per-section URL state, and resto
  await toolbar.getByRole('button',{name:/^Filters/}).click();
  await expect(page.getByRole('textbox',{name:'Location',exact:true})).toHaveValue('Lisbon');
  await page.getByRole('textbox',{name:'Location',exact:true}).fill('Lisbon');
- await page.getByRole('checkbox',{name:'Open to collaborate',exact:true}).check();
+ await page.getByRole('checkbox',{name:'Open to collaboration',exact:true}).check();
  await expect(page).toHaveURL(/suggested.open=1/);
  await expect(page.getByRole('dialog')).toBeVisible();
  expect(await page.evaluate(()=>(window as any).railsFixture.lastPeopleQuery.filters.openToCollaborate)).toBe(true);
@@ -518,8 +518,8 @@ test('Network filters apply immediately, retain per-section URL state, and resto
  await page.getByRole('option',{name:'Name',exact:true}).click();
  await expect(page).toHaveURL(/connections.sort=name/);
  await expect(page.getByRole('dialog')).toBeVisible();
- await expect(page.getByRole('checkbox',{name:'Open to collaborate',exact:true})).toHaveCount(0);
- await page.getByRole('checkbox',{name:'Has shared connections',exact:true}).check();
+ await expect(page.getByRole('checkbox',{name:'Open to collaboration',exact:true})).toHaveCount(0);
+ await page.getByRole('checkbox',{name:'Has mutual connections',exact:true}).check();
  await expect(page).toHaveURL(/connections.shared=1/);
  await page.getByRole('button',{name:'Done',exact:true}).click();await expect(page).toHaveURL(/connections.shared=1/);await expect(page).toHaveURL(/connections.sort=name/);
  await page.getByRole('tab',{name:'Suggested',exact:true}).click();
@@ -536,10 +536,10 @@ test('Network filters apply immediately, retain per-section URL state, and resto
  await toolbar.getByRole('button',{name:'Filters',exact:true}).click();
  await expect(page.getByRole('textbox',{name:'Location',exact:true})).toHaveCount(0);
  await page.getByRole('combobox',{name:'Invitation direction'}).click();await page.getByRole('option',{name:'Sent',exact:true}).click();await expect(page).toHaveURL(/invitations.direction=sent/);
- await page.getByRole('combobox',{name:'Invitation type'}).click();await page.getByRole('option',{name:'Project invitations and applications',exact:true}).click();await expect(page).toHaveURL(/invitations.kind=projects/);
+ await page.getByRole('combobox',{name:'Invitation type'}).click();await page.getByRole('option',{name:'Workspace invitations and applications',exact:true}).click();await expect(page).toHaveURL(/invitations.kind=projects/);
  await page.getByRole('button',{name:'Done',exact:true}).click();
  await expect(page).toHaveURL(/invitations.direction=sent/);await expect(page).toHaveURL(/invitations.kind=projects/);
- await page.reload();await expect(page.getByRole('group',{name:'Selected network filters'})).toContainText('Project requests');
+ await page.reload();await expect(page.getByRole('group',{name:'Selected network filters'})).toContainText('Role applications');
  await page.getByRole('tab',{name:'Suggested',exact:true}).click();
  await page.getByRole('searchbox',{name:'Search people'}).fill('Last keystrokes');
  await page.getByRole('tab',{name:'Connections 8',exact:true}).click();
@@ -653,7 +653,7 @@ test('Network skills, location and Clear all update the feed while the panel sta
   await panel.getByRole('textbox',{name:'Location',exact:true}).pressSequentially('New York');
   await expect(page).toHaveURL(/suggested.location=New\+York/);
   await expect(panel.getByRole('textbox',{name:'Location',exact:true})).toHaveValue('New York');
-  await panel.getByRole('checkbox',{name:'Has shared connections',exact:true}).check();
+  await panel.getByRole('checkbox',{name:'Has mutual connections',exact:true}).check();
   await expect(page).toHaveURL(/suggested.shared=1/);
   await expect(panel).toBeVisible();
   await panel.getByRole('button',{name:'Clear all',exact:true}).click();
@@ -663,7 +663,7 @@ test('Network skills, location and Clear all update the feed while the panel sta
   expect(await page.evaluate(()=>(window as any).railsFixture.lastPeopleQuery.filters)).toMatchObject({skills:[],location:'',hasMutuals:false});
   await page.goBack();
   await expect(panel.getByRole('textbox',{name:'Location',exact:true})).toHaveValue('New York');
-  await expect(panel.getByRole('checkbox',{name:'Has shared connections',exact:true})).toBeChecked();
+  await expect(panel.getByRole('checkbox',{name:'Has mutual connections',exact:true})).toBeChecked();
   await page.keyboard.press('Escape');
   await expect(panel).toHaveCount(0);
   await expect(page).toHaveURL(/suggested.shared=1/);

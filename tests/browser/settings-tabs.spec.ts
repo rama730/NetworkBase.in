@@ -12,7 +12,7 @@ async function ready(page: Page) {
   // Every tab has loaded its data: none is still showing a skeleton or a loading line.
   await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Notification preferences' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Blocked accounts and activity' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Blocked people' })).toBeVisible();
   // Data from the mocked server is on the page, so the scans and tests below look at real content.
   await expect(page.getByText('Person 0')).toBeVisible();
   await expect(page.locator('#settings-security-sessions').getByText('This device', { exact: true })).toBeVisible();
@@ -134,13 +134,13 @@ test('making the profile private asks first, and only a confirmed choice is sent
   await expect.poll(() => calls.filter((call) => call.method === 'PATCH').map((call) => call.body)).toEqual([{ visibility: 'private' }]);
 });
 
-test('turning off connection requests asks first; a refused change leaves the choice where it was', async ({ page }) => {
+test('turning off connection request *(keep)*s asks first; a refused change leaves the choice where it was', async ({ page }) => {
   const { calls } = await openRealSettings(page, { respond: (method) => (method === 'PATCH' ? { success: false, error: 'Too many changes' } : undefined) });
   await ready(page);
   const requests = page.locator('#settings-privacy-requests');
   await expect(requests.getByRole('radio', { name: /Everyone/ })).toHaveAttribute('aria-checked', 'true');
   await requests.getByRole('radio', { name: /Nobody/ }).click();
-  await page.getByRole('alertdialog', { name: 'Turn off new connection requests?' }).getByRole('button', { name: 'Turn off' }).click();
+  await page.getByRole('alertdialog', { name: 'Turn off new connection request *(keep)*s?' }).getByRole('button', { name: 'Turn off' }).click();
   await expect.poll(() => calls.filter((call) => call.method === 'PATCH').length).toBe(1);
   await expect(requests.getByRole('radio', { name: /Everyone/ })).toHaveAttribute('aria-checked', 'true');
   await expect(requests.getByRole('radio', { name: /Nobody/ })).toHaveAttribute('aria-checked', 'false');

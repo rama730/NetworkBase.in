@@ -211,7 +211,7 @@ test.describe("Files tab v3 — Version restore (Task 14.7)", () => {
         const rowCountAfter = await versionRows.count();
         expect(
           rowCountAfter,
-          "Version history should have at least one row after restore",
+          "Version should have at least one row after restore",
         ).toBeGreaterThanOrEqual(1);
 
         await monitor.assertNoViolations();

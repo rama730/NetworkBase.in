@@ -41,7 +41,7 @@ function getDisplayName(candidate: MentionCandidate): string {
     return (
         candidate.fullName?.trim() ||
         candidate.username?.trim() ||
-        "Unnamed user"
+        "Unknown member"
     );
 }
 
@@ -169,7 +169,7 @@ export function MentionAutocomplete({
                                             <Highlighted text={displayName} query={query} />
                                         </div>
                                         {candidate.unitSize !== undefined ? (
-                                            <div className="truncate text-[10px] text-muted-foreground">Unit · {candidate.unitSize} {candidate.unitSize === 1 ? "person" : "people"}</div>
+                                            <div className="truncate text-[10px] text-muted-foreground">Team · {candidate.unitSize} {candidate.unitSize === 1 ? "person" : "people"}</div>
                                         ) : candidate.username ? (
                                             <div className="truncate font-mono text-[10px] text-muted-foreground">
                                                 @<Highlighted text={candidate.username} query={query} />

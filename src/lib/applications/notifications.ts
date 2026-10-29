@@ -96,7 +96,7 @@ const DECISION_NOTICE_LABEL: Record<ApplicationDecisionNotice, string> = {
     rejected: "Declined",
     reopened: "Reopened",
     role_filled: "Role filled",
-    project_closed: "Project closed",
+    project_closed: "Workspace closed",
     role_removed: "Role removed",
 };
 

@@ -36,7 +36,7 @@ describe("My work drawer contracts", () => {
     assert.match(tasks, /queryKeys.myWork\.tasks\(scope, limit\)/);
     assert.match(tasks, /My tasks/);
     assert.match(tasks, /Team tasks/);
-    assert.match(tasks, /All open work/);
+    assert.match(tasks, /All open tasks/);
     assert.match(tasks, /useState<MyWorkScope>\("all"\)/);
     assert.match(tasks, /OPEN_STATUSES/);
     assert.match(tasks, /TASK_STATUS_PRESENTATION/);
@@ -103,7 +103,7 @@ describe("My work drawer contracts", () => {
     const row = read("src/components/network/IncomingProjectApplicationRow.tsx");
     const requests = read("src/components/my-work/MyWorkRequestsTab.tsx");
 
-    assert.match(row, /Project invitation/);
+    assert.match(row, /Workspace invitation/);
     assert.match(row, /formatDistanceToNowStrict/);
     assert.match(row, /aria-label=\{`Accept/);
     assert.match(requests, /removeOptimistically/);

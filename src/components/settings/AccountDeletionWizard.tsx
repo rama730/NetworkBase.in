@@ -121,7 +121,7 @@ export default function AccountDeletionWizard({ onClose, onDeleted }: Props) {
 
             <div className="space-y-4 nb-compact">
                 <div className="space-y-2 rounded-lg border border-[var(--status-warning)]/30 bg-[var(--status-warning-soft)] p-3 text-foreground">
-                    <p className="font-medium">What happens to your things</p>
+                    <p className="font-medium">What happens to your data</p>
                     <ul className="list-disc space-y-1 pl-4 text-muted-foreground">
                         <li>Projects you own are deleted, including for the people working in them.</li>
                         <li>Your direct messages are deleted. Your messages in group chats stay, without your name.</li>
@@ -157,7 +157,7 @@ export default function AccountDeletionWizard({ onClose, onDeleted }: Props) {
                 ) : null}
 
                 <Button variant="outline" asChild>
-                    <a href="/api/v1/account/export" download><Download className="h-4 w-4" aria-hidden="true" />Download my data</a>
+                    <a href="/api/v1/account/export" download><Download className="h-4 w-4" aria-hidden="true" />Export your data</a>
                 </Button>
 
                 <div className="space-y-1.5">

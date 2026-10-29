@@ -110,7 +110,7 @@ export function FilesHeader({
               onClick={() => workspace.selectView("project")}
               className="min-w-0 truncate rounded py-2 hover:underline focus-visible:ring-2"
             >
-              Project files
+              All files
             </button>
             <span aria-hidden="true">/</span>
             <span className="min-w-0 truncate">Search results</span>

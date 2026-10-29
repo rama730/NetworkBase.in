@@ -14,7 +14,7 @@ test("who can create child projects", () => {
   assert.equal(childCreationBlock("owner", "members", false), "This organization is archived.");
 });
 
-test("the cap lowers visibility; a private org caps at Org only", () => {
+test("the cap lowers visibility; a private org caps at Organization", () => {
   assert.equal(capChildVisibility("public", "public", true), "public");
   assert.equal(capChildVisibility("public", "org", true), "org");
   assert.equal(capChildVisibility("public", "public", false), "org", "a private org has no public children");
