@@ -221,6 +221,21 @@ describe("pinned egress transport (SEC-006)", () => {
     }
   });
 
+  // https.request sends no User-Agent of its own (fetch did), and GitHub's API answers 403 without one.
+  it("sends a User-Agent unless the caller set its own", async () => {
+    const { createServer } = await import("node:http");
+    const { fetchPinnedToAddresses } = await import("@/lib/security/outbound-url");
+    const server = createServer((req, res) => res.end(req.headers["user-agent"] ?? "none"));
+    await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+    try {
+      const url = new URL(`http://pinned.invalid:${(server.address() as { port: number }).port}/`);
+      assert.match(await (await fetchPinnedToAddresses(url, {}, ["127.0.0.1"])).text(), /^NetworkBase\//);
+      assert.equal(await (await fetchPinnedToAddresses(url, { headers: { "User-Agent": "LinkPreviewBot/1.0" } }, ["127.0.0.1"])).text(), "LinkPreviewBot/1.0");
+    } finally {
+      server.close();
+    }
+  });
+
   it("the default fetch path no longer uses the global fetch", () => {
     const source = readFileSync("src/lib/security/outbound-url.ts", "utf8");
     assert.doesNotMatch(source, /input\.fetchImpl \?\? fetch/);

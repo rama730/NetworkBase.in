@@ -163,6 +163,8 @@ export async function assertPublicNetworkUrl(rawUrl: string | URL, options: Para
  * second DNS answer (rebinding) cannot redirect the connection. TLS and the Host header still use the
  * URL's hostname. Bodies are strings or bytes; redirects are returned, never followed.
  */
+const OUTBOUND_USER_AGENT = "NetworkBase/1.0 (+https://networkbase.in)";
+
 export function fetchPinnedToAddresses(url: URL, init: RequestInit, addresses: readonly string[]): Promise<Response> {
   return new Promise((resolve, reject) => {
     const body = init.body;
@@ -172,6 +174,8 @@ export function fetchPinnedToAddresses(url: URL, init: RequestInit, addresses: r
     }
     const headers = new Headers(init.headers);
     if (!headers.has("accept-encoding")) headers.set("accept-encoding", "identity"); // no transparent decompression here
+    // https.request sends no User-Agent (fetch did); GitHub's API refuses requests without one.
+    if (!headers.has("user-agent")) headers.set("user-agent", OUTBOUND_USER_AGENT);
     const targets = addresses.map((address) => ({ address, family: net.isIP(address) }));
     const lookup: net.LookupFunction = (_hostname, options, callback) => {
       if (options.all) (callback as unknown as (error: null, all: typeof targets) => void)(null, targets);
