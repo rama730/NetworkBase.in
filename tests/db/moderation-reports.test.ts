@@ -14,7 +14,19 @@ let cases: typeof import("../../src/lib/trust/cases");
 before(async () => {
   cases = await loadAppModule(() => import("../../src/lib/trust/cases"));
 });
-after(async () => { await sql.end(); await closeAppDb(); });
+// Tests share one database: what these leave behind (public posts, safety notices) would show up in other suites.
+const made: string[] = [];
+async function project(owner: string) {
+  const id = await sql.begin((tx) => createProject(tx, owner));
+  made.push(id);
+  return id;
+}
+after(async () => {
+  await sql`DELETE FROM user_notifications WHERE kind = 'trust_safety'`;
+  if (made.length) await sql`DELETE FROM workspaces WHERE id IN ${sql(made)}`;
+  await sql.end();
+  await closeAppDb();
+});
 
 async function post(author: string, workspace: string, text = "hello") {
   const [row] = await sql`INSERT INTO workspace_updates (workspace_id, author_id, content) VALUES (${workspace}, ${author}, ${text}) RETURNING id`;
@@ -23,7 +35,7 @@ async function post(author: string, workspace: string, text = "hello") {
 
 test("reports on one post join one case; severity only rises; a second report by the same person is refused", async () => {
   const [author, a, b] = await sql.begin(async (tx) => [await createUser(tx), await createUser(tx), await createUser(tx)]);
-  const workspace = await sql.begin((tx) => createProject(tx, author));
+  const workspace = await project(author);
   const id = await post(author, workspace);
 
   const first = await cases.fileReport(a!, { kind: "update", targetId: id, reason: "spam" });
@@ -41,7 +53,7 @@ test("reports on one post join one case; severity only rises; a second report by
 
 test("you can't report your own content, and reasons must fit the kind", async () => {
   const author = await sql.begin((tx) => createUser(tx));
-  const workspace = await sql.begin((tx) => createProject(tx, author));
+  const workspace = await project(author);
   const id = await post(author, workspace);
   const own = await cases.fileReport(author, { kind: "update", targetId: id, reason: "spam" });
   assert.equal(own.ok, false);
@@ -53,7 +65,7 @@ test("you can't report your own content, and reasons must fit the kind", async (
 
 test("intimate images are hidden on the first report and the author is told; the case is urgent and staff-only", async () => {
   const [author, reporter] = await sql.begin(async (tx) => [await createUser(tx), await createUser(tx)]);
-  const workspace = await sql.begin((tx) => createProject(tx, author));
+  const workspace = await project(author);
   const id = await post(author, workspace, "a photo");
   const result = await cases.fileReport(reporter!, { kind: "update", targetId: id, reason: "intimate_images" });
   assert.equal(result.ok, true, JSON.stringify(result));
@@ -77,7 +89,7 @@ test("a self-harm report sends the person a support notice, not a penalty", asyn
 
 test("org content goes to org moderators with half the deadline; content about the org's admins goes to staff", async () => {
   const [owner, member, reporter] = await sql.begin(async (tx) => [await createUser(tx), await createUser(tx), await createUser(tx)]);
-  const org = await sql.begin((tx) => createProject(tx, owner!));
+  const org = await project(owner!);
   await sql`UPDATE workspaces SET kind = 'organization' WHERE id = ${org}`;
   await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${org}, ${owner}, 'owner'), (${org}, ${member}, 'member'), (${org}, ${reporter}, 'member')`;
   const byMember = await post(member!, org);
@@ -93,8 +105,8 @@ test("org content goes to org moderators with half the deadline; content about t
 
 test("database guards: a suspended account writes nothing; a limited one can't reach outside its workspaces", async () => {
   const [limited, suspended, owner] = await sql.begin(async (tx) => [await createUser(tx), await createUser(tx), await createUser(tx)]);
-  const mine = await sql.begin((tx) => createProject(tx, limited!));
-  const theirs = await sql.begin((tx) => createProject(tx, owner!));
+  const mine = await project(limited!);
+  const theirs = await project(owner!);
   await sql`INSERT INTO moderation_actions (subject_id, target_kind, action, ends_at) VALUES (${limited}, 'account', 'limit', now() + interval '7 days'), (${suspended}, 'account', 'suspension', now() + interval '14 days')`;
   await assert.doesNotReject(post(limited!, mine));
   await assert.rejects(post(limited!, theirs), /account_limited/);

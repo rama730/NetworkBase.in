@@ -424,6 +424,8 @@ export async function setChildVisibilityAction(projectId: string, next: ChildVis
     const org = await readOrgCap(db, viewer.project.parentId);
     if (!org || !['public', 'org', 'private'].includes(next)) return DENIED;
     if (!allowedChildVisibilities(org.cap, org.orgPublic).includes(next)) return { success: false, error: 'The organization does not allow this visibility.' };
+    const [restriction] = await db.select({ at: workspaces.restrictedAt }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+    if (restriction?.at && next !== 'private') return { success: false, error: 'This workspace is restricted for now. It stays private until NetworkBase lifts the restriction.' };
     await db.update(workspaces).set({ visibility: next, updatedAt: new Date() }).where(eq(workspaces.id, projectId));
     revalidateChild(viewer.project);
     return { success: true };

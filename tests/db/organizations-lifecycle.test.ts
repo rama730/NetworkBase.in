@@ -34,7 +34,7 @@ before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
   moduleStubs.set("@/lib/server/viewer-context", {
     ...viewerContext,
-    getViewerAuthContext: async () => ({ supabase: null, snapshot: null, user: viewerId ? { id: viewerId } : null, userId: viewerId || null, emailVerified: true }),
+    getViewerAuthContext: async () => ({ supabase: null, snapshot: viewerId ? { aal: "aal2" } : null, user: viewerId ? { id: viewerId } : null, userId: viewerId || null, emailVerified: true }),
   });
   lifecycle = await loadAppModule(() => import("../../src/lib/organizations/lifecycle"));
   access = await loadAppModule(() => import("../../src/lib/data/workspace-access"));

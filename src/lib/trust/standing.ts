@@ -77,3 +77,26 @@ export async function readStanding(userId: string) {
     history: all,
   };
 }
+
+/**
+ * The trust and safety part of a person's data export (F23): what they reported (without anyone else's name) and
+ * the decisions and appeals about them.
+ */
+export async function exportTrustData(userId: string) {
+  const reports = await db.execute<{ case_number: number | null; kind: string; reason: string; status: string; created_at: string }>(sql`
+    SELECT c.number::int AS case_number, r.target_kind AS kind, r.reason, r.status, r.created_at::text
+    FROM content_reports r LEFT JOIN moderation_cases c ON c.id = r.case_id WHERE r.reporter_id = ${userId} ORDER BY r.created_at`);
+  const decisions = await db.execute<{ case_number: number | null; action: string; rule: number | null; message: string | null; created_at: string; ends_at: string | null; strike: boolean; lifted_at: string | null; reversed_at: string | null }>(sql`
+    SELECT c.number::int AS case_number, a.action, a.rule, a.message, a.created_at::text, a.ends_at::text, a.strike, a.lifted_at::text, a.reversed_at::text
+    FROM moderation_actions a LEFT JOIN moderation_cases c ON c.id = a.case_id
+    WHERE a.subject_id = ${userId} AND a.undone_at IS NULL AND a.notified_at IS NOT NULL ORDER BY a.created_at`);
+  const appeals = await db.execute<{ case_number: number; body: string; state: string; reply: string | null; created_at: string; decided_at: string | null }>(sql`
+    SELECT c.number::int AS case_number, ap.body, ap.state, ap.reply, ap.created_at::text, ap.decided_at::text
+    FROM moderation_appeals ap JOIN moderation_cases c ON c.id = ap.case_id WHERE ap.subject_id = ${userId} ORDER BY ap.created_at`);
+  const label = (n: number | null) => (n ? `NB-${n}` : null);
+  return {
+    reports: [...reports].map((r) => ({ case: label(r.case_number), kind: r.kind, reason: r.reason, status: r.status, reportedAt: r.created_at })),
+    decisionsAboutYou: [...decisions].map((d) => ({ case: label(d.case_number), action: d.action, rule: d.rule, message: d.message, at: d.created_at, endsAt: d.ends_at, strike: d.strike, liftedAt: d.lifted_at, reversedAt: d.reversed_at })),
+    appeals: [...appeals].map((a) => ({ case: label(a.case_number), appeal: a.body, state: a.state, reply: a.reply, sentAt: a.created_at, decidedAt: a.decided_at })),
+  };
+}

@@ -44,6 +44,7 @@ export async function findOrgByJoinCode(code: string) {
       eq(workspaces.joinCodeEnabled, true),
       eq(workspaces.kind, "organization"),
       isNull(workspaces.deletedAt),
+      isNull(workspaces.restrictedAt),
     ))
     .limit(1);
   return org ?? null;
@@ -99,7 +100,8 @@ async function joinOrg(
         maxCollaborators: workspaces.maxCollaborators,
       })
       .from(workspaces)
-      .where(and(where, eq(workspaces.kind, "organization"), isNull(workspaces.deletedAt)))
+      // A restricted org (trust and safety §7.2) takes no one new, by code, link or page.
+      .where(and(where, eq(workspaces.kind, "organization"), isNull(workspaces.deletedAt), isNull(workspaces.restrictedAt)))
       .for("update")
       .limit(1);
     if (!org) return null;

@@ -8,12 +8,11 @@ import { toast } from '@/lib/feedback'
 import {
     addNoteAction, changeSeverityAction, claimCaseAction, decideCaseAction, evidenceShownAction, legalHoldAction, mergeCaseAction, previewDecisionEmailAction, undoDecisionAction,
 } from '@/app/actions/moderation-staff'
-import SecurityStepUpDialog from '@/components/settings/SecurityStepUpDialog'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { FIELD } from '@/components/trust/NewCaseDialog'
-import type { SecurityStepUpMethod } from '@/lib/security/step-up-methods'
+import { useStepUp } from '@/components/trust/StepUp'
 import { ACTION_LABEL, actionsFor, addsStrike, ADMIN_ONLY_ACTIONS, REASON_RULES, RULES, ruleLabel, type ModerationActionKind, type ReportReason, type ReportTargetKind } from '@/lib/trust/rules'
 
 type Account = { action: 'warning' | 'limit' | 'suspension' | 'ban'; days?: number | null }
@@ -53,7 +52,7 @@ export function DecisionForm({ caseId, label, targetKind, reason, hasSubject, pe
     const [error, setError] = useState<string | null>(null)
     const [confirm, setConfirm] = useState(false)
     const [preview, setPreview] = useState<{ subject: string; html: string } | null>(null)
-    const [stepUp, setStepUp] = useState<{ methods: SecurityStepUpMethod[]; factorId?: string } | null>(null)
+    const stepUp = useStepUp('Bans and removing a workspace need one more check.')
     const [pending, start] = useTransition()
     const accountValue = ACCOUNT_OPTIONS.find((o) => o.id === account)?.value ?? null
     const decision = { outcome: outcome ?? 'no_violation', content: outcome === 'actioned' ? content : null, account: outcome === 'actioned' ? accountValue : null, rule, message, note: note || null }
@@ -74,7 +73,7 @@ export function DecisionForm({ caseId, label, targetKind, reason, hasSubject, pe
         setError(null)
         const result = await decideCaseAction(caseId, decision)
         if (!result.success) {
-            if ('stepUp' in result && result.stepUp.methods.length) return setStepUp(result.stepUp)
+            if (stepUp.needs(result, send)) return
             return setError(result.error)
         }
         toast(`Decision sent · ${label}`, {
@@ -153,11 +152,7 @@ export function DecisionForm({ caseId, label, targetKind, reason, hasSubject, pe
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-            {stepUp ? (
-                <SecurityStepUpDialog open onOpenChange={(next) => !next && setStepUp(null)} title="Verify it’s you"
-                    description="Bans and removing a workspace need one more check." availableMethods={stepUp.methods} factorId={stepUp.factorId}
-                    onVerified={() => { setStepUp(null); send() }} />
-            ) : null}
+            {stepUp.dialog}
             <Dialog open={Boolean(preview)} onOpenChange={(next) => !next && setPreview(null)}>
                 <DialogContent className="max-w-[680px]">
                     <DialogHeader><DialogTitle>{preview?.subject}</DialogTitle><DialogDescription>Exactly what {personName} gets, from notifications@ with replies to support@.</DialogDescription></DialogHeader>
@@ -175,8 +170,10 @@ export function CaseMenu({ caseId, label, open, claimed, claimedByOther, legalHo
     const [dialog, setDialog] = useState<'severity' | 'merge' | null>(null)
     const [value, setValue] = useState('')
     const [nextSeverity, setNextSeverity] = useState(severity)
+    const stepUp = useStepUp('Releasing a legal hold needs one more check.')
     const run = (action: () => Promise<{ success: boolean; error?: string }>, done: string) => start(async () => {
         const result = await action()
+        if (stepUp.needs(result, () => run(action, done))) return
         toast(result.success ? done : result.error ?? 'Couldn’t do that. Try again.')
         if (result.success) { setDialog(null); setValue(''); router.refresh() }
     })
@@ -199,6 +196,7 @@ export function CaseMenu({ caseId, label, open, claimed, claimedByOther, legalHo
                     ) : null}
                 </DropdownMenuContent>
             </DropdownMenu>
+            {stepUp.dialog}
             <Dialog open={dialog !== null} onOpenChange={(next) => !next && setDialog(null)}>
                 <DialogContent className="max-w-[420px]">
                     <DialogHeader>

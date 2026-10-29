@@ -82,7 +82,9 @@ export async function fileReport(reporterId: string, input: { kind: ReportTarget
 
   const rule = REASON_RULES[input.reason];
   const seqKey = target.seq ?? 0;
-  const result = await db.transaction(async (tx): Promise<FileReportResult & { caseId?: string; hide?: boolean; selfHarmFirst?: boolean; urgent?: boolean }> => {
+  // Two first reports on the same thing at the same moment both try to open its case; the open-case index lets one
+  // win, and the other runs once more and joins it.
+  const attempt = () => db.transaction(async (tx): Promise<FileReportResult & { caseId?: string; hide?: boolean; selfHarmFirst?: boolean; urgent?: boolean }> => {
     // Already reported by you and still open.
     const [mine] = await tx.execute<{ number: number }>(sql`
       SELECT c.number::int AS number FROM content_reports r JOIN moderation_cases c ON c.id = r.case_id
@@ -151,6 +153,11 @@ export async function fileReport(reporterId: string, input: { kind: ReportTarget
       await logModerationEvent(tx, { caseId, actorId: null, kind: "auto_hidden", data: { reason: input.reason } });
     }
     return { ok: true, caseNumber, severity, deadlineHours: severity === "urgent" ? 1 : severity === "high" ? 24 : 72, caseId, hide, selfHarmFirst, urgent: severity === "urgent" };
+  });
+  const result = await attempt().catch((error: unknown) => {
+    const code = (error as { code?: string }).code ?? (error as { cause?: { code?: string } }).cause?.code;
+    if (code === "23505") return attempt();
+    throw error;
   });
 
   if (!result.ok) return result;

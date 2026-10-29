@@ -8,6 +8,7 @@ import { toast } from '@/lib/feedback'
 
 import { auditExportedAction, decideVerificationAction, liftActionAction, unsuspendOrgAction } from '@/app/actions/moderation-staff'
 import { FIELD } from '@/components/trust/NewCaseDialog'
+import { useStepUp } from '@/components/trust/StepUp'
 import { caseHref, istDate, istDateTime } from '@/components/trust/format'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -127,18 +128,23 @@ const csvCell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
 
 /** Audit log tab (17.11): append-only; Export CSV downloads what's shown. */
 export function AuditTable({ rows }: { rows: Awaited<ReturnType<typeof readAudit>> }) {
-    const exportCsv = () => {
+    const stepUp = useStepUp('Exporting the audit log needs one more check.')
+    // The export is logged and needs a fresh check (F16); the file is built only once the server agrees.
+    const exportCsv = async () => {
+        const result = await auditExportedAction(rows.length)
+        if (stepUp.needs(result, () => void exportCsv())) return
+        if (!result.success) return void toast(result.error)
         const lines = [['time', 'staff', 'action', 'case', 'rule', 'note'], ...rows.map((r) => [r.created_at, r.staff, r.kind, r.case_number ? caseLabel(r.case_number) : '', r.data.rule ?? '', r.data.body ?? r.data.note ?? r.data.reason ?? ''])]
         const url = URL.createObjectURL(new Blob([lines.map((l) => l.map(csvCell).join(',')).join('\n')], { type: 'text/csv' }))
         const a = Object.assign(document.createElement('a'), { href: url, download: `trust-audit-${new Date().toISOString().slice(0, 10)}.csv` })
         a.click()
         URL.revokeObjectURL(url)
-        void auditExportedAction(rows.length)
     }
     if (!rows.length) return <EmptyState icon={ScrollText} className="mt-6" title="Nothing logged yet" description="Every staff action lands here." />
     return (
         <div className="mt-4 overflow-x-auto">
-            <div className="mb-2 flex justify-end"><Button size="sm" variant="outline" onClick={exportCsv}>Export CSV</Button></div>
+            <div className="mb-2 flex justify-end"><Button size="sm" variant="outline" onClick={() => void exportCsv()}>Export CSV</Button></div>
+            {stepUp.dialog}
             <table className="w-full border-collapse">
                 <thead className="border-b border-border"><tr><th className={TH}>Time</th><th className={TH}>Staff</th><th className={TH}>Action</th><th className={TH}>Case</th><th className={TH}>Rule</th><th className={TH}>Note</th></tr></thead>
                 <tbody className="divide-y divide-border">

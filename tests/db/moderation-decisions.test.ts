@@ -19,13 +19,25 @@ before(async () => {
   decide = await loadAppModule(() => import("../../src/lib/trust/decide"));
   appeals = await loadAppModule(() => import("../../src/lib/trust/appeals"));
 });
-after(async () => { await sql.end(); await closeAppDb(); });
+// Tests share one database: what these leave behind (public posts, safety notices) would show up in other suites.
+const made: string[] = [];
+async function project(owner: string) {
+  const id = await sql.begin((tx) => createProject(tx, owner));
+  made.push(id);
+  return id;
+}
+after(async () => {
+  await sql`DELETE FROM user_notifications WHERE kind = 'trust_safety'`;
+  if (made.length) await sql`DELETE FROM workspaces WHERE id IN ${sql(made)}`;
+  await sql.end();
+  await closeAppDb();
+});
 
 const staffActor = (id: string, role: "admin" | "moderator" = "moderator") => ({ id, scope: "staff" as const, role });
 
 async function reportedPost(reason: "spam" | "intimate_images" = "spam") {
   const [author, reporter, mod] = await sql.begin(async (tx) => [await createUser(tx), await createUser(tx), await createUser(tx)]);
-  const workspace = await sql.begin((tx) => createProject(tx, author!));
+  const workspace = await project(author!);
   const [row] = await sql`INSERT INTO workspace_updates (workspace_id, author_id, content) VALUES (${workspace}, ${author}, 'buy now') RETURNING id`;
   const filed = await cases.fileReport(reporter!, { kind: "update", targetId: row!.id, reason });
   assert.equal(filed.ok, true, JSON.stringify(filed));
@@ -53,7 +65,7 @@ test("remove plus a limit: one strike, the limit blocks writes elsewhere, Undo p
     { action: "remove", strike: false, ends: false, appeal: true },
   ]);
   assert.equal(await decide.activeStrikes((await import("../../src/lib/db")).db, t.author), 1);
-  const other = await sql.begin((tx) => createProject(tx, t.reporter));
+  const other = await project(t.reporter);
   await assert.rejects(sql`INSERT INTO workspace_updates (workspace_id, author_id, content) VALUES (${other}, ${t.author}, 'hi')`, /account_limited/);
 
   const undo = await decide.undoDecision(t.caseId, t.mod);
@@ -137,13 +149,10 @@ test("reduced keeps the strike with a lighter limit; upheld changes nothing", as
 });
 
 test("a ban signs out everywhere, blocks the email, and a new account with it is banned at setup", async () => {
-  // The disposable database has a minimal auth schema; these two tables stand in for Supabase's.
-  await sql`CREATE TABLE IF NOT EXISTS auth.sessions (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid)`;
-  await sql`CREATE TABLE IF NOT EXISTS auth.identities (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid, provider text, provider_id text, identity_data jsonb, last_sign_in_at timestamptz, created_at timestamptz DEFAULT now())`;
   const t = await reportedPost();
   const admin = await sql.begin((tx) => createUser(tx));
-  await sql`INSERT INTO auth.sessions (user_id) VALUES (${t.author})`;
-  await sql`INSERT INTO auth.identities (user_id, provider, provider_id) VALUES (${t.author}, 'github', ${`gh-${t.author}`})`;
+  await sql`INSERT INTO auth.sessions (id, user_id) VALUES (gen_random_uuid(), ${t.author})`;
+  await sql`INSERT INTO auth.identities (user_id, provider, provider_id, identity_data) VALUES (${t.author}, 'github', ${`gh-${t.author}`}, '{}')`;
   const result = await decide.decideCase(t.caseId, staffActor(admin, "admin"), { outcome: "actioned", content: "remove", account: { action: "ban" }, rule: 4 });
   assert.equal(result.ok, true, JSON.stringify(result));
   assert.equal((await sql`SELECT count(*)::int AS n FROM auth.sessions WHERE user_id = ${t.author}`)[0]!.n, 0);
@@ -151,7 +160,7 @@ test("a ban signs out everywhere, blocks the email, and a new account with it is
 
   const standing = await loadAppModule(() => import("../../src/lib/trust/standing"));
   const evader = await sql.begin((tx) => createUser(tx));
-  await sql`INSERT INTO auth.identities (user_id, provider, provider_id) VALUES (${evader}, 'github', ${`gh-${t.author}`})`;
+  await sql`INSERT INTO auth.identities (user_id, provider, provider_id, identity_data) VALUES (${evader}, 'github', ${`gh-${t.author}`}, '{}')`;
   assert.equal(await standing.banIfBlockedIdentity(evader), true);
   assert.equal((await sql`SELECT app_private.moderation_restriction(${evader}::uuid) AS r`)[0]!.r, "ban");
 });

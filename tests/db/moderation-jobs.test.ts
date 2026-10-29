@@ -12,11 +12,23 @@ stubNextAfter();
 
 let jobs: typeof import("../../src/lib/trust/jobs");
 before(async () => { jobs = await loadAppModule(() => import("../../src/lib/trust/jobs")); });
-after(async () => { await sql.end(); await closeAppDb(); });
+// Tests share one database: what these leave behind (public posts, safety notices) would show up in other suites.
+const made: string[] = [];
+async function project(owner: string) {
+  const id = await sql.begin((tx) => createProject(tx, owner));
+  made.push(id);
+  return id;
+}
+after(async () => {
+  await sql`DELETE FROM user_notifications WHERE kind = 'trust_safety'`;
+  if (made.length) await sql`DELETE FROM workspaces WHERE id IN ${sql(made)}`;
+  await sql.end();
+  await closeAppDb();
+});
 
 async function openCase(extra: Record<string, unknown> = {}) {
   const [subject, staff] = await sql.begin(async (tx) => [await createUser(tx), await createUser(tx)]);
-  const workspace = await sql.begin((tx) => createProject(tx, subject!));
+  const workspace = await project(subject!);
   const [c] = await sql`INSERT INTO moderation_cases ${sql({ target_kind: "project", target_id: workspace, subject_id: subject, severity: "normal", reason: "spam", source: "report", routed_to: "staff", deadline_at: new Date(Date.now() + 3_600_000), ...extra })} RETURNING id`;
   return { caseId: c!.id as string, subject: subject!, staff: staff!, workspace };
 }

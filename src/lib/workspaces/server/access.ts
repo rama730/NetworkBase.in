@@ -618,6 +618,13 @@ export async function updateWorkspaceVisibilityAction(
       };
     }
 
+    if (nextVisibility === "public") {
+      const [restriction] = await db.select({ at: workspaces.restrictedAt }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+      if (restriction?.at) {
+        return { success: false, errorCode: "INVALID_INPUT", message: "This workspace is restricted for now. It stays private until NetworkBase lifts the restriction." };
+      }
+    }
+
     const previousVisibility = normalizeWorkspaceVisibility(
       owned.project.visibility,
     );
