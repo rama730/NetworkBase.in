@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createFeedbackStore, FEEDBACK_HISTORY_LIMIT, FEEDBACK_QUEUE_LIMIT } from '../../src/lib/feedback/store';
+import { createFeedbackStore, FEEDBACK_HISTORY_LIMIT, FEEDBACK_QUEUE_LIMIT, readingDuration } from '../../src/lib/feedback/store';
 import { compactFeedback, deferredFeedback, feedbackError, feedbackStore, toast } from '../../src/lib/feedback';
 
 test('only the selected message consumes active time; pauses protect reading and local Undo', () => {
   const store = createFeedbackStore(); let committed = 0;
-  const first = store.put('neutral', 'Message deleted', { duration: 10000, action: { label: 'Undo', onClick() {} }, onAutoClose: () => committed++ });
+  const first = store.put('info', 'Message deleted', { duration: 10000, action: { label: 'Undo', onClick() {} }, onAutoClose: () => committed++ });
   const second = store.put('success', 'Changes saved');
   store.advance(9000, true);
   assert.equal(store.getSnapshot().items[0]!.remaining, 10000);
@@ -26,8 +26,8 @@ test('operation updates preserve identity and queued outcomes; distinct actions 
   assert.equal(store.getSnapshot().items.length, 2);
   assert.equal(store.getSnapshot().items[1]!.count, 2);
   assert.equal(store.getSnapshot().currentId, id);
-  store.put('neutral', 'Message deleted', { action: { label: 'Undo', onClick() {} } });
-  store.put('neutral', 'Message deleted', { action: { label: 'Undo', onClick() {} } });
+  store.put('info', 'Message deleted', { action: { label: 'Undo', onClick() {} } });
+  store.put('info', 'Message deleted', { action: { label: 'Undo', onClick() {} } });
   assert.equal(store.getSnapshot().items.length, 4);
 });
 
@@ -37,7 +37,7 @@ test('errors and constraints persist; an absolute server deadline still expires 
   store.put('error', 'Changes not saved', { duration: 100 });
   store.advance(50000, false);
   assert.equal(store.getSnapshot().items.length, 1);
-  const deadline = store.put('neutral', 'Undo', { deadline: 2000, onAutoClose: () => expired++ });
+  const deadline = store.put('info', 'Undo', { deadline: 2000, onAutoClose: () => expired++ });
   time = 2001; store.advance(1, true);
   assert.equal(expired, 1);
   assert.ok(!store.getSnapshot().items.some(item => item.id === deadline));
@@ -45,7 +45,7 @@ test('errors and constraints persist; an absolute server deadline still expires 
 
 test('finite queues archive overflow without discarding the current action or retaining unbounded history', () => {
   const store = createFeedbackStore();
-  const current = store.put('neutral', 'Message deleted', { action: { label: 'Undo', onClick() {} } });
+  const current = store.put('info', 'Message deleted', { action: { label: 'Undo', onClick() {} } });
   for (let i = 0; i < 250; i++) store.put('success', `Saved ${i}`);
   assert.equal(store.getSnapshot().items.length, FEEDBACK_QUEUE_LIMIT);
   assert.equal(store.getSnapshot().history.length, FEEDBACK_HISTORY_LIMIT);
@@ -105,7 +105,7 @@ test('compact copy preserves numeric limits, semantics, and privacy; no preview 
 
 test('queued recovery takes priority after the current message without replacing active Undo', () => {
   const store = createFeedbackStore();
-  const current = store.put('neutral', 'Message deleted', { action: { label: 'Undo', onClick() {} } });
+  const current = store.put('info', 'Message deleted', { action: { label: 'Undo', onClick() {} } });
   store.put('success', 'Task created'); const failure = store.put('error', 'Changes not saved');
   assert.equal(store.getSnapshot().currentId, current);
   store.remove(current, 'action');
@@ -143,4 +143,15 @@ test('hierarchy validation retains a useful safe reason without leaking a raw se
   assert.equal(result.message, 'Invalid move destination');
   assert.equal(result.type, 'warning');
   assert.equal(result.options.description, 'Choose a folder outside this item.');
+});
+
+test('five toast types and their closing rules (decisions 46, 47)', () => {
+  const action = { label: 'Retry', onClick() {} };
+  assert.equal(readingDuration('error', {}), Infinity);
+  assert.equal(readingDuration('loading', {}), Infinity);
+  assert.ok(Number.isFinite(readingDuration('warning', {})));
+  assert.equal(readingDuration('warning', {}, action), Infinity);
+  const id = toast.message('Theme switched');
+  assert.equal(feedbackStore.getSnapshot().items.find((item) => item.id === id)?.type, 'info');
+  toast.dismiss(id);
 });

@@ -55,7 +55,7 @@ export function ProjectStatusControl({ projectId, canManage }: { projectId: stri
 
   const clear = async () => {
     const result = await clearProjectStatus({ projectId });
-    if (!result.success) return void toast.error("Couldn't clear the project status.");
+    if (!result.success) return void toast.error("Couldn’t clear the team status");
     await refresh();
     setOpen(false);
     toast.success("Workspace status cleared");

@@ -241,7 +241,7 @@ export function ProjectLanding({ projectId }: { projectId: string }) {
   useEffect(() => {
     if (known) return void setProject(projectId);
     // Say why you landed on All instead of the link's project.
-    toast("You're no longer in that project.");
+    toast("You're no longer in that project");
     router.replace("/messages");
   }, [known, projectId, router, setProject]);
   return <ListOrHome />;

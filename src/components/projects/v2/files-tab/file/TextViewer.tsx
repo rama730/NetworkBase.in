@@ -429,7 +429,7 @@ export function TextViewer({
         setStatus("ready");
       } catch (err) {
         if (cancelled) return;
-        const message = err instanceof Error ? err.message : "Failed to load file content";
+        const message = err instanceof Error ? err.message : "Couldn’t load file content";
         setLoadError(message);
         setStatus("error");
       }

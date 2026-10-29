@@ -103,12 +103,12 @@ export default function NotificationsPage() {
     try {
       const result = await resumeNotifications();
       if (!result.success) {
-        toast.error("Couldn't resume notifications.");
+        toast.error("Couldn’t resume notifications");
         return;
       }
       void queryClient.invalidateQueries({ queryKey: queryKeys.presence.mine() });
     } catch {
-      toast.error("Couldn't resume notifications.");
+      toast.error("Couldn’t resume notifications");
     } finally {
       setResuming(false);
       void queryClient.invalidateQueries({ queryKey: queryKeys.settings.notifications() });
@@ -127,7 +127,7 @@ export default function NotificationsPage() {
       const permission = await requestBrowserNotificationPermission();
       setPermissionState(permission);
       if (permission !== "granted") {
-        toast.warning(permission === "denied" ? "Browser notifications are blocked in your browser settings." : "Browser notifications are unavailable here");
+        toast.warning(permission === "denied" ? "Browser notifications are blocked in your browser settings" : "Browser notifications are unavailable here");
         return;
       }
     }
@@ -135,7 +135,7 @@ export default function NotificationsPage() {
   };
 
   const togglePush = async () => {
-    if (!preferences || !isWebPushSupported()) { toast.error("This browser doesn't support web push."); return; }
+    if (!preferences || !isWebPushSupported()) { toast.error("This browser doesn't support web push"); return; }
     setPushBusy(true);
     try {
       const currentlyOn = preferences.delivery.push && pushStatus === "subscribed";
@@ -160,7 +160,7 @@ export default function NotificationsPage() {
         { ...preferences, delivery: { ...preferences.delivery, push: true } },
         { onError: () => { void unsubscribeWebPush().then(() => setPushStatus("idle")).catch(() => undefined); toast.error("Couldn’t save preferences"); } },
       );
-    } catch { toast.error("Couldn't change push notifications."); } finally { setPushBusy(false); }
+    } catch { toast.error("Couldn’t change push notifications"); } finally { setPushBusy(false); }
   };
 
   if (isLoading) return <NotificationsSkeleton />;

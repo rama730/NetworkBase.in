@@ -265,7 +265,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
       await navigator.clipboard.writeText(pendingFactor.secret);
       toast.success("Setup key copied");
     } catch {
-      toast.error("Could not copy the secret on this device");
+      toast.error("Couldn’t copy the secret on this device");
     }
   };
 
@@ -275,7 +275,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
       await navigator.clipboard.writeText(formatRecoveryCodesForExport(revealedRecoveryCodes.codes));
       toast.success("Recovery codes copied");
     } catch {
-      toast.error("Could not copy the recovery codes on this device");
+      toast.error("Couldn’t copy the recovery codes on this device");
     }
   };
 

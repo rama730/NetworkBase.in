@@ -631,7 +631,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     let text = plain.trim() ? value.trim() : "";
     if (!plain.trim() && !uploads.some((u) => u.assetId || (!u.error && !u.assetId))) return;
     if (uploads.some((u) => u.error)) {
-      toast.error("A file didn't upload. Retry it or remove it, then send.");
+      toast.error("A file didn't upload", { description: "Retry it or remove it, then send." });
       return;
     }
     if (uploads.some((u) => !u.assetId)) {
@@ -686,7 +686,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
       setSending(true);
       editor?.setEditable(false);
       try { await beforeSend(); }
-      catch { toast.error("Could not load the latest replies. Your draft is still here."); return; }
+      catch { toast.error("Couldn’t load the latest replies", { description: "Your draft is still here." }); return; }
       finally { setSending(false); editor?.setEditable(true); }
     }
     const clientId = crypto.randomUUID();
@@ -732,7 +732,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     // The channel copy of a thread reply: say where it went, only if it really did.
     if (sentAlso && alsoSendTo) {
       if ("alsoSent" in result && result.alsoSent) toast.success(`Also sent to ${alsoSendTo}`);
-      else toast.warning(`The reply was sent, but not the copy to ${alsoSendTo}.`);
+      else toast.warning(`The reply was sent, but not the copy to ${alsoSendTo}`);
     }
   };
   // Screen readers follow the highlighted command while focus stays in the editor (like @mentions).

@@ -21,7 +21,7 @@ export function OrgStoryHelpers({ contributionId, canStartFromAbout, showWorkRec
   const start = (kind: "about" | "work") => startTransition(async () => {
     const result = await readOrgStoryStarterAction(contributionId, kind);
     if (!result.success) return void toast.error(result.error);
-    if (!result.text) return void toast.message(kind === "about" ? "The organization has no description yet." : "Nothing completed yet.");
+    if (!result.text) return void toast.message(kind === "about" ? "The organization has no description yet" : "Nothing completed yet");
     onInsert(result.text);
   });
   return (

@@ -952,7 +952,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
                                 url.searchParams.set("filesView", view);
                                 url.searchParams.set("filesTask", group.id);
                                 void navigator.clipboard.writeText(url.toString());
-                                toast.success("Task link copied to clipboard");
+                                toast.success("Task link copied");
                               }}
                             >
                               <Link2 className="mr-2 size-4 text-muted-foreground" />
@@ -1028,7 +1028,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
               }),
             );
             toast.success(
-              "File removed from this task. The original file is unchanged.",
+              "File removed from this task", { description: "The original file is unchanged." },
             );
           } catch (error) {
             toast.error(

@@ -356,7 +356,7 @@ export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTab
         const url = `${window.location.origin}/projects/${projectIdentifier}?tab=tasks`;
         if (navigator?.clipboard?.writeText) {
             navigator.clipboard.writeText(url).then(() => {
-                toast.success("Task link copied to clipboard");
+                toast.success("Task link copied");
             }).catch(() => {
                 toast.info("Task link copied");
             });

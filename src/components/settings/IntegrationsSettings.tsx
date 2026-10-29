@@ -229,7 +229,7 @@ export default function IntegrationsSettings() {
       }));
       setMore({ base: sessionData, sessions: [...(extra?.sessions ?? []), ...page], cursor: result.nextCursor ?? null, hasMore: result.hasMore });
     } catch {
-      toast.warning("More sessions didn’t load. Try again.");
+      toast.warning("More sessions didn’t load", { description: "Try again." });
     } finally {
       setLoadingMore(false);
     }
@@ -248,7 +248,7 @@ export default function IntegrationsSettings() {
     } else if (outcome === "linked") {
       toast.success(`${label} account linked`);
     } else if (outcome === "already_linked") {
-      toast.info(`This ${label} account is already linked.`);
+      toast.info(`This ${label} account is already linked`);
     } else if (outcome === "error") {
       const desc = searchParams.get("githubErrorDesc");
       toast.error(feedbackError(desc || `Could not link ${label} account. Please try again.`, `Could not link ${label} account. Please try again.`));
@@ -424,7 +424,7 @@ export default function IntegrationsSettings() {
       if (previousSessions) {
         queryClient.setQueryData(queryKeys.settings.extensionSessions(), previousSessions);
       }
-      toast.error("Could not revoke editor session");
+      toast.error("Couldn’t revoke editor session");
     } finally {
       setRevoking(null);
     }
@@ -558,7 +558,7 @@ export default function IntegrationsSettings() {
                       onClick={() => {
                         navigator.clipboard.writeText(generatedToken).then(
                           () => toast.success("Copied to clipboard"),
-                          () => toast.warning("Couldn’t copy. Select the token and copy it by hand."),
+                          () => toast.warning("Couldn’t copy", { description: "Select the token and copy it by hand." }),
                         );
                       }}
                       className="shrink-0"

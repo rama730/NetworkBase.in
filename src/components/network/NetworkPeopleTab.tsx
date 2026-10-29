@@ -94,7 +94,7 @@ export default function NetworkPeopleTab({
     const handleConnect = useCallback(
         async (userId: string) => {
             if (!initialUser?.id) {
-                toast.error("Please log in to connect");
+                toast.error("Sign in to connect");
                 router.push(
                     `/login?redirect=${encodeURIComponent(ROUTES.NETWORK)}`,
                 );

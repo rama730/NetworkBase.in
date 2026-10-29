@@ -196,7 +196,7 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
                                     invalidate();
                                 })
                                 .catch(() => {
-                                    toast.error("Could not undo");
+                                    toast.error("Couldn’t undo");
                                 });
                         },
                     },

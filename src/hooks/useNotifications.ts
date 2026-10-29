@@ -275,7 +275,7 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
         const title = queued.length === 1
             ? first.title
             : `${queued.length} new updates in ${context}`;
-        toast.activity(title, {
+        toast.info(title, {
             description: queued.length === 1 ? first.preview?.contextLabel ?? undefined : undefined,
             action: queued.length > 1
                 ? { label: "Review updates", onClick: () => { isTrayOpenRef.current = true; setActiveFilter("all"); setIsTrayOpen(true); } }

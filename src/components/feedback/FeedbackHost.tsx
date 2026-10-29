@@ -2,14 +2,14 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore, type MouseEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { Bell, CheckCircle2, CircleMinus, Info, Layers, Loader2, TriangleAlert, X, XCircle } from 'lucide-react';
+import { CheckCircle2, Info, Layers, Loader2, TriangleAlert, X, XCircle } from 'lucide-react';
 import { feedbackStore, feedbackLabel } from '@/lib/feedback';
 import { feedbackText, type FeedbackItem } from '@/lib/feedback/store';
 import { useUIStore } from '@/stores/ui-store';
 import './feedback.css';
 
-const ICONS = { success: CheckCircle2, error: XCircle, warning: TriangleAlert, info: Info, neutral: CircleMinus, loading: Loader2, activity: Bell };
-const RANK = { error: 6, warning: 5, loading: 4, activity: 3, info: 2, neutral: 1, success: 0 };
+const ICONS = { success: CheckCircle2, error: XCircle, warning: TriangleAlert, info: Info, loading: Loader2 };
+const RANK = { error: 4, warning: 3, loading: 2, info: 1, success: 0 };
 function StatusIcon({ item }: { item: FeedbackItem }) { const Icon = ICONS[item.type]; return <Icon aria-hidden="true" className={item.type === 'loading' ? 'nb-feedback-spinner' : undefined} />; }
 
 function useFeedbackOwner() {

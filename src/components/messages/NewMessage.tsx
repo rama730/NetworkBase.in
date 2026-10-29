@@ -138,7 +138,7 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
       setOpened({ key, channelId });
       if (to.length > 1 && groupName.trim()) {
         const renamed = await renameGroup({ channelId, title: groupName.trim().slice(0, 80) });
-        if (!renamed.success) toast.error("Group created; its name wasn't saved.");
+        if (!renamed.success) toast.error("Group created; its name wasn't saved");
       }
     }
     const sent = await sendMessage({ channelId, body, clientId: crypto.randomUUID() });

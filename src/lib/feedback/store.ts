@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import type { Action, ExternalToast, ToastT } from 'sonner';
 
-export type FeedbackType = 'neutral' | 'success' | 'info' | 'warning' | 'error' | 'loading' | 'activity';
+/** Decision 46: five types. */
+export type FeedbackType = 'success' | 'info' | 'warning' | 'error' | 'loading';
 export type FeedbackId = string | number;
 export type FeedbackOptions = ExternalToast & {
   /** An actual server deadline. Reading pauses never extend it. */
@@ -32,9 +33,10 @@ export function feedbackText(value: ReactNode): string {
   return typeof value === 'string' || typeof value === 'number' ? String(value) : '';
 }
 export function readingDuration(type: FeedbackType, options: FeedbackOptions, action?: Action) {
-  if (type === 'loading' || type === 'error' || type === 'warning') return Infinity;
+  // Decision 47: errors stay until closed; warnings close on their own unless they carry an action.
+  if (type === 'loading' || type === 'error' || (type === 'warning' && action)) return Infinity;
   if (typeof options.duration === 'number') return options.duration === 0 ? Infinity : Math.max(0, options.duration);
-  return feedbackText(action?.label) === 'Undo' ? 10_000 : action ? 6000 : type === 'activity' ? 6000 : 4000;
+  return feedbackText(action?.label) === 'Undo' ? 10_000 : action || type === 'warning' ? 6000 : 4000;
 }
 
 /** One operation identity, one reading clock. Pure store; browser ownership lives in FeedbackHost. */
@@ -47,12 +49,12 @@ export function createFeedbackStore(now: () => number = Date.now) {
   const say = (item: FeedbackItem) => ({ serial: snapshot.announcement.serial + 1, text: [feedbackText(item.title), feedbackText(item.description), item.action ? `Action available: ${feedbackText(item.action.label)}.` : ''].filter(Boolean).join('. ') });
   const historyRecord = (item: FeedbackItem): FeedbackItem => ({ ...item, action: undefined, options: { context: item.options.context } });
   const archive = (item: FeedbackItem) => [...snapshot.history.filter(old => old.id !== item.id), historyRecord(item)].slice(-FEEDBACK_HISTORY_LIMIT);
-  const asToast = (item: FeedbackItem): ToastT => ({ ...item.options, id: item.id, title: item.title, type: item.type === 'neutral' || item.type === 'activity' ? 'normal' : item.type, description: item.description, action: item.action });
+  const asToast = (item: FeedbackItem): ToastT => ({ ...item.options, id: item.id, title: item.title, type: item.type, description: item.description, action: item.action });
   const remove = (id: FeedbackId, reason: 'dismiss' | 'expire' | 'action' | 'programmatic' | 'evict' = 'dismiss') => {
     const item = snapshot.items.find(item => item.id === id);
     if (!item) return;
     const items = snapshot.items.filter(item => item.id !== id);
-    const priority = { error: 6, warning: 5, loading: 4, activity: 3, info: 2, neutral: 1, success: 0 };
+    const priority = { error: 4, warning: 3, loading: 2, info: 1, success: 0 };
     const currentId = snapshot.currentId === id ? [...items].sort((a, b) => priority[b.type] - priority[a.type])[0]?.id ?? null : snapshot.currentId;
     const next = items.find(item => item.id === currentId);
     publish({ ...snapshot, items, currentId, history: archive(item), announcement: next && currentId !== snapshot.currentId ? say(next) : snapshot.announcement });
@@ -107,7 +109,7 @@ export function createFeedbackStore(now: () => number = Date.now) {
       for (const item of snapshot.items) {
         if (item.options.deadline !== undefined && time >= item.options.deadline) {
           remove(item.id, 'expire');
-        } else if (item.id !== snapshot.currentId && time - item.updatedAt > STALE_SUCCESS_MS && !item.action && ['success', 'neutral', 'info', 'activity'].includes(item.type)) {
+        } else if (item.id !== snapshot.currentId && time - item.updatedAt > STALE_SUCCESS_MS && !item.action && ['success', 'info'].includes(item.type)) {
           remove(item.id, 'expire');
         }
       }

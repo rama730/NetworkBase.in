@@ -74,14 +74,13 @@ function emit(type: FeedbackType, message: Message, options: FeedbackOptions = {
   return feedbackStore.put(compact.type, compact.message, compact.options);
 }
 
-const notify = (message: Message, options?: FeedbackOptions) => emit('neutral', message, options);
+const notify = (message: Message, options?: FeedbackOptions) => emit('info', message, options);
 export const toast = Object.assign(notify, {
   success: (message: Message, options?: FeedbackOptions) => emit('success', message, options),
   error: (message: Message, options?: FeedbackOptions) => emit('error', message, options),
   warning: (message: Message, options?: FeedbackOptions) => emit('warning', message, options),
   info: (message: Message, options?: FeedbackOptions) => emit('info', message, options),
   message: notify,
-  activity: (message: Message, options?: FeedbackOptions) => emit('activity', message, options),
   loading: (message: Message, options?: FeedbackOptions) => emit('loading', message, options),
   dismiss: (id?: FeedbackId) => {
     if (id === undefined) [...feedbackStore.getSnapshot().items].forEach(item => feedbackStore.remove(item.id, 'programmatic'));

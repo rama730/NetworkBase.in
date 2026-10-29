@@ -341,7 +341,7 @@ export function SheetViewerDriver({
         }
       } catch (err: unknown) {
         if (active) {
-          const msg = err instanceof Error ? err.message : "Failed to parse spreadsheet";
+          const msg = err instanceof Error ? err.message : "Couldn’t parse spreadsheet";
           setError(msg);
           setLoading(false);
         }

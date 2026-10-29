@@ -721,7 +721,7 @@ function ProjectSettingsContent({
                 toast.error(feedbackError(result.message, "Action couldn’t finish"));
                 return;
             }
-            toast.success(`${PROJECT_PUBLIC_TAB_LABELS[tabId]} visibility updated.`);
+            toast.success(`${PROJECT_PUBLIC_TAB_LABELS[tabId]} visibility updated`);
             onProjectUpdated();
         } catch (error) {
             setPublicTabVisibility(previous);
@@ -1094,7 +1094,7 @@ function ProjectSettingsContent({
             }
         } catch (error) {
             console.error("Confirm action failed", error);
-            toast.error("Action failed. Please try again.");
+            toast.error("Action failed", { description: "Try again." });
         } finally {
             setConfirmLoading(false);
         }
@@ -1172,7 +1172,7 @@ function ProjectSettingsContent({
     const prepareRoleChange = useCallback((member: ProjectSettingsMember, nextRole: Exclude<ProjectMemberRole, "owner">) => {
         const currentRole = projectMemberRole(member, ownerId);
         if (currentRole === nextRole) {
-            toast.info(`${getProjectMemberDisplayName(member)} is already ${getProjectMemberRoleLabel(nextRole)}.`);
+            toast.info(`${getProjectMemberDisplayName(member)} is already ${getProjectMemberRoleLabel(nextRole)}`);
             return;
         }
         const policy = buildProjectMemberMutationPolicy({

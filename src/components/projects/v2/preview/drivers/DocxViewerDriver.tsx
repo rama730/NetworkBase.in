@@ -147,7 +147,7 @@ export function DocxViewerDriver({
       if (err instanceof Error && err.name === "AbortError") {
         return;
       }
-      const msg = err instanceof Error ? err.message : "Failed to parse Word document.";
+      const msg = err instanceof Error ? err.message : "Couldn’t parse Word document.";
       setError(msg);
       setLoading(false);
     }

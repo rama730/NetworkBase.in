@@ -38,7 +38,7 @@ export default function AccountPage() {
       await cacheManager.clearStaticsOnly();
       toast.success("Application cache cleared");
     } catch {
-      toast.error("Could not clear the application cache");
+      toast.error("Couldn’t clear the application cache");
     } finally {
       setIsClearingCache(false);
     }

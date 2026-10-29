@@ -530,7 +530,7 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
             />
           ) : null}
         </MessageHistory>
-        {(showLatest || thread.data?.hasNewer) && rows.length ? <LatestBar onClick={() => { if (thread.data?.hasNewer) void loadLatest().catch(() => toast.error("Could not load the latest replies. Try again.")); else { list.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "smooth" }); setUnseen(0); } }} unseen={unseen} label="Jump to latest reply" /> : null}
+        {(showLatest || thread.data?.hasNewer) && rows.length ? <LatestBar onClick={() => { if (thread.data?.hasNewer) void loadLatest().catch(() => toast.error("Couldn’t load the latest replies", { description: "Try again." })); else { list.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "smooth" }); setUnseen(0); } }} unseen={unseen} label="Jump to latest reply" /> : null}
         {canReply ? (
           <Composer
             channelId={channelId}

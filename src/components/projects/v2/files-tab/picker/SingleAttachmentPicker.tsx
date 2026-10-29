@@ -67,7 +67,7 @@ export function SingleAttachmentPicker({
         onClose();
       } catch (err) {
         const message =
-          err instanceof Error ? err.message : "Failed to attach file";
+          err instanceof Error ? err.message : "Couldn’t attach file";
         toast.error(feedbackError(message, "Action couldn’t finish"));
         // Keep picker open on failure (Req 9.5 pattern)
       } finally {
