@@ -4,7 +4,7 @@ import { and, count, eq, gt, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { orgHandleHolds, profiles, projectMembers, projects, roleApplications } from "@/lib/db/schema";
-import { defaultOrgRoleNames, orgTypeLabel, type OrgType } from "@/lib/organizations/config";
+import { orgRoleNames, orgTypeLabel, type OrgType } from "@/lib/organizations/config";
 import { childCreationBlock, type VisibilityCap } from "@/lib/organizations/child-rules";
 import { readOrgRules, readOrgWork, type OrgWork } from "@/lib/organizations/settings";
 import { isProjectPubliclyReadableVisibility } from "@/lib/projects/project-visibility";
@@ -122,7 +122,7 @@ export async function readOrgDetail(
     typeLabel: orgTypeLabel(type, settings),
     partOf: text((settings as { partOf?: unknown }).partOf),
     location: text((settings as { location?: unknown }).location),
-    roleNames: { ...defaultOrgRoleNames(type ?? "community"), ...settings.roleNames },
+    roleNames: orgRoleNames(type, settings),
     joinMode: settings.joinMode === "approval" ? "approval" : "instant",
     childCreation: settings.childCreation === "admins" ? "admins" : "members",
     outsidePeople: settings.outsidePeople === true,
@@ -235,7 +235,7 @@ export async function readChildOrgLink(
   ]);
   if (!org) return { parentOrg: null, pendingMoveIn: null, moveTargets: [] };
   const rules = readOrgRules(org.orgSettings);
-  const roleNames = { ...defaultOrgRoleNames((org.orgType as OrgType | null) ?? "community"), ...(org.orgSettings as OrgSettingsRecord)?.roleNames };
+  const roleNames = orgRoleNames(org.orgType, org.orgSettings);
   const inherited = viewer.parentOrgRole === "owner" || viewer.parentOrgRole === "admin";
   return {
     pendingMoveIn: null,

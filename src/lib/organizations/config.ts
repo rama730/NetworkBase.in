@@ -42,6 +42,17 @@ export function defaultOrgRoleNames(type: OrgType) {
   return { owner: "Owner", admin: "Admin", member: "Member", viewer: "Guest" };
 }
 
+/** The organization's role names: its type's defaults, overridden by its own (blank names fall back). */
+export function orgRoleNames(type: string | null | undefined, orgSettings: unknown) {
+  const custom = (orgSettings as { roleNames?: Partial<Record<"owner" | "admin" | "member" | "viewer", unknown>> } | null | undefined)?.roleNames ?? {};
+  const names = defaultOrgRoleNames(ORG_TYPES.includes(type as OrgType) ? (type as OrgType) : "community");
+  for (const key of Object.keys(names) as Array<keyof typeof names>) {
+    const value = custom[key];
+    if (typeof value === "string" && value.trim()) names[key] = value.trim();
+  }
+  return names;
+}
+
 const TYPE_NAMES: Record<OrgType, string> = { education: "Education", company: "Company", community: "Community", research: "Research", club: "Club", other: "Other" };
 
 /** The type as people read it; "Other" shows the creator's own label ("Nonprofit"), report §34.2. */
