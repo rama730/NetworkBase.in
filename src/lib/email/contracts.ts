@@ -378,7 +378,7 @@ ${input.buttonsHtml}
                 <span style="color:#D1D5DB;margin:0 6px;" aria-hidden="true">&bull;</span>
                 <a href="${escapeHtml(termsUrl)}" style="color:#6B7280;text-decoration:none;">Terms and Conditions</a>
               </div>
-              <div style="margin-top:8px;font-size:11px;color:#9CA3AF;">&copy; NetworkBase&trade; &bull; All rights reserved</div>
+              <div style="margin-top:8px;font-size:11px;color:#9CA3AF;">&copy; NetworkBase. All rights reserved.</div>
             </td>
           </tr>
         </table>
@@ -445,7 +445,7 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
     welcomeText += `View Profile: ${profileUrl}\n\n`;
     welcomeText += `Need help? Reply to this email or visit support: ${supportUrl}\n`;
     welcomeText += `Privacy: ${privacyUrl}\nSecurity: ${securityUrl}\nTerms: ${termsUrl}\n`;
-    welcomeText += `\n© NetworkBase™ · All rights reserved · support@networkbase.in`;
+    welcomeText += `\n© NetworkBase. All rights reserved. support@networkbase.in`;
 
     // Skills pills for HTML
     let skillsHtml = "";
@@ -571,7 +571,7 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
   if (desktopIdeLaunchUrl) {
     text += `Open in ${input.connectedDesktopIde?.name || "Code editor"}: ${desktopIdeLaunchUrl}\n`;
   }
-  text += `\n${footer}\nNotification settings: ${settingsUrl}\nContact Support: ${supportUrl}\nPrivacy: ${privacyUrl}\nSecurity: ${securityUrl}\nTerms and Conditions: ${termsUrl}\nNetworkBase™ · All rights reserved`;
+  text += `\n${footer}\nNotification settings: ${settingsUrl}\nContact Support: ${supportUrl}\nPrivacy: ${privacyUrl}\nSecurity: ${securityUrl}\nTerms and Conditions: ${termsUrl}\n© NetworkBase. All rights reserved.`;
 
   // Build HTML Version (Open Flow Canvas, Zero Boxes, Ponytail Avatar, Subtasks & File References)
   let subtasksHtml = "";

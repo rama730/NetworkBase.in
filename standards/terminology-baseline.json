@@ -1,56 +1,10 @@
 {
  "strings": {
-  "src/app/(legal)/acceptable-use/page.tsx": {
-   "banned": 1,
-   "project": 2,
-   "british": 1
-  },
-  "src/app/(legal)/copyright/page.tsx": {
-   "project": 1,
-   "british": 1
-  },
-  "src/app/(legal)/dpa/page.tsx": {
-   "british": 4,
-   "project": 2,
-   "banned": 1
-  },
-  "src/app/(legal)/eula/page.tsx": {
-   "british": 12,
-   "banned": 1,
-   "project": 3
-  },
   "src/app/(legal)/grievances/page.tsx": {
-   "title-case": 2,
-   "project": 1,
-   "ampersand": 1
-  },
-  "src/app/(legal)/open-source/page.tsx": {
-   "british": 3
-  },
-  "src/app/(legal)/privacy/page.tsx": {
-   "project": 11,
-   "british": 2,
-   "banned": 1
-  },
-  "src/app/(legal)/security-reporting/page.tsx": {
-   "title-case": 1,
-   "project": 2,
-   "ampersand": 1,
-   "banned": 1
-  },
-  "src/app/(legal)/subprocessors/page.tsx": {
-   "project": 2
-  },
-  "src/app/(legal)/support/page.tsx": {
-   "ampersand": 9,
-   "project": 3,
-   "please": 3,
    "title-case": 1
   },
-  "src/app/(legal)/terms/page.tsx": {
-   "project": 10,
-   "british": 5,
-   "banned": 2
+  "src/app/(legal)/support/page.tsx": {
+   "title-case": 1
   },
   "src/app/(site)/(main)/messages/(lists)/inbox/page.tsx": {
    "title-case": 1
@@ -70,9 +24,6 @@
   },
   "src/components/layout/header/global-search.ts": {
    "log-in": 4
-  },
-  "src/components/legal/LegalLinks.tsx": {
-   "title-case": 2
   },
   "src/components/messages/ChatSections.tsx": {
    "title-case": 1
@@ -124,9 +75,6 @@
   },
   "src/components/settings/IntegrationsSettings.tsx": {
    "log-in": 1
-  },
-  "src/components/settings/LegalAndDataRightsSection.tsx": {
-   "title-case": 2
   },
   "src/inngest/functions/email-delivery.ts": {
    "title-case": 1

@@ -1,19 +1,19 @@
 export const LEGAL_VERSIONS = {
-  privacy: "2026-09-04",
-  terms: "2026-09-04",
-  eula: "2026-09-04",
-  acceptableUse: "2026-09-04",
-  cookies: "2026-09-04",
-  subprocessors: "2026-09-04",
-  copyright: "2026-09-04",
-  grievances: "2026-09-04",
-  security: "2026-09-04",
-  support: "2026-09-04",
-  dpa: "2026-09-04",
-  openSource: "2026-09-04",
+  privacy: "2026-10-29",
+  terms: "2026-10-29",
+  eula: "2026-10-29",
+  acceptableUse: "2026-10-29",
+  cookies: "2026-10-29",
+  subprocessors: "2026-10-29",
+  copyright: "2026-10-29",
+  grievances: "2026-10-29",
+  security: "2026-10-29",
+  support: "2026-10-29",
+  dpa: "2026-10-29",
+  openSource: "2026-10-29",
 } as const;
 
-export const LEGAL_EFFECTIVE_DATE = "4 September 2026";
+export const LEGAL_EFFECTIVE_DATE = "October 29, 2026";
 
 export const CURRENT_LEGAL_ACCEPTANCE = {
   termsVersion: LEGAL_VERSIONS.terms,

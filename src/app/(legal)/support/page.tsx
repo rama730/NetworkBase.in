@@ -5,7 +5,7 @@ import { getLegalIdentity } from "@/lib/legal/config";
 import { LEGAL_VERSIONS } from "@/lib/legal/versions";
 
 export const metadata: Metadata = {
-  title: "Support & Help Center | NetworkBase",
+  title: "Help and support | NetworkBase",
   description:
     "Official customer support, technical assistance, security reporting, and privacy channels for NetworkBase.",
 };
@@ -15,18 +15,18 @@ export default function SupportPage() {
 
   return (
     <LegalDocumentPage
-      eyebrow="Help & Support"
-      title="Support & Help Center"
+      eyebrow="Help and Support"
+      title="Help and support"
       summary="Guidance and official contact channels for member assistance, security coordination, privacy rights, and platform governance."
       version={LEGAL_VERSIONS.support}
       sections={[
         {
           id: "assistance",
-          title: "1. Member assistance & helpdesk",
+          title: "1. Member assistance and helpdesk",
           content: (
             <>
               <p>
-                For assistance with account setup, workspace collaboration, project permissions, or
+                For assistance with account setup, workspace collaboration, workspace permissions, or
                 general questions regarding NetworkBase, our support desk is reached at{" "}
                 <a className="underline" href={`mailto:${i.supportEmail}`}>
                   {i.supportEmail}
@@ -34,7 +34,7 @@ export default function SupportPage() {
                 .
               </p>
               <p>
-                When contacting support, please include your registered account email, relevant project
+                When contacting support, include your registered account email, relevant workspace
                 identifiers or URLs, and a concise summary of the issue. Our team operates Monday
                 through Friday and typically acknowledges queries within 1 to 2 business days.
               </p>
@@ -43,7 +43,7 @@ export default function SupportPage() {
         },
         {
           id: "troubleshooting",
-          title: "2. Technical troubleshooting & self-service",
+          title: "2. Technical troubleshooting and self-service",
           content: (
             <>
               <p>
@@ -89,12 +89,12 @@ export default function SupportPage() {
         },
         {
           id: "security",
-          title: "3. Security & vulnerability reporting",
+          title: "3. Security and vulnerability reporting",
           content: (
             <>
               <p>
                 We treat platform security and responsible vulnerability disclosure with paramount
-                priority. If you discover a potential vulnerability or technical security defect, please
+                priority. If you discover a potential vulnerability or technical security defect,
                 report it directly to{" "}
                 <a
                   className="underline"
@@ -117,7 +117,7 @@ export default function SupportPage() {
         },
         {
           id: "grievances",
-          title: "4. Grievance redressal & statutory governance",
+          title: "4. Grievance redressal and statutory governance",
           content: (
             <>
               <p>
@@ -133,7 +133,7 @@ export default function SupportPage() {
                 </a>{" "}
                 following the procedures set out in our{" "}
                 <Link href="/grievances" className="underline">
-                  Grievances &amp; Redressal Policy
+                  Grievances and Redressal Policy
                 </Link>
                 .
               </p>
@@ -142,7 +142,7 @@ export default function SupportPage() {
         },
         {
           id: "privacy-rights",
-          title: "5. Privacy, data rights & account requests",
+          title: "5. Privacy, data rights and account requests",
           content: (
             <>
               <p>
@@ -170,7 +170,7 @@ export default function SupportPage() {
         },
         {
           id: "verified-communications",
-          title: "6. Verified communications & anti-phishing safeguard",
+          title: "6. Verified communications and anti-phishing safeguard",
           content: (
             <>
               <p>
@@ -186,7 +186,7 @@ export default function SupportPage() {
                 </li>
                 <li>
                   <strong>notifications@networkbase.in</strong>: Task updates, mentions, collaboration
-                  alerts, and project messages.
+                  alerts, and workspace messages.
                 </li>
                 <li>
                   <strong>support@networkbase.in</strong>: Member helpdesk, operational inquiries, and
@@ -200,7 +200,7 @@ export default function SupportPage() {
               <p>
                 NetworkBase will <strong>never</strong> ask for your password, recovery tokens, or
                 private credentials over email. If you receive an email from any other address claiming
-                to represent NetworkBase, please forward it immediately to{" "}
+                to represent NetworkBase, forward it immediately to{" "}
                 <a className="underline" href={`mailto:${i.supportEmail}`}>
                   {i.supportEmail}
                 </a>
