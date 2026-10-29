@@ -306,7 +306,7 @@ export function buildOrgEmail(kind: OrgEmailKind, data: OrgEmailData, input: { e
     ...(p.secondary ? [`${p.secondary.label}: ${p.secondary.href}`] : []),
     "", p.reason, `Notification settings: ${settingsUrl}`, ...(mute ? [`${muteLabel}: ${mute}`] : []),
     "Contact Support: mailto:support@networkbase.in", `Privacy: ${url("/privacy")}`, `Security: ${url("/security-reporting")}`, `Terms and Conditions: ${url("/terms")}`,
-    "NetworkBase™ · All rights reserved",
+    "© NetworkBase. All rights reserved.",
   ].join("\n");
 
   return {

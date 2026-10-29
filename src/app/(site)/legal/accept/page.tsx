@@ -75,7 +75,7 @@ export default function LegalAcceptancePage() {
       title="Before you continue"
       description={isOAuthSignup
         ? "Your account is connected. Review and accept NetworkBase’s current terms to finish creating it."
-        : "We’ve updated our terms. Review and accept the current versions to keep using NetworkBase."}
+        : "We’ve updated the wording of our terms. Nothing about your rights has changed. Accept the current versions to keep using NetworkBase."}
       panel={panel}
     >
       <div className="space-y-4">

@@ -1,5 +1,6 @@
 "use client";
 
+import { LEGAL_PAGE_NAMES } from "@/lib/copy/terms";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Download, ExternalLink, Loader2, Scale } from "lucide-react";
@@ -26,18 +27,18 @@ type AcceptanceState = {
 };
 
 const governingDocuments = [
-  { href: "/terms", title: "Terms of Service" },
-  { href: "/privacy", title: "Privacy Policy" },
-  { href: "/eula", title: "End User License Agreement" },
-  { href: "/acceptable-use", title: "Acceptable Use Policy" },
-  { href: "/cookies", title: "Cookies and Local Storage" },
-  { href: "/subprocessors", title: "Service Providers" },
-  { href: "/dpa", title: "Data Processing Agreement" },
-  { href: "/copyright", title: "Copyright and Takedowns" },
+  { href: "/terms", title: LEGAL_PAGE_NAMES.terms },
+  { href: "/privacy", title: LEGAL_PAGE_NAMES.privacy },
+  { href: "/eula", title: LEGAL_PAGE_NAMES.eula },
+  { href: "/acceptable-use", title: LEGAL_PAGE_NAMES.acceptableUse },
+  { href: "/cookies", title: LEGAL_PAGE_NAMES.cookies },
+  { href: "/subprocessors", title: LEGAL_PAGE_NAMES.subprocessors },
+  { href: "/dpa", title: LEGAL_PAGE_NAMES.dpa },
+  { href: "/copyright", title: LEGAL_PAGE_NAMES.copyright },
   { href: "/open-source", title: "Open-source notices" },
-  { href: "/security-reporting", title: "Security Reporting" },
-  { href: "/grievances", title: "Grievance redressal" },
-  { href: "/support", title: "Support" },
+  { href: "/security-reporting", title: LEGAL_PAGE_NAMES.security },
+  { href: "/grievances", title: LEGAL_PAGE_NAMES.grievances },
+  { href: "/support", title: "Help and support" },
 ] as const;
 
 // Rights that have no button yet are asked for by email, with the subject filled in.
@@ -108,7 +109,7 @@ export function LegalAndDataRightsSection() {
 
   return (
     <SettingsSectionCard
-      title="Policies and account rights"
+      title="Legal and data rights"
       description={`Manage current agreements, policy access, and account data portability. Effective ${LEGAL_EFFECTIVE_DATE}.`}
     >
       {/* 1. Agreement Status */}
@@ -142,7 +143,7 @@ export function LegalAndDataRightsSection() {
           ) : state?.current ? (
             <span role="status" className="inline-flex items-center gap-1.5 rounded-full border border-[var(--status-success)]/30 bg-[var(--status-success-soft)] px-2.5 py-1 nb-meta font-medium text-[var(--status-success)]">
               <CheckCircle2 className="size-3.5" aria-hidden="true" />
-              Current and Active
+              Accepted
             </span>
           ) : (
             <span role="status" className="inline-flex items-center gap-1.5 rounded-full border border-[var(--status-warning)]/30 bg-[var(--status-warning-soft)] px-2.5 py-1 nb-meta font-medium text-[var(--status-warning)]">
@@ -214,7 +215,7 @@ export function LegalAndDataRightsSection() {
       <div className="my-6 border-t border-border" />
 
       <div className="mb-3">
-        <h4 className="nb-ui-label text-foreground">Governing policies</h4>
+        <h4 className="nb-ui-label text-foreground">Policies</h4>
         <p className="nb-compact mt-0.5 text-muted-foreground">
           Official agreements, acceptable use policies, and privacy notices governing your use of NetworkBase.
         </p>

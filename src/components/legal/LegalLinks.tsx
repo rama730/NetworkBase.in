@@ -1,5 +1,6 @@
 "use client";
 
+import { LEGAL_PAGE_NAMES } from "@/lib/copy/terms";
 import * as React from "react";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
@@ -67,12 +68,12 @@ export function LegalLinks({
         <DropdownMenuContent side="top" align={menuAlign} className="min-w-[190px] p-1.5 shadow-md">
           <DropdownMenuItem asChild>
             <Link href="/privacy" className="cursor-pointer">
-              Privacy Policy
+              {LEGAL_PAGE_NAMES.privacy}
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link href="/cookies" className="cursor-pointer">
-              Cookies and Storage
+              {LEGAL_PAGE_NAMES.cookies}
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
@@ -80,7 +81,7 @@ export function LegalLinks({
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link href="/subprocessors" className="cursor-pointer">
-              Service Providers
+              {LEGAL_PAGE_NAMES.subprocessors}
             </Link>
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -98,45 +99,45 @@ export function LegalLinks({
         <DropdownMenuContent side="top" align={menuAlign} className="min-w-[190px] p-1.5 shadow-md">
           <DropdownMenuItem asChild>
             <Link href="/security-reporting" className="cursor-pointer">
-              Security Reporting
+              {LEGAL_PAGE_NAMES.security}
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link href="/grievances" className="cursor-pointer">
-              Grievance redressal
+              {LEGAL_PAGE_NAMES.grievances}
             </Link>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* 5. Terms and Conditions tab */}
+      {/* 5. Terms tab */}
       <DropdownMenu>
         <DropdownMenuTrigger
           className={cn(LINK_CLASS, "cursor-pointer select-none")}
-          aria-label="Terms and conditions links"
+          aria-label="Terms links"
         >
-          <span>Terms and Conditions</span>
+          <span>Terms</span>
           <ChevronDown className="size-3 text-muted-foreground/70" aria-hidden="true" />
         </DropdownMenuTrigger>
         <DropdownMenuContent side="top" align={menuAlign} className="min-w-[210px] p-1.5 shadow-md">
           <DropdownMenuItem asChild>
             <Link href="/terms" className="cursor-pointer">
-              Terms of Service
+              {LEGAL_PAGE_NAMES.terms}
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link href="/eula" className="cursor-pointer">
-              End User License Agreement (EULA)
+              {LEGAL_PAGE_NAMES.eula}
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link href="/acceptable-use" className="cursor-pointer">
-              Acceptable Use Policy
+              {LEGAL_PAGE_NAMES.acceptableUse}
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link href="/copyright" className="cursor-pointer">
-              Copyright and IP Complaints
+              {LEGAL_PAGE_NAMES.copyright}
             </Link>
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -154,7 +155,7 @@ export function LegalLinks({
       {showCopyright && (
         // The year can differ between server and browser at New Year; either is right.
         <p className="text-[11px] text-muted-foreground" suppressHydrationWarning>
-          © {new Date().getFullYear()} NetworkBase™. All rights reserved.
+          © {new Date().getFullYear()} NetworkBase. All rights reserved.
         </p>
       )}
     </div>

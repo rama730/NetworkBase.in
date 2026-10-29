@@ -7,8 +7,8 @@ export const metadata: Metadata = { title: "Subprocessors | NetworkBase", descri
 
 const providers = [
   ["Cloudflare", "DNS, content delivery, network security", "Connection and request data"],
-  ["Railway", "Application hosting and runtime", "Account, project, communication, and operational data processed by the application"],
-  ["Supabase", "Authentication, PostgreSQL database, object storage, realtime", "Account, profile, project, file, message, session, and integration data"],
+  ["Railway", "Application hosting and runtime", "Account, workspace, communication, and operational data processed by the application"],
+  ["Supabase", "Authentication, PostgreSQL database, object storage, realtime", "Account, profile, workspace, file, message, session, and integration data"],
   ["Inngest", "Background jobs and scheduled lifecycle work", "Job identifiers, scoped payloads, status, and operational metadata"],
   ["Upstash", "Rate limiting and cache infrastructure", "Pseudonymous identifiers, request counters, and cached application results"],
   ["Resend", "Transactional and lifecycle email delivery", "Recipient email address, name, and notification message payload"],
