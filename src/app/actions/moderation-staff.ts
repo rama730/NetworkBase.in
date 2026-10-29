@@ -150,6 +150,8 @@ export async function bulkDecideAction(caseIds: string[], input: Decision): Prom
     const me = await staff();
     const parsed = decisionSchema.safeParse(input);
     if (!me || !parsed.success || !caseIds.length || caseIds.length > 50 || caseIds.some((id) => !uuid.safeParse(id).success)) return DENIED;
+    // Bulk is for dismissing or hiding/removing content; account and workspace steps are decided one case at a time.
+    if (parsed.data.account || (parsed.data.content && !['hide', 'remove'].includes(parsed.data.content))) return { success: false, error: 'Decide account and workspace actions one case at a time.' };
     let done = 0;
     for (const id of caseIds) if ((await decideCase(id, { id: me.id, scope: 'staff', role: me.role }, parsed.data as Decision)).ok) done += 1;
     refresh();
@@ -287,9 +289,13 @@ export async function claimAppealAction(caseId: string): Promise<Result> {
 }
 
 /** Staff list (F17): admins add or remove staff. A role change applies at the person's next sign-in. */
-export async function setStaffRoleAction(who: string, role: 'admin' | 'moderator' | null): Promise<Result> {
+export async function setStaffRoleAction(who: string, role: 'admin' | 'moderator' | null): Promise<Result | StepUpRequired> {
     const me = await staff();
     if (!me || me.role !== 'admin') return DENIED;
+    // Granting or removing staff access needs the same fresh check as a ban (F16).
+    const { supabase, user } = await getViewerAuthContext();
+    const state = await stepUpState(supabase, user!);
+    if (!state.fresh) return { success: false, error: 'Verify it’s you to change staff.', stepUp: { methods: state.methods, factorId: state.factorId } };
     const key = who.trim().replace(/^@/, '').toLowerCase();
     const [p] = await db.execute<{ id: string }>(sql`SELECT id FROM profiles WHERE (username = ${key} OR lower(email) = ${key} OR id::text = ${key}) AND deleted_at IS NULL LIMIT 1`);
     if (!p) return { success: false, error: 'No account with that @handle or email.' };
