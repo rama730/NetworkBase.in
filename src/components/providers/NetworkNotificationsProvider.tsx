@@ -116,9 +116,9 @@ export function NetworkNotificationsProvider({ children, enabled = true }: { chi
           void queryClient.invalidateQueries({ queryKey: queryKeys.profile.root(), refetchType: "active" });
         }
         if (domains.has("requests")) {
-          void queryClient.invalidateQueries({ queryKey: queryKeys.workspace.root(), refetchType: "active" });
-          void queryClient.invalidateQueries({ queryKey: queryKeys.workspace.joinRequestsRoot(), refetchType: "active" });
-          void queryClient.invalidateQueries({ queryKey: queryKeys.workspace.sentProjectInvitationsRoot(), refetchType: "active" });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.myWork.root(), refetchType: "active" });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.myWork.joinRequestsRoot(), refetchType: "active" });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.myWork.sentProjectInvitationsRoot(), refetchType: "active" });
           // The Network page's own list (open and decided applications) follows too.
           void queryClient.invalidateQueries({ queryKey: queryKeys.connections.pending(), refetchType: "active" });
           // Live sidebar invalidation so the applicant sees the newly joined project immediately!

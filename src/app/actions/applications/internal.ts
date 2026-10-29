@@ -55,7 +55,7 @@ import type {
     ApplicationActionErrorCode,
     ApplicationCardChip,
 } from './types';
-import { refreshWorkspaceCountersForUsers } from '@/lib/workspace/profile-counters';
+import { refreshMyWorkCountersForUsers } from '@/lib/my-work/profile-counters';
 import { addProjectMemberInternal } from '@/lib/projects/collaborator-lifecycle';
 import { computeProjectReadAccess } from '@/lib/data/project-access';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
@@ -351,7 +351,7 @@ async function ensureAcceptedConnectionInternal(tx: any, userA: string, userB: s
 
         await applyConnectionsCountDelta(tx, [userA, userB], 1);
         if (row.status === 'pending') {
-            await refreshWorkspaceCountersForUsers(tx, [userA, userB]);
+            await refreshMyWorkCountersForUsers(tx, [userA, userB]);
         }
         return;
     }

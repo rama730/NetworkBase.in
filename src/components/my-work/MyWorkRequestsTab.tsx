@@ -21,11 +21,11 @@ import { Button } from "@/components/ui/button";
 import { RequestProfileRow } from "@/components/network/RequestProfileRow";
 import { useConnectionMutations, usePendingRequests } from "@/hooks/useConnections";
 
-interface WorkspaceRequestsTabProps {
+interface MyWorkRequestsTabProps {
     isActive?: boolean;
 }
 
-type WorkspaceRequest = IncomingProjectApplication & { status: string };
+type MyWorkRequest = IncomingProjectApplication & { status: string };
 
 function errorMessage(error: unknown) {
     return error instanceof Error ? error.message : "Failed";
@@ -37,7 +37,7 @@ function unwrap<T extends { success: boolean; error?: string }>(result: T): T {
     return result;
 }
 
-function WorkspaceRequestsSkeleton() {
+function MyWorkRequestsSkeleton() {
     return (
         <div className="w-full space-y-5 px-1 py-1" aria-busy="true" aria-label="Loading invitations">
             <div aria-hidden="true" className="nb-skeleton mb-4 h-4 w-3/4 rounded-[3px]" />
@@ -67,32 +67,32 @@ function WorkspaceRequestsSkeleton() {
     );
 }
 
-export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceRequestsTabProps) {
-    const isWorkspaceOpen = useUIStore((s) => s.isWorkspaceOpen);
-    const setWorkspaceOpen = useUIStore((s) => s.setWorkspaceOpen);
+export default function MyWorkRequestsTab({ isActive = true }: MyWorkRequestsTabProps) {
+    const isMyWorkOpen = useUIStore((s) => s.isMyWorkOpen);
+    const setMyWorkOpen = useUIStore((s) => s.setMyWorkOpen);
     const queryClient = useQueryClient();
     const [isBatchBusy, setIsBatchBusy] = useState(false);
-    const [declining, setDeclining] = useState<WorkspaceRequest | null>(null);
-    const [accepting, setAccepting] = useState<WorkspaceRequest | null>(null);
+    const [declining, setDeclining] = useState<MyWorkRequest | null>(null);
+    const [accepting, setAccepting] = useState<MyWorkRequest | null>(null);
     const [confirmAcceptAll, setConfirmAcceptAll] = useState(false);
 
     const query = useQuery({
-        queryKey: queryKeys.workspace.joinRequests(20),
+        queryKey: queryKeys.myWork.joinRequests(20),
         // This is a compact launcher surface. Connections owns the full,
         // paginated request queue rather than hiding an unbounded list here.
         queryFn: () => getIncomingApplicationsAction({ limit: 20 }),
-        enabled: isWorkspaceOpen && isActive,
+        enabled: isMyWorkOpen && isActive,
         staleTime: 30_000,
     });
     const { data, isLoading, error } = query;
     // Workspace only presents decisions the viewer can take. It
     // never fetches the sent queue that is only useful in the full Requests
     // page, eliminating one request and unrelated loading/error state.
-    const connectionsQuery = usePendingRequests(20, isWorkspaceOpen && isActive, { includeSent: false });
+    const connectionsQuery = usePendingRequests(20, isMyWorkOpen && isActive, { includeSent: false });
     const { acceptRequest, rejectRequest, undoRejectRequest } = useConnectionMutations();
 
-    const incomingApplications = useMemo<WorkspaceRequest[]>(
-        () => (data?.applications ?? []) as WorkspaceRequest[],
+    const incomingApplications = useMemo<MyWorkRequest[]>(
+        () => (data?.applications ?? []) as MyWorkRequest[],
         [data?.applications],
     );
 
@@ -106,11 +106,11 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
         [incomingApplications],
     );
     const pendingConnections = connectionsQuery.data?.incoming ?? [];
-    const orgRequests = useOrgRequests(isWorkspaceOpen && isActive).data;
+    const orgRequests = useOrgRequests(isMyWorkOpen && isActive).data;
     const hasOrgRequests = Boolean(orgRequests && (orgRequests.invites.length > 0 || orgRequests.joinRequests.length > 0));
 
     const removeOptimistically = (id: string) => {
-        queryClient.setQueryData(queryKeys.workspace.joinRequests(20), (previous: typeof data) => {
+        queryClient.setQueryData(queryKeys.myWork.joinRequests(20), (previous: typeof data) => {
             if (!previous?.success) return previous;
             return {
                 ...previous,
@@ -120,7 +120,7 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
     };
 
     const invalidate = () => {
-        void queryClient.invalidateQueries({ queryKey: queryKeys.workspace.root() });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.myWork.root() });
         void queryClient.invalidateQueries({ queryKey: ["connections", "pending-requests"] });
         // The Network page's open and decided lists.
         void queryClient.invalidateQueries({ queryKey: queryKeys.connections.pending() });
@@ -128,7 +128,7 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
     };
 
     /** Accepting offers a welcome note first; an error comes back to the dialog. */
-    const acceptApp = async (app: WorkspaceRequest, { note }: DecisionInput) => {
+    const acceptApp = async (app: MyWorkRequest, { note }: DecisionInput) => {
         removeOptimistically(app.id);
         try {
             unwrap(await acceptApplicationAction(app.id, note || undefined));
@@ -142,7 +142,7 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
     };
 
     /** Declining asks for a reason first; an error comes back to the dialog, a success offers Undo. */
-    const declineApp = async (app: WorkspaceRequest, { reason, note }: DecisionInput) => {
+    const declineApp = async (app: MyWorkRequest, { reason, note }: DecisionInput) => {
         removeOptimistically(app.id);
         try {
             unwrap(await rejectApplicationAction(app.id, note || undefined, reason));
@@ -250,7 +250,7 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
     };
 
     if (isLoading || connectionsQuery.isLoading) {
-        return <WorkspaceRequestsSkeleton />;
+        return <MyWorkRequestsSkeleton />;
     }
 
     if (error || connectionsQuery.error || (data && !data.success)) {
@@ -283,7 +283,7 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
             <p className="mb-4 px-1 text-[13px] leading-5 text-muted-foreground">
                 Connection and project decisions that need your attention, in one place.
             </p>
-            <OrgRequestsSection joinRequests="decide" onNavigate={() => setWorkspaceOpen(false)} enabled={isWorkspaceOpen && isActive} />
+            <OrgRequestsSection joinRequests="decide" onNavigate={() => setMyWorkOpen(false)} enabled={isMyWorkOpen && isActive} />
             {pendingConnections.length > 0 && (
                 <div className="mb-6">
                     <div className="mb-3 flex items-center justify-between pl-1">
@@ -412,7 +412,7 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
             {hasAnyRequests ? (
                 <Link
                     href="/network?tab=invitations"
-                    onClick={() => setWorkspaceOpen(false)}
+                    onClick={() => setMyWorkOpen(false)}
                     className="mt-5 inline-flex text-xs font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
                     View all invitations

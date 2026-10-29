@@ -200,13 +200,13 @@ export default function InvitationsClient({
     async function refreshInvitationSurfaces() {
         await Promise.all([
             queryClient.invalidateQueries({
-                queryKey: queryKeys.workspace.joinRequestsRoot(),
+                queryKey: queryKeys.myWork.joinRequestsRoot(),
             }),
             queryClient.invalidateQueries({
-                queryKey: queryKeys.workspace.sentProjectInvitationsRoot(),
+                queryKey: queryKeys.myWork.sentProjectInvitationsRoot(),
             }),
             queryClient.invalidateQueries({
-                queryKey: queryKeys.workspace.root(),
+                queryKey: queryKeys.myWork.root(),
             }),
             queryClient.invalidateQueries({
                 queryKey: queryKeys.notifications.root(),
@@ -337,7 +337,7 @@ export default function InvitationsClient({
 
             // Only after it really cancelled: a failure keeps the row (the toast says why).
             queryClient.setQueryData<SentProjectInvitationItem[]>(
-                queryKeys.workspace.sentProjectInvitations(50),
+                queryKeys.myWork.sentProjectInvitations(50),
                 (prev) => (prev ? prev.filter((p) => p.id !== item.id) : []),
             );
 

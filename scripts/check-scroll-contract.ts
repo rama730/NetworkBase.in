@@ -16,14 +16,14 @@ const LEGACY_CLASS_ALLOWLIST = new Set<string>([
   "src/components/projects/create-wizard/CreateProjectWizard.tsx",
   "src/components/projects/tabs/SprintPlanning.tsx",
   "src/components/projects/v2/tasks/TaskDetailPanel.tsx",
-  "src/components/workspace/WorkspaceDrawer.tsx",
+  "src/components/my-work/MyWorkDrawer.tsx",
 ]);
 
 // Compatibility redirects never render a route surface, so they cannot own a
 // scroll root. Keep this list intentionally narrow rather than weakening the
 // contract for real pages.
 const REDIRECT_ONLY_PAGE_ALLOWLIST = new Set<string>([
-  "src/app/(site)/(main)/workspace/page.tsx",
+  "src/app/(site)/(main)/my-work/page.tsx",
 ]);
 
 function toPosix(filePath: string): string {

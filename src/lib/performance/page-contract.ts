@@ -333,7 +333,7 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     maxInitialPayloadKb: 260,
     allowForceDynamic: true,
   }),
-  "/workspace": buildActiveSurfaceContract("/workspace", "src/app/(site)/(main)/workspace/page.tsx", {
+  "/my-work": buildActiveSurfaceContract("/my-work", "src/app/(site)/(main)/my-work/page.tsx", {
     renderingMode: "dynamic",
     invalidationOwner: "realtime",
     hydrationBoundary: "heavy",

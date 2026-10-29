@@ -1,24 +1,24 @@
 import { create } from 'zustand'
 
-export type WorkspaceTaskHandoff = { projectId: string; taskId: string; createdAt: number }
-export type WorkspaceTab = "tasks" | "requests"
-export const WORKSPACE_TASK_HANDOFF_STORAGE_KEY = 'nb:workspace-task-handoff'
-const WORKSPACE_TASK_HANDOFF_MAX_AGE_MS = 5 * 60 * 1000
+export type MyWorkTaskHandoff = { projectId: string; taskId: string; createdAt: number }
+export type MyWorkTab = "tasks" | "requests"
+export const MY_WORK_TASK_HANDOFF_STORAGE_KEY = 'nb:my-work-task-handoff'
+const MY_WORK_TASK_HANDOFF_MAX_AGE_MS = 5 * 60 * 1000
 
-export function createWorkspaceTaskHandoff(projectId: string, taskId: string): WorkspaceTaskHandoff {
+export function createMyWorkTaskHandoff(projectId: string, taskId: string): MyWorkTaskHandoff {
     return { projectId, taskId, createdAt: Date.now() }
 }
 
-export function readWorkspaceTaskHandoff(value: string | null): WorkspaceTaskHandoff | null {
+export function readMyWorkTaskHandoff(value: string | null): MyWorkTaskHandoff | null {
     if (!value) return null
     try {
-        const handoff = JSON.parse(value) as Partial<WorkspaceTaskHandoff>
+        const handoff = JSON.parse(value) as Partial<MyWorkTaskHandoff>
         return typeof handoff.projectId === 'string'
             && typeof handoff.taskId === 'string'
             && typeof handoff.createdAt === 'number'
             && Date.now() - handoff.createdAt >= 0
-            && Date.now() - handoff.createdAt < WORKSPACE_TASK_HANDOFF_MAX_AGE_MS
-            ? handoff as WorkspaceTaskHandoff
+            && Date.now() - handoff.createdAt < MY_WORK_TASK_HANDOFF_MAX_AGE_MS
+            ? handoff as MyWorkTaskHandoff
             : null
     } catch {
         return null
@@ -37,9 +37,9 @@ interface UIState {
     theme: 'light' | 'dark' | 'system'
 
     // Workspace Drawer
-    isWorkspaceOpen: boolean
-    workspaceTab: WorkspaceTab
-    workspaceTaskHandoff: WorkspaceTaskHandoff | null
+    isMyWorkOpen: boolean
+    myWorkTab: MyWorkTab
+    myWorkTaskHandoff: MyWorkTaskHandoff | null
 
     // Actions
     setSidebarOpen: (open: boolean) => void
@@ -47,10 +47,10 @@ interface UIState {
     setSidebarCollapsed: (collapsed: boolean) => void
     setMobileMenuOpen: (open: boolean) => void
     setTheme: (theme: 'light' | 'dark' | 'system') => void
-    setWorkspaceOpen: (open: boolean) => void
-    openWorkspace: (tab?: WorkspaceTab) => void
-    setWorkspaceTab: (tab: WorkspaceTab) => void
-    setWorkspaceTaskHandoff: (handoff: WorkspaceTaskHandoff | null) => void
+    setMyWorkOpen: (open: boolean) => void
+    openMyWork: (tab?: MyWorkTab) => void
+    setMyWorkTab: (tab: MyWorkTab) => void
+    setMyWorkTaskHandoff: (handoff: MyWorkTaskHandoff | null) => void
 }
 
 export const useUIStore = create<UIState>()((set) => ({
@@ -60,18 +60,18 @@ export const useUIStore = create<UIState>()((set) => ({
     theme: 'system',
 
     // Workspace Drawer defaults
-    isWorkspaceOpen: false,
-    workspaceTab: "tasks",
-    workspaceTaskHandoff: null,
+    isMyWorkOpen: false,
+    myWorkTab: "tasks",
+    myWorkTaskHandoff: null,
 
     setSidebarOpen: (open) => set({ sidebarOpen: open }),
     toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
     setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
     setMobileMenuOpen: (open) => set({ mobileMenuOpen: open }),
     setTheme: (theme) => set({ theme }),
-    setWorkspaceOpen: (open) => set({ isWorkspaceOpen: open }),
+    setMyWorkOpen: (open) => set({ isMyWorkOpen: open }),
     // ponytail: the launcher always has one predictable destination; callers that need Requests ask for it explicitly instead of restoring stale UI. ceiling: defaults to tasks tab. upgrade: persist last visited workspace tab per project in local storage.
-    openWorkspace: (tab = "tasks") => set({ isWorkspaceOpen: true, workspaceTab: tab }),
-    setWorkspaceTab: (tab) => set({ workspaceTab: tab }),
-    setWorkspaceTaskHandoff: (handoff) => set({ workspaceTaskHandoff: handoff }),
+    openMyWork: (tab = "tasks") => set({ isMyWorkOpen: true, myWorkTab: tab }),
+    setMyWorkTab: (tab) => set({ myWorkTab: tab }),
+    setMyWorkTaskHandoff: (handoff) => set({ myWorkTaskHandoff: handoff }),
 }))

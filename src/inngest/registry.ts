@@ -13,8 +13,8 @@ function getWorkerOnlyFunctions() {
   const { projectImport } = loadModule("./functions/project-import");
   const { projectImportHydrate } = loadModule("./functions/project-import-hydrate");
   const { projectImportStaleReconcile } = loadModule("./functions/project-import-reconcile");
-  const { reconcileWorkspaceProfileCounters } = loadModule("./functions/workspace-counter-reconcile");
-  const { workspaceCountersRefresh } = loadModule("./functions/workspace-counter-refresh");
+  const { reconcileMyWorkProfileCounters } = loadModule("./functions/my-work-counter-reconcile");
+  const { myWorkCountersRefresh } = loadModule("./functions/my-work-counter-refresh");
   const { accountCleanup } = loadModule("./functions/account-cleanup");
   const { accountHardDelete } = loadModule("./functions/account-hard-delete");
   const { accountDeletionReminders } = loadModule("./functions/account-deletion-reminders");
@@ -48,8 +48,8 @@ function getWorkerOnlyFunctions() {
     reconcileProjectFiles,
     finishPendingFileDeletions,
     projectImportStaleReconcile,
-    reconcileWorkspaceProfileCounters,
-    workspaceCountersRefresh,
+    reconcileMyWorkProfileCounters,
+    myWorkCountersRefresh,
     accountCleanup,
     accountHardDelete,
     accountDeletionReminders,

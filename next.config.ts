@@ -13,6 +13,8 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       { source: '/hub', destination: '/discover', permanent: true },
+      // My work was called Workspace (report §5); the word now means a hosted workspace.
+      { source: '/workspace', destination: '/my-work', permanent: true },
       { source: '/hub/:path*', destination: '/discover/:path*', permanent: true },
       { source: '/people', destination: '/network', permanent: true },
       { source: '/people/:path*', destination: '/network/:path*', permanent: true },

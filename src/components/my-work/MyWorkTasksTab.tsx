@@ -4,13 +4,13 @@ import React, { useEffect, useMemo, useState, useDeferredValue, useRef } from "r
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { fetchWorkspaceTasksAction } from "@/app/actions/workspace";
+import { fetchMyWorkTasksAction } from "@/app/actions/my-work";
 import { fetchToReviewAction } from "@/app/actions/org-workspace";
 import { queryKeys } from "@/lib/query-keys";
 import {
     useUIStore,
-    createWorkspaceTaskHandoff,
-    WORKSPACE_TASK_HANDOFF_STORAGE_KEY,
+    createMyWorkTaskHandoff,
+    MY_WORK_TASK_HANDOFF_STORAGE_KEY,
 } from "@/stores/ui-store";
 import { ListChecks, MoreHorizontal, Search, X, ChevronDown, Copy, ExternalLink, Calendar, User } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -36,27 +36,27 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-interface WorkspaceTasksTabProps {
+interface MyWorkTasksTabProps {
     isActive?: boolean;
 }
 
-type WorkspaceTask = Awaited<ReturnType<typeof fetchWorkspaceTasksAction>> extends infer Result
+type MyWorkTask = Awaited<ReturnType<typeof fetchMyWorkTasksAction>> extends infer Result
     ? Result extends { success: true; tasks: Array<infer Task> } ? Task : never
     : never;
 
 const PAGE_SIZE = 24;
 const MAX_PAGE_SIZE = 100;
 const OPEN_STATUSES: TaskWorkflowStatus[] = ["todo", "in_progress", "blocked"];
-type WorkspaceScope = "my" | "team" | "all";
-type WorkspaceStatusFilter = "all" | "overdue" | (typeof OPEN_STATUSES)[number];
+type MyWorkScope = "my" | "team" | "all";
+type MyWorkStatusFilter = "all" | "overdue" | (typeof OPEN_STATUSES)[number];
 const DAY_MS = 86_400_000;
 const isOverdue = (task: { dueDate?: string | Date | null; status?: string | null }) => Boolean(task.dueDate && new Date(task.dueDate).getTime() < Date.now() && task.status !== "done");
 const isDueSoon = (task: { dueDate?: string | Date | null; status?: string | null }) => Boolean(task.dueDate && task.status !== "done" && new Date(task.dueDate).getTime() - Date.now() < 2 * DAY_MS && !isOverdue(task));
 type ViewDensity = "cards" | "rows";
 
-function WorkspaceTasksSkeleton() {
+function MyWorkTasksSkeleton() {
     return (
-        <div className="space-y-4 py-1" aria-busy="true" aria-label="Loading workspace tasks">
+        <div className="space-y-4 py-1" aria-busy="true" aria-label="Loading your tasks">
             {[1, 2].map((group) => (
                 <div key={group} className="space-y-2">
                     <div className="flex items-center gap-2">
@@ -91,7 +91,7 @@ function TaskRow({
     onCopyLink,
     onOpenInNewTab,
 }: {
-    task: WorkspaceTask;
+    task: MyWorkTask;
     onClick: () => void;
     onCopyLink: (e: React.MouseEvent) => void;
     onOpenInNewTab: (e: React.MouseEvent) => void;
@@ -196,7 +196,7 @@ function TaskRow({
 }
 
 /** "From Ms. Rao", Late / Missing and "Team A" on assignment copies; the org context on org work (report §29.2). */
-function OrgTaskChips({ task }: { task: WorkspaceTask }) {
+function OrgTaskChips({ task }: { task: MyWorkTask }) {
     if (!task.org) return null;
     const chip = "shrink-0 rounded-[3px] border border-border px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground";
     return (
@@ -210,15 +210,15 @@ function OrgTaskChips({ task }: { task: WorkspaceTask }) {
     );
 }
 
-export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTabProps) {
+export default function MyWorkTasksTab({ isActive = true }: MyWorkTasksTabProps) {
     const router = useRouter();
-    const isWorkspaceOpen = useUIStore((s) => s.isWorkspaceOpen);
-    const setWorkspaceOpen = useUIStore((s) => s.setWorkspaceOpen);
-    const setWorkspaceTaskHandoff = useUIStore((s) => s.setWorkspaceTaskHandoff);
+    const isMyWorkOpen = useUIStore((s) => s.isMyWorkOpen);
+    const setMyWorkOpen = useUIStore((s) => s.setMyWorkOpen);
+    const setMyWorkTaskHandoff = useUIStore((s) => s.setMyWorkTaskHandoff);
     // The workspace is a cross-project overview: do not hide team work just
     // because the viewer has no personal assignment in that project.
-    const [scope, setScope] = useState<WorkspaceScope>("all");
-    const [status, setStatus] = useState<WorkspaceStatusFilter>("all");
+    const [scope, setScope] = useState<MyWorkScope>("all");
+    const [status, setStatus] = useState<MyWorkStatusFilter>("all");
     // Organization filter (All · Personal · each org), quick filters and the To review view (report §29.2).
     const [orgFilter, setOrgFilter] = useState<string>("all");
     const [quick, setQuick] = useState<"due" | "missing" | null>(null);
@@ -235,21 +235,21 @@ export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTab
     useEffect(() => {
         // A blocked navigation must not leave the launcher permanently inert
         // when the user reopens it.
-        if (!isWorkspaceOpen) setIsNavigating(false);
-    }, [isWorkspaceOpen]);
+        if (!isMyWorkOpen) setIsNavigating(false);
+    }, [isMyWorkOpen]);
 
     // Fetch tasks, enabled ONLY when drawer is open and tab is active
     const query = useQuery({
-        queryKey: queryKeys.workspace.tasks(scope, limit),
-        queryFn: () => fetchWorkspaceTasksAction(limit, scope),
-        enabled: isWorkspaceOpen && isActive,
+        queryKey: queryKeys.myWork.tasks(scope, limit),
+        queryFn: () => fetchMyWorkTasksAction(limit, scope),
+        enabled: isMyWorkOpen && isActive,
         staleTime: 30_000,
     });
     const { data, isLoading, error } = query;
     const reviewQuery = useQuery({
-        queryKey: queryKeys.workspace.toReview(),
+        queryKey: queryKeys.myWork.toReview(),
         queryFn: () => fetchToReviewAction(),
-        enabled: isWorkspaceOpen && isActive,
+        enabled: isMyWorkOpen && isActive,
         staleTime: 30_000,
     });
     const toReview = reviewQuery.data ?? [];
@@ -289,7 +289,7 @@ export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTab
     const missingCount = tasks.filter((task) => task.org?.copyState === "missing").length;
 
     const groups = useMemo(() => {
-        const grouped = new Map<string, { id: string; slug: string | null; title: string; key: string; tasks: WorkspaceTask[] }>();
+        const grouped = new Map<string, { id: string; slug: string | null; title: string; key: string; tasks: MyWorkTask[] }>();
         for (const task of visibleTasks) {
             const project = task.project || { id: "unknown", slug: null, title: "Project", key: "TASK" };
             const group = grouped.get(project.id) ?? {
@@ -309,7 +309,7 @@ export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTab
     }, [visibleTasks]);
 
     if (isLoading) {
-        return <WorkspaceTasksSkeleton />;
+        return <MyWorkTasksSkeleton />;
     }
 
     if (error || (data && !data.success)) {
@@ -323,20 +323,20 @@ export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTab
         );
     }
 
-    const handleTaskClick = (task: WorkspaceTask) => {
+    const handleTaskClick = (task: MyWorkTask) => {
         if (isNavigating) return;
         const projectId = task.project?.id || task.projectId;
         const projectIdentifier = task.project?.slug || projectId;
         if (!projectId || !projectIdentifier) return;
 
         setIsNavigating(true);
-        const handoff = createWorkspaceTaskHandoff(projectId, task.id);
-        setWorkspaceTaskHandoff(handoff);
+        const handoff = createMyWorkTaskHandoff(projectId, task.id);
+        setMyWorkTaskHandoff(handoff);
         // The navigation can remount the client runtime. Preserve this one
         // transition in the browser session while keeping the URL clean.
         try {
             window.sessionStorage.setItem(
-                WORKSPACE_TASK_HANDOFF_STORAGE_KEY,
+                MY_WORK_TASK_HANDOFF_STORAGE_KEY,
                 JSON.stringify(handoff),
             );
         } catch {
@@ -346,10 +346,10 @@ export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTab
         // followed by a navigation has no user-visible benefit and competes
         // with the task surface's own data request.
         router.push(`/projects/${projectIdentifier}?tab=tasks`);
-        setWorkspaceOpen(false);
+        setMyWorkOpen(false);
     };
 
-    const handleCopyTaskLink = (e: React.MouseEvent, task: WorkspaceTask) => {
+    const handleCopyTaskLink = (e: React.MouseEvent, task: MyWorkTask) => {
         e.stopPropagation();
         const projectId = task.project?.id || task.projectId;
         const projectIdentifier = task.project?.slug || projectId;
@@ -363,7 +363,7 @@ export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTab
         }
     };
 
-    const handleOpenTaskInNewTab = (e: React.MouseEvent, task: WorkspaceTask) => {
+    const handleOpenTaskInNewTab = (e: React.MouseEvent, task: MyWorkTask) => {
         e.stopPropagation();
         const projectId = task.project?.id || task.projectId;
         const projectIdentifier = task.project?.slug || projectId;
@@ -382,7 +382,7 @@ export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTab
         });
     };
 
-    const resetScope = (nextScope: WorkspaceScope) => {
+    const resetScope = (nextScope: MyWorkScope) => {
         setScope(nextScope);
         setLimit(PAGE_SIZE);
     };
@@ -397,8 +397,8 @@ export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTab
                     <DropdownMenuTrigger asChild>
                         <button
                             type="button"
-                            aria-label="Filter workspace tasks"
-                            title="Filter workspace tasks"
+                            aria-label="Filter tasks"
+                            title="Filter tasks"
                             className={cn(
                                 "nb-touch-target nb-icon-button h-8 w-8 rounded-[5px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                                 hasActiveFilters
@@ -411,14 +411,14 @@ export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTab
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="z-[202] w-72 p-2">
                         <DropdownMenuLabel>Show tasks</DropdownMenuLabel>
-                        <DropdownMenuRadioGroup value={scope} onValueChange={(value) => resetScope(value as WorkspaceScope)}>
+                        <DropdownMenuRadioGroup value={scope} onValueChange={(value) => resetScope(value as MyWorkScope)}>
                             <DropdownMenuRadioItem value="all">All open work</DropdownMenuRadioItem>
                             <DropdownMenuRadioItem value="my">My tasks</DropdownMenuRadioItem>
                             <DropdownMenuRadioItem value="team">Team tasks</DropdownMenuRadioItem>
                         </DropdownMenuRadioGroup>
                         <DropdownMenuSeparator />
                         <DropdownMenuLabel>Status</DropdownMenuLabel>
-                        <DropdownMenuRadioGroup value={status} onValueChange={(value) => setStatus(value as WorkspaceStatusFilter)}>
+                        <DropdownMenuRadioGroup value={status} onValueChange={(value) => setStatus(value as MyWorkStatusFilter)}>
                             <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
                             <DropdownMenuRadioItem value="overdue">Overdue</DropdownMenuRadioItem>
                             {OPEN_STATUSES.map((taskStatus) => (
@@ -508,7 +508,7 @@ export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTab
                 <ul className="space-y-1.5" aria-label="Submissions to review">
                     {toReview.map((row) => (
                         <li key={row.id}>
-                            <Link href={row.href} onClick={() => setWorkspaceOpen(false)} className="flex min-h-[40px] items-center gap-2 rounded-[6px] border border-border/70 bg-card px-2.5 py-1.5 text-xs hover:bg-muted/30">
+                            <Link href={row.href} onClick={() => setMyWorkOpen(false)} className="flex min-h-[40px] items-center gap-2 rounded-[6px] border border-border/70 bg-card px-2.5 py-1.5 text-xs hover:bg-muted/30">
                                 <span className="min-w-0 flex-1 truncate"><span className="font-medium text-foreground">{row.who}</span> · {row.title} · <span className="text-muted-foreground">{row.context}</span></span>
                                 {row.submittedAt ? <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{format(parseISO(row.submittedAt), "MMM d")}</span> : null}
                             </Link>
@@ -553,7 +553,7 @@ export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTab
                             <div className="flex items-center gap-1.5">
                                 <Link
                                     href={`/projects/${group.slug || group.id}?tab=tasks`}
-                                    onClick={() => setWorkspaceOpen(false)}
+                                    onClick={() => setMyWorkOpen(false)}
                                     className="text-[11px] text-muted-foreground hover:text-primary transition-colors hidden sm:inline-block"
                                     aria-label={`Open ${group.title} tasks`}
                                 >

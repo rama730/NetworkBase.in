@@ -8,13 +8,13 @@ import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores/ui-store";
 import { useNetworkNotifications } from "@/hooks/useNetworkNotifications";
 
-export default function WorkspaceIndicator() {
-    const isWorkspaceOpen = useUIStore((s) => s.isWorkspaceOpen);
-    const openWorkspace = useUIStore((s) => s.openWorkspace);
-    const setWorkspaceOpen = useUIStore((s) => s.setWorkspaceOpen);
+export default function MyWorkIndicator() {
+    const isMyWorkOpen = useUIStore((s) => s.isMyWorkOpen);
+    const openMyWork = useUIStore((s) => s.openMyWork);
+    const setMyWorkOpen = useUIStore((s) => s.setMyWorkOpen);
     const { pendingConnections } = useNetworkNotifications();
     const { data: summary } = useQuery({
-        queryKey: queryKeys.workspace.summary(),
+        queryKey: queryKeys.myWork.summary(),
         queryFn: () => readShellPart("workspaceSummary"),
         staleTime: 30_000,
         refetchOnWindowFocus: false,
@@ -26,17 +26,17 @@ export default function WorkspaceIndicator() {
 
     return (
         <button
-            id="workspace-launcher"
+            id="my-work-launcher"
             type="button"
-            onClick={() => isWorkspaceOpen ? setWorkspaceOpen(false) : openWorkspace("tasks")}
-            aria-controls="workspace-drawer"
-            aria-expanded={isWorkspaceOpen}
+            onClick={() => isMyWorkOpen ? setMyWorkOpen(false) : openMyWork("tasks")}
+            aria-controls="my-work-drawer"
+            aria-expanded={isMyWorkOpen}
             aria-haspopup="dialog"
             title="My work"
-            aria-label={`${isWorkspaceOpen ? "Close" : "Open"} Workspace${hasAction ? `, ${actionCount} item${actionCount === 1 ? "" : "s"} need attention` : ""}`}
+            aria-label={`${isMyWorkOpen ? "Close" : "Open"} My work${hasAction ? `, ${actionCount} item${actionCount === 1 ? "" : "s"} need attention` : ""}`}
             className={cn(
                 "nb-nav-link w-full",
-                isWorkspaceOpen
+                isMyWorkOpen
                     ? "bg-sidebar-accent text-foreground"
                     : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
             )}
@@ -46,9 +46,9 @@ export default function WorkspaceIndicator() {
             <ChevronRight
                 className={cn(
                     "nb-sidebar-label h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-150",
-                    isWorkspaceOpen && "rotate-90",
+                    isMyWorkOpen && "rotate-90",
                 )}
-                style={{ transform: isWorkspaceOpen ? "rotate(90deg)" : "rotate(0deg)" }}
+                style={{ transform: isMyWorkOpen ? "rotate(90deg)" : "rotate(0deg)" }}
                 aria-hidden="true"
             />
             {hasAction ? (

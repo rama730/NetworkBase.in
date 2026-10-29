@@ -3,10 +3,10 @@
 import { bootstrap as readChatSummary } from "@/app/actions/chat/read";
 import { readNetworkPendingCountsAction } from "@/app/actions/connections";
 import { readNotificationPreferencesAction, readNotificationUnreadCountAction } from "@/app/actions/notifications";
-import { getWorkspaceSummaryAction } from "@/app/actions/workspace";
+import { getMyWorkSummaryAction } from "@/app/actions/my-work";
 
 const SHELL_READERS = {
-    workspaceSummary: getWorkspaceSummaryAction,
+    workspaceSummary: getMyWorkSummaryAction,
     notificationUnreadCount: readNotificationUnreadCountAction,
     notificationPreferences: readNotificationPreferencesAction,
     chatSummary: () => readChatSummary(),

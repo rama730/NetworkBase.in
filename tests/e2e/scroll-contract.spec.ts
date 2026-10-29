@@ -5,7 +5,7 @@ import { openRoute } from "./_helpers/navigation";
 
 const ROUTES: Array<{ path: string; ready: string; checkHubHeader?: boolean; checkProfileHeader?: boolean }> = [
   { path: "/discover", ready: "[data-testid='discover-feed-scroll']", checkHubHeader: true },
-  { path: "/workspace", ready: "[data-testid='workspace-drawer']", checkHubHeader: true },
+  { path: "/my-work", ready: "[data-testid='my-work-drawer']", checkHubHeader: true },
   { path: "/messages", ready: "[data-scroll-root='route']" },
   { path: "/network", ready: "[data-scroll-root='route']" },
   { path: "/my-profile", ready: "[data-scroll-root='route']", checkProfileHeader: true },

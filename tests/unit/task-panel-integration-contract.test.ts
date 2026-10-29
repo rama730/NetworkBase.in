@@ -39,16 +39,16 @@ test("an open task panel is a working link: its drawer params are in the URL", (
 });
 
 test("workspace task handoff opens the task panel without leaking drawer IDs into the URL", () => {
-  const workspaceTasks = read("src/components/workspace/WorkspaceTasksTab.tsx");
+  const workspaceTasks = read("src/components/my-work/MyWorkTasksTab.tsx");
   const dashboard = read(
     "src/components/projects/dashboard/ProjectDashboardClient.tsx",
   );
   const taskTab = read("src/components/projects/v2/TasksTab.tsx");
 
-  assert.match(workspaceTasks, /setWorkspaceTaskHandoff/);
+  assert.match(workspaceTasks, /setMyWorkTaskHandoff/);
   assert.match(workspaceTasks, /router\.push\(/);
   assert.doesNotMatch(workspaceTasks, /drawerType=task|drawerId=/);
-  assert.match(dashboard, /workspaceInitialTaskId/);
+  assert.match(dashboard, /myWorkInitialTaskId/);
   assert.match(taskTab, /openTask\(localTask, initialPanelTab, true\)/);
 });
 
@@ -285,7 +285,7 @@ test("task file move dialog is roomy and layered above the detail panel", () => 
 
 test("task detail panel dimensions match the workspace drawer specification exactly", () => {
   const panel = read("src/components/projects/v2/tasks/TaskDetailPanel.tsx");
-  const workspaceDrawer = read("src/components/workspace/WorkspaceDrawer.tsx");
+  const workspaceDrawer = read("src/components/my-work/MyWorkDrawer.tsx");
 
   assert.match(workspaceDrawer, /sm:w-\[520px\]/);
   assert.match(workspaceDrawer, /sm:max-w-\[520px\]/);

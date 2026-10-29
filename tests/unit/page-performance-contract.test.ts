@@ -30,10 +30,10 @@ describe("page performance contract", () => {
   it("tracks explicit bootstrap and overload contracts for hot routes", () => {
     assert.deepEqual(
       {
-        routeClass: PAGE_PERFORMANCE_CONTRACTS["/workspace"]?.routeClass,
-        bootstrapReadModel: PAGE_PERFORMANCE_CONTRACTS["/workspace"]?.bootstrapReadModel,
-        maxBackgroundChannels: PAGE_PERFORMANCE_CONTRACTS["/workspace"]?.maxBackgroundChannels,
-        overloadMode: PAGE_PERFORMANCE_CONTRACTS["/workspace"]?.overloadMode,
+        routeClass: PAGE_PERFORMANCE_CONTRACTS["/my-work"]?.routeClass,
+        bootstrapReadModel: PAGE_PERFORMANCE_CONTRACTS["/my-work"]?.bootstrapReadModel,
+        maxBackgroundChannels: PAGE_PERFORMANCE_CONTRACTS["/my-work"]?.maxBackgroundChannels,
+        overloadMode: PAGE_PERFORMANCE_CONTRACTS["/my-work"]?.overloadMode,
       },
       {
         routeClass: "active_surface",

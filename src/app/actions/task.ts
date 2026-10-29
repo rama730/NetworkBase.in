@@ -22,7 +22,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { enqueueProjectNotificationEvent } from "@/lib/notifications/project-events";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
-import { queueCounterRefreshBestEffort } from "@/lib/workspace/counter-buffer";
+import { queueCounterRefreshBestEffort } from "@/lib/my-work/counter-buffer";
 import {
   getTaskFileWarnings,
   inferTaskFileRole,

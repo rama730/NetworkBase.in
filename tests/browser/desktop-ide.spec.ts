@@ -15,10 +15,10 @@ test.beforeAll(async () => {
     "@/hooks/use-auth": `export const useAuth=()=>({user:{id:'viewer-1'}});`,
     "@/hooks/useSettingsQueries": `import {useQuery} from '@tanstack/react-query';export const useExtensionSessionsData=()=>useQuery({queryKey:['fixture-sessions'],queryFn:async()=>{const p=new URLSearchParams(location.search);if(p.has('sessions-loading'))return new Promise(()=>{});if(window.ideFixture.failSessions)throw new Error('Unavailable');const editors=p.get('connected')?.split(',')||[];return {sessions:[...editors.map(editor=>({editorName:editor,editorPlatform:'darwin',clientVersion:'1.2.0'})),{editorName:'Windsurf',editorPlatform:'darwin',clientVersion:'pending'}]};}});`,
     "@/hooks/useLaptopInstalledIdes": `import {SUPPORTED_IDES} from '@/lib/extension/ide-protocol';export const useLaptopInstalledIdes=()=>({installedList:new URLSearchParams(location.search).has('installed')?[SUPPORTED_IDES.cursor]:[],platform:'darwin',isLoading:false});`,
-    "@/app/actions/workspace": `export const getWorkspaceSummaryAction=async()=>({success:true,taskCount:2,requestCount:0});`,
+    "@/app/actions/my-work": `export const getMyWorkSummaryAction=async()=>({success:true,taskCount:2,requestCount:0});`,
     "@/hooks/useNetworkNotifications": `export const useNetworkNotifications=()=>({pendingConnections:0});`,
-    "./WorkspaceTasksTab": `import React from 'react';export default ()=>React.createElement('p',{},'Review workspace security controls');`,
-    "./WorkspaceRequestsTab": `import React from 'react';export default ()=>React.createElement('p',{},'No invitations');`,
+    "./MyWorkTasksTab": `import React from 'react';export default ()=>React.createElement('p',{},'Review workspace security controls');`,
+    "./MyWorkRequestsTab": `import React from 'react';export default ()=>React.createElement('p',{},'No invitations');`,
   };
   const result = await build({
     entryPoints: [path.resolve("tests/browser/desktop-ide.fixture.tsx")],
@@ -338,7 +338,7 @@ test("My Work header opens a chosen project, supports project paging and retries
   expect(uri.searchParams.get("projectId")).toBe("project-2");
   expect(uri.searchParams.get("slug")).toBe("ponytail");
   await expect(projects).toHaveCount(0);
-  await expect(page.getByTestId("workspace-drawer")).toBeVisible();
+  await expect(page.getByTestId("my-work-drawer")).toBeVisible();
 });
 
 test("mobile sheet and dark My Work header fit the viewport and keep the picker reachable", async ({
@@ -395,7 +395,7 @@ test("an empty My Work project list never dispatches an empty workspace", async 
   ).toBeVisible();
   expect(await lastUri(page)).toBeUndefined();
   await page.getByRole("button", { name: "Close", exact: true }).click();
-  await expect(page.getByTestId("workspace-drawer")).toBeVisible();
+  await expect(page.getByTestId("my-work-drawer")).toBeVisible();
 });
 
 test.describe("touch controls", () => {
@@ -409,7 +409,7 @@ test.describe("touch controls", () => {
   }) => {
     await page.setViewportSize({ width: 320, height: 844 });
     await open(page, "surface=work&connected=VS%20Code%20Insiders&dark");
-    await expect.poll(async () => (await page.getByTestId("workspace-drawer").boundingBox())!.x).toBeCloseTo(0, 0);
+    await expect.poll(async () => (await page.getByTestId("my-work-drawer").boundingBox())!.x).toBeCloseTo(0, 0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
     const close = await page.getByRole("button", { name: "Close workspace", exact: true }).boundingBox();
     expect(close!.x + close!.width).toBeLessThanOrEqual(320);

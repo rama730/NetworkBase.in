@@ -13,7 +13,7 @@ type SpecialRouteDescriptor = {
 
 const ACTIVE_SURFACE_ROUTES: RouteDescriptor[] = [
     { pathname: '/messages', routeClass: 'active_surface' },
-    { pathname: '/workspace', routeClass: 'active_surface' },
+    { pathname: '/my-work', routeClass: 'active_surface' },
 ]
 
 const USER_SHELL_ROUTES: RouteDescriptor[] = [

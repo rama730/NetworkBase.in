@@ -9,7 +9,7 @@ type Violation = {
 const REPO_ROOT = process.cwd();
 
 const TARGET_PREFIXES = [
-  "src/components/workspace/",
+  "src/components/my-work/",
   "src/components/discover/",
   "src/hooks/projects/",
   "src/hooks/useWorkspace",
@@ -29,11 +29,11 @@ const TARGET_FILES = new Set<string>([
 ]);
 
 const FORBIDDEN_PATTERNS: RegExp[] = [
-  /queryKey\s*:\s*\[\s*['"](workspace|hub|profile|settings)['"]/g,
-  /invalidateQueries\(\s*\{\s*queryKey\s*:\s*\[\s*['"](workspace|hub|profile|settings)['"]/g,
-  /cancelQueries\(\s*\{\s*queryKey\s*:\s*\[\s*['"](workspace|hub|profile|settings)['"]/g,
-  /getQueryData\(\s*\[\s*['"](workspace|hub|profile|settings)['"]/g,
-  /setQueryData\(\s*\[\s*['"](workspace|hub|profile|settings)['"]/g,
+  /queryKey\s*:\s*\[\s*['"](my-work|hub|profile|settings)['"]/g,
+  /invalidateQueries\(\s*\{\s*queryKey\s*:\s*\[\s*['"](my-work|hub|profile|settings)['"]/g,
+  /cancelQueries\(\s*\{\s*queryKey\s*:\s*\[\s*['"](my-work|hub|profile|settings)['"]/g,
+  /getQueryData\(\s*\[\s*['"](my-work|hub|profile|settings)['"]/g,
+  /setQueryData\(\s*\[\s*['"](my-work|hub|profile|settings)['"]/g,
 ];
 
 function toPosix(filePath: string): string {
