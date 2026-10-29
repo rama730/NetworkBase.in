@@ -99,8 +99,6 @@ export function suggestedStep(activeStrikesBefore: number): { action: Moderation
 }
 
 /** Limits are 7 or 30 days; suspensions 14, 30, or pending investigation for at most 14 days (F6). */
-export const LIMIT_DAYS = [7, 30] as const;
-export const SUSPENSION_DAYS = [14, 30] as const;
 export const PENDING_INVESTIGATION_DAYS = 14;
 
 /** The appeal window (T21): 30 days; bans 60; nothing for child safety. */
@@ -110,7 +108,6 @@ export function appealUntil(action: ModerationActionKind, reason: ReportReason, 
 }
 export const APPEAL_DECIDE_HOURS = 72;
 /** A restriction pauses when we're this late on its appeal (T22); never a ban. */
-export const APPEAL_PAUSE_AFTER_DAYS = 7;
 
 /** NB-4821. */
 export const caseLabel = (number: number) => `NB-${number}`;

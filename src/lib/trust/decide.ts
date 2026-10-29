@@ -13,7 +13,7 @@ import { logModerationEvent } from "@/lib/trust/cases";
 import { decisionNotice, endedNotice, reporterOutcomeNotice, shortDate } from "@/lib/trust/messages";
 import { notifySafety } from "@/lib/trust/notify";
 import {
-  ACCOUNT_ACTIONS, actionsFor, ADMIN_ONLY_ACTIONS, addsStrike, appealUntil as appealWindow, caseLabel, KIND_NOUN, PENDING_INVESTIGATION_DAYS,
+  actionsFor, ADMIN_ONLY_ACTIONS, addsStrike, appealUntil as appealWindow, caseLabel, KIND_NOUN, PENDING_INVESTIGATION_DAYS,
   STRIKE_DAYS, type ModerationActionKind, type ReportReason, type ReportTargetKind,
 } from "@/lib/trust/rules";
 import type { StaffRole } from "@/lib/trust/staff";
@@ -347,4 +347,3 @@ export async function noticeRestrictionEnded(subjectId: string, key: string) {
   await wakeEmailWorker();
 }
 
-export { ACCOUNT_ACTIONS };

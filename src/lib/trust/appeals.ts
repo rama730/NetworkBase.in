@@ -140,10 +140,9 @@ export async function decideAppeal(caseId: string, staffId: string, outcome: "up
 
 /** Appeals tab (17.6). */
 export async function readAppeals(open = true) {
-  const rows = await db.execute<{ case_id: string; number: number; person: string | null; actions: string | null; created_at: string; deadline_at: string; state: string; self_review: boolean; decided_by: string | null }>(sql`
+  const rows = await db.execute<{ case_id: string; number: number; person: string | null; actions: string | null; created_at: string; deadline_at: string; state: string; decided_by: string | null }>(sql`
     SELECT ap.case_id, c.number::int AS number, coalesce(p.full_name, '@' || p.username) AS person, ap.created_at::text, ap.deadline_at::text, ap.state, c.decided_by,
-           (SELECT string_agg(a.action || coalesce(' ' || extract(day FROM a.ends_at - a.created_at)::int || 'd', ''), ', ') FROM moderation_actions a WHERE a.case_id = c.id AND a.undone_at IS NULL) AS actions,
-           false AS self_review
+           (SELECT string_agg(a.action || coalesce(' ' || extract(day FROM a.ends_at - a.created_at)::int || 'd', ''), ', ') FROM moderation_actions a WHERE a.case_id = c.id AND a.undone_at IS NULL) AS actions
     FROM moderation_appeals ap JOIN moderation_cases c ON c.id = ap.case_id LEFT JOIN profiles p ON p.id = ap.subject_id
     WHERE ${open ? sql`ap.state IN ('pending', 'in_review')` : sql`ap.state NOT IN ('pending', 'in_review')`}
     ORDER BY ${open ? sql`ap.deadline_at` : sql`ap.decided_at DESC NULLS LAST`} LIMIT 200`);
