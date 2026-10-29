@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { contentReports, moderationCases, moderationEvents } from "@/lib/db/schema";
@@ -74,9 +74,12 @@ export type FileReportResult =
  * Files one report from a signed-in person. The caller has already rate-limited them; this checks the thing is
  * theirs to report, freezes the evidence, and opens or joins the case.
  */
-export async function fileReport(reporterId: string, input: { kind: ReportTargetKind; targetId: string; seq?: number | null; reason: ReportReason; details?: string | null; alsoBlock?: boolean }): Promise<FileReportResult> {
+export async function fileReport(reporterId: string, input: { kind: ReportTargetKind; targetId: string; seq?: number | null; reason: ReportReason; details?: string | null; alsoBlock?: boolean; joinCode?: string | null }): Promise<FileReportResult> {
   if (!reasonsFor(input.kind).includes(input.reason)) return { ok: false, error: "Pick one of the reasons shown." };
-  const target = await resolveReportTarget(input.kind, input.targetId, input.seq ?? null, reporterId);
+  // On the join page the code is what lets someone see an org they aren't in yet, so it counts as visibility.
+  const [viaCode] = input.kind === "project" && input.joinCode ? await db.execute<{ ok: boolean }>(sql`
+    SELECT EXISTS (SELECT 1 FROM workspaces WHERE id = ${input.targetId} AND join_code = ${input.joinCode} AND join_code_enabled AND deleted_at IS NULL) AS ok`) : [];
+  const target = await resolveReportTarget(input.kind, input.targetId, input.seq ?? null, viaCode?.ok ? null : reporterId);
   if (!target) return { ok: false, error: "That is no longer available." };
   if (target.subjectId === reporterId) return { ok: false, error: "You can't report your own " + KIND_NOUN[input.kind] + ". You can edit or delete it." };
 
@@ -194,10 +197,12 @@ export async function listMyReports(reporterId: string) {
   }));
 }
 
-/** Open reports on a list of things by this person: drives "Reported · in review" (C16). */
-export async function openReportsByMe(reporterId: string, kind: ReportTargetKind, targetIds: string[]) {
-  if (targetIds.length === 0) return new Set<string>();
-  const rows = await db.select({ id: contentReports.targetId }).from(contentReports)
-    .where(and(eq(contentReports.reporterId, reporterId), eq(contentReports.targetKind, kind), inArray(contentReports.targetId, targetIds), eq(contentReports.status, "open")));
-  return new Set(rows.map((r) => r.id));
+/** Everything this person reported that is still in review: drives "Reported · in review" (C16). */
+export async function openReportsOf(reporterId: string) {
+  const rows = await db.execute<{ kind: ReportTargetKind; target_id: string; target_seq: number | null; number: number }>(sql`
+    SELECT r.target_kind AS kind, r.target_id, r.target_seq::int AS target_seq, c.number::int AS number
+    FROM content_reports r JOIN moderation_cases c ON c.id = r.case_id
+    WHERE r.reporter_id = ${reporterId} AND r.status = 'open' AND c.state IN ('open', 'in_review')
+    ORDER BY r.created_at DESC LIMIT 500`);
+  return [...rows].map((r) => ({ kind: r.kind, targetId: r.target_id, seq: r.target_seq, caseNumber: r.number }));
 }

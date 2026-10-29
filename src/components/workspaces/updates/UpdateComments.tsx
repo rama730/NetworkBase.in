@@ -26,6 +26,7 @@ import { ThreadAvatarRail, ThreadRailBridge } from "@/components/ui/ThreadRail";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import { getDescendants, renderCommentContent, updatePages, updateRelativeTime, type UpdatesPage } from '@/components/workspaces/updates/update-helpers';
+import { ModeratedPlaceholder, useModeratedItems, withPlaceholders } from '@/components/reports/ModeratedPlaceholder';
 
 function CommentRow({
   comment,
@@ -581,6 +582,12 @@ export function UpdateComments({
     comments.data?.pages.flatMap((page) => page.comments) ?? [];
 
   const topLevelComments = useMemo(() => allComments.filter((c) => !c.parentId), [allComments]);
+  // Hidden or removed comments keep their place (trust and safety §7.1).
+  const moderated = useModeratedItems(currentUserId ? { workspaceId: projectId } : null);
+  const commentEntries = useMemo(
+    () => withPlaceholders(topLevelComments, moderated.filter((m) => m.kind === "update_comment" && m.parentId === update.id), !comments.hasNextPage, false),
+    [comments.hasNextPage, moderated, topLevelComments, update.id],
+  );
 
   const focusedComment = useMemo(() => {
     if (!focusedCommentId) return null;
@@ -988,12 +995,14 @@ export function UpdateComments({
 
           {comments.isLoading ? (
             <div aria-hidden="true" className="nb-skeleton h-8 shrink-0 rounded-[5px]" />
-          ) : topLevelComments.length > 0 ? (
+          ) : commentEntries.length > 0 ? (
             <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
-              {topLevelComments.map((comment) => (
+              {commentEntries.map((entry) => "placeholder" in entry ? (
+                <ModeratedPlaceholder key={`moderated-${entry.placeholder.targetId}`} item={entry.placeholder} noun="comment" />
+              ) : (
                 <CommentRow
-                  key={comment.id}
-                  comment={comment}
+                  key={entry.item.id}
+                  comment={entry.item}
                   allComments={allComments}
                   highlightedCommentId={highlightedCommentId}
                   currentUserId={currentUserId}

@@ -231,7 +231,7 @@ function PersonCard({
                     <Ban className="size-4" />
                     Block
                 </DropdownMenuItem>
-                <ReportMenuItem noun="person" onReport={reporting.open} />
+                <ReportMenuItem noun="person" target={reporting.target} onReport={reporting.open} />
             </DropdownMenuContent>
         </DropdownMenu>
     ) : status === "pending_received" ? (
@@ -269,7 +269,7 @@ function PersonCard({
                         View profile
                     </Link>
                 </DropdownMenuItem>
-                <ReportMenuItem noun="person" onReport={reporting.open} />
+                <ReportMenuItem noun="person" target={reporting.target} onReport={reporting.open} />
             </DropdownMenuContent>
         </DropdownMenu>
     ) : status === "blocked" ? (

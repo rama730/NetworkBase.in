@@ -17,7 +17,8 @@ import { MessageCard } from "@/components/messages/cards/MessageCard";
 import { MessageAttachmentsV2, type ChatAttachmentV2 } from "@/components/messages/parts/message-attachments";
 import { MessageLinkPreview } from "@/components/messages/parts/MessageLinkPreview";
 import { ReactionQuickBar } from "@/components/messages/parts/ReactionQuickBar";
-import { ReportDialog } from "@/components/reports/ReportDialog";
+import { ReportDialog, useOpenReportCase } from "@/components/reports/ReportDialog";
+import { moderatedText, useModeratedItems } from "@/components/reports/ModeratedPlaceholder";
 import { useUpdatePages } from "@/components/messages/useConversation";
 import { noteReaction, useQuickReactions } from "@/components/messages/useQuickReactions";
 import { discardSend, editFailedSend, failedSend, retrySend } from "@/components/messages/failed-sends";
@@ -238,8 +239,12 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
   const quick = useQuickReactions();
 
   const own = message.author_id === ctx.meId;
+  // "Reported · in review" (trust and safety C16): one shared request per session, not one per message.
+  const reportedCase = useOpenReportCase(!own && !message.card && message.kind === "user" ? { kind: "chat_message", targetId: ctx.channelId, seq: message.seq } : undefined);
   const pending = message.seq < 0;
   const deleted = Boolean(message.deleted_at);
+  // A message hidden or removed by moderation says so in place (trust and safety §7.1); asked once per conversation.
+  const moderated = useModeratedItems(deleted ? { channelId: ctx.channelId } : null).find((m) => m.seq === message.seq) ?? null;
   const member = ctx.isMember !== false;
   const actions = !pending && !deleted && member;
   const editing = ctx.editingSeq === message.seq;
@@ -393,7 +398,9 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     if (own && !message.card) list.push({ id: "edit", label: "Edit message", icon: Pencil, run: startEdit, shortcut: "E", group: 3 });
     if (canDelete) list.push({ id: "delete", label: "Delete message", icon: Trash2, run: () => (own && !message.reply_count ? removeWithUndo() : setConfirmDelete(true)), shortcut: keyLabel("backspace"), destructive: true, group: 3 });
     // Task, application and invite cards are the app's own messages: nothing to report.
-    if (!own && !message.card) list.push({ id: "report", label: "Report message", icon: Flag, run: () => setReportOpen(true), group: 3 });
+    if (!own && !message.card) list.push(reportedCase
+      ? { id: "report", label: `Reported · in review · ${reportedCase}`, icon: Flag, run: () => toast(`You've already reported this. Case ${reportedCase} is in review.`), group: 3 }
+      : { id: "report", label: "Report message", icon: Flag, run: () => setReportOpen(true), group: 3 });
   }
   useEffect(() => () => {
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
@@ -523,7 +530,10 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
             </div>
           )}
           {deleted ? (
-            <p className="text-[15px] italic text-muted-foreground">This message was deleted.</p>
+            <p className="text-[15px] italic text-muted-foreground">
+              {moderated ? `${moderatedText(moderated, "message")}.` : "This message was deleted."}
+              {moderated?.canAppeal && moderated.caseLabel ? <> <a href={`/appeal/${moderated.caseLabel}`} className="not-italic font-medium text-foreground underline underline-offset-4">Appeal</a></> : null}
+            </p>
           ) : editing ? (
             <EditBox
               body={message.body}

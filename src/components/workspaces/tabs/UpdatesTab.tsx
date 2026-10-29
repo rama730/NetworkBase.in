@@ -24,6 +24,7 @@ import { WORKSPACE_UPDATE_VIRTUALIZE_THRESHOLD } from "@/lib/workspaces/updates"
 import { cn } from "@/lib/utils";
 import { prependUpdate, realtimeStringField, removeUpdate, replaceUpdate, updatePages, type UpdatesPage } from '@/components/workspaces/updates/update-helpers';
 import { MemoizedUpdateCard } from '@/components/workspaces/updates/UpdateCard';
+import { ModeratedPlaceholder, useModeratedItems, withPlaceholders } from '@/components/reports/ModeratedPlaceholder';
 import { UpdatesRightRail } from '@/components/workspaces/updates/UpdatesRightRail';
 import { OrgFeedFilters, OrgPinnedLine, OrgUpdateOptions, type OrgPostOptions } from '@/components/organizations/OrgUpdateParts';
 import type { OrgFeedFilter } from '@/lib/organizations/org-updates';
@@ -150,6 +151,12 @@ export default function UpdatesTab({
   const visibleUpdates = useMemo(
     () => updates.filter((update) => !update.deletedAt && !hiddenUpdateIds.has(update.id)),
     [hiddenUpdateIds, updates],
+  );
+  // Hidden or removed posts keep their place (trust and safety §7.1): for the author with Appeal, for others as "hidden".
+  const moderated = useModeratedItems(currentUserId ? { workspaceId: projectId } : null);
+  const feedEntries = useMemo(
+    () => withPlaceholders(visibleUpdates, moderated.filter((m) => m.kind === "update"), !updatesQuery.hasNextPage),
+    [moderated, updatesQuery.hasNextPage, visibleUpdates],
   );
   const shouldVirtualizeFeed =
     visibleUpdates.length > WORKSPACE_UPDATE_VIRTUALIZE_THRESHOLD;
@@ -472,7 +479,7 @@ export default function UpdatesTab({
         Retry
       </button>
     </div>
-  ) : visibleUpdates.length === 0 ? (
+  ) : feedEntries.length === 0 ? (
     <div className="nb-empty-state nb-grid-ground py-16" role="status">
       <MessageCircle className="nb-empty-state-icon mb-3" />
       <h3 className="nb-empty-state-title">
@@ -487,36 +494,40 @@ export default function UpdatesTab({
   ) : shouldVirtualizeFeed ? (
     <Virtuoso
       {...(feedScrollParent ? { customScrollParent: feedScrollParent } : { useWindowScroll: true })}
-      data={visibleUpdates}
-      itemContent={(_, update) => (
+      data={feedEntries}
+      itemContent={(_, entry) => "placeholder" in entry ? (
+        <ModeratedPlaceholder item={entry.placeholder} noun="post" className="mb-3" />
+      ) : (
         <MemoizedUpdateCard
           projectId={projectId}
           projectSlug={projectSlug}
-          update={update}
+          update={entry.item}
           updatesQueryKey={updatesQueryKey}
           onHide={hideUpdate}
           onOpenDetail={openDetail}
           currentUserId={currentUserId}
-          highlighted={initialUpdateId === update.id}
-          isNew={isNewUpdate(update)}
+          highlighted={initialUpdateId === entry.item.id}
+          isNew={isNewUpdate(entry.item)}
         />
       )}
     />
   ) : (
     <div>
       <>
-        {visibleUpdates.map((update) => (
+        {feedEntries.map((entry) => "placeholder" in entry ? (
+          <ModeratedPlaceholder key={`moderated-${entry.placeholder.targetId}`} item={entry.placeholder} noun="post" className="mb-3" />
+        ) : (
           <MemoizedUpdateCard
-            key={update.id}
+            key={entry.item.id}
             projectId={projectId}
             projectSlug={projectSlug}
-            update={update}
+            update={entry.item}
             updatesQueryKey={updatesQueryKey}
             onHide={hideUpdate}
             onOpenDetail={openDetail}
             currentUserId={currentUserId}
-            highlighted={initialUpdateId === update.id}
-            isNew={isNewUpdate(update)}
+            highlighted={initialUpdateId === entry.item.id}
+            isNew={isNewUpdate(entry.item)}
           />
         ))}
       </>

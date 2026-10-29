@@ -15,11 +15,22 @@ import type { TrustEmailData } from "@/lib/email/trust-templates";
 
 // The trust and safety background jobs (docs/trust-and-safety-concept.md §15). Each is safe to run twice.
 
-async function emailStaff(eventId: string, data: TrustEmailData) {
+/** Email to every staff member; `push` also puts it in their tray, which reaches their devices as web push. */
+async function emailStaff(eventId: string, data: TrustEmailData, push = false) {
   const staff = await listStaff();
   await queueEmails(db, staff.map((s) => ({ kind: "trust_staff" as const, eventId, userId: s.id, data: data as unknown as Record<string, unknown> })));
   await wakeEmailWorker();
+  if (push) for (const s of staff) await notifySafety({ to: s.id, title: data.subject, body: data.preview, href: data.primary?.href ?? "/admin/trust", dedupeKey: eventId });
   return staff.length;
+}
+
+/** A trust job ran out of retries (F24): staff hear at once, by email and push. */
+export async function alertJobFailure(job: string, message: string) {
+  return emailStaff(`job-failed:${job}:${new Date().toISOString().slice(0, 13)}`, {
+    subject: `Background job failed: ${job}`, preview: "Reports may not move until it's fixed.", label: "Trust & safety", headline: `${job} failed`,
+    paragraphs: [`It stopped after its retries. The last error was: ${message.slice(0, 300)}`, "Check the job in the Inngest dashboard, then the Health tab."],
+    primary: { label: "Open Health", href: "/admin/trust?tab=health" },
+  }, true);
 }
 
 /** trust-urgent-alert: the first email, or the 30-minute reminder while nobody has claimed it. */
@@ -27,7 +38,7 @@ export async function alertUrgentCase(caseId: string, reminder: boolean) {
   const [c] = await db.execute<{ number: number; reason: ReportReason; target_kind: ReportTargetKind; claimed: boolean; open: boolean }>(sql`
     SELECT number::int AS number, reason, target_kind, assignee_id IS NOT NULL AS claimed, state IN ('open', 'in_review') AS open FROM moderation_cases WHERE id = ${caseId}`);
   if (!c || !c.open || (reminder && c.claimed)) return 0;
-  return emailStaff(`urgent:${caseId}:${reminder ? "reminder" : "first"}`, urgentStaffEmail(c.number, REPORT_REASON_LABEL[c.reason], KIND_NOUN[c.target_kind], reminder));
+  return emailStaff(`urgent:${caseId}:${reminder ? "reminder" : "first"}`, urgentStaffEmail(c.number, REPORT_REASON_LABEL[c.reason], KIND_NOUN[c.target_kind], reminder), true);
 }
 
 /**
@@ -71,6 +82,12 @@ export async function runTrustRestrictions() {
     WHERE action IN ('limit', 'suspension') AND ends_at BETWEEN now() - interval '3 hours' AND now()
       AND lifted_at IS NULL AND reversed_at IS NULL AND undone_at IS NULL AND subject_id IS NOT NULL`);
   for (const a of ended) await noticeRestrictionEnded(a.subject_id, a.id);
+  // A suspension that ran its course gives the profile back its visibility, unless another one still holds.
+  await db.execute(sql`
+    UPDATE profiles p SET visibility = a.restore->>'visibility' FROM moderation_actions a
+    WHERE a.action = 'suspension' AND a.subject_id = p.id AND a.restore ? 'visibility' AND a.ends_at <= now()
+      AND a.lifted_at IS NULL AND a.reversed_at IS NULL AND a.undone_at IS NULL AND p.visibility = 'private'
+      AND coalesce(app_private.moderation_restriction(p.id), 'none') NOT IN ('suspension', 'ban')`);
   if (soon.length) await wakeEmailWorker();
   return { soon: soon.length, ended: ended.length };
 }

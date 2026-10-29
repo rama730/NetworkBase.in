@@ -3,7 +3,7 @@
 import { confirmAppNavigation } from "@/lib/navigation/confirm-navigation";
 
 import { CONNECTION_COPY } from "@/lib/connections/copy";
-import { History, RotateCcw, Search, X } from "lucide-react";
+import { History, RotateCcw, Search, ShieldCheck, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -158,6 +158,19 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
         ? { label: "Connections / Network", hints: ["Connection name", "Username"] }
         : CONTEXT_PRESENTATION[searchContext];
     const palettePlaceholder = `Search ${presentation.label}…`;
+    // Staff only (trust and safety C2): "trust" or a case number opens the console. Asked once per opening.
+    const [isStaff, setIsStaff] = useState(false);
+    useEffect(() => {
+        if (!isOpen || !recentSearchOwnerId) return;
+        void import("@/app/actions/moderation-staff").then(({ staffBadgeAction }) => staffBadgeAction()).then((badge) => setIsStaff(Boolean(badge)), () => setIsStaff(false));
+    }, [isOpen, recentSearchOwnerId]);
+    const staffCommand = useMemo(() => {
+        if (!isStaff) return null;
+        const q = query.trim();
+        const caseNumber = q.match(/^nb-?(\d{1,9})$/i)?.[1];
+        if (caseNumber) return { label: `Open case NB-${caseNumber}`, href: `/admin/trust/cases/NB-${caseNumber}` };
+        return q.length >= 2 && /^(t(r(u(st?)?)?)?|safety|report|reports|moderation|case|cases)/i.test(q) ? { label: "Open Trust & safety", href: "/admin/trust" } : null;
+    }, [isStaff, query]);
     const normalizedQuery = query.trim();
     const settingsResults = useMemo(
         () => searchContext === "settings" ? searchSettings(query).slice(0, 10) : [],
@@ -393,6 +406,17 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
                             : normalizedQuery.length >= 2
                                 ? `${resultCount} preview results`
                                 : "Type at least two characters to preview results"}</div>
+
+                    {staffCommand ? (
+                        <div className="shrink-0 border-b border-border p-2">
+                            <button type="button" onClick={() => { onClose(); router.push(staffCommand.href); }}
+                                className="flex min-h-10 w-full items-center gap-2.5 rounded-[8px] px-3 text-left text-sm text-foreground transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none">
+                                <ShieldCheck className="size-4 text-muted-foreground" aria-hidden="true" />
+                                <span className="flex-1">{staffCommand.label}</span>
+                                <span className="nb-meta">Staff</span>
+                            </button>
+                        </div>
+                    ) : null}
 
                     {searchContext === "settings" ? (
                         <div className="flex min-h-0 flex-1 flex-col sm:max-h-[480px]">

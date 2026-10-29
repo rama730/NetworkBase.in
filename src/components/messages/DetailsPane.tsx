@@ -216,7 +216,7 @@ function MemberRow({ member, channel, meId, onRemove }: { member: ChannelMember;
                 {channel.is_default ? null : <DropdownMenuItem variant="destructive" onSelect={() => onRemove(member)}><UserMinus /> Remove from channel</DropdownMenuItem>}
               </>
             ) : null}
-            <ReportMenuItem noun="person" onReport={reporting.open} />
+            <ReportMenuItem noun="person" target={reporting.target} onReport={reporting.open} />
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}

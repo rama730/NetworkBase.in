@@ -15,12 +15,12 @@ import {
   Loader2,
   MessageSquare,
   MoreHorizontal,
-  Flag,
   Send,
   Trash2,
   X,
 } from "lucide-react";
-import { ReportDialog } from "@/components/reports/ReportDialog";
+import { ReportDialog, ReportMenuItem } from "@/components/reports/ReportDialog";
+import { ModeratedPlaceholder, useModeratedItems } from "@/components/reports/ModeratedPlaceholder";
 
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/ui/UserAvatar";
@@ -47,6 +47,8 @@ type PresenceStatus = "connecting" | "connected" | "disconnected" | "error";
 
 interface CommentsTabProps {
   projectId: string;
+  /** For hidden or removed comments shown in place (trust and safety §7.1). */
+  taskId?: string;
   comments: TaskDiscussionComment[];
   totalCount: number;
   hasMore: boolean;
@@ -287,13 +289,7 @@ function DiscussionEntry({
                     <span>Delete</span>
                   </DropdownMenuItem>
                 ) : currentUserId ? (
-                  <DropdownMenuItem
-                    onClick={() => setReporting(true)}
-                    className="flex cursor-pointer items-center gap-2 rounded-[3px] px-2 py-1 text-xs"
-                  >
-                    <Flag className="size-3.5" />
-                    <span>Report</span>
-                  </DropdownMenuItem>
+                  <ReportMenuItem first noun="comment" target={{ kind: "task_comment", targetId: entry.id }} onReport={() => setReporting(true)} />
                 ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
@@ -387,6 +383,7 @@ function DiscussionEntry({
 
 export default function CommentsTab({
   projectId,
+  taskId,
   comments,
   totalCount,
   hasMore,
@@ -407,6 +404,9 @@ export default function CommentsTab({
   onSendTyping,
   initialCommentId = null,
 }: CommentsTabProps) {
+  // Comments hidden or removed by moderation, above the discussion (trust and safety §7.1).
+  const moderated = useModeratedItems(currentUserId && taskId ? { workspaceId: projectId } : null);
+  const moderatedComments = moderated.filter((m) => m.kind === "task_comment" && m.parentId === taskId);
   const [draft, setDraft] = useState("");
   const [replyDraft, setReplyDraft] = useState("");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
@@ -877,12 +877,18 @@ export default function CommentsTab({
         </div>
       ) : null}
 
+      {moderatedComments.length ? (
+        <div className="mb-3 space-y-1.5">
+          {moderatedComments.map((item) => <ModeratedPlaceholder key={item.targetId} item={item} noun="comment" />)}
+        </div>
+      ) : null}
+
       {isLoading ? (
         <div className="space-y-3 py-2">
           <div aria-hidden="true" className="nb-skeleton h-12 rounded-md" />
           <div aria-hidden="true" className="nb-skeleton h-12 rounded-md" />
         </div>
-      ) : sortedVisibleComments.length === 0 ? (
+      ) : sortedVisibleComments.length === 0 && !moderatedComments.length ? (
         <div className="nb-empty-state nb-grid-ground my-4 py-12 text-center" role="status">
           <div className="nb-empty-state-icon-box">
             <MessageSquare className="nb-empty-state-icon" />

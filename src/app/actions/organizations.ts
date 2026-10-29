@@ -31,6 +31,8 @@ import { namesOf, notifyJoined, notifyOrg, orgHref, orgLabel } from '@/lib/organ
 type Failure = { success: false; error: string };
 
 export type OrgJoinPreview = {
+    /** For Report on the join page (trust and safety §5.1). */
+    id: string;
     title: string;
     slug: string | null;
     /** The type as people read it ("Education", or Other's own label). */
@@ -72,6 +74,7 @@ export async function getJoinPreviewAction(rawCode: string): Promise<{ success: 
     return {
         success: true,
         preview: {
+            id: org.id,
             title: org.title,
             slug: org.slug,
             orgType: orgTypeLabel(org.orgType, org.orgSettings),
