@@ -21,7 +21,7 @@ import {
   fileCollectionViews,
 } from "./FilesViews";
 
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 import { useFilesStore } from "@/stores/filesStore";
 import { isInternalTaskWorkingFilesNode } from "@/lib/files/task-working-files";
@@ -165,7 +165,7 @@ export function FilesTabSidebar({
   const navigateTo = useNavigateTo(projectId);
 
   const filesView = useFilesViews();
-  const renderNodesById = nodesById as Record<string, ProjectNode>;
+  const renderNodesById = nodesById as Record<string, WorkspaceNode>;
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 767px)");
@@ -281,7 +281,7 @@ export function FilesTabSidebar({
 
   // ── Derived selected node (coerced to the legacy explorer shape) ──
   const selectedNode = currentLocationId
-    ? ((nodesById as Record<string, ProjectNode>)[currentLocationId] ?? null)
+    ? ((nodesById as Record<string, WorkspaceNode>)[currentLocationId] ?? null)
     : null;
 
   // ── Mutations (create / rename / delete / move / upload) ─────────
@@ -336,7 +336,7 @@ export function FilesTabSidebar({
     projectId,
     treeVersion,
     explorerMode: "tree",
-    nodesById: nodesById as Record<string, ProjectNode>,
+    nodesById: nodesById as Record<string, WorkspaceNode>,
     childrenByParentId: childrenByParentId as Record<string, string[]>,
     loadedChildren: loadedChildren as Record<string, boolean>,
     expandedFolderIds: expandedFolderIds as Record<string, boolean>,
@@ -355,7 +355,7 @@ export function FilesTabSidebar({
     effectiveMode: "tree",
     visibleRows: visibleRows.filter((row) => {
       if (row.kind !== "node") return true;
-      const node = (nodesById as Record<string, ProjectNode>)[row.nodeId];
+      const node = (nodesById as Record<string, WorkspaceNode>)[row.nodeId];
       if (node && isInternalTaskWorkingFilesNode(node)) return false;
       return true;
     }),
@@ -363,7 +363,7 @@ export function FilesTabSidebar({
     trashNodesState: [],
     favorites: favorites as Record<string, boolean>,
     recents: recents as string[],
-    nodesById: nodesById as Record<string, ProjectNode>,
+    nodesById: nodesById as Record<string, WorkspaceNode>,
     includeFileByMode,
   });
 
@@ -397,7 +397,7 @@ export function FilesTabSidebar({
 
   // ── Row-click handler: single write path to currentLocationId ─────
   const handleSelect = useCallback(
-    (node: ProjectNode) => {
+    (node: WorkspaceNode) => {
       navigateTo(node.id);
       if (window.matchMedia("(max-width: 767px)").matches)
         toggleSidebar(projectId);
@@ -434,11 +434,11 @@ export function FilesTabSidebar({
     open: boolean;
     x: number;
     y: number;
-    node: ProjectNode | null;
+    node: WorkspaceNode | null;
   }>({ open: false, x: 0, y: 0, node: null });
 
   const handleContextMenu = useCallback(
-    (node: ProjectNode, e: React.MouseEvent) => {
+    (node: WorkspaceNode, e: React.MouseEvent) => {
       e.preventDefault();
       setContextMenuState({ open: true, x: e.clientX, y: e.clientY, node });
     },

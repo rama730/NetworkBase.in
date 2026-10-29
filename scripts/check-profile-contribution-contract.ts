@@ -52,12 +52,12 @@ async function main() {
   const workspace = await source("src/components/profile/edit/ContributionEditor.tsx");
   const storyCommand = await source("src/app/actions/contribution-stories.ts");
   const storyView = await source("src/components/profile/ContributionStoryView.tsx");
-  requireContract("schema has platform-or-external authority constraint", schema.includes("profile_project_contributions_authority_shape_check"));
+  requireContract("schema has platform-or-external authority constraint", schema.includes("profile_contributions_authority_shape_check"));
   requireContract(
     "schema has optimistic version",
     /version:\s*integer\(["']version["']\)\.default\(1\)\.notNull\(\)/.test(schema),
   );
-  requireContract("external identity is unique", schema.includes("profile_project_contributions_profile_external_active_unique"));
+  requireContract("external identity is unique", schema.includes("profile_contributions_profile_external_active_unique"));
   requireContract("migration relationally backfills skills", migration.includes('INSERT INTO "profile_contribution_skills"'));
   requireContract("migration repairs duplicated idempotency history", migration.includes("row_number() OVER"));
   requireContract("migration scopes public reads to parent visibility", migration.includes("contribution.visibility = 'public'"));

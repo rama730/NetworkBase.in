@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { and, eq, inArray, isNotNull, isNull, ne, or, sql, type SQL } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { projectMembers, projectSprints, projectWorkflowColumns, projects, sprintTaskMemberships, taskSubtasks, taskTeamMembers, tasks } from "@/lib/db/schema";
+import { workspaceMembers, workspaceSprints, workspaceWorkflowColumns, workspaces, sprintTaskMemberships, taskSubtasks, taskTeamMembers, tasks } from "@/lib/db/schema";
 import type { WorkspaceAccess } from "@/lib/data/workspace-access";
 import type { AssignmentSettings, AssignmentTarget } from "@/lib/organizations/assignment-rules";
 
@@ -44,9 +44,9 @@ export async function canSeeOrgTask(access: WorkspaceAccess, viewerId: string | 
 /** Who gets a copy (report §16.2): people in the org, teams, or each (or some) child project's lead. */
 export async function resolveRecipients(executor: Executor, orgId: string, target: AssignmentTarget): Promise<CopyRecipient[]> {
   const members = await executor
-    .select({ userId: projectMembers.userId, role: projectMembers.role })
-    .from(projectMembers)
-    .where(eq(projectMembers.projectId, orgId));
+    .select({ userId: workspaceMembers.userId, role: workspaceMembers.role })
+    .from(workspaceMembers)
+    .where(eq(workspaceMembers.projectId, orgId));
   const roleOf = new Map(members.map((m) => [m.userId, m.role]));
   // Guests never get copies; owners and admins only when picked by name or by the admin role.
   const assignable = (userId: string) => roleOf.has(userId) && roleOf.get(userId) !== "viewer";
@@ -74,9 +74,9 @@ export async function resolveRecipients(executor: Executor, orgId: string, targe
     ];
   }
   const children = await executor
-    .select({ id: projects.id, ownerId: projects.ownerId })
-    .from(projects)
-    .where(and(eq(projects.parentId, orgId), isNull(projects.deletedAt), ne(projects.status, "archived")));
+    .select({ id: workspaces.id, ownerId: workspaces.ownerId })
+    .from(workspaces)
+    .where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt), ne(workspaces.status, "archived")));
   const picked = target.mode === "children" ? children.filter((c) => target.projectIds.includes(c.id)) : children;
   if (picked.length === 0) throw new Error("Create workspaces in the organization first.");
   return picked.map((child) => ({ projectId: child.id, assigneeId: child.ownerId }));
@@ -97,11 +97,11 @@ export async function insertTask(executor: Executor, values: {
   teamName: string | null;
 }) {
   const [counter] = await executor.execute<{ current_task_number: number }>(sql`
-    UPDATE ${projects} SET current_task_number = COALESCE(current_task_number, 0) + 1 WHERE id = ${values.projectId} RETURNING current_task_number`);
+    UPDATE ${workspaces} SET current_task_number = COALESCE(current_task_number, 0) + 1 WHERE id = ${values.projectId} RETURNING current_task_number`);
   const [column] = await executor
-    .select({ id: projectWorkflowColumns.id })
-    .from(projectWorkflowColumns)
-    .where(and(eq(projectWorkflowColumns.projectId, values.projectId), eq(projectWorkflowColumns.status, "todo"), eq(projectWorkflowColumns.isDefault, true)))
+    .select({ id: workspaceWorkflowColumns.id })
+    .from(workspaceWorkflowColumns)
+    .where(and(eq(workspaceWorkflowColumns.projectId, values.projectId), eq(workspaceWorkflowColumns.status, "todo"), eq(workspaceWorkflowColumns.isDefault, true)))
     .limit(1);
   const [row] = await executor
     .insert(tasks)
@@ -148,8 +148,8 @@ export async function createCopies(executor: Executor, masterId: string, recipie
   const childSprint = new Map<string, string | null>();
   const children = [...new Set(recipients.map((r) => r.projectId).filter((id) => id !== master.projectId))];
   if (master.sprintId && children.length) {
-    const linked = await executor.select({ id: projectSprints.id, projectId: projectSprints.projectId }).from(projectSprints)
-      .where(and(inArray(projectSprints.projectId, children), eq(projectSprints.parentSprintId, master.sprintId), inArray(projectSprints.status, ["planning", "active"])));
+    const linked = await executor.select({ id: workspaceSprints.id, projectId: workspaceSprints.projectId }).from(workspaceSprints)
+      .where(and(inArray(workspaceSprints.projectId, children), eq(workspaceSprints.parentSprintId, master.sprintId), inArray(workspaceSprints.status, ["planning", "active"])));
     for (const row of linked) if (!childSprint.has(row.projectId)) childSprint.set(row.projectId, row.id);
   }
 
@@ -163,10 +163,10 @@ export async function createCopies(executor: Executor, masterId: string, recipie
   for (const [projectId, copies] of byProject) {
     // Same numbering and column as createTaskAction: next task numbers, appended to the default To do column.
     const [counter] = await executor.execute<{ current_task_number: number }>(sql`
-      UPDATE ${projects} SET current_task_number = COALESCE(current_task_number, 0) + ${copies.length} WHERE id = ${projectId} RETURNING current_task_number`);
+      UPDATE ${workspaces} SET current_task_number = COALESCE(current_task_number, 0) + ${copies.length} WHERE id = ${projectId} RETURNING current_task_number`);
     const first = (counter?.current_task_number ?? copies.length) - copies.length + 1;
-    const [column] = await executor.select({ id: projectWorkflowColumns.id }).from(projectWorkflowColumns)
-      .where(and(eq(projectWorkflowColumns.projectId, projectId), eq(projectWorkflowColumns.status, "todo"), eq(projectWorkflowColumns.isDefault, true))).limit(1);
+    const [column] = await executor.select({ id: workspaceWorkflowColumns.id }).from(workspaceWorkflowColumns)
+      .where(and(eq(workspaceWorkflowColumns.projectId, projectId), eq(workspaceWorkflowColumns.status, "todo"), eq(workspaceWorkflowColumns.isDefault, true))).limit(1);
     const [top] = column ? await executor.execute<{ position: number }>(sql`
       SELECT COALESCE(MAX(position), 0)::float8 AS position FROM ${tasks} WHERE workflow_column_id = ${column.id} AND deleted_at IS NULL`) : [];
     for (let i = 0; i < copies.length; i += 500) {

@@ -37,7 +37,7 @@ test("move integrity is task-scoped, atomic, and reserved destinations fail clos
   assert.match(helpers, /internal task workspace cannot be used as a destination/);
   assert.match(helpers, /assertNotMovingAnyIntoDescendant/);
   assert.match(helpers, /a\.depth < 256/);
-  assert.match(helpers, /ne\(projectNodeLocks\.lockedBy, userId\)/);
+  assert.match(helpers, /ne\(workspaceNodeLocks\.lockedBy, userId\)/);
 });
 
 test("the shared picker hides internal storage and supports root, paging, search, and keyboard use", () => {
@@ -67,7 +67,7 @@ test("file relocation controls and drag sources require manage-files access", ()
 });
 
 test("project node changes reconcile across connected file surfaces", () => {
-  assert.doesNotMatch(realtime, /table: 'project_nodes'/);
+  assert.doesNotMatch(realtime, /table: 'workspace_nodes'/);
   assert.doesNotMatch(realtime, /table: 'file_versions'/);
   assert.match(filesRoot, /loadFolderContent\(visibleFolderId, "refresh"\)/);
   assert.match(filesRoot, /document\.addEventListener\("visibilitychange", onVisibilityChange\)/);

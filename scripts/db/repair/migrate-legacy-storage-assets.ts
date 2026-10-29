@@ -162,7 +162,7 @@ async function loadReferences(sql: postgres.Sql): Promise<LegacyReference[]> {
     subjectId: string; ownerUserId: string; bucket: string; storageKey: string;
   }[]>`
     SELECT id AS "subjectId", owner_id AS "ownerUserId", cover_image_bucket AS bucket, cover_image_key AS "storageKey"
-    FROM public.projects
+    FROM public.workspaces
     WHERE cover_image_asset_id IS NULL
       AND cover_image_bucket IS NOT NULL
       AND cover_image_key IS NOT NULL
@@ -179,16 +179,16 @@ async function loadReferences(sql: postgres.Sql): Promise<LegacyReference[]> {
     bucket: string; storageKey: string; expectedSize: number | null; expectedMimeType: string | null;
   }[]>`
     SELECT update_row.id AS "subjectId", update_row.author_id AS "ownerUserId",
-      update_row.project_id AS "projectId", media.ordinality::int - 1 AS ordinal,
+      update_row.workspace_id AS "projectId", media.ordinality::int - 1 AS ordinal,
       media.item->>'bucket' AS bucket, media.item->>'storageKey' AS "storageKey",
       CASE WHEN media.item->>'size' ~ '^[0-9]+$' THEN (media.item->>'size')::bigint END AS "expectedSize",
       NULLIF(media.item->>'mimeType', '') AS "expectedMimeType"
-    FROM public.project_updates update_row
+    FROM public.workspace_updates update_row
     CROSS JOIN LATERAL jsonb_array_elements(COALESCE(update_row.media, '[]'::jsonb)) WITH ORDINALITY AS media(item, ordinality)
     WHERE media.item->>'storageKey' IS NOT NULL
       AND media.item->>'bucket' IS NOT NULL
       AND NOT EXISTS (
-        SELECT 1 FROM public.project_update_media_assets ref
+        SELECT 1 FROM public.workspace_update_media_assets ref
         JOIN public.storage_assets asset ON asset.id = ref.asset_id
         WHERE ref.update_id = update_row.id AND asset.storage_key = media.item->>'storageKey'
       )
@@ -202,19 +202,19 @@ async function loadReferences(sql: postgres.Sql): Promise<LegacyReference[]> {
     subjectId: string; ownerUserId: string; projectId: string; ordinal: number;
     bucket: string; storageKey: string; expectedSize: number | null; expectedMimeType: string | null;
   }[]>`
-    SELECT draft.project_id || ':' || draft.user_id AS "subjectId", draft.user_id AS "ownerUserId",
-      draft.project_id AS "projectId", media.ordinality::int - 1 AS ordinal,
+    SELECT draft.workspace_id || ':' || draft.user_id AS "subjectId", draft.user_id AS "ownerUserId",
+      draft.workspace_id AS "projectId", media.ordinality::int - 1 AS ordinal,
       media.item->>'bucket' AS bucket, media.item->>'storageKey' AS "storageKey",
       CASE WHEN media.item->>'size' ~ '^[0-9]+$' THEN (media.item->>'size')::bigint END AS "expectedSize",
       NULLIF(media.item->>'mimeType', '') AS "expectedMimeType"
-    FROM public.project_update_drafts draft
+    FROM public.workspace_update_drafts draft
     CROSS JOIN LATERAL jsonb_array_elements(COALESCE(draft.media, '[]'::jsonb)) WITH ORDINALITY AS media(item, ordinality)
     WHERE media.item->>'storageKey' IS NOT NULL
       AND media.item->>'bucket' IS NOT NULL
       AND NOT EXISTS (
-        SELECT 1 FROM public.project_update_draft_media_assets ref
+        SELECT 1 FROM public.workspace_update_draft_media_assets ref
         JOIN public.storage_assets asset ON asset.id = ref.asset_id
-        WHERE ref.project_id = draft.project_id AND ref.user_id = draft.user_id
+        WHERE ref.workspace_id = draft.workspace_id AND ref.user_id = draft.user_id
           AND asset.storage_key = media.item->>'storageKey'
       )
   `;
@@ -286,7 +286,7 @@ async function loadReferences(sql: postgres.Sql): Promise<LegacyReference[]> {
     subjectId: string; ownerUserId: string; projectId: string; ordinal: number;
     storageKey: string; expectedSize: number | null; expectedMimeType: string; expectedHash: string | null;
   }[]>`
-    SELECT run.id AS "subjectId", run.actor_id AS "ownerUserId", run.project_id AS "projectId",
+    SELECT run.id AS "subjectId", run.actor_id AS "ownerUserId", run.workspace_id AS "projectId",
       file.ordinality::int - 1 AS ordinal, file.item->>'snapshotKey' AS "storageKey",
       CASE WHEN file.item->>'size' ~ '^[0-9]+$' THEN (file.item->>'size')::bigint END AS "expectedSize",
       COALESCE(NULLIF(file.item->>'mimeType', ''), 'application/octet-stream') AS "expectedMimeType",
@@ -309,7 +309,7 @@ async function loadReferences(sql: postgres.Sql): Promise<LegacyReference[]> {
     subjectId: string; ownerUserId: string; projectId: string; storageKey: string;
     expectedSize: number; expectedMimeType: string; expectedHash: string;
   }[]>`
-    SELECT id AS "subjectId", user_id AS "ownerUserId", project_id AS "projectId",
+    SELECT id AS "subjectId", user_id AS "ownerUserId", workspace_id AS "projectId",
       storage_key AS "storageKey", size AS "expectedSize", mime_type AS "expectedMimeType",
       content_hash AS "expectedHash"
     FROM public.extension_recovery_drafts WHERE asset_id IS NULL
@@ -323,10 +323,10 @@ async function loadReferences(sql: postgres.Sql): Promise<LegacyReference[]> {
     subjectId: string; ownerUserId: string; projectId: string; storageKey: string;
     expectedHash: string | null;
   }[]>`
-    SELECT job.id AS "subjectId", project.owner_id AS "ownerUserId", job.project_id AS "projectId",
+    SELECT job.id AS "subjectId", project.owner_id AS "ownerUserId", job.workspace_id AS "projectId",
       job.manifest_s3_key AS "storageKey", job.manifest_hash AS "expectedHash"
     FROM public.import_jobs job
-    JOIN public.projects project ON project.id = job.project_id
+    JOIN public.workspaces project ON project.id = job.workspace_id
     WHERE job.manifest_asset_id IS NULL AND job.manifest_s3_key IS NOT NULL
   `;
   for (const row of manifests) references.push({
@@ -345,12 +345,12 @@ async function attachReference(
 ) {
   switch (reference.kind) {
     case "project_cover":
-      await sql`UPDATE public.projects SET cover_image_asset_id = ${assetId}
+      await sql`UPDATE public.workspaces SET cover_image_asset_id = ${assetId}
         WHERE id = ${reference.subjectId} AND cover_image_asset_id IS NULL
           AND cover_image_bucket = ${reference.bucket} AND cover_image_key = ${reference.storageKey}`;
       break;
     case "update_media":
-      await sql`UPDATE public.project_updates update_row
+      await sql`UPDATE public.workspace_updates update_row
         SET media = (
           SELECT jsonb_agg(
             CASE WHEN media.ordinality::int - 1 = ${reference.ordinal ?? 0}
@@ -365,13 +365,13 @@ async function attachReference(
             WITH ORDINALITY AS media(item, ordinality)
         )
         WHERE update_row.id = ${reference.subjectId}`;
-      await sql`INSERT INTO public.project_update_media_assets(update_id, asset_id, ordinal)
+      await sql`INSERT INTO public.workspace_update_media_assets(update_id, asset_id, ordinal)
         VALUES (${reference.subjectId}, ${assetId}, ${reference.ordinal ?? 0}) ON CONFLICT DO NOTHING`;
       break;
     case "update_draft_media": {
       const [projectId, userId] = reference.subjectId.split(":", 2);
       if (!projectId || !userId) throw new Error("INVALID_UPDATE_DRAFT_IDENTITY");
-      await sql`INSERT INTO public.project_update_draft_media_assets(project_id, user_id, asset_id, ordinal)
+      await sql`INSERT INTO public.workspace_update_draft_media_assets(workspace_id, user_id, asset_id, ordinal)
         VALUES (${projectId}, ${userId}, ${assetId}, ${reference.ordinal ?? 0}) ON CONFLICT DO NOTHING`;
       break;
     }
@@ -419,17 +419,17 @@ async function referenceIsAttached(
 ) {
   switch (reference.kind) {
     case "project_cover":
-      return (await sql`SELECT 1 FROM public.projects
+      return (await sql`SELECT 1 FROM public.workspaces
         WHERE id = ${reference.subjectId} AND cover_image_asset_id = ${assetId}`)[0] != null;
     case "update_media":
-      return (await sql`SELECT 1 FROM public.project_update_media_assets
+      return (await sql`SELECT 1 FROM public.workspace_update_media_assets
         WHERE update_id = ${reference.subjectId} AND asset_id = ${assetId}
           AND ordinal = ${reference.ordinal ?? 0}`)[0] != null;
     case "update_draft_media": {
       const [projectId, userId] = reference.subjectId.split(":", 2);
       if (!projectId || !userId) return false;
-      return (await sql`SELECT 1 FROM public.project_update_draft_media_assets
-        WHERE project_id = ${projectId} AND user_id = ${userId} AND asset_id = ${assetId}
+      return (await sql`SELECT 1 FROM public.workspace_update_draft_media_assets
+        WHERE workspace_id = ${projectId} AND user_id = ${userId} AND asset_id = ${assetId}
           AND ordinal = ${reference.ordinal ?? 0}`)[0] != null;
     }
     case "chat_upload":
@@ -492,7 +492,7 @@ async function quarantineMissingReference(sql: postgres.Sql, reference: LegacyRe
   }
   const rows = await sql<{ id: string; state: string; ownerUserId: string | null }[]>`
     INSERT INTO public.storage_assets(
-      owner_user_id, project_id, bucket, storage_key, purpose, state,
+      owner_user_id, workspace_id, bucket, storage_key, purpose, state,
       declared_mime_type, declared_size, metadata, expires_at, backup_state, last_error_code
     ) VALUES (
       ${reference.ownerUserId}, ${reference.projectId}, ${reference.bucket}, ${reference.storageKey},
@@ -574,7 +574,7 @@ async function main() {
     const ensureAsset = async (reference: LegacyReference, verified: VerifiedObject) => {
         const rows = await sql<{ id: string; projectId: string | null; state: string; contentHash: string | null }[]>`
           INSERT INTO public.storage_assets(
-            owner_user_id, project_id, bucket, storage_key, purpose, state,
+            owner_user_id, workspace_id, bucket, storage_key, purpose, state,
             declared_mime_type, declared_size, verified_mime_type, verified_size,
             content_hash, metadata, expires_at, verified_at, backup_state
           ) VALUES (
@@ -585,12 +585,12 @@ async function main() {
             now(), now(), 'pending'
           )
           ON CONFLICT (bucket, storage_key) DO NOTHING
-          RETURNING id, project_id AS "projectId", state, content_hash AS "contentHash"
+          RETURNING id, workspace_id AS "projectId", state, content_hash AS "contentHash"
         `;
         const [asset] = rows.length ? rows : await sql<{
           id: string; projectId: string | null; state: string; contentHash: string | null;
         }[]>`
-          SELECT id, project_id AS "projectId", state, content_hash AS "contentHash"
+          SELECT id, workspace_id AS "projectId", state, content_hash AS "contentHash"
           FROM public.storage_assets WHERE bucket = ${reference.bucket} AND storage_key = ${reference.storageKey} LIMIT 1
         `;
         if (!asset || asset.state !== "verified" || asset.contentHash !== verified.contentHash) {

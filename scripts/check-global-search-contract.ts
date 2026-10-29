@@ -20,13 +20,13 @@ const resultCards = source("src/components/layout/header/GlobalSearchResultCards
 const hubData = source("src/lib/data/discover.ts");
 
 const requiredIndexes = [
-  "projects_title_search_idx",
-  "projects_description_search_idx",
+  "workspaces_title_search_idx",
+  "workspaces_description_search_idx",
   "profiles_username_search_idx",
   "profiles_full_name_search_idx",
-  "tasks_project_status_idx",
+  "tasks_workspace_status_idx",
   "tasks_title_search_idx",
-  "tasks_project_number_idx",
+  "tasks_workspace_number_idx",
 ];
 
 for (const indexName of requiredIndexes) {

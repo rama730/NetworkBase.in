@@ -6,7 +6,7 @@ import { NextRequest } from "next/server";
 import { jsonError } from "@/app/api/v1/_shared";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
-import { projectUpdateMediaAssets, projectUpdates, storageAssets } from "@/lib/db/schema";
+import { workspaceUpdateMediaAssets, workspaceUpdates, storageAssets } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import { isWorkspaceTabVisibleToViewer } from "@/lib/workspaces/settings-policies";
 import { WORKSPACE_UPDATE_MEDIA_BUCKET, type WorkspaceUpdateMediaItem } from "@/lib/workspaces/updates";
@@ -44,19 +44,19 @@ async function handle(request: NextRequest, context: { params: Promise<{ id: str
 
   const [normalizedOwner] = await db
     .select({
-      id: projectUpdates.id,
-      visibility: projectUpdates.visibility,
-      media: projectUpdates.media,
+      id: workspaceUpdates.id,
+      visibility: workspaceUpdates.visibility,
+      media: workspaceUpdates.media,
       assetId: storageAssets.id,
       size: storageAssets.verifiedSize,
       mimeType: storageAssets.verifiedMimeType,
     })
-    .from(projectUpdateMediaAssets)
-    .innerJoin(projectUpdates, eq(projectUpdates.id, projectUpdateMediaAssets.updateId))
-    .innerJoin(storageAssets, eq(storageAssets.id, projectUpdateMediaAssets.assetId))
+    .from(workspaceUpdateMediaAssets)
+    .innerJoin(workspaceUpdates, eq(workspaceUpdates.id, workspaceUpdateMediaAssets.updateId))
+    .innerJoin(storageAssets, eq(storageAssets.id, workspaceUpdateMediaAssets.assetId))
     .where(and(
-      eq(projectUpdates.projectId, projectId),
-      isNull(projectUpdates.deletedAt),
+      eq(workspaceUpdates.projectId, projectId),
+      isNull(workspaceUpdates.deletedAt),
       eq(storageAssets.bucket, WORKSPACE_UPDATE_MEDIA_BUCKET),
       eq(storageAssets.storageKey, storageKey),
       eq(storageAssets.state, "verified"),
@@ -64,17 +64,17 @@ async function handle(request: NextRequest, context: { params: Promise<{ id: str
     .limit(1);
   const [legacyOwner] = normalizedOwner ? [] : await db
     .select({
-      id: projectUpdates.id,
-      visibility: projectUpdates.visibility,
-      media: projectUpdates.media,
+      id: workspaceUpdates.id,
+      visibility: workspaceUpdates.visibility,
+      media: workspaceUpdates.media,
     })
-    .from(projectUpdates)
+    .from(workspaceUpdates)
     .where(and(
-      eq(projectUpdates.projectId, projectId),
-      isNull(projectUpdates.deletedAt),
+      eq(workspaceUpdates.projectId, projectId),
+      isNull(workspaceUpdates.deletedAt),
       sql`EXISTS (
         SELECT 1
-        FROM jsonb_array_elements(${projectUpdates.media}) AS media_item
+        FROM jsonb_array_elements(${workspaceUpdates.media}) AS media_item
         WHERE media_item->>'storageKey' = ${storageKey}
           AND media_item->>'bucket' = ${WORKSPACE_UPDATE_MEDIA_BUCKET}
       )`,

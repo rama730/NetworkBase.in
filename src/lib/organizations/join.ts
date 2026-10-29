@@ -8,8 +8,8 @@ import {
   orgEmailInvites,
   orgHandleHolds,
   orgJoinBlocks,
-  projectMembers,
-  projects,
+  workspaceMembers,
+  workspaces,
   reservedUsernames,
   roleApplications,
 } from "@/lib/db/schema";
@@ -29,28 +29,28 @@ function readJoinMode(settings: unknown): OrgJoinMode {
 export async function findOrgByJoinCode(code: string) {
   const [org] = await db
     .select({
-      id: projects.id,
-      title: projects.title,
-      slug: projects.slug,
-      ownerId: projects.ownerId,
-      orgType: projects.orgType,
-      coverImage: projects.coverImage,
-      visibility: projects.visibility,
-      orgSettings: projects.orgSettings,
+      id: workspaces.id,
+      title: workspaces.title,
+      slug: workspaces.slug,
+      ownerId: workspaces.ownerId,
+      orgType: workspaces.orgType,
+      coverImage: workspaces.coverImage,
+      visibility: workspaces.visibility,
+      orgSettings: workspaces.orgSettings,
     })
-    .from(projects)
+    .from(workspaces)
     .where(and(
-      eq(projects.joinCode, code),
-      eq(projects.joinCodeEnabled, true),
-      eq(projects.kind, "organization"),
-      isNull(projects.deletedAt),
+      eq(workspaces.joinCode, code),
+      eq(workspaces.joinCodeEnabled, true),
+      eq(workspaces.kind, "organization"),
+      isNull(workspaces.deletedAt),
     ))
     .limit(1);
   return org ?? null;
 }
 
 export async function countOrgMembers(orgId: string) {
-  const [row] = await db.select({ n: count() }).from(projectMembers).where(eq(projectMembers.projectId, orgId));
+  const [row] = await db.select({ n: count() }).from(workspaceMembers).where(eq(workspaceMembers.projectId, orgId));
   return row?.n ?? 0;
 }
 
@@ -58,8 +58,8 @@ export async function countOrgMembers(orgId: string) {
 export async function viewerOrgStatus(orgId: string, ownerId: string, userId: string): Promise<"member" | "pending" | null> {
   if (ownerId === userId) return "member";
   const [[member], [pending]] = await Promise.all([
-    db.select({ id: projectMembers.id }).from(projectMembers)
-      .where(and(eq(projectMembers.projectId, orgId), eq(projectMembers.userId, userId))).limit(1),
+    db.select({ id: workspaceMembers.id }).from(workspaceMembers)
+      .where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.userId, userId))).limit(1),
     db.select({ id: roleApplications.id }).from(roleApplications)
       .where(and(eq(roleApplications.projectId, orgId), eq(roleApplications.applicantId, userId), eq(roleApplications.status, "pending"))).limit(1),
   ]);
@@ -72,12 +72,12 @@ export async function viewerOrgStatus(orgId: string, ownerId: string, userId: st
  * with no role. Callers check the code exists and rate-limit; this is shared with onboarding completion.
  */
 export function joinOrgByCode(userId: string, code: string, note?: string | null) {
-  return joinOrg(userId, and(eq(projects.joinCode, code), eq(projects.joinCodeEnabled, true))!, note);
+  return joinOrg(userId, and(eq(workspaces.joinCode, code), eq(workspaces.joinCodeEnabled, true))!, note);
 }
 
 /** Public orgs can also be joined from their page without the code (report §6.1). */
 export function joinPublicOrg(userId: string, orgId: string, note?: string | null) {
-  return joinOrg(userId, and(eq(projects.id, orgId), inArray(projects.visibility, ["public", "unlisted"]))!, note);
+  return joinOrg(userId, and(eq(workspaces.id, orgId), inArray(workspaces.visibility, ["public", "unlisted"]))!, note);
 }
 
 async function joinOrg(
@@ -88,31 +88,31 @@ async function joinOrg(
   const result = await db.transaction(async (tx) => {
     const [org] = await tx
       .select({
-        id: projects.id,
-        title: projects.title,
-        slug: projects.slug,
-        ownerId: projects.ownerId,
-        status: projects.status,
-        suspendedAt: projects.suspendedAt,
-        deletionScheduledAt: projects.deletionScheduledAt,
-        orgSettings: projects.orgSettings,
-        maxCollaborators: projects.maxCollaborators,
+        id: workspaces.id,
+        title: workspaces.title,
+        slug: workspaces.slug,
+        ownerId: workspaces.ownerId,
+        status: workspaces.status,
+        suspendedAt: workspaces.suspendedAt,
+        deletionScheduledAt: workspaces.deletionScheduledAt,
+        orgSettings: workspaces.orgSettings,
+        maxCollaborators: workspaces.maxCollaborators,
       })
-      .from(projects)
-      .where(and(where, eq(projects.kind, "organization"), isNull(projects.deletedAt)))
+      .from(workspaces)
+      .where(and(where, eq(workspaces.kind, "organization"), isNull(workspaces.deletedAt)))
       .for("update")
       .limit(1);
     if (!org) return null;
 
     const [[membership], [block], [request], [members]] = await Promise.all([
-      tx.select({ id: projectMembers.id }).from(projectMembers)
-        .where(and(eq(projectMembers.projectId, org.id), eq(projectMembers.userId, userId))).limit(1),
+      tx.select({ id: workspaceMembers.id }).from(workspaceMembers)
+        .where(and(eq(workspaceMembers.projectId, org.id), eq(workspaceMembers.userId, userId))).limit(1),
       tx.select({ userId: orgJoinBlocks.userId }).from(orgJoinBlocks)
         .where(and(eq(orgJoinBlocks.orgId, org.id), eq(orgJoinBlocks.userId, userId))).limit(1),
       tx.select({ id: roleApplications.id, status: roleApplications.status, updatedAt: roleApplications.updatedAt, decisionBy: roleApplications.decisionBy })
         .from(roleApplications)
         .where(and(eq(roleApplications.projectId, org.id), eq(roleApplications.applicantId, userId))).limit(1),
-      tx.select({ n: count() }).from(projectMembers).where(eq(projectMembers.projectId, org.id)),
+      tx.select({ n: count() }).from(workspaceMembers).where(eq(workspaceMembers.projectId, org.id)),
     ]);
 
     const outcome = decideOrgJoin({
@@ -168,7 +168,7 @@ export async function acceptOrgEmailInvites(userId: string, email: string): Prom
 /** Free when no project address, held old handle or reserved name has it (report §30.2). Format is checked first by validateOrgHandle. */
 export async function isOrgHandleAvailable(handle: string): Promise<boolean> {
   const [[project], [hold], [reserved]] = await Promise.all([
-    db.select({ id: projects.id }).from(projects).where(eq(projects.slug, handle)).limit(1),
+    db.select({ id: workspaces.id }).from(workspaces).where(eq(workspaces.slug, handle)).limit(1),
     db.select({ handle: orgHandleHolds.handle }).from(orgHandleHolds)
       .where(and(eq(orgHandleHolds.handle, handle), gt(orgHandleHolds.heldUntil, sql`now()`))).limit(1),
     db.select({ username: reservedUsernames.username }).from(reservedUsernames).where(eq(reservedUsernames.username, handle)).limit(1),

@@ -30,12 +30,12 @@ import {
   Flag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { formatBytes } from "../../files-tab/folder/format";
 import { cn } from "@/lib/utils";
 
 interface MediaViewerDriverProps {
-  node: ProjectNode;
+  node: WorkspaceNode;
   signedUrl: string;
   type: "video" | "audio";
 }

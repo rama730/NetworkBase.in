@@ -6,7 +6,7 @@ import { and, asc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   importJobFiles,
-  projects,
+  workspaces,
   storageAssetOperations,
   storageAssets,
   storageQuotaScopes,
@@ -432,7 +432,7 @@ export async function createUploadIntent(rawParams: CreateUploadIntentParams) {
     const byteQuota = projectQuota ?? userQuota;
     // Organizations hold 5 GB (report §23, ORG_LIMITS.orgStorageBytes); copies of org files are counted once.
     const [scopeProject] = projectQuota
-      ? await tx.select({ kind: projects.kind }).from(projects).where(eq(projects.id, projectQuota.scopeId)).limit(1)
+      ? await tx.select({ kind: workspaces.kind }).from(workspaces).where(eq(workspaces.id, projectQuota.scopeId)).limit(1)
       : [];
     assertStorageQuotaAdmission({
       limitBytes: scopeProject?.kind === "organization" ? Math.min(byteQuota.limitBytes, ORG_LIMITS.orgStorageBytes) : byteQuota.limitBytes,
@@ -615,13 +615,13 @@ export async function readUploadOperationStatus(params: { intentId: string; user
   if (row.status === "finalized" && row.assetId) {
     const [publication] = await db.select({
       published: sql<boolean>`
-        exists(select 1 from project_nodes where asset_id = ${row.assetId})
+        exists(select 1 from workspace_nodes where asset_id = ${row.assetId})
         or exists(select 1 from file_versions where asset_id = ${row.assetId})
         or exists(select 1 from profiles where avatar_asset_id = ${row.assetId} or banner_asset_id = ${row.assetId})
-        or exists(select 1 from projects where cover_image_asset_id = ${row.assetId})
+        or exists(select 1 from workspaces where cover_image_asset_id = ${row.assetId})
         or exists(select 1 from message_attachments where asset_id = ${row.assetId})
-        or exists(select 1 from project_update_media_assets where asset_id = ${row.assetId})
-        or exists(select 1 from project_update_draft_media_assets where asset_id = ${row.assetId})
+        or exists(select 1 from workspace_update_media_assets where asset_id = ${row.assetId})
+        or exists(select 1 from workspace_update_draft_media_assets where asset_id = ${row.assetId})
         or exists(select 1 from extension_recovery_drafts where asset_id = ${row.assetId})
         or exists(select 1 from github_sync_snapshot_assets where asset_id = ${row.assetId})
       `,

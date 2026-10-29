@@ -3,7 +3,7 @@ import mime from "mime-types";
 
 import { requireAuthenticatedUser, jsonSuccess, jsonError } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
-import { projectNodes, fileVersions, storageAssets } from "@/lib/db/schema";
+import { workspaceNodes, fileVersions, storageAssets } from "@/lib/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { getWorkspaceFileContent } from "@/app/actions/files/content";
 import { applyFileRevision } from "@/lib/files/apply-file-revision";
@@ -64,12 +64,12 @@ export async function GET(request: Request) {
     const access = await assertWorkspaceFileReadAccess(projectId, user.id);
 
     // Find the node
-    const node = await db.query.projectNodes.findFirst({
+    const node = await db.query.workspaceNodes.findFirst({
       where: and(
-        eq(projectNodes.projectId, projectId),
-        eq(projectNodes.path, path),
-        eq(projectNodes.type, "file"),
-        isNull(projectNodes.deletedAt)
+        eq(workspaceNodes.projectId, projectId),
+        eq(workspaceNodes.path, path),
+        eq(workspaceNodes.type, "file"),
+        isNull(workspaceNodes.deletedAt)
       ),
       columns: {
         id: true,

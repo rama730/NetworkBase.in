@@ -36,7 +36,7 @@ async function nextScopeIds(scopeType: ScopeType, cursor: string | null) {
     : await db.execute<{ id: string }>(sql`
         SELECT scope.id
         FROM (
-          SELECT project_id AS id FROM public.storage_assets WHERE project_id IS NOT NULL
+          SELECT workspace_id AS id FROM public.storage_assets WHERE workspace_id IS NOT NULL
           UNION
           SELECT scope_id AS id FROM public.storage_quota_scopes WHERE scope_type = 'project'
         ) scope

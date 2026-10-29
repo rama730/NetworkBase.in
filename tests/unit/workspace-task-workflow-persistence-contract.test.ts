@@ -17,12 +17,12 @@ test("task-board workflow is hydrated and synchronized through its dedicated col
 
     assert.match(taskTab, /getWorkspaceWorkflowColumnsAction/);
     assert.match(taskTab, /subscribeActiveResource/);
-    assert.match(taskTab, /table: "project_workflow_columns"/);
+    assert.match(taskTab, /table: "workspace_workflow_columns"/);
     assert.match(taskTab, /scheduleWorkflowRefresh/);
     assert.match(taskTab, /if \(!result\.success \|\| !result\.columns\)/);
     assert.match(taskTab, /normalizeAssignableMembers\(members\)/);
     assert.match(action, /updateWorkspaceWorkflowColumnsAction/);
-    assert.match(schema, /projectWorkflowColumns/);
+    assert.match(schema, /workspaceWorkflowColumns/);
     assert.match(subscriptions, /'project_workflow'/);
     assert.match(migration, /project_workflow_columns/);
     assert.match(realtimeMigration, /ALTER PUBLICATION supabase_realtime ADD TABLE public\.project_workflow_columns/);
@@ -64,7 +64,7 @@ test("workflow columns keep four default categories while allowing two project-s
     const dragCancel = board.slice(board.indexOf("function onDragCancel"), board.indexOf("const scrollContainerRef"));
     assert.doesNotMatch(dragCancel, /restoreDraggedTask/);
     assert.match(realtime, /deferredTaskId/);
-    assert.match(schema, /projectWorkflowColumns/);
+    assert.match(schema, /workspaceWorkflowColumns/);
     assert.match(schema, /workflowColumnId/);
     assert.match(migration, /project_workflow_columns/);
     assert.match(migration, /workflow_column_id/);

@@ -38,7 +38,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   if (!access) return jsonError("You don’t have access to this", 403, "FORBIDDEN");
   // In an organization the zip holds only what this viewer may open: no Admins-only folders or other people's copies.
   const nodeFilter = orgFileAccessSql(access)
-    ? (alias: "n" | "child") => orgFileAccessSql(access, { projectId: sql.raw(`${alias}.project_id`), path: sql.raw(`${alias}.path`), taskId: sql.raw(`${alias}.task_id`) })
+    ? (alias: "n" | "child") => orgFileAccessSql(access, { projectId: sql.raw(`${alias}.workspace_id`), path: sql.raw(`${alias}.path`), taskId: sql.raw(`${alias}.task_id`) })
     : undefined;
 
   let prepared;

@@ -2,7 +2,7 @@ import { canSeeOrgTask } from "@/lib/organizations/assignments";
 import { requireAuthenticatedUser, jsonSuccess, jsonError, getRequestId } from "@/app/api/v1/_shared";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { db } from "@/lib/db";
-import { taskActivityEvents, projects, profiles, tasks, taskSubtasks, projectSprints, projectNodes, taskNodeLinks, taskPushes, } from "@/lib/db/schema";
+import { taskActivityEvents, workspaces, profiles, tasks, taskSubtasks, workspaceSprints, workspaceNodes, taskNodeLinks, taskPushes, } from "@/lib/db/schema";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { logger } from "@/lib/logger";
 import { canReadWorkspaceTab, getWorkspaceAccessById } from "@/lib/data/workspace-access";
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     }
 
     const rows = (await db.execute(sql`
-      SELECT t.id, t.project_id AS "projectId", t.title, t.task_number AS "taskNumber"
+      SELECT t.id, t.workspace_id AS "projectId", t.title, t.task_number AS "taskNumber"
       FROM tasks t
       WHERE t.id = ${taskId}::uuid AND t.deleted_at IS NULL
       LIMIT 1
@@ -50,9 +50,9 @@ export async function GET(request: Request) {
     const [subtasks, assignee, sprint] = await Promise.all([
       db.select().from(taskSubtasks).where(eq(taskSubtasks.taskId,taskId)).orderBy(taskSubtasks.position),
       fullTask.assigneeId ? db.query.profiles.findFirst({where:eq(profiles.id,fullTask.assigneeId),columns:{id:true,fullName:true,avatarUrl:true}}) : null,
-      fullTask.sprintId ? db.query.projectSprints.findFirst({where:eq(projectSprints.id,fullTask.sprintId),columns:{id:true,name:true}}) : null,
+      fullTask.sprintId ? db.query.workspaceSprints.findFirst({where:eq(workspaceSprints.id,fullTask.sprintId),columns:{id:true,name:true}}) : null,
     ]);
-    const policy = await db.query.projects.findFirst({ where: eq(projects.id, row.projectId), columns: { taskReviewRequired: true, taskCompletionPolicyVersion: true } });
+    const policy = await db.query.workspaces.findFirst({ where: eq(workspaces.id, row.projectId), columns: { taskReviewRequired: true, taskCompletionPolicyVersion: true } });
     const reviewContentChanged = fullTask.reviewStatus === "pending" && (!fullTask.reviewContentHash || fullTask.reviewContentHash !== await taskReviewSnapshot(db, taskId));
     const latestRequest = fullTask.reviewStatus === "rejected" ? await db.query.taskActivityEvents.findFirst({ where: and(eq(taskActivityEvents.taskId, taskId), eq(taskActivityEvents.eventType, "changes_requested")), orderBy: [desc(taskActivityEvents.createdAt)] }) : null;
     const canWrite = access.isOwner || ["admin","member"].includes(access.member?.role || "");
@@ -66,20 +66,20 @@ export async function GET(request: Request) {
     const [fileRows, pushRows] = await Promise.all([
       db
         .select({
-          node: projectNodes,
+          node: workspaceNodes,
         })
         .from(taskNodeLinks)
-        .innerJoin(projectNodes, eq(taskNodeLinks.nodeId, projectNodes.id))
+        .innerJoin(workspaceNodes, eq(taskNodeLinks.nodeId, workspaceNodes.id))
         .where(
           and(
             eq(taskNodeLinks.taskId, taskId),
-            eq(projectNodes.projectId, task.projectId),
-            isNull(projectNodes.deletedAt),
+            eq(workspaceNodes.projectId, task.projectId),
+            isNull(workspaceNodes.deletedAt),
             canReadFiles ? undefined : sql`NOT (${projectContentNodeSql})`,
             orgFileAccessSql(access),
           ),
         )
-        .orderBy(taskNodeLinks.order, projectNodes.name),
+        .orderBy(taskNodeLinks.order, workspaceNodes.name),
       db
         .select({
           id: taskPushes.id,

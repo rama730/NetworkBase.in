@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
-import { projectNodes, projects, projectSprints, sprintMaterials } from '@/lib/db/schema';
+import { workspaceNodes, workspaces, workspaceSprints, sprintMaterials } from '@/lib/db/schema';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { assertFileNodeVisible, orgFileAccessSql, projectContentNodeSql } from '@/lib/files/internal-helpers';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
@@ -30,9 +30,9 @@ async function orgAdmin(orgId: string, mode: 'read' | 'write' = 'write') {
 }
 
 async function orgFolder(orgId: string, folderId: string) {
-    const [folder] = await db.select({ id: projectNodes.id, path: projectNodes.path, metadata: projectNodes.metadata })
-        .from(projectNodes)
-        .where(and(eq(projectNodes.id, folderId), eq(projectNodes.projectId, orgId), eq(projectNodes.type, 'folder'), isNull(projectNodes.deletedAt), projectContentNodeSql))
+    const [folder] = await db.select({ id: workspaceNodes.id, path: workspaceNodes.path, metadata: workspaceNodes.metadata })
+        .from(workspaceNodes)
+        .where(and(eq(workspaceNodes.id, folderId), eq(workspaceNodes.projectId, orgId), eq(workspaceNodes.type, 'folder'), isNull(workspaceNodes.deletedAt), projectContentNodeSql))
         .limit(1);
     return folder ?? null;
 }
@@ -50,26 +50,26 @@ export async function setFolderAccessAction(orgId: string, folderId: string, acc
     if (access !== null && !['admins', 'members', 'public'].includes(access)) return { success: false, error: 'Pick an access level.' };
     const folder = await orgFolder(orgId, folderId);
     if (!folder) return { success: false, error: 'That folder is no longer available.' };
-    const ancestors = await db.select({ metadata: projectNodes.metadata }).from(projectNodes).where(and(
-        eq(projectNodes.projectId, orgId), eq(projectNodes.type, 'folder'), isNull(projectNodes.deletedAt),
-        sql`starts_with(${folder.path}, ${projectNodes.path} || '/')`,
+    const ancestors = await db.select({ metadata: workspaceNodes.metadata }).from(workspaceNodes).where(and(
+        eq(workspaceNodes.projectId, orgId), eq(workspaceNodes.type, 'folder'), isNull(workspaceNodes.deletedAt),
+        sql`starts_with(${folder.path}, ${workspaceNodes.path} || '/')`,
     ));
     const block = folderAccessBlock(effectiveAccess(ancestors.map((a) => readFolderAccess(a.metadata))), access);
     if (block) return { success: false, error: block };
     if (!confirm) {
-        const [{ n } = { n: 0 }] = await db.select({ n: sql<number>`count(*)::int` }).from(projectNodes).where(and(
-            eq(projectNodes.projectId, orgId), eq(projectNodes.type, 'file'), isNull(projectNodes.deletedAt),
-            sql`starts_with(${projectNodes.path}, ${folder.path} || '/')`,
+        const [{ n } = { n: 0 }] = await db.select({ n: sql<number>`count(*)::int` }).from(workspaceNodes).where(and(
+            eq(workspaceNodes.projectId, orgId), eq(workspaceNodes.type, 'file'), isNull(workspaceNodes.deletedAt),
+            sql`starts_with(${workspaceNodes.path}, ${folder.path} || '/')`,
         ));
         const message = access === 'admins' ? `Members will lose access to ${plural(n)}.`
             : access === 'public' ? `${plural(n)} will become visible to visitors.`
                 : `${plural(n)} will follow the parent folder’s access.`;
         return { success: true, preview: { files: n, message } };
     }
-    await db.update(projectNodes).set({
-        metadata: access ? sql`coalesce(${projectNodes.metadata}, '{}'::jsonb) || ${JSON.stringify({ access })}::jsonb` : sql`coalesce(${projectNodes.metadata}, '{}'::jsonb) - 'access'`,
+    await db.update(workspaceNodes).set({
+        metadata: access ? sql`coalesce(${workspaceNodes.metadata}, '{}'::jsonb) || ${JSON.stringify({ access })}::jsonb` : sql`coalesce(${workspaceNodes.metadata}, '{}'::jsonb) - 'access'`,
         updatedAt: new Date(),
-    }).where(eq(projectNodes.id, folder.id));
+    }).where(eq(workspaceNodes.id, folder.id));
     touch(admin.slug, orgId);
     return { success: true };
 }
@@ -80,10 +80,10 @@ export async function setFolderTemplateAction(orgId: string, folderId: string, t
     if (!admin) return DENIED;
     const folder = await orgFolder(orgId, folderId);
     if (!folder) return { success: false, error: 'That folder is no longer available.' };
-    await db.update(projectNodes).set({
-        metadata: template ? sql`coalesce(${projectNodes.metadata}, '{}'::jsonb) || '{"template": true}'::jsonb` : sql`coalesce(${projectNodes.metadata}, '{}'::jsonb) - 'template'`,
+    await db.update(workspaceNodes).set({
+        metadata: template ? sql`coalesce(${workspaceNodes.metadata}, '{}'::jsonb) || '{"template": true}'::jsonb` : sql`coalesce(${workspaceNodes.metadata}, '{}'::jsonb) - 'template'`,
         updatedAt: new Date(),
-    }).where(eq(projectNodes.id, folder.id));
+    }).where(eq(workspaceNodes.id, folder.id));
     touch(admin.slug, orgId);
     return { success: true };
 }
@@ -94,9 +94,9 @@ export type OrgFolderRow = { id: string; path: string; access: FolderAccess | nu
 export async function listOrgFoldersAction(orgId: string): Promise<{ success: true; folders: OrgFolderRow[] } | Failure> {
     if (!(await orgAdmin(orgId, 'read'))) return DENIED;
     // ponytail: 300 folders, sorted by path. Upgrade: per-folder controls in the Files tree when orgs outgrow it.
-    const rows = await db.select({ id: projectNodes.id, path: projectNodes.path, metadata: projectNodes.metadata }).from(projectNodes)
-        .where(and(eq(projectNodes.projectId, orgId), eq(projectNodes.type, 'folder'), isNull(projectNodes.deletedAt), projectContentNodeSql))
-        .orderBy(asc(projectNodes.path)).limit(300);
+    const rows = await db.select({ id: workspaceNodes.id, path: workspaceNodes.path, metadata: workspaceNodes.metadata }).from(workspaceNodes)
+        .where(and(eq(workspaceNodes.projectId, orgId), eq(workspaceNodes.type, 'folder'), isNull(workspaceNodes.deletedAt), projectContentNodeSql))
+        .orderBy(asc(workspaceNodes.path)).limit(300);
     return { success: true, folders: rows.map((r) => ({ id: r.id, path: r.path, access: readFolderAccess(r.metadata), template: (r.metadata as { template?: unknown } | null)?.template === true })) };
 }
 
@@ -104,11 +104,11 @@ export async function listOrgFoldersAction(orgId: string): Promise<{ success: tr
 async function childOrgAccess(childProjectId: string): Promise<{ userId: string; orgAccess: ReadableAccess; org: { id: string; title: string; slug: string | null } } | null> {
     const { userId } = await getViewerAuthContext();
     if (!userId) return null;
-    const [child] = await db.select({ parentId: projects.parentId }).from(projects).where(and(eq(projects.id, childProjectId), isNull(projects.deletedAt))).limit(1);
+    const [child] = await db.select({ parentId: workspaces.parentId }).from(workspaces).where(and(eq(workspaces.id, childProjectId), isNull(workspaces.deletedAt))).limit(1);
     if (!child?.parentId || !(await readViewerOrgRole(child.parentId, userId))) return null; // outside people get no From org view
     const orgAccess = await getWorkspaceAccessById(child.parentId, userId);
     if (!orgAccess.project || !orgAccess.canRead) return null;
-    const [org] = await db.select({ id: projects.id, title: projects.title, slug: projects.slug }).from(projects).where(eq(projects.id, child.parentId)).limit(1);
+    const [org] = await db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug }).from(workspaces).where(eq(workspaces.id, child.parentId)).limit(1);
     return org ? { userId, orgAccess: orgAccess as ReadableAccess, org } : null;
 }
 
@@ -123,16 +123,16 @@ export async function browseOrgFilesAction(childProjectId: string, folderId: str
         if (!folder) return { success: false, error: 'That folder is no longer available.' };
         try { await assertFileNodeVisible(ctx.orgAccess, { path: folder.path, taskId: null, deletedAt: null }); } catch { return { success: false, error: 'That folder is no longer available.' }; }
     }
-    const rows = await db.select({ id: projectNodes.id, name: projectNodes.name, type: projectNodes.type, path: projectNodes.path, currentVersion: projectNodes.currentVersion, size: projectNodes.size, metadata: projectNodes.metadata })
-        .from(projectNodes)
+    const rows = await db.select({ id: workspaceNodes.id, name: workspaceNodes.name, type: workspaceNodes.type, path: workspaceNodes.path, currentVersion: workspaceNodes.currentVersion, size: workspaceNodes.size, metadata: workspaceNodes.metadata })
+        .from(workspaceNodes)
         .where(and(
-            eq(projectNodes.projectId, ctx.org.id),
-            folderId ? eq(projectNodes.parentId, folderId) : isNull(projectNodes.parentId),
-            isNull(projectNodes.deletedAt),
+            eq(workspaceNodes.projectId, ctx.org.id),
+            folderId ? eq(workspaceNodes.parentId, folderId) : isNull(workspaceNodes.parentId),
+            isNull(workspaceNodes.deletedAt),
             projectContentNodeSql,
             orgFileAccessSql(ctx.orgAccess),
         ))
-        .orderBy(sql`CASE WHEN ${projectNodes.type} = 'folder' THEN 0 ELSE 1 END`, asc(projectNodes.name))
+        .orderBy(sql`CASE WHEN ${workspaceNodes.type} = 'folder' THEN 0 ELSE 1 END`, asc(workspaceNodes.name))
         .limit(200);
     return { success: true, org: ctx.org, nodes: rows.map(({ metadata, ...r }) => ({ ...r, access: readFolderAccess(metadata) })) };
 }
@@ -146,14 +146,14 @@ export async function recordOrgCopyAction(childProjectId: string, nodeId: string
     if (!ctx) return DENIED;
     const childAccess = await getWorkspaceAccessById(childProjectId, ctx.userId);
     if (!childAccess.canWrite) return DENIED;
-    const [source] = await db.select({ id: projectNodes.id, path: projectNodes.path, taskId: projectNodes.taskId, deletedAt: projectNodes.deletedAt, currentVersion: projectNodes.currentVersion, type: projectNodes.type })
-        .from(projectNodes).where(and(eq(projectNodes.id, orgNodeId), eq(projectNodes.projectId, ctx.org.id))).limit(1);
+    const [source] = await db.select({ id: workspaceNodes.id, path: workspaceNodes.path, taskId: workspaceNodes.taskId, deletedAt: workspaceNodes.deletedAt, currentVersion: workspaceNodes.currentVersion, type: workspaceNodes.type })
+        .from(workspaceNodes).where(and(eq(workspaceNodes.id, orgNodeId), eq(workspaceNodes.projectId, ctx.org.id))).limit(1);
     if (!source || source.type !== 'file') return { success: false, error: 'That file is no longer available.' };
     try { await assertFileNodeVisible(ctx.orgAccess, source); } catch { return { success: false, error: 'That file is no longer available.' }; }
-    const copied = await db.update(projectNodes).set({
-        metadata: sql`coalesce(${projectNodes.metadata}, '{}'::jsonb) || ${JSON.stringify({ copiedFrom: { orgId: ctx.org.id, nodeId: source.id, version: source.currentVersion } })}::jsonb`,
-    }).where(and(eq(projectNodes.id, nodeId), eq(projectNodes.projectId, childProjectId), eq(projectNodes.type, 'file'), isNull(projectNodes.deletedAt)))
-        .returning({ id: projectNodes.id });
+    const copied = await db.update(workspaceNodes).set({
+        metadata: sql`coalesce(${workspaceNodes.metadata}, '{}'::jsonb) || ${JSON.stringify({ copiedFrom: { orgId: ctx.org.id, nodeId: source.id, version: source.currentVersion } })}::jsonb`,
+    }).where(and(eq(workspaceNodes.id, nodeId), eq(workspaceNodes.projectId, childProjectId), eq(workspaceNodes.type, 'file'), isNull(workspaceNodes.deletedAt)))
+        .returning({ id: workspaceNodes.id });
     return copied.length ? { success: true } : { success: false, error: 'That copy is no longer available.' };
 }
 
@@ -166,9 +166,9 @@ export async function listOrgCopiesAction(childProjectId: string): Promise<{ suc
     const rows = await db.execute<{ node_id: string; name: string; source_node_id: string; copied_version: number; source_version: number | null }>(sql`
         SELECT c.id AS node_id, c.name, (c.metadata->'copiedFrom'->>'nodeId') AS source_node_id,
             (c.metadata->'copiedFrom'->>'version')::int AS copied_version, s.current_version AS source_version
-        FROM project_nodes c
-        LEFT JOIN project_nodes s ON s.id = (c.metadata->'copiedFrom'->>'nodeId')::uuid AND s.project_id = ${ctx.org.id}::uuid AND s.deleted_at IS NULL
-        WHERE c.project_id = ${childProjectId}::uuid AND c.deleted_at IS NULL AND c.metadata ? 'copiedFrom'
+        FROM workspace_nodes c
+        LEFT JOIN workspace_nodes s ON s.id = (c.metadata->'copiedFrom'->>'nodeId')::uuid AND s.workspace_id = ${ctx.org.id}::uuid AND s.deleted_at IS NULL
+        WHERE c.workspace_id = ${childProjectId}::uuid AND c.deleted_at IS NULL AND c.metadata ? 'copiedFrom'
         ORDER BY c.name
         LIMIT 200
     `);
@@ -187,15 +187,15 @@ export async function readOrgFileUsageAction(orgId: string, nodeIds: string[]): 
     nodeIds = nodeIds.filter((id) => UUID_RE.test(id));
     if (nodeIds.length === 0 || !(await orgAdmin(orgId, 'read'))) return [];
     const rows = await db.execute<{ label: string }>(sql`
-        WITH picked AS (SELECT path FROM project_nodes WHERE project_id = ${orgId} AND id IN ${nodeIds.slice(0, 200)} AND deleted_at IS NULL),
+        WITH picked AS (SELECT path FROM workspace_nodes WHERE workspace_id = ${orgId} AND id IN ${nodeIds.slice(0, 200)} AND deleted_at IS NULL),
         affected AS (
-            SELECT n.id, n.name, n.type, n.metadata FROM project_nodes n
-            WHERE n.project_id = ${orgId} AND n.deleted_at IS NULL
+            SELECT n.id, n.name, n.type, n.metadata FROM workspace_nodes n
+            WHERE n.workspace_id = ${orgId} AND n.deleted_at IS NULL
               AND EXISTS (SELECT 1 FROM picked p WHERE n.path = p.path OR n.path LIKE p.path || '/%'))
-        SELECT DISTINCT 'Material in ' || s.name AS label FROM sprint_materials m JOIN project_sprints s ON s.id = m.sprint_id WHERE m.node_id IN (SELECT id FROM affected)
+        SELECT DISTINCT 'Material in ' || s.name AS label FROM sprint_materials m JOIN workspace_sprints s ON s.id = m.sprint_id WHERE m.node_id IN (SELECT id FROM affected)
         UNION SELECT DISTINCT 'Reference on ' || t.title FROM task_node_links l JOIN tasks t ON t.id = l.task_id AND t.deleted_at IS NULL WHERE l.node_id IN (SELECT id FROM affected)
         UNION SELECT DISTINCT 'Template folder ' || a.name FROM affected a WHERE a.type = 'folder' AND (a.metadata->>'template')::boolean IS TRUE
-        UNION SELECT DISTINCT 'Doc ' || d.filename FROM project_docs d WHERE d.project_id = ${orgId} AND d.linked_node_id IN (SELECT id FROM affected)
+        UNION SELECT DISTINCT 'Doc ' || d.filename FROM workspace_documents d WHERE d.workspace_id = ${orgId} AND d.linked_node_id IN (SELECT id FROM affected)
         LIMIT 20`);
     return rows.map((r) => r.label);
 }
@@ -220,12 +220,12 @@ export async function readOrgSprintMaterialsAction(orgId: string): Promise<{ suc
     if (!userId) return DENIED;
     const access = await getWorkspaceAccessById(orgId, userId);
     if (access.project?.kind !== 'organization' || !(access.isOwner || access.isMember)) return DENIED;
-    const rows = await db.select({ sprintId: projectSprints.id, sprint: projectSprints.name, status: projectSprints.status, nodeId: projectNodes.id, name: projectNodes.name })
+    const rows = await db.select({ sprintId: workspaceSprints.id, sprint: workspaceSprints.name, status: workspaceSprints.status, nodeId: workspaceNodes.id, name: workspaceNodes.name })
         .from(sprintMaterials)
-        .innerJoin(projectSprints, eq(projectSprints.id, sprintMaterials.sprintId))
-        .innerJoin(projectNodes, and(eq(projectNodes.id, sprintMaterials.nodeId), isNull(projectNodes.deletedAt)))
-        .where(and(eq(projectSprints.projectId, orgId), orgFileAccessSql(access)))
-        .orderBy(desc(projectSprints.startDate), asc(projectNodes.name))
+        .innerJoin(workspaceSprints, eq(workspaceSprints.id, sprintMaterials.sprintId))
+        .innerJoin(workspaceNodes, and(eq(workspaceNodes.id, sprintMaterials.nodeId), isNull(workspaceNodes.deletedAt)))
+        .where(and(eq(workspaceSprints.projectId, orgId), orgFileAccessSql(access)))
+        .orderBy(desc(workspaceSprints.startDate), asc(workspaceNodes.name))
         .limit(500);
     const groups = new Map<string, SprintMaterialsGroup>();
     for (const r of rows) {
@@ -243,10 +243,10 @@ export async function readGroupDeliverablesAction(orgId: string): Promise<{ succ
     if (!(await orgAdmin(orgId, 'read'))) return DENIED;
     const rows = await db.execute<{ node_id: string; name: string; project: string; project_slug: string | null; project_id: string; assignment: string; review: string }>(sql`
         SELECT n.id AS node_id, n.name, p.title AS project, p.slug AS project_slug, p.id AS project_id, m.title AS assignment, c.review_status AS review
-        FROM tasks m JOIN tasks c ON c.assignment_id = m.id AND c.deleted_at IS NULL AND c.project_id <> m.project_id
-        JOIN projects p ON p.id = c.project_id AND p.parent_id = ${orgId} AND p.deleted_at IS NULL
-        JOIN project_nodes n ON n.task_id = c.id AND n.type = 'file' AND n.deleted_at IS NULL
-        WHERE m.project_id = ${orgId} AND m.deleted_at IS NULL
+        FROM tasks m JOIN tasks c ON c.assignment_id = m.id AND c.deleted_at IS NULL AND c.workspace_id <> m.workspace_id
+        JOIN workspaces p ON p.id = c.workspace_id AND p.parent_id = ${orgId} AND p.deleted_at IS NULL
+        JOIN workspace_nodes n ON n.task_id = c.id AND n.type = 'file' AND n.deleted_at IS NULL
+        WHERE m.workspace_id = ${orgId} AND m.deleted_at IS NULL
         ORDER BY m.title, p.title, n.name LIMIT 300`);
     return { success: true, rows: rows.map((r) => ({ nodeId: r.node_id, name: r.name, project: r.project, projectSlug: r.project_slug, projectId: r.project_id, assignment: r.assignment, review: r.review })) };
 }
@@ -257,8 +257,8 @@ export async function listOrgTemplateFoldersAction(orgId: string): Promise<Array
     if (!userId) return [];
     const access = await getWorkspaceAccessById(orgId, userId);
     if (access.project?.kind !== 'organization' || !(access.isOwner || access.isMember)) return [];
-    return db.select({ id: projectNodes.id, name: projectNodes.name }).from(projectNodes)
-        .where(and(eq(projectNodes.projectId, orgId), eq(projectNodes.type, 'folder'), isNull(projectNodes.deletedAt),
-            sql`(${projectNodes.metadata}->>'template')::boolean IS TRUE`, orgFileAccessSql(access)))
-        .orderBy(asc(projectNodes.name)).limit(50);
+    return db.select({ id: workspaceNodes.id, name: workspaceNodes.name }).from(workspaceNodes)
+        .where(and(eq(workspaceNodes.projectId, orgId), eq(workspaceNodes.type, 'folder'), isNull(workspaceNodes.deletedAt),
+            sql`(${workspaceNodes.metadata}->>'template')::boolean IS TRUE`, orgFileAccessSql(access)))
+        .orderBy(asc(workspaceNodes.name)).limit(50);
 }

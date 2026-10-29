@@ -39,8 +39,8 @@ export async function selectMessages(viewerId: string, channelId: string, filter
     FROM chat_messages m
     JOIN chat_channels ch ON ch.id = m.channel_id
     LEFT JOIN profiles pr ON pr.id = m.author_id
-    LEFT JOIN project_members pm ON pm.project_id = ch.project_id AND pm.user_id = m.author_id
-    LEFT JOIN role_applications ra ON ra.project_id = ch.project_id AND ra.applicant_id = m.author_id AND ra.status = 'accepted'
+    LEFT JOIN workspace_members pm ON pm.workspace_id = ch.workspace_id AND pm.user_id = m.author_id
+    LEFT JOIN role_applications ra ON ra.workspace_id = ch.workspace_id AND ra.applicant_id = m.author_id AND ra.status = 'accepted'
     WHERE m.channel_id = ${channelId}::uuid
       AND (
         app_private.chat_is_member(${channelId}::uuid, ${viewerId}::uuid)
@@ -48,7 +48,7 @@ export async function selectMessages(viewerId: string, channelId: string, filter
         OR EXISTS (
           SELECT 1 FROM chat_channels pc
           WHERE pc.id = ${channelId}::uuid AND pc.kind = 'public' AND pc.archived_at IS NULL
-            AND app_private.chat_is_project_member(pc.project_id, ${viewerId}::uuid)
+            AND app_private.chat_is_workspace_member(pc.workspace_id, ${viewerId}::uuid)
         )
       )
       AND ${filter}

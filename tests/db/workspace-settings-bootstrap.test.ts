@@ -45,7 +45,7 @@ test("settings readers count roles and upload permissions in SQL for the whole t
       members.push(id);
       await sql.begin((tx) => addMember(tx, projectId, id, role));
     }
-    await sql`UPDATE project_members SET file_upload_enabled = false WHERE project_id = ${projectId} AND user_id = ${members[2]!}`;
+    await sql`UPDATE workspace_members SET file_upload_enabled = false WHERE workspace_id = ${projectId} AND user_id = ${members[2]!}`;
 
     const collaborators = await actions.getWorkspaceCollaboratorSettingsAction(projectId, { limit: 2 });
     assert.equal(collaborators.success, true, "message" in collaborators ? collaborators.message : "");
@@ -66,7 +66,7 @@ test("settings readers count roles and upload permissions in SQL for the whole t
     assert.equal(bootstrap.collaboratorSettings.success, true);
     assert.equal(bootstrap.fileAccess.success, true);
   } finally {
-    await sql`DELETE FROM projects WHERE owner_id = ANY(${ids}::uuid[])`;
+    await sql`DELETE FROM workspaces WHERE owner_id = ANY(${ids}::uuid[])`;
   }
 });
 
@@ -87,6 +87,6 @@ test("the settings bootstrap reads project access once for all of its sections",
     assert.equal(bootstrap.dangerPreflight.success, true);
     assert.equal(accessReads, 1, "one project access read for every section");
   } finally {
-    await sql`DELETE FROM projects WHERE owner_id = ANY(${ids}::uuid[])`;
+    await sql`DELETE FROM workspaces WHERE owner_id = ANY(${ids}::uuid[])`;
   }
 });

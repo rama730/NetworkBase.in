@@ -223,7 +223,7 @@ describe("V3AttachmentPicker — interface contract", () => {
   it("accepts initialSelection prop", () => {
     assert.match(
       SRC,
-      /initialSelection\?:\s*ProjectNode\[\]/,
+      /initialSelection\?:\s*WorkspaceNode\[\]/,
       "Must accept optional initialSelection prop",
     );
   });
@@ -231,7 +231,7 @@ describe("V3AttachmentPicker — interface contract", () => {
   it("accepts onSelectionChange prop", () => {
     assert.match(
       SRC,
-      /onSelectionChange\?:\s*\(nodes:\s*ProjectNode\[\]\)\s*=>\s*void/,
+      /onSelectionChange\?:\s*\(nodes:\s*WorkspaceNode\[\]\)\s*=>\s*void/,
       "Must accept optional onSelectionChange prop",
     );
   });

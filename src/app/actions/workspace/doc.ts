@@ -9,13 +9,13 @@ import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
 import {
     profiles,
-    projectMembers,
-    projectNodes,
-    projectOpenRoles,
-    projectDocVersions,
-    projectDocs,
-    projectSprints,
-    projects,
+    workspaceMembers,
+    workspaceNodes,
+    workspaceOpenRoles,
+    workspaceDocumentVersions,
+    workspaceDocuments,
+    workspaceSprints,
+    workspaces,
     tasks,
 } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
@@ -102,7 +102,7 @@ function normalizeStoredQualityReport(value: unknown, fallbackContent: string): 
     return buildWorkspaceDocQualityReport(fallbackContent);
 }
 
-function toDocVersion(row: (typeof projectDocVersions.$inferSelect & { createdByName?: string | null }) | null | undefined, displayVersionNumber?: number, coAuthorsData?: { id: string; name: string; avatarUrl: string | null }[]): WorkspaceDocVersion | null {
+function toDocVersion(row: (typeof workspaceDocumentVersions.$inferSelect & { createdByName?: string | null }) | null | undefined, displayVersionNumber?: number, coAuthorsData?: { id: string; name: string; avatarUrl: string | null }[]): WorkspaceDocVersion | null {
     if (!row) return null;
     const content = normalizeWorkspaceDocContent(row.content);
     const cleanedMetadata = content === row.content ? null : getOrBuildWorkspaceDocPublishMetadata(content);
@@ -136,8 +136,8 @@ async function requireUserId() {
 }
 
 async function loadDocProjectBase(projectId: string, actorUserId: string | null) {
-    const row = await db.query.projects.findFirst({
-        where: and(eq(projects.id, projectId), isNull(projects.deletedAt)),
+    const row = await db.query.workspaces.findFirst({
+        where: and(eq(workspaces.id, projectId), isNull(workspaces.deletedAt)),
         columns: {
             id: true,
             slug: true,
@@ -155,7 +155,7 @@ async function loadDocProjectBase(projectId: string, actorUserId: string | null)
         with: {
             docs: { with: { linkedNode: { columns: { deletedAt: true } } } },
             members: {
-                where: actorUserId ? eq(projectMembers.userId, actorUserId) : sql`false`,
+                where: actorUserId ? eq(workspaceMembers.userId, actorUserId) : sql`false`,
                 columns: { role: true },
                 limit: 1,
             },
@@ -166,9 +166,9 @@ async function loadDocProjectBase(projectId: string, actorUserId: string | null)
     // Inherited org admins edit a child project's docs like its admins; their edits carry their name (report §19.7).
     if (!members[0] && actorUserId) {
         const [inherited] = await db.execute<{ ok: number }>(sql`
-            SELECT 1 AS ok FROM projects c JOIN projects o ON o.id = c.parent_id AND o.deleted_at IS NULL
+            SELECT 1 AS ok FROM workspaces c JOIN workspaces o ON o.id = c.parent_id AND o.deleted_at IS NULL
             WHERE c.id = ${projectId} AND (o.owner_id = ${actorUserId}
-              OR EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = o.id AND m.user_id = ${actorUserId} AND m.role IN ('owner', 'admin')))
+              OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = o.id AND m.user_id = ${actorUserId} AND m.role IN ('owner', 'admin')))
             LIMIT 1`);
         if (inherited) return { project, membership: { role: "admin" as const }, docs };
     }
@@ -231,13 +231,13 @@ async function getDocProjectContext(projectId: string, actorUserId: string | nul
 
 async function getOrCreateMarkdown(projectId: string, userId: string, docSlug: string = "readme", settings: WorkspaceDocSettings = DEFAULT_WORKSPACE_DOC_SETTINGS) {
     docSlug = normalizeWorkspaceDocSlug(docSlug);
-    const existing = await db.query.projectDocs.findFirst({
-        where: and(eq(projectDocs.projectId, projectId), eq(projectDocs.slug, docSlug)),
+    const existing = await db.query.workspaceDocuments.findFirst({
+        where: and(eq(workspaceDocuments.projectId, projectId), eq(workspaceDocuments.slug, docSlug)),
     });
     if (existing) return existing;
     const filename = docSlug === "readme" ? "README.md" : `${docSlug.toUpperCase()}.md`;
     const [created] = await db
-        .insert(projectDocs)
+        .insert(workspaceDocuments)
         .values({
             projectId,
             slug: docSlug,
@@ -251,8 +251,8 @@ async function getOrCreateMarkdown(projectId: string, userId: string, docSlug: s
 
 async function readPublishedVersion(versionId: string | null | undefined) {
     if (!versionId) return null;
-    return db.query.projectDocVersions.findFirst({
-        where: and(eq(projectDocVersions.id, versionId), isNull(projectDocVersions.deletedAt)),
+    return db.query.workspaceDocumentVersions.findFirst({
+        where: and(eq(workspaceDocumentVersions.id, versionId), isNull(workspaceDocumentVersions.deletedAt)),
     });
 }
 
@@ -368,7 +368,7 @@ function formatSprintDateRange(startDate: Date | string, endDate: Date | string)
     return [start, end].filter(Boolean).join(" - ");
 }
 
-function formatFileType(row: Pick<typeof projectNodes.$inferSelect, "name" | "mimeType" | "type">) {
+function formatFileType(row: Pick<typeof workspaceNodes.$inferSelect, "name" | "mimeType" | "type">) {
     const extension = row.name.includes(".") ? row.name.split(".").pop()?.trim() : null;
     if (extension) return extension.toUpperCase();
     if (row.mimeType?.includes("/")) return row.mimeType.split("/").pop()?.toUpperCase() || "File";
@@ -385,8 +385,8 @@ function formatTaskReferenceTitle(title: string | null | undefined) {
 const acceptedRoleTitleSql = (projectId: string, userId: unknown) => sql<string | null>`(
     SELECT COALESCE(NULLIF(ra.accepted_role_title, ''), NULLIF(por.title, ''), NULLIF(por.role, ''))
     FROM role_applications ra
-    LEFT JOIN project_open_roles por ON por.id = ra.role_id
-    WHERE ra.project_id = ${projectId}
+    LEFT JOIN workspace_open_roles por ON por.id = ra.role_id
+    WHERE ra.workspace_id = ${projectId}
       AND ra.applicant_id = ${userId}
       AND ra.status = 'accepted'
     ORDER BY ra.updated_at DESC
@@ -422,7 +422,7 @@ function optionFromTask(row: TaskReferenceRow, project: { id: string; slug: stri
 }
 
 function optionFromSprint(
-    row: Pick<typeof projectSprints.$inferSelect, "id" | "name" | "goal" | "description" | "status" | "startDate" | "endDate">,
+    row: Pick<typeof workspaceSprints.$inferSelect, "id" | "name" | "goal" | "description" | "status" | "startDate" | "endDate">,
     project: { id: string; slug: string | null }
 ): WorkspaceDocReferenceOption {
     const dateRange = formatSprintDateRange(row.startDate, row.endDate);
@@ -440,11 +440,11 @@ function optionFromSprint(
 }
 
 function optionFromFile(
-    row: Pick<typeof projectNodes.$inferSelect, "id" | "name" | "path" | "currentVersion" | "mimeType">,
+    row: Pick<typeof workspaceNodes.$inferSelect, "id" | "name" | "path" | "currentVersion" | "mimeType">,
     project: { id: string; slug: string | null }
 ): WorkspaceDocReferenceOption {
     const versions = row.currentVersion > 1 ? `${row.currentVersion} versions` : "1 version";
-    const fileType = formatFileType(row as typeof projectNodes.$inferSelect);
+    const fileType = formatFileType(row as typeof workspaceNodes.$inferSelect);
     return {
         id: row.id,
         kind: "files",
@@ -453,7 +453,7 @@ function optionFromFile(
         subtitle: row.path || "/",
         status: fileType,
         meta: versions,
-        href: projectFileHref(project, row as typeof projectNodes.$inferSelect),
+        href: projectFileHref(project, row as typeof workspaceNodes.$inferSelect),
     };
 }
 
@@ -538,11 +538,11 @@ export async function readWorkspaceDocAction(projectId: string, requestedSlug: s
         if (context.readme?.linkedNodeId) {
             // Scoped to this project; a missing or trashed file makes the doc
             // unavailable but never deletes it (COR-035).
-            const node = await db.query.projectNodes.findFirst({
+            const node = await db.query.workspaceNodes.findFirst({
                 where: and(
-                    eq(projectNodes.id, context.readme.linkedNodeId),
-                    eq(projectNodes.projectId, projectId),
-                    isNull(projectNodes.deletedAt)
+                    eq(workspaceNodes.id, context.readme.linkedNodeId),
+                    eq(workspaceNodes.projectId, projectId),
+                    isNull(workspaceNodes.deletedAt)
                 )
             });
             if (node) {
@@ -589,9 +589,9 @@ export async function readWorkspaceDocAction(projectId: string, requestedSlug: s
         } else {
             let version = await readPublishedVersion(context.readme?.publishedVersionId);
             if (!version && context.permission.canEdit && context.readme?.id) {
-                version = (await db.query.projectDocVersions.findFirst({
-                    where: and(eq(projectDocVersions.docId, context.readme.id), isNull(projectDocVersions.deletedAt)),
-                    orderBy: [desc(projectDocVersions.versionNumber)],
+                version = (await db.query.workspaceDocumentVersions.findFirst({
+                    where: and(eq(workspaceDocumentVersions.docId, context.readme.id), isNull(workspaceDocumentVersions.deletedAt)),
+                    orderBy: [desc(workspaceDocumentVersions.versionNumber)],
                 })) ?? null;
             }
             if (!version && !context.permission.canEdit) {
@@ -709,16 +709,16 @@ export async function readWorkspaceDocSmartBlockPreviewsAction(projectId: string
         if (readableKinds.has("sprints")) {
             const sprintIds = [...(idsByKind.get("sprints") ?? [])];
             const [selectedRows, recentRows] = await Promise.all([
-                sprintIds.length ? db.query.projectSprints.findMany({
-                    where: and(eq(projectSprints.projectId, projectId), inArray(projectSprints.id, sprintIds)),
+                sprintIds.length ? db.query.workspaceSprints.findMany({
+                    where: and(eq(workspaceSprints.projectId, projectId), inArray(workspaceSprints.id, sprintIds)),
                     columns: { id: true, name: true, goal: true, description: true, status: true, startDate: true, endDate: true },
-                    orderBy: [desc(projectSprints.updatedAt)],
+                    orderBy: [desc(workspaceSprints.updatedAt)],
                     limit: sprintIds.length,
                 }) : Promise.resolve([]),
-                needsRecent.has("sprints") ? db.query.projectSprints.findMany({
-                    where: eq(projectSprints.projectId, projectId),
+                needsRecent.has("sprints") ? db.query.workspaceSprints.findMany({
+                    where: eq(workspaceSprints.projectId, projectId),
                     columns: { id: true, name: true, goal: true, description: true, status: true, startDate: true, endDate: true },
-                    orderBy: [desc(projectSprints.updatedAt)],
+                    orderBy: [desc(workspaceSprints.updatedAt)],
                     limit: 4,
                 }) : Promise.resolve([]),
             ]);
@@ -734,16 +734,16 @@ export async function readWorkspaceDocSmartBlockPreviewsAction(projectId: string
             // Org Files: no Admins-only files or other people's copies in a doc's file blocks (report §23.9).
             const fileScope = and(canReadReferenceKind("tasks", context) ? undefined : projectContentNodeSql, orgFileAccessSql(await getWorkspaceAccessById(projectId, actorUserId)));
             const [selectedRows, recentRows] = await Promise.all([
-                fileIds.length ? db.query.projectNodes.findMany({
-                    where: and(eq(projectNodes.projectId, projectId), eq(projectNodes.type, "file"), isNull(projectNodes.deletedAt), inArray(projectNodes.id, fileIds), fileScope),
+                fileIds.length ? db.query.workspaceNodes.findMany({
+                    where: and(eq(workspaceNodes.projectId, projectId), eq(workspaceNodes.type, "file"), isNull(workspaceNodes.deletedAt), inArray(workspaceNodes.id, fileIds), fileScope),
                     columns: { id: true, name: true, path: true, currentVersion: true, mimeType: true },
-                    orderBy: [desc(projectNodes.updatedAt)],
+                    orderBy: [desc(workspaceNodes.updatedAt)],
                     limit: fileIds.length,
                 }) : Promise.resolve([]),
-                needsRecent.has("files") ? db.query.projectNodes.findMany({
-                    where: and(eq(projectNodes.projectId, projectId), eq(projectNodes.type, "file"), isNull(projectNodes.deletedAt), fileScope),
+                needsRecent.has("files") ? db.query.workspaceNodes.findMany({
+                    where: and(eq(workspaceNodes.projectId, projectId), eq(workspaceNodes.type, "file"), isNull(workspaceNodes.deletedAt), fileScope),
                     columns: { id: true, name: true, path: true, currentVersion: true, mimeType: true },
-                    orderBy: [desc(projectNodes.updatedAt)],
+                    orderBy: [desc(workspaceNodes.updatedAt)],
                     limit: 4,
                 }) : Promise.resolve([]),
             ]);
@@ -756,16 +756,16 @@ export async function readWorkspaceDocSmartBlockPreviewsAction(projectId: string
         if (readableKinds.has("roles")) {
             const roleIds = [...(idsByKind.get("roles") ?? [])];
             const [selectedRows, recentRows] = await Promise.all([
-                roleIds.length ? db.query.projectOpenRoles.findMany({
-                    where: and(eq(projectOpenRoles.projectId, projectId), inArray(projectOpenRoles.id, roleIds)),
+                roleIds.length ? db.query.workspaceOpenRoles.findMany({
+                    where: and(eq(workspaceOpenRoles.projectId, projectId), inArray(workspaceOpenRoles.id, roleIds)),
                     columns: { id: true, role: true, title: true, description: true, count: true, filled: true },
-                    orderBy: [desc(projectOpenRoles.updatedAt)],
+                    orderBy: [desc(workspaceOpenRoles.updatedAt)],
                     limit: roleIds.length,
                 }) : Promise.resolve([]),
-                needsRecent.has("roles") ? db.query.projectOpenRoles.findMany({
-                    where: eq(projectOpenRoles.projectId, projectId),
+                needsRecent.has("roles") ? db.query.workspaceOpenRoles.findMany({
+                    where: eq(workspaceOpenRoles.projectId, projectId),
                     columns: { id: true, role: true, title: true, description: true, count: true, filled: true },
-                    orderBy: [desc(projectOpenRoles.updatedAt)],
+                    orderBy: [desc(workspaceOpenRoles.updatedAt)],
                     limit: 4,
                 }) : Promise.resolve([]),
             ]);
@@ -779,35 +779,35 @@ export async function readWorkspaceDocSmartBlockPreviewsAction(projectId: string
             const contributorIds = [...(idsByKind.get("contributors") ?? [])];
             const selectedRows = contributorIds.length ? await db
                 .select({
-                    userId: projectMembers.userId,
-                    role: projectMembers.role,
+                    userId: workspaceMembers.userId,
+                    role: workspaceMembers.role,
                     fullName: profiles.fullName,
                     username: profiles.username,
                     avatarUrl: profiles.avatarUrl,
-                    projectRoleTitle: acceptedRoleTitleSql(projectId, projectMembers.userId),
+                    projectRoleTitle: acceptedRoleTitleSql(projectId, workspaceMembers.userId),
                 })
-                .from(projectMembers)
-                .innerJoin(profiles, eq(profiles.id, projectMembers.userId))
+                .from(workspaceMembers)
+                .innerJoin(profiles, eq(profiles.id, workspaceMembers.userId))
                 .where(and(
-                    eq(projectMembers.projectId, projectId),
+                    eq(workspaceMembers.projectId, projectId),
                     isNull(profiles.deletedAt),
-                    inArray(projectMembers.userId, contributorIds),
+                    inArray(workspaceMembers.userId, contributorIds),
                 ))
-                .orderBy(desc(projectMembers.joinedAt))
+                .orderBy(desc(workspaceMembers.joinedAt))
                 .limit(contributorIds.length) : [];
             const recentRows = needsRecent.has("contributors") ? await db
                 .select({
-                    userId: projectMembers.userId,
-                    role: projectMembers.role,
+                    userId: workspaceMembers.userId,
+                    role: workspaceMembers.role,
                     fullName: profiles.fullName,
                     username: profiles.username,
                     avatarUrl: profiles.avatarUrl,
-                    projectRoleTitle: acceptedRoleTitleSql(projectId, projectMembers.userId),
+                    projectRoleTitle: acceptedRoleTitleSql(projectId, workspaceMembers.userId),
                 })
-                .from(projectMembers)
-                .innerJoin(profiles, eq(profiles.id, projectMembers.userId))
-                .where(and(eq(projectMembers.projectId, projectId), isNull(profiles.deletedAt)))
-                .orderBy(desc(projectMembers.joinedAt))
+                .from(workspaceMembers)
+                .innerJoin(profiles, eq(profiles.id, workspaceMembers.userId))
+                .where(and(eq(workspaceMembers.projectId, projectId), isNull(profiles.deletedAt)))
+                .orderBy(desc(workspaceMembers.joinedAt))
                 .limit(4) : [];
             selectedRows.forEach((row) => contributorsById.set(row.userId, optionFromContributor(row, context.project)));
             recentContributors = recentRows.map((row) => optionFromContributor(row, context.project));
@@ -816,14 +816,14 @@ export async function readWorkspaceDocSmartBlockPreviewsAction(projectId: string
         // Projects block (report §19.5): the org's child projects; visitors see public ones only.
         const isInside = Boolean(context.permission.canEdit || context.permission.accessLevel === "owner" || context.membership);
         const childProjects: WorkspaceDocReferenceOption[] = readableKinds.has("projects")
-            ? (await db.select({ id: projects.id, title: projects.title, slug: projects.slug, visibility: projects.visibility })
-                .from(projects)
+            ? (await db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, visibility: workspaces.visibility })
+                .from(workspaces)
                 .where(and(
-                    eq(projects.parentId, projectId),
-                    isNull(projects.deletedAt),
-                    isInside ? sql`${projects.visibility} <> 'private'` : eq(projects.visibility, "public"),
+                    eq(workspaces.parentId, projectId),
+                    isNull(workspaces.deletedAt),
+                    isInside ? sql`${workspaces.visibility} <> 'private'` : eq(workspaces.visibility, "public"),
                 ))
-                .orderBy(projects.title)
+                .orderBy(workspaces.title)
                 .limit(24)).map((row) => ({
                     id: row.id,
                     kind: "projects" as const,
@@ -931,9 +931,9 @@ export async function updateWorkspaceDocSettingsAction(projectId: string, input:
         if (!context.permission.canManageSettings) return { success: false as const, error: "You cannot manage settings." };
         const readme = await getOrCreateMarkdown(projectId, userId, docSlug, context.settings);
         const nextSettings = normalizeWorkspaceDocSettings({ ...context.settings, ...parsed });
-        const [updated] = await db.update(projectDocs)
+        const [updated] = await db.update(workspaceDocuments)
             .set({ settings: nextSettings, updatedAt: new Date() })
-            .where(eq(projectDocs.id, readme.id))
+            .where(eq(workspaceDocuments.id, readme.id))
             .returning();
         await recordNodeEvent(projectId, userId, null, "project_readme.settings_updated", { settings: nextSettings });
         revalidateProjectDoc(context.project);
@@ -957,12 +957,12 @@ export async function linkWorkspaceDocAction(projectId: string, nodeId: string) 
             return { success: false as const, error: "Only workspace members can add a document." };
         }
 
-        const node = await db.query.projectNodes.findFirst({
+        const node = await db.query.workspaceNodes.findFirst({
             where: and(
-                eq(projectNodes.id, nodeId),
-                eq(projectNodes.projectId, projectId),
-                eq(projectNodes.type, "file"),
-                isNull(projectNodes.deletedAt),
+                eq(workspaceNodes.id, nodeId),
+                eq(workspaceNodes.projectId, projectId),
+                eq(workspaceNodes.type, "file"),
+                isNull(workspaceNodes.deletedAt),
             ),
             columns: { id: true, name: true },
         });
@@ -977,14 +977,14 @@ export async function linkWorkspaceDocAction(projectId: string, nodeId: string) 
         const taken = new Set(base.docs.filter((doc) => doc.linkedNodeId || doc.publishedVersionId).map((doc) => doc.slug));
         const slug = nextFreeDocSlug(normalizeWorkspaceDocSlug(node.name, "doc"), taken);
         const [linked] = await db
-            .insert(projectDocs)
+            .insert(workspaceDocuments)
             // A new doc takes the project's defaults, never another doc's org options (Required, group…).
             .values({ projectId, slug, filename: node.name, linkedNodeId: nodeId, settings: { ...context.settings, org: undefined } })
             .onConflictDoUpdate({
-                target: [projectDocs.projectId, projectDocs.slug],
+                target: [workspaceDocuments.projectId, workspaceDocuments.slug],
                 set: { filename: node.name, linkedNodeId: nodeId, updatedAt: new Date() },
             })
-            .returning({ id: projectDocs.id });
+            .returning({ id: workspaceDocuments.id });
 
         revalidateProjectDoc(context.project);
         return { success: true as const, slug, id: linked!.id };
@@ -1003,7 +1003,7 @@ export async function unlinkWorkspaceDocAction(projectId: string, docSlug: strin
             return { success: false as const, error: "Only workspace members can remove a document." };
         }
 
-        await db.delete(projectDocs).where(and(eq(projectDocs.projectId, projectId), eq(projectDocs.slug, docSlug)));
+        await db.delete(workspaceDocuments).where(and(eq(workspaceDocuments.projectId, projectId), eq(workspaceDocuments.slug, docSlug)));
 
         revalidateProjectDoc(context.project);
         return { success: true as const };
@@ -1042,12 +1042,12 @@ export async function applyCreationIntentAction(projectId: string, input: unknow
 
         if (starterText.trim().length > 0) {
             await db.transaction(async (tx) => {
-                let readme = await tx.query.projectDocs.findFirst({
-                    where: and(eq(projectDocs.projectId, projectId), eq(projectDocs.slug, "readme")),
+                let readme = await tx.query.workspaceDocuments.findFirst({
+                    where: and(eq(workspaceDocuments.projectId, projectId), eq(workspaceDocuments.slug, "readme")),
                 });
                 if (!readme) {
                     const [created] = await tx
-                        .insert(projectDocs)
+                        .insert(workspaceDocuments)
                         .values({
                             projectId,
                             slug: "readme",
@@ -1056,23 +1056,23 @@ export async function applyCreationIntentAction(projectId: string, input: unknow
                         })
                         .onConflictDoNothing()
                         .returning();
-                    readme = created ?? (await tx.query.projectDocs.findFirst({
-                        where: and(eq(projectDocs.projectId, projectId), eq(projectDocs.slug, "readme")),
+                    readme = created ?? (await tx.query.workspaceDocuments.findFirst({
+                        where: and(eq(workspaceDocuments.projectId, projectId), eq(workspaceDocuments.slug, "readme")),
                     }));
                 }
                 if (!readme) throw new Error("Couldn’t initialize readme record");
 
                 const metadata = getOrBuildWorkspaceDocPublishMetadata(starterText);
                 let versionId: string | null = null;
-                const existingVersion = await tx.query.projectDocVersions.findFirst({
-                    where: and(eq(projectDocVersions.docId, readme.id), eq(projectDocVersions.versionNumber, 1)),
+                const existingVersion = await tx.query.workspaceDocumentVersions.findFirst({
+                    where: and(eq(workspaceDocumentVersions.docId, readme.id), eq(workspaceDocumentVersions.versionNumber, 1)),
                 });
 
                 if (existingVersion) {
                     versionId = existingVersion.id;
                 } else {
                     const [newVersion] = await tx
-                        .insert(projectDocVersions)
+                        .insert(workspaceDocumentVersions)
                         .values({
                             projectId,
                             docId: readme.id,
@@ -1086,15 +1086,15 @@ export async function applyCreationIntentAction(projectId: string, input: unknow
                             coAuthors: [],
                             createdBy: userId,
                         })
-                        .returning({ id: projectDocVersions.id });
+                        .returning({ id: workspaceDocumentVersions.id });
                     versionId = newVersion?.id ?? null;
                 }
 
                 if (parsed.publishOnCreate && versionId) {
                     await tx
-                        .update(projectDocs)
+                        .update(workspaceDocuments)
                         .set({ publishedVersionId: versionId })
-                        .where(eq(projectDocs.id, readme.id));
+                        .where(eq(workspaceDocuments.id, readme.id));
                 }
             });
         }

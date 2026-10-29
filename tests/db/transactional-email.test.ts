@@ -108,7 +108,7 @@ async function assignedTask() {
   const projectId = await sql.begin(async (tx) => {
     const id = await createProject(tx, owner.id);
     await addMember(tx, id, owner.id, "owner"); await addMember(tx, id, a.id); await addMember(tx, id, b.id);
-    await tx`INSERT INTO project_workflow_columns (project_id, title, status, is_default, position, accent_class_name, empty_title, empty_description)
+    await tx`INSERT INTO workspace_workflow_columns (workspace_id, title, status, is_default, position, accent_class_name, empty_title, empty_description)
       VALUES (${id}, 'Todo', 'todo', true, 0, 'neutral', 'No tasks', 'No tasks yet') ON CONFLICT DO NOTHING`;
     return id;
   });
@@ -232,7 +232,7 @@ test("collaborator removal reassigns only active tasks with fresh activities, no
   const removed = await projectActions.removeWorkspaceMemberAction(projectId, a.id, { mode: "reassign_active_tasks", reassignToUserId: b.id });
   assert.equal(removed.success, true, removed.message);
   assert.ok(wakeCalls > wakeBefore);
-  const activities = await sql`SELECT id, payload FROM task_activity_events WHERE project_id = ${projectId} AND event_type = 'assigned' AND payload->>'assigneeId' = ${b.id}`;
+  const activities = await sql`SELECT id, payload FROM task_activity_events WHERE workspace_id = ${projectId} AND event_type = 'assigned' AND payload->>'assigneeId' = ${b.id}`;
   assert.equal(activities.length, 2);
   assert.ok(activities.every((event) => event.payload.previousAssigneeId === a.id && event.payload.actorName));
   const notifications = await sql`SELECT dedupe_key FROM user_notifications WHERE user_id = ${b.id} AND kind = 'task_assigned'`;
@@ -242,7 +242,7 @@ test("collaborator removal reassigns only active tasks with fresh activities, no
   await delivery.drainEmailOutbox();
   assert.equal(fetched.length, 2);
   assert.ok(fetched.every((request) => String(request.body).includes(b.email)));
-  const untouched = await sql`SELECT title, assignee_id FROM tasks WHERE project_id = ${projectId} AND (status = 'done' OR deleted_at IS NOT NULL)`;
+  const untouched = await sql`SELECT title, assignee_id FROM tasks WHERE workspace_id = ${projectId} AND (status = 'done' OR deleted_at IS NOT NULL)`;
   assert.equal(untouched.length, 2);
   assert.ok(untouched.every((task) => task.assignee_id === a.id));
   // Rejoining and assigning back must not reuse the original A notification key.
@@ -282,9 +282,9 @@ test("bulk reassignment rolls back assignment, activity, membership removal and 
   }), /forced rollback/);
   assert.equal((await sql`SELECT assignee_id FROM tasks WHERE id = ${taskId}`)[0]!.assignee_id, a.id);
   assert.equal((await sql`SELECT id FROM task_activity_events WHERE task_id = ${taskId} AND event_type = 'assigned' AND payload->>'assigneeId' = ${b.id}`).length, 0);
-  assert.equal((await sql`SELECT id FROM project_members WHERE project_id = ${projectId} AND user_id = ${a.id}`).length, 1);
+  assert.equal((await sql`SELECT id FROM workspace_members WHERE workspace_id = ${projectId} AND user_id = ${a.id}`).length, 1);
   assert.equal((await sql`SELECT id FROM email_outbox WHERE user_id = ${b.id}`).length, 0);
-  await sql`UPDATE project_members SET role = 'viewer' WHERE project_id = ${projectId} AND user_id = ${b.id}`;
+  await sql`UPDATE workspace_members SET role = 'viewer' WHERE workspace_id = ${projectId} AND user_id = ${b.id}`;
   const invalid = await projectActions.removeWorkspaceMemberAction(projectId, a.id, { mode: "reassign_active_tasks", reassignToUserId: b.id });
   assert.equal(invalid.success, false);
   assert.equal((await sql`SELECT assignee_id FROM tasks WHERE id = ${taskId}`)[0]!.assignee_id, a.id);
@@ -311,9 +311,9 @@ test("task preferences, category/mutes, pause/quiet hours and revoked access app
   await reset({ quietHours: { enabled: true, startMinute: (minute + 1439) % 1440, endMinute: (minute + 60) % 1440, timeZone: "UTC" } });
   await delivery.drainEmailOutbox(); assert.equal((await queueRow(a.id)).status, "pending");
   assert.equal((await queueRow(a.id)).attempts, 0);
-  await reset({}); await sql`UPDATE project_members SET role = 'viewer' WHERE project_id = ${projectId} AND user_id = ${a.id}`;
+  await reset({}); await sql`UPDATE workspace_members SET role = 'viewer' WHERE workspace_id = ${projectId} AND user_id = ${a.id}`;
   await delivery.drainEmailOutbox(); assert.equal((await queueRow(a.id)).last_error, "assignment_or_access_changed");
-  await reset({}); await sql`DELETE FROM project_members WHERE project_id = ${projectId} AND user_id = ${a.id}`;
+  await reset({}); await sql`DELETE FROM workspace_members WHERE workspace_id = ${projectId} AND user_id = ${a.id}`;
   await delivery.drainEmailOutbox(); assert.equal((await queueRow(a.id)).last_error, "assignment_or_access_changed");
   assert.equal(fetched.length, 0);
 });

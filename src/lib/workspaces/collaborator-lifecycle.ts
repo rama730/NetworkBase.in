@@ -7,15 +7,15 @@ import {
     chatChannelMembers,
     chatChannels,
     profiles,
-    projectMembers,
-    projectNodeEvents,
-    projectOpenRoles,
-    projects,
+    workspaceMembers,
+    workspaceNodeEvents,
+    workspaceOpenRoles,
+    workspaces,
     roleApplications,
     taskNodeLinks,
     tasks,
-    projectNodes,
-    projectInvitations,
+    workspaceNodes,
+    workspaceInvitations,
 } from "@/lib/db/schema";
 import { closePendingApplications, resolveApplicationsOnJoin } from "@/lib/applications/closing";
 import { syncWorkspaceChat } from "@/lib/messaging/integrations";
@@ -93,7 +93,7 @@ async function readProjectForUpdate(executor: WorkspaceCollaboratorExecutor, pro
         member_file_upload_default: boolean | null;
     }>(sql`
         SELECT id, owner_id, title, slug, member_file_upload_default, key
-        FROM ${projects}
+        FROM ${workspaces}
         WHERE id = ${projectId} AND deleted_at IS NULL
         FOR UPDATE
     `);
@@ -134,17 +134,17 @@ async function readMembershipRole(
     if (lock) {
         const rows = await executor.execute<{ role: WorkspaceMemberRole }>(sql`
             SELECT role
-            FROM ${projectMembers}
-            WHERE project_id = ${projectId} AND user_id = ${userId}
+            FROM ${workspaceMembers}
+            WHERE workspace_id = ${projectId} AND user_id = ${userId}
             FOR UPDATE
         `);
         const row = Array.from(rows)[0];
         return row ? normalizeWorkspaceMemberRole(row.role) : null;
     }
     const [member] = await executor
-        .select({ role: projectMembers.role })
-        .from(projectMembers)
-        .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, userId)))
+        .select({ role: workspaceMembers.role })
+        .from(workspaceMembers)
+        .where(and(eq(workspaceMembers.projectId, projectId), eq(workspaceMembers.userId, userId)))
         .limit(1);
     return member ? normalizeWorkspaceMemberRole(member.role) : null;
 }
@@ -187,9 +187,9 @@ export async function requireWorkspaceCapability(
     if (executor === db) return capabilityFromAccess(await getWorkspaceAccessById(projectId, userId), capability);
 
     const [project] = await executor
-        .select({ id: projects.id, ownerId: projects.ownerId })
-        .from(projects)
-        .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
+        .select({ id: workspaces.id, ownerId: workspaces.ownerId })
+        .from(workspaces)
+        .where(and(eq(workspaces.id, projectId), isNull(workspaces.deletedAt)))
         .limit(1);
     if (!project) throw new NotFoundError("Workspace not found");
     const role = await readMembershipRole(executor, projectId, userId, project.ownerId, false);
@@ -222,7 +222,7 @@ export async function addWorkspaceMemberInternal(
     let expiredInvitationCandidates: string[] = [];
 
     if (!previousRole) {
-        await executor.insert(projectMembers).values({
+        await executor.insert(workspaceMembers).values({
             projectId: params.projectId,
             userId: params.userId,
             role: nextRole === "owner" ? "member" : nextRole,
@@ -238,9 +238,9 @@ export async function addWorkspaceMemberInternal(
         roleRank(nextRole) > roleRank(previousRole)
     ) {
         await executor
-            .update(projectMembers)
+            .update(workspaceMembers)
             .set({ role: nextRole })
-            .where(and(eq(projectMembers.projectId, params.projectId), eq(projectMembers.userId, params.userId)));
+            .where(and(eq(workspaceMembers.projectId, params.projectId), eq(workspaceMembers.userId, params.userId)));
         changed = true;
     }
 
@@ -248,18 +248,18 @@ export async function addWorkspaceMemberInternal(
     const shouldIncrementCapacity = Boolean(params.roleId && (changed || params.source === "application_accept"));
     if (shouldIncrementCapacity && params.incrementRoleCapacity !== false && params.roleId) {
         const roleRows = await executor
-            .select({ id: projectOpenRoles.id, filled: projectOpenRoles.filled, count: projectOpenRoles.count })
-            .from(projectOpenRoles)
-            .where(eq(projectOpenRoles.id, params.roleId))
+            .select({ id: workspaceOpenRoles.id, filled: workspaceOpenRoles.filled, count: workspaceOpenRoles.count })
+            .from(workspaceOpenRoles)
+            .where(eq(workspaceOpenRoles.id, params.roleId))
             .for("update")
             .limit(1);
         const role = roleRows[0];
         if (!role) throw new NotFoundError("Role not found");
         if (role.filled >= role.count) throw new Error("Role is full");
         await executor
-            .update(projectOpenRoles)
-            .set({ filled: sql`${projectOpenRoles.filled} + 1`, updatedAt: new Date() })
-            .where(eq(projectOpenRoles.id, params.roleId));
+            .update(workspaceOpenRoles)
+            .set({ filled: sql`${workspaceOpenRoles.filled} + 1`, updatedAt: new Date() })
+            .where(eq(workspaceOpenRoles.id, params.roleId));
 
         if (role.filled + 1 >= role.count) {
             // Find user IDs to invalidate
@@ -275,12 +275,12 @@ export async function addWorkspaceMemberInternal(
                         params.userId ? ne(roleApplications.applicantId, params.userId) : undefined,
                     )),
                 executor
-                    .select({ assigneeUserId: projectInvitations.candidateId })
-                    .from(projectInvitations)
+                    .select({ assigneeUserId: workspaceInvitations.candidateId })
+                    .from(workspaceInvitations)
                     .where(and(
-                        eq(projectInvitations.projectId, params.projectId),
-                        eq(projectInvitations.roleId, params.roleId),
-                        eq(projectInvitations.status, 'pending'),
+                        eq(workspaceInvitations.projectId, params.projectId),
+                        eq(workspaceInvitations.roleId, params.roleId),
+                        eq(workspaceInvitations.status, 'pending'),
                     ))
             ]);
 
@@ -303,14 +303,14 @@ export async function addWorkspaceMemberInternal(
 
             // Pending invitations for the filled role expire; their chat cards follow live.
             const expiredInvitations = await executor
-                .update(projectInvitations)
+                .update(workspaceInvitations)
                 .set({ status: "expired", resolvedAt: new Date(), resolvedBy: params.actorId, updatedAt: new Date() })
                 .where(and(
-                    eq(projectInvitations.projectId, params.projectId),
-                    eq(projectInvitations.roleId, params.roleId),
-                    eq(projectInvitations.status, "pending"),
+                    eq(workspaceInvitations.projectId, params.projectId),
+                    eq(workspaceInvitations.roleId, params.roleId),
+                    eq(workspaceInvitations.status, "pending"),
                 ))
-                .returning({ candidateId: projectInvitations.candidateId });
+                .returning({ candidateId: workspaceInvitations.candidateId });
             expiredInvitations.forEach((invitation) => userIdsToInvalidate.add(invitation.candidateId));
             expiredInvitationCandidates = expiredInvitations.map((invitation) => invitation.candidateId);
 
@@ -330,7 +330,7 @@ export async function addWorkspaceMemberInternal(
         await resolveApplicationsOnJoin(executor, { projectId: params.projectId, userId: params.userId, actorId: params.actorId });
     }
 
-    const [event] = await executor.insert(projectNodeEvents).values({
+    const [event] = await executor.insert(workspaceNodeEvents).values({
         projectId: params.projectId,
         actorId: params.actorId,
         nodeId: null,
@@ -346,7 +346,7 @@ export async function addWorkspaceMemberInternal(
             targetDisplayName: displayNameForSnapshot(target),
         },
         createdAt: new Date(),
-    }).returning({ id: projectNodeEvents.id });
+    }).returning({ id: workspaceNodeEvents.id });
 
     if (changed) {
         await upsertProfileWorkspaceContributionFromMembership(executor, {
@@ -392,11 +392,11 @@ export async function changeWorkspaceMemberRoleInternal(
 
     const target = await readProfileSnapshot(executor, params.targetUserId);
     await executor
-        .update(projectMembers)
+        .update(workspaceMembers)
         .set({ role: params.nextRole })
-        .where(and(eq(projectMembers.projectId, params.projectId), eq(projectMembers.userId, params.targetUserId)));
+        .where(and(eq(workspaceMembers.projectId, params.projectId), eq(workspaceMembers.userId, params.targetUserId)));
     await syncWorkspaceChat(executor, params.projectId, params.targetUserId, "role");
-    const [event] = await executor.insert(projectNodeEvents).values({
+    const [event] = await executor.insert(workspaceNodeEvents).values({
         projectId: params.projectId,
         actorId: params.actorId,
         nodeId: null,
@@ -409,7 +409,7 @@ export async function changeWorkspaceMemberRoleInternal(
             targetDisplayName: displayNameForSnapshot(target),
         },
         createdAt: new Date(),
-    }).returning({ id: projectNodeEvents.id });
+    }).returning({ id: workspaceNodeEvents.id });
 
     await upsertProfileWorkspaceContributionFromMembership(executor, {
         profileId: params.targetUserId,
@@ -447,16 +447,16 @@ export async function readWorkspaceMemberRemovalImpact(
                 id: taskNodeLinks.id,
                 taskId: taskNodeLinks.taskId,
                 taskTitle: tasks.title,
-                nodeName: projectNodes.name,
+                nodeName: workspaceNodes.name,
                 annotation: taskNodeLinks.annotation,
             })
             .from(taskNodeLinks)
             .innerJoin(tasks, eq(taskNodeLinks.taskId, tasks.id))
-            .innerJoin(projectNodes, eq(taskNodeLinks.nodeId, projectNodes.id))
+            .innerJoin(workspaceNodes, eq(taskNodeLinks.nodeId, workspaceNodes.id))
             .where(and(
                 eq(tasks.projectId, projectId),
                 isNull(tasks.deletedAt),
-                isNull(projectNodes.deletedAt),
+                isNull(workspaceNodes.deletedAt),
                 eq(taskNodeLinks.createdBy, memberUserId),
                 sql`lower(coalesce(${taskNodeLinks.annotation}, '')) like '%review%'`,
             ))
@@ -465,11 +465,11 @@ export async function readWorkspaceMemberRemovalImpact(
             .select({
                 id: roleApplications.id,
                 roleId: roleApplications.roleId,
-                roleTitle: projectOpenRoles.title,
-                roleName: projectOpenRoles.role,
+                roleTitle: workspaceOpenRoles.title,
+                roleName: workspaceOpenRoles.role,
             })
             .from(roleApplications)
-            .leftJoin(projectOpenRoles, eq(projectOpenRoles.id, roleApplications.roleId))
+            .leftJoin(workspaceOpenRoles, eq(workspaceOpenRoles.id, roleApplications.roleId))
             .where(and(eq(roleApplications.projectId, projectId), eq(roleApplications.applicantId, memberUserId), eq(roleApplications.status, "accepted")))
             .limit(8),
         executor
@@ -478,16 +478,16 @@ export async function readWorkspaceMemberRemovalImpact(
                 username: profiles.username,
                 fullName: profiles.fullName,
                 avatarUrl: profiles.avatarUrl,
-                role: projectMembers.role,
+                role: workspaceMembers.role,
             })
-            .from(projectMembers)
-            .innerJoin(profiles, eq(profiles.id, projectMembers.userId))
+            .from(workspaceMembers)
+            .innerJoin(profiles, eq(profiles.id, workspaceMembers.userId))
             .where(and(
-                eq(projectMembers.projectId, projectId),
-                inArray(projectMembers.role, ["owner", "admin", "member"]),
-                sql`${projectMembers.userId} <> ${memberUserId}`,
+                eq(workspaceMembers.projectId, projectId),
+                inArray(workspaceMembers.role, ["owner", "admin", "member"]),
+                sql`${workspaceMembers.userId} <> ${memberUserId}`,
             ))
-            .orderBy(sql`CASE WHEN ${projectMembers.role} = 'owner' THEN 0 WHEN ${projectMembers.role} = 'admin' THEN 1 ELSE 2 END`, sql`${profiles.fullName} ASC NULLS LAST`)
+            .orderBy(sql`CASE WHEN ${workspaceMembers.role} = 'owner' THEN 0 WHEN ${workspaceMembers.role} = 'admin' THEN 1 ELSE 2 END`, sql`${profiles.fullName} ASC NULLS LAST`)
             .limit(20),
         // In the project's #general (report 7.1): removal also removes them from its channels.
         executor
@@ -532,11 +532,11 @@ async function readProjectMemberRemovalImpactCounts(
             .select({ count: sql<number>`count(*)::int` })
             .from(taskNodeLinks)
             .innerJoin(tasks, eq(taskNodeLinks.taskId, tasks.id))
-            .innerJoin(projectNodes, eq(taskNodeLinks.nodeId, projectNodes.id))
+            .innerJoin(workspaceNodes, eq(taskNodeLinks.nodeId, workspaceNodes.id))
             .where(and(
                 eq(tasks.projectId, projectId),
                 isNull(tasks.deletedAt),
-                isNull(projectNodes.deletedAt),
+                isNull(workspaceNodes.deletedAt),
                 eq(taskNodeLinks.createdBy, memberUserId),
                 sql`lower(coalesce(${taskNodeLinks.annotation}, '')) like '%review%'`,
             ))
@@ -632,8 +632,8 @@ export async function removeWorkspaceMemberInternal(
 
     await syncWorkspaceChat(executor, params.projectId, params.targetUserId, "remove");
     await executor
-        .delete(projectMembers)
-        .where(and(eq(projectMembers.projectId, params.projectId), eq(projectMembers.userId, params.targetUserId)));
+        .delete(workspaceMembers)
+        .where(and(eq(workspaceMembers.projectId, params.projectId), eq(workspaceMembers.userId, params.targetUserId)));
 
     const [capacityApplication] = await executor
         .select({ roleId: roleApplications.roleId })
@@ -643,12 +643,12 @@ export async function removeWorkspaceMemberInternal(
         .limit(1);
     if (capacityApplication?.roleId) {
         await executor
-            .update(projectOpenRoles)
-            .set({ filled: sql`greatest(${projectOpenRoles.filled} - 1, 0)`, updatedAt: new Date() })
-            .where(eq(projectOpenRoles.id, capacityApplication.roleId));
+            .update(workspaceOpenRoles)
+            .set({ filled: sql`greatest(${workspaceOpenRoles.filled} - 1, 0)`, updatedAt: new Date() })
+            .where(eq(workspaceOpenRoles.id, capacityApplication.roleId));
     }
 
-    const [event] = await executor.insert(projectNodeEvents).values({
+    const [event] = await executor.insert(workspaceNodeEvents).values({
         projectId: params.projectId,
         actorId: params.actorId,
         nodeId: null,
@@ -669,7 +669,7 @@ export async function removeWorkspaceMemberInternal(
             },
         },
         createdAt: new Date(),
-    }).returning({ id: projectNodeEvents.id });
+    }).returning({ id: workspaceNodeEvents.id });
 
     await endProfileWorkspaceContributionMembership(executor, {
         profileId: params.targetUserId,

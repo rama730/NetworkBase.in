@@ -21,11 +21,11 @@ async function main() {
           (SELECT count(*) FROM skill_icon_assets WHERE approval_status = 'catalog_approved') AS catalog_icons,
           (SELECT count(*) FROM profiles owner WHERE jsonb_array_length(COALESCE(owner.skills, '[]'::jsonb)) <>
             (SELECT count(*) FROM profile_skills assignment WHERE assignment.profile_id = owner.id)) AS profile_mismatches,
-          (SELECT count(*) FROM projects owner WHERE jsonb_array_length(COALESCE(owner.skills, '[]'::jsonb)) <>
-            (SELECT count(*) FROM project_skills assignment WHERE assignment.project_id = owner.id)) AS project_mismatches,
-          (SELECT count(*) FROM project_open_roles owner WHERE jsonb_array_length(COALESCE(owner.skills, '[]'::jsonb)) <>
+          (SELECT count(*) FROM workspaces owner WHERE jsonb_array_length(COALESCE(owner.skills, '[]'::jsonb)) <>
+            (SELECT count(*) FROM workspace_skills assignment WHERE assignment.workspace_id = owner.id)) AS project_mismatches,
+          (SELECT count(*) FROM workspace_open_roles owner WHERE jsonb_array_length(COALESCE(owner.skills, '[]'::jsonb)) <>
             (SELECT count(*) FROM role_skills assignment WHERE assignment.role_id = owner.id)) AS role_mismatches,
-          (SELECT count(*) FROM profile_project_contributions owner WHERE jsonb_array_length(COALESCE(owner.skills, '[]'::jsonb)) >
+          (SELECT count(*) FROM profile_contributions owner WHERE jsonb_array_length(COALESCE(owner.skills, '[]'::jsonb)) >
           (SELECT count(*) FROM profile_contribution_skills assignment WHERE assignment.contribution_id = owner.id)) AS contribution_mismatches,
           (SELECT count(*) FROM skill_aliases alias INNER JOIN skills skill ON skill.id = alias.skill_id
             WHERE alias.normalized_alias = 'express js' AND skill.canonical_key = 'backend.express') AS express_alias_matches

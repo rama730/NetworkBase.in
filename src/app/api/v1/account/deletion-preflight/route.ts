@@ -2,7 +2,7 @@ import { and, count, eq, inArray, isNull, ne } from 'drizzle-orm';
 
 import { jsonError, jsonSuccess, requireAuthenticatedUser } from '@/app/api/v1/_shared';
 import { db } from '@/lib/db';
-import { projectMembers, projects } from '@/lib/db/schema';
+import { workspaceMembers, workspaces } from '@/lib/db/schema';
 import { logger } from '@/lib/logger';
 
 /**
@@ -16,16 +16,16 @@ export async function GET() {
 
     try {
         const owned = await db
-            .select({ id: projects.id, title: projects.title, slug: projects.slug, kind: projects.kind, parentId: projects.parentId })
-            .from(projects)
-            .where(and(eq(projects.ownerId, auth.user.id), isNull(projects.deletedAt)))
+            .select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, kind: workspaces.kind, parentId: workspaces.parentId })
+            .from(workspaces)
+            .where(and(eq(workspaces.ownerId, auth.user.id), isNull(workspaces.deletedAt)))
             .limit(50);
         const memberCounts = owned.length
             ? await db
-                .select({ projectId: projectMembers.projectId, others: count() })
-                .from(projectMembers)
-                .where(and(inArray(projectMembers.projectId, owned.map((project) => project.id)), ne(projectMembers.userId, auth.user.id)))
-                .groupBy(projectMembers.projectId)
+                .select({ projectId: workspaceMembers.projectId, others: count() })
+                .from(workspaceMembers)
+                .where(and(inArray(workspaceMembers.projectId, owned.map((project) => project.id)), ne(workspaceMembers.userId, auth.user.id)))
+                .groupBy(workspaceMembers.projectId)
             : [];
         const others = new Map(memberCounts.map((row) => [row.projectId, Number(row.others)]));
         return jsonSuccess(

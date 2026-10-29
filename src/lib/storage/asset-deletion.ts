@@ -13,10 +13,10 @@ import {
   importJobs,
   profiles,
   profileContributionMediaAssets,
-  projectNodes,
-  projectUpdateDraftMediaAssets,
-  projectUpdateMediaAssets,
-  projects,
+  workspaceNodes,
+  workspaceUpdateDraftMediaAssets,
+  workspaceUpdateMediaAssets,
+  workspaces,
   storageQuotaScopes,
   storageAssetPins,
   storageAssets,
@@ -35,12 +35,12 @@ export function hasNoLiveReference() {
          OR ${profiles.bannerAssetId} = ${storageAssets.id}
     )`,
     sql`NOT EXISTS (
-      SELECT 1 FROM ${projects}
-      WHERE ${projects.coverImageAssetId} = ${storageAssets.id}
+      SELECT 1 FROM ${workspaces}
+      WHERE ${workspaces.coverImageAssetId} = ${storageAssets.id}
          OR (
-           ${projects.id} = ${storageAssets.projectId}
-           AND ${projects.coverImageAssetId} IS NULL
-           AND ${projects.coverImage} LIKE ('%' || ${storageAssets.storageKey} || '%')
+           ${workspaces.id} = ${storageAssets.projectId}
+           AND ${workspaces.coverImageAssetId} IS NULL
+           AND ${workspaces.coverImage} LIKE ('%' || ${storageAssets.storageKey} || '%')
          )
     )`,
     sql`NOT EXISTS (
@@ -48,8 +48,8 @@ export function hasNoLiveReference() {
       WHERE ${profileContributionMediaAssets.assetId} = ${storageAssets.id}
     )`,
     sql`NOT EXISTS (
-      SELECT 1 FROM ${projectNodes}
-      WHERE ${projectNodes.assetId} = ${storageAssets.id}
+      SELECT 1 FROM ${workspaceNodes}
+      WHERE ${workspaceNodes.assetId} = ${storageAssets.id}
     )`,
     sql`NOT EXISTS (
       SELECT 1 FROM ${fileVersions}
@@ -72,12 +72,12 @@ export function hasNoLiveReference() {
       AND ${storageAssets.createdAt} > now() - interval '1 hour'
     )`,
     sql`NOT EXISTS (
-      SELECT 1 FROM ${projectUpdateMediaAssets}
-      WHERE ${projectUpdateMediaAssets.assetId} = ${storageAssets.id}
+      SELECT 1 FROM ${workspaceUpdateMediaAssets}
+      WHERE ${workspaceUpdateMediaAssets.assetId} = ${storageAssets.id}
     )`,
     sql`NOT EXISTS (
-      SELECT 1 FROM ${projectUpdateDraftMediaAssets}
-      WHERE ${projectUpdateDraftMediaAssets.assetId} = ${storageAssets.id}
+      SELECT 1 FROM ${workspaceUpdateDraftMediaAssets}
+      WHERE ${workspaceUpdateDraftMediaAssets.assetId} = ${storageAssets.id}
     )`,
     sql`NOT EXISTS (
       SELECT 1 FROM ${extensionRecoveryDrafts}

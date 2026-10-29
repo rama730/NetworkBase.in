@@ -3,7 +3,7 @@
 import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, ne, or, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
-import { profiles, projectMembers, projectNodeEvents, projectNodes, projectOpenRoles, projects, projectSprints, projectUpdates, roleApplications, taskActivityEvents, taskTeamMembers, tasks } from '@/lib/db/schema';
+import { profiles, workspaceMembers, workspaceNodeEvents, workspaceNodes, workspaceOpenRoles, workspaces, workspaceSprints, workspaceUpdates, roleApplications, taskActivityEvents, taskTeamMembers, tasks } from '@/lib/db/schema';
 import { getWorkspaceAccessById, type WorkspaceAccess } from '@/lib/data/workspace-access';
 import { orgFileAccessSql } from '@/lib/files/internal-helpers';
 import { copyState, type CopyState } from '@/lib/organizations/assignment-rules';
@@ -28,7 +28,7 @@ async function orgViewer(orgId: string): Promise<OrgViewer | null> {
     const { userId } = await getViewerAuthContext();
     const access = await getWorkspaceAccessById(orgId, userId);
     if (access.project?.kind !== 'organization' || !access.canRead) return null;
-    const [org] = await db.select({ id: projects.id, title: projects.title, slug: projects.slug, status: projects.status }).from(projects).where(eq(projects.id, orgId)).limit(1);
+    const [org] = await db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, status: workspaces.status }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
     return org ? {
         userId,
         access,
@@ -46,17 +46,17 @@ async function readActivity(v: OrgViewer, filter: string, opts: { publicOnly?: b
     const want = (k: ActivityKind) => filter === 'all' || (filter === 'assignments' && (k === 'assignment' || k === 'submission')) || (filter === 'people' && k === 'joins') || (filter === 'files' && (k === 'file' || k === 'doc')) || (filter === 'projects' && k === 'project');
     const items: Array<ActivityItem & { actorId: string | null; public?: boolean }> = [];
     const [sprints, children, joins, posts, files, masters, submissions] = await Promise.all([
-        db.select({ id: projectSprints.id, name: projectSprints.name, status: projectSprints.status, startDate: projectSprints.startDate, completedAt: projectSprints.completedAt })
-            .from(projectSprints).where(and(eq(projectSprints.projectId, v.org.id), or(gte(projectSprints.completedAt, since), and(eq(projectSprints.status, 'active'), gte(projectSprints.startDate, since))))),
-        db.select({ id: projects.id, title: projects.title, slug: projects.slug, visibility: projects.visibility, createdAt: projects.createdAt, ownerId: projects.ownerId })
-            .from(projects).where(and(eq(projects.parentId, v.org.id), isNull(projects.deletedAt), gte(projects.createdAt, since))),
-        db.select({ n: sql<number>`count(*)::int` }).from(projectMembers).where(and(eq(projectMembers.projectId, v.org.id), gte(projectMembers.joinedAt, new Date(Date.now() - 7 * DAY)))),
-        db.select({ id: projectUpdates.id, content: projectUpdates.content, createdAt: projectUpdates.createdAt, visibility: projectUpdates.visibility, audience: projectUpdates.audience, authorId: projectUpdates.authorId })
-            .from(projectUpdates).where(and(eq(projectUpdates.projectId, v.org.id), eq(projectUpdates.updateType, 'announcement'), isNull(projectUpdates.deletedAt), gte(projectUpdates.createdAt, since))),
-        opts.publicOnly ? Promise.resolve([]) : db.select({ id: projectNodeEvents.id, nodeId: projectNodes.id, name: projectNodes.name, at: projectNodeEvents.createdAt, actorId: projectNodeEvents.actorId })
-            .from(projectNodeEvents).innerJoin(projectNodes, and(eq(projectNodes.id, projectNodeEvents.nodeId), isNull(projectNodes.deletedAt), isNull(projectNodes.taskId)))
-            .where(and(eq(projectNodeEvents.projectId, v.org.id), eq(projectNodeEvents.type, 'create_file'), gte(projectNodeEvents.createdAt, since), orgFileAccessSql(v.access)))
-            .orderBy(desc(projectNodeEvents.createdAt)).limit(10),
+        db.select({ id: workspaceSprints.id, name: workspaceSprints.name, status: workspaceSprints.status, startDate: workspaceSprints.startDate, completedAt: workspaceSprints.completedAt })
+            .from(workspaceSprints).where(and(eq(workspaceSprints.projectId, v.org.id), or(gte(workspaceSprints.completedAt, since), and(eq(workspaceSprints.status, 'active'), gte(workspaceSprints.startDate, since))))),
+        db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, visibility: workspaces.visibility, createdAt: workspaces.createdAt, ownerId: workspaces.ownerId })
+            .from(workspaces).where(and(eq(workspaces.parentId, v.org.id), isNull(workspaces.deletedAt), gte(workspaces.createdAt, since))),
+        db.select({ n: sql<number>`count(*)::int` }).from(workspaceMembers).where(and(eq(workspaceMembers.projectId, v.org.id), gte(workspaceMembers.joinedAt, new Date(Date.now() - 7 * DAY)))),
+        db.select({ id: workspaceUpdates.id, content: workspaceUpdates.content, createdAt: workspaceUpdates.createdAt, visibility: workspaceUpdates.visibility, audience: workspaceUpdates.audience, authorId: workspaceUpdates.authorId })
+            .from(workspaceUpdates).where(and(eq(workspaceUpdates.projectId, v.org.id), eq(workspaceUpdates.updateType, 'announcement'), isNull(workspaceUpdates.deletedAt), gte(workspaceUpdates.createdAt, since))),
+        opts.publicOnly ? Promise.resolve([]) : db.select({ id: workspaceNodeEvents.id, nodeId: workspaceNodes.id, name: workspaceNodes.name, at: workspaceNodeEvents.createdAt, actorId: workspaceNodeEvents.actorId })
+            .from(workspaceNodeEvents).innerJoin(workspaceNodes, and(eq(workspaceNodes.id, workspaceNodeEvents.nodeId), isNull(workspaceNodes.deletedAt), isNull(workspaceNodes.taskId)))
+            .where(and(eq(workspaceNodeEvents.projectId, v.org.id), eq(workspaceNodeEvents.type, 'create_file'), gte(workspaceNodeEvents.createdAt, since), orgFileAccessSql(v.access)))
+            .orderBy(desc(workspaceNodeEvents.createdAt)).limit(10),
         opts.publicOnly ? Promise.resolve([]) : db.select({ id: tasks.id, title: tasks.title, createdAt: tasks.createdAt, creatorId: tasks.creatorId }).from(tasks)
             .where(and(eq(tasks.projectId, v.org.id), eq(tasks.kind, 'assignment'), isNull(tasks.assignmentId), isNull(tasks.deletedAt), gte(tasks.createdAt, since))),
         opts.publicOnly ? Promise.resolve([]) : db.select({ id: taskActivityEvents.id, at: taskActivityEvents.createdAt, actorId: taskActivityEvents.actorId, title: tasks.title, name: profiles.fullName, username: profiles.username })
@@ -116,25 +116,25 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
     if (!v || !v.isInside) return DENIED;
     const now = new Date();
     const [[pinned], sprints, masters, needsYou, activity, people, [counts]] = await Promise.all([
-        db.select({ id: projectUpdates.id, content: projectUpdates.content }).from(projectUpdates).where(and(
-            eq(projectUpdates.projectId, orgId), eq(projectUpdates.isPinned, true), isNull(projectUpdates.deletedAt),
-            or(isNull(projectUpdates.pinnedUntil), gt(projectUpdates.pinnedUntil, now)),
-            v.isAdmin ? undefined : sql`${projectUpdates.audience} = '{}'::jsonb`,
-        )).orderBy(desc(projectUpdates.createdAt)).limit(1),
-        db.select({ id: projectSprints.id, name: projectSprints.name, status: projectSprints.status, startDate: projectSprints.startDate, endDate: projectSprints.endDate })
-            .from(projectSprints).where(and(eq(projectSprints.projectId, orgId), ne(projectSprints.status, 'completed'))).orderBy(asc(projectSprints.startDate)),
+        db.select({ id: workspaceUpdates.id, content: workspaceUpdates.content }).from(workspaceUpdates).where(and(
+            eq(workspaceUpdates.projectId, orgId), eq(workspaceUpdates.isPinned, true), isNull(workspaceUpdates.deletedAt),
+            or(isNull(workspaceUpdates.pinnedUntil), gt(workspaceUpdates.pinnedUntil, now)),
+            v.isAdmin ? undefined : sql`${workspaceUpdates.audience} = '{}'::jsonb`,
+        )).orderBy(desc(workspaceUpdates.createdAt)).limit(1),
+        db.select({ id: workspaceSprints.id, name: workspaceSprints.name, status: workspaceSprints.status, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate })
+            .from(workspaceSprints).where(and(eq(workspaceSprints.projectId, orgId), ne(workspaceSprints.status, 'completed'))).orderBy(asc(workspaceSprints.startDate)),
         db.select({ id: tasks.id, title: tasks.title, dueDate: tasks.dueDate, sprintId: tasks.sprintId }).from(tasks)
             .where(and(eq(tasks.projectId, orgId), eq(tasks.kind, 'assignment'), isNull(tasks.assignmentId), isNull(tasks.deletedAt))),
         readNeedsYou(v, now),
         readActivity(v, activityFilter),
-        db.select({ id: profiles.id, name: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl, joinedAt: projectMembers.joinedAt, show: projectMembers.showOnProfile })
-            .from(projectMembers).innerJoin(profiles, eq(profiles.id, projectMembers.userId)).where(eq(projectMembers.projectId, orgId)).orderBy(desc(projectMembers.joinedAt)),
+        db.select({ id: profiles.id, name: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl, joinedAt: workspaceMembers.joinedAt, show: workspaceMembers.showOnProfile })
+            .from(workspaceMembers).innerJoin(profiles, eq(profiles.id, workspaceMembers.userId)).where(eq(workspaceMembers.projectId, orgId)).orderBy(desc(workspaceMembers.joinedAt)),
         db.select({
-            requests: sql<number>`(SELECT count(*)::int FROM role_applications WHERE project_id = ${orgId} AND role_id IS NULL AND status = 'pending')`,
-            files: sql<number>`(SELECT count(*)::int FROM project_nodes WHERE project_id = ${orgId} AND type = 'file' AND deleted_at IS NULL)`,
-            announcements: sql<number>`(SELECT count(*)::int FROM project_updates WHERE project_id = ${orgId} AND update_type = 'announcement' AND deleted_at IS NULL)`,
-            allSprints: sql<number>`(SELECT count(*)::int FROM project_sprints WHERE project_id = ${orgId})`,
-        }).from(projects).where(eq(projects.id, orgId)),
+            requests: sql<number>`(SELECT count(*)::int FROM role_applications WHERE workspace_id = ${orgId} AND role_id IS NULL AND status = 'pending')`,
+            files: sql<number>`(SELECT count(*)::int FROM workspace_nodes WHERE workspace_id = ${orgId} AND type = 'file' AND deleted_at IS NULL)`,
+            announcements: sql<number>`(SELECT count(*)::int FROM workspace_updates WHERE workspace_id = ${orgId} AND update_type = 'announcement' AND deleted_at IS NULL)`,
+            allSprints: sql<number>`(SELECT count(*)::int FROM workspace_sprints WHERE workspace_id = ${orgId})`,
+        }).from(workspaces).where(eq(workspaces.id, orgId)),
     ]);
     const active = sprints.find((s) => s.status === 'active') ?? null;
     const next = sprints.find((s) => s.status !== 'active' && s.startDate > now) ?? null;
@@ -163,15 +163,15 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
     else if (v.userId) for (const c of await ownCopies(orgId, v.userId)) { if (within(c.dueDate) && stateOf(c, now).state !== 'done') comingUp.push({ date: c.dueDate!.toISOString(), label: `${c.title} due` }) }
     comingUp.sort((a, b) => a.date.localeCompare(b.date));
 
-    const projectRows = await db.select({ id: projects.id, title: projects.title, slug: projects.slug, updatedAt: projects.updatedAt, visibility: projects.visibility }).from(projects)
-        .where(and(eq(projects.parentId, orgId), isNull(projects.deletedAt), ne(projects.status, 'archived'),
-            v.isAdmin ? undefined : sql`EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = ${projects.id} AND pm.user_id = ${v.userId})`))
-        .orderBy(desc(projects.updatedAt)).limit(5);
+    const projectRows = await db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, updatedAt: workspaces.updatedAt, visibility: workspaces.visibility }).from(workspaces)
+        .where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt), ne(workspaces.status, 'archived'),
+            v.isAdmin ? undefined : sql`EXISTS (SELECT 1 FROM workspace_members pm WHERE pm.workspace_id = ${workspaces.id} AND pm.user_id = ${v.userId})`))
+        .orderBy(desc(workspaces.updatedAt)).limit(5);
     const weekAgo = now.getTime() - 7 * DAY;
     const archived = v.org.status === 'archived';
     let archivedSummary: string | null = null;
     if (archived) {
-        const [org] = await db.select({ title: projects.title, termEnd: projects.termEnd, updatedAt: projects.updatedAt }).from(projects).where(eq(projects.id, orgId)).limit(1);
+        const [org] = await db.select({ title: workspaces.title, termEnd: workspaces.termEnd, updatedAt: workspaces.updatedAt }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
         const ended = new Intl.DateTimeFormat('en', { month: 'short', year: 'numeric' }).format(org?.termEnd ? new Date(org.termEnd) : org?.updatedAt ?? now);
         const n = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
         archivedSummary = `${org?.title ?? 'This organization'} ended ${ended} · ${n(counts?.allSprints ?? 0, 'sprint')} · ${n(masters.length, 'assignment')} · ${n(people.length, 'member')}`;
@@ -217,20 +217,20 @@ export async function readOrgAboutAction(orgId: string): Promise<OrgAboutData | 
     if (!v) return DENIED;
     const tabs = normalizeWorkspacePublicTabVisibility(v.access.project?.publicTabVisibility);
     const [children, sprints, leaders, [org], [me]] = await Promise.all([
-        db.select({ id: projects.id, title: projects.title, slug: projects.slug, visibility: projects.visibility }).from(projects).where(and(
-            eq(projects.parentId, orgId), isNull(projects.deletedAt), ne(projects.status, 'archived'),
+        db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, visibility: workspaces.visibility }).from(workspaces).where(and(
+            eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt), ne(workspaces.status, 'archived'),
             v.isAdmin ? undefined : v.isInside
-                ? or(ne(projects.visibility, 'private'), sql`EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = ${projects.id} AND pm.user_id = ${v.userId})`)
-                : eq(projects.visibility, 'public'),
-        )).orderBy(desc(projects.updatedAt)).limit(3),
+                ? or(ne(workspaces.visibility, 'private'), sql`EXISTS (SELECT 1 FROM workspace_members pm WHERE pm.workspace_id = ${workspaces.id} AND pm.user_id = ${v.userId})`)
+                : eq(workspaces.visibility, 'public'),
+        )).orderBy(desc(workspaces.updatedAt)).limit(3),
         v.isInside || tabs.sprints
-            ? db.select({ name: projectSprints.name, status: projectSprints.status, startDate: projectSprints.startDate, endDate: projectSprints.endDate, completedAt: projectSprints.completedAt }).from(projectSprints).where(eq(projectSprints.projectId, orgId))
+            ? db.select({ name: workspaceSprints.name, status: workspaceSprints.status, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate, completedAt: workspaceSprints.completedAt }).from(workspaceSprints).where(eq(workspaceSprints.projectId, orgId))
             : Promise.resolve(null),
-        db.select({ id: profiles.id, name: profiles.fullName, username: profiles.username, role: projectMembers.role, title: projectMembers.title, show: projectMembers.showOnProfile })
-            .from(projectMembers).innerJoin(profiles, eq(profiles.id, projectMembers.userId))
-            .where(and(eq(projectMembers.projectId, orgId), inArray(projectMembers.role, ['owner', 'admin']))),
-        db.select({ joinCode: projects.joinCode, joinCodeEnabled: projects.joinCodeEnabled, ownerId: projects.ownerId }).from(projects).where(eq(projects.id, orgId)).limit(1),
-        v.userId ? db.select({ joinedAt: projectMembers.joinedAt }).from(projectMembers).where(and(eq(projectMembers.projectId, orgId), eq(projectMembers.userId, v.userId))).limit(1) : Promise.resolve([]),
+        db.select({ id: profiles.id, name: profiles.fullName, username: profiles.username, role: workspaceMembers.role, title: workspaceMembers.title, show: workspaceMembers.showOnProfile })
+            .from(workspaceMembers).innerJoin(profiles, eq(profiles.id, workspaceMembers.userId))
+            .where(and(eq(workspaceMembers.projectId, orgId), inArray(workspaceMembers.role, ['owner', 'admin']))),
+        db.select({ joinCode: workspaces.joinCode, joinCodeEnabled: workspaces.joinCodeEnabled, ownerId: workspaces.ownerId }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1),
+        v.userId ? db.select({ joinedAt: workspaceMembers.joinedAt }).from(workspaceMembers).where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.userId, v.userId))).limit(1) : Promise.resolve([]),
     ]);
     const card: OrgAboutData['card'] = v.isAdmin ? { kind: 'invite', joinCode: org?.joinCodeEnabled ? org.joinCode : null }
         : v.isInside ? { kind: v.isGuest ? 'guest' : 'member', joinedAt: me?.joinedAt?.toISOString() ?? null }
@@ -263,23 +263,23 @@ export async function readOrgWorkspacesAction(orgId: string): Promise<{ success:
     const now = new Date();
     // ponytail: every child project in one read, sized for ORG_LIMITS.childProjectsPerOrg (200). Upgrade: 50-row pages.
     const rows = await db.select({
-        id: projects.id, title: projects.title, slug: projects.slug, visibility: projects.visibility, status: projects.status, updatedAt: projects.updatedAt, ownerId: projects.ownerId,
+        id: workspaces.id, title: workspaces.title, slug: workspaces.slug, visibility: workspaces.visibility, status: workspaces.status, updatedAt: workspaces.updatedAt, ownerId: workspaces.ownerId,
         leadName: profiles.fullName, leadUsername: profiles.username,
-        members: sql<number>`(SELECT count(*)::int FROM project_members pm WHERE pm.project_id = ${projects.id})`,
-        units: sql<number>`(SELECT count(*)::int FROM ${projectOpenRoles} r WHERE r.project_id = ${projects.id})`,
-        open: sql<number>`(SELECT count(*)::int FROM tasks t WHERE t.project_id = ${projects.id} AND t.deleted_at IS NULL AND t.status <> 'done')`,
-        overdue: sql<number>`(SELECT count(*)::int FROM tasks t WHERE t.project_id = ${projects.id} AND t.deleted_at IS NULL AND t.status <> 'done' AND t.due_date < now())`,
-        inReview: sql<number>`(SELECT count(*)::int FROM tasks t WHERE t.project_id = ${projects.id} AND t.deleted_at IS NULL AND t.review_status = 'pending')`,
-        lastTaskAt: sql<Date | null>`(SELECT max(t.updated_at) FROM tasks t WHERE t.project_id = ${projects.id})`,
-        stage: sql<string | null>`${projects.lifecycleStages}->>coalesce(${projects.currentStageIndex}, 0)`,
-        sprintName: sql<string | null>`(SELECT s.name FROM project_sprints s WHERE s.project_id = ${projects.id} AND s.status = 'active' ORDER BY s.start_date DESC LIMIT 1)`,
-        inOrgSprint: sql<boolean>`EXISTS (SELECT 1 FROM project_sprints s JOIN project_sprints o ON o.id = s.parent_sprint_id AND o.status = 'active' WHERE s.project_id = ${projects.id} AND s.status = 'active')`,
-        newInOrg: sql<boolean>`coalesce((${projects.orgSettings}->>'movedInAt')::timestamptz > now() - interval '7 days', false)`,
-        mine: v.userId ? sql<boolean>`EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = ${projects.id} AND pm.user_id = ${v.userId})` : sql<boolean>`false`,
-        leadInOrg: sql<boolean>`(${projects.ownerId} = ${v.access.project!.ownerId} OR EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = ${orgId} AND pm.user_id = ${projects.ownerId}))`,
-    }).from(projects).leftJoin(profiles, eq(profiles.id, projects.ownerId))
-        .where(and(eq(projects.parentId, orgId), isNull(projects.deletedAt)))
-        .orderBy(desc(projects.updatedAt)).limit(200);
+        members: sql<number>`(SELECT count(*)::int FROM workspace_members pm WHERE pm.workspace_id = ${workspaces.id})`,
+        units: sql<number>`(SELECT count(*)::int FROM ${workspaceOpenRoles} r WHERE r.workspace_id = ${workspaces.id})`,
+        open: sql<number>`(SELECT count(*)::int FROM tasks t WHERE t.workspace_id = ${workspaces.id} AND t.deleted_at IS NULL AND t.status <> 'done')`,
+        overdue: sql<number>`(SELECT count(*)::int FROM tasks t WHERE t.workspace_id = ${workspaces.id} AND t.deleted_at IS NULL AND t.status <> 'done' AND t.due_date < now())`,
+        inReview: sql<number>`(SELECT count(*)::int FROM tasks t WHERE t.workspace_id = ${workspaces.id} AND t.deleted_at IS NULL AND t.review_status = 'pending')`,
+        lastTaskAt: sql<Date | null>`(SELECT max(t.updated_at) FROM tasks t WHERE t.workspace_id = ${workspaces.id})`,
+        stage: sql<string | null>`${workspaces.lifecycleStages}->>coalesce(${workspaces.currentStageIndex}, 0)`,
+        sprintName: sql<string | null>`(SELECT s.name FROM workspace_sprints s WHERE s.workspace_id = ${workspaces.id} AND s.status = 'active' ORDER BY s.start_date DESC LIMIT 1)`,
+        inOrgSprint: sql<boolean>`EXISTS (SELECT 1 FROM workspace_sprints s JOIN workspace_sprints o ON o.id = s.parent_sprint_id AND o.status = 'active' WHERE s.workspace_id = ${workspaces.id} AND s.status = 'active')`,
+        newInOrg: sql<boolean>`coalesce((${workspaces.orgSettings}->>'movedInAt')::timestamptz > now() - interval '7 days', false)`,
+        mine: v.userId ? sql<boolean>`EXISTS (SELECT 1 FROM workspace_members pm WHERE pm.workspace_id = ${workspaces.id} AND pm.user_id = ${v.userId})` : sql<boolean>`false`,
+        leadInOrg: sql<boolean>`(${workspaces.ownerId} = ${v.access.project!.ownerId} OR EXISTS (SELECT 1 FROM workspace_members pm WHERE pm.workspace_id = ${orgId} AND pm.user_id = ${workspaces.ownerId}))`,
+    }).from(workspaces).leftJoin(profiles, eq(profiles.id, workspaces.ownerId))
+        .where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt)))
+        .orderBy(desc(workspaces.updatedAt)).limit(200);
     const visible = rows.filter((r) => v.isAdmin || r.mine || r.visibility !== 'private');
     const groupCopies = visible.length ? await db.select(copyColumns).from(tasks).where(and(inArray(tasks.projectId, visible.map((r) => r.id)), isNotNull(tasks.assignmentId), isNull(tasks.deletedAt))).orderBy(desc(tasks.dueDate)) : [];
     const out: OrgWorkspaceRow[] = visible.map((r) => {
@@ -299,12 +299,12 @@ export async function readOrgWorkspacesAction(orgId: string): Promise<{ success:
             newInOrg: Boolean(r.newInOrg),
         };
     });
-    const [{ n: notInProject } = { n: 0 }] = v.isAdmin ? await db.select({ n: sql<number>`count(*)::int` }).from(projectMembers).where(and(
-        eq(projectMembers.projectId, orgId),
-        sql`NOT EXISTS (SELECT 1 FROM project_members cm JOIN projects c ON c.id = cm.project_id WHERE c.parent_id = ${orgId} AND c.deleted_at IS NULL AND cm.user_id = ${projectMembers.userId})`,
+    const [{ n: notInProject } = { n: 0 }] = v.isAdmin ? await db.select({ n: sql<number>`count(*)::int` }).from(workspaceMembers).where(and(
+        eq(workspaceMembers.projectId, orgId),
+        sql`NOT EXISTS (SELECT 1 FROM workspace_members cm JOIN workspaces c ON c.id = cm.workspace_id WHERE c.parent_id = ${orgId} AND c.deleted_at IS NULL AND cm.user_id = ${workspaceMembers.userId})`,
     )) : [{ n: 0 }];
     // + New project (report §14.1 E1): admins always; members when the org lets members create.
-    const [org] = await db.select({ settings: projects.orgSettings, status: projects.status }).from(projects).where(eq(projects.id, orgId)).limit(1);
+    const [org] = await db.select({ settings: workspaces.orgSettings, status: workspaces.status }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
     const canCreate = !v.isGuest && org?.status !== 'archived' && !v.access.writeBlocked
         && (v.isAdmin || (org?.settings as { childCreation?: string } | null)?.childCreation !== 'admins');
     return {
@@ -319,18 +319,18 @@ export async function readOrgWorkspacesAction(orgId: string): Promise<{ success:
 /** `Part of CSE-3A · CO2 ends Fri · 1 assignment due` on a child project's Dashboard (report §22.5, §27.5). */
 export async function readChildOrgLineAction(childProjectId: string) {
     const { userId } = await getViewerAuthContext();
-    const [child] = await db.select({ parentId: projects.parentId, ownerId: projects.ownerId, slug: projects.slug }).from(projects).where(and(eq(projects.id, childProjectId), isNull(projects.deletedAt))).limit(1);
+    const [child] = await db.select({ parentId: workspaces.parentId, ownerId: workspaces.ownerId, slug: workspaces.slug }).from(workspaces).where(and(eq(workspaces.id, childProjectId), isNull(workspaces.deletedAt))).limit(1);
     if (!child?.parentId || !(await readViewerOrgRole(child.parentId, userId))) return null; // outside people don't get the org line
     // Org membership alone doesn't open a private child project: its sprint and group copies need read access.
     if (!userId || !(await getWorkspaceAccessById(childProjectId, userId)).canRead) return null;
     const [[org], [sprint], due, [ownSprint]] = await Promise.all([
-        db.select({ title: projects.title, slug: projects.slug }).from(projects).where(eq(projects.id, child.parentId)).limit(1),
-        db.select({ name: projectSprints.name, endDate: projectSprints.endDate }).from(projectSprints).where(and(eq(projectSprints.projectId, child.parentId), eq(projectSprints.status, 'active'))).limit(1),
+        db.select({ title: workspaces.title, slug: workspaces.slug }).from(workspaces).where(eq(workspaces.id, child.parentId)).limit(1),
+        db.select({ name: workspaceSprints.name, endDate: workspaceSprints.endDate }).from(workspaceSprints).where(and(eq(workspaceSprints.projectId, child.parentId), eq(workspaceSprints.status, 'active'))).limit(1),
         db.select({ ...copyColumns, title: tasks.title }).from(tasks).where(and(eq(tasks.projectId, childProjectId), isNotNull(tasks.assignmentId), isNull(tasks.deletedAt))),
         // The project's own running sprint and the org sprint holding it: "Inside CO2 (CSE-3A) · ends Fri" (report §27.5).
         db.execute<{ name: string; end_date: string; parent: string | null }>(sql`
-            SELECT s.name, s.end_date::text, p.name AS parent FROM project_sprints s LEFT JOIN project_sprints p ON p.id = s.parent_sprint_id
-            WHERE s.project_id = ${childProjectId} AND s.status = 'active' ORDER BY s.start_date DESC LIMIT 1`),
+            SELECT s.name, s.end_date::text, p.name AS parent FROM workspace_sprints s LEFT JOIN workspace_sprints p ON p.id = s.parent_sprint_id
+            WHERE s.workspace_id = ${childProjectId} AND s.status = 'active' ORDER BY s.start_date DESC LIMIT 1`),
     ]);
     if (!org) return null;
     const now = new Date();

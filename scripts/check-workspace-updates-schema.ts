@@ -70,12 +70,12 @@ async function main() {
     SELECT column_default AS default_expr
     FROM information_schema.columns
     WHERE table_schema = 'public'
-      AND table_name = 'projects'
+      AND table_name = 'workspaces'
       AND column_name = 'public_tab_visibility'
     LIMIT 1
   `;
   if (!defaultRow?.default_expr?.includes('"updates": true')) {
-    errors.push('projects.public_tab_visibility default does not include "updates": true');
+    errors.push('workspaces.public_tab_visibility default does not include "updates": true');
   }
 
   if (errors.length > 0) {

@@ -151,8 +151,8 @@ export async function browseChannels(input: { projectId: string }) {
              app_private.chat_is_member(c.id, ${user.id}::uuid) AS joined,
              c.archived_at IS NOT NULL AS archived
       FROM chat_channels c
-      WHERE c.project_id = ${input.projectId}::uuid AND c.kind = 'public'
-        AND app_private.chat_is_project_member(${input.projectId}::uuid, ${user.id}::uuid)
+      WHERE c.workspace_id = ${input.projectId}::uuid AND c.kind = 'public'
+        AND app_private.chat_is_workspace_member(${input.projectId}::uuid, ${user.id}::uuid)
       ORDER BY c.archived_at IS NOT NULL, c.is_default DESC, c.name
       LIMIT 200
     `);
@@ -175,11 +175,11 @@ export async function searchChannels(input: { query: string }) {
   const pattern = `%${query.replace(/[%_\\]/g, "\\$&")}%`;
   try {
     const channels = await chatRows<ChannelMatch>(sql`
-      SELECT c.id, c.name, c.project_id, p.title AS project_title
+      SELECT c.id, c.name, c.workspace_id AS project_id, p.title AS project_title
       FROM chat_channels c
-      JOIN projects p ON p.id = c.project_id
+      JOIN workspaces p ON p.id = c.workspace_id
       WHERE c.kind = 'public' AND c.archived_at IS NULL AND c.name ILIKE ${pattern} ESCAPE '\\'
-        AND app_private.chat_is_project_member(c.project_id, ${user.id}::uuid)
+        AND app_private.chat_is_workspace_member(c.workspace_id, ${user.id}::uuid)
         AND NOT app_private.chat_is_member(c.id, ${user.id}::uuid)
       ORDER BY c.name
       LIMIT 5
@@ -209,7 +209,7 @@ export async function getChannel(input: { channelId: string }) {
   if (!isUuid(input?.channelId)) return invalidInput;
   try {
     const [channel] = await chatRows<ChannelDetails>(sql`
-      SELECT c.id, c.kind, c.name, c.title, c.topic, c.description, c.project_id, c.application_id, c.is_default,
+      SELECT c.id, c.kind, c.name, c.title, c.topic, c.description, c.workspace_id AS project_id, c.application_id, c.is_default,
              c.last_seq, c.last_top_seq, c.last_message_at, c.last_preview, c.last_author_id, c.member_count,
              c.archived_at AS channel_archived_at, c.created_by, c.created_at,
              (SELECT coalesce(cp.full_name, cp.username) FROM profiles cp WHERE cp.id = c.created_by) AS created_by_name,
@@ -233,10 +233,10 @@ export async function getChannel(input: { channelId: string }) {
                JOIN profiles gp ON gp.id = preview.user_id
              ) ELSE NULL::jsonb END AS members_preview
       FROM chat_channels c
-      LEFT JOIN projects p ON p.id = c.project_id
+      LEFT JOIN workspaces p ON p.id = c.workspace_id
       LEFT JOIN chat_channel_members m ON m.channel_id = c.id AND m.user_id = ${user.id}::uuid
       WHERE c.id = ${input.channelId}::uuid
-        AND (m.user_id IS NOT NULL OR (c.kind = 'public' AND app_private.chat_is_project_member(c.project_id, ${user.id}::uuid)))
+        AND (m.user_id IS NOT NULL OR (c.kind = 'public' AND app_private.chat_is_workspace_member(c.workspace_id, ${user.id}::uuid)))
     `);
     if (!channel) return { success: false as const, error: "chat_channel_not_found" };
     return { success: true as const, channel };
@@ -258,20 +258,20 @@ export async function listMembers(input: { channelId: string }) {
              (
                SELECT coalesce(nullif(ra.accepted_role_title, ''), nullif(por.title, ''), nullif(por.role, ''))
                FROM role_applications ra
-               LEFT JOIN project_open_roles por ON por.id = ra.role_id
-               WHERE ra.project_id = c.project_id
+               LEFT JOIN workspace_open_roles por ON por.id = ra.role_id
+               WHERE ra.workspace_id = c.workspace_id
                  AND ra.applicant_id = pr.id
                  AND ra.status = 'accepted'
                ORDER BY ra.updated_at DESC
                LIMIT 1
              ) AS project_role_title,
-             (c.project_id IS NOT NULL AND p.owner_id = pr.id) AS is_project_owner,
+             (c.workspace_id IS NOT NULL AND p.owner_id = pr.id) AS is_project_owner,
              p.import_source->'metadata'->>'leadFocus' AS lead_focus
       FROM chat_channel_members m
       JOIN profiles pr ON pr.id = m.user_id
       JOIN chat_channels c ON c.id = m.channel_id
-      LEFT JOIN projects p ON p.id = c.project_id
-      LEFT JOIN project_members pm ON pm.project_id = c.project_id AND pm.user_id = pr.id
+      LEFT JOIN workspaces p ON p.id = c.workspace_id
+      LEFT JOIN workspace_members pm ON pm.workspace_id = c.workspace_id AND pm.user_id = pr.id
       WHERE m.channel_id = ${input.channelId}::uuid
         AND app_private.chat_is_member(${input.channelId}::uuid, ${user.id}::uuid)
       ORDER BY (m.role = 'member'), coalesce(pr.full_name, pr.username)

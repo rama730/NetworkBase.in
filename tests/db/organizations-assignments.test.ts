@@ -33,7 +33,7 @@ before(async () => {
 
 const created: string[] = [];
 after(async () => {
-  for (const id of created.reverse()) await sql`DELETE FROM projects WHERE id = ${id}`;
+  for (const id of created.reverse()) await sql`DELETE FROM workspaces WHERE id = ${id}`;
   await sql.end();
   await closeAppDb();
 });
@@ -44,14 +44,14 @@ async function org(): Promise<Org> {
   const [owner, a, b, c, guest] = await Promise.all([1, 2, 3, 4, 5].map(() => sql.begin((tx) => createUser(tx))));
   const id = await sql.begin((tx) => createProject(tx, owner!));
   const code = generateJoinCode();
-  await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${id}, ${owner!}, 'owner'), (${id}, ${a!}, 'member'), (${id}, ${b!}, 'member'), (${id}, ${c!}, 'member'), (${id}, ${guest!}, 'viewer')`;
-  await sql`UPDATE projects SET kind = 'organization', org_type = 'education', join_code = ${code}, task_review_required = true WHERE id = ${id}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${owner!}, 'owner'), (${id}, ${a!}, 'member'), (${id}, ${b!}, 'member'), (${id}, ${c!}, 'member'), (${id}, ${guest!}, 'viewer')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', join_code = ${code}, task_review_required = true WHERE id = ${id}`;
   created.push(id);
   return { org: id, owner: owner!, a: a!, b: b!, c: c!, guest: guest!, code };
 }
 
 const future = () => new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
-const copies = (masterId: string) => sql`SELECT id, project_id, assignee_id, status, review_status, team_name, excused_at, due_date FROM tasks WHERE assignment_id = ${masterId} AND deleted_at IS NULL ORDER BY team_name NULLS LAST`;
+const copies = (masterId: string) => sql`SELECT id, workspace_id AS project_id, assignee_id, status, review_status, team_name, excused_at, due_date FROM tasks WHERE assignment_id = ${masterId} AND deleted_at IS NULL ORDER BY team_name NULLS LAST`;
 
 async function publish(o: Org, extra: Record<string, unknown> = {}) {
   viewerId = o.owner;
@@ -81,7 +81,7 @@ test("publishing to everyone makes one copy per member with the steps; a draft m
 test("members see the master and their own copy only; admins see every copy in the roster, not on the board", async () => {
   const o = await org();
   const master = await publish(o);
-  await sql`INSERT INTO tasks (project_id, title, assignee_id) VALUES (${o.org}, 'Prepare CO2 quiz', ${o.owner})`;
+  await sql`INSERT INTO tasks (workspace_id, title, assignee_id) VALUES (${o.org}, 'Prepare CO2 quiz', ${o.owner})`;
   viewerId = o.a;
   const mine = await tasks.fetchWorkspaceTasksAction(o.org);
   assert.equal(mine.success, true, JSON.stringify(mine));
@@ -140,8 +140,8 @@ test("teams: one copy per team, any teammate submits, other teams never see it",
 test("group assignment: a copy in each child project for its lead; the org reviews it", async () => {
   const o = await org();
   const child = await sql.begin((tx) => createProject(tx, o.a));
-  await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${child}, ${o.a}, 'owner')`;
-  await sql`UPDATE projects SET parent_id = ${o.org} WHERE id = ${child}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${child}, ${o.a}, 'owner')`;
+  await sql`UPDATE workspaces SET parent_id = ${o.org} WHERE id = ${child}`;
   created.push(child);
   const master = await publish(o, { title: "Mini-project proposal", target: { mode: "each_child" }, submissionType: "text" });
   const [groupCopy] = await copies(master);

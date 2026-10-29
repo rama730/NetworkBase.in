@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { UUID_RE } from '@/lib/validations/uuid';
 
 import { db } from '@/lib/db';
-import { applicationEvents, orgEmailInvites, orgJoinBlocks, profiles, projectMembers, projectOpenRoles, projects, roleApplications, taskTeamMembers, tasks } from '@/lib/db/schema';
+import { applicationEvents, orgEmailInvites, orgJoinBlocks, profiles, workspaceMembers, workspaceOpenRoles, workspaces, roleApplications, taskTeamMembers, tasks } from '@/lib/db/schema';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { notifyNewCopies } from '@/lib/organizations/assignment-notify';
 import { copyState } from '@/lib/organizations/assignment-rules';
@@ -39,8 +39,8 @@ async function orgManager(orgId: string, mode: 'read' | 'write' = 'write'): Prom
 const touch = (slug: string | null, id: string) => revalidatePath(`/org/${slug ?? id}`);
 
 async function rolesOf(orgId: string, ownerId: string, userIds: string[]) {
-    const rows = await db.select({ userId: projectMembers.userId, role: projectMembers.role }).from(projectMembers)
-        .where(and(eq(projectMembers.projectId, orgId), inArray(projectMembers.userId, userIds)));
+    const rows = await db.select({ userId: workspaceMembers.userId, role: workspaceMembers.role }).from(workspaceMembers)
+        .where(and(eq(workspaceMembers.projectId, orgId), inArray(workspaceMembers.userId, userIds)));
     return new Map<string, OrgMemberRole>(rows.map((r) => [r.userId, r.userId === ownerId ? 'owner' : (r.role as OrgMemberRole)]));
 }
 
@@ -63,15 +63,15 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
     if (!viewer) return DENIED;
     // ponytail: one roster read per open, sized for ORG_LIMITS.membersPerOrg (2,000). Upgrade: server paging.
     const [people, childRows, units, copies, teamCopies, requests, invites, [org]] = await Promise.all([
-        db.select({ userId: projectMembers.userId, role: projectMembers.role, title: projectMembers.title, joinedAt: projectMembers.joinedAt, name: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl, lastActiveAt: profiles.lastActiveAt })
-            .from(projectMembers).innerJoin(profiles, eq(profiles.id, projectMembers.userId))
+        db.select({ userId: workspaceMembers.userId, role: workspaceMembers.role, title: workspaceMembers.title, joinedAt: workspaceMembers.joinedAt, name: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl, lastActiveAt: profiles.lastActiveAt })
+            .from(workspaceMembers).innerJoin(profiles, eq(profiles.id, workspaceMembers.userId))
                 // Memberships are hidden while an account deletion is pending (report §30.7); back on cancel.
-                .where(and(eq(projectMembers.projectId, orgId), isNull(profiles.deletedAt))),
-        db.select({ projectId: projects.id, title: projects.title, userId: projectMembers.userId, unit: sql<string | null>`coalesce(${projectOpenRoles.title}, ${projectOpenRoles.role})` })
-            .from(projects).innerJoin(projectMembers, eq(projectMembers.projectId, projects.id)).leftJoin(projectOpenRoles, eq(projectOpenRoles.id, projectMembers.unitId))
-            .where(and(eq(projects.parentId, orgId), isNull(projects.deletedAt))),
-        db.select({ id: projectOpenRoles.id, projectId: projectOpenRoles.projectId, title: sql<string>`coalesce(${projectOpenRoles.title}, ${projectOpenRoles.role})` })
-            .from(projectOpenRoles).innerJoin(projects, eq(projects.id, projectOpenRoles.projectId)).where(and(eq(projects.parentId, orgId), isNull(projects.deletedAt))),
+                .where(and(eq(workspaceMembers.projectId, orgId), isNull(profiles.deletedAt))),
+        db.select({ projectId: workspaces.id, title: workspaces.title, userId: workspaceMembers.userId, unit: sql<string | null>`coalesce(${workspaceOpenRoles.title}, ${workspaceOpenRoles.role})` })
+            .from(workspaces).innerJoin(workspaceMembers, eq(workspaceMembers.projectId, workspaces.id)).leftJoin(workspaceOpenRoles, eq(workspaceOpenRoles.id, workspaceMembers.unitId))
+            .where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt))),
+        db.select({ id: workspaceOpenRoles.id, projectId: workspaceOpenRoles.projectId, title: sql<string>`coalesce(${workspaceOpenRoles.title}, ${workspaceOpenRoles.role})` })
+            .from(workspaceOpenRoles).innerJoin(workspaces, eq(workspaces.id, workspaceOpenRoles.projectId)).where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt))),
         db.select({ id: tasks.id, assigneeId: tasks.assigneeId, status: tasks.status, reviewStatus: tasks.reviewStatus, dueDate: tasks.dueDate, reviewSubmittedAt: tasks.reviewSubmittedAt, completedAt: tasks.completedAt, excusedAt: tasks.excusedAt })
             .from(tasks).where(and(eq(tasks.projectId, orgId), isNotNull(tasks.assignmentId), isNull(tasks.deletedAt))),
         db.select({ taskId: taskTeamMembers.taskId, userId: taskTeamMembers.userId }).from(taskTeamMembers)
@@ -81,7 +81,7 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
             .where(and(eq(roleApplications.projectId, orgId), isNull(roleApplications.roleId), eq(roleApplications.status, 'pending'))).orderBy(asc(roleApplications.createdAt)),
         db.select({ id: orgEmailInvites.id, email: orgEmailInvites.email, role: orgEmailInvites.role, title: orgEmailInvites.title, expiresAt: orgEmailInvites.expiresAt })
             .from(orgEmailInvites).where(and(eq(orgEmailInvites.orgId, orgId), isNull(orgEmailInvites.acceptedAt), gt(orgEmailInvites.expiresAt, sql`now()`))).orderBy(asc(orgEmailInvites.email)),
-        db.select({ joinCode: projects.joinCode, joinCodeEnabled: projects.joinCodeEnabled }).from(projects).where(eq(projects.id, orgId)).limit(1),
+        db.select({ joinCode: workspaces.joinCode, joinCodeEnabled: workspaces.joinCodeEnabled }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1),
     ]);
 
     const now = new Date();
@@ -115,14 +115,14 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
     const children = [...new Map(childRows.map((c) => [c.projectId, c.title])).entries()]
         .map(([id, title]) => ({ id, title, units: units.filter((u) => u.projectId === id).map((u) => ({ id: u.id, title: u.title })) }));
     // Child projects with nobody in them yet still belong in the pickers.
-    const emptyChildren = await db.select({ id: projects.id, title: projects.title }).from(projects)
-        .where(and(eq(projects.parentId, orgId), isNull(projects.deletedAt)));
+    const emptyChildren = await db.select({ id: workspaces.id, title: workspaces.title }).from(workspaces)
+        .where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt)));
     for (const child of emptyChildren) if (!children.some((c) => c.id === child.id)) children.push({ id: child.id, title: child.title, units: units.filter((u) => u.projectId === child.id).map((u) => ({ id: u.id, title: u.title })) });
     const outside = await db.execute<{ user_id: string; name: string | null; username: string | null; projects: string[] }>(sql`
         SELECT m.user_id, coalesce(pr.full_name, pr.username) AS name, pr.username, json_agg(p.title ORDER BY p.title) AS projects
-        FROM project_members m JOIN projects p ON p.id = m.project_id AND p.parent_id = ${orgId} AND p.deleted_at IS NULL
+        FROM workspace_members m JOIN workspaces p ON p.id = m.workspace_id AND p.parent_id = ${orgId} AND p.deleted_at IS NULL
         JOIN profiles pr ON pr.id = m.user_id
-        WHERE NOT EXISTS (SELECT 1 FROM project_members o WHERE o.project_id = ${orgId} AND o.user_id = m.user_id) AND m.user_id <> ${viewer.ownerId}
+        WHERE NOT EXISTS (SELECT 1 FROM workspace_members o WHERE o.workspace_id = ${orgId} AND o.user_id = m.user_id) AND m.user_id <> ${viewer.ownerId}
         GROUP BY m.user_id, pr.full_name, pr.username ORDER BY 2 LIMIT 500`);
 
     return {
@@ -150,10 +150,10 @@ export async function approveJoinRequestsAction(orgId: string, applicationIds: s
     const viewer = await orgManager(orgId);
     if (!viewer) return DENIED;
     const result = await db.transaction(async (tx) => {
-        const [org] = await tx.select({ max: projects.maxCollaborators }).from(projects).where(eq(projects.id, orgId)).for('update').limit(1);
+        const [org] = await tx.select({ max: workspaces.maxCollaborators }).from(workspaces).where(eq(workspaces.id, orgId)).for('update').limit(1);
         const pending = await tx.select({ id: roleApplications.id, userId: roleApplications.applicantId }).from(roleApplications)
             .where(and(eq(roleApplications.projectId, orgId), isNull(roleApplications.roleId), eq(roleApplications.status, 'pending'), inArray(roleApplications.id, applicationIds.slice(0, 500))));
-        const [{ n } = { n: 0 }] = await tx.select({ n: sql<number>`count(*)::int` }).from(projectMembers).where(eq(projectMembers.projectId, orgId));
+        const [{ n } = { n: 0 }] = await tx.select({ n: sql<number>`count(*)::int` }).from(workspaceMembers).where(eq(workspaceMembers.projectId, orgId));
         const max = orgMemberCap(org?.max ?? null);
         if (n + pending.length > max) return { success: false as const, error: `This organization is full (${max} members). Raise Max members in Settings first.` };
         const now = new Date();
@@ -226,10 +226,10 @@ export async function inviteByEmailAction(orgId: string, input: z.input<typeof i
     if (valid.length > ORG_LIMITS.emailInvitesPerPaste) return { success: false, error: `Up to ${ORG_LIMITS.emailInvitesPerPaste} addresses at a time.` };
     let unitId = parsed.data.unitId ?? null;
     if (parsed.data.childProjectId) {
-        const [child] = await db.select({ id: projects.id }).from(projects).where(and(eq(projects.id, parsed.data.childProjectId), eq(projects.parentId, orgId), isNull(projects.deletedAt))).limit(1);
+        const [child] = await db.select({ id: workspaces.id }).from(workspaces).where(and(eq(workspaces.id, parsed.data.childProjectId), eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt))).limit(1);
         if (!child) return { success: false, error: 'That workspace is no longer in this organization.' };
         if (unitId) {
-            const [unit] = await db.select({ id: projectOpenRoles.id }).from(projectOpenRoles).where(and(eq(projectOpenRoles.id, unitId), eq(projectOpenRoles.projectId, child.id))).limit(1);
+            const [unit] = await db.select({ id: workspaceOpenRoles.id }).from(workspaceOpenRoles).where(and(eq(workspaceOpenRoles.id, unitId), eq(workspaceOpenRoles.projectId, child.id))).limit(1);
             unitId = unit?.id ?? null;
         }
     } else unitId = null;
@@ -321,8 +321,8 @@ export async function setMemberTitleAction(orgId: string, userId: string, title:
     const viewer = await orgManager(orgId);
     if (!viewer) return DENIED;
     const clean = title?.trim().slice(0, 60) || null;
-    const updated = await db.update(projectMembers).set({ title: clean })
-        .where(and(eq(projectMembers.projectId, orgId), eq(projectMembers.userId, userId))).returning({ id: projectMembers.id });
+    const updated = await db.update(workspaceMembers).set({ title: clean })
+        .where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.userId, userId))).returning({ id: workspaceMembers.id });
     if (!updated.length) return { success: false, error: 'That person is no longer a member.' };
     touch(viewer.slug, orgId);
     return { success: true };
@@ -369,11 +369,11 @@ export async function removeMembersAction(orgId: string, userIds: string[], opti
 export async function addMembersToChildAction(orgId: string, childProjectId: string, userIds: string[], unitId: string | null): Promise<{ success: true; added: number } | Failure> {
     const viewer = await orgManager(orgId);
     if (!viewer) return DENIED;
-    const [child] = await db.select({ id: projects.id, ownerId: projects.ownerId, title: projects.title, slug: projects.slug }).from(projects)
-        .where(and(eq(projects.id, childProjectId), eq(projects.parentId, orgId), isNull(projects.deletedAt))).limit(1);
+    const [child] = await db.select({ id: workspaces.id, ownerId: workspaces.ownerId, title: workspaces.title, slug: workspaces.slug }).from(workspaces)
+        .where(and(eq(workspaces.id, childProjectId), eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt))).limit(1);
     if (!child) return { success: false, error: 'That workspace is no longer in this organization.' };
     if (unitId) {
-        const [unit] = await db.select({ id: projectOpenRoles.id }).from(projectOpenRoles).where(and(eq(projectOpenRoles.id, unitId), eq(projectOpenRoles.projectId, child.id))).limit(1);
+        const [unit] = await db.select({ id: workspaceOpenRoles.id }).from(workspaceOpenRoles).where(and(eq(workspaceOpenRoles.id, unitId), eq(workspaceOpenRoles.projectId, child.id))).limit(1);
         if (!unit) return { success: false, error: 'That team is no longer in the workspace.' };
     }
     const inOrg = await rolesOf(orgId, viewer.ownerId, userIds);
@@ -400,14 +400,14 @@ export type MemberActivityRow = { at: string; what: string; task: string; projec
 export async function remindMembersAction(orgId: string, userIds: string[]): Promise<{ success: true; reminded: number } | Failure> {
     const viewer = await orgManager(orgId);
     if (!viewer) return DENIED;
-    const [org] = await db.select({ id: projects.id, title: projects.title, slug: projects.slug }).from(projects).where(eq(projects.id, orgId)).limit(1);
+    const [org] = await db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
     userIds = userIds.filter((id) => UUID_RE.test(id));
     if (!org || userIds.length === 0) return { success: true, reminded: 0 };
     const open = await db.execute<{ user_id: string; n: number }>(sql`
         SELECT u.user_id, count(DISTINCT c.id)::int AS n
         FROM tasks c JOIN tasks m ON m.id = c.assignment_id
         CROSS JOIN LATERAL (SELECT c.assignee_id AS user_id UNION SELECT tm.user_id FROM task_team_members tm WHERE tm.task_id = c.id) u
-        WHERE m.project_id = ${orgId} AND m.deleted_at IS NULL AND m.assignment_settings->>'publishedAt' IS NOT NULL AND m.assignment_settings->>'closedAt' IS NULL
+        WHERE m.workspace_id = ${orgId} AND m.deleted_at IS NULL AND m.assignment_settings->>'publishedAt' IS NOT NULL AND m.assignment_settings->>'closedAt' IS NULL
           AND c.deleted_at IS NULL AND c.excused_at IS NULL AND c.due_date IS NOT NULL
           AND NOT (c.review_status IN ('pending', 'approved') OR c.status = 'done' OR c.submission IS NOT NULL)
           AND u.user_id IN ${userIds.slice(0, ORG_LIMITS.membersPerOrg)}
@@ -429,7 +429,7 @@ export async function readMemberActivityAction(orgId: string, userId: string): P
     if (!viewer || !UUID_RE.test(userId)) return DENIED;
     const rows = await db.execute<{ at: string; event_type: string; task: string; project: string }>(sql`
         SELECT e.created_at::text AS at, e.event_type, t.title AS task, p.title AS project
-        FROM task_activity_events e JOIN tasks t ON t.id = e.task_id JOIN projects p ON p.id = e.project_id
+        FROM task_activity_events e JOIN tasks t ON t.id = e.task_id JOIN workspaces p ON p.id = e.workspace_id
         WHERE e.actor_id = ${userId} AND (p.id = ${orgId} OR p.parent_id = ${orgId}) AND p.deleted_at IS NULL
         ORDER BY e.created_at DESC LIMIT 10`);
     return { success: true, activity: rows.map((r) => ({ at: r.at, what: r.event_type.replace(/_/g, ' '), task: r.task, project: r.project })) };

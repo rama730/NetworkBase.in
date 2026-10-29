@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { ForbiddenError } from "@/lib/errors/domain";
 import { db } from "@/lib/db";
-import { projects, projectMembers } from "@/lib/db/schema";
+import { workspaces, workspaceMembers } from "@/lib/db/schema";
 import {
     isWorkspacePubliclyReadableVisibility,
     type WorkspaceVisibilityInput,
@@ -118,13 +118,13 @@ export function computeWorkspaceWriteAccess(isOwner: boolean, memberRole: Member
     return memberRole !== "viewer";
 }
 
-const parentOrg = alias(projects, "parent_org");
-const parentOrgMember = alias(projectMembers, "parent_org_member");
+const parentOrg = alias(workspaces, "parent_org");
+const parentOrgMember = alias(workspaceMembers, "parent_org_member");
 
 /** One query for the project, the viewer's membership, and the viewer's role in its parent org. */
 function selectAccessRows(where: SQL<unknown>, userId: string | null) {
     const memberJoinCondition = userId
-        ? and(eq(projectMembers.projectId, projects.id), eq(projectMembers.userId, userId))
+        ? and(eq(workspaceMembers.projectId, workspaces.id), eq(workspaceMembers.userId, userId))
         : sql`FALSE`;
     const parentMemberJoinCondition = userId
         ? and(eq(parentOrgMember.projectId, parentOrg.id), eq(parentOrgMember.userId, userId))
@@ -132,32 +132,32 @@ function selectAccessRows(where: SQL<unknown>, userId: string | null) {
 
     return db
         .select({
-            id: projects.id,
-            ownerId: projects.ownerId,
-            kind: projects.kind,
-            parentId: projects.parentId,
-            visibility: projects.visibility,
-            status: projects.status,
-            slug: projects.slug,
-            publicTabVisibility: projects.publicTabVisibility,
-            importSource: projects.importSource,
-            syncStatus: projects.syncStatus,
-            githubLastCommitSha: projects.githubLastCommitSha,
-            memberRole: projectMembers.role,
-            fileUploadEnabled: projectMembers.fileUploadEnabled,
-            suspendedAt: projects.suspendedAt,
-            deletionScheduledAt: projects.deletionScheduledAt,
+            id: workspaces.id,
+            ownerId: workspaces.ownerId,
+            kind: workspaces.kind,
+            parentId: workspaces.parentId,
+            visibility: workspaces.visibility,
+            status: workspaces.status,
+            slug: workspaces.slug,
+            publicTabVisibility: workspaces.publicTabVisibility,
+            importSource: workspaces.importSource,
+            syncStatus: workspaces.syncStatus,
+            githubLastCommitSha: workspaces.githubLastCommitSha,
+            memberRole: workspaceMembers.role,
+            fileUploadEnabled: workspaceMembers.fileUploadEnabled,
+            suspendedAt: workspaces.suspendedAt,
+            deletionScheduledAt: workspaces.deletionScheduledAt,
             parentOrgOwnerId: parentOrg.ownerId,
             parentOrgMemberRole: parentOrgMember.role,
             parentOrgStatus: parentOrg.status,
             parentOrgSuspendedAt: parentOrg.suspendedAt,
             parentOrgDeletionScheduledAt: parentOrg.deletionScheduledAt,
         })
-        .from(projects)
-        .leftJoin(projectMembers, memberJoinCondition)
-        .leftJoin(parentOrg, and(eq(parentOrg.id, projects.parentId), eq(parentOrg.kind, "organization"), isNull(parentOrg.deletedAt)))
+        .from(workspaces)
+        .leftJoin(workspaceMembers, memberJoinCondition)
+        .leftJoin(parentOrg, and(eq(parentOrg.id, workspaces.parentId), eq(parentOrg.kind, "organization"), isNull(parentOrg.deletedAt)))
         .leftJoin(parentOrgMember, parentMemberJoinCondition)
-        .where(and(where, isNull(projects.deletedAt)));
+        .where(and(where, isNull(workspaces.deletedAt)));
 }
 
 function toProjectAccess(row: Awaited<ReturnType<typeof selectAccessRows>>[number], userId: string | null): WorkspaceAccess {
@@ -222,7 +222,7 @@ async function getProjectAccess(where: SQL<unknown>, userId: string | null): Pro
 
 export const getWorkspaceAccessById = cache(
     async (projectId: string, userId: string | null): Promise<WorkspaceAccess> => {
-        return getProjectAccess(eq(projects.id, projectId), userId);
+        return getProjectAccess(eq(workspaces.id, projectId), userId);
     }
 );
 
@@ -230,12 +230,12 @@ export const getWorkspaceAccessByIdentifier = cache(
     (identifier: string, userId: string | null): Promise<WorkspaceAccess> => {
         const value = identifier.trim();
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-        return getProjectAccess(isUuid ? or(eq(projects.slug, value), eq(projects.id, value))! : eq(projects.slug, value), userId);
+        return getProjectAccess(isUuid ? or(eq(workspaces.slug, value), eq(workspaces.id, value))! : eq(workspaces.slug, value), userId);
     }
 );
 
 export async function getWorkspaceAccessByIds(projectIds: string[], userId: string | null): Promise<Record<string, WorkspaceAccess>> {
     if (projectIds.length === 0) return {};
-    const rows = await selectAccessRows(inArray(projects.id, projectIds), userId);
+    const rows = await selectAccessRows(inArray(workspaces.id, projectIds), userId);
     return Object.fromEntries(rows.map((row) => [row.id, toProjectAccess(row, userId)]));
 }

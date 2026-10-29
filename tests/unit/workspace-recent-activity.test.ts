@@ -72,7 +72,7 @@ test("old Analytics links, visibility defaults, and migration point to the seven
   assert.match(migration, /public_tab_visibility - 'analytics'/);
   assert.match(migration, /SET DEFAULT/);
   assert.match(action, /isNull\(tasks\.deletedAt\)/);
-  assert.match(action, /isNull\(projectNodes\.deletedAt\)/);
+  assert.match(action, /isNull\(workspaceNodes\.deletedAt\)/);
   assert.match(action, /eq\(member\.visibility, "public"\)/);
   assert.match(action, /eq\(githubSyncRuns\.status, "completed"\)/);
   assert.match(action, /result}->>'pushed' = 'true'/);

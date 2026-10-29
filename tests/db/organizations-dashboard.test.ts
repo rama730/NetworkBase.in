@@ -32,8 +32,8 @@ before(async () => {
 const created: string[] = [];
 after(async () => {
   for (const id of created.reverse()) {
-    await sql`DELETE FROM role_applications WHERE project_id = ${id}`;
-    await sql`DELETE FROM projects WHERE id = ${id}`;
+    await sql`DELETE FROM role_applications WHERE workspace_id = ${id}`;
+    await sql`DELETE FROM workspaces WHERE id = ${id}`;
   }
   await sql.end();
   await closeAppDb();
@@ -42,25 +42,25 @@ after(async () => {
 async function org() {
   const [owner, admin, a, b] = await Promise.all([1, 2, 3, 4].map(() => sql.begin((tx) => createUser(tx))));
   const orgId = await sql.begin((tx) => createProject(tx, owner!, { visibility: "public", publicTabVisibility: { sprints: false } }));
-  await sql`INSERT INTO project_members (project_id, user_id, role, title, show_on_profile) VALUES (${orgId}, ${owner!}, 'owner', 'Teacher', true), (${orgId}, ${admin!}, 'admin', 'TA', false), (${orgId}, ${a!}, 'member', null, true), (${orgId}, ${b!}, 'member', null, true)`;
-  await sql`UPDATE projects SET kind = 'organization', org_type = 'education', join_code = ${generateJoinCode()}, title = 'CSE-3A' WHERE id = ${orgId}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role, title, show_on_profile) VALUES (${orgId}, ${owner!}, 'owner', 'Teacher', true), (${orgId}, ${admin!}, 'admin', 'TA', false), (${orgId}, ${a!}, 'member', null, true), (${orgId}, ${b!}, 'member', null, true)`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', join_code = ${generateJoinCode()}, title = 'CSE-3A' WHERE id = ${orgId}`;
   const child = await sql.begin((tx) => createProject(tx, a!, { visibility: "public" }));
   const secret = await sql.begin((tx) => createProject(tx, b!, { visibility: "private" }));
-  await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${child}, ${a!}, 'owner'), (${secret}, ${b!}, 'owner')`;
-  await sql`UPDATE projects SET parent_id = ${orgId}, title = 'Compiler Lab' WHERE id = ${child}`;
-  await sql`UPDATE projects SET parent_id = ${orgId}, title = 'Secret Lab', updated_at = now() - interval '10 days' WHERE id = ${secret}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${child}, ${a!}, 'owner'), (${secret}, ${b!}, 'owner')`;
+  await sql`UPDATE workspaces SET parent_id = ${orgId}, title = 'Compiler Lab' WHERE id = ${child}`;
+  await sql`UPDATE workspaces SET parent_id = ${orgId}, title = 'Secret Lab', updated_at = now() - interval '10 days' WHERE id = ${secret}`;
   created.push(orgId, child, secret);
-  const [sprint] = await sql`INSERT INTO project_sprints (project_id, sprint_number, name, start_date, end_date, status) VALUES (${orgId}, 2, 'CO2', now() - interval '10 days', now() + interval '3 days', 'active') RETURNING id`;
-  await sql`INSERT INTO project_sprints (project_id, sprint_number, name, start_date, end_date, status, completed_at) VALUES (${orgId}, 1, 'CO1', now() - interval '40 days', now() - interval '11 days', 'completed', now() - interval '11 days')`;
-  const [master] = await sql`INSERT INTO tasks (project_id, title, kind, creator_id, sprint_id, due_date) VALUES (${orgId}, 'Lab 2', 'assignment', ${owner!}, ${sprint!.id}, now() + interval '1 day') RETURNING id`;
+  const [sprint] = await sql`INSERT INTO workspace_sprints (workspace_id, sprint_number, name, start_date, end_date, status) VALUES (${orgId}, 2, 'CO2', now() - interval '10 days', now() + interval '3 days', 'active') RETURNING id`;
+  await sql`INSERT INTO workspace_sprints (workspace_id, sprint_number, name, start_date, end_date, status, completed_at) VALUES (${orgId}, 1, 'CO1', now() - interval '40 days', now() - interval '11 days', 'completed', now() - interval '11 days')`;
+  const [master] = await sql`INSERT INTO tasks (workspace_id, title, kind, creator_id, sprint_id, due_date) VALUES (${orgId}, 'Lab 2', 'assignment', ${owner!}, ${sprint!.id}, now() + interval '1 day') RETURNING id`;
   const copy = async (assignee: string, extra: { status?: string; review?: string; due?: string; project?: string } = {}) => {
-    const [row] = await sql`INSERT INTO tasks (project_id, title, kind, assignment_id, assignee_id, creator_id, sprint_id, status, review_status, due_date, review_submitted_at)
+    const [row] = await sql`INSERT INTO tasks (workspace_id, title, kind, assignment_id, assignee_id, creator_id, sprint_id, status, review_status, due_date, review_submitted_at)
       VALUES (${extra.project ?? orgId}, 'Lab 2', 'task', ${master!.id}, ${assignee}, ${owner!}, ${extra.project ? null : sprint!.id}, ${extra.status ?? "todo"}, ${extra.review ?? "none"}, now() + ${extra.due ?? "1 day"}::interval, ${extra.review === "pending" ? sql`now()` : null}) RETURNING id`;
     return row!.id as string;
   };
   const copyA = await copy(a!, { review: "pending" });
   const copyB = await copy(b!);
-  await sql`INSERT INTO task_activity_events (project_id, task_id, actor_id, event_type, payload) VALUES (${orgId}, ${copyA}, ${a!}, 'review_submitted', '{}'::jsonb)`;
+  await sql`INSERT INTO task_activity_events (workspace_id, task_id, actor_id, event_type, payload) VALUES (${orgId}, ${copyA}, ${a!}, 'review_submitted', '{}'::jsonb)`;
   return { orgId, child, secret, sprint: sprint!.id as string, master: master!.id as string, copyA, copyB, copy, owner: owner!, admin: admin!, a: a!, b: b! };
 }
 
@@ -74,8 +74,8 @@ async function dashboard(orgId: string, as: string) {
 test("Needs your attentionr attention: admins see reviews and requests; members their own due and returned work; leads their group copies", async () => {
   const o = await org();
   const applicant = await sql.begin((tx) => createUser(tx));
-  await sql`INSERT INTO role_applications (project_id, applicant_id, creator_id, status) VALUES (${o.orgId}, ${applicant}, ${o.owner}, 'pending')`;
-  await sql`UPDATE project_sprints SET end_date = now() - interval '1 hour' WHERE id = ${o.sprint}`;
+  await sql`INSERT INTO role_applications (workspace_id, applicant_id, creator_id, status) VALUES (${o.orgId}, ${applicant}, ${o.owner}, 'pending')`;
+  await sql`UPDATE workspace_sprints SET end_date = now() - interval '1 hour' WHERE id = ${o.sprint}`;
   const admin = await dashboard(o.orgId, o.admin);
   assert.deepEqual(admin!.needsYou.map((n) => n.label), ["1 submission to review · Lab 2", "1 join request", "CO2 ended · Complete it?"]);
 
@@ -113,10 +113,10 @@ test("activity privacy: members never see other people's submissions; admins do"
 
 test("recent activity on an org follows the copy and folder rules", async () => {
   const o = await org();
-  await sql`INSERT INTO task_activity_events (project_id, task_id, actor_id, event_type, payload) VALUES (${o.orgId}, ${o.copyA}, ${o.a}, 'status_changed', '{"to": "done"}'::jsonb)`;
-  const [staff] = await sql`INSERT INTO project_nodes (project_id, path, type, name, metadata) VALUES (${o.orgId}, '/Staff', 'folder', 'Staff', '{"access": "admins"}'::jsonb) RETURNING id`;
-  const [key] = await sql`INSERT INTO project_nodes (project_id, parent_id, path, type, name) VALUES (${o.orgId}, ${staff!.id}, '/Staff/answer-key.pdf', 'file', 'answer-key.pdf') RETURNING id`;
-  await sql`INSERT INTO project_node_events (project_id, node_id, actor_id, type) VALUES (${o.orgId}, ${key!.id}, ${o.owner}, 'create_file')`;
+  await sql`INSERT INTO task_activity_events (workspace_id, task_id, actor_id, event_type, payload) VALUES (${o.orgId}, ${o.copyA}, ${o.a}, 'status_changed', '{"to": "done"}'::jsonb)`;
+  const [staff] = await sql`INSERT INTO workspace_nodes (workspace_id, path, type, name, metadata) VALUES (${o.orgId}, '/Staff', 'folder', 'Staff', '{"access": "admins"}'::jsonb) RETURNING id`;
+  const [key] = await sql`INSERT INTO workspace_nodes (workspace_id, parent_id, path, type, name) VALUES (${o.orgId}, ${staff!.id}, '/Staff/answer-key.pdf', 'file', 'answer-key.pdf') RETURNING id`;
+  await sql`INSERT INTO workspace_node_events (workspace_id, node_id, actor_id, type) VALUES (${o.orgId}, ${key!.id}, ${o.owner}, 'create_file')`;
   viewerId = o.b;
   const items = await recent.readWorkspaceRecentActivityAction(o.orgId);
   assert.ok(!items.some((i) => i.text.includes("answer-key") || i.type === "task"), JSON.stringify(items));
@@ -127,7 +127,7 @@ test("recent activity on an org follows the copy and folder rules", async () => 
 
 test("Projects tab: admins see Private workspaces and Needs attention; members don't see others' Private workspaces", async () => {
   const o = await org();
-  for (let i = 0; i < 3; i += 1) await sql`INSERT INTO tasks (project_id, title, creator_id, due_date, status) VALUES (${o.child}, ${`Task ${i}`}, ${o.a}, now() - interval '2 days', 'todo')`;
+  for (let i = 0; i < 3; i += 1) await sql`INSERT INTO tasks (workspace_id, title, creator_id, due_date, status) VALUES (${o.child}, ${`Task ${i}`}, ${o.a}, now() - interval '2 days', 'todo')`;
   viewerId = o.admin;
   const all = await dash.readOrgWorkspacesAction(o.orgId);
   assert.equal(all.success, true);
@@ -179,12 +179,12 @@ test("§27 pass: the child Dashboard's What’s happening (group copy, own sprin
   let line = await dash.readChildOrgLineAction(o.child);
   assert.ok(line?.needsYou.some((n) => n.label === "Lab 2 for the workspace"), JSON.stringify(line));
   assert.ok(line?.needsYou.some((n) => n.label === "CO2 started. Plan your sprint in Compiler Lab"), "the lead's linked-sprint item");
-  await sql`INSERT INTO project_sprints (project_id, sprint_number, name, start_date, end_date, status, parent_sprint_id) VALUES (${o.child}, 1, 'Parser week', now() - interval '1 day', now() + interval '2 days', 'active', ${o.sprint})`;
+  await sql`INSERT INTO workspace_sprints (workspace_id, sprint_number, name, start_date, end_date, status, parent_sprint_id) VALUES (${o.child}, 1, 'Parser week', now() - interval '1 day', now() + interval '2 days', 'active', ${o.sprint})`;
   line = await dash.readChildOrgLineAction(o.child);
   assert.deepEqual([line?.ownSprint?.name, line?.ownSprint?.parent], ["Parser week", "CO2"]);
   assert.ok(!line?.needsYou.some((n) => n.label.startsWith("CO2 started")), "planned now");
 
-  await sql`UPDATE projects SET status = 'archived', term_end = '2026-12-15' WHERE id = ${o.orgId}`;
+  await sql`UPDATE workspaces SET status = 'archived', term_end = '2026-12-15' WHERE id = ${o.orgId}`;
   const d = await dashboard(o.orgId, o.owner);
   assert.equal(d?.archivedSummary, "CSE-3A ended Dec 2026 · 2 sprints · 1 assignment · 4 members");
   assert.deepEqual(d?.needsYou.map((n) => n.kind), ["verify"]);
@@ -201,8 +201,8 @@ test("the child org line stays closed to org members who can't open the child pr
 
 test("§28 pass: rows carry stage, sprint inside the org sprint and New in <org>; Remind leads tells leads what's open", async () => {
   const o = await org();
-  await sql`UPDATE projects SET lifecycle_stages = '["Idea","Build","Ship"]'::jsonb, current_stage_index = 1, org_settings = coalesce(org_settings, '{}'::jsonb) || jsonb_build_object('movedInAt', now()) WHERE id = ${o.child}`;
-  await sql`INSERT INTO project_sprints (project_id, sprint_number, name, start_date, end_date, status, parent_sprint_id) VALUES (${o.child}, 1, 'Parser week', now() - interval '1 day', now() + interval '2 days', 'active', ${o.sprint})`;
+  await sql`UPDATE workspaces SET lifecycle_stages = '["Idea","Build","Ship"]'::jsonb, current_stage_index = 1, org_settings = coalesce(org_settings, '{}'::jsonb) || jsonb_build_object('movedInAt', now()) WHERE id = ${o.child}`;
+  await sql`INSERT INTO workspace_sprints (workspace_id, sprint_number, name, start_date, end_date, status, parent_sprint_id) VALUES (${o.child}, 1, 'Parser week', now() - interval '1 day', now() + interval '2 days', 'active', ${o.sprint})`;
   await o.copy(o.a, { project: o.child, due: "-1 day" });
   viewerId = o.owner;
   const read = await dash.readOrgWorkspacesAction(o.orgId);

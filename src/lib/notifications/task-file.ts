@@ -1,7 +1,7 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { profiles, projectNodes, projects, tasks, taskNodeLinks } from "@/lib/db/schema";
+import { profiles, workspaceNodes, workspaces, tasks, taskNodeLinks } from "@/lib/db/schema";
 import {
     enqueueWorkspaceNotificationEvent,
     enqueueWorkspaceNotificationEvents,
@@ -39,8 +39,8 @@ export async function notifyTaskParticipantsForFileEvent(params: {
                 where: eq(profiles.id, params.actorUserId),
                 columns: { fullName: true, username: true, avatarUrl: true },
             }),
-            db.query.projectNodes.findFirst({
-                where: and(eq(projectNodes.id, params.nodeId), eq(projectNodes.projectId, params.projectId), isNull(projectNodes.deletedAt)),
+            db.query.workspaceNodes.findFirst({
+                where: and(eq(workspaceNodes.id, params.nodeId), eq(workspaceNodes.projectId, params.projectId), isNull(workspaceNodes.deletedAt)),
                 columns: { id: true, name: true },
             }),
         ]);
@@ -53,13 +53,13 @@ export async function notifyTaskParticipantsForFileEvent(params: {
                 taskNumber: tasks.taskNumber,
                 assigneeId: tasks.assigneeId,
                 creatorId: tasks.creatorId,
-                projectId: projects.id,
-                projectSlug: projects.slug,
-                projectKey: projects.key,
+                projectId: workspaces.id,
+                projectSlug: workspaces.slug,
+                projectKey: workspaces.key,
             })
             .from(taskNodeLinks)
             .innerJoin(tasks, eq(taskNodeLinks.taskId, tasks.id))
-            .innerJoin(projects, eq(tasks.projectId, projects.id))
+            .innerJoin(workspaces, eq(tasks.projectId, workspaces.id))
             .where(and(eq(taskNodeLinks.nodeId, params.nodeId), eq(tasks.projectId, params.projectId), isNull(tasks.deletedAt)));
 
         const actorName = actor?.fullName || actor?.username || null;
@@ -134,11 +134,11 @@ export async function notifyForFileVersionCreated(params: {
                 where: eq(profiles.id, params.actorUserId),
                 columns: { fullName: true, username: true, avatarUrl: true },
             }),
-            db.query.projectNodes.findFirst({
+            db.query.workspaceNodes.findFirst({
                 where: and(
-                    eq(projectNodes.id, params.nodeId),
-                    eq(projectNodes.projectId, params.projectId),
-                    isNull(projectNodes.deletedAt),
+                    eq(workspaceNodes.id, params.nodeId),
+                    eq(workspaceNodes.projectId, params.projectId),
+                    isNull(workspaceNodes.deletedAt),
                 ),
                 columns: { id: true, name: true, projectId: true },
             }),
@@ -149,13 +149,13 @@ export async function notifyForFileVersionCreated(params: {
                     taskNumber: tasks.taskNumber,
                     assigneeId: tasks.assigneeId,
                     creatorId: tasks.creatorId,
-                    projectId: projects.id,
-                    projectSlug: projects.slug,
-                    projectKey: projects.key,
+                    projectId: workspaces.id,
+                    projectSlug: workspaces.slug,
+                    projectKey: workspaces.key,
                 })
                 .from(taskNodeLinks)
                 .innerJoin(tasks, eq(taskNodeLinks.taskId, tasks.id))
-                .innerJoin(projects, eq(tasks.projectId, projects.id))
+                .innerJoin(workspaces, eq(tasks.projectId, workspaces.id))
                 .where(and(
                     eq(taskNodeLinks.nodeId, params.nodeId),
                     eq(tasks.projectId, params.projectId),
@@ -229,8 +229,8 @@ export async function notifyForFileVersionCreated(params: {
 
             if (recipients.length === 0) return;
 
-            const project = await db.query.projects.findFirst({
-                where: eq(projects.id, params.projectId),
+            const project = await db.query.workspaces.findFirst({
+                where: eq(workspaces.id, params.projectId),
                 columns: { slug: true },
             });
 

@@ -28,8 +28,8 @@ async function main() {
     await sql.begin(async (tx) => {
       const transaction = tx as unknown as typeof sql;
       const [created] = await transaction<{ id: string; version: number; visibility: string }[]>`
-        INSERT INTO profile_project_contributions (
-          id, profile_id, project_id, external_key, project_title, source, role_kind,
+        INSERT INTO profile_contributions (
+          id, profile_id, workspace_id, external_key, project_title, source, role_kind,
           role_title, visibility, version, created_at, updated_at
         ) VALUES (
           ${contributionId}, ${profile!.id}, NULL, ${externalKey}, 'Integration contribution',
@@ -41,7 +41,7 @@ async function main() {
       requireContract("new contribution starts private and version one", created?.visibility === "private" && created.version === 1);
 
       const [updated] = await transaction<{ version: number }[]>`
-        UPDATE profile_project_contributions
+        UPDATE profile_contributions
         SET summary = 'Versioned update', version = version + 1, updated_at = now()
         WHERE id = ${contributionId} AND version = 1
         RETURNING version
@@ -49,7 +49,7 @@ async function main() {
       requireContract("optimistic version update advances exactly once", updated?.version === 2);
 
       const staleUpdate = await transaction<{ id: string }[]>`
-        UPDATE profile_project_contributions
+        UPDATE profile_contributions
         SET summary = 'Stale update', version = version + 1
         WHERE id = ${contributionId} AND version = 1
         RETURNING id
@@ -64,23 +64,23 @@ async function main() {
   const constraints = await sql<{ conname: string; definition: string }[]>`
     SELECT conname, pg_get_constraintdef(oid) AS definition
     FROM pg_constraint
-    WHERE conrelid = 'profile_project_contributions'::regclass
+    WHERE conrelid = 'profile_contributions'::regclass
       AND conname IN (
-        'profile_project_contributions_authority_shape_check',
-        'profile_project_contributions_version_check'
+        'profile_contributions_authority_shape_check',
+        'profile_contributions_version_check'
       )
   `;
   const constraintNames = new Set(constraints.map((row) => row.conname));
-  requireContract("authority shape constraint is installed", constraintNames.has("profile_project_contributions_authority_shape_check"));
-  requireContract("positive version constraint is installed", constraintNames.has("profile_project_contributions_version_check"));
+  requireContract("authority shape constraint is installed", constraintNames.has("profile_contributions_authority_shape_check"));
+  requireContract("positive version constraint is installed", constraintNames.has("profile_contributions_version_check"));
 
   const indexes = await sql<{ indexname: string }[]>`
     SELECT indexname
     FROM pg_indexes
     WHERE schemaname = 'public'
       AND indexname IN (
-        'profile_project_contributions_profile_project_active_unique',
-        'profile_project_contributions_profile_external_active_unique',
+        'profile_contributions_profile_workspace_active_unique',
+        'profile_contributions_profile_external_active_unique',
         'profile_audit_events_contribution_batch_key_unique'
       )
   `;
@@ -93,18 +93,18 @@ async function main() {
     WHERE schemaname = 'public'
       AND cmd IN ('SELECT', 'ALL')
       AND tablename IN (
-        'profile_project_contributions',
-        'profile_project_contribution_stages',
+        'profile_contributions',
+        'profile_contribution_stages',
         'profile_contribution_skills'
       )
     GROUP BY tablename
   `;
-  const publicContribution = policies.find((row) => row.tablename === "profile_project_contributions");
-  const publicStage = policies.find((row) => row.tablename === "profile_project_contribution_stages");
+  const publicContribution = policies.find((row) => row.tablename === "profile_contributions");
+  const publicStage = policies.find((row) => row.tablename === "profile_contribution_stages");
   const visibleSkill = policies.find((row) => row.tablename === "profile_contribution_skills");
   requireContract("public contribution RLS uses visibility", Boolean(publicContribution?.qual?.includes("visibility")));
-  requireContract("stage RLS derives from the parent contribution", Boolean(publicStage?.qual?.includes("profile_project_contributions")));
-  requireContract("skill RLS derives from the parent contribution", Boolean(visibleSkill?.qual?.includes("profile_project_contributions")));
+  requireContract("stage RLS derives from the parent contribution", Boolean(publicStage?.qual?.includes("profile_contributions")));
+  requireContract("skill RLS derives from the parent contribution", Boolean(visibleSkill?.qual?.includes("profile_contributions")));
 
   console.log("[profile-contribution-database] ok");
 }

@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 
 /**
@@ -40,7 +40,7 @@ interface PdfBookmark {
 }
 
 interface PdfViewerDriverProps {
-  node: ProjectNode;
+  node: WorkspaceNode;
   signedUrl: string | null;
   projectId: string;
 }

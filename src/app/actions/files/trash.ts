@@ -3,7 +3,7 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { createHash } from "node:crypto";
 import { db } from "@/lib/db";
-import { projectNodes } from "@/lib/db/schema";
+import { workspaceNodes } from "@/lib/db/schema";
 import { createClient } from "@/lib/supabase/server";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import {
@@ -83,10 +83,10 @@ async function purgeTrashedRoot(
   const user = { id: userId };
   await db.transaction(async (tx) => {
     await assertWorkspaceManageFilesAccessTx(tx, projectId, user.id);
-    const root = await tx.query.projectNodes.findFirst({
+    const root = await tx.query.workspaceNodes.findFirst({
       where: and(
-        eq(projectNodes.projectId, projectId),
-        eq(projectNodes.id, nodeId),
+        eq(workspaceNodes.projectId, projectId),
+        eq(workspaceNodes.id, nodeId),
       ),
     });
     if (!root) return; // Idempotent retry after a successful delete.
@@ -102,14 +102,14 @@ async function purgeTrashedRoot(
         "A deletion is already pending in this folder. Wait for it to finish.",
       );
     await tx
-      .update(projectNodes)
+      .update(workspaceNodes)
       .set({
-        metadata: sql`coalesce(${projectNodes.metadata}, '{}'::jsonb) || ${JSON.stringify({ permanentDeleteRoot: nodeId, permanentDeleteActor: user.id, permanentDeleteRequestedAt: new Date().toISOString() })}::jsonb`,
+        metadata: sql`coalesce(${workspaceNodes.metadata}, '{}'::jsonb) || ${JSON.stringify({ permanentDeleteRoot: nodeId, permanentDeleteActor: user.id, permanentDeleteRequestedAt: new Date().toISOString() })}::jsonb`,
       })
       .where(
         and(
-          eq(projectNodes.projectId, projectId),
-          inArray(projectNodes.id, plan.ids),
+          eq(workspaceNodes.projectId, projectId),
+          inArray(workspaceNodes.id, plan.ids),
         ),
       );
     await recordNodeEvent(
@@ -147,9 +147,9 @@ async function bulkActor(projectId: string) {
 /** Top-level trashed items only (a trashed folder's contents go with it), newest first. */
 async function trashedRootIds(projectId: string) {
   const rows = await db.execute<{ id: string }>(sql`
-    SELECT n.id FROM project_nodes n
-    LEFT JOIN project_nodes p ON p.id = n.parent_id
-    WHERE n.project_id = ${projectId} AND n.deleted_at IS NOT NULL AND (p.id IS NULL OR p.deleted_at IS NULL)
+    SELECT n.id FROM workspace_nodes n
+    LEFT JOIN workspace_nodes p ON p.id = n.parent_id
+    WHERE n.workspace_id = ${projectId} AND n.deleted_at IS NOT NULL AND (p.id IS NULL OR p.deleted_at IS NULL)
     ORDER BY n.deleted_at DESC, n.id
     LIMIT ${BULK_PURGE_ROOT_LIMIT}
   `);

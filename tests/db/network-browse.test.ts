@@ -168,14 +168,14 @@ test("Invitation browse searches beyond fifty rows, pages all sources in both di
     const project = await sql.begin((tx) => createProject(tx, viewer));
     projects.push(project);
     const [invite] =
-      await sql`INSERT INTO project_invitations(project_id,inviter_id,candidate_id,kind,role_title,project_title,expires_at,created_at) VALUES(${project},${viewer},${actor},'ordinary_role','Designer','Snapshot',now()+interval '1 day',${stamp}) RETURNING id`;
+      await sql`INSERT INTO workspace_invitations(workspace_id,inviter_id,candidate_id,kind,role_title,project_title,expires_at,created_at) VALUES(${project},${viewer},${actor},'ordinary_role','Designer','Snapshot',now()+interval '1 day',${stamp}) RETURNING id`;
     const [application] =
-      await sql`INSERT INTO role_applications(project_id,applicant_id,creator_id,status,message,created_at) VALUES(${project},${actor},${viewer},'pending','Application note',${stamp}) RETURNING id`;
+      await sql`INSERT INTO role_applications(workspace_id,applicant_id,creator_id,status,message,created_at) VALUES(${project},${actor},${viewer},'pending','Application note',${stamp}) RETURNING id`;
     // Expired invitations and unrelated project managers must not be visible.
-    await sql`INSERT INTO project_invitations(project_id,inviter_id,candidate_id,kind,role_title,project_title,expires_at) VALUES(${project},${viewer},${ids[1]!},'ordinary_role','Expired','Snapshot',now()-interval '1 day')`;
+    await sql`INSERT INTO workspace_invitations(workspace_id,inviter_id,candidate_id,kind,role_title,project_title,expires_at) VALUES(${project},${viewer},${ids[1]!},'ordinary_role','Expired','Snapshot',now()-interval '1 day')`;
     const alien = await sql.begin((tx) => createProject(tx, actor));
     projects.push(alien);
-    await sql`INSERT INTO role_applications(project_id,applicant_id,creator_id,status) VALUES(${alien},${ids[2]!},${viewer},'pending')`;
+    await sql`INSERT INTO role_applications(workspace_id,applicant_id,creator_id,status) VALUES(${alien},${ids[2]!},${viewer},'pending')`;
     const expected = new Set([
       ...connectionIds,
       invite!.id as string,
@@ -264,7 +264,7 @@ test("Invitation browse searches beyond fifty rows, pages all sources in both di
     );
   } finally {
     for (const project of projects)
-      await sql`DELETE FROM projects WHERE id=${project}`;
+      await sql`DELETE FROM workspaces WHERE id=${project}`;
     await cleanup(ids);
   }
 });

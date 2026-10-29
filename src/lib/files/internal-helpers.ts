@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { ConflictError, ForbiddenError, NotFoundError } from "@/lib/errors/domain";
-import { projectEventCounters, projectMembers, projectNodeEvents, projectNodeLocks, projectNodes, projects, tasks } from "@/lib/db/schema";
+import { workspaceEventCounters, workspaceMembers, workspaceNodeEvents, workspaceNodeLocks, workspaceNodes, workspaces, tasks } from "@/lib/db/schema";
 import { assertWorkspaceTabReadAccess, canReadWorkspaceTab, getWorkspaceAccessById, type WorkspaceAccess } from "@/lib/data/workspace-access";
 import { eq, and, isNull, sql, ne, gt, type SQL } from "drizzle-orm";
 import { isWithParent } from "@/app/actions/files/_constants";
@@ -32,10 +32,10 @@ export function canReadWorkspaceTaskFiles(access: ExistingProjectAccess): boolea
 }
 
 /** SQL: ordinary project content, i.e. not owned by a task and not under /.system. */
-export const projectContentNodeSql = sql`${projectNodes.taskId} IS NULL AND ${projectNodes.path} NOT LIKE '/.system%'`;
+export const projectContentNodeSql = sql`${workspaceNodes.taskId} IS NULL AND ${workspaceNodes.path} NOT LIKE '/.system%'`;
 
-type NodeRef = { projectId: SQL | typeof projectNodes.projectId; path: SQL | typeof projectNodes.path; taskId: SQL | typeof projectNodes.taskId };
-const NODE_COLUMNS: NodeRef = { projectId: projectNodes.projectId, path: projectNodes.path, taskId: projectNodes.taskId };
+type NodeRef = { projectId: SQL | typeof workspaceNodes.projectId; path: SQL | typeof workspaceNodes.path; taskId: SQL | typeof workspaceNodes.taskId };
+const NODE_COLUMNS: NodeRef = { projectId: workspaceNodes.projectId, path: workspaceNodes.path, taskId: workspaceNodes.taskId };
 
 /**
  * Org Files (report §23.3, §23.5), mirroring app_private.nb_org_node_access_ok (0247): in an organization,
@@ -48,8 +48,8 @@ export function orgFileAccessSql(access: OrgFileViewer, node: NodeRef = NODE_COL
     if (access.project?.kind !== "organization" || access.isOwner || access.memberRole === "admin") return undefined;
     const viewerId = access.viewerId ?? null;
     const marked = (level: "admins" | "members" | "public") => sql`EXISTS (
-        SELECT 1 FROM project_nodes nb_f
-        WHERE nb_f.project_id = ${node.projectId} AND nb_f.type = 'folder' AND nb_f.deleted_at IS NULL
+        SELECT 1 FROM workspace_nodes nb_f
+        WHERE nb_f.workspace_id = ${node.projectId} AND nb_f.type = 'folder' AND nb_f.deleted_at IS NULL
           AND nb_f.metadata->>'access' = ${level}
           AND (${node.path} = nb_f.path OR starts_with(${node.path}, nb_f.path || '/'))
     )`;
@@ -110,11 +110,11 @@ async function assertOrgWrite(executor: Executor, projectId: string, userId: str
         : target.taskId
             ? sql`t.id = ${target.taskId}::uuid`
             : target.nodeId
-                ? sql`t.id = (SELECT n.task_id FROM project_nodes n WHERE n.id = ${target.nodeId}::uuid AND n.project_id = ${projectId}::uuid)`
+                ? sql`t.id = (SELECT n.task_id FROM workspace_nodes n WHERE n.id = ${target.nodeId}::uuid AND n.workspace_id = ${projectId}::uuid)`
                 : sql`false`;
     const rows = Array.from(await executor.execute<{ id: string }>(sql`
         SELECT t.id FROM tasks t
-        WHERE t.project_id = ${projectId}::uuid AND t.deleted_at IS NULL AND t.assignment_id IS NOT NULL AND ${taskScope}
+        WHERE t.workspace_id = ${projectId}::uuid AND t.deleted_at IS NULL AND t.assignment_id IS NOT NULL AND ${taskScope}
           AND (t.assignee_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = t.id AND tm.user_id = ${userId}::uuid))
         LIMIT 1
     `));
@@ -147,9 +147,9 @@ export async function assertWorkspaceUploadAccess(projectId: string, userId: str
     }
     const [member] = access.isMember
         ? await db
-            .select({ fileUploadEnabled: projectMembers.fileUploadEnabled })
-            .from(projectMembers)
-            .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, userId)))
+            .select({ fileUploadEnabled: workspaceMembers.fileUploadEnabled })
+            .from(workspaceMembers)
+            .where(and(eq(workspaceMembers.projectId, projectId), eq(workspaceMembers.userId, userId)))
             .limit(1)
         : [];
     if (!canWorkspaceMemberUploadFiles({ role: access.memberRole, fileUploadEnabled: member?.fileUploadEnabled ?? null })) {
@@ -172,7 +172,7 @@ export async function assertWorkspaceWriteAccessTx(
         kind: string;
     }>(sql`
         SELECT id, owner_id, visibility, deleted_at, kind
-        FROM projects
+        FROM workspaces
         WHERE id = ${projectId}
         FOR UPDATE
     `);
@@ -191,8 +191,8 @@ export async function assertWorkspaceWriteAccessTx(
 
     const memberResult = await tx.execute<{ role: string | null }>(sql`
         SELECT role
-        FROM project_members
-        WHERE project_id = ${projectId}
+        FROM workspace_members
+        WHERE workspace_id = ${projectId}
           AND user_id = ${userId}
         FOR UPDATE
     `);
@@ -225,7 +225,7 @@ export async function assertWorkspaceManageFilesAccessTx(
         kind: string;
     }>(sql`
         SELECT id, owner_id, visibility, deleted_at, kind
-        FROM projects
+        FROM workspaces
         WHERE id = ${projectId}
         FOR UPDATE
     `);
@@ -240,8 +240,8 @@ export async function assertWorkspaceManageFilesAccessTx(
 
     const memberResult = await tx.execute<{ role: string | null }>(sql`
         SELECT role
-        FROM project_members
-        WHERE project_id = ${projectId}
+        FROM workspace_members
+        WHERE workspace_id = ${projectId}
           AND user_id = ${userId}
         FOR UPDATE
     `);
@@ -268,7 +268,7 @@ export async function assertWorkspaceUploadAccessTx(
         kind: string;
     }>(sql`
         SELECT id, owner_id, visibility, deleted_at, kind
-        FROM projects
+        FROM workspaces
         WHERE id = ${projectId}
         FOR UPDATE
     `);
@@ -287,8 +287,8 @@ export async function assertWorkspaceUploadAccessTx(
 
     const memberResult = await tx.execute<{ role: string | null; file_upload_enabled: boolean | null }>(sql`
         SELECT role, file_upload_enabled
-        FROM project_members
-        WHERE project_id = ${projectId}
+        FROM workspace_members
+        WHERE workspace_id = ${projectId}
           AND user_id = ${userId}
         FOR UPDATE
     `);
@@ -320,13 +320,13 @@ export async function getTaskWorkspaceId(taskId: string): Promise<string> {
 
 export async function ensureSystemRootFolder(projectId: string, userId: string, fallbackName: string) {
     // Fast-path read check without transaction or advisory lock
-    const fastExisting = await db.query.projectNodes.findFirst({
+    const fastExisting = await db.query.workspaceNodes.findFirst({
         where: and(
-            eq(projectNodes.projectId, projectId),
-            isNull(projectNodes.parentId),
-            eq(projectNodes.type, "folder"),
-            isNull(projectNodes.deletedAt),
-            sql`coalesce(${projectNodes.metadata}->>'isSystem', 'false') = 'true'`
+            eq(workspaceNodes.projectId, projectId),
+            isNull(workspaceNodes.parentId),
+            eq(workspaceNodes.type, "folder"),
+            isNull(workspaceNodes.deletedAt),
+            sql`coalesce(${workspaceNodes.metadata}->>'isSystem', 'false') = 'true'`
         ),
     });
     if (fastExisting) return fastExisting;
@@ -334,19 +334,19 @@ export async function ensureSystemRootFolder(projectId: string, userId: string, 
     return await db.transaction(async (tx) => {
         await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`files-system-root:${projectId}`}))`);
 
-        const existing = await tx.query.projectNodes.findFirst({
+        const existing = await tx.query.workspaceNodes.findFirst({
             where: and(
-                eq(projectNodes.projectId, projectId),
-                isNull(projectNodes.parentId),
-                eq(projectNodes.type, "folder"),
-                isNull(projectNodes.deletedAt),
-                sql`coalesce(${projectNodes.metadata}->>'isSystem', 'false') = 'true'`
+                eq(workspaceNodes.projectId, projectId),
+                isNull(workspaceNodes.parentId),
+                eq(workspaceNodes.type, "folder"),
+                isNull(workspaceNodes.deletedAt),
+                sql`coalesce(${workspaceNodes.metadata}->>'isSystem', 'false') = 'true'`
             ),
         });
         if (existing) return existing;
 
         const [created] = await tx
-            .insert(projectNodes)
+            .insert(workspaceNodes)
             .values({
                 projectId,
                 parentId: null,
@@ -369,12 +369,12 @@ export async function assertNodeNotLockedByAnotherUser(
     tx: { query: typeof db.query } = db
 ) {
     const now = new Date();
-    const lock = await tx.query.projectNodeLocks.findFirst({
+    const lock = await tx.query.workspaceNodeLocks.findFirst({
         where: and(
-            eq(projectNodeLocks.projectId, projectId),
-            eq(projectNodeLocks.nodeId, nodeId),
-            ne(projectNodeLocks.lockedBy, userId),
-            gt(projectNodeLocks.expiresAt, now)
+            eq(workspaceNodeLocks.projectId, projectId),
+            eq(workspaceNodeLocks.nodeId, nodeId),
+            ne(workspaceNodeLocks.lockedBy, userId),
+            gt(workspaceNodeLocks.expiresAt, now)
         ),
         columns: { lockedBy: true, expiresAt: true },
     });
@@ -386,11 +386,11 @@ export async function assertNodeNotLockedByAnotherUser(
 
 export async function assertValidParentFolder(projectId: string, parentId: string | null, tx: { query: typeof db.query } = db) {
     if (!parentId) return null;
-    const parent = await tx.query.projectNodes.findFirst({
+    const parent = await tx.query.workspaceNodes.findFirst({
         where: and(
-            eq(projectNodes.id, parentId),
-            eq(projectNodes.projectId, projectId),
-            isNull(projectNodes.deletedAt)
+            eq(workspaceNodes.id, parentId),
+            eq(workspaceNodes.projectId, projectId),
+            isNull(workspaceNodes.deletedAt)
         ),
         columns: { id: true, type: true, parentId: true, path: true, taskId: true, metadata: true }
     });
@@ -428,16 +428,16 @@ export async function assertUniqueSiblingName(
     ignoreNodeId?: string
 ) {
     const conditions: SQL[] = [
-        eq(projectNodes.projectId, projectId),
+        eq(workspaceNodes.projectId, projectId),
         isWithParent(parentId),
-        isNull(projectNodes.deletedAt),
-        sql`lower(${projectNodes.name}) = lower(${name})`,
+        isNull(workspaceNodes.deletedAt),
+        sql`lower(${workspaceNodes.name}) = lower(${name})`,
     ];
     if (ignoreNodeId) {
-        conditions.push(ne(projectNodes.id, ignoreNodeId));
+        conditions.push(ne(workspaceNodes.id, ignoreNodeId));
     }
 
-    const duplicate = await tx.query.projectNodes.findFirst({
+    const duplicate = await tx.query.workspaceNodes.findFirst({
         where: and(...conditions),
         columns: { id: true },
     });
@@ -454,8 +454,8 @@ export async function assertUniqueSiblingName(
 export async function assertNodesNotLockedByAnotherUser(projectId: string, nodeIds: string[], userId: string, tx: any) {
     if (!nodeIds.length) return;
     const [lock] = Array.from(await tx.execute(sql`
-        SELECT 1 FROM project_node_locks
-        WHERE project_id = ${projectId}::uuid
+        SELECT 1 FROM workspace_node_locks
+        WHERE workspace_id = ${projectId}::uuid
           AND node_id IN (${sql.join(nodeIds.map((id) => sql`${id}::uuid`), sql`, `)})
           AND locked_by <> ${userId}::uuid
           AND expires_at > now()
@@ -473,10 +473,10 @@ export async function assertUniqueSiblingNames(
     if (!entries.length) return;
     const pairs = sql.join(entries.map((entry) => sql`(${entry.parentId}::uuid, lower(${entry.name}))`), sql`, `);
     const [duplicate] = Array.from(await tx.execute(sql`
-        SELECT 1 FROM project_nodes n
+        SELECT 1 FROM workspace_nodes n
         JOIN (VALUES ${pairs}) AS wanted(parent_id, name)
           ON n.parent_id IS NOT DISTINCT FROM wanted.parent_id AND lower(n.name) = wanted.name
-        WHERE n.project_id = ${projectId}::uuid
+        WHERE n.workspace_id = ${projectId}::uuid
           AND n.deleted_at IS NULL
           AND n.id NOT IN (${sql.join(entries.map((entry) => sql`${entry.id}::uuid`), sql`, `)})
         LIMIT 1
@@ -490,12 +490,12 @@ export async function assertNotMovingAnyIntoDescendant(projectId: string, folder
     if (folderIds.includes(targetParentId)) throw new Error("Cannot move a folder into itself or its descendant");
     const [hit] = Array.from(await tx.execute(sql`
         WITH RECURSIVE ancestors AS (
-            SELECT id, parent_id, 1 AS depth FROM project_nodes
-            WHERE id = ${targetParentId}::uuid AND project_id = ${projectId}::uuid AND deleted_at IS NULL
+            SELECT id, parent_id, 1 AS depth FROM workspace_nodes
+            WHERE id = ${targetParentId}::uuid AND workspace_id = ${projectId}::uuid AND deleted_at IS NULL
             UNION ALL
-            SELECT p.id, p.parent_id, a.depth + 1 FROM project_nodes p
+            SELECT p.id, p.parent_id, a.depth + 1 FROM workspace_nodes p
             JOIN ancestors a ON p.id = a.parent_id
-            WHERE p.project_id = ${projectId}::uuid AND p.deleted_at IS NULL AND a.depth < 256
+            WHERE p.workspace_id = ${projectId}::uuid AND p.deleted_at IS NULL AND a.depth < 256
         )
         SELECT 1 FROM ancestors WHERE id IN (${sql.join(folderIds.map((id) => sql`${id}::uuid`), sql`, `)}) LIMIT 1
     `));
@@ -512,17 +512,17 @@ export async function recordNodeEvent(
 ) {
     const run = async (tx: any) => {
         const [counter] = await tx
-            .insert(projectEventCounters)
+            .insert(workspaceEventCounters)
             .values({ projectId, nextSequence: 1 })
             .onConflictDoUpdate({
-                target: projectEventCounters.projectId,
+                target: workspaceEventCounters.projectId,
                 set: {
-                    nextSequence: sql`${projectEventCounters.nextSequence} + 1`,
+                    nextSequence: sql`${workspaceEventCounters.nextSequence} + 1`,
                     updatedAt: new Date(),
                 },
             })
             .returning({
-                newSequenceNumber: projectEventCounters.nextSequence,
+                newSequenceNumber: workspaceEventCounters.nextSequence,
             });
 
         if (!counter) {
@@ -530,7 +530,7 @@ export async function recordNodeEvent(
         }
 
         const [event] = await tx
-            .insert(projectNodeEvents)
+            .insert(workspaceNodeEvents)
             .values({
                 projectId,
                 actorId,
@@ -564,17 +564,17 @@ export async function recordNodeEventsBatch(
     const run = async (tx: any) => {
         const count = Math.max(1, nodeIds.length);
         const [counter] = await tx
-            .insert(projectEventCounters)
+            .insert(workspaceEventCounters)
             .values({ projectId, nextSequence: count })
             .onConflictDoUpdate({
-                target: projectEventCounters.projectId,
+                target: workspaceEventCounters.projectId,
                 set: {
-                    nextSequence: sql`${projectEventCounters.nextSequence} + ${count}`,
+                    nextSequence: sql`${workspaceEventCounters.nextSequence} + ${count}`,
                     updatedAt: new Date(),
                 },
             })
             .returning({
-                newSequenceNumber: projectEventCounters.nextSequence,
+                newSequenceNumber: workspaceEventCounters.nextSequence,
             });
 
         if (!counter) {
@@ -594,7 +594,7 @@ export async function recordNodeEventsBatch(
             createdAt: now,
         }));
 
-        await tx.insert(projectNodeEvents).values(values);
+        await tx.insert(workspaceNodeEvents).values(values);
         return { sequenceNumber: counter.newSequenceNumber };
     };
 

@@ -1,7 +1,7 @@
 import { inngest } from "../client";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { githubSyncRuns, projectNodeLocks } from "@/lib/db/schema";
+import { githubSyncRuns, workspaceNodeLocks } from "@/lib/db/schema";
 import { runReviewedGitHubSync } from "@/lib/github/sync-runner";
 import { cleanupReviewedSyncSnapshots } from "@/lib/github/sync-service";
 import {
@@ -48,10 +48,10 @@ export const gitPull = inngest.createFunction(
       throw new Error("A signed, reviewed pull operation is required");
 
     const activeLease = await step.run("check-file-leases", async () => {
-      return db.query.projectNodeLocks.findFirst({
+      return db.query.workspaceNodeLocks.findFirst({
         where: and(
-          eq(projectNodeLocks.projectId, projectId),
-          sql`${projectNodeLocks.expiresAt} > now()`,
+          eq(workspaceNodeLocks.projectId, projectId),
+          sql`${workspaceNodeLocks.expiresAt} > now()`,
         ),
         columns: { nodeId: true, expiresAt: true },
       });

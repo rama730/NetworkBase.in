@@ -44,11 +44,11 @@ export async function readPersonCardDetails(
                 ${publicPersonSkillsSql()} AS skills,
                 (SELECT jsonb_build_object('total', COALESCE(max(public_projects.total), 0), 'projects', COALESCE(jsonb_agg(jsonb_build_object('id', public_projects.id, 'title', public_projects.title, 'slug', public_projects.slug) ORDER BY public_projects.title), '[]'::jsonb),
                     'hasExternal', false)
-                 FROM (SELECT eligible.*, count(*) OVER ()::int AS total FROM (SELECT DISTINCT pr.id, pr.title, pr.slug FROM profile_project_contributions c JOIN projects pr ON pr.id = c.project_id
+                 FROM (SELECT eligible.*, count(*) OVER ()::int AS total FROM (SELECT DISTINCT pr.id, pr.title, pr.slug FROM profile_contributions c JOIN workspaces pr ON pr.id = c.workspace_id
                     WHERE c.profile_id = profiles.id AND c.visibility = 'public' AND c.deleted_at IS NULL AND c.role_kind <> 'viewer'
                     AND pr.visibility = 'public' AND pr.deleted_at IS NULL AND pr.status IN ('active', 'completed', 'archived')
-                    UNION ALL SELECT ext.id, ext.project_title, NULL::text FROM profile_project_contributions ext WHERE ext.profile_id = profiles.id
-                        AND ext.project_id IS NULL AND ext.visibility = 'public' AND ext.deleted_at IS NULL AND ext.role_kind <> 'viewer') eligible ORDER BY eligible.title, eligible.id LIMIT 4) public_projects) AS portfolio,
+                    UNION ALL SELECT ext.id, ext.project_title, NULL::text FROM profile_contributions ext WHERE ext.profile_id = profiles.id
+                        AND ext.workspace_id IS NULL AND ext.visibility = 'public' AND ext.deleted_at IS NULL AND ext.role_kind <> 'viewer') eligible ORDER BY eligible.title, eligible.id LIMIT 4) public_projects) AS portfolio,
                 ${visibleMutualCountSql(viewerId)} AS mutual
             FROM targets t JOIN profiles ON profiles.id = t.id WHERE ${readableProfileIdentitySql(viewerId)}
         `);

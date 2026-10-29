@@ -16,7 +16,7 @@ test("syncRoleSkills refuses a role from another project before writing", async 
     const ownerB = await createUser(tx);
     const projectA = await createProject(tx, ownerA);
     const projectB = await createProject(tx, ownerB);
-    const [roleB] = await tx`INSERT INTO public.project_open_roles (project_id, role, count) VALUES (${projectB}, ${"dev-" + marker}, 1) RETURNING id`;
+    const [roleB] = await tx`INSERT INTO public.workspace_open_roles (workspace_id, role, count) VALUES (${projectB}, ${"dev-" + marker}, 1) RETURNING id`;
     return { ownerA, projectA, roleB: roleB!.id as string };
   });
   try {
@@ -28,6 +28,6 @@ test("syncRoleSkills refuses a role from another project before writing", async 
     const afterRows = await sql`SELECT skill_id FROM public.role_skills WHERE role_id = ${ids.roleB} ORDER BY skill_id`;
     assert.deepEqual(afterRows, before);
   } finally {
-    await sql`DELETE FROM public.projects WHERE id IN (SELECT project_id FROM public.project_open_roles WHERE id = ${ids.roleB}) OR id = ${ids.projectA}`;
+    await sql`DELETE FROM public.workspaces WHERE id IN (SELECT workspace_id FROM public.workspace_open_roles WHERE id = ${ids.roleB}) OR id = ${ids.projectA}`;
   }
 });

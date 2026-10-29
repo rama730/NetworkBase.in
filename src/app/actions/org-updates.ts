@@ -3,7 +3,7 @@
 import { and, eq, isNull } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
-import { projectMembers, projects } from '@/lib/db/schema';
+import { workspaceMembers, workspaces } from '@/lib/db/schema';
 import { countAudience, readOrgUpdateContext, readPinnedOrgLine } from '@/lib/organizations/org-updates';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
 import type { UpdateAudience } from '@/lib/organizations/update-rules';
@@ -15,8 +15,8 @@ import { getViewerAuthContext } from '@/lib/server/viewer-context';
 export async function readOrgPinnedLineAction(childProjectId: string) {
     const { userId } = await getViewerAuthContext();
     if (!userId) return null;
-    const [project] = await db.select({ id: projects.id, kind: projects.kind, parentId: projects.parentId, visibility: projects.visibility })
-        .from(projects).where(and(eq(projects.id, childProjectId), isNull(projects.deletedAt))).limit(1);
+    const [project] = await db.select({ id: workspaces.id, kind: workspaces.kind, parentId: workspaces.parentId, visibility: workspaces.visibility })
+        .from(workspaces).where(and(eq(workspaces.id, childProjectId), isNull(workspaces.deletedAt))).limit(1);
     if (!project?.parentId) return null;
     const ctx = await readOrgUpdateContext(project, userId);
     return ctx ? readPinnedOrgLine(ctx, userId) : null;
@@ -26,9 +26,9 @@ export async function readOrgPinnedLineAction(childProjectId: string) {
 export async function markOrgUpdatesSeenAction(orgId: string) {
     const { userId } = await getViewerAuthContext();
     if (!userId) return { success: false as const, error: 'Sign in.' };
-    const marked = await db.update(projectMembers).set({ lastSeenUpdatesAt: new Date() })
-        .where(and(eq(projectMembers.projectId, orgId), eq(projectMembers.userId, userId)))
-        .returning({ id: projectMembers.projectId });
+    const marked = await db.update(workspaceMembers).set({ lastSeenUpdatesAt: new Date() })
+        .where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.userId, userId)))
+        .returning({ id: workspaceMembers.projectId });
     return marked.length ? { success: true as const } : { success: false as const, error: 'Not a member of this organization.' };
 }
 

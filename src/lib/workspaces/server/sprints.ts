@@ -14,7 +14,7 @@ import { getWorkspaceAccessById, assertWorkspaceTabReadAccess, type WorkspaceAcc
 import { createClient } from "@/lib/supabase/server";
 import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
 import { type SprintTaskTimelineEntity, type SprintListItem, buildSprintHealthSummary, type SprintDetailPayload, buildSprintPermissionSet, isSprintReadyToClose } from "@/lib/workspaces/sprint-detail";
-import { projectSprintEvents, projectSprints, profiles, projectMembers, sprintTaskMemberships, tasks, taskNodeLinks, projectNodes, taskSubtasks, projects, projectDocs, sprintMaterials } from "@/lib/db/schema";
+import { workspaceSprintEvents, workspaceSprints, profiles, workspaceMembers, sprintTaskMemberships, tasks, taskNodeLinks, workspaceNodes, taskSubtasks, workspaces, workspaceDocuments, sprintMaterials } from "@/lib/db/schema";
 import { toDateValue, toIsoString } from "@/lib/utils/date";
 import { z } from "zod";
 import { inferTaskFileRole } from "@/lib/workspaces/task-file-intelligence";
@@ -182,8 +182,8 @@ const acceptedRoleTitleSql = (projectId: string, userId: unknown) => sql<
 >`(
     SELECT COALESCE(NULLIF(ra.accepted_role_title, ''), NULLIF(por.title, ''), NULLIF(por.role, ''))
     FROM role_applications ra
-    LEFT JOIN project_open_roles por ON por.id = ra.role_id
-    WHERE ra.project_id = ${projectId}
+    LEFT JOIN workspace_open_roles por ON por.id = ra.role_id
+    WHERE ra.workspace_id = ${projectId}
       AND ra.applicant_id = ${userId}
       AND ra.status = 'accepted'
     ORDER BY ra.updated_at DESC
@@ -273,19 +273,19 @@ async function applySprintCreatorSnapshots(
   try {
     const events = await db
       .select({
-        sprintId: projectSprintEvents.sprintId,
-        actorId: projectSprintEvents.actorId,
-        payload: projectSprintEvents.payload,
+        sprintId: workspaceSprintEvents.sprintId,
+        actorId: workspaceSprintEvents.actorId,
+        payload: workspaceSprintEvents.payload,
       })
-      .from(projectSprintEvents)
+      .from(workspaceSprintEvents)
       .where(
         and(
-          eq(projectSprintEvents.projectId, projectId),
-          eq(projectSprintEvents.eventType, "created"),
-          inArray(projectSprintEvents.sprintId, missingSprintIds),
+          eq(workspaceSprintEvents.projectId, projectId),
+          eq(workspaceSprintEvents.eventType, "created"),
+          inArray(workspaceSprintEvents.sprintId, missingSprintIds),
         ),
       )
-      .orderBy(desc(projectSprintEvents.createdAt));
+      .orderBy(desc(workspaceSprintEvents.createdAt));
     const snapshots = new Map<
       string,
       { actorId: string | null; name: string | null; avatarUrl: string | null }
@@ -321,7 +321,7 @@ async function applySprintCreatorSnapshots(
       };
     });
   } catch (error) {
-    if (isMissingTable(error, "project_sprint_events")) return sprints;
+    if (isMissingTable(error, "workspace_sprint_events")) return sprints;
     throw error;
   }
 }
@@ -332,85 +332,85 @@ async function readProjectSprintsList(projectId: string, limit: number) {
     if (supportsDescription) {
       return db
         .select({
-          id: projectSprints.id,
-          projectId: projectSprints.projectId,
-          creatorId: projectSprints.creatorId,
-          sprintNumber: projectSprints.sprintNumber,
-          name: projectSprints.name,
-          goal: projectSprints.goal,
-          description: projectSprints.description,
-          startDate: projectSprints.startDate,
-          endDate: projectSprints.endDate,
-          status: projectSprints.status,
-          startedAt: projectSprints.startedAt,
-          completedAt: projectSprints.completedAt,
-          archivedAt: projectSprints.archivedAt,
-          cancelledAt: projectSprints.cancelledAt,
-          createdAt: projectSprints.createdAt,
-          updatedAt: projectSprints.updatedAt,
+          id: workspaceSprints.id,
+          projectId: workspaceSprints.projectId,
+          creatorId: workspaceSprints.creatorId,
+          sprintNumber: workspaceSprints.sprintNumber,
+          name: workspaceSprints.name,
+          goal: workspaceSprints.goal,
+          description: workspaceSprints.description,
+          startDate: workspaceSprints.startDate,
+          endDate: workspaceSprints.endDate,
+          status: workspaceSprints.status,
+          startedAt: workspaceSprints.startedAt,
+          completedAt: workspaceSprints.completedAt,
+          archivedAt: workspaceSprints.archivedAt,
+          cancelledAt: workspaceSprints.cancelledAt,
+          createdAt: workspaceSprints.createdAt,
+          updatedAt: workspaceSprints.updatedAt,
           creatorName: profiles.fullName,
           creatorAvatarUrl: profiles.avatarUrl,
-          creatorRole: projectMembers.role,
+          creatorRole: workspaceMembers.role,
           creatorRoleTitle: acceptedRoleTitleSql(
             projectId,
-            projectSprints.creatorId,
+            workspaceSprints.creatorId,
           ),
         })
-        .from(projectSprints)
-        .leftJoin(profiles, eq(profiles.id, projectSprints.creatorId))
+        .from(workspaceSprints)
+        .leftJoin(profiles, eq(profiles.id, workspaceSprints.creatorId))
         .leftJoin(
-          projectMembers,
+          workspaceMembers,
           and(
-            eq(projectMembers.userId, projectSprints.creatorId),
-            eq(projectMembers.projectId, projectId),
+            eq(workspaceMembers.userId, workspaceSprints.creatorId),
+            eq(workspaceMembers.projectId, projectId),
           ),
         )
-        .where(eq(projectSprints.projectId, projectId))
+        .where(eq(workspaceSprints.projectId, projectId))
         .orderBy(
-          sql`CASE WHEN ${projectSprints.status} = 'active' THEN 0 WHEN ${projectSprints.status} = 'planning' THEN 1 ELSE 2 END`,
-          desc(projectSprints.createdAt),
+          sql`CASE WHEN ${workspaceSprints.status} = 'active' THEN 0 WHEN ${workspaceSprints.status} = 'planning' THEN 1 ELSE 2 END`,
+          desc(workspaceSprints.createdAt),
         )
         .limit(limit);
     }
 
     return db
       .select({
-        id: projectSprints.id,
-        projectId: projectSprints.projectId,
-        creatorId: projectSprints.creatorId,
-        sprintNumber: projectSprints.sprintNumber,
-        name: projectSprints.name,
-        goal: projectSprints.goal,
-        startDate: projectSprints.startDate,
-        endDate: projectSprints.endDate,
-        status: projectSprints.status,
-        startedAt: projectSprints.startedAt,
-        completedAt: projectSprints.completedAt,
-        archivedAt: projectSprints.archivedAt,
-        cancelledAt: projectSprints.cancelledAt,
-        createdAt: projectSprints.createdAt,
-        updatedAt: projectSprints.updatedAt,
+        id: workspaceSprints.id,
+        projectId: workspaceSprints.projectId,
+        creatorId: workspaceSprints.creatorId,
+        sprintNumber: workspaceSprints.sprintNumber,
+        name: workspaceSprints.name,
+        goal: workspaceSprints.goal,
+        startDate: workspaceSprints.startDate,
+        endDate: workspaceSprints.endDate,
+        status: workspaceSprints.status,
+        startedAt: workspaceSprints.startedAt,
+        completedAt: workspaceSprints.completedAt,
+        archivedAt: workspaceSprints.archivedAt,
+        cancelledAt: workspaceSprints.cancelledAt,
+        createdAt: workspaceSprints.createdAt,
+        updatedAt: workspaceSprints.updatedAt,
         creatorName: profiles.fullName,
         creatorAvatarUrl: profiles.avatarUrl,
-        creatorRole: projectMembers.role,
+        creatorRole: workspaceMembers.role,
         creatorRoleTitle: acceptedRoleTitleSql(
           projectId,
-          projectSprints.creatorId,
+          workspaceSprints.creatorId,
         ),
       })
-      .from(projectSprints)
-      .leftJoin(profiles, eq(profiles.id, projectSprints.creatorId))
+      .from(workspaceSprints)
+      .leftJoin(profiles, eq(profiles.id, workspaceSprints.creatorId))
       .leftJoin(
-        projectMembers,
+        workspaceMembers,
         and(
-          eq(projectMembers.userId, projectSprints.creatorId),
-          eq(projectMembers.projectId, projectId),
+          eq(workspaceMembers.userId, workspaceSprints.creatorId),
+          eq(workspaceMembers.projectId, projectId),
         ),
       )
-      .where(eq(projectSprints.projectId, projectId))
+      .where(eq(workspaceSprints.projectId, projectId))
       .orderBy(
-        sql`CASE WHEN ${projectSprints.status} = 'active' THEN 0 WHEN ${projectSprints.status} = 'planning' THEN 1 ELSE 2 END`,
-        desc(projectSprints.createdAt),
+        sql`CASE WHEN ${workspaceSprints.status} = 'active' THEN 0 WHEN ${workspaceSprints.status} = 'planning' THEN 1 ELSE 2 END`,
+        desc(workspaceSprints.createdAt),
       )
       .limit(limit)
       .then((rows) => rows.map((row) => ({ ...row, description: null })));
@@ -443,43 +443,43 @@ async function readProjectSprintListItem(projectId: string, sprintId: string) {
     if (supportsDescription) {
       return db
         .select({
-          id: projectSprints.id,
-          projectId: projectSprints.projectId,
-          creatorId: projectSprints.creatorId,
-          sprintNumber: projectSprints.sprintNumber,
-          name: projectSprints.name,
-          goal: projectSprints.goal,
-          description: projectSprints.description,
-          startDate: projectSprints.startDate,
-          endDate: projectSprints.endDate,
-          status: projectSprints.status,
-          startedAt: projectSprints.startedAt,
-          completedAt: projectSprints.completedAt,
-          archivedAt: projectSprints.archivedAt,
-          cancelledAt: projectSprints.cancelledAt,
-          createdAt: projectSprints.createdAt,
-          updatedAt: projectSprints.updatedAt,
+          id: workspaceSprints.id,
+          projectId: workspaceSprints.projectId,
+          creatorId: workspaceSprints.creatorId,
+          sprintNumber: workspaceSprints.sprintNumber,
+          name: workspaceSprints.name,
+          goal: workspaceSprints.goal,
+          description: workspaceSprints.description,
+          startDate: workspaceSprints.startDate,
+          endDate: workspaceSprints.endDate,
+          status: workspaceSprints.status,
+          startedAt: workspaceSprints.startedAt,
+          completedAt: workspaceSprints.completedAt,
+          archivedAt: workspaceSprints.archivedAt,
+          cancelledAt: workspaceSprints.cancelledAt,
+          createdAt: workspaceSprints.createdAt,
+          updatedAt: workspaceSprints.updatedAt,
           creatorName: profiles.fullName,
           creatorAvatarUrl: profiles.avatarUrl,
-          creatorRole: projectMembers.role,
+          creatorRole: workspaceMembers.role,
           creatorRoleTitle: acceptedRoleTitleSql(
             projectId,
-            projectSprints.creatorId,
+            workspaceSprints.creatorId,
           ),
         })
-        .from(projectSprints)
-        .leftJoin(profiles, eq(profiles.id, projectSprints.creatorId))
+        .from(workspaceSprints)
+        .leftJoin(profiles, eq(profiles.id, workspaceSprints.creatorId))
         .leftJoin(
-          projectMembers,
+          workspaceMembers,
           and(
-            eq(projectMembers.userId, projectSprints.creatorId),
-            eq(projectMembers.projectId, projectId),
+            eq(workspaceMembers.userId, workspaceSprints.creatorId),
+            eq(workspaceMembers.projectId, projectId),
           ),
         )
         .where(
           and(
-            eq(projectSprints.id, sprintId),
-            eq(projectSprints.projectId, projectId),
+            eq(workspaceSprints.id, sprintId),
+            eq(workspaceSprints.projectId, projectId),
           ),
         )
         .limit(1);
@@ -487,42 +487,42 @@ async function readProjectSprintListItem(projectId: string, sprintId: string) {
 
     return db
       .select({
-        id: projectSprints.id,
-        projectId: projectSprints.projectId,
-        creatorId: projectSprints.creatorId,
-        sprintNumber: projectSprints.sprintNumber,
-        name: projectSprints.name,
-        goal: projectSprints.goal,
-        startDate: projectSprints.startDate,
-        endDate: projectSprints.endDate,
-        status: projectSprints.status,
-        startedAt: projectSprints.startedAt,
-        completedAt: projectSprints.completedAt,
-        archivedAt: projectSprints.archivedAt,
-        cancelledAt: projectSprints.cancelledAt,
-        createdAt: projectSprints.createdAt,
-        updatedAt: projectSprints.updatedAt,
+        id: workspaceSprints.id,
+        projectId: workspaceSprints.projectId,
+        creatorId: workspaceSprints.creatorId,
+        sprintNumber: workspaceSprints.sprintNumber,
+        name: workspaceSprints.name,
+        goal: workspaceSprints.goal,
+        startDate: workspaceSprints.startDate,
+        endDate: workspaceSprints.endDate,
+        status: workspaceSprints.status,
+        startedAt: workspaceSprints.startedAt,
+        completedAt: workspaceSprints.completedAt,
+        archivedAt: workspaceSprints.archivedAt,
+        cancelledAt: workspaceSprints.cancelledAt,
+        createdAt: workspaceSprints.createdAt,
+        updatedAt: workspaceSprints.updatedAt,
         creatorName: profiles.fullName,
         creatorAvatarUrl: profiles.avatarUrl,
-        creatorRole: projectMembers.role,
+        creatorRole: workspaceMembers.role,
         creatorRoleTitle: acceptedRoleTitleSql(
           projectId,
-          projectSprints.creatorId,
+          workspaceSprints.creatorId,
         ),
       })
-      .from(projectSprints)
-      .leftJoin(profiles, eq(profiles.id, projectSprints.creatorId))
+      .from(workspaceSprints)
+      .leftJoin(profiles, eq(profiles.id, workspaceSprints.creatorId))
       .leftJoin(
-        projectMembers,
+        workspaceMembers,
         and(
-          eq(projectMembers.userId, projectSprints.creatorId),
-          eq(projectMembers.projectId, projectId),
+          eq(workspaceMembers.userId, workspaceSprints.creatorId),
+          eq(workspaceMembers.projectId, projectId),
         ),
       )
       .where(
         and(
-          eq(projectSprints.id, sprintId),
-          eq(projectSprints.projectId, projectId),
+          eq(workspaceSprints.id, sprintId),
+          eq(workspaceSprints.projectId, projectId),
         ),
       )
       .limit(1)
@@ -572,7 +572,7 @@ async function readSprintSummary(sprintId: string) {
             (
                 SELECT COUNT(*)::int
                 FROM ${taskNodeLinks} lnk
-                JOIN ${projectNodes} node ON node.id = lnk.node_id AND node.deleted_at IS NULL
+                JOIN ${workspaceNodes} node ON node.id = lnk.node_id AND node.deleted_at IS NULL
                 WHERE lnk.task_id IN (SELECT id FROM sprint_tasks)
             ) AS linked_file_count,
             COALESCE(SUM(COALESCE(st.story_points, 0)), 0)::int AS total_story_points,
@@ -620,7 +620,7 @@ async function readSprintTaskActivityPage(input: {
         ), task_activity AS (
             SELECT
                 t.id,
-                t.project_id,
+                t.workspace_id AS project_id,
                 ${sprintId}::uuid AS sprint_id,
                 t.title,
                 t.description,
@@ -641,7 +641,7 @@ async function readSprintTaskActivityPage(input: {
                 0::int AS linked_file_count
             FROM ${tasks} t
             INNER JOIN memberships m ON m.task_id = t.id
-            WHERE t.project_id = ${input.projectId}
+            WHERE t.workspace_id = ${input.projectId}
         )
         SELECT *
         FROM task_activity
@@ -707,7 +707,7 @@ async function readSprintTaskActivityPage(input: {
             )
             SELECT
                 t.id,
-                t.project_id,
+                t.workspace_id AS project_id,
                 ${sprintId}::uuid AS sprint_id,
                 t.title,
                 t.description,
@@ -728,7 +728,7 @@ async function readSprintTaskActivityPage(input: {
                 0::int AS linked_file_count
             FROM ${tasks} t
             INNER JOIN memberships m ON m.task_id = t.id
-            WHERE t.project_id = ${input.projectId} AND ${targetCondition}
+            WHERE t.workspace_id = ${input.projectId} AND ${targetCondition}
             LIMIT 1
         `);
     const targetRow = Array.from(targetRowsResult)[0];
@@ -772,7 +772,7 @@ async function readSprintTaskActivityPage(input: {
             p.full_name AS "uploaderName",
             p.avatar_url AS "uploaderAvatarUrl"
           FROM task_node_links tnl
-          INNER JOIN project_nodes pn ON pn.id = tnl.node_id AND pn.project_id = ${input.projectId}::uuid AND pn.deleted_at IS NULL
+          INNER JOIN workspace_nodes pn ON pn.id = tnl.node_id AND pn.workspace_id = ${input.projectId}::uuid AND pn.deleted_at IS NULL
           LEFT JOIN file_versions fv ON fv.node_id = pn.id AND fv.version = pn.current_version
           LEFT JOIN profiles p ON p.id = fv.uploaded_by
           WHERE tnl.task_id IN (${sql.join(taskIds.map((taskId) => sql`${taskId}::uuid`), sql`, `)})
@@ -1343,17 +1343,17 @@ export async function createSprintAction(data: CreateSprintInput) {
     const newSprint = await db.transaction(async (tx) => {
       // One project lock makes the human Sprint code stable under concurrent creates.
       await tx.execute(
-        sql`SELECT id FROM ${projects} WHERE id = ${validated.projectId} FOR UPDATE`,
+        sql`SELECT id FROM ${workspaces} WHERE id = ${validated.projectId} FOR UPDATE`,
       );
       const numberRows = await tx.execute<{ next_number: number }>(sql`
                 SELECT COALESCE(MAX(sprint_number), 0)::int + 1 AS next_number
-                FROM ${projectSprints}
-                WHERE project_id = ${validated.projectId}
+                FROM ${workspaceSprints}
+                WHERE workspace_id = ${validated.projectId}
             `);
       const sprintNumber = Number(Array.from(numberRows)[0]?.next_number ?? 1);
       const parentSprintId = await assertOrgSprintRules(tx, { projectId: validated.projectId, startDate, endDate, parentSprintId: validated.parentSprintId ?? null });
       const [created] = await tx
-        .insert(projectSprints)
+        .insert(workspaceSprints)
         .values({
           projectId: validated.projectId,
           creatorId: user.id,
@@ -1369,7 +1369,7 @@ export async function createSprintAction(data: CreateSprintInput) {
           notifyOnStart: validated.notifyOnStart ?? (await orgSprintNotifyDefault(tx, validated.projectId)),
           parentSprintId,
         })
-        .returning({ id: projectSprints.id });
+        .returning({ id: workspaceSprints.id });
       if (created && validated.createMatching) {
         await createMatchingChildSprints(tx, {
           orgId: validated.projectId,
@@ -1378,7 +1378,7 @@ export async function createSprintAction(data: CreateSprintInput) {
         });
       }
       if (created) {
-        await tx.insert(projectSprintEvents).values({
+        await tx.insert(workspaceSprintEvents).values({
           projectId: validated.projectId,
           sprintId: created.id,
           actorId: user.id,
@@ -1477,17 +1477,17 @@ export async function updateSprintAction(data: UpdateSprintInput) {
 
     const [existingSprint] = await db
       .select({
-        id: projectSprints.id,
-        projectId: projectSprints.projectId,
-        status: projectSprints.status,
-        parentSprintId: projectSprints.parentSprintId,
-        startDate: projectSprints.startDate,
+        id: workspaceSprints.id,
+        projectId: workspaceSprints.projectId,
+        status: workspaceSprints.status,
+        parentSprintId: workspaceSprints.parentSprintId,
+        startDate: workspaceSprints.startDate,
       })
-      .from(projectSprints)
+      .from(workspaceSprints)
       .where(
         and(
-          eq(projectSprints.id, validated.sprintId),
-          eq(projectSprints.projectId, validated.projectId),
+          eq(workspaceSprints.id, validated.sprintId),
+          eq(workspaceSprints.projectId, validated.projectId),
         ),
       )
       .limit(1);
@@ -1505,11 +1505,11 @@ export async function updateSprintAction(data: UpdateSprintInput) {
 
     const changedAt = new Date();
     const updatedSprintId = await db.transaction(async (tx) => {
-      await tx.execute(sql`SELECT id FROM ${projects} WHERE id = ${validated.projectId} FOR UPDATE`);
+      await tx.execute(sql`SELECT id FROM ${workspaces} WHERE id = ${validated.projectId} FOR UPDATE`);
       const parentSprintId = validated.parentSprintId === undefined ? existingSprint.parentSprintId : validated.parentSprintId;
       await assertOrgSprintRules(tx, { projectId: validated.projectId, startDate, endDate, parentSprintId, excludeSprintId: validated.sprintId });
       const [updated] = await tx
-        .update(projectSprints)
+        .update(workspaceSprints)
         .set({
           name: validated.name,
           goal: validated.goal ?? null,
@@ -1524,16 +1524,16 @@ export async function updateSprintAction(data: UpdateSprintInput) {
         })
         .where(
           and(
-            eq(projectSprints.id, validated.sprintId),
-            eq(projectSprints.projectId, validated.projectId),
-            eq(projectSprints.status, "planning"),
+            eq(workspaceSprints.id, validated.sprintId),
+            eq(workspaceSprints.projectId, validated.projectId),
+            eq(workspaceSprints.status, "planning"),
           ),
         )
-        .returning({ id: projectSprints.id });
+        .returning({ id: workspaceSprints.id });
       if (!updated)
         throw new Error("The Sprint changed before it could be saved");
 
-      await tx.insert(projectSprintEvents).values({
+      await tx.insert(workspaceSprintEvents).values({
         projectId: validated.projectId,
         sprintId: updated.id,
         actorId: user.id,
@@ -1644,9 +1644,9 @@ export async function deleteSprintAction(data: {
                     FROM ${sprintTaskMemberships} m
                     WHERE m.sprint_id = s.id
                 ) AS affected_task_count
-            FROM ${projectSprints} s
+            FROM ${workspaceSprints} s
             WHERE s.id = ${validated.sprintId}
-              AND s.project_id = ${validated.projectId}
+              AND s.workspace_id = ${validated.projectId}
             LIMIT 1
         `);
 
@@ -1682,9 +1682,9 @@ export async function deleteSprintAction(data: {
     // only the still-empty Planning sprint (COR-048).
     const deleted = await db.transaction(async (tx) => {
       const [locked] = await tx
-        .select({ status: projectSprints.status })
-        .from(projectSprints)
-        .where(and(eq(projectSprints.id, validated.sprintId), eq(projectSprints.projectId, validated.projectId)))
+        .select({ status: workspaceSprints.status })
+        .from(workspaceSprints)
+        .where(and(eq(workspaceSprints.id, validated.sprintId), eq(workspaceSprints.projectId, validated.projectId)))
         .for("update");
       if (!locked || locked.status !== "planning") return false;
       const [history] = await tx.execute<{ has_history: boolean }>(sql`
@@ -1692,13 +1692,13 @@ export async function deleteSprintAction(data: {
       `);
       if (history?.has_history) return false;
       const removed = await tx
-        .delete(projectSprints)
+        .delete(workspaceSprints)
         .where(and(
-          eq(projectSprints.id, validated.sprintId),
-          eq(projectSprints.projectId, validated.projectId),
-          eq(projectSprints.status, "planning"),
+          eq(workspaceSprints.id, validated.sprintId),
+          eq(workspaceSprints.projectId, validated.projectId),
+          eq(workspaceSprints.status, "planning"),
         ))
-        .returning({ id: projectSprints.id });
+        .returning({ id: workspaceSprints.id });
       return removed.length === 1;
     });
     if (!deleted) {
@@ -1809,11 +1809,11 @@ export async function completeSprintAction(
       // A close-out can move or detach work, so the UI restriction must be
       // enforced here as well. This also prevents a stale tab from closing a
       // sprint before its scheduled end date.
-      const activeSprint = await tx.query.projectSprints.findFirst({
+      const activeSprint = await tx.query.workspaceSprints.findFirst({
         where: and(
-          eq(projectSprints.id, sprintId),
-          eq(projectSprints.projectId, projectId),
-          eq(projectSprints.status, "active"),
+          eq(workspaceSprints.id, sprintId),
+          eq(workspaceSprints.projectId, projectId),
+          eq(workspaceSprints.status, "active"),
         ),
         columns: { endDate: true },
       });
@@ -1826,25 +1826,25 @@ export async function completeSprintAction(
       // duplicate completion requests before memberships are moved or
       // a second lifecycle event can be written.
       const [completed] = await tx
-        .update(projectSprints)
+        .update(workspaceSprints)
         .set({ status: "completed", completedAt: now, updatedAt: now })
         .where(
           and(
-            eq(projectSprints.id, sprintId),
-            eq(projectSprints.projectId, projectId),
-            eq(projectSprints.status, "active"),
+            eq(workspaceSprints.id, sprintId),
+            eq(workspaceSprints.projectId, projectId),
+            eq(workspaceSprints.status, "active"),
           ),
         )
-        .returning({ id: projectSprints.id });
+        .returning({ id: workspaceSprints.id });
       if (!completed) throw new Error("Only an active sprint can be completed");
       if (unfinished === "next_sprint") {
         if (!options.nextSprintId || options.nextSprintId === sprintId)
           throw new Error("Choose a different planning sprint");
-        const target = await tx.query.projectSprints.findFirst({
+        const target = await tx.query.workspaceSprints.findFirst({
           where: and(
-            eq(projectSprints.id, options.nextSprintId),
-            eq(projectSprints.projectId, projectId),
-            eq(projectSprints.status, "planning"),
+            eq(workspaceSprints.id, options.nextSprintId),
+            eq(workspaceSprints.projectId, projectId),
+            eq(workspaceSprints.status, "planning"),
           ),
           columns: { id: true },
         });
@@ -1894,7 +1894,7 @@ export async function completeSprintAction(
             .where(inArray(tasks.id, unfinishedIds));
         }
       }
-      await tx.insert(projectSprintEvents).values({
+      await tx.insert(workspaceSprintEvents).values({
         projectId,
         sprintId,
         actorId: user.id,
@@ -1962,22 +1962,22 @@ export async function archiveSprintAction(sprintId: string, projectId: string) {
     const now = new Date();
     await db.transaction(async (tx) => {
       const [updated] = await tx
-        .update(projectSprints)
+        .update(workspaceSprints)
         .set({ status: "archived", archivedAt: now, updatedAt: now })
         .where(
           and(
-            eq(projectSprints.id, sprintId),
-            eq(projectSprints.projectId, projectId),
+            eq(workspaceSprints.id, sprintId),
+            eq(workspaceSprints.projectId, projectId),
             or(
-              eq(projectSprints.status, "completed"),
-              eq(projectSprints.status, "cancelled"),
+              eq(workspaceSprints.status, "completed"),
+              eq(workspaceSprints.status, "cancelled"),
             ),
           ),
         )
-        .returning({ id: projectSprints.id });
+        .returning({ id: workspaceSprints.id });
       if (!updated)
         throw new Error("Complete or cancel the Sprint before archiving it");
-      await tx.insert(projectSprintEvents).values({
+      await tx.insert(workspaceSprintEvents).values({
         projectId,
         sprintId,
         actorId: user.id,
@@ -2026,19 +2026,19 @@ export async function cancelSprintAction(sprintId: string, projectId: string) {
     let unlinked: LinkedChildSprint[] = [];
     await db.transaction(async (tx) => {
       const [updated] = await tx
-        .update(projectSprints)
+        .update(workspaceSprints)
         .set({ status: "cancelled", cancelledAt: now, updatedAt: now })
         .where(
           and(
-            eq(projectSprints.id, sprintId),
-            eq(projectSprints.projectId, projectId),
+            eq(workspaceSprints.id, sprintId),
+            eq(workspaceSprints.projectId, projectId),
             or(
-              eq(projectSprints.status, "planning"),
-              eq(projectSprints.status, "active"),
+              eq(workspaceSprints.status, "planning"),
+              eq(workspaceSprints.status, "active"),
             ),
           ),
         )
-        .returning({ id: projectSprints.id });
+        .returning({ id: workspaceSprints.id });
       if (!updated)
         throw new Error("Only a Planning or Active sprint can be canceled");
 
@@ -2066,7 +2066,7 @@ export async function cancelSprintAction(sprintId: string, projectId: string) {
           .set({ sprintId: null, updatedAt: now })
           .where(inArray(tasks.id, taskIds));
       }
-      await tx.insert(projectSprintEvents).values({
+      await tx.insert(workspaceSprintEvents).values({
         projectId,
         sprintId,
         actorId: user.id,
@@ -2117,8 +2117,8 @@ export async function planSprintSeriesAction(input: { projectId: string; prefix:
     if (!prefix) throw new Error("Enter a name prefix, for example CO.");
     const series = buildSprintSeries({ ...input, prefix });
     await db.transaction(async (tx) => {
-      await tx.execute(sql`SELECT id FROM ${projects} WHERE id = ${input.projectId} FOR UPDATE`);
-      const [project] = await tx.select({ kind: projects.kind, orgSettings: projects.orgSettings, orgType: projects.orgType }).from(projects).where(eq(projects.id, input.projectId)).limit(1);
+      await tx.execute(sql`SELECT id FROM ${workspaces} WHERE id = ${input.projectId} FOR UPDATE`);
+      const [project] = await tx.select({ kind: workspaces.kind, orgSettings: workspaces.orgSettings, orgType: workspaces.orgType }).from(workspaces).where(eq(workspaces.id, input.projectId)).limit(1);
       if (project?.kind !== "organization") throw new Error("Series are planned on an organization.");
       // The org's Work defaults apply to every planned sprint (report §21).
       const work = readOrgWork(project.orgSettings, project.orgType);
@@ -2126,10 +2126,10 @@ export async function planSprintSeriesAction(input: { projectId: string; prefix:
         const startDate = parseSprintDateInput(item.startDate);
         const endDate = parseSprintDateInput(item.endDate);
         await assertOrgSprintRules(tx, { projectId: input.projectId, startDate, endDate });
-        const [created] = await tx.insert(projectSprints).values({
+        const [created] = await tx.insert(workspaceSprints).values({
           projectId: input.projectId,
           creatorId: user.id,
-          sprintNumber: sql<number>`(SELECT COALESCE(MAX(sprint_number), 0) + 1 FROM ${projectSprints} WHERE project_id = ${input.projectId})`,
+          sprintNumber: sql<number>`(SELECT COALESCE(MAX(sprint_number), 0) + 1 FROM ${workspaceSprints} WHERE workspace_id = ${input.projectId})`,
           name: item.name,
           startDate,
           endDate,
@@ -2137,8 +2137,8 @@ export async function planSprintSeriesAction(input: { projectId: string; prefix:
           autoStart: work.sprintAutoStart,
           showInChildren: work.sprintShowInChildren,
           notifyOnStart: work.sprintNotifyOnStart,
-        }).returning({ id: projectSprints.id });
-        await tx.insert(projectSprintEvents).values({
+        }).returning({ id: workspaceSprints.id });
+        await tx.insert(workspaceSprintEvents).values({
           projectId: input.projectId,
           sprintId: created!.id,
           actorId: user.id,
@@ -2163,7 +2163,7 @@ export async function startSprintNowAction(sprintId: string, projectId: string, 
     if (!started) throw new Error("Only a planned sprint can start, and only when no other sprint is active.");
     // "Also post an announcement" (report §17.2), off by default; orgs only.
     if (announcement?.trim()) {
-      const [project] = await db.select({ kind: projects.kind }).from(projects).where(eq(projects.id, projectId)).limit(1);
+      const [project] = await db.select({ kind: workspaces.kind }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
       if (project?.kind === "organization") await postOrgAnnouncement(projectId, user.id, announcement);
     }
     await revalidateWorkspacePaths(projectId);
@@ -2179,12 +2179,12 @@ export async function addSprintMaterialAction(input: { projectId: string; sprint
     const user = await getAuthUserOrThrow();
     await requireSprintOwner(input.projectId, user.id);
     if (Boolean(input.nodeId) === Boolean(input.docId)) throw new Error("Pick one file or doc.");
-    const [sprint] = await db.select({ id: projectSprints.id }).from(projectSprints)
-      .where(and(eq(projectSprints.id, input.sprintId), eq(projectSprints.projectId, input.projectId))).limit(1);
+    const [sprint] = await db.select({ id: workspaceSprints.id }).from(workspaceSprints)
+      .where(and(eq(workspaceSprints.id, input.sprintId), eq(workspaceSprints.projectId, input.projectId))).limit(1);
     if (!sprint) throw new Error("Sprint not found");
     const target = input.nodeId
-      ? await db.select({ id: projectNodes.id }).from(projectNodes).where(and(eq(projectNodes.id, input.nodeId), eq(projectNodes.projectId, input.projectId), isNull(projectNodes.deletedAt))).limit(1)
-      : await db.select({ id: projectDocs.id }).from(projectDocs).where(and(eq(projectDocs.id, input.docId!), eq(projectDocs.projectId, input.projectId))).limit(1);
+      ? await db.select({ id: workspaceNodes.id }).from(workspaceNodes).where(and(eq(workspaceNodes.id, input.nodeId), eq(workspaceNodes.projectId, input.projectId), isNull(workspaceNodes.deletedAt))).limit(1)
+      : await db.select({ id: workspaceDocuments.id }).from(workspaceDocuments).where(and(eq(workspaceDocuments.id, input.docId!), eq(workspaceDocuments.projectId, input.projectId))).limit(1);
     if (target.length === 0) throw new Error("That file or doc isn’t in this workspace.");
     await db.insert(sprintMaterials).values({ sprintId: input.sprintId, nodeId: input.nodeId ?? null, docId: input.docId ?? null, addedBy: user.id }).onConflictDoNothing();
     await revalidateWorkspacePaths(input.projectId);
@@ -2200,7 +2200,7 @@ export async function removeSprintMaterialAction(input: { projectId: string; mat
     await requireSprintOwner(input.projectId, user.id);
     await db.delete(sprintMaterials).where(and(
       eq(sprintMaterials.id, input.materialId),
-      sql`${sprintMaterials.sprintId} IN (SELECT id FROM ${projectSprints} WHERE project_id = ${input.projectId})`,
+      sql`${sprintMaterials.sprintId} IN (SELECT id FROM ${workspaceSprints} WHERE workspace_id = ${input.projectId})`,
     ));
     await revalidateWorkspacePaths(input.projectId);
     return { success: true as const };
@@ -2216,11 +2216,11 @@ export async function searchSprintMaterialCandidatesAction(input: { projectId: s
     await requireSprintOwner(input.projectId, user.id);
     const pattern = `%${input.query.trim().slice(0, 80).replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
     const [files, docs] = await Promise.all([
-      db.select({ id: projectNodes.id, title: projectNodes.name }).from(projectNodes)
-        .where(and(eq(projectNodes.projectId, input.projectId), eq(projectNodes.type, "file"), isNull(projectNodes.deletedAt), isNull(projectNodes.taskId), ilike(projectNodes.name, pattern)))
+      db.select({ id: workspaceNodes.id, title: workspaceNodes.name }).from(workspaceNodes)
+        .where(and(eq(workspaceNodes.projectId, input.projectId), eq(workspaceNodes.type, "file"), isNull(workspaceNodes.deletedAt), isNull(workspaceNodes.taskId), ilike(workspaceNodes.name, pattern)))
         .limit(20),
-      db.select({ id: projectDocs.id, title: projectDocs.filename }).from(projectDocs)
-        .where(and(eq(projectDocs.projectId, input.projectId), ilike(projectDocs.filename, pattern)))
+      db.select({ id: workspaceDocuments.id, title: workspaceDocuments.filename }).from(workspaceDocuments)
+        .where(and(eq(workspaceDocuments.projectId, input.projectId), ilike(workspaceDocuments.filename, pattern)))
         .limit(10),
     ]);
     return { success: true as const, files, docs };

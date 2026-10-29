@@ -8,7 +8,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import {
   defaultFilesState,
   type WorkspaceFilesState,
@@ -17,7 +17,7 @@ import { selectCurrentLocation } from "@/components/workspaces/v2/files-tab/hook
 
 // ─── Fixture builders ────────────────────────────────────────────────
 
-function makeFolder(id: string, parentId: string | null): ProjectNode {
+function makeFolder(id: string, parentId: string | null): WorkspaceNode {
   return {
     id,
     projectId: "proj-1",
@@ -36,10 +36,10 @@ function makeFolder(id: string, parentId: string | null): ProjectNode {
     createdAt: new Date("2026-01-01T00:00:00Z"),
     updatedAt: new Date("2026-01-01T00:00:00Z"),
     deletedAt: null,
-  } as unknown as ProjectNode;
+  } as unknown as WorkspaceNode;
 }
 
-function makeFile(id: string, parentId: string | null): ProjectNode {
+function makeFile(id: string, parentId: string | null): WorkspaceNode {
   return {
     id,
     projectId: "proj-1",
@@ -58,7 +58,7 @@ function makeFile(id: string, parentId: string | null): ProjectNode {
     createdAt: new Date("2026-01-01T00:00:00Z"),
     updatedAt: new Date("2026-01-01T00:00:00Z"),
     deletedAt: null,
-  } as unknown as ProjectNode;
+  } as unknown as WorkspaceNode;
 }
 
 function seedWorkspace(overrides: Partial<WorkspaceFilesState> = {}): WorkspaceFilesState {

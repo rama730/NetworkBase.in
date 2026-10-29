@@ -7,7 +7,7 @@ let read: typeof import('../../src/lib/network/person-card-read')['readPersonCar
 const users: string[] = [], projects: string[] = [];
 before(async () => { ({ readPersonCardDetails: read } = await loadAppModule(() => import('../../src/lib/network/person-card-read'))); });
 after(async () => {
-    if (projects.length) await sql`DELETE FROM projects WHERE id=ANY(${projects}::uuid[])`;
+    if (projects.length) await sql`DELETE FROM workspaces WHERE id=ANY(${projects}::uuid[])`;
     if (users.length) await sql`DELETE FROM connections WHERE requester_id=ANY(${users}::uuid[]) OR addressee_id=ANY(${users}::uuid[])`;
     if (users.length) await sql`DELETE FROM auth.users WHERE id=ANY(${users}::uuid[])`;
     await sql.end(); await closeAppDb();
@@ -26,7 +26,7 @@ test('person-card metadata batches actual visible mutuals, canonical public skil
     }
     const visible = await sql.begin(tx => createProject(tx, person)); projects.push(visible);
     const privateProject = await sql.begin(tx => createProject(tx, person, { visibility: 'private' })); projects.push(privateProject);
-    for (const id of [visible, privateProject]) await sql`INSERT INTO profile_project_contributions(profile_id,project_id,source,role_kind,visibility) VALUES(${person},${id},'manual','contributor','public') ON CONFLICT DO NOTHING`;
+    for (const id of [visible, privateProject]) await sql`INSERT INTO profile_contributions(profile_id,workspace_id,source,role_kind,visibility) VALUES(${person},${id},'manual','contributor','public') ON CONFLICT DO NOTHING`;
     const [skill] = await sql`SELECT id,name FROM skills WHERE status='active' ORDER BY name LIMIT 1`;
     assert.ok(skill);
     await sql`INSERT INTO profile_skills(profile_id,skill_id,visibility) VALUES(${person},${skill.id},'public')`;
@@ -36,13 +36,13 @@ test('person-card metadata batches actual visible mutuals, canonical public skil
     assert.equal(result[person]?.portfolio?.total, 1);
     assert.equal(result[person]?.portfolio?.projects[0]?.id, visible);
     assert.deepEqual(result[person]?.skills, [skill.name]);
-    await sql`INSERT INTO profile_project_contributions(profile_id,external_key,project_title,source,role_kind,visibility) VALUES(${person},'public-external','Public external work','manual','contributor','public')`;
+    await sql`INSERT INTO profile_contributions(profile_id,external_key,project_title,source,role_kind,visibility) VALUES(${person},'public-external','Public external work','manual','contributor','public')`;
     result = await read(viewer, [person]);
     assert.equal(result[person]?.portfolio?.total, 2);
     assert.ok(result[person]?.portfolio?.projects.some(project => project.title === 'Public external work'));
-    await sql`UPDATE profile_project_contributions SET visibility='private' WHERE profile_id=${person} AND project_id IS NULL`;
+    await sql`UPDATE profile_contributions SET visibility='private' WHERE profile_id=${person} AND workspace_id IS NULL`;
 
-    await sql`UPDATE projects SET status='completed' WHERE id=${visible}`;
+    await sql`UPDATE workspaces SET status='completed' WHERE id=${visible}`;
     result = await read(viewer, [person]);
     assert.equal(result[person]?.portfolio?.total, 1);
     await sql`UPDATE profiles SET visibility='private' WHERE id=${person}`;

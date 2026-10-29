@@ -7,8 +7,8 @@ import {
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import { db } from "@/lib/db";
 import {
-  projectNodeEvents,
-  projectNodes,
+  workspaceNodeEvents,
+  workspaceNodes,
   uploadIntents,
 } from "@/lib/db/schema";
 import { and, eq, sql, desc } from "drizzle-orm";
@@ -37,26 +37,26 @@ export async function GET(request: Request) {
     // Receipts come from the committed event, not a guess based on today's file bytes.
     const rows = await db
       .select({
-        path: projectNodes.path,
-        nodeId: projectNodeEvents.nodeId,
-        metadata: projectNodeEvents.metadata,
-        createdAt: projectNodeEvents.createdAt,
+        path: workspaceNodes.path,
+        nodeId: workspaceNodeEvents.nodeId,
+        metadata: workspaceNodeEvents.metadata,
+        createdAt: workspaceNodeEvents.createdAt,
       })
-      .from(projectNodeEvents)
-      .leftJoin(projectNodes, eq(projectNodes.id, projectNodeEvents.nodeId))
+      .from(workspaceNodeEvents)
+      .leftJoin(workspaceNodes, eq(workspaceNodes.id, workspaceNodeEvents.nodeId))
       .leftJoin(
         uploadIntents,
-        sql`${uploadIntents.id}::text = ${projectNodeEvents.metadata}->>'uploadIntentId'`,
+        sql`${uploadIntents.id}::text = ${workspaceNodeEvents.metadata}->>'uploadIntentId'`,
       )
       .where(
         and(
-          eq(projectNodeEvents.projectId, projectId),
-          eq(projectNodeEvents.actorId, auth.user.id),
+          eq(workspaceNodeEvents.projectId, projectId),
+          eq(workspaceNodeEvents.actorId, auth.user.id),
           visibleFileNodesSql(access),
-          sql`(${projectNodeEvents.metadata}->>'operationId' = ${operationId} OR ${uploadIntents.metadata}->>'operationId' = ${operationId})`,
+          sql`(${workspaceNodeEvents.metadata}->>'operationId' = ${operationId} OR ${uploadIntents.metadata}->>'operationId' = ${operationId})`,
         ),
       )
-      .orderBy(desc(projectNodeEvents.createdAt))
+      .orderBy(desc(workspaceNodeEvents.createdAt))
       .limit(50);
     return jsonSuccess({
       operationId,

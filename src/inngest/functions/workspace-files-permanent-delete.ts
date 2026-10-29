@@ -1,6 +1,6 @@
 import { and, asc, eq, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { projectNodes } from "@/lib/db/schema";
+import { workspaceNodes } from "@/lib/db/schema";
 import { finishPermanentDelete } from "@/lib/files/permanent-delete";
 import { logger } from "@/lib/logger";
 import { inngest } from "../client";
@@ -13,15 +13,15 @@ export const finishPendingFileDeletions = inngest.createFunction(
   async ({ step }) => {
     const pending = await step.run("read-pending-deletions", () =>
       db
-        .select({ id: projectNodes.id, projectId: projectNodes.projectId })
-        .from(projectNodes)
+        .select({ id: workspaceNodes.id, projectId: workspaceNodes.projectId })
+        .from(workspaceNodes)
         .where(
           and(
-            isNotNull(projectNodes.deletedAt),
-            sql`${projectNodes.metadata}->>'permanentDeleteRoot' = ${projectNodes.id}::text`,
+            isNotNull(workspaceNodes.deletedAt),
+            sql`${workspaceNodes.metadata}->>'permanentDeleteRoot' = ${workspaceNodes.id}::text`,
           ),
         )
-        .orderBy(asc(projectNodes.updatedAt))
+        .orderBy(asc(workspaceNodes.updatedAt))
         .limit(500),
     );
     for (const node of pending)
@@ -32,12 +32,12 @@ export const finishPendingFileDeletions = inngest.createFunction(
           // Rotate failed work behind other tombstones; one unavailable blob must
           // not starve unrelated deletions. The durable intent remains retryable.
           await db
-            .update(projectNodes)
+            .update(workspaceNodes)
             .set({ updatedAt: new Date() })
             .where(
               and(
-                eq(projectNodes.id, node.id),
-                eq(projectNodes.projectId, node.projectId),
+                eq(workspaceNodes.id, node.id),
+                eq(workspaceNodes.projectId, node.projectId),
               ),
             );
           logger.error("File deletion cleanup will retry", {

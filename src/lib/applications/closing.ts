@@ -49,7 +49,7 @@ export async function closePendingApplications(
                 ? notInArray(roleApplications.id, params.excludeApplicationIds)
                 : undefined,
             params.filledRolesOnly
-                ? sql`${roleApplications.roleId} IN (SELECT r.id FROM project_open_roles r WHERE r.project_id = ${params.projectId}::uuid AND r.filled >= r.count)`
+                ? sql`${roleApplications.roleId} IN (SELECT r.id FROM workspace_open_roles r WHERE r.workspace_id = ${params.projectId}::uuid AND r.filled >= r.count)`
                 : undefined,
         ))
         .returning({ id: roleApplications.id, applicantId: roleApplications.applicantId, roleId: roleApplications.roleId });

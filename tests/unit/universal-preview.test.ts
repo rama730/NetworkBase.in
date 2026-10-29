@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { resolvePreviewType } from "@/components/workspaces/v2/utils/fileKind";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import * as fflate from "fflate";
 
-function mockNode(name: string, mimeType?: string, size = 1024): ProjectNode {
+function mockNode(name: string, mimeType?: string, size = 1024): WorkspaceNode {
   return {
     id: "test-node-1",
     projectId: "proj-1",
@@ -23,7 +23,7 @@ function mockNode(name: string, mimeType?: string, size = 1024): ProjectNode {
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
-  } as ProjectNode;
+  } as WorkspaceNode;
 }
 
 test("resolvePreviewType accurately classifies all multimedia and document formats", () => {

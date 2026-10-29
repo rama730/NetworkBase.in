@@ -221,17 +221,17 @@ test("pagination remains scoped to project capabilities with project-wide totals
   assert.match(read, /capabilityFromAccess[\s\S]*?"manage_files"/);
   assert.match(
     read,
-    /conditions = \[eq\(projectMembers.projectId, projectId\)\]/,
+    /conditions = \[eq\(workspaceMembers.projectId, projectId\)\]/,
   );
   assert.match(
     read,
-    /\.where\(and\(\.\.\.conditions\)\)[\s\S]*?\.orderBy\(rank, name, projectMembers.userId\)/,
+    /\.where\(and\(\.\.\.conditions\)\)[\s\S]*?\.orderBy\(rank, name, workspaceMembers.userId\)/,
   );
   assert.match(read, /limit\(page.limit \+ 1\)/);
   assert.match(read, /nextCursor: hasMore && lastRow/);
   assert.match(
     read,
-    /count\(\*\) filter[\s\S]*?\.where\(eq\(projectMembers.projectId, projectId\)\)/,
+    /count\(\*\) filter[\s\S]*?\.where\(eq\(workspaceMembers.projectId, projectId\)\)/,
   );
   const members = source(
     "src/components/workspaces/settings/FileAccessMembers.tsx",

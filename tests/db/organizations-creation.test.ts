@@ -24,7 +24,7 @@ before(async () => {
 });
 const created: string[] = [];
 after(async () => {
-  for (const id of created) await sql`DELETE FROM projects WHERE id = ${id}`;
+  for (const id of created) await sql`DELETE FROM workspaces WHERE id = ${id}`;
   await sql.end();
   await closeAppDb();
 });
@@ -60,7 +60,7 @@ test("an Other org saves its label, identity, roles, Work defaults and sends the
 
   const [row] = await sql`SELECT org_type, category, time_zone, welcome_note, max_collaborators, task_review_required, problem_statement,
       org_settings->>'typeLabel' AS type_label, org_settings->>'partOf' AS part_of, org_settings->>'location' AS location,
-      org_settings->>'assignmentLateRule' AS late_rule, org_settings->'roleNames'->>'member' AS member_name FROM projects WHERE id = ${id}`;
+      org_settings->>'assignmentLateRule' AS late_rule, org_settings->'roleNames'->>'member' AS member_name FROM workspaces WHERE id = ${id}`;
   assert.deepEqual({ ...row }, {
     org_type: "other", category: "Civic tech", time_zone: "Asia/Kolkata", welcome_note: "Say hi in #general.", max_collaborators: "50",
     task_review_required: false, problem_statement: "Anyone in Bengaluru who wants to help",
@@ -87,7 +87,7 @@ test("Research gets PI and Researcher, and an empty subject leaves the category 
   const result = await lifecycle.createWorkspaceAction(base(`lab-${viewerId.slice(0, 6)}`, { org_type: "research" }));
   assert.equal(result.success, true, JSON.stringify(result));
   created.push(result.project!.id);
-  const [row] = await sql`SELECT category, org_settings->'roleNames' AS roles FROM projects WHERE id = ${result.project!.id}`;
+  const [row] = await sql`SELECT category, org_settings->'roleNames' AS roles FROM workspaces WHERE id = ${result.project!.id}`;
   assert.equal(row!.category, null);
-  assert.deepEqual(row!.roles, { owner: "PI", admin: "Researcher", member: "Member", viewer: "Guest" });
+  assert.deepEqual(row!.roles, { owner: "PI", admin: "Researcher", member: "Member", viewer: "Viewer" });
 });

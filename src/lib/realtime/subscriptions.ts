@@ -183,7 +183,7 @@ export function subscribeWorkspaceStage(params: {
         bindings: [
             {
                 event: 'UPDATE',
-                table: 'projects',
+                table: 'workspaces',
                 filter: `id=eq.${projectId}`,
                 handler: onUpdate,
             },

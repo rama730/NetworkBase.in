@@ -42,7 +42,7 @@ const channelTitle = (userId: string) => sql`CASE WHEN c.kind = 'dm' THEN (
 ) WHEN c.application_id IS NOT NULL THEN (
   SELECT CASE WHEN a.applicant_id = ${userId}::uuid THEN coalesce(r.title, r.role, 'Application')
               ELSE coalesce(ap.full_name, ap.username, 'Applicant') || ' · ' || coalesce(r.title, r.role, 'Role') END
-  FROM role_applications a JOIN profiles ap ON ap.id = a.applicant_id LEFT JOIN project_open_roles r ON r.id = a.role_id
+  FROM role_applications a JOIN profiles ap ON ap.id = a.applicant_id LEFT JOIN workspace_open_roles r ON r.id = a.role_id
   WHERE a.id = c.application_id
 ) ELSE c.title END AS channel_title`;
 
@@ -73,7 +73,7 @@ function reactionItems(userId: string, cursor: FeedCursor | null, scope: string,
     JOIN chat_messages msg ON msg.channel_id = mine.channel_id AND msg.channel_seq = mine.channel_seq
     JOIN chat_reactions r ON r.channel_id = mine.channel_id AND r.message_seq = mine.channel_seq AND r.user_id <> ${userId}::uuid
     JOIN chat_channels c ON c.id = r.channel_id
-    LEFT JOIN projects p ON p.id = c.project_id
+    LEFT JOIN workspaces p ON p.id = c.workspace_id
     LEFT JOIN profiles pr ON pr.id = r.user_id
     WHERE app_private.chat_is_member(r.channel_id, ${userId}::uuid)
       ${afterCursor(cursor, sql`r.created_at`, sql`r.channel_id`, sql`r.message_seq`, 1, sql`r.user_id::text || ':' || r.emoji`)}
@@ -96,7 +96,7 @@ function mentionItems(userId: string, mentionsOnly: boolean, cursor: FeedCursor 
     JOIN chat_channels c ON c.id = mn.channel_id
     JOIN chat_messages msg ON msg.channel_id = mn.channel_id AND msg.channel_seq = mn.message_seq
     LEFT JOIN chat_thread_follows f ON f.user_id = mn.user_id AND f.channel_id = mn.channel_id AND f.root_seq = msg.thread_root_seq
-    LEFT JOIN projects p ON p.id = c.project_id
+    LEFT JOIN workspaces p ON p.id = c.workspace_id
     LEFT JOIN profiles pr ON pr.id = msg.author_id
     WHERE mn.user_id = ${userId}::uuid
       AND (${!mentionsOnly} OR mn.kind <> 'thread_reply')
@@ -284,7 +284,7 @@ export async function listThreads(input: { cursor?: string | null; limit?: numbe
       JOIN chat_channel_members mem ON mem.channel_id = f.channel_id AND mem.user_id = f.user_id
       JOIN chat_channels c ON c.id = f.channel_id
       JOIN chat_messages msg ON msg.channel_id = f.channel_id AND msg.channel_seq = f.root_seq
-      LEFT JOIN projects p ON p.id = c.project_id
+      LEFT JOIN workspaces p ON p.id = c.workspace_id
       LEFT JOIN profiles pr ON pr.id = msg.author_id
       WHERE f.user_id = ${user.id}::uuid
         ${afterCursor(cursor, sql`coalesce(msg.last_reply_at, '-infinity'::timestamptz)`, sql`f.channel_id`, sql`f.root_seq`, 0, sql`''::text`)}

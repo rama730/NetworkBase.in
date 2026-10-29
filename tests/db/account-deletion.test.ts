@@ -71,7 +71,7 @@ test("COR-053: an Auth failure keeps db_deleted and the retry completes; cancel 
   assert.equal((await finalize(target.userId, target.deletionId)).success, false);
   const [mid] = await sql`SELECT cleanup_status, completed_at FROM account_deletions WHERE id = ${target.deletionId}`;
   assert.deepEqual({ ...mid }, { cleanup_status: "db_deleted", completed_at: null });
-  const [gone] = await sql`SELECT (SELECT count(*)::int FROM profiles WHERE id = ${target.userId}) AS profiles, (SELECT count(*)::int FROM projects WHERE id = ${projectId}) AS projects`;
+  const [gone] = await sql`SELECT (SELECT count(*)::int FROM profiles WHERE id = ${target.userId}) AS profiles, (SELECT count(*)::int FROM workspaces WHERE id = ${projectId}) AS projects`;
   assert.deepEqual({ ...gone }, { profiles: 0, projects: 0 });
   assert.equal(await deletion.cancelAccountDeletionForUser(target.userId), "too_late");
   authFailure = null;

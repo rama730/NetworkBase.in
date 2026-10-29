@@ -164,7 +164,7 @@ test("only owners or co-leaders can change policy, using a checked version and d
     assert.equal(saved.success, true);
     assert.equal(saved.version, 1);
     assert.equal(h.writes[0].values.taskReviewRequired, true);
-    assert.equal(h.writes[1].table, "projectTaskPolicyEvents");
+    assert.equal(h.writes[1].table, "workspaceTaskPolicyEvents");
     assert.equal(h.writes[1].values.actorId, "user");
     assert.ok(
       h.writes.every((write) => write.table !== "tasks"),

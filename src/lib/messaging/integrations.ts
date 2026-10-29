@@ -19,7 +19,7 @@ export async function syncWorkspaceChat(
   userId: string | null,
   op: "ensure_default" | "add" | "remove" | "role",
 ) {
-  await executor.execute(sql`SELECT app_private.chat_sync_project_members(${projectId}::uuid, ${userId}::uuid, ${op})`);
+  await executor.execute(sql`SELECT app_private.chat_sync_workspace_members(${projectId}::uuid, ${userId}::uuid, ${op})`);
   // Their sidebar picks up threads they just gained or lost. Best effort: outside a request there is nobody to tell.
   if (userId && op !== "ensure_default") tell(() => publishUser(userId, "membership.changed", {}));
 }

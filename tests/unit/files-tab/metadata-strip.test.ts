@@ -41,7 +41,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import {
   FilesTabRoleProvider,
   type Role,
@@ -66,7 +66,7 @@ const testQueryClient = new QueryClient({
 type NodeOverrides = Partial<MetadataStripNode>;
 
 function makeNode(overrides: NodeOverrides = {}): MetadataStripNode {
-  const base: ProjectNode = {
+  const base: WorkspaceNode = {
     id: "node-1",
     projectId: "proj-1",
     parentId: null,
@@ -84,7 +84,7 @@ function makeNode(overrides: NodeOverrides = {}): MetadataStripNode {
     createdAt: new Date("2026-05-10T14:23:00Z"),
     updatedAt: new Date("2026-05-10T14:23:00Z"),
     deletedAt: null,
-  } as ProjectNode;
+  } as WorkspaceNode;
   return { ...base, ...overrides } as MetadataStripNode;
 }
 

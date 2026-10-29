@@ -11,12 +11,12 @@ import {
   profileContributionSkills,
   profileContributionDrafts,
   profileContributionMediaAssets,
-  profileProjectContributions,
-  profileProjectContributionStages,
+  profileContributions,
+  profileContributionStages,
   profiles,
-  projectMembers,
-  projectUpdateComments,
-  projects,
+  workspaceMembers,
+  workspaceUpdateComments,
+  workspaces,
   skills,
   tasks,
 } from "@/lib/db/schema";
@@ -49,35 +49,35 @@ async function* streamAccountExport(input: {
     assertActive(signal);
     const page = await db
       .select({
-        id: profileProjectContributions.id,
-        projectId: profileProjectContributions.projectId,
-        externalKey: profileProjectContributions.externalKey,
-        projectTitle: profileProjectContributions.projectTitle,
-        platformProjectTitle: projects.title,
-        roleTitle: profileProjectContributions.roleTitle,
-        summary: profileProjectContributions.summary,
-        publishedStory: profileProjectContributions.presentation,
+        id: profileContributions.id,
+        projectId: profileContributions.projectId,
+        externalKey: profileContributions.externalKey,
+        projectTitle: profileContributions.projectTitle,
+        platformProjectTitle: workspaces.title,
+        roleTitle: profileContributions.roleTitle,
+        summary: profileContributions.summary,
+        publishedStory: profileContributions.presentation,
         privateDraft: profileContributionDrafts.document,
-        featured: profileProjectContributions.featured,
-        publishedAt: profileProjectContributions.publishedAt,
-        projectUrl: profileProjectContributions.projectUrl,
-        repositoryUrl: profileProjectContributions.repositoryUrl,
-        startedAt: profileProjectContributions.startedAt,
-        endedAt: profileProjectContributions.endedAt,
-        visibility: profileProjectContributions.visibility,
-        version: profileProjectContributions.version,
-        source: profileProjectContributions.source,
+        featured: profileContributions.featured,
+        publishedAt: profileContributions.publishedAt,
+        projectUrl: profileContributions.projectUrl,
+        repositoryUrl: profileContributions.repositoryUrl,
+        startedAt: profileContributions.startedAt,
+        endedAt: profileContributions.endedAt,
+        visibility: profileContributions.visibility,
+        version: profileContributions.version,
+        source: profileContributions.source,
       })
-      .from(profileProjectContributions)
-      .leftJoin(projects, eq(projects.id, profileProjectContributions.projectId))
-      .leftJoin(profileContributionDrafts,and(eq(profileContributionDrafts.contributionId,profileProjectContributions.id),eq(profileContributionDrafts.profileId,userId)))
+      .from(profileContributions)
+      .leftJoin(workspaces, eq(workspaces.id, profileContributions.projectId))
+      .leftJoin(profileContributionDrafts,and(eq(profileContributionDrafts.contributionId,profileContributions.id),eq(profileContributionDrafts.profileId,userId)))
       .where(and(
-        eq(profileProjectContributions.profileId, userId),
-        isNull(profileProjectContributions.deletedAt),
-        lte(profileProjectContributions.createdAt, exportedAt),
-        contributionCursor ? gt(profileProjectContributions.id, contributionCursor) : undefined,
+        eq(profileContributions.profileId, userId),
+        isNull(profileContributions.deletedAt),
+        lte(profileContributions.createdAt, exportedAt),
+        contributionCursor ? gt(profileContributions.id, contributionCursor) : undefined,
       ))
-      .orderBy(asc(profileProjectContributions.id))
+      .orderBy(asc(profileContributions.id))
       .limit(EXPORT_PAGE_SIZE);
     if (page.length === 0) break;
     const pageIds = page.map((row) => row.id);
@@ -94,24 +94,24 @@ async function* streamAccountExport(input: {
         .orderBy(asc(profileContributionSkills.displayOrder)),
       db
         .select({
-          id: profileProjectContributionStages.id,
-          contributionId: profileProjectContributionStages.contributionId,
-          roleKind: profileProjectContributionStages.roleKind,
-          roleTitle: profileProjectContributionStages.roleTitle,
-          summary: profileProjectContributionStages.summary,
-          startedAt: profileProjectContributionStages.startedAt,
-          endedAt: profileProjectContributionStages.endedAt,
-          source: profileProjectContributionStages.source,
-          verifiedAt: profileProjectContributionStages.verifiedAt,
+          id: profileContributionStages.id,
+          contributionId: profileContributionStages.contributionId,
+          roleKind: profileContributionStages.roleKind,
+          roleTitle: profileContributionStages.roleTitle,
+          summary: profileContributionStages.summary,
+          startedAt: profileContributionStages.startedAt,
+          endedAt: profileContributionStages.endedAt,
+          source: profileContributionStages.source,
+          verifiedAt: profileContributionStages.verifiedAt,
         })
-        .from(profileProjectContributionStages)
+        .from(profileContributionStages)
         .where(
           and(
-            inArray(profileProjectContributionStages.contributionId, pageIds),
-            isNull(profileProjectContributionStages.deletedAt),
+            inArray(profileContributionStages.contributionId, pageIds),
+            isNull(profileContributionStages.deletedAt),
           ),
         )
-        .orderBy(asc(profileProjectContributionStages.startedAt)),
+        .orderBy(asc(profileContributionStages.startedAt)),
       db
         .select({
           contributionId: profileContributionMediaAssets.contributionId,
@@ -178,24 +178,24 @@ async function* streamAccountExport(input: {
     assertActive(signal);
     const page = await db
       .select({
-        id: projects.id,
-        title: projects.title,
-        slug: projects.slug,
-        description: projects.description,
-        category: projects.category,
-        status: projects.status,
-        visibility: projects.visibility,
-        tags: projects.tags,
-        skills: projects.skills,
-        createdAt: projects.createdAt,
+        id: workspaces.id,
+        title: workspaces.title,
+        slug: workspaces.slug,
+        description: workspaces.description,
+        category: workspaces.category,
+        status: workspaces.status,
+        visibility: workspaces.visibility,
+        tags: workspaces.tags,
+        skills: workspaces.skills,
+        createdAt: workspaces.createdAt,
       })
-      .from(projects)
+      .from(workspaces)
       .where(and(
-        eq(projects.ownerId, userId),
-        lte(projects.createdAt, exportedAt),
-        projectCursor ? gt(projects.id, projectCursor) : undefined,
+        eq(workspaces.ownerId, userId),
+        lte(workspaces.createdAt, exportedAt),
+        projectCursor ? gt(workspaces.id, projectCursor) : undefined,
       ))
-      .orderBy(asc(projects.id))
+      .orderBy(asc(workspaces.id))
       .limit(EXPORT_PAGE_SIZE);
     if (page.length === 0) break;
     for (const row of page) {
@@ -213,11 +213,11 @@ async function* streamAccountExport(input: {
   while (true) {
     assertActive(signal);
     const page = await db
-      .select({ id: projectMembers.id, projectId: projectMembers.projectId, projectTitle: projects.title, role: projectMembers.role, joinedAt: projectMembers.joinedAt })
-      .from(projectMembers)
-      .innerJoin(projects, eq(projects.id, projectMembers.projectId))
-      .where(and(eq(projectMembers.userId, userId), lte(projectMembers.joinedAt, exportedAt), membershipCursor ? gt(projectMembers.id, membershipCursor) : undefined))
-      .orderBy(asc(projectMembers.id))
+      .select({ id: workspaceMembers.id, projectId: workspaceMembers.projectId, projectTitle: workspaces.title, role: workspaceMembers.role, joinedAt: workspaceMembers.joinedAt })
+      .from(workspaceMembers)
+      .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.projectId))
+      .where(and(eq(workspaceMembers.userId, userId), lte(workspaceMembers.joinedAt, exportedAt), membershipCursor ? gt(workspaceMembers.id, membershipCursor) : undefined))
+      .orderBy(asc(workspaceMembers.id))
       .limit(EXPORT_PAGE_SIZE);
     if (page.length === 0) break;
     for (const row of page) {
@@ -256,10 +256,10 @@ async function* streamAccountExport(input: {
   while (true) {
     assertActive(signal);
     const page = await db
-      .select({ id: projectUpdateComments.id, projectId: projectUpdateComments.projectId, updateId: projectUpdateComments.updateId, content: projectUpdateComments.content, createdAt: projectUpdateComments.createdAt })
-      .from(projectUpdateComments)
-      .where(and(eq(projectUpdateComments.userId, userId), isNull(projectUpdateComments.deletedAt), lte(projectUpdateComments.createdAt, exportedAt), commentCursor ? gt(projectUpdateComments.id, commentCursor) : undefined))
-      .orderBy(asc(projectUpdateComments.id))
+      .select({ id: workspaceUpdateComments.id, projectId: workspaceUpdateComments.projectId, updateId: workspaceUpdateComments.updateId, content: workspaceUpdateComments.content, createdAt: workspaceUpdateComments.createdAt })
+      .from(workspaceUpdateComments)
+      .where(and(eq(workspaceUpdateComments.userId, userId), isNull(workspaceUpdateComments.deletedAt), lte(workspaceUpdateComments.createdAt, exportedAt), commentCursor ? gt(workspaceUpdateComments.id, commentCursor) : undefined))
+      .orderBy(asc(workspaceUpdateComments.id))
       .limit(EXPORT_PAGE_SIZE);
     if (page.length === 0) break;
     for (const row of page) {

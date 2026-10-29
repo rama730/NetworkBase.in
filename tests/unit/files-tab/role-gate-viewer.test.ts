@@ -427,13 +427,13 @@ describe("Unauthenticated deep-link arrival (Req 19.7, Req 19.5)", () => {
   it("findNodeByPathAny checks project visibility before lookup and separately gates task paths", () => {
     const body = extractFunctionBody(NODES_SRC, "findNodeByPathAny");
     assert.ok(body);
-    const firstQueryIdx = body.indexOf("projectNodes.findFirst");
+    const firstQueryIdx = body.indexOf("workspaceNodes.findFirst");
     const accessIdx = body.search(/await\s+assertWorkspaceFileReadAccess\(/);
     assert.ok(accessIdx >= 0 && accessIdx < firstQueryIdx);
     assert.match(body, /user\?\.id \?\? null/);
     const taskGate = body.indexOf("!canReadWorkspaceTaskFiles(access)");
     assert.ok(taskGate > accessIdx && taskGate < firstQueryIdx);
-    assert.match(body, /canReadWorkspaceTaskFiles\(access\) \? sql`true` : isNull\(projectNodes.taskId\)/);
+    assert.match(body, /canReadWorkspaceTaskFiles\(access\) \? sql`true` : isNull\(workspaceNodes.taskId\)/);
   });
 
   it("resolveDeepLinkFromSearch classifies a thrown Unauthorized as 'not_found' (no disclosure)", async () => {

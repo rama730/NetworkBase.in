@@ -1,4 +1,4 @@
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 
 export type FileKind = "folder" | "text" | "image" | "video" | "audio" | "pdf" | "doc" | "binary";
 
@@ -90,7 +90,7 @@ const EXTENSIONLESS_TEXT_FILES = new Set([
   "hub",
 ]);
 
-export function isTextLike(node: Pick<ProjectNode, "type" | "name" | "mimeType">): boolean {
+export function isTextLike(node: Pick<WorkspaceNode, "type" | "name" | "mimeType">): boolean {
   if (node.type !== "file") return false;
   const mime = (node.mimeType || "").toLowerCase();
   if (mime.startsWith("text/")) return true;
@@ -111,7 +111,7 @@ export function isTextLike(node: Pick<ProjectNode, "type" | "name" | "mimeType">
   return TEXT_EXTENSIONS.has(ext);
 }
 
-export function isAssetLike(node: Pick<ProjectNode, "type" | "name" | "mimeType">): boolean {
+export function isAssetLike(node: Pick<WorkspaceNode, "type" | "name" | "mimeType">): boolean {
   if (node.type !== "file") return false;
   const mime = (node.mimeType || "").toLowerCase();
 
@@ -132,7 +132,7 @@ export function isAssetLike(node: Pick<ProjectNode, "type" | "name" | "mimeType"
   return false;
 }
 
-export function fileKind(node: Pick<ProjectNode, "type" | "name" | "mimeType">): FileKind {
+export function fileKind(node: Pick<WorkspaceNode, "type" | "name" | "mimeType">): FileKind {
   if (node.type === "folder") return "folder";
 
   const mime = (node.mimeType || "").toLowerCase();
@@ -171,7 +171,7 @@ export type UniversalPreviewType =
   | "binary";
 
 export function resolvePreviewType(
-  node: Pick<ProjectNode, "type" | "name" | "mimeType">,
+  node: Pick<WorkspaceNode, "type" | "name" | "mimeType">,
 ): UniversalPreviewType {
   if (node.type === "folder") return "binary";
 

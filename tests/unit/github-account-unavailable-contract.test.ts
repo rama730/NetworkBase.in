@@ -24,7 +24,7 @@ describe("github unavailable-account end-to-end contract", () => {
     assert.match(route, /githubAccountHealth/);
     assert.match(route, /toIsoString\(githubProjectsAggregate\?\.githubLastSyncAt\)/);
     assert.doesNotMatch(route, /githubLastSyncAt\?\.toISOString\(\)/);
-    assert.doesNotMatch(route, /\.update\(projects\)/, "integrations reads must not mutate sync state");
+    assert.doesNotMatch(route, /\.update\(workspaces\)/, "integrations reads must not mutate sync state");
   });
 
   it("shows an action-required state without claiming definite deletion", () => {
@@ -70,7 +70,7 @@ describe("github unavailable-account end-to-end contract", () => {
     assert.match(replacement, /hasFallbackIdentity/);
     assert.match(replacement, /unlinkIdentity\(githubIdentity\)/);
     assert.match(replacement, /clearGithubImportAccessCookie/);
-    assert.doesNotMatch(replacement, /\.update\(projects\)/);
+    assert.doesNotMatch(replacement, /\.update\(workspaces\)/);
     assert.match(oauth, /auth\.linkIdentity/);
     assert.match(oauth, /skipBrowserRedirect: true/);
     assert.match(oauth, /await beforeRedirect\?\.\(\)/);
@@ -84,6 +84,6 @@ describe("github unavailable-account end-to-end contract", () => {
     const contributor = source("src/lib/github/contributor-identity.ts");
     assert.match(contributor, /current\?\.githubId === account\.id/);
     assert.match(contributor, /githubNoreplyEmail\(account\)/);
-    assert.doesNotMatch(contributor, /update\(projects\)/);
+    assert.doesNotMatch(contributor, /update\(workspaces\)/);
   });
 });

@@ -90,7 +90,7 @@ export async function listSaved(input: { offset?: number; limit?: number } = {})
              ) END AS author
       FROM chat_saved s
       JOIN chat_channels c ON c.id = s.channel_id
-      LEFT JOIN projects p ON p.id = c.project_id
+      LEFT JOIN workspaces p ON p.id = c.workspace_id
       JOIN chat_messages m ON m.channel_id = s.channel_id AND m.channel_seq = s.message_seq
       LEFT JOIN profiles pr ON pr.id = m.author_id
       WHERE s.user_id = ${user.id}::uuid AND m.deleted_at IS NULL

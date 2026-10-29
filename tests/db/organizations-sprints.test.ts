@@ -31,7 +31,7 @@ before(async () => {
 
 const created: string[] = [];
 after(async () => {
-  for (const id of created.reverse()) await sql`DELETE FROM projects WHERE id = ${id}`;
+  for (const id of created.reverse()) await sql`DELETE FROM workspaces WHERE id = ${id}`;
   await sql.end();
   await closeAppDb();
 });
@@ -39,17 +39,17 @@ after(async () => {
 async function orgWithChild() {
   const [owner, lead] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
   const org = await sql.begin((tx) => createProject(tx, owner!));
-  await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${org}, ${owner!}, 'owner'), (${org}, ${lead!}, 'member')`;
-  await sql`UPDATE projects SET kind = 'organization', org_type = 'education', join_code = ${generateJoinCode()} WHERE id = ${org}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${org}, ${owner!}, 'owner'), (${org}, ${lead!}, 'member')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', join_code = ${generateJoinCode()} WHERE id = ${org}`;
   const child = await sql.begin((tx) => createProject(tx, lead!, { visibility: "public" }));
-  await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${child}, ${lead!}, 'owner')`;
-  await sql`UPDATE projects SET parent_id = ${org} WHERE id = ${child}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${child}, ${lead!}, 'owner')`;
+  await sql`UPDATE workspaces SET parent_id = ${org} WHERE id = ${child}`;
   created.push(org, child);
   return { org, child, owner: owner!, lead: lead! };
 }
 
 const sprintRows = async (projectId: string) =>
-  sql`SELECT id, name, status, parent_sprint_id, auto_start, start_date::date::text AS start, end_date::date::text AS "end" FROM project_sprints WHERE project_id = ${projectId} ORDER BY start_date`;
+  sql`SELECT id, name, status, parent_sprint_id, auto_start, start_date::date::text AS start, end_date::date::text AS "end" FROM workspace_sprints WHERE workspace_id = ${projectId} ORDER BY start_date`;
 
 test("org sprints never overlap; a series builds the term plan", async () => {
   const { org, owner } = await orgWithChild();
@@ -126,7 +126,7 @@ test("materials: admins attach org docs and files to an org sprint", async () =>
   const { org, owner, lead } = await orgWithChild();
   viewerId = owner;
   const co = await sprints.createSprintAction({ projectId: org, name: "CO1", startDate: "2027-05-01", endDate: "2027-05-08" });
-  const [node] = await sql`INSERT INTO project_nodes (project_id, type, name, path) VALUES (${org}, 'file', 'Syllabus.pdf', '/Syllabus.pdf') RETURNING id`;
+  const [node] = await sql`INSERT INTO workspace_nodes (workspace_id, type, name, path) VALUES (${org}, 'file', 'Syllabus.pdf', '/Syllabus.pdf') RETURNING id`;
   const added = await sprints.addSprintMaterialAction({ projectId: org, sprintId: co.sprint!.id, nodeId: node!.id as string });
   assert.equal(added.success, true, JSON.stringify(added));
   const detail = await sprints.readWorkspaceSprintDetail({ slugOrId: org, sprintId: co.sprint!.id });
@@ -134,7 +134,7 @@ test("materials: admins attach org docs and files to an org sprint", async () =>
   viewerId = lead;
   assert.equal((await sprints.addSprintMaterialAction({ projectId: org, sprintId: co.sprint!.id, nodeId: node!.id as string })).success, false, "members don't attach");
   // Visitors on a public Sprints tab get names and dates only (report §15.4).
-  await sql`UPDATE projects SET public_tab_visibility = public_tab_visibility || '{"sprints": true}'::jsonb WHERE id = ${org}`;
+  await sql`UPDATE workspaces SET public_tab_visibility = public_tab_visibility || '{"sprints": true}'::jsonb WHERE id = ${org}`;
   viewerId = "";
   const visitor = await sprints.readWorkspaceSprintDetail({ slugOrId: org, sprintId: co.sprint!.id });
   assert.equal(visitor.success, true, JSON.stringify(visitor));

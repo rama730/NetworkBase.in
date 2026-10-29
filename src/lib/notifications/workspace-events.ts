@@ -3,9 +3,9 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
     profiles,
-    projectFollows,
-    projectMembers,
-    projects,
+    workspaceFollows,
+    workspaceMembers,
+    workspaces,
 } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import {
@@ -249,28 +249,28 @@ export async function resolveWorkspaceNotificationRecipients(params: {
     const entry = WORKSPACE_NOTIFICATION_EVENT_REGISTRY[params.eventKey];
     const [project] = await db
         .select({
-            id: projects.id,
-            ownerId: projects.ownerId,
-            title: projects.title,
-            slug: projects.slug,
-            visibility: projects.visibility,
-            notificationPreferences: projects.notificationPreferences,
-            kind: projects.kind,
-            parentId: projects.parentId,
+            id: workspaces.id,
+            ownerId: workspaces.ownerId,
+            title: workspaces.title,
+            slug: workspaces.slug,
+            visibility: workspaces.visibility,
+            notificationPreferences: workspaces.notificationPreferences,
+            kind: workspaces.kind,
+            parentId: workspaces.parentId,
         })
-        .from(projects)
-        .where(and(eq(projects.id, params.projectId), isNull(projects.deletedAt)))
+        .from(workspaces)
+        .where(and(eq(workspaces.id, params.projectId), isNull(workspaces.deletedAt)))
         .limit(1);
     if (!project) return { project: null, members: [] as MemberRow[], recipientIds: [] as string[] };
 
     const members = await db
         .select({
-            userId: projectMembers.userId,
-            role: projectMembers.role,
-            notificationPreferences: projectMembers.notificationPreferences,
+            userId: workspaceMembers.userId,
+            role: workspaceMembers.role,
+            notificationPreferences: workspaceMembers.notificationPreferences,
         })
-        .from(projectMembers)
-        .where(eq(projectMembers.projectId, params.projectId));
+        .from(workspaceMembers)
+        .where(eq(workspaceMembers.projectId, params.projectId));
 
     const ids = new Set<string>();
     const input = params.input ?? {};
@@ -281,9 +281,9 @@ export async function resolveWorkspaceNotificationRecipients(params: {
 
     if (entry.defaultRecipients.includes("followers") && project.visibility === "public") {
         const followers = await db
-            .select({ userId: projectFollows.userId })
-            .from(projectFollows)
-            .where(eq(projectFollows.projectId, params.projectId));
+            .select({ userId: workspaceFollows.userId })
+            .from(workspaceFollows)
+            .where(eq(workspaceFollows.projectId, params.projectId));
         followers.forEach((follower) => ids.add(follower.userId));
     }
 
@@ -419,9 +419,9 @@ export async function enqueueWorkspaceNotificationEvents(
     );
     const followerIds = needsFollowers
         ? (await db
-            .select({ userId: projectFollows.userId })
-            .from(projectFollows)
-            .where(eq(projectFollows.projectId, projectId)))
+            .select({ userId: workspaceFollows.userId })
+            .from(workspaceFollows)
+            .where(eq(workspaceFollows.projectId, projectId)))
             .map((row) => row.userId)
         : [];
 

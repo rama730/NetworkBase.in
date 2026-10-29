@@ -5,7 +5,7 @@ import {
   initializeWorkspaceFilesRoot,
 } from "@/app/actions/files/nodes";
 import { filesParentKey, useFilesStore } from "@/stores/filesStore";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { getErrorMessage } from "./explorerTypes";
 import { FILES_RUNTIME_BUDGETS } from "@/lib/files/runtime-budgets";
 import { recordFilesMetric } from "@/lib/files/observability";
@@ -98,7 +98,7 @@ export function useExplorerBoot(options: {
           // (focus, reconnect, after a mutation) never collapses a paged folder back to page 1.
           const loadedCount = currentWs?.childrenByParentId?.[parentKey]?.length ?? 0;
           const wanted = mode === "refresh" ? Math.max(limit, loadedCount) : limit;
-          const newNodes: ProjectNode[] = [];
+          const newNodes: WorkspaceNode[] = [];
           let nextCursor: string | null = null;
           let taskCounts: Record<string, number> | null = null;
           do {
@@ -272,7 +272,7 @@ export function useExplorerBoot(options: {
 
   // 3. User Interaction Expansion (Lazy Load)
   const handleToggleFolder = useCallback(
-    async (node: ProjectNode) => {
+    async (node: WorkspaceNode) => {
       if (node.type !== "folder") return;
       const next = !expandedFolderIds[node.id];
       toggleExpanded(projectId, node.id, next);

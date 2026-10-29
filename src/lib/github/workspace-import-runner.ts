@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { projectNodes, projects } from "@/lib/db/schema";
+import { workspaceNodes, workspaces } from "@/lib/db/schema";
 import { assertWorkLeaseHeld, withWorkLease, type WorkLease } from "@/lib/leases";
 import { createDirectoryStructureFromPaths, insertVirtualFileNodes } from "@/lib/import/utils";
 import { resolveGithubRepoAccess } from "@/lib/github/auth-resolver";
@@ -73,9 +73,9 @@ export async function markGithubWorkspaceImportFailed(input: {
   });
 
   const [project] = await db
-    .select({ importSource: projects.importSource })
-    .from(projects)
-    .where(eq(projects.id, projectId))
+    .select({ importSource: workspaces.importSource })
+    .from(workspaces)
+    .where(eq(workspaces.id, projectId))
     .limit(1);
 
   const src = clearSealedGithubTokenFromImportSource(project?.importSource) as any;
@@ -94,13 +94,13 @@ export async function markGithubWorkspaceImportFailed(input: {
   };
 
   await db
-    .update(projects)
+    .update(workspaces)
     .set({
       syncStatus: "failed",
       importSource: nextImportSource as any,
       updatedAt: new Date(),
     })
-    .where(eq(projects.id, projectId));
+    .where(eq(workspaces.id, projectId));
 }
 
 export async function runGithubWorkspaceImport(input: {
@@ -138,9 +138,9 @@ export async function runGithubWorkspaceImport(input: {
       const projectRun = await withWorkLease(`git-import-project:${projectId}`, IMPORT_LEASE_TTL_MS, async (projectLease, leaseLost) => {
       {
         const [project] = await db
-          .select({ importSource: projects.importSource })
-          .from(projects)
-          .where(eq(projects.id, projectId))
+          .select({ importSource: workspaces.importSource })
+          .from(workspaces)
+          .where(eq(workspaces.id, projectId))
           .limit(1);
 
         if (!project) {
@@ -161,7 +161,7 @@ export async function runGithubWorkspaceImport(input: {
             : "main");
 
         await db
-          .update(projects)
+          .update(workspaces)
           .set({
             syncStatus: "cloning",
             updatedAt: new Date(),
@@ -180,7 +180,7 @@ export async function runGithubWorkspaceImport(input: {
               },
             } as any,
           })
-          .where(eq(projects.id, projectId));
+          .where(eq(workspaces.id, projectId));
 
         const preferredInstallationIdRaw =
           sourceMetadata.githubInstallationId ??
@@ -225,7 +225,7 @@ export async function runGithubWorkspaceImport(input: {
         }
 
         await db
-          .update(projects)
+          .update(workspaces)
           .set({
             syncStatus: "indexing",
             updatedAt: new Date(),
@@ -246,7 +246,7 @@ export async function runGithubWorkspaceImport(input: {
               },
             } as any,
           })
-          .where(eq(projects.id, projectId));
+          .where(eq(workspaces.id, projectId));
 
         const dirPaths = new Set<string>();
         for (const n of nodes) {
@@ -278,18 +278,18 @@ export async function runGithubWorkspaceImport(input: {
         // 1. Get existing project file nodes
         const localNodes = await db
           .select({
-            id: projectNodes.id,
-            path: projectNodes.path,
-            gitHash: projectNodes.gitHash,
-            s3Key: projectNodes.s3Key,
-            currentVersion: projectNodes.currentVersion,
+            id: workspaceNodes.id,
+            path: workspaceNodes.path,
+            gitHash: workspaceNodes.gitHash,
+            s3Key: workspaceNodes.s3Key,
+            currentVersion: workspaceNodes.currentVersion,
           })
-          .from(projectNodes)
+          .from(workspaceNodes)
           .where(
             and(
-              eq(projectNodes.projectId, projectId),
-              isNull(projectNodes.deletedAt),
-              eq(projectNodes.type, "file")
+              eq(workspaceNodes.projectId, projectId),
+              isNull(workspaceNodes.deletedAt),
+              eq(workspaceNodes.type, "file")
             )
           );
 
@@ -311,7 +311,7 @@ export async function runGithubWorkspaceImport(input: {
         const updateProgress = async (processed: number, phase: string, msg: string) => {
           const percentage = totalFilesToProcess > 0 ? Math.round((processed / totalFilesToProcess) * 100) : 100;
           await db
-            .update(projects)
+            .update(workspaces)
             .set({
               importSource: {
                 ...existingSource,
@@ -328,7 +328,7 @@ export async function runGithubWorkspaceImport(input: {
               } as any,
               updatedAt: new Date(),
             })
-            .where(eq(projects.id, projectId));
+            .where(eq(workspaces.id, projectId));
         };
 
         await updateProgress(0, "reconciling", "Analyzing repository changes…");
@@ -386,7 +386,7 @@ export async function runGithubWorkspaceImport(input: {
           for (let index = 0; index < filesToUpdate.length; index += RECONCILE_DELETE_BATCH_SIZE) {
             const batch = filesToUpdate.slice(index, index + RECONCILE_DELETE_BATCH_SIZE);
             await tx.execute(sql`
-              UPDATE project_nodes node
+              UPDATE workspace_nodes node
               SET git_blob_hash = patch.git_hash,
                   s3_key = NULL,
                   size = patch.size,
@@ -395,16 +395,16 @@ export async function runGithubWorkspaceImport(input: {
               FROM jsonb_to_recordset(${JSON.stringify(batch)}::jsonb)
                 AS patch(id uuid, git_hash text, size bigint, current_version integer)
               WHERE node.id = patch.id
-                AND node.project_id = ${projectId}::uuid
+                AND node.workspace_id = ${projectId}::uuid
                 AND node.deleted_at IS NULL
             `);
           }
           for (let index = 0; index < nodeIdsToDelete.length; index += RECONCILE_DELETE_BATCH_SIZE) {
             const batch = nodeIdsToDelete.slice(index, index + RECONCILE_DELETE_BATCH_SIZE);
             await tx
-              .update(projectNodes)
+              .update(workspaceNodes)
               .set({ deletedAt: new Date(), updatedAt: new Date() })
-              .where(and(eq(projectNodes.projectId, projectId), inArray(projectNodes.id, batch)));
+              .where(and(eq(workspaceNodes.projectId, projectId), inArray(workspaceNodes.id, batch)));
           }
         });
 
@@ -423,7 +423,7 @@ export async function runGithubWorkspaceImport(input: {
         const { inngest } = await import("@/inngest/client");
         let hydrationDispatchError: string | null = null;
         await inngest.send({
-            name: "project/import.hydrate",
+            name: "workspace/import.hydrate",
             // Events never carry credentials; the worker resolves access itself (COR-006).
             data: { projectId, userId, commitSha: latestSha, importSource: clearSealedGithubTokenFromImportSource(project.importSource) as any }
         }).catch(err => {
@@ -445,7 +445,7 @@ export async function runGithubWorkspaceImport(input: {
         await db.transaction(async (tx) => {
           await assertWorkLeaseHeld(tx, projectLease);
           await tx
-            .update(projects)
+            .update(workspaces)
             .set({
               syncStatus: hydrationDispatchError ? "failed" : "ready",
               githubLastSyncAt: new Date(),
@@ -462,7 +462,7 @@ export async function runGithubWorkspaceImport(input: {
                 },
               } as any,
             })
-            .where(eq(projects.id, projectId));
+            .where(eq(workspaces.id, projectId));
         });
 
         logger.metric("github.import.worker.complete", {

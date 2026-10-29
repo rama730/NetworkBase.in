@@ -11,7 +11,7 @@
 import { describe, it, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { useFilesStore } from "@/stores/filesStore";
 import { hasNodeCacheDifference } from "@/stores/files/explorerSlice";
 import { defaultFilesState } from "@/stores/files/types";
@@ -20,7 +20,7 @@ import { defaultFilesState } from "@/stores/files/types";
 
 const PROJECT_ID = "proj-test";
 
-function makeFile(id: string, name: string, parentId: string | null, currentVersion = 1): ProjectNode {
+function makeFile(id: string, name: string, parentId: string | null, currentVersion = 1): WorkspaceNode {
   return {
     id,
     projectId: PROJECT_ID,
@@ -39,11 +39,11 @@ function makeFile(id: string, name: string, parentId: string | null, currentVers
     createdAt: new Date(0),
     updatedAt: new Date(0),
     deletedAt: null,
-  } as unknown as ProjectNode;
+  } as unknown as WorkspaceNode;
 }
 
-function seedWorkspace(nodes: ProjectNode[], childrenByParentId?: Record<string, string[]>) {
-  const nodesById: Record<string, ProjectNode> = {};
+function seedWorkspace(nodes: WorkspaceNode[], childrenByParentId?: Record<string, string[]>) {
+  const nodesById: Record<string, WorkspaceNode> = {};
   for (const n of nodes) nodesById[n.id] = n;
 
   const ws = {

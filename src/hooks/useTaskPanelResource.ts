@@ -17,7 +17,7 @@ import {
 import { useRealtime } from "@/components/providers/RealtimeProvider";
 import { subscribeTaskResource } from "@/lib/realtime/task-resource";
 import { createVisibilityAwareInterval } from "@/lib/utils/visibility";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import {
   mergeTaskSurfaceRecords,
   normalizeTaskSurfaceRecord,
@@ -196,7 +196,7 @@ export function useTaskPanelResource(params: {
   const subtasksHasMoreRef = useRef(false);
   subtasksHasMoreRef.current = subtasksHasMore;
   subtasksRef.current = subtasks;
-  const [attachments, setAttachments] = useState<ProjectNode[]>([]);
+  const [attachments, setAttachments] = useState<WorkspaceNode[]>([]);
   const [fileWarningState, setFileWarningState] = useState<FileWarningState>({
     warnings: [],
     summary: null,
@@ -480,7 +480,7 @@ export function useTaskPanelResource(params: {
         ),
         staleTime: PANEL_STALE_TIME_MS,
         queryFn: () =>
-          getTaskAttachments(projectId, task.id) as Promise<ProjectNode[]>,
+          getTaskAttachments(projectId, task.id) as Promise<WorkspaceNode[]>,
       });
       if (taskIdRef.current !== requestedTaskId) return [];
       const nextAttachments = Array.isArray(nodes) ? nodes : [];
@@ -492,7 +492,7 @@ export function useTaskPanelResource(params: {
       const message =
         error instanceof Error ? error.message : "Couldn’t load files";
       setErrors((current) => ({ ...current, attachments: message }));
-      return [] as ProjectNode[];
+      return [] as WorkspaceNode[];
     } finally {
       if (taskIdRef.current === requestedTaskId) {
         setLoading((current) => ({ ...current, attachments: false }));

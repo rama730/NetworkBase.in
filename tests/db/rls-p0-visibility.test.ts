@@ -7,11 +7,11 @@ after(() => sql.end());
 
 async function node(tx: Tx, projectId: string, path: string, opts: { taskId?: string | null; deleted?: boolean } = {}) {
   const [row] = await tx`
-    INSERT INTO public.project_nodes (project_id, type, name, path, task_id, deleted_at)
+    INSERT INTO public.workspace_nodes (workspace_id, type, name, path, task_id, deleted_at)
     VALUES (${projectId}, 'file', ${path.split("/").pop()!}, ${path}, ${opts.taskId ?? null}, ${opts.deleted ? new Date() : null})
     RETURNING id`;
   await tx`INSERT INTO public.file_versions (node_id, version, s3_key, size, mime_type) VALUES (${row!.id}, 1, ${`${projectId}/${row!.id}`}, 1, 'text/plain')`;
-  await tx`INSERT INTO public.project_file_index (node_id, project_id, content) VALUES (${row!.id}, ${projectId}, 'secret words')`;
+  await tx`INSERT INTO public.workspace_file_index (node_id, workspace_id, content) VALUES (${row!.id}, ${projectId}, 'secret words')`;
   return row!.id as string;
 }
 
@@ -19,9 +19,9 @@ async function visibleCounts(tx: Tx, viewer: string | null, projectId: string) {
   await actAs(tx, viewer);
   const [row] = await tx`
     SELECT
-      (SELECT count(*)::int FROM public.project_nodes WHERE project_id = ${projectId}) AS nodes,
-      (SELECT count(*)::int FROM public.file_versions v JOIN public.project_nodes n ON n.id = v.node_id WHERE n.project_id = ${projectId}) AS versions,
-      (SELECT count(*)::int FROM public.project_file_index WHERE project_id = ${projectId}) AS "fileIndex"`;
+      (SELECT count(*)::int FROM public.workspace_nodes WHERE workspace_id = ${projectId}) AS nodes,
+      (SELECT count(*)::int FROM public.file_versions v JOIN public.workspace_nodes n ON n.id = v.node_id WHERE n.workspace_id = ${projectId}) AS versions,
+      (SELECT count(*)::int FROM public.workspace_file_index WHERE workspace_id = ${projectId}) AS "fileIndex"`;
   await actAsOwner(tx);
   return { ...row };
 }
@@ -30,9 +30,9 @@ async function visibleCounts(tx: Tx, viewer: string | null, projectId: string) {
 // widen node visibility beyond nb_project_node_can_read.
 test("outsiders see only public project content files; trash, task files, drafts and hidden Files stay hidden", async () => {
   const result = await inRollback(async (tx) => {
-    await grantBrowserRead(tx, ["project_nodes", "file_versions", "project_file_index"]);
+    await grantBrowserRead(tx, ["workspace_nodes", "file_versions", "workspace_file_index"]);
     const { owner, outsider, projectId } = await projectWithPeople(tx);
-    const [task] = await tx`INSERT INTO public.tasks (project_id, title) VALUES (${projectId}, 't') RETURNING id`;
+    const [task] = await tx`INSERT INTO public.tasks (workspace_id, title) VALUES (${projectId}, 't') RETURNING id`;
     await node(tx, projectId, "/readme.md");
     await node(tx, projectId, "/old.md", { deleted: true });
     await node(tx, projectId, "/.system/tasks/x/notes.md");
@@ -60,18 +60,18 @@ test("outsiders see only public project content files; trash, task files, drafts
 // visible doc is readable by outsiders; overrides apply.
 test("doc versions: outsiders read only the published version; overrides and drafts apply", async () => {
   const result = await inRollback(async (tx) => {
-    await grantBrowserRead(tx, ["project_docs", "project_doc_versions"]);
+    await grantBrowserRead(tx, ["workspace_documents", "workspace_document_versions"]);
     const { owner, member, outsider, projectId } = await projectWithPeople(tx);
     async function doc(project: string, slug: string, override: string) {
-      const [d] = await tx`INSERT INTO public.project_docs (project_id, slug, filename, settings)
+      const [d] = await tx`INSERT INTO public.workspace_documents (workspace_id, slug, filename, settings)
         VALUES (${project}, ${slug}, ${slug + ".md"}, ${tx.json({ version: 1, editPolicy: "leaders", visibilityOverride: override })}) RETURNING id`;
       const versions = [];
       for (const n of [1, 2]) {
-        const [v] = await tx`INSERT INTO public.project_doc_versions (project_id, doc_id, version_number, content, content_hash)
+        const [v] = await tx`INSERT INTO public.workspace_document_versions (workspace_id, doc_id, version_number, content, content_hash)
           VALUES (${project}, ${d!.id}, ${n}, ${"v" + n}, ${"h" + n}) RETURNING id`;
         versions.push(v!.id);
       }
-      await tx`UPDATE public.project_docs SET published_version_id = ${versions[0]!} WHERE id = ${d!.id}`;
+      await tx`UPDATE public.workspace_documents SET published_version_id = ${versions[0]!} WHERE id = ${d!.id}`;
       return d!.id as string;
     }
     await doc(projectId, "readme", "inherit_project");
@@ -82,8 +82,8 @@ test("doc versions: outsiders read only the published version; overrides and dra
     const count = async (viewer: string | null, project: string) => {
       await actAs(tx, viewer);
       const [row] = await tx`SELECT
-        (SELECT count(*)::int FROM public.project_docs WHERE project_id = ${project}) AS docs,
-        (SELECT count(*)::int FROM public.project_doc_versions WHERE project_id = ${project}) AS versions`;
+        (SELECT count(*)::int FROM public.workspace_documents WHERE workspace_id = ${project}) AS docs,
+        (SELECT count(*)::int FROM public.workspace_document_versions WHERE workspace_id = ${project}) AS versions`;
       await actAsOwner(tx);
       return { ...row };
     };

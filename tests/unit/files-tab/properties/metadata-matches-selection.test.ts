@@ -59,7 +59,7 @@ import path from "node:path";
 
 import fc from "fast-check";
 
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import {
   defaultFilesState,
   type WorkspaceFilesState,
@@ -149,7 +149,7 @@ const projectTreeArb: fc.Arbitrary<{
 // ---------------------------------------------------------------------------
 
 interface FlatTree {
-  nodesById: Record<string, ProjectNode>;
+  nodesById: Record<string, WorkspaceNode>;
   /** All node ids, including the root folder. */
   ids: string[];
   /** Root id — always present, the natural "folder" navigation target. */
@@ -157,7 +157,7 @@ interface FlatTree {
 }
 
 function flattenTree(root: RawNode, projectId: string): FlatTree {
-  const nodesById: Record<string, ProjectNode> = {};
+  const nodesById: Record<string, WorkspaceNode> = {};
   const ids: string[] = [];
 
   let seq = 0;
@@ -170,7 +170,7 @@ function flattenTree(root: RawNode, projectId: string): FlatTree {
     const id = mkId();
     // Minimum shape required by `selectCurrentLocation` — it only reads
     // `.id`, `.type`. Other fields carry safe defaults so consumers
-    // treating the node as a `ProjectNode` do not crash on access.
+    // treating the node as a `WorkspaceNode` do not crash on access.
     const node = {
       id,
       projectId,
@@ -189,7 +189,7 @@ function flattenTree(root: RawNode, projectId: string): FlatTree {
       createdAt: new Date(0),
       updatedAt: new Date(0),
       deletedAt: null,
-    } as unknown as ProjectNode;
+    } as unknown as WorkspaceNode;
     nodesById[id] = node;
     ids.push(id);
     for (const child of raw.children) {
@@ -271,7 +271,7 @@ const testCaseArb: fc.Arbitrary<TestCase> = projectTreeArb.chain(({ root }) => {
 type ExpectedMetadata = { dataNodeId: string } | null;
 
 function expectedMetadata(
-  nodesById: Record<string, ProjectNode>,
+  nodesById: Record<string, WorkspaceNode>,
   currentLocationId: string | null,
 ): ExpectedMetadata {
   const workspace: WorkspaceFilesState = {

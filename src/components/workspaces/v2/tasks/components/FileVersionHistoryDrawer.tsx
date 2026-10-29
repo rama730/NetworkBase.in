@@ -32,7 +32,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import type { FileVersion, ProjectNode } from "@/lib/db/schema";
+import type { FileVersion, WorkspaceNode } from "@/lib/db/schema";
 import {
   getVersionPreviewUrl,
   listFileVersionsPage,
@@ -52,7 +52,7 @@ function formatDate(date: Date | string | null | undefined): string {
 
 export interface FileVersionHistoryDrawerProps {
   projectId: string;
-  node: ProjectNode;
+  node: WorkspaceNode;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Viewer may restore? Hides the Restore button when false. */

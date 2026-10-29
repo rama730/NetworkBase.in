@@ -16,7 +16,7 @@ async function main() {
     const insertedTags = await tx.execute<{ id: string }>(sql`
       WITH source AS MATERIALIZED (
         SELECT DISTINCT ON (slug) label, slug
-        FROM projects p
+        FROM workspaces p
         CROSS JOIN LATERAL jsonb_array_elements_text(coalesce(p.tags, '[]'::jsonb)) AS value(label)
         CROSS JOIN LATERAL (
           SELECT trim(both '-' from regexp_replace(lower(value.label), '[^a-z0-9]+', '-', 'g')) AS slug
@@ -33,15 +33,15 @@ async function main() {
       WITH source AS MATERIALIZED (
         SELECT DISTINCT p.id AS project_id,
           trim(both '-' from regexp_replace(lower(value.label), '[^a-z0-9]+', '-', 'g')) AS slug
-        FROM projects p
+        FROM workspaces p
         CROSS JOIN LATERAL jsonb_array_elements_text(coalesce(p.tags, '[]'::jsonb)) AS value(label)
       )
-      INSERT INTO project_tags (project_id, tag_id)
+      INSERT INTO workspace_tags (workspace_id, tag_id)
       SELECT source.project_id, tags.id
       FROM source
       JOIN tags ON tags.slug = source.slug
       WHERE source.slug <> ''
-      ON CONFLICT (project_id, tag_id) DO NOTHING
+      ON CONFLICT (workspace_id, tag_id) DO NOTHING
       RETURNING id
     `);
     const insertedInterests = await tx.execute<{ id: string }>(sql`
@@ -62,24 +62,24 @@ async function main() {
     `);
     const updatedPaths = await tx.execute<{ id: string }>(sql`
       WITH RECURSIVE tree AS (
-        SELECT node.id, node.project_id, node.parent_id,
+        SELECT node.id, node.workspace_id, node.parent_id,
           ('/' || node.name)::text AS canonical_path,
           ARRAY[node.id]::uuid[] AS visited
-        FROM project_nodes node
+        FROM workspace_nodes node
         WHERE node.parent_id IS NULL
 
         UNION ALL
 
-        SELECT child.id, child.project_id, child.parent_id,
+        SELECT child.id, child.workspace_id, child.parent_id,
           (parent.canonical_path || '/' || child.name)::text,
           parent.visited || child.id
-        FROM project_nodes child
+        FROM workspace_nodes child
         JOIN tree parent
           ON parent.id = child.parent_id
-         AND parent.project_id = child.project_id
+         AND parent.workspace_id = child.workspace_id
         WHERE NOT child.id = ANY(parent.visited)
       )
-      UPDATE project_nodes node
+      UPDATE workspace_nodes node
       SET path = tree.canonical_path
       FROM tree
       WHERE node.id = tree.id
@@ -91,29 +91,29 @@ async function main() {
       WITH RECURSIVE ancestry AS (
         SELECT node.id AS origin_id, node.parent_id,
           ARRAY[node.id]::uuid[] AS visited, false AS cyclic
-        FROM project_nodes node
+        FROM workspace_nodes node
         UNION ALL
         SELECT ancestry.origin_id, parent.parent_id,
           ancestry.visited || parent.id,
           parent.id = ANY(ancestry.visited)
         FROM ancestry
-        JOIN project_nodes parent ON parent.id = ancestry.parent_id
+        JOIN workspace_nodes parent ON parent.id = ancestry.parent_id
         WHERE NOT ancestry.cyclic
       ), rooted AS (
         WITH RECURSIVE tree AS (
-          SELECT id, project_id FROM project_nodes WHERE parent_id IS NULL
+          SELECT id, workspace_id FROM workspace_nodes WHERE parent_id IS NULL
           UNION ALL
-          SELECT child.id, child.project_id
-          FROM project_nodes child
+          SELECT child.id, child.workspace_id
+          FROM workspace_nodes child
           JOIN tree parent
             ON parent.id = child.parent_id
-           AND parent.project_id = child.project_id
+           AND parent.workspace_id = child.workspace_id
         )
         SELECT id FROM tree
       )
       SELECT
         count(DISTINCT origin_id) FILTER (WHERE cyclic)::int AS cyclic,
-        (SELECT count(*)::int FROM project_nodes node WHERE NOT EXISTS (
+        (SELECT count(*)::int FROM workspace_nodes node WHERE NOT EXISTS (
           SELECT 1 FROM rooted WHERE rooted.id = node.id
         )) AS unreachable
       FROM ancestry

@@ -3,11 +3,11 @@
 import { db } from "@/lib/db";
 import {
     profiles,
-    projects,
-    projectMembers,
+    workspaces,
+    workspaceMembers,
     accountDeletions,
     profileAuditEvents,
-    projectNodeEvents,
+    workspaceNodeEvents,
 } from "@/lib/db/schema";
 import { createClient } from '@/lib/supabase/server';
 import { eq, or, and, inArray, isNull, sql, desc, } from 'drizzle-orm';
@@ -149,7 +149,7 @@ export async function transferWorkspaceOwnership(
             // the transaction so a second caller (e.g. a parallel transfer or
             // a soft-delete) cannot race the owner check.
             const lockedRows = await tx.execute<{ owner_id: string; title: string | null; slug: string | null; kind: string }>(sql`
-                SELECT owner_id, title, slug, kind FROM ${projects} WHERE id = ${projectId} FOR UPDATE
+                SELECT owner_id, title, slug, kind FROM ${workspaces} WHERE id = ${projectId} FOR UPDATE
             `);
             const lockedProject = Array.from(lockedRows)[0];
 
@@ -162,12 +162,12 @@ export async function transferWorkspaceOwnership(
 
             // Verify new owner is a project member
             const [membership] = await tx
-                .select({ id: projectMembers.id, role: projectMembers.role })
-                .from(projectMembers)
+                .select({ id: workspaceMembers.id, role: workspaceMembers.role })
+                .from(workspaceMembers)
                 .where(
                     and(
-                        eq(projectMembers.projectId, projectId),
-                        eq(projectMembers.userId, newOwnerId),
+                        eq(workspaceMembers.projectId, projectId),
+                        eq(workspaceMembers.userId, newOwnerId),
                     )
                 )
                 .limit(1);
@@ -182,35 +182,36 @@ export async function transferWorkspaceOwnership(
 
             // Transfer ownership
             await tx
-                .update(projects)
+                .update(workspaces)
                 .set({
                     ownerId: newOwnerId,
                     // A child project handed over at account deletion has its new lead now (report §30.7).
-                    orgSettings: sql`${projects.orgSettings} - 'leadHandover'`,
+                    orgSettings: sql`${workspaces.orgSettings} - 'leadHandover'`,
                     updatedAt: new Date(),
                 })
-                .where(eq(projects.id, projectId));
+                .where(eq(workspaces.id, projectId));
 
-            // Update member roles
-            await tx
-                .update(projectMembers)
-                .set({ role: 'owner' })
-                .where(
-                    and(
-                        eq(projectMembers.projectId, projectId),
-                        eq(projectMembers.userId, newOwnerId),
-                    )
-                );
-
+            // One owner row per workspace (0264): demote first, then promote.
             // Demote the previous owner to 'admin' on the project so they
             // lose the destructive capabilities tied to the 'owner' role.
             await tx
-                .update(projectMembers)
+                .update(workspaceMembers)
                 .set({ role: 'admin' })
                 .where(
                     and(
-                        eq(projectMembers.projectId, projectId),
-                        eq(projectMembers.userId, user.id),
+                        eq(workspaceMembers.projectId, projectId),
+                        eq(workspaceMembers.userId, user.id),
+                    )
+                );
+
+            // Update member roles
+            await tx
+                .update(workspaceMembers)
+                .set({ role: 'owner' })
+                .where(
+                    and(
+                        eq(workspaceMembers.projectId, projectId),
+                        eq(workspaceMembers.userId, newOwnerId),
                     )
                 );
 
@@ -262,7 +263,7 @@ export async function transferWorkspaceOwnership(
                 .where(inArray(profiles.id, [user.id, newOwnerId]));
             const profileById = new Map(profileRows.map((profile) => [profile.id, profile]));
 
-            const [projectEvent] = await tx.insert(projectNodeEvents).values({
+            const [projectEvent] = await tx.insert(workspaceNodeEvents).values({
                 projectId,
                 nodeId: null,
                 actorId: user.id,
@@ -276,7 +277,7 @@ export async function transferWorkspaceOwnership(
                     stepUpMethod: stepUp.payload?.method ?? null,
                     at: now.toISOString(),
                 },
-            }).returning({ id: projectNodeEvents.id });
+            }).returning({ id: workspaceNodeEvents.id });
 
             return {
                 ok: true as const,

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { taskPriorityEnum, taskStatusEnum } from "@/lib/validations/task";
 
 const optionalTrimmedText = z
@@ -67,7 +67,7 @@ export function buildTaskSubmitPayload(input: {
   draft: TaskEditorDraft;
   projectId: string;
   subtasks: TaskEditorSubtaskDraft[];
-  attachments: ProjectNode[];
+  attachments: WorkspaceNode[];
 }) {
   return {
     projectId: input.projectId,

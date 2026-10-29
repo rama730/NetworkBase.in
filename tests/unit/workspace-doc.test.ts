@@ -723,7 +723,7 @@ test("Docs tab opens with one action and one context query", () => {
 
     assert.doesNotMatch(docTab, /useProjectMarkdowns|listProjectMarkdownsAction/);
     assert.match(actions, /\(await getViewerAuthContext\(\)\)\.userId/);
-    assert.match(loader, /db\.query\.projects\.findFirst\(/);
+    assert.match(loader, /db\.query\.workspaces\.findFirst\(/);
     assert.match(loader, /docs: \{ with: \{ linkedNode:/);
     assert.doesNotMatch(loader, /Promise\.all/);
 });

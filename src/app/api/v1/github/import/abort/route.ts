@@ -4,7 +4,7 @@ import {
     fileVersions,
     importJobs,
     importJobFiles,
-    projectNodes,
+    workspaceNodes,
     storageAssets,
     uploadIntents,
 } from '@/lib/db/schema';
@@ -153,8 +153,8 @@ export async function POST(request: NextRequest) {
                         inArray(storageAssets.id, assetIds),
                         inArray(storageAssets.state, ['pending', 'verified']),
                         sql`NOT EXISTS (
-                            SELECT 1 FROM ${projectNodes}
-                            WHERE ${projectNodes.assetId} = ${storageAssets.id}
+                            SELECT 1 FROM ${workspaceNodes}
+                            WHERE ${workspaceNodes.assetId} = ${storageAssets.id}
                         )`,
                         sql`NOT EXISTS (
                             SELECT 1 FROM ${fileVersions}

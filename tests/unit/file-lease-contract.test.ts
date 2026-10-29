@@ -22,7 +22,7 @@ test("canonical service performs atomic session-scoped acquisition and fenced wr
   const service = read("src/lib/files/file-lock-service.ts");
   assert.match(service, /ON CONFLICT \(node_id\) DO UPDATE/);
   assert.match(service, /locked_by = EXCLUDED\.locked_by[\s\S]*session_id = EXCLUDED\.session_id/);
-  assert.match(service, /nextval\('project_node_lock_fencing_seq'\)/);
+  assert.match(service, /nextval\('workspace_node_lock_fencing_seq'\)/);
   assert.match(service, /lease_id = \$\{input\.credentials\.leaseId\}/);
   assert.match(service, /fencing_token = \$\{input\.credentials\.fencingToken\}/);
   assert.match(service, /FOR UPDATE/);
@@ -44,8 +44,8 @@ test("project realtime subscription reconciles canonical lease snapshots", () =>
   const channel = read("src/lib/realtime/workspace-files-channel.ts");
   const rootView = read("src/components/workspaces/v2/files-tab/FilesTabRoot.tsx");
   const store = read("src/stores/files/editorSlice.ts");
-  assert.match(channel, /table: 'project_node_locks'/);
-  assert.match(channel, /filter: `project_id=eq\.\$\{projectId\}`/);
+  assert.match(channel, /table: 'workspace_node_locks'/);
+  assert.match(channel, /filter: `workspace_id=eq\.\$\{projectId\}`/);
   assert.match(rootView, /fetchWorkspaceFileLeases/);
   assert.match(rootView, /onFileLeaseChange: reconcileLocks/);
   assert.match(store, /const nextLocks: Record<string, SoftLock> = \{\}/);
@@ -77,5 +77,5 @@ test("background writers defer instead of overwriting active editors", () => {
   const sandboxMerge = read("src/lib/workspaces/merge-sandbox.ts");
   assert.match(gitSync, /Repository sync waits because a member is editing a file/);
   assert.match(sandboxMerge, /The task waits because a member is editing one of its files/);
-  assert.doesNotMatch(sandboxMerge, /DELETE FROM project_node_locks/);
+  assert.doesNotMatch(sandboxMerge, /DELETE FROM workspace_node_locks/);
 });

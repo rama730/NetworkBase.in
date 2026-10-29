@@ -5,7 +5,7 @@
 // Requirements: Req 5.5, Req 5.6, Req 13.1–13.5.
 // See design.md § FileView / `pickPreview` for the authoritative contract.
 
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 
 import type { FileKind } from "../../utils/fileKind";
 
@@ -25,7 +25,7 @@ function extOf(name: string): string {
  * Case-insensitive match on the extension only — files with "md" in the
  * basename (e.g. `embedmd.txt`) are NOT markdown.
  */
-export function isMarkdownNode(node: Pick<ProjectNode, "name">): boolean {
+export function isMarkdownNode(node: Pick<WorkspaceNode, "name">): boolean {
   return MARKDOWN_EXTENSIONS.has(extOf(node.name));
 }
 
@@ -43,7 +43,7 @@ export function isMarkdownNode(node: Pick<ProjectNode, "name">): boolean {
  * per the requirement text.
  */
 export function isEmptyMedia(
-  node: Pick<ProjectNode, "size">,
+  node: Pick<WorkspaceNode, "size">,
   kind: FileKind,
 ): boolean {
   if (node.size !== 0) return false;

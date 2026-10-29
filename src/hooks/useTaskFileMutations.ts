@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { linkNodeToTask, unlinkNodeFromTask } from "@/app/actions/files/links";
 import {
   createFileNode,
@@ -51,9 +51,9 @@ export function useTaskFileMutations(params: {
   taskId: string;
   canEdit: boolean;
   enabled: boolean;
-  attachments: (ProjectNode & { annotation?: string | null })[];
-  setAttachments: React.Dispatch<React.SetStateAction<ProjectNode[]>>;
-  refreshAttachments: () => Promise<ProjectNode[]>;
+  attachments: (WorkspaceNode & { annotation?: string | null })[];
+  setAttachments: React.Dispatch<React.SetStateAction<WorkspaceNode[]>>;
+  refreshAttachments: () => Promise<WorkspaceNode[]>;
   onError?: (message: string | null) => void;
   onAfterMutation?: () => Promise<void> | void;
 }) {
@@ -80,7 +80,7 @@ export function useTaskFileMutations(params: {
 
   const uploadFile = useCallback(async (file: File, options?: { parentId?: string | null; linkToTask?: boolean; taskOwned?: boolean; annotation?: string | null; role?: TaskFileRole }) => {
     let storagePath: string | null = null;
-    let createdNode: ProjectNode | null = null;
+    let createdNode: WorkspaceNode | null = null;
 
     try {
       const fileExt = extOf(file.name);
@@ -115,7 +115,7 @@ export function useTaskFileMutations(params: {
             uploadIntentId: uploadSession.uploadIntentId,
             taskId: options?.linkToTask || options?.taskOwned ? taskId : undefined,
             taskLink: options?.linkToTask ? { role: options.role, annotation: options.annotation } : undefined,
-          })) as ProjectNode;
+          })) as WorkspaceNode;
           break;
         } catch (error) {
           if (!(error instanceof Error) || !error.message.includes("already exists in this location")) throw error;
@@ -209,7 +209,7 @@ export function useTaskFileMutations(params: {
         const existingRootId = collisions.folderIdsByPath[folder.name];
         const rootFolder = existingRootId
           ? { id: existingRootId }
-          : (await createFolder(projectId, resolvedParentId, folder.name, { taskId })) as Pick<ProjectNode, "id">;
+          : (await createFolder(projectId, resolvedParentId, folder.name, { taskId })) as Pick<WorkspaceNode, "id">;
         if (!existingRootId) {
           createdAnyFolder = true;
         }
@@ -234,7 +234,7 @@ export function useTaskFileMutations(params: {
                 currentParentId = existingFolderId;
                 continue;
               }
-              const created = (await createFolder(projectId, currentParentId, segment, { taskId })) as ProjectNode;
+              const created = (await createFolder(projectId, currentParentId, segment, { taskId })) as WorkspaceNode;
               currentParentId = created.id;
             }
             parentId = currentParentId;
@@ -276,7 +276,7 @@ export function useTaskFileMutations(params: {
       if (!result.success) throw new Error(result.error);
 
       await runAfterSuccess();
-      return { success: true as const, node: result.node as ProjectNode, version: result.version };
+      return { success: true as const, node: result.node as WorkspaceNode, version: result.version };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Version upload failed";
       onError?.(message);

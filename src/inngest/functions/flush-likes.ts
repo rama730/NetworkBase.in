@@ -18,7 +18,7 @@ export const flushUpdateLikes = inngest.createFunction(
                 kind: "update_likes",
                 apply: async (tx, deltas) => {
                     await tx.execute(sql`
-                        UPDATE project_updates u
+                        UPDATE workspace_updates u
                         SET like_count = GREATEST(u.like_count + d.delta, 0), updated_at = now()
                         FROM jsonb_to_recordset(${JSON.stringify(deltas)}::jsonb) AS d(id uuid, delta integer)
                         WHERE u.id = d.id

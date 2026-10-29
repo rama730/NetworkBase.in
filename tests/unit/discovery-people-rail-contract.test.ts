@@ -56,5 +56,5 @@ test("rail recommendations use the same privacy-safe source as the connection li
   assert.match(suggestions, /notInArray\(connectionSuggestions\.suggestedUserId/);
   assert.match(suggestions, /(?:db|tx)\.delete\(connectionSuggestions\)/);
   assert.match(inngest, /refreshSocialGraphSuggestionsForCandidate/);
-  assert.match(profile, /workspace\/connections\.refresh_suggestions_for_candidate/);
+  assert.match(profile, /connections\/refresh_suggestions_for_candidate/);
 });

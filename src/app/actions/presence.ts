@@ -100,7 +100,7 @@ export async function getPresence(input: { userIds: string[] }) {
                  AND ((c.requester_id = ${user.id}::uuid AND c.addressee_id = p.id) OR (c.addressee_id = ${user.id}::uuid AND c.requester_id = p.id))
              ) AS connected,
              EXISTS (
-               SELECT 1 FROM project_members mine JOIN project_members theirs ON theirs.project_id = mine.project_id
+               SELECT 1 FROM workspace_members mine JOIN workspace_members theirs ON theirs.workspace_id = mine.workspace_id
                WHERE mine.user_id = ${user.id}::uuid AND theirs.user_id = p.id
              ) AS teammate,
              EXISTS (
@@ -291,7 +291,7 @@ export async function getWorkspaceStatuses(input: { projectIds: string[] }) {
   if (readable.length === 0) return { success: true as const, projects: [] };
   const found = await rows<ProjectStatusRow>(sql`
     SELECT p.id, p.status_emoji, p.status_text, p.status_expires_at, p.updated_at
-    FROM projects p
+    FROM workspaces p
     WHERE p.id = ANY(${uuidArray(readable)}) AND p.deleted_at IS NULL
   `);
   return {
@@ -309,9 +309,9 @@ export async function getWorkspaceStatuses(input: { projectIds: string[] }) {
 async function canManageProject(projectId: string, userId: string) {
   const [row] = await rows<{ ok: boolean }>(sql`
     SELECT EXISTS (
-      SELECT 1 FROM projects p WHERE p.id = ${projectId}::uuid AND p.deleted_at IS NULL AND p.owner_id = ${userId}::uuid
+      SELECT 1 FROM workspaces p WHERE p.id = ${projectId}::uuid AND p.deleted_at IS NULL AND p.owner_id = ${userId}::uuid
     ) OR EXISTS (
-      SELECT 1 FROM project_members m WHERE m.project_id = ${projectId}::uuid AND m.user_id = ${userId}::uuid AND m.role IN ('owner', 'admin')
+      SELECT 1 FROM workspace_members m WHERE m.workspace_id = ${projectId}::uuid AND m.user_id = ${userId}::uuid AND m.role IN ('owner', 'admin')
     ) AS ok
   `);
   return Boolean(row?.ok);
@@ -330,7 +330,7 @@ export async function setWorkspaceStatus(input: { projectId: string; emoji?: str
   if (expires === "invalid") return invalid;
   if (!(await canManageProject(input.projectId, user.id))) return { success: false as const, error: "forbidden" };
   await exec(sql`
-    UPDATE projects SET status_emoji = ${emoji}, status_text = ${text},
+    UPDATE workspaces SET status_emoji = ${emoji}, status_text = ${text},
       status_expires_at = ${expires ? expires.toISOString() : null}::timestamptz,
       status_set_by = ${user.id}::uuid, status_set_at = now()
     WHERE id = ${input.projectId}::uuid
@@ -344,7 +344,7 @@ export async function clearWorkspaceStatus(input: { projectId: string }) {
   if (!isUuid(input?.projectId)) return invalid;
   if (!(await canManageProject(input.projectId, user.id))) return { success: false as const, error: "forbidden" };
   await exec(sql`
-    UPDATE projects SET status_emoji = NULL, status_text = NULL, status_expires_at = NULL, status_set_by = NULL, status_set_at = NULL
+    UPDATE workspaces SET status_emoji = NULL, status_text = NULL, status_expires_at = NULL, status_set_by = NULL, status_set_at = NULL
     WHERE id = ${input.projectId}::uuid
   `, "presence.clear_project_status");
   return { success: true as const };

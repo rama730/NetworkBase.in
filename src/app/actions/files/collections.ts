@@ -2,7 +2,7 @@
 
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { projectNodes } from "@/lib/db/schema";
+import { workspaceNodes } from "@/lib/db/schema";
 import { createClient } from "@/lib/supabase/server";
 import { assertWorkspaceFileReadAccess, canReadWorkspaceTaskFiles, orgFileAccessSql } from "@/lib/files/internal-helpers";
 import { getFileAttributionByNodeId } from "@/lib/files/file-attribution";
@@ -46,9 +46,9 @@ async function loadEntries(access: Awaited<ReturnType<typeof authorize>>, projec
     const rows = await db.execute<{ task_id: string; node_id: string; role: TaskCollectionRole; tags: string[]; annotation?: string | null; position: number }>(taskFileEntriesSql(projectId, taskIds, deliverables, after, query, role));
     const nodeIds = rows.map(r => r.node_id);
     if (!nodeIds.length) return new Map(taskIds.map(taskId => [taskId, { entries: [], nextFileCursor: null }]));
-    const nodes = await db.query.projectNodes.findMany({
+    const nodes = await db.query.workspaceNodes.findMany({
         // No cap here: the selection is already bounded per group (COR-011), and a cap dropped files.
-        where: and(eq(projectNodes.projectId, projectId), isNull(projectNodes.deletedAt), inArray(projectNodes.id, nodeIds), orgFileAccessSql(access)),
+        where: and(eq(workspaceNodes.projectId, projectId), isNull(workspaceNodes.deletedAt), inArray(workspaceNodes.id, nodeIds), orgFileAccessSql(access)),
     });
     const attribution = await getFileAttributionByNodeId(nodes);
     const byId = new Map(nodes.map(node => [node.id, { ...node, ...attribution.get(node.id) } as WorkspaceNodeWithAttribution]));
@@ -77,7 +77,7 @@ async function loadEntries(access: Awaited<ReturnType<typeof authorize>>, projec
 export async function getTaskFileGroups(projectId: string, options: { deliverables?: boolean; cursor?: string; fileCursor?: string; query?: string; taskId?: string; role?: TaskCollectionRole } = {}) {
     const access = await authorize(projectId);
     // In an organization, members see only their own copies' groups and no Admins-only files (report §23.5).
-    const orgRule = orgFileAccessSql(access, { projectId: sql`n.project_id`, path: sql`n.path`, taskId: sql`t.id` });
+    const orgRule = orgFileAccessSql(access, { projectId: sql`n.workspace_id`, path: sql`n.path`, taskId: sql`t.id` });
     // Groups are newest activity first; the cursor is "<updated_at ISO>~<task id>".
     const [cursorAt, cursorId] = options.cursor?.split("~") ?? [];
     if (options.cursor && (!cursorId || !UUID_RE.test(cursorId) || !/^[0-9][0-9:. +\-]{9,39}$/.test(cursorAt ?? ""))) throw new Error("Invalid task cursor");
@@ -93,7 +93,7 @@ export async function getTaskFileGroups(projectId: string, options: { deliverabl
             max(coalesce(fv.uploaded_at, n.updated_at)) AS updated_at,
             max(coalesce(fv.uploaded_at, n.updated_at))::text AS cursor_at
         FROM tasks t JOIN attachments a ON a.task_id = t.id
-        JOIN project_nodes n ON n.id = a.node_id
+        JOIN workspace_nodes n ON n.id = a.node_id
         LEFT JOIN file_versions fv ON fv.node_id = n.id AND fv.version = n.current_version
         WHERE ${options.deliverables ? sql`a.role = 'deliverable'` : sql`a.role IN ('deliverable', 'working', 'reference')`}
             ${options.role ? sql`AND a.role = ${options.role}` : sql``}

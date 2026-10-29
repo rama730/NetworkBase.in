@@ -2,7 +2,7 @@ import { and, asc, inArray, isNull, lt, sql } from "drizzle-orm";
 
 import { inngest } from "../client";
 import { db } from "@/lib/db";
-import { projects } from "@/lib/db/schema";
+import { workspaces } from "@/lib/db/schema";
 import { clearSealedGithubTokenFromImportSource } from "@/lib/github/repo-security";
 import { logger } from "@/lib/logger";
 
@@ -18,7 +18,7 @@ const STALE_RECONCILE_AGE_MINUTES = (() => {
   return Math.min(24 * 60, Math.floor(raw));
 })();
 
-const IN_PROGRESS_SYNC_STATUSES: Array<(typeof projects.$inferSelect)["syncStatus"]> = [
+const IN_PROGRESS_SYNC_STATUSES: Array<(typeof workspaces.$inferSelect)["syncStatus"]> = [
   "pending",
   "cloning",
   "indexing",
@@ -78,20 +78,20 @@ export const projectImportStaleReconcile = inngest.createFunction(
 
     const staleProjects = await db
       .select({
-        id: projects.id,
-        syncStatus: projects.syncStatus,
-        importSource: projects.importSource,
-        updatedAt: projects.updatedAt,
+        id: workspaces.id,
+        syncStatus: workspaces.syncStatus,
+        importSource: workspaces.importSource,
+        updatedAt: workspaces.updatedAt,
       })
-      .from(projects)
+      .from(workspaces)
       .where(
         and(
-          inArray(projects.syncStatus, IN_PROGRESS_SYNC_STATUSES),
-          lt(projects.updatedAt, staleBefore),
-          isNull(projects.deletedAt),
+          inArray(workspaces.syncStatus, IN_PROGRESS_SYNC_STATUSES),
+          lt(workspaces.updatedAt, staleBefore),
+          isNull(workspaces.deletedAt),
         ),
       )
-      .orderBy(asc(projects.updatedAt))
+      .orderBy(asc(workspaces.updatedAt))
       .limit(STALE_RECONCILE_BATCH_SIZE);
 
     if (staleProjects.length === 0) {
@@ -117,24 +117,24 @@ export const projectImportStaleReconcile = inngest.createFunction(
         if (sourceType === "upload") uploadReconciled += 1;
         
         const nextImportSource = buildFailedImportSource(project.importSource, reason, nowIso);
-        return sql`WHEN ${projects.id} = ${project.id} THEN ${JSON.stringify(nextImportSource)}::jsonb`;
+        return sql`WHEN ${workspaces.id} = ${project.id} THEN ${JSON.stringify(nextImportSource)}::jsonb`;
     });
 
     const updated = await db
-        .update(projects)
+        .update(workspaces)
         .set({
             syncStatus: "failed",
-            importSource: sql`CASE ${sql.join(cases, sql` `)} ELSE ${projects.importSource} END`,
+            importSource: sql`CASE ${sql.join(cases, sql` `)} ELSE ${workspaces.importSource} END`,
             updatedAt: now,
         })
         .where(
             and(
-                inArray(projects.id, projectIds),
-                inArray(projects.syncStatus, IN_PROGRESS_SYNC_STATUSES),
-                lt(projects.updatedAt, staleBefore),
+                inArray(workspaces.id, projectIds),
+                inArray(workspaces.syncStatus, IN_PROGRESS_SYNC_STATUSES),
+                lt(workspaces.updatedAt, staleBefore),
             ),
         )
-        .returning({ id: projects.id });
+        .returning({ id: workspaces.id });
 
     reconciled = updated.length;
     const skippedRace = staleProjects.length - reconciled;

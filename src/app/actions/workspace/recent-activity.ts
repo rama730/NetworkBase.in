@@ -3,7 +3,7 @@
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
-import { githubSyncRuns, profiles, projectMembers, projectNodeEvents, projectNodes, taskActivityEvents, tasks } from "@/lib/db/schema";
+import { githubSyncRuns, profiles, workspaceMembers, workspaceNodeEvents, workspaceNodes, taskActivityEvents, tasks } from "@/lib/db/schema";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { orgFileAccessSql } from "@/lib/files/internal-helpers";
 import { orgTaskReadFilter } from "@/lib/organizations/assignments";
@@ -26,27 +26,27 @@ export async function readWorkspaceRecentActivityAction(projectId: string): Prom
   const projectHref = `/workspaces/${encodeURIComponent(access.project.slug || projectId)}`;
 
   const memberEventsPromise = db.select({
-    id: projectNodeEvents.id,
-    type: projectNodeEvents.type,
-    metadata: projectNodeEvents.metadata,
-    createdAt: projectNodeEvents.createdAt,
+    id: workspaceNodeEvents.id,
+    type: workspaceNodeEvents.type,
+    metadata: workspaceNodeEvents.metadata,
+    createdAt: workspaceNodeEvents.createdAt,
     name: member.fullName,
     username: member.username,
     memberId: member.id,
-  }).from(projectNodeEvents)
-    .innerJoin(projectMembers, and(
-      eq(projectMembers.projectId, projectId),
-      sql`${projectNodeEvents.metadata}->>'targetUserId' = ${projectMembers.userId}::text`,
+  }).from(workspaceNodeEvents)
+    .innerJoin(workspaceMembers, and(
+      eq(workspaceMembers.projectId, projectId),
+      sql`${workspaceNodeEvents.metadata}->>'targetUserId' = ${workspaceMembers.userId}::text`,
     ))
-    .innerJoin(member, and(eq(member.id, projectMembers.userId), isNull(member.deletedAt)))
+    .innerJoin(member, and(eq(member.id, workspaceMembers.userId), isNull(member.deletedAt)))
     .where(and(
-      eq(projectNodeEvents.projectId, projectId),
-      inArray(projectNodeEvents.type, ["project_member.added", "project_member.role_changed"]),
-      sql`(${projectNodeEvents.type} = 'project_member.role_changed' OR
-        coalesce(${projectNodeEvents.metadata}->>'previousRole', '') <> coalesce(${projectNodeEvents.metadata}->>'nextRole', ''))`,
+      eq(workspaceNodeEvents.projectId, projectId),
+      inArray(workspaceNodeEvents.type, ["project_member.added", "project_member.role_changed"]),
+      sql`(${workspaceNodeEvents.type} = 'project_member.role_changed' OR
+        coalesce(${workspaceNodeEvents.metadata}->>'previousRole', '') <> coalesce(${workspaceNodeEvents.metadata}->>'nextRole', ''))`,
       audience.requirePublicProfile ? eq(member.visibility, "public") : undefined,
     ))
-    .orderBy(desc(projectNodeEvents.createdAt), desc(projectNodeEvents.id)).limit(3);
+    .orderBy(desc(workspaceNodeEvents.createdAt), desc(workspaceNodeEvents.id)).limit(3);
 
   const taskEventsPromise = audience.mayReadTasks
     ? db.select({ id: taskActivityEvents.id, eventType: taskActivityEvents.eventType, payload: taskActivityEvents.payload, createdAt: taskActivityEvents.createdAt,
@@ -62,30 +62,30 @@ export async function readWorkspaceRecentActivityAction(projectId: string): Prom
     : Promise.resolve([]);
 
   const fileEventsPromise = audience.mayReadFiles
-    ? db.select({ id: projectNodeEvents.id, createdAt: projectNodeEvents.createdAt,
-      nodeId: projectNodes.id, name: projectNodes.name, path: projectNodes.path, taskId: projectNodes.taskId,
-      metadata: projectNodes.metadata, actorName: actor.fullName, actorUsername: actor.username, actorVisibility: actor.visibility })
-      .from(projectNodeEvents)
-      .innerJoin(projectNodes, and(eq(projectNodes.id, projectNodeEvents.nodeId), eq(projectNodes.projectId, projectId),
-        eq(projectNodes.type, "file"), isNull(projectNodes.deletedAt)))
-      .leftJoin(actor, and(eq(actor.id, projectNodeEvents.actorId), isNull(actor.deletedAt)))
-      .where(and(eq(projectNodeEvents.projectId, projectId), eq(projectNodeEvents.type, "create_file"),
+    ? db.select({ id: workspaceNodeEvents.id, createdAt: workspaceNodeEvents.createdAt,
+      nodeId: workspaceNodes.id, name: workspaceNodes.name, path: workspaceNodes.path, taskId: workspaceNodes.taskId,
+      metadata: workspaceNodes.metadata, actorName: actor.fullName, actorUsername: actor.username, actorVisibility: actor.visibility })
+      .from(workspaceNodeEvents)
+      .innerJoin(workspaceNodes, and(eq(workspaceNodes.id, workspaceNodeEvents.nodeId), eq(workspaceNodes.projectId, projectId),
+        eq(workspaceNodes.type, "file"), isNull(workspaceNodes.deletedAt)))
+      .leftJoin(actor, and(eq(actor.id, workspaceNodeEvents.actorId), isNull(actor.deletedAt)))
+      .where(and(eq(workspaceNodeEvents.projectId, projectId), eq(workspaceNodeEvents.type, "create_file"),
         // ...nor Admins-only files (report §23.3).
         orgFileAccessSql(access),
-        isMember ? undefined : sql`coalesce(${projectNodes.metadata}->>'visibility', 'public') = 'public'
-          AND coalesce(${projectNodes.metadata}->'privacy'->>'visibility', 'public') = 'public'
-          AND coalesce(${projectNodes.metadata}->>'isSystem', 'false') <> 'true'
-          AND coalesce(${projectNodes.metadata}->>'publicVisible', 'true') <> 'false'
-          AND coalesce(${projectNodes.metadata}->'privacy'->>'publicVisible', 'true') <> 'false'
-          AND coalesce(${projectNodes.metadata}->'privacy'->>'private', 'false') <> 'true'
-          AND coalesce(${projectNodes.metadata}->'analytics'->>'publicVisible', 'true') <> 'false'
-          AND coalesce(${projectNodes.metadata}->>'analyticsVisible', 'true') <> 'false'
-          AND coalesce(${projectNodes.metadata}->'analytics'->>'analyticsVisible', 'true') <> 'false'`,
+        isMember ? undefined : sql`coalesce(${workspaceNodes.metadata}->>'visibility', 'public') = 'public'
+          AND coalesce(${workspaceNodes.metadata}->'privacy'->>'visibility', 'public') = 'public'
+          AND coalesce(${workspaceNodes.metadata}->>'isSystem', 'false') <> 'true'
+          AND coalesce(${workspaceNodes.metadata}->>'publicVisible', 'true') <> 'false'
+          AND coalesce(${workspaceNodes.metadata}->'privacy'->>'publicVisible', 'true') <> 'false'
+          AND coalesce(${workspaceNodes.metadata}->'privacy'->>'private', 'false') <> 'true'
+          AND coalesce(${workspaceNodes.metadata}->'analytics'->>'publicVisible', 'true') <> 'false'
+          AND coalesce(${workspaceNodes.metadata}->>'analyticsVisible', 'true') <> 'false'
+          AND coalesce(${workspaceNodes.metadata}->'analytics'->>'analyticsVisible', 'true') <> 'false'`,
         isMember ? undefined : audience.mayReadTaskFiles
-          ? sql`(${projectNodes.path} NOT LIKE '/.system%' OR ${projectNodes.taskId} IS NOT NULL)`
-          : and(isNull(projectNodes.taskId), sql`${projectNodes.path} NOT LIKE '/.system%'`),
+          ? sql`(${workspaceNodes.path} NOT LIKE '/.system%' OR ${workspaceNodes.taskId} IS NOT NULL)`
+          : and(isNull(workspaceNodes.taskId), sql`${workspaceNodes.path} NOT LIKE '/.system%'`),
       ))
-      .orderBy(desc(projectNodeEvents.createdAt), desc(projectNodeEvents.id)).limit(3)
+      .orderBy(desc(workspaceNodeEvents.createdAt), desc(workspaceNodeEvents.id)).limit(3)
     : Promise.resolve([]);
 
   const githubEventsPromise = db.select({ id: githubSyncRuns.id, manifest: githubSyncRuns.manifest, result: githubSyncRuns.result,

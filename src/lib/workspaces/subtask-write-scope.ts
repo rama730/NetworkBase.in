@@ -1,7 +1,7 @@
 import "server-only";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { projectMembers, projects, taskSubtasks, tasks } from "@/lib/db/schema";
+import { workspaceMembers, workspaces, taskSubtasks, tasks } from "@/lib/db/schema";
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 // COR-023: authority and the live task are read in the write transaction. FOR SHARE on the project
@@ -22,10 +22,10 @@ export async function lockSubtaskWriteScope(
     owner_id: string;
     role: string | null;
   }>(sql`
-        SELECT t.id, t.project_id, p.owner_id, m.role
+        SELECT t.id, t.workspace_id AS project_id, p.owner_id, m.role
         FROM ${tasks} t
-        JOIN ${projects} p ON p.id = t.project_id AND p.deleted_at IS NULL
-        LEFT JOIN ${projectMembers} m ON m.project_id = p.id AND m.user_id = ${userId}
+        JOIN ${workspaces} p ON p.id = t.workspace_id AND p.deleted_at IS NULL
+        LEFT JOIN ${workspaceMembers} m ON m.workspace_id = p.id AND m.user_id = ${userId}
         WHERE ${match} AND t.deleted_at IS NULL
         LIMIT 1
         FOR SHARE OF t, p

@@ -14,7 +14,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { fileKind } from "@/components/workspaces/v2/utils/fileKind";
 import {
   isAssetKind,
@@ -32,7 +32,7 @@ type NodeInit = {
   size?: number | null;
 };
 
-function file(init: NodeInit): ProjectNode {
+function file(init: NodeInit): WorkspaceNode {
   return {
     id: "n1",
     projectId: "proj-1",
@@ -51,7 +51,7 @@ function file(init: NodeInit): ProjectNode {
     createdAt: new Date("2026-01-01T00:00:00Z"),
     updatedAt: new Date("2026-01-01T00:00:00Z"),
     deletedAt: null,
-  } as ProjectNode;
+  } as WorkspaceNode;
 }
 
 // ---------------------------------------------------------------------------

@@ -41,12 +41,12 @@ test("COR-048: project, draft and sprint deletes recheck their preconditions und
   const source = projectActionsSource();
   const body = (name: string) => source.slice(source.indexOf(name), source.indexOf("\nexport ", source.indexOf(name) + name.length));
   const project = body("export async function deleteWorkspace(");
-  assert.match(project, /\.for\("update"\)[\s\S]*countUnregisteredWorkspaceStorage\(projectId, tx\)[\s\S]*tx\s*\.delete\(projects\)/);
+  assert.match(project, /\.for\("update"\)[\s\S]*countUnregisteredWorkspaceStorage\(projectId, tx\)[\s\S]*tx\s*\.delete\(workspaces\)/);
   const draft = body("export async function deleteWorkspaceDraftAction(");
   assert.match(draft, /locked\.status !== "draft"/);
-  assert.match(draft, /eq\(projects\.status, "draft"\)/);
+  assert.match(draft, /eq\(workspaces\.status, "draft"\)/);
   const sprint = body("export async function deleteSprintAction(");
-  assert.match(sprint, /\.for\("update"\)[\s\S]*has_history[\s\S]*eq\(projectSprints\.status, "planning"\)/);
+  assert.match(sprint, /\.for\("update"\)[\s\S]*has_history[\s\S]*eq\(workspaceSprints\.status, "planning"\)/);
 });
 
 test("AUTH-006: account deletion requires a server-verified step-up and is not a server action", () => {

@@ -71,7 +71,7 @@ export async function createTaskFromMessage(input: { channelId: string; title: s
   if (!takeSendToken(user.id)) return { success: false as const, error: "chat_rate_limited" };
   try {
     const projectId = await chatValue<string | null>(sql`
-      SELECT project_id AS value FROM chat_channels
+      SELECT workspace_id AS value FROM chat_channels
       WHERE id = ${input.channelId}::uuid AND app_private.chat_is_member(id, ${user.id}::uuid)
     `);
     if (!projectId) return { success: false as const, error: "chat_task_needs_project" };

@@ -5,7 +5,7 @@
 // Requirements: Req 2.2, Req 2.6, Req 15.14.
 // See design.md § FilesTabSidebar for the authoritative contract.
 
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 
 /**
  * Fixed sidebar width in pixels when visible. Derived here (not inside
@@ -30,7 +30,7 @@ export const FILES_TAB_SIDEBAR_WIDTH_PX = 240;
  * React.
  */
 export function computeVisibleIdsForSearch(
-  nodesById: Record<string, ProjectNode>,
+  nodesById: Record<string, WorkspaceNode>,
   rawQuery: string,
 ): Set<string> | null {
   const query = rawQuery.trim().toLowerCase();
@@ -51,7 +51,7 @@ export function computeVisibleIdsForSearch(
     let guard = 0;
     while (cursor && guard < 256 && !visible.has(cursor)) {
       visible.add(cursor);
-      const parent: ProjectNode | undefined = nodesById[cursor];
+      const parent: WorkspaceNode | undefined = nodesById[cursor];
       cursor = parent?.parentId ?? null;
       guard += 1;
     }

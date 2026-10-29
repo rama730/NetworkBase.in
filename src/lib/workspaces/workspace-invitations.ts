@@ -2,11 +2,11 @@ import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import {
-    projectGuidanceAppointments,
-    projectInvitations,
-    projectNodeEvents,
-    projectOpenRoles,
-    projects,
+    workspaceMentors,
+    workspaceInvitations,
+    workspaceNodeEvents,
+    workspaceOpenRoles,
+    workspaces,
 } from "@/lib/db/schema";
 import { resolvePrivacyRelationship } from "@/lib/privacy/resolver";
 import { getGuidanceCapacityState } from "@/lib/workspaces/guidance-capacity";
@@ -51,7 +51,7 @@ async function lockProject(executor: InvitationExecutor, projectId: string) {
         status: string | null;
     }>(sql`
         SELECT id, owner_id, title, slug, status
-        FROM ${projects}
+        FROM ${workspaces}
         WHERE id = ${projectId} AND deleted_at IS NULL
         FOR UPDATE
     `);
@@ -71,10 +71,10 @@ async function lockGuidanceCapacity(executor: InvitationExecutor, guideUserId: s
 async function activeGuidanceCount(executor: InvitationExecutor, guideUserId: string) {
     const [row] = await executor
         .select({ count: sql<number>`count(*)::int` })
-        .from(projectGuidanceAppointments)
+        .from(workspaceMentors)
         .where(and(
-            eq(projectGuidanceAppointments.guideUserId, guideUserId),
-            eq(projectGuidanceAppointments.status, "active"),
+            eq(workspaceMentors.guideUserId, guideUserId),
+            eq(workspaceMentors.status, "active"),
         ));
     return row?.count ?? 0;
 }
@@ -93,54 +93,54 @@ export async function createWorkspaceInvitation(input: CreateWorkspaceInvitation
         if (idempotencyKey) {
             const [existing] = await tx
                 .select({
-                    id: projectInvitations.id,
-                    inviterId: projectInvitations.inviterId,
-                    idempotencyKey: projectInvitations.idempotencyKey,
-                    candidateId: projectInvitations.candidateId,
-                    projectId: projectInvitations.projectId,
-                    roleId: projectInvitations.roleId,
-                    roleTitle: projectInvitations.roleTitle,
-                    projectTitle: projectInvitations.projectTitle,
-                    kind: projectInvitations.kind,
-                    guidanceLabel: projectInvitations.guidanceLabel,
-                    status: projectInvitations.status,
-                    expiresAt: projectInvitations.expiresAt,
-                    reviewAt: projectInvitations.reviewAt,
-                    note: projectInvitations.note,
-                    createdAt: projectInvitations.createdAt,
-                    updatedAt: projectInvitations.updatedAt,
+                    id: workspaceInvitations.id,
+                    inviterId: workspaceInvitations.inviterId,
+                    idempotencyKey: workspaceInvitations.idempotencyKey,
+                    candidateId: workspaceInvitations.candidateId,
+                    projectId: workspaceInvitations.projectId,
+                    roleId: workspaceInvitations.roleId,
+                    roleTitle: workspaceInvitations.roleTitle,
+                    projectTitle: workspaceInvitations.projectTitle,
+                    kind: workspaceInvitations.kind,
+                    guidanceLabel: workspaceInvitations.guidanceLabel,
+                    status: workspaceInvitations.status,
+                    expiresAt: workspaceInvitations.expiresAt,
+                    reviewAt: workspaceInvitations.reviewAt,
+                    note: workspaceInvitations.note,
+                    createdAt: workspaceInvitations.createdAt,
+                    updatedAt: workspaceInvitations.updatedAt,
                 })
-                .from(projectInvitations)
+                .from(workspaceInvitations)
                 .where(and(
-                    eq(projectInvitations.inviterId, input.actorId),
-                    eq(projectInvitations.idempotencyKey, idempotencyKey),
+                    eq(workspaceInvitations.inviterId, input.actorId),
+                    eq(workspaceInvitations.idempotencyKey, idempotencyKey),
                 ))
                 .limit(1);
-            if (existing) return { invitation: existing as unknown as typeof projectInvitations.$inferSelect, created: false, projectSlug: null };
+            if (existing) return { invitation: existing as unknown as typeof workspaceInvitations.$inferSelect, created: false, projectSlug: null };
         }
 
         const project = await lockProject(tx, input.projectId);
         if (!project || project.status === "archived") throw new Error("Workspace is unavailable");
 
-        await tx.update(projectInvitations)
+        await tx.update(workspaceInvitations)
             .set({ status: "expired", resolvedAt: now, updatedAt: now })
             .where(and(
-                eq(projectInvitations.projectId, input.projectId),
-                eq(projectInvitations.status, "pending"),
+                eq(workspaceInvitations.projectId, input.projectId),
+                eq(workspaceInvitations.status, "pending"),
                 // Keep this comparison in PostgreSQL. Raw SQL interpolation does not
                 // encode JavaScript Date values for the postgres driver, which would
                 // otherwise prevent every new invitation from being created.
-                sql`${projectInvitations.expiresAt} <= now()`,
+                sql`${workspaceInvitations.expiresAt} <= now()`,
             ));
 
         const preflightRows = (await tx.execute(sql`
             SELECT 
                 pm_actor.role AS actor_role,
                 EXISTS(SELECT 1 FROM profiles WHERE id = ${input.candidateId}::uuid) AS candidate_exists,
-                EXISTS(SELECT 1 FROM project_members WHERE project_id = ${input.projectId}::uuid AND user_id = ${input.candidateId}::uuid) AS candidate_is_member,
-                EXISTS(SELECT 1 FROM role_applications WHERE project_id = ${input.projectId}::uuid AND applicant_id = ${input.candidateId}::uuid AND status = 'pending') AS has_pending_app
+                EXISTS(SELECT 1 FROM workspace_members WHERE workspace_id = ${input.projectId}::uuid AND user_id = ${input.candidateId}::uuid) AS candidate_is_member,
+                EXISTS(SELECT 1 FROM role_applications WHERE workspace_id = ${input.projectId}::uuid AND applicant_id = ${input.candidateId}::uuid AND status = 'pending') AS has_pending_app
             FROM (SELECT 1) _
-            LEFT JOIN project_members pm_actor ON pm_actor.project_id = ${input.projectId}::uuid AND pm_actor.user_id = ${input.actorId}::uuid
+            LEFT JOIN workspace_members pm_actor ON pm_actor.workspace_id = ${input.projectId}::uuid AND pm_actor.user_id = ${input.actorId}::uuid
         `)) as unknown as Array<{
             actor_role: string | null;
             candidate_exists: boolean;
@@ -167,22 +167,22 @@ export async function createWorkspaceInvitation(input: CreateWorkspaceInvitation
         if (input.kind === "ordinary_role") {
             if (!input.roleId) throw new Error("Select an available role");
             const [role] = await tx
-                .select({ id: projectOpenRoles.id, title: projectOpenRoles.title, role: projectOpenRoles.role, filled: projectOpenRoles.filled, count: projectOpenRoles.count })
-                .from(projectOpenRoles)
-                .where(and(eq(projectOpenRoles.id, input.roleId), eq(projectOpenRoles.projectId, input.projectId)))
+                .select({ id: workspaceOpenRoles.id, title: workspaceOpenRoles.title, role: workspaceOpenRoles.role, filled: workspaceOpenRoles.filled, count: workspaceOpenRoles.count })
+                .from(workspaceOpenRoles)
+                .where(and(eq(workspaceOpenRoles.id, input.roleId), eq(workspaceOpenRoles.projectId, input.projectId)))
                 .limit(1);
             if (!role || (role.filled ?? 0) >= (role.count ?? 0)) throw new Error("This workspace role is no longer available");
             roleId = role.id;
             roleTitle = cleanOptionalText(role.title || role.role || "Member", 160) || "Member";
 
             const [pending] = await tx
-                .select({ id: projectInvitations.id })
-                .from(projectInvitations)
+                .select({ id: workspaceInvitations.id })
+                .from(workspaceInvitations)
                 .where(and(
-                    eq(projectInvitations.projectId, input.projectId),
-                    eq(projectInvitations.candidateId, input.candidateId),
-                    eq(projectInvitations.kind, "ordinary_role"),
-                    eq(projectInvitations.status, "pending"),
+                    eq(workspaceInvitations.projectId, input.projectId),
+                    eq(workspaceInvitations.candidateId, input.candidateId),
+                    eq(workspaceInvitations.kind, "ordinary_role"),
+                    eq(workspaceInvitations.status, "pending"),
                 ))
                 .limit(1);
             if (pending) throw new Error("An invitation for this workspace is already pending");
@@ -191,20 +191,20 @@ export async function createWorkspaceInvitation(input: CreateWorkspaceInvitation
             if (!guidanceLabel) throw new Error("Enter a mentor focus");
 
             const [pending] = await tx
-                .select({ id: projectInvitations.id })
-                .from(projectInvitations)
+                .select({ id: workspaceInvitations.id })
+                .from(workspaceInvitations)
                 .where(and(
-                    eq(projectInvitations.projectId, input.projectId),
-                    eq(projectInvitations.kind, "guidance_appointment"),
-                    eq(projectInvitations.status, "pending"),
+                    eq(workspaceInvitations.projectId, input.projectId),
+                    eq(workspaceInvitations.kind, "guidance_appointment"),
+                    eq(workspaceInvitations.status, "pending"),
                 ))
                 .limit(1);
             const [active] = await tx
-                .select({ id: projectGuidanceAppointments.id })
-                .from(projectGuidanceAppointments)
+                .select({ id: workspaceMentors.id })
+                .from(workspaceMentors)
                 .where(and(
-                    eq(projectGuidanceAppointments.projectId, input.projectId),
-                    eq(projectGuidanceAppointments.status, "active"),
+                    eq(workspaceMentors.projectId, input.projectId),
+                    eq(workspaceMentors.status, "active"),
                 ))
                 .limit(1);
             if (pending || active) throw new Error("This workspace already has a pending or active guidance appointment");
@@ -214,7 +214,7 @@ export async function createWorkspaceInvitation(input: CreateWorkspaceInvitation
         }
 
         const [invitation] = await tx
-            .insert(projectInvitations)
+            .insert(workspaceInvitations)
             .values({
                 projectId: input.projectId,
                 inviterId: input.actorId,
@@ -249,9 +249,9 @@ export async function resolveWorkspaceInvitationInternal(
     input: { invitationId: string; actorId: string; action: "accept" | "decline" | "cancel" },
 ) {
     const [target] = await executor
-        .select({ id: projectInvitations.id, projectId: projectInvitations.projectId })
-        .from(projectInvitations)
-        .where(eq(projectInvitations.id, input.invitationId))
+        .select({ id: workspaceInvitations.id, projectId: workspaceInvitations.projectId })
+        .from(workspaceInvitations)
+        .where(eq(workspaceInvitations.id, input.invitationId))
         .limit(1);
     if (!target) throw new Error("Invitation not found");
 
@@ -261,8 +261,8 @@ export async function resolveWorkspaceInvitationInternal(
 
     const [invitation] = await executor
         .select()
-        .from(projectInvitations)
-        .where(eq(projectInvitations.id, input.invitationId))
+        .from(workspaceInvitations)
+        .where(eq(workspaceInvitations.id, input.invitationId))
         .for("update")
         .limit(1);
     if (!invitation) throw new Error("Invitation not found");
@@ -270,9 +270,9 @@ export async function resolveWorkspaceInvitationInternal(
 
     const now = new Date();
     if (invitation.expiresAt <= now) {
-        await executor.update(projectInvitations)
+        await executor.update(workspaceInvitations)
             .set({ status: "expired", resolvedAt: now, updatedAt: now })
-            .where(eq(projectInvitations.id, invitation.id));
+            .where(eq(workspaceInvitations.id, invitation.id));
         throw new Error("This invitation has expired");
     }
 
@@ -280,16 +280,16 @@ export async function resolveWorkspaceInvitationInternal(
     const isLead = project.owner_id === input.actorId;
     if (input.action === "cancel") {
         if (!isLead && invitation.inviterId !== input.actorId) throw new Error("Only the person who invited them or the owner can cancel this invitation");
-        await executor.update(projectInvitations)
+        await executor.update(workspaceInvitations)
             .set({ status: "cancelled", resolvedAt: now, resolvedBy: input.actorId, updatedAt: now })
-            .where(eq(projectInvitations.id, invitation.id));
+            .where(eq(workspaceInvitations.id, invitation.id));
         return { invitation, lifecycle: null, appointment: null };
     }
     if (!isCandidate) throw new Error("Only the invited person can resolve this invitation");
     if (input.action === "decline") {
-        await executor.update(projectInvitations)
+        await executor.update(workspaceInvitations)
             .set({ status: "declined", resolvedAt: now, resolvedBy: input.actorId, updatedAt: now })
-            .where(eq(projectInvitations.id, invitation.id));
+            .where(eq(workspaceInvitations.id, invitation.id));
         return { invitation, lifecycle: null, appointment: null };
     }
 
@@ -306,14 +306,14 @@ export async function resolveWorkspaceInvitationInternal(
 
     if (invitation.candidateId === project.owner_id) throw new Error("The owner can’t also be a mentor");
 
-    let appointment: typeof projectGuidanceAppointments.$inferSelect | null = null;
+    let appointment: typeof workspaceMentors.$inferSelect | null = null;
     if (invitation.kind === "guidance_appointment") {
         const [active] = await executor
-            .select({ id: projectGuidanceAppointments.id })
-            .from(projectGuidanceAppointments)
+            .select({ id: workspaceMentors.id })
+            .from(workspaceMentors)
             .where(and(
-                eq(projectGuidanceAppointments.projectId, invitation.projectId),
-                eq(projectGuidanceAppointments.status, "active"),
+                eq(workspaceMentors.projectId, invitation.projectId),
+                eq(workspaceMentors.status, "active"),
             ))
             .limit(1);
         if (active) throw new Error("This workspace already has an active guidance appointment");
@@ -334,7 +334,7 @@ export async function resolveWorkspaceInvitationInternal(
 
     if (invitation.kind === "guidance_appointment") {
         const [createdAppointment] = await executor
-            .insert(projectGuidanceAppointments)
+            .insert(workspaceMentors)
             .values({
                 projectId: invitation.projectId,
                 guideUserId: invitation.candidateId,
@@ -349,7 +349,7 @@ export async function resolveWorkspaceInvitationInternal(
             })
             .returning();
         appointment = createdAppointment ?? null;
-        await executor.insert(projectNodeEvents).values({
+        await executor.insert(workspaceNodeEvents).values({
             projectId: invitation.projectId,
             actorId: input.actorId,
             nodeId: null,
@@ -364,14 +364,14 @@ export async function resolveWorkspaceInvitationInternal(
         });
     }
 
-    await executor.update(projectInvitations)
+    await executor.update(workspaceInvitations)
         .set({ status: "accepted", resolvedAt: now, resolvedBy: input.actorId, updatedAt: now })
-        .where(eq(projectInvitations.id, invitation.id));
+        .where(eq(workspaceInvitations.id, invitation.id));
 
     return { invitation, lifecycle, appointment };
 }
 
-export function projectInvitationDisplayRole(invitation: typeof projectInvitations.$inferSelect) {
+export function projectInvitationDisplayRole(invitation: typeof workspaceInvitations.$inferSelect) {
     return invitation.kind === "guidance_appointment"
         ? invitation.guidanceLabel || "Mentor"
         : invitation.roleTitle || "Member";
@@ -382,13 +382,13 @@ export function projectInvitationDisplayRole(invitation: typeof projectInvitatio
 export async function countPendingInvitationsForCandidate(userId: string): Promise<number> {
     const [row] = await db
         .select({ value: sql<number>`count(*)::int` })
-        .from(projectInvitations)
-        .innerJoin(projects, eq(projects.id, projectInvitations.projectId))
+        .from(workspaceInvitations)
+        .innerJoin(workspaces, eq(workspaces.id, workspaceInvitations.projectId))
         .where(and(
-            eq(projectInvitations.candidateId, userId),
-            eq(projectInvitations.status, "pending"),
-            sql`${projectInvitations.expiresAt} > now()`,
-            sql`${projects.deletedAt} IS NULL`,
+            eq(workspaceInvitations.candidateId, userId),
+            eq(workspaceInvitations.status, "pending"),
+            sql`${workspaceInvitations.expiresAt} > now()`,
+            sql`${workspaces.deletedAt} IS NULL`,
         ));
     return Number(row?.value ?? 0);
 }

@@ -13,7 +13,7 @@ import { validateOrgHandle } from '@/lib/organizations/handle';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
-import { orgHandleHolds, profiles, projectMembers, projects, roleApplications, applicationEvents } from '@/lib/db/schema';
+import { orgHandleHolds, profiles, workspaceMembers, workspaces, roleApplications, applicationEvents } from '@/lib/db/schema';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { removeWorkspaceMemberInternal } from '@/lib/workspaces/collaborator-lifecycle';
 import { orgGrant, type OrgRole } from '@/lib/organizations/permissions';
@@ -166,7 +166,7 @@ export async function updateOrgSettingsAction(orgId: string, section: OrgSetting
     const settingsPatch: Record<string, unknown> = {
         changes: { [section]: { by: viewer.userId, byName: actor?.fullName ?? null, at: new Date().toISOString() } },
     };
-    const columns: Partial<typeof projects.$inferInsert> = {};
+    const columns: Partial<typeof workspaces.$inferInsert> = {};
     if (section === 'profile') {
         if ('org_type' in value) columns.orgType = value.org_type as typeof columns.orgType;
         if ('term_start' in value) columns.termStart = (value.term_start as string) || null;
@@ -202,12 +202,12 @@ export async function updateOrgSettingsAction(orgId: string, section: OrgSetting
 
     try {
         // jsonb || merges top-level keys; "changes" is merged one level deeper so other sections keep their footer.
-        await db.update(projects).set({
+        await db.update(workspaces).set({
             ...columns,
-            orgSettings: sql`${projects.orgSettings} || ${JSON.stringify({ ...settingsPatch, changes: undefined })}::jsonb
-                || jsonb_build_object('changes', coalesce(${projects.orgSettings}->'changes', '{}'::jsonb) || ${JSON.stringify(settingsPatch.changes)}::jsonb)`,
+            orgSettings: sql`${workspaces.orgSettings} || ${JSON.stringify({ ...settingsPatch, changes: undefined })}::jsonb
+                || jsonb_build_object('changes', coalesce(${workspaces.orgSettings}->'changes', '{}'::jsonb) || ${JSON.stringify(settingsPatch.changes)}::jsonb)`,
             updatedAt: new Date(),
-        }).where(and(eq(projects.id, orgId), isNull(projects.deletedAt)));
+        }).where(and(eq(workspaces.id, orgId), isNull(workspaces.deletedAt)));
     } catch {
         return { success: false, error: 'Check the term dates: the term must end after it starts.' };
     }
@@ -224,7 +224,7 @@ export async function regenerateJoinCodeAction(orgId: string): Promise<{ success
     for (let attempt = 0; attempt < 5; attempt += 1) {
         const joinCode = generateJoinCode();
         try {
-            await db.update(projects).set({ joinCode, updatedAt: new Date() }).where(eq(projects.id, orgId));
+            await db.update(workspaces).set({ joinCode, updatedAt: new Date() }).where(eq(workspaces.id, orgId));
             revalidateOrg(viewer.slug, orgId);
             // The other admins hear who changed it (report §26 A).
             const name = (await namesOf([viewer.userId])).get(viewer.userId) ?? 'an admin';
@@ -247,7 +247,7 @@ export async function renameOrgHandleAction(orgId: string, raw: string): Promise
     const handle = checked.handle;
 
     return db.transaction(async (tx) => {
-        const [org] = await tx.select({ slug: projects.slug, orgSettings: projects.orgSettings }).from(projects).where(eq(projects.id, orgId)).for('update').limit(1);
+        const [org] = await tx.select({ slug: workspaces.slug, orgSettings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, orgId)).for('update').limit(1);
         if (!org) return DENIED;
         if (org.slug === handle) return { success: true as const, handle };
         const changedAt = (org.orgSettings as { handleChangedAt?: string })?.handleChangedAt;
@@ -260,11 +260,11 @@ export async function renameOrgHandleAction(orgId: string, raw: string): Promise
         if (ownHold) await tx.delete(orgHandleHolds).where(eq(orgHandleHolds.handle, handle));
         else if (!(await isOrgHandleAvailable(handle))) return { success: false as const, error: `@${handle} is taken.` };
 
-        await tx.update(projects).set({
+        await tx.update(workspaces).set({
             slug: handle,
-            orgSettings: sql`${projects.orgSettings} || ${JSON.stringify({ handleChangedAt: new Date().toISOString() })}::jsonb`,
+            orgSettings: sql`${workspaces.orgSettings} || ${JSON.stringify({ handleChangedAt: new Date().toISOString() })}::jsonb`,
             updatedAt: new Date(),
-        }).where(eq(projects.id, orgId));
+        }).where(eq(workspaces.id, orgId));
         if (org.slug) {
             const heldUntil = new Date(Date.now() + ORG_LIMITS.handleHoldDays * 24 * 3600 * 1000);
             await tx.insert(orgHandleHolds).values({ handle: org.slug, orgId, heldUntil })
@@ -329,10 +329,10 @@ export async function updateMyOrgMembershipAction(orgId: string, patch: unknown)
     if (!viewer || viewer.role === 'visitor') return DENIED;
     const parsed = myMembershipSchema.safeParse(patch);
     if (!parsed.success) return { success: false, error: 'Titles are up to 60 characters.' };
-    await db.update(projectMembers).set({
+    await db.update(workspaceMembers).set({
         ...('title' in parsed.data ? { title: parsed.data.title || null } : {}),
         ...('show_on_profile' in parsed.data ? { showOnProfile: parsed.data.show_on_profile } : {}),
-    }).where(and(eq(projectMembers.projectId, orgId), eq(projectMembers.userId, viewer.userId)));
+    }).where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.userId, viewer.userId)));
     revalidateOrg(viewer.slug, orgId);
     return { success: true };
 }
@@ -366,8 +366,8 @@ type ChildViewer = {
 async function childViewer(projectId: string): Promise<ChildViewer | null> {
     const userId = await viewerId();
     if (!userId) return null;
-    const [project] = await db.select({ id: projects.id, ownerId: projects.ownerId, parentId: projects.parentId, visibility: projects.visibility, slug: projects.slug, orgSettings: projects.orgSettings, kind: projects.kind })
-        .from(projects).where(and(eq(projects.id, projectId), isNull(projects.deletedAt))).limit(1);
+    const [project] = await db.select({ id: workspaces.id, ownerId: workspaces.ownerId, parentId: workspaces.parentId, visibility: workspaces.visibility, slug: workspaces.slug, orgSettings: workspaces.orgSettings, kind: workspaces.kind })
+        .from(workspaces).where(and(eq(workspaces.id, projectId), isNull(workspaces.deletedAt))).limit(1);
     if (!project || project.kind !== 'project') return null;
     return { userId, project, isLead: project.ownerId === userId, parentRole: await readViewerOrgRole(project.parentId, userId) };
 }
@@ -379,9 +379,9 @@ const revalidateChild = (project: ChildViewer['project']) => revalidatePath(`/wo
 export async function requestDetachAction(projectId: string): Promise<{ success: true } | Failure> {
     const viewer = await childViewer(projectId);
     if (!viewer?.project.parentId || !viewer.isLead) return DENIED;
-    await db.update(projects).set({
-        orgSettings: sql`${projects.orgSettings} || ${JSON.stringify({ detachRequest: { by: viewer.userId, at: new Date().toISOString() } })}::jsonb`,
-    }).where(eq(projects.id, projectId));
+    await db.update(workspaces).set({
+        orgSettings: sql`${workspaces.orgSettings} || ${JSON.stringify({ detachRequest: { by: viewer.userId, at: new Date().toISOString() } })}::jsonb`,
+    }).where(eq(workspaces.id, projectId));
     revalidateChild(viewer.project);
     await notifyChildRequest(viewer.project.parentId, projectId, viewer.userId, (child, org) => `${child} wants to leave ${org}`);
     return { success: true };
@@ -390,7 +390,7 @@ export async function requestDetachAction(projectId: string): Promise<{ success:
 export async function cancelDetachRequestAction(projectId: string): Promise<{ success: true } | Failure> {
     const viewer = await childViewer(projectId);
     if (!viewer?.project.parentId || !(viewer.isLead || isAdminRole(viewer.parentRole))) return DENIED;
-    await db.update(projects).set({ orgSettings: sql`${projects.orgSettings} - 'detachRequest'` }).where(eq(projects.id, projectId));
+    await db.update(workspaces).set({ orgSettings: sql`${workspaces.orgSettings} - 'detachRequest'` }).where(eq(workspaces.id, projectId));
     revalidateChild(viewer.project);
     return { success: true };
 }
@@ -409,7 +409,7 @@ export async function detachChildAction(projectId: string): Promise<{ success: t
 export async function archiveChildAction(projectId: string): Promise<{ success: true } | Failure> {
     const viewer = await childViewer(projectId);
     if (!viewer?.project.parentId || !isAdminRole(viewer.parentRole)) return DENIED;
-    await db.update(projects).set({ status: 'archived', updatedAt: new Date() }).where(eq(projects.id, projectId));
+    await db.update(workspaces).set({ status: 'archived', updatedAt: new Date() }).where(eq(workspaces.id, projectId));
     revalidateChild(viewer.project);
     return { success: true };
 }
@@ -418,13 +418,13 @@ export async function archiveChildAction(projectId: string): Promise<{ success: 
 export async function setChildVisibilityAction(projectId: string, next: ChildVisibility): Promise<{ success: true } | Failure> {
     const viewer = await childViewer(projectId);
     if (!viewer?.project.parentId) return DENIED;
-    const [membership] = await db.select({ role: projectMembers.role }).from(projectMembers)
-        .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, viewer.userId))).limit(1);
+    const [membership] = await db.select({ role: workspaceMembers.role }).from(workspaceMembers)
+        .where(and(eq(workspaceMembers.projectId, projectId), eq(workspaceMembers.userId, viewer.userId))).limit(1);
     if (!(viewer.isLead || membership?.role === 'admin' || isAdminRole(viewer.parentRole))) return DENIED;
     const org = await readOrgCap(db, viewer.project.parentId);
     if (!org || !['public', 'org', 'private'].includes(next)) return DENIED;
     if (!allowedChildVisibilities(org.cap, org.orgPublic).includes(next)) return { success: false, error: 'The organization does not allow this visibility.' };
-    await db.update(projects).set({ visibility: next, updatedAt: new Date() }).where(eq(projects.id, projectId));
+    await db.update(workspaces).set({ visibility: next, updatedAt: new Date() }).where(eq(workspaces.id, projectId));
     revalidateChild(viewer.project);
     return { success: true };
 }
@@ -449,9 +449,9 @@ export async function moveWorkspaceToOrgAction(projectId: string, orgId: string)
         revalidateChild(viewer.project);
         return { success: true, outcome: 'moved' };
     }
-    await db.update(projects).set({
-        orgSettings: sql`${projects.orgSettings} || ${JSON.stringify({ moveInRequest: { orgId, by: viewer.userId, at: new Date().toISOString() } })}::jsonb`,
-    }).where(eq(projects.id, projectId));
+    await db.update(workspaces).set({
+        orgSettings: sql`${workspaces.orgSettings} || ${JSON.stringify({ moveInRequest: { orgId, by: viewer.userId, at: new Date().toISOString() } })}::jsonb`,
+    }).where(eq(workspaces.id, projectId));
     revalidateChild(viewer.project);
     await notifyChildRequest(orgId, projectId, viewer.userId, (child, orgTitle) => `${child} wants to join ${orgTitle}`);
     return { success: true, outcome: 'requested' };
@@ -469,8 +469,8 @@ async function notifyChildDecision(orgId: string, projectId: string, leadId: str
 }
 
 async function pendingMoveIn(projectId: string) {
-    const [project] = await db.select({ id: projects.id, slug: projects.slug, visibility: projects.visibility, ownerId: projects.ownerId, parentId: projects.parentId, orgSettings: projects.orgSettings })
-        .from(projects).where(and(eq(projects.id, projectId), isNull(projects.deletedAt))).limit(1);
+    const [project] = await db.select({ id: workspaces.id, slug: workspaces.slug, visibility: workspaces.visibility, ownerId: workspaces.ownerId, parentId: workspaces.parentId, orgSettings: workspaces.orgSettings })
+        .from(workspaces).where(and(eq(workspaces.id, projectId), isNull(workspaces.deletedAt))).limit(1);
     const request = (project?.orgSettings as { moveInRequest?: { orgId: string } } | null)?.moveInRequest;
     return project && request && !project.parentId ? { project, orgId: request.orgId } : null;
 }
@@ -495,7 +495,7 @@ export async function cancelMoveInAction(projectId: string): Promise<{ success: 
     const userId = await viewerId();
     const pending = userId ? await pendingMoveIn(projectId) : null;
     if (!pending || !(pending.project.ownerId === userId || isAdminRole(await readViewerOrgRole(pending.orgId, userId)))) return DENIED;
-    await db.update(projects).set({ orgSettings: sql`${projects.orgSettings} - 'moveInRequest'` }).where(eq(projects.id, projectId));
+    await db.update(workspaces).set({ orgSettings: sql`${workspaces.orgSettings} - 'moveInRequest'` }).where(eq(workspaces.id, projectId));
     revalidatePath(`/workspaces/${pending.project.slug ?? projectId}`);
     return { success: true };
 }
@@ -518,10 +518,10 @@ export async function listCreateLocationsAction(): Promise<Array<{ id: string; t
 export async function listMyOrganizationsAction(): Promise<Array<{ id: string; title: string }>> {
     const userId = await viewerId();
     if (!userId) return [];
-    return db.select({ id: projects.id, title: projects.title }).from(projects)
-        .where(and(eq(projects.kind, 'organization'), isNull(projects.deletedAt),
-            sql`(${projects.ownerId} = ${userId} OR EXISTS (SELECT 1 FROM ${projectMembers} m WHERE m.project_id = ${projects.id} AND m.user_id = ${userId}))`))
-        .orderBy(projects.title).limit(200);
+    return db.select({ id: workspaces.id, title: workspaces.title }).from(workspaces)
+        .where(and(eq(workspaces.kind, 'organization'), isNull(workspaces.deletedAt),
+            sql`(${workspaces.ownerId} = ${userId} OR EXISTS (SELECT 1 FROM ${workspaceMembers} m WHERE m.workspace_id = ${workspaces.id} AND m.user_id = ${userId}))`))
+        .orderBy(workspaces.title).limit(200);
 }
 
 export type OrgRosterPerson = { userId: string; name: string; username: string | null; avatarUrl: string | null; title: string | null; role: string; projectHint: string | null; skills?: string[] };
@@ -539,14 +539,14 @@ export async function listOrgRosterAction(orgId: string, query = '', adminsOnly 
     const byEmail = viewer.role === 'owner' || viewer.role === 'admin';
     const rows = await db.execute<{ user_id: string; full_name: string | null; username: string | null; avatar_url: string | null; title: string | null; role: string; hint: string | null; skills: string[] | null }>(sql`
         SELECT pm.user_id, p.full_name, p.username, p.avatar_url, pm.title, pm.role,
-               (SELECT c.title FROM ${projects} c JOIN ${projectMembers} cm ON cm.project_id = c.id
+               (SELECT c.title FROM ${workspaces} c JOIN ${workspaceMembers} cm ON cm.workspace_id = c.id
                  WHERE c.parent_id = ${orgId} AND c.deleted_at IS NULL AND cm.user_id = pm.user_id
                  ORDER BY c.created_at DESC LIMIT 1) AS hint,
                (SELECT array_agg(s.name ORDER BY s.name) FROM (SELECT sk.name FROM profile_skills ps JOIN skills sk ON sk.id = ps.skill_id
                  WHERE ps.profile_id = pm.user_id LIMIT 6) s) AS skills
-        FROM ${projectMembers} pm
+        FROM ${workspaceMembers} pm
         JOIN ${profiles} p ON p.id = pm.user_id
-        WHERE pm.project_id = ${orgId} AND pm.role IN ('owner', 'admin', 'member') AND p.deleted_at IS NULL
+        WHERE pm.workspace_id = ${orgId} AND pm.role IN ('owner', 'admin', 'member') AND p.deleted_at IS NULL
           AND (NOT ${adminsOnly} OR pm.role IN ('owner', 'admin'))
           AND (${q} = '' OR p.full_name ILIKE ${pattern} OR p.username ILIKE ${pattern} OR pm.title ILIKE ${pattern}
             OR (${byEmail} AND lower(p.email) = lower(${q}))
@@ -573,7 +573,7 @@ export async function listOrgRosterAction(orgId: string, query = '', adminsOnly 
 export async function listOutsidePeopleAction(orgId: string, query: string): Promise<OrgRosterPerson[]> {
     const viewer = await orgViewer(orgId, 'read');
     if (!viewer || viewer.role === 'visitor' || viewer.role === 'guest') return [];
-    const [org] = await db.select({ settings: projects.orgSettings }).from(projects).where(eq(projects.id, orgId)).limit(1);
+    const [org] = await db.select({ settings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
     if ((org?.settings as { outsidePeople?: unknown } | null)?.outsidePeople !== true) return [];
     const q = query.trim().replace(/^@/, '').slice(0, 64);
     if (q.length < 2) return [];
@@ -584,7 +584,7 @@ export async function listOutsidePeopleAction(orgId: string, query: string): Pro
         SELECT p.id, p.full_name, p.username, p.avatar_url, p.headline FROM ${profiles} p
         WHERE p.deleted_at IS NULL AND p.visibility = 'public' AND p.onboarding_status = 'completed' AND p.id <> ${viewer.userId}
           AND (p.username ILIKE ${pattern} OR p.full_name ILIKE ${pattern})
-          AND NOT EXISTS (SELECT 1 FROM ${projectMembers} pm WHERE pm.project_id = ${orgId} AND pm.user_id = p.id)
+          AND NOT EXISTS (SELECT 1 FROM ${workspaceMembers} pm WHERE pm.workspace_id = ${orgId} AND pm.user_id = p.id)
           AND NOT app_private.chat_is_blocked(${viewer.userId}::uuid, p.id)
         ORDER BY (p.username ILIKE ${`${q}%`}) DESC, p.full_name NULLS LAST LIMIT 20`);
     return Array.from(rows).map((row) => ({ userId: row.id, name: row.full_name || row.username || 'Someone', username: row.username, avatarUrl: row.avatar_url, title: row.headline, role: 'outside', projectHint: null }));
@@ -595,7 +595,7 @@ export async function childTitleTakenAction(orgId: string, title: string): Promi
     const viewer = await orgViewer(orgId, 'read');
     const t = title.trim();
     if (!viewer || viewer.role === 'visitor' || viewer.role === 'guest' || t.length < 2) return false;
-    const [row] = await db.select({ id: projects.id }).from(projects)
-        .where(and(eq(projects.parentId, orgId), isNull(projects.deletedAt), sql`lower(${projects.title}) = lower(${t})`)).limit(1);
+    const [row] = await db.select({ id: workspaces.id }).from(workspaces)
+        .where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt), sql`lower(${workspaces.title}) = lower(${t})`)).limit(1);
     return Boolean(row);
 }

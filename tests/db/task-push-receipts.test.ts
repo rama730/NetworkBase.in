@@ -29,18 +29,18 @@ const push = (body: unknown, key: string | null = randomUUID()) =>
 async function fixture() {
   const owner = await sql.begin((tx) => createUser(tx));
   const projectId = await sql.begin((tx) => createProject(tx, owner));
-  const [task] = await sql`INSERT INTO tasks (project_id, title) VALUES (${projectId}, 't') RETURNING id`;
-  const [node] = await sql`INSERT INTO project_nodes (project_id, type, name, path, created_by, current_version)
+  const [task] = await sql`INSERT INTO tasks (workspace_id, title) VALUES (${projectId}, 't') RETURNING id`;
+  const [node] = await sql`INSERT INTO workspace_nodes (workspace_id, type, name, path, created_by, current_version)
     VALUES (${projectId}, 'file', 'real-name.ts', '/real-name.ts', ${owner}, 1) RETURNING id`;
   await sql`INSERT INTO file_versions (node_id, version, s3_key, size, mime_type, uploaded_by, content_hash)
     VALUES (${node!.id}, 1, ${`projects/${projectId}/files/real-name.ts`}, 1, 'text/plain', ${owner}, ${HASH})`;
   const cleanup = async () => {
-    await sql`DELETE FROM task_pushes WHERE project_id = ${projectId}`;
+    await sql`DELETE FROM task_pushes WHERE workspace_id = ${projectId}`;
     await sql`DELETE FROM task_node_links WHERE task_id = ${task!.id}`;
-    await sql`DELETE FROM node_events WHERE project_id = ${projectId}`.catch(() => undefined);
+    await sql`DELETE FROM node_events WHERE workspace_id = ${projectId}`.catch(() => undefined);
     await sql`DELETE FROM file_versions WHERE node_id = ${node!.id}`;
-    await sql`DELETE FROM project_nodes WHERE project_id = ${projectId}`;
-    await sql`DELETE FROM tasks WHERE project_id = ${projectId}`;
+    await sql`DELETE FROM workspace_nodes WHERE workspace_id = ${projectId}`;
+    await sql`DELETE FROM tasks WHERE workspace_id = ${projectId}`;
   };
   return { owner, projectId, taskId: task!.id as string, nodeId: node!.id as string, cleanup };
 }
@@ -87,7 +87,7 @@ test("a stale hash, another project's file, or a non-writer is refused with noth
     assert.notEqual((await push({ ...base, files: [{ nodeId: other.nodeId, version: 1, contentHash: HASH }] })).status, 200);
     actingUser = other.owner;
     assert.notEqual((await push({ ...base, files: [{ nodeId: f.nodeId, version: 1, contentHash: HASH }] })).status, 200);
-    assert.equal((await sql`SELECT 1 FROM task_pushes WHERE project_id = ${f.projectId}`).length, 0);
+    assert.equal((await sql`SELECT 1 FROM task_pushes WHERE workspace_id = ${f.projectId}`).length, 0);
     assert.equal((await sql`SELECT 1 FROM task_node_links WHERE task_id = ${f.taskId}`).length, 0);
   } finally { await f.cleanup(); await other.cleanup(); }
 });

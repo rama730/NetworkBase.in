@@ -7,7 +7,7 @@ import {
   accountDeletions,
   extensionRecoveryDrafts,
   profiles,
-  projects,
+  workspaces,
 } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import { queueSecurityEmail } from "@/lib/email/security-queue";
@@ -97,10 +97,10 @@ export async function executeHardDelete(
           AND NOT EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = t.id AND tm.user_id <> ${userId}::uuid)`);
       await anonymizeChatAuthor(userId, tx);
       await tx.execute(deleteDirectMessagesSql(userId));
-      await tx.delete(projects).where(eq(projects.ownerId, userId));
+      await tx.delete(workspaces).where(eq(workspaces.ownerId, userId));
       await tx.execute(sql`
-        UPDATE projects SET followers_count = GREATEST(0, followers_count - 1)
-        WHERE id IN (SELECT project_id FROM project_follows WHERE user_id = ${userId}::uuid)
+        UPDATE workspaces SET followers_count = GREATEST(0, followers_count - 1)
+        WHERE id IN (SELECT workspace_id FROM workspace_follows WHERE user_id = ${userId}::uuid)
       `);
       // Decrement connected peers' connections_count before cascading profile deletion
       await tx.execute(sql`

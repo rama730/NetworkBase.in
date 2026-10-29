@@ -47,7 +47,7 @@ import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTheme } from "@/components/providers/theme-provider";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 
 import { useFilesStore } from "@/stores/filesStore";
@@ -228,7 +228,7 @@ export type TextViewerMode = "view" | "raw" | "edit";
 
 export interface TextViewerProps {
   projectId: string;
-  node: ProjectNode;
+  node: WorkspaceNode;
   canEdit: boolean;
   /**
    * Active mode. Controlled by the parent `FileView` (wired to the
@@ -287,7 +287,7 @@ export function TextViewer({
   const [content, setContent] = React.useState<string>("");
   const [baseVersion, setBaseVersion] = React.useState(node.currentVersion ?? 1);
   const [loadAttempt, setLoadAttempt] = React.useState(0);
-  const editSnapshot = React.useRef<{ nodeId: string; version: number; updatedAt: ProjectNode["updatedAt"] } | null>(null);
+  const editSnapshot = React.useRef<{ nodeId: string; version: number; updatedAt: WorkspaceNode["updatedAt"] } | null>(null);
   if (mode !== "edit") editSnapshot.current = null;
   else if (editSnapshot.current?.nodeId !== node.id) editSnapshot.current = { nodeId: node.id, version: node.currentVersion ?? 1, updatedAt: node.updatedAt };
   // Freeze the base while editing: realtime revisions must not replace the draft.

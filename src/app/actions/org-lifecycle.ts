@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 import { inngest } from '@/inngest/client';
 import { db } from '@/lib/db';
-import { projects } from '@/lib/db/schema';
+import { workspaces } from '@/lib/db/schema';
 import { getWorkspaceAccessById, writeBlockedMessage } from '@/lib/data/workspace-access';
 import { ORG_LIMITS } from '@/lib/organizations/config';
 import { validateOrgHandle } from '@/lib/organizations/handle';
@@ -99,8 +99,8 @@ export async function duplicateOrgAction(orgId: string, input: z.input<typeof du
     const handle = validateOrgHandle(parsed.data.handle);
     if (!handle.ok) return { success: false, error: handle.reason === 'reserved' ? 'That handle is reserved.' : 'Handles are 3–40 letters, numbers and dashes.' };
     if (!(await isOrgHandleAvailable(handle.handle))) return { success: false, error: 'That handle is taken.' };
-    const [owned] = await db.select({ n: count() }).from(projects)
-        .where(and(eq(projects.ownerId, owner.userId), eq(projects.kind, 'organization'), isNull(projects.deletedAt)));
+    const [owned] = await db.select({ n: count() }).from(workspaces)
+        .where(and(eq(workspaces.ownerId, owner.userId), eq(workspaces.kind, 'organization'), isNull(workspaces.deletedAt)));
     if ((owned?.n ?? 0) >= ORG_LIMITS.orgsOwnedPerUser) return { success: false, error: `You can own up to ${ORG_LIMITS.orgsOwnedPerUser} organizations. Contact support to raise this.` };
     try {
         await inngest.send({ name: 'org/duplicate.requested', data: { sourceId: orgId, actorId: owner.userId, options: { ...parsed.data, handle: handle.handle } } });

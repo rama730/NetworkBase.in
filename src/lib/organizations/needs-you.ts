@@ -4,7 +4,7 @@ import { and, asc, eq, gte, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 
 import { readOrgDocsAction } from "@/app/actions/org-docs";
 import { db } from "@/lib/db";
-import { projectMembers, projects, projectSprints, roleApplications, taskTeamMembers, tasks } from "@/lib/db/schema";
+import { workspaceMembers, workspaces, workspaceSprints, roleApplications, taskTeamMembers, tasks } from "@/lib/db/schema";
 import type { WorkspaceAccess } from "@/lib/data/workspace-access";
 import { copyState } from "@/lib/organizations/assignment-rules";
 import { JOIN_SPIKE_PER_HOUR } from "@/lib/organizations/trust-rules";
@@ -36,13 +36,13 @@ export async function readNeedsYou(v: OrgViewer, now: Date): Promise<NeedsYouRow
     if (v.isAdmin) {
         const [reviews, [requests], ended, children, [cap]] = await Promise.all([
             db.select({ title: tasks.title, n: sql<number>`count(*)::int` }).from(tasks)
-                .innerJoin(projects, eq(projects.id, tasks.projectId))
-                .where(and(isNotNull(tasks.assignmentId), isNull(tasks.deletedAt), eq(tasks.reviewStatus, 'pending'), or(eq(tasks.projectId, v.org.id), eq(projects.parentId, v.org.id))))
+                .innerJoin(workspaces, eq(workspaces.id, tasks.projectId))
+                .where(and(isNotNull(tasks.assignmentId), isNull(tasks.deletedAt), eq(tasks.reviewStatus, 'pending'), or(eq(tasks.projectId, v.org.id), eq(workspaces.parentId, v.org.id))))
                 .groupBy(tasks.title).orderBy(asc(tasks.title)),
             db.select({ n: sql<number>`count(*)::int` }).from(roleApplications).where(and(eq(roleApplications.projectId, v.org.id), isNull(roleApplications.roleId), eq(roleApplications.status, 'pending'))),
-            db.select({ name: projectSprints.name }).from(projectSprints).where(and(eq(projectSprints.projectId, v.org.id), eq(projectSprints.status, 'active'), lt(projectSprints.endDate, now))),
-            db.select({ title: projects.title, settings: projects.orgSettings }).from(projects).where(and(eq(projects.parentId, v.org.id), isNull(projects.deletedAt), sql`${projects.orgSettings} ? 'detachRequest'`)),
-            db.select({ max: projects.maxCollaborators, members: sql<number>`(SELECT count(*)::int FROM project_members WHERE project_id = ${v.org.id})` }).from(projects).where(eq(projects.id, v.org.id)),
+            db.select({ name: workspaceSprints.name }).from(workspaceSprints).where(and(eq(workspaceSprints.projectId, v.org.id), eq(workspaceSprints.status, 'active'), lt(workspaceSprints.endDate, now))),
+            db.select({ title: workspaces.title, settings: workspaces.orgSettings }).from(workspaces).where(and(eq(workspaces.parentId, v.org.id), isNull(workspaces.deletedAt), sql`${workspaces.orgSettings} ? 'detachRequest'`)),
+            db.select({ max: workspaces.maxCollaborators, members: sql<number>`(SELECT count(*)::int FROM workspace_members WHERE workspace_id = ${v.org.id})` }).from(workspaces).where(eq(workspaces.id, v.org.id)),
         ]);
         for (const r of reviews) rows.push({ kind: 'review', label: `${plural(r.n, 'submission')} to review · ${r.title}`, href: `${base}?tab=tasks` });
         if (requests && requests.n > 0) rows.push({ kind: 'requests', label: plural(requests.n, 'join request'), href: `${base}?tab=members` });
@@ -52,10 +52,10 @@ export async function readNeedsYou(v: OrgViewer, now: Date): Promise<NeedsYouRow
         if (Number.isFinite(max) && cap && cap.members >= max) rows.push({ kind: 'full', label: `${v.org.title} is full`, href: `${base}?tab=settings` });
         // Report §30.3: 50+ joins in an hour with the code; §30.5: verify after archive; §30.7: a lead left.
         const [[spike], [state], leaderless] = await Promise.all([
-            db.select({ n: sql<number>`count(*)::int`, code: sql<string | null>`(SELECT join_code FROM projects WHERE id = ${v.org.id})` }).from(projectMembers)
-                .where(and(eq(projectMembers.projectId, v.org.id), gte(projectMembers.joinedAt, new Date(now.getTime() - 3_600_000)))),
-            db.select({ status: projects.status }).from(projects).where(eq(projects.id, v.org.id)),
-            db.select({ title: projects.title }).from(projects).where(and(eq(projects.parentId, v.org.id), isNull(projects.deletedAt), sql`${projects.orgSettings} ? 'leadHandover'`)),
+            db.select({ n: sql<number>`count(*)::int`, code: sql<string | null>`(SELECT join_code FROM workspaces WHERE id = ${v.org.id})` }).from(workspaceMembers)
+                .where(and(eq(workspaceMembers.projectId, v.org.id), gte(workspaceMembers.joinedAt, new Date(now.getTime() - 3_600_000)))),
+            db.select({ status: workspaces.status }).from(workspaces).where(eq(workspaces.id, v.org.id)),
+            db.select({ title: workspaces.title }).from(workspaces).where(and(eq(workspaces.parentId, v.org.id), isNull(workspaces.deletedAt), sql`${workspaces.orgSettings} ? 'leadHandover'`)),
         ]);
         if (spike && spike.n >= JOIN_SPIKE_PER_HOUR) rows.push({ kind: 'join_spike', label: `Unusual joins with code ${spike.code ?? ''} · Regenerate?`, href: `${base}?tab=settings&settings=org-access` });
         if (state?.status === 'archived') rows.push({ kind: 'verify', label: "Verify members' contributions", href: `${base}?tab=members` });
@@ -72,9 +72,9 @@ export async function readNeedsYou(v: OrgViewer, now: Date): Promise<NeedsYouRow
         else if ((state === 'not_started' || state === 'in_progress') && c.dueDate && c.dueDate.getTime() - now.getTime() < 2 * DAY) rows.push({ kind: 'due', label: `${c.title} · due soon`, href });
     }
     // Child leads: the group copies their projects hold (report §26.4).
-    const group = await db.select({ ...copyColumns, project: projects.title, slug: projects.slug }).from(tasks)
-        .innerJoin(projects, eq(projects.id, tasks.projectId))
-        .where(and(eq(projects.parentId, v.org.id), eq(projects.ownerId, v.userId), isNull(projects.deletedAt), isNotNull(tasks.assignmentId), isNull(tasks.deletedAt)));
+    const group = await db.select({ ...copyColumns, project: workspaces.title, slug: workspaces.slug }).from(tasks)
+        .innerJoin(workspaces, eq(workspaces.id, tasks.projectId))
+        .where(and(eq(workspaces.parentId, v.org.id), eq(workspaces.ownerId, v.userId), isNull(workspaces.deletedAt), isNotNull(tasks.assignmentId), isNull(tasks.deletedAt)));
     for (const c of group) {
         const { state } = stateOf(c, now);
         if (state !== 'done' && state !== 'excused' && state !== 'submitted') rows.push({ kind: 'group', label: `${c.project} · ${c.title} for the workspace`, href: `/workspaces/${encodeURIComponent(c.slug ?? c.projectId)}?tab=tasks` });
@@ -83,12 +83,12 @@ export async function readNeedsYou(v: OrgViewer, now: Date): Promise<NeedsYouRow
     // Important (emailed) announcements stay in Needs you until the Updates tab is opened (report §17.4).
     const role = v.access?.memberRole ?? 'member';
     const unread = await db.execute<{ id: string; content: string }>(sql`
-        SELECT u.id, u.content FROM project_updates u
-        WHERE u.project_id = ${v.org.id} AND u.update_type = 'announcement' AND u.notify_level = 'email' AND u.deleted_at IS NULL
+        SELECT u.id, u.content FROM workspace_updates u
+        WHERE u.workspace_id = ${v.org.id} AND u.update_type = 'announcement' AND u.notify_level = 'email' AND u.deleted_at IS NULL
           AND u.created_at > now() - interval '14 days' AND u.author_id IS DISTINCT FROM ${v.userId}
-          AND u.created_at > coalesce((SELECT last_seen_updates_at FROM project_members WHERE project_id = ${v.org.id} AND user_id = ${v.userId}), '-infinity'::timestamptz)
+          AND u.created_at > coalesce((SELECT last_seen_updates_at FROM workspace_members WHERE workspace_id = ${v.org.id} AND user_id = ${v.userId}), '-infinity'::timestamptz)
           AND (u.audience = '{}'::jsonb OR u.audience->'roles' @> to_jsonb(${role}::text)
-            OR EXISTS (SELECT 1 FROM project_members c JOIN projects p ON p.id = c.project_id
+            OR EXISTS (SELECT 1 FROM workspace_members c JOIN workspaces p ON p.id = c.workspace_id
               WHERE c.user_id = ${v.userId} AND p.parent_id = ${v.org.id} AND u.audience->'projectIds' @> to_jsonb(p.id::text)))
         ORDER BY u.created_at DESC LIMIT 3`);
     for (const a of unread) rows.push({ kind: 'announcement', label: `Read: ${a.content.replace(/\s+/g, ' ').slice(0, 60)}`, href: `${base}?tab=updates&updateId=${a.id}` });
@@ -103,8 +103,8 @@ async function adminStateRows(orgId: string, base: string, now: Date): Promise<N
     const [teams, [unplaced], blocked] = await Promise.all([
         // New members not in a team: they joined after a teams assignment was published and sit in none of its copies.
         db.execute<{ title: string; n: number }>(sql`
-            SELECT m.title, count(*)::int AS n FROM tasks m JOIN project_members pm ON pm.project_id = m.project_id AND pm.role = 'member'
-            WHERE m.project_id = ${orgId} AND m.kind = 'assignment' AND m.deleted_at IS NULL AND m.assignment_settings->'target'->>'mode' = 'teams'
+            SELECT m.title, count(*)::int AS n FROM tasks m JOIN workspace_members pm ON pm.workspace_id = m.workspace_id AND pm.role = 'member'
+            WHERE m.workspace_id = ${orgId} AND m.kind = 'assignment' AND m.deleted_at IS NULL AND m.assignment_settings->'target'->>'mode' = 'teams'
               AND m.assignment_settings->>'publishedAt' IS NOT NULL AND m.assignment_settings->>'closedAt' IS NULL
               AND pm.joined_at > (m.assignment_settings->>'publishedAt')::timestamptz
               AND NOT EXISTS (SELECT 1 FROM tasks c WHERE c.assignment_id = m.id AND c.deleted_at IS NULL AND (c.assignee_id = pm.user_id
@@ -112,17 +112,17 @@ async function adminStateRows(orgId: string, base: string, now: Date): Promise<N
             GROUP BY m.id, m.title ORDER BY m.title`),
         // Members not in a project (report §14.4) once the org has projects; a group assignment with none to go to (E3).
         db.execute<{ n: number; children: number; group_title: string | null }>(sql`
-            SELECT (SELECT count(*)::int FROM project_members pm WHERE pm.project_id = ${orgId} AND pm.role = 'member'
-                      AND NOT EXISTS (SELECT 1 FROM project_members c JOIN projects p ON p.id = c.project_id
+            SELECT (SELECT count(*)::int FROM workspace_members pm WHERE pm.workspace_id = ${orgId} AND pm.role = 'member'
+                      AND NOT EXISTS (SELECT 1 FROM workspace_members c JOIN workspaces p ON p.id = c.workspace_id
                         WHERE c.user_id = pm.user_id AND p.parent_id = ${orgId} AND p.deleted_at IS NULL)) AS n,
-                   (SELECT count(*)::int FROM projects p WHERE p.parent_id = ${orgId} AND p.deleted_at IS NULL) AS children,
-                   (SELECT m.title FROM tasks m WHERE m.project_id = ${orgId} AND m.kind = 'assignment' AND m.deleted_at IS NULL
+                   (SELECT count(*)::int FROM workspaces p WHERE p.parent_id = ${orgId} AND p.deleted_at IS NULL) AS children,
+                   (SELECT m.title FROM tasks m WHERE m.workspace_id = ${orgId} AND m.kind = 'assignment' AND m.deleted_at IS NULL
                       AND m.assignment_settings->'target'->>'mode' = 'each_child'
                       AND m.assignment_settings->>'publishedAt' IS NOT NULL AND m.assignment_settings->>'closedAt' IS NULL LIMIT 1) AS group_title`),
         // A sprint due to start automatically that could not, because another is still active.
         db.execute<{ name: string; active: string }>(sql`
-            SELECT s.name, a.name AS active FROM project_sprints s JOIN project_sprints a ON a.project_id = s.project_id AND a.status = 'active'
-            WHERE s.project_id = ${orgId} AND s.status = 'planning' AND s.auto_start AND s.start_date <= ${now.toISOString()}::timestamptz
+            SELECT s.name, a.name AS active FROM workspace_sprints s JOIN workspace_sprints a ON a.workspace_id = s.workspace_id AND a.status = 'active'
+            WHERE s.workspace_id = ${orgId} AND s.status = 'planning' AND s.auto_start AND s.start_date <= ${now.toISOString()}::timestamptz
             ORDER BY s.start_date LIMIT 3`),
     ]);
     for (const t of teams) rows.push({ kind: 'team', label: `${plural(t.n, 'new member')} not in a team · ${t.title}`, href: `${base}?tab=tasks` });
@@ -140,11 +140,11 @@ export async function leadSprintRows(orgId: string, userId: string): Promise<Nee
                  WHEN o.status = 'completed' AND c.status = 'active' THEN 'complete'
                  ELSE 'dates' END AS kind,
                o.name AS org_sprint, c.name AS child_sprint, p.title, p.slug, p.id
-        FROM projects p
-        JOIN project_sprints o ON o.project_id = ${orgId} AND o.status IN ('active', 'completed')
-        LEFT JOIN project_sprints c ON c.project_id = p.id AND c.parent_sprint_id = o.id AND c.status <> 'completed'
+        FROM workspaces p
+        JOIN workspace_sprints o ON o.workspace_id = ${orgId} AND o.status IN ('active', 'completed')
+        LEFT JOIN workspace_sprints c ON c.workspace_id = p.id AND c.parent_sprint_id = o.id AND c.status <> 'completed'
         WHERE p.parent_id = ${orgId} AND p.owner_id = ${userId} AND p.deleted_at IS NULL AND p.status <> 'archived'
-          AND ((o.status = 'active' AND NOT EXISTS (SELECT 1 FROM project_sprints x WHERE x.project_id = p.id AND x.parent_sprint_id = o.id))
+          AND ((o.status = 'active' AND NOT EXISTS (SELECT 1 FROM workspace_sprints x WHERE x.workspace_id = p.id AND x.parent_sprint_id = o.id))
             OR (o.status = 'completed' AND c.status = 'active')
             OR (c.id IS NOT NULL AND (c.start_date < o.start_date OR c.end_date > o.end_date)))
         ORDER BY o.start_date DESC LIMIT 10`);

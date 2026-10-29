@@ -2,7 +2,7 @@
 
 import { desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { projectMembers, projects, taskSubtasks, tasks } from "@/lib/db/schema";
+import { workspaceMembers, workspaces, taskSubtasks, tasks } from "@/lib/db/schema";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { taskSubtaskTitleSchema } from "@/lib/validations/task";

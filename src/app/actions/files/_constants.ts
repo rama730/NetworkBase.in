@@ -1,5 +1,5 @@
 import { eq, isNull } from "drizzle-orm";
-import { projectNodes } from "@/lib/db/schema";
+import { workspaceNodes } from "@/lib/db/schema";
 
 export const MAX_NODE_NAME_LENGTH = 255;
 export const MAX_SEARCH_QUERY_CHARS = 120;
@@ -63,5 +63,5 @@ export function assertBulkLimit(nodeIds: string[]) {
 }
 
 export function isWithParent(parentId: string | null) {
-    return parentId ? eq(projectNodes.parentId, parentId) : isNull(projectNodes.parentId);
+    return parentId ? eq(workspaceNodes.parentId, parentId) : isNull(workspaceNodes.parentId);
 }

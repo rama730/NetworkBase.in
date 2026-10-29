@@ -28,7 +28,7 @@ import {
 import { FileIcon } from "@/components/workspaces/v2/explorer/FileIcons";
 import { toast } from "@/lib/feedback";
 import { cn } from "@/lib/utils";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { extractLabel } from "@/lib/workspaces/task-file-label";
 import type { TaskFileRole } from "@/lib/workspaces/task-file-intelligence";
 import { formatBytes, formatRelativeTime as formatRelative, formatFileActor, formatFileTimestamp } from "../../files-tab/folder/format";
@@ -51,16 +51,16 @@ export function getTaskFileAttributionLabel(node: TaskFileAttributionFields): st
 }
 
 export interface TaskFileRowProps {
-  node: ProjectNode & TaskFileAttributionFields & { annotation?: string | null };
+  node: WorkspaceNode & TaskFileAttributionFields & { annotation?: string | null };
   canEdit: boolean;
   canManageFiles?: boolean;
   isExpanded?: boolean;
-  onToggleExpanded?: (node: ProjectNode) => void;
-  onOpen?: (node: ProjectNode) => void;
-  onShowHistory?: (node: ProjectNode) => void;
-  onUnlink?: (node: ProjectNode) => void;
+  onToggleExpanded?: (node: WorkspaceNode) => void;
+  onOpen?: (node: WorkspaceNode) => void;
+  onShowHistory?: (node: WorkspaceNode) => void;
+  onUnlink?: (node: WorkspaceNode) => void;
   onReplaceWithNewVersion?: (
-    node: ProjectNode,
+    node: WorkspaceNode,
     file: File,
   ) => Promise<{ success: boolean; error?: string }> | void;
   onContextMenu?: (event: React.MouseEvent) => void;
@@ -68,15 +68,15 @@ export interface TaskFileRowProps {
   // Redesign props
   isDeliverable?: boolean;
   fileRole?: TaskFileRole;
-  onMoveToDeliverables?: (node: ProjectNode) => void;
-  onMoveToWorkingFiles?: (node: ProjectNode) => void;
-  onMoveToReferences?: (node: ProjectNode) => void;
+  onMoveToDeliverables?: (node: WorkspaceNode) => void;
+  onMoveToWorkingFiles?: (node: WorkspaceNode) => void;
+  onMoveToReferences?: (node: WorkspaceNode) => void;
   onLabelChange?: (
-    node: ProjectNode & { annotation?: string | null },
+    node: WorkspaceNode & { annotation?: string | null },
     newLabel: string | null,
   ) => void;
-  onMoveInProjectFiles?: (node: ProjectNode) => void;
-  onPublishToProjectFiles?: (node: ProjectNode) => void;
+  onMoveInProjectFiles?: (node: WorkspaceNode) => void;
+  onPublishToProjectFiles?: (node: WorkspaceNode) => void;
   isHighlighted?: boolean;
 }
 

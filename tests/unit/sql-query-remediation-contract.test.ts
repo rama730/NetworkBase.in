@@ -9,7 +9,7 @@ describe("SQL audit query remediations", () => {
   it("persists and advances the workspace-file reconciliation keyset", () => {
     const source = read("src/inngest/functions/workspace-files-reconciliation.ts");
     assert.match(source, /jobHeartbeats\.lastPayload/);
-    assert.match(source, /projectNodes\.projectId}, \$\{projectNodes\.id}\) > /);
+    assert.match(source, /workspaceNodes\.projectId}, \$\{workspaceNodes\.id}\) > /);
     assert.match(source, /\.limit\(MAX_KEYS_PER_PROJECT\)/);
     assert.match(source, /target: jobHeartbeats\.jobId/);
   });
@@ -68,7 +68,7 @@ describe("SQL audit query remediations", () => {
     assert.match(source, /filesToUpdate\.slice\(index, index \+ RECONCILE_DELETE_BATCH_SIZE\)/);
     assert.match(source, /FROM jsonb_to_recordset/);
     assert.match(source, /nodeIdsToDelete\.slice\(index, index \+ RECONCILE_DELETE_BATCH_SIZE\)/);
-    assert.doesNotMatch(source, /for \(const remote of fileNodes\)[\s\S]{0,1800}\.update\(projectNodes\)/);
+    assert.doesNotMatch(source, /for \(const remote of fileNodes\)[\s\S]{0,1800}\.update\(workspaceNodes\)/);
   });
 
   it("bounds workspace pages and consolidates project task aggregates", () => {
@@ -77,7 +77,7 @@ describe("SQL audit query remediations", () => {
     assert.match(workspace, /function normalizeMyWorkLimit/);
     assert.match(workspace, /Number\.isFinite\(parsed\)/);
     assert.match(workspace, /const visibleProjectCheck = exists\(/);
-    assert.match(workspace, /eq\(projectMembers\.userId, user\.id\)/);
+    assert.match(workspace, /eq\(workspaceMembers\.userId, user\.id\)/);
     assert.match(workspace, /limit: safeLimit \+ 1/);
     assert.match(projects, /WITH selected_tasks AS/);
     assert.match(projects, /subtask_counts AS/);
@@ -100,7 +100,7 @@ describe("SQL audit query remediations", () => {
   it("uses OCC for lifecycle writes and one project snapshot for update access", () => {
     const projects = projectActionsSource();
     const updates = read("src/app/actions/workspace/updates.ts");
-    assert.match(projects, /eq\(projects\.updatedAt, project\.updatedAt\)/);
+    assert.match(projects, /eq\(workspaces\.updatedAt, project\.updatedAt\)/);
     assert.match(projects, /Stages changed\. Refresh and retry\./);
     assert.match(updates, /computeWorkspaceReadAccess\(project\.visibility, project\.status, isOwner, isMember, parentOrgRole\)/);
     assert.doesNotMatch(updates, /getWorkspaceAccessById/);

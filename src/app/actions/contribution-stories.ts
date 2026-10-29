@@ -18,13 +18,13 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import {
-  profileProjectContributions,
+  profileContributions,
   profileContributionDrafts,
   profileContributionMediaAssets,
-  profileProjectContributionStages,
+  profileContributionStages,
   profileAuditEvents,
-  projects,
-  projectMembers,
+  workspaces,
+  workspaceMembers,
   storageAssets,
 } from "@/lib/db/schema";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
@@ -134,7 +134,7 @@ export async function createContributionStoryAction() {
         "RATE_LIMITED",
       );
     const [row] = await db
-      .insert(profileProjectContributions)
+      .insert(profileContributions)
       .values({
         profileId: userId,
         externalKey: `manual:${randomUUID()}`,
@@ -142,7 +142,7 @@ export async function createContributionStoryAction() {
         source: "manual",
         visibility: "private",
       })
-      .returning({ id: profileProjectContributions.id });
+      .returning({ id: profileContributions.id });
     await markProfileCollaborationSummaryStale([userId]);
     revalidatePath("/my-profile");
     revalidatePath("/u/[username]", "page");
@@ -186,11 +186,11 @@ export async function saveContributionStoryAction(
       );
       const [current] = await tx
         .select()
-        .from(profileProjectContributions)
+        .from(profileContributions)
         .where(
           and(
-            eq(profileProjectContributions.id, input.id),
-            eq(profileProjectContributions.profileId, userId),
+            eq(profileContributions.id, input.id),
+            eq(profileContributions.profileId, userId),
           ),
         )
         .for("update");
@@ -223,11 +223,11 @@ export async function saveContributionStoryAction(
         const [target] = targetId
           ? await tx
               .select()
-              .from(profileProjectContributions)
+              .from(profileContributions)
               .where(
                 and(
-                  eq(profileProjectContributions.id, targetId),
-                  eq(profileProjectContributions.profileId, userId),
+                  eq(profileContributions.id, targetId),
+                  eq(profileContributions.profileId, userId),
                 ),
               )
               .limit(1)
@@ -288,7 +288,7 @@ export async function saveContributionStoryAction(
         const metadataDocument =
           input.operation === "hide" ? { ...stored, visible: false } : stored;
         await tx
-          .update(profileProjectContributions)
+          .update(profileContributions)
           .set({
             version: current.version + 1,
             updatedAt: now,
@@ -300,15 +300,15 @@ export async function saveContributionStoryAction(
               : {}),
             ...(input.operation === "delete" ? { deletedAt: now } : {}),
           })
-          .where(eq(profileProjectContributions.id, current.id));
+          .where(eq(profileContributions.id, current.id));
         if (input.operation === "delete") {
           await tx
-            .update(profileProjectContributionStages)
+            .update(profileContributionStages)
             .set({ deletedAt: now, updatedAt: now })
             .where(
               and(
-                eq(profileProjectContributionStages.contributionId, current.id),
-                isNull(profileProjectContributionStages.deletedAt),
+                eq(profileContributionStages.contributionId, current.id),
+                isNull(profileContributionStages.deletedAt),
               ),
             );
         }
@@ -350,12 +350,12 @@ export async function saveContributionStoryAction(
         : [];
       if (errors.length) throw new StoryError(errors[0]!.message);
       const stages = await tx
-        .select({ id: profileProjectContributionStages.id })
-        .from(profileProjectContributionStages)
+        .select({ id: profileContributionStages.id })
+        .from(profileContributionStages)
         .where(
           and(
-            eq(profileProjectContributionStages.contributionId, current.id),
-            isNull(profileProjectContributionStages.deletedAt),
+            eq(profileContributionStages.contributionId, current.id),
+            isNull(profileContributionStages.deletedAt),
           ),
         );
       const allowedStages = new Set([
@@ -373,11 +373,11 @@ export async function saveContributionStoryAction(
       const [project] = current.projectId
         ? await tx
             .select()
-            .from(projects)
+            .from(workspaces)
             .where(
               and(
-                eq(projects.id, current.projectId),
-                isNull(projects.deletedAt),
+                eq(workspaces.id, current.projectId),
+                isNull(workspaces.deletedAt),
               ),
             )
             .limit(1)
@@ -410,12 +410,12 @@ export async function saveContributionStoryAction(
         const restore = input.mergeRestore;
         const [target] = await tx
           .select()
-          .from(profileProjectContributions)
+          .from(profileContributions)
           .where(
             and(
-              eq(profileProjectContributions.id, restore.targetId),
-              eq(profileProjectContributions.profileId, userId),
-              isNull(profileProjectContributions.deletedAt),
+              eq(profileContributions.id, restore.targetId),
+              eq(profileContributions.profileId, userId),
+              isNull(profileContributions.deletedAt),
             ),
           )
           .for("update");
@@ -464,9 +464,9 @@ export async function saveContributionStoryAction(
             set: { document: restore.document, updatedAt: now },
           });
         await tx
-          .update(profileProjectContributions)
+          .update(profileContributions)
           .set({ version: target.version + 1, updatedAt: now })
-          .where(eq(profileProjectContributions.id, target.id));
+          .where(eq(profileContributions.id, target.id));
         await tx
           .delete(profileContributionMediaAssets)
           .where(eq(profileContributionMediaAssets.contributionId, target.id));
@@ -493,22 +493,22 @@ export async function saveContributionStoryAction(
           );
         const [target] = await tx
           .select()
-          .from(projects)
+          .from(workspaces)
           .where(
             and(
-              eq(projects.id, input.targetProjectId),
-              isNull(projects.deletedAt),
+              eq(workspaces.id, input.targetProjectId),
+              isNull(workspaces.deletedAt),
             ),
           )
           .limit(1);
         const [member] = target
           ? await tx
-              .select({ id: projectMembers.id })
-              .from(projectMembers)
+              .select({ id: workspaceMembers.id })
+              .from(workspaceMembers)
               .where(
                 and(
-                  eq(projectMembers.projectId, target.id),
-                  eq(projectMembers.userId, userId),
+                  eq(workspaceMembers.projectId, target.id),
+                  eq(workspaceMembers.userId, userId),
                 ),
               )
               .limit(1)
@@ -520,12 +520,12 @@ export async function saveContributionStoryAction(
           );
         const [duplicate] = await tx
           .select()
-          .from(profileProjectContributions)
+          .from(profileContributions)
           .where(
             and(
-              eq(profileProjectContributions.profileId, userId),
-              eq(profileProjectContributions.projectId, target.id),
-              isNull(profileProjectContributions.deletedAt),
+              eq(profileContributions.profileId, userId),
+              eq(profileContributions.projectId, target.id),
+              isNull(profileContributions.deletedAt),
             ),
           )
           .for("update");
@@ -588,17 +588,17 @@ export async function saveContributionStoryAction(
               set: { document: merged, updatedAt: now },
             });
           await tx
-            .update(profileProjectContributions)
+            .update(profileContributions)
             .set({ version: duplicate.version + 1, updatedAt: now })
-            .where(eq(profileProjectContributions.id, duplicate.id));
+            .where(eq(profileContributions.id, duplicate.id));
           await tx
-            .update(profileProjectContributions)
+            .update(profileContributions)
             .set({
               deletedAt: now,
               version: current.version + 1,
               updatedAt: now,
             })
-            .where(eq(profileProjectContributions.id, current.id));
+            .where(eq(profileContributions.id, current.id));
           // Move media references before the source is removed; publication remains unchanged.
           for (const image of merged.images)
             await tx
@@ -641,7 +641,7 @@ export async function saveContributionStoryAction(
           allowUnlisted: false,
         };
         await tx
-          .update(profileProjectContributions)
+          .update(profileContributions)
           .set({
             projectId: target.id,
             externalKey: null,
@@ -649,7 +649,7 @@ export async function saveContributionStoryAction(
             visibility: "private",
             presentation: null,
           })
-          .where(eq(profileProjectContributions.id, current.id));
+          .where(eq(profileContributions.id, current.id));
       }
       const assetIds = Array.from(
         new Set(
@@ -761,12 +761,12 @@ export async function saveContributionStoryAction(
           : {}),
       };
       await tx
-        .update(profileProjectContributions)
+        .update(profileContributions)
         .set(patch)
         .where(
           and(
-            eq(profileProjectContributions.id, current.id),
-            eq(profileProjectContributions.version, input.expectedVersion),
+            eq(profileContributions.id, current.id),
+            eq(profileContributions.version, input.expectedVersion),
           ),
         );
       const oldRefs = await tx
@@ -860,13 +860,13 @@ export async function searchContributionReferencesAction(
   )
     return [];
   const [row] = await db
-    .select({ projectId: profileProjectContributions.projectId })
-    .from(profileProjectContributions)
+    .select({ projectId: profileContributions.projectId })
+    .from(profileContributions)
     .where(
       and(
-        eq(profileProjectContributions.id, contributionId),
-        eq(profileProjectContributions.profileId, userId),
-        isNull(profileProjectContributions.deletedAt),
+        eq(profileContributions.id, contributionId),
+        eq(profileContributions.profileId, userId),
+        isNull(profileContributions.deletedAt),
       ),
     )
     .limit(1);
@@ -882,13 +882,13 @@ export async function createContributionImageUploadAction(
   if (!z.string().uuid().safeParse(contributionId).success)
     throw new StoryError("Invalid contribution.");
   const [row] = await db
-    .select({ id: profileProjectContributions.id })
-    .from(profileProjectContributions)
+    .select({ id: profileContributions.id })
+    .from(profileContributions)
     .where(
       and(
-        eq(profileProjectContributions.id, contributionId),
-        eq(profileProjectContributions.profileId, userId),
-        isNull(profileProjectContributions.deletedAt),
+        eq(profileContributions.id, contributionId),
+        eq(profileContributions.profileId, userId),
+        isNull(profileContributions.deletedAt),
       ),
     )
     .limit(1);
@@ -969,13 +969,13 @@ export async function importContributionWorkspaceImageAction(
   )
     throw new StoryError("Invalid workspace image.");
   const [row] = await db
-    .select({ projectId: profileProjectContributions.projectId })
-    .from(profileProjectContributions)
+    .select({ projectId: profileContributions.projectId })
+    .from(profileContributions)
     .where(
       and(
-        eq(profileProjectContributions.id, contributionId),
-        eq(profileProjectContributions.profileId, userId),
-        isNull(profileProjectContributions.deletedAt),
+        eq(profileContributions.id, contributionId),
+        eq(profileContributions.profileId, userId),
+        isNull(profileContributions.deletedAt),
       ),
     )
     .limit(1);
@@ -994,7 +994,7 @@ export async function importContributionWorkspaceImageAction(
     verified_mime_type: string;
     verified_size: number;
   }>(
-    sql`SELECT a.bucket,a.storage_key,a.verified_mime_type,a.verified_size FROM project_nodes n JOIN storage_assets a ON a.id=n.asset_id WHERE n.id=${nodeId}::uuid AND n.project_id=${row!.projectId}::uuid AND n.deleted_at IS NULL AND a.state='verified' LIMIT 1`,
+    sql`SELECT a.bucket,a.storage_key,a.verified_mime_type,a.verified_size FROM workspace_nodes n JOIN storage_assets a ON a.id=n.asset_id WHERE n.id=${nodeId}::uuid AND n.workspace_id=${row!.projectId}::uuid AND n.deleted_at IS NULL AND a.state='verified' LIMIT 1`,
   );
   const file = files[0];
   if (!file) throw new StoryError("This workspace image is unavailable.");
@@ -1025,7 +1025,7 @@ export async function listContributionLinkWorkspacesAction(query: string) {
   const userId = await ownerId();
   const pattern = "%" + query.slice(0, 100).replace(/[\\%_]/g, "\\$&") + "%";
   const rows = await db.execute<{ id: string; title: string }>(
-    sql`SELECT p.id,p.title FROM projects p WHERE p.deleted_at IS NULL AND (p.owner_id=${userId}::uuid OR EXISTS(SELECT 1 FROM project_members m WHERE m.project_id=p.id AND m.user_id=${userId}::uuid)) AND p.title ILIKE ${pattern} ORDER BY p.title,p.id LIMIT 50`,
+    sql`SELECT p.id,p.title FROM workspaces p WHERE p.deleted_at IS NULL AND (p.owner_id=${userId}::uuid OR EXISTS(SELECT 1 FROM workspace_members m WHERE m.workspace_id=p.id AND m.user_id=${userId}::uuid)) AND p.title ILIKE ${pattern} ORDER BY p.title,p.id LIMIT 50`,
   );
   return Array.from(rows);
 }

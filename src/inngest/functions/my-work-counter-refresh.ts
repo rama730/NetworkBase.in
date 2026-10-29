@@ -13,7 +13,7 @@ export const myWorkCountersRefresh = inngest.createFunction(
             timeout: '5s',
         },
     },
-    { event: 'workspace/counters.refresh' },
+    [{ event: 'my-work/counters.refresh' }, { event: 'workspace/counters.refresh' }] /* old name drains for one release */,
     async ({ events, step }) => {
         const userIds = [...new Set(events.map(e => e.data.userId).filter(Boolean))];
         

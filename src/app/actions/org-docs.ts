@@ -5,7 +5,7 @@ import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { db } from '@/lib/db';
-import { docOpens, projectDocs, projectMembers, projectNodes, projectOpenRoles, projects, projectSprints, sprintMaterials } from '@/lib/db/schema';
+import { docOpens, workspaceDocuments, workspaceMembers, workspaceNodes, workspaceOpenRoles, workspaces, workspaceSprints, sprintMaterials } from '@/lib/db/schema';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { enqueueWorkspaceNotificationEvent } from '@/lib/notifications/workspace-events';
 import { ORG_LIMITS } from '@/lib/organizations/config';
@@ -38,8 +38,8 @@ export type OrgDocsData = {
 };
 
 async function readOrg(orgId: string) {
-    const [org] = await db.select({ id: projects.id, title: projects.title, slug: projects.slug, orgSettings: projects.orgSettings, timeZone: projects.timeZone })
-        .from(projects).where(and(eq(projects.id, orgId), eq(projects.kind, 'organization'), isNull(projects.deletedAt))).limit(1);
+    const [org] = await db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, orgSettings: workspaces.orgSettings, timeZone: workspaces.timeZone })
+        .from(workspaces).where(and(eq(workspaces.id, orgId), eq(workspaces.kind, 'organization'), isNull(workspaces.deletedAt))).limit(1);
     return org ?? null;
 }
 
@@ -51,17 +51,17 @@ async function orgAdmin(orgId: string) {
 }
 
 async function orgDocRow(orgId: string, docId: string) {
-    const [doc] = await db.select({ id: projectDocs.id, slug: projectDocs.slug, filename: projectDocs.filename, settings: projectDocs.settings })
-        .from(projectDocs).where(and(eq(projectDocs.id, docId), eq(projectDocs.projectId, orgId))).limit(1);
+    const [doc] = await db.select({ id: workspaceDocuments.id, slug: workspaceDocuments.slug, filename: workspaceDocuments.filename, settings: workspaceDocuments.settings })
+        .from(workspaceDocuments).where(and(eq(workspaceDocuments.id, docId), eq(workspaceDocuments.projectId, orgId))).limit(1);
     return doc ?? null;
 }
 
 async function writeOrgOptions(docId: string, settings: unknown, patch: Partial<OrgDocOptions>, extra: Record<string, unknown> = {}) {
     const current = normalizeWorkspaceDocSettings(settings);
-    await db.update(projectDocs).set({
+    await db.update(workspaceDocuments).set({
         settings: { ...current, ...extra, org: { ...(current.org ?? {}), ...patch } },
         updatedAt: new Date(),
-    }).where(eq(projectDocs.id, docId));
+    }).where(eq(workspaceDocuments.id, docId));
 }
 
 const touch = (slug: string | null, id: string) => revalidatePath(`/org/${slug ?? id}`);
@@ -72,8 +72,8 @@ const touch = (slug: string | null, id: string) => revalidatePath(`/org/${slug ?
  */
 export async function readOrgDocsAction(projectId: string): Promise<{ success: true; data: OrgDocsData | null } | Failure> {
     const { userId } = await getViewerAuthContext();
-    const [project] = await db.select({ id: projects.id, kind: projects.kind, parentId: projects.parentId })
-        .from(projects).where(and(eq(projects.id, projectId), isNull(projects.deletedAt))).limit(1);
+    const [project] = await db.select({ id: workspaces.id, kind: workspaces.kind, parentId: workspaces.parentId })
+        .from(workspaces).where(and(eq(workspaces.id, projectId), isNull(workspaces.deletedAt))).limit(1);
     const mode = project?.kind === 'organization' ? 'org' : project?.parentId ? 'child' : null;
     const orgId = mode === 'org' ? project!.id : project?.parentId ?? null;
     if (!mode || !orgId) return { success: true, data: null };
@@ -85,12 +85,12 @@ export async function readOrgDocsAction(projectId: string): Promise<{ success: t
     const ids = listed.docs.map((d) => d.id);
     const groups = readDocGroups((org.orgSettings as { docGroups?: unknown } | null)?.docGroups);
     const [rows, opens, sprints] = ids.length === 0 ? [[], [], []] : await Promise.all([
-        db.select({ id: projectDocs.id, settings: projectDocs.settings, updatedAt: projectNodes.updatedAt })
-            .from(projectDocs).leftJoin(projectNodes, eq(projectNodes.id, projectDocs.linkedNodeId)).where(inArray(projectDocs.id, ids)),
+        db.select({ id: workspaceDocuments.id, settings: workspaceDocuments.settings, updatedAt: workspaceNodes.updatedAt })
+            .from(workspaceDocuments).leftJoin(workspaceNodes, eq(workspaceNodes.id, workspaceDocuments.linkedNodeId)).where(inArray(workspaceDocuments.id, ids)),
         userId ? db.select({ docId: docOpens.docId, version: docOpens.version, at: docOpens.openedAt }).from(docOpens)
             .where(and(eq(docOpens.userId, userId), inArray(docOpens.docId, ids))) : Promise.resolve([]),
-        db.select({ docId: sprintMaterials.docId, name: projectSprints.name, sprintId: projectSprints.id }).from(sprintMaterials)
-            .innerJoin(projectSprints, eq(projectSprints.id, sprintMaterials.sprintId)).where(inArray(sprintMaterials.docId, ids)),
+        db.select({ docId: sprintMaterials.docId, name: workspaceSprints.name, sprintId: workspaceSprints.id }).from(sprintMaterials)
+            .innerJoin(workspaceSprints, eq(workspaceSprints.id, sprintMaterials.sprintId)).where(inArray(sprintMaterials.docId, ids)),
     ]);
     const byId = new Map(rows.map((r) => [r.id, r]));
     const openById = new Map(opens.map((o) => [o.docId, o]));
@@ -108,8 +108,8 @@ export async function readOrgDocsAction(projectId: string): Promise<{ success: t
     });
     const isAdmin = role === 'owner' || role === 'admin';
     const linkable = mode === 'org' && isAdmin
-        ? await db.select({ id: projectSprints.id, name: projectSprints.name }).from(projectSprints)
-            .where(and(eq(projectSprints.projectId, orgId), inArray(projectSprints.status, ['planning', 'active']))).orderBy(projectSprints.startDate)
+        ? await db.select({ id: workspaceSprints.id, name: workspaceSprints.name }).from(workspaceSprints)
+            .where(and(eq(workspaceSprints.projectId, orgId), inArray(workspaceSprints.status, ['planning', 'active']))).orderBy(workspaceSprints.startDate)
         : [];
     return { success: true, data: { mode, orgId, orgTitle: org.title, orgSlug: org.slug, isAdmin, signedIn: Boolean(userId), groups, docs, sprints: linkable } };
 }
@@ -134,12 +134,12 @@ export async function updateOrgDocOptionsAction(orgId: string, docId: string, in
     if (!doc) return { success: false, error: 'That doc is no longer available.' };
     const { visibility, sprintId, ...patch } = parsed.data;
     if (sprintId !== undefined) {
-        const [sprint] = sprintId ? await db.select({ id: projectSprints.id }).from(projectSprints)
-            .where(and(eq(projectSprints.id, sprintId), eq(projectSprints.projectId, orgId))).limit(1) : [];
+        const [sprint] = sprintId ? await db.select({ id: workspaceSprints.id }).from(workspaceSprints)
+            .where(and(eq(workspaceSprints.id, sprintId), eq(workspaceSprints.projectId, orgId))).limit(1) : [];
         if (sprintId && !sprint) return { success: false, error: 'That sprint is no longer available.' };
         await db.transaction(async (tx) => {
             await tx.delete(sprintMaterials).where(and(eq(sprintMaterials.docId, doc.id),
-                inArray(sprintMaterials.sprintId, db.select({ id: projectSprints.id }).from(projectSprints).where(eq(projectSprints.projectId, orgId)))));
+                inArray(sprintMaterials.sprintId, db.select({ id: workspaceSprints.id }).from(workspaceSprints).where(eq(workspaceSprints.projectId, orgId)))));
             if (sprint) await tx.insert(sprintMaterials).values({ sprintId: sprint.id, docId: doc.id, addedBy: adminId });
         });
     }
@@ -187,7 +187,7 @@ export async function markDocOpenedAction(orgId: string, docSlug: string): Promi
     const listed = await listWorkspaceDocsAction(orgId);
     const visible = listed.success ? listed.docs.find((d) => d.slug === docSlug) : null;
     if (!visible || !(await readOrg(orgId))) return { success: false, error: 'That doc is no longer available.' };
-    const [doc] = await db.select({ settings: projectDocs.settings }).from(projectDocs).where(eq(projectDocs.id, visible.id)).limit(1);
+    const [doc] = await db.select({ settings: workspaceDocuments.settings }).from(workspaceDocuments).where(eq(workspaceDocuments.id, visible.id)).limit(1);
     const version = readOrgDocOptions(normalizeWorkspaceDocSettings(doc?.settings).org).readVersion;
     await db.insert(docOpens).values({ docId: visible.id, userId, version, openedAt: new Date() })
         .onConflictDoUpdate({ target: [docOpens.docId, docOpens.userId], set: { version, openedAt: new Date() } });
@@ -205,10 +205,10 @@ export async function saveOrgDocGroupsAction(orgId: string, groups: DocGroup[]):
     if (!(await orgAdmin(orgId))) return DENIED;
     const parsed = groupsSchema.safeParse(groups);
     if (!parsed.success) return { success: false, error: `Use 1 to ${ORG_LIMITS.docGroupsPerOrg} groups with names up to 40 characters.` };
-    await db.update(projects).set({
-        orgSettings: sql`${projects.orgSettings} || ${JSON.stringify({ docGroups: parsed.data })}::jsonb`,
+    await db.update(workspaces).set({
+        orgSettings: sql`${workspaces.orgSettings} || ${JSON.stringify({ docGroups: parsed.data })}::jsonb`,
         updatedAt: new Date(),
-    }).where(eq(projects.id, orgId));
+    }).where(eq(workspaces.id, orgId));
     const org = await readOrg(orgId);
     touch(org?.slug ?? null, orgId);
     return { success: true };
@@ -221,8 +221,8 @@ export async function saveOrgDocGroupsAction(orgId: string, groups: DocGroup[]):
 export async function readOrgTemplateCopyAction(childProjectId: string, orgDocId: string): Promise<{ success: true; filename: string; content: string } | Failure> {
     const { userId } = await getViewerAuthContext();
     if (!userId) return DENIED;
-    const [child] = await db.select({ id: projects.id, title: projects.title, parentId: projects.parentId })
-        .from(projects).where(and(eq(projects.id, childProjectId), isNull(projects.deletedAt))).limit(1);
+    const [child] = await db.select({ id: workspaces.id, title: workspaces.title, parentId: workspaces.parentId })
+        .from(workspaces).where(and(eq(workspaces.id, childProjectId), isNull(workspaces.deletedAt))).limit(1);
     if (!child?.parentId) return DENIED;
     const [role, access, org, doc] = await Promise.all([
         readViewerOrgRole(child.parentId, userId),
@@ -234,9 +234,9 @@ export async function readOrgTemplateCopyAction(childProjectId: string, orgDocId
     if (!doc || !readOrgDocOptions(normalizeWorkspaceDocSettings(doc.settings).org).template) return { success: false, error: 'That template is no longer available.' };
     const source = await readWorkspaceDocAction(org.id, doc.slug);
     if (!source.success || !source.data.version) return { success: false, error: 'That template is no longer available.' };
-    const [unit] = await db.select({ name: sql<string | null>`coalesce(${projectOpenRoles.title}, ${projectOpenRoles.role})` })
-        .from(projectMembers).innerJoin(projectOpenRoles, eq(projectOpenRoles.id, projectMembers.unitId))
-        .where(and(eq(projectMembers.projectId, child.id), eq(projectMembers.userId, userId))).limit(1);
+    const [unit] = await db.select({ name: sql<string | null>`coalesce(${workspaceOpenRoles.title}, ${workspaceOpenRoles.role})` })
+        .from(workspaceMembers).innerJoin(workspaceOpenRoles, eq(workspaceOpenRoles.id, workspaceMembers.unitId))
+        .where(and(eq(workspaceMembers.projectId, child.id), eq(workspaceMembers.userId, userId))).limit(1);
     const date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: org.timeZone ?? 'UTC' });
     return {
         success: true,
@@ -249,9 +249,9 @@ export async function readOrgTemplateCopyAction(childProjectId: string, orgDocId
 export async function ensureDocsFolderAction(projectId: string): Promise<{ success: true; folderId: string } | Failure> {
     const { userId } = await getViewerAuthContext();
     if (!userId) return DENIED;
-    const [existing] = await db.select({ id: projectNodes.id }).from(projectNodes).where(and(
-        eq(projectNodes.projectId, projectId), isNull(projectNodes.parentId), eq(projectNodes.type, 'folder'),
-        eq(projectNodes.name, 'Docs'), isNull(projectNodes.deletedAt), isNull(projectNodes.taskId),
+    const [existing] = await db.select({ id: workspaceNodes.id }).from(workspaceNodes).where(and(
+        eq(workspaceNodes.projectId, projectId), isNull(workspaceNodes.parentId), eq(workspaceNodes.type, 'folder'),
+        eq(workspaceNodes.name, 'Docs'), isNull(workspaceNodes.deletedAt), isNull(workspaceNodes.taskId),
     )).limit(1);
     if (existing) return { success: true, folderId: existing.id };
     try {

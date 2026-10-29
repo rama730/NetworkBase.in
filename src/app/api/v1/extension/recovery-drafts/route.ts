@@ -13,7 +13,7 @@ import { db } from "@/lib/db";
 import {
   extensionRecoveryDrafts,
   extensionRecoverySessions,
-  projectNodes,
+  workspaceNodes,
   storageAssets,
 } from "@/lib/db/schema";
 import { getWorkspaceAccessById, getWorkspaceAccessByIds } from "@/lib/data/workspace-access";
@@ -106,12 +106,12 @@ async function createIntent(userId: string, body: z.infer<typeof intentSchema>) 
     return jsonError(error instanceof Error ? error.message : "Invalid path", 400, "BAD_REQUEST");
   }
 
-  const node = await db.query.projectNodes.findFirst({
+  const node = await db.query.workspaceNodes.findFirst({
     where: and(
-      eq(projectNodes.projectId, body.projectId),
-      eq(projectNodes.path, filePath),
-      eq(projectNodes.type, "file"),
-      isNull(projectNodes.deletedAt),
+      eq(workspaceNodes.projectId, body.projectId),
+      eq(workspaceNodes.path, filePath),
+      eq(workspaceNodes.type, "file"),
+      isNull(workspaceNodes.deletedAt),
     ),
     columns: { id: true },
   });

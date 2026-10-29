@@ -38,7 +38,7 @@ import { useFilesTabRole } from "./FilesTabRoleContext";
 import { taskFilesHref } from "@/lib/files/task-navigation";
 import { useFilesViews } from "./FilesViews";
 import { formatRelativeTime } from "./folder/format";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { uploadToSupabaseSignedUrl } from "@/lib/upload/supabase-signed-upload-client";
 import { FolderListHeader } from "./folder/FolderListHeader";
 import {
@@ -318,7 +318,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
         sizeBytes: file.size,
       }));
 
-      const batchNodes: ProjectNode[] = [];
+      const batchNodes: WorkspaceNode[] = [];
       for (let offset = 0; offset < plans.length; offset += 16) {
         const chunk = plans.slice(offset, offset + 16);
         const batch = await getBatchUploadUrls(

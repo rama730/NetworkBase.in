@@ -100,15 +100,15 @@ export async function POST(request: Request) {
       const uuids = (ids: string[]) => sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `);
       if (allNodes.length + contentNodes.length > 0) {
         const watermarkResults = await db.execute<{ projectId: string; maxUpdated: string }>(sql`
-          SELECT project_id AS "projectId", COALESCE(MAX(updated_at), '1970-01-01'::timestamptz)::text AS "maxUpdated"
-          FROM project_nodes
+          SELECT workspace_id AS "projectId", COALESCE(MAX(updated_at), '1970-01-01'::timestamptz)::text AS "maxUpdated"
+          FROM workspace_nodes
           WHERE deleted_at IS NULL
             AND (
-              ${allNodes.length ? sql`project_id IN (${uuids(allNodes)})` : sql`false`}
-              OR (${contentNodes.length ? sql`project_id IN (${uuids(contentNodes)})` : sql`false`}
+              ${allNodes.length ? sql`workspace_id IN (${uuids(allNodes)})` : sql`false`}
+              OR (${contentNodes.length ? sql`workspace_id IN (${uuids(contentNodes)})` : sql`false`}
                   AND task_id IS NULL AND path NOT LIKE '/.system%')
             )
-          GROUP BY project_id
+          GROUP BY workspace_id
         `);
 
         const serverWatermarks = new Map(

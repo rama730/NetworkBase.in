@@ -8,7 +8,7 @@
 import { describe, it, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
-import type { ProjectNode } from "../../../src/lib/db/schema";
+import type { WorkspaceNode } from "../../../src/lib/db/schema";
 import { createNavigationSlice } from "../../../src/stores/files/navigationSlice";
 import {
   defaultFilesState,
@@ -54,7 +54,7 @@ function createHarness() {
   };
 }
 
-function makeFolder(id: string, parentId: string | null): ProjectNode {
+function makeFolder(id: string, parentId: string | null): WorkspaceNode {
   return {
     id,
     projectId: "project-1",
@@ -73,10 +73,10 @@ function makeFolder(id: string, parentId: string | null): ProjectNode {
     createdAt: new Date(0),
     updatedAt: new Date(0),
     deletedAt: null,
-  } as unknown as ProjectNode;
+  } as unknown as WorkspaceNode;
 }
 
-function makeFile(id: string, parentId: string | null): ProjectNode {
+function makeFile(id: string, parentId: string | null): WorkspaceNode {
   return {
     id,
     projectId: "project-1",
@@ -95,7 +95,7 @@ function makeFile(id: string, parentId: string | null): ProjectNode {
     createdAt: new Date(0),
     updatedAt: new Date(0),
     deletedAt: null,
-  } as unknown as ProjectNode;
+  } as unknown as WorkspaceNode;
 }
 
 const PROJECT_ID = "project-1";

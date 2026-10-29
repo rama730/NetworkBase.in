@@ -17,9 +17,9 @@ import { toIsoString } from "@/lib/utils/date";
 import {
   commentMentions,
   profiles,
-  projectMembers,
-  projectOpenRoles,
-  projects,
+  workspaceMembers,
+  workspaceOpenRoles,
+  workspaces,
   taskCommentLikes,
   taskComments,
   tasks,
@@ -104,19 +104,19 @@ async function assertTaskAccess(params: {
     .select({
       id: tasks.id,
       projectId: tasks.projectId,
-      ownerId: projects.ownerId,
-      slug: projects.slug,
-      title: projects.title,
-      deletedAt: projects.deletedAt,
-      role: projectMembers.role,
+      ownerId: workspaces.ownerId,
+      slug: workspaces.slug,
+      title: workspaces.title,
+      deletedAt: workspaces.deletedAt,
+      role: workspaceMembers.role,
     })
     .from(tasks)
-    .innerJoin(projects, eq(tasks.projectId, projects.id))
+    .innerJoin(workspaces, eq(tasks.projectId, workspaces.id))
     .leftJoin(
-      projectMembers,
+      workspaceMembers,
       and(
-        eq(projectMembers.projectId, projects.id),
-        eq(projectMembers.userId, params.userId),
+        eq(workspaceMembers.projectId, workspaces.id),
+        eq(workspaceMembers.userId, params.userId),
       ),
     )
     .where(and(eq(tasks.id, params.taskId), isNull(tasks.deletedAt)))
@@ -167,18 +167,18 @@ async function assertCommentAccess(params: {
       userId: taskComments.userId,
       parentCommentId: taskComments.parentCommentId,
       deletedAt: taskComments.deletedAt,
-      ownerId: projects.ownerId,
-      projectDeletedAt: projects.deletedAt,
-      role: projectMembers.role,
+      ownerId: workspaces.ownerId,
+      projectDeletedAt: workspaces.deletedAt,
+      role: workspaceMembers.role,
     })
     .from(taskComments)
     .innerJoin(tasks, eq(taskComments.taskId, tasks.id))
-    .innerJoin(projects, eq(tasks.projectId, projects.id))
+    .innerJoin(workspaces, eq(tasks.projectId, workspaces.id))
     .leftJoin(
-      projectMembers,
+      workspaceMembers,
       and(
-        eq(projectMembers.projectId, projects.id),
-        eq(projectMembers.userId, params.userId),
+        eq(workspaceMembers.projectId, workspaces.id),
+        eq(workspaceMembers.userId, params.userId),
       ),
     )
     // COR-026: comments on a deleted task are frozen with it.
@@ -587,25 +587,25 @@ export async function createTaskCommentAction(
 
     // `@Frontend developers` (report §14.4): a unit's id in a mention token reaches everyone in that unit.
     const mentionedUnits = candidateMentionIds.length > 0
-      ? await db.select({ id: projectOpenRoles.id }).from(projectOpenRoles)
-          .where(and(eq(projectOpenRoles.projectId, projectId), inArray(projectOpenRoles.id, candidateMentionIds)))
+      ? await db.select({ id: workspaceOpenRoles.id }).from(workspaceOpenRoles)
+          .where(and(eq(workspaceOpenRoles.projectId, projectId), inArray(workspaceOpenRoles.id, candidateMentionIds)))
       : [];
     const unitIds = new Set(mentionedUnits.map((unit) => unit.id));
     const unitPeople = unitIds.size > 0
-      ? await db.select({ userId: projectMembers.userId }).from(projectMembers)
-          .where(and(eq(projectMembers.projectId, projectId), inArray(projectMembers.unitId, [...unitIds])))
+      ? await db.select({ userId: workspaceMembers.userId }).from(workspaceMembers)
+          .where(and(eq(workspaceMembers.projectId, projectId), inArray(workspaceMembers.unitId, [...unitIds])))
       : [];
     const personIds = [...new Set([...candidateMentionIds.filter((id) => !unitIds.has(id)), ...unitPeople.map((row) => row.userId)])];
 
     // PURE OPTIMIZATION (Item 9): Omit redundant project select since taskAccess already provided ownerId/slug/title.
     if (personIds.length > 0) {
       const memberRows = await db
-        .select({ userId: projectMembers.userId })
-        .from(projectMembers)
+        .select({ userId: workspaceMembers.userId })
+        .from(workspaceMembers)
         .where(
           and(
-            eq(projectMembers.projectId, projectId),
-            inArray(projectMembers.userId, personIds),
+            eq(workspaceMembers.projectId, projectId),
+            inArray(workspaceMembers.userId, personIds),
           ),
         );
 

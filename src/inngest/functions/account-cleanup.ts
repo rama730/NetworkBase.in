@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { accountDeletions, projects, storageAssets } from "@/lib/db/schema";
+import { accountDeletions, workspaces, storageAssets } from "@/lib/db/schema";
 import { verifySignedJobRequestToken } from "@/lib/security/job-request";
 
 import { inngest } from "../client";
@@ -50,43 +50,43 @@ export const accountCleanup = inngest.createFunction(
             WHERE profile.id = ${userId}
               AND (((profile.avatar_url LIKE '%/storage/v1/object/%') AND profile.avatar_asset_id IS NULL)
                 OR ((profile.banner_url LIKE '%/storage/v1/object/%') AND profile.banner_asset_id IS NULL)))
-          + (SELECT count(*) FROM public.projects project
+          + (SELECT count(*) FROM public.workspaces project
             WHERE project.owner_id = ${userId}
               AND (project.cover_image_key IS NOT NULL OR project.cover_image LIKE '%/storage/v1/object/%')
               AND project.cover_image_asset_id IS NULL)
-          + (SELECT count(*) FROM public.project_nodes node
-              JOIN public.projects project ON project.id = node.project_id
+          + (SELECT count(*) FROM public.workspace_nodes node
+              JOIN public.workspaces project ON project.id = node.workspace_id
             WHERE project.owner_id = ${userId}
               AND node.s3_key IS NOT NULL
               AND node.asset_id IS NULL)
           + (SELECT count(*) FROM public.file_versions version
-              JOIN public.project_nodes node ON node.id = version.node_id
-              JOIN public.projects project ON project.id = node.project_id
+              JOIN public.workspace_nodes node ON node.id = version.node_id
+              JOIN public.workspaces project ON project.id = node.workspace_id
             WHERE project.owner_id = ${userId}
               AND version.s3_key <> ''
               AND version.asset_id IS NULL)
-          + (SELECT count(*) FROM public.project_updates update_row
-              JOIN public.projects project ON project.id = update_row.project_id
+          + (SELECT count(*) FROM public.workspace_updates update_row
+              JOIN public.workspaces project ON project.id = update_row.workspace_id
             WHERE project.owner_id = ${userId}
               AND jsonb_array_length(update_row.media) > (
-                SELECT count(*) FROM public.project_update_media_assets media_ref
+                SELECT count(*) FROM public.workspace_update_media_assets media_ref
                 WHERE media_ref.update_id = update_row.id
               ))
-          + (SELECT count(*) FROM public.project_update_drafts draft
-              JOIN public.projects project ON project.id = draft.project_id
+          + (SELECT count(*) FROM public.workspace_update_drafts draft
+              JOIN public.workspaces project ON project.id = draft.workspace_id
             WHERE project.owner_id = ${userId}
               AND jsonb_array_length(draft.media) > (
-                SELECT count(*) FROM public.project_update_draft_media_assets media_ref
-                WHERE media_ref.project_id = draft.project_id
+                SELECT count(*) FROM public.workspace_update_draft_media_assets media_ref
+                WHERE media_ref.workspace_id = draft.workspace_id
                   AND media_ref.user_id = draft.user_id
               ))
           + (SELECT count(*) FROM public.import_jobs import_job
-              JOIN public.projects project ON project.id = import_job.project_id
+              JOIN public.workspaces project ON project.id = import_job.workspace_id
             WHERE project.owner_id = ${userId}
               AND import_job.manifest_s3_key IS NOT NULL
               AND import_job.manifest_asset_id IS NULL)
           + (SELECT count(*) FROM public.github_sync_runs sync_run
-              JOIN public.projects project ON project.id = sync_run.project_id
+              JOIN public.workspaces project ON project.id = sync_run.workspace_id
               CROSS JOIN LATERAL jsonb_array_elements(
                 COALESCE(sync_run.manifest->'files', '[]'::jsonb)
               ) AS sync_file
@@ -136,9 +136,9 @@ export const accountCleanup = inngest.createFunction(
           .for("update");
         if (!locked) return null;
         const ownedProjects = tx
-          .select({ id: projects.id })
-          .from(projects)
-          .where(eq(projects.ownerId, userId));
+          .select({ id: workspaces.id })
+          .from(workspaces)
+          .where(eq(workspaces.ownerId, userId));
         const rows = await tx.update(storageAssets)
           .set({
             state: "delete_pending",

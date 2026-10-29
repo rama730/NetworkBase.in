@@ -1,7 +1,7 @@
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { inngest } from "../client";
 import { db } from "@/lib/db";
-import { jobHeartbeats, projectNodeEvents, projectNodes } from "@/lib/db/schema";
+import { jobHeartbeats, workspaceNodeEvents, workspaceNodes } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import { buildWorkspaceFileKey } from "@/lib/storage/workspace-file-key";
 
@@ -55,26 +55,26 @@ export const reconcileWorkspaceFiles = inngest.createFunction(
             .limit(1);
         const cursor = readCursor(checkpoint?.payload);
         const basePredicate = and(
-            eq(projectNodes.type, "file"),
-            isNull(projectNodes.deletedAt),
+            eq(workspaceNodes.type, "file"),
+            isNull(workspaceNodes.deletedAt),
         );
         const readPage = (after: ReconciliationCursor | null) => db
             .select({
-                nodeId: projectNodes.id,
-                projectId: projectNodes.projectId,
-                path: projectNodes.path,
-                s3Key: projectNodes.s3Key,
-                size: projectNodes.size,
-                mimeType: projectNodes.mimeType,
+                nodeId: workspaceNodes.id,
+                projectId: workspaceNodes.projectId,
+                path: workspaceNodes.path,
+                s3Key: workspaceNodes.s3Key,
+                size: workspaceNodes.size,
+                mimeType: workspaceNodes.mimeType,
             })
-            .from(projectNodes)
+            .from(workspaceNodes)
             .where(and(
                 basePredicate,
                 after
-                    ? sql`(${projectNodes.projectId}, ${projectNodes.id}) > (${after.projectId}::uuid, ${after.nodeId}::uuid)`
+                    ? sql`(${workspaceNodes.projectId}, ${workspaceNodes.id}) > (${after.projectId}::uuid, ${after.nodeId}::uuid)`
                     : undefined,
             ))
-            .orderBy(asc(projectNodes.projectId), asc(projectNodes.id))
+            .orderBy(asc(workspaceNodes.projectId), asc(workspaceNodes.id))
             .limit(MAX_KEYS_PER_PROJECT);
 
         let rows = await readPage(cursor);
@@ -160,8 +160,8 @@ export const reconcileWorkspaceFiles = inngest.createFunction(
                     db.execute<StorageObjectRow>(sql`
                         SELECT objects.name, objects.metadata
                         FROM storage.objects AS objects
-                        LEFT JOIN project_nodes AS nodes
-                          ON nodes.project_id = ${projectId}::uuid
+                        LEFT JOIN workspace_nodes AS nodes
+                          ON nodes.workspace_id = ${projectId}::uuid
                          AND nodes.s3_key = objects.name
                          AND nodes.type = 'file'
                          AND nodes.deleted_at IS NULL
@@ -305,8 +305,8 @@ export const reconcileWorkspaceFiles = inngest.createFunction(
                     const keys = events.map((event) => String(event.metadata.reconciliationKey));
                     const existingKeys = Array.from(await db.execute<{ key: string }>(sql`
                         SELECT metadata->>'reconciliationKey' AS key
-                        FROM project_node_events
-                        WHERE project_id = ${projectId}::uuid
+                        FROM workspace_node_events
+                        WHERE workspace_id = ${projectId}::uuid
                           AND metadata->>'reconciliationKey' = ANY(ARRAY(SELECT jsonb_array_elements_text(${JSON.stringify(keys)}::jsonb)))
                     `));
                     const seenKeys = new Set(existingKeys.map((row) => row.key));
@@ -314,7 +314,7 @@ export const reconcileWorkspaceFiles = inngest.createFunction(
                     const remainingEventBudget = Math.max(0, MAX_EVENTS_PER_RUN - emittedEvents);
                     const boundedEvents = newEvents.slice(0, remainingEventBudget);
                     if (boundedEvents.length > 0) {
-                        await db.insert(projectNodeEvents).values(boundedEvents);
+                        await db.insert(workspaceNodeEvents).values(boundedEvents);
                         emittedEvents += boundedEvents.length;
                     }
                 } catch (error) {
@@ -355,7 +355,7 @@ export const reconcileWorkspaceFiles = inngest.createFunction(
         // Measure the detection delay this cadence implies, so growth shows up before it matters.
         const [{ total } = { total: 0 }] = await db
             .select({ total: sql<number>`count(*)::int` })
-            .from(projectNodes)
+            .from(workspaceNodes)
             .where(basePredicate);
         const estimatedCycleHours = estimateReconciliationCycleHours(total);
         if (estimatedCycleHours > RECONCILIATION_MAX_CYCLE_HOURS) {

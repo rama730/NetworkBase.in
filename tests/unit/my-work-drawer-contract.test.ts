@@ -69,8 +69,8 @@ describe("My work drawer contracts", () => {
     const workspace = read("src/app/actions/my-work.ts");
 
     assert.match(workspace, /const visibleProjectCheck = exists/);
-    assert.match(workspace, /eq\(projects\.ownerId, user\.id\)/);
-    assert.match(workspace, /eq\(projectMembers\.userId, user\.id\)/);
+    assert.match(workspace, /eq\(workspaces\.ownerId, user\.id\)/);
+    assert.match(workspace, /eq\(workspaceMembers\.userId, user\.id\)/);
     assert.match(workspace, /or\(isNull\(tasks\.assigneeId\), ne\(tasks\.assigneeId, user\.id\)\)/);
     assert.match(workspace, /scopeWhere = visibleProjectCheck/);
     assert.match(workspace, /scope: "my" \| "team" \| "all" = "all"/);

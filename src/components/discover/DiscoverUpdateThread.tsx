@@ -48,7 +48,7 @@ export function DiscoverUpdateThread({
             resourceId: `discover:update:${updateId}`,
             bindings: [{
                 event: '*',
-                table: 'project_update_comments',
+                table: 'workspace_update_comments',
                 filter: `update_id=eq.${updateId}`,
                 handler: (payload: { eventType?: string; new?: unknown; old?: unknown }) => {
                     // A comment this person just wrote is already on screen.

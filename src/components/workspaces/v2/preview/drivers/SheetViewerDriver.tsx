@@ -4,14 +4,14 @@ import * as React from "react";
 import { AlertTriangle, Download, ExternalLink, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { extOf } from "../../utils/fileKind";
 import { formatBytes } from "../../files-tab/folder/format";
 import { DataGridDriver, type SheetData } from "./DataGridDriver";
 import * as fflate from "fflate";
 
 interface SheetViewerDriverProps {
-  node: ProjectNode;
+  node: WorkspaceNode;
   signedUrl: string;
 }
 

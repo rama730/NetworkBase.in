@@ -5,8 +5,8 @@ import { requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
 import { readFileSubtree } from "@/lib/files/permanent-delete";
 import { permanentlyDeleteTrashedNode } from "./trash";
-import { fileVersions, profiles, projectFileIndex, projectNodeEvents, projectNodeLocks, projectNodes, storageAssets, taskActivityEvents, taskNodeLinks, tasks, uploadIntents } from "@/lib/db/schema";
-import type { ProjectNode } from "@/lib/db/schema";
+import { fileVersions, profiles, workspaceFileIndex, workspaceNodeEvents, workspaceNodeLocks, workspaceNodes, storageAssets, taskActivityEvents, taskNodeLinks, tasks, uploadIntents } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { eq, and, or, isNull, isNotNull, ilike, inArray, sql, gt, ne, desc, type SQL } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { createClient } from "@/lib/supabase/server";
@@ -79,8 +79,8 @@ async function enqueueFileNotificationBestEffort(input: Parameters<typeof enqueu
 
 async function getParentPath(tx: any, projectId: string, parentId: string | null): Promise<string> {
     if (!parentId) return "";
-    const parent = await tx.query.projectNodes.findFirst({
-        where: and(eq(projectNodes.id, parentId), eq(projectNodes.projectId, projectId)),
+    const parent = await tx.query.workspaceNodes.findFirst({
+        where: and(eq(workspaceNodes.id, parentId), eq(workspaceNodes.projectId, projectId)),
         columns: { path: true }
     });
     return parent?.path || "";
@@ -105,16 +105,16 @@ async function resolveParentAndCheckSibling(
             p.type as parent_type,
             p.path as parent_path,
             EXISTS(
-                SELECT 1 FROM project_nodes s
-                WHERE s.project_id = ${projectId}::uuid
+                SELECT 1 FROM workspace_nodes s
+                WHERE s.workspace_id = ${projectId}::uuid
                   AND s.parent_id = ${parentId}::uuid
                   AND s.deleted_at IS NULL
                   AND lower(s.name) = lower(${safeName})
                   ${ignoreNodeId ? sql`AND s.id != ${ignoreNodeId}::uuid` : sql``}
             ) as name_exists
-        FROM project_nodes p
+        FROM workspace_nodes p
         WHERE p.id = ${parentId}::uuid
-          AND p.project_id = ${projectId}::uuid
+          AND p.workspace_id = ${projectId}::uuid
           AND p.deleted_at IS NULL
     `)) as Array<{
         parent_id: string | null;
@@ -136,13 +136,13 @@ function descendantLikePattern(path: string): string {
 }
 
 function taskScopePredicate(taskId: string | null): SQL {
-    return sql`${projectNodes.taskId} IS NOT DISTINCT FROM ${taskId}`;
+    return sql`${workspaceNodes.taskId} IS NOT DISTINCT FROM ${taskId}`;
 }
 
 function subtreePathPredicate(node: { id: string; path: string; type: string; taskId: string | null }): SQL {
-    const predicates: SQL[] = [eq(projectNodes.id, node.id)];
+    const predicates: SQL[] = [eq(workspaceNodes.id, node.id)];
     if (node.type === "folder" && node.path) {
-        predicates.push(sql`${projectNodes.path} LIKE ${descendantLikePattern(node.path)} ESCAPE '\\'`);
+        predicates.push(sql`${workspaceNodes.path} LIKE ${descendantLikePattern(node.path)} ESCAPE '\\'`);
     }
     return and(taskScopePredicate(node.taskId), or(...predicates) ?? sql`FALSE`) ?? sql`FALSE`;
 }
@@ -163,12 +163,12 @@ async function updateFolderDescendantPaths(
     // as a regex. Paths and task scope move in ONE statement matched on the old scope (COR-012).
     await tx.execute(sql`
         WITH RECURSIVE subtree AS (
-            SELECT id FROM project_nodes WHERE parent_id = ${folderId} AND project_id = ${projectId}
+            SELECT id FROM workspace_nodes WHERE parent_id = ${folderId} AND workspace_id = ${projectId}
             UNION ALL
-            SELECT child.id FROM project_nodes child JOIN subtree ON child.parent_id = subtree.id
-            WHERE child.project_id = ${projectId}
+            SELECT child.id FROM workspace_nodes child JOIN subtree ON child.parent_id = subtree.id
+            WHERE child.workspace_id = ${projectId}
         )
-        UPDATE project_nodes
+        UPDATE workspace_nodes
         SET path = ${newPath} || SUBSTRING(path FROM ${oldPath.length + 1}::int),
             ${options.releaseTaskScope ? sql`task_id = NULL,` : sql``}
             updated_at = NOW()
@@ -182,14 +182,14 @@ async function updateFolderDescendantPaths(
 async function realignRestoredRoot(tx: any, projectId: string, nodeId: string) {
     const [row] = Array.from(await tx.execute(sql`
         SELECT n.path, n.type, n.task_id, n.name, p.path AS parent_path
-        FROM project_nodes n
-        LEFT JOIN project_nodes p ON p.id = n.parent_id
-        WHERE n.id = ${nodeId} AND n.project_id = ${projectId}
+        FROM workspace_nodes n
+        LEFT JOIN workspace_nodes p ON p.id = n.parent_id
+        WHERE n.id = ${nodeId} AND n.workspace_id = ${projectId}
     `)) as Array<{ path: string; type: string; task_id: string | null; name: string; parent_path: string | null }>;
     if (!row) return;
     const expected = `${row.parent_path ?? ""}/${row.name}`;
     if (row.path === expected) return;
-    await tx.execute(sql`UPDATE project_nodes SET path = ${expected}, updated_at = NOW() WHERE id = ${nodeId}`);
+    await tx.execute(sql`UPDATE workspace_nodes SET path = ${expected}, updated_at = NOW() WHERE id = ${nodeId}`);
     if (row.type === "folder") await updateFolderDescendantPaths(tx, projectId, nodeId, row.path, expected, row.task_id);
 }
 
@@ -200,13 +200,13 @@ async function assertSubtreeNotLockedByAnotherUser(
     userId: string,
 ) {
     const [lock] = await tx
-        .select({ nodeId: projectNodeLocks.nodeId })
-        .from(projectNodeLocks)
-        .innerJoin(projectNodes, eq(projectNodeLocks.nodeId, projectNodes.id))
+        .select({ nodeId: workspaceNodeLocks.nodeId })
+        .from(workspaceNodeLocks)
+        .innerJoin(workspaceNodes, eq(workspaceNodeLocks.nodeId, workspaceNodes.id))
         .where(and(
-            eq(projectNodeLocks.projectId, projectId),
-            ne(projectNodeLocks.lockedBy, userId),
-            gt(projectNodeLocks.expiresAt, new Date()),
+            eq(workspaceNodeLocks.projectId, projectId),
+            ne(workspaceNodeLocks.lockedBy, userId),
+            gt(workspaceNodeLocks.expiresAt, new Date()),
             subtreePathPredicate(node)
         ))
         .limit(1);
@@ -237,7 +237,7 @@ export async function createFolder(
         const parentPath = await resolveParentAndCheckSibling(tx, projectId, parentId, safeName);
         const nodePath = `${parentPath}/${safeName}`;
 
-        const [created] = await tx.insert(projectNodes).values({
+        const [created] = await tx.insert(workspaceNodes).values({
             projectId,
             parentId,
             type: 'folder',
@@ -332,12 +332,12 @@ export async function createFileNode(projectId: string, parentId: string | null,
             // A staged task copy may only point at a live main-tree file of this
             // same project; merge later rewrites that node (COR-057).
             if (!UUID_RE.test(file.canonicalNodeId) || !file.taskId) throw new Error("Invalid canonical file");
-            const [canonical] = await tx.select({ id: projectNodes.id }).from(projectNodes).where(and(
-                eq(projectNodes.id, file.canonicalNodeId),
-                eq(projectNodes.projectId, projectId),
-                eq(projectNodes.type, "file"),
-                isNull(projectNodes.taskId),
-                isNull(projectNodes.deletedAt),
+            const [canonical] = await tx.select({ id: workspaceNodes.id }).from(workspaceNodes).where(and(
+                eq(workspaceNodes.id, file.canonicalNodeId),
+                eq(workspaceNodes.projectId, projectId),
+                eq(workspaceNodes.type, "file"),
+                isNull(workspaceNodes.taskId),
+                isNull(workspaceNodes.deletedAt),
             )).limit(1).for("update");
             if (!canonical) throw new Error("Canonical file not found in this workspace");
         }
@@ -345,7 +345,7 @@ export async function createFileNode(projectId: string, parentId: string | null,
         const parentPath = await resolveParentAndCheckSibling(tx, projectId, parentId, safeName);
         const nodePath = `${parentPath}/${safeName}`;
 
-        const [created] = await tx.insert(projectNodes).values({
+        const [created] = await tx.insert(workspaceNodes).values({
             projectId,
             parentId,
             type: 'file',
@@ -521,9 +521,9 @@ export async function finalizeBatchUpload(
         let parentPath = "";
         if (parentId) {
             const [parent] = await tx
-                .select({ path: projectNodes.path, type: projectNodes.type })
-                .from(projectNodes)
-                .where(and(eq(projectNodes.id, parentId), eq(projectNodes.projectId, projectId), isNull(projectNodes.deletedAt)))
+                .select({ path: workspaceNodes.path, type: workspaceNodes.type })
+                .from(workspaceNodes)
+                .where(and(eq(workspaceNodes.id, parentId), eq(workspaceNodes.projectId, projectId), isNull(workspaceNodes.deletedAt)))
                 .limit(1);
             if (!parent) throw new Error("Parent folder not found");
             if (parent.type !== "folder") throw new Error("Destination must be a folder");
@@ -532,13 +532,13 @@ export async function finalizeBatchUpload(
 
         // Check for existing active sibling names in destination to prevent unique constraint collisions
         const existingSiblings = await tx
-            .select({ lowerName: sql<string>`lower(${projectNodes.name})` })
-            .from(projectNodes)
+            .select({ lowerName: sql<string>`lower(${workspaceNodes.name})` })
+            .from(workspaceNodes)
             .where(and(
-                eq(projectNodes.projectId, projectId),
-                parentId ? eq(projectNodes.parentId, parentId) : isNull(projectNodes.parentId),
-                isNull(projectNodes.taskId),
-                isNull(projectNodes.deletedAt)
+                eq(workspaceNodes.projectId, projectId),
+                parentId ? eq(workspaceNodes.parentId, parentId) : isNull(workspaceNodes.parentId),
+                isNull(workspaceNodes.taskId),
+                isNull(workspaceNodes.deletedAt)
             ));
         const existingSet = new Set(existingSiblings.map((s: { lowerName: string }) => s.lowerName));
 
@@ -595,7 +595,7 @@ export async function finalizeBatchUpload(
             throw new Error("One or more file assets are no longer publishable");
         }
 
-        const inserted = await tx.insert(projectNodes).values(valuesToInsert.map(({ contentHash: _contentHash, ...value }) => value)).returning();
+        const inserted = await tx.insert(workspaceNodes).values(valuesToInsert.map(({ contentHash: _contentHash, ...value }) => value)).returning();
         const valueByKey = new Map(valuesToInsert.map((value) => [value.s3Key, value]));
         await tx.insert(fileVersions).values(inserted.map((node) => {
             const source = valueByKey.get(node.s3Key!);
@@ -727,8 +727,8 @@ export async function getUploadCollisionSummary(
                 node.id,
                 node.type
             FROM walk
-            JOIN project_nodes node
-              ON node.project_id = ${projectId}::uuid
+            JOIN workspace_nodes node
+              ON node.workspace_id = ${projectId}::uuid
              AND node.parent_id IS NOT DISTINCT FROM walk.parent_id
              AND lower(node.name) = lower(walk.segments[walk.depth])
              AND node.task_id IS NOT DISTINCT FROM ${taskId}::uuid
@@ -778,8 +778,8 @@ export async function renameNode(nodeId: string, newName: string, projectId: str
     const node = await db.transaction(async (tx) => {
         await assertWorkspaceWriteAccessTx(tx, projectId, user.id);
         await assertNodeNotLockedByAnotherUser(projectId, nodeId, user.id, tx);
-        const current = await tx.query.projectNodes.findFirst({
-            where: and(eq(projectNodes.id, nodeId), eq(projectNodes.projectId, projectId)),
+        const current = await tx.query.workspaceNodes.findFirst({
+            where: and(eq(workspaceNodes.id, nodeId), eq(workspaceNodes.projectId, projectId)),
             columns: { id: true, parentId: true, taskId: true, metadata: true, deletedAt: true, path: true, type: true, updatedAt: true },
         });
 
@@ -794,9 +794,9 @@ export async function renameNode(nodeId: string, newName: string, projectId: str
         const newPath = `${parentPath}/${safeName}`;
         const oldPath = current.path;
 
-        const [updated] = await tx.update(projectNodes)
+        const [updated] = await tx.update(workspaceNodes)
             .set({ name: safeName, path: newPath, updatedAt: new Date() })
-            .where(and(eq(projectNodes.id, nodeId), eq(projectNodes.projectId, projectId)))
+            .where(and(eq(workspaceNodes.id, nodeId), eq(workspaceNodes.projectId, projectId)))
             .returning();
 
         await updateFolderDescendantPaths(tx, projectId, nodeId, oldPath, newPath, current.taskId ?? null);
@@ -820,7 +820,7 @@ export async function renameNode(nodeId: string, newName: string, projectId: str
 }
 
 export type MoveWorkspaceNodesResult = {
-    nodes: ProjectNode[];
+    nodes: WorkspaceNode[];
     operationId: string | null;
     affectedParentIds: Array<string | null>;
 };
@@ -847,11 +847,11 @@ export async function moveWorkspaceNodes(
 
     const result = await db.transaction(async (tx) => {
         await assertWorkspaceManageFilesAccessTx(tx, projectId, user.id);
-        const nodes = await tx.query.projectNodes.findMany({
+        const nodes = await tx.query.workspaceNodes.findMany({
             where: and(
-                eq(projectNodes.projectId, projectId),
-                inArray(projectNodes.id, uniqueIds),
-                isNull(projectNodes.deletedAt)
+                eq(workspaceNodes.projectId, projectId),
+                inArray(workspaceNodes.id, uniqueIds),
+                isNull(workspaceNodes.deletedAt)
             ),
             columns: {
                 id: true,
@@ -882,7 +882,7 @@ export async function moveWorkspaceNodes(
 
         const movers = nodes.filter((node) => (node.parentId ?? null) !== newParentId);
         if (movers.length === 0) {
-            return { nodes: [] as ProjectNode[], operationId: null, affectedParentIds: [] as Array<string | null> };
+            return { nodes: [] as WorkspaceNode[], operationId: null, affectedParentIds: [] as Array<string | null> };
         }
         const isPublishing = options?.mode === "publish";
         if (!isPublishing && movers.some((node) => node.taskId)) {
@@ -920,7 +920,7 @@ export async function moveWorkspaceNodes(
             }
         }
 
-        const movedNodes: ProjectNode[] = [];
+        const movedNodes: WorkspaceNode[] = [];
         const affectedParentIds = new Set<string | null>([newParentId]);
         const newParentPath = await getParentPath(tx, projectId, newParentId);
         const now = new Date();
@@ -931,14 +931,14 @@ export async function moveWorkspaceNodes(
             .where(inArray(taskNodeLinks.nodeId, movers.map((node) => node.id)));
         const moves = movers.map((node) => ({ node, oldPath: node.path, newPath: `${newParentPath}/${node.name}` }));
         for (const { node } of moves) affectedParentIds.add(node.parentId ?? null);
-        const updatedRows = await tx.update(projectNodes)
+        const updatedRows = await tx.update(workspaceNodes)
             .set({
                 parentId: newParentId,
-                path: sql`CASE ${projectNodes.id} ${sql.join(moves.map(({ node, newPath }) => sql`WHEN ${node.id}::uuid THEN ${newPath}`), sql` `)} END`,
+                path: sql`CASE ${workspaceNodes.id} ${sql.join(moves.map(({ node, newPath }) => sql`WHEN ${node.id}::uuid THEN ${newPath}`), sql` `)} END`,
                 ...(isPublishing ? { taskId: null } : {}),
                 updatedAt: now,
             })
-            .where(and(inArray(projectNodes.id, moves.map(({ node }) => node.id)), eq(projectNodes.projectId, projectId)))
+            .where(and(inArray(workspaceNodes.id, moves.map(({ node }) => node.id)), eq(workspaceNodes.projectId, projectId)))
             .returning();
         const updatedById = new Map(updatedRows.map((row) => [row.id, row]));
         for (const { node, oldPath, newPath } of moves) {
@@ -1010,8 +1010,8 @@ export async function restoreNode(nodeId: string, projectId: string) {
 
     await db.transaction(async (tx) => {
         await assertWorkspaceWriteAccessTx(tx, projectId, user.id);
-        const node = await tx.query.projectNodes.findFirst({
-            where: and(eq(projectNodes.id, nodeId), eq(projectNodes.projectId, projectId)),
+        const node = await tx.query.workspaceNodes.findFirst({
+            where: and(eq(workspaceNodes.id, nodeId), eq(workspaceNodes.projectId, projectId)),
             columns: { id: true, parentId: true, name: true, deletedAt: true, metadata: true },
         });
         if (!node) throw new Error("File not found");
@@ -1020,11 +1020,11 @@ export async function restoreNode(nodeId: string, projectId: string) {
 
         await assertNodeNotLockedByAnotherUser(projectId, nodeId, user.id, tx);
         if (node.parentId) {
-            const parent = await tx.query.projectNodes.findFirst({
+            const parent = await tx.query.workspaceNodes.findFirst({
                 where: and(
-                    eq(projectNodes.id, node.parentId),
-                    eq(projectNodes.projectId, projectId),
-                    isNull(projectNodes.deletedAt)
+                    eq(workspaceNodes.id, node.parentId),
+                    eq(workspaceNodes.projectId, projectId),
+                    isNull(workspaceNodes.deletedAt)
                 ),
                 columns: { id: true, type: true },
             });
@@ -1041,9 +1041,9 @@ export async function restoreNode(nodeId: string, projectId: string) {
             await assertNodeNotLockedByAnotherUser(projectId, item.id, user.id, tx);
             await assertUniqueSiblingName(projectId, item.parentId ?? null, item.name, tx, item.id);
         }
-        await tx.update(projectNodes)
+        await tx.update(workspaceNodes)
             .set({ deletedAt: null, deletedBy: null, updatedAt: new Date() })
-            .where(and(eq(projectNodes.projectId, projectId), inArray(projectNodes.id, restoreIds)));
+            .where(and(eq(workspaceNodes.projectId, projectId), inArray(workspaceNodes.id, restoreIds)));
         await realignRestoredRoot(tx, projectId, nodeId);
         await recordNodeEvent(projectId, user.id, nodeId, "restore", { restoredIds: restoreIds }, tx);
     });
@@ -1074,8 +1074,8 @@ export async function bulkTrashNodes(nodeIds: string[], projectId: string, expec
     const now = new Date();
     const result = await db.transaction(async (tx) => {
         await assertWorkspaceWriteAccessTx(tx, projectId, user.id);
-        const nodes = await tx.query.projectNodes.findMany({
-            where: and(eq(projectNodes.projectId, projectId), inArray(projectNodes.id, uniqueIds)),
+        const nodes = await tx.query.workspaceNodes.findMany({
+            where: and(eq(workspaceNodes.projectId, projectId), inArray(workspaceNodes.id, uniqueIds)),
             columns: { id: true, name: true, path: true, type: true, taskId: true, metadata: true, deletedAt: true, updatedAt:true },
         });
         if (nodes.length !== uniqueIds.length) {
@@ -1103,22 +1103,22 @@ export async function bulkTrashNodes(nodeIds: string[], projectId: string, expec
             );
             const subtreePredicates = topLevelTrashNodes.map((node) => subtreePathPredicate(node));
 
-            const affectedRows = await tx.update(projectNodes)
+            const affectedRows = await tx.update(workspaceNodes)
                 .set({ deletedAt: now, deletedBy: user.id, updatedAt: now })
                 .where(and(
-                    eq(projectNodes.projectId, projectId),
-                    isNull(projectNodes.deletedAt),
+                    eq(workspaceNodes.projectId, projectId),
+                    isNull(workspaceNodes.deletedAt),
                     or(...subtreePredicates) ?? sql`FALSE`
                 ))
-                .returning({ id: projectNodes.id });
+                .returning({ id: workspaceNodes.id });
             const affectedIds = affectedRows.map((row) => row.id);
 
             if (affectedIds.length > 0) {
-                await tx.delete(projectFileIndex).where(inArray(projectFileIndex.nodeId, affectedIds));
-                await tx.delete(projectNodeLocks).where(inArray(projectNodeLocks.nodeId, affectedIds));
+                await tx.delete(workspaceFileIndex).where(inArray(workspaceFileIndex.nodeId, affectedIds));
+                await tx.delete(workspaceNodeLocks).where(inArray(workspaceNodeLocks.nodeId, affectedIds));
             }
 
-            await tx.insert(projectNodeEvents).values(
+            await tx.insert(workspaceNodeEvents).values(
                 toTrashIds.map((nodeId) => ({
                     projectId,
                     nodeId,
@@ -1167,8 +1167,8 @@ export async function bulkRestoreNodes(nodeIds: string[], projectId: string, exp
     const now = new Date();
     const result = await db.transaction(async (tx) => {
         await assertWorkspaceWriteAccessTx(tx, projectId, user.id);
-        const selectedNodes = await tx.query.projectNodes.findMany({
-            where: and(eq(projectNodes.projectId, projectId), inArray(projectNodes.id, uniqueIds)),
+        const selectedNodes = await tx.query.workspaceNodes.findMany({
+            where: and(eq(workspaceNodes.projectId, projectId), inArray(workspaceNodes.id, uniqueIds)),
             columns: { id: true, parentId: true, name: true, deletedAt: true, metadata: true },
         });
         if (selectedNodes.length !== uniqueIds.length) {
@@ -1212,11 +1212,11 @@ export async function bulkRestoreNodes(nodeIds: string[], projectId: string, exp
                     .map((node) => node.parentId as string)
             ));
             if (parentIdsToCheck.length > 0) {
-                const activeParents = await tx.query.projectNodes.findMany({
+                const activeParents = await tx.query.workspaceNodes.findMany({
                     where: and(
-                        eq(projectNodes.projectId, projectId),
-                        inArray(projectNodes.id, parentIdsToCheck),
-                        isNull(projectNodes.deletedAt)
+                        eq(workspaceNodes.projectId, projectId),
+                        inArray(workspaceNodes.id, parentIdsToCheck),
+                        isNull(workspaceNodes.deletedAt)
                     ),
                     columns: { id: true, type: true },
                 });
@@ -1227,14 +1227,14 @@ export async function bulkRestoreNodes(nodeIds: string[], projectId: string, exp
                 }
             }
 
-            await tx.update(projectNodes)
+            await tx.update(workspaceNodes)
                 .set({ deletedAt: null, deletedBy: null, updatedAt: now })
-                .where(and(eq(projectNodes.projectId, projectId), inArray(projectNodes.id, toRestoreIds)));
+                .where(and(eq(workspaceNodes.projectId, projectId), inArray(workspaceNodes.id, toRestoreIds)));
             for (const node of nodes) {
                 if (node.deletedAt && !(node.parentId && toRestoreSet.has(node.parentId))) await realignRestoredRoot(tx, projectId, node.id);
             }
 
-            await tx.insert(projectNodeEvents).values(
+            await tx.insert(workspaceNodeEvents).values(
                 toRestoreIds.map((nodeId) => ({
                     projectId,
                     nodeId,
@@ -1280,21 +1280,21 @@ export async function getTrashPage(projectId: string, query = "", cursor?: strin
     const search = query.trim();
     const rows = await db
         .select({
-            node: projectNodes,
-            cursorAt: sql<string>`${projectNodes.deletedAt}::text`,
-            deletedByName: sql<string | null>`coalesce(${profiles.fullName}, ${profiles.username}, case when ${projectNodes.deletedBy} is not null then 'Former member' else null end)`,
+            node: workspaceNodes,
+            cursorAt: sql<string>`${workspaceNodes.deletedAt}::text`,
+            deletedByName: sql<string | null>`coalesce(${profiles.fullName}, ${profiles.username}, case when ${workspaceNodes.deletedBy} is not null then 'Former member' else null end)`,
             deletedByUsername: profiles.username,
             deletedByAvatarUrl: profiles.avatarUrl,
         })
-        .from(projectNodes)
-        .leftJoin(profiles, eq(profiles.id, projectNodes.deletedBy))
-        .where(and(eq(projectNodes.projectId, projectId), isNotNull(projectNodes.deletedAt),
+        .from(workspaceNodes)
+        .leftJoin(profiles, eq(profiles.id, workspaceNodes.deletedBy))
+        .where(and(eq(workspaceNodes.projectId, projectId), isNotNull(workspaceNodes.deletedAt),
             search
-                ? ilike(projectNodes.name, `%${escapeLikePattern(search.slice(0, 200))}%`)
+                ? ilike(workspaceNodes.name, `%${escapeLikePattern(search.slice(0, 200))}%`)
                 // Browsing lists what was trashed, not every descendant of a trashed folder.
-                : sql`NOT EXISTS (SELECT 1 FROM project_nodes parent WHERE parent.id = ${projectNodes.parentId} AND parent.deleted_at IS NOT NULL)`,
-            cursor ? sql`(${projectNodes.deletedAt}, ${projectNodes.id}) < (${cursorAt}::timestamptz, ${cursorId}::uuid)` : undefined))
-        .orderBy(desc(projectNodes.deletedAt), desc(projectNodes.id))
+                : sql`NOT EXISTS (SELECT 1 FROM workspace_nodes parent WHERE parent.id = ${workspaceNodes.parentId} AND parent.deleted_at IS NOT NULL)`,
+            cursor ? sql`(${workspaceNodes.deletedAt}, ${workspaceNodes.id}) < (${cursorAt}::timestamptz, ${cursorId}::uuid)` : undefined))
+        .orderBy(desc(workspaceNodes.deletedAt), desc(workspaceNodes.id))
         .limit(101);
     const page = rows.slice(0, 100);
     return {
@@ -1376,13 +1376,13 @@ export async function bulkCreateFolderTree(
         const allPossiblePaths = sortedFolders.map(fp => targetBaseNodePath ? `${targetBaseNodePath}/${fp}` : `/${fp}`);
         const existingFoldersByPath = new Map<string, { id: string; name: string; parentId: string | null; path: string }>();
         if (allPossiblePaths.length > 0) {
-            const found = await tx.query.projectNodes.findMany({
+            const found = await tx.query.workspaceNodes.findMany({
                 where: and(
-                    eq(projectNodes.projectId, projectId),
-                    eq(projectNodes.type, 'folder'),
-                    isNull(projectNodes.deletedAt),
+                    eq(workspaceNodes.projectId, projectId),
+                    eq(workspaceNodes.type, 'folder'),
+                    isNull(workspaceNodes.deletedAt),
                     // Sibling names are unique case-insensitively, so `docs/` must land in an existing `Docs`.
-                    inArray(sql`lower(${projectNodes.path})`, allPossiblePaths.map((path) => path.toLowerCase()))
+                    inArray(sql`lower(${workspaceNodes.path})`, allPossiblePaths.map((path) => path.toLowerCase()))
                 ),
                 columns: { id: true, name: true, parentId: true, path: true }
             });
@@ -1416,7 +1416,7 @@ export async function bulkCreateFolderTree(
                 return { path, safeName, parentId: parentId || null };
             });
 
-            const newFolderInserts: (typeof projectNodes.$inferInsert)[] = [];
+            const newFolderInserts: (typeof workspaceNodes.$inferInsert)[] = [];
             const newFolderPaths: string[] = [];
             const pendingByLowerPath = new Map<string, string>();
             const sameFolderAs: [string, string][] = [];
@@ -1453,7 +1453,7 @@ export async function bulkCreateFolderTree(
                 const chunkSize = 500;
                 for (let i = 0; i < newFolderInserts.length; i += chunkSize) {
                     const chunk = newFolderInserts.slice(i, i + chunkSize);
-                    const inserted = await tx.insert(projectNodes).values(chunk).returning({ id: projectNodes.id });
+                    const inserted = await tx.insert(workspaceNodes).values(chunk).returning({ id: workspaceNodes.id });
                     for (let j = 0; j < chunk.length; j++) {
                         pathToId.set(newFolderPaths[i + j]!, inserted[j]!.id);
                     }
@@ -1507,16 +1507,16 @@ export async function getOrCreateTaskSystemFolderAction(projectId: string, taskI
         // target matches them: serialize per project and select-then-insert, as ensureSystemRootFolder does.
         await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`files-task-system-folder:${projectId}`}))`);
         const ensureFolder = async (parentId: string | null, name: string, path: string) => {
-            const [existing] = await tx.select({ id: projectNodes.id }).from(projectNodes).where(and(
-                eq(projectNodes.projectId, projectId),
-                parentId ? eq(projectNodes.parentId, parentId) : isNull(projectNodes.parentId),
-                sql`lower(${projectNodes.name}) = lower(${name})`,
-                isNull(projectNodes.deletedAt),
+            const [existing] = await tx.select({ id: workspaceNodes.id }).from(workspaceNodes).where(and(
+                eq(workspaceNodes.projectId, projectId),
+                parentId ? eq(workspaceNodes.parentId, parentId) : isNull(workspaceNodes.parentId),
+                sql`lower(${workspaceNodes.name}) = lower(${name})`,
+                isNull(workspaceNodes.deletedAt),
             )).limit(1);
             if (existing) return existing.id;
-            const [created] = await tx.insert(projectNodes).values({
+            const [created] = await tx.insert(workspaceNodes).values({
                 projectId, parentId, type: "folder", name, path, createdBy: user.id, metadata: { isSystem: true },
-            }).returning({ id: projectNodes.id });
+            }).returning({ id: workspaceNodes.id });
             return created!.id;
         };
         const systemId = await ensureFolder(null, ".system", "/.system");

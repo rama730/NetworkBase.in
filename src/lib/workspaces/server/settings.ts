@@ -4,7 +4,7 @@ import { encodeFilePermissionCursor, normalizeFilePermissionOptions, type FilePe
 import { type WorkspaceVisibility, normalizeWorkspaceVisibility } from "@/lib/workspaces/workspace-visibility";
 import { type WorkspaceNotificationPolicy, summarizeWorkspaceNotificationPolicy, type WorkspaceMemberNotificationOverrides, normalizeWorkspaceNotificationPolicy, type WorkspaceNotificationPreset, buildDefaultWorkspaceNotificationPolicy, normalizeWorkspaceMemberNotificationOverrides } from "@/lib/notifications/workspace-policy";
 import { db } from "@/lib/db";
-import { tasks, taskNodeLinks, projectNodes, roleApplications, chatChannelMembers, chatChannels, projectOpenRoles, projectMembers, profiles, projects, projectNodeEvents } from "@/lib/db/schema";
+import { tasks, taskNodeLinks, workspaceNodes, roleApplications, chatChannelMembers, chatChannels, workspaceOpenRoles, workspaceMembers, profiles, workspaces, workspaceNodeEvents } from "@/lib/db/schema";
 import { sql, and, eq, isNull, inArray, desc, or, ilike } from "drizzle-orm";
 import { createClient } from "@/lib/supabase/server";
 import { capabilityFromAccess, requireWorkspaceCapability, changeWorkspaceMemberRoleInternal, canWorkspaceRoleManageTarget, readWorkspaceMemberRemovalImpact, removeWorkspaceMemberInternal } from "@/lib/workspaces/collaborator-lifecycle";
@@ -282,12 +282,12 @@ async function readProjectCollaboratorResponsibilityCounts(
       })
       .from(taskNodeLinks)
       .innerJoin(tasks, eq(taskNodeLinks.taskId, tasks.id))
-      .innerJoin(projectNodes, eq(taskNodeLinks.nodeId, projectNodes.id))
+      .innerJoin(workspaceNodes, eq(taskNodeLinks.nodeId, workspaceNodes.id))
       .where(
         and(
           eq(tasks.projectId, projectId),
           isNull(tasks.deletedAt),
-          isNull(projectNodes.deletedAt),
+          isNull(workspaceNodes.deletedAt),
           inArray(taskNodeLinks.createdBy, memberIds),
           sql`lower(coalesce(${taskNodeLinks.annotation}, '')) like '%review%'`,
         ),
@@ -355,13 +355,13 @@ async function readAcceptedRoleTitles(projectId: string, memberIds: string[]) {
   const rows = await db
     .select({
       applicantId: roleApplications.applicantId,
-      roleTitle: projectOpenRoles.title,
-      roleName: projectOpenRoles.role,
+      roleTitle: workspaceOpenRoles.title,
+      roleName: workspaceOpenRoles.role,
     })
     .from(roleApplications)
     .leftJoin(
-      projectOpenRoles,
-      eq(projectOpenRoles.id, roleApplications.roleId),
+      workspaceOpenRoles,
+      eq(workspaceOpenRoles.id, roleApplications.roleId),
     )
     .where(
       and(
@@ -387,7 +387,7 @@ async function readAcceptedRoleTitles(projectId: string, memberIds: string[]) {
  * a stored role of owner/admin/member/viewer stands, anything else is owner for the owner and member otherwise.
  */
 function effectiveCollaboratorRoleSql(ownerId: string) {
-  return sql`CASE WHEN ${projectMembers.role} IN ('owner', 'admin', 'member', 'viewer') THEN ${projectMembers.role} WHEN ${projectMembers.userId} = ${ownerId}::uuid THEN 'owner' ELSE 'member' END`;
+  return sql`CASE WHEN ${workspaceMembers.role} IN ('owner', 'admin', 'member', 'viewer') THEN ${workspaceMembers.role} WHEN ${workspaceMembers.userId} = ${ownerId}::uuid THEN 'owner' ELSE 'member' END`;
 }
 
 
@@ -398,8 +398,8 @@ async function readProjectRoleCounts(projectId: string, ownerId: string) {
     SELECT effective_role AS role, count(*)::int AS count, bool_or(user_id = ${ownerId}::uuid OR effective_role = 'owner') AS has_owner
     FROM (
       SELECT user_id, ${effectiveCollaboratorRoleSql(ownerId)} AS effective_role
-      FROM project_members
-      WHERE project_id = ${projectId}::uuid
+      FROM workspace_members
+      WHERE workspace_id = ${projectId}::uuid
     ) AS member_roles
     GROUP BY effective_role
   `);
@@ -482,14 +482,14 @@ export async function readCollaboratorSettings(
         : null;
     const query = options.query?.trim() ?? "";
     const safeLimit = Math.min(Math.max(options.limit ?? 40, 1), 80);
-    const whereConditions: any[] = [eq(projectMembers.projectId, projectId)];
+    const whereConditions: any[] = [eq(workspaceMembers.projectId, projectId)];
     if (roleFilter) {
       if (roleFilter === "owner") {
-        whereConditions.push(eq(projectMembers.userId, owned.project.ownerId));
+        whereConditions.push(eq(workspaceMembers.userId, owned.project.ownerId));
       } else {
-        whereConditions.push(eq(projectMembers.role, roleFilter));
+        whereConditions.push(eq(workspaceMembers.role, roleFilter));
         whereConditions.push(
-          sql`${projectMembers.userId} <> ${owned.project.ownerId}`,
+          sql`${workspaceMembers.userId} <> ${owned.project.ownerId}`,
         );
       }
     }
@@ -508,7 +508,7 @@ export async function readCollaboratorSettings(
         const [joinedAt, memberId] = decoded.split(":::");
         if (joinedAt && memberId) {
           whereConditions.push(
-            sql`(${projectMembers.joinedAt}, ${projectMembers.id}) < (${new Date(joinedAt)}, ${memberId})`,
+            sql`(${workspaceMembers.joinedAt}, ${workspaceMembers.id}) < (${new Date(joinedAt)}, ${memberId})`,
           );
         }
       } catch {
@@ -518,30 +518,30 @@ export async function readCollaboratorSettings(
 
     const [projectRow] = await db
       .select({
-        importSource: projects.importSource,
-        ownerId: projects.ownerId,
-        parentId: projects.parentId,
+        importSource: workspaces.importSource,
+        ownerId: workspaces.ownerId,
+        parentId: workspaces.parentId,
       })
-      .from(projects)
-      .where(eq(projects.id, projectId))
+      .from(workspaces)
+      .where(eq(workspaces.id, projectId))
       .limit(1);
 
     const rows = await db
       .select({
-        memberId: projectMembers.id,
-        userId: projectMembers.userId,
-        role: projectMembers.role,
-        fileUploadEnabled: projectMembers.fileUploadEnabled,
-        joinedAt: projectMembers.joinedAt,
+        memberId: workspaceMembers.id,
+        userId: workspaceMembers.userId,
+        role: workspaceMembers.role,
+        fileUploadEnabled: workspaceMembers.fileUploadEnabled,
+        joinedAt: workspaceMembers.joinedAt,
         username: profiles.username,
         fullName: profiles.fullName,
         avatarUrl: profiles.avatarUrl,
-        unitTitle: sql<string | null>`(SELECT coalesce(r.title, r.role) FROM project_open_roles r WHERE r.id = ${projectMembers.unitId})`,
+        unitTitle: sql<string | null>`(SELECT coalesce(r.title, r.role) FROM workspace_open_roles r WHERE r.id = ${workspaceMembers.unitId})`,
       })
-      .from(projectMembers)
-      .leftJoin(profiles, eq(profiles.id, projectMembers.userId))
+      .from(workspaceMembers)
+      .leftJoin(profiles, eq(profiles.id, workspaceMembers.userId))
       .where(and(...whereConditions))
-      .orderBy(desc(projectMembers.joinedAt), desc(projectMembers.id))
+      .orderBy(desc(workspaceMembers.joinedAt), desc(workspaceMembers.id))
       .limit(safeLimit + 1);
     const hasMore = rows.length > safeLimit;
     let slice = rows.slice(0, safeLimit);
@@ -596,9 +596,9 @@ export async function readCollaboratorSettings(
     // Outside people in an org's child project are labelled "Outside <org>" (report §20.8, §21.6 #5).
     const outside = projectRow?.parentId && memberIds.length > 0
       ? await db.execute<{ user_id: string; org: string }>(sql`
-          SELECT c.user_id, o.title AS org FROM project_members c JOIN projects o ON o.id = ${projectRow.parentId}
-          WHERE c.project_id = ${projectId} AND c.user_id IN ${memberIds} AND o.owner_id <> c.user_id
-            AND NOT EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = o.id AND m.user_id = c.user_id)`)
+          SELECT c.user_id, o.title AS org FROM workspace_members c JOIN workspaces o ON o.id = ${projectRow.parentId}
+          WHERE c.workspace_id = ${projectId} AND c.user_id IN ${memberIds} AND o.owner_id <> c.user_id
+            AND NOT EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = o.id AND m.user_id = c.user_id)`)
       : [];
     const outsideOf = new Map(outside.map((r) => [r.user_id, r.org]));
     const [roleTitleByUser, responsibilityByUser, roleCounts] =
@@ -712,44 +712,44 @@ export async function readFileAccessSettings(
     const capability = capabilityFromAccess(await viewer.access(projectId), "manage_files");
 
     const page = normalizeFilePermissionOptions(options);
-    const rank = sql<number>`CASE WHEN ${projectMembers.userId} = ${capability.project.ownerId} THEN 0 WHEN ${projectMembers.role} = 'admin' THEN 1 WHEN ${projectMembers.role} = 'member' THEN 2 ELSE 3 END`;
+    const rank = sql<number>`CASE WHEN ${workspaceMembers.userId} = ${capability.project.ownerId} THEN 0 WHEN ${workspaceMembers.role} = 'admin' THEN 1 WHEN ${workspaceMembers.role} = 'member' THEN 2 ELSE 3 END`;
     const name = sql<string>`COALESCE(${profiles.fullName}, ${profiles.username}, '')`;
     const effectiveRole = effectiveCollaboratorRoleSql(capability.project.ownerId);
-    const conditions = [eq(projectMembers.projectId, projectId)];
+    const conditions = [eq(workspaceMembers.projectId, projectId)];
     if (page.query) {
       const pattern = `%${page.query.replace(/[%_\\]/g, (ch) => `\\${ch}`)}%`;
       conditions.push(or(ilike(profiles.fullName, pattern), ilike(profiles.username, pattern))!);
     }
     if (page.permissionFilter !== "all") {
-      conditions.push(and(sql`${effectiveRole} = 'member'`, page.permissionFilter === "enabled" ? sql`${projectMembers.fileUploadEnabled} IS NOT FALSE` : eq(projectMembers.fileUploadEnabled, false))!);
+      conditions.push(and(sql`${effectiveRole} = 'member'`, page.permissionFilter === "enabled" ? sql`${workspaceMembers.fileUploadEnabled} IS NOT FALSE` : eq(workspaceMembers.fileUploadEnabled, false))!);
     }
-    if (page.cursor) conditions.push(sql`(${rank}, ${name}, ${projectMembers.userId}) > (${page.cursor.rank}, ${page.cursor.name}, ${page.cursor.id}::uuid)`);
+    if (page.cursor) conditions.push(sql`(${rank}, ${name}, ${workspaceMembers.userId}) > (${page.cursor.rank}, ${page.cursor.name}, ${page.cursor.id}::uuid)`);
     const [rowsPlusOne, [counts]] = await Promise.all([
       db
         .select({
-          userId: projectMembers.userId,
+          userId: workspaceMembers.userId,
           cursorRank: rank,
           cursorName: name,
-          role: projectMembers.role,
-          fileUploadEnabled: projectMembers.fileUploadEnabled,
-          joinedAt: projectMembers.joinedAt,
+          role: workspaceMembers.role,
+          fileUploadEnabled: workspaceMembers.fileUploadEnabled,
+          joinedAt: workspaceMembers.joinedAt,
           username: profiles.username,
           fullName: profiles.fullName,
           avatarUrl: profiles.avatarUrl,
         })
-        .from(projectMembers)
-        .leftJoin(profiles, eq(profiles.id, projectMembers.userId))
+        .from(workspaceMembers)
+        .leftJoin(profiles, eq(profiles.id, workspaceMembers.userId))
         .where(and(...conditions))
-        .orderBy(rank, name, projectMembers.userId)
+        .orderBy(rank, name, workspaceMembers.userId)
         .limit(page.limit + 1),
       db
         .select({
           alwaysAllowed: sql<number>`count(*) filter (where ${effectiveRole} in ('owner', 'admin'))::int`,
-          enabled: sql<number>`count(*) filter (where ${effectiveRole} = 'member' and ${projectMembers.fileUploadEnabled} is not false)::int`,
-          disabled: sql<number>`count(*) filter (where ${effectiveRole} = 'member' and ${projectMembers.fileUploadEnabled} = false)::int`,
+          enabled: sql<number>`count(*) filter (where ${effectiveRole} = 'member' and ${workspaceMembers.fileUploadEnabled} is not false)::int`,
+          disabled: sql<number>`count(*) filter (where ${effectiveRole} = 'member' and ${workspaceMembers.fileUploadEnabled} = false)::int`,
         })
-        .from(projectMembers)
-        .where(eq(projectMembers.projectId, projectId)),
+        .from(workspaceMembers)
+        .where(eq(workspaceMembers.projectId, projectId)),
     ]);
     const hasMore = rowsPlusOne.length > page.limit;
     const rows = rowsPlusOne.slice(0, page.limit);
@@ -849,17 +849,17 @@ export async function updateWorkspaceMemberFileUploadAction(
 
     const [target] = await db
       .select({
-        role: projectMembers.role,
-        fileUploadEnabled: projectMembers.fileUploadEnabled,
+        role: workspaceMembers.role,
+        fileUploadEnabled: workspaceMembers.fileUploadEnabled,
         username: profiles.username,
         fullName: profiles.fullName,
       })
-      .from(projectMembers)
-      .leftJoin(profiles, eq(profiles.id, projectMembers.userId))
+      .from(workspaceMembers)
+      .leftJoin(profiles, eq(profiles.id, workspaceMembers.userId))
       .where(
         and(
-          eq(projectMembers.projectId, projectId),
-          eq(projectMembers.userId, memberUserId),
+          eq(workspaceMembers.projectId, projectId),
+          eq(workspaceMembers.userId, memberUserId),
         ),
       )
       .limit(1);
@@ -890,15 +890,15 @@ export async function updateWorkspaceMemberFileUploadAction(
 
     await db.transaction(async (tx) => {
       await tx
-        .update(projectMembers)
+        .update(workspaceMembers)
         .set({ fileUploadEnabled: enabled })
         .where(
           and(
-            eq(projectMembers.projectId, projectId),
-            eq(projectMembers.userId, memberUserId),
+            eq(workspaceMembers.projectId, projectId),
+            eq(workspaceMembers.userId, memberUserId),
           ),
         );
-      await tx.insert(projectNodeEvents).values({
+      await tx.insert(workspaceNodeEvents).values({
         projectId,
         actorId: user.id,
         nodeId: null,
@@ -998,20 +998,20 @@ export async function updateWorkspaceFileUploadDefaultsAction(
 
     const updated = await db.transaction(async (tx) => {
       await tx
-        .update(projects)
+        .update(workspaces)
         .set({ memberFileUploadDefault: enabled, updatedAt: new Date() })
-        .where(eq(projects.id, projectId));
+        .where(eq(workspaces.id, projectId));
       const rows = await tx
-        .update(projectMembers)
+        .update(workspaceMembers)
         .set({ fileUploadEnabled: enabled })
         .where(
           and(
-            eq(projectMembers.projectId, projectId),
-            eq(projectMembers.role, "member"),
+            eq(workspaceMembers.projectId, projectId),
+            eq(workspaceMembers.role, "member"),
           ),
         )
-        .returning({ userId: projectMembers.userId });
-      await tx.insert(projectNodeEvents).values({
+        .returning({ userId: workspaceMembers.userId });
+      await tx.insert(workspaceNodeEvents).values({
         projectId,
         actorId: user.id,
         nodeId: null,
@@ -1029,12 +1029,12 @@ export async function updateWorkspaceFileUploadDefaultsAction(
     await revalidateWorkspacePaths(projectId);
     try {
       const affectedUserIds = await db
-        .select({ userId: projectMembers.userId })
-        .from(projectMembers)
+        .select({ userId: workspaceMembers.userId })
+        .from(workspaceMembers)
         .where(
           and(
-            eq(projectMembers.projectId, projectId),
-            eq(projectMembers.role, "member"),
+            eq(workspaceMembers.projectId, projectId),
+            eq(workspaceMembers.role, "member"),
           ),
         );
       await enqueueWorkspaceNotificationEvent({
@@ -1107,9 +1107,9 @@ export async function readNotificationSettings(
     capabilityFromAccess(await viewer.access(projectId), "manage_notifications");
 
     const [project] = await db
-      .select({ notificationPreferences: projects.notificationPreferences })
-      .from(projects)
-      .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
+      .select({ notificationPreferences: workspaces.notificationPreferences })
+      .from(workspaces)
+      .where(and(eq(workspaces.id, projectId), isNull(workspaces.deletedAt)))
       .limit(1);
     if (!project)
       return {
@@ -1175,10 +1175,10 @@ export async function updateWorkspaceNotificationSettingsAction(
 
     await db.transaction(async (tx) => {
       await tx
-        .update(projects)
+        .update(workspaces)
         .set({ notificationPreferences: policy, updatedAt: new Date() })
-        .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)));
-      await tx.insert(projectNodeEvents).values({
+        .where(and(eq(workspaces.id, projectId), isNull(workspaces.deletedAt)));
+      await tx.insert(workspaceNodeEvents).values({
         projectId,
         actorId: user.id,
         nodeId: null,
@@ -1290,18 +1290,18 @@ export async function readWorkspaceMemberNotificationSettingsAction(
         username: profiles.username,
         fullName: profiles.fullName,
         avatarUrl: profiles.avatarUrl,
-        role: projectMembers.role,
-        notificationPreferences: projectMembers.notificationPreferences,
-        ownerId: projects.ownerId,
+        role: workspaceMembers.role,
+        notificationPreferences: workspaceMembers.notificationPreferences,
+        ownerId: workspaces.ownerId,
       })
-      .from(projectMembers)
-      .innerJoin(projects, eq(projects.id, projectMembers.projectId))
-      .leftJoin(profiles, eq(profiles.id, projectMembers.userId))
+      .from(workspaceMembers)
+      .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.projectId))
+      .leftJoin(profiles, eq(profiles.id, workspaceMembers.userId))
       .where(
         and(
-          eq(projectMembers.projectId, projectId),
-          eq(projectMembers.userId, memberUserId),
-          isNull(projects.deletedAt),
+          eq(workspaceMembers.projectId, projectId),
+          eq(workspaceMembers.userId, memberUserId),
+          isNull(workspaces.deletedAt),
         ),
       )
       .limit(1);
@@ -1375,15 +1375,15 @@ export async function updateWorkspaceMemberNotificationSettingsAction(
     const overrides = normalizeWorkspaceMemberNotificationOverrides(input);
 
     const [updated] = await db
-      .update(projectMembers)
+      .update(workspaceMembers)
       .set({ notificationPreferences: overrides })
       .where(
         and(
-          eq(projectMembers.projectId, projectId),
-          eq(projectMembers.userId, memberUserId),
+          eq(workspaceMembers.projectId, projectId),
+          eq(workspaceMembers.userId, memberUserId),
         ),
       )
-      .returning({ userId: projectMembers.userId, role: projectMembers.role });
+      .returning({ userId: workspaceMembers.userId, role: workspaceMembers.role });
     if (!updated)
       return {
         success: false,
@@ -1391,7 +1391,7 @@ export async function updateWorkspaceMemberNotificationSettingsAction(
         message: "Workspace member not found.",
       };
 
-    await db.insert(projectNodeEvents).values({
+    await db.insert(workspaceNodeEvents).values({
       projectId,
       actorId: user.id,
       nodeId: null,
@@ -1602,14 +1602,14 @@ export async function getWorkspaceMemberRemovalPreflightAction(
         username: profiles.username,
         fullName: profiles.fullName,
         avatarUrl: profiles.avatarUrl,
-        role: projectMembers.role,
+        role: workspaceMembers.role,
       })
-      .from(projectMembers)
-      .leftJoin(profiles, eq(profiles.id, projectMembers.userId))
+      .from(workspaceMembers)
+      .leftJoin(profiles, eq(profiles.id, workspaceMembers.userId))
       .where(
         and(
-          eq(projectMembers.projectId, projectId),
-          eq(projectMembers.userId, memberUserId),
+          eq(workspaceMembers.projectId, projectId),
+          eq(workspaceMembers.userId, memberUserId),
         ),
       )
       .limit(1);
@@ -1637,10 +1637,10 @@ export async function getWorkspaceMemberRemovalPreflightAction(
     ]);
     const [projectRow] = await db
       .select({
-        visibility: projects.visibility,
+        visibility: workspaces.visibility,
       })
-      .from(projects)
-      .where(eq(projects.id, projectId))
+      .from(workspaces)
+      .where(eq(workspaces.id, projectId))
       .limit(1);
     const counts = (
       await readProjectCollaboratorResponsibilityCounts(
@@ -1897,8 +1897,8 @@ export async function readDangerZonePreflight(
     const [openRolesRow, pendingAppsRow, activeTasksRow] = await Promise.all([
       db
         .select({ count: sql<number>`count(*)::int` })
-        .from(projectOpenRoles)
-        .where(eq(projectOpenRoles.projectId, projectId))
+        .from(workspaceOpenRoles)
+        .where(eq(workspaceOpenRoles.projectId, projectId))
         .limit(1),
       db
         .select({ count: sql<number>`count(*)::int` })

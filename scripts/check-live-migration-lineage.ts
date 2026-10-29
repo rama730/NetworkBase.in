@@ -106,12 +106,12 @@ async function main() {
               (i.indkey::smallint[])[0:cardinality(c.conkey) - 1] @> c.conkey
               -- A unique index on a subset already pins one row.
               OR (i.indisunique AND c.conkey @> (i.indkey::smallint[])[0:i.indnkeyatts - 1])
-              -- Tenant FK (project_id, x): an index leading on x finds the rows; project_id only filters them.
+              -- Tenant FK (workspace_id, x): an index leading on x finds the rows; workspace_id only filters them.
               OR (
                 cardinality(c.conkey) = 2
                 AND (i.indkey::smallint[])[0] = ANY (c.conkey)
-                AND 'project_id' = ANY (ARRAY(SELECT a.attname FROM pg_attribute a WHERE a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)))
-                AND (SELECT a.attname FROM pg_attribute a WHERE a.attrelid = c.conrelid AND a.attnum = (i.indkey::smallint[])[0]) <> 'project_id'
+                AND 'workspace_id' = ANY (ARRAY(SELECT a.attname FROM pg_attribute a WHERE a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)))
+                AND (SELECT a.attname FROM pg_attribute a WHERE a.attrelid = c.conrelid AND a.attnum = (i.indkey::smallint[])[0]) <> 'workspace_id'
               )
             )
         )

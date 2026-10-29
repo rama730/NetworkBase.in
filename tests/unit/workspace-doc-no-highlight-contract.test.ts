@@ -29,7 +29,7 @@ test("Removing a doc deletes the row for every slug", () => {
     const actions = read("src/app/actions/workspace/doc.ts");
     const unlink = actions.slice(actions.indexOf("export async function unlinkWorkspaceDocAction"), actions.indexOf("export async function listWorkspaceDocsAction"));
     assert.doesNotMatch(unlink, /docSlug === "readme"/, "readme must not be special-cased");
-    assert.match(unlink, /db\.delete\(projectDocs\)/);
+    assert.match(unlink, /db\.delete\(workspaceDocuments\)/);
     const link = actions.slice(actions.indexOf("export async function linkWorkspaceDocAction"), actions.indexOf("export async function unlinkWorkspaceDocAction"));
     assert.doesNotMatch(link, /docSlug: string/, "slug is derived server-side");
     assert.match(link, /nextFreeDocSlug\(/);

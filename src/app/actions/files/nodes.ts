@@ -1,8 +1,8 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { projectNodes, projects, tasks } from "@/lib/db/schema";
-import type { ProjectNode } from "@/lib/db/schema";
+import { workspaceNodes, workspaces, tasks } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { eq, and, isNull, ilike, inArray, sql, asc, desc } from "drizzle-orm";
 import { createClient } from "@/lib/supabase/server";
 import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
@@ -38,7 +38,7 @@ export type GetWorkspaceNodesResult = {
     nextCursor: string | null;
 };
 
-export type WorkspaceNodeWithAttribution = ProjectNode & FileAttribution;
+export type WorkspaceNodeWithAttribution = WorkspaceNode & FileAttribution;
 
 type BreadcrumbRow = {
     id: string;
@@ -85,7 +85,7 @@ async function labelTaskWorkingFilesBreadcrumbs(
 }
 
 async function enrichNodesWithLatestVersionAttribution(
-    nodes: ProjectNode[],
+    nodes: WorkspaceNode[],
 ): Promise<WorkspaceNodeWithAttribution[]> {
     const taskFolderIds = Array.from(new Set(nodes.flatMap((node) => {
         const taskPathMatch = node.path.match(/^\/\.system\/tasks\/([^/]+)(?:\/|$)/);
@@ -174,27 +174,27 @@ export async function getWorkspaceNodes(
 
     const sort = options?.sort ?? "name";
     if (!["name", "updated", "type"].includes(sort)) throw new Error("Invalid file sort");
-    const rank = sql<number>`CASE WHEN ${projectNodes.type} = 'folder' THEN 0 ELSE 1 END`;
-    const nameKey = sql<string>`lower(${projectNodes.name}) COLLATE "C"`;
-    const typeKey = sql<string>`coalesce(${projectNodes.mimeType}, '') COLLATE "C"`;
+    const rank = sql<number>`CASE WHEN ${workspaceNodes.type} = 'folder' THEN 0 ELSE 1 END`;
+    const nameKey = sql<string>`lower(${workspaceNodes.name}) COLLATE "C"`;
+    const typeKey = sql<string>`coalesce(${workspaceNodes.mimeType}, '') COLLATE "C"`;
     // Use the same current-version timestamp that the row renders. Node
     // metadata changes remain the fallback for folders and legacy files.
     const dateKey = sql`date_trunc('milliseconds', coalesce(
       (SELECT fv.uploaded_at FROM file_versions fv
-       WHERE fv.node_id = ${projectNodes.id}
-         AND fv.version = ${projectNodes.currentVersion}
+       WHERE fv.node_id = ${workspaceNodes.id}
+         AND fv.version = ${workspaceNodes.currentVersion}
        LIMIT 1),
-      ${projectNodes.updatedAt}
+      ${workspaceNodes.updatedAt}
     ))`;
-    const order = sort === "updated" ? [asc(rank), desc(dateKey), asc(nameKey), asc(projectNodes.id)]
-      : sort === "type" ? [asc(rank), asc(typeKey), asc(nameKey), asc(projectNodes.id)] : [asc(rank), asc(nameKey), asc(projectNodes.id)];
+    const order = sort === "updated" ? [asc(rank), desc(dateKey), asc(nameKey), asc(workspaceNodes.id)]
+      : sort === "type" ? [asc(rank), asc(typeKey), asc(nameKey), asc(workspaceNodes.id)] : [asc(rank), asc(nameKey), asc(workspaceNodes.id)];
     const cursorCondition = (() => {
         if (!cursor) return undefined;
         try {
             const value = JSON.parse(Buffer.from(cursor, "base64url").toString("utf-8"));
             if (value.v !== 2 || value.sort !== sort || !UUID_RE.test(value.id) || ![0, 1].includes(value.rank) || typeof value.name !== "string" || value.name.length > 1000) throw new Error();
             const sameRank = sql`${rank} = ${value.rank}`;
-            const afterName = sql`(${nameKey}, ${projectNodes.id}) > (lower(${value.name}::text) COLLATE "C", ${value.id}::uuid)`;
+            const afterName = sql`(${nameKey}, ${workspaceNodes.id}) > (lower(${value.name}::text) COLLATE "C", ${value.id}::uuid)`;
             if (sort === "updated") {
                 if (typeof value.date !== "string" || !Number.isFinite(Date.parse(value.date))) throw new Error();
                 return sql`(${rank} > ${value.rank} OR (${sameRank} AND (${dateKey} < ${value.date}::timestamptz OR (${dateKey} = ${value.date}::timestamptz AND ${afterName}))))`;
@@ -209,13 +209,13 @@ export async function getWorkspaceNodes(
     const pageLimit = Math.min(Math.max(1, limit), MAX_TREE_PAGE_SIZE);
     const normalizedQuery = normalizeSearchQuery(query);
     const itemTypeCondition = options?.itemType
-        ? eq(projectNodes.type, options.itemType)
+        ? eq(workspaceNodes.type, options.itemType)
         : undefined;
     // ponytail: exact parentId scopes directory reads, allowing managed task subtrees while root reads stay public. ceiling: directory parentId scoping. upgrade: granular ACL evaluation per node if custom per-node ACLs introduced.
     const scopeCondition = !canReadWorkspaceTaskFiles(readAccess)
         ? projectContentNodeSql
         : options?.taskId
-        ? sql`(${projectNodes.taskId} IS NULL OR ${projectNodes.taskId} = ${options.taskId})`
+        ? sql`(${workspaceNodes.taskId} IS NULL OR ${workspaceNodes.taskId} = ${options.taskId})`
         : normalizedQuery || parentId
             ? sql`true`
         : projectContentNodeSql;
@@ -245,16 +245,16 @@ export async function getWorkspaceNodes(
     if (normalizedQuery) {
         if (normalizedQuery.length < 2) return { nodes: [], nextCursor: null };
         const whereClause = and(
-            eq(projectNodes.projectId, projectId),
-            isNull(projectNodes.deletedAt),
+            eq(workspaceNodes.projectId, projectId),
+            isNull(workspaceNodes.deletedAt),
             scopeCondition,
             orgFileAccessSql(readAccess),
             itemTypeCondition,
-            ilike(projectNodes.name, `%${escapeLikePattern(normalizedQuery)}%`),
+            ilike(workspaceNodes.name, `%${escapeLikePattern(normalizedQuery)}%`),
             ...(cursorCondition ? [cursorCondition] : []),
         );
 
-        const nodes = await db.query.projectNodes.findMany({
+        const nodes = await db.query.workspaceNodes.findMany({
             where: whereClause,
             orderBy: order,
             limit: pageLimit + 1,
@@ -264,18 +264,18 @@ export async function getWorkspaceNodes(
 
     // --- Directory Listing Mode (Cursor Paginated) ---
     const whereConditions = [
-        eq(projectNodes.projectId, projectId),
-        isNull(projectNodes.deletedAt),
+        eq(workspaceNodes.projectId, projectId),
+        isNull(workspaceNodes.deletedAt),
         scopeCondition,
         orgFileAccessSql(readAccess),
         itemTypeCondition,
-        parentId ? eq(projectNodes.parentId, parentId) : isNull(projectNodes.parentId)
+        parentId ? eq(workspaceNodes.parentId, parentId) : isNull(workspaceNodes.parentId)
     ];
 
     if (cursorCondition) whereConditions.push(cursorCondition);
 
     // Fetch one extra to check if there is a next page
-    const nodes = await db.query.projectNodes.findMany({
+    const nodes = await db.query.workspaceNodes.findMany({
         where: and(...whereConditions),
         orderBy: order,
         limit: pageLimit + 1,
@@ -307,9 +307,9 @@ export async function initializeWorkspaceFilesRoot(projectId: string) {
     if (!canCreateFilesRoot || !isScratchLike || !isReady) return null;
 
     const [project] = await db
-        .select({ title: projects.title })
-        .from(projects)
-        .where(eq(projects.id, projectId))
+        .select({ title: workspaces.title })
+        .from(workspaces)
+        .where(eq(workspaces.id, projectId))
         .limit(1);
 
     return ensureSystemRootFolder(projectId, user.id, project?.title || "Workspace");
@@ -326,12 +326,12 @@ export async function getNodesByIds(projectId: string, nodeIds: string[]) {
 
     return await runInFlightDeduped(`files:nodes-by-ids:${projectId}:${idsKey}:${actorId ?? "anon"}`, async () => {
         const access = await assertWorkspaceFileReadAccess(projectId, actorId);
-        const nodes = await db.query.projectNodes.findMany({
+        const nodes = await db.query.workspaceNodes.findMany({
             where: and(
-                eq(projectNodes.projectId, projectId),
-                isNull(projectNodes.deletedAt),
+                eq(workspaceNodes.projectId, projectId),
+                isNull(workspaceNodes.deletedAt),
                 visibleFileNodesSql(access),
-                inArray(projectNodes.id, unique.slice(0, 200)),
+                inArray(workspaceNodes.id, unique.slice(0, 200)),
             ),
             limit: 200,
         });
@@ -363,10 +363,10 @@ export async function getNodeMetadataBatch(
         }
 
         if (ancestorPaths.size > 0) {
-            const parents = await db.query.projectNodes.findMany({
+            const parents = await db.query.workspaceNodes.findMany({
                 where: and(
-                    eq(projectNodes.projectId, projectId),
-                    inArray(projectNodes.path, Array.from(ancestorPaths)),
+                    eq(workspaceNodes.projectId, projectId),
+                    inArray(workspaceNodes.path, Array.from(ancestorPaths)),
                 ),
                 columns: { id: true, name: true, parentId: true },
             });
@@ -407,8 +407,8 @@ export async function getBreadcrumbs(projectId: string, folderId: string | null)
 
     return await runInFlightDeduped(`files:breadcrumbs:${projectId}:${folderId}:${actorId ?? "anon"}`, async () => {
         const access = await assertWorkspaceFileReadAccess(projectId, actorId);
-        const folder = await db.query.projectNodes.findFirst({
-            where: and(eq(projectNodes.id, folderId), eq(projectNodes.projectId, projectId)),
+        const folder = await db.query.workspaceNodes.findFirst({
+            where: and(eq(workspaceNodes.id, folderId), eq(workspaceNodes.projectId, projectId)),
             columns: { path: true, taskId: true, deletedAt: true }
         });
         if (folder) await assertFileNodeVisible(access, folder);
@@ -417,13 +417,13 @@ export async function getBreadcrumbs(projectId: string, folderId: string | null)
         const rows = await db.execute<{ id: string; name: string; parent_id: string | null; path: string | null }>(sql`
             WITH RECURSIVE ancestors AS (
                 SELECT id, name, parent_id, path, 0 AS depth
-                FROM project_nodes
-                WHERE id = ${folderId} AND project_id = ${projectId}
+                FROM workspace_nodes
+                WHERE id = ${folderId} AND workspace_id = ${projectId}
                 UNION ALL
                 SELECT pn.id, pn.name, pn.parent_id, pn.path, a.depth + 1
-                FROM project_nodes pn
+                FROM workspace_nodes pn
                 INNER JOIN ancestors a ON pn.id = a.parent_id
-                WHERE pn.project_id = ${projectId} AND a.depth < 64
+                WHERE pn.workspace_id = ${projectId} AND a.depth < 64
             )
             SELECT id, name, parent_id, path FROM ancestors ORDER BY depth DESC
         `);
@@ -465,12 +465,12 @@ async function findNodeByPathUnchecked(projectId: string, path: string[], access
         });
         if (matchingTasks.length !== 1) return null;
 
-        return (await db.query.projectNodes.findFirst({
+        return (await db.query.workspaceNodes.findFirst({
             where: and(
-                eq(projectNodes.projectId, projectId),
-                eq(projectNodes.path, `/.system/tasks/${matchingTasks[0]!.id}/${path[2]}`),
-                eq(projectNodes.type, "file"),
-                isNull(projectNodes.deletedAt),
+                eq(workspaceNodes.projectId, projectId),
+                eq(workspaceNodes.path, `/.system/tasks/${matchingTasks[0]!.id}/${path[2]}`),
+                eq(workspaceNodes.type, "file"),
+                isNull(workspaceNodes.deletedAt),
             ),
         })) ?? null;
     }
@@ -499,23 +499,23 @@ async function findNodeByPathUnchecked(projectId: string, path: string[], access
         });
         if (!task) return null;
 
-        return (await db.query.projectNodes.findFirst({
+        return (await db.query.workspaceNodes.findFirst({
             where: and(
-                eq(projectNodes.projectId, projectId),
-                eq(projectNodes.path, `/${path.join("/")}`),
-                eq(projectNodes.type, "file"),
-                isNull(projectNodes.deletedAt),
+                eq(workspaceNodes.projectId, projectId),
+                eq(workspaceNodes.path, `/${path.join("/")}`),
+                eq(workspaceNodes.type, "file"),
+                isNull(workspaceNodes.deletedAt),
             ),
         })) ?? null;
     }
 
     if (path.some((segment) => !segment || segment.includes("/"))) return null;
-    return (await db.query.projectNodes.findFirst({
+    return (await db.query.workspaceNodes.findFirst({
         where: and(
-            eq(projectNodes.projectId, projectId),
-            eq(projectNodes.path, `/${path.join("/")}`),
-            isNull(projectNodes.deletedAt),
-            canReadWorkspaceTaskFiles(access) ? sql`true` : isNull(projectNodes.taskId),
+            eq(workspaceNodes.projectId, projectId),
+            eq(workspaceNodes.path, `/${path.join("/")}`),
+            isNull(workspaceNodes.deletedAt),
+            canReadWorkspaceTaskFiles(access) ? sql`true` : isNull(workspaceNodes.taskId),
         ),
     })) ?? null;
 }

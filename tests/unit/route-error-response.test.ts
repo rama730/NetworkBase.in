@@ -34,7 +34,7 @@ test("any other error becomes an opaque 500 carrying only the request id", async
   const body = await response.json();
   assert.equal(body.message, "Failed to do the thing");
   assert.deepEqual(body.details, { requestId: "req-1" });
-  assert.doesNotMatch(JSON.stringify(body), /project_nodes_pkey|secret/);
+  assert.doesNotMatch(JSON.stringify(body), /workspace_nodes_pkey|secret/);
 });
 
 test("extension routes answer failures through the shared mapper", () => {

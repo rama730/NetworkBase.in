@@ -57,18 +57,18 @@ try {
     assert.equal(access.exposed, false);
     if (mode === "--verify") {
       const [project] =
-        await tx`SELECT id,owner_id FROM public.projects WHERE deleted_at IS NULL ORDER BY id LIMIT 1`;
+        await tx`SELECT id,owner_id FROM public.workspaces WHERE deleted_at IS NULL ORDER BY id LIMIT 1`;
       if (!project)
         throw new Error(
           "A project fixture is required for the rollback-only attribution check",
         );
       const nodeId = randomUUID();
-      await tx`INSERT INTO public.project_nodes(id,project_id,type,name,path,created_by) VALUES (${nodeId},${project.id},'file','sync-verification.txt',${`/sync-verification-${nodeId}.txt`},${project.owner_id})`;
+      await tx`INSERT INTO public.workspace_nodes(id,workspace_id,type,name,path,created_by) VALUES (${nodeId},${project.id},'file','sync-verification.txt',${`/sync-verification-${nodeId}.txt`},${project.owner_id})`;
       await tx`INSERT INTO public.file_versions(node_id,version,s3_key,size,mime_type,content_hash,uploaded_by) VALUES (${nodeId},1,${`${project.id}/sync-verification/${nodeId}`},1,'text/plain',${"a".repeat(64)},${project.owner_id})`;
       await tx`UPDATE public.file_versions SET content_hash=${"b".repeat(64)} WHERE node_id=${nodeId}`;
       await tx`UPDATE public.file_versions SET comment='metadata-only save' WHERE node_id=${nodeId}`;
       const [events] =
-        await tx`SELECT count(*)::int AS count,count(DISTINCT sequence_number)::int AS sequences,bool_and(actor_id=${project.owner_id} AND metadata->>'source'='edge') AS attributed FROM public.project_node_events WHERE node_id=${nodeId} AND type='file_content_contributed'`;
+        await tx`SELECT count(*)::int AS count,count(DISTINCT sequence_number)::int AS sequences,bool_and(actor_id=${project.owner_id} AND metadata->>'source'='edge') AS attributed FROM public.workspace_node_events WHERE node_id=${nodeId} AND type='file_content_contributed'`;
       assert.deepEqual(events, { count: 2, sequences: 2, attributed: true });
       throw rollback;
     }

@@ -59,7 +59,7 @@ function transition() {
   const changes: any[] = [];
   const tx = {
     query: {
-      projectWorkflowColumns: {
+      workspaceWorkflowColumns: {
         findFirst: async () => ({
           id: "done-column",
           status: "done",
@@ -129,7 +129,7 @@ test("pending review survives policy disable and only an explicit lead request r
   const unchanged = await service.transitionTaskTx(tx, pending, { taskId: "t", userId: "u", status: "done" });
   assert.equal(unchanged.reviewStatus, "pending");
   assert.equal(changes[0].values.completedAt, undefined);
-  tx.query.projectWorkflowColumns.findFirst = async () => ({ id: "progress", status: "in_progress", title: "In progress" });
+  tx.query.workspaceWorkflowColumns.findFirst = async () => ({ id: "progress", status: "in_progress", title: "In progress" });
   await assert.rejects(service.transitionTaskTx(tx, { ...pending, isLeader: false }, { taskId: "t", userId: "u", status: "in_progress", reviewReason: "Fix keyboard focus" }), /Only the owner and admins/);
   await assert.rejects(service.transitionTaskTx(tx, pending, { taskId: "t", userId: "lead", status: "in_progress" }), /provide a reason/);
   const requested = await service.transitionTaskTx(tx, pending, { taskId: "t", userId: "lead", status: "in_progress", reviewReason: "Fix keyboard focus" });
@@ -170,7 +170,7 @@ test("durable file operation replay returns the original committed receipt witho
   const tx = {
     execute: async () => [],
     query: {
-      projectNodes: {
+      workspaceNodes: {
         findFirst: async () => ({
           id: "n",
           type: "file",
@@ -178,7 +178,7 @@ test("durable file operation replay returns the original committed receipt witho
           size: 20,
         }),
       },
-      projectNodeEvents: { findFirst: async () => committed },
+      workspaceNodeEvents: { findFirst: async () => committed },
       fileVersions: {
         findFirst: async () => ({
           version: 2,

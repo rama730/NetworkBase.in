@@ -305,14 +305,14 @@ export default function UpdatesTab({
       bindings: [
         {
           event: "*",
-          table: "project_updates",
-          filter: `project_id=eq.${projectId}`,
+          table: "workspace_updates",
+          filter: `workspace_id=eq.${projectId}`,
           handler: handleProjectUpdateChange,
         },
         {
           event: "*",
-          table: "project_update_comments",
-          filter: `project_id=eq.${projectId}`,
+          table: "workspace_update_comments",
+          filter: `workspace_id=eq.${projectId}`,
           handler: handleProjectCommentChange,
         },
       ],

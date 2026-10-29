@@ -12,7 +12,7 @@ import { toast, feedbackError } from "@/lib/feedback";
 
 import React, { useCallback, useState } from "react";
 
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { linkNodeToTask } from "@/app/actions/files/links";
 
 import { V3AttachmentPicker } from "./V3AttachmentPicker";
@@ -24,13 +24,13 @@ export interface SingleAttachmentPickerProps {
   taskId: string;
   isOpen: boolean;
   onClose: () => void;
-  existingAttachments: ProjectNode[];
+  existingAttachments: WorkspaceNode[];
   onLinked?: () => Promise<unknown> | void;
 }
 
 // ─── Component ───────────────────────────────────────────────────────
 
-const EMPTY_INITIAL_SELECTION: ProjectNode[] = [];
+const EMPTY_INITIAL_SELECTION: WorkspaceNode[] = [];
 
 export function SingleAttachmentPicker({
   projectId,
@@ -53,7 +53,7 @@ export function SingleAttachmentPicker({
   );
 
   const handleSelectionChange = useCallback(
-    async (nodes: ProjectNode[]) => {
+    async (nodes: WorkspaceNode[]) => {
       // Find the newly selected node (not already attached)
       const newNode = nodes.find((n) => !existingIds.has(n.id));
       if (!newNode || isLinking) return;

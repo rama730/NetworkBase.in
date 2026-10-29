@@ -3,7 +3,7 @@ import 'server-only';
 import { createHash } from 'node:crypto';
 import { and, asc, eq, isNull, notInArray, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { profiles, profileSkills, skills, projects, projectSkills, projectOpenRoles, storageAssets } from '@/lib/db/schema';
+import { profiles, profileSkills, skills, workspaces, workspaceSkills, workspaceOpenRoles, storageAssets } from '@/lib/db/schema';
 import { resolvePublicUsernameRoute } from '@/lib/usernames/service';
 import { resolvePrivacyRelationship, readableProfileIdentitySql } from '@/lib/privacy/resolver';
 import { getWorkspaceAccessByIdentifier, getWorkspaceAccessByIds, canReadWorkspaceTab } from '@/lib/data/workspace-access';
@@ -17,15 +17,15 @@ async function readPublicPortfolio(profileId: string) {
   const [row] = await db.execute<{ count: number; title: string | null; external: boolean }>(sql`
     WITH eligible AS (
       SELECT DISTINCT p.id, p.title
-      FROM profile_project_contributions c
-      JOIN projects p ON p.id = c.project_id
+      FROM profile_contributions c
+      JOIN workspaces p ON p.id = c.workspace_id
       WHERE c.profile_id = ${profileId}::uuid AND c.deleted_at IS NULL AND c.visibility = 'public'
         AND c.role_kind <> 'viewer' AND p.deleted_at IS NULL AND p.visibility = 'public'
         AND p.status IN ('active', 'completed', 'archived')
     )
     SELECT count(*)::int AS count, CASE WHEN count(*) = 1 THEN min(title) ELSE NULL END AS title,
-      EXISTS (SELECT 1 FROM profile_project_contributions c WHERE c.profile_id = ${profileId}::uuid
-        AND c.project_id IS NULL AND c.visibility = 'public' AND c.deleted_at IS NULL AND c.role_kind <> 'viewer') AS external
+      EXISTS (SELECT 1 FROM profile_contributions c WHERE c.profile_id = ${profileId}::uuid
+        AND c.workspace_id IS NULL AND c.visibility = 'public' AND c.deleted_at IS NULL AND c.role_kind <> 'viewer') AS external
     FROM eligible
   `);
   return row?.external ? portfolioSummary(null, null, true) : portfolioSummary(Number(row?.count ?? 0), row?.title ?? null);
@@ -86,19 +86,19 @@ async function readProjectTeam(projectId: string, ownerId: string, viewerId: str
       SELECT ${ownerId}::uuid AS id, 'owner' AS role, 0 AS priority, NULL::timestamptz AS joined
       UNION ALL
       SELECT user_id, role, 1, joined_at
-      FROM project_members WHERE project_id = ${projectId}::uuid AND user_id <> ${ownerId}::uuid
+      FROM workspace_members WHERE workspace_id = ${projectId}::uuid AND user_id <> ${ownerId}::uuid
     )
     SELECT profiles.id, profiles.full_name AS name, profiles.username, profiles.avatar_url AS avatar, profiles.avatar_asset_id AS asset, asset.content_hash AS "avatarHash", asset.storage_key AS "avatarKey", roster.role, accepted.title AS "roleTitle", CASE WHEN jsonb_typeof(project.import_source->'metadata'->'leadFocus') = 'string' THEN project.import_source->'metadata'->>'leadFocus' END AS "leadFocus", guidance.label AS "guidanceLabel", count(*) OVER()::int AS total
     FROM roster JOIN profiles ON profiles.id = roster.id
-    JOIN projects project ON project.id = ${projectId}::uuid
+    JOIN workspaces project ON project.id = ${projectId}::uuid
     LEFT JOIN LATERAL (
       SELECT coalesce(nullif(trim(open_role.title), ''), nullif(trim(open_role.role), '')) AS title
-      FROM role_applications application LEFT JOIN project_open_roles open_role ON open_role.id = application.role_id
-      WHERE application.project_id = project.id AND application.applicant_id = profiles.id AND application.status = 'accepted'
+      FROM role_applications application LEFT JOIN workspace_open_roles open_role ON open_role.id = application.role_id
+      WHERE application.workspace_id = project.id AND application.applicant_id = profiles.id AND application.status = 'accepted'
         AND coalesce(nullif(trim(open_role.title), ''), nullif(trim(open_role.role), '')) IS NOT NULL
       ORDER BY application.updated_at DESC, application.id DESC LIMIT 1
     ) accepted ON true
-    LEFT JOIN project_guidance_appointments guidance ON guidance.project_id = project.id AND guidance.guide_user_id = profiles.id
+    LEFT JOIN workspace_mentors guidance ON guidance.workspace_id = project.id AND guidance.guide_user_id = profiles.id
       AND guidance.status = 'active' AND (${privateAttribution} OR (${publicProject} AND guidance.public_attribution_consent))
     LEFT JOIN storage_assets asset ON asset.id = profiles.avatar_asset_id AND asset.owner_user_id = profiles.id AND asset.state = 'verified'
     WHERE ${readableProfileIdentitySql(viewerId)}
@@ -110,19 +110,19 @@ async function readProjectTeam(projectId: string, ownerId: string, viewerId: str
 }
 
 async function readProjectSkills(projectId: string) {
-  const rows = await db.select({ name: skills.name, total: sql<number>`count(*) OVER()::int` }).from(projectSkills)
-    .innerJoin(skills, eq(projectSkills.skillId, skills.id))
-    .where(and(eq(projectSkills.projectId, projectId), notInArray(skills.status, ['hidden', 'merged'])))
-    .orderBy(asc(projectSkills.displayOrder), asc(skills.name), asc(skills.id)).limit(4);
+  const rows = await db.select({ name: skills.name, total: sql<number>`count(*) OVER()::int` }).from(workspaceSkills)
+    .innerJoin(skills, eq(workspaceSkills.skillId, skills.id))
+    .where(and(eq(workspaceSkills.projectId, projectId), notInArray(skills.status, ['hidden', 'merged'])))
+    .orderBy(asc(workspaceSkills.displayOrder), asc(skills.name), asc(skills.id)).limit(4);
   return shareSkillSummary(rows.map(row=>row.name), rows[0]?.total ?? 0);
 }
 
 async function readProjectRoles(projectId: string) {
-  const rows = await db.select({ id: projectOpenRoles.id, role: projectOpenRoles.role, title: projectOpenRoles.title,
-    commitment: projectOpenRoles.commitmentType, total: sql<number>`count(*) OVER()::int` }).from(projectOpenRoles)
-    .where(and(eq(projectOpenRoles.projectId, projectId), sql`${projectOpenRoles.count} > ${projectOpenRoles.filled}`,
-      sql`${projectOpenRoles.filled} >= 0`, sql`length(trim(coalesce(nullif(trim(${projectOpenRoles.title}), ''), ${projectOpenRoles.role}))) > 0`))
-    .orderBy(asc(projectOpenRoles.createdAt), asc(projectOpenRoles.id)).limit(3);
+  const rows = await db.select({ id: workspaceOpenRoles.id, role: workspaceOpenRoles.role, title: workspaceOpenRoles.title,
+    commitment: workspaceOpenRoles.commitmentType, total: sql<number>`count(*) OVER()::int` }).from(workspaceOpenRoles)
+    .where(and(eq(workspaceOpenRoles.projectId, projectId), sql`${workspaceOpenRoles.count} > ${workspaceOpenRoles.filled}`,
+      sql`${workspaceOpenRoles.filled} >= 0`, sql`length(trim(coalesce(nullif(trim(${workspaceOpenRoles.title}), ''), ${workspaceOpenRoles.role}))) > 0`))
+    .orderBy(asc(workspaceOpenRoles.createdAt), asc(workspaceOpenRoles.id)).limit(3);
   const titles = rows.map(row=>shareText(row.title)||shareText(row.role));
   return { roles: rows.map((row,index) => ({ id: row.id, title: titles[index]! + (row.commitment && titles.filter(t=>t===titles[index]).length>1 ? ' · '+shareText(row.commitment).replace(/_/g,' ') : '') })),
     roleOverflow: Math.max(0, Number(rows[0]?.total ?? 0) - rows.length) };
@@ -136,9 +136,9 @@ async function readProject(resource: ShareResource, viewerId: string | null): Pr
   // An organization's canonical address is /org/<handle> (report §24).
   const resolved = { ...resource, url: new URL(`/${access.project.kind === 'organization' ? 'org' : 'workspaces'}/${access.project.slug || access.project.id}`, resource.url).href };
   const dashboard = canReadWorkspaceTab(access, 'dashboard');
-  const [project] = await db.select({ title: projects.title, description: projects.description, shortDescription: projects.shortDescription,
-    coverImage: projects.coverImage, coverAsset: projects.coverImageAssetId, coverHash: storageAssets.contentHash, coverKey: storageAssets.storageKey, views: projects.viewCount, followers: projects.followersCount, discoverHiddenAt: projects.discoverHiddenAt })
-    .from(projects).leftJoin(storageAssets,and(eq(storageAssets.id,projects.coverImageAssetId),eq(storageAssets.projectId,projects.id),eq(storageAssets.state,'verified'))).where(and(eq(projects.id, access.project.id), isNull(projects.deletedAt))).limit(1);
+  const [project] = await db.select({ title: workspaces.title, description: workspaces.description, shortDescription: workspaces.shortDescription,
+    coverImage: workspaces.coverImage, coverAsset: workspaces.coverImageAssetId, coverHash: storageAssets.contentHash, coverKey: storageAssets.storageKey, views: workspaces.viewCount, followers: workspaces.followersCount, discoverHiddenAt: workspaces.discoverHiddenAt })
+    .from(workspaces).leftJoin(storageAssets,and(eq(storageAssets.id,workspaces.coverImageAssetId),eq(storageAssets.projectId,workspaces.id),eq(storageAssets.state,'verified'))).where(and(eq(workspaces.id, access.project.id), isNull(workspaces.deletedAt))).limit(1);
   if (!project) return genericSharePreview(resource, 'unavailable');
   const unknown = (part: string, error: unknown) => { logger.warn('share.project.'+part+'.unavailable', { error: String(error) }); return null; };
   const [skillSummary, roleSummary] = await Promise.all([

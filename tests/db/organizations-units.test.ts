@@ -44,8 +44,8 @@ before(async () => {
 const created: string[] = [];
 after(async () => {
   for (const id of created.reverse()) {
-    await sql`DELETE FROM project_invitations WHERE project_id = ${id}`;
-    await sql`DELETE FROM projects WHERE id = ${id} OR parent_id = ${id}`;
+    await sql`DELETE FROM workspace_invitations WHERE workspace_id = ${id}`;
+    await sql`DELETE FROM workspaces WHERE id = ${id} OR parent_id = ${id}`;
   }
   await sql.end();
   await closeAppDb();
@@ -55,8 +55,8 @@ type Org = { id: string; owner: string; admin: string; a: string; b: string; c: 
 async function org(settings: Record<string, unknown> = {}): Promise<Org> {
   const [owner, admin, a, b, c] = await Promise.all([1, 2, 3, 4, 5].map(() => sql.begin((tx) => createUser(tx))));
   const id = await sql.begin((tx) => createProject(tx, owner!));
-  await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${id}, ${owner!}, 'owner'), (${id}, ${admin!}, 'admin'), (${id}, ${a!}, 'member'), (${id}, ${b!}, 'member'), (${id}, ${c!}, 'member')`;
-  await sql`UPDATE projects SET kind = 'organization', org_type = 'education', title = 'CSE-3A', slug = ${`cse-${id.slice(0, 8)}`}, join_code = ${generateJoinCode()},
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${owner!}, 'owner'), (${id}, ${admin!}, 'admin'), (${id}, ${a!}, 'member'), (${id}, ${b!}, 'member'), (${id}, ${c!}, 'member')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', title = 'CSE-3A', slug = ${`cse-${id.slice(0, 8)}`}, join_code = ${generateJoinCode()},
             org_settings = ${sql.json({ version: 1, childCreation: "members", ...settings })} WHERE id = ${id}`;
   created.push(id);
   return { id, owner: owner!, admin: admin!, a: a!, b: b!, c: c! };
@@ -79,10 +79,10 @@ test("an admin's units: the unit lead is stored and told, added people hear it, 
   const result = await create(o, o.admin, { roles: [{ role: "Frontend developers", count: 3, people: [{ user_id: o.a, label: "A" }, { user_id: o.b, label: "B" }], lead_user_id: o.b }] });
   assert.equal(result.success, true, JSON.stringify(result));
   const id = result.project!.id;
-  const [unit] = await sql`SELECT lead_user_id, filled FROM project_open_roles WHERE project_id = ${id}`;
+  const [unit] = await sql`SELECT team_lead_user_id AS lead_user_id, filled FROM workspace_open_roles WHERE workspace_id = ${id}`;
   assert.equal(unit!.lead_user_id, o.b);
   assert.ok((await titles(o.a)).some((t) => t.startsWith("You were added to Compiler Lab") && t.endsWith("· Frontend developers")));
-  assert.ok((await titles(o.b)).includes("You're unit lead of Frontend developers"));
+  assert.ok((await titles(o.b)).includes("You’re team lead of Frontend developers"));
   assert.ok((await titles(o.owner)).some((t) => t.includes("created Compiler Lab")));
   // A lead must sit in the unit.
   const bad = await create(o, o.admin, { roles: [{ role: "Testing", count: 1, people: [{ user_id: o.a }], lead_user_id: o.c }] });
@@ -95,17 +95,17 @@ test("outside people are invited even by an admin; with the setting off they are
   const result = await create(o, o.admin, { roles: [{ role: "Clients", count: 2, people: [{ user_id: outsider }, { user_id: o.a }] }] });
   assert.equal(result.success, true, JSON.stringify(result));
   const id = result.project!.id;
-  assert.equal((await sql`SELECT 1 FROM project_members WHERE project_id = ${id} AND user_id = ${outsider}`).length, 0, "not added");
-  assert.equal((await sql`SELECT status FROM project_invitations WHERE project_id = ${id} AND candidate_id = ${outsider}`)[0]?.status, "pending", "invited");
-  assert.equal((await sql`SELECT 1 FROM project_members WHERE project_id = ${id} AND user_id = ${o.a}`).length, 1, "org people are added");
+  assert.equal((await sql`SELECT 1 FROM workspace_members WHERE workspace_id = ${id} AND user_id = ${outsider}`).length, 0, "not added");
+  assert.equal((await sql`SELECT status FROM workspace_invitations WHERE workspace_id = ${id} AND candidate_id = ${outsider}`)[0]?.status, "pending", "invited");
+  assert.equal((await sql`SELECT 1 FROM workspace_members WHERE workspace_id = ${id} AND user_id = ${o.a}`).length, 1, "org people are added");
 
-  await sql`UPDATE projects SET org_settings = org_settings || '{"outsidePeople": false, "visibilityCap": "private"}'::jsonb WHERE id = ${o.id}`;
+  await sql`UPDATE workspaces SET org_settings = org_settings || '{"outsidePeople": false, "visibilityCap": "private"}'::jsonb WHERE id = ${o.id}`;
   const later = await create(o, o.admin, { visibility: "public", roles: [{ role: "Clients", count: 1, people: [{ user_id: outsider }] }] });
   assert.equal(later.success, true, JSON.stringify(later));
   assert.ok(later.notices?.some((n) => n.includes("left out")), JSON.stringify(later.notices));
   assert.ok(later.notices?.some((n) => n.startsWith("Visibility changed by CSE-3A rules")), JSON.stringify(later.notices));
 
-  await sql`UPDATE projects SET org_settings = org_settings || '{"childCreation": "admins"}'::jsonb WHERE id = ${o.id}`;
+  await sql`UPDATE workspaces SET org_settings = org_settings || '{"childCreation": "admins"}'::jsonb WHERE id = ${o.id}`;
   const blocked = await create(o, o.a);
   assert.equal(blocked.success, false);
   assert.equal(blocked.code, "ORG_BLOCKED");
@@ -114,13 +114,13 @@ test("outside people are invited even by an admin; with the setting off they are
 test("a new child gets open 'each project' assignments; it follows org sprints when asked", async () => {
   const o = await org();
   const now = Date.now();
-  await sql`INSERT INTO tasks (project_id, title, kind, creator_id, due_date, assignment_settings) VALUES (${o.id}, 'Proposal', 'assignment', ${o.owner}, ${new Date(now + 5 * 86_400_000)},
+  await sql`INSERT INTO tasks (workspace_id, title, kind, creator_id, due_date, assignment_settings) VALUES (${o.id}, 'Proposal', 'assignment', ${o.owner}, ${new Date(now + 5 * 86_400_000)},
     ${sql.json({ version: 1, submissionType: "none", reviewRequired: false, lateRule: "none", target: { mode: "each_child" }, publishedAt: new Date().toISOString(), closedAt: null })})`;
-  const [co1] = await sql`INSERT INTO project_sprints (project_id, sprint_number, name, status, start_date, end_date) VALUES (${o.id}, 1, 'CO1', 'active', ${new Date(now - 86_400_000)}, ${new Date(now + 20 * 86_400_000)}) RETURNING id`;
+  const [co1] = await sql`INSERT INTO workspace_sprints (workspace_id, sprint_number, name, status, start_date, end_date) VALUES (${o.id}, 1, 'CO1', 'active', ${new Date(now - 86_400_000)}, ${new Date(now + 20 * 86_400_000)}) RETURNING id`;
   const result = await create(o, o.a, { follow_org_sprints: true });
   assert.equal(result.success, true, JSON.stringify(result));
   const id = result.project!.id;
-  const [copy] = await sql`SELECT assignee_id FROM tasks WHERE project_id = ${id} AND assignment_id IS NOT NULL`;
+  const [copy] = await sql`SELECT assignee_id FROM tasks WHERE workspace_id = ${id} AND assignment_id IS NOT NULL`;
   assert.equal(copy?.assignee_id, o.a, "the lead holds the group copy");
   assert.ok((await titles(o.a)).some((t) => t.includes("Proposal")), "and hears about it");
 
@@ -128,7 +128,7 @@ test("a new child gets open 'each project' assignments; it follows org sprints w
   const sprint = await sprintsServer.createSprintAction({ projectId: id, name: "Lab sprint", startDate: new Date(now).toISOString().slice(0, 10), endDate: new Date(now + 7 * 86_400_000).toISOString().slice(0, 10) } as never);
   viewerId = "";
   assert.equal((sprint as { success: boolean }).success, true, JSON.stringify(sprint));
-  const [linked] = await sql`SELECT parent_sprint_id FROM project_sprints WHERE project_id = ${id}`;
+  const [linked] = await sql`SELECT parent_sprint_id FROM workspace_sprints WHERE workspace_id = ${id}`;
   assert.equal(linked?.parent_sprint_id, co1!.id, "linked to the org sprint holding its dates");
 });
 
@@ -150,12 +150,12 @@ test("units after creation: rename, seats, lead, move; @unit reaches the unit; l
   assert.ok((await units.updateUnitAction(id, testing!.id, { count: 2 })).success);
   assert.ok((await units.moveMemberToUnitAction(id, o.a, testing!.id)).success);
   assert.ok((await units.updateUnitAction(id, testing!.id, { leadUserId: o.a })).success);
-  assert.ok((await titles(o.a)).some((t) => t === "You're unit lead of Testing"));
-  const after = await sql`SELECT role, filled, lead_user_id FROM project_open_roles WHERE project_id = ${id} ORDER BY created_at`;
+  assert.ok((await titles(o.a)).some((t) => t === "You’re team lead of Testing"));
+  const after = await sql`SELECT role, filled, team_lead_user_id AS lead_user_id FROM workspace_open_roles WHERE workspace_id = ${id} ORDER BY created_at`;
   assert.deepEqual(after.map((r) => [r.role, r.filled]), [["Frontend", 0], ["Testing", 2]]);
 
   // @Testing reaches both people in it.
-  const [task] = await sql`INSERT INTO tasks (project_id, title, creator_id) VALUES (${id}, 'Write tests', ${o.c}) RETURNING id`;
+  const [task] = await sql`INSERT INTO tasks (workspace_id, title, creator_id) VALUES (${id}, 'Write tests', ${o.c}) RETURNING id`;
   const posted = await comments.createTaskCommentAction(task!.id, id, `@{${testing!.id}|Testing} please review`);
   viewerId = "";
   assert.equal((posted as { success: boolean }).success, true, JSON.stringify(posted));
@@ -171,7 +171,7 @@ test("units after creation: rename, seats, lead, move; @unit reaches the unit; l
 
 test("Needs your attentionr attention: a group assignment with no projects to go to", async () => {
   const o = await org();
-  await sql`INSERT INTO tasks (project_id, title, kind, creator_id, assignment_settings) VALUES (${o.id}, 'Mini-project', 'assignment', ${o.owner},
+  await sql`INSERT INTO tasks (workspace_id, title, kind, creator_id, assignment_settings) VALUES (${o.id}, 'Mini-project', 'assignment', ${o.owner},
     ${sql.json({ version: 1, submissionType: "none", reviewRequired: false, lateRule: "none", target: { mode: "each_child" }, publishedAt: new Date().toISOString(), closedAt: null })})`;
   const viewer = { userId: o.owner, isAdmin: true, isInside: true, isGuest: false, access: null, org: { id: o.id, title: "CSE-3A", slug: `cse-${o.id.slice(0, 8)}`, status: "active" } } as never;
   const rows = await needsYou.readNeedsYou(viewer, new Date());

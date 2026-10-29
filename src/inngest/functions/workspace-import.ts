@@ -6,7 +6,7 @@ import {
 
 export const projectImport = inngest.createFunction(
   { id: "project-import", concurrency: 5, retries: 0 },
-  { event: "project/import" },
+  [{ event: "workspace/import" }, { event: "project/import" }] /* old name drains for one release */,
   async ({ event, step }) => {
     const { projectId, importSource, userId, resolutions } = event.data as any;
 

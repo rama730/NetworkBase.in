@@ -1,9 +1,9 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import type { ProjectNode } from "../../src/lib/db/schema";
+import type { WorkspaceNode } from "../../src/lib/db/schema";
 import { enforceNodesBudget, reconcileLoadedFolders } from "../../src/stores/files/explorerSlice";
 
-function makeNode(id: string, updatedAtMs: number): ProjectNode {
+function makeNode(id: string, updatedAtMs: number): WorkspaceNode {
   return {
     id,
     name: id,
@@ -23,7 +23,7 @@ function makeNode(id: string, updatedAtMs: number): ProjectNode {
     deletedAt: null,
     createdAt: new Date(updatedAtMs - 10),
     updatedAt: new Date(updatedAtMs),
-  } as unknown as ProjectNode;
+  } as unknown as WorkspaceNode;
 }
 
 describe("enforceNodesBudget", () => {

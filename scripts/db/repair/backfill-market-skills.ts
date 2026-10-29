@@ -1,11 +1,11 @@
 import { asc, gt, inArray } from 'drizzle-orm'
 import { db } from '../../../src/lib/db'
 import {
-    profileProjectContributions,
-    profileProjectContributionStages,
+    profileContributions,
+    profileContributionStages,
     profiles,
-    projectOpenRoles,
-    projects,
+    workspaceOpenRoles,
+    workspaces,
 } from '../../../src/lib/db/schema'
 import {
     syncContributionSkills,
@@ -68,10 +68,10 @@ async function backfillProfiles() {
 
 async function backfillProjects() {
     await forEachBatch(
-        (cursor) => db.select({ id: projects.id, ownerId: projects.ownerId, skills: projects.skills })
-            .from(projects)
-            .where(cursor ? gt(projects.id, cursor) : undefined)
-            .orderBy(asc(projects.id))
+        (cursor) => db.select({ id: workspaces.id, ownerId: workspaces.ownerId, skills: workspaces.skills })
+            .from(workspaces)
+            .where(cursor ? gt(workspaces.id, cursor) : undefined)
+            .orderBy(asc(workspaces.id))
             .limit(BATCH_SIZE),
         async (project) => {
             const source = labels(project.skills)
@@ -80,7 +80,7 @@ async function backfillProjects() {
             if (!APPLY) return
             await db.transaction(async (tx) => {
                 const resolved = await syncWorkspaceSkills(tx, project.id, source, project.ownerId)
-                await tx.update(projects).set({ skills: resolved.map((skill) => skill.name) }).where(inArray(projects.id, [project.id]))
+                await tx.update(workspaces).set({ skills: resolved.map((skill) => skill.name) }).where(inArray(workspaces.id, [project.id]))
             })
         },
     )
@@ -88,10 +88,10 @@ async function backfillProjects() {
 
 async function backfillRoles() {
     await forEachBatch(
-        (cursor) => db.select({ id: projectOpenRoles.id, projectId: projectOpenRoles.projectId, skills: projectOpenRoles.skills })
-            .from(projectOpenRoles)
-            .where(cursor ? gt(projectOpenRoles.id, cursor) : undefined)
-            .orderBy(asc(projectOpenRoles.id))
+        (cursor) => db.select({ id: workspaceOpenRoles.id, projectId: workspaceOpenRoles.projectId, skills: workspaceOpenRoles.skills })
+            .from(workspaceOpenRoles)
+            .where(cursor ? gt(workspaceOpenRoles.id, cursor) : undefined)
+            .orderBy(asc(workspaceOpenRoles.id))
             .limit(BATCH_SIZE),
         async (role) => {
             const source = labels(role.skills)
@@ -100,7 +100,7 @@ async function backfillRoles() {
             if (!APPLY) return
             await db.transaction(async (tx) => {
                 const resolved = await syncRoleSkills(tx, role.projectId, role.id, source)
-                await tx.update(projectOpenRoles).set({ skills: resolved.map((skill) => skill.name) }).where(inArray(projectOpenRoles.id, [role.id]))
+                await tx.update(workspaceOpenRoles).set({ skills: resolved.map((skill) => skill.name) }).where(inArray(workspaceOpenRoles.id, [role.id]))
             })
         },
     )
@@ -110,21 +110,21 @@ async function backfillContributions() {
     let cursor: string | null = null
     for (;;) {
         const rows = await db.select({
-            id: profileProjectContributions.id,
-            profileId: profileProjectContributions.profileId,
-            skills: profileProjectContributions.skills,
+            id: profileContributions.id,
+            profileId: profileContributions.profileId,
+            skills: profileContributions.skills,
         })
-            .from(profileProjectContributions)
-            .where(cursor ? gt(profileProjectContributions.id, cursor) : undefined)
-            .orderBy(asc(profileProjectContributions.id))
+            .from(profileContributions)
+            .where(cursor ? gt(profileContributions.id, cursor) : undefined)
+            .orderBy(asc(profileContributions.id))
             .limit(BATCH_SIZE)
         if (rows.length === 0) return
 
         const stages = await db.select({
-            contributionId: profileProjectContributionStages.contributionId,
-            skills: profileProjectContributionStages.skills,
-        }).from(profileProjectContributionStages)
-            .where(inArray(profileProjectContributionStages.contributionId, rows.map((row) => row.id)))
+            contributionId: profileContributionStages.contributionId,
+            skills: profileContributionStages.skills,
+        }).from(profileContributionStages)
+            .where(inArray(profileContributionStages.contributionId, rows.map((row) => row.id)))
         const stageSkills = new Map<string, string[]>()
         for (const stage of stages) {
             const current = stageSkills.get(stage.contributionId) ?? []
@@ -142,9 +142,9 @@ async function backfillContributions() {
             if (APPLY) {
                 await db.transaction(async (tx) => {
                     const resolved = await syncContributionSkills(tx, contribution.id, source, contribution.profileId)
-                    await tx.update(profileProjectContributions)
+                    await tx.update(profileContributions)
                         .set({ skills: resolved.map((skill) => skill.name) })
-                        .where(inArray(profileProjectContributions.id, [contribution.id]))
+                        .where(inArray(profileContributions.id, [contribution.id]))
                 })
             }
         }

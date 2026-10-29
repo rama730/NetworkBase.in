@@ -11,12 +11,12 @@ import {
   Info,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { formatBytes } from "../../files-tab/folder/format";
 import { toast } from "@/lib/feedback";
 
 interface BinaryInspectorDriverProps {
-  node: ProjectNode;
+  node: WorkspaceNode;
   signedUrl: string | null;
 }
 

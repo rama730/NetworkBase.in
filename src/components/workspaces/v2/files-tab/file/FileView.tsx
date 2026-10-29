@@ -68,7 +68,7 @@ import { ComponentErrorBoundary } from "@/components/ui/ComponentErrorBoundary";
 import { getFilePreviewUrl } from "@/app/actions/files/content";
 import { getWorkspaceFileContent } from "@/app/actions/files/content";
 import { listFileVersions } from "@/app/actions/files/versions";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { computeContentHash } from "@/lib/files/content-hash";
 import { normalizeWorkspaceDocSlug } from "@/lib/workspaces/doc-slug";
 import { cn } from "@/lib/utils";
@@ -107,7 +107,7 @@ const RevisionControlModal = dynamic(() => import("@/components/ui/RevisionContr
 export interface FileViewProps {
   projectId: string;
   /** Invariant: `node.type === "file"`. Enforced by `FilesTabMain`. */
-  node: ProjectNode;
+  node: WorkspaceNode;
   /** Derived in `FilesTabRoot` from the role context (Role_Owner | Role_Member). */
   canEdit: boolean;
 }
@@ -751,7 +751,7 @@ export function FileView({
 // exactly one child element.
 
 interface PreviewRegionProps {
-  node: ProjectNode;
+  node: WorkspaceNode;
   kind: FileKind;
   isMd: boolean;
   emptyMedia: boolean;
@@ -968,7 +968,7 @@ function EmptyMediaPlaceholder({
 }
 
 interface BinaryFallbackProps {
-  node: ProjectNode;
+  node: WorkspaceNode;
   signedUrl: string | null;
 }
 

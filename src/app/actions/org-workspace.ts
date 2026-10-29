@@ -3,7 +3,7 @@
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
-import { projectMembers, projects } from '@/lib/db/schema';
+import { workspaceMembers, workspaces } from '@/lib/db/schema';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { orgFileAccessSql } from '@/lib/files/internal-helpers';
 import { readNeedsYou, type OrgViewer } from '@/lib/organizations/needs-you';
@@ -45,10 +45,10 @@ export async function readSidebarWorkspacesAction(): Promise<SidebarWorkspaces |
           CASE WHEN p.owner_id = ${userId}::uuid THEN 'owner' ELSE pm.role END AS role,
           greatest(pm.last_seen_updates_at, p.updated_at)::text AS opened, pm.last_seen_updates_at::text AS last_seen, p.org_settings AS settings,
           o.title AS org_title,
-          (o.id IS NOT NULL AND (o.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM project_members om WHERE om.project_id = o.id AND om.user_id = ${userId}::uuid))) AS in_org
-        FROM projects p
-        LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = ${userId}::uuid
-        LEFT JOIN projects o ON o.id = p.parent_id AND o.kind = 'organization' AND o.deleted_at IS NULL
+          (o.id IS NOT NULL AND (o.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM workspace_members om WHERE om.workspace_id = o.id AND om.user_id = ${userId}::uuid))) AS in_org
+        FROM workspaces p
+        LEFT JOIN workspace_members pm ON pm.workspace_id = p.id AND pm.user_id = ${userId}::uuid
+        LEFT JOIN workspaces o ON o.id = p.parent_id AND o.kind = 'organization' AND o.deleted_at IS NULL
         WHERE p.deleted_at IS NULL AND p.deletion_scheduled_at IS NULL AND (p.owner_id = ${userId}::uuid OR pm.user_id IS NOT NULL)
         ORDER BY opened DESC NULLS LAST LIMIT 300`);
     const orgRows = mine.filter((r) => r.kind === 'organization' && r.status !== 'archived');
@@ -61,7 +61,7 @@ export async function readSidebarWorkspacesAction(): Promise<SidebarWorkspaces |
         const v: OrgViewer = { userId, access, isAdmin, isInside: true, isGuest: org.role === 'viewer', org: { id: org.id, title: org.title, slug: org.slug, status: org.status } };
         const [needs, [latest]] = await Promise.all([
             readNeedsYou(v, now).catch(() => []),
-            ROWS<{ at: string | null }>(sql`SELECT max(created_at)::text AS at FROM project_updates WHERE project_id = ${org.id} AND update_type = 'announcement' AND deleted_at IS NULL`),
+            ROWS<{ at: string | null }>(sql`SELECT max(created_at)::text AS at FROM workspace_updates WHERE workspace_id = ${org.id} AND update_type = 'announcement' AND deleted_at IS NULL`),
         ]);
         const kids = childRows.filter((c) => c.parent_id === org.id);
         const rules = readOrgRules(org.settings);
@@ -75,7 +75,7 @@ export async function readSidebarWorkspacesAction(): Promise<SidebarWorkspaces |
         });
     }
     const requested = await ROWS<{ id: string; title: string; slug: string | null }>(sql`
-        SELECT p.id, p.title, p.slug FROM role_applications a JOIN projects p ON p.id = a.project_id AND p.kind = 'organization' AND p.deleted_at IS NULL
+        SELECT p.id, p.title, p.slug FROM role_applications a JOIN workspaces p ON p.id = a.workspace_id AND p.kind = 'organization' AND p.deleted_at IS NULL
         WHERE a.applicant_id = ${userId}::uuid AND a.role_id IS NULL AND a.status = 'pending' ORDER BY a.created_at DESC LIMIT 10`);
     return {
         orgs,
@@ -96,10 +96,10 @@ export async function readOrgRequestsForMeAction(): Promise<{ invites: Awaited<R
         openInvitesFor(userId),
         ROWS<{ id: string; user_id: string; name: string | null; note: string | null; org_id: string; title: string; slug: string | null }>(sql`
             SELECT a.id, a.applicant_id AS user_id, coalesce(pr.full_name, pr.username) AS name, a.message AS note, o.id AS org_id, o.title, o.slug
-            FROM role_applications a JOIN projects o ON o.id = a.project_id AND o.kind = 'organization' AND o.deleted_at IS NULL
+            FROM role_applications a JOIN workspaces o ON o.id = a.workspace_id AND o.kind = 'organization' AND o.deleted_at IS NULL
             JOIN profiles pr ON pr.id = a.applicant_id
             WHERE a.role_id IS NULL AND a.status = 'pending'
-              AND (o.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = o.id AND m.user_id = ${userId}::uuid AND m.role = 'admin'))
+              AND (o.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = o.id AND m.user_id = ${userId}::uuid AND m.role = 'admin'))
             ORDER BY a.created_at ASC LIMIT 500`),
     ]);
     const groups = new Map<string, JoinRequestGroup>();
@@ -124,14 +124,14 @@ export async function fetchToReviewAction(): Promise<ToReviewRow[] | null> {
     const rows = await ROWS<{ id: string; title: string; who: string | null; team_name: string | null; context: string; org_title: string | null; submitted_at: string | null; slug: string | null; project_id: string; kind: string }>(sql`
         SELECT t.id, t.title, coalesce(pr.full_name, pr.username) AS who, t.team_name, p.title AS context, o.title AS org_title,
           to_char(t.review_submitted_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS submitted_at, p.slug, p.id AS project_id, p.kind
-        FROM tasks t JOIN projects p ON p.id = t.project_id AND p.deleted_at IS NULL
-        LEFT JOIN projects o ON o.id = p.parent_id AND o.kind = 'organization'
+        FROM tasks t JOIN workspaces p ON p.id = t.workspace_id AND p.deleted_at IS NULL
+        LEFT JOIN workspaces o ON o.id = p.parent_id AND o.kind = 'organization'
         LEFT JOIN profiles pr ON pr.id = t.assignee_id
         WHERE t.review_status = 'pending' AND t.deleted_at IS NULL AND (
           p.owner_id = ${userId}::uuid
-          OR EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = p.id AND m.user_id = ${userId}::uuid AND m.role = 'admin')
+          OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = p.id AND m.user_id = ${userId}::uuid AND m.role = 'admin')
           OR o.owner_id = ${userId}::uuid
-          OR EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = o.id AND m.user_id = ${userId}::uuid AND m.role = 'admin'))
+          OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = o.id AND m.user_id = ${userId}::uuid AND m.role = 'admin'))
         ORDER BY t.review_submitted_at DESC NULLS LAST LIMIT 100`);
     return rows.map((r) => ({
         id: r.id, title: r.title, who: r.team_name ?? r.who ?? 'Someone',
@@ -151,9 +151,9 @@ export async function readSharedOrgsAction(userIds: string[]): Promise<Record<st
     if (!userId || ids.length === 0) return {};
     const rows = await ROWS<{ user_id: string; title: string }>(sql`
         SELECT DISTINCT ON (them.user_id) them.user_id, o.title
-        FROM project_members them JOIN projects o ON o.id = them.project_id AND o.kind = 'organization' AND o.deleted_at IS NULL
+        FROM workspace_members them JOIN workspaces o ON o.id = them.workspace_id AND o.kind = 'organization' AND o.deleted_at IS NULL
         WHERE them.user_id = ANY(${sql`ARRAY[${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)}]`}) AND them.show_on_profile
-          AND (o.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM project_members me WHERE me.project_id = o.id AND me.user_id = ${userId}::uuid))
+          AND (o.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM workspace_members me WHERE me.workspace_id = o.id AND me.user_id = ${userId}::uuid))
         ORDER BY them.user_id, them.joined_at DESC`);
     return Object.fromEntries(rows.map((r) => [r.user_id, r.title]));
 }
@@ -171,26 +171,26 @@ export async function searchOrgPreviewsAction(query: string, orgIdentifier?: str
     if (!userId || q.length < 2) return [];
     const pattern = `%${q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
     const results: OrgSearchResult[] = [];
-    const memberOf = sql`(o.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = o.id AND m.user_id = ${userId}::uuid))`;
-    const isAdminOf = sql`(o.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = o.id AND m.user_id = ${userId}::uuid AND m.role = 'admin'))`;
+    const memberOf = sql`(o.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = o.id AND m.user_id = ${userId}::uuid))`;
+    const isAdminOf = sql`(o.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = o.id AND m.user_id = ${userId}::uuid AND m.role = 'admin'))`;
 
     let scope: { id: string; title: string; slug: string | null; isAdmin: boolean; isGuest: boolean; canCreate: boolean } | null = null;
     if (orgIdentifier) {
-        const [org] = await db.select({ id: projects.id, title: projects.title, slug: projects.slug, settings: projects.orgSettings }).from(projects)
-            .where(and(sql`(${projects.slug} = ${orgIdentifier} OR ${projects.id}::text = ${orgIdentifier})`, eq(projects.kind, 'organization'), isNull(projects.deletedAt))).limit(1);
+        const [org] = await db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, settings: workspaces.orgSettings }).from(workspaces)
+            .where(and(sql`(${workspaces.slug} = ${orgIdentifier} OR ${workspaces.id}::text = ${orgIdentifier})`, eq(workspaces.kind, 'organization'), isNull(workspaces.deletedAt))).limit(1);
         const access = org ? await getWorkspaceAccessById(org.id, userId) : null;
         if (org && access && (access.isOwner || access.isMember)) {
             const isAdmin = access.isOwner || access.memberRole === 'admin';
             scope = { id: org.id, title: org.title, slug: org.slug, isAdmin, isGuest: access.memberRole === 'viewer', canCreate: !access.writeBlocked && access.memberRole !== 'viewer' && (isAdmin || readOrgRules(org.settings).childCreation === 'members') };
             const base = `/org/${encodeURIComponent(org.slug ?? org.id)}`;
             const [docs, children, sprints, members, files] = await Promise.all([
-                ROWS<{ id: string; slug: string; filename: string }>(sql`SELECT id, slug, filename FROM project_docs WHERE project_id = ${org.id} AND (filename ILIKE ${pattern} OR slug ILIKE ${pattern}) LIMIT 5`),
-                ROWS<{ id: string; title: string; slug: string | null }>(sql`SELECT c.id, c.title, c.slug FROM projects c WHERE c.parent_id = ${org.id} AND c.deleted_at IS NULL AND c.title ILIKE ${pattern}
-                    AND (c.visibility <> 'private' OR ${isAdmin} OR EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = c.id AND m.user_id = ${userId}::uuid)) LIMIT 5`),
-                ROWS<{ id: string; name: string }>(sql`SELECT id, name FROM project_sprints WHERE project_id = ${org.id} AND name ILIKE ${pattern} LIMIT 3`),
-                isAdmin ? ROWS<{ id: string; name: string | null; username: string | null }>(sql`SELECT pr.id, pr.full_name AS name, pr.username FROM project_members m JOIN profiles pr ON pr.id = m.user_id
-                    WHERE m.project_id = ${org.id} AND pr.deleted_at IS NULL AND (pr.full_name ILIKE ${pattern} OR pr.username ILIKE ${pattern} OR m.title ILIKE ${pattern}) LIMIT 5`) : Promise.resolve([]),
-                db.execute(sql`SELECT n.id, n.name, n.path FROM project_nodes n WHERE n.project_id = ${org.id} AND n.type = 'file' AND n.deleted_at IS NULL AND n.task_id IS NULL AND n.name ILIKE ${pattern} AND ${orgFileAccessSql(access, { projectId: sql`n.project_id`, path: sql`n.path`, taskId: sql`n.task_id` }) ?? sql`TRUE`} LIMIT 5`) as unknown as Promise<Array<{ id: string; name: string; path: string }>>,
+                ROWS<{ id: string; slug: string; filename: string }>(sql`SELECT id, slug, filename FROM workspace_documents WHERE workspace_id = ${org.id} AND (filename ILIKE ${pattern} OR slug ILIKE ${pattern}) LIMIT 5`),
+                ROWS<{ id: string; title: string; slug: string | null }>(sql`SELECT c.id, c.title, c.slug FROM workspaces c WHERE c.parent_id = ${org.id} AND c.deleted_at IS NULL AND c.title ILIKE ${pattern}
+                    AND (c.visibility <> 'private' OR ${isAdmin} OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = c.id AND m.user_id = ${userId}::uuid)) LIMIT 5`),
+                ROWS<{ id: string; name: string }>(sql`SELECT id, name FROM workspace_sprints WHERE workspace_id = ${org.id} AND name ILIKE ${pattern} LIMIT 3`),
+                isAdmin ? ROWS<{ id: string; name: string | null; username: string | null }>(sql`SELECT pr.id, pr.full_name AS name, pr.username FROM workspace_members m JOIN profiles pr ON pr.id = m.user_id
+                    WHERE m.workspace_id = ${org.id} AND pr.deleted_at IS NULL AND (pr.full_name ILIKE ${pattern} OR pr.username ILIKE ${pattern} OR m.title ILIKE ${pattern}) LIMIT 5`) : Promise.resolve([]),
+                db.execute(sql`SELECT n.id, n.name, n.path FROM workspace_nodes n WHERE n.workspace_id = ${org.id} AND n.type = 'file' AND n.deleted_at IS NULL AND n.task_id IS NULL AND n.name ILIKE ${pattern} AND ${orgFileAccessSql(access, { projectId: sql`n.workspace_id`, path: sql`n.path`, taskId: sql`n.task_id` }) ?? sql`TRUE`} LIMIT 5`) as unknown as Promise<Array<{ id: string; name: string; path: string }>>,
             ]);
             for (const d of docs) results.push({ id: `doc:${d.id}`, kind: 'doc', title: d.filename.replace(/\.(md|mdx|markdown)$/i, ''), subtitle: `Doc · ${org.title}`, href: `${base}?tab=readme&doc=${encodeURIComponent(d.slug)}`, chip: null });
             for (const c of children) results.push({ id: `child:${c.id}`, kind: 'child', title: c.title, subtitle: `Workspace · ${org.title}`, href: `/workspaces/${encodeURIComponent(c.slug ?? c.id)}`, chip: null });
@@ -199,15 +199,15 @@ export async function searchOrgPreviewsAction(query: string, orgIdentifier?: str
             for (const f of files) results.push({ id: `file:${f.id}`, kind: 'file', title: f.name, subtitle: `File · ${f.path}`, href: `${base}?tab=files&path=${encodeURIComponent(f.path)}`, chip: null });
         } else {
             // Inside a child project: its org's docs and files, marked "From CSE-3A" — never for outside people.
-            const [child] = await db.select({ parentId: projects.parentId }).from(projects)
-                .where(and(sql`(${projects.slug} = ${orgIdentifier} OR ${projects.id}::text = ${orgIdentifier})`, isNull(projects.deletedAt))).limit(1);
+            const [child] = await db.select({ parentId: workspaces.parentId }).from(workspaces)
+                .where(and(sql`(${workspaces.slug} = ${orgIdentifier} OR ${workspaces.id}::text = ${orgIdentifier})`, isNull(workspaces.deletedAt))).limit(1);
             const orgAccess = child?.parentId ? await getWorkspaceAccessById(child.parentId, userId) : null;
             if (!child?.parentId || !orgAccess || !(orgAccess.isOwner || orgAccess.isMember)) return [];
-            const [parent] = await db.select({ id: projects.id, title: projects.title, slug: projects.slug }).from(projects).where(eq(projects.id, child.parentId)).limit(1);
+            const [parent] = await db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug }).from(workspaces).where(eq(workspaces.id, child.parentId)).limit(1);
             const base = `/org/${encodeURIComponent(parent!.slug ?? parent!.id)}`;
             const [docs, files] = await Promise.all([
-                ROWS<{ slug: string; filename: string; id: string }>(sql`SELECT id, slug, filename FROM project_docs WHERE project_id = ${parent!.id} AND (filename ILIKE ${pattern} OR slug ILIKE ${pattern}) LIMIT 5`),
-                db.execute(sql`SELECT n.id, n.name, n.path FROM project_nodes n WHERE n.project_id = ${parent!.id} AND n.type = 'file' AND n.deleted_at IS NULL AND n.task_id IS NULL AND n.name ILIKE ${pattern} AND ${orgFileAccessSql(orgAccess, { projectId: sql`n.project_id`, path: sql`n.path`, taskId: sql`n.task_id` }) ?? sql`TRUE`} LIMIT 5`) as unknown as Promise<Array<{ id: string; name: string; path: string }>>,
+                ROWS<{ slug: string; filename: string; id: string }>(sql`SELECT id, slug, filename FROM workspace_documents WHERE workspace_id = ${parent!.id} AND (filename ILIKE ${pattern} OR slug ILIKE ${pattern}) LIMIT 5`),
+                db.execute(sql`SELECT n.id, n.name, n.path FROM workspace_nodes n WHERE n.workspace_id = ${parent!.id} AND n.type = 'file' AND n.deleted_at IS NULL AND n.task_id IS NULL AND n.name ILIKE ${pattern} AND ${orgFileAccessSql(orgAccess, { projectId: sql`n.workspace_id`, path: sql`n.path`, taskId: sql`n.task_id` }) ?? sql`TRUE`} LIMIT 5`) as unknown as Promise<Array<{ id: string; name: string; path: string }>>,
             ]);
             for (const d of docs) results.push({ id: `doc:${d.id}`, kind: 'doc', title: d.filename.replace(/\.(md|mdx|markdown)$/i, ''), subtitle: 'Doc', href: `${base}?tab=readme&doc=${encodeURIComponent(d.slug)}`, chip: `From ${parent!.title}` });
             for (const f of files) results.push({ id: `file:${f.id}`, kind: 'file', title: f.name, subtitle: f.path, href: `${base}?tab=files&path=${encodeURIComponent(f.path)}`, chip: `From ${parent!.title}` });
@@ -218,8 +218,8 @@ export async function searchOrgPreviewsAction(query: string, orgIdentifier?: str
     // Organizations: yours first, then public ones; a private org you aren't in never shows, not even its name.
     if (!scope) {
         const orgs = await ROWS<{ id: string; title: string; slug: string | null; org_type: string | null; members: number; mine: boolean }>(sql`
-            SELECT o.id, o.title, o.slug, o.org_type, (SELECT count(*)::int FROM project_members m WHERE m.project_id = o.id) AS members, ${memberOf} AS mine
-            FROM projects o WHERE o.kind = 'organization' AND o.deleted_at IS NULL AND o.deletion_scheduled_at IS NULL AND o.suspended_at IS NULL AND o.discover_hidden_at IS NULL
+            SELECT o.id, o.title, o.slug, o.org_type, (SELECT count(*)::int FROM workspace_members m WHERE m.workspace_id = o.id) AS members, ${memberOf} AS mine
+            FROM workspaces o WHERE o.kind = 'organization' AND o.deleted_at IS NULL AND o.deletion_scheduled_at IS NULL AND o.suspended_at IS NULL AND o.discover_hidden_at IS NULL
               AND (o.title ILIKE ${pattern} OR o.slug ILIKE ${pattern}) AND (${memberOf} OR o.visibility IN ('public', 'unlisted'))
             ORDER BY ${memberOf} DESC, o.title LIMIT 5`);
         for (const o of orgs) results.push({ id: `org:${o.id}`, kind: 'org', title: o.title, subtitle: [o.org_type ? o.org_type[0]!.toUpperCase() + o.org_type.slice(1) : 'Organization', `${o.members} members`].join(' · '), href: `/org/${encodeURIComponent(o.slug ?? o.id)}`, chip: o.mine ? 'Member' : null });
@@ -228,13 +228,13 @@ export async function searchOrgPreviewsAction(query: string, orgIdentifier?: str
     // Assignments: members find their own copy (with its state), admins the master with counts, guests counts only.
     const assignments = await ROWS<{ id: string; title: string; org_id: string; org_title: string; slug: string | null; due: string | null; admin: boolean; guest: boolean; copy_id: string | null; copy_status: string | null; copy_review: string | null; submitted: number; total: number }>(sql`
         SELECT m.id, m.title, o.id AS org_id, o.title AS org_title, o.slug, m.due_date::text AS due, ${isAdminOf} AS admin,
-          EXISTS (SELECT 1 FROM project_members g WHERE g.project_id = o.id AND g.user_id = ${userId}::uuid AND g.role = 'viewer') AS guest,
+          EXISTS (SELECT 1 FROM workspace_members g WHERE g.workspace_id = o.id AND g.user_id = ${userId}::uuid AND g.role = 'viewer') AS guest,
           (SELECT c.id FROM tasks c WHERE c.assignment_id = m.id AND c.deleted_at IS NULL AND (c.assignee_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = c.id AND tm.user_id = ${userId}::uuid)) LIMIT 1) AS copy_id,
           (SELECT c.status FROM tasks c WHERE c.assignment_id = m.id AND c.deleted_at IS NULL AND (c.assignee_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = c.id AND tm.user_id = ${userId}::uuid)) LIMIT 1) AS copy_status,
           (SELECT c.review_status FROM tasks c WHERE c.assignment_id = m.id AND c.deleted_at IS NULL AND (c.assignee_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = c.id AND tm.user_id = ${userId}::uuid)) LIMIT 1) AS copy_review,
           (SELECT count(*)::int FROM tasks c WHERE c.assignment_id = m.id AND c.deleted_at IS NULL AND (c.review_status = 'pending' OR c.status = 'done')) AS submitted,
           (SELECT count(*)::int FROM tasks c WHERE c.assignment_id = m.id AND c.deleted_at IS NULL AND c.excused_at IS NULL) AS total
-        FROM tasks m JOIN projects o ON o.id = m.project_id AND o.kind = 'organization' AND o.deleted_at IS NULL
+        FROM tasks m JOIN workspaces o ON o.id = m.workspace_id AND o.kind = 'organization' AND o.deleted_at IS NULL
         WHERE m.kind = 'assignment' AND m.deleted_at IS NULL AND m.title ILIKE ${pattern} AND ${memberOf}
           ${scope ? sql`AND o.id = ${scope.id}` : sql``}
           AND (m.assignment_settings->>'publishedAt' IS NOT NULL OR ${isAdminOf})
@@ -249,7 +249,7 @@ export async function searchOrgPreviewsAction(query: string, orgIdentifier?: str
     // Org docs (outside an org's own search): docs of orgs you're in.
     if (!scope) {
         const docs = await ROWS<{ id: string; slug: string; filename: string; org_id: string; org_title: string; org_slug: string | null }>(sql`
-            SELECT d.id, d.slug, d.filename, o.id AS org_id, o.title AS org_title, o.slug AS org_slug FROM project_docs d JOIN projects o ON o.id = d.project_id AND o.kind = 'organization' AND o.deleted_at IS NULL
+            SELECT d.id, d.slug, d.filename, o.id AS org_id, o.title AS org_title, o.slug AS org_slug FROM workspace_documents d JOIN workspaces o ON o.id = d.workspace_id AND o.kind = 'organization' AND o.deleted_at IS NULL
             WHERE (d.filename ILIKE ${pattern} OR d.slug ILIKE ${pattern}) AND ${memberOf} LIMIT 5`);
         for (const d of docs) results.push({ id: `doc:${d.id}`, kind: 'doc', title: d.filename.replace(/\.(md|mdx|markdown)$/i, ''), subtitle: `Doc · ${d.org_title}`, href: `/org/${encodeURIComponent(d.org_slug ?? d.org_id)}?tab=readme&doc=${encodeURIComponent(d.slug)}`, chip: null });
     }
@@ -272,9 +272,9 @@ export async function readOrgPendingCountAction(): Promise<number> {
 export async function readMyOrgsAction() {
     const userId = await viewer();
     if (!userId) return [];
-    return db.select({ id: projects.id, title: projects.title }).from(projects)
-        .where(and(eq(projects.kind, 'organization'), isNull(projects.deletedAt),
-            sql`(${projects.ownerId} = ${userId} OR EXISTS (SELECT 1 FROM ${projectMembers} m WHERE m.project_id = ${projects.id} AND m.user_id = ${userId}))`))
-        .orderBy(desc(projects.updatedAt)).limit(50);
+    return db.select({ id: workspaces.id, title: workspaces.title }).from(workspaces)
+        .where(and(eq(workspaces.kind, 'organization'), isNull(workspaces.deletedAt),
+            sql`(${workspaces.ownerId} = ${userId} OR EXISTS (SELECT 1 FROM ${workspaceMembers} m WHERE m.workspace_id = ${workspaces.id} AND m.user_id = ${userId}))`))
+        .orderBy(desc(workspaces.updatedAt)).limit(50);
 }
 

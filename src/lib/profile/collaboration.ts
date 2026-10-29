@@ -4,11 +4,11 @@ import { db } from "@/lib/db";
 import {
   profileCollaborationSummaries,
   profileContributionSkills,
-  profileProjectContributionStages,
-  profileProjectContributions,
+  profileContributionStages,
+  profileContributions,
   profiles,
-  projectInvitations,
-  projects,
+  workspaceInvitations,
+  workspaces,
   roleApplications,
   skills,
 } from "@/lib/db/schema";
@@ -547,11 +547,11 @@ async function queryProfileProjectRows(profileId: string, options: {
 
   const rows = await db.execute<ProfileProjectRow>(sql`
     WITH user_project_candidates AS (
-      SELECT id FROM ${projects} WHERE owner_id = ${profileId}::uuid AND deleted_at IS NULL
+      SELECT id FROM ${workspaces} WHERE owner_id = ${profileId}::uuid AND deleted_at IS NULL
       UNION
-      SELECT project_id AS id FROM project_members WHERE user_id = ${profileId}::uuid
+      SELECT workspace_id AS id FROM workspace_members WHERE user_id = ${profileId}::uuid
       UNION
-      SELECT project_id AS id FROM ${profileProjectContributions} WHERE profile_id = ${profileId}::uuid AND deleted_at IS NULL AND project_id IS NOT NULL
+      SELECT workspace_id AS id FROM ${profileContributions} WHERE profile_id = ${profileId}::uuid AND deleted_at IS NULL AND workspace_id IS NOT NULL
     ),
     project_scope AS (
       SELECT
@@ -594,15 +594,15 @@ async function queryProfileProjectRows(profileId: string, options: {
         COALESCE(pc_skills.labels, '[]'::jsonb) AS contribution_skills,
         count(*) OVER()::int AS total_count
       FROM user_project_candidates upc
-      INNER JOIN ${projects} p ON p.id = upc.id
-      LEFT JOIN ${projects} parent_org
+      INNER JOIN ${workspaces} p ON p.id = upc.id
+      LEFT JOIN ${workspaces} parent_org
         ON parent_org.id = p.parent_id AND parent_org.kind = 'organization' AND parent_org.deleted_at IS NULL
        AND parent_org.visibility IN ('public', 'unlisted')
-      LEFT JOIN project_members pm_self
-        ON pm_self.project_id = p.id
+      LEFT JOIN workspace_members pm_self
+        ON pm_self.workspace_id = p.id
        AND pm_self.user_id = ${profileId}
-      LEFT JOIN ${profileProjectContributions} pc
-        ON pc.project_id = p.id
+      LEFT JOIN ${profileContributions} pc
+        ON pc.workspace_id = p.id
        AND pc.profile_id = ${profileId}
        AND pc.deleted_at IS NULL
       LEFT JOIN LATERAL (
@@ -615,7 +615,7 @@ async function queryProfileProjectRows(profileId: string, options: {
       LEFT JOIN LATERAL (
         SELECT accepted_role_title
         FROM ${roleApplications}
-        WHERE project_id = p.id
+        WHERE workspace_id = p.id
           AND applicant_id = ${profileId}
           AND status = 'accepted'
         ORDER BY updated_at DESC
@@ -624,9 +624,9 @@ async function queryProfileProjectRows(profileId: string, options: {
       WHERE p.deleted_at IS NULL
         AND (${visibilitySql})
         AND (${includePrivate ? sql`TRUE` : sql`NOT EXISTS (
-          SELECT 1 FROM project_members show_pref
+          SELECT 1 FROM workspace_members show_pref
           WHERE show_pref.user_id = ${profileId}::uuid AND show_pref.show_on_profile = false
-            AND show_pref.project_id = COALESCE(CASE WHEN p.kind = 'organization' THEN p.id END, p.parent_id)
+            AND show_pref.workspace_id = COALESCE(CASE WHEN p.kind = 'organization' THEN p.id END, p.parent_id)
         )`})
         AND (${includePrivate ? sql`TRUE` : sql`COALESCE(pc.visibility, 'public') = 'public'`})
       ORDER BY p.created_at DESC, p.updated_at DESC, p.id DESC
@@ -662,8 +662,8 @@ async function queryProfileProjectRows(profileId: string, options: {
           SELECT ps.owner_id AS user_id, ps.created_at AS joined_at, 'owner'::text AS role
           UNION ALL
           SELECT pm.user_id, pm.joined_at, pm.role
-          FROM project_members pm
-          WHERE pm.project_id = ps.project_id
+          FROM workspace_members pm
+          WHERE pm.workspace_id = ps.project_id
             AND pm.user_id <> ps.owner_id
         ) pm
         INNER JOIN ${profiles} pr ON pr.id = pm.user_id
@@ -701,15 +701,15 @@ async function queryProfileContributionRows(profileId: string, options: {
       contribution.featured,
       contribution.published_at,
       ${includePrivate ? sql`(SELECT d.document FROM profile_contribution_drafts d WHERE d.contribution_id=contribution.id AND d.profile_id=${profileId}::uuid)` : sql`NULL::jsonb`} AS draft_story,
-      contribution.project_id,
+      contribution.workspace_id AS project_id,
       contribution.external_key,
       contribution.version,
       contribution.project_title AS project_title_override,
       contribution.project_url,
       contribution.repository_url,
-      (SELECT count(DISTINCT event.node_id)::int FROM project_node_events event
-       INNER JOIN project_nodes node ON node.id=event.node_id
-       WHERE event.project_id=contribution.project_id AND event.actor_id=${profileId}
+      (SELECT count(DISTINCT event.node_id)::int FROM workspace_node_events event
+       INNER JOIN workspace_nodes node ON node.id=event.node_id
+       WHERE event.workspace_id=contribution.workspace_id AND event.actor_id=${profileId}
          AND event.type='file_content_contributed' AND node.task_id IS NULL
          AND node.deleted_at IS NULL AND node.path NOT LIKE '/.system/%') AS file_contribution_count,
       project.github_repo_url AS project_github_repo_url,
@@ -719,7 +719,7 @@ async function queryProfileContributionRows(profileId: string, options: {
       project.visibility AS project_visibility,
       CASE WHEN project.deleted_at IS NOT NULL THEN 'deleted' ELSE project.status::text END AS project_status,
       COALESCE(member.joined_at,CASE WHEN project.owner_id=${profileId}::uuid THEN project.created_at END,
-        (SELECT min(recorded.started_at) FROM profile_project_contribution_stages recorded WHERE recorded.contribution_id=contribution.id)) AS recorded_joined_at,
+        (SELECT min(recorded.started_at) FROM profile_contribution_stages recorded WHERE recorded.contribution_id=contribution.id)) AS recorded_joined_at,
       project.owner_id AS project_owner_id,
       CASE
         WHEN project.owner_id = ${profileId} THEN 'owner'
@@ -741,14 +741,14 @@ async function queryProfileContributionRows(profileId: string, options: {
       parent_org.title AS parent_org_title,
       parent_org.slug AS parent_org_slug,
       CASE WHEN project.parent_id IS NULL THEN project.org_settings->'formerOrg' END AS former_org,
-      (SELECT gone.title FROM projects gone WHERE gone.id = contribution.project_id AND gone.kind = 'organization' AND gone.deleted_at IS NOT NULL) AS gone_org_title,
+      (SELECT gone.title FROM workspaces gone WHERE gone.id = contribution.workspace_id AND gone.kind = 'organization' AND gone.deleted_at IS NOT NULL) AS gone_org_title,
       contribution.show_work_record,
       CASE WHEN contribution.show_work_record AND project.kind = 'organization' THEN (
         SELECT jsonb_build_object(
           'done', count(*) FILTER (WHERE c.status = 'done' OR c.review_status = 'approved'),
           'total', count(*),
-          'sprints', (SELECT count(*) FROM project_sprints s WHERE s.project_id = project.id AND s.status IN ('active', 'completed')))
-        FROM tasks c JOIN tasks m ON m.id = c.assignment_id AND m.project_id = project.id AND m.deleted_at IS NULL
+          'sprints', (SELECT count(*) FROM workspace_sprints s WHERE s.workspace_id = project.id AND s.status IN ('active', 'completed')))
+        FROM tasks c JOIN tasks m ON m.id = c.assignment_id AND m.workspace_id = project.id AND m.deleted_at IS NULL
         WHERE c.deleted_at IS NULL AND c.excused_at IS NULL
           AND (c.assignee_id = contribution.profile_id OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = c.id AND tm.user_id = contribution.profile_id)))
       END AS work_record,
@@ -757,26 +757,26 @@ async function queryProfileContributionRows(profileId: string, options: {
       (project.kind = 'organization' AND contribution.verified_at IS NOT NULL AND contribution.verified_by IS NOT NULL
         AND contribution.verified_by <> contribution.profile_id
         AND (contribution.verified_by = project.owner_id OR EXISTS (
-          SELECT 1 FROM project_members verifier WHERE verifier.project_id = project.id AND verifier.user_id = contribution.verified_by AND verifier.role = 'admin'
+          SELECT 1 FROM workspace_members verifier WHERE verifier.workspace_id = project.id AND verifier.user_id = contribution.verified_by AND verifier.role = 'admin'
         ))) AS org_verified,
       ${includePrivate ? sql`false` : sql`(project.visibility = 'org')`} AS project_link_hidden,
       COALESCE(stages.role_stages, '[]'::jsonb) AS role_stages,
       count(*) OVER()::int AS total_count
-    FROM ${profileProjectContributions} contribution
-    LEFT JOIN ${projects} project
-      ON project.id = contribution.project_id
+    FROM ${profileContributions} contribution
+    LEFT JOIN ${workspaces} project
+      ON project.id = contribution.workspace_id
      AND (${includePrivate ? sql`TRUE` : sql`project.deleted_at IS NULL`})
-    LEFT JOIN project_members member
-      ON member.project_id = contribution.project_id
+    LEFT JOIN workspace_members member
+      ON member.workspace_id = contribution.workspace_id
      AND member.user_id = ${profileId}
-    LEFT JOIN ${projects} parent_org
+    LEFT JOIN ${workspaces} parent_org
       ON parent_org.id = project.parent_id
      AND parent_org.kind = 'organization'
      AND parent_org.deleted_at IS NULL
     LEFT JOIN LATERAL (
       SELECT accepted_role_title
       FROM ${roleApplications}
-      WHERE project_id = contribution.project_id
+      WHERE workspace_id = contribution.workspace_id
         AND applicant_id = ${profileId}
         AND status = 'accepted'
       ORDER BY updated_at DESC
@@ -811,7 +811,7 @@ async function queryProfileContributionRows(profileId: string, options: {
             ORDER BY CASE WHEN stage.ended_at IS NULL THEN 0 ELSE 1 END,
               stage.started_at DESC NULLS LAST, stage.created_at DESC, stage.id DESC
           ) AS stage_rank
-        FROM ${profileProjectContributionStages} stage
+        FROM ${profileContributionStages} stage
         WHERE stage.contribution_id = contribution.id
           AND stage.deleted_at IS NULL
         ORDER BY CASE WHEN stage.ended_at IS NULL THEN 0 ELSE 1 END,
@@ -823,16 +823,16 @@ async function queryProfileContributionRows(profileId: string, options: {
       AND contribution.deleted_at IS NULL
       AND (${includePrivate ? sql`TRUE` : sql`contribution.visibility = 'public' AND (contribution.presentation IS NULL OR (contribution.presentation->>'visible'='true' AND (project.visibility IS DISTINCT FROM 'unlisted' OR contribution.presentation->>'allowUnlisted'='true')))`})
       AND (
-        contribution.project_id IS NULL
+        contribution.workspace_id IS NULL
         OR (
           project.id IS NOT NULL
           AND (${includePrivate ? sql`TRUE` : sql`project.status <> 'draft' AND (project.visibility IN ('public', 'unlisted')
-            -- Org only child projects: the member's own story, no link, when the org is public (report §24.6).
+            -- Org only child workspaces: the member's own story, no link, when the org is public (report §24.6).
             OR (project.visibility = 'org' AND parent_org.visibility IN ('public', 'unlisted')))
             AND NOT EXISTS (
-          SELECT 1 FROM project_members show_pref
+          SELECT 1 FROM workspace_members show_pref
           WHERE show_pref.user_id = ${profileId}::uuid AND show_pref.show_on_profile = false
-            AND show_pref.project_id = COALESCE(CASE WHEN project.kind = 'organization' THEN project.id END, project.parent_id)
+            AND show_pref.workspace_id = COALESCE(CASE WHEN project.kind = 'organization' THEN project.id END, project.parent_id)
         )`})
         )
       )
@@ -1055,24 +1055,24 @@ export async function getProfileInviteWorkspaceOptions(
     SELECT p.id, p.title, p.slug,
            CASE WHEN p.owner_id = ${inviterId} THEN 'owner' ELSE pm.role END AS role,
            p.updated_at AS "updatedAt"
-    FROM ${projects} p
-    LEFT JOIN project_members pm
-      ON pm.project_id = p.id
+    FROM ${workspaces} p
+    LEFT JOIN workspace_members pm
+      ON pm.workspace_id = p.id
      AND pm.user_id = ${inviterId}
-    LEFT JOIN project_members target_pm
-      ON target_pm.project_id = p.id
+    LEFT JOIN workspace_members target_pm
+      ON target_pm.workspace_id = p.id
      AND target_pm.user_id = ${targetProfileId}
     WHERE p.deleted_at IS NULL
       AND target_pm.id IS NULL
       AND NOT EXISTS (
         SELECT 1 FROM ${roleApplications} pending_application
-        WHERE pending_application.project_id = p.id
+        WHERE pending_application.workspace_id = p.id
           AND pending_application.applicant_id = ${targetProfileId}
           AND pending_application.status = 'pending'
       )
       AND NOT EXISTS (
-        SELECT 1 FROM ${projectInvitations} pending_invitation
-        WHERE pending_invitation.project_id = p.id
+        SELECT 1 FROM ${workspaceInvitations} pending_invitation
+        WHERE pending_invitation.workspace_id = p.id
           AND pending_invitation.candidate_id = ${targetProfileId}
           AND pending_invitation.status = 'pending'
           AND pending_invitation.expires_at > now()
@@ -1148,8 +1148,8 @@ export async function upsertProfileWorkspaceContributionFromMembership(
   // Guests of an organization get no automatic entry (report §24.5); one they already have keeps its history.
   if (params.nextRole === "viewer") {
     const [guestOfOrg] = await executor.execute<{ skip: boolean }>(sql`
-      SELECT true AS skip FROM projects p WHERE p.id = ${params.projectId} AND p.kind = 'organization'
-        AND NOT EXISTS (SELECT 1 FROM ${profileProjectContributions} c WHERE c.profile_id = ${params.profileId} AND c.project_id = p.id)`);
+      SELECT true AS skip FROM workspaces p WHERE p.id = ${params.projectId} AND p.kind = 'organization'
+        AND NOT EXISTS (SELECT 1 FROM ${profileContributions} c WHERE c.profile_id = ${params.profileId} AND c.workspace_id = p.id)`);
     if (guestOfOrg?.skip) return;
   }
   const contributionRows = await executor.execute<{
@@ -1165,9 +1165,9 @@ export async function upsertProfileWorkspaceContributionFromMembership(
     verified_by: string | null;
     visibility: "public" | "private";
   }>(sql`
-    INSERT INTO ${profileProjectContributions} (
+    INSERT INTO ${profileContributions} (
       profile_id,
-      project_id,
+      workspace_id,
       source,
       role_kind,
       role_title,
@@ -1197,14 +1197,14 @@ export async function upsertProfileWorkspaceContributionFromMembership(
       ${params.verifiedBy},
       'public',
       now()
-    FROM ${projects} p
-    LEFT JOIN project_members pm
-      ON pm.project_id = p.id
+    FROM ${workspaces} p
+    LEFT JOIN workspace_members pm
+      ON pm.workspace_id = p.id
      AND pm.user_id = ${params.profileId}
     LEFT JOIN LATERAL (
       SELECT accepted_role_title
       FROM ${roleApplications}
-      WHERE project_id = p.id
+      WHERE workspace_id = p.id
         AND applicant_id = ${params.profileId}
         AND status = 'accepted'
       ORDER BY updated_at DESC
@@ -1213,16 +1213,16 @@ export async function upsertProfileWorkspaceContributionFromMembership(
     WHERE p.id = ${params.projectId}
       AND p.deleted_at IS NULL
       AND (p.owner_id = ${params.profileId} OR pm.id IS NOT NULL)
-    ON CONFLICT (profile_id, project_id) WHERE deleted_at IS NULL AND project_id IS NOT NULL DO UPDATE SET
+    ON CONFLICT (profile_id, workspace_id) WHERE deleted_at IS NULL AND workspace_id IS NOT NULL DO UPDATE SET
       source = EXCLUDED.source,
       role_kind = EXCLUDED.role_kind,
       role_title = EXCLUDED.role_title,
       skills = EXCLUDED.skills,
-      started_at = COALESCE(${profileProjectContributions.startedAt}, EXCLUDED.started_at),
+      started_at = COALESCE(${profileContributions.startedAt}, EXCLUDED.started_at),
       verified_at = EXCLUDED.verified_at,
-      verified_by = COALESCE(EXCLUDED.verified_by, ${profileProjectContributions.verifiedBy}),
+      verified_by = COALESCE(EXCLUDED.verified_by, ${profileContributions.verifiedBy}),
       updated_at = now()
-    RETURNING id, profile_id, project_id, source, role_kind, role_title, skills, started_at, verified_at, verified_by, visibility
+    RETURNING id, profile_id, workspace_id AS project_id, source, role_kind, role_title, skills, started_at, verified_at, verified_by, visibility
   `);
   const contribution = Array.from(contributionRows)[0];
   if (contribution) {
@@ -1232,16 +1232,16 @@ export async function upsertProfileWorkspaceContributionFromMembership(
 
     if (shouldCreateNewStage) {
       await executor
-        .update(profileProjectContributionStages)
+        .update(profileContributionStages)
         .set({ endedAt: effectiveAt, updatedAt: new Date() })
         .where(and(
-          eq(profileProjectContributionStages.contributionId, contribution.id),
-          isNull(profileProjectContributionStages.endedAt),
-          isNull(profileProjectContributionStages.deletedAt),
+          eq(profileContributionStages.contributionId, contribution.id),
+          isNull(profileContributionStages.endedAt),
+          isNull(profileContributionStages.deletedAt),
         ));
 
       await executor
-        .insert(profileProjectContributionStages)
+        .insert(profileContributionStages)
         .values({
           contributionId: contribution.id,
           profileId: params.profileId,
@@ -1270,22 +1270,22 @@ export async function endProfileWorkspaceContributionMembership(
 ) {
   const endedAt = params.endedAt ?? new Date();
   await executor
-    .update(profileProjectContributions)
+    .update(profileContributions)
     .set({ endedAt, updatedAt: new Date() })
     .where(and(
-      eq(profileProjectContributions.profileId, params.profileId),
-      eq(profileProjectContributions.projectId, params.projectId),
-      isNull(profileProjectContributions.deletedAt),
+      eq(profileContributions.profileId, params.profileId),
+      eq(profileContributions.projectId, params.projectId),
+      isNull(profileContributions.deletedAt),
     ));
 
   await executor
-    .update(profileProjectContributionStages)
+    .update(profileContributionStages)
     .set({ endedAt, updatedAt: new Date() })
     .where(and(
-      eq(profileProjectContributionStages.profileId, params.profileId),
-      eq(profileProjectContributionStages.projectId, params.projectId),
-      isNull(profileProjectContributionStages.endedAt),
-      isNull(profileProjectContributionStages.deletedAt),
+      eq(profileContributionStages.profileId, params.profileId),
+      eq(profileContributionStages.projectId, params.projectId),
+      isNull(profileContributionStages.endedAt),
+      isNull(profileContributionStages.deletedAt),
     ));
   await markProfileCollaborationSummaryStale(params.profileId, executor);
 }
@@ -1293,9 +1293,9 @@ export async function endProfileWorkspaceContributionMembership(
 export async function markWorkspaceCollaboratorsSummaryStale(projectId: string, executor: DbExecutor = db) {
   if (!projectId) return;
   const rows = await executor
-    .select({ profileId: profileProjectContributions.profileId })
-    .from(profileProjectContributions)
-    .where(and(eq(profileProjectContributions.projectId, projectId), isNull(profileProjectContributions.deletedAt)));
+    .select({ profileId: profileContributions.profileId })
+    .from(profileContributions)
+    .where(and(eq(profileContributions.projectId, projectId), isNull(profileContributions.deletedAt)));
   if (rows.length > 0) {
     await markProfileCollaborationSummaryStale(rows.map((row) => row.profileId), executor);
   }

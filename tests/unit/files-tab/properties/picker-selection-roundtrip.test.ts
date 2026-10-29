@@ -7,7 +7,7 @@
 //
 // ─── Invariant ───────────────────────────────────────────────────────
 //
-// For any set of ProjectNode objects selected in the V3AttachmentPicker,
+// For any set of WorkspaceNode objects selected in the V3AttachmentPicker,
 // confirming the selection and re-opening the picker with the same
 // initial selection SHALL display the same set of chips in the pinned
 // tray. Formally:
@@ -22,7 +22,7 @@
 // state machine that `MultiAttachmentPicker` and `V3AttachmentPicker`
 // implement:
 //
-//   1. Generate an arbitrary set of ProjectNode objects (0..20 items,
+//   1. Generate an arbitrary set of WorkspaceNode objects (0..20 items,
 //      unique IDs).
 //   2. Simulate "select": the user selects these nodes in the picker.
 //      The internal `pendingSelection` state becomes the selected set.
@@ -47,18 +47,18 @@ import path from "node:path";
 
 import fc from "fast-check";
 
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 
 // ---------------------------------------------------------------------------
-// Generator: arbitrary ProjectNode objects with unique IDs
+// Generator: arbitrary WorkspaceNode objects with unique IDs
 // ---------------------------------------------------------------------------
 
 /**
- * Generates a minimal ProjectNode with a unique ID. Only fields relevant
+ * Generates a minimal WorkspaceNode with a unique ID. Only fields relevant
  * to the picker selection logic are meaningful (id, name, type). Other
  * fields carry safe defaults matching the pattern in neighbouring tests.
  */
-const projectNodeArb: fc.Arbitrary<ProjectNode> = fc
+const projectNodeArb: fc.Arbitrary<WorkspaceNode> = fc
   .record({
     id: fc.uuid(),
     name: fc.string({ minLength: 1, maxLength: 30 }).filter((s) => s.trim().length > 0),
@@ -82,14 +82,14 @@ const projectNodeArb: fc.Arbitrary<ProjectNode> = fc
     createdAt: new Date("2026-01-01T00:00:00Z"),
     updatedAt: new Date("2026-01-01T00:00:00Z"),
     deletedAt: null,
-  } as unknown as ProjectNode));
+  } as unknown as WorkspaceNode));
 
 /**
- * Generates a unique array of ProjectNode objects (0..20 items).
+ * Generates a unique array of WorkspaceNode objects (0..20 items).
  * Uniqueness is by `id` — mirrors the real picker which deduplicates
  * by node ID.
  */
-const nodeSetArb: fc.Arbitrary<ProjectNode[]> = fc.uniqueArray(
+const nodeSetArb: fc.Arbitrary<WorkspaceNode[]> = fc.uniqueArray(
   projectNodeArb,
   { minLength: 0, maxLength: 20, selector: (n) => n.id },
 );
@@ -110,7 +110,7 @@ const nodeSetArb: fc.Arbitrary<ProjectNode[]> = fc.uniqueArray(
  *
  * Returns the chips (node IDs) after reopening.
  */
-function simulateRoundTrip(selectedNodes: ProjectNode[]): ProjectNode[] {
+function simulateRoundTrip(selectedNodes: WorkspaceNode[]): WorkspaceNode[] {
   // Step 1-2: User selects nodes. In the real component, each
   // toggleSelection call builds up the pendingSelection array.
   const pendingSelection = [...selectedNodes];

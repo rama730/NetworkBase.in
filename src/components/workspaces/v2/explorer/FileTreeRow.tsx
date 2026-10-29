@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FileIcon } from "./FileIcons";
-import { ProjectNode } from "@/lib/db/schema";
+import { WorkspaceNode } from "@/lib/db/schema";
 import { extractFoldersFromDataTransfer } from "@/lib/files/folder-drop";
 import { VersionPill } from "../files-tab/VersionPill";
 import { FolderAccessChip } from "@/components/organizations/FolderAccessChip";
@@ -72,7 +72,7 @@ function InlineRenameInput({
 
 // ─── FileTreeRow ─────────────────────────────────────────────────────
 interface FileTreeRowProps {
-    node: ProjectNode;
+    node: WorkspaceNode;
     indentationGuides: boolean[];
     ariaLevel?: number;
     ariaPosInSet?: number;
@@ -100,8 +100,8 @@ interface FileTreeRowProps {
     onDesktopDrop?: (files: File[], targetFolderId: string) => void;
 
     // Actions
-    onToggle: (node: ProjectNode) => void;
-    onSelect: (node: ProjectNode, e?: React.MouseEvent) => void;
+    onToggle: (node: WorkspaceNode) => void;
+    onSelect: (node: WorkspaceNode, e?: React.MouseEvent) => void;
     onContextMenu: (e: React.MouseEvent) => void;
     onDragStart: (nodeId: string) => void;
     onDragEnd: () => void;

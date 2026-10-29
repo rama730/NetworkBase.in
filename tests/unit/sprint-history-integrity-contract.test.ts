@@ -16,7 +16,7 @@ const migration = source("drizzle/0149_sprint_lifecycle_memberships.sql");
 describe("sprint lifecycle and history integrity contract", () => {
   it("persists stable Sprint numbers and enforces one Active Sprint per project", () => {
     assert.match(schema, /sprintNumber: integer\("sprint_number"\)\.notNull\(\)/);
-    assert.match(schema, /project_sprints_one_active_idx/);
+    assert.match(schema, /workspace_sprints_one_active_idx/);
     assert.match(migration, /WHERE "status" = 'active'/);
   });
 
@@ -31,14 +31,14 @@ describe("sprint lifecycle and history integrity contract", () => {
 
   it("blocks destructive history deletion and records lifecycle events transactionally", () => {
     assert.match(projectActions, /Sprints with work history are archived instead of deleted/);
-    assert.match(projectActions, /tx\.insert\(projectSprintEvents\)/);
+    assert.match(projectActions, /tx\.insert\(workspaceSprintEvents\)/);
     assert.match(schema, /taskId: uuid\("task_id"\)[\s\S]*?references\(\(\) => tasks\.id, \{ onDelete: "restrict" \}\)/);
   });
 
   it("keeps Sprint assignment and lifecycle mutations on the same owner boundary", () => {
     assert.match(projectActions, /Only the owner can add tasks to a sprint/);
     assert.match(taskActions, /Only the owner can change sprint assignments/);
-    assert.match(projectActions, /eq\(projectSprints\.status, "active"\)/);
+    assert.match(projectActions, /eq\(workspaceSprints\.status, "active"\)/);
   });
 
   it("preserves readable creator snapshots", () => {

@@ -7,12 +7,12 @@ import { announceApplicationChange, announceApplicationChannel, ensureApplicatio
 import { db } from '@/lib/db';
 import {
     roleApplications,
-    projectOpenRoles,
-    projects,
-    projectMembers,
+    workspaceOpenRoles,
+    workspaces,
+    workspaceMembers,
     connections,
     profiles,
-    projectInvitations,
+    workspaceInvitations,
     applicationEvents,
 } from '@/lib/db/schema';
 import { eq, and, sql, or, inArray, desc, lt, isNull, ne, notExists, asc } from 'drizzle-orm';
@@ -261,8 +261,8 @@ async function canReviewProjectApplicationInternal(
     ownerId?: string | null
 ) {
     if (ownerId && ownerId === userId) return true;
-    const membership = await txOrDb.query.projectMembers.findFirst({
-        where: and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, userId)),
+    const membership = await txOrDb.query.workspaceMembers.findFirst({
+        where: and(eq(workspaceMembers.projectId, projectId), eq(workspaceMembers.userId, userId)),
         columns: { role: true },
     });
     return isApplicationReviewerRole(membership?.role);
@@ -610,17 +610,17 @@ async function listInvitationsInternal(params: {
     const other = alias(profiles, 'invitation_other_party');
     return db
         .select({
-            id: projectInvitations.id,
-            projectId: projectInvitations.projectId,
-            status: projectInvitations.status,
-            roleTitle: projectInvitations.roleTitle,
-            guidanceLabel: projectInvitations.guidanceLabel,
-            note: projectInvitations.note,
-            projectTitle: projectInvitations.projectTitle,
-            createdAt: projectInvitations.createdAt,
-            updatedAt: projectInvitations.updatedAt,
-            projectSlug: projects.slug,
-            projectCover: projects.coverImage,
+            id: workspaceInvitations.id,
+            projectId: workspaceInvitations.projectId,
+            status: workspaceInvitations.status,
+            roleTitle: workspaceInvitations.roleTitle,
+            guidanceLabel: workspaceInvitations.guidanceLabel,
+            note: workspaceInvitations.note,
+            projectTitle: workspaceInvitations.projectTitle,
+            createdAt: workspaceInvitations.createdAt,
+            updatedAt: workspaceInvitations.updatedAt,
+            projectSlug: workspaces.slug,
+            projectCover: workspaces.coverImage,
             other: {
                 id: other.id,
                 username: other.username,
@@ -630,22 +630,22 @@ async function listInvitationsInternal(params: {
                 headline: other.headline,
             },
         })
-        .from(projectInvitations)
-        .leftJoin(projects, eq(projects.id, projectInvitations.projectId))
-        .leftJoin(other, eq(other.id, projectInvitations.inviterId))
+        .from(workspaceInvitations)
+        .leftJoin(workspaces, eq(workspaces.id, workspaceInvitations.projectId))
+        .leftJoin(other, eq(other.id, workspaceInvitations.inviterId))
         .where(and(
-            eq(projectInvitations.candidateId, params.userId),
-            isNull(projects.deletedAt),
+            eq(workspaceInvitations.candidateId, params.userId),
+            isNull(workspaces.deletedAt),
             isNull(other.deletedAt),
-            params.pendingOnly ? eq(projectInvitations.status, 'pending') : undefined,
+            params.pendingOnly ? eq(workspaceInvitations.status, 'pending') : undefined,
             params.cursorDate && params.cursorId
                 ? or(
-                    lt(projectInvitations.createdAt, params.cursorDate),
-                    and(eq(projectInvitations.createdAt, params.cursorDate), lt(projectInvitations.id, params.cursorId)),
+                    lt(workspaceInvitations.createdAt, params.cursorDate),
+                    and(eq(workspaceInvitations.createdAt, params.cursorDate), lt(workspaceInvitations.id, params.cursorId)),
                 )
                 : undefined,
         ))
-        .orderBy(desc(projectInvitations.createdAt), desc(projectInvitations.id))
+        .orderBy(desc(workspaceInvitations.createdAt), desc(workspaceInvitations.id))
         .limit(params.limit);
 }
 
@@ -682,14 +682,14 @@ export async function getApplicationStatusAction(projectId: string): Promise<App
         // This durable record is canonical for regular and guidance invites.
         // Guidance has no open-role ID, so workflow-only lookup hides it from
         // the Open Roles card and fails when direct-message delivery is off.
-        const durableInvitation = await db.query.projectInvitations.findFirst({
+        const durableInvitation = await db.query.workspaceInvitations.findFirst({
             where: and(
-                eq(projectInvitations.projectId, projectId),
-                eq(projectInvitations.candidateId, user.id),
-                eq(projectInvitations.status, 'pending'),
-                sql`${projectInvitations.expiresAt} > now()`,
+                eq(workspaceInvitations.projectId, projectId),
+                eq(workspaceInvitations.candidateId, user.id),
+                eq(workspaceInvitations.status, 'pending'),
+                sql`${workspaceInvitations.expiresAt} > now()`,
             ),
-            orderBy: desc(projectInvitations.createdAt),
+            orderBy: desc(workspaceInvitations.createdAt),
             columns: {
                 id: true,
                 kind: true,
@@ -739,7 +739,7 @@ export async function getApplicationStatusAction(projectId: string): Promise<App
             const lifecycleStatus = resolveLifecycleStatus(application.status, decisionReason);
             const [threadRow] = await db.execute<{ id: string }>(sql`SELECT id FROM chat_channels WHERE application_id = ${application.id} LIMIT 1`);
             const [chatRow] = application.status === 'accepted'
-                ? await db.execute<{ id: string }>(sql`SELECT c.id FROM chat_channels c WHERE c.project_id = ${projectId} AND c.is_default AND app_private.chat_is_member(c.id, ${user.id}::uuid) LIMIT 1`)
+                ? await db.execute<{ id: string }>(sql`SELECT c.id FROM chat_channels c WHERE c.workspace_id = ${projectId} AND c.is_default AND app_private.chat_is_member(c.id, ${user.id}::uuid) LIMIT 1`)
                 : [];
             const editableUntilMs = new Date(application.createdAt).getTime() + APPLICATION_EDIT_WINDOW_MS;
             const own = {
@@ -780,10 +780,10 @@ export async function getApplicationStatusAction(projectId: string): Promise<App
             }
 
             const activeMembership = application.status === 'accepted'
-                ? await db.query.projectMembers.findFirst({
+                ? await db.query.workspaceMembers.findFirst({
                     where: and(
-                        eq(projectMembers.projectId, projectId),
-                        eq(projectMembers.userId, user.id),
+                        eq(workspaceMembers.projectId, projectId),
+                        eq(workspaceMembers.userId, user.id),
                     ),
                     columns: { id: true },
                 })
@@ -851,21 +851,21 @@ export async function applyToRoleAction(
             }
 
             const [project, role, existingMember, existingApp] = await Promise.all([
-                db.query.projects.findFirst({
-                    where: eq(projects.id, projectId),
+                db.query.workspaces.findFirst({
+                    where: eq(workspaces.id, projectId),
                     columns: { id: true, ownerId: true, slug: true, title: true, visibility: true, status: true, deletedAt: true, parentId: true }
                 }),
-                db.query.projectOpenRoles.findFirst({
+                db.query.workspaceOpenRoles.findFirst({
                     where: and(
-                        eq(projectOpenRoles.id, roleId),
-                        eq(projectOpenRoles.projectId, projectId)
+                        eq(workspaceOpenRoles.id, roleId),
+                        eq(workspaceOpenRoles.projectId, projectId)
                     ),
                     columns: { id: true, role: true, title: true, count: true, filled: true }
                 }),
-                db.query.projectMembers.findFirst({
+                db.query.workspaceMembers.findFirst({
                     where: and(
-                        eq(projectMembers.projectId, projectId),
-                        eq(projectMembers.userId, user.id)
+                        eq(workspaceMembers.projectId, projectId),
+                        eq(workspaceMembers.userId, user.id)
                     ),
                     columns: { id: true }
                 }),
@@ -895,12 +895,12 @@ export async function applyToRoleAction(
                 return toApplicationFailure(traceId, 'ROLE_NOT_FOUND', 'Role not found');
             }
             // An invitation to this project is the answer to wait for: applying alongside it would leave two open offers.
-            const pendingInvitation = await db.query.projectInvitations.findFirst({
+            const pendingInvitation = await db.query.workspaceInvitations.findFirst({
                 where: and(
-                    eq(projectInvitations.projectId, projectId),
-                    eq(projectInvitations.candidateId, user.id),
-                    eq(projectInvitations.status, 'pending'),
-                    sql`${projectInvitations.expiresAt} > now()`,
+                    eq(workspaceInvitations.projectId, projectId),
+                    eq(workspaceInvitations.candidateId, user.id),
+                    eq(workspaceInvitations.status, 'pending'),
+                    sql`${workspaceInvitations.expiresAt} > now()`,
                 ),
                 columns: { id: true },
             });
@@ -1310,17 +1310,17 @@ export async function getMyApplicationStatesAction(projectIds: string[]): Promis
         const idList = sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `);
         const [applications, invitations] = await Promise.all([
             db.execute<{ project_id: string; status: string; chip: string | null }>(sql`
-                SELECT a.project_id, a.status::text AS status,
+                SELECT a.workspace_id AS project_id, a.status::text AS status,
                        CASE WHEN a.status = 'pending' THEN 'applied'
                             WHEN a.status = 'rejected' AND a.decision_by IS DISTINCT FROM a.applicant_id
                                  AND coalesce(a.decision_reason_code, '') NOT IN ('role_filled', 'project_closed', 'role_removed')
                                  AND a.updated_at > now() - interval '24 hours' THEN 'declined' END AS chip
                 FROM role_applications a
-                WHERE a.applicant_id = ${user.id}::uuid AND a.project_id IN (${idList}) AND a.status IN ('pending', 'rejected')
+                WHERE a.applicant_id = ${user.id}::uuid AND a.workspace_id IN (${idList}) AND a.status IN ('pending', 'rejected')
             `),
             db.execute<{ project_id: string }>(sql`
-                SELECT DISTINCT i.project_id FROM project_invitations i
-                WHERE i.candidate_id = ${user.id}::uuid AND i.project_id IN (${idList}) AND i.status = 'pending' AND i.expires_at > now()
+                SELECT DISTINCT i.workspace_id AS project_id FROM workspace_invitations i
+                WHERE i.candidate_id = ${user.id}::uuid AND i.workspace_id IN (${idList}) AND i.status = 'pending' AND i.expires_at > now()
             `),
         ]);
         const chips: Record<string, ApplicationCardChip> = {};
@@ -1347,8 +1347,8 @@ export async function getRoleApplicationCountsAction(projectId: string): Promise
         const rows = Array.from(await db.execute<{ role_id: string; pending: number; accepted: number }>(sql`
             SELECT a.role_id, count(*) FILTER (WHERE a.status = 'pending')::int AS pending, count(*) FILTER (WHERE a.status = 'accepted')::int AS accepted
             FROM role_applications a
-            WHERE a.project_id = ${projectId}::uuid AND a.role_id IS NOT NULL AND a.status IN ('pending', 'accepted')
-              AND ${canReviewWorkspaceSql(user.id, sql`a.project_id`)}
+            WHERE a.workspace_id = ${projectId}::uuid AND a.role_id IS NOT NULL AND a.status IN ('pending', 'accepted')
+              AND ${canReviewWorkspaceSql(user.id, sql`a.workspace_id`)}
             GROUP BY a.role_id
         `));
         return { success: true, counts: Object.fromEntries(rows.map((row) => [row.role_id, { pending: row.pending, accepted: row.accepted }])) };
@@ -1566,8 +1566,8 @@ export async function editPendingApplicationAction(
 
         let nextRoleId: string | null = null;
         if (parsed.data.roleId && parsed.data.roleId !== application.roleId) {
-            const nextRole = await db.query.projectOpenRoles.findFirst({
-                where: and(eq(projectOpenRoles.id, parsed.data.roleId), eq(projectOpenRoles.projectId, application.projectId)),
+            const nextRole = await db.query.workspaceOpenRoles.findFirst({
+                where: and(eq(workspaceOpenRoles.id, parsed.data.roleId), eq(workspaceOpenRoles.projectId, application.projectId)),
                 columns: { id: true, count: true, filled: true },
             });
             if (!nextRole) return toApplicationFailure(traceId, 'ROLE_NOT_FOUND', 'Role not found');
@@ -2073,28 +2073,28 @@ export async function getWorkspaceInviteOptionsAction(projectId: string): Promis
         if (!user) return { success: false, error: 'Sign in to continue', connections: [], openRoles: [] };
 
         const [project] = await db
-            .select({ ownerId: projects.ownerId })
-            .from(projects)
-            .where(eq(projects.id, projectId))
+            .select({ ownerId: workspaces.ownerId })
+            .from(workspaces)
+            .where(eq(workspaces.id, projectId))
             .limit(1);
         if (!project) return { success: false, error: 'Workspace not found', connections: [], openRoles: [] };
         if (project.ownerId !== user.id) {
             const [membership] = await db
-                .select({ role: projectMembers.role })
-                .from(projectMembers)
-                .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, user.id)))
+                .select({ role: workspaceMembers.role })
+                .from(workspaceMembers)
+                .where(and(eq(workspaceMembers.projectId, projectId), eq(workspaceMembers.userId, user.id)))
                 .limit(1);
             if (membership?.role !== 'admin') return { success: false, error: 'You don’t have access to this', connections: [], openRoles: [] };
         }
 
         // 1. Fetch project open roles that are not fully filled
-        const openRoles = await db.query.projectOpenRoles.findMany({
+        const openRoles = await db.query.workspaceOpenRoles.findMany({
             where: and(
-                eq(projectOpenRoles.projectId, projectId),
-                sql`${projectOpenRoles.filled} < ${projectOpenRoles.count}`
+                eq(workspaceOpenRoles.projectId, projectId),
+                sql`${workspaceOpenRoles.filled} < ${workspaceOpenRoles.count}`
             ),
             columns: { id: true, title: true, role: true, filled: true, count: true },
-            orderBy: [asc(projectOpenRoles.title), asc(projectOpenRoles.id)],
+            orderBy: [asc(workspaceOpenRoles.title), asc(workspaceOpenRoles.id)],
             limit: 50,
         });
 
@@ -2130,11 +2130,11 @@ export async function getWorkspaceInviteOptionsAction(projectId: string): Promis
                     or(eq(connections.requesterId, user.id), eq(connections.addresseeId, user.id)),
                     ne(profiles.id, project.ownerId),
                     notExists(db
-                        .select({ id: projectMembers.id })
-                        .from(projectMembers)
+                        .select({ id: workspaceMembers.id })
+                        .from(workspaceMembers)
                         .where(and(
-                            eq(projectMembers.projectId, projectId),
-                            eq(projectMembers.userId, profiles.id),
+                            eq(workspaceMembers.projectId, projectId),
+                            eq(workspaceMembers.userId, profiles.id),
                         )))
                 )
             )
@@ -2148,26 +2148,26 @@ export async function getWorkspaceInviteOptionsAction(projectId: string): Promis
                     id: roleApplications.id,
                     applicantId: roleApplications.applicantId,
                     roleId: roleApplications.roleId,
-                    roleTitle: projectOpenRoles.title,
+                    roleTitle: workspaceOpenRoles.title,
                 })
                     .from(roleApplications)
-                    .leftJoin(projectOpenRoles, eq(projectOpenRoles.id, roleApplications.roleId))
+                    .leftJoin(workspaceOpenRoles, eq(workspaceOpenRoles.id, roleApplications.roleId))
                     .where(and(
                         eq(roleApplications.projectId, projectId),
                         eq(roleApplications.status, 'pending'),
                         inArray(roleApplications.applicantId, candidateIds),
                     )),
                 db.select({
-                    id: projectInvitations.id,
-                    assigneeUserId: projectInvitations.candidateId,
-                    roleId: projectInvitations.roleId,
-                    roleTitle: projectInvitations.roleTitle,
+                    id: workspaceInvitations.id,
+                    assigneeUserId: workspaceInvitations.candidateId,
+                    roleId: workspaceInvitations.roleId,
+                    roleTitle: workspaceInvitations.roleTitle,
                 })
-                    .from(projectInvitations)
+                    .from(workspaceInvitations)
                     .where(and(
-                        eq(projectInvitations.projectId, projectId),
-                        eq(projectInvitations.status, 'pending'),
-                        inArray(projectInvitations.candidateId, candidateIds),
+                        eq(workspaceInvitations.projectId, projectId),
+                        eq(workspaceInvitations.status, 'pending'),
+                        inArray(workspaceInvitations.candidateId, candidateIds),
                     )),
             ])
             : [[], []];
@@ -2253,34 +2253,34 @@ export async function getSentWorkspaceInvitationsAction(options?: { limit?: numb
         // Pending invitations this user sent (canonical table).
         const directItems = await db
             .select({
-                id: projectInvitations.id,
-                projectId: projectInvitations.projectId,
-                roleTitle: projectInvitations.roleTitle,
-                guidanceLabel: projectInvitations.guidanceLabel,
-                note: projectInvitations.note,
-                createdAt: projectInvitations.createdAt,
-                expiresAt: projectInvitations.expiresAt,
+                id: workspaceInvitations.id,
+                projectId: workspaceInvitations.projectId,
+                roleTitle: workspaceInvitations.roleTitle,
+                guidanceLabel: workspaceInvitations.guidanceLabel,
+                note: workspaceInvitations.note,
+                createdAt: workspaceInvitations.createdAt,
+                expiresAt: workspaceInvitations.expiresAt,
                 candidateId: profiles.id,
                 candidateUsername: profiles.username,
                 candidateFullName: profiles.fullName,
                 candidateAvatarUrl: profiles.avatarUrl,
                 candidateHeadline: profiles.headline,
-                projectTitle: projects.title,
-                projectSlug: projects.slug,
+                projectTitle: workspaces.title,
+                projectSlug: workspaces.slug,
             })
-            .from(projectInvitations)
-            .innerJoin(profiles, eq(profiles.id, projectInvitations.candidateId))
-            .innerJoin(projects, eq(projects.id, projectInvitations.projectId))
+            .from(workspaceInvitations)
+            .innerJoin(profiles, eq(profiles.id, workspaceInvitations.candidateId))
+            .innerJoin(workspaces, eq(workspaces.id, workspaceInvitations.projectId))
             .where(
                 and(
-                    eq(projectInvitations.inviterId, user.id),
-                    eq(projectInvitations.status, 'pending'),
-                    sql`${projectInvitations.expiresAt} > now()`,
-                    isNull(projects.deletedAt),
+                    eq(workspaceInvitations.inviterId, user.id),
+                    eq(workspaceInvitations.status, 'pending'),
+                    sql`${workspaceInvitations.expiresAt} > now()`,
+                    isNull(workspaces.deletedAt),
                     isNull(profiles.deletedAt),
                 )
             )
-            .orderBy(desc(projectInvitations.createdAt))
+            .orderBy(desc(workspaceInvitations.createdAt))
             .limit(limit);
 
         const items: SentWorkspaceInvitationItem[] = [];

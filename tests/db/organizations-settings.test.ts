@@ -25,8 +25,8 @@ before(async () => {
 const created: string[] = [];
 after(async () => {
   for (const id of created) {
-    await sql`DELETE FROM role_applications WHERE project_id = ${id}`;
-    await sql`DELETE FROM projects WHERE id = ${id}`;
+    await sql`DELETE FROM role_applications WHERE workspace_id = ${id}`;
+    await sql`DELETE FROM workspaces WHERE id = ${id}`;
   }
   await sql.end();
   await closeAppDb();
@@ -37,15 +37,15 @@ async function org(options: { visibility?: string; joinMode?: string } = {}) {
   const admin = await sql.begin((tx) => createUser(tx));
   const member = await sql.begin((tx) => createUser(tx));
   const id = await sql.begin((tx) => createProject(tx, owner, { visibility: options.visibility ?? "public" }));
-  await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${id}, ${owner}, 'owner'), (${id}, ${admin}, 'admin'), (${id}, ${member}, 'member')`;
-  await sql`UPDATE projects SET kind = 'organization', org_type = 'education', join_code = ${generateJoinCode()},
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${id}, ${owner}, 'owner'), (${id}, ${admin}, 'admin'), (${id}, ${member}, 'member')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', join_code = ${generateJoinCode()},
             org_settings = ${sql.json({ version: 1, joinMode: options.joinMode ?? "instant", roleNames: { owner: "Teacher", admin: "TA", member: "Student", viewer: "Guest" } })}
             WHERE id = ${id}`;
   created.push(id);
   return { id, owner, admin, member };
 }
 
-const settingsOf = async (id: string) => (await sql`SELECT org_settings, join_code, max_collaborators, welcome_note, slug FROM projects WHERE id = ${id}`)[0]!;
+const settingsOf = async (id: string) => (await sql`SELECT org_settings, join_code, max_collaborators, welcome_note, slug FROM workspaces WHERE id = ${id}`)[0]!;
 
 test("admins edit joining and projects rules; only the owner edits role names; members edit nothing", async () => {
   const { id, owner, admin, member } = await org();
@@ -112,7 +112,7 @@ test("public orgs: visitors join or request from the page, and can cancel a requ
   const requested = await orgs.joinPublicOrgAction(approval.id, "Section B");
   assert.equal(requested.success && requested.outcome, "requested");
   assert.equal((await orgs.cancelJoinRequestAction(approval.id)).success, true);
-  const [request] = await sql`SELECT status FROM role_applications WHERE project_id = ${approval.id} AND applicant_id = ${viewerId}`;
+  const [request] = await sql`SELECT status FROM role_applications WHERE workspace_id = ${approval.id} AND applicant_id = ${viewerId}`;
   assert.equal(request!.status, "withdrawn");
   assert.equal((await orgs.joinPublicOrgAction(approval.id)).success, true, "withdrawing is not a decline: no cool-down");
 
@@ -124,10 +124,10 @@ test("everyone edits their own title and profile switch; members can leave, the 
   const { id, owner, member } = await org();
   viewerId = member;
   assert.equal((await orgs.updateMyOrgMembershipAction(id, { title: "Section B", show_on_profile: false })).success, true);
-  const [row] = await sql`SELECT title, show_on_profile FROM project_members WHERE project_id = ${id} AND user_id = ${member}`;
+  const [row] = await sql`SELECT title, show_on_profile FROM workspace_members WHERE workspace_id = ${id} AND user_id = ${member}`;
   assert.deepEqual({ ...row }, { title: "Section B", show_on_profile: false });
   assert.equal((await orgs.leaveOrgAction(id)).success, true);
-  assert.equal((await sql`SELECT count(*)::int AS n FROM project_members WHERE project_id = ${id} AND user_id = ${member}`)[0]!.n, 0);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM workspace_members WHERE workspace_id = ${id} AND user_id = ${member}`)[0]!.n, 0);
   viewerId = owner;
   const ownerLeave = await orgs.leaveOrgAction(id);
   assert.equal(!ownerLeave.success && ownerLeave.error, "Transfer ownership before you leave.");
@@ -159,15 +159,15 @@ test("§21 Work: type defaults, admins save the section, composer and sprint def
   const child = await sql.begin((tx) => createProject(tx, member, { visibility: "org" }));
   created.push(child);
   const outsider = await sql.begin((tx) => createUser(tx));
-  await sql`UPDATE projects SET parent_id = ${id}, title = 'Compiler Lab' WHERE id = ${child}`;
-  const [unit] = await sql`INSERT INTO project_open_roles (project_id, role, count) VALUES (${child}, 'Frontend', 3) RETURNING id`;
-  await sql`INSERT INTO project_members (project_id, user_id, role, unit_id) VALUES (${child}, ${member}, 'owner', NULL), (${child}, ${outsider}, 'member', ${unit!.id})`;
+  await sql`UPDATE workspaces SET parent_id = ${id}, title = 'Compiler Lab' WHERE id = ${child}`;
+  const [unit] = await sql`INSERT INTO workspace_open_roles (workspace_id, role, count) VALUES (${child}, 'Frontend', 3) RETURNING id`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role, unit_id) VALUES (${child}, ${member}, 'owner', NULL), (${child}, ${outsider}, 'member', ${unit!.id})`;
   const settingsServer = await loadAppModule(() => import("../../src/lib/workspaces/server/settings"));
   viewerId = member;
   const collab = await settingsServer.getWorkspaceCollaboratorSettingsAction(child, {});
   assert.ok(collab.success, JSON.stringify(collab).slice(0, 300));
   const row = collab.success ? collab.data.members.find((m) => m.id === outsider) : undefined;
-  const [{ title: orgTitle }] = await sql`SELECT title FROM projects WHERE id = ${id}`;
+  const [{ title: orgTitle }] = await sql`SELECT title FROM workspaces WHERE id = ${id}`;
   assert.deepEqual([row?.unitTitle, row?.outsideOf], ["Frontend", orgTitle]);
   assert.equal(collab.success && collab.data.members.find((m) => m.id === member)?.outsideOf, null, "org members are not outside");
 });

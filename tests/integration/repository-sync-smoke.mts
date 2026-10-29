@@ -15,7 +15,7 @@ const db = postgres(process.env.DATABASE_URL, {
   ssl: "require",
 });
 const [project] =
-  await db`SELECT p.slug,p.id FROM projects p JOIN auth.users u ON u.id=p.owner_id WHERE u.email=${process.env.E2E_USER_EMAIL} AND p.deleted_at IS NULL ORDER BY p.created_at DESC LIMIT 1`;
+  await db`SELECT p.slug,p.id FROM workspaces p JOIN auth.users u ON u.id=p.owner_id WHERE u.email=${process.env.E2E_USER_EMAIL} AND p.deleted_at IS NULL ORDER BY p.created_at DESC LIMIT 1`;
 await db.end();
 if (!project)
   throw new Error(

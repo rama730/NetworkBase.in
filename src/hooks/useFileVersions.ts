@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { extOf } from "@/components/workspaces/v2/utils/fileKind";
 
-import type { FileVersion, ProjectNode } from "@/lib/db/schema";
+import type { FileVersion, WorkspaceNode } from "@/lib/db/schema";
 import { applyUploadedFileRevision, listFileVersionsPage, restoreFileVersion, deleteFileVersionAction } from "@/app/actions/files/versions";
 import { getUploadPresignedUrl } from "@/app/actions/upload";
 import { buildWorkspaceFileKey } from "@/lib/storage/workspace-file-key";
@@ -41,15 +41,15 @@ export interface UseFileVersionsReturn {
     file: File,
     options?: { comment?: string | null },
   ) => Promise<
-    | { success: true; node: ProjectNode; version: FileVersion }
+    | { success: true; node: WorkspaceNode; version: FileVersion }
     | { success: false; error: string; lockConflict?: LockConflictInfo }
   >;
   restoreVersion: (versionNumber: number) => Promise<
-    | { success: true; version: FileVersion; node: ProjectNode }
+    | { success: true; version: FileVersion; node: WorkspaceNode }
     | { success: false; error: string }
   >;
   deleteVersion: (versionNumber: number) => Promise<
-    | { success: true; nextActiveVersion?: number | null; node?: ProjectNode }
+    | { success: true; nextActiveVersion?: number | null; node?: WorkspaceNode }
     | { success: false; error: string }
   >;
 }
@@ -122,7 +122,7 @@ export async function saveFileRevision(params: {
   baseHash?: string | null;
   lease?: BrowserFileLease | null;
 }): Promise<
-  | { success: true; node: ProjectNode; version: FileVersion }
+  | { success: true; node: WorkspaceNode; version: FileVersion }
   | { success: false; error: string; lockConflict?: LockConflictInfo }
 > {
   const { projectId, nodeId, file, mode, comment, baseVersion, baseHash } = params;
@@ -283,7 +283,7 @@ export function useFileVersions(projectId: string, nodeId: string): UseFileVersi
       file: File,
       options?: { comment?: string | null },
     ): Promise<
-      | { success: true; node: ProjectNode; version: FileVersion }
+      | { success: true; node: WorkspaceNode; version: FileVersion }
       | { success: false; error: string; lockConflict?: LockConflictInfo }
     > => {
       setError(null);
@@ -314,14 +314,14 @@ export function useFileVersions(projectId: string, nodeId: string): UseFileVersi
     async (
       versionNumber: number,
     ): Promise<
-      | { success: true; version: FileVersion; node: ProjectNode }
+      | { success: true; version: FileVersion; node: WorkspaceNode }
       | { success: false; error: string }
     > => {
       setError(null);
       try {
         const result = await restoreFileVersion(projectId, nodeId, versionNumber);
 
-        return { success: true, version: result.version, node: result.node as ProjectNode };
+        return { success: true, version: result.version, node: result.node as WorkspaceNode };
       } catch (err) {
         const message = err instanceof Error ? err.message : "Restore failed";
         setError(message);
@@ -338,7 +338,7 @@ export function useFileVersions(projectId: string, nodeId: string): UseFileVersi
     async (
       versionNumber: number,
     ): Promise<
-      | { success: true; nextActiveVersion?: number | null; node?: ProjectNode }
+      | { success: true; nextActiveVersion?: number | null; node?: WorkspaceNode }
       | { success: false; error: string }
     > => {
       setError(null);
@@ -349,7 +349,7 @@ export function useFileVersions(projectId: string, nodeId: string): UseFileVersi
           // Optimistically update local versions list by filtering out the deleted version
           setVersions((prev) => prev.filter((v) => v.version !== versionNumber));
         }
-        return { success: true, nextActiveVersion: result.nextActiveVersion, node: result.node as ProjectNode | undefined };
+        return { success: true, nextActiveVersion: result.nextActiveVersion, node: result.node as WorkspaceNode | undefined };
       } catch (err) {
         const message = err instanceof Error ? err.message : "Delete failed";
         setError(message);

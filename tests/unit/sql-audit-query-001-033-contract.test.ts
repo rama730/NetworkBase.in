@@ -31,11 +31,11 @@ test("QRY-013..023 retire unsafe batch replacement and full-tree/task-slug scans
   const urlSync = source("src/components/workspaces/v2/files-tab/hooks/useFilesTabUrlSync.ts");
 
   assert.doesNotMatch(nodes, /getProjectTreeFlat|TASK_WORKING_FILE_URL_PREFIX/);
-  assert.match(nodes, /eq\(projectNodes\.path, `\/\$\{path\.join\("\/"\)\}`\)/);
-  assert.match(nodes, /inArray\(projectNodes\.path, Array\.from\(ancestorPaths\)\)/);
+  assert.match(nodes, /eq\(workspaceNodes\.path, `\/\$\{path\.join\("\/"\)\}`\)/);
+  assert.match(nodes, /inArray\(workspaceNodes\.path, Array\.from\(ancestorPaths\)\)/);
   assert.doesNotMatch(nodes, /for \(let depth = 0; depth < 32/);
   assert.match(nodes, /projectContentNodeSql/);
-  assert.match(source("src/lib/files/internal-helpers.ts"), /projectNodes\.taskId\} IS NULL AND \$\{projectNodes\.path\} NOT LIKE '\/\.system%'/);
+  assert.match(source("src/lib/files/internal-helpers.ts"), /workspaceNodes\.taskId\} IS NULL AND \$\{workspaceNodes\.path\} NOT LIKE '\/\.system%'/);
   assert.match(urlSync, /fileId:\s*taskFileId/);
 });
 
@@ -47,8 +47,8 @@ test("QRY-024..030 maintenance workers are bounded, durable, and starvation-safe
   const hashes = source("scripts/db/repair/backfill-file-hashes.ts");
 
   assert.match(reconciliation, /jobHeartbeats\.lastPayload/);
-  assert.match(reconciliation, /projectNodes\.projectId\}, \$\{projectNodes\.id\}\) >/);
-  assert.match(stale, /lt\(projects\.updatedAt, staleBefore\)/);
+  assert.match(reconciliation, /workspaceNodes\.projectId\}, \$\{workspaceNodes\.id\}\) >/);
+  assert.match(stale, /lt\(workspaces\.updatedAt, staleBefore\)/);
   assert.match(cleanup, /unregisteredStorageReferences/);
   assert.match(cleanup, /storageAssets\.state/);
   assert.match(cleanup, /"delete_pending"/);
@@ -69,7 +69,7 @@ test("QRY-031 legacy normalization is explicit, set-based, and cycle-guarded", (
   assert.match(backfill, /WITH RECURSIVE tree/);
   assert.match(backfill, /ANY\(parent\.visited\)/);
   assert.match(backfill, /Path backfill refused/);
-  assert.doesNotMatch(backfill, /db\.select\(\)\.from\(projects\)|function buildPath/);
+  assert.doesNotMatch(backfill, /db\.select\(\)\.from\(workspaces\)|function buildPath/);
 });
 
 test("QRY-032 obsolete task-file migration is retired", () => {

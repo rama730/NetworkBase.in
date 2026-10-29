@@ -4,7 +4,7 @@
 // Task 2.1 of the Files Tab GitHub Redesign spec introduces `ancestorChain`.
 // Additional hook-based helpers (`useNavigateTo`) land in Task 2.3.
 
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 
 /**
  * The single navigation source of truth. Every observable surface (sidebar highlight,
@@ -12,8 +12,8 @@ import type { ProjectNode } from "@/lib/db/schema";
  */
 export type CurrentLocation =
   | { type: "root" }
-  | { type: "folder"; id: string; node: ProjectNode }
-  | { type: "file"; id: string; node: ProjectNode };
+  | { type: "folder"; id: string; node: WorkspaceNode }
+  | { type: "file"; id: string; node: WorkspaceNode };
 
 /**
  * Returns the root-to-node chain of ProjectNodes for `nodeId`.
@@ -31,16 +31,16 @@ export type CurrentLocation =
  * function total.
  */
 export function ancestorChain(
-  nodesById: Record<string, ProjectNode>,
+  nodesById: Record<string, WorkspaceNode>,
   nodeId: string | null,
-): ProjectNode[] {
+): WorkspaceNode[] {
   if (nodeId === null) return [];
   const start = nodesById[nodeId];
   if (!start) return [];
 
-  const chain: ProjectNode[] = [];
+  const chain: WorkspaceNode[] = [];
   const seen = new Set<string>();
-  let cursor: ProjectNode | undefined = start;
+  let cursor: WorkspaceNode | undefined = start;
   while (cursor && !seen.has(cursor.id)) {
     seen.add(cursor.id);
     chain.unshift(cursor);

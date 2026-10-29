@@ -12,17 +12,17 @@ test("Domain A: Pruned 13 redundant indexes from schema/index.ts", () => {
   // Pruned redundant indexes must NOT be present
   assert.doesNotMatch(schemaContent, /index\("idx_project_members_project"\)/);
   assert.doesNotMatch(schemaContent, /index\("idx_project_follows_project_id"\)/);
-  assert.doesNotMatch(schemaContent, /index\("project_open_roles_project_idx"\)/);
-  assert.doesNotMatch(schemaContent, /index\("tasks_project_idx"\)/);
+  assert.doesNotMatch(schemaContent, /index\("workspace_open_roles_workspace_idx"\)/);
+  assert.doesNotMatch(schemaContent, /index\("tasks_workspace_idx"\)/);
   assert.doesNotMatch(schemaContent, /index\("tasks_deleted_at_partial_idx"\)/);
-  assert.doesNotMatch(schemaContent, /index\("project_sprints_project_idx"\)/);
+  assert.doesNotMatch(schemaContent, /index\("workspace_sprints_workspace_idx"\)/);
   assert.doesNotMatch(schemaContent, /index\("idx_task_subtasks_task_id"\)/);
   assert.doesNotMatch(schemaContent, /index\("idx_task_comments_task_id"\)/);
   assert.doesNotMatch(schemaContent, /index\("idx_project_nodes_project_id"\)/);
-  assert.doesNotMatch(schemaContent, /index\("project_nodes_path_idx"\)/);
+  assert.doesNotMatch(schemaContent, /index\("workspace_nodes_path_idx"\)/);
   assert.doesNotMatch(schemaContent, /index\("project_markdowns_project_idx"\)/);
   assert.doesNotMatch(schemaContent, /index\("project_updates_covering_feed_idx"\)/);
-  assert.doesNotMatch(schemaContent, /index\("projects_created_at_idx"\)/);
+  assert.doesNotMatch(schemaContent, /index\("workspaces_created_at_idx"\)/);
 
   // Covering composite or unique indexes MUST be present
   assert.match(schemaContent, /projectUserUnique:\s*uniqueIndex/);

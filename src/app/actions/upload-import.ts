@@ -1,7 +1,7 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { fileVersions, projects, projectNodes, storageAssets } from '@/lib/db/schema';
+import { fileVersions, workspaces, workspaceNodes, storageAssets } from '@/lib/db/schema';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
@@ -165,30 +165,30 @@ async function fetchExistingNodes(
     const nonNullParents = parentIds.filter(p => p !== null) as string[];
 
     const conditions: any[] = [
-      eq(projectNodes.projectId, projectId),
-      eq(projectNodes.type, type),
-      isNull(projectNodes.deletedAt),
-      inArray(projectNodes.name, names),
+      eq(workspaceNodes.projectId, projectId),
+      eq(workspaceNodes.type, type),
+      isNull(workspaceNodes.deletedAt),
+      inArray(workspaceNodes.name, names),
     ];
 
     if (hasRoot && nonNullParents.length > 0) {
-      conditions.push(sql`(${inArray(projectNodes.parentId, nonNullParents)} OR ${isNull(projectNodes.parentId)})`);
+      conditions.push(sql`(${inArray(workspaceNodes.parentId, nonNullParents)} OR ${isNull(workspaceNodes.parentId)})`);
     } else if (hasRoot) {
-      conditions.push(isNull(projectNodes.parentId));
+      conditions.push(isNull(workspaceNodes.parentId));
     } else if (nonNullParents.length > 0) {
-      conditions.push(inArray(projectNodes.parentId, nonNullParents));
+      conditions.push(inArray(workspaceNodes.parentId, nonNullParents));
     } else {
       continue;
     }
 
     const rows = await tx
       .select({
-        id: projectNodes.id,
-        parentId: projectNodes.parentId,
-        name: projectNodes.name,
-        currentVersion: projectNodes.currentVersion,
+        id: workspaceNodes.id,
+        parentId: workspaceNodes.parentId,
+        name: workspaceNodes.name,
+        currentVersion: workspaceNodes.currentVersion,
       })
-      .from(projectNodes)
+      .from(workspaceNodes)
       .where(and(...conditions));
 
     for (const r of rows) {
@@ -220,9 +220,9 @@ export async function updateUploadSessionAction(
   if (!user) throw new Error('Sign in to continue');
 
   const [project] = await db
-    .select({ id: projects.id, ownerId: projects.ownerId, importSource: projects.importSource })
-    .from(projects)
-    .where(eq(projects.id, projectId))
+    .select({ id: workspaces.id, ownerId: workspaces.ownerId, importSource: workspaces.importSource })
+    .from(workspaces)
+    .where(eq(workspaces.id, projectId))
     .limit(1);
 
   if (!project) throw new Error('Workspace not found');
@@ -295,7 +295,7 @@ export async function updateUploadSessionAction(
     } satisfies UploadSessionState,
   });
 
-  await db.update(projects)
+  await db.update(workspaces)
     .set({
       importSource: nextSource as any,
       syncStatus: input.status === 'failed'
@@ -307,7 +307,7 @@ export async function updateUploadSessionAction(
             : 'indexing',
       updatedAt: new Date(),
     })
-    .where(eq(projects.id, projectId));
+    .where(eq(workspaces.id, projectId));
 
   return {
     success: true as const,
@@ -330,14 +330,14 @@ export async function registerUploadedFolderAction(
 
   const [project] = await db
     .select({
-      id: projects.id,
-      ownerId: projects.ownerId,
-      slug: projects.slug,
-      importSource: projects.importSource,
-      syncStatus: projects.syncStatus,
+      id: workspaces.id,
+      ownerId: workspaces.ownerId,
+      slug: workspaces.slug,
+      importSource: workspaces.importSource,
+      syncStatus: workspaces.syncStatus,
     })
-    .from(projects)
-    .where(eq(projects.id, projectId))
+    .from(workspaces)
+    .where(eq(workspaces.id, projectId))
     .limit(1);
 
   if (!project) throw new Error('Workspace not found');
@@ -470,7 +470,7 @@ export async function registerUploadedFolderAction(
 
       if (reconcilePolicy === 'mirror') {
         const deletedRows = await tx
-          .update(projectNodes)
+          .update(workspaceNodes)
           .set({
             deletedAt: now,
             deletedBy: user.id,
@@ -478,12 +478,12 @@ export async function registerUploadedFolderAction(
           })
           .where(
             and(
-              eq(projectNodes.projectId, projectId),
-              eq(projectNodes.type, 'file'),
-              isNull(projectNodes.deletedAt),
+              eq(workspaceNodes.projectId, projectId),
+              eq(workspaceNodes.type, 'file'),
+              isNull(workspaceNodes.deletedAt),
             ),
           )
-          .returning({ id: projectNodes.id });
+          .returning({ id: workspaceNodes.id });
         deletedFiles = deletedRows.length;
       }
 
@@ -509,9 +509,9 @@ export async function registerUploadedFolderAction(
         },
       });
 
-      await tx.update(projects)
+      await tx.update(workspaces)
         .set({ syncStatus: 'ready', importSource: nextImportSource as any, updatedAt: now })
-        .where(eq(projects.id, projectId));
+        .where(eq(workspaces.id, projectId));
 
       return deletedFiles;
     });
@@ -559,13 +559,13 @@ export async function registerUploadedFolderAction(
           },
         });
 
-        await tx.update(projects)
+        await tx.update(workspaces)
           .set({
             syncStatus: 'indexing',
             importSource: activeImportSource as any,
             updatedAt: new Date(),
           })
-          .where(eq(projects.id, projectId));
+          .where(eq(workspaces.id, projectId));
 
         // --- Build folder paths ---
         const dirPaths = new Set<string>();
@@ -650,10 +650,10 @@ export async function registerUploadedFolderAction(
           }
 
           if (toInsert.length > 0) {
-            const inserted = await tx.insert(projectNodes).values(toInsert).returning({
-              id: projectNodes.id,
-              parentId: projectNodes.parentId,
-              name: projectNodes.name,
+            const inserted = await tx.insert(workspaceNodes).values(toInsert).returning({
+              id: workspaceNodes.id,
+              parentId: workspaceNodes.parentId,
+              name: workspaceNodes.name,
             });
 
             for (const row of inserted) {
@@ -771,10 +771,10 @@ export async function registerUploadedFolderAction(
 
           let inserted: Array<{ id: string; currentVersion: number; s3Key: string | null }> = [];
           if (toInsert.length > 0) {
-            inserted = await tx.insert(projectNodes).values(toInsert).returning({
-              id: projectNodes.id,
-              currentVersion: projectNodes.currentVersion,
-              s3Key: projectNodes.s3Key,
+            inserted = await tx.insert(workspaceNodes).values(toInsert).returning({
+              id: workspaceNodes.id,
+              currentVersion: workspaceNodes.currentVersion,
+              s3Key: workspaceNodes.s3Key,
             });
           }
 
@@ -783,7 +783,7 @@ export async function registerUploadedFolderAction(
               sql`(${u.id}::uuid, ${u.s3Key}::text, ${u.assetId}::uuid, ${u.size}::bigint, ${u.mimeType}::text, ${u.currentVersion}::integer, ${u.updatedAt}::timestamptz)`
             );
             await tx.execute(sql`
-              UPDATE ${projectNodes} AS t
+              UPDATE ${workspaceNodes} AS t
               SET s3_key = v.s3_key,
                   asset_id = v.asset_id,
                   size = v.size,
@@ -791,7 +791,7 @@ export async function registerUploadedFolderAction(
                   current_version = v.current_version,
                   updated_at = v.updated_at
               FROM (VALUES ${sql.join(values, sql`,`)}) AS v(id, s3_key, asset_id, size, mime_type, current_version, updated_at)
-              WHERE t.id = v.id AND t.project_id = ${projectId}::uuid
+              WHERE t.id = v.id AND t.workspace_id = ${projectId}::uuid
             `);
           }
 
@@ -834,13 +834,13 @@ export async function registerUploadedFolderAction(
         let reconcileValidatedCount = 0;
         if (reconcilePolicy === 'mirror') {
           const activeFileNodes = await tx
-            .select({ id: projectNodes.id, s3Key: projectNodes.s3Key })
-            .from(projectNodes)
+            .select({ id: workspaceNodes.id, s3Key: workspaceNodes.s3Key })
+            .from(workspaceNodes)
             .where(
               and(
-                eq(projectNodes.projectId, projectId),
-                eq(projectNodes.type, 'file'),
-                isNull(projectNodes.deletedAt),
+                eq(workspaceNodes.projectId, projectId),
+                eq(workspaceNodes.type, 'file'),
+                isNull(workspaceNodes.deletedAt),
               ),
             );
 
@@ -858,13 +858,13 @@ export async function registerUploadedFolderAction(
             for (const batchIds of chunkArray(candidateIds, BATCH_SIZE)) {
               if (batchIds.length === 0) continue;
               await tx
-                .update(projectNodes)
+                .update(workspaceNodes)
                 .set({
                   deletedAt: now,
                   deletedBy: user.id,
                   updatedAt: now,
                 })
-                .where(inArray(projectNodes.id, batchIds));
+                .where(inArray(workspaceNodes.id, batchIds));
               deletedFiles += batchIds.length;
             }
           }
@@ -894,13 +894,13 @@ export async function registerUploadedFolderAction(
           },
         });
 
-        await tx.update(projects)
+        await tx.update(workspaces)
           .set({
             syncStatus: 'ready',
             importSource: activeImportSource as any,
             updatedAt: new Date(),
           })
-          .where(eq(projects.id, projectId));
+          .where(eq(workspaces.id, projectId));
 
         return {
           registeredFiles,
@@ -917,9 +917,9 @@ export async function registerUploadedFolderAction(
       let lockOwnerManifestHash: string | null = currentManifestHash;
       try {
         const [latestProject] = await db
-          .select({ importSource: projects.importSource })
-          .from(projects)
-          .where(eq(projects.id, projectId))
+          .select({ importSource: workspaces.importSource })
+          .from(workspaces)
+          .where(eq(workspaces.id, projectId))
           .limit(1);
         const latestImportSource = getProjectImportSource(latestProject?.importSource);
         const latestMetadata = getImportMetadata(latestImportSource);
@@ -1009,13 +1009,13 @@ export async function registerUploadedFolderAction(
       } satisfies UploadSessionState,
     });
 
-    await db.update(projects)
+    await db.update(workspaces)
       .set({
         syncStatus: 'failed',
         importSource: failedSource as any,
         updatedAt: new Date(),
       })
-      .where(eq(projects.id, projectId));
+      .where(eq(workspaces.id, projectId));
 
     logger.metric('upload.register.result', {
       projectId,
@@ -1043,9 +1043,9 @@ export async function markWorkspaceSyncFailedAction(
   if (!user) throw new Error('Sign in to continue');
 
   const [project] = await db
-    .select({ id: projects.id, ownerId: projects.ownerId, slug: projects.slug, importSource: projects.importSource })
-    .from(projects)
-    .where(eq(projects.id, projectId))
+    .select({ id: workspaces.id, ownerId: workspaces.ownerId, slug: workspaces.slug, importSource: workspaces.importSource })
+    .from(workspaces)
+    .where(eq(workspaces.id, projectId))
     .limit(1);
 
   if (!project) throw new Error('Workspace not found');
@@ -1082,9 +1082,9 @@ export async function markWorkspaceSyncFailedAction(
     } satisfies UploadSessionState,
   });
 
-  await db.update(projects)
+  await db.update(workspaces)
     .set({ syncStatus: 'failed', importSource: failedSource as any, updatedAt: new Date() })
-    .where(eq(projects.id, projectId));
+    .where(eq(workspaces.id, projectId));
 
   // Schedule cleanup of dangling unreferenced assets created for this project
   try {

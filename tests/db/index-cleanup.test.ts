@@ -25,6 +25,6 @@ test("redundant and unused indexes are dropped", async () => {
 });
 
 test("member update feed index matches the feed's ORDER BY and live-row filter", async () => {
-  const [row] = await sql`SELECT indexdef FROM pg_indexes WHERE indexname = 'project_updates_member_feed_idx'`;
-  assert.match(row!.indexdef, /\(project_id, is_pinned DESC, created_at DESC, id DESC\) WHERE \(deleted_at IS NULL\)/);
+  const [row] = await sql`SELECT indexdef FROM pg_indexes WHERE indexname = 'workspace_updates_member_feed_idx'`;
+  assert.match(row!.indexdef, /\(workspace_id, is_pinned DESC, created_at DESC, id DESC\) WHERE \(deleted_at IS NULL\)/);
 });

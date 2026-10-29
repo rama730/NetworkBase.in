@@ -3,7 +3,7 @@ import "server-only";
 
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { profiles, projectFollows, projectMembers, projectOpenRoles, projectDocs, projectDocVersions, projectGuidanceAppointments, roleApplications } from "@/lib/db/schema";
+import { profiles, workspaceFollows, workspaceMembers, workspaceOpenRoles, workspaceDocuments, workspaceDocumentVersions, workspaceMentors, roleApplications } from "@/lib/db/schema";
 import { eq, sql, desc, and, inArray } from "drizzle-orm";
 import { resolvePrivacyRelationship } from "@/lib/privacy/resolver";
 import { buildWorkspaceOwnerPresentation } from "@/lib/privacy/presentation";
@@ -264,91 +264,91 @@ async function fetchProjectDetailShellData(
       includeFollowersCount
         ? db
             .select({ count: sql<number>`count(*)::int` })
-            .from(projectFollows)
-            .where(eq(projectFollows.projectId, projectId))
+            .from(workspaceFollows)
+            .where(eq(workspaceFollows.projectId, projectId))
         : Promise.resolve([]),
       db
         .select({
-          membershipId: projectMembers.id,
-          userId: projectMembers.userId,
-          membershipRole: projectMembers.role,
-          joinedAt: projectMembers.joinedAt,
+          membershipId: workspaceMembers.id,
+          userId: workspaceMembers.userId,
+          membershipRole: workspaceMembers.role,
+          joinedAt: workspaceMembers.joinedAt,
           profileId: profiles.id,
           username: profiles.username,
           fullName: profiles.fullName,
           avatarUrl: profiles.avatarUrl,
           // The count stays the full number even when people hide themselves (report §20.8).
-          totalCount: sql<number>`(SELECT count(*) FROM project_members WHERE project_id = ${projectId})::int`,
+          totalCount: sql<number>`(SELECT count(*) FROM workspace_members WHERE workspace_id = ${projectId})::int`,
         })
-        .from(projectMembers)
-        .leftJoin(profiles, eq(projectMembers.userId, profiles.id))
+        .from(workspaceMembers)
+        .leftJoin(profiles, eq(workspaceMembers.userId, profiles.id))
         // Outsiders see only people with "Show on my profile" on (report §20.8).
-        .where(and(eq(projectMembers.projectId, projectId), canSeePrivateAttribution ? undefined : eq(projectMembers.showOnProfile, true)))
-        .orderBy(desc(projectMembers.joinedAt), desc(projectMembers.id))
+        .where(and(eq(workspaceMembers.projectId, projectId), canSeePrivateAttribution ? undefined : eq(workspaceMembers.showOnProfile, true)))
+        .orderBy(desc(workspaceMembers.joinedAt), desc(workspaceMembers.id))
         .limit(PROJECT_DETAIL_MEMBER_PAGE_SIZE + 1),
       db
         .select({
-          id: projectOpenRoles.id,
-          projectId: projectOpenRoles.projectId,
-          role: projectOpenRoles.role,
-          title: projectOpenRoles.title,
-          description: projectOpenRoles.description,
-          count: projectOpenRoles.count,
-          filled: projectOpenRoles.filled,
-          skills: projectOpenRoles.skills,
-          createdAt: projectOpenRoles.createdAt,
-          updatedAt: projectOpenRoles.updatedAt,
+          id: workspaceOpenRoles.id,
+          projectId: workspaceOpenRoles.projectId,
+          role: workspaceOpenRoles.role,
+          title: workspaceOpenRoles.title,
+          description: workspaceOpenRoles.description,
+          count: workspaceOpenRoles.count,
+          filled: workspaceOpenRoles.filled,
+          skills: workspaceOpenRoles.skills,
+          createdAt: workspaceOpenRoles.createdAt,
+          updatedAt: workspaceOpenRoles.updatedAt,
           totalCount: sql<number>`count(*) over ()::int`,
         })
-        .from(projectOpenRoles)
-        .where(eq(projectOpenRoles.projectId, projectId))
+        .from(workspaceOpenRoles)
+        .where(eq(workspaceOpenRoles.projectId, projectId))
         .orderBy(
-          desc(projectOpenRoles.updatedAt),
-          desc(projectOpenRoles.createdAt),
-          desc(projectOpenRoles.id),
+          desc(workspaceOpenRoles.updatedAt),
+          desc(workspaceOpenRoles.createdAt),
+          desc(workspaceOpenRoles.id),
         )
         .limit(PROJECT_DETAIL_OPEN_ROLES_PAGE_SIZE + 1),
       db
         .select({
-          publishedVersionId: projectDocs.publishedVersionId,
-          settings: projectDocs.settings,
-          versionNumber: projectDocVersions.versionNumber,
-          excerpt: projectDocVersions.excerpt,
-          createdAt: projectDocVersions.createdAt,
+          publishedVersionId: workspaceDocuments.publishedVersionId,
+          settings: workspaceDocuments.settings,
+          versionNumber: workspaceDocumentVersions.versionNumber,
+          excerpt: workspaceDocumentVersions.excerpt,
+          createdAt: workspaceDocumentVersions.createdAt,
         })
-        .from(projectDocs)
+        .from(workspaceDocuments)
         .leftJoin(
-          projectDocVersions,
-          eq(projectDocs.publishedVersionId, projectDocVersions.id),
+          workspaceDocumentVersions,
+          eq(workspaceDocuments.publishedVersionId, workspaceDocumentVersions.id),
         )
         .where(
           and(
-            eq(projectDocs.projectId, projectId),
-            eq(projectDocs.slug, "readme"),
+            eq(workspaceDocuments.projectId, projectId),
+            eq(workspaceDocuments.slug, "readme"),
           ),
         )
         .limit(1),
       db
         .select({
-          id: projectGuidanceAppointments.id,
-          guideUserId: projectGuidanceAppointments.guideUserId,
-          label: projectGuidanceAppointments.label,
-          reviewAt: projectGuidanceAppointments.reviewAt,
+          id: workspaceMentors.id,
+          guideUserId: workspaceMentors.guideUserId,
+          label: workspaceMentors.label,
+          reviewAt: workspaceMentors.reviewAt,
           publicAttributionConsent:
-            projectGuidanceAppointments.publicAttributionConsent,
+            workspaceMentors.publicAttributionConsent,
           fullName: profiles.fullName,
           username: profiles.username,
           avatarUrl: profiles.avatarUrl,
         })
-        .from(projectGuidanceAppointments)
+        .from(workspaceMentors)
         .innerJoin(
           profiles,
-          eq(profiles.id, projectGuidanceAppointments.guideUserId),
+          eq(profiles.id, workspaceMentors.guideUserId),
         )
         .where(
           and(
-            eq(projectGuidanceAppointments.projectId, projectId),
-            eq(projectGuidanceAppointments.status, "active"),
+            eq(workspaceMentors.projectId, projectId),
+            eq(workspaceMentors.status, "active"),
           ),
         )
         .limit(1),
@@ -403,14 +403,14 @@ async function fetchProjectDetailShellData(
       ? db
           .select({
             applicantId: roleApplications.applicantId,
-            roleTitle: projectOpenRoles.title,
-            roleName: projectOpenRoles.role,
+            roleTitle: workspaceOpenRoles.title,
+            roleName: workspaceOpenRoles.role,
             updatedAt: roleApplications.updatedAt,
           })
           .from(roleApplications)
           .leftJoin(
-            projectOpenRoles,
-            eq(projectOpenRoles.id, roleApplications.roleId),
+            workspaceOpenRoles,
+            eq(workspaceOpenRoles.id, roleApplications.roleId),
           )
           .where(
             and(
@@ -522,19 +522,19 @@ const getPublicProjectDetailMetadata = unstable_cache(
           "public_project_detail_metadata_readme",
           () =>
             db
-              .select({ excerpt: projectDocVersions.excerpt, settings: projectDocs.settings })
-              .from(projectDocs)
+              .select({ excerpt: workspaceDocumentVersions.excerpt, settings: workspaceDocuments.settings })
+              .from(workspaceDocuments)
               .leftJoin(
-                projectDocVersions,
+                workspaceDocumentVersions,
                 eq(
-                  projectDocs.publishedVersionId,
-                  projectDocVersions.id,
+                  workspaceDocuments.publishedVersionId,
+                  workspaceDocumentVersions.id,
                 ),
               )
               .where(
                 and(
-                  eq(projectDocs.projectId, project.id),
-                  eq(projectDocs.slug, "readme"),
+                  eq(workspaceDocuments.projectId, project.id),
+                  eq(workspaceDocuments.slug, "readme"),
                 ),
               )
               .limit(1),

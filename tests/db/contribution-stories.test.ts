@@ -78,9 +78,9 @@ before(async () => {
   actor = owner;
 });
 after(async () => {
-  await sql`DELETE FROM projects WHERE id=${project}`;
+  await sql`DELETE FROM workspaces WHERE id=${project}`;
   if (ids.length)
-    await sql`DELETE FROM profile_project_contributions WHERE id=ANY(${ids}::uuid[])`;
+    await sql`DELETE FROM profile_contributions WHERE id=ANY(${ids}::uuid[])`;
   await sql`DELETE FROM profiles WHERE id=ANY(${[owner, outsider]}::uuid[])`;
   await sql`DELETE FROM auth.users WHERE id=ANY(${[owner, outsider]}::uuid[])`;
   await closeAppDb();
@@ -131,7 +131,7 @@ test("drafts persist privately; publishing is explicit and later drafts never ch
   const saved = await command(id, 1, "draft", draft);
   assert.equal(saved.success, true, JSON.stringify(saved));
   let row = (
-    await sql`SELECT presentation,visibility,version FROM profile_project_contributions WHERE id=${id}`
+    await sql`SELECT presentation,visibility,version FROM profile_contributions WHERE id=${id}`
   )[0]!;
   assert.equal(row.presentation, null);
   assert.equal(row.visibility, "private");
@@ -149,7 +149,7 @@ test("drafts persist privately; publishing is explicit and later drafts never ch
   };
   assert.equal((await command(id, 3, "draft", later)).success, true);
   row = (
-    await sql`SELECT presentation,visibility,version FROM profile_project_contributions WHERE id=${id}`
+    await sql`SELECT presentation,visibility,version FROM profile_contributions WHERE id=${id}`
   )[0]!;
   assert.equal(row.presentation.summary, draft.summary);
   assert.equal(row.visibility, "public");
@@ -198,7 +198,7 @@ test("saving a finished contribution reconciles stale current roles in drafts an
   const publication = await command(id, 2, "publish", document);
   assert.equal(publication.success, true, JSON.stringify(publication));
   const [published] =
-    await sql`SELECT presentation FROM profile_project_contributions WHERE id=${id}`;
+    await sql`SELECT presentation FROM profile_contributions WHERE id=${id}`;
   assert.equal(published!.presentation.positions[0].current, false);
   assert.equal(published!.presentation.positions[0].end, "");
   const read = await reads.getProfileContributions(owner, {
@@ -210,7 +210,7 @@ test("saving a finished contribution reconciles stale current roles in drafts an
     false,
   );
 });
-test("live project positions replace legacy Lead duplicates in reads without overwriting personal titles or historical records", async () => {
+test("live role titles replace legacy Lead duplicates in reads without overwriting personal titles or historical records", async () => {
   const targetProject = await sql.begin((tx) => createProject(tx, owner));
   const contributionId = randomUUID(),
     stageId = randomUUID(),
@@ -232,12 +232,12 @@ test("live project positions replace legacy Lead duplicates in reads without ove
     positions: [position],
   };
   try {
-    await sql`UPDATE projects SET import_source=${sql.json({ type: "scratch", metadata: { leadFocus: "Product designer" } })} WHERE id=${targetProject}`;
-    await sql`INSERT INTO profile_project_contributions (id,profile_id,project_id,source,role_kind,role_title,visibility,presentation)
+    await sql`UPDATE workspaces SET import_source=${sql.json({ type: "scratch", metadata: { leadFocus: "Product designer" } })} WHERE id=${targetProject}`;
+    await sql`INSERT INTO profile_contributions (id,profile_id,workspace_id,source,role_kind,role_title,visibility,presentation)
       VALUES (${contributionId},${owner},${targetProject},'owner','owner','Lead - Lead','public',${sql.json(document)})`;
-    await sql`INSERT INTO profile_project_contribution_stages (id,contribution_id,profile_id,project_id,role_kind,role_title,started_at)
+    await sql`INSERT INTO profile_contribution_stages (id,contribution_id,profile_id,workspace_id,role_kind,role_title,started_at)
       VALUES (${stageId},${contributionId},${owner},${targetProject},'owner','Lead - Lead','2026-05-01')`;
-    await sql`INSERT INTO profile_project_contribution_stages (id,contribution_id,profile_id,project_id,role_kind,role_title,started_at,ended_at)
+    await sql`INSERT INTO profile_contribution_stages (id,contribution_id,profile_id,workspace_id,role_kind,role_title,started_at,ended_at)
       VALUES (${oldStageId},${contributionId},${owner},${targetProject},'owner','Lead / Tester','2026-01-01','2026-04-01')`;
     await sql`INSERT INTO profile_contribution_drafts (contribution_id,profile_id,document) VALUES (${contributionId},${owner},${sql.json(document)})`;
     const read = await reads.getProfileContributions(owner, {
@@ -245,22 +245,22 @@ test("live project positions replace legacy Lead duplicates in reads without ove
       limit: 50,
     });
     const row = read.contributions.find((c) => c.id === contributionId)!;
-    assert.equal(row.title, "Product designer · Lead");
+    assert.equal(row.title, "Product designer");
     assert.equal(
       row.roleStages!.find((s) => s.id === stageId)!.roleTitle,
-      "Product designer · Lead",
+      "Product designer",
     );
     assert.equal(
       row.roleStages!.find((s) => s.id === oldStageId)!.roleTitle,
-      "Tester · Lead",
+      "Tester",
     );
     assert.equal(
       row.presentation!.positions[0]!.title,
-      "Product designer · Lead",
+      "Product designer",
     );
     assert.equal(
       row.draftStory!.positions[0]!.title,
-      "Product designer · Lead",
+      "Product designer",
     );
     const custom = {
       ...document,
@@ -283,16 +283,16 @@ test("live project positions replace legacy Lead duplicates in reads without ove
     assert.equal(
       publicRead.contributions.find((c) => c.id === contributionId)!
         .presentation!.positions[0]!.title,
-      "Product designer · Lead",
+      "Product designer",
     );
     const [recorded] =
-      await sql`SELECT role_title FROM profile_project_contribution_stages WHERE id=${stageId}`;
+      await sql`SELECT role_title FROM profile_contribution_stages WHERE id=${stageId}`;
     assert.equal(recorded!.role_title, "Lead - Lead");
     const [stored] =
-      await sql`SELECT presentation FROM profile_project_contributions WHERE id=${contributionId}`;
+      await sql`SELECT presentation FROM profile_contributions WHERE id=${contributionId}`;
     assert.equal(stored!.presentation.positions[0].title, "Lead - Lead");
   } finally {
-    await sql`DELETE FROM projects WHERE id=${targetProject}`;
+    await sql`DELETE FROM workspaces WHERE id=${targetProject}`;
   }
 });
 test("stale versions cannot overwrite another edit; request retries are idempotent", async () => {
@@ -312,7 +312,7 @@ test("stale versions cannot overwrite another edit; request retries are idempote
   assert.equal(again.success, true);
   assert.equal(
     (
-      await sql`SELECT version FROM profile_project_contributions WHERE id=${id}`
+      await sql`SELECT version FROM profile_contributions WHERE id=${id}`
     )[0]!.version,
     2,
   );
@@ -358,7 +358,7 @@ test("ownership, strict validation and invalid images fail without partial datab
   assert.equal(rejected.success, false);
   assert.equal(
     (
-      await sql`SELECT version FROM profile_project_contributions WHERE id=${id}`
+      await sql`SELECT version FROM profile_contributions WHERE id=${id}`
     )[0]!.version,
     1,
   );
@@ -383,19 +383,19 @@ test("hiding is immediate; external deletion is reversible and restores privatel
   );
   assert.equal(
     (
-      await sql`SELECT visibility FROM profile_project_contributions WHERE id=${id}`
+      await sql`SELECT visibility FROM profile_contributions WHERE id=${id}`
     )[0]!.visibility,
     "private",
   );
   assert.equal((await command(id, 3, "delete", document)).success, true);
   assert.ok(
     (
-      await sql`SELECT deleted_at FROM profile_project_contributions WHERE id=${id}`
+      await sql`SELECT deleted_at FROM profile_contributions WHERE id=${id}`
     )[0]!.deleted_at,
   );
   assert.equal((await command(id, 4, "restore", document)).success, true);
   const row = (
-    await sql`SELECT deleted_at,visibility FROM profile_project_contributions WHERE id=${id}`
+    await sql`SELECT deleted_at,visibility FROM profile_contributions WHERE id=${id}`
   )[0]!;
   assert.equal(row.deleted_at, null);
   assert.equal(row.visibility, "private");
@@ -445,16 +445,16 @@ test("draft RLS exposes no private documents to public or other authenticated ca
 test("private projects cannot be published and presentation cannot forge recorded roles or membership", async () => {
   const id = randomUUID();
   ids.push(id);
-  await sql`INSERT INTO profile_project_contributions(id,profile_id,project_id,source,visibility) VALUES(${id},${owner},${project},'membership','private') ON CONFLICT(profile_id,project_id) WHERE deleted_at IS NULL AND project_id IS NOT NULL DO NOTHING`;
+  await sql`INSERT INTO profile_contributions(id,profile_id,workspace_id,source,visibility) VALUES(${id},${owner},${project},'membership','private') ON CONFLICT(profile_id,workspace_id) WHERE deleted_at IS NULL AND workspace_id IS NOT NULL DO NOTHING`;
   const actual = (
-    await sql`SELECT id,version FROM profile_project_contributions WHERE profile_id=${owner} AND project_id=${project} AND deleted_at IS NULL`
+    await sql`SELECT id,version FROM profile_contributions WHERE profile_id=${owner} AND workspace_id=${project} AND deleted_at IS NULL`
   )[0]!;
   const document = {
     ...blankContributionStory("Platform"),
     summary: "My work",
     visible: true,
   };
-  await sql`UPDATE projects SET visibility='private' WHERE id=${project}`;
+  await sql`UPDATE workspaces SET visibility='private' WHERE id=${project}`;
   const restricted = await command(
     actual.id,
     actual.version,
@@ -463,7 +463,7 @@ test("private projects cannot be published and presentation cannot forge recorde
   );
   assert.equal(restricted.success, false);
   if (!restricted.success) assert.equal(restricted.code, "PROJECT_RESTRICTED");
-  await sql`UPDATE projects SET visibility='public' WHERE id=${project}`;
+  await sql`UPDATE workspaces SET visibility='public' WHERE id=${project}`;
   const forged = {
     ...document,
     positions: [
@@ -483,7 +483,7 @@ test("private projects cannot be published and presentation cannot forge recorde
   assert.equal(result.success, false);
   assert.equal(
     (
-      await sql`SELECT role_kind FROM profile_project_contributions WHERE id=${actual.id}`
+      await sql`SELECT role_kind FROM profile_contributions WHERE id=${actual.id}`
     )[0]!.role_kind,
     "contributor",
   );
@@ -491,8 +491,8 @@ test("private projects cannot be published and presentation cannot forge recorde
 test("reference resolution returns live public labels and redacts tasks, files and people after access changes", async () => {
   const taskId = randomUUID(),
     nodeId = randomUUID();
-  await sql`INSERT INTO tasks(id,project_id,title,status,task_number) VALUES (${taskId},${project},'Public task','todo',9123)`;
-  await sql`INSERT INTO project_nodes(id,project_id,type,name,path) VALUES(${nodeId},${project},'file','workspace.md','/workspace.md')`;
+  await sql`INSERT INTO tasks(id,workspace_id,title,status,task_number) VALUES (${taskId},${project},'Public task','todo',9123)`;
+  await sql`INSERT INTO workspace_nodes(id,workspace_id,type,name,path) VALUES(${nodeId},${project},'file','workspace.md','/workspace.md')`;
   await sql.begin((tx) => addMember(tx, project, outsider));
   const handle = `mention${outsider.slice(0, 8)}`;
   await sql`UPDATE profiles SET username=${handle},full_name='Public Teammate' WHERE id=${outsider}`;
@@ -540,8 +540,8 @@ test("reference resolution returns live public labels and redacts tasks, files a
     ).length,
     1,
   );
-  await sql`UPDATE projects SET public_tab_visibility=jsonb_set(public_tab_visibility,'{tasks}','false') WHERE id=${project}`;
-  await sql`UPDATE project_nodes SET deleted_at=now() WHERE id=${nodeId}`;
+  await sql`UPDATE workspaces SET public_tab_visibility=jsonb_set(public_tab_visibility,'{tasks}','false') WHERE id=${project}`;
+  await sql`UPDATE workspace_nodes SET deleted_at=now() WHERE id=${nodeId}`;
   await sql`UPDATE profiles SET visibility='private' WHERE id=${outsider}`;
   assert.equal(
     (
@@ -637,7 +637,7 @@ test("image delivery checks the current published snapshot and sharing access on
   if (!missingDescription.success)
     assert.match(missingDescription.error, /description/);
   const [unchanged] =
-    await sql`SELECT version,presentation FROM profile_project_contributions WHERE id=${id}`;
+    await sql`SELECT version,presentation FROM profile_contributions WHERE id=${id}`;
   assert.equal(unchanged!.version, 1);
   assert.equal(unchanged!.presentation, null);
   assert.equal((await command(id, 1, "draft", story)).success, true);
@@ -688,9 +688,9 @@ test("image delivery checks the current published snapshot and sharing access on
 
 test("unlisted publication requires explicit listing consent and a later access change removes public presentation", async () => {
   const platform = (
-    await sql`SELECT id,version FROM profile_project_contributions WHERE profile_id=${owner} AND project_id=${project} AND deleted_at IS NULL`
+    await sql`SELECT id,version FROM profile_contributions WHERE profile_id=${owner} AND workspace_id=${project} AND deleted_at IS NULL`
   )[0]!;
-  await sql`UPDATE projects SET visibility='unlisted' WHERE id=${project}`;
+  await sql`UPDATE workspaces SET visibility='unlisted' WHERE id=${project}`;
   const document = {
     ...blankContributionStory("Unlisted"),
     summary: "My contribution",
@@ -713,19 +713,19 @@ test("unlisted publication requires explicit listing consent and a later access 
       await reads.getProfileContributions(owner, { includePrivate: false })
     ).contributions.some((c) => c.id === platform.id),
   );
-  await sql`UPDATE projects SET visibility='private' WHERE id=${project}`;
+  await sql`UPDATE workspaces SET visibility='private' WHERE id=${project}`;
   assert.equal(
     (
       await reads.getProfileContributions(owner, { includePrivate: false })
     ).contributions.some((c) => c.id === platform.id),
     false,
   );
-  await sql`UPDATE projects SET visibility='public' WHERE id=${project}`;
+  await sql`UPDATE workspaces SET visibility='public' WHERE id=${project}`;
 });
 
 test("external linking requires duplicate review, merges privately, retries once, and supports atomic undo", async () => {
   const target = (
-    await sql`SELECT id,version FROM profile_project_contributions WHERE profile_id=${owner} AND project_id=${project} AND deleted_at IS NULL`
+    await sql`SELECT id,version FROM profile_contributions WHERE profile_id=${owner} AND workspace_id=${project} AND deleted_at IS NULL`
   )[0]!;
   const targetDocument = {
     ...blankContributionStory("Target"),
@@ -784,7 +784,7 @@ test("external linking requires duplicate review, merges privately, retries once
   );
   assert.equal(undone.success, true, JSON.stringify(undone));
   const source = (
-    await sql`SELECT deleted_at,visibility FROM profile_project_contributions WHERE id=${id}`
+    await sql`SELECT deleted_at,visibility FROM profile_contributions WHERE id=${id}`
   )[0]!;
   assert.equal(source.deleted_at, null);
   assert.equal(source.visibility, "private");
@@ -818,7 +818,7 @@ test("privacy hide cannot be blocked by an unavailable image in the existing dra
   assert.equal(hidden.success, true, JSON.stringify(hidden));
   assert.equal(
     (
-      await sql`SELECT visibility FROM profile_project_contributions WHERE id=${id}`
+      await sql`SELECT visibility FROM profile_contributions WHERE id=${id}`
     )[0]!.visibility,
     "private",
   );

@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { toast, feedbackError } from "@/lib/feedback";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import {
   moveWorkspaceNodes,
   bulkRestoreNodes,
@@ -31,19 +31,19 @@ interface UseExplorerMutationsOptions {
   projectId: string;
   canEdit: boolean;
   canManageFiles?: boolean;
-  selectedNode: ProjectNode | null;
+  selectedNode: WorkspaceNode | null;
   selectedFolderId: string | null | undefined;
-  nodesById: Record<string, ProjectNode>;
+  nodesById: Record<string, WorkspaceNode>;
   childrenByParentId: Record<string, string[]>;
   loadedChildren: Record<string, boolean>;
   storeSelectedNodeIds: string[];
-  upsertNodes: (projectId: string, nodes: ProjectNode[]) => void;
+  upsertNodes: (projectId: string, nodes: WorkspaceNode[]) => void;
   setChildren: (projectId: string, parentId: string | null, childIds: string[]) => void;
   toggleExpanded: (projectId: string, folderId: string, expanded?: boolean) => void;
   setSelectedNode: (projectId: string, nodeId: string, folderId: string | null) => void;
   setSelectedNodeIds: (projectId: string, nodeIds: string[]) => void;
   loadFolderContent: (parentId: string | null, mode?: "append" | "refresh") => Promise<void>;
-  onOpenFile: (node: ProjectNode) => void;
+  onOpenFile: (node: WorkspaceNode) => void;
   onNodeDeleted?: (nodeId: string) => void;
   showToast: (msg: string, type?: "success" | "error" | "info" | "warning") => void;
   recordOperation: (operation: Omit<ExplorerOperation, "id" | "at">) => void;
@@ -78,13 +78,13 @@ export function useExplorerMutations({
     | { open: false }
     | { open: true; kind: "file" | "folder"; parentId: string | null; name: string }
   >({ open: false });
-  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; nodes: ProjectNode[] }>({
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; nodes: WorkspaceNode[] }>({
     open: false,
     nodes: [],
   });
   const [moveDialog, setMoveDialog] = useState<{
     open: boolean;
-    nodes: ProjectNode[];
+    nodes: WorkspaceNode[];
     targetFolderId: string | null;
   }>({ open: false, nodes: [], targetFolderId: null });
   const [renameState, setRenameState] = useState<{
@@ -186,7 +186,7 @@ export function useExplorerMutations({
         if (dup) throw new Error("A file/folder with that name already exists here");
 
         if (createDialog.kind === "folder") {
-          return (await createFolder(projectId, parentId, name)) as ProjectNode;
+          return (await createFolder(projectId, parentId, name)) as WorkspaceNode;
         }
 
         const fileExt = name.includes(".") ? name.split(".").pop() : "txt";
@@ -200,7 +200,7 @@ export function useExplorerMutations({
           size: 0,
           mimeType: "text/plain",
           uploadIntentId: uploadSession.uploadIntentId,
-        })) as ProjectNode;
+        })) as WorkspaceNode;
       });
 
       if (!createdNode) return;
@@ -284,7 +284,7 @@ function isNonRetryableUploadError(message?: string): boolean {
 }
 
   // Picker and flat drag/drop uploads share collision, finalization, and retry behavior.
-  const uploadFiles = useCallback(async (files: File[], parentId: string | null, retryToastId?: string | number): Promise<ProjectNode[]> => {
+  const uploadFiles = useCallback(async (files: File[], parentId: string | null, retryToastId?: string | number): Promise<WorkspaceNode[]> => {
     if (!canEdit || !files.length) return [];
     const validation = validateUploadSelection(files, { isFolder: false });
     if (!validation.valid) {
@@ -295,7 +295,7 @@ function isNonRetryableUploadError(message?: string): boolean {
     const failed: File[] = [];
     const nonRetryableFailed: File[] = [];
     const nonRetryableErrors: string[] = [];
-    const createdNodes: ProjectNode[] = [];
+    const createdNodes: WorkspaceNode[] = [];
     const mutationKey = `upload:${projectId}:${parentId ?? "root"}:${validatedFiles.map(file => file.name).sort().join(",")}`;
     let progress: string | number | undefined = retryToastId;
     let outcomeShown = false;
@@ -414,7 +414,7 @@ function isNonRetryableUploadError(message?: string): boolean {
                   uploadIntentId: batch.uploadIntentIds?.[requestKey] ?? undefined,
                 }))
               );
-              createdNodes.push(...(batchNodes as ProjectNode[]));
+              createdNodes.push(...(batchNodes as WorkspaceNode[]));
             } catch {
               // Resilient fallback to individual commits if batch call encounters an error
               for (const { file, requestKey, storageKey, contentType } of successfullyUploadedToS3) {
@@ -426,7 +426,7 @@ function isNonRetryableUploadError(message?: string): boolean {
                     mimeType: contentType,
                     uploadIntentId: batch.uploadIntentIds?.[requestKey] ?? undefined,
                   });
-                  createdNodes.push(node as ProjectNode);
+                  createdNodes.push(node as WorkspaceNode);
                 } catch {
                   failed.push(file);
                 }
@@ -517,7 +517,7 @@ function isNonRetryableUploadError(message?: string): boolean {
 
 
   const openRename = useCallback(
-    (node: ProjectNode) => {
+    (node: WorkspaceNode) => {
       if (!canEdit) return;
       setRenameState({ nodeId: node.id, value: node.name, original: node.name });
     },
@@ -556,7 +556,7 @@ function isNonRetryableUploadError(message?: string): boolean {
     const mutationKey = `rename:${projectId}:${node.id}:${nextName.toLowerCase()}`;
     try {
       const updated = await runUniqueMutation(mutationKey, async () => {
-        return (await renameNode(node.id, nextName, projectId)) as ProjectNode;
+        return (await renameNode(node.id, nextName, projectId)) as WorkspaceNode;
       });
       if (!updated) return;
       upsertNodes(projectId, [updated]);
@@ -569,7 +569,7 @@ function isNonRetryableUploadError(message?: string): boolean {
         undo: {
           label: "Undo",
           run: async () => {
-            const reverted = (await renameNode(node.id, renameState.original, projectId, new Date(updated.updatedAt).toISOString())) as ProjectNode;
+            const reverted = (await renameNode(node.id, renameState.original, projectId, new Date(updated.updatedAt).toISOString())) as WorkspaceNode;
             upsertNodes(projectId, [reverted]);
             void loadFolderContent(node.parentId ?? null, "refresh");
             showToast(`Reverted rename to "${renameState.original}"`, "success");
@@ -597,10 +597,10 @@ function isNonRetryableUploadError(message?: string): boolean {
   ]);
 
   const resolveActionNodes = useCallback(
-    (node: ProjectNode) => {
+    (node: WorkspaceNode) => {
       const currentSelected = useFilesStore.getState().byProjectId[projectId]?.selectedNodeIds || [];
       if (currentSelected.length > 1 && currentSelected.includes(node.id)) {
-        return currentSelected.map((id) => nodesById[id]).filter(Boolean) as ProjectNode[];
+        return currentSelected.map((id) => nodesById[id]).filter(Boolean) as WorkspaceNode[];
       }
       return [node];
     },
@@ -608,7 +608,7 @@ function isNonRetryableUploadError(message?: string): boolean {
   );
 
   const openDelete = useCallback(
-    (nodeOrNodes: ProjectNode | ProjectNode[]) => {
+    (nodeOrNodes: WorkspaceNode | WorkspaceNode[]) => {
       if (!canEdit) return;
       const nodes = Array.isArray(nodeOrNodes) ? nodeOrNodes : [nodeOrNodes];
       setDeleteDialog({ open: true, nodes });
@@ -617,7 +617,7 @@ function isNonRetryableUploadError(message?: string): boolean {
   );
 
   const openMove = useCallback(
-    (nodeOrNodes: ProjectNode | ProjectNode[]) => {
+    (nodeOrNodes: WorkspaceNode | WorkspaceNode[]) => {
       if (!canManageFiles) return;
       const nodes = Array.isArray(nodeOrNodes) ? nodeOrNodes : [nodeOrNodes];
       setMoveDialog({ open: true, nodes, targetFolderId: null });
@@ -741,14 +741,14 @@ function isNonRetryableUploadError(message?: string): boolean {
   }, [canEdit, deleteDialog.nodes, refreshAfterMutation, onNodeDeleted, projectId, recordOperation, runUniqueMutation, showToast]);
 
   const handleMoveFromMenu = useCallback(
-    (node: ProjectNode) => {
+    (node: WorkspaceNode) => {
       openMove(resolveActionNodes(node));
     },
     [openMove, resolveActionNodes]
   );
 
   const handleDeleteFromMenu = useCallback(
-    (node: ProjectNode) => {
+    (node: WorkspaceNode) => {
       openDelete(resolveActionNodes(node));
     },
     [openDelete, resolveActionNodes]
@@ -780,7 +780,7 @@ function isNonRetryableUploadError(message?: string): boolean {
 
   // Direct file upload (for desktop drag-and-drop — no picker dialog)
   const uploadFilesDirectly = useCallback(
-    async (files: File[], parentId: string | null, retryToastId?: string | number): Promise<ProjectNode[]> => {
+    async (files: File[], parentId: string | null, retryToastId?: string | number): Promise<WorkspaceNode[]> => {
       if (!canEdit || files.length === 0) return [];
       const validation = validateUploadSelection(files, { isFolder: true });
       if (!validation.valid) {
@@ -832,7 +832,7 @@ function isNonRetryableUploadError(message?: string): boolean {
             return;
           }
 
-          const createdNodes: ProjectNode[] = [];
+          const createdNodes: WorkspaceNode[] = [];
           const abortController = new AbortController();
           const cancelFolderUpload = () => { abortController.abort(); toast.message("Upload canceled", { id: progress, description: "Completed files kept." }); };
           transferId = transferRef.current?.start(`Folder upload · ${uploadPayloadNodes.length} files`, uploadPayloadNodes.length);
@@ -943,7 +943,7 @@ function isNonRetryableUploadError(message?: string): boolean {
                   mimeType: resolveFileMimeType(entry.file),
                   uploadIntentId: entry.uploadIntentId,
                 })));
-                createdNodes.push(...(published as ProjectNode[]));
+                createdNodes.push(...(published as WorkspaceNode[]));
               }
             }
           }

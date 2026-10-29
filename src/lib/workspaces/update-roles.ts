@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { profileProjectContributionStages, profileProjectContributions, profiles, projects } from "@/lib/db/schema";
+import { profileContributionStages, profileContributions, profiles, workspaces } from "@/lib/db/schema";
 import { isGenericWorkspaceUpdateRoleTitle, sanitizeWorkspaceUpdateRoleTitle } from "@/lib/workspaces/updates";
 
 export type RoleTitleTarget = { projectId: string; userId: string | null | undefined };
@@ -38,49 +38,49 @@ export async function readWorkspaceRoleTitles(targets: RoleTitleTarget[]): Promi
     const [stageRows, contributionRows, projectRows, profileRows] = await Promise.all([
         db
             .select({
-                projectId: profileProjectContributionStages.projectId,
-                userId: profileProjectContributionStages.profileId,
-                roleTitle: profileProjectContributionStages.roleTitle,
+                projectId: profileContributionStages.projectId,
+                userId: profileContributionStages.profileId,
+                roleTitle: profileContributionStages.roleTitle,
             })
-            .from(profileProjectContributionStages)
-            .innerJoin(profileProjectContributions, eq(profileProjectContributions.id, profileProjectContributionStages.contributionId))
+            .from(profileContributionStages)
+            .innerJoin(profileContributions, eq(profileContributions.id, profileContributionStages.contributionId))
             .where(and(
-                inArray(profileProjectContributionStages.projectId, projectIds),
-                inArray(profileProjectContributionStages.profileId, userIds),
-                isNull(profileProjectContributionStages.deletedAt),
-                isNull(profileProjectContributionStages.endedAt),
-                isNull(profileProjectContributions.deletedAt),
-                isNull(profileProjectContributions.endedAt),
-                eq(profileProjectContributions.visibility, "public"),
+                inArray(profileContributionStages.projectId, projectIds),
+                inArray(profileContributionStages.profileId, userIds),
+                isNull(profileContributionStages.deletedAt),
+                isNull(profileContributionStages.endedAt),
+                isNull(profileContributions.deletedAt),
+                isNull(profileContributions.endedAt),
+                eq(profileContributions.visibility, "public"),
             ))
             .orderBy(
-                sql`${profileProjectContributionStages.verifiedAt} DESC NULLS LAST`,
-                sql`${profileProjectContributionStages.startedAt} DESC NULLS LAST`,
-                desc(profileProjectContributionStages.updatedAt),
+                sql`${profileContributionStages.verifiedAt} DESC NULLS LAST`,
+                sql`${profileContributionStages.startedAt} DESC NULLS LAST`,
+                desc(profileContributionStages.updatedAt),
             ),
         db
             .select({
-                projectId: profileProjectContributions.projectId,
-                userId: profileProjectContributions.profileId,
-                roleTitle: profileProjectContributions.roleTitle,
+                projectId: profileContributions.projectId,
+                userId: profileContributions.profileId,
+                roleTitle: profileContributions.roleTitle,
             })
-            .from(profileProjectContributions)
+            .from(profileContributions)
             .where(and(
-                inArray(profileProjectContributions.projectId, projectIds),
-                inArray(profileProjectContributions.profileId, userIds),
-                isNull(profileProjectContributions.deletedAt),
-                isNull(profileProjectContributions.endedAt),
-                eq(profileProjectContributions.visibility, "public"),
+                inArray(profileContributions.projectId, projectIds),
+                inArray(profileContributions.profileId, userIds),
+                isNull(profileContributions.deletedAt),
+                isNull(profileContributions.endedAt),
+                eq(profileContributions.visibility, "public"),
             ))
-            .orderBy(sql`${profileProjectContributions.verifiedAt} DESC NULLS LAST`, desc(profileProjectContributions.updatedAt)),
+            .orderBy(sql`${profileContributions.verifiedAt} DESC NULLS LAST`, desc(profileContributions.updatedAt)),
         db
             .select({
-                id: projects.id,
-                ownerId: projects.ownerId,
-                leadFocus: sql<string | null>`${projects.importSource}->'metadata'->>'leadFocus'`,
+                id: workspaces.id,
+                ownerId: workspaces.ownerId,
+                leadFocus: sql<string | null>`${workspaces.importSource}->'metadata'->>'leadFocus'`,
             })
-            .from(projects)
-            .where(and(inArray(projects.id, projectIds), isNull(projects.deletedAt))),
+            .from(workspaces)
+            .where(and(inArray(workspaces.id, projectIds), isNull(workspaces.deletedAt))),
         db.select({ id: profiles.id, headline: profiles.headline }).from(profiles).where(inArray(profiles.id, userIds)),
     ]);
 

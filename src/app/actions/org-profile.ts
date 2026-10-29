@@ -3,7 +3,7 @@
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
-import { profileProjectContributions, projectMembers } from '@/lib/db/schema';
+import { profileContributions, workspaceMembers } from '@/lib/db/schema';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { markProfileCollaborationSummaryStale } from '@/lib/profile/collaboration';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
@@ -28,13 +28,13 @@ async function orgAdmin(orgId: string) {
 export async function verifyOrgContributionsAction(orgId: string, userIds: string[]): Promise<{ success: true; verified: number } | Failure> {
     const adminId = await orgAdmin(orgId);
     if (!adminId) return DENIED;
-    const members = (await db.select({ userId: projectMembers.userId }).from(projectMembers)
-        .where(and(eq(projectMembers.projectId, orgId), inArray(projectMembers.userId, userIds.slice(0, 2000))))).map((m) => m.userId).filter((id) => id !== adminId);
+    const members = (await db.select({ userId: workspaceMembers.userId }).from(workspaceMembers)
+        .where(and(eq(workspaceMembers.projectId, orgId), inArray(workspaceMembers.userId, userIds.slice(0, 2000))))).map((m) => m.userId).filter((id) => id !== adminId);
     if (members.length === 0) return { success: true, verified: 0 };
-    const verified = await db.update(profileProjectContributions)
+    const verified = await db.update(profileContributions)
         .set({ verifiedAt: new Date(), verifiedBy: adminId, verificationRevokedReason: null, updatedAt: new Date() })
-        .where(and(eq(profileProjectContributions.projectId, orgId), inArray(profileProjectContributions.profileId, members), isNull(profileProjectContributions.deletedAt)))
-        .returning({ profileId: profileProjectContributions.profileId });
+        .where(and(eq(profileContributions.projectId, orgId), inArray(profileContributions.profileId, members), isNull(profileContributions.deletedAt)))
+        .returning({ profileId: profileContributions.profileId });
     await markProfileCollaborationSummaryStale(verified.map((v) => v.profileId));
     const [org, names] = await Promise.all([orgLabel(orgId), namesOf([adminId])]);
     if (org && verified.length) {
@@ -49,10 +49,10 @@ export async function revokeOrgVerificationAction(orgId: string, userId: string,
     if (!adminId) return DENIED;
     const clean = reason.trim().slice(0, 500);
     if (!clean) return { success: false, error: 'Give a reason; the member sees it.' };
-    const revoked = await db.update(profileProjectContributions)
+    const revoked = await db.update(profileContributions)
         .set({ verifiedAt: null, verifiedBy: null, verificationRevokedReason: clean, updatedAt: sql`now()` })
-        .where(and(eq(profileProjectContributions.projectId, orgId), eq(profileProjectContributions.profileId, userId), isNull(profileProjectContributions.deletedAt)))
-        .returning({ profileId: profileProjectContributions.profileId });
+        .where(and(eq(profileContributions.projectId, orgId), eq(profileContributions.profileId, userId), isNull(profileContributions.deletedAt)))
+        .returning({ profileId: profileContributions.profileId });
     if (!revoked.length) return { success: false, error: 'That person has no entry for this organization.' };
     await markProfileCollaborationSummaryStale(userId);
     const org = await orgLabel(orgId);
@@ -65,8 +65,8 @@ async function ownOrgEntry(contributionId: string) {
     const { userId } = await getViewerAuthContext();
     if (!userId) return null;
     const [row] = await db.execute<{ id: string; org_id: string; title: string; description: string | null; tagline: string | null }>(sql`
-        SELECT c.id, p.id AS org_id, p.title, p.description, p.short_description AS tagline FROM profile_project_contributions c
-        JOIN projects p ON p.id = c.project_id AND p.kind = 'organization' AND p.deleted_at IS NULL
+        SELECT c.id, p.id AS org_id, p.title, p.description, p.short_description AS tagline FROM profile_contributions c
+        JOIN workspaces p ON p.id = c.workspace_id AND p.kind = 'organization' AND p.deleted_at IS NULL
         WHERE c.id = ${contributionId} AND c.profile_id = ${userId} AND c.deleted_at IS NULL`);
     return row ? { ...row, userId } : null;
 }
@@ -81,13 +81,13 @@ export async function readOrgStoryStarterAction(contributionId: string, kind: 'a
     if (kind === 'about') return { success: true, text: (entry.description || entry.tagline || '').trim() };
     const [done, children] = await Promise.all([
         db.execute<{ title: string }>(sql`
-            SELECT DISTINCT c.title FROM tasks c JOIN tasks m ON m.id = c.assignment_id AND m.project_id = ${entry.org_id} AND m.deleted_at IS NULL
+            SELECT DISTINCT c.title FROM tasks c JOIN tasks m ON m.id = c.assignment_id AND m.workspace_id = ${entry.org_id} AND m.deleted_at IS NULL
             LEFT JOIN task_team_members tm ON tm.task_id = c.id AND tm.user_id = ${entry.userId}
             WHERE c.deleted_at IS NULL AND (c.assignee_id = ${entry.userId} OR tm.user_id IS NOT NULL)
               AND (c.status = 'done' OR c.review_status = 'approved') ORDER BY 1 LIMIT 40`),
         db.execute<{ title: string; unit: string | null }>(sql`
-            SELECT p.title, (SELECT coalesce(r.title, r.role) FROM project_open_roles r WHERE r.id = m.unit_id) AS unit
-            FROM project_members m JOIN projects p ON p.id = m.project_id AND p.parent_id = ${entry.org_id} AND p.deleted_at IS NULL
+            SELECT p.title, (SELECT coalesce(r.title, r.role) FROM workspace_open_roles r WHERE r.id = m.unit_id) AS unit
+            FROM workspace_members m JOIN workspaces p ON p.id = m.workspace_id AND p.parent_id = ${entry.org_id} AND p.deleted_at IS NULL
             WHERE m.user_id = ${entry.userId} ORDER BY p.title LIMIT 20`),
     ]);
     const lines = [
@@ -101,7 +101,7 @@ export async function readOrgStoryStarterAction(contributionId: string, kind: 'a
 export async function setWorkRecordAction(contributionId: string, show: boolean): Promise<{ success: true } | Failure> {
     const entry = await ownOrgEntry(contributionId);
     if (!entry) return DENIED;
-    await db.update(profileProjectContributions).set({ showWorkRecord: show, updatedAt: new Date() }).where(eq(profileProjectContributions.id, entry.id));
+    await db.update(profileContributions).set({ showWorkRecord: show, updatedAt: new Date() }).where(eq(profileContributions.id, entry.id));
     await markProfileCollaborationSummaryStale(entry.userId);
     return { success: true };
 }

@@ -9,7 +9,7 @@ import {
   applicationEvents,
   connections,
   profiles,
-  projects,
+  workspaces,
   roleApplications,
 } from "@/lib/db/schema";
 
@@ -76,7 +76,7 @@ export async function scheduleAccountDeletionForUser(input: {
       tx.select({ requesterId: connections.requesterId, addresseeId: connections.addresseeId })
         .from(connections)
         .where(or(eq(connections.requesterId, input.userId), eq(connections.addresseeId, input.userId))),
-      tx.select({ id: projects.id }).from(projects).where(eq(projects.ownerId, input.userId)),
+      tx.select({ id: workspaces.id }).from(workspaces).where(eq(workspaces.ownerId, input.userId)),
     ]);
 
     await tx.update(profiles)

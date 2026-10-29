@@ -1,8 +1,8 @@
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import type { UniversalPreviewType } from "../utils/fileKind";
 
 export interface PreviewDriverProps<T = Record<string, unknown>> {
-  node: ProjectNode;
+  node: WorkspaceNode;
   signedUrl: string | null;
   projectId?: string;
   onRetry?: () => void;

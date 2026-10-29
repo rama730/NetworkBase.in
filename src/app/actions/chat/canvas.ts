@@ -83,7 +83,7 @@ export async function listWorkspaceCanvases(input: { projectId: string; exceptCh
       JOIN chat_channels ch ON ch.id = c.channel_id
       JOIN chat_channel_members m ON m.channel_id = c.channel_id AND m.user_id = ${user.id}::uuid
       LEFT JOIN profiles p ON p.id = c.updated_by
-      WHERE ch.project_id = ${input.projectId}::uuid
+      WHERE ch.workspace_id = ${input.projectId}::uuid
         AND (${except}::uuid IS NULL OR c.channel_id <> ${except}::uuid)
         AND (c.title <> '' OR c.body <> '')
       ORDER BY c.updated_at DESC

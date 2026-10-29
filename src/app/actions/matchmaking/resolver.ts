@@ -1,7 +1,7 @@
 'use server'
 
 import { db } from '@/lib/db';
-import { profiles, projectOpenRoles } from '@/lib/db/schema';
+import { profiles, workspaceOpenRoles } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { rolePreferenceLabel, weeklyCapacityLabel, experienceLevelLabel } from '@/lib/profile/role-preferences';
 import { getAuthUser } from '@/lib/supabase/auth-user';
@@ -22,8 +22,8 @@ export async function getProfileToRoleAlignmentAction(
   const viewer = await getAuthUser();
   if (!viewer) throw new Error('Sign in to continue');
 
-  const role = await db.query.projectOpenRoles.findFirst({
-    where: eq(projectOpenRoles.id, roleId),
+  const role = await db.query.workspaceOpenRoles.findFirst({
+    where: eq(workspaceOpenRoles.id, roleId),
     columns: {
       projectId: true,
       skills: true,

@@ -5,11 +5,11 @@ import { randomUUID } from "node:crypto";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
-  projects,
-  projectNodes,
+  workspaces,
+  workspaceNodes,
   fileVersions,
   tasks,
-  projectUpdates,
+  workspaceUpdates,
   githubSyncRuns,
   githubSyncConnections,
   githubSyncFiles,
@@ -64,12 +64,12 @@ async function ensureIncomingParent(
   );
   const existingByPath = new Map(
     (
-      await tx.query.projectNodes.findMany({
+      await tx.query.workspaceNodes.findMany({
         where: and(
-          eq(projectNodes.projectId, projectId),
-          inArray(projectNodes.path, prefixes),
-          isNull(projectNodes.taskId),
-          isNull(projectNodes.deletedAt),
+          eq(workspaceNodes.projectId, projectId),
+          inArray(workspaceNodes.path, prefixes),
+          isNull(workspaceNodes.taskId),
+          isNull(workspaceNodes.deletedAt),
         ),
         columns: { id: true, path: true, type: true },
       })
@@ -84,7 +84,7 @@ async function ensureIncomingParent(
     if (existing) parentId = existing.id;
     else {
       const created: Array<{ id: string }> = await tx
-        .insert(projectNodes)
+        .insert(workspaceNodes)
         .values({
           projectId,
           parentId,
@@ -93,7 +93,7 @@ async function ensureIncomingParent(
           name: segment,
           createdBy: actorId,
         })
-        .returning({ id: projectNodes.id });
+        .returning({ id: workspaceNodes.id });
       if (!created[0]) throw new Error("Couldn’t create folder");
       parentId = created[0].id;
     }
@@ -402,12 +402,12 @@ export async function runReviewedGitHubSync(
           },
         });
       await db
-        .update(projects)
+        .update(workspaces)
         .set({
           githubRepoUrl: manifest.repository,
           githubDefaultBranch: manifest.branch,
         })
-        .where(eq(projects.id, projectId));
+        .where(eq(workspaces.id, projectId));
     }
     const repo = await syncGithub<SyncRepo>(
       ctx.token,
@@ -568,12 +568,12 @@ export async function runReviewedGitHubSync(
         const nextApplied = [...(result.applied || []), file.path];
         const finish = async (tx: Transaction, nodeId: string | null) => {
           if (file.renamedFrom && nodeId) {
-            const collision = await tx.query.projectNodes.findFirst({
+            const collision = await tx.query.workspaceNodes.findFirst({
               where: and(
-                eq(projectNodes.projectId, projectId),
-                eq(projectNodes.path, `/${file.path}`),
-                isNull(projectNodes.taskId),
-                isNull(projectNodes.deletedAt),
+                eq(workspaceNodes.projectId, projectId),
+                eq(workspaceNodes.path, `/${file.path}`),
+                isNull(workspaceNodes.taskId),
+                isNull(workspaceNodes.deletedAt),
               ),
             });
             if (collision)
@@ -585,14 +585,14 @@ export async function runReviewedGitHubSync(
               actorId,
             );
             await tx
-              .update(projectNodes)
+              .update(workspaceNodes)
               .set({
                 parentId,
                 path: `/${file.path}`,
                 name: file.path.split("/").at(-1)!,
                 updatedAt: new Date(),
               })
-              .where(eq(projectNodes.id, nodeId));
+              .where(eq(workspaceNodes.id, nodeId));
             await saveBaseline(
               tx,
               projectId,
@@ -684,8 +684,8 @@ export async function runReviewedGitHubSync(
                     userId: actorId,
                     credentials: lease,
                   });
-                  const current = await tx.query.projectNodes.findFirst({
-                    where: eq(projectNodes.id, file.nodeId!),
+                  const current = await tx.query.workspaceNodes.findFirst({
+                    where: eq(workspaceNodes.id, file.nodeId!),
                   });
                   if (
                     !current ||
@@ -696,12 +696,12 @@ export async function runReviewedGitHubSync(
                   )
                     throw new Error("File changed after review");
                   await tx
-                    .update(projectNodes)
+                    .update(workspaceNodes)
                     .set({ deletedAt: new Date(), deletedBy: actorId })
                     .where(
                       and(
-                        eq(projectNodes.id, file.nodeId!),
-                        eq(projectNodes.projectId, projectId),
+                        eq(workspaceNodes.id, file.nodeId!),
+                        eq(workspaceNodes.projectId, projectId),
                       ),
                     );
                   await recordNodeEvent(
@@ -723,12 +723,12 @@ export async function runReviewedGitHubSync(
           );
           await db.transaction(async (tx) => {
             await assertWorkspaceWriteAccessTx(tx, projectId, actorId);
-            const collision = await tx.query.projectNodes.findFirst({
+            const collision = await tx.query.workspaceNodes.findFirst({
               where: and(
-                eq(projectNodes.projectId, projectId),
-                eq(projectNodes.path, `/${file.path}`),
-                isNull(projectNodes.taskId),
-                isNull(projectNodes.deletedAt),
+                eq(workspaceNodes.projectId, projectId),
+                eq(workspaceNodes.path, `/${file.path}`),
+                isNull(workspaceNodes.taskId),
+                isNull(workspaceNodes.deletedAt),
               ),
             });
             if (collision)
@@ -741,7 +741,7 @@ export async function runReviewedGitHubSync(
               actorId,
             );
             const [node] = await tx
-              .insert(projectNodes)
+              .insert(workspaceNodes)
               .values({
                 projectId,
                 parentId,
@@ -823,7 +823,7 @@ export async function runReviewedGitHubSync(
           });
       }
       await tx
-        .update(projects)
+        .update(workspaces)
         .set({
           githubRepoUrl: manifest.repository,
           githubDefaultBranch: connectedBranch,
@@ -832,7 +832,7 @@ export async function runReviewedGitHubSync(
             ? { githubLastCommitSha: result.commitSha }
             : {}),
         })
-        .where(eq(projects.id, projectId));
+        .where(eq(workspaces.id, projectId));
       await recordNodeEvent(
         projectId,
         actorId,
@@ -870,7 +870,7 @@ export async function runReviewedGitHubSync(
           : `Synchronized ${manifest.files.length} ${manifest.files.length === 1 ? "file" : "files"} to \`${manifest.branch}\` on GitHub${commitShort ? ` (commit \`${commitShort}\`)` : ""}.`;
 
         await tx
-          .insert(projectUpdates)
+          .insert(workspaceUpdates)
           .values({
             projectId,
             authorId: actorId,

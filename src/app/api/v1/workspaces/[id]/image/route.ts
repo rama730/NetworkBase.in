@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { and, eq, isNull } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { projects, storageAssets } from "@/lib/db/schema";
+import { workspaces, storageAssets } from "@/lib/db/schema";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
@@ -42,9 +42,9 @@ export async function GET(
     const [access, [project]] = await Promise.all([
         getWorkspaceAccessById(projectId, user?.id ?? null),
         db
-            .select({ bucket: projects.coverImageBucket, key: projects.coverImageKey })
-            .from(projects)
-            .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
+            .select({ bucket: workspaces.coverImageBucket, key: workspaces.coverImageKey })
+            .from(workspaces)
+            .where(and(eq(workspaces.id, projectId), isNull(workspaces.deletedAt)))
             .limit(1),
     ]);
     if (!access.project || !access.canRead) {

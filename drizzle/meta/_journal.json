@@ -1828,6 +1828,13 @@
       "when": 1792800026000,
       "tag": "0263_org_type_other",
       "breakpoints": true
+    },
+    {
+      "idx": 261,
+      "version": "7",
+      "when": 1792886426000,
+      "tag": "0264_workspace_rename",
+      "breakpoints": true
     }
   ]
 }

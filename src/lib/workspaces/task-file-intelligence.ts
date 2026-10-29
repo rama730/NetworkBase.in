@@ -1,4 +1,4 @@
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import type { TaskWorkflowStatus } from "@/lib/workspaces/task-workflow";
 
 export type TaskFileIntent =
@@ -482,12 +482,12 @@ export function resolveTaskFileIntent(input: {
    */
   candidateChildNames?: string[];
   candidateNode?: Pick<
-    ProjectNode,
+    WorkspaceNode,
     "id" | "name" | "path" | "type" | "parentId"
   > | null;
   attachments: TaskLinkedNode[];
   searchMatches?: Pick<
-    ProjectNode,
+    WorkspaceNode,
     "id" | "name" | "path" | "type" | "parentId"
   >[];
 }) {

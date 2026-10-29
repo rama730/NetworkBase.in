@@ -4,7 +4,7 @@ import { and, eq, max, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { scheduleAssetDeletionIfUnreferenced } from "@/lib/storage/asset-deletion";
-import { fileVersions, projectNodes, projectNodeEvents, storageAssets, type FileVersion } from "@/lib/db/schema";
+import { fileVersions, workspaceNodes, workspaceNodeEvents, storageAssets, type FileVersion } from "@/lib/db/schema";
 import {
   assertWorkspaceUploadAccessTx,
   assertWorkspaceWriteAccessTx,
@@ -47,7 +47,7 @@ export interface ApplyFileRevisionInput {
 }
 
 export interface ApplyFileRevisionResult {
-  node: typeof projectNodes.$inferSelect;
+  node: typeof workspaceNodes.$inferSelect;
   version: FileVersion;
   mode: FileRevisionMode;
   versionIncremented: boolean;
@@ -73,24 +73,24 @@ export async function applyFileRevision(
     }
     await tx.execute(sql`
       SELECT id
-      FROM project_nodes
+      FROM workspace_nodes
       WHERE id = ${input.nodeId}
-        AND project_id = ${input.projectId}
+        AND workspace_id = ${input.projectId}
       FOR UPDATE
     `);
 
 
-    const current = await tx.query.projectNodes.findFirst({
+    const current = await tx.query.workspaceNodes.findFirst({
       where: and(
-        eq(projectNodes.id, input.nodeId),
-        eq(projectNodes.projectId, input.projectId),
+        eq(workspaceNodes.id, input.nodeId),
+        eq(workspaceNodes.projectId, input.projectId),
       ),
     });
     if (!current || current.deletedAt) throw new Error("File not found");
     if (current.type !== "file") throw new Error("Only file nodes support versions");
     const operationId = typeof input.eventMetadata?.operationId === "string" ? input.eventMetadata.operationId : null;
     if(operationId) {
-      const committed = await tx.query.projectNodeEvents.findFirst({where:and(eq(projectNodeEvents.projectId,input.projectId),eq(projectNodeEvents.actorId,input.actorUserId),sql`${projectNodeEvents.metadata}->>'operationId' = ${operationId}`)});
+      const committed = await tx.query.workspaceNodeEvents.findFirst({where:and(eq(workspaceNodeEvents.projectId,input.projectId),eq(workspaceNodeEvents.actorId,input.actorUserId),sql`${workspaceNodeEvents.metadata}->>'operationId' = ${operationId}`)});
       if(committed) {
         const metadata=committed.metadata || {};
         if((metadata.nodeId||committed.nodeId)!==input.nodeId)throw new Error("The operation was already committed to a different or removed file. Do not recreate it.");
@@ -225,7 +225,7 @@ export async function applyFileRevision(
     }
 
     const [updatedNode] = await tx
-      .update(projectNodes)
+      .update(workspaceNodes)
       .set({
         s3Key: input.storageKey,
         assetId: input.assetId ?? null,
@@ -237,8 +237,8 @@ export async function applyFileRevision(
       })
       .where(
         and(
-          eq(projectNodes.id, input.nodeId),
-          eq(projectNodes.projectId, input.projectId),
+          eq(workspaceNodes.id, input.nodeId),
+          eq(workspaceNodes.projectId, input.projectId),
         ),
       )
       .returning();

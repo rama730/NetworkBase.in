@@ -25,7 +25,7 @@
 
 import * as React from "react";
 
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 
 import { formatBytes, formatRelativeTime } from "../folder/format";
@@ -45,7 +45,7 @@ import { FilesHeaderSlot } from "../FilesHeaderSlot";
  * from the profiles cache. When both are absent we fall back to "—" per
  * Req 5.9.
  */
-export type MetadataStripNode = ProjectNode & {
+export type MetadataStripNode = WorkspaceNode & {
   updatedById?: string | null;
   updatedByName?: string | null;
   updatedByUsername?: string | null;

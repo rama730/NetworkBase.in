@@ -43,7 +43,7 @@ test("approval clears review state and stamps deliverable versions without chang
   const approve = actionBody("approveTaskReviewAction", "");
   assert.match(approve, /locked\.reviewStatus !== "pending"/);
   assert.match(approve, /reviewStatus: "none"/);
-  assert.doesNotMatch(approve, /promoteTaskFiles|tx\.update\(projectNodes\)|tx\.delete\(/);
+  assert.doesNotMatch(approve, /promoteTaskFiles|tx\.update\(workspaceNodes\)|tx\.delete\(/);
   assert.match(approve, /inferTaskFileRole\(file\) === "deliverable"/);
   assert.match(approve, /markTaskFileVersionApproved\(file\.tags, file\.currentVersion, file\.revisedAt\)/);
   assert.doesNotMatch(approve, /for \(const file of linkedFiles\)/);

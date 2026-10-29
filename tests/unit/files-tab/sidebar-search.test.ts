@@ -23,7 +23,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import {
   FILES_TAB_SIDEBAR_WIDTH_PX,
   computeVisibleIdsForSearch,
@@ -33,12 +33,12 @@ import { defaultFilesState } from "@/stores/files/types";
 
 // ─── Fixture builders ────────────────────────────────────────────────
 //
-// Minimal `ProjectNode` shape coerced via `as unknown as ProjectNode`
+// Minimal `WorkspaceNode` shape coerced via `as unknown as WorkspaceNode`
 // because the slice treats every field the helper does not read as
 // opaque. Keeping these local (rather than sharing with sidebar.test.ts)
 // makes each file self-contained and resilient to incidental drift.
 
-function makeFolder(id: string, name: string, parentId: string | null): ProjectNode {
+function makeFolder(id: string, name: string, parentId: string | null): WorkspaceNode {
   return {
     id,
     projectId: "proj-1",
@@ -57,10 +57,10 @@ function makeFolder(id: string, name: string, parentId: string | null): ProjectN
     createdAt: new Date(0),
     updatedAt: new Date(0),
     deletedAt: null,
-  } as unknown as ProjectNode;
+  } as unknown as WorkspaceNode;
 }
 
-function makeFile(id: string, name: string, parentId: string | null): ProjectNode {
+function makeFile(id: string, name: string, parentId: string | null): WorkspaceNode {
   return {
     id,
     projectId: "proj-1",
@@ -79,11 +79,11 @@ function makeFile(id: string, name: string, parentId: string | null): ProjectNod
     createdAt: new Date(0),
     updatedAt: new Date(0),
     deletedAt: null,
-  } as unknown as ProjectNode;
+  } as unknown as WorkspaceNode;
 }
 
-function buildTree(nodes: ProjectNode[]): Record<string, ProjectNode> {
-  const out: Record<string, ProjectNode> = {};
+function buildTree(nodes: WorkspaceNode[]): Record<string, WorkspaceNode> {
+  const out: Record<string, WorkspaceNode> = {};
   for (const n of nodes) out[n.id] = n;
   return out;
 }
@@ -118,7 +118,7 @@ describe("sidebar search — empty query returns null so the caller skips filter
   it("returns null independently of the size of the nodesById cache", () => {
     // 500-node cache — the "empty query → null" signal must be O(1) and
     // must never inspect the cache.
-    const nodes: ProjectNode[] = [makeFolder("root", "root", null)];
+    const nodes: WorkspaceNode[] = [makeFolder("root", "root", null)];
     for (let i = 0; i < 499; i += 1) {
       nodes.push(makeFile(`f${i}`, `file-${i}.txt`, "root"));
     }

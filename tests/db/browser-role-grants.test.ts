@@ -5,11 +5,11 @@ import { sql } from "./_helpers";
 
 after(() => sql.end());
 
-// projects is column-granted (every column but import_source), so it is not a table-level grant.
+// workspaces is column-granted (every column but import_source), so it is not a table-level grant.
 const BROWSER_READABLE = [
-  "profiles", "project_members", "project_follows", "connections", "tasks", "task_subtasks",
-  "task_comments", "task_comment_likes", "task_node_links", "project_workflow_columns", "project_updates",
-  "project_update_comments", "project_node_locks", "user_notifications",
+  "profiles", "workspace_members", "workspace_follows", "connections", "tasks", "task_subtasks",
+  "task_comments", "task_comment_likes", "task_node_links", "workspace_workflow_columns", "workspace_updates",
+  "workspace_update_comments", "workspace_node_locks", "user_notifications",
 ].sort();
 
 // RLS-009: the server writes; browser roles read only what the UI reads.
@@ -24,8 +24,9 @@ test("anon and authenticated have no write privilege anywhere in public", async 
 test("browser SELECT is limited to the tables the UI and policies read", async () => {
   for (const role of ["anon", "authenticated"]) {
     const rows = await sql`
-      SELECT table_name FROM information_schema.role_table_grants
-      WHERE table_schema = 'public' AND grantee = ${role} AND privilege_type = 'SELECT' ORDER BY 1`;
+      SELECT g.table_name FROM information_schema.role_table_grants g
+      JOIN pg_class c ON c.relname = g.table_name AND c.relnamespace = 'public'::regnamespace AND c.relkind IN ('r', 'p')
+      WHERE g.table_schema = 'public' AND g.grantee = ${role} AND g.privilege_type = 'SELECT' ORDER BY 1`;
     assert.deepEqual(rows.map((r) => r.table_name), BROWSER_READABLE, role);
   }
 });
@@ -34,7 +35,7 @@ test("RLS-005/006/008/011: security state, username claims, audit events and rea
   const [row] = await sql`SELECT
     has_table_privilege('authenticated', 'public.profile_security_states', 'SELECT') AS security_read,
     has_table_privilege('authenticated', 'public.username_aliases', 'INSERT') AS alias_insert,
-    has_table_privilege('authenticated', 'public.project_node_events', 'UPDATE') AS events_update,
+    has_table_privilege('authenticated', 'public.workspace_node_events', 'UPDATE') AS events_update,
     has_table_privilege('authenticated', 'public.task_comment_likes', 'INSERT') AS reaction_insert`;
   assert.deepEqual({ ...row }, { security_read: false, alias_insert: false, events_update: false, reaction_insert: false });
 });
@@ -47,12 +48,12 @@ test("public functions are not executable by browser roles", async () => {
   assert.deepEqual(rows.map((r) => r.proname), []);
 });
 
-test("browser roles read projects but never projects.import_source", async () => {
+test("browser roles read workspaces but never workspaces.import_source", async () => {
   for (const role of ["anon", "authenticated"]) {
     const [row] = await sql`SELECT
-      has_column_privilege(${role}, 'public.projects', 'id', 'SELECT') AS id_read,
-      has_column_privilege(${role}, 'public.projects', 'visibility', 'SELECT') AS visibility_read,
-      has_column_privilege(${role}, 'public.projects', 'import_source', 'SELECT') AS import_source_read`;
+      has_column_privilege(${role}, 'public.workspaces', 'id', 'SELECT') AS id_read,
+      has_column_privilege(${role}, 'public.workspaces', 'visibility', 'SELECT') AS visibility_read,
+      has_column_privilege(${role}, 'public.workspaces', 'import_source', 'SELECT') AS import_source_read`;
     assert.deepEqual({ ...row }, { id_read: true, visibility_read: true, import_source_read: false }, role);
   }
 });

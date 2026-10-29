@@ -30,7 +30,7 @@ before(async () => {
 
 const created: string[] = [];
 after(async () => {
-  for (const id of created.reverse()) await sql`DELETE FROM projects WHERE id = ${id}`;
+  for (const id of created.reverse()) await sql`DELETE FROM workspaces WHERE id = ${id}`;
   await sql.end();
   await closeAppDb();
 });
@@ -38,22 +38,22 @@ after(async () => {
 async function orgWithChild() {
   const [owner, admin, member, outsider] = await Promise.all([1, 2, 3, 4].map(() => sql.begin((tx) => createUser(tx))));
   const org = await sql.begin((tx) => createProject(tx, owner!));
-  await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${org}, ${owner!}, 'owner'), (${org}, ${admin!}, 'admin'), (${org}, ${member!}, 'member')`;
-  await sql`UPDATE projects SET kind = 'organization', org_type = 'education', join_code = ${generateJoinCode()}, title = 'CSE-3A' WHERE id = ${org}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${org}, ${owner!}, 'owner'), (${org}, ${admin!}, 'admin'), (${org}, ${member!}, 'member')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', join_code = ${generateJoinCode()}, title = 'CSE-3A' WHERE id = ${org}`;
   const child = await sql.begin((tx) => createProject(tx, member!, { visibility: "org" }));
-  await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${child}, ${member!}, 'owner'), (${child}, ${outsider!}, 'member')`;
-  await sql`UPDATE projects SET parent_id = ${org}, title = 'Compiler Lab' WHERE id = ${child}`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${child}, ${member!}, 'owner'), (${child}, ${outsider!}, 'member')`;
+  await sql`UPDATE workspaces SET parent_id = ${org}, title = 'Compiler Lab' WHERE id = ${child}`;
   created.push(org, child);
   return { org, child, owner: owner!, admin: admin!, member: member!, outsider: outsider! };
 }
 
 /** A published, version-backed doc (no file needed). */
 async function addDoc(projectId: string, slug: string, content: string, org: Record<string, unknown> = {}) {
-  const [doc] = await sql`INSERT INTO project_docs (project_id, slug, filename, settings)
+  const [doc] = await sql`INSERT INTO workspace_documents (workspace_id, slug, filename, settings)
     VALUES (${projectId}, ${slug}, ${`${slug}.md`}, ${sql.json({ version: 1, editPolicy: "leaders", visibilityOverride: "inherit_project", externalImages: false, projectBlocks: true, org })}) RETURNING id`;
-  const [version] = await sql`INSERT INTO project_doc_versions (project_id, doc_id, version_number, content, content_hash)
+  const [version] = await sql`INSERT INTO workspace_document_versions (workspace_id, doc_id, version_number, content, content_hash)
     VALUES (${projectId}, ${doc!.id}, 1, ${content}, ${slug}) RETURNING id`;
-  await sql`UPDATE project_docs SET published_version_id = ${version!.id} WHERE id = ${doc!.id}`;
+  await sql`UPDATE workspace_documents SET published_version_id = ${version!.id} WHERE id = ${doc!.id}`;
   return doc!.id as string;
 }
 
@@ -140,7 +140,7 @@ test("the Projects smart block lists the org's child projects, never Private one
   const o = await orgWithChild();
   await addDoc(o.org, "course-welcome", "# Welcome\n{% project.projects %}");
   const hidden = await sql.begin((tx) => createProject(tx, o.owner, { visibility: "private" }));
-  await sql`UPDATE projects SET parent_id = ${o.org}, title = 'Secret Lab' WHERE id = ${hidden}`;
+  await sql`UPDATE workspaces SET parent_id = ${o.org}, title = 'Secret Lab' WHERE id = ${hidden}`;
   created.push(hidden);
   viewerId = o.member;
   const result = await projectDoc.readWorkspaceDocSmartBlockPreviewsAction(o.org, [{ kind: "projects", ids: [], index: 0 }]);
@@ -148,8 +148,8 @@ test("the Projects smart block lists the org's child projects, never Private one
   if (result.success) assert.deepEqual(result.previews[0]!.items.map((i) => i.title), ["Compiler Lab"]);
 
   // A visitor on a public org with no README: the doc being read decides access, and only public projects show.
-  await sql`UPDATE projects SET visibility = 'public', status = 'active' WHERE id = ${o.org}`;
-  await sql`UPDATE project_docs SET settings = settings || '{"visibilityOverride": "public"}'::jsonb WHERE project_id = ${o.org}`;
+  await sql`UPDATE workspaces SET visibility = 'public', status = 'active' WHERE id = ${o.org}`;
+  await sql`UPDATE workspace_documents SET settings = settings || '{"visibilityOverride": "public"}'::jsonb WHERE workspace_id = ${o.org}`;
   viewerId = "";
   const visitor = await projectDoc.readWorkspaceDocSmartBlockPreviewsAction(o.org, [{ kind: "projects", ids: [], index: 0 }], "course-welcome");
   assert.equal(visitor.success, true, JSON.stringify(visitor));
@@ -167,7 +167,7 @@ test("§19 pass: inherited org admins edit child docs; Linked sprint gives the s
   assert.ok(asOutsider.success && !asOutsider.data.canEdit, "a plain member stays read-only");
 
   const id = await addDoc(o.org, "co1-notes", "# CO1 notes");
-  const [s] = await sql`INSERT INTO project_sprints (project_id, sprint_number, name, status, start_date, end_date) VALUES (${o.org}, 1, 'CO1', 'planning', now(), now() + interval '14 days') RETURNING id`;
+  const [s] = await sql`INSERT INTO workspace_sprints (workspace_id, sprint_number, name, status, start_date, end_date) VALUES (${o.org}, 1, 'CO1', 'planning', now(), now() + interval '14 days') RETURNING id`;
   const data = await list(o.org, o.admin);
   assert.deepEqual(data!.sprints.map((x) => x.name), ["CO1"]);
   viewerId = o.admin;

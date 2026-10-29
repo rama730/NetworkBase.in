@@ -35,13 +35,13 @@ async function main() {
       verifiedAssets: number;
     }[]>`
       SELECT
-        (SELECT count(*)::int FROM public.project_nodes node
+        (SELECT count(*)::int FROM public.workspace_nodes node
           WHERE node.type = 'file' AND node.deleted_at IS NULL AND node.s3_key IS NOT NULL
             AND NOT EXISTS (
               SELECT 1 FROM public.file_versions version
               WHERE version.node_id = node.id AND version.version = node.current_version
             )) AS "missingCurrentVersions",
-        (SELECT count(*)::int FROM public.project_nodes node
+        (SELECT count(*)::int FROM public.workspace_nodes node
           JOIN public.file_versions version
             ON version.node_id = node.id AND version.version = node.current_version
           LEFT JOIN public.storage_assets asset ON asset.id = version.asset_id
@@ -52,7 +52,7 @@ async function main() {
               OR (version.content_hash IS NULL AND COALESCE(asset.state, '') <> 'missing')
             )
         ) AS "incompleteCurrentVersions",
-        (SELECT count(*)::int FROM public.project_nodes node
+        (SELECT count(*)::int FROM public.workspace_nodes node
           JOIN public.file_versions version
             ON version.node_id = node.id AND version.version = node.current_version
           JOIN public.storage_assets asset ON asset.id = version.asset_id
@@ -64,14 +64,14 @@ async function main() {
             AND failure.error_code = 'HISTORICAL_BYTES_UNAVAILABLE'
             AND failure.resolved_at IS NULL
         ) AS "quarantinedHistoricalVersions",
-        (SELECT count(*)::int FROM public.projects
+        (SELECT count(*)::int FROM public.workspaces
           WHERE cover_image_key IS NOT NULL AND cover_image_asset_id IS NULL
         ) AS "coversWithoutAsset",
-        (SELECT count(*)::int FROM public.project_updates update_row
+        (SELECT count(*)::int FROM public.workspace_updates update_row
           CROSS JOIN LATERAL jsonb_array_elements(COALESCE(update_row.media, '[]'::jsonb)) media(item)
           WHERE media.item->>'storageKey' IS NOT NULL
             AND NOT EXISTS (
-              SELECT 1 FROM public.project_update_media_assets reference
+              SELECT 1 FROM public.workspace_update_media_assets reference
               JOIN public.storage_assets asset ON asset.id = reference.asset_id
               WHERE reference.update_id = update_row.id
                 AND asset.storage_key = media.item->>'storageKey'
@@ -129,7 +129,7 @@ async function main() {
       SELECT
         node.id AS "nodeId",
         version.id AS "versionId",
-        node.project_id AS "projectId",
+        node.workspace_id AS "projectId",
         version.version,
         version.s3_key AS "storageKey",
         node.s3_key AS "currentStorageKey",
@@ -139,7 +139,7 @@ async function main() {
         version.content_hash AS "contentHash",
         version.size AS "declaredSize",
         failure.detail AS "failureDetail"
-      FROM public.project_nodes node
+      FROM public.workspace_nodes node
       JOIN public.file_versions version
         ON version.node_id = node.id AND version.version = node.current_version
       LEFT JOIN public.storage_assets asset ON asset.id = version.asset_id
@@ -172,13 +172,13 @@ async function main() {
           WHERE table_schema = 'public' AND table_name = 'project_nodes' AND column_name = 'asset_id'
         ) AS "projectNodesAssetId",
         EXISTS (
-          SELECT 1 FROM public.project_update_media_assets reference
+          SELECT 1 FROM public.workspace_update_media_assets reference
           JOIN public.storage_assets asset ON asset.id = reference.asset_id
           WHERE asset.storage_key = ${reportedUpdateMediaKey}
         ) AS "reportedUpdateMediaAttached",
         (
           SELECT count(*)::int
-          FROM public.projects project
+          FROM public.workspaces project
           JOIN public.storage_assets asset ON asset.id = project.cover_image_asset_id
           WHERE asset.state = 'verified'
             AND asset.storage_key IN (${reportedProjectImageKeys[0]}, ${reportedProjectImageKeys[1]})

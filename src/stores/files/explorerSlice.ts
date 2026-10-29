@@ -1,5 +1,5 @@
 import type { StateCreator } from "zustand";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import type {
   FilesStoreState,
   ExplorerMode,
@@ -20,13 +20,13 @@ function toEpochMs(value: unknown): number {
   return 0;
 }
 
-function nodeRecencyScore(node: ProjectNode): number {
+function nodeRecencyScore(node: WorkspaceNode): number {
   const updatedAt = toEpochMs((node as { updatedAt?: unknown }).updatedAt);
   const createdAt = toEpochMs((node as { createdAt?: unknown }).createdAt);
   return Math.max(updatedAt, createdAt);
 }
 
-type AttributedProjectNode = ProjectNode & {
+type AttributedProjectNode = WorkspaceNode & {
   updatedById?: string | null;
   updatedByName?: string | null;
   updatedByUsername?: string | null;
@@ -34,7 +34,7 @@ type AttributedProjectNode = ProjectNode & {
   versionUpdatedAt?: Date | string | null;
 };
 
-export function hasNodeCacheDifference(existing: ProjectNode, incoming: ProjectNode): boolean {
+export function hasNodeCacheDifference(existing: WorkspaceNode, incoming: WorkspaceNode): boolean {
   const previous = existing as AttributedProjectNode;
   const next = incoming as AttributedProjectNode;
   return (
@@ -56,12 +56,12 @@ export function hasNodeCacheDifference(existing: ProjectNode, incoming: ProjectN
 }
 
 export function enforceNodesBudget(
-  nodesById: Record<string, ProjectNode>,
+  nodesById: Record<string, WorkspaceNode>,
   childrenByParentId: Record<string, string[]>,
   budget: number = 5000,
   protectedIds: readonly string[] = [],
 ): {
-  nodesById: Record<string, ProjectNode>;
+  nodesById: Record<string, WorkspaceNode>;
   childrenByParentId: Record<string, string[]>;
 } {
   const entries = Object.entries(nodesById);
@@ -81,7 +81,7 @@ export function enforceNodesBudget(
     .slice(0, budget);
 
   const keysToKeepSet = new Set(entriesToKeep.map(([id]) => id));
-  const result: Record<string, ProjectNode> = {};
+  const result: Record<string, WorkspaceNode> = {};
   for (const [id, node] of entriesToKeep) {
     result[id] = node;
   }
@@ -130,7 +130,7 @@ export interface ExplorerSlice {
   /** FW9: Remove expandedFolderIds entries whose node no longer exists */
   pruneDeadExpanded: (projectId: string) => void;
 
-  upsertNodes: (projectId: string, nodes: ProjectNode[]) => void;
+  upsertNodes: (projectId: string, nodes: WorkspaceNode[]) => void;
   setChildren: (projectId: string, parentId: string | null, childIds: string[]) => void;
   setFolderPayload: (
     projectId: string,
@@ -139,7 +139,7 @@ export interface ExplorerSlice {
   ) => void;
   setNodesAndChildren: (
     projectId: string,
-    nodes: ProjectNode[],
+    nodes: WorkspaceNode[],
     parentId: string | null,
     childIds: string[],
     payload?: { nextCursor: string | null; hasMore: boolean; loaded: boolean }
@@ -149,7 +149,7 @@ export interface ExplorerSlice {
   removeNodeFromCaches: (projectId: string, nodeId: string, options?: { keepFavorite?: boolean }) => void;
   setTaskLinkCounts: (projectId: string, counts: Record<string, number>) => void;
   patchNodeVersion: (projectId: string, nodeId: string, currentVersion: number) => void;
-  setNodes: (projectId: string, nodes: ProjectNode[]) => void;
+  setNodes: (projectId: string, nodes: WorkspaceNode[]) => void;
   batchUpdateStore: (
     projectId: string,
     payloads: Array<{
@@ -159,11 +159,11 @@ export interface ExplorerSlice {
       hasMore: boolean;
       loaded: boolean;
     }>,
-    nodes?: ProjectNode[]
+    nodes?: WorkspaceNode[]
   ) => void;
   hydrateFromIdb: (
     projectId: string,
-    nodesById: Record<string, ProjectNode>,
+    nodesById: Record<string, WorkspaceNode>,
     childrenByParentId: Record<string, string[]>
   ) => void;
 

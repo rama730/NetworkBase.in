@@ -21,7 +21,7 @@
 
 import { useEffect, useRef } from "react";
 
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 
 import { planUrlSync, encodePath } from "../url";
 import { useCurrentLocation } from "./useCurrentLocation";
@@ -202,7 +202,7 @@ export function useFilesTabUrlSync(
     options.onPopStateError,
   );
   errorRef.current = options.onPopStateError;
-  const nodesByIdRef = useRef<Record<string, ProjectNode>>(nodesById);
+  const nodesByIdRef = useRef<Record<string, WorkspaceNode>>(nodesById);
   nodesByIdRef.current = nodesById;
 
   // Effect 1: mirror currentLocation → URL on every change. The first write after mount
@@ -278,9 +278,9 @@ async function defaultFindNodeByPathAny(
   return { id: result.id };
 }
 
-const EMPTY_NODES: Record<string, ProjectNode> = Object.freeze(
+const EMPTY_NODES: Record<string, WorkspaceNode> = Object.freeze(
   {},
-) as Record<string, ProjectNode>;
+) as Record<string, WorkspaceNode>;
 
 function getBrowserWindow(): Window | null {
   return typeof window === "undefined" ? null : window;

@@ -18,7 +18,7 @@
 //   - The comparator is *pure*: it reads only the fields it is passed
 //     and never touches the store or the network.
 
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 
 export interface FolderListSortableNode {
   id: string;
@@ -81,4 +81,4 @@ export function sortFolderListNodes<T extends FolderListSortableNode>(
   return [...nodes].sort((a, b) => compareFolderListNodes(a, b, sort));
 }
 
-export type { ProjectNode };
+export type { WorkspaceNode };

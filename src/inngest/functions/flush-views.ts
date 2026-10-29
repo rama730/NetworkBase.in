@@ -18,7 +18,7 @@ export const flushWorkspaceViews = inngest.createFunction(
                 kind: "project_views",
                 apply: async (tx, deltas) => {
                     await tx.execute(sql`
-                        UPDATE projects p
+                        UPDATE workspaces p
                         SET view_count = p.view_count + d.delta
                         FROM jsonb_to_recordset(${JSON.stringify(deltas)}::jsonb) AS d(id uuid, delta integer)
                         WHERE p.id = d.id AND d.delta > 0

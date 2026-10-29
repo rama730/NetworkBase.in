@@ -1,16 +1,16 @@
 import { useCallback } from "react";
 import { moveWorkspaceNodes } from "@/app/actions/files/mutations";
-import type { ProjectNode } from "@/lib/db/schema";
+import type { WorkspaceNode } from "@/lib/db/schema";
 import { getErrorMessage, type ExplorerOperation } from "./explorerTypes";
 
 export function useExplorerDragDrop(options: {
   projectId: string;
   canEdit: boolean;
   canManageFiles?: boolean;
-  nodesById: Record<string, ProjectNode>;
+  nodesById: Record<string, WorkspaceNode>;
   storeSelectedNodeIds: string[];
   runUniqueMutation: <T>(key: string, fn: () => Promise<T>) => Promise<T | null>;
-  upsertNodes: (projectId: string, nodes: ProjectNode[]) => void;
+  upsertNodes: (projectId: string, nodes: WorkspaceNode[]) => void;
   loadFolderContent: (parentId: string | null, mode: "refresh" | "append") => Promise<void>;
   toggleExpanded: (projectId: string, nodeId: string, expanded: boolean) => void;
   showToast: (msg: string, type: "success" | "error" | "info") => void;
