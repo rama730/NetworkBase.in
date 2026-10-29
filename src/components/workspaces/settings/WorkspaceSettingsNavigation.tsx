@@ -98,7 +98,7 @@ export function WorkspaceSettingsNavigation({
     <>
       <aside
         aria-label="Workspace settings navigation"
-        className="sticky top-[calc(var(--project-tabs-height)+1rem)] hidden max-h-[calc(100dvh-var(--ui-topnav-height)-var(--project-tabs-height)-2rem)] self-start overflow-y-auto border-r border-border px-3 py-4 app-scroll app-scroll-y xl:block"
+        className="sticky top-[calc(var(--workspace-tabs-height)+1rem)] hidden max-h-[calc(100dvh-var(--ui-topnav-height)-var(--workspace-tabs-height)-2rem)] self-start overflow-y-auto border-r border-border px-3 py-4 app-scroll app-scroll-y xl:block"
       >
         <div className="mb-3 space-y-3 px-2">
           <p className="nb-micro">Workspace settings</p>
@@ -108,7 +108,7 @@ export function WorkspaceSettingsNavigation({
       </aside>
       <details
         data-project-settings-selector
-        className="sticky top-[var(--project-tabs-height)] z-20 border-b border-border bg-card px-4 py-2 xl:hidden"
+        className="sticky top-[var(--workspace-tabs-height)] z-20 border-b border-border bg-card px-4 py-2 xl:hidden"
       >
         <summary className="nb-nav-link cursor-pointer list-none justify-between">
           <span>

@@ -314,7 +314,7 @@ export function OpenInIdeButton({
             >
               <Link href="/settings?tab=integrations">
                 <KeyRound className="size-3.5" />
-                Extension Settings
+                Extension settings
               </Link>
             </Button>
             <Button

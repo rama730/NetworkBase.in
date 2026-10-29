@@ -66,7 +66,7 @@ test("#155 #156 settings say what quiet hours and desktop notifications really d
 
 test("#162 #164 #165 errors with Retry, one list skeleton, a Messages error boundary", () => {
   const views = read("src/components/messages/MessagesViews.tsx");
-  for (const what of ["Your Inbox", "Threads", "Saved messages", "Scheduled messages", "Search results"]) {
+  for (const what of ["Inbox", "Threads", "Saved messages", "Scheduled messages", "Search results"]) {
     assert.match(views, new RegExp(`<ListError what="${what}"`), what);
   }
   assert.doesNotMatch(views, /return result\.success \? result\.(items|threads) : \[\]/);

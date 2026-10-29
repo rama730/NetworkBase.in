@@ -158,7 +158,7 @@ export class CacheManager {
 
         breakdown.push({
             id: "user-workspace",
-            label: "Workspace Data",
+            label: "Workspace data",
             description: hasPendingWork ? "Contains unsaved offline changes." : "Local drafts and workspace history.",
             size: userDataSize,
             isPrimary: true,

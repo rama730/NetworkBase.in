@@ -171,7 +171,7 @@ export function SprintLeftRail({
         </button>
       ) : null}
     </div>
-    <aside className="w-full min-h-0 overflow-y-auto pr-2 max-md:hidden lg:border-r lg:border-border lg:pr-5 app-scroll app-scroll-y app-scroll-gutter lg:sticky lg:top-[calc(var(--project-tabs-height,0px)+1rem)] lg:max-h-[calc(100dvh-var(--project-tabs-height,0px)-2rem)]">
+    <aside className="w-full min-h-0 overflow-y-auto pr-2 max-md:hidden lg:border-r lg:border-border lg:pr-5 app-scroll app-scroll-y app-scroll-gutter lg:sticky lg:top-[calc(var(--workspace-tabs-height,0px)+1rem)] lg:max-h-[calc(100dvh-var(--workspace-tabs-height,0px)-2rem)]">
       <div className="space-y-4">
         {/* Rail Header */}
         <div className="space-y-2.5">

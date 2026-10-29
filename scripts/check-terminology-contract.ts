@@ -74,10 +74,18 @@ export function ruleHits(text: string): Rule[] {
   return RULES.filter(([, test]) => test(text)).map(([rule]) => rule);
 }
 
-/** Words the report keeps on purpose (§7.2, §12.5): proper names in the skill catalog, "Lead" as seniority. */
+/**
+ * Words the report keeps on purpose (§7.2, §12.5): proper names (skill catalog, platforms, products, a font),
+ * stored values (interest tags, the "Quality Assurance" category, "Lead" seniority), search synonyms people type,
+ * and external projects in contributions.
+ */
 const KEPT: Array<[RegExp, RegExp]> = [
   [/src\/lib\/skills\//, /./],
-  [/src\/lib\/profile\/role-preferences\.ts$/, /^Lead$/],
+  [/src\/lib\/profile\/(?:domain-presence|normalization|interests)\.ts$/, /./],
+  [/src\/lib\/profile\/role-preferences\.ts$/, /^(?:Lead|Quality Assurance)$/],
+  [/src\/lib\/profile\/contribution-story\.ts$/, /^Enter the workspace or project name\.$/],
+  [/src\/components\/layout\/header\/global-search\.ts$/, /\blog(?:in|out)\b/],
+  [/./, /^(?:Apache Airflow|John Doe|Office Online|Excel Online|Android Studio|Samsung Internet|Claude Code|Instrument Sans)$/],
 ];
 
 export function countFile(source: string, fileName: string) {

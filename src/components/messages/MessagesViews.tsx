@@ -706,7 +706,7 @@ export function InboxView() {
       ) : (
         <>
           {feed.isLoading ? <ListSkeleton header={false} label="Loading your Inbox" rows={5} /> : null}
-          {feed.isError && !feed.data ? <ListError what="Your Inbox" query={feed} /> : null}
+          {feed.isError && !feed.data ? <ListError what="Inbox" query={feed} /> : null}
           {feed.data && !items.length ? <Empty icon={filter === "reactions" ? SmilePlus : filter === "mentions" ? AtSign : Inbox} title={EMPTY_TEXT[filter].title}>{EMPTY_TEXT[filter].text}</Empty> : null}
           {/* Keyed by place and oldest item: a new item at the top doesn't snap a group open or shut. */}
           <ul aria-label="Inbox" onKeyDown={rowKeys}>

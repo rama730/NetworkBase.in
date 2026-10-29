@@ -376,7 +376,7 @@ function UpdateCard({
                 onClick={() =>
                   currentUserId
                     ? like.toggle()
-                    : toast.error("Please log in to like updates")
+                    : toast.error("Sign in to like updates")
                 }
                 className={cn(
                   "nb-touch-target inline-flex items-center gap-1.5 rounded-[5px] px-2 py-1 text-xs transition-colors hover:bg-muted hover:text-rose-500",
@@ -395,7 +395,7 @@ function UpdateCard({
                 type="button"
                 onClick={() => {
                   if (!currentUserId) {
-                    toast.error("Please log in to comment");
+                    toast.error("Sign in to comment");
                     return;
                   }
                   onOpenDetail(update.id);

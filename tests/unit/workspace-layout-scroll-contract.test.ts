@@ -23,7 +23,7 @@ test("project detail header stays route-owned", () => {
     assert.doesNotMatch(source, /isFilesTab && isScrolled/, "Files must not toggle the workspace identity header");
     assert.match(
         source,
-        /isFilesTab[\s\S]{0,120}h-\[calc\(100dvh-var\(--ui-topnav-height\)-var\(--project-tabs-height\)\)\]/,
+        /isFilesTab[\s\S]{0,120}h-\[calc\(100dvh-var\(--ui-topnav-height\)-var\(--workspace-tabs-height\)\)\]/,
         "Files should retain a viewport-sized internal workspace beneath the sticky project tabs",
     );
     assert.match(source, /isSettingsTab\s*\?\s*"w-full"/, "Settings must remain in the route-owned page flow");
@@ -87,7 +87,7 @@ test("project detail consumes the shell width without changing the collapsed rai
     );
     assert.doesNotMatch(
         cssSource,
-        /\[data-project-tool="true"\]\s+\.nb-project-identity h1/,
+        /\[data-project-tool="true"\]\s+\.nb-workspace-identity h1/,
         "Tasks, Files, Sprints, and other project tools must not shrink the shared project title",
     );
     assert.match(

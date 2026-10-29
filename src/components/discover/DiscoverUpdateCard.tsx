@@ -133,7 +133,7 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
             await navigator.clipboard.writeText(new URL(`/discover?updateId=${update.id}`, window.location.origin).href);
             toast.success("Link copied");
         } catch {
-            toast.error("Couldn't copy the link");
+            toast.error("Couldn’t copy the link");
         }
     };
 
@@ -252,7 +252,7 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
                         <DropdownMenuContent align="end">
                             <DropdownMenuItem onSelect={() => void copyLink()}>Copy link</DropdownMenuItem>
                             <DropdownMenuItem asChild>
-                                <Link href={directHref} onClick={() => onVisitProject(update.projectId)}>View in project</Link>
+                                <Link href={directHref} onClick={() => onVisitProject(update.projectId)}>View in workspace</Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => onHide(update.id)}>Hide update</DropdownMenuItem>
                         </DropdownMenuContent>

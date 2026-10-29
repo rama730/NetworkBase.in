@@ -7,7 +7,7 @@ import { refreshMyWorkCountersForUsers } from '@/lib/my-work/profile-counters';
 export const myWorkCountersRefresh = inngest.createFunction(
     { 
         id: 'workspace-counters-refresh', 
-        name: 'Workspace Counters Refresh',
+        name: 'My work counters refresh',
         batchEvents: {
             maxSize: 5,
             timeout: '5s',

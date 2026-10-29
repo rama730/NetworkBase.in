@@ -33,7 +33,7 @@ function buildRetryEvent(
 export const notificationFanout = inngest.createFunction(
     {
         id: "notification-fanout",
-        name: "Notification Fanout",
+        name: "Notification fan-out",
         batchEvents: {
             maxSize: 5,
             timeout: "2s",

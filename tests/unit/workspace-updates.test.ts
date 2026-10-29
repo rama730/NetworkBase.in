@@ -618,7 +618,7 @@ test("updates tab balances the feed with a bounded responsive supporting rail", 
     assert.match(tabSource, /xl:grid-cols-\[minmax\(0,1fr\)_440px\]/);
     assert.match(tabSource, /gap-8/);
     assert.match(tabSource, /hidden w-full min-w-0 xl:block xl:w-\[440px\] shrink-0 border-l border-border pl-6/);
-    assert.match(tabSource, /sticky top-\[calc\(var\(--project-tabs-height,42px\)\+1rem\)\]/);
+    assert.match(tabSource, /sticky top-\[calc\(var\(--workspace-tabs-height,42px\)\+1rem\)\]/);
     assert.equal(tabSource.includes("_300px"), false);
     assert.match(layoutSource, /isUpdatesTab\s*\n\s*\? "w-full p-4 sm:py-5 sm:pl-5 sm:pr-6"/);
 });

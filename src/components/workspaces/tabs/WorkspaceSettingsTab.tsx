@@ -1398,7 +1398,7 @@ function ProjectSettingsContent({
                             <SettingsCard
                                 title="Workspace links"
                                 headingLevel={2}
-                                description="External project destinations and connected repositories displayed beside the project title and across public surfaces."
+                                description="Links and connected repositories shown beside the workspace title and on public pages."
                             >
                                 <WorkspaceLinksManager
                                     mode="inline"

@@ -918,9 +918,9 @@ function projectUpdateContextFallbackLabel(
         const namedMedia = mediaItems
             .map((item) => item.label || item.altText || null)
             .filter((item): item is string => Boolean(item));
-        return namedMedia.length > 0 ? namedMedia.slice(0, 3).join(", ") : "Attached project media";
+        return namedMedia.length > 0 ? namedMedia.slice(0, 3).join(", ") : "Attached media";
     }
-    return "Project update";
+    return "Workspace update";
 }
 
 function projectUpdateNotificationBody(input: {
@@ -1118,7 +1118,7 @@ export async function readWorkspaceUpdatesAction(projectId: string, params?: {
         const viewer = await getViewerAuthContext();
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
         if (!access.canRead || !access.project) {
-            return { success: false as const, error: "Project updates are unavailable.", data: { updates: [], nextCursor: null, hasMore: false, movementSummary: null } };
+            return { success: false as const, error: "Updates aren’t available.", data: { updates: [], nextCursor: null, hasMore: false, movementSummary: null } };
         }
 
         const filter = normalizeWorkspaceUpdateFilter(params?.filter ?? "all");
@@ -1230,7 +1230,7 @@ export async function readWorkspaceUpdatesAction(projectId: string, params?: {
         };
     } catch (error) {
         console.error("Failed to read project updates:", error);
-        return { success: false as const, error: "Failed to load project updates", data: { updates: [], nextCursor: null, hasMore: false, movementSummary: null } };
+        return { success: false as const, error: "Couldn’t load updates. Try again.", data: { updates: [], nextCursor: null, hasMore: false, movementSummary: null } };
     }
 }
 
@@ -1238,7 +1238,7 @@ export async function readWorkspaceUpdateAction(projectId: string, updateId: str
     try {
         const viewer = await getViewerAuthContext();
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
-        if (!access.canRead || !access.project) return { success: false as const, error: "Project update unavailable.", data: null };
+        if (!access.canRead || !access.project) return { success: false as const, error: "This update isn’t available.", data: null };
         const rows = await readUpdateRowsByIds([updateId], access);
         const [likedIds, contextByUpdateId] = await Promise.all([
             likedUpdateIds(rows.map((row) => row.id), viewer.userId),
@@ -1247,10 +1247,10 @@ export async function readWorkspaceUpdateAction(projectId: string, updateId: str
         const update = rows[0] ? normalizeUpdate(rows[0], { access, likedIds, contextByUpdateId }) : null;
         return update
             ? { success: true as const, data: update }
-            : { success: false as const, error: "Project update not found.", data: null };
+            : { success: false as const, error: "Update not found.", data: null };
     } catch (error) {
         console.error("Failed to read project update:", error);
-        return { success: false as const, error: "Failed to load project update", data: null };
+        return { success: false as const, error: "Couldn’t load the update. Try again.", data: null };
     }
 }
 
@@ -1321,7 +1321,7 @@ export async function readWorkspaceUpdateContextOptionsAction(projectId: string,
         const viewer = await getViewerAuthContext();
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
         if (!access.canCreate || !access.project) {
-            return { success: false as const, error: "Project update context is unavailable.", data: { task: [], sprint: [], file: [] } };
+            return { success: false as const, error: "This update isn’t available.", data: { task: [], sprint: [], file: [] } };
         }
 
         const requestedKind = input?.kind === "task" || input?.kind === "sprint" || input?.kind === "file"
@@ -1343,7 +1343,7 @@ export async function readWorkspaceUpdateContextOptionsAction(projectId: string,
             projectId,
             error: error instanceof Error ? error.message : String(error),
         });
-        return { success: false as const, error: "Failed to load project update context.", data: { task: [], sprint: [], file: [] } };
+        return { success: false as const, error: "Couldn’t load the update. Try again.", data: { task: [], sprint: [], file: [] } };
     }
 }
 
@@ -1354,11 +1354,11 @@ export async function createWorkspaceUpdateMediaUploadUrlAction(projectId: strin
 }) {
     try {
         const viewer = await getViewerAuthContext();
-        if (!viewer.userId) return { success: false as const, error: "Please log in to upload media." };
+        if (!viewer.userId) return { success: false as const, error: "Sign in to upload media." };
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
         if (!access.canCreate || !access.project) return { success: false as const, error: "You do not have permission to upload update media." };
         const rate = await consumeRateLimit(`project-update-media:create:${viewer.userId}`, 20, 60 * 60);
-        if (!rate.allowed) return { success: false as const, error: "Too many media uploads. Please wait and try again." };
+        if (!rate.allowed) return { success: false as const, error: "Too many uploads. Try again in a minute." };
 
         const mimeType = normalizeAndValidateMimeType(input.mimeType);
         if (!WORKSPACE_UPDATE_ALLOWED_IMAGE_MIME_TYPES.has(mimeType)) {
@@ -1418,7 +1418,7 @@ export async function finalizeWorkspaceUpdateMediaUploadAction(projectId: string
 }) {
     try {
         const viewer = await getViewerAuthContext();
-        if (!viewer.userId) return { success: false as const, error: "Please log in to finalize media." };
+        if (!viewer.userId) return { success: false as const, error: "Sign in to finish the upload." };
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
         if (!access.canCreate || !access.project) return { success: false as const, error: "You do not have permission to upload update media." };
         if (!input.uploadIntentId) return { success: false as const, error: "Missing upload intent." };
@@ -1523,12 +1523,12 @@ export async function createWorkspaceUpdateAction(projectId: string, input: {
     const startedAt = performance.now();
     try {
         const viewer = await getViewerProfileContext();
-        if (!viewer.userId) return { success: false as const, error: "Please log in to post updates." };
+        if (!viewer.userId) return { success: false as const, error: "Sign in to post updates." };
         const rate = await consumeRateLimit(`project-update:create:${viewer.userId}`, 30, 60);
-        if (!rate.allowed) return { success: false as const, error: "Too many updates. Please wait and try again." };
+        if (!rate.allowed) return { success: false as const, error: "Too many updates. Try again in a minute." };
 
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
-        if (!access.canCreate || !access.project) return { success: false as const, error: "You do not have permission to post project updates." };
+        if (!access.canCreate || !access.project) return { success: false as const, error: "You don’t have access to post updates here." };
 
         const updateType = normalizeWorkspaceUpdateType(input.updateType);
         const visibility: WorkspaceUpdateVisibility = input.visibility === "members" ? "members" : "public";
@@ -1572,7 +1572,7 @@ export async function createWorkspaceUpdateAction(projectId: string, input: {
                     updatedAt: createdAt,
                 })
                 .returning({ id: workspaceUpdates.id });
-            if (!row) throw new Error("Failed to create project update");
+            if (!row) throw new Error("Couldn’t post the update. Try again.");
             await replaceUpdateMediaAssetRefs({
                 tx,
                 updateId: row.id,
@@ -1606,7 +1606,7 @@ export async function createWorkspaceUpdateAction(projectId: string, input: {
                     actorName,
                     actorAvatarUrl: viewer.profile?.avatarUrl ?? null,
                     eventKey: "updates.published",
-                    title: `${actorName || "Someone"} posted an update in ${access.project.title || "Project"}`,
+                    title: `${actorName || "Someone"} posted an update in ${access.project.title || "a workspace"}`,
                     body: notificationBody,
                     href: projectHref(access.project, inserted.id),
                     entityRefs: {
@@ -1618,7 +1618,7 @@ export async function createWorkspaceUpdateAction(projectId: string, input: {
                     preview: {
                         actorName,
                         actorAvatarUrl: viewer.profile?.avatarUrl ?? null,
-                        contextLabel: access.project.title ?? "Project update",
+                        contextLabel: access.project.title ?? "Workspace update",
                         contextKind: "project",
                         secondaryText: null,
                     },
@@ -1669,7 +1669,7 @@ export async function createWorkspaceUpdateAction(projectId: string, input: {
         return { success: true as const, data: update };
     } catch (error) {
         if (isPinLimitError(error)) return { success: false as const, error: PIN_LIMIT_MESSAGE };
-        console.error("Failed to create project update:", error);
+        console.error("Couldn’t post the update. Try again.:", error);
         return { success: false as const, error: "Failed to post update." };
     }
 }
@@ -1684,9 +1684,9 @@ export async function editWorkspaceUpdateAction(projectId: string, updateId: str
 }) {
     try {
         const viewer = await getViewerAuthContext();
-        if (!viewer.userId) return { success: false as const, error: "Please log in to edit updates." };
+        if (!viewer.userId) return { success: false as const, error: "Sign in to edit updates." };
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
-        if (!access.canRead || !access.project) return { success: false as const, error: "Project update unavailable." };
+        if (!access.canRead || !access.project) return { success: false as const, error: "This update isn’t available." };
         const content = sanitizeWorkspaceUpdateContent(input.content);
         const entityRefs = normalizeEntityRefs(input.entityRefs);
         const media = normalizeMedia(input.media);
@@ -1706,7 +1706,7 @@ export async function editWorkspaceUpdateAction(projectId: string, updateId: str
                 .where(and(eq(workspaceUpdates.id, updateId), eq(workspaceUpdates.projectId, projectId)))
                 .limit(1)
                 .for("update");
-            if (!existing || existing.deletedAt) throw new Error("Project update not found.");
+            if (!existing || existing.deletedAt) throw new Error("Update not found.");
             if (existing.authorId !== viewer.userId) throw new Error("You can only edit your own update.");
             const allowedLegacyBindings = new Set(
                 normalizeMedia(existing.media)
@@ -1760,9 +1760,9 @@ export async function editWorkspaceUpdateAction(projectId: string, updateId: str
 export async function deleteWorkspaceUpdateAction(projectId: string, updateId: string, reason?: string | null) {
     try {
         const viewer = await getViewerAuthContext();
-        if (!viewer.userId) return { success: false as const, error: "Please log in to delete updates." };
+        if (!viewer.userId) return { success: false as const, error: "Sign in to delete updates." };
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
-        if (!access.canRead || !access.project) return { success: false as const, error: "Project update unavailable." };
+        if (!access.canRead || !access.project) return { success: false as const, error: "This update isn’t available." };
         const now = new Date();
         let removedAuthorId: string | null = null;
         await db.transaction(async (tx) => {
@@ -1777,7 +1777,7 @@ export async function deleteWorkspaceUpdateAction(projectId: string, updateId: s
                 .where(and(eq(workspaceUpdates.id, updateId), eq(workspaceUpdates.projectId, projectId)))
                 .limit(1)
                 .for("update");
-            if (!existing || existing.deletedAt) throw new Error("Project update not found.");
+            if (!existing || existing.deletedAt) throw new Error("Update not found.");
             if (existing.authorId !== viewer.userId && !access.canManage) {
                 throw new Error("You do not have permission to delete this update.");
             }
@@ -1849,7 +1849,7 @@ export async function deleteWorkspaceUpdateAction(projectId: string, updateId: s
 }
 
 class ModerationReasonError extends Error {
-    constructor() { super("Say why you're removing this post. The author will see it."); }
+    constructor() { super("Say why you’re removing this post. The author will see it."); }
 }
 
 /** An org admin pins a child's shared post in the org feed only (report §17.6); the 3-pin limit counts these too. */
@@ -1878,7 +1878,7 @@ async function pinSharedInOrgFeed(tx: Parameters<Parameters<typeof db.transactio
 export async function toggleWorkspaceUpdatePinAction(projectId: string, updateId: string, pinned: boolean, pinnedUntil?: string | null) {
     try {
         const viewer = await getViewerAuthContext();
-        if (!viewer.userId) return { success: false as const, error: "Please log in to pin updates." };
+        if (!viewer.userId) return { success: false as const, error: "Sign in to pin updates." };
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
         if (!access.canManage || !access.project) return { success: false as const, error: "Only the owner and admins can pin updates." };
         const found = await db.transaction(async (tx) => {
@@ -1929,12 +1929,12 @@ export async function toggleWorkspaceUpdatePinAction(projectId: string, updateId
 export async function toggleWorkspaceUpdateLikeAction(projectId: string, updateId: string) {
     try {
         const viewer = await getViewerAuthContext();
-        if (!viewer.userId) return { success: false as const, error: "Please log in to like updates." };
+        if (!viewer.userId) return { success: false as const, error: "Sign in to like updates." };
         // Each toggle is several statements; a tap loop shouldn't be able to hammer them.
         const rate = await consumeRateLimit(`project-update:like:${viewer.userId}`, 120, 60);
-        if (!rate.allowed) return { success: false as const, error: "Too many likes. Please wait a moment and try again." };
+        if (!rate.allowed) return { success: false as const, error: "Too many likes. Try again in a minute." };
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
-        if (!access.canRead || !access.project) return { success: false as const, error: "Project update unavailable." };
+        if (!access.canRead || !access.project) return { success: false as const, error: "This update isn’t available." };
         const [update] = await db
             .select({ id: workspaceUpdates.id, visibility: workspaceUpdates.visibility })
             .from(workspaceUpdates)
@@ -1945,7 +1945,7 @@ export async function toggleWorkspaceUpdateLikeAction(projectId: string, updateI
                 access.isOwner || access.isMember ? undefined : eq(workspaceUpdates.visibility, "public"),
             ))
             .limit(1);
-        if (!update) return { success: false as const, error: "Project update not found." };
+        if (!update) return { success: false as const, error: "Update not found." };
 
         const result = await db.transaction(async (tx) => {
             const deletedRows = await tx
@@ -2066,7 +2066,7 @@ export async function readWorkspaceUpdateCommentsAction(projectId: string, updat
         const viewer = await getViewerAuthContext();
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
         const update = await assertReadableUpdate(projectId, updateId, access);
-        if (!update) return { success: false as const, error: "Project update unavailable.", data: { comments: [], nextCursor: null, hasMore: false } };
+        if (!update) return { success: false as const, error: "This update isn’t available.", data: { comments: [], nextCursor: null, hasMore: false } };
         const parsedCursor = decodeCommentCursor(cursor);
         const targetProfiles = alias(profiles, "target_profiles");
         const rawRows = await db
@@ -2143,16 +2143,16 @@ export async function createWorkspaceUpdateCommentAction(projectId: string, upda
     const startedAt = performance.now();
     try {
         const viewer = await getViewerProfileContext();
-        if (!viewer.userId) return { success: false as const, error: "Please log in to comment." };
+        if (!viewer.userId) return { success: false as const, error: "Sign in to comment." };
         const rate = await consumeRateLimit(`project-update:comment:${viewer.userId}`, 60, 60);
-        if (!rate.allowed) return { success: false as const, error: "Too many comments. Please wait and try again." };
+        if (!rate.allowed) return { success: false as const, error: "Too many comments. Try again in a minute." };
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
         const update = await assertReadableUpdate(projectId, updateId, access);
-        if (!update || !access.project) return { success: false as const, error: "Project update unavailable." };
+        if (!update || !access.project) return { success: false as const, error: "This update isn’t available." };
         const project = access.project;
         if (update.replyPolicy === "closed") return { success: false as const, error: "Comments are off for this post." };
         if (update.replyPolicy === "members" && !access.isOwner && !access.isMember) {
-            return { success: false as const, error: "Only project members can comment on this update." };
+            return { success: false as const, error: "Only workspace members can comment on this update." };
         }
         const content = sanitizeWorkspaceUpdateContent(contentInput, 1_000);
         if (!content) return { success: false as const, error: "Comment cannot be empty." };
@@ -2227,7 +2227,7 @@ export async function createWorkspaceUpdateCommentAction(projectId: string, upda
                         preview: {
                             actorName,
                             actorAvatarUrl,
-                            contextLabel: project.title ?? "Project update",
+                            contextLabel: project.title ?? "Workspace update",
                             contextKind: "project",
                             secondaryText: null,
                         },
@@ -2254,7 +2254,7 @@ export async function createWorkspaceUpdateCommentAction(projectId: string, upda
                         actorAvatarUrl,
                         eventKey: "updates.comment",
                         affectedMemberId: update.authorId,
-                        title: `${actorName || "Someone"} commented on your project update`,
+                        title: `${actorName || "Someone"} commented on your update`,
                         body: projectUpdateExcerpt(content, 160),
                         href: `${projectHref(project, updateId)}&commentId=${encodeURIComponent(inserted.id)}`,
                         entityRefs: {
@@ -2267,7 +2267,7 @@ export async function createWorkspaceUpdateCommentAction(projectId: string, upda
                         preview: {
                             actorName,
                             actorAvatarUrl,
-                            contextLabel: project.title ?? "Project update",
+                            contextLabel: project.title ?? "Workspace update",
                             contextKind: "project",
                             secondaryText: null,
                         },
@@ -2335,7 +2335,7 @@ export async function createWorkspaceUpdateCommentAction(projectId: string, upda
         }
         return { success: true as const, data: row ? normalizeComment(row, access) : null };
     } catch (error) {
-        console.error("Failed to create project update comment:", error);
+        console.error("Couldn’t post the update. Try again. comment:", error);
         return { success: false as const, error: "Failed to post comment." };
     }
 }
@@ -2343,9 +2343,9 @@ export async function createWorkspaceUpdateCommentAction(projectId: string, upda
 export async function deleteWorkspaceUpdateCommentAction(projectId: string, commentId: string) {
     try {
         const viewer = await getViewerAuthContext();
-        if (!viewer.userId) return { success: false as const, error: "Please log in to delete comments." };
+        if (!viewer.userId) return { success: false as const, error: "Sign in to delete comments." };
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
-        if (!access.canRead || !access.project) return { success: false as const, error: "Project update unavailable." };
+        if (!access.canRead || !access.project) return { success: false as const, error: "This update isn’t available." };
         const [comment] = await db
             .select({
                 id: workspaceUpdateComments.id,

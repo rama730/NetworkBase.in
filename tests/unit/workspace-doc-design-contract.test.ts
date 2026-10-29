@@ -54,7 +54,7 @@ test("Docs Tab Design Specification Conformance Contract (Section 22 & Sections 
 
     await t.test("WorkspaceDocRail conforms to sticky positioning without gaps and uninterrupted hairline divider", () => {
         assert.match(rail, /border-l border-border pl-6/, "Rail must place continuous left border on the outer aside");
-        assert.match(rail, /top-\[calc\(var\(--project-tabs-height,42px\)\+1rem\)\]/, "Rail sticky container must dock directly below sticky tabs using dynamic variable");
+        assert.match(rail, /top-\[calc\(var\(--workspace-tabs-height,42px\)\+1rem\)\]/, "Rail sticky container must dock directly below sticky tabs using dynamic variable");
         assert.doesNotMatch(rail, /sticky top-24/, "Rail must not use hardcoded top-24 causing floating gap");
     });
 

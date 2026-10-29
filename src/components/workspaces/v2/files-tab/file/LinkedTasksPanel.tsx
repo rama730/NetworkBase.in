@@ -68,7 +68,7 @@ export function LinkedTasksPanel({
       )}
     >
       <FileInspectorPanelHeader
-        title="Linked Tasks"
+        title="Linked tasks"
         onClose={onClose}
         closeLabel="Close linked tasks"
         closeTestId="files-tab-linked-tasks-close"

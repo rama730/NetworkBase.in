@@ -11,7 +11,7 @@ export function generateMetadata() {
 export default function MessagesInboxPage() {
   return (
     <div data-scroll-root="route" className="h-full min-h-0 overflow-hidden">
-      <Suspense fallback={<ListSkeleton label="Loading Inbox" />}>
+      <Suspense fallback={<ListSkeleton label="Loading inbox" />}>
         <InboxView />
       </Suspense>
     </div>

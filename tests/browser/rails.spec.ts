@@ -167,7 +167,7 @@ for (const surface of ['profile', 'project']) {
     await expect.poll(async () => (await rail.boundingBox())!.y).toBeCloseTo(expectedTop, 0);
     if (surface === 'project') {
       // The existing layout updates this variable when its sticky tabs resize.
-      await page.getByTestId('project-layout').evaluate(el => el.style.setProperty('--project-tabs-height', '72px'));
+      await page.getByTestId('project-layout').evaluate(el => el.style.setProperty('--workspace-tabs-height', '72px'));
       await expect.poll(async () => (await rail.boundingBox())!.y).toBeCloseTo(expectedTop + 16, 0);
     }
     await page.setViewportSize({ width: 1023, height: 900 });
