@@ -114,7 +114,12 @@ export async function decideAppeal(caseId: string, staffId: string, outcome: "up
     const target = reduceTo.action === "hide" ? actions.find((a) => a.action === "remove") : actions.find((a) => ["ban", "suspension", "limit"].includes(a.action));
     if (!target) return { ok: false, error: "There's nothing to reduce to that." };
     // A suspension reduced to a limit puts the profile back in search.
-    if (target.action === "suspension") await db.execute(sql`UPDATE profiles SET visibility = coalesce(${target.restore?.visibility ?? null}, visibility) WHERE id = ${row.subject_id}`);
+    if (target.action === "suspension") {
+      await db.execute(sql`UPDATE profiles SET visibility = coalesce(${target.restore?.visibility ?? null}, visibility) WHERE id = ${row.subject_id}
+        AND coalesce(app_private.moderation_restriction(${row.subject_id}::uuid), 'none') <> 'ban'
+        AND NOT EXISTS (SELECT 1 FROM moderation_actions o WHERE o.subject_id = ${row.subject_id} AND o.id <> ${target.id} AND o.action = 'suspension'
+          AND o.undone_at IS NULL AND o.reversed_at IS NULL AND o.lifted_at IS NULL AND (o.ends_at IS NULL OR o.ends_at > now()))`);
+    }
     if (target.action === "ban") {
       // Undo the ban's own effects; the lighter step replaces it in place, strike kept.
       await reverseAction(target.id, staffId, "reversed", "Reduced on appeal");
